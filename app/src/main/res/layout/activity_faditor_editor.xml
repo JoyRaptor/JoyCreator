@@ -539,6 +539,14 @@
             android:layout_height="match_parent"
             android:layout_gravity="center" />
 
+        <!-- Floating IMAGE-track layer preview (M-COMP-1). Inert today — nothing can
+             create an IMAGE track yet; wired so M10's creation UI has a working preview. -->
+        <com.fadcam.ui.faditor.compositor.LayerImageOverlayView
+            android:id="@+id/layer_image_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
         <!-- Text overlay layer (draggable text on top of the video) -->
         <com.fadcam.ui.faditor.overlay.TextOverlayLayer
             android:id="@+id/overlay_layer"

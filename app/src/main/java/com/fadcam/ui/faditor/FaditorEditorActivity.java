@@ -175,6 +175,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.player.TransitionPreviewOverlayView transitionPreviewOverlay;
     private GlTransitionPreviewView glTransitionPreviewView;
     private com.fadcam.ui.faditor.overlay.TextOverlayLayer overlayLayer;
+    /** IMAGE-track layer preview surface (M-COMP-1; PLAN §3.2 scope item 4). */
+    private com.fadcam.ui.faditor.compositor.LayerImageOverlayView layerImageOverlay;
     /** Text overlays whose ADD has already been recorded for undo (avoid double-record on re-edit). */
     private final java.util.Set<com.fadcam.ui.faditor.model.TextOverlayItem> textOverlayAddRecorded =
             java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -981,7 +983,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
                     syncTimelineOverlays();
                     if (overlayLayer != null) {
-                        overlayLayer.setData(project.getTimeline().getTextOverlays(),
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                                 overlayLayerCallback());
                     }
                     selectSegment(selectedClipIndex);
@@ -1086,6 +1088,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transitionPreviewOverlay = findViewById(R.id.transition_preview_overlay);
         glTransitionPreviewView = findViewById(R.id.gl_transition_preview_view);
         overlayLayer = findViewById(R.id.overlay_layer);
+        layerImageOverlay = findViewById(R.id.layer_image_overlay);
+        if (layerImageOverlay != null) {
+            layerImageOverlay.setRectProvider(this::computeCanvasRect);
+        }
         waveformOverlayView = findViewById(R.id.waveform_overlay);
         waveformExtractor = new com.fadcam.ui.faditor.waveform.WaveformExtractor(this);
         cropOverlay = findViewById(R.id.crop_overlay);
@@ -3530,7 +3536,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         ac.setMuted(!ac.isMuted());
                         if (audioIdx < audioPlayers.size() && audioIdx < audioPlayersReady.size()
                                 && audioPlayersReady.get(audioIdx)) {
-                            float g = ac.isMuted() ? 0f : ac.getVolumeLevel();
+                            float g = com.fadcam.ui.faditor.compositor.LayerPreviewController
+                                    .effectivePreviewVolume(project.getTimeline(), ac);
                             audioPlayers.get(audioIdx).setVolume(g, g);
                         }
                     }
@@ -5642,7 +5649,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 MediaPlayer mp = new MediaPlayer();
                 mp.setDataSource(this, ac.getSourceUri());
                 mp.setLooping(false);
-                float vol = ac.isMuted() ? 0f : ac.getVolumeLevel();
+                // M-COMP-1: track-mute multiplies over the clip's own mute/level (never
+                // overwrites it) — see LayerPreviewController#effectivePreviewVolume.
+                float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .effectivePreviewVolume(project.getTimeline(), ac);
                 mp.setVolume(vol, vol);
 
                 audioPlayers.add(mp);
@@ -5698,7 +5708,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         seekPos = Math.max(0, mediaDuration - 100); // seek near end
                     }
                     mp.seekTo((int) seekPos);
-                    float vol = ac.isMuted() ? 0f : ac.getVolumeLevel();
+                    float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
+                            .effectivePreviewVolume(project.getTimeline(), ac);
                     mp.setVolume(vol, vol);
                     mp.start();
                 } else {
@@ -5754,7 +5765,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             seekPos = Math.max(0, mediaDuration - 100);
                         }
                         mp.seekTo((int) seekPos);
-                        float vol = ac.isMuted() ? 0f : ac.getVolumeLevel();
+                        float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
+                                .effectivePreviewVolume(project.getTimeline(), ac);
                         mp.setVolume(vol, vol);
                         mp.start();
                     }
@@ -5786,7 +5798,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             try {
                 if (!mp.isPlaying()) continue;
                 long clipMs = playheadMs - ac.getOffsetMs();
-                float gain = ac.isMuted() ? 0f : ac.gainAtClipMs(clipMs);
+                boolean trackMuted = com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .isAudioClipTrackMuted(project.getTimeline(), ac);
+                float gain = (ac.isMuted() || trackMuted) ? 0f : ac.gainAtClipMs(clipMs);
                 gain = Math.max(0f, Math.min(gain, 2.0f));
                 mp.setVolume(gain, gain);
             } catch (Exception ignored) {}
@@ -5835,7 +5849,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         mp.seekTo((int) seekPos);
                     }
                     if (mp.isPlaying()) {
-                        float vol = ac.isMuted() ? 0f : ac.getVolumeLevel();
+                        float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
+                                .effectivePreviewVolume(project.getTimeline(), ac);
                         mp.setVolume(vol, vol);
                     }
                 }
@@ -6326,6 +6341,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Drive overlay time-ranges + keyframe animation from the playhead.
         if (overlayLayer != null && overlayLayer.getVisibility() == View.VISIBLE) {
             overlayLayer.setPlayheadMs(absoluteMs);
+        }
+        // M-COMP-1: same playhead tick drives the IMAGE-track preview surface (scrub +
+        // live playback both flow through this one method — PLAN §3.2 scope item 5).
+        if (layerImageOverlay != null) {
+            layerImageOverlay.setPlayheadMs(absoluteMs);
         }
         // Drive waveform/spectrum visualizers from the TIMELINE playhead position,
         // not the source position — visualizers are placed at timeline positions
@@ -8110,7 +8130,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // restored) model so overlay add/delete/move/keyframe undo is reflected
         // in the preview, then re-position it for the current playhead.
         if (overlayLayer != null) {
-            overlayLayer.setData(project.getTimeline().getTextOverlays(), overlayLayerCallback());
+            overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
             overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
         }
         if (captionsActive) {
@@ -8265,6 +8285,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // UI (PLAN Part 7, row M6). Empty for a plain single-track project — renders
             // nothing (LayerRowRenderer#isEmpty).
             editorTimeline.setLayerTracks(tl.getLayers(), tl.getAudioTracks());
+            // M-COMP-1: re-bind the preview overlay layers from the (possibly track-
+            // hidden-filtered) Track model. TextOverlayLayer already got the filtered
+            // list via overlayLayer.setData(...) at each of its own call sites; here we
+            // additionally refresh the IMAGE-track preview surface (always empty today —
+            // no IMAGE-track creation UI exists — so this is a no-op for every current
+            // project; see LayerPreviewController#visibleImageItems).
+            if (layerImageOverlay != null) {
+                layerImageOverlay.setItems(
+                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleImageItems(tl));
+                layerImageOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
+            }
         }
     }
 
@@ -8294,9 +8325,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 break;
             case HIDE:
                 track.setHidden(!track.isHidden());
-                // TODO(M-COMP-1 / M-EXPORT-1): a hidden track must also be skipped by
-                // LayerPreviewController and ExportManager. M6 only affects timeline
-                // rendering (dimmed/ghosted row) and hit-testing.
+                // M-COMP-1: a hidden track is now also skipped by LayerPreviewController
+                // (see visibleTextOverlays/visibleImageItems), applied below via
+                // syncTimelineOverlays(). TODO(M-EXPORT-1): mirror in ExportManager.
                 description = track.isHidden() ? "Hide track" : "Show track";
                 break;
             case LOCK:
@@ -8307,9 +8338,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 break;
             case MUTE:
                 track.setMuted(!track.isMuted());
-                // TODO(M-COMP-1 / M-EXPORT-1): a muted track must also silence
-                // FaditorPlayerManager preview audio and ExportManager's audio mix.
-                // M6 only renders the mute icon state.
+                // M-COMP-1: a muted AUDIO track now silences its clips' MediaPlayer
+                // preview volume (LayerPreviewController#effectivePreviewVolume, applied
+                // at every existing per-clip volume site). Push the new volume to any
+                // already-playing player immediately rather than waiting for the next
+                // playheadUpdater tick (mirrors the clip-level mute button's live push).
+                // TODO(M-EXPORT-1): mirror in ExportManager's audio mix.
+                applyAudioTrackMuteLive(timeline);
                 description = track.isMuted() ? "Mute track" : "Unmute track";
                 break;
             default:
@@ -8328,11 +8363,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.layers.TrackFlags after = flags.copy();
 
         undoManager.recordAction(new EditActions.LambdaAction(description,
-                () -> { timeline.setTrackFlags(trackId, after.copy()); syncTimelineOverlays(); },
-                () -> { timeline.setTrackFlags(trackId, before.copy()); syncTimelineOverlays(); }));
+                () -> { timeline.setTrackFlags(trackId, after.copy()); syncTimelineOverlays();
+                        applyAudioTrackMuteLive(timeline); },
+                () -> { timeline.setTrackFlags(trackId, before.copy()); syncTimelineOverlays();
+                        applyAudioTrackMuteLive(timeline); }));
 
         syncTimelineOverlays();
         scheduleAutoSave();
+    }
+
+    /**
+     * M-COMP-1: push each audio clip's {@link com.fadcam.ui.faditor.compositor
+     * .LayerPreviewController#effectivePreviewVolume} onto its live {@code MediaPlayer}
+     * immediately, so a track-mute toggle (or its undo/redo) is audible right away
+     * instead of waiting for the next {@code playheadUpdater} tick. No-op (iterates
+     * zero/unready players) for a plain project with no audio, matching every other
+     * path in this milestone.
+     */
+    private void applyAudioTrackMuteLive(@NonNull Timeline timeline) {
+        java.util.List<AudioClip> acs = timeline.getAudioClips();
+        for (int ai = 0; ai < acs.size() && ai < audioPlayers.size(); ai++) {
+            if (ai >= audioPlayersReady.size() || !audioPlayersReady.get(ai)) continue;
+            AudioClip ac = acs.get(ai);
+            if (ac == null) continue;
+            float v = com.fadcam.ui.faditor.compositor.LayerPreviewController
+                    .effectivePreviewVolume(timeline, ac);
+            try { audioPlayers.get(ai).setVolume(v, v); } catch (Exception ignored) { }
+        }
     }
 
     /**
@@ -8455,7 +8512,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             () -> project.getTimeline().addTextOverlay(o)));
                     syncTimelineOverlays();
                     if (overlayLayer != null) {
-                        overlayLayer.setData(project.getTimeline().getTextOverlays(), overlayLayerCallback());
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
                         overlayLayer.invalidate();
                     }
                     editorTimeline.invalidate();
@@ -9013,7 +9070,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void setupOverlayLayer() {
         if (overlayLayer == null || project == null) return;
         overlayLayer.setSnapEnabled(overlaySoftSnapEnabled);
-        overlayLayer.setData(project.getTimeline().getTextOverlays(), overlayLayerCallback());
+        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
         // Reposition overlays whenever the preview area changes size.
         playerContainer.addOnLayoutChangeListener(
@@ -10065,7 +10122,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         getString(R.string.faditor_text_hint),
                         0xFFFFFFFF, 0.5f, 0.5f, 0.10f, 0f);
         project.getTimeline().addTextOverlay(item);
-        overlayLayer.setData(project.getTimeline().getTextOverlays(),
+        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                 overlayLayerCallback());
         syncTimelineOverlays();
         scheduleAutoSave();
@@ -10192,7 +10249,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.model.TextOverlayItem.createImage(
                         imageUri.toString(), 0.5f, 0.5f, 0.30f);
         project.getTimeline().addTextOverlay(item);
-        overlayLayer.setData(project.getTimeline().getTextOverlays(), overlayLayerCallback());
+        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
         undoManager.recordAction(new EditActions.LambdaAction("Add image overlay",
                 () -> project.getTimeline().addTextOverlay(item),
@@ -10219,7 +10276,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     .setView(iroot)
                     .setNeutralButton(R.string.faditor_text_delete, (d, w) -> {
                         project.getTimeline().removeTextOverlay(item);
-                        overlayLayer.setData(project.getTimeline().getTextOverlays(),
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                                 overlayLayerCallback());
                         syncTimelineOverlays();
                         undoManager.recordAction(new EditActions.LambdaAction("Delete image overlay",
@@ -10410,7 +10467,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (txt.trim().isEmpty()) {
                         // No text entered → don't leave an empty "Enter text" ghost.
                         project.getTimeline().removeTextOverlay(item);
-                        overlayLayer.setData(project.getTimeline().getTextOverlays(),
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                                 overlayLayerCallback());
                         syncTimelineOverlays();
                         scheduleAutoSave();
@@ -10419,7 +10476,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     item.setText(txt);
                     item.setColorInt(chosen[0]);
                     item.setFontFamily(chosenFont[0]);
-                    overlayLayer.setData(project.getTimeline().getTextOverlays(),
+                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                             overlayLayerCallback());
                     syncTimelineOverlays();
                     // Record ADD undo only once the overlay is committed with real text
@@ -10436,7 +10493,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setNeutralButton(R.string.faditor_text_delete, (d, w) -> {
                     boolean wasCommitted = textOverlayAddRecorded.remove(item);
                     project.getTimeline().removeTextOverlay(item);
-                    overlayLayer.setData(project.getTimeline().getTextOverlays(),
+                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                             overlayLayerCallback());
                     syncTimelineOverlays();
                     // Only record a DELETE if this overlay had been committed (its ADD was
@@ -10454,7 +10511,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (cur == null || cur.trim().isEmpty()
                             || cur.equals(getString(R.string.faditor_text_hint))) {
                         project.getTimeline().removeTextOverlay(item);
-                        overlayLayer.setData(project.getTimeline().getTextOverlays(),
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                                 overlayLayerCallback());
                         syncTimelineOverlays();
                         scheduleAutoSave();

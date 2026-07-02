@@ -2,6 +2,12 @@
 > For the next AI (Basil autonomous wake 03:26, or anyone else). Read this FIRST, then handoff.md.
 
 ## ⚠️ CRITICAL STATE FACTS
+0. **THE SANDBOX NOTE 9 (SANDBOX_SERIAL) CAME BACK ON USB ~01:45** — device work unblocked. Note: gradle's
+   `installDefaultDebug` can fail with a transient ADB `EOF` even when a device IS attached — that is NOT a
+   compile failure; `adb install -r` manually works. If a late-window agent was doing the M5 regression gate
+   (branch-dance: checkout ff39b6a → export → checkout joy-creator → export → compare), the tree might be left
+   DETACHED at ff39b6a if it was killed mid-run — `git -C <proj> checkout joy-creator` restores it; check
+   `git status`/`git log -1` FIRST.
 1. **A git STASH exists** on `joy-creator`: `WIP caption-style-keyframe UX - interrupted by usage cap 2026-07-01 23:33`.
    The previous session's caption-style-keyframe-UX agent was killed mid-surgery (FaditorEditorActivity was left
    missing whole methods + string resources → tree was RED). I stashed it (incl. untracked `faditor/captions/`) to
@@ -66,3 +72,11 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   confirmation flows; locked/hidden rows return null from hit-test (inert); master row structurally excluded.
   Device checklist in agent report §6 (drag/trim/delete text+audio on rows, undo each, locked/hidden inert,
   master unaffected).
+- (2026-07-02 ~01:50) **M-COMP-1 LANDED, compile-green + PARTIAL DEVICE PASS** (Sonnet; Note 9 reappeared
+  mid-run). New `compositor/LayerPreviewController.java` (stateless: visibleTextOverlays / visibleImageItems /
+  effectivePreviewVolume) + `compositor/LayerImageOverlayView.java` (inert until M10 creates IMAGE tracks);
+  hidden TEXT track filtered at all 11 overlayLayer.setData sites; muted AUDIO track gates all 6 volume sites
+  (multiplies clip-level, incl. the off-plan volume-drawer mute button the agent caught) + live push
+  `applyAudioTrackMuteLive` ~8385; transform via existing KeyframeSet.valueAt. DEVICE-VERIFIED: launch, plain
+  no-op, mute toggle + undo + on-disk round-trip, v7 stamp preserved. Still owed: interactive hide-tap pass,
+  image-item render (needs M10).

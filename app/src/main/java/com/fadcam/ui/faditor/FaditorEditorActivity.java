@@ -2891,13 +2891,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * the player has already crossed the seam warm, so there is no re-prepare here. Runs on the
      * main thread (ExoPlayer callbacks are delivered on the app main thread).
      *
-     * @param newIndex the master clip index the engine advanced to
+     * @param newIndex    the master clip index the engine advanced to
+     * @param autoAdvance true when playback PLAYED THROUGH a plain cut (the playhead is naturally
+     *                    at the new clip's start); false when the window change was caused by a
+     *                    user ruler tap/scrub seeking across a boundary. On a user seek the tapped
+     *                    position was already set by {@link Listener#onPlayheadSeeked}, so this
+     *                    handler must NOT re-home the playhead to the new clip's start — doing so
+     *                    snapped it back (to 0 when the target was clip 0). See handoff 2026-07-02.
      */
-    private void onGaplessSeam(int newIndex) {
+    private void onGaplessSeam(int newIndex, boolean autoAdvance) {
         if (project == null || project.getTimeline() == null) return;
         Timeline timeline = project.getTimeline();
         if (newIndex < 0 || newIndex >= timeline.getClipCount()) return;
-        FLog.d(TAG, "onGaplessSeam -> segment " + newIndex);
+        FLog.d(TAG, "onGaplessSeam -> segment " + newIndex + " autoAdvance=" + autoAdvance);
         selectedClipIndex = newIndex;
         Clip nextClip = getSelectedClip();
         // Keep the player manager's tracked clip pointed at the new window (no player op — the
@@ -2918,8 +2924,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
         playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier());
         updatePreviewTransforms();
-        float startFraction = (float) nextClip.getInPointMs() / nextClip.getSourceDurationMs();
-        editorTimeline.setPlayheadFraction(startFraction);
+        // Re-home the playhead to the new clip's start ONLY when playback auto-advanced across the
+        // cut. For a user-initiated cross-item SEEK (ruler tap/scrub), onPlayheadSeeked already set
+        // the authoritative tapped position; re-homing here would clobber it (snap-to-0 on clip 0).
+        if (autoAdvance) {
+            float startFraction = (float) nextClip.getInPointMs() / nextClip.getSourceDurationMs();
+            editorTimeline.setPlayheadFraction(startFraction);
+        }
     }
 
     private void initTimeline() {

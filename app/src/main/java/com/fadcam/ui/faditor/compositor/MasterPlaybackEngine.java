@@ -64,9 +64,19 @@ public class MasterPlaybackEngine {
         Uri resolveSeekable(@NonNull Clip clip);
     }
 
-    /** Fired (on the app main thread) when the player auto-advances across a plain cut. */
+    /** Fired (on the app main thread) when the player crosses into a different playlist window. */
     public interface SeamListener {
-        void onSeam(int newClipIndex);
+        /**
+         * @param newClipIndex   the window (clip index) now current
+         * @param autoAdvance    true when playback PLAYED THROUGH a plain cut
+         *                       ({@code MEDIA_ITEM_TRANSITION_REASON_AUTO}); false when the window
+         *                       change was caused by a user-initiated cross-item
+         *                       {@code seekTo(window, pos)} ({@code REASON_SEEK}). Callers that
+         *                       re-home the playhead to the new clip's start must do so only when
+         *                       {@code autoAdvance} is true — on a seek the caller has already set
+         *                       the authoritative (tapped/scrubbed) position.
+         */
+        void onSeam(int newClipIndex, boolean autoAdvance);
     }
 
     @NonNull
@@ -106,7 +116,7 @@ public class MasterPlaybackEngine {
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
                     || reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK) {
                 FLog.d(TAG, "seam -> window " + idx + " reason=" + reason);
-                seamListener.onSeam(idx);
+                seamListener.onSeam(idx, reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO);
             }
         }
     };

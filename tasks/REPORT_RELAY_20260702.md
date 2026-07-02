@@ -147,3 +147,26 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   the opacity/volume keyframe drawers. Files: `model/Clip.java`, `FaditorEditorActivity.java`,
   `activity_faditor_editor.xml`, new `captions/CaptionStyleKeyframeController.java`. Full report in this
   session's final message.
+- (2026-07-02 later still) **P0 "ruler snaps playhead to 0" — ONE real cause FIXED (compile-green), scope
+  narrowed, TWO items diagnosed-not-built; session ended early (usage window).** (Opus.)
+  **CONFIRMED root cause with device evidence:** the M-COMP-0 gapless SEAM handler was clobbering the playhead.
+  Any cross-clip seek (ruler-scrub OR clip-body tap, both go through `onPlayheadSeeked`) makes ExoPlayer fire
+  `onMediaItemTransition(REASON_SEEK)` → `onGaplessSeam`, which UNCONDITIONALLY re-homed the playhead to the
+  target clip's START (`setPlayheadFraction(inPoint/sourceDur)`) a few ms AFTER the correct tapped position was
+  already set. Target=clip 0 → snap to 0. **Evidence:** scripted 40-tap loop on Note 9 sandbox `bdd51919…` with
+  temp `SNAPDBG` logging (removed): 10 seams, **2 forced playhead to exactly 0**, 4 more yanked it back up to
+  3441ms — all `userDragging=false`. **This is NOT a raw ExoPlayer position-0 read** (that engine-transient
+  theory is DENIED for the snap) — the 0 came from the seam re-home. **Fix (minimal, engine untouched, legacy
+  flag intact):** `MasterPlaybackEngine.SeamListener.onSeam` gains an `autoAdvance` boolean (`reason==REASON_AUTO`);
+  `onGaplessSeam` re-homes the playhead ONLY on auto-advance (playback through a cut), never on a user seek.
+  Files: `compositor/MasterPlaybackEngine.java`, `FaditorEditorActivity.java`. **NOT re-verified on device
+  post-fix** (after-fix run's taps all landed on the clip lane at start-of-timeline → 0 seams fired → didn't
+  exercise it). **Coordinator's user-diagnosed mechanisms, verified in CODE but changes NOT made (out of time):**
+  (1) clip-tap "seek to tapped x, keep selection" is ALREADY the code's behavior (`seekToTimelineMs(tappedX)` +
+  `onSegmentSelected` which does not seek) — the "~1s snap" the user saw was almost certainly the same seam
+  clobber, now fixed; RE-TEST before changing anything. (2) preview/workspace surface-overlap during a ruler
+  DRAG (two surfaces eating one finger) — NOT investigated; find the preview scrub handler in
+  `FaditorEditorActivity`, add first-claim-wins pointer ownership, measure the hit-zone gap. **Tree GREEN, no
+  commit, all temp instrumentation removed (grep-verified). Full hand-test list in the session final message +
+  handoff.md.** NEXT SESSION PICK-UP: re-run the tap/scrub loop scrolled to a mid-timeline boundary → expect
+  zero snap-to-0; then decide if mechanisms 1/2 still need code.

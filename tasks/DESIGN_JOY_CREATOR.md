@@ -1,4 +1,5 @@
 # Joy Creator — Brand & Design Brief (2026-07-01, from the user)
+> Visual assets the user is producing: see tasks/ASSETS_WISHLIST.md (check `art/` at repo root for deliveries).
 
 > Authoritative design direction for the rebrand. Any agent doing UI/theming work reads this first.
 > The user LIKES the current editor's look — this brief is about extending its quality to the rest

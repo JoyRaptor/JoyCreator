@@ -77,4 +77,7 @@ on this track at a time; the 14:25 scheduled session should take rebrand/dedup/M
 `git status` before touching FaditorEditorActivity.
 
 ## Status
-- [ ] L1  - [ ] L2  - [ ] L3
+- [x] L1 (2026-07-02, device-verified Note 9 sandbox bdd51919…: gapless wrap + exhaustion freeze-free,
+  pause/trim/undo preserved, seam-clobber fix holds under loops; see handoff.md for full evidence and the
+  one open follow-up (totalEffectiveMs() loop-duration bug, pre-existing, spawned separately) — L2/L3 untouched)
+- [ ] L2  - [ ] L3

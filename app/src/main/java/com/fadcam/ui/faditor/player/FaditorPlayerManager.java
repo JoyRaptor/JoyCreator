@@ -50,7 +50,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * eliminated; ineligible projects transparently keep today's engine. Flip to false to force
      * every project back to the legacy per-seam single-clip path.
      */
-    public static final boolean GAPLESS_ENGINE = false; // TEMP: L1 baseline measurement, restore true after
+    public static final boolean GAPLESS_ENGINE = true;
 
     @Nullable
     private ExoPlayer player;

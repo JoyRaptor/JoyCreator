@@ -183,3 +183,26 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   commit, all temp instrumentation removed (grep-verified). Full hand-test list in the session final message +
   handoff.md.** NEXT SESSION PICK-UP: re-run the tap/scrub loop scrolled to a mid-timeline boundary → expect
   zero snap-to-0; then decide if mechanisms 1/2 still need code.
+- (2026-07-02 later) **L1 (loop/ping-pong plan §L1) LANDED — device-verified on Note 9 sandbox `bdd51919…`,
+  BUILT GREEN, flag `GAPLESS_ENGINE` restored to `true`** (Sonnet, resumed WIP `1597fee`). WIP was ~95% complete
+  (MasterPlaybackEngine rep-window expansion, clamp math verified to mirror ExportManager exactly, same-clip
+  seam suppression, continuous visual position/duration, activity-side gapless bypass of the poll wrap block —
+  all correct, none of L2/L3 touched). Real gap closed: the loop DRAWER's `applyLoopMode`/`extendLoop` (mode
+  chips + "Extend to start/end/prev/next clip" buttons) never called `playerManager.updateTrimBounds(clip)`
+  unlike the drag path (`onLoopTrimFinished`) and undo/redo (`refreshEditorAfterUndoRedo`), leaving the gapless
+  playlist stale after a drawer-driven loop edit — fixed with one guarded call added to each method. Device
+  evidence: wrap freeze measured via logcat-timestamped seam markers + per-frame MD5-hash duplicate counting
+  (naive freezedetect gave false positives on this near-static footage) — all 3 wrap points (main→rep0,
+  rep0→rep1 partial, clip1→clip2 exhaustion) showed zero freeze runs >1 frame (33ms) vs the previous agent's
+  106–163ms legacy baseline; play-through auto-advance across both remaining cuts reached a clean end state;
+  pause mid-extension held a coherent frame; drawer-driven trim + undo confirmed via `project.json` diff
+  (loopAfterMs 11000→12000→11000, gapless rebuild fired both times, undo byte-identical except `lastModified`).
+  Seam-clobber fix (9edad8a) add-on: 3 user-seek seams + 2 auto-advance seams captured, all correct (seeks never
+  re-homed, auto-advance did) — but the planned "40 taps across one boundary" batch was hampered by
+  `EditorTimelineView`'s per-clip zoom auto-reflow invalidating pre-computed tap coordinates; 2 attempts, both
+  hit the same obstacle, reported honestly rather than ground on per the one/two-attempt rule — samples that
+  WERE captured are unanimous but smaller than intended. **One pre-existing bug found + NOT fixed (out of L1
+  scope, follow-up task spawned):** `totalEffectiveMs()` ignores loop-extension duration, causing the
+  "audio-tail" feature to misfire (silent fake-forward, no real video resume) whenever Play is pressed from a
+  pause inside/after a loop extension — flag-independent, pre-dates this session, directly breaks
+  "pause-mid-loop→resume" so flagged with full repro + one-line fix pointer in handoff.md and a spawned task.

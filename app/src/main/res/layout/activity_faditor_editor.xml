@@ -980,7 +980,9 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/controls_section_bg"
-        android:elevation="4dp">
+        android:elevation="4dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
         <!-- Time display + play/pause -->
         <RelativeLayout
             android:layout_width="match_parent"
@@ -1190,22 +1192,40 @@
              @id/faditor_tools_row. Visually identical to the previous
              hardcoded tool_* blocks (72dp cells, materialicons 22sp icon +
              11sp label). See tools/FaditorTool.java and
-             tools/FaditorToolsAdapter.java. -->
-        <com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView
-            android:id="@+id/faditor_tools_scroll"
+             tools/FaditorToolsAdapter.java.
+
+             The scroll view is wrapped in a FrameLayout so edit-mode overlays
+             (the green drop-insertion line and the persistent screen-edge
+             "Done" control) can float above the scrolling row. Those overlay
+             views are created programmatically by FaditorToolsAdapter into
+             @id/faditor_tools_overlay. -->
+        <FrameLayout
+            android:id="@+id/faditor_tools_overlay"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:scrollbars="none"
             android:background="#FF141414"
-            android:fillViewport="true">
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
-            <LinearLayout
-                android:id="@id/faditor_tools_row"
-                android:layout_width="wrap_content"
+            <com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView
+                android:id="@+id/faditor_tools_scroll"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingEnd="8dp" />
-        </com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView>
+                android:scrollbars="none"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:id="@id/faditor_tools_row"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:paddingEnd="8dp" />
+            </com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView>
+        </FrameLayout>
     </LinearLayout>
 
     <!-- ─── Crop mode toolbar (hidden by default) ──────────────────── -->

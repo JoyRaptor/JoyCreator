@@ -88,8 +88,13 @@
     <item name="tool_settings_icon" type="id"/>
     <item name="tool_settings_label" type="id"/>
 
-    <!-- Carousel container + Stage 3 edit-mode chip -->
+    <!-- Carousel container + edit-mode chip -->
     <item name="faditor_tools_row" type="id"/>
     <item name="faditor_tools_edit_chip" type="id"/>
     <item name="faditor_tools_edit_chip_icon" type="id"/>
+    <!-- v2 edit-mode extras: pinned/usage divider bar, floating drop line,
+         and the persistent screen-edge Done control. -->
+    <item name="faditor_tools_divider" type="id"/>
+    <item name="faditor_tools_drop_line" type="id"/>
+    <item name="faditor_tools_done" type="id"/>
 </resources>

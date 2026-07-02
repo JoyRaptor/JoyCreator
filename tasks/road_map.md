@@ -8,7 +8,9 @@ checkpoint-commit proposal), the export work package, the rebrand plan, agent st
 2. Consolidation sprint: transcript dedup (user OK pending), scroll-wrapper leftovers, device-verify caption
    apply-to-all, asset-browser transcribe-prompt gap, main-phone real-project re-export verify (`27221664…`).
 3. Export work package: minimize-during-export + edit-safety + out-of-process + quality setting (bundled).
-4. **Layers (Phase 5, keystone)** → also the real fix for transition preview.
+4. **Layers (Phase 5, keystone)** → execution plan = `tasks/PLAN_LAYERS_V2.md` (supersedes the Phase-5 section
+   below and the older asset-browser/layers plans; schema is v8 not v6, includes downgrade guard + M-COMP-0
+   gapless engine which is also the real fix for transition preview).
 5. Sprite animation Build 1 (`C:\ObsidianBrain\sprite plan.md`).
 6. Visible rebrand + AI features + recording pipeline.
 Tactical state per item: `handoff.md` dated entries. History: DIAG Rounds 1–8.

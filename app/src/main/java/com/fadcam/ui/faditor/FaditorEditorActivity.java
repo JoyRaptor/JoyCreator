@@ -753,6 +753,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // and installs listeners via findViewById(R.id.tool_*).
                 });
         toolsAdapter.setPrefs(toolPrefs);
+        // v2: give the adapter the scroll view + overlay frame so edit mode can
+        // auto-scroll and float the green drop line + the persistent Done
+        // control. Must be set BEFORE setTools so overlays build once.
+        View scroll = findViewById(R.id.faditor_tools_scroll);
+        View overlayFrame = findViewById(R.id.faditor_tools_overlay);
+        if (scroll instanceof android.widget.HorizontalScrollView
+                && overlayFrame instanceof android.widget.FrameLayout) {
+            toolsAdapter.setScrollAndOverlay(
+                    (android.widget.HorizontalScrollView) scroll,
+                    (android.widget.FrameLayout) overlayFrame);
+        }
         toolsAdapter.setTools(ordered);
         toolsAdapter.updateEditChip();
 
@@ -763,14 +774,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         : (android.view.ViewGroup) row.getRootView(),
                 toolsAdapter,
                 toolId -> {
-                    // Record recency for RECENT ordering when a tool is used
-                    // from the drawer too.
+                    // Record recency when a tool is used from the drawer too.
                     if (toolPrefs != null) toolPrefs.recordUse(toolId);
                 });
         attachCarouselSwipeUp(row);
 
-        // Stage 3: edit-mode chip + drag reorder delegate.
-        View scroll = findViewById(R.id.faditor_tools_scroll);
+        // v2 edit mode: long-press-to-drag delegate + edit chip enters, the
+        // floating Done control (and system back) exits.
         if (scroll instanceof com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView) {
             ((com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView) scroll)
                     .setEditDragDelegate(toolsAdapter.dragDelegate());
@@ -796,17 +806,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (scroll instanceof com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView) {
             ((com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView) scroll)
                     .setOnSwipeUpListener(this::openToolsDrawer);
-        }
-    }
-
-    /**
-     * Called from {@link FaditorSettingsBottomSheet} when the user switches the
-     * tool-order mode. Re-applies the resolved order to the live carousel
-     * (reusing the stable cell views, so all field references survive).
-     */
-    public void onToolOrderModeChanged() {
-        if (toolsAdapter != null) {
-            toolsAdapter.reapplyOrder();
         }
     }
 
@@ -6143,6 +6142,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // The Stage 2 all-tools drawer closes on back before anything else.
                 if (toolsDrawer != null && toolsDrawer.isShowing()) {
                     toolsDrawer.dismiss();
+                    return;
+                }
+
+                // v2: system back commits + exits the tools edit mode.
+                if (toolsAdapter != null && toolsAdapter.isEditMode()) {
+                    toolsAdapter.exitEditMode();
                     return;
                 }
 

@@ -131,22 +131,10 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                 prefs.isFaditorAskToTranscribeEnabled(),
                 (isChecked) -> prefs.setFaditorAskToTranscribeEnabled(isChecked));
 
-        // Stage 3: bottom-tools carousel order mode. OFF = manual (the user's
-        // dragged order), ON = recent (most-recently-used first, after pins).
-        com.fadcam.ui.faditor.tools.FaditorToolPrefs toolPrefs =
-                new com.fadcam.ui.faditor.tools.FaditorToolPrefs(requireContext());
-        addSwitchRow(content, dp,
-                getString(R.string.faditor_settings_tool_order_title),
-                getString(R.string.faditor_settings_tool_order_desc),
-                toolPrefs.isRecentMode(),
-                (isChecked) -> {
-                    toolPrefs.setOrderMode(isChecked
-                            ? com.fadcam.ui.faditor.tools.FaditorToolPrefs.MODE_RECENT
-                            : com.fadcam.ui.faditor.tools.FaditorToolPrefs.MODE_MANUAL);
-                    if (getActivity() instanceof FaditorEditorActivity) {
-                        ((FaditorEditorActivity) getActivity()).onToolOrderModeChanged();
-                    }
-                });
+        // NOTE (v2): the old "Tool order" manual/recent switch was removed. The
+        // carousel now uses the divider model — pinned home row left of the
+        // divider (manual order), usage-sorted right of it — controlled directly
+        // by drag-and-drop in the carousel's edit mode.
 
         return root;
     }

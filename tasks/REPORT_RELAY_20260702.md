@@ -127,3 +127,23 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   **Owed:** the actual cross-row drag / drop-to-new-layer / locked-row-rejection gestures are UNCONFIRMED on
   a real finger — next device session should run the checklist below before this milestone is called fully
   device-accepted.
+- (2026-07-02 later) **Caption-style-keyframe UX REDO LANDED, compile-green, FULLY device-verified** (Sonnet).
+  The `01d0d66` M-COMP-1 commit had already landed most scaffolding (model, undo action, drawer XML, arm/nav/
+  delete wiring, CC-lane per-segment coloring) — confirmed via `git log` this predates and is separate from
+  stash@{1} (the actual killed WIP, left untouched). Real gaps closed: `Clip.captionStyleId` now resyncs to
+  keyframe[0]'s style on every keyframe-list mutation (fixes a stale-base-style bug on first-keyframe delete —
+  spec's explicit "next keyframe's style extends back" requirement); tolerance 40ms→50ms; nav `<`/`>` now
+  dim/disable per-direction independently (were show/hide as a pair); new `captions/CaptionStyleKeyframeController.java`
+  (stateless nav/tolerance/tap-action helpers, new-features-new-files compliant); new stopwatch shortcut in the
+  bottom caption-style chip bar (`caption_kf_arm_shortcut`) so keyframe mode is reachable without a CC-lane
+  long-press — same arm state/drawer, no duplication. Device-verified on Note 9 sandbox (`bdd51919…`): arm
+  toast+tint, drop/replace/remove all confirmed via `project.json` `t`/`s` field diffs across multiple ops on
+  two clips, nav-lands-exactly-on-keyframe + dim-at-ends confirmed via `uiautomator dump` `enabled`/`alpha`,
+  first-keyframe-delete-extends-back confirmed via chip highlight + CC-bar color flip screenshot, undo
+  byte-exact across DROP/REPLACE/REMOVE (counter + JSON both checked each step), CC-bar two-tone coloring +
+  diamond markers confirmed via screenshot (this part was pre-existing, not newly built). One caveat noted
+  (not fixed, out of scope): very-high-speed clips (6.5x tested) can nav-land outside the ±50ms tolerance due
+  to timeline→source seek quantization amplification — pre-existing seek-pipeline characteristic shared with
+  the opacity/volume keyframe drawers. Files: `model/Clip.java`, `FaditorEditorActivity.java`,
+  `activity_faditor_editor.xml`, new `captions/CaptionStyleKeyframeController.java`. Full report in this
+  session's final message.

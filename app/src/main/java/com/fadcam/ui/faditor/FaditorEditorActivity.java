@@ -3918,6 +3918,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    // ── Stopwatch shortcut (caption drawer's "advanced" area) ─────────
+    // Always-reachable entry point into the SAME arm state + drawer that
+    // wireCaptionKeyframeDrawer()/openCaptionKeyframeDrawer() own — this does not
+    // duplicate the arming logic, it just gives the bottom caption-style bar a way to
+    // reach it without requiring a long-press on the CC timeline lane.
+
+    private boolean captionKfArmShortcutWired = false;
+
+    private void wireCaptionKfArmShortcut() {
+        if (captionKfArmShortcutWired) return;
+        captionKfArmShortcutWired = true;
+        View shortcut = findViewById(R.id.caption_kf_arm_shortcut);
+        if (shortcut == null) return;
+        shortcut.setOnClickListener(v -> {
+            toggleCaptionStyleKeyframeMode();
+            if (captionStyleKeyframeMode) {
+                openCaptionKeyframeDrawer();
+            } else {
+                View d = findViewById(R.id.caption_keyframe_drawer);
+                if (d != null) d.setVisibility(View.GONE);
+            }
+        });
+    }
+
+    /** Keep the bottom-bar stopwatch shortcut's tint in sync with the arm state. */
+    private void updateCaptionKfArmShortcutUI() {
+        View shortcut = findViewById(R.id.caption_kf_arm_shortcut);
+        if (shortcut instanceof TextView) {
+            ((TextView) shortcut).setTextColor(
+                    captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E);
+        }
+    }
+
     // Snapshot of the selected clip + its opacity keyframes when the opacity drawer
     // opens, so the whole editing session collapses into ONE undo entry on close.
     @Nullable private Clip opacityUndoClip;
@@ -4396,46 +4429,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshCaptionKeyframeDrawer() {
         Clip cc = getSelectedClip();
 
-        // Arm icon
+        // Arm icon (accent-tinted green when armed, dim grey otherwise)
         View arm = findViewById(R.id.caption_kf_arm);
         if (arm != null) {
             arm.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
                     captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF666666));
         }
+        // Mirror the same armed state onto the bottom-bar stopwatch shortcut (if built).
+        updateCaptionKfArmShortcutUI();
 
         if (cc == null) return;
 
-        // Nav controls only show when armed + keyframes exist
-        boolean hasKfs = captionStyleKeyframeMode && cc.hasCaptionStyleKeyframes();
+        // Nav controls only show when armed + keyframes exist; each direction independently
+        // dims/disables once there's nothing further to jump to (spec: dim/disable at ends).
+        boolean showNav = captionStyleKeyframeMode && cc.hasCaptionStyleKeyframes();
+        com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.NavState nav =
+                com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.computeNavState(
+                        cc, lastSourcePositionInSegmentMs);
         View prev = findViewById(R.id.caption_kf_prev);
-        if (prev != null) prev.setVisibility(hasKfs ? View.VISIBLE : View.GONE);
-        View next = findViewById(R.id.caption_kf_next);
-        if (next != null) next.setVisibility(hasKfs ? View.VISIBLE : View.GONE);
-
-        // On-keyframe indicator + delete
-        long pos = lastSourcePositionInSegmentMs;
-        boolean onKf = false;
-        for (Clip.CaptionStyleKeyframe kf : cc.getCaptionStyleKeyframes()) {
-            if (Math.abs(kf.timeMs - pos) <= 40) { onKf = true; break; }
+        if (prev != null) {
+            prev.setVisibility(showNav ? View.VISIBLE : View.GONE);
+            prev.setEnabled(nav.hasPrev);
+            prev.setAlpha(nav.hasPrev ? 1f : 0.35f);
         }
+        View next = findViewById(R.id.caption_kf_next);
+        if (next != null) {
+            next.setVisibility(showNav ? View.VISIBLE : View.GONE);
+            next.setEnabled(nav.hasNext);
+            next.setAlpha(nav.hasNext ? 1f : 0.35f);
+        }
+
+        // On-keyframe indicator + delete ("−" affordance)
+        boolean onKf = showNav && com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController
+                .isOnKeyframe(cc, lastSourcePositionInSegmentMs);
         View onDot = findViewById(R.id.caption_kf_onkeyframe);
-        if (onDot != null) onDot.setVisibility(onKf && hasKfs ? View.VISIBLE : View.INVISIBLE);
+        if (onDot != null) onDot.setVisibility(onKf ? View.VISIBLE : View.INVISIBLE);
         View del = findViewById(R.id.caption_kf_delete);
-        if (del != null) del.setVisibility(onKf && hasKfs ? View.VISIBLE : View.GONE);
+        if (del != null) del.setVisibility(onKf ? View.VISIBLE : View.GONE);
     }
 
     private void jumpCaptionStyleKeyframe(int dir) {
         Clip cc = getSelectedClip();
         if (cc == null || !cc.hasCaptionStyleKeyframes()) return;
-        java.util.List<Clip.CaptionStyleKeyframe> kfs = cc.getCaptionStyleKeyframes();
-        long best = -1;
-        for (Clip.CaptionStyleKeyframe kf : kfs) {
-            if (dir > 0) {
-                if (kf.timeMs > lastSourcePositionInSegmentMs + 30) { best = kf.timeMs; break; }
-            } else {
-                if (kf.timeMs < lastSourcePositionInSegmentMs - 30) best = kf.timeMs;
-            }
-        }
+        com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.NavState nav =
+                com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.computeNavState(
+                        cc, lastSourcePositionInSegmentMs);
+        long best = (dir > 0) ? (nav.hasNext ? nav.nextTimeMs : -1)
+                               : (nav.hasPrev ? nav.prevTimeMs : -1);
         if (best >= 0) {
             long segStart = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
             float speed = cc.getSpeedMultiplier();
@@ -4453,6 +4493,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         recordCaptionStyleKeyframeEdit(cc, beforeKfs);
         if (!cc.hasCaptionStyleKeyframes()) captionStyleKeyframeMode = false;
         scheduleAutoSave();
+        if (captionsActive) bindCaptionData(cc);
+        if (editorTimeline != null) editorTimeline.invalidate();
         refreshCaptionKeyframeDrawer();
     }
 
@@ -11166,6 +11208,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         captionOverlay = findViewById(R.id.caption_overlay);
         audioCaptionOverlay = findViewById(R.id.audio_caption_overlay);
         captionStyleBar = findViewById(R.id.caption_style_bar);
+        wireCaptionKfArmShortcut();
         android.widget.LinearLayout row = findViewById(R.id.caption_style_row);
         if (captionOverlay == null || row == null) return;
         captionStyleChips.clear();
@@ -11211,6 +11254,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (captionStyleKeyframeMode && cc.hasCaptionStyleKeyframes()) {
                             java.util.List<Clip.CaptionStyleKeyframe> beforeKfs =
                                     snapshotCaptionStyleKeyframes(cc);
+                            com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.TapAction action =
+                                    com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController
+                                            .tapActionFor(cc, lastSourcePositionInSegmentMs);
                             cc.addOrUpdateCaptionStyleKeyframe(lastSourcePositionInSegmentMs, s.id);
                             recordCaptionStyleKeyframeEdit(cc, beforeKfs);
                             cc.setCaptionsEnabled(true);
@@ -11220,6 +11266,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (editorTimeline != null) editorTimeline.invalidate();
                             scheduleAutoSave();
                             refreshCaptionKeyframeDrawer();
+                            Toast.makeText(this,
+                                    action == com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController.TapAction.REPLACE
+                                            ? "Keyframe style replaced"
+                                            : "Style keyframe dropped",
+                                    Toast.LENGTH_SHORT).show();
                         } else if (cc.hasTranscript()) {
                             cc.setCaptionStyleId(s.id);
                             cc.setCaptionsEnabled(true);

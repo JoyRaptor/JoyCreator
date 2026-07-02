@@ -567,24 +567,47 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
-        <!-- Caption style picker (chips), shown while editing a caption -->
-        <HorizontalScrollView
+        <!-- Caption style picker (chips) + keyframe-mode shortcut, shown while editing a caption -->
+        <LinearLayout
             android:id="@+id/caption_style_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             android:background="#99000000"
-            android:scrollbars="none"
             android:visibility="gone">
 
-            <LinearLayout
-                android:id="@+id/caption_style_row"
-                android:layout_width="wrap_content"
+            <HorizontalScrollView
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="6dp" />
-        </HorizontalScrollView>
+                android:layout_weight="1"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/caption_style_row"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="6dp" />
+            </HorizontalScrollView>
+
+            <!-- Advanced: stopwatch arm toggle for caption-style keyframes (consolidated
+                 with caption_keyframe_drawer's arm/nav/minus — this is just the always-
+                 reachable shortcut into that same drawer, not a second source of truth). -->
+            <TextView
+                android:id="@+id/caption_kf_arm_shortcut"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="4dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="timer"
+                android:textColor="#FF9E9E9E"
+                android:textSize="20sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
 
         <!-- Crop overlay (on top of player, hidden by default) -->
         <com.fadcam.ui.faditor.crop.CropOverlayView

@@ -807,23 +807,46 @@ public class Clip {
 
     public boolean hasCaptionStyleKeyframes() { return !captionStyleKeyframes.isEmpty(); }
 
+    /** Tolerance (ms) used to snap a playhead position onto an existing keyframe. */
+    public static final long CAPTION_STYLE_KEYFRAME_TOLERANCE_MS = 50;
+
     public void addOrUpdateCaptionStyleKeyframe(long timeMs, @NonNull String styleId) {
         timeMs = Math.max(0, timeMs);
         for (CaptionStyleKeyframe kf : captionStyleKeyframes) {
-            if (Math.abs(kf.timeMs - timeMs) <= 40) {
+            if (Math.abs(kf.timeMs - timeMs) <= CAPTION_STYLE_KEYFRAME_TOLERANCE_MS) {
                 kf.styleId = styleId;
+                // Keep the scalar base style in sync with keyframe[0] so that the span
+                // BEFORE the first keyframe (and the fallback used once all keyframes are
+                // removed) always reflects the most recently chosen style, not whatever
+                // captionStyleId happened to be when keyframe mode was first armed.
+                sortCaptionStyleKeyframes();
+                if (!captionStyleKeyframes.isEmpty() && captionStyleKeyframes.get(0) == kf) {
+                    captionStyleId = styleId;
+                }
                 return;
             }
         }
         captionStyleKeyframes.add(new CaptionStyleKeyframe(timeMs, styleId));
         sortCaptionStyleKeyframes();
+        if (captionStyleKeyframes.get(0).timeMs == timeMs) {
+            // New keyframe became (or already was) the earliest one — same sync as above.
+            captionStyleId = styleId;
+        }
     }
 
-    /** Remove the keyframe nearest to timeMs (within 40ms tolerance). */
+    /** Remove the keyframe nearest to timeMs (within tolerance). */
     public void removeCaptionStyleKeyframe(long timeMs) {
         for (int i = 0; i < captionStyleKeyframes.size(); i++) {
-            if (Math.abs(captionStyleKeyframes.get(i).timeMs - timeMs) <= 40) {
+            if (Math.abs(captionStyleKeyframes.get(i).timeMs - timeMs) <= CAPTION_STYLE_KEYFRAME_TOLERANCE_MS) {
+                boolean wasFirst = (i == 0);
                 captionStyleKeyframes.remove(i);
+                if (wasFirst && !captionStyleKeyframes.isEmpty()) {
+                    // The removed keyframe was the earliest one — the next remaining
+                    // keyframe's style now governs the span from clip-start up to its own
+                    // time, so it should "extend back" rather than reverting to a stale
+                    // base style (spec: caption-style-keyframe UX point 4).
+                    captionStyleId = captionStyleKeyframes.get(0).styleId;
+                }
                 return;
             }
         }
@@ -845,6 +868,13 @@ public class Clip {
             captionStyleKeyframes.add(new CaptionStyleKeyframe(Math.max(0, kf.timeMs), kf.styleId));
         }
         sortCaptionStyleKeyframes();
+        // Keep the scalar base style derived from keyframe[0] (see addOrUpdate/remove) so
+        // undo/redo of a keyframe-list change is fully self-contained — restoring the list
+        // alone reproduces the correct pre-first-keyframe span without a separate
+        // captionStyleId snapshot in the undo action.
+        if (!captionStyleKeyframes.isEmpty()) {
+            captionStyleId = captionStyleKeyframes.get(0).styleId;
+        }
     }
 
     private void sortCaptionStyleKeyframes() {

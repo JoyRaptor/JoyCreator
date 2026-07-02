@@ -72,6 +72,15 @@ Older backlog (still valid, folded into the order above):
   capture throttled to ≥1500 ms. Project saves are async (`ProjectStorage.saveAsync`), sync-flushed on pause/exit.
 - Full history: DIAG Rounds 1–8 in `tasks/DIAG_20260627_perf_stability.md`; export basics in `tasks/DIAG_20260626.md`.
 
+> **2026-07-02 — GAPLESS ENGINE LANDED, DEVICE-PROVEN (M-COMP-0; closes feedback #9 the transition jump).**
+> `compositor/MasterPlaybackEngine` (multi-MediaItem + ClippingConfiguration over remuxed sources), delegated
+> behind FaditorPlayerManager's API; flag `GAPLESS_ENGINE` (FaditorPlayerManager:50) DEFAULT ON, legacy = OFF;
+> ineligible projects (loops/transitions/images) auto-use legacy. Measured on Note 9: 0 frozen frames at all
+> seams vs 1.79s/3.64s legacy stalls, same project. Also 2026-07-02: caption hide-pill long-press now applies
+> to ALL clips (b6c2a0c, user-requested hotfix, installed on S10e+Note 9); Layers M6 (multi-row timeline),
+> M7 (row item move/trim/delete), M-COMP-1 (layer preview compositing) all landed; M5 REGRESSION GATE PASSED
+> bit-identical on device. Full detail: tasks/REPORT_RELAY_20260702.md + PLAN_LAYERS_V2.md status ticks.
+
 > **2026-07-02 — LAYERS M5 LANDED (compile-green; the schema-v8 keystone).** New `faditor/layers/` package
 > (Track/TimedItem/TrackKind/BlendMode); Timeline gains rippleMode + Track views (synchronized-from-flat,
 > ephemeral); dual-write keeps plain projects stamped v7/old-build-readable, `usesLayerFeatures()` flips to v8;

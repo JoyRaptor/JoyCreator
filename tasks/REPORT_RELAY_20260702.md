@@ -86,7 +86,23 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
 - (2026-07-02 ~02:10) **REGRESSION GATE PASSED on Note 9** (Opus; details in the GATE section above). Layers
   foundation (M5→M-COMP-1) provably did not change single-track export output. M-EXPORT-1 is now PERMITTED
   by the plan when its time comes (after M10 makes layer content creatable).
-- (2026-07-02 ~02:20) **M-COMP-0 agent LAUNCHED** (Opus): gapless master engine per PLAN §3.1, PROBE-FIRST
-  (ClippingConfiguration on remuxed fMP4 must be verified on the Note 9 BEFORE the engine is trusted),
-  feature-flagged with today's engine as fallback. If this was cut mid-run: check git status/build.log; the
-  feature flag must default OFF unless the agent's report says full device acceptance passed.
+- (2026-07-02 ~02:20) M-COMP-0 first attempt was killed by the usage cap 7s in (no edits); relaunched ~07:30
+  after refresh; that run was then STOPPED mid-implementation for an urgent user hotfix (below) — its partial
+  engine WIP was stashed and later cleanly re-applied.
+- (2026-07-02 ~morning) **URGENT USER HOTFIX LANDED b6c2a0c + INSTALLED on S10e AND Note 9**: the caption
+  hide pill (eye-slash) now applies to all clips on long-press like the style chips
+  (showHideCaptionsOnAllClipsDialog/hideCaptionsOnAllClips: captionsEnabled=false everywhere, keyframes
+  untouched, ONE undo step). User's friend's S10e (R58M34STHCA) got it before being detached.
+- **M-COMP-0 RESUMED after the hotfix**: engine WIP re-applied to the tree (MasterPlaybackEngine.java +
+  FaditorPlayerManager/FaditorEditorActivity edits, uncommitted), agent relaunched to assess + continue.
+  STASH NOTE: stash@{0} = a safety copy of that engine WIP (drop once M-COMP-0 lands); stash@{1} = the old
+  caption-style-keyframe UX WIP (redo fresh later, reference only). Feature flag must default OFF unless the
+  final report says full device acceptance passed.
+- (2026-07-02 ~09:00) **M-COMP-0 LANDED — FULL DEVICE ACCEPTANCE, flag DEFAULT ON** (Opus resume). 0 frozen
+  frames at all 3 seams vs legacy 1.79s/3.64s (ffmpeg freezedetect, same project, A/B); probe passed on REAL
+  fMP4 remuxed sources; trim→rebuild→seam freeze-free, undo byte-identical; resume agent fixed 2 latent WIP
+  bugs (stale currentClip after seam → syncGaplessCurrentClip; listeners lost on engine rebuild →
+  attachRegisteredListenersToEngine at all 4 prepare sites). Flag: FaditorPlayerManager.GAPLESS_ENGINE:50.
+  Eligibility auto-fallback: loops/transitions/image clips use legacy. USER FEEDBACK #9 = CLOSED.
+  Known-weak (next device session): waveform-level A/V sync proof; live export round-trip + bg/fg resume in
+  gapless mode; >100% LoudnessEnhancer boost path. Engine WIP safety stash dropped after landing.

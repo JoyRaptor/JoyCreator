@@ -17,6 +17,8 @@ import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.ui.PlayerView;
 
 import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.compositor.MasterPlaybackEngine;
 
 /**
  * Manages ExoPlayer lifecycle for the Faditor editor.
@@ -24,17 +26,59 @@ import com.fadcam.ui.faditor.model.Clip;
  * <p>Binds to an Activity lifecycle to auto-pause on background and release on destroy.
  * Handles single-clip playback with manual trim bounds (no ClippingConfiguration)
  * to support fragmented MP4 and SAF content:// URIs reliably.</p>
+ *
+ * <p><b>M-COMP-0 (gapless master playback):</b> when {@link #GAPLESS_ENGINE} is on and the
+ * project is a plain-cut single track, this manager delegates its single-clip public API to a
+ * {@link MasterPlaybackEngine} that plays the whole track as one pre-buffered
+ * ClippingConfiguration playlist — so plain cuts cross warm (no cold re-prepare / boundary
+ * freeze). All position/seek/transport calls are preserved as clip-local so
+ * {@code FaditorEditorActivity}'s polling loop is unchanged. Loops / transitions / images fall
+ * back to the legacy single-clip path below. See {@code MasterPlaybackEngine} for details.</p>
  */
 public class FaditorPlayerManager implements DefaultLifecycleObserver {
 
     private static final String TAG = "FaditorPlayerManager";
     private static final long SEEK_GRACE_MS = 250L;
 
+    /**
+     * M-COMP-0 feature flag. When true and the project is eligible (plain cuts only), the master
+     * track plays as a gapless ClippingConfiguration playlist. DEFAULT ON — device acceptance on
+     * the Note 9 sandbox showed no regressions on the plain-cut path and the boundary freeze is
+     * eliminated; ineligible projects transparently keep today's engine. Flip to false to force
+     * every project back to the legacy per-seam single-clip path.
+     */
+    public static final boolean GAPLESS_ENGINE = true;
+
     @Nullable
     private ExoPlayer player;
 
     @Nullable
     private PlayerView playerView;
+
+    // ── M-COMP-0 gapless engine (null unless flag on AND project eligible) ──
+    @Nullable
+    private MasterPlaybackEngine gaplessEngine;
+    @Nullable
+    private Timeline gaplessTimeline;
+    @Nullable
+    private MasterPlaybackEngine.SourceResolver gaplessResolver;
+    @Nullable
+    private MasterPlaybackEngine.SeamListener gaplessSeamListener;
+    @Nullable
+    private String exportResumeClipId;
+    private long exportResumePosMs = 0L;
+    @Nullable
+    private String gaplessResumeClipId;
+    private long gaplessResumePosMs = 0L;
+    /**
+     * Listeners registered via {@link #addListener(Player.Listener)}. Retained so that every time
+     * the gapless engine builds a NEW {@link ExoPlayer} (initial prepare, trim rebuild, onStart /
+     * after-export re-acquire), they are re-attached to the player actually rendering — otherwise
+     * the activity's play-state / video-size / duration-correction callbacks would silently stop
+     * firing after the first engine teardown.
+     */
+    @NonNull
+    private final java.util.List<Player.Listener> registeredListeners = new java.util.ArrayList<>();
 
     @NonNull
     private final Context context;
@@ -99,6 +143,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     @Override
     public void onStart(@NonNull LifecycleOwner owner) {
         initializePlayer();
+        reacquireGaplessIfNeeded();
     }
 
     @Override
@@ -106,12 +151,17 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (player == null) {
             initializePlayer();
         }
+        reacquireGaplessIfNeeded();
     }
 
     @Override
     public void onPause(@NonNull LifecycleOwner owner) {
+        if (gapless()) {
+            playWhenReady = gaplessEngine.getPlayWhenReady();
+            gaplessEngine.pause();
+        }
         if (player != null) {
-            playWhenReady = player.getPlayWhenReady();
+            if (!gapless()) playWhenReady = player.getPlayWhenReady();
             lastPosition = player.getCurrentPosition();
             player.pause();
         }
@@ -119,12 +169,46 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
 
     @Override
     public void onStop(@NonNull LifecycleOwner owner) {
+        // Remember the gapless position so onStart/onResume can restore it.
+        if (gapless()) {
+            gaplessResumeClipId = currentClip != null ? currentClip.getId() : null;
+            gaplessResumePosMs = gaplessEngine.getCurrentPositionInWindow();
+        }
+        releaseGaplessEngine();
         releasePlayer();
     }
 
     @Override
     public void onDestroy(@NonNull LifecycleOwner owner) {
+        releaseGaplessEngine();
         releasePlayer();
+    }
+
+    private void releaseGaplessEngine() {
+        if (gaplessEngine != null) {
+            gaplessEngine.releasePlayer();
+            gaplessEngine = null;
+        }
+    }
+
+    /** Rebuild the gapless playlist after a lifecycle release (onStop), restoring position. */
+    private void reacquireGaplessIfNeeded() {
+        if (!GAPLESS_ENGINE || gaplessEngine != null || gaplessTimeline == null
+                || gaplessResolver == null || gaplessSeamListener == null || playerView == null) {
+            return;
+        }
+        if (!MasterPlaybackEngine.isEligible(gaplessTimeline)) return;
+        gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
+        if (!gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {
+            gaplessEngine.releasePlayer();
+            gaplessEngine = null;
+            return;
+        }
+        attachRegisteredListenersToEngine();
+        if (gaplessResumeClipId != null) {
+            gaplessEngine.seekInClip(gaplessResumeClipId, gaplessResumePosMs);
+        }
+        if (player != null) player.pause();
     }
 
     // ── Public API ───────────────────────────────────────────────────
@@ -139,6 +223,104 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
     }
 
+    /** Whether the gapless engine is active and driving playback right now. */
+    private boolean gapless() {
+        return gaplessEngine != null && gaplessEngine.isPrepared();
+    }
+
+    /**
+     * M-COMP-0: after the gapless engine auto-advances a seam warm, the activity's
+     * {@code onGaplessSeam} calls this to point the manager's tracked clip at the new window —
+     * WITHOUT any player op (the engine already crossed the cut). Keeps the {@code currentClip}-
+     * derived getters ({@link #getSourceDuration()}, {@link #seekToAbsolute(long)}) and the
+     * onStop / releaseForExport resume state consistent with the window actually playing. No-op
+     * outside gapless mode.
+     */
+    public void syncGaplessCurrentClip(@NonNull Clip clip) {
+        if (!gapless()) return;
+        this.currentClip = clip;
+        this.trimStartMs = clip.getInPointMs();
+        this.trimEndMs = clip.getOutPointMs();
+    }
+
+    /**
+     * M-COMP-0: hand the manager the master track + a seekable-URI resolver + a seam callback.
+     * If {@link #GAPLESS_ENGINE} is on and the timeline is eligible (plain cuts only), builds the
+     * gapless playlist immediately so the first {@link #loadClip} serves from it. No-op (leaves
+     * the legacy path in place) when the flag is off or the project isn't eligible.
+     */
+    public void setGaplessTimeline(@NonNull Timeline timeline,
+                                   @NonNull MasterPlaybackEngine.SourceResolver resolver,
+                                   @NonNull MasterPlaybackEngine.SeamListener seamListener) {
+        this.gaplessTimeline = timeline;
+        this.gaplessResolver = resolver;
+        this.gaplessSeamListener = seamListener;
+        if (!GAPLESS_ENGINE || !MasterPlaybackEngine.isEligible(timeline)) {
+            FLog.d(TAG, "Gapless engine NOT active (flag=" + GAPLESS_ENGINE
+                    + ", eligible=" + MasterPlaybackEngine.isEligible(timeline) + ")");
+            return;
+        }
+        if (player == null) initializePlayer();
+        gaplessEngine = new MasterPlaybackEngine(context, resolver, seamListener);
+        boolean ok = playerView != null
+                && gaplessEngine.prepareTimeline(timeline, playerView);
+        if (!ok) {
+            gaplessEngine.releasePlayer();
+            gaplessEngine = null;
+            FLog.w(TAG, "Gapless prepare failed; using legacy path");
+        } else {
+            // The gapless engine owns the PlayerView surface now. Pause/park the legacy
+            // single-clip player so it holds no decoder while gapless is active.
+            attachRegisteredListenersToEngine();
+            if (player != null) player.pause();
+            FLog.i(TAG, "Gapless engine ACTIVE for " + timeline.getClipCount() + " clips");
+        }
+    }
+
+    /**
+     * Rebuild the gapless playlist after a timeline edit (trim/add/delete/reorder). Called from
+     * the same refresh path the legacy engine uses to re-prepare after edits. Re-evaluates
+     * eligibility: if the project became ineligible (e.g. a transition or loop was added), tears
+     * the engine down so the legacy path takes over on the next {@link #loadClip}.
+     */
+    public void rebuildGaplessTimeline() {
+        if (!GAPLESS_ENGINE || gaplessResolver == null || gaplessSeamListener == null
+                || gaplessTimeline == null) {
+            return;
+        }
+        if (!MasterPlaybackEngine.isEligible(gaplessTimeline)) {
+            if (gaplessEngine != null) {
+                gaplessEngine.releasePlayer();
+                gaplessEngine = null;
+                FLog.i(TAG, "Project no longer gapless-eligible; reverting to legacy path");
+            }
+            return;
+        }
+        if (playerView == null) return;
+        long resumePos = gapless() ? gaplessEngine.getCurrentPositionInWindow() : 0L;
+        int resumeWindow = gapless() ? gaplessEngine.getCurrentWindow() : 0;
+        boolean wasPlaying = gapless() && gaplessEngine.getPlayWhenReady();
+        if (gaplessEngine == null) {
+            gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
+        }
+        boolean ok = gaplessEngine.prepareTimeline(gaplessTimeline, playerView);
+        if (!ok) {
+            gaplessEngine.releasePlayer();
+            gaplessEngine = null;
+            return;
+        }
+        attachRegisteredListenersToEngine();
+        gaplessEngine.seekInCurrentWindow(0L);
+        if (resumeWindow > 0) {
+            // Best-effort: restore the window the user was on (positions may shift after edits).
+            gaplessEngine.getPlayer();
+            gaplessEngine.seekInClip(
+                    gaplessTimeline.getClip(Math.min(resumeWindow, gaplessTimeline.getClipCount() - 1)).getId(),
+                    resumePos);
+        }
+        if (wasPlaying) gaplessEngine.play();
+    }
+
     /**
      * Load a clip for playback. No ClippingConfiguration — trim bounds
      * are managed manually via seek + position check so fragmented MP4
@@ -148,8 +330,20 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         this.currentClip = clip;
         this.trimStartMs = clip.getInPointMs();
         this.trimEndMs = clip.getOutPointMs();
-        this.needsPrepare = true;
 
+        // ── M-COMP-0: in gapless mode, "loading" a clip that lives in the playlist is just a
+        // seek to that window — NO cold prepare. This is what eliminates the boundary freeze
+        // when the activity's seam logic (or a segment tap) calls loadClip at a cut.
+        if (gapless()) {
+            int window = gaplessEngine.windowForClipId(clip.getId());
+            if (window >= 0) {
+                gaplessEngine.seekInClip(clip.getId(), 0L);
+                return;
+            }
+            // Clip not in the playlist (shouldn't happen for master clips) — fall through.
+        }
+
+        this.needsPrepare = true;
         if (player == null) {
             initializePlayer();
         }
@@ -166,6 +360,17 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         this.currentClip = clip;
         this.trimStartMs = clip.getInPointMs();
         this.trimEndMs = clip.getOutPointMs();
+
+        // Gapless: trim bounds are baked into each item's ClippingConfiguration, so a trim edit
+        // means rebuilding the playlist. Rebuild, then seek to the start of the edited clip.
+        if (gapless()) {
+            rebuildGaplessTimeline();
+            if (gapless()) {
+                gaplessEngine.seekInClip(clip.getId(), 0L);
+                gaplessEngine.pause();
+            }
+            return;
+        }
 
         if (player == null) return;
 
@@ -229,6 +434,15 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     }
 
     public void play() {
+        if (gapless()) {
+            // In gapless mode the engine holds the whole playlist; if it already ended, restart
+            // from the beginning (mirrors the legacy seek-to-start-on-ENDED behavior below).
+            if (gaplessEngine.isEnded()) {
+                gaplessEngine.seekInClip(gaplessTimeline.getClip(0).getId(), 0L);
+            }
+            gaplessEngine.play();
+            return;
+        }
         if (player != null) {
             if (pendingSeekMs >= 0 && player.getPlaybackState() == Player.STATE_READY) {
                 player.seekTo(pendingSeekMs);
@@ -251,6 +465,10 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     }
 
     public void pause() {
+        if (gapless()) {
+            gaplessEngine.pause();
+            return;
+        }
         if (player != null) {
             player.pause();
         }
@@ -264,6 +482,12 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * decoder while the exporter needs a decoder + encoder can starve the export.
      */
     public void releaseForExport() {
+        // Gapless: free the playlist player's decoder for the exporter, remembering where we were.
+        if (gaplessEngine != null && gaplessEngine.isPrepared()) {
+            exportResumeClipId = currentClip != null ? currentClip.getId() : null;
+            exportResumePosMs = gaplessEngine.getCurrentPositionInWindow();
+            gaplessEngine.releasePlayer();
+        }
         if (player != null) {
             lastPosition = player.getCurrentPosition();
             playWhenReady = false;
@@ -273,6 +497,23 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
 
     /** Re-create the preview player after {@link #releaseForExport()} (export ended). */
     public void reacquireAfterExport() {
+        // Gapless: rebuild the playlist and restore position.
+        if (GAPLESS_ENGINE && gaplessTimeline != null && gaplessResolver != null
+                && gaplessSeamListener != null
+                && MasterPlaybackEngine.isEligible(gaplessTimeline) && playerView != null) {
+            if (player == null) initializePlayer();
+            gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
+            if (gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {
+                attachRegisteredListenersToEngine();
+                if (exportResumeClipId != null) {
+                    gaplessEngine.seekInClip(exportResumeClipId, exportResumePosMs);
+                }
+                if (player != null) player.pause();
+                return;
+            }
+            gaplessEngine.releasePlayer();
+            gaplessEngine = null;
+        }
         if (player == null && currentClip != null) {
             loadClip(currentClip);
         }
@@ -288,6 +529,15 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @param volume 0.0 = muted, 1.0 = normal, 2.0 = 200%
      */
     public void setVolume(float volume) {
+        // In gapless mode the engine owns the active player; route volume there. The
+        // LoudnessEnhancer (>100% boost) still needs an audio session; for values ≤100% the
+        // engine's native volume is enough. Boost >100% falls through to the legacy enhancer
+        // path below only if a legacy player exists.
+        if (gapless()) {
+            gaplessEngine.setVolume(Math.min(1f, Math.max(0f, volume)));
+            if (volume <= 1.0f) return;
+            // else fall through to also drive the LoudnessEnhancer if a legacy player exists
+        }
         if (player == null) return;
 
         float clampedVolume = Math.max(0f, volume);
@@ -340,6 +590,10 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @param speed multiplier (e.g. 0.5 = half speed, 2.0 = double speed)
      */
     public void setPlaybackSpeed(float speed) {
+        if (gapless()) {
+            gaplessEngine.setPlaybackSpeed(speed);
+            return;
+        }
         if (player != null) {
             player.setPlaybackParameters(
                     new androidx.media3.common.PlaybackParameters(speed));
@@ -356,11 +610,21 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * and transcript skips; CLOSEST_SYNC for fast timeline drag-scrubbing.
      */
     public void setExactSeek(boolean exact) {
+        if (gapless()) {
+            gaplessEngine.setExactSeek(exact);
+            return;
+        }
         if (player == null) return;
         player.setSeekParameters(exact ? SeekParameters.EXACT : SeekParameters.CLOSEST_SYNC);
     }
 
     public void seekTo(long positionMs) {
+        // Gapless: position is 0-based within the current window's clip, which is exactly what the
+        // ClippingConfiguration player uses natively — seek directly, no trim-offset arithmetic.
+        if (gapless()) {
+            gaplessEngine.seekInCurrentWindow(Math.max(0L, positionMs));
+            return;
+        }
         if (player == null) return;
         lastSeekRequestMs = SystemClock.elapsedRealtime();
         // Defensive: if trimStart > trimEnd (stale state), treat trimEnd as the
@@ -398,6 +662,13 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @param absoluteMs absolute position in the source video (milliseconds)
      */
     public void seekToAbsolute(long absoluteMs) {
+        // Gapless: absoluteMs is in source-time; the current window's clip plays clip-local, so
+        // convert to clip-local by subtracting the current clip's in-point.
+        if (gapless()) {
+            long inPoint = currentClip != null ? currentClip.getInPointMs() : 0L;
+            gaplessEngine.seekInCurrentWindow(Math.max(0L, absoluteMs - inPoint));
+            return;
+        }
         if (player == null) return;
         absoluteMs = Math.max(0, absoluteMs);
 
@@ -417,6 +688,10 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Get current playback position relative to trim start (0-based).
      */
     public long getCurrentPosition() {
+        if (gapless()) {
+            // Engine reports clip-local position for the current window already.
+            return gaplessEngine.getCurrentPositionInWindow();
+        }
         if (player == null) return 0;
         long rawPos = player.getCurrentPosition();
         long effectiveStart = Math.min(trimStartMs, trimEndMs);
@@ -428,6 +703,11 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Returns the actual content duration as reported by ExoPlayer.
      */
     public long getSourceDuration() {
+        // Gapless: report the current window's SOURCE (un-clipped) duration so the activity's
+        // duration-correction logic keeps working. The clip carries the source duration; use it.
+        if (gapless()) {
+            return currentClip != null ? currentClip.getSourceDurationMs() : 0L;
+        }
         return player != null ? player.getDuration() : 0;
     }
 
@@ -435,12 +715,16 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Get the trimmed duration (outPoint - inPoint).
      */
     public long getDuration() {
+        if (gapless()) {
+            return gaplessEngine.getCurrentWindowDuration();
+        }
         long effectiveStart = Math.min(trimStartMs, trimEndMs);
         long effectiveEnd = effectiveTrimEnd();
         return Math.max(0, effectiveEnd - effectiveStart);
     }
 
     public boolean isPlaying() {
+        if (gapless()) return gaplessEngine.isPlaying();
         return player != null && player.isPlaying();
     }
 
@@ -449,6 +733,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * More reliable than isPlaying() which returns false during buffering.
      */
     public boolean getPlayWhenReady() {
+        if (gapless()) return gaplessEngine.getPlayWhenReady();
         return player != null && player.getPlayWhenReady();
     }
 
@@ -456,6 +741,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Check if the player is in a ready state for playback.
      */
     public boolean isReady() {
+        if (gapless()) return gaplessEngine.isReady();
         return player != null && player.getPlaybackState() == Player.STATE_READY;
     }
 
@@ -465,6 +751,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * to avoid running audio past the video end.
      */
     public boolean isEnded() {
+        if (gapless()) return gaplessEngine.isEnded();
         return player != null && player.getPlaybackState() == Player.STATE_ENDED;
     }
 
@@ -475,6 +762,10 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @return true if the player is at or beyond the trim end
      */
     public boolean isAtTrimEnd() {
+        // Gapless: report end ONLY at the end of the whole playlist — never at an internal seam
+        // (the engine crosses those warm itself). This makes the activity's isAtEnd→advance logic
+        // fire only to stop/pause at the true timeline end; internal cuts are invisible to it.
+        if (gapless()) return gaplessEngine.isAtEndOfTimeline();
         if (player == null) return false;
         long pos = player.getCurrentPosition();
         long effectiveEnd = effectiveTrimEnd();
@@ -486,15 +777,40 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      */
     @Nullable
     public ExoPlayer getPlayer() {
+        if (gapless()) return gaplessEngine.getPlayer();
         return player;
     }
 
     /**
-     * Add a Player.Listener for playback events.
+     * Add a Player.Listener for playback events. In gapless mode the listener is attached to the
+     * engine's playlist player (the one actually rendering), so the activity's video-size /
+     * duration-correction / play-state callbacks fire from the right player. Also attach to the
+     * legacy player so callbacks survive a fallback to the legacy path.
      */
     public void addListener(@NonNull Player.Listener listener) {
+        if (!registeredListeners.contains(listener)) {
+            registeredListeners.add(listener);
+        }
+        if (gapless()) {
+            ExoPlayer ep = gaplessEngine.getPlayer();
+            if (ep != null) ep.addListener(listener);
+        }
         if (player != null) {
             player.addListener(listener);
+        }
+    }
+
+    /**
+     * Re-attach every listener registered via {@link #addListener} to the gapless engine's current
+     * player. Called after the engine builds a fresh {@link ExoPlayer} (initial prepare / trim
+     * rebuild / re-acquire) so the activity's callbacks keep firing across engine teardowns.
+     */
+    private void attachRegisteredListenersToEngine() {
+        if (gaplessEngine == null) return;
+        ExoPlayer ep = gaplessEngine.getPlayer();
+        if (ep == null) return;
+        for (Player.Listener l : registeredListeners) {
+            ep.addListener(l);
         }
     }
 

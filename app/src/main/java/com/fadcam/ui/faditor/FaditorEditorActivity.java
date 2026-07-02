@@ -2813,6 +2813,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         getLifecycle().addObserver(playerManager);
         playerManager.setPlayerView(playerView);
 
+        // ── M-COMP-0: hand the manager the master track + a seekable-URI resolver so it
+        // can (behind FaditorPlayerManager.GAPLESS_ENGINE) play the whole track as a
+        // pre-buffered ClippingConfiguration playlist and cross plain cuts with no cold
+        // re-prepare. Route auto-seam UI sync through onGaplessSeam(). No-op when the flag
+        // is off or the project isn't eligible (loops/transitions/images keep the legacy path).
+        playerManager.setGaplessTimeline(project.getTimeline(),
+                clip -> resolvePlaybackUri(clip.getSourceUri()),
+                this::onGaplessSeam);
+
         // Load the clip
         Clip clip = getSelectedClip();
         playerManager.loadClip(clip);
@@ -2873,6 +2882,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Sync initial volume and speed from clip state
         playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
         playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
+    }
+
+    /**
+     * M-COMP-0 seam callback: fired by {@link FaditorPlayerManager}'s gapless engine when the
+     * player auto-advances across a plain cut to a new master window. Runs ONLY the non-player
+     * half of {@link #advanceToSegment} (UI sync, per-clip speed/volume, timeline playhead) —
+     * the player has already crossed the seam warm, so there is no re-prepare here. Runs on the
+     * main thread (ExoPlayer callbacks are delivered on the app main thread).
+     *
+     * @param newIndex the master clip index the engine advanced to
+     */
+    private void onGaplessSeam(int newIndex) {
+        if (project == null || project.getTimeline() == null) return;
+        Timeline timeline = project.getTimeline();
+        if (newIndex < 0 || newIndex >= timeline.getClipCount()) return;
+        FLog.d(TAG, "onGaplessSeam -> segment " + newIndex);
+        selectedClipIndex = newIndex;
+        Clip nextClip = getSelectedClip();
+        // Keep the player manager's tracked clip pointed at the new window (no player op — the
+        // engine already crossed the cut) so currentClip-derived getters stay consistent.
+        playerManager.syncGaplessCurrentClip(nextClip);
+        editorTimeline.setTimeline(timeline, selectedClipIndex);
+        editorTimeline.setTrimFromClip(nextClip);
+        updateVolumeUI(nextClip.getVolumeLevel(), nextClip.isAudioMuted());
+        updateOpacityUI();
+        updateSpeedUI(nextClip.getSpeedMultiplier());
+        updateRotateUI(nextClip.getRotationDegrees());
+        updateFlipUI(nextClip.isFlipHorizontal(), nextClip.isFlipVertical());
+        updateCropUI(nextClip.getCropPreset());
+        updateFilterUI(nextClip);
+        applyPreviewColorGrade(nextClip);
+        // Per-clip volume + speed follow the new window (engine sets speed too, but keep the
+        // UI + LoudnessEnhancer path here identical to advanceToSegment's non-player half).
+        playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
+        playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier());
+        updatePreviewTransforms();
+        float startFraction = (float) nextClip.getInPointMs() / nextClip.getSourceDurationMs();
+        editorTimeline.setPlayheadFraction(startFraction);
     }
 
     private void initTimeline() {

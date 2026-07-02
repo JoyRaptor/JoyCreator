@@ -56,4 +56,19 @@ public final class TrackFlags {
         this.muted = other.muted;
         this.zIndex = other.zIndex;
     }
+
+    /**
+     * Field-by-field comparison against another instance (named {@code equalsFlags}
+     * rather than overriding {@link #equals}/{@link #hashCode} — this class is used
+     * as a plain mutable holder elsewhere and changing identity semantics there
+     * risks unrelated behavior; this is a narrow value-comparison helper for
+     * {@code Timeline#trackFlagsChangedSinceLoad} (Stage 1 P0 fix's concurrent-
+     * instance merge guard) only.
+     */
+    public boolean equalsFlags(TrackFlags other) {
+        if (other == null) return false;
+        return collapsed == other.collapsed && hidden == other.hidden
+                && locked == other.locked && muted == other.muted
+                && zIndex == other.zIndex;
+    }
 }

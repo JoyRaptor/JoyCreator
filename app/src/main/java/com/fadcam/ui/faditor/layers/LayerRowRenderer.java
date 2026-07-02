@@ -63,6 +63,8 @@ public final class LayerRowRenderer {
     private static final int COLOR_ITEM_AUDIO     = 0xDD35F6BF;   // aqua (AUDIO)
     private static final int COLOR_ITEM_HIDDEN    = 0x552A2A2A;   // dimmed/ghosted
     private static final int COLOR_STRIP          = 0x99CC27FF;   // collapsed summary strip
+    /** Selection stroke width, item-hit-test PLAN §6: "accent-colored stroke... per the item's color family." */
+    private static final float SELECTION_STROKE_DP = 2f;
 
     /** Which header icon zone a touch landed on. */
     public enum HitZone { CARET, HIDE, LOCK, MUTE, NONE }
@@ -97,6 +99,8 @@ public final class LayerRowRenderer {
     private final Paint itemPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint itemLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stripPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** Selection stroke around a selected item's body (Stage 2; PLAN §6). */
+    private final Paint itemSelectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path caretPath = new Path();
     private final Path mutePath = new Path();
 
@@ -142,6 +146,8 @@ public final class LayerRowRenderer {
         itemLabelPaint.setTextSize(9f * density);
         itemLabelPaint.setColor(0xFFFFFFFF);
         stripPaint.setStyle(Paint.Style.FILL);
+        itemSelectionPaint.setStyle(Paint.Style.STROKE);
+        itemSelectionPaint.setStrokeWidth(SELECTION_STROKE_DP * density);
         dropTargetPaint.setStyle(Paint.Style.STROKE);
         dropTargetPaint.setStrokeWidth(2f * density);
         dropTargetPaint.setColor(COLOR_DROP_TARGET_RING);
@@ -193,18 +199,26 @@ public final class LayerRowRenderer {
     public void layout(@NonNull Canvas canvas, @NonNull List<Track> layers,
                         @NonNull List<Track> audioTracks, float topPx, float widthPx,
                         float hScrollOffsetPx, long totalMs, @NonNull TimeToX timeToX) {
-        layout(canvas, layers, audioTracks, topPx, widthPx, hScrollOffsetPx, totalMs, timeToX, false, false);
+        layout(canvas, layers, audioTracks, topPx, widthPx, hScrollOffsetPx, totalMs, timeToX,
+                false, false, null);
     }
 
     /**
      * M10 overload: {@code dragActive} draws the "drop here to create a new layer" zone
      * below the last row (PLAN Part 7 row M10 scope 2); {@code dragOverNewLayerZone}
      * highlights it as armed (finger currently over it) vs merely visible.
+     *
+     * @param selectedItemId Stage 2 (PLAN §6): id of the currently-selected row item, or
+     *                       {@code null} for no selection. Draws a selection stroke on
+     *                       that item's body in {@link #drawExpandedItems} — the same id
+     *                       {@link LayerGestureController#getSelectedItemId()} already
+     *                       tracks for trim-handle exposure, now also driving the visual.
      */
     public void layout(@NonNull Canvas canvas, @NonNull List<Track> layers,
                         @NonNull List<Track> audioTracks, float topPx, float widthPx,
                         float hScrollOffsetPx, long totalMs, @NonNull TimeToX timeToX,
-                        boolean dragActive, boolean dragOverNewLayerZone) {
+                        boolean dragActive, boolean dragOverNewLayerZone,
+                        @Nullable String selectedItemId) {
         rows.clear();
         newLayerZoneRect.setEmpty();
         if (isEmpty(layers, audioTracks)) { contentHeightPx = 0f; return; }
@@ -227,7 +241,7 @@ public final class LayerRowRenderer {
         canvas.clipRect(hScrollOffsetPx, topPx, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
         canvas.translate(0f, topPx - scrollOffsetPx);
         for (RowLayout row : rows) {
-            drawRow(canvas, row, totalMs, timeToX);
+            drawRow(canvas, row, totalMs, timeToX, selectedItemId);
         }
         if (dragActive && !newLayerZoneRect.isEmpty()) {
             drawNewLayerZone(canvas, dragOverNewLayerZone);
@@ -281,7 +295,7 @@ public final class LayerRowRenderer {
     }
 
     private void drawRow(@NonNull Canvas canvas, @NonNull RowLayout row,
-                          long totalMs, @NonNull TimeToX timeToX) {
+                          long totalMs, @NonNull TimeToX timeToX, @Nullable String selectedItemId) {
         Track t = row.track;
         boolean collapsed = t.isCollapsed();
 
@@ -309,7 +323,7 @@ public final class LayerRowRenderer {
         if (collapsed) {
             drawCollapsedStrip(canvas, row, totalMs, timeToX);
         } else {
-            drawExpandedItems(canvas, row, t, totalMs, timeToX);
+            drawExpandedItems(canvas, row, t, totalMs, timeToX, selectedItemId);
         }
 
         // M10: highlight this row when a cross-row item drag is currently hovering it
@@ -401,7 +415,8 @@ public final class LayerRowRenderer {
     }
 
     private void drawExpandedItems(@NonNull Canvas canvas, @NonNull RowLayout row,
-                                    @NonNull Track t, long totalMs, @NonNull TimeToX timeToX) {
+                                    @NonNull Track t, long totalMs, @NonNull TimeToX timeToX,
+                                    @Nullable String selectedItemId) {
         int baseColor = baseColorFor(t.getKind());
         boolean ghosted = t.isHidden();
         float top = row.bodyRect.top + 3f * density;
@@ -421,7 +436,58 @@ public final class LayerRowRenderer {
                         row.bodyRect.centerY() + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
                 canvas.restore();
             }
+            // Stage 2 (PLAN §6): tap-select a row item → draw a clear selection state —
+            // a brightened stroke in the item's OWN color family (not a generic white
+            // ring), so the family reads at a glance (purple selection on a purple
+            // TEXT item, aqua on an AUDIO item, etc.), plus small trim-handle end caps
+            // mirroring the exact zones hitTestItem already hit-tests for a selected
+            // item (ITEM_HANDLE_HALF_WIDTH_DP) — those zones were already live/
+            // draggable; this just makes them visible instead of an invisible hot zone.
+            if (selectedItemId != null && selectedItemId.equals(item.getId())) {
+                drawItemSelection(canvas, x0, top, x1, bottom, baseColor);
+            }
         }
+    }
+
+    /**
+     * Selection stroke + end-cap trim handles for the currently-selected item
+     * (Stage 2; PLAN §6 "row item's accent color... echoed... via brighten/outline").
+     * The stroke color is the item's own family color brightened toward white
+     * (blended, not replaced) so a purple TEXT item gets a lighter purple ring, an
+     * aqua AUDIO item a lighter aqua ring, etc. — reads as "this exact item," not a
+     * generic selected-anything indicator.
+     */
+    private void drawItemSelection(@NonNull Canvas canvas, float x0, float top, float x1, float bottom,
+                                     int baseColor) {
+        itemSelectionPaint.setColor(brighten(baseColor));
+        float ins = (SELECTION_STROKE_DP * density) / 2f;
+        canvas.drawRoundRect(x0 + ins, top + ins, x1 - ins, bottom - ins,
+                3f * density, 3f * density, itemSelectionPaint);
+        // Small end-cap handles at the trim zones (ITEM_HANDLE_HALF_WIDTH_DP-wide hit
+        // zones already existed for a selected item in hitTestItem; this draws them).
+        float handleHalf = Math.min(ITEM_HANDLE_HALF_WIDTH_DP * density * 0.4f, (x1 - x0) * 0.15f);
+        float handleH = (bottom - top) * 0.7f;
+        float capTop = top + (bottom - top - handleH) / 2f;
+        Paint.Style prevStyle = itemSelectionPaint.getStyle();
+        itemSelectionPaint.setStyle(Paint.Style.FILL);
+        canvas.drawRoundRect(x0 - handleHalf / 2f, capTop, x0 + handleHalf / 2f, capTop + handleH,
+                handleHalf / 2f, handleHalf / 2f, itemSelectionPaint);
+        canvas.drawRoundRect(x1 - handleHalf / 2f, capTop, x1 + handleHalf / 2f, capTop + handleH,
+                handleHalf / 2f, handleHalf / 2f, itemSelectionPaint);
+        itemSelectionPaint.setStyle(prevStyle);
+    }
+
+    /** Blend {@code color} 55% toward white, preserving its alpha (a "brightened" accent). */
+    private static int brighten(int color) {
+        int a = (color >>> 24) & 0xFF;
+        int r = (color >>> 16) & 0xFF;
+        int g = (color >>> 8) & 0xFF;
+        int b = color & 0xFF;
+        float t = 0.55f;
+        r = (int) (r + (255 - r) * t);
+        g = (int) (g + (255 - g) * t);
+        b = (int) (b + (255 - b) * t);
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     private int baseColorFor(@NonNull TrackKind kind) {

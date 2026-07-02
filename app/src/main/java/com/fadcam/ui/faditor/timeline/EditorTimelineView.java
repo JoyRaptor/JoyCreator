@@ -1452,10 +1452,13 @@ public class EditorTimelineView extends View {
         // while item bodies stay in content-space so they line up with timeToX.
         // M10: while a cross-row MOVE drag is active, layout() also lays out + draws the
         // "drop here to create a new layer" zone below the last row.
+        // Stage 2 (PLAN §6): pass the gesture controller's selectedItemId through so
+        // layout() can draw the selection stroke on the tapped/dragged item's body.
         layerRowRenderer.layout(canvas, layerTracks, audioLayerTracks, getM6RowsTopPx(), w,
                 scrollOffsetPx, totalEffectiveMs, this::timeToX,
                 layerGestureController != null && layerGestureController.isMoveDragActive(),
-                layerGestureController != null && layerGestureController.isHoveringNewLayerZone());
+                layerGestureController != null && layerGestureController.isHoveringNewLayerZone(),
+                layerGestureController != null ? layerGestureController.getSelectedItemId() : null);
 
         canvas.restore();
 

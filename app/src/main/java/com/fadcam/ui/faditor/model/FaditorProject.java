@@ -63,6 +63,27 @@ public class FaditorProject {
      */
     private transient boolean loadedFromNewerVersion = false;
 
+    /**
+     * Concurrent-instance guard (Stage 1 P0 fix, TrackFlags desync). Tracks the
+     * on-disk {@code lastModified} value this in-memory copy last confirmed matches
+     * the file (set on load, and again after every successful save). {@code
+     * FaditorEditorActivity} has no {@code launchMode} restriction, so nothing stops
+     * two instances for the SAME project id existing at once (e.g. opening the same
+     * recent project twice, or from two different entry points). Each instance keeps
+     * its OWN in-memory {@code Timeline}/{@code TrackFlags}; if instance A edits and
+     * saves, then instance B (backgrounded, still holding its now-stale copy from
+     * BEFORE A's edit) is later paused/finished, B's unconditional {@code onPause()}
+     * save would blindly overwrite A's newer file with its stale copy — silently
+     * reverting whatever A changed (e.g. a lock/unlock toggle) without any visible
+     * error. {@code ProjectStorage.save/saveAsync} compares the file's CURRENT
+     * {@code lastModified} against this field immediately before writing: if the file
+     * is newer than what this copy last confirmed, someone else has saved since, so
+     * this save is refused rather than clobbering (mirrors the {@link
+     * #loadedFromNewerVersion} guard's shape). Not persisted — a per-load runtime
+     * marker like that guard.
+     */
+    private transient long diskLastModifiedAtLastSync = -1L;
+
     /** Canvas aspect ratio preset (project-level). "original" = no change. */
     @NonNull
     private String canvasPreset = "original";
@@ -181,6 +202,20 @@ public class FaditorProject {
 
     public void setLoadedFromNewerVersion(boolean value) {
         this.loadedFromNewerVersion = value;
+    }
+
+    /**
+     * The on-disk {@code lastModified} value this copy last confirmed matches the
+     * file (see {@link #diskLastModifiedAtLastSync}'s doc), or {@code -1} if never
+     * synced (e.g. a brand-new project that has not yet been saved once).
+     */
+    public long getDiskLastModifiedAtLastSync() {
+        return diskLastModifiedAtLastSync;
+    }
+
+    /** Record that this copy is now known to match the file as of {@code diskLastModified}. */
+    public void setDiskLastModifiedAtLastSync(long diskLastModified) {
+        this.diskLastModifiedAtLastSync = diskLastModified;
     }
 
     // ── Setters ──────────────────────────────────────────────────────

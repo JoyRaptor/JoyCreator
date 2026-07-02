@@ -103,8 +103,21 @@ public class ProjectStorage {
                     + "' was made with a newer version and is read-only.");
             return false;
         }
+        // Concurrent-instance guard (Stage 1 P0 fix) — see FaditorProject#diskLastModifiedAtLastSync.
+        mergeTrackFlagsIfStale(project);
+        // Stage 1 P0 fix: every call site only ever calls save()/saveAsync() right after
+        // a real edit (the existing convention throughout this codebase), but most edits
+        // — including every M6 track-flags toggle — mutate Timeline directly and never
+        // call FaditorProject#touch(). Without this, lastModified stays frozen at
+        // load/creation time for the whole session, which breaks the freshness signal
+        // mergeTrackFlagsIfStale (and the "recent projects" sort) depend on. Bumping it
+        // here, once, right before every write, guarantees it always reflects "the
+        // moment this save happened" regardless of what the caller touched.
+        project.touch();
         String json = gson.toJson(project);
-        return writeProjectJson(project.getId(), json);
+        boolean ok = writeProjectJson(project.getId(), json);
+        if (ok) project.setDiskLastModifiedAtLastSync(project.getLastModified());
+        return ok;
     }
 
     /**
@@ -121,9 +134,108 @@ public class ProjectStorage {
                     + "' was made with a newer version and is read-only.");
             return;
         }
+        // Concurrent-instance guard (Stage 1 P0 fix) — see FaditorProject#diskLastModifiedAtLastSync.
+        // Checked/merged on the CALLER thread (cheap — peeks one field, and only reads
+        // the rest of the file when that field actually indicates staleness) so a
+        // stale instance's queued write already carries the merged flags.
+        mergeTrackFlagsIfStale(project);
+        project.touch(); // Stage 1 P0 fix — see the comment in save() above.
         final String id = project.getId();
+        final long syncedLastModified = project.getLastModified();
         final String json = gson.toJson(project);   // serialize on caller thread (no CME)
-        lastWrite = ioExecutor.submit(() -> writeProjectJson(id, json));
+        lastWrite = ioExecutor.submit(() -> {
+            if (writeProjectJson(id, json)) {
+                project.setDiskLastModifiedAtLastSync(syncedLastModified);
+            }
+        });
+    }
+
+    /**
+     * Concurrent-instance guard (Stage 1 P0 fix: "shows unlocked, acts locked").
+     *
+     * <p>{@code FaditorEditorActivity} has no {@code launchMode} restriction, so two
+     * instances can hold separate in-memory copies of the SAME project id (e.g. the
+     * same recent project opened twice from different entry points, one left
+     * backgrounded — {@code onPause()} unconditionally saves). Each edits its own
+     * copy; whichever instance's save runs LAST would normally win the file
+     * unconditionally — including a stale copy from BEFORE the other instance's
+     * edits, silently reverting them. This is how a lock/unlock toggle done in one
+     * instance could be undone by another, days-old, backgrounded instance finally
+     * pausing/finishing (the user sees the icon they just set, but the file — and
+     * the next reload — reflects the older instance's flags).</p>
+     *
+     * <p>Rather than refuse the save outright (which would leave a legitimately-
+     * still-in-use "stale" instance permanently unable to save with no recovery),
+     * this merges forward JUST the {@code trackFlags} side-table — the exact data
+     * class that desyncs — from the fresher on-disk copy into {@code project}'s
+     * {@link Timeline} before serializing. Every other field in {@code project}
+     * (clips, overlays, audio, the user's actual in-progress edit) is untouched.</p>
+     *
+     * <p><b>Per-track, baseline-aware merge</b> (see {@link
+     * Timeline#trackFlagsChangedSinceLoad}): for each track id that appears in
+     * EITHER this instance's current flags or the fresher on-disk copy's flags,
+     * take {@code theirs} (disk) UNLESS this instance's flags for that exact id
+     * have changed since ITS OWN load — i.e. this instance genuinely edited that
+     * track this session, in which case this instance's value wins (a same-track
+     * conflict — both instances touched the identical id — still resolves to
+     * whichever save physically lands last, same as today's baseline). Every track
+     * NEITHER instance touched, or only the OTHER instance touched, correctly picks
+     * up the fresher copy's value — including a revert to default (an id present
+     * in {@code mine} but absent from {@code theirs} is cleared, not just left
+     * alone), which an earlier gap-fill-only version of this guard got wrong: it
+     * could not tell "the other instance reverted this to default" apart from
+     * "this instance's own brand-new edit hasn't reached disk yet" just from map
+     * presence, and ended up discarding a same-session edit made moments earlier
+     * on an UNRELATED track id purely because that id happened to already have an
+     * incidental entry. Comparing against the per-Timeline load-time baseline
+     * removes that ambiguity without needing a full vector-clock.</p>
+     */
+    private void mergeTrackFlagsIfStale(@NonNull FaditorProject project) {
+        long syncedAt = project.getDiskLastModifiedAtLastSync();
+        if (syncedAt < 0) return; // never synced yet (new project) — nothing to merge against
+        Long diskLastModified = peekDiskLastModified(project.getId());
+        if (diskLastModified == null || diskLastModified <= syncedAt) return; // not stale
+        FaditorProject onDisk = load(project.getId());
+        if (onDisk == null) return; // inconclusive — leave project untouched
+        Timeline mine = project.getTimeline();
+        Timeline theirs = onDisk.getTimeline();
+        java.util.Set<String> allIds = new java.util.LinkedHashSet<>();
+        allIds.addAll(mine.getAllTrackFlags().keySet());
+        allIds.addAll(theirs.getAllTrackFlags().keySet());
+        int merged = 0;
+        for (String trackId : allIds) {
+            if (mine.trackFlagsChangedSinceLoad(trackId)) continue; // this session's own edit wins
+            com.fadcam.ui.faditor.layers.TrackFlags theirValue = theirs.getAllTrackFlags().get(trackId);
+            mine.setTrackFlags(trackId, theirValue != null ? theirValue.copy() : null);
+            merged++;
+        }
+        if (merged > 0) {
+            FLog.w(TAG, "mergeTrackFlagsIfStale: project '" + project.getName()
+                    + "' has a newer copy on disk (saved by another instance) — pulled forward "
+                    + merged + " track-flag entry/entries this instance hadn't itself edited.");
+        }
+    }
+
+    /**
+     * Cheaply read just the {@code lastModified} field from the current on-disk
+     * project.json, without deserializing the whole project. Returns {@code null}
+     * if the file doesn't exist or can't be parsed (treated as "not stale" by the
+     * caller — this guard only ever acts on POSITIVE evidence of a newer file,
+     * never on an inconclusive read, so it can't touch data on an ambiguous read).
+     */
+    @Nullable
+    private Long peekDiskLastModified(@NonNull String projectId) {
+        File file = new File(getProjectDir(projectId), PROJECT_FILE);
+        if (!file.exists()) return null;
+        try (FileReader reader = new FileReader(file)) {
+            JsonObject json = gson.fromJson(reader, JsonObject.class);
+            if (json != null && json.has("lastModified")) {
+                return json.get("lastModified").getAsLong();
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "peekDiskLastModified: failed to read " + projectId, e);
+        }
+        return null;
     }
 
     /** Block (briefly) until queued async writes have flushed — call before the activity dies. */
@@ -192,6 +304,11 @@ public class ProjectStorage {
             try (FileReader reader = new FileReader(file)) {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);
                 if (p != null && p.getTimeline() != null && !p.getTimeline().isEmpty()) {
+                    // Concurrent-instance guard (Stage 1 P0 fix): this copy is now known
+                    // to match the file exactly — record its lastModified as the sync
+                    // point so a LATER save from this same in-memory copy can detect if
+                    // some OTHER instance has since saved something newer.
+                    p.setDiskLastModifiedAtLastSync(p.getLastModified());
                     return p;
                 }
                 FLog.w(TAG, "Main project file empty/invalid, trying backup: " + projectId);
@@ -206,6 +323,8 @@ public class ProjectStorage {
                 FaditorProject p = gson.fromJson(reader, FaditorProject.class);
                 if (p != null) {
                     FLog.i(TAG, "Recovered project from backup: " + projectId);
+                    // Same sync-point bookkeeping as the main-file path above.
+                    p.setDiskLastModifiedAtLastSync(p.getLastModified());
                     return p;
                 }
             } catch (Exception e) {
@@ -1730,7 +1849,26 @@ public class ProjectStorage {
                         }
                     }
                 }
+                // Stage 1 P0 fix follow-up: drop any restored trackFlags entry whose id
+                // provably matches no current track (see Timeline#pruneOrphanedTrackFlags's
+                // doc — conservative, only removes ids that cannot possibly resolve).
+                // Run once here, after every flat list AND the flags themselves are fully
+                // populated, so the check has everything it needs. Logged, not silent.
+                List<String> droppedFlagIds = project.getTimeline().pruneOrphanedTrackFlags();
+                if (!droppedFlagIds.isEmpty()) {
+                    FLog.w(TAG, "Dropped " + droppedFlagIds.size()
+                            + " orphaned trackFlags entry/entries on load (no matching track): "
+                            + droppedFlagIds);
+                }
             }
+            // Stage 1 P0 fix: capture the concurrent-instance merge guard's baseline
+            // now that trackFlags is in its final post-migration/post-prune state.
+            // Applies uniformly everywhere this deserializer runs (a plain load, a
+            // backup recovery, or an undo/redo snapshot restore) — each produces a
+            // brand-new Timeline, and whichever JSON populated THIS ONE is correctly
+            // "the state further edits get compared against" for that Timeline's
+            // lifetime, matching ProjectStorage#mergeTrackFlagsIfStale's needs.
+            project.getTimeline().snapshotBaselineTrackFlags();
 
             // Restore canvas preset
             if (obj.has("canvasPreset")) {

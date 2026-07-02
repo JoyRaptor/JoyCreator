@@ -76,6 +76,60 @@ public class Timeline {
     private final Map<String, TrackFlags> trackFlags = new LinkedHashMap<>();
 
     /**
+     * Read-only snapshot of {@link #trackFlags} taken once, right after this
+     * project finished loading (see {@link #snapshotBaselineTrackFlags()}), used by
+     * {@code ProjectStorage}'s concurrent-instance merge guard (Stage 1 P0 fix:
+     * "shows unlocked, acts locked"). Null until the snapshot is taken (a brand-new,
+     * never-loaded project has no baseline — nothing to diff against).
+     *
+     * <p>The merge needs to answer "did THIS session change track X's flags," which
+     * is NOT the same question as "does {@link #trackFlags} currently have an entry
+     * for X" — an entry can exist for reasons unrelated to a same-session edit
+     * (e.g. a value that happens to already be there from load, or written by an
+     * incidental code path), and a currently-empty {@link #trackFlags} for a track
+     * id that HAD a non-default entry at load time is itself a real edit (the user
+     * reverted it to default this session). Comparing the CURRENT value against
+     * this baseline value distinguishes both cases correctly, where "does an entry
+     * exist" alone cannot.</p>
+     */
+    @Nullable
+    private Map<String, TrackFlags> baselineTrackFlags;
+
+    /**
+     * Take the one-time baseline snapshot used by the concurrent-instance merge
+     * guard (see {@link #baselineTrackFlags}'s doc). Call exactly once, right after
+     * a project finishes loading (before any user edit can occur) — {@code
+     * ProjectStorage.load()} is the only caller. A no-op if already taken (so an
+     * accidental double-call, e.g. from a defensive re-check, can't overwrite a
+     * real baseline with a since-edited one).
+     */
+    public void snapshotBaselineTrackFlags() {
+        if (baselineTrackFlags != null) return;
+        Map<String, TrackFlags> snapshot = new LinkedHashMap<>();
+        for (Map.Entry<String, TrackFlags> e : trackFlags.entrySet()) {
+            snapshot.put(e.getKey(), e.getValue().copy());
+        }
+        baselineTrackFlags = snapshot;
+    }
+
+    /**
+     * True if {@code trackId}'s CURRENT flags differ from what they were at load
+     * time (see {@link #baselineTrackFlags}), i.e. this session has genuinely
+     * edited this track's collapsed/hidden/locked/muted/zIndex state. Always true
+     * if no baseline was ever taken (conservative default — treat as "already
+     * touched" so a merge guard skips it rather than risk overwriting an edit it
+     * can't actually verify is unrelated).
+     */
+    public boolean trackFlagsChangedSinceLoad(@NonNull String trackId) {
+        if (baselineTrackFlags == null) return true;
+        TrackFlags baseline = baselineTrackFlags.get(trackId);
+        TrackFlags current = trackFlags.get(trackId);
+        if (baseline == null && current == null) return false;
+        if (baseline == null || current == null) return true;
+        return !baseline.equalsFlags(current);
+    }
+
+    /**
      * Persistent, ordered list of USER-CREATED layer-track definitions (M10; PLAN
      * Part 7 row M10 track-membership design — the extension the M5 status note
      * asked for). {@link #getLayers()}/{@link #getAudioTracks()} produce one
@@ -536,6 +590,48 @@ public class Timeline {
     /** Drop any all-default entries (keeps the map/serialized block minimal). */
     public void pruneDefaultTrackFlags() {
         trackFlags.values().removeIf(TrackFlags::isDefault);
+    }
+
+    /**
+     * Drop any {@code trackFlags} entry whose id provably matches no current track
+     * (Stage 1 P0 fix follow-up: migrate/clean stale flag entries on project load).
+     * Conservative by design — this is user data (a locked/hidden/muted/collapsed
+     * choice), so an id is only dropped when it CANNOT possibly resolve to a track
+     * on the next {@link #getMasterTrack()}/{@link #getLayers()}/{@link
+     * #getAudioTracks()} call: not {@code "master"}, not the fixed {@code "text"}/
+     * {@code "audio"} defaults, not a {@link LayerTrackDef} id (a still-empty user-
+     * created track legitimately has no items yet but IS a real track — see
+     * {@link #createLayerTrack}), and not a {@code layerId} any current {@link
+     * TextOverlayItem}/{@link AudioClip} still references. Anything else is a
+     * leftover from a track that no longer exists (e.g. its last item was deleted
+     * without going through {@link #removeLayerTrackDef}, or — the scenario this
+     * milestone's bug was traced to — a stale flags entry left behind by an id
+     * scheme change). Returns the dropped ids (empty if nothing was stale) so the
+     * caller can log exactly what was removed rather than silently discarding it.
+     */
+    @NonNull
+    public List<String> pruneOrphanedTrackFlags() {
+        java.util.Set<String> liveIds = new java.util.HashSet<>();
+        liveIds.add("master");
+        liveIds.add("text");
+        liveIds.add("audio");
+        for (LayerTrackDef def : extraLayerTracks) liveIds.add(def.getId());
+        for (TextOverlayItem o : textOverlays) {
+            if (o.getLayerId() != null) liveIds.add(o.getLayerId());
+        }
+        for (AudioClip ac : audioClips) {
+            if (ac.getLayerId() != null) liveIds.add(ac.getLayerId());
+        }
+        List<String> dropped = new ArrayList<>();
+        java.util.Iterator<String> it = trackFlags.keySet().iterator();
+        while (it.hasNext()) {
+            String id = it.next();
+            if (!liveIds.contains(id)) {
+                dropped.add(id);
+                it.remove();
+            }
+        }
+        return dropped;
     }
 
     /**

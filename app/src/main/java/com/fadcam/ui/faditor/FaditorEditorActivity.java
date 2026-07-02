@@ -1097,6 +1097,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline = findViewById(R.id.editor_timeline_view);
         editorTitle = findViewById(R.id.editor_title);
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
+        editorTimeline.setLayerGestureCallback(layerGestureCallback());
         editorTimeline.setOnSegmentActionListener(new EditorTimelineView.OnSegmentActionListener() {
             @Override
             public void onSegmentSelected(int index) {
@@ -8332,6 +8333,167 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         syncTimelineOverlays();
         scheduleAutoSave();
+    }
+
+    /**
+     * M7 glue: {@link com.fadcam.ui.faditor.layers.LayerGestureController} owns the
+     * move/trim/delete gesture math for floating items on the M6 rows (PLAN Part 7 row
+     * M7); this callback only does what the activity is uniquely responsible for —
+     * recording exactly ONE undo step per completed gesture using the SAME undo action
+     * classes the on-canvas/existing-lane edits already use ({@code OverlayTransformAction}
+     * for text, {@code AudioTrimAction}/{@code LambdaAction} for audio), and re-running the
+     * existing refresh paths so BOTH surfaces (the row on the timeline AND the on-canvas
+     * {@code TextOverlayLayer} / the audio lane) stay coherent, since both read the SAME
+     * mutated payload objects (PLAN scope item 6).
+     */
+    private com.fadcam.ui.faditor.layers.LayerGestureController.Callback layerGestureCallback() {
+        return new com.fadcam.ui.faditor.layers.LayerGestureController.Callback() {
+
+            @Override
+            public void onGestureLive(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                // Immediate visual feedback on every surface, mirroring
+                // onOverlayRangeChanged/onAudioTrimChanged: refresh the timeline rows AND
+                // the on-canvas overlay layer (for text) so a row-drag looks identical to
+                // an on-canvas drag while it's happening.
+                if (item.getTextOverlay() != null && overlayLayer != null) {
+                    overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                }
+                syncTimelineOverlays();
+            }
+
+            @Override
+            public void onGestureFinished(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                    @NonNull com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind kind) {
+                if (project == null || editorTimeline == null) return;
+                com.fadcam.ui.faditor.layers.LayerGestureController ctrl =
+                        editorTimelineGestureController();
+                if (ctrl == null) return;
+
+                if (item.getTextOverlay() != null) {
+                    com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+                    com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = ctrl.getTextBeforeSnapshot();
+                    if (before == null) return;
+                    com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after = o.snapshotTransform();
+                    if (!before.matches(after)) {
+                        String desc = kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE
+                                ? "Move overlay" : "Overlay time range";
+                        undoManager.recordAction(new EditActions.OverlayTransformAction(
+                                o, before, after, desc));
+                    }
+                    if (overlayLayer != null) {
+                        overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                        overlayLayer.rebuild();
+                    }
+                } else if (item.getAudioClip() != null) {
+                    AudioClip ac = item.getAudioClip();
+                    long beforeOffset = ctrl.getAudioBeforeOffsetMs();
+                    long beforeIn = ctrl.getAudioBeforeInMs();
+                    long beforeOut = ctrl.getAudioBeforeOutMs();
+                    long afterOffset = ac.getOffsetMs();
+                    long afterIn = ac.getInPointMs();
+                    long afterOut = ac.getOutPointMs();
+                    if (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE) {
+                        if (beforeOffset != afterOffset) {
+                            undoManager.recordAction(new EditActions.LambdaAction("Move audio clip",
+                                    () -> ac.setOffsetMs(afterOffset),
+                                    () -> ac.setOffsetMs(beforeOffset)));
+                        }
+                    } else if (beforeIn != afterIn || beforeOut != afterOut) {
+                        undoManager.recordAction(new EditActions.AudioTrimAction(
+                                ac, beforeIn, beforeOut, afterIn, afterOut));
+                    }
+                    editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+                    prepareAudioPlayer();
+                }
+                syncTimelineOverlays();
+                scheduleAutoSave();
+            }
+
+            @Override
+            public void onItemDeleteRequested(@NonNull com.fadcam.ui.faditor.layers.Track track,
+                    @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                if (item.getTextOverlay() != null) {
+                    // Reuse the EXACT existing text/image-overlay delete confirmation
+                    // (see onOverlayLayerLongPressed above) so the affordance and undo
+                    // step are identical regardless of which surface triggered it.
+                    deleteTextOverlayWithConfirmation(item.getTextOverlay());
+                } else if (item.getAudioClip() != null) {
+                    deleteAudioClipWithConfirmation(item.getAudioClip());
+                }
+            }
+        };
+    }
+
+    /**
+     * Exposes {@code editorTimeline}'s M7 gesture controller for the callback above to
+     * read its before-gesture snapshot. Package-private accessor kept private/local since
+     * only this activity's callback needs it.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.layers.LayerGestureController editorTimelineGestureController() {
+        return editorTimeline != null ? editorTimeline.getLayerGestureController() : null;
+    }
+    // (editorTimeline itself may be null very early in onCreate, hence the null check above
+    // even though the view method itself is @NonNull once constructed.)
+
+    /**
+     * Delete confirmation for a text/image overlay triggered from a ROW gesture (M7).
+     * Mirrors {@code onOverlayLayerLongPressed} exactly (same dialog copy, same
+     * {@code LambdaAction} undo pattern) so the two entry points are indistinguishable
+     * to the user and to undo history.
+     */
+    private void deleteTextOverlayWithConfirmation(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (project == null) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(o.isImage() ? "Remove image overlay?" : "Remove text overlay?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Remove", (d, w) -> {
+                    project.getTimeline().removeTextOverlay(o);
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            o.isImage() ? "Delete image overlay" : "Delete text overlay",
+                            () -> project.getTimeline().removeTextOverlay(o),
+                            () -> project.getTimeline().addTextOverlay(o)));
+                    syncTimelineOverlays();
+                    if (overlayLayer != null) {
+                        overlayLayer.setData(project.getTimeline().getTextOverlays(), overlayLayerCallback());
+                        overlayLayer.invalidate();
+                    }
+                    editorTimeline.invalidate();
+                    scheduleAutoSave();
+                    Toast.makeText(FaditorEditorActivity.this, "Overlay removed", Toast.LENGTH_SHORT).show();
+                })
+                .show();
+    }
+
+    /**
+     * Delete confirmation for an audio clip triggered from a ROW gesture (M7). Mirrors
+     * {@code deleteSelectedAudioClip} exactly (same {@code DeleteAudioClipAction} undo,
+     * same audio-player re-prepare) behind a confirmation dialog (row long-press has no
+     * dedicated trash button to route through, unlike the selected-audio-clip + toolbar
+     * trash-icon path).
+     */
+    private void deleteAudioClipWithConfirmation(@NonNull AudioClip clip) {
+        if (project == null) return;
+        Timeline timeline = project.getTimeline();
+        int index = timeline.getAudioClips().indexOf(clip);
+        if (index < 0) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Remove audio clip?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Remove", (d, w) -> {
+                    undoManager.recordAction(new EditActions.DeleteAudioClipAction(timeline, clip, index));
+                    timeline.removeAudioClip(clip);
+                    editorTimeline.setAudioClips(timeline.getAudioClips());
+                    syncTimelineOverlays();
+                    editorTimeline.invalidate();
+                    releaseAudioPlayer();
+                    if (timeline.hasAudioClips()) {
+                        prepareAudioPlayer();
+                    }
+                    scheduleAutoSave();
+                    Toast.makeText(FaditorEditorActivity.this, "Audio clip removed", Toast.LENGTH_SHORT).show();
+                })
+                .show();
     }
 
     /**

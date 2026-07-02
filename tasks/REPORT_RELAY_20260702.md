@@ -58,3 +58,11 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   Hide/lock/mute take effect at TIMELINE level only; preview/export wiring = M-COMP-1/M-EXPORT-1 (TODOs at
   each toggle site). Device checklist: caret collapse, toggle icons/dim/lock-swallow, row-region vertical
   scroll, pinned headers under horizontal scroll, toggle undo, plain-project zero-change.
+- (2026-07-02 ~01:15) **M7 LANDED, compile-green** (Sonnet). `layers/LayerGestureController.java` (324 lines, all
+  gesture logic) + LayerRowRenderer `hitTestItem` (+65); EditorTimelineView +65 delegation-only;
+  FaditorEditorActivity +162 (undo recording + delete confirmations + refresh glue). Gestures mutate PERSISTENT
+  payloads only (text: start/end shifted or trimmed w/ 250ms min; audio: offsetMs move, in/out trim mirroring
+  doAudioTrimDrag); undo = one step per gesture via existing action types; long-press item = existing delete
+  confirmation flows; locked/hidden rows return null from hit-test (inert); master row structurally excluded.
+  Device checklist in agent report §6 (drag/trim/delete text+audio on rows, undo each, locked/hidden inert,
+  master unaffected).

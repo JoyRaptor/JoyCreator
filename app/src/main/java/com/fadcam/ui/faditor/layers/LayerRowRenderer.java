@@ -76,6 +76,19 @@ public final class LayerRowRenderer {
         }
     }
 
+    /** Which part of an item block a touch landed on (M7). */
+    public enum ItemZone { BODY, LEFT_HANDLE, RIGHT_HANDLE }
+
+    /** Result of a row-BODY item hit-test (M7): which track + item + zone. */
+    public static final class ItemHit {
+        @NonNull public final Track track;
+        @NonNull public final TimedItem item;
+        @NonNull public final ItemZone zone;
+        ItemHit(@NonNull Track track, @NonNull TimedItem item, @NonNull ItemZone zone) {
+            this.track = track; this.item = item; this.zone = zone;
+        }
+    }
+
     private final float density;
     private final Paint headerBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rowBodyBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -414,6 +427,58 @@ public final class LayerRowRenderer {
             }
         }
         return false;
+    }
+
+    /** Half-width (px) of an item's edge trim-handle hit-zone, shared with the item-hit-test. */
+    private static final float ITEM_HANDLE_HALF_WIDTH_DP = 10f;
+
+    /**
+     * Hit-test a DOWN/tap at content coordinates against the item blocks drawn by
+     * {@link #drawExpandedItems} in the last {@link #layout} call (M7; PLAN §6.3).
+     * Only EXPANDED, unlocked, non-hidden rows are eligible — a collapsed row's thin
+     * summary strip is not individually editable, a locked track ignores all row-body
+     * gestures (PLAN Part 7 M7 scope item 3), and a hidden track's items are not
+     * interactive (same scope item). Returns {@code null} when the touch is outside the
+     * row region, on a track header, or misses every item's body/handle zone (a miss
+     * inside the row body is still "within the row" — callers use
+     * {@link #isWithinRowRegion} first to decide whether to fall through at all).
+     *
+     * @param selectedItemId when non-null, trim-handle zones are only hit-tested for
+     *                       the item with this id (mirrors the existing audio/overlay
+     *                       convention: handles only appear on the selected item).
+     */
+    @Nullable
+    public ItemHit hitTestItem(float x, float y, float topPx, long totalMs,
+                                @NonNull TimeToX timeToX, @Nullable String selectedItemId) {
+        float localY = y - topPx + scrollOffsetPx;
+        if (y < topPx || y > topPx + viewportHeightPx) return null;
+        float handleHalf = ITEM_HANDLE_HALF_WIDTH_DP * density;
+        for (RowLayout row : rows) {
+            if (localY < row.bodyRect.top || localY > row.bodyRect.bottom) continue;
+            Track t = row.track;
+            if (t.isCollapsed() || t.isLocked() || t.isHidden()) return null;
+            float top = row.bodyRect.top + 3f * density;
+            float bottom = row.bodyRect.bottom - 3f * density;
+            if (localY < top || localY > bottom) return null;
+            for (TimedItem item : t.getItems()) {
+                float x0 = timeToX.map(item.getTimelineStartMs());
+                long dur = item.getDisplayDurationMs(totalMs);
+                float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
+                if (x < x0 - handleHalf || x > x1 + handleHalf) continue;
+                boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
+                if (selected && x <= x0 + handleHalf) {
+                    return new ItemHit(t, item, ItemZone.LEFT_HANDLE);
+                }
+                if (selected && x >= x1 - handleHalf) {
+                    return new ItemHit(t, item, ItemZone.RIGHT_HANDLE);
+                }
+                if (x >= x0 && x <= x1) {
+                    return new ItemHit(t, item, ItemZone.BODY);
+                }
+            }
+            return null; // inside this row's body but not on any item
+        }
+        return null;
     }
 
     /** Scroll the row region by {@code dy} px (clamped); returns true if it consumed the scroll. */

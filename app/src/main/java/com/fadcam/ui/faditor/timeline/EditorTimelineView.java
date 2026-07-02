@@ -231,6 +231,41 @@ public class EditorTimelineView extends View {
     private boolean m6RowDragActive = false;
     private float m6RowLastY = 0f;
 
+    // ── M7 floating-item gestures (extract-on-touch: all logic in LayerGestureController) ──
+    private com.fadcam.ui.faditor.layers.LayerGestureController layerGestureController;
+    /** True while a move/trim gesture on a row ITEM (not header, not empty space) is in progress. */
+    private boolean m7ItemGestureActive = false;
+    private com.fadcam.ui.faditor.layers.LayerGestureController.Callback layerGestureCallback;
+
+    public void setLayerGestureCallback(
+            @Nullable com.fadcam.ui.faditor.layers.LayerGestureController.Callback cb) {
+        this.layerGestureCallback = cb;
+        if (layerRowRenderer != null) {
+            layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
+                    layerRowRenderer, cb != null ? cb : NOOP_GESTURE_CALLBACK);
+        }
+    }
+
+    /**
+     * Exposes the M7 gesture controller so the activity's {@code Callback} can read the
+     * before-gesture snapshot captured at drag-start (PLAN Part 7 row M7 undo contract).
+     */
+    @NonNull
+    public com.fadcam.ui.faditor.layers.LayerGestureController getLayerGestureController() {
+        return layerGestureController;
+    }
+
+    private static final com.fadcam.ui.faditor.layers.LayerGestureController.Callback
+            NOOP_GESTURE_CALLBACK = new com.fadcam.ui.faditor.layers.LayerGestureController.Callback() {
+        @Override public void onGestureFinished(
+                @NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                @NonNull com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind kind) {}
+        @Override public void onGestureLive(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {}
+        @Override public void onItemDeleteRequested(
+                @NonNull com.fadcam.ui.faditor.layers.Track track,
+                @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {}
+    };
+
     /** Callback for a tap on a track row-header icon (M6; glue lives in FaditorEditorActivity). */
     public interface OnTrackHeaderActionListener {
         void onTrackHeaderAction(@NonNull com.fadcam.ui.faditor.layers.Track track,
@@ -662,6 +697,8 @@ public class EditorTimelineView extends View {
         audioCornerPx = AUDIO_CORNER_DP * density;
         audioWaveBarGapPx = AUDIO_WAVEFORM_BAR_GAP_DP * density;
         layerRowRenderer = new com.fadcam.ui.faditor.layers.LayerRowRenderer(density);
+        layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
+                layerRowRenderer, NOOP_GESTURE_CALLBACK);
 
         rulerBgPaint.setColor(COLOR_RULER_BG);
         rulerBgPaint.setStyle(Paint.Style.FILL);
@@ -3720,9 +3757,11 @@ public class EditorTimelineView extends View {
     }
 
     /**
-     * M6 touch hook (extract-on-touch: the actual hit-testing lives in
-     * {@link com.fadcam.ui.faditor.layers.LayerRowRenderer}). Returns true if the
-     * touch was consumed by the multi-row Track UI.
+     * M6/M7 touch hook (extract-on-touch: header hit-testing lives in
+     * {@link com.fadcam.ui.faditor.layers.LayerRowRenderer}; row-BODY item gestures
+     * — move/trim/delete — live in {@link com.fadcam.ui.faditor.layers.LayerGestureController}
+     * (PLAN Part 7 row M7)). Returns true if the touch was consumed by the multi-row
+     * Track UI.
      */
     private boolean handleM6RowTouch(float scrolledX, float y) {
         float topPx = getM6RowsTopPx();
@@ -3738,11 +3777,17 @@ public class EditorTimelineView extends View {
             return true;
         }
         // Not a header hit — the tap landed in a row's body or empty row space.
-        // Row-body item editing (move/trim/delete) is M7, out of scope here, so we
-        // just arm a vertical-drag-to-scroll for the row region (when content
-        // exceeds the capped viewport) and otherwise consume the touch (prevents
-        // it from falling through and misfiring against unrelated segment/
-        // transition hit-tests at this Y).
+        // M7: hand it to LayerGestureController first (move/trim an item, or arm a
+        // long-press-to-delete). It returns false only for a miss (empty row space,
+        // a collapsed/locked/hidden row, or no item under the touch) — in that case
+        // fall back to M6's vertical-drag-to-scroll so the row region still scrolls
+        // and the touch is still consumed (prevents it falling through to unrelated
+        // segment/transition hit-tests at this Y).
+        if (layerGestureController.onRowBodyDown(scrolledX, y, topPx, totalEffectiveMs, this::timeToX)) {
+            m7ItemGestureActive = true;
+            invalidate();
+            return true;
+        }
         m6RowDragActive = true;
         m6RowLastY = y;
         return true;
@@ -3887,6 +3932,12 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onMove(float x, float y) {
+        if (m7ItemGestureActive) {
+            float scrolledX = x + scrollOffsetPx;
+            layerGestureController.onRowBodyMove(scrolledX, y, totalEffectiveMs, this::xToTime);
+            invalidate();
+            return true;
+        }
         if (m6RowDragActive) {
             layerRowRenderer.scrollBy(m6RowLastY - y);
             m6RowLastY = y;
@@ -3964,6 +4015,12 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
+        if (m7ItemGestureActive) {
+            m7ItemGestureActive = false;
+            layerGestureController.onRowBodyUp();
+            invalidate();
+            return true;
+        }
         if (m6RowDragActive) {
             m6RowDragActive = false;
             return true;

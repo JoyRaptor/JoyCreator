@@ -7751,6 +7751,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Popup reference is needed inside row click handlers to dismiss on tap;
         // created after the content view, so use a holder filled in once built.
         final android.widget.PopupWindow[] popupHolder = new android.widget.PopupWindow[1];
+        // Guards against the spring-out animation being triggered twice (e.g. a row tap
+        // that also races with an outside-touch auto-dismiss callback).
+        final boolean[] dismissAnimStarted = new boolean[1];
+        // Filled in below once `card` (the animated content root) exists; row taps call this
+        // instead of popup.dismiss() directly so the "shrink back into the button" animation
+        // gets to play. The actual jump (undo/redo) runs immediately/synchronously — only the
+        // popup's own visual dismissal is deferred behind the short reverse animation.
+        final Runnable[] animateOutAndDismiss = new Runnable[1];
 
         // ── Redo rows (top), numbered +N .. +1 top-to-bottom ──
         for (int i = redoEntries.size() - 1; i >= 0; i--) {
@@ -7758,8 +7766,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int stepsForward = i + 1; // how many redo() calls to reach this entry
             String label = "+" + stepsForward;
             list.addView(buildHistoryRow(label, entry.getDescription(), false, () -> {
-                if (popupHolder[0] != null) popupHolder[0].dismiss();
                 jumpUndoRedoBy(stepsForward, true);
+                if (animateOutAndDismiss[0] != null) animateOutAndDismiss[0].run();
+                else if (popupHolder[0] != null) popupHolder[0].dismiss();
             }));
         }
 
@@ -7775,8 +7784,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int stepsBack = undoEntriesOldestFirst.size() - i; // how many undo() calls to reach this entry
             String label = "-" + stepsBack;
             list.addView(buildHistoryRow(label, entry.getDescription(), true, () -> {
-                if (popupHolder[0] != null) popupHolder[0].dismiss();
                 jumpUndoRedoBy(stepsBack, false);
+                if (animateOutAndDismiss[0] != null) animateOutAndDismiss[0].run();
+                else if (popupHolder[0] != null) popupHolder[0].dismiss();
             }));
         }
 
@@ -7809,6 +7819,68 @@ public class FaditorEditorActivity extends AppCompatActivity {
         popup.setElevation(8 * dp);
         popupHolder[0] = popup;
 
+        // ── Spring-from-button pop-in / shrink-back-out animation ──
+        // `card` is the whole visible content root; it's positioned at a FIXED top-left
+        // screen offset by showAtLocation() below (loc[0] - widthPx/2 + anchor.width/2,
+        // loc[1] - maxHeightPx - 16dp), regardless of its actual wrap-content height, so
+        // the pivot can be computed from that fixed offset without waiting for layout.
+        // Placing the pivot at the anchor button's on-screen center (translated into
+        // card-local coordinates) makes the scale transform originate from the button,
+        // so the popup visually springs out of it and shrinks back into it.
+        final long POP_IN_MS = 200L;
+        final long POP_OUT_MS = 150L;
+        final float START_SCALE = 0.3f;
+        int[] anchorLoc = new int[2];
+        anchor.getLocationOnScreen(anchorLoc);
+        float cardScreenLeft = anchorLoc[0] - (widthPx / 2f) + (anchor.getWidth() / 2f);
+        float cardScreenTop = anchorLoc[1] - maxHeightPx - (16f * dp);
+        float pivotX = (anchorLoc[0] + anchor.getWidth() / 2f) - cardScreenLeft;
+        float pivotY = (anchorLoc[1] + anchor.getHeight() / 2f) - cardScreenTop;
+        card.setPivotX(pivotX);
+        card.setPivotY(pivotY);
+        card.setScaleX(START_SCALE);
+        card.setScaleY(START_SCALE);
+        card.setAlpha(0f);
+
+        // Guards double-triggering the reverse animation from two dismiss paths
+        // (row tap + outside-touch/system dismiss racing each other).
+        animateOutAndDismiss[0] = () -> {
+            if (dismissAnimStarted[0]) return;
+            dismissAnimStarted[0] = true;
+            android.animation.ObjectAnimator outX = android.animation.ObjectAnimator.ofFloat(
+                    card, View.SCALE_X, card.getScaleX(), START_SCALE);
+            android.animation.ObjectAnimator outY = android.animation.ObjectAnimator.ofFloat(
+                    card, View.SCALE_Y, card.getScaleY(), START_SCALE);
+            android.animation.ObjectAnimator outA = android.animation.ObjectAnimator.ofFloat(
+                    card, View.ALPHA, card.getAlpha(), 0f);
+            android.animation.AnimatorSet outSet = new android.animation.AnimatorSet();
+            outSet.playTogether(outX, outY, outA);
+            outSet.setDuration(POP_OUT_MS);
+            outSet.setInterpolator(new android.view.animation.AccelerateInterpolator());
+            outSet.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(android.animation.Animator animation) {
+                    if (popupHolder[0] != null) popupHolder[0].dismiss();
+                }
+            });
+            outSet.start();
+        };
+        // Outside touch would otherwise call PopupWindow's own dismiss() directly, which
+        // removes the window instantly with no chance to animate it out. Intercept it via
+        // ACTION_OUTSIDE (delivered here because setOutsideTouchable(true)): consuming it
+        // (return true → suppress the default dismiss) and routing through the same
+        // animate-out-then-dismiss path as a row tap keeps the shrink-back animation
+        // consistent regardless of how the popup is closed.
+        // (System back-press still dismisses instantly — PopupWindow handles that key event
+        // internally in its decor view with no public pre-dismiss hook to intercept; a minor,
+        // accepted gap for this polish-level animation.)
+        popup.setTouchInterceptor((v, event) -> {
+            if (event.getAction() == android.view.MotionEvent.ACTION_OUTSIDE) {
+                animateOutAndDismiss[0].run();
+                return true;
+            }
+            return false;
+        });
+
         // Cap the scroll view's height so long histories (up to 50 entries) scroll
         // rather than overflowing off-screen.
         scroll.getViewTreeObserver().addOnGlobalLayoutListener(
@@ -7829,6 +7901,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 scroll.smoothScrollTo(0, Math.max(0, targetY));
                             });
                         }
+                        // Pop-in now that the card has its real (possibly height-capped) size.
+                        android.animation.ObjectAnimator inX = android.animation.ObjectAnimator.ofFloat(
+                                card, View.SCALE_X, START_SCALE, 1f);
+                        android.animation.ObjectAnimator inY = android.animation.ObjectAnimator.ofFloat(
+                                card, View.SCALE_Y, START_SCALE, 1f);
+                        android.animation.ObjectAnimator inA = android.animation.ObjectAnimator.ofFloat(
+                                card, View.ALPHA, 0f, 1f);
+                        android.animation.AnimatorSet inSet = new android.animation.AnimatorSet();
+                        inSet.playTogether(inX, inY, inA);
+                        inSet.setDuration(POP_IN_MS);
+                        inSet.setInterpolator(new android.view.animation.OvershootInterpolator(1.6f));
+                        inSet.start();
                     }
                 });
 
@@ -10731,10 +10815,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Apply {@code styleId} (base style, not keyframes) to every video clip and every
-     * audio clip (that has captions data) in the timeline, optionally also copying caption
-     * position and/or size from the long-pressed source clip. Recorded as a single undoable
-     * step that restores each clip's prior style/position/size on undo.
+     * Apply {@code styleId} to every video clip and every audio clip (that has captions
+     * data) in the timeline, optionally also copying caption position and/or size from the
+     * long-pressed source clip. Recorded as a single undoable step that restores each clip's
+     * prior style/position/size on undo.
+     * <p>
+     * Per-clip caption-style KEYFRAMES take priority over the base style at render time
+     * (see {@link Clip#captionStyleAtClipMs(long)}, used by both the live preview and
+     * {@code ExportManager}/{@code CompositeExportOverlay}). If a clip has any keyframes,
+     * merely changing its base style is invisible — the keyframed value keeps winning. So
+     * that "apply to all" actually makes the chosen style show on every clip, any existing
+     * caption-style keyframes on the video targets are cleared as part of this same step
+     * (and restored verbatim on undo).
      */
     private void applyCaptionStyleToAllClips(@NonNull String styleId,
                                               boolean copyPosition, boolean copySize,
@@ -10747,9 +10839,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final java.util.List<Clip> videoTargets = new java.util.ArrayList<>(clips);
         final java.util.List<String> videoBeforeStyle = new java.util.ArrayList<>();
         final java.util.List<float[]> videoBeforePosSize = new java.util.ArrayList<>();
+        final java.util.List<java.util.List<Clip.CaptionStyleKeyframe>> videoBeforeKeyframes =
+                new java.util.ArrayList<>();
         for (Clip c : videoTargets) {
             videoBeforeStyle.add(c.getCaptionStyleId());
             videoBeforePosSize.add(new float[]{c.getCaptionCenterX(), c.getCaptionCenterY(), c.getCaptionSizeFraction()});
+            videoBeforeKeyframes.add(snapshotCaptionStyleKeyframes(c));
         }
         final java.util.List<AudioClip> audioTargets = new java.util.ArrayList<>(audioClips);
         final java.util.List<String> audioBeforeStyle = new java.util.ArrayList<>();
@@ -10758,6 +10853,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             audioBeforeStyle.add(a.getCaptionStyleId());
             audioBeforePosSize.add(new float[]{a.getCaptionCenterX(), a.getCaptionCenterY(), a.getCaptionSizeFraction()});
         }
+        // Was keyframe-editing mode active for the clip currently selected? If that clip's
+        // keyframes get cleared below, mode gets turned off the same way deleteCurrentCaptionStyleKeyframe() does.
+        final Clip selectedAtApplyTime = getSelectedClip();
 
         Runnable applyForward = () -> {
             for (int i = 0; i < videoTargets.size(); i++) {
@@ -10765,6 +10863,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 c.setCaptionStyleId(styleId);
                 if (copyPosition) c.setCaptionCenter(srcCenterX, srcCenterY);
                 if (copySize) c.setCaptionSizeFraction(srcSizeFraction);
+                // Clear style keyframes so the newly-applied base style actually renders —
+                // otherwise a keyframed clip keeps showing its old keyframed style everywhere
+                // the keyframe track covers (preview AND export both read keyframes first).
+                if (c.hasCaptionStyleKeyframes()) {
+                    c.clearCaptionStyleKeyframes();
+                    if (c == selectedAtApplyTime) captionStyleKeyframeMode = false;
+                }
             }
             for (int i = 0; i < audioTargets.size(); i++) {
                 AudioClip a = audioTargets.get(i);
@@ -10781,6 +10886,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 float[] ps = videoBeforePosSize.get(i);
                 if (copyPosition) c.setCaptionCenter(ps[0], ps[1]);
                 if (copySize) c.setCaptionSizeFraction(ps[2]);
+                c.setCaptionStyleKeyframes(videoBeforeKeyframes.get(i));
+                // Undo restores the keyframes that existed before apply-to-all, so restore
+                // keyframe-editing mode to match (it was only turned off if we cleared them).
+                if (c == selectedAtApplyTime && c.hasCaptionStyleKeyframes()) {
+                    captionStyleKeyframeMode = true;
+                }
             }
             for (int i = 0; i < audioTargets.size(); i++) {
                 AudioClip a = audioTargets.get(i);
@@ -10816,6 +10927,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             bindAudioCaptionData(ac);
         }
         if (editorTimeline != null) editorTimeline.invalidate();
+        // Bulk apply may have cleared the selected clip's caption-style keyframes (or undo may
+        // have restored them) — keep the keyframe-dot drawer in sync if it's showing.
+        refreshCaptionKeyframeDrawer();
     }
 
     /** Toggle the caption customization drawer. */

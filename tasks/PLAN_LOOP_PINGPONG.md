@@ -80,4 +80,12 @@ on this track at a time; the 14:25 scheduled session should take rebrand/dedup/M
 - [x] L1 (2026-07-02, device-verified Note 9 sandbox bdd51919…: gapless wrap + exhaustion freeze-free,
   pause/trim/undo preserved, seam-clobber fix holds under loops; see handoff.md for full evidence and the
   one open follow-up (totalEffectiveMs() loop-duration bug, pre-existing, spawned separately) — L2/L3 untouched)
-- [ ] L2  - [ ] L3
+- [x] L2 (2026-07-02 eve, commit 9d9539c, device-verified: ReversedSegmentCache w/ libx264 forced —
+  Note 9 h264_mediacodec REJECTS these HEVC sources (Error 0xffffffc3), remember this for any future
+  in-app encode; 3.5s span bakes in ~6s; not-yet-baked = project stays legacy until bake completes then
+  auto-promotes; export uses SAME baked file/formula, mirror hack + setPlaybackSpeed(-1f) DELETED; warm-up
+  fix = totalEffectiveMs counts loop extensions, closing the audio-tail resume bug AND the totalEffectiveMs
+  follow-up together. KNOWN-WEAK: >30s guard logic-verified only; preview wrap not screen-captured
+  (screenrecord 0-byte flake) — user eyeball owed; reverse-leg AUDIO unheard (test clip muted); dead fields
+  loopPingPongForward/WallMs left inert → L3 cleanup)
+- [ ] L3 (also fold in: delete dead ping-pong fields; live numeric readout on extension drag)

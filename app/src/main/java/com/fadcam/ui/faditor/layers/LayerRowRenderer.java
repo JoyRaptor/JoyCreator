@@ -110,14 +110,24 @@ public final class LayerRowRenderer {
 
     private static final class RowLayout {
         final Track track;
+        /** True if this row came from the {@code layers} (floating) list, false if {@code audioTracks} (M10). */
+        final boolean floatingBand;
         final RectF headerRect = new RectF();
         final RectF bodyRect = new RectF();
         final RectF caretRect = new RectF();
         final RectF hideRect = new RectF();
         final RectF lockRect = new RectF();
         final RectF muteRect = new RectF();
-        RowLayout(Track t) { track = t; }
+        RowLayout(Track t, boolean floatingBand) { track = t; this.floatingBand = floatingBand; }
     }
+
+    /** Height (px) of the "drop here to create a new layer" zone drawn below the last row during a drag (M10). */
+    private static final float NEW_LAYER_ZONE_DP = 30f;
+    private static final int COLOR_NEW_LAYER_ZONE = 0x448C3DFA;
+    private static final int COLOR_NEW_LAYER_ZONE_ARMED = 0xAA8C3DFA;
+    private static final int COLOR_DROP_TARGET_RING = 0xFFFFFFFF;
+    private final RectF newLayerZoneRect = new RectF();
+    private final Paint dropTargetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public LayerRowRenderer(float density) {
         this.density = density;
@@ -132,6 +142,9 @@ public final class LayerRowRenderer {
         itemLabelPaint.setTextSize(9f * density);
         itemLabelPaint.setColor(0xFFFFFFFF);
         stripPaint.setStyle(Paint.Style.FILL);
+        dropTargetPaint.setStyle(Paint.Style.STROKE);
+        dropTargetPaint.setStrokeWidth(2f * density);
+        dropTargetPaint.setColor(COLOR_DROP_TARGET_RING);
     }
 
     /** True when there is nothing to draw (plain single-track project — PLAN scope item 6). */
@@ -180,13 +193,32 @@ public final class LayerRowRenderer {
     public void layout(@NonNull Canvas canvas, @NonNull List<Track> layers,
                         @NonNull List<Track> audioTracks, float topPx, float widthPx,
                         float hScrollOffsetPx, long totalMs, @NonNull TimeToX timeToX) {
+        layout(canvas, layers, audioTracks, topPx, widthPx, hScrollOffsetPx, totalMs, timeToX, false, false);
+    }
+
+    /**
+     * M10 overload: {@code dragActive} draws the "drop here to create a new layer" zone
+     * below the last row (PLAN Part 7 row M10 scope 2); {@code dragOverNewLayerZone}
+     * highlights it as armed (finger currently over it) vs merely visible.
+     */
+    public void layout(@NonNull Canvas canvas, @NonNull List<Track> layers,
+                        @NonNull List<Track> audioTracks, float topPx, float widthPx,
+                        float hScrollOffsetPx, long totalMs, @NonNull TimeToX timeToX,
+                        boolean dragActive, boolean dragOverNewLayerZone) {
         rows.clear();
+        newLayerZoneRect.setEmpty();
         if (isEmpty(layers, audioTracks)) { contentHeightPx = 0f; return; }
 
         float rowGap = ROW_GAP_DP * density;
         float y = TOP_GAP_DP * density;
-        for (Track t : layers) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap);
-        for (Track t : audioTracks) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap);
+        for (Track t : layers) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, true);
+        for (Track t : audioTracks) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, false);
+        if (dragActive) {
+            float zoneH = NEW_LAYER_ZONE_DP * density;
+            newLayerZoneRect.set(hScrollOffsetPx + HEADER_WIDTH_DP * density, y,
+                    hScrollOffsetPx + widthPx, y + zoneH);
+            y += zoneH + rowGap;
+        }
         contentHeightPx = y;
         viewportHeightPx = Math.min(contentHeightPx, MAX_VISIBLE_ROWS_DP * density);
         scrollOffsetPx = clampScroll(scrollOffsetPx);
@@ -197,7 +229,22 @@ public final class LayerRowRenderer {
         for (RowLayout row : rows) {
             drawRow(canvas, row, totalMs, timeToX);
         }
+        if (dragActive && !newLayerZoneRect.isEmpty()) {
+            drawNewLayerZone(canvas, dragOverNewLayerZone);
+        }
         canvas.restore();
+    }
+
+    private void drawNewLayerZone(@NonNull Canvas canvas, boolean armed) {
+        stripPaint.setColor(armed ? COLOR_NEW_LAYER_ZONE_ARMED : COLOR_NEW_LAYER_ZONE);
+        canvas.drawRoundRect(newLayerZoneRect, 4f * density, 4f * density, stripPaint);
+        if (armed) {
+            canvas.drawRoundRect(newLayerZoneRect, 4f * density, 4f * density, dropTargetPaint);
+        }
+        String label = "+ New layer";
+        float ty = newLayerZoneRect.centerY() + itemLabelPaint.getTextSize() / 3f;
+        itemLabelPaint.setColor(0xFFFFFFFF);
+        canvas.drawText(label, newLayerZoneRect.left + 8f * density, ty, itemLabelPaint);
     }
 
     /**
@@ -206,8 +253,9 @@ public final class LayerRowRenderer {
      *                        the caller hit-tests against (see {@link #hitTestHeader}) even
      *                        though it is drawn pinned to the screen edge.
      */
-    private float addRow(@NonNull Track t, float y, float hScrollOffsetPx, float widthPx, float rowGap) {
-        RowLayout row = new RowLayout(t);
+    private float addRow(@NonNull Track t, float y, float hScrollOffsetPx, float widthPx,
+                          float rowGap, boolean floatingBand) {
+        RowLayout row = new RowLayout(t, floatingBand);
         float h = rowHeightPx(t);
         row.headerRect.set(hScrollOffsetPx, y, hScrollOffsetPx + HEADER_WIDTH_DP * density, y + h);
         row.bodyRect.set(hScrollOffsetPx + HEADER_WIDTH_DP * density, y, hScrollOffsetPx + widthPx, y + h);
@@ -263,7 +311,21 @@ public final class LayerRowRenderer {
         } else {
             drawExpandedItems(canvas, row, t, totalMs, timeToX);
         }
+
+        // M10: highlight this row when a cross-row item drag is currently hovering it
+        // (PLAN Part 7 row M10 scope 1 "item block follows the finger across rows").
+        if (dragTargetTrackId != null && dragTargetTrackId.equals(t.getId())) {
+            RectF ring = new RectF(row.bodyRect);
+            ring.inset(1f * density, 1f * density);
+            canvas.drawRoundRect(ring, 3f * density, 3f * density, dropTargetPaint);
+        }
     }
+
+    /** Id of the track row currently highlighted as a cross-row drag target, or null (M10). */
+    @Nullable private String dragTargetTrackId;
+
+    /** Set/clear which row (by track id) should render the drag-target highlight ring (M10). */
+    public void setDragTargetTrackId(@Nullable String trackId) { this.dragTargetTrackId = trackId; }
 
     private void drawCaret(@NonNull Canvas canvas, @NonNull RectF r, boolean collapsed) {
         caretPath.reset();
@@ -427,6 +489,54 @@ public final class LayerRowRenderer {
             }
         }
         return false;
+    }
+
+    // ── M10: drag-between-layers + drop-to-new-layer geometry queries ─────────
+
+    /**
+     * The track whose ROW (header or body, expanded or collapsed) contains content-space
+     * {@code y}, or {@code null} if {@code y} is outside every row (e.g. in the gap
+     * between rows, or in the new-layer zone — use {@link #isWithinNewLayerZone} for
+     * that). Used by {@link LayerGestureController} to find the cross-row drag target
+     * as the finger moves, independent of lock/hidden state (the caller decides whether
+     * a locked/hidden row is a valid drop target — PLAN Part 7 M10 scope 5: "no drags
+     * in or out" of locked/hidden rows).
+     */
+    @Nullable
+    public Track rowTrackAt(float y, float topPx) {
+        float localY = y - topPx + scrollOffsetPx;
+        for (RowLayout row : rows) {
+            if (localY >= row.headerRect.top && localY <= row.bodyRect.bottom) {
+                return row.track;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * True if this track's row came from the {@code layers} (floating TEXT/STICKER/
+     * IMAGE/VIDEO) band rather than {@code audioTracks} — used to decide whether a
+     * cross-row drag is even eligible (an item can only move within its own band;
+     * PLAN Part 7 row M10 does not scope cross-band moves) and which {@link TrackKind}
+     * a same-band "new layer" drop should create.
+     */
+    public boolean isFloatingBandRow(@NonNull Track track) {
+        for (RowLayout row : rows) {
+            if (row.track.getId().equals(track.getId())) return row.floatingBand;
+        }
+        return true;
+    }
+
+    /**
+     * True if content-space {@code y} falls within the "drop here to create a new
+     * layer" zone drawn by {@link #layout} when {@code dragActive} was true (only
+     * meaningful right after such a call — the zone rect is empty otherwise, so this
+     * always returns false when no drag is active).
+     */
+    public boolean isWithinNewLayerZone(float y, float topPx) {
+        if (newLayerZoneRect.isEmpty()) return false;
+        float localY = y - topPx + scrollOffsetPx;
+        return localY >= newLayerZoneRect.top && localY <= newLayerZoneRect.bottom;
     }
 
     /** Half-width (px) of an item's edge trim-handle hit-zone, shared with the item-hit-test. */

@@ -11,6 +11,7 @@ import com.fadcam.ui.faditor.layers.Track;
 import com.fadcam.ui.faditor.layers.TrackKind;
 import com.fadcam.ui.faditor.layers.TimedItem;
 import com.fadcam.ui.faditor.layers.TrackFlags;
+import com.fadcam.ui.faditor.layers.LayerTrackDef;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -73,6 +74,21 @@ public class Timeline {
      */
     @NonNull
     private final Map<String, TrackFlags> trackFlags = new LinkedHashMap<>();
+
+    /**
+     * Persistent, ordered list of USER-CREATED layer-track definitions (M10; PLAN
+     * Part 7 row M10 track-membership design — the extension the M5 status note
+     * asked for). {@link #getLayers()}/{@link #getAudioTracks()} produce one
+     * {@link Track} view per distinct {@link TextOverlayItem#getLayerId()}/
+     * {@code AudioClip#getLayerId()} value found among the flat lists, PLUS one
+     * entry here for every still-empty user-created track (so a brand-new empty
+     * track survives a save/reload before anything is dragged into it). Empty for
+     * every project that predates M10 or never used it — in that case grouping
+     * degrades to exactly the M5/M6 "every item → ONE fixed text/audio track"
+     * behavior (see the grouping methods below).
+     */
+    @NonNull
+    private final List<LayerTrackDef> extraLayerTracks = new ArrayList<>();
 
     public Timeline() {
         this.clips = new ArrayList<>();
@@ -579,43 +595,159 @@ public class Timeline {
     }
 
     /**
-     * Build the floating layer tracks above the master (PLAN §2.2). For M5 this is
-     * exactly ONE TEXT layer wrapping every {@link #textOverlays} item (each already
-     * carries its own start/end + keyframes). Waveform overlays intentionally stay
-     * clip-attached and are NOT modelled as a track. Freshly rebuilt on every call;
-     * persisted flags (M6) are re-applied per track.
+     * Build the floating layer tracks above the master (PLAN §2.2, extended M10 §6.3
+     * track-membership). Groups {@link #textOverlays} by {@link TextOverlayItem#getLayerId()}:
+     * every item with a {@code null} (or {@code "text"}) layerId lands in the single
+     * fixed {@code "text"} track — EXACTLY today's M5 behavior, byte-for-byte, for
+     * every project that predates M10 or never used it (no item has ever had a
+     * non-default layerId, so there is only ever this one bucket). An item with a
+     * distinct non-null layerId lands in its own track instead, keyed by that id;
+     * {@link #extraLayerTracks} additionally seeds a still-EMPTY track definition (so
+     * a freshly-created empty layer survives a save/reload — see M10 build report).
+     * Order: the fixed "text" track first (if non-empty), then user-created tracks in
+     * {@link #extraLayerTracks} order. Freshly rebuilt on every call; persisted flags
+     * (M6) are re-applied per track.
      */
     @NonNull
     public List<Track> getLayers() {
+        // id -> ordered items, built in textOverlays' own order so each track's items
+        // stay in insertion order regardless of how many tracks they're split across.
+        Map<String, List<TextOverlayItem>> byLayer = new LinkedHashMap<>();
+        for (TextOverlayItem overlay : textOverlays) {
+            String id = overlay.getLayerId() != null ? overlay.getLayerId() : "text";
+            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(overlay);
+        }
         List<Track> layers = new ArrayList<>();
-        if (!textOverlays.isEmpty()) {
-            Track textTrack = new Track("text", TrackKind.TEXT, "Text");
-            for (TextOverlayItem overlay : textOverlays) {
-                textTrack.addItem(TimedItem.ofTextOverlay(overlay));
-            }
-            applyTrackFlags(textTrack);
-            layers.add(textTrack);
+        List<TextOverlayItem> defaultBucket = byLayer.remove("text");
+        if (defaultBucket != null && !defaultBucket.isEmpty()) {
+            layers.add(buildTextTrack("text", TrackKind.TEXT, "Text", defaultBucket));
+        }
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() != TrackKind.TEXT && def.getKind() != TrackKind.STICKER) continue;
+            List<TextOverlayItem> bucket = byLayer.remove(def.getId());
+            layers.add(buildTextTrack(def.getId(), def.getKind(), def.getName(),
+                    bucket != null ? bucket : Collections.emptyList()));
+        }
+        // Any remaining bucket (a layerId with items but no matching def — should not
+        // happen via the normal M10 UI, but defensive: surface it as a track anyway
+        // rather than silently dropping items) — mirrors old-build-tolerant patterns
+        // elsewhere in this class.
+        for (Map.Entry<String, List<TextOverlayItem>> e : byLayer.entrySet()) {
+            layers.add(buildTextTrack(e.getKey(), TrackKind.TEXT, "Text", e.getValue()));
         }
         return layers;
     }
 
+    @NonNull
+    private Track buildTextTrack(@NonNull String id, @NonNull TrackKind kind, @NonNull String name,
+                                  @NonNull List<TextOverlayItem> items) {
+        Track track = new Track(id, kind, name);
+        for (TextOverlayItem overlay : items) {
+            track.addItem(TimedItem.ofTextOverlay(overlay));
+        }
+        applyTrackFlags(track);
+        return track;
+    }
+
     /**
-     * Build the audio tracks below the master (PLAN §2.2). For M5 this is exactly ONE
-     * AUDIO track wrapping every {@link #audioClips} item (each carries its own
-     * {@code offsetMs}). Freshly rebuilt on every call; persisted flags (M6) are
-     * re-applied per track.
+     * Build the audio tracks below the master (PLAN §2.2, extended M10). Mirrors
+     * {@link #getLayers()}'s grouping exactly, keyed by {@code AudioClip#getLayerId()}
+     * against the fixed {@code "audio"} default track. Freshly rebuilt on every call;
+     * persisted flags (M6) are re-applied per track.
      */
     @NonNull
     public List<Track> getAudioTracks() {
+        Map<String, List<AudioClip>> byLayer = new LinkedHashMap<>();
+        for (AudioClip ac : audioClips) {
+            String id = ac.getLayerId() != null ? ac.getLayerId() : "audio";
+            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(ac);
+        }
         List<Track> tracks = new ArrayList<>();
-        if (!audioClips.isEmpty()) {
-            Track audioTrack = new Track("audio", TrackKind.AUDIO, "Audio");
-            for (AudioClip ac : audioClips) {
-                audioTrack.addItem(TimedItem.ofAudioClip(ac));
-            }
-            applyTrackFlags(audioTrack);
-            tracks.add(audioTrack);
+        List<AudioClip> defaultBucket = byLayer.remove("audio");
+        if (defaultBucket != null && !defaultBucket.isEmpty()) {
+            tracks.add(buildAudioTrack("audio", "Audio", defaultBucket));
+        }
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() != TrackKind.AUDIO) continue;
+            List<AudioClip> bucket = byLayer.remove(def.getId());
+            tracks.add(buildAudioTrack(def.getId(), def.getName(),
+                    bucket != null ? bucket : Collections.emptyList()));
+        }
+        for (Map.Entry<String, List<AudioClip>> e : byLayer.entrySet()) {
+            tracks.add(buildAudioTrack(e.getKey(), "Audio", e.getValue()));
         }
         return tracks;
+    }
+
+    @NonNull
+    private Track buildAudioTrack(@NonNull String id, @NonNull String name,
+                                   @NonNull List<AudioClip> items) {
+        Track audioTrack = new Track(id, TrackKind.AUDIO, name);
+        for (AudioClip ac : items) {
+            audioTrack.addItem(TimedItem.ofAudioClip(ac));
+        }
+        applyTrackFlags(audioTrack);
+        return audioTrack;
+    }
+
+    // ── User-created layer-track definitions (M10) ─────────────────────
+
+    /**
+     * Create a new, persistent, initially-EMPTY layer track and return its stable id.
+     * {@code kind} must be {@link TrackKind#TEXT}/{@link TrackKind#STICKER} (floating
+     * layer) or {@link TrackKind#AUDIO} (audio band) — those are the only kinds
+     * {@link #getLayers()}/{@link #getAudioTracks()} route by {@code layerId} today.
+     */
+    @NonNull
+    public String createLayerTrack(@NonNull TrackKind kind, @NonNull String name) {
+        LayerTrackDef def = new LayerTrackDef(kind, name);
+        extraLayerTracks.add(def);
+        return def.getId();
+    }
+
+    /** Re-insert a previously-created track definition (undo of a delete/creation). */
+    public void restoreLayerTrackDef(@NonNull LayerTrackDef def) {
+        for (LayerTrackDef existing : extraLayerTracks) {
+            if (existing.getId().equals(def.getId())) return; // already present
+        }
+        extraLayerTracks.add(def);
+    }
+
+    /**
+     * Remove a user-created track definition (does NOT touch any items still
+     * pointing at its id — callers must reassign/delete those first; PLAN Part 7 M10
+     * scope 2 "deleting the last item... removes the empty track"). No-op for the
+     * fixed "text"/"audio" ids (they have no definition to remove).
+     */
+    public void removeLayerTrackDef(@NonNull String trackId) {
+        extraLayerTracks.removeIf(d -> d.getId().equals(trackId));
+    }
+
+    @Nullable
+    public LayerTrackDef getLayerTrackDef(@NonNull String trackId) {
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getId().equals(trackId)) return def;
+        }
+        return null;
+    }
+
+    /** Live list of every user-created track definition, for {@code ProjectStorage} serialization. */
+    @NonNull
+    public List<LayerTrackDef> getExtraLayerTracks() {
+        return extraLayerTracks;
+    }
+
+    /**
+     * True if any item currently references {@code trackId} as its layerId (used to
+     * decide whether an empty user-created track is safe to auto-remove).
+     */
+    public boolean layerTrackHasItems(@NonNull String trackId) {
+        for (TextOverlayItem o : textOverlays) {
+            if (trackId.equals(o.getLayerId())) return true;
+        }
+        for (AudioClip ac : audioClips) {
+            if (trackId.equals(ac.getLayerId())) return true;
+        }
+        return false;
     }
 }

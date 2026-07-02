@@ -73,6 +73,16 @@ public class AudioClip {
     private String label = "Audio";
 
     /**
+     * Persistent home for WHICH audio layer track this clip belongs to (M10; mirrors
+     * {@link TextOverlayItem#getLayerId()}). {@code null} = the default/auto-migrated
+     * single AUDIO track (id {@code "audio"}) — the only value any project saved
+     * before M10 can have, so grouping every null/"audio"-layerId clip into ONE
+     * track reproduces exactly today's single-AUDIO-track behavior.
+     */
+    @Nullable
+    private String layerId;
+
+    /**
      * Optional volume automation keyframes (the blue "rubber-band" envelope).
      * Each keyframe is a (clip-local time in ms, gain 0–2) point. Time is measured
      * from the START of this clip on the timeline (0 = clip start), independent of
@@ -182,6 +192,14 @@ public class AudioClip {
 
     @NonNull
     public String getLabel() { return label; }
+
+    // ── Layer-track membership (M10) ────────────────────────────────────
+
+    /** Stable id of the audio layer track this clip belongs to, or {@code null} for the default AUDIO track. */
+    @Nullable
+    public String getLayerId() { return layerId; }
+
+    public void setLayerId(@Nullable String layerId) { this.layerId = layerId; }
 
     /**
      * Trimmed duration of this audio clip in milliseconds.

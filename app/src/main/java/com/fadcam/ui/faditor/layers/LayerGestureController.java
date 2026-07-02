@@ -68,6 +68,30 @@ public final class LayerGestureController {
 
         /** Long-press on an item's body → the activity should offer to delete it. */
         void onItemDeleteRequested(@NonNull Track track, @NonNull TimedItem item);
+
+        /**
+         * A MOVE gesture on {@code item} ended with the finger over a DIFFERENT row than
+         * where the drag started (PLAN Part 7 row M10 scope 1, drag-between-layers).
+         * {@code fromTrack}/{@code toTrack} are the source/destination Track VIEWS at
+         * gesture-start/end (both EPHEMERAL — read their {@code getId()} before this
+         * call returns, don't hold the objects). The activity is responsible for the
+         * persistent mutation (setting the item's {@code layerId} to {@code toTrack.getId()})
+         * and recording exactly one undo step alongside whatever
+         * {@link #onGestureFinished} already recorded for the time-position change —
+         * see the M10 build report for why this is a SEPARATE callback rather than
+         * folded into {@code onGestureFinished} (independent no-op guards: a drag can
+         * change track without changing time, or vice versa).
+         */
+        void onItemMovedToTrack(@NonNull TimedItem item, @NonNull Track fromTrack, @NonNull Track toTrack);
+
+        /**
+         * A MOVE gesture on {@code item} ended with the finger over the "new layer"
+         * drop zone below the last row (PLAN Part 7 row M10 scope 2, drop-to-new-layer).
+         * The activity creates a new persistent track (matching {@code fromTrack}'s
+         * band/kind — see {@code LayerRowRenderer#isFloatingBandRow}) and reassigns the
+         * item's {@code layerId} to it, as one undo step.
+         */
+        void onItemDroppedOnNewLayer(@NonNull TimedItem item, @NonNull Track fromTrack);
     }
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT }
@@ -97,6 +121,14 @@ public final class LayerGestureController {
 
     /** Item id selected for trim-handle exposure (mirrors the audio/overlay "selected → handles show" convention). */
     @Nullable private String selectedItemId;
+
+    // ── M10: cross-row drag-target tracking (MOVE gestures only) ───────────────
+    /** Row the active MOVE gesture is currently hovering, or null (own row / no valid target). */
+    @Nullable private Track hoverTargetTrack;
+    /** True once the finger has moved over the "new layer" drop zone during this MOVE. */
+    private boolean hoverNewLayerZone;
+    /** topPx/y of the last onRowBodyMove call, needed by onRowBodyUp's zone re-check. */
+    private float lastMoveY, lastMoveTopPx;
 
     /** True once a long-press has fired for the current touch-down (suppresses move-drag). */
     private boolean longPressFired = false;
@@ -135,6 +167,9 @@ public final class LayerGestureController {
         dragStartX = x;
         movedDuringGesture = false;
         longPressFired = false;
+        hoverTargetTrack = null;
+        hoverNewLayerZone = false;
+        rowRenderer.setDragTargetTrackId(null);
 
         if (hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE) {
             armTrim(hit.item, true);
@@ -193,8 +228,12 @@ public final class LayerGestureController {
     /**
      * MOVE (drag while ACTION_MOVE). Suppresses the pending long-press once the finger
      * has moved (mirrors {@code EditorTimelineView#onMove}'s touch-slop cancellation).
+     *
+     * @param topPx the row region's current top (screen) y, needed by MOVE gestures to
+     *              resolve which row/new-layer-zone the finger is currently over (M10;
+     *              PLAN Part 7 row M10 scope 1). Ignored for TRIM (no cross-row concept).
      */
-    public void onRowBodyMove(float x, float y, long totalMs, @NonNull XToTime xToTime) {
+    public void onRowBodyMove(float x, float y, float topPx, long totalMs, @NonNull XToTime xToTime) {
         if (!active || activeItem == null) return;
         if (Math.abs(x - dragStartX) > 4f) {
             cancelLongPress();
@@ -212,6 +251,7 @@ public final class LayerGestureController {
         switch (activeKind) {
             case MOVE:
                 applyMove(t, totalMs);
+                updateDragTarget(y, topPx);
                 break;
             case TRIM_LEFT:
                 applyTrim(t, true);
@@ -221,6 +261,39 @@ public final class LayerGestureController {
                 break;
         }
         callback.onGestureLive(activeItem);
+    }
+
+    /**
+     * M10: re-resolve the cross-row drag target for the current finger position and
+     * update {@link LayerRowRenderer}'s highlight accordingly. A locked/hidden row, or
+     * a row in a different band (floating vs audio) than the drag's source, is never a
+     * valid target (PLAN Part 7 row M10 scope 5 "no drags in or out" of locked/hidden
+     * rows; cross-band moves are out of scope for M10) — those cases clear the
+     * highlight instead of arming a bogus move.
+     */
+    private void updateDragTarget(float y, float topPx) {
+        lastMoveY = y;
+        lastMoveTopPx = topPx;
+        boolean sourceIsFloatingBand = rowRenderer.isFloatingBandRow(activeTrack);
+
+        if (rowRenderer.isWithinNewLayerZone(y, topPx)) {
+            hoverNewLayerZone = true;
+            hoverTargetTrack = null;
+            rowRenderer.setDragTargetTrackId(null);
+            return;
+        }
+        hoverNewLayerZone = false;
+
+        Track candidate = rowRenderer.rowTrackAt(y, topPx);
+        if (candidate == null || candidate.getId().equals(activeTrack.getId())
+                || candidate.isLocked() || candidate.isHidden()
+                || rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand) {
+            hoverTargetTrack = null;
+            rowRenderer.setDragTargetTrackId(null);
+            return;
+        }
+        hoverTargetTrack = candidate;
+        rowRenderer.setDragTargetTrackId(candidate.getId());
     }
 
     private void applyMove(long targetTimeMs, long totalMs) {
@@ -298,13 +371,27 @@ public final class LayerGestureController {
         if (!active) return false;
         boolean wasMoved = movedDuringGesture && !longPressFired;
         TimedItem item = activeItem;
+        Track fromTrack = activeTrack;
+        Track toTrack = hoverTargetTrack;
+        boolean droppedOnNewLayerZone = hoverNewLayerZone;
         active = false;
         activeItem = null;
         activeTrack = null;
         moveGrabOffsetMs = -1;
         dragStartDurationMs = 0;
+        hoverTargetTrack = null;
+        hoverNewLayerZone = false;
+        rowRenderer.setDragTargetTrackId(null);
         if (wasMoved && item != null) {
             callback.onGestureFinished(item, activeKind);
+            // M10: cross-row / drop-to-new-layer are reported as SEPARATE events from
+            // the time-position change above (PLAN Part 7 row M10 scope 1/2) — a drag
+            // can end on a different row with or without also having moved in time.
+            if (droppedOnNewLayerZone && fromTrack != null) {
+                callback.onItemDroppedOnNewLayer(item, fromTrack);
+            } else if (toTrack != null && fromTrack != null) {
+                callback.onItemMovedToTrack(item, fromTrack, toTrack);
+            }
         }
         return true;
     }
@@ -321,4 +408,18 @@ public final class LayerGestureController {
     public long getAudioBeforeOffsetMs() { return audioBeforeOffsetMs; }
     public long getAudioBeforeInMs() { return audioBeforeInMs; }
     public long getAudioBeforeOutMs() { return audioBeforeOutMs; }
+
+    // ── M10: drag-state queries for the caller's LayerRowRenderer#layout call ──
+
+    /**
+     * True while a MOVE gesture (not TRIM) is in progress — the only gesture kind that
+     * has a cross-row concept — so the caller knows whether to pass {@code dragActive}
+     * into {@link LayerRowRenderer#layout} (which draws the new-layer drop zone).
+     */
+    public boolean isMoveDragActive() {
+        return active && movedDuringGesture && activeKind == GestureKind.MOVE;
+    }
+
+    /** True if the active MOVE gesture is currently hovering the new-layer drop zone. */
+    public boolean isHoveringNewLayerZone() { return hoverNewLayerZone; }
 }

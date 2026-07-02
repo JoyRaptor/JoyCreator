@@ -77,6 +77,20 @@ public class TextOverlayItem {
     private long startMs = 0;
     private long endMs = Long.MAX_VALUE;
 
+    /**
+     * Persistent home for WHICH layer track this item belongs to (M10; PLAN Part 7
+     * row M10 track-membership design). {@code null} = the default/auto-migrated
+     * single TEXT track (id {@code "text"}) — this is the ONLY value every project
+     * saved before M10 can have, since the field did not exist, so
+     * {@code Timeline.getLayers()} grouping every item with a null/"text" layerId
+     * into ONE track reproduces exactly today's single-TEXT-layer behavior. A
+     * non-null value (a {@link com.fadcam.ui.faditor.layers.Track#getId()} minted by
+     * M10's "new layer" flow) routes this item into a user-created layer track
+     * instead. See {@code Timeline#getLayers()} for the grouping logic.
+     */
+    @Nullable
+    private String layerId;
+
     /** Optional per-property animation (position/scale/opacity/rotation over time). */
     @NonNull
     private final com.fadcam.ui.faditor.keyframe.KeyframeSet keyframes =
@@ -240,6 +254,14 @@ public class TextOverlayItem {
 
     /** True if this overlay is an image/PNG rather than text. */
     public boolean isImage() { return imageUri != null; }
+
+    // ── Layer-track membership (M10) ────────────────────────────────────
+
+    /** Stable id of the layer track this item belongs to, or {@code null} for the default TEXT track. */
+    @Nullable
+    public String getLayerId() { return layerId; }
+
+    public void setLayerId(@Nullable String layerId) { this.layerId = layerId; }
 
     // ── Time range ───────────────────────────────────────────────────
 

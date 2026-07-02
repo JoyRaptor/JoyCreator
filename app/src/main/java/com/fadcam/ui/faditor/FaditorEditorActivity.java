@@ -8525,7 +8525,127 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     deleteAudioClipWithConfirmation(item.getAudioClip());
                 }
             }
+
+            @Override
+            public void onItemMovedToTrack(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                    @NonNull com.fadcam.ui.faditor.layers.Track fromTrack,
+                    @NonNull com.fadcam.ui.faditor.layers.Track toTrack) {
+                moveItemToLayerTrack(item, fromTrack.getId(), toTrack.getId(), toTrack.getId());
+            }
+
+            @Override
+            public void onItemDroppedOnNewLayer(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                    @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {
+                createLayerAndMoveItem(item, fromTrack);
+            }
         };
+    }
+
+    /**
+     * M10 glue: persist a cross-row drag (PLAN Part 7 row M10 scope 1) by writing the
+     * item's {@code layerId} — the ONLY thing that changed is WHICH layer track the item
+     * belongs to (its time-position is a SEPARATE undo step already recorded by
+     * {@code onGestureFinished} above), so this records its own one-line
+     * {@code LambdaAction} rather than folding into that one (independent no-op guards:
+     * a drag can change track without changing time, or vice versa — PLAN Part 7 row M10
+     * track-membership design).
+     */
+    private void moveItemToLayerTrack(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                                       @NonNull String fromTrackId, @NonNull String toTrackId,
+                                       @NonNull String description) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
+        final AudioClip audioPayload = item.getAudioClip();
+        if (textPayload == null && audioPayload == null) return; // master/clip items unreachable here
+        // "text"/"audio" are the fixed default-track ids the migration always assigns;
+        // storing null (rather than the literal string) for a move BACK to the default
+        // track keeps old-shaped/never-touched items indistinguishable from ones
+        // explicitly re-homed to the default (matches the serializer's omit-when-default
+        // convention for layerId — see ProjectStorage).
+        final String toStored = ("text".equals(toTrackId) || "audio".equals(toTrackId)) ? null : toTrackId;
+        undoManager.recordAction(new EditActions.LambdaAction("Move to layer",
+                () -> {
+                    if (textPayload != null) textPayload.setLayerId(toStored);
+                    else audioPayload.setLayerId(toStored);
+                    syncTimelineOverlays();
+                    maybeRemoveEmptyLayerTrack(fromTrackId);
+                },
+                () -> {
+                    String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
+                    if (textPayload != null) textPayload.setLayerId(fromStored);
+                    else audioPayload.setLayerId(fromStored);
+                    syncTimelineOverlays();
+                }));
+        if (textPayload != null) textPayload.setLayerId(toStored);
+        else audioPayload.setLayerId(toStored);
+        syncTimelineOverlays();
+        maybeRemoveEmptyLayerTrack(fromTrackId);
+        scheduleAutoSave();
+    }
+
+    /**
+     * M10 glue: drop-to-new-layer (PLAN Part 7 row M10 scope 2). Creates a new
+     * persistent track definition matching the dragged item's own band/kind (a TEXT/
+     * STICKER item creates a TEXT track; an AUDIO item creates an AUDIO track — cross-
+     * band drops are not offered by the gesture controller, see
+     * {@code LayerGestureController#updateDragTarget}'s same-band guard) and reassigns
+     * the item to it, as ONE undo step covering both the track creation and the move
+     * (undoing removes the item from the new track; since the track was created empty
+     * and only this item was ever added, the resulting empty track is pruned by the
+     * same {@link #maybeRemoveEmptyLayerTrack} helper the cross-row move uses).
+     */
+    private void createLayerAndMoveItem(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                                         @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {
+        if (project == null || editorTimeline == null) return;
+        final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
+        final AudioClip audioPayload = item.getAudioClip();
+        if (textPayload == null && audioPayload == null) return;
+        final Timeline timeline = project.getTimeline();
+        boolean floatingBand = editorTimeline.isLayerTrackFloatingBand(fromTrack);
+        com.fadcam.ui.faditor.layers.TrackKind newKind = floatingBand
+                ? com.fadcam.ui.faditor.layers.TrackKind.TEXT
+                : com.fadcam.ui.faditor.layers.TrackKind.AUDIO;
+        int nextNum = (floatingBand ? timeline.getLayers().size() : timeline.getAudioTracks().size()) + 1;
+        String newName = (floatingBand ? "Text " : "Audio ") + nextNum;
+        final String newTrackId = timeline.createLayerTrack(newKind, newName);
+        final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
+                timeline.getLayerTrackDef(newTrackId);
+        final String fromTrackId = fromTrack.getId();
+        final String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
+
+        undoManager.recordAction(new EditActions.LambdaAction("New layer",
+                () -> {
+                    if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
+                    if (textPayload != null) textPayload.setLayerId(newTrackId);
+                    else audioPayload.setLayerId(newTrackId);
+                    syncTimelineOverlays();
+                    maybeRemoveEmptyLayerTrack(fromTrackId);
+                },
+                () -> {
+                    if (textPayload != null) textPayload.setLayerId(fromStored);
+                    else audioPayload.setLayerId(fromStored);
+                    timeline.removeLayerTrackDef(newTrackId);
+                    syncTimelineOverlays();
+                }));
+        syncTimelineOverlays();
+        maybeRemoveEmptyLayerTrack(fromTrackId);
+        scheduleAutoSave();
+    }
+
+    /**
+     * PLAN Part 7 row M10 scope 2: "deleting the last item of a non-migrated layer
+     * removes the empty track." Removes {@code trackId}'s {@code LayerTrackDef} if it
+     * is a user-created track (no-op for the fixed "text"/"audio" ids — they always
+     * exist) AND it no longer has any items pointing at it. Called after every move/
+     * delete that could have emptied a track.
+     */
+    private void maybeRemoveEmptyLayerTrack(@NonNull String trackId) {
+        if (project == null) return;
+        if ("text".equals(trackId) || "audio".equals(trackId)) return;
+        Timeline timeline = project.getTimeline();
+        if (timeline.getLayerTrackDef(trackId) == null) return; // not a user-created track
+        if (timeline.layerTrackHasItems(trackId)) return;
+        timeline.removeLayerTrackDef(trackId);
     }
 
     /**

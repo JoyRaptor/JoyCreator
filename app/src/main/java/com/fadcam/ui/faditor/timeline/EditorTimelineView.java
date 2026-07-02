@@ -255,6 +255,26 @@ public class EditorTimelineView extends View {
         return layerGestureController;
     }
 
+    /**
+     * True if {@code track} came from the floating {@code layerTracks} list (TEXT/
+     * STICKER/IMAGE/VIDEO) rather than {@code audioLayerTracks} (M10; PLAN Part 7 row
+     * M10 scope 2 — decides which {@code TrackKind} a "drop to new layer" gesture
+     * should create). Delegates to {@link com.fadcam.ui.faditor.layers.LayerRowRenderer}
+     * (the extract-on-touch owner of row geometry), falling back to a direct list
+     * lookup so it's correct even outside an active drag (the renderer's row list is
+     * only populated during {@code layout}, but that runs every frame this view is
+     * visible, so in practice it is always fresh by the time a gesture finishes).
+     */
+    public boolean isLayerTrackFloatingBand(@NonNull com.fadcam.ui.faditor.layers.Track track) {
+        for (com.fadcam.ui.faditor.layers.Track t : layerTracks) {
+            if (t.getId().equals(track.getId())) return true;
+        }
+        for (com.fadcam.ui.faditor.layers.Track t : audioLayerTracks) {
+            if (t.getId().equals(track.getId())) return false;
+        }
+        return layerRowRenderer.isFloatingBandRow(track);
+    }
+
     private static final com.fadcam.ui.faditor.layers.LayerGestureController.Callback
             NOOP_GESTURE_CALLBACK = new com.fadcam.ui.faditor.layers.LayerGestureController.Callback() {
         @Override public void onGestureFinished(
@@ -264,6 +284,13 @@ public class EditorTimelineView extends View {
         @Override public void onItemDeleteRequested(
                 @NonNull com.fadcam.ui.faditor.layers.Track track,
                 @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {}
+        @Override public void onItemMovedToTrack(
+                @NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                @NonNull com.fadcam.ui.faditor.layers.Track fromTrack,
+                @NonNull com.fadcam.ui.faditor.layers.Track toTrack) {}
+        @Override public void onItemDroppedOnNewLayer(
+                @NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {}
     };
 
     /** Callback for a tap on a track row-header icon (M6; glue lives in FaditorEditorActivity). */
@@ -1401,8 +1428,12 @@ public class EditorTimelineView extends View {
         // through so the row HEADERS (name/caret/hide/lock/mute) stay pinned to the
         // left edge of the viewport like the rest of the timeline's left gutter,
         // while item bodies stay in content-space so they line up with timeToX.
+        // M10: while a cross-row MOVE drag is active, layout() also lays out + draws the
+        // "drop here to create a new layer" zone below the last row.
         layerRowRenderer.layout(canvas, layerTracks, audioLayerTracks, getM6RowsTopPx(), w,
-                scrollOffsetPx, totalEffectiveMs, this::timeToX);
+                scrollOffsetPx, totalEffectiveMs, this::timeToX,
+                layerGestureController != null && layerGestureController.isMoveDragActive(),
+                layerGestureController != null && layerGestureController.isHoveringNewLayerZone());
 
         canvas.restore();
 
@@ -3731,7 +3762,20 @@ public class EditorTimelineView extends View {
         
         // When actively dragging a handle, audio clip, or reordering, bypass gesture detector
         // to prevent GestureDetector.onTouchEvent() returning true and blocking onMove/onUp.
-        if (activeDrag == Drag.NONE && !isDraggingAudio) {
+        // M10 fix (pre-existing gap since M7): the M6/M7 row-gesture flags
+        // (m7ItemGestureActive — an item move/trim on a Track row; m6RowDragActive —
+        // vertical scroll within the row region) were NOT included in this guard, so
+        // once onDown() armed a row-item MOVE (setting m7ItemGestureActive=true and
+        // returning true from handleM6RowTouch), the VERY NEXT MotionEvent still fell
+        // through to gestureDetector.onTouchEvent() here, whose onScroll() has no idea
+        // a row gesture is active — it would seek the timeline playhead AND return
+        // true, permanently starving onMove()/onRowBodyMove() of every subsequent
+        // event for that gesture. This made row-item drags (and therefore M10's
+        // cross-row / drop-to-new-layer detection, which lives entirely in
+        // onRowBodyMove) unreliable on fast/continuous drags. Bypassing the gesture
+        // detector while either row flag is set mirrors the existing bypass for
+        // activeDrag/isDraggingAudio exactly.
+        if (activeDrag == Drag.NONE && !isDraggingAudio && !m7ItemGestureActive && !m6RowDragActive) {
             // Let gesture detector process events only when no active drag
             boolean gestureEvent = gestureDetector.onTouchEvent(e);
             if (gestureEvent) {
@@ -3934,7 +3978,7 @@ public class EditorTimelineView extends View {
     private boolean onMove(float x, float y) {
         if (m7ItemGestureActive) {
             float scrolledX = x + scrollOffsetPx;
-            layerGestureController.onRowBodyMove(scrolledX, y, totalEffectiveMs, this::xToTime);
+            layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
             invalidate();
             return true;
         }

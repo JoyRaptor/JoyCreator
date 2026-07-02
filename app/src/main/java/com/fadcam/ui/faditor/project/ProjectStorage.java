@@ -683,12 +683,22 @@ public class ProjectStorage {
      * flag/name/zIndex, any TimedItem with a non-NORMAL blend, any TimedItem transform,
      * or any non-zero zHint. Otherwise the project is fully re-expressible as v7 flat
      * lists and is stamped 7 so old builds open it losslessly.
+     *
+     * <p>M10 addition: any {@link com.fadcam.ui.faditor.layers.LayerTrackDef} (a
+     * user-created track — see {@code Timeline#createLayerTrack}) is itself a real
+     * layer feature even before anything is dragged into it (an old build has no way
+     * to represent "an empty second text track exists"), so it is checked directly
+     * rather than only via the resulting track COUNT (a still-empty user-created
+     * track does not change {@code getLayers().size()} beyond 1 unless the default
+     * bucket is also non-empty — the direct check below covers that gap).</p>
      */
     private static boolean usesLayerFeatures(@NonNull FaditorProject project) {
         Timeline tl = project.getTimeline();
         if (!"ripple".equals(tl.getRippleMode())) return true;
+        if (!tl.getExtraLayerTracks().isEmpty()) return true;
         // The migration produces at most ONE TEXT layer and ONE AUDIO track; more than
-        // that means a real multi-track project.
+        // that means a real multi-track project (belt-and-suspenders with the check
+        // above — also catches any non-default layerId that lacks a def, defensively).
         if (tl.getLayers().size() > 1) return true;
         if (tl.getAudioTracks().size() > 1) return true;
         for (com.fadcam.ui.faditor.layers.Track t : tl.getLayers()) {
@@ -985,6 +995,11 @@ public class ProjectStorage {
                 acJson.addProperty("inPointMs", ac.getInPointMs());
                 acJson.addProperty("outPointMs", ac.getOutPointMs());
                 acJson.addProperty("offsetMs", ac.getOffsetMs());
+                // M10 track-membership: which audio layer track this clip belongs to.
+                // Omitted (→ null on load) for the default/auto-migrated "audio" track,
+                // so an old-shaped or pre-M10 project's clips are indistinguishable from
+                // one explicitly on the default track (Timeline#getAudioTracks()).
+                if (ac.getLayerId() != null) acJson.addProperty("layerId", ac.getLayerId());
                 acJson.addProperty("volumeLevel", ac.getVolumeLevel());
                 acJson.addProperty("muted", ac.isMuted());
                 acJson.addProperty("label", ac.getLabel());
@@ -1059,6 +1074,11 @@ public class ProjectStorage {
                 if (o.getImageUri() != null) {
                     oJson.addProperty("imageUri", toStorageUri(projectDir, o.getImageUri()));
                 }
+                // M10 track-membership: which TEXT/STICKER layer track this item belongs
+                // to. Omitted (→ null on load) for the default/auto-migrated "text" track,
+                // so a pre-M10 project's overlays are indistinguishable from ones
+                // explicitly on the default track (Timeline#getLayers()).
+                if (o.getLayerId() != null) oJson.addProperty("layerId", o.getLayerId());
                 // Time range (only when not the default whole-timeline span).
                 if (o.getStartMs() != 0) oJson.addProperty("startMs", o.getStartMs());
                 if (o.getEndMs() != Long.MAX_VALUE) oJson.addProperty("endMs", o.getEndMs());
@@ -1171,6 +1191,21 @@ public class ProjectStorage {
                 audioTracksArr.add(serializeTrack(t));
             }
             layersBlock.add("audioTracks", audioTracksArr);
+            // M10: the persistent list of user-created track DEFINITIONS (id/kind/name),
+            // independent of whether they currently hold any items — this is what lets a
+            // freshly-created EMPTY layer track survive a save/reload (Timeline#createLayerTrack).
+            // Redundant with (but more explicit/robust than) re-deriving membership from the
+            // "layers"/"audioTracks" arrays above, which only round-trip a track that
+            // {@code getLayers()}/{@code getAudioTracks()} actually produced.
+            JsonArray trackDefsArr = new JsonArray();
+            for (com.fadcam.ui.faditor.layers.LayerTrackDef def : src.getTimeline().getExtraLayerTracks()) {
+                JsonObject dj = new JsonObject();
+                dj.addProperty("id", def.getId());
+                dj.addProperty("kind", def.getKind().name());
+                dj.addProperty("name", def.getName());
+                trackDefsArr.add(dj);
+            }
+            layersBlock.add("trackDefs", trackDefsArr);
             timelineJson.add("layers", layersBlock);
 
             json.add("timeline", timelineJson);
@@ -1436,6 +1471,9 @@ public class ProjectStorage {
                         if (acObj.has("offsetMs")) {
                             ac.setOffsetMs(acObj.get("offsetMs").getAsLong());
                         }
+                        if (acObj.has("layerId")) {
+                            ac.setLayerId(acObj.get("layerId").getAsString());
+                        }
                         if (acObj.has("volumeLevel")) {
                             ac.setVolumeLevel(acObj.get("volumeLevel").getAsFloat());
                         }
@@ -1527,6 +1565,9 @@ public class ProjectStorage {
                         if (oObj.has("imageUri")) {
                             o.setImageUri(fromStorageUri(projectDir,
                                     oObj.get("imageUri").getAsString()).toString());
+                        }
+                        if (oObj.has("layerId")) {
+                            o.setLayerId(oObj.get("layerId").getAsString());
                         }
                         long startMs = oObj.has("startMs") ? oObj.get("startMs").getAsLong() : 0;
                         long endMs = oObj.has("endMs")
@@ -1658,6 +1699,22 @@ public class ProjectStorage {
                 }
                 if (tl.has("layers")) {
                     JsonObject layersBlock = tl.getAsJsonObject("layers");
+                    // M10: restore user-created track DEFINITIONS first — Timeline.getLayers()/
+                    // getAudioTracks() need these present so a still-EMPTY user-created track
+                    // (no items yet) still shows up as a track after reload, not just tracks
+                    // that happen to have items on the flat lists.
+                    if (layersBlock.has("trackDefs")) {
+                        for (JsonElement e : layersBlock.getAsJsonArray("trackDefs")) {
+                            JsonObject dj = e.getAsJsonObject();
+                            if (!dj.has("id") || !dj.has("kind")) continue;
+                            com.fadcam.ui.faditor.layers.TrackKind kind =
+                                    com.fadcam.ui.faditor.layers.TrackKind.fromName(dj.get("kind").getAsString());
+                            String defName = dj.has("name") ? dj.get("name").getAsString() : "Layer";
+                            project.getTimeline().restoreLayerTrackDef(
+                                    new com.fadcam.ui.faditor.layers.LayerTrackDef(
+                                            dj.get("id").getAsString(), kind, defName));
+                        }
+                    }
                     if (layersBlock.has("masterTrack")) {
                         restoreTrackFlags(project.getTimeline(),
                                 layersBlock.getAsJsonObject("masterTrack"));

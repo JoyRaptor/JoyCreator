@@ -14,8 +14,7 @@ import androidx.annotation.Nullable;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,7 +27,14 @@ import java.util.concurrent.Executors;
 public class AudioExtractor {
 
     private static final String TAG = "AudioExtractor";
-    private static final int WAVEFORM_SAMPLES = 200;
+
+    /**
+     * Milliseconds of audio represented by each value returned from
+     * {@link #generateWaveform}. Consumers map source-time → index as
+     * {@code timeMs / WAVEFORM_WINDOW_MS} (exact, independent of the file's
+     * reported duration, which is unreliable for fragmented MP4).
+     */
+    public static final int WAVEFORM_WINDOW_MS = 20;
 
     private final Context context;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -89,9 +95,13 @@ public class AudioExtractor {
             try {
                 int[] waveform = doGenerateWaveform(audioUri);
                 runOnMain(() -> callback.onWaveformReady(waveform));
-            } catch (Exception e) {
+            } catch (Throwable e) {
+                // Catch Throwable (incl. OutOfMemoryError) so a pathological file
+                // can never crash the whole app — just skip its waveform.
                 FLog.e(TAG, "Waveform generation failed", e);
-                runOnMain(() -> callback.onError(e));
+                Exception ex = (e instanceof Exception)
+                        ? (Exception) e : new RuntimeException(e);
+                runOnMain(() -> callback.onError(ex));
             }
         });
     }
@@ -218,21 +228,33 @@ public class AudioExtractor {
                 }
             }
             if (trackIndex < 0 || inputFormat == null) {
-                // No audio — return flat waveform
-                return new int[WAVEFORM_SAMPLES];
+                // No audio track present
+                return new int[0];
             }
 
             extractor.selectTrack(trackIndex);
             String mime = inputFormat.getString(MediaFormat.KEY_MIME);
-            if (mime == null) return new int[WAVEFORM_SAMPLES];
+            if (mime == null) return new int[0];
 
             // Decode to PCM
             codec = MediaCodec.createDecoderByType(mime);
             codec.configure(inputFormat, null, null, 0);
             codec.start();
 
-            // Collect all PCM samples
-            List<Short> allSamples = new ArrayList<>();
+            int sampleRate = inputFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)
+                    ? inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE) : 44100;
+            int channels = inputFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)
+                    ? inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT) : 1;
+            // Time advance per audio frame (one sample across all channels).
+            double msPerFrame = 1000.0 / sampleRate;
+
+            // Bin index = realTimeMs / WAVEFORM_WINDOW_MS. We place each window at
+            // the decoder's REPORTED presentation timestamp (not a count from zero),
+            // so codec priming / encoder delay can't shift the envelope. This keeps
+            // peaks aligned with playback. Memory: one int per 20 ms (tiny).
+            int[] bins = new int[1024];
+            int maxBin = -1;
+
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             boolean inputDone = false;
             boolean outputDone = false;
@@ -259,7 +281,7 @@ public class AudioExtractor {
                     }
                 }
 
-                // Drain output
+                // Drain output — bin peaks by presentation timestamp
                 int outputBufIndex = codec.dequeueOutputBuffer(info, timeoutUs);
                 if (outputBufIndex >= 0) {
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
@@ -267,20 +289,46 @@ public class AudioExtractor {
                     }
                     ByteBuffer outputBuf = codec.getOutputBuffer(outputBufIndex);
                     if (outputBuf != null && info.size > 0) {
-                        // Read 16-bit PCM samples
                         outputBuf.position(info.offset);
                         outputBuf.limit(info.offset + info.size);
                         ShortBuffer shortBuf = outputBuf.asShortBuffer();
-                        while (shortBuf.hasRemaining()) {
-                            allSamples.add(shortBuf.get());
+
+                        // Time of the first frame in this buffer (re-anchored each
+                        // buffer from pts to avoid float drift over long files).
+                        double tMs = info.presentationTimeUs / 1000.0;
+                        int bin = tMs > 0 ? (int) (tMs / WAVEFORM_WINDOW_MS) : 0;
+                        double nextBoundaryMs = (bin + 1) * (double) WAVEFORM_WINDOW_MS;
+
+                        int frames = shortBuf.remaining() / channels;
+                        for (int f = 0; f < frames; f++) {
+                            int peak = 0;
+                            for (int c = 0; c < channels; c++) {
+                                int a = Math.abs(shortBuf.get());
+                                if (a > peak) peak = a;
+                            }
+                            while (tMs >= nextBoundaryMs) {
+                                bin++;
+                                nextBoundaryMs += WAVEFORM_WINDOW_MS;
+                            }
+                            if (bin >= 0) {
+                                if (bin >= bins.length) {
+                                    bins = Arrays.copyOf(bins,
+                                            Math.max(bins.length * 2, bin + 1));
+                                }
+                                int norm = Math.min(255, (peak * 255) / 32768);
+                                if (norm > bins[bin]) bins[bin] = norm;
+                                if (bin > maxBin) maxBin = bin;
+                            }
+                            tMs += msPerFrame;
                         }
                     }
                     codec.releaseOutputBuffer(outputBufIndex, false);
                 }
             }
 
-            // Downsample to WAVEFORM_SAMPLES amplitude values
-            return downsample(allSamples);
+            int binCount = maxBin + 1;
+
+            return Arrays.copyOf(bins, Math.max(1, binCount));
 
         } finally {
             if (codec != null) {
@@ -289,33 +337,6 @@ public class AudioExtractor {
             }
             extractor.release();
         }
-    }
-
-    /**
-     * Downsample PCM samples to a fixed-size amplitude array.
-     * Each output value is the peak absolute amplitude (0–255) in that window.
-     */
-    @NonNull
-    private int[] downsample(@NonNull List<Short> samples) {
-        int[] result = new int[WAVEFORM_SAMPLES];
-        if (samples.isEmpty()) return result;
-
-        int samplesPerBin = Math.max(1, samples.size() / WAVEFORM_SAMPLES);
-
-        for (int i = 0; i < WAVEFORM_SAMPLES; i++) {
-            int start = i * samples.size() / WAVEFORM_SAMPLES;
-            int end = Math.min(start + samplesPerBin, samples.size());
-
-            int peak = 0;
-            for (int j = start; j < end; j++) {
-                int abs = Math.abs(samples.get(j));
-                if (abs > peak) peak = abs;
-            }
-
-            // Normalise from Short.MAX_VALUE range to 0–255
-            result[i] = Math.min(255, (peak * 255) / 32768);
-        }
-        return result;
     }
 
     private void runOnMain(@NonNull Runnable r) {

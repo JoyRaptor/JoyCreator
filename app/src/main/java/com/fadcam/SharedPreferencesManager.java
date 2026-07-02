@@ -819,6 +819,22 @@ public class SharedPreferencesManager {
             .apply();
     }
 
+    /** Returns whether Faditor should offer to transcribe a newly added video clip. Default: true. */
+    public boolean isFaditorAskToTranscribeEnabled() {
+        return sharedPreferences.getBoolean(
+            Constants.PREF_FADITOR_ASK_TO_TRANSCRIBE,
+            true
+        );
+    }
+
+    /** Enable/disable the "Transcribe this video?" prompt shown after adding a clip in Faditor. */
+    public void setFaditorAskToTranscribeEnabled(boolean enabled) {
+        sharedPreferences
+            .edit()
+            .putBoolean(Constants.PREF_FADITOR_ASK_TO_TRANSCRIBE, enabled)
+            .apply();
+    }
+
     /** Returns whether home preview quick action icons stay visible while idle. Default: true. */
     public boolean isPreviewQuickActionsAlwaysVisible() {
         return sharedPreferences.getBoolean(
@@ -2138,6 +2154,30 @@ public class SharedPreferencesManager {
         sharedPreferences.edit()
             .putString(Constants.PREF_SCREEN_RECORDING_RESOLUTION, width + "x" + height)
             .apply();
+    }
+
+    /**
+     * Whether screen recording auto-pauses while the floating menu is expanded
+     * and resumes when it is closed.
+     */
+    public boolean isMenuAutoPauseEnabled() {
+        return sharedPreferences.getBoolean("fadrec_menu_auto_pause", true);
+    }
+
+    public void setMenuAutoPauseEnabled(boolean enabled) {
+        sharedPreferences.edit().putBoolean("fadrec_menu_auto_pause", enabled).apply();
+    }
+
+    /**
+     * Whether the floating overlay button tints to indicate recording (red)
+     * and paused (orange) states.
+     */
+    public boolean isFloatingButtonTintEnabled() {
+        return sharedPreferences.getBoolean("fadrec_button_state_tint", true);
+    }
+
+    public void setFloatingButtonTintEnabled(boolean enabled) {
+        sharedPreferences.edit().putBoolean("fadrec_button_state_tint", enabled).apply();
     }
 
     /**

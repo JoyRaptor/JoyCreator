@@ -1,0 +1,16 @@
+{
+  "id": "neon_bars",
+  "displayName": "Neon Bars",
+  "type": "bars",
+  "color": "#00E676",
+  "gradientStart": "#69F0AE",
+  "gradientEnd": "#00BFA5",
+  "barWidthDp": 3,
+  "barGapDp": 2,
+  "cornerRadiusDp": 2,
+  "glowColor": "#CC00E676",
+  "glowRadiusDp": 8,
+  "bandCount": 56,
+  "sensitivity": 1.1,
+  "useSpectrum": false
+}

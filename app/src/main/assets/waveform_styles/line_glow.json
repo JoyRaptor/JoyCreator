@@ -1,0 +1,12 @@
+{
+  "id": "line_glow",
+  "displayName": "Line Glow",
+  "type": "line",
+  "color": "#FFD740",
+  "barWidthDp": 3,
+  "glowColor": "#AAFFD740",
+  "glowRadiusDp": 6,
+  "bandCount": 96,
+  "sensitivity": 1.0,
+  "useSpectrum": false
+}

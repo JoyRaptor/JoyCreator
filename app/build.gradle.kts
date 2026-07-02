@@ -4,9 +4,18 @@ plugins {
     alias(libs.plugins.androidApplication)
 }
 
+// whisper.cpp source location for the native transcription module (see
+// app/src/main/cpp/CMakeLists.txt). Mirrors the media3.patched.path convention.
+val whisperCppDir: String = run {
+    val props = Properties()
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { props.load(it) }
+    props.getProperty("whisper.cpp.path") ?: "${rootDir}/../whisper.cpp"
+}
+
 android {
     namespace = "com.fadcam"
     compileSdk = 36
+    ndkVersion = "27.2.12479018"
 
     val isBundle = gradle.startParameter.taskNames.any { it.lowercase().contains("bundle") }
     val isProBuild = gradle.startParameter.taskNames.any { it.lowercase().contains("pro") }
@@ -39,6 +48,22 @@ android {
         // Generate full native debug symbols so they can be uploaded to Play Console
         ndk {
             debugSymbolLevel = "FULL"
+            // whisper.cpp native build: arm64-v8a only for now (the sideload
+            // target). armeabi-v7a can be re-added once arm64 is validated.
+            abiFilters += listOf("arm64-v8a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DWHISPER_DIR=${whisperCppDir.replace('\\', '/')}"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
@@ -292,6 +317,10 @@ dependencies {
     
     // MP4Parser for reliable MP4 box structure parsing
     implementation("com.googlecode.mp4parser:isoparser:1.1.22")
+
+    // Vosk offline speech recognition (word-level timestamps) for transcript
+    // editing + on-screen captions. Model is downloaded on first use, not bundled.
+    implementation("com.alphacephei:vosk-android:0.3.47")
 
     annotationProcessor(libs.compiler)
     annotationProcessor(libs.room.compiler)

@@ -114,6 +114,20 @@
         <!-- Faditor Mini video editor -->
         <activity android:name="com.fadcam.ui.faditor.FaditorEditorActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" />
 
+        <activity android:name="com.fadcam.ui.faditor.ai.ChatAssistantActivity" android:theme="@style/Theme.FadCam.ChatAssistant" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustResize" />
+
+        <!-- Headless activity for applying EditScripts from external tools/ADB -->
+        <activity android:name="com.fadcam.ui.faditor.ai.ApplyEditsActivity" android:theme="@android:style/Theme.NoDisplay" android:exported="true" android:noHistory="true">
+            <intent-filter>
+                <action android:name="com.fadcam.APPLY_EDITS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Headless WebView host for rasterizing AI-authored animated slides -->
+        <activity android:name="com.fadcam.ui.faditor.slides.SlideRenderActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:exported="true" android:excludeFromRecents="true" android:noHistory="true" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+        <activity android:name="com.fadcam.ui.faditor.waveform.WaveformDebugActivity" android:exported="true" android:excludeFromRecents="true" />
+
         <!-- Detective App Icon (Activity Alias) -->
         <activity-alias android:name=".MainActivity.AlternativeIcon" android:enabled="false" android:label="Camera" android:icon="@mipmap/ic_launcher_2" android:roundIcon="@mipmap/ic_launcher_2_round" android:targetActivity=".MainActivity" android:exported="true">
             <intent-filter>
@@ -324,6 +338,9 @@
         <!-- Faditor export service for background video export -->
         <service android:name=".ui.faditor.export.ExportService" android:exported="false" android:foregroundServiceType="dataSync" />
 
+        <!-- AI assistant service for transcription, silence detection, and edit jobs -->
+        <service android:name=".ui.faditor.ai.AIJobService" android:exported="false" android:foregroundServiceType="dataSync" />
+
         <!-- Media button receiver to satisfy MediaSessionCompat requirement for a unique receiver -->
         <receiver android:name=".services.MediaButtonReceiver" android:exported="false">
             <intent-filter>
@@ -398,6 +415,9 @@
 
         <!-- Floating controls overlay service for FadRec -->
         <service android:name=".fadrec.ui.FloatingControlsService" android:enabled="true" android:exported="false" />
+
+        <!-- Floating webcam overlay service for FadRec -->
+        <service android:name=".fadrec.ui.FloatingWebcamService" android:enabled="true" android:exported="false" android:foregroundServiceType="camera" />
 
         <!-- Annotation overlay service for FadRec -->
         <service android:name=".fadrec.ui.AnnotationService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse" />

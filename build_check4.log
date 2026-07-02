@@ -1,0 +1,142 @@
+﻿Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDefaultDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-muxer:preBuild UP-TO-DATE
+> Task :media3-patched:lib-container:preBuild UP-TO-DATE
+> Task :media3-patched:lib-muxer:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-container:preDebugBuild UP-TO-DATE
+> Task :app:writeDefaultDebugSigningConfigVersions UP-TO-DATE
+> Task :app:generateDefaultDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-common:preBuild UP-TO-DATE
+> Task :app:writeDefaultDebugAppMetadata UP-TO-DATE
+> Task :app:validateSigningDefaultDebug UP-TO-DATE
+> Task :app:createDefaultDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:javaPreCompileDefaultDebug UP-TO-DATE
+> Task :app:generateDefaultDebugBuildConfig UP-TO-DATE
+> Task :media3-patched:lib-common:preDebugBuild UP-TO-DATE
+> Task :app:desugarDefaultDebugFileDependencies UP-TO-DATE
+> Task :app:mergeDefaultDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-muxer:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-container:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-common:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:extractDeepLinksDefaultDebug UP-TO-DATE
+> Task :app:compileDefaultDebugShaders NO-SOURCE
+> Task :media3-patched:lib-muxer:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-common:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-common:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugResources UP-TO-DATE
+> Task :app:generateDefaultDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-container:mergeDebugNativeLibs NO-SOURCE
+> Task :app:mergeDefaultDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-container:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugResValues UP-TO-DATE
+> Task :app:checkDefaultDebugDuplicateClasses UP-TO-DATE
+> Task :media3-patched:lib-container:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-muxer:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-common:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-common:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-common:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-muxer:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-common:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-common:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-common:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-common:processDebugJavaRes NO-SOURCE
+> Task :app:checkDefaultDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-common:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-container:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-muxer:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-common:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-container:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-common:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-common:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugRFile UP-TO-DATE
+> Task :app:mergeExtDexDefaultDebug UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugRFile UP-TO-DATE
+> Task :app:processDefaultDebugMainManifest UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugRFile UP-TO-DATE
+> Task :app:processDefaultDebugManifest UP-TO-DATE
+> Task :app:processDefaultDebugManifestForPackage UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:mergeDefaultDebugAssets UP-TO-DATE
+> Task :app:mergeLibDexDefaultDebug UP-TO-DATE
+> Task :app:compressDefaultDebugAssets UP-TO-DATE
+> Task :app:mapDefaultDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDefaultDebugResources UP-TO-DATE
+> Task :app:processDefaultDebugNavigationResources UP-TO-DATE
+> Task :app:compileDefaultDebugNavigationResources UP-TO-DATE
+> Task :app:configureCMakeDebug[arm64-v8a]
+> Task :app:packageDefaultDebugResources UP-TO-DATE
+> Task :app:parseDefaultDebugLocalResources UP-TO-DATE
+> Task :app:mergeDefaultDebugResources UP-TO-DATE
+> Task :app:processDefaultDebugResources UP-TO-DATE
+
+> Task :app:compileDefaultDebugJavaWithJavac
+.\gradlew : Note: Some input files use or override a deprecated API.
+At line:1 char:296
++ ... Projects\Screenrecorder\FadCam"; .\gradlew assembleDebug 2>&1 | Out-F ...
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Note: Some inpu...deprecated API.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :app:processDefaultDebugJavaRes UP-TO-DATE
+> Task :app:mergeDefaultDebugJavaResource UP-TO-DATE
+> Task :app:buildCMakeDebug[arm64-v8a]
+> Task :app:dexBuilderDefaultDebug
+> Task :app:mergeDefaultDebugNativeLibs UP-TO-DATE
+> Task :app:stripDefaultDebugDebugSymbols UP-TO-DATE
+> Task :app:extractDefaultDebugNativeDebugMetadata UP-TO-DATE
+> Task :app:mergeDefaultDebugNativeDebugMetadata UP-TO-DATE
+> Task :app:mergeDefaultDebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeProjectDexDefaultDebug
+> Task :app:packageDefaultDebug UP-TO-DATE
+> Task :app:assembleDefaultDebug UP-TO-DATE
+> Task :app:assembleDebug UP-TO-DATE
+> Task :app:createDefaultDebugApkListingFileRedirect UP-TO-DATE
+
+[Incubating] Problems report is available at: file:///C:/+Projects/Screenrecorder/FadCam/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 54s
+99 actionable tasks: 5 executed, 94 up-to-date
+Configuration cache entry reused.

@@ -453,6 +453,7 @@ public class ForensicsGalleryFragment extends Fragment {
                 null,
                 null,
                 "download"));
+        items.add(OptionItem.withLigature("faditor", "Edit in Faditor", "movie_edit"));
         items.add(OptionItem.withLigature("delete", getString(R.string.records_batch_delete), "delete"));
         PickerBottomSheetFragment sheet = PickerBottomSheetFragment.newInstanceGradient(
                 getString(R.string.records_batch_actions_title),
@@ -470,6 +471,8 @@ public class ForensicsGalleryFragment extends Fragment {
                 if (adapter.isAllSelected()) adapter.clearSelection(); else adapter.selectAll();
             } else if ("save_gallery".equals(id)) {
                 showBatchSaveOptionsSheet();
+            } else if ("faditor".equals(id)) {
+                openSelectedInFaditor();
             } else if ("delete".equals(id)) {
                 deleteSelectedEvidence();
             }
@@ -564,6 +567,26 @@ public class ForensicsGalleryFragment extends Fragment {
             }
         }
         return out;
+    }
+
+    private void openSelectedInFaditor() {
+        if (!isAdded() || getContext() == null) return;
+        List<ForensicsSnapshotWithMedia> selectedRows = adapter.getSelectedRows();
+        ArrayList<Uri> ordered = new ArrayList<>();
+        for (ForensicsSnapshotWithMedia row : selectedRows) {
+            if (row == null || row.imageUri == null || row.imageUri.isEmpty()) continue;
+            try {
+                ordered.add(Uri.parse(row.imageUri));
+            } catch (Exception ignored) {
+            }
+        }
+        if (ordered.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.records_batch_select_items_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(getContext(), com.fadcam.ui.faditor.FaditorEditorActivity.class);
+        intent.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_VIDEO_URIS, ordered);
+        startActivity(intent);
     }
 
     @NonNull

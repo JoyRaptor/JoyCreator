@@ -18,8 +18,22 @@ import androidx.core.app.NotificationCompat;
 
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
+import com.fadcam.playback.FragmentedMp4Remuxer;
 import com.fadcam.ui.faditor.FaditorEditorActivity;
+import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
+
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Foreground service that runs video export in the background so it survives
@@ -86,6 +100,9 @@ public class ExportService extends Service {
     private NotificationManager notificationManager;
     private boolean isExporting = false;
     private long exportStartTimeMs;
+    /** Single-thread executor used to warm the fMP4 remux cache off the main thread. */
+    @Nullable
+    private ExecutorService remuxExecutor;
 
     // ── Binder ───────────────────────────────────────────────────────
 
@@ -145,6 +162,10 @@ public class ExportService extends Service {
         super.onDestroy();
         if (exportManager != null && exportManager.isExporting()) {
             exportManager.cancel();
+        }
+        if (remuxExecutor != null) {
+            remuxExecutor.shutdownNow();
+            remuxExecutor = null;
         }
         FLog.d(TAG, "Service destroyed");
     }
@@ -248,7 +269,79 @@ public class ExportService extends Service {
             }
         });
 
-        exportManager.export(project);
+        // ── Warm the fMP4 remux cache off the main thread BEFORE exporting ──
+        // Raw FadCam recordings (file:// fragmented MP4s) are not seekable to a
+        // non-zero start, so ExportManager's ClippingConfiguration fails on a
+        // TRIMMED clip with "Illegal clipping: not seekable to start". Remuxing
+        // (faststart) produces a seekable copy that ExportManager then points at
+        // via resolveSeekableSourceUri(). We only do this for sources that NEED a
+        // remux and don't already have a cached one — so normal/imported projects
+        // (the common case) skip this entirely and export immediately as before.
+        final FaditorProject exportProject = project;
+        List<File> needsRemux = collectSourcesNeedingRemux(exportProject);
+        if (needsRemux.isEmpty()) {
+            // Common case: nothing to remux — behave exactly as before.
+            exportManager.export(exportProject);
+            return;
+        }
+
+        FLog.i(TAG, "Warming remux cache for " + needsRemux.size()
+                + " raw fMP4 source(s) before export");
+        final FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(this);
+        if (remuxExecutor == null) {
+            remuxExecutor = Executors.newSingleThreadExecutor();
+        }
+        remuxExecutor.execute(() -> {
+            for (File f : needsRemux) {
+                try {
+                    File out = remuxer.remuxSync(f);
+                    if (out == null) {
+                        FLog.w(TAG, "Remux failed for " + f.getName()
+                                + " — export may fail for this trimmed source");
+                    }
+                } catch (Exception e) {
+                    FLog.w(TAG, "Remux threw for " + f.getName(), e);
+                }
+            }
+            // Hand back to the main thread to start the export (ExportManager
+            // runs its Transformer on the main thread, as today).
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (exportManager != null) {
+                    exportManager.export(exportProject);
+                }
+            });
+        });
+    }
+
+    /**
+     * Collect the unique {@code file://} video sources in the project that are
+     * fragmented MP4s needing a remux and don't already have a cached remuxed
+     * copy. Image clips are skipped. Returns an empty list for the common case
+     * (normal/imported projects), in which export proceeds with no background work.
+     */
+    @NonNull
+    private List<File> collectSourcesNeedingRemux(@NonNull FaditorProject project) {
+        List<File> result = new ArrayList<>();
+        if (project.getTimeline() == null) return result;
+        FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(this);
+        Set<String> seen = new LinkedHashSet<>();
+        for (Clip clip : project.getTimeline().getClips()) {
+            if (clip.isImageClip()) continue;
+            Uri uri = clip.getSourceUri();
+            if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) {
+                continue;
+            }
+            if (!seen.add(uri.getPath())) continue; // dedupe
+            try {
+                File f = new File(uri.getPath());
+                if (remuxer.needsRemux(f) && !remuxer.hasRemuxedVersion(f)) {
+                    result.add(f);
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "collectSourcesNeedingRemux: skip " + uri, e);
+            }
+        }
+        return result;
     }
 
     /**

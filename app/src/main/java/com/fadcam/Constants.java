@@ -638,6 +638,20 @@ public abstract class Constants {
     public static final String PREF_PLAYER_CONTROLS_TIMEOUT_SECONDS =
         "pref_player_controls_timeout_seconds";
     public static final int DEFAULT_PLAYER_CONTROLS_TIMEOUT_SECONDS = 5; // default 5 seconds
+    // Faditor: whether adding a new video clip offers to transcribe it. Turned off
+    // permanently when the user checks "Don't ask me again" on the prompt; can be
+    // re-enabled from the editor's Settings sheet.
+    public static final String PREF_FADITOR_ASK_TO_TRANSCRIBE =
+        "pref_faditor_ask_to_transcribe";
+    // Faditor bottom-tools carousel customization (Stage 3).
+    // JSON array of tool id strings = the user's manual drag order.
+    public static final String PREF_FADITOR_TOOL_ORDER = "pref_faditor_tool_order";
+    // JSON array of tool id strings that are pinned to the front.
+    public static final String PREF_FADITOR_TOOL_PINS = "pref_faditor_tool_pins";
+    // "manual" (default) or "recent".
+    public static final String PREF_FADITOR_TOOL_ORDER_MODE = "pref_faditor_tool_order_mode";
+    // JSON object {toolId: lastUsedEpochMillis} for RECENT ordering.
+    public static final String PREF_FADITOR_TOOL_RECENCY = "pref_faditor_tool_recency";
     // Motion Lab (advanced) preferences
     public static final String PREF_MOTION_MODE_ENABLED = "pref_motion_mode_enabled";
     public static final String PREF_MOTION_TRIGGER_MODE = "pref_motion_trigger_mode"; // any_motion|person_confirmed

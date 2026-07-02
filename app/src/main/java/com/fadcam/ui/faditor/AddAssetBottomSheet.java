@@ -27,11 +27,14 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
     /** Callback when user picks an asset type. */
     public interface Callback {
         /**
-         * Called when the user selects an asset type.
+         * Called when the user selects image or video.
          *
          * @param isImage true for image, false for video
          */
         void onAssetTypeSelected(boolean isImage);
+
+        /** Called when the user selects audio. */
+        void onAudioSelected();
     }
 
     @Nullable
@@ -99,12 +102,20 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         // Image row
         root.addView(createOptionRow(
                 getString(R.string.faditor_add_asset_image),
-                "image", materialIcons, dp, true));
+                "image", materialIcons, dp,
+                () -> { if (callback != null) callback.onAssetTypeSelected(true); }));
 
         // Video row
         root.addView(createOptionRow(
                 getString(R.string.faditor_add_asset_video),
-                "videocam", materialIcons, dp, false));
+                "videocam", materialIcons, dp,
+                () -> { if (callback != null) callback.onAssetTypeSelected(false); }));
+
+        // Audio row
+        root.addView(createOptionRow(
+                getString(R.string.faditor_add_asset_audio),
+                "music_note", materialIcons, dp,
+                () -> { if (callback != null) callback.onAudioSelected(); }));
 
         return root;
     }
@@ -121,7 +132,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
      */
     private View createOptionRow(String label, String icon,
                                  @Nullable Typeface materialIcons, float dp,
-                                 boolean isImage) {
+                                 @NonNull Runnable onClick) {
         LinearLayout row = new LinearLayout(requireContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -172,9 +183,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         row.addView(arrow);
 
         row.setOnClickListener(v -> {
-            if (callback != null) {
-                callback.onAssetTypeSelected(isImage);
-            }
+            onClick.run();
             dismiss();
         });
 

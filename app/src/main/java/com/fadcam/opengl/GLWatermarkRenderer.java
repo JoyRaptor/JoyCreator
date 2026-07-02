@@ -625,26 +625,11 @@ public class GLWatermarkRenderer {
                 // Continue anyway
             }
 
-            // Determine correct texture matrix based on orientation
-            boolean isLandscape = false;
-            if (userOrientationSetting != null) {
-                isLandscape = "landscape".equalsIgnoreCase(userOrientationSetting);
-            } else {
-                isLandscape = (deviceOrientation == 1 || deviceOrientation == 3);
-            }
-
-            float[] encoderTexMatrix;
-            if (isLandscape) {
-                // Apply vertical flip for landscape only
-                float[] fixedTexMatrix = new float[16];
-                Matrix.setIdentityM(fixedTexMatrix, 0);
-                Matrix.scaleM(fixedTexMatrix, 0, 1f, -1f, 1f);
-                Matrix.translateM(fixedTexMatrix, 0, 0f, -1f, 0f);
-                encoderTexMatrix = fixedTexMatrix;
-            } else {
-                // Portrait: use original texMatrix
-                encoderTexMatrix = texMatrix;
-            }
+            // Use the raw SurfaceTexture transform in every orientation. Rotation is handled by
+            // recordingMvpMatrix (getRequiredRotation, distinct per ROTATION_0/90/180/270), so the old
+            // hardcoded landscape vertical-flip — which keyed off the orientation SETTING string and so
+            // treated ROTATION_90 and _270 identically (one came out upside-down) — is removed.
+            float[] encoderTexMatrix = texMatrix;
             float[] encoderCameraMvp = recordingMvpMatrix;
             if (isFullscreenCameraFront() && frontVideoMirrorEnabled) {
                 encoderTexMatrix = applyHorizontalTexFlip(encoderTexMatrix);
@@ -854,26 +839,9 @@ public class GLWatermarkRenderer {
                 return;
             }
 
-            // Apply the same landscape orientation fix as in renderToEncoder
-            boolean isLandscape = false;
-            if (userOrientationSetting != null) {
-                isLandscape = "landscape".equalsIgnoreCase(userOrientationSetting);
-            } else {
-                isLandscape = (deviceOrientation == 1 || deviceOrientation == 3);
-            }
-
-            float[] previewTexMatrix;
-            if (isLandscape) {
-                // Apply vertical flip for landscape only (same as encoder)
-                float[] fixedTexMatrix = new float[16];
-                Matrix.setIdentityM(fixedTexMatrix, 0);
-                Matrix.scaleM(fixedTexMatrix, 0, 1f, -1f, 1f);
-                Matrix.translateM(fixedTexMatrix, 0, 0f, -1f, 0f);
-                previewTexMatrix = fixedTexMatrix;
-            } else {
-                // Portrait: use original texMatrix
-                previewTexMatrix = texMatrix;
-            }
+            // Raw transform in every orientation; previewMvpMatrix handles the rotation (mirrors the
+            // encoder path above). The orientation-string landscape flip is removed.
+            float[] previewTexMatrix = texMatrix;
             float[] previewCameraMvp = previewMvpMatrix;
             if (isFullscreenCameraFront() && frontVideoMirrorEnabled) {
                 previewTexMatrix = applyHorizontalTexFlip(previewTexMatrix);
@@ -2314,22 +2282,12 @@ public class GLWatermarkRenderer {
             Matrix.setIdentityM(currentPipTexMatrix, 0);
         }
 
-        // Apply the same orientation fix as the primary camera for the PiP texture
-        boolean isLandscape = false;
-        if (userOrientationSetting != null) {
-            isLandscape = "landscape".equalsIgnoreCase(userOrientationSetting);
-        }
-
-        float[] pipEncoderTexMatrix;
-        if (isLandscape) {
-            float[] fixedTexMatrix = new float[16];
-            Matrix.setIdentityM(fixedTexMatrix, 0);
-            Matrix.scaleM(fixedTexMatrix, 0, 1f, -1f, 1f);
-            Matrix.translateM(fixedTexMatrix, 0, 0f, -1f, 0f);
-            pipEncoderTexMatrix = fixedTexMatrix;
-        } else {
-            pipEncoderTexMatrix = currentPipTexMatrix;
-        }
+        // PiP uses the raw SurfaceTexture transform. An earlier auto-rotation attempt
+        // (applyPipDisplayRotation) produced a 180°/flip artifact in landscape rather than a clean 90°
+        // turn, so it was removed in favour of the floating-webcam's MANUAL rotate/mirror controls
+        // (FloatingWebcamService). If GL-PiP auto-rotation is revisited, the geometry already swaps
+        // aspect for 90/270 in computePipGeometry — the texture rotation must match that exactly.
+        float[] pipEncoderTexMatrix = currentPipTexMatrix;
 
         // Apply mirror flip for PiP front camera (same logic as fullscreen encoder path)
         if (pipEnabled && !isFrontCamera() && frontVideoMirrorEnabled) {

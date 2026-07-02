@@ -3,6 +3,7 @@ package com.fadcam.ui.faditor.player;
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
+import android.os.SystemClock;
 import android.media.audiofx.LoudnessEnhancer;
 import android.net.Uri;
 import androidx.annotation.NonNull;
@@ -27,6 +28,7 @@ import com.fadcam.ui.faditor.model.Clip;
 public class FaditorPlayerManager implements DefaultLifecycleObserver {
 
     private static final String TAG = "FaditorPlayerManager";
+    private static final long SEEK_GRACE_MS = 250L;
 
     @Nullable
     private ExoPlayer player;
@@ -53,6 +55,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
 
     /** Pending seek after player becomes READY (e.g. after prepare). */
     private long pendingSeekMs = -1;
+    private long lastSeekRequestMs = -1L;
 
     /** Whether the media source needs re-preparation (URI changed). */
     private boolean needsPrepare = true;
@@ -199,15 +202,49 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         FLog.d(TAG, "Trim end updated (no seek): trimEnd=" + newTrimEndMs + "ms");
     }
 
+    /**
+     * Update BOTH trim bounds without seeking or pausing the player.
+     *
+     * <p>Used by duration correction when the clip's in/out points are reset
+     * (e.g. fMP4 where stored duration was wrong). Previously only
+     * {@link #updateTrimEndOnly} was called, leaving {@code trimStartMs}
+     * stale — which caused every subsequent seek to clamp to the old
+     * trim-start value instead of the tapped position.</p>
+     *
+     * @param newTrimStartMs the corrected in-point in absolute source milliseconds
+     * @param newTrimEndMs   the corrected out-point in absolute source milliseconds
+     */
+    public void updateTrimBoundsSilently(long newTrimStartMs, long newTrimEndMs) {
+        this.trimStartMs = newTrimStartMs;
+        this.trimEndMs = newTrimEndMs;
+        FLog.d(TAG, "Trim bounds updated silently: in=" + newTrimStartMs
+                + " out=" + newTrimEndMs + "ms");
+    }
+
+    private long effectiveTrimEnd() {
+        if (player == null) return trimEndMs;
+        long duration = player.getDuration();
+        if (duration == Long.MIN_VALUE) return trimEndMs;
+        return Math.min(trimEndMs, Math.max(0L, duration));
+    }
+
     public void play() {
         if (player != null) {
-            long pos = player.getCurrentPosition();
-            // Restart from trim start only if strictly BEFORE start or AFTER end.
-            // Using > (not >=) so that a position exactly at trimEndMs (which happens
-            // after a split where the playhead sits on the cut boundary) does NOT
-            // incorrectly reset to position 0.
-            if (pos < trimStartMs || pos > trimEndMs) {
-                player.seekTo(trimStartMs);
+            if (pendingSeekMs >= 0 && player.getPlaybackState() == Player.STATE_READY) {
+                player.seekTo(pendingSeekMs);
+                pendingSeekMs = -1;
+            }
+            long now = SystemClock.elapsedRealtime();
+            boolean seekInFlight = lastSeekRequestMs >= 0L
+                    && now - lastSeekRequestMs < SEEK_GRACE_MS;
+            if (pendingSeekMs < 0 && !seekInFlight) {
+                long pos = player.getCurrentPosition();
+                long effectiveStart = Math.min(trimStartMs, trimEndMs);
+                long effectiveEnd = effectiveTrimEnd();
+                if (player.getPlaybackState() == Player.STATE_ENDED || pos < effectiveStart || pos > effectiveEnd) {
+                    player.seekTo(effectiveStart);
+                    lastSeekRequestMs = now;
+                }
             }
             player.play();
         }
@@ -216,6 +253,28 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     public void pause() {
         if (player != null) {
             player.pause();
+        }
+    }
+
+    /**
+     * Release the preview player to free its hardware video decoder + buffers for a
+     * memory/codec-heavy operation (export). The editor stays in the foreground, so
+     * call {@link #reacquireAfterExport()} when the export ends to restore preview.
+     * Devices have a small number of hardware codec instances; holding the preview
+     * decoder while the exporter needs a decoder + encoder can starve the export.
+     */
+    public void releaseForExport() {
+        if (player != null) {
+            lastPosition = player.getCurrentPosition();
+            playWhenReady = false;
+            releasePlayer();
+        }
+    }
+
+    /** Re-create the preview player after {@link #releaseForExport()} (export ended). */
+    public void reacquireAfterExport() {
+        if (player == null && currentClip != null) {
+            loadClip(currentClip);
         }
     }
 
@@ -292,10 +351,24 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Seek to a position (0-based within the trimmed region).
      * Internally converted to absolute position.
      */
+    /**
+     * Toggle exact (frame-precise) vs keyframe seeking. Use EXACT for tap-to-word
+     * and transcript skips; CLOSEST_SYNC for fast timeline drag-scrubbing.
+     */
+    public void setExactSeek(boolean exact) {
+        if (player == null) return;
+        player.setSeekParameters(exact ? SeekParameters.EXACT : SeekParameters.CLOSEST_SYNC);
+    }
+
     public void seekTo(long positionMs) {
         if (player == null) return;
-        long absoluteMs = trimStartMs + positionMs;
-        absoluteMs = Math.max(trimStartMs, Math.min(absoluteMs, trimEndMs));
+        lastSeekRequestMs = SystemClock.elapsedRealtime();
+        // Defensive: if trimStart > trimEnd (stale state), treat trimEnd as the
+        // only valid position so seeks don't clamp to a nonsensical value.
+        long effectiveStart = Math.min(trimStartMs, trimEndMs);
+        long effectiveEnd = effectiveTrimEnd();
+        long absoluteMs = effectiveStart + positionMs;
+        absoluteMs = Math.max(effectiveStart, Math.min(absoluteMs, effectiveEnd));
 
         int state = player.getPlaybackState();
         // Seek is valid in READY, BUFFERING, and ENDED.
@@ -346,7 +419,8 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     public long getCurrentPosition() {
         if (player == null) return 0;
         long rawPos = player.getCurrentPosition();
-        return Math.max(0, rawPos - trimStartMs);
+        long effectiveStart = Math.min(trimStartMs, trimEndMs);
+        return Math.max(0, rawPos - effectiveStart);
     }
 
     /**
@@ -361,7 +435,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Get the trimmed duration (outPoint - inPoint).
      */
     public long getDuration() {
-        return trimEndMs - trimStartMs;
+        long effectiveStart = Math.min(trimStartMs, trimEndMs);
+        long effectiveEnd = effectiveTrimEnd();
+        return Math.max(0, effectiveEnd - effectiveStart);
     }
 
     public boolean isPlaying() {
@@ -384,6 +460,15 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     }
 
     /**
+     * Whether playback has reached the end (STATE_ENDED). Note {@link #getPlayWhenReady()}
+     * stays true at STATE_ENDED, so callers driving audio off play-intent must also check this
+     * to avoid running audio past the video end.
+     */
+    public boolean isEnded() {
+        return player != null && player.getPlaybackState() == Player.STATE_ENDED;
+    }
+
+    /**
      * Check if playback has reached the trim end point.
      * Call this periodically and pause if true.
      *
@@ -392,7 +477,8 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     public boolean isAtTrimEnd() {
         if (player == null) return false;
         long pos = player.getCurrentPosition();
-        return pos >= trimEndMs;
+        long effectiveEnd = effectiveTrimEnd();
+        return player.getPlaybackState() == Player.STATE_ENDED || pos >= effectiveEnd - 150L;
     }
 
     /**
@@ -412,6 +498,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
     }
 
+
     // ── Internal ─────────────────────────────────────────────────────
 
     private void initializePlayer() {
@@ -420,9 +507,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         try {
             player = new ExoPlayer.Builder(context).build();
             player.setRepeatMode(Player.REPEAT_MODE_OFF);
-            // Use keyframe-accurate seeking for scrubbing: jumps to the nearest
-            // sync frame instantly instead of decoding every intermediate frame.
-            // This makes live preview during timeline drag fast and responsive.
+            // Keyframe seeking by default for fast/responsive scrubbing; precise
+            // operations (tap-to-word, transcript skips) flip to EXACT via
+            // setExactSeek(true) so they land on the exact time.
             player.setSeekParameters(SeekParameters.CLOSEST_SYNC);
             player.addListener(internalListener);
 
@@ -482,10 +569,10 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         player.prepare();
         needsPrepare = false;
 
-        // Queue seek to trim start after prepare completes
-        if (trimStartMs > 0) {
-            pendingSeekMs = trimStartMs;
-        }
+        // Queue seek to trim start after prepare completes. Always queue it,
+        // even when trimStartMs is 0, so a newly loaded clip restarts cleanly
+        // after auto-advancing from an ENDED previous clip.
+        pendingSeekMs = trimStartMs;
     }
 
     /**

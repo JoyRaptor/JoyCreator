@@ -1,0 +1,16 @@
+{
+  "id": "ice_line",
+  "displayName": "Ice Line",
+  "type": "line",
+  "color": "#80D8FF",
+  "gradientStart": "#E1F5FE",
+  "gradientEnd": "#00B0FF",
+  "barWidthDp": 3,
+  "barGapDp": 0,
+  "cornerRadiusDp": 0,
+  "glowColor": "#AA80D8FF",
+  "glowRadiusDp": 10,
+  "bandCount": 64,
+  "sensitivity": 1.2,
+  "useSpectrum": false
+}

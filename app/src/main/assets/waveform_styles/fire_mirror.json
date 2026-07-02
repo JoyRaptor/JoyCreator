@@ -1,0 +1,16 @@
+{
+  "id": "fire_mirror",
+  "displayName": "Fire Mirror",
+  "type": "mirror_bars",
+  "color": "#FF3D00",
+  "gradientStart": "#FFC400",
+  "gradientEnd": "#DD2C00",
+  "barWidthDp": 5,
+  "barGapDp": 2,
+  "cornerRadiusDp": 2,
+  "glowColor": "#CCFF6D00",
+  "glowRadiusDp": 9,
+  "bandCount": 44,
+  "sensitivity": 1.5,
+  "useSpectrum": false
+}

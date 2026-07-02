@@ -1,0 +1,13 @@
+{
+  "id": "title_bold",
+  "name": "Bold Title",
+  "fontFamily": "bold",
+  "colorInt": -1,
+  "strokeColorInt": -16777216,
+  "strokeWidthPx": 8,
+  "shadowColorInt": -855642112,
+  "shadowRadiusPx": 10,
+  "backgroundColorInt": 1711276032,
+  "entrance": "slide_up",
+  "exit": "slide_down"
+}

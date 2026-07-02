@@ -33,28 +33,28 @@ import com.google.android.material.slider.Slider;
  */
 public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
 
-    /** Callback for volume / mute changes. */
+    /** Callback for volume / mute / ducking changes. */
     public interface Callback {
         void onVolumeChanged(float volume, boolean muted);
+        default void onDuckChanged(float duckAmount) {}
     }
 
     @Nullable
     private Callback callback;
     private float currentVolume = 1.0f;
     private boolean currentMuted = false;
+    private float currentDuck = 0f;
 
-    /**
-     * Create a new instance with the current volume and mute state.
-     *
-     * @param volume current volume (0.0 – 2.0)
-     * @param muted  current mute state
-     * @return new instance
-     */
     public static VolumeControlBottomSheet newInstance(float volume, boolean muted) {
+        return newInstance(volume, muted, 0f);
+    }
+
+    public static VolumeControlBottomSheet newInstance(float volume, boolean muted, float duck) {
         VolumeControlBottomSheet sheet = new VolumeControlBottomSheet();
         Bundle args = new Bundle();
         args.putFloat("volume", volume);
         args.putBoolean("muted", muted);
+        args.putFloat("duck", duck);
         sheet.setArguments(args);
         return sheet;
     }
@@ -90,6 +90,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         if (getArguments() != null) {
             currentVolume = getArguments().getFloat("volume", 1.0f);
             currentMuted = getArguments().getBoolean("muted", false);
+            currentDuck = getArguments().getFloat("duck", 0f);
         }
 
         float dp = getResources().getDisplayMetrics().density;
@@ -332,6 +333,76 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
 
         resetRow.setVisibility(needsReset ? View.VISIBLE : View.GONE);
         root.addView(resetRow);
+
+        // ── Audio ducking section ───────────────────────────────────
+        // NOTE: Ducking is NOT YET IMPLEMENTED in playback/export pipeline.
+        // The `duckAmount` is stored on Clip and persisted, but no voice-activity
+        // duck processor exists in FaditorPlayerManager or ExportManager.
+        // Hide the hollow UI until the full feature is built.
+        // TODO: implement voice-activity duck processor, then re-enable this section.
+        if (false) {
+            View duckDivider = new View(requireContext());
+            duckDivider.setBackgroundColor(0xFF2A2A2A);
+            LinearLayout.LayoutParams ddLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, (int) (1 * dp));
+            ddLp.topMargin = (int) (16 * dp);
+            ddLp.bottomMargin = (int) (8 * dp);
+            duckDivider.setLayoutParams(ddLp);
+            root.addView(duckDivider);
+
+            LinearLayout duckTitleRow = new LinearLayout(requireContext());
+            duckTitleRow.setOrientation(LinearLayout.HORIZONTAL);
+            duckTitleRow.setGravity(Gravity.CENTER_VERTICAL);
+            root.addView(duckTitleRow);
+
+            TextView duckTitle = new TextView(requireContext());
+            duckTitle.setText("Audio Ducking");
+            duckTitle.setTextColor(0xFFFFFFFF);
+            duckTitle.setTextSize(15);
+            duckTitle.setTypeface(null, Typeface.BOLD);
+            LinearLayout.LayoutParams dtLp = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            duckTitle.setLayoutParams(dtLp);
+            duckTitleRow.addView(duckTitle);
+
+            TextView duckPercent = new TextView(requireContext());
+            duckPercent.setTextColor(currentDuck > 0 ? 0xFF4CAF50 : 0xFF666666);
+            duckPercent.setTextSize(14);
+            duckPercent.setTypeface(null, Typeface.BOLD);
+            duckPercent.setText(currentDuck > 0
+                    ? Math.round(currentDuck * 100) + "%" : "Off");
+            duckTitleRow.addView(duckPercent);
+
+            TextView duckDesc = new TextView(requireContext());
+            duckDesc.setText("Lowers clip volume when voice is detected in other clips. Useful for background music under narration.");
+            duckDesc.setTextColor(0xFF777777);
+            duckDesc.setTextSize(11);
+            duckDesc.setPadding(0, (int) (4 * dp), 0, (int) (8 * dp));
+            root.addView(duckDesc);
+
+            Slider duckSlider = new Slider(new ContextThemeWrapper(requireContext(),
+                    R.style.Widget_FadCam_BottomSheetSlider));
+            duckSlider.setValueFrom(0f);
+            duckSlider.setValueTo(100f);
+            duckSlider.setStepSize(5f);
+            duckSlider.setValue(currentDuck * 100f);
+            duckSlider.setTrackActiveTintList(
+                    android.content.res.ColorStateList.valueOf(0xFF4CAF50));
+            duckSlider.setThumbTintList(
+                    android.content.res.ColorStateList.valueOf(0xFF4CAF50));
+            duckSlider.setTrackInactiveTintList(
+                    android.content.res.ColorStateList.valueOf(0xFF333333));
+            root.addView(duckSlider);
+
+            duckSlider.addOnChangeListener((sl, value, fromUser) -> {
+                if (!fromUser) return;
+                currentDuck = value / 100f;
+                duckPercent.setTextColor(currentDuck > 0 ? 0xFF4CAF50 : 0xFF666666);
+                duckPercent.setText(currentDuck > 0
+                        ? Math.round(currentDuck * 100) + "%" : "Off");
+                if (callback != null) callback.onDuckChanged(currentDuck);
+            });
+        }
 
         return root;
     }

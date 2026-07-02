@@ -6,7 +6,6 @@ import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 /**
  * Ordered list of {@link Clip}s that make up the editor timeline.
  *
@@ -22,9 +21,24 @@ public class Timeline {
     @NonNull
     private final List<AudioClip> audioClips;
 
+    /** Text overlays rendered on top of the whole timeline. */
+    @NonNull
+    private final List<TextOverlayItem> textOverlays;
+
+    /** Transitions (fade to black, cross-dissolve, etc.) */
+    @NonNull
+    private final List<Transition> transitions;
+
+    /** Placed waveform/spectrum visualizers (schema v7). */
+    @NonNull
+    private final List<WaveformOverlayInstance> waveformOverlays;
+
     public Timeline() {
         this.clips = new ArrayList<>();
         this.audioClips = new ArrayList<>();
+        this.textOverlays = new ArrayList<>();
+        this.transitions = new ArrayList<>();
+        this.waveformOverlays = new ArrayList<>();
     }
 
     // ── Clip management ──────────────────────────────────────────────
@@ -78,7 +92,7 @@ public class Timeline {
     public long getTotalDurationMs() {
         long videoTotal = 0;
         for (Clip clip : clips) {
-            videoTotal += clip.getTrimmedDurationMs();
+            videoTotal += clip.hasLoopExtension() ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs();
         }
         long audioEnd = 0;
         for (AudioClip ac : audioClips) {
@@ -94,7 +108,7 @@ public class Timeline {
     public long getVideoTrackDurationMs() {
         long total = 0;
         for (Clip clip : clips) {
-            total += clip.getTrimmedDurationMs();
+            total += clip.hasLoopExtension() ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs();
         }
         return total;
     }
@@ -155,12 +169,60 @@ public class Timeline {
         Clip clipB = new Clip(original);
         clipB.setInPointMs(splitPointMs);
 
+        // Partition removed spans and transcript words by the split point so each
+        // half only carries what falls in its own source range. Without this both
+        // halves kept the FULL transcript, so the second half's words showed up
+        // shifted/misaligned after every cut.
+        partitionAfterSplit(original, clipA, clipB, splitPointMs);
+
         // Replace original with the two parts
         clips.remove(clipIndex);
         clips.add(clipIndex, clipB);
         clips.add(clipIndex, clipA); // A goes first
 
         return clipIndex;
+    }
+
+    /**
+     * Split-time partitioning shared by all split paths: clip A keeps everything
+     * before {@code splitPointMs}, clip B everything at/after it. Removed spans are
+     * clamped to each half's source range; transcript words are kept by start time.
+     */
+    private static void partitionAfterSplit(@NonNull Clip original,
+                                            @NonNull Clip clipA, @NonNull Clip clipB,
+                                            long splitPointMs) {
+        clipA.setRemovedSpans(clampSpans(original.getRemovedSpans(),
+                original.getInPointMs(), splitPointMs));
+        clipB.setRemovedSpans(clampSpans(original.getRemovedSpans(),
+                splitPointMs, original.getOutPointMs()));
+        // NOTE: Transcript is NOT partitioned on split — both halves keep the full source
+        // transcript. The panel views a windowed subset via Transcript.windowed(). This makes
+        // split non-destructive: lengthening a trim reveals previously-hidden words.
+        // See tasks/PLAN_transcript_windowing.md
+    }
+
+    @NonNull
+    private static List<long[]> clampSpans(@NonNull List<long[]> spans, long lo, long hi) {
+        List<long[]> out = new ArrayList<>();
+        for (long[] s : spans) {
+            long a = Math.max(lo, s[0]);
+            long b = Math.min(hi, s[1]);
+            if (b > a) out.add(new long[]{a, b});
+        }
+        return out;
+    }
+
+    /** Drop transcript words on the wrong side of the split (by word start time). */
+    private static void partitionWords(@NonNull Clip clip, long splitMs, boolean keepBefore) {
+        for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : clip.getTranscripts()) {
+            java.util.Iterator<com.fadcam.ui.faditor.transcript.TranscriptWord> it =
+                    nt.transcript.words.iterator();
+            while (it.hasNext()) {
+                com.fadcam.ui.faditor.transcript.TranscriptWord w = it.next();
+                boolean before = w.startMs < splitMs;
+                if (before != keepBefore) it.remove();
+            }
+        }
     }
 
     /**
@@ -239,5 +301,121 @@ public class Timeline {
      */
     public boolean hasAudioClips() {
         return !audioClips.isEmpty();
+    }
+
+    // ── Text overlay management ──────────────────────────────────────
+
+    public void addTextOverlay(@NonNull TextOverlayItem overlay) {
+        textOverlays.add(overlay);
+    }
+
+    public void removeTextOverlay(@NonNull TextOverlayItem overlay) {
+        textOverlays.remove(overlay);
+    }
+
+    @NonNull
+    public List<TextOverlayItem> getTextOverlays() {
+        return textOverlays;
+    }
+
+    public boolean hasTextOverlays() {
+        return !textOverlays.isEmpty();
+    }
+
+    // ── Transition management ───────────────────────────────────────
+
+    public void addTransition(@NonNull Transition transition) {
+        // A transition lives on the seam between clip[clipIndex] and clip[clipIndex+1], so the only
+        // valid indices are [0, clipCount-2]. (The old clamp allowed clipCount-1 — a seam AFTER the
+        // last clip that doesn't exist — which orphaned the transition: it rendered/exported nothing.)
+        int maxSeam = Math.max(0, clips.size() - 2);
+        transition.clipIndex = Math.max(0, Math.min(transition.clipIndex, maxSeam));
+        transitions.add(transition);
+    }
+
+    public void removeTransition(int index) {
+        if (index >= 0 && index < transitions.size()) {
+            transitions.remove(index);
+        }
+    }
+
+    public void removeTransitionAtSeam(int seam) {
+        for (int i = transitions.size() - 1; i >= 0; i--) {
+            if (transitions.get(i).clipIndex == seam) {
+                transitions.remove(i);
+            }
+        }
+    }
+
+    public void replaceTransition(int index, @NonNull Transition.Type type, long durationMs) {
+        if (index < 0 || index >= transitions.size()) return;
+        Transition t = transitions.get(index);
+        t.type = type;
+        t.durationMs = Math.max(100, Math.min(2000, durationMs));
+    }
+
+    public boolean setTransitionDuration(int index, long durationMs) {
+        if (index < 0 || index >= transitions.size()) return false;
+        transitions.get(index).durationMs = Math.max(100, Math.min(2000, durationMs));
+        return true;
+    }
+
+    public void removeTransitionsForDeletedClip(int clipIndex) {
+        for (int i = transitions.size() - 1; i >= 0; i--) {
+            Transition t = transitions.get(i);
+            if (t.clipIndex == clipIndex || t.clipIndex == clipIndex - 1) {
+                transitions.remove(i);
+            } else if (t.clipIndex > clipIndex) {
+                t.clipIndex--;
+            }
+        }
+    }
+
+    public void shiftTransitionsAfterInsert(int insertIndex) {
+        for (Transition t : transitions) {
+            if (t.clipIndex >= insertIndex) {
+                t.clipIndex++;
+            }
+        }
+    }
+
+    public void shiftTransitionsAfterSplit(int splitIndex) {
+        for (Transition t : transitions) {
+            if (t.clipIndex >= splitIndex) {
+                t.clipIndex++;
+            }
+        }
+    }
+
+    public void clearTransitions() {
+        transitions.clear();
+    }
+
+    @NonNull
+    public List<Transition> getTransitions() {
+        return Collections.unmodifiableList(transitions);
+    }
+
+    public boolean hasTransitions() {
+        return !transitions.isEmpty();
+    }
+
+    // ── Waveform visualizer overlays (schema v7) ─────────────────────
+
+    public void addWaveformOverlay(@NonNull WaveformOverlayInstance overlay) {
+        waveformOverlays.add(overlay);
+    }
+
+    public void removeWaveformOverlay(@NonNull WaveformOverlayInstance overlay) {
+        waveformOverlays.remove(overlay);
+    }
+
+    @NonNull
+    public List<WaveformOverlayInstance> getWaveformOverlays() {
+        return waveformOverlays;
+    }
+
+    public boolean hasWaveformOverlays() {
+        return !waveformOverlays.isEmpty();
     }
 }

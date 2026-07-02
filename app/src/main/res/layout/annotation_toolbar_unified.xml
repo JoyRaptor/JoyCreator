@@ -25,41 +25,64 @@
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
 
-                <!-- BRANDING with Logo (no gap) -->
+                <!-- WEBCAM OVERLAY TOGGLE (replaces branding banner) -->
                 <LinearLayout
+                    android:id="@+id/btnWebcamToggle"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="48dp"
                     android:orientation="horizontal"
-                    android:gravity="center"
+                    android:gravity="center_vertical"
                     android:background="@drawable/overlay_toolbar_header_bg"
                     android:clipToOutline="true"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp"
-                    android:layout_marginBottom="8dp">
-
-                    <ImageView
-                        android:layout_width="wrap_content"
-                        android:layout_height="39dp"
-                        android:src="@drawable/fadrec"
-                        android:adjustViewBounds="true"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="@string/desc_fadrec_logo"
-                        android:padding="0dp"
-                        android:layout_marginEnd="4dp" />
+                    android:layout_marginBottom="8dp"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <TextView
+                        android:id="@+id/iconWebcamToggle"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:gravity="center"
+                        android:text="videocam"
+                        android:textSize="20sp"
+                        android:textColor="#9E9E9E"
+                        android:fontFamily="@font/materialicons"
+                        android:layout_marginEnd="10dp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/webcam_overlay"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/ubuntu_regular" />
+
+                    <TextView
+                        android:id="@+id/webcamToggleState"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/annotation_by_fadsec_lab"
+                        android:text="@string/webcam_overlay_off"
                         android:textSize="11sp"
-                        android:textColor="#B0B0B0"
-                        android:fontFamily="@font/ubuntu_regular"
-                        android:layout_marginStart="0dp"
-                        android:paddingStart="0dp"
-                        android:padding="0dp"
-                        android:includeFontPadding="false" />
+                        android:textColor="#AAAAAA"
+                        android:fontFamily="@font/ubuntu_regular" />
+
+                    <TextView
+                        android:id="@+id/btnCompactMode"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:gravity="center"
+                        android:text="close_fullscreen"
+                        android:textSize="18sp"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="@font/materialicons"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginStart="8dp" />
                 </LinearLayout>
 
                 <!-- RECORDING CONTROLS SECTION (MOVED TO TOP) -->
@@ -765,6 +788,98 @@
             </LinearLayout>
         </LinearLayout>
         </ScrollView>
+
+        <!-- COMPACT BAR: slim alternative to the full menu (timer, stop, pause, webcam, expand) -->
+        <LinearLayout
+            android:id="@+id/compactBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="6dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/compactTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:00"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#4CAF50"
+                android:fontFamily="@font/ubuntu_regular"
+                android:layout_marginEnd="8dp"
+                android:minWidth="42dp"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/btnCompactRecord"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:gravity="center"
+                android:text="fiber_manual_record"
+                android:textSize="20sp"
+                android:textColor="#4CAF50"
+                android:fontFamily="@font/materialicons"
+                android:background="@drawable/floating_button_item_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="4dp" />
+
+            <TextView
+                android:id="@+id/btnCompactPause"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:gravity="center"
+                android:text="pause"
+                android:textSize="20sp"
+                android:textColor="#9E9E9E"
+                android:fontFamily="@font/materialicons"
+                android:background="@drawable/floating_button_item_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="4dp" />
+
+            <TextView
+                android:id="@+id/btnCompactWebcam"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:gravity="center"
+                android:text="videocam"
+                android:textSize="20sp"
+                android:textColor="#9E9E9E"
+                android:fontFamily="@font/materialicons"
+                android:background="@drawable/floating_button_item_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:layout_marginEnd="4dp" />
+
+            <TextView
+                android:id="@+id/btnCompactRotate"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:gravity="center"
+                android:text="rotate_90_degrees_ccw"
+                android:textSize="16sp"
+                android:textColor="#AAAAAA"
+                android:fontFamily="@font/materialicons"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/btnCompactExpand"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:gravity="center"
+                android:text="open_in_full"
+                android:textSize="16sp"
+                android:textColor="#AAAAAA"
+                android:fontFamily="@font/materialicons"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Arrow Button (always visible, OUTSIDE menu) - Overlays on right edge -->

@@ -1,0 +1,14 @@
+{
+  "id": "filled_wave",
+  "displayName": "Filled Wave",
+  "type": "filled_wave",
+  "color": "#B388FF",
+  "gradientStart": "#E1BEE7",
+  "gradientEnd": "#7C4DFF",
+  "barWidthDp": 2,
+  "glowColor": "#88B388FF",
+  "glowRadiusDp": 5,
+  "bandCount": 120,
+  "sensitivity": 1.0,
+  "useSpectrum": false
+}

@@ -1,0 +1,16 @@
+{
+  "id": "sunset_spectrum",
+  "displayName": "Sunset Spectrum",
+  "type": "spectrum_bars",
+  "color": "#FF7043",
+  "gradientStart": "#FFD54F",
+  "gradientEnd": "#FF5277",
+  "barWidthDp": 4,
+  "barGapDp": 2,
+  "cornerRadiusDp": 3,
+  "glowColor": "#99FF7043",
+  "glowRadiusDp": 6,
+  "bandCount": 52,
+  "sensitivity": 1.3,
+  "useSpectrum": true
+}

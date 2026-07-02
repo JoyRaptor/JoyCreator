@@ -1,0 +1,222 @@
+package com.fadcam.ui.faditor;
+
+import android.app.Dialog;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.core.widget.NestedScrollView;
+
+import com.fadcam.R;
+import com.fadcam.SharedPreferencesManager;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
+import com.google.android.material.materialswitch.MaterialSwitch;
+
+/**
+ * "Editor settings" bottom sheet for Faditor Mini.
+ *
+ * <p>Currently exposes a single switch that controls whether the editor
+ * offers to transcribe a newly-added video clip (see
+ * {@link SharedPreferencesManager#isFaditorAskToTranscribeEnabled()}). The
+ * content is built as a simple vertical stack of "settings rows" inside a
+ * {@link NestedScrollView} so this sheet stays scrollable and future rows are
+ * trivial to add — just call {@link #addSwitchRow} again.</p>
+ *
+ * <p>Uses the same dark gradient bottom-sheet styling and programmatic-view
+ * convention as {@link FaditorInfoBottomSheet}.</p>
+ */
+public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
+
+    private static final String TAG = "FaditorSettingsBottomSheet";
+
+    /** Factory method. */
+    @NonNull
+    public static FaditorSettingsBottomSheet newInstance() {
+        return new FaditorSettingsBottomSheet();
+    }
+
+    // ── Theme & dark styling ─────────────────────────────────────────
+
+    @Override
+    public int getTheme() {
+        return R.style.CustomBottomSheetDialogTheme;
+    }
+
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(Bundle savedInstanceState) {
+        Dialog dialog = super.onCreateDialog(savedInstanceState);
+        dialog.setOnShowListener(d -> {
+            View bottomSheet = ((BottomSheetDialog) dialog)
+                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                bottomSheet.setBackgroundResource(R.drawable.picker_bottom_sheet_dark_gradient_bg);
+            }
+        });
+        return dialog;
+    }
+
+    // ── View creation ────────────────────────────────────────────────
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+        float dp = getResources().getDisplayMetrics().density;
+        Typeface materialIcons = ResourcesCompat.getFont(requireContext(), R.font.materialicons);
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(requireContext());
+
+        // Root layout
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(0, (int) (12 * dp), 0, (int) (32 * dp));
+
+        // ── Header row (title + close button) ───────────────────
+        LinearLayout headerRow = new LinearLayout(requireContext());
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(Gravity.CENTER_VERTICAL);
+        headerRow.setPadding((int) (20 * dp), (int) (12 * dp),
+                (int) (12 * dp), (int) (4 * dp));
+        root.addView(headerRow);
+
+        TextView title = new TextView(requireContext());
+        title.setText(R.string.faditor_settings_title);
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(18);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        headerRow.addView(title);
+
+        // Close button
+        TextView closeBtn = new TextView(requireContext());
+        closeBtn.setTypeface(materialIcons);
+        closeBtn.setText("close");
+        closeBtn.setTextColor(0xFF999999);
+        closeBtn.setTextSize(22);
+        closeBtn.setGravity(Gravity.CENTER);
+        closeBtn.setPadding((int) (8 * dp), (int) (8 * dp),
+                (int) (8 * dp), (int) (8 * dp));
+        closeBtn.setOnClickListener(v -> dismiss());
+        headerRow.addView(closeBtn);
+
+        // ── Scrollable content (NestedScrollView — small-screen rule) ──
+        NestedScrollView scrollView = new NestedScrollView(requireContext());
+        scrollView.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        scrollView.setFillViewport(true);
+
+        LinearLayout content = new LinearLayout(requireContext());
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding((int) (20 * dp), (int) (8 * dp), (int) (20 * dp), 0);
+        scrollView.addView(content);
+        root.addView(scrollView);
+
+        // ── Settings rows ────────────────────────────────────────
+        // Future rows: just call addSwitchRow(...) (or a new row helper) again.
+        addSwitchRow(content, dp,
+                getString(R.string.faditor_settings_ask_transcribe_title),
+                getString(R.string.faditor_settings_ask_transcribe_desc),
+                prefs.isFaditorAskToTranscribeEnabled(),
+                (isChecked) -> prefs.setFaditorAskToTranscribeEnabled(isChecked));
+
+        // Stage 3: bottom-tools carousel order mode. OFF = manual (the user's
+        // dragged order), ON = recent (most-recently-used first, after pins).
+        com.fadcam.ui.faditor.tools.FaditorToolPrefs toolPrefs =
+                new com.fadcam.ui.faditor.tools.FaditorToolPrefs(requireContext());
+        addSwitchRow(content, dp,
+                getString(R.string.faditor_settings_tool_order_title),
+                getString(R.string.faditor_settings_tool_order_desc),
+                toolPrefs.isRecentMode(),
+                (isChecked) -> {
+                    toolPrefs.setOrderMode(isChecked
+                            ? com.fadcam.ui.faditor.tools.FaditorToolPrefs.MODE_RECENT
+                            : com.fadcam.ui.faditor.tools.FaditorToolPrefs.MODE_MANUAL);
+                    if (getActivity() instanceof FaditorEditorActivity) {
+                        ((FaditorEditorActivity) getActivity()).onToolOrderModeChanged();
+                    }
+                });
+
+        return root;
+    }
+
+    /** Simple callback for a row's switch toggling. */
+    private interface OnToggle {
+        void onToggle(boolean isChecked);
+    }
+
+    // ── Helper: add a titled row with a trailing switch ───────────────
+
+    /**
+     * Adds a themed settings row: title + description on the left, a
+     * {@link MaterialSwitch} on the right. Structured so more rows (of this
+     * or other kinds) can be appended trivially as this sheet grows.
+     */
+    private void addSwitchRow(@NonNull LinearLayout parent,
+                              float dp,
+                              @NonNull String title,
+                              @NonNull String description,
+                              boolean initialChecked,
+                              @NonNull OnToggle onToggle) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(R.drawable.settings_group_card_bg);
+        int pad = (int) (14 * dp);
+        row.setPadding(pad, pad, pad, pad);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowLp.bottomMargin = (int) (10 * dp);
+        row.setLayoutParams(rowLp);
+
+        LinearLayout textCol = new LinearLayout(requireContext());
+        textCol.setOrientation(LinearLayout.VERTICAL);
+        textCol.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView titleTv = new TextView(requireContext());
+        titleTv.setText(title);
+        titleTv.setTextColor(0xFFFFFFFF);
+        titleTv.setTextSize(15);
+        titleTv.setTypeface(null, Typeface.BOLD);
+        textCol.addView(titleTv);
+
+        TextView descTv = new TextView(requireContext());
+        descTv.setText(description);
+        descTv.setTextColor(0xFF999999);
+        descTv.setTextSize(12);
+        descTv.setLineSpacing(0, 1.3f);
+        LinearLayout.LayoutParams descLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        descLp.topMargin = (int) (4 * dp);
+        descTv.setLayoutParams(descLp);
+        textCol.addView(descTv);
+
+        row.addView(textCol);
+
+        MaterialSwitch toggle = new MaterialSwitch(requireContext());
+        toggle.setChecked(initialChecked);
+        LinearLayout.LayoutParams switchLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        switchLp.setMarginStart((int) (12 * dp));
+        toggle.setLayoutParams(switchLp);
+        toggle.setOnCheckedChangeListener((buttonView, isChecked) -> onToggle.onToggle(isChecked));
+        row.addView(toggle);
+
+        parent.addView(row);
+    }
+}

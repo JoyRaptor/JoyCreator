@@ -1,0 +1,92 @@
+package com.fadcam.ui.faditor.overlay;
+
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Typeface;
+import android.text.TextPaint;
+
+import androidx.annotation.NonNull;
+
+import com.fadcam.ui.faditor.model.TextOverlayItem;
+
+/**
+ * Rasterises a {@link TextOverlayItem} to a {@link Bitmap} sized in output-frame
+ * pixels so it can be fed to Media3's {@code BitmapOverlay} at scale 1:1.
+ *
+ * <p>The font size is a fraction of the output height, exactly matching the
+ * on-screen preview (which uses the same fraction of the video-content height),
+ * so what you place is what you export.</p>
+ */
+public final class TextOverlayRenderer {
+
+    private TextOverlayRenderer() {}
+
+    /**
+     * @param o       the overlay to render
+     * @param outW    output frame width in pixels
+     * @param outH    output frame height in pixels
+     * @return an ARGB bitmap containing the rendered, shadowed text
+     */
+    @NonNull
+    public static Bitmap render(@NonNull TextOverlayItem o, int outW, int outH) {
+        float fontPx = Math.max(8f, o.getSizeFraction() * outH);
+
+        TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(o.getColorInt());
+        paint.setTextSize(fontPx);
+        paint.setTypeface(o.getTypeface());
+        paint.setTextAlign(Paint.Align.CENTER);
+        paint.setShadowLayer(o.getShadowRadiusPx() > 0f ? o.getShadowRadiusPx() : fontPx * 0.10f,
+                0f, fontPx * 0.04f, o.getShadowColorInt());
+
+        String text = o.getText() == null || o.getText().isEmpty() ? " " : o.getText();
+        String[] lines = text.split("\n", -1);
+
+        float maxLineW = 1f;
+        for (String line : lines) {
+            maxLineW = Math.max(maxLineW, paint.measureText(line));
+        }
+        Paint.FontMetrics fm = paint.getFontMetrics();
+        float lineH = fm.descent - fm.ascent;
+        int pad = (int) (fontPx * 0.35f);
+
+        int w = (int) Math.ceil(maxLineW) + pad * 2;
+        int h = (int) Math.ceil(lineH * lines.length) + pad * 2;
+        w = Math.max(1, Math.min(w, outW > 0 ? outW * 2 : w));
+        h = Math.max(1, h);
+
+        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        if (o.getBackgroundColorInt() != android.graphics.Color.TRANSPARENT) {
+            Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
+            bg.setColor(o.getBackgroundColorInt());
+            canvas.drawRoundRect(new android.graphics.RectF(0, 0, w, h),
+                    fontPx * 0.35f, fontPx * 0.35f, bg);
+        }
+
+        float x = w / 2f;
+        float y = pad - fm.ascent;
+        for (String line : lines) {
+            if (o.getStrokeWidthPx() > 0f && o.getStrokeColorInt() != android.graphics.Color.TRANSPARENT) {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(o.getStrokeWidthPx());
+                paint.setColor(o.getStrokeColorInt());
+                canvas.drawText(line, x, y, paint);
+            }
+            if (o.getGlowRadiusPx() > 0f && o.getGlowColorInt() != android.graphics.Color.TRANSPARENT) {
+                paint.setShadowLayer(o.getGlowRadiusPx(), 0f, 0f, o.getGlowColorInt());
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(o.getColorInt());
+                canvas.drawText(line, x, y, paint);
+            }
+            paint.setShadowLayer(o.getShadowRadiusPx() > 0f ? o.getShadowRadiusPx() : fontPx * 0.10f,
+                    0f, fontPx * 0.04f, o.getShadowColorInt());
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(o.getColorInt());
+            canvas.drawText(line, x, y, paint);
+            y += lineH;
+        }
+        return bmp;
+    }
+}

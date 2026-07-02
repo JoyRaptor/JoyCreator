@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Floating webcam overlay: draggable, resizable camera preview window -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/webcamRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/webcamCard"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="4dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:cardBackgroundColor="#000000"
+        xmlns:app="http://schemas.android.com/apk/res-auto">
+
+        <TextureView
+            android:id="@+id/webcamPreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Control bar shown on tap -->
+        <LinearLayout
+            android:id="@+id/webcamControls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/webcam_controls_gradient"
+            android:paddingBottom="6dp"
+            android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="4dp">
+
+            <!-- Minimize on the LEFT so it sits where the restore bubble appears:
+                 tap-to-close and tap-to-open land on the same spot. -->
+            <TextView
+                android:id="@+id/btnWebcamMinimize"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="remove"
+                android:textSize="20sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/btnWebcamLens"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="1"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/btnWebcamSwitch"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="flip_camera_ios"
+                android:textSize="20sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons" />
+
+            <TextView
+                android:id="@+id/btnWebcamClose"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="close"
+                android:textSize="20sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons" />
+        </LinearLayout>
+
+        <!-- Manual orientation controls: rotate 90°, mirror horizontal, mirror vertical.
+             Captured by the screen recording, so they fix a sideways/flipped webcam by hand. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_horizontal"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:paddingBottom="2dp">
+
+            <TextView
+                android:id="@+id/btnWebcamRotate"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:gravity="center"
+                android:text="rotate_right"
+                android:textSize="19sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons" />
+
+            <TextView
+                android:id="@+id/btnWebcamMirrorH"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:gravity="center"
+                android:text="swap_horiz"
+                android:textSize="19sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons" />
+
+            <TextView
+                android:id="@+id/btnWebcamMirrorV"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:gravity="center"
+                android:text="swap_vert"
+                android:textSize="19sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons" />
+        </LinearLayout>
+
+        <!-- Roundness slider: 0 = square, 100 = circle/oval -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:gravity="center"
+                android:text="rounded_corner"
+                android:textSize="16sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons" />
+
+            <SeekBar
+                android:id="@+id/webcamRoundnessSeek"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="100" />
+        </LinearLayout>
+        </LinearLayout>
+
+        <!-- Resize handle, bottom-right corner -->
+        <TextView
+            android:id="@+id/webcamResizeHandle"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="bottom|end"
+            android:gravity="center"
+            android:text="south_east"
+            android:textSize="18sp"
+            android:textColor="#AAFFFFFF"
+            android:fontFamily="@font/materialicons" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Minimized bubble (shown when minimized) -->
+    <FrameLayout
+        android:id="@+id/webcamBubble"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/floating_button_bg"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="videocam"
+            android:textSize="24sp"
+            android:textColor="@android:color/white"
+            android:fontFamily="@font/materialicons" />
+    </FrameLayout>
+</FrameLayout>

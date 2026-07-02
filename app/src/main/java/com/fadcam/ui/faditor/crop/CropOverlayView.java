@@ -44,6 +44,7 @@ public class CropOverlayView extends View {
     private static final float HANDLE_LENGTH_PX = 28f;
     private static final float HANDLE_TOUCH_RADIUS_PX = 40f;
     private static final float MIN_CROP_SIZE_PX = 60f;
+    private static final float CENTER_SNAP_THRESHOLD_PX = 36f;
 
     /** The actual video content area inside this view (accounting for letterbox). */
     private final RectF videoRect = new RectF();
@@ -59,6 +60,9 @@ public class CropOverlayView extends View {
 
     /** Locked aspect ratio (width/height). 0 = free crop. */
     private float lockedAspectRatio = 0f;
+
+    /** Snap the crop centre to the video centre when close. */
+    private boolean snapToCenter = false;
 
     // ── Touch handling ───────────────────────────────────────────────
     private enum DragHandle {
@@ -190,6 +194,19 @@ public class CropOverlayView extends View {
             invalidate();
             notifyCropChanged();
         }
+    }
+
+    public void setSnapToCenter(boolean enabled) {
+        this.snapToCenter = enabled;
+        if (enabled && active) {
+            snapCropCenterToVideoCenter();
+            invalidate();
+            notifyCropChanged();
+        }
+    }
+
+    public boolean isSnapToCenter() {
+        return snapToCenter;
     }
 
     /** Set listener for crop region changes. */
@@ -435,6 +452,33 @@ public class CropOverlayView extends View {
         if (lockedAspectRatio > 0 && activeHandle != DragHandle.MOVE) {
             enforceAspectRatio();
         }
+        if (snapToCenter) {
+            snapCropCenterToVideoCenter();
+        }
+        if (lockedAspectRatio > 0 && activeHandle != DragHandle.MOVE) {
+            enforceAspectRatio();
+        }
+        if (snapToCenter) {
+            snapCropCenterToVideoCenter();
+        }
+    }
+
+    /** Snap the crop centre to the video centre when it is close. */
+    private void snapCropCenterToVideoCenter() {
+        float w = cropRect.width();
+        float h = cropRect.height();
+        float cx = videoRect.centerX();
+        float cy = videoRect.centerY();
+        if (Math.abs(cropRect.centerX() - cx) <= CENTER_SNAP_THRESHOLD_PX) {
+            cropRect.offsetTo(cx - w / 2f, cropRect.top);
+        }
+        if (Math.abs(cropRect.centerY() - cy) <= CENTER_SNAP_THRESHOLD_PX) {
+            cropRect.offsetTo(cropRect.left, cy - h / 2f);
+        }
+        cropRect.left = clamp(cropRect.left, videoRect.left, videoRect.right - w);
+        cropRect.top = clamp(cropRect.top, videoRect.top, videoRect.bottom - h);
+        cropRect.right = cropRect.left + w;
+        cropRect.bottom = cropRect.top + h;
     }
 
     /** Enforce the locked aspect ratio by adjusting height to match width. */

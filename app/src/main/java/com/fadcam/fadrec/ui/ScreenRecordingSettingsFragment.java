@@ -105,10 +105,32 @@ public class ScreenRecordingSettingsFragment extends Fragment {
         root.findViewById(R.id.row_orientation).setOnClickListener(v -> showOrientationPicker());
         root.findViewById(R.id.row_audio_source).setOnClickListener(v -> showAudioSourcePicker());
         root.findViewById(R.id.row_video_splitting).setOnClickListener(v -> showVideoSplittingPicker());
+        root.findViewById(R.id.row_menu_auto_pause).setOnClickListener(v -> {
+            prefs.setMenuAutoPauseEnabled(!prefs.isMenuAutoPauseEnabled());
+            refreshValues();
+        });
+        root.findViewById(R.id.row_button_state_tint).setOnClickListener(v -> {
+            prefs.setFloatingButtonTintEnabled(!prefs.isFloatingButtonTintEnabled());
+            refreshValues();
+        });
     }
 
     private void refreshValues() {
         if (!isAdded() || valueResolution == null) return;
+
+        View root = getView();
+        if (root != null) {
+            TextView autoPause = root.findViewById(R.id.value_menu_auto_pause);
+            if (autoPause != null) {
+                autoPause.setText(prefs.isMenuAutoPauseEnabled()
+                        ? R.string.setting_on : R.string.setting_off);
+            }
+            TextView stateTint = root.findViewById(R.id.value_button_state_tint);
+            if (stateTint != null) {
+                stateTint.setText(prefs.isFloatingButtonTintEnabled()
+                        ? R.string.setting_on : R.string.setting_off);
+            }
+        }
 
         Size res = prefs.getScreenRecordingResolution();
         valueResolution.setText(res.getWidth() + "\u00d7" + res.getHeight());

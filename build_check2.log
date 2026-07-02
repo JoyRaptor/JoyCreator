@@ -1,0 +1,257 @@
+﻿Reusing configuration cache.
+> Task :media3-patched:lib-container:preBuild UP-TO-DATE
+> Task :media3-patched:lib-muxer:preBuild UP-TO-DATE
+> Task :media3-patched:lib-common:preBuild UP-TO-DATE
+> Task :media3-patched:lib-common:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-container:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-muxer:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-common:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-container:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-container:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-common:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-common:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-common:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-common:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-common:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-common:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-container:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-muxer:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-muxer:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-container:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-container:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-container:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-common:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-common:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-container:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-common:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-muxer:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-common:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-container:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-common:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugLibraryResources UP-TO-DATE
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDefaultDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-container:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-common:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:mergeDefaultDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:createDefaultDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:writeDefaultDebugAppMetadata UP-TO-DATE
+> Task :app:javaPreCompileDefaultDebug UP-TO-DATE
+> Task :app:desugarDefaultDebugFileDependencies UP-TO-DATE
+> Task :app:generateDefaultDebugResValues UP-TO-DATE
+> Task :app:validateSigningDefaultDebug UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :app:processDefaultDebugNavigationResources UP-TO-DATE
+> Task :app:checkDefaultDebugAarMetadata UP-TO-DATE
+> Task :app:writeDefaultDebugSigningConfigVersions UP-TO-DATE
+> Task :app:compileDefaultDebugShaders NO-SOURCE
+> Task :app:generateDefaultDebugAssets UP-TO-DATE
+> Task :app:generateDefaultDebugResources UP-TO-DATE
+> Task :app:extractDeepLinksDefaultDebug UP-TO-DATE
+> Task :app:compileDefaultDebugNavigationResources UP-TO-DATE
+> Task :app:generateDefaultDebugBuildConfig UP-TO-DATE
+> Task :app:mapDefaultDebugSourceSetPaths UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:mergeDefaultDebugJniLibFolders UP-TO-DATE
+> Task :app:checkDefaultDebugDuplicateClasses UP-TO-DATE
+> Task :app:processDefaultDebugMainManifest UP-TO-DATE
+> Task :app:mergeLibDexDefaultDebug UP-TO-DATE
+> Task :app:mergeDefaultDebugAssets UP-TO-DATE
+> Task :app:processDefaultDebugManifest UP-TO-DATE
+> Task :app:processDefaultDebugManifestForPackage UP-TO-DATE
+> Task :app:compressDefaultDebugAssets UP-TO-DATE
+> Task :app:configureCMakeDebug[arm64-v8a]
+> Task :app:packageDefaultDebugResources FAILED
+> Task :app:mergeDefaultDebugResources
+> Task :app:mergeExtDexDefaultDebug
+> Task :app:buildCMakeDebug[arm64-v8a]
+> Task :app:mergeDefaultDebugResources FAILED
+
+> Task :app:buildCMakeDebug[arm64-v8a]
+C/C++: ninja: error: remove(_deps\ggml-build\src\CMakeFiles\ggml-base.dir\ggml.cpp.o.d): Permission denied
+
+> Task :app:buildCMakeDebug[arm64-v8a] FAILED
+.\gradlew : 
+At line:1 char:42
++ ... Projects\Screenrecorder\FadCam"; .\gradlew assembleDebug 2>&1 | Out-F ...
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build completed with 3 failures.
+
+1: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':app:packageDefaultDebugResources'.
+> Cannot access output property 'outputDir' of task ':app:packageDefaultDebugResources'. Accessing unreadable inputs 
+or outputs is not supported. Declare the task as untracked by using Task.doNotTrackState(). For more information, 
+please refer to https://docs.gradle.org/8.13/userguide/incremental_build.html#sec:disable-state-tracking in the Gradle 
+documentation.
+   > Failed to create MD5 hash for file 'C:\+Projects\Screenrecorder\FadCam\app\build\intermediates\packaged_res\defaul
+tDebug\packageDefaultDebugResources\drawable\compact_arrow_bg_top.xml' as it does not exist.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':app:mergeDefaultDebugResources'.
+> A failure occurred while executing com.android.build.gradle.internal.res.ResourceCompilerRunnable
+   > Resource compilation failed (Failed to compile values resource file C:\+Projects\Screenrecorder\FadCam\app\build\i
+ntermediates\incremental\defaultDebug\mergeDefaultDebugResources\merged.dir\values\values.xml. Cause: 
+javax.xml.stream.XMLStreamException: ParseError at [row,col]:[2037,51]
+     Message: The element type "dimen" must be terminated by the matching end-tag "</dimen>".). Check logs for more 
+details.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+3: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':app:buildCMakeDebug[arm64-v8a]'.
+> com.android.ide.common.process.ProcessException: ninja: Entering directory 
+`C:\+Projects\Screenrecorder\FadCam\app\.cxx\Debug\6g6b3456\arm64-v8a'
+  [1/31] Building C object CMakeFiles/whisper_jni.dir/whisper_jni.c.o
+  [2/31] Building C object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-alloc.c.o
+  [3/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/hbm.cpp.o
+  [4/31] Building C object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
+  [5/31] Building C object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/quants.c.o
+  ninja: Entering directory `C:\+Projects\Screenrecorder\FadCam\app\.cxx\Debug\6g6b3456\arm64-v8a'
+  [6/31] Building C object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/arm/quants.c.o
+  [7/31] Building C object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml.c.o
+  [8/31] Building CXX object _deps/ggml-build/[1/26] Building CXX object 
+_deps/ggml-build/src/CMakeFsrc/CMakeFiles/ggml-bailes/ggml-base.dir/ggml-threadise.dir/ggml-threading.cpp.o
+  ng.cpp.o
+  [2/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml.cpp.o
+  FAILED: _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml.cpp.o 
+  [9/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml.cpp.o
+  [10/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/mmq.cpp.o
+  
+C:\Users\JoyRaptor\AppData\Local\Android\Sdk\ndk\27.2.12479018\toolchains\llvm\prebuilt\windows-x86_64\bin\clang++.exe 
+--target=aarch64-none-linux-android24 --sysroot=C:/Users/JoyRaptor/AppData/Local/Android/Sdk/ndk/27.2.12479018/toolchai
+ns/llvm/prebuilt/windows-x86_64/sysroot -DGGML_BUILD -DGGML_COMMIT=\"df7638d\" -DGGML_SCHED_MAX_COPIES=4 -DGGML_SHARED 
+-DGGML_USE_OPENMP -DGGML_VERSION=\"0.14.0\" -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dggml_base_EXPORTS 
+-IC:/+Projects/Screenrecorder/whisper.cpp/ggml/src/. -IC:/+Projects/Screenrecorder/whisper.cpp/ggml/src/../include -g 
+-DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes 
+-D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -O3 -fPIC -Wmissing-declarations -Wmissing-noreturn -Wall 
+-Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wunreachable-code-break -Wunreachable-code-return 
+-Wmissing-prototypes -Wextra-semi -fopenmp=libomp -pthread -std=gnu++17 -MD -MT 
+_deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml.cpp.o -MF 
+_deps\ggml-build\src\CMakeFiles\ggml-base.dir\ggml.cpp.o.d -o _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml.cpp.o 
+-c C:/+Projects/Screenrecorder/whisper.cpp/ggml/src/ggml.cpp
+  deleting depfile: Permission denied
+  [11/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/amx.cpp.o
+  [12/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/traits.cpp.o
+  [3/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml.dir/ggml-backend-dl.cpp.o
+  [13/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml.dir/ggml-backend-dl.cpp.o
+  [14/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/vec.cpp.o
+  [4/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/amx.cpp.o
+  [5/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/mmq.cpp.o
+  [6/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/traits.cpp.o
+  [7/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+  [15/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+  [8/26] Building C object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml.c.o
+  [9/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o
+  [10/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml.dir/ggml-backend-reg.cpp.o
+  [11/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/vec.cpp.o
+  [16/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o
+  [12/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/binary-ops.cpp.o
+  [17/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/arm/repack.cpp.o
+  [13/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o
+  [18/31] Building C object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o
+  [19/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml.dir/ggml-backend-reg.cpp.o
+  [20/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/binary-ops.cpp.o
+  [14/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/unary-ops.cpp.o
+  [21/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o
+  [15/26] Building C object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o
+  [16/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-backend-meta.cpp.o
+  [17/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/repack.cpp.o
+  [18/26] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/gguf.cpp.o
+  [22/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/ggml-backend-meta.cpp.o
+  [23/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/unary-ops.cpp.o
+  [24/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/repack.cpp.o
+  [25/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-base.dir/gguf.cpp.o
+  [26/31] Linking CXX shared library 
+C:\+Projects\Screenrecorder\FadCam\app\build\intermediates\cxx\Debug\6g6b3456\obj\arm64-v8a\libggml-base.so
+  [27/31] Building CXX object _deps/ggml-build/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ops.cpp.o
+  [28/31] Linking CXX shared library 
+C:\+Projects\Screenrecorder\FadCam\app\build\intermediates\cxx\Debug\6g6b3456\obj\arm64-v8a\libggml-cpu.so
+  [29/31] Linking CXX shared library 
+C:\+Projects\Screenrecorder\FadCam\app\build\intermediates\cxx\Debug\6g6b3456\obj\arm64-v8a\libggml.so
+  [19/26] Building CXX object CMakeFiles/whisper_jni.dir/C_/+Projects/Screenrecorder/whisper.cpp/src/whisper.cpp.o
+  ninja: build stopped: subcommand failed.
+  
+  C++ build system [build] failed while executing:
+      @echo off
+      "C:\\Users\\JoyRaptor\\AppData\\Local\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe" ^
+        -C ^
+        "C:\\+Projects\\Screenrecorder\\FadCam\\app\\.cxx\\Debug\\6g6b3456\\arm64-v8a" ^
+        ggml ^
+        ggml-base ^
+        ggml-cpu ^
+        whisper_jni
+    from C:\+Projects\Screenrecorder\FadCam\app
+  ninja: error: remove(_deps\ggml-build\src\CMakeFiles\ggml-base.dir\ggml.cpp.o.d): Permission denied
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+BUILD FAILED in 57s
+85 actionable tasks: 5 executed, 80 up-to-date
+Configuration cache entry reused.

@@ -90,6 +90,7 @@ public class AnnotationService extends Service {
     private WindowManager windowManager;
     private AnnotationView annotationView;
     private View toolbarView;
+    private View menuContainer;
     private boolean toolbarHiddenForOpacityGesture = false;
     private int toolbarHideRequestCount = 0;
 
@@ -97,6 +98,12 @@ public class AnnotationService extends Service {
     private ProjectFileManager projectFileManager;
     private Handler autoSaveHandler;
     private Runnable autoSaveRunnable;
+    // The 5s backup auto-save used to re-serialize the whole annotation state on the
+    // MAIN THREAD every interval even when nothing had changed — which janked the UI
+    // (and caused ANRs) while the user was elsewhere (e.g. the video editor). Changes
+    // already save immediately via the state-change listener, so the backup only needs
+    // to fire when a change wasn't successfully persisted. This flag gates that.
+    private volatile boolean annotationStateDirty = false;
     private String currentProjectName; // Track current project to avoid creating new files
 
     // Professional overlays
@@ -122,6 +129,13 @@ public class AnnotationService extends Service {
     private Runnable recordingTimerRunnable;
     private SharedPreferencesManager sharedPreferencesManager;
     private com.fadcam.fadrec.ScreenRecordingState recordingState = com.fadcam.fadrec.ScreenRecordingState.NONE;
+    private boolean autoPausedByMenu = false;
+    private boolean isCompactMode = false;
+    private View compactBar;
+    private TextView compactTimer;
+    private TextView btnCompactRecord;
+    private TextView btnCompactPause;
+    private TextView btnCompactWebcam;
     private boolean isRecordingControlsExpanded = false;
 
     // Project section
@@ -900,7 +914,7 @@ public class AnnotationService extends Service {
             FLog.i(TAG, "Project state applied to AnnotationView");
         } else {
             FLog.w(TAG, "⚠️ Failed to load project: " + projectName);
-            FLog.i(TAG, "Starting with fresh state");
+            Toast.makeText(this, "Could not load project — starting fresh", Toast.LENGTH_SHORT).show();
             startFreshProject();
         }
     }
@@ -910,6 +924,19 @@ public class AnnotationService extends Service {
      */
     private void startFreshProject() {
         FLog.i(TAG, "Starting with fresh state");
+        AnnotationState newState = new AnnotationState();
+        if (annotationView != null) {
+            annotationView.setState(newState);
+            annotationView.post(() -> {
+                annotationView.invalidate();
+                annotationView.requestLayout();
+            });
+        }
+        String freshName = "FadRec_"
+                + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(new java.util.Date());
+        android.content.SharedPreferences prefs = getSharedPreferences("fadrec_prefs", MODE_PRIVATE);
+        prefs.edit().putString("current_project", freshName).apply();
+        currentProjectName = freshName;
         updateUndoRedoButtons();
         updatePageLayerInfo();
         updateProjectNameDisplay();
@@ -939,6 +966,7 @@ public class AnnotationService extends Service {
 
         // Listen for state changes to update UI
         annotationView.setOnStateChangeListener(() -> {
+            annotationStateDirty = true; // a real change happened
             updateUndoRedoButtons();
             saveCurrentState(); // Save immediately on every change
 
@@ -1023,6 +1051,7 @@ public class AnnotationService extends Service {
         // Use the full unified layout as the menu overlay
         toolbarView = inflater.inflate(R.layout.annotation_toolbar_unified, null);
         expandableContent = toolbarView.findViewById(R.id.expandableContent);
+        menuContainer = toolbarView.findViewById(R.id.menuContainer);
 
         // Initialize Quick Access buttons
         btnToggleAnnotation = toolbarView.findViewById(R.id.btnToggleAnnotation);
@@ -1266,12 +1295,9 @@ public class AnnotationService extends Service {
         btnRecordingCollapsed.setOnClickListener(v -> {
             FLog.d(TAG, "Overlay button clicked - currentState: " + recordingState + ", NONE=" + com.fadcam.fadrec.ScreenRecordingState.NONE + ", isEqual=" + (recordingState == com.fadcam.fadrec.ScreenRecordingState.NONE));
             if (recordingState == com.fadcam.fadrec.ScreenRecordingState.NONE) {
-                // Start recording - launch TransparentPermissionActivity directly from service
-                // This works even if app is removed from recents
-                FLog.d(TAG, "Starting recording from overlay - launching permission activity");
-                Intent intent = new Intent(this, TransparentPermissionActivity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivity(intent);
+                // Flash "Recording!", retract the menu, then start once it's gone.
+                FLog.d(TAG, "Starting recording from overlay - flash + retract");
+                startRecordingWithRetract(v);
             } else {
                 FLog.w(TAG, "Button clicked but recordingState is not NONE: " + recordingState);
             }
@@ -1287,6 +1313,58 @@ public class AnnotationService extends Service {
                 startService(stopIntent);
             }
         });
+
+        // Webcam overlay toggle (header row of expanded menu)
+        View btnWebcamToggle = toolbarView.findViewById(R.id.btnWebcamToggle);
+        if (btnWebcamToggle != null) {
+            updateWebcamToggleUi();
+            btnWebcamToggle.setOnClickListener(v -> toggleWebcamService(v));
+        }
+
+        // Compact mode: slim bar with timer/record/pause/webcam/expand
+        compactBar = toolbarView.findViewById(R.id.compactBar);
+        compactTimer = toolbarView.findViewById(R.id.compactTimer);
+        btnCompactRecord = toolbarView.findViewById(R.id.btnCompactRecord);
+        btnCompactPause = toolbarView.findViewById(R.id.btnCompactPause);
+        btnCompactWebcam = toolbarView.findViewById(R.id.btnCompactWebcam);
+        isCompactMode = getSharedPreferences("fadrec_ui", MODE_PRIVATE)
+                .getBoolean("compact_menu", false);
+
+        View btnCompactMode = toolbarView.findViewById(R.id.btnCompactMode);
+        if (btnCompactMode != null) {
+            btnCompactMode.setOnClickListener(v -> setCompactMode(true));
+        }
+        toolbarView.findViewById(R.id.btnCompactExpand)
+                .setOnClickListener(v -> setCompactMode(false));
+        applyCompactOrientation();
+        toolbarView.findViewById(R.id.btnCompactRotate).setOnClickListener(v -> {
+            boolean vertical = !getSharedPreferences("fadrec_ui", MODE_PRIVATE)
+                    .getBoolean("compact_vertical", false);
+            getSharedPreferences("fadrec_ui", MODE_PRIVATE)
+                    .edit().putBoolean("compact_vertical", vertical).apply();
+            applyCompactOrientation();
+        });
+        btnCompactRecord.setOnClickListener(v -> {
+            if (recordingState == com.fadcam.fadrec.ScreenRecordingState.NONE) {
+                startRecordingWithRetract(v);
+            } else {
+                Intent stopIntent = new Intent(this, com.fadcam.fadrec.services.ScreenRecordingService.class);
+                stopIntent.setAction(com.fadcam.Constants.INTENT_ACTION_STOP_SCREEN_RECORDING);
+                startService(stopIntent);
+            }
+        });
+        btnCompactPause.setOnClickListener(v -> {
+            if (recordingState == com.fadcam.fadrec.ScreenRecordingState.IN_PROGRESS) {
+                Intent pauseIntent = new Intent(this, com.fadcam.fadrec.services.ScreenRecordingService.class);
+                pauseIntent.setAction(com.fadcam.Constants.INTENT_ACTION_PAUSE_SCREEN_RECORDING);
+                startService(pauseIntent);
+            } else if (recordingState == com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+                Intent resumeIntent = new Intent(this, com.fadcam.fadrec.services.ScreenRecordingService.class);
+                resumeIntent.setAction(com.fadcam.Constants.INTENT_ACTION_RESUME_SCREEN_RECORDING);
+                startService(resumeIntent);
+            }
+        });
+        btnCompactWebcam.setOnClickListener(v -> toggleWebcamService(v));
 
         // Recording controls - Pause/Resume button (in expanded state)
         btnPauseResumeRec.setOnClickListener(v -> {
@@ -1439,9 +1517,207 @@ public class AnnotationService extends Service {
         updateBoardSelection(btnBoardNone); // None board by default
     }
 
+    private void toggleWebcamService(View source) {
+        Intent webcamIntent = new Intent(this, FloatingWebcamService.class);
+        if (FloatingWebcamService.isRunning) {
+            stopService(webcamIntent);
+        } else {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(webcamIntent);
+            } else {
+                startService(webcamIntent);
+            }
+        }
+        // Service state flips asynchronously; refresh labels shortly after
+        source.postDelayed(this::updateWebcamToggleUi, 300);
+    }
+
+    /** Lays the compact bar out horizontally or vertically per user preference. */
+    private void applyCompactOrientation() {
+        if (compactBar instanceof android.widget.LinearLayout) {
+            boolean vertical = getSharedPreferences("fadrec_ui", MODE_PRIVATE)
+                    .getBoolean("compact_vertical", false);
+            ((android.widget.LinearLayout) compactBar).setOrientation(
+                    vertical ? android.widget.LinearLayout.VERTICAL
+                            : android.widget.LinearLayout.HORIZONTAL);
+        }
+        // The bar's own width/height is wrap_content, but its ancestors
+        // (menuContainer: fixed 280dp, toolbarView root: fixed 304dp) are not,
+        // so simply flipping orientation left the window at its old wide size
+        // with the now-narrow vertical bar stranded inside a big empty box.
+        // Re-sync the container sizing so the window actually shrinks to fit.
+        applyCompactContainerSizing();
+    }
+
+    /**
+     * Keeps the menu window's container sized to its visible content: fixed
+     * width for the full expandable menu, wrap_content while the slim compact
+     * bar (horizontal or vertical) is showing so there's no leftover empty box.
+     */
+    private void applyCompactContainerSizing() {
+        if (menuContainer == null || toolbarView == null) {
+            return;
+        }
+        ViewGroup.LayoutParams containerParams = menuContainer.getLayoutParams();
+        if (containerParams == null) {
+            return;
+        }
+        containerParams.width = isCompactMode
+                ? ViewGroup.LayoutParams.WRAP_CONTENT
+                : dpToPx(280);
+        menuContainer.setLayoutParams(containerParams);
+
+        // toolbarView (the window's root FrameLayout) is fixed at 304dp in XML to
+        // fit the full menu; that fixed width wins over the window's own
+        // wrap_content flag, so it must be relaxed too or a slim compact bar
+        // (especially the narrow vertical layout) ends up stranded inside a
+        // leftover 304dp-wide box.
+        ViewGroup.LayoutParams rootParams = toolbarView.getLayoutParams();
+        if (rootParams != null) {
+            rootParams.width = isCompactMode
+                    ? ViewGroup.LayoutParams.WRAP_CONTENT
+                    : dpToPx(304);
+            toolbarView.setLayoutParams(rootParams);
+        }
+
+        if (windowManager != null && menuParams != null) {
+            try {
+                windowManager.updateViewLayout(toolbarView, menuParams);
+            } catch (Exception e) {
+                FLog.e(TAG, "Error re-syncing menu window after compact sizing change", e);
+            }
+        }
+    }
+
+    /** Switches between the full menu and the slim compact bar. */
+    private void setCompactMode(boolean compact) {
+        isCompactMode = compact;
+        getSharedPreferences("fadrec_ui", MODE_PRIVATE)
+                .edit().putBoolean("compact_menu", compact).apply();
+        if (isExpanded && expandableContent != null && compactBar != null) {
+            expandableContent.setVisibility(compact ? View.GONE : View.VISIBLE);
+            compactBar.setVisibility(compact ? View.VISIBLE : View.GONE);
+        }
+        applyCompactContainerSizing();
+        updateRecordingButtons();
+        updateWebcamToggleUi();
+    }
+
+    private void updateWebcamToggleUi() {
+        if (toolbarView == null) return;
+        TextView state = toolbarView.findViewById(R.id.webcamToggleState);
+        TextView icon = toolbarView.findViewById(R.id.iconWebcamToggle);
+        boolean running = FloatingWebcamService.isRunning;
+        if (state != null) {
+            state.setText(running ? R.string.webcam_overlay_on : R.string.webcam_overlay_off);
+            state.setTextColor(running ? 0xFF4CAF50 : 0xFFAAAAAA);
+        }
+        if (icon != null) {
+            icon.setTextColor(running ? 0xFF4CAF50 : 0xFF9E9E9E);
+        }
+        if (btnCompactWebcam != null) {
+            btnCompactWebcam.setTextColor(running ? 0xFF4CAF50 : 0xFF9E9E9E);
+        }
+    }
+
+    /** Keeps the compact bar's record/pause buttons in sync with recording state. */
+    private void updateCompactBarButtons() {
+        if (btnCompactRecord == null) return;
+        switch (recordingState) {
+            case NONE:
+            case STOPPING:
+                btnCompactRecord.setText("fiber_manual_record");
+                btnCompactRecord.setTextColor(0xFF4CAF50);
+                btnCompactPause.setText("pause");
+                btnCompactPause.setTextColor(0xFF9E9E9E);
+                if (compactTimer != null) {
+                    compactTimer.setText("00:00");
+                    compactTimer.setTextColor(0xFF4CAF50);
+                }
+                break;
+            case IN_PROGRESS:
+                btnCompactRecord.setText("stop");
+                btnCompactRecord.setTextColor(0xFFFF5252);
+                btnCompactPause.setText("pause");
+                btnCompactPause.setTextColor(0xFFFFB74D);
+                if (compactTimer != null) {
+                    compactTimer.setTextColor(0xFF4CAF50);
+                }
+                break;
+            case PAUSED:
+                btnCompactRecord.setText("stop");
+                btnCompactRecord.setTextColor(0xFFFF5252);
+                btnCompactPause.setText("play_arrow");
+                btnCompactPause.setTextColor(0xFF4CAF50);
+                if (compactTimer != null) {
+                    compactTimer.setText("⏸");
+                    compactTimer.setTextColor(0xFFFFB74D);
+                }
+                break;
+        }
+    }
+
+    /**
+     * Starts screen recording from the overlay with a "Recording!" flash, then
+     * retracts the menu so it isn't captured, and only begins capture once the
+     * menu has collapsed off-screen.
+     */
+    private void startRecordingWithRetract(View anchor) {
+        TextView title = toolbarView != null
+                ? toolbarView.findViewById(R.id.txtRecordingReadyTitle) : null;
+        if (title != null) {
+            title.setText(R.string.fadrec_recording_flash);
+        }
+        // Collapse the expanded menu so it's out of the recorded frame.
+        if (isExpanded && !isAnimating) {
+            performMenuToggle();
+        }
+        Runnable start = () -> {
+            Intent intent = new Intent(this, TransparentPermissionActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(intent);
+            if (title != null) {
+                title.setText(R.string.fadrec_ready_to_record);
+            }
+        };
+        View a = anchor != null ? anchor : toolbarView;
+        if (a != null) {
+            a.postDelayed(start, 450);
+        } else {
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(start, 450);
+        }
+    }
+
     private void performMenuToggle() {
         isExpanded = !isExpanded;
         isAnimating = true;
+
+        // Optionally auto-pause recording while the menu is open so menu
+        // interactions stay out of the recording; auto-resumes on collapse.
+        boolean autoPausePref = com.fadcam.SharedPreferencesManager
+                .getInstance(this).isMenuAutoPauseEnabled();
+        if (isExpanded) {
+            updateWebcamToggleUi();
+            if (autoPausePref && recordingState == com.fadcam.fadrec.ScreenRecordingState.IN_PROGRESS) {
+                Intent pauseIntent = new Intent(this, com.fadcam.fadrec.services.ScreenRecordingService.class);
+                pauseIntent.setAction(com.fadcam.Constants.INTENT_ACTION_PAUSE_SCREEN_RECORDING);
+                startService(pauseIntent);
+                autoPausedByMenu = true;
+            }
+        } else if (autoPausedByMenu) {
+            autoPausedByMenu = false;
+            if (recordingState == com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+                // Delay the resume slightly so the menu finishes its collapse
+                // animation before frames start being captured again.
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    if (recordingState == com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+                        Intent resumeIntent = new Intent(this, com.fadcam.fadrec.services.ScreenRecordingService.class);
+                        resumeIntent.setAction(com.fadcam.Constants.INTENT_ACTION_RESUME_SCREEN_RECORDING);
+                        startService(resumeIntent);
+                    }
+                }, 350);
+            }
+        }
 
         FLog.d(TAG, "=== MENU OVERLAY TOGGLE ===");
         FLog.d(TAG, "Action: " + (isExpanded ? "EXPANDING" : "COLLAPSING"));
@@ -1449,18 +1725,32 @@ public class AnnotationService extends Service {
         FLog.d(TAG, "Arrow Params - x: " + arrowParams.x + ", y: " + arrowParams.y);
         FLog.d(TAG, "Menu Params - x: " + menuParams.x + ", y: " + menuParams.y);
 
+        // Compact mode shows the slim bar instead of the full menu
+        final View activeContent = (isCompactMode && compactBar != null)
+                ? compactBar : expandableContent;
+        final View inactiveContent = (activeContent == compactBar)
+                ? expandableContent : compactBar;
+
         if (isExpanded) {
             FLog.d(TAG, "Starting EXPAND - showing menu overlay");
-            
+
             // Show the entire menu window
             menuParams.alpha = 1f;
             windowManager.updateViewLayout(toolbarView, menuParams);
-            
-            expandableContent.setVisibility(View.VISIBLE);
-            expandableContent.setAlpha(0f);
-            expandableContent.animate()
+
+            if (inactiveContent != null) {
+                inactiveContent.setVisibility(View.GONE);
+            }
+            activeContent.setVisibility(View.VISIBLE);
+            activeContent.setAlpha(0f);
+            setContentPivotTowardArrow(activeContent);
+            activeContent.setScaleX(0.3f);
+            activeContent.setScaleY(0.3f);
+            activeContent.animate()
                     .alpha(1f)
-                    .setDuration(200)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(160)
                     .withEndAction(() -> {
                         isAnimating = false;
                         FLog.d(TAG, "EXPAND completed - menu visible");
@@ -1469,21 +1759,52 @@ public class AnnotationService extends Service {
             updateArrowDirection(arrowParams, true);
         } else {
             FLog.d(TAG, "Starting COLLAPSE - hiding menu overlay");
-            expandableContent.animate()
+            setContentPivotTowardArrow(activeContent);
+            activeContent.animate()
                     .alpha(0f)
-                    .setDuration(150)
+                    .scaleX(0.3f)
+                    .scaleY(0.3f)
+                    .setDuration(130)
                     .withEndAction(() -> {
                         // Hide the entire menu window by setting alpha to 0
                         menuParams.alpha = 0f;
                         windowManager.updateViewLayout(toolbarView, menuParams);
-                        
-                        expandableContent.setVisibility(View.GONE);
-                        expandableContent.setAlpha(1f);
+
+                        activeContent.setVisibility(View.GONE);
+                        activeContent.setAlpha(1f);
+                        activeContent.setScaleX(1f);
+                        activeContent.setScaleY(1f);
                         isAnimating = false;
                         FLog.d(TAG, "COLLAPSE completed - menu hidden");
                     })
                     .start();
             updateArrowDirection(arrowParams, true);
+        }
+    }
+
+    /** Anchors the expand/collapse zoom at the arrow's side so the menu
+     *  visibly shrinks toward / grows out of the toggle the user tapped. */
+    private void setContentPivotTowardArrow(View content) {
+        int w = content.getWidth() > 0 ? content.getWidth() : dpToPx(280);
+        int h = content.getHeight() > 0 ? content.getHeight() : dpToPx(200);
+        switch (currentEdge) {
+            case LEFT:
+                content.setPivotX(0);
+                content.setPivotY(h / 2f);
+                break;
+            case TOP:
+                content.setPivotX(w / 2f);
+                content.setPivotY(0);
+                break;
+            case BOTTOM:
+                content.setPivotX(w / 2f);
+                content.setPivotY(h);
+                break;
+            case RIGHT:
+            default:
+                content.setPivotX(w);
+                content.setPivotY(h / 2f);
+                break;
         }
     }
 
@@ -2633,7 +2954,12 @@ public class AnnotationService extends Service {
         autoSaveRunnable = new Runnable() {
             @Override
             public void run() {
-                saveCurrentState();
+                // Only the backup save: skip when nothing changed since the last
+                // successful save (changes already persist immediately). This stops
+                // the periodic main-thread serialization that janked/ANR'd the UI.
+                if (annotationStateDirty) {
+                    saveCurrentState();
+                }
                 autoSaveHandler.postDelayed(this, AUTO_SAVE_INTERVAL);
             }
         };
@@ -2662,6 +2988,7 @@ public class AnnotationService extends Service {
 
                 boolean success = projectFileManager.saveProject(state, currentProjectName);
                 if (success) {
+                    annotationStateDirty = false; // persisted — backup save can rest
                     FLog.d(TAG, "✅ State saved successfully to: " + currentProjectName + ".fadrec");
                 } else {
                     FLog.e(TAG, "❌ Failed to save state to: " + currentProjectName + ".fadrec");
@@ -3849,9 +4176,46 @@ public class AnnotationService extends Service {
         }
     }
 
+    /** Blinking "PAUSED" indicator + arrow edge-tab tint reflecting recording state. */
+    private void updateRecordingStateIndicators() {
+        boolean tintEnabled = com.fadcam.SharedPreferencesManager
+                .getInstance(this).isFloatingButtonTintEnabled();
+        if (btnExpandCollapse != null) {
+            int arrowColor = 0xFFFFFFFF;
+            if (tintEnabled && recordingState == com.fadcam.fadrec.ScreenRecordingState.IN_PROGRESS) {
+                arrowColor = 0xFFFF5252; // red while recording
+            } else if (tintEnabled && recordingState == com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+                arrowColor = 0xFFFFB74D; // orange while paused
+            }
+            btnExpandCollapse.setTextColor(arrowColor);
+        }
+        if (recordingTimerText != null) {
+            if (recordingState == com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+                recordingTimerText.setVisibility(View.VISIBLE);
+                recordingTimerText.setText("⏸ PAUSED");
+                recordingTimerText.setTextColor(0xFFFFB74D);
+                // Gentle blink
+                recordingTimerText.animate().cancel();
+                android.view.animation.AlphaAnimation blink =
+                        new android.view.animation.AlphaAnimation(1f, 0.3f);
+                blink.setDuration(600);
+                blink.setRepeatMode(android.view.animation.Animation.REVERSE);
+                blink.setRepeatCount(android.view.animation.Animation.INFINITE);
+                recordingTimerText.startAnimation(blink);
+            } else {
+                recordingTimerText.clearAnimation();
+                recordingTimerText.setAlpha(1f);
+                recordingTimerText.setTextColor(0xFF4CAF50);
+            }
+        }
+    }
+
     private void updateRecordingButtons() {
         if (btnStartStopRec == null)
             return;
+
+        updateRecordingStateIndicators();
+        updateCompactBarButtons();
 
         switch (recordingState) {
             case NONE:
@@ -3997,6 +4361,10 @@ public class AnnotationService extends Service {
         }
 
         recordingTimerText.setText(timerText);
+        if (compactTimer != null
+                && recordingState != com.fadcam.fadrec.ScreenRecordingState.PAUSED) {
+            compactTimer.setText(timerText);
+        }
     }
 
     /**

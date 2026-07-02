@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.fadcam.ui.faditor.effects.EffectStack;
+
 /**
  * Represents a single video segment in the editor timeline.
  * Maps directly to a Media3 MediaItem with ClippingConfiguration.
@@ -42,6 +44,14 @@ public class Clip {
     /** Volume level (0.0 = silence, 1.0 = original, 2.0 = 200%). */
     private float volumeLevel = 1.0f;
 
+    /** Audio ducking amount: 0 = off, 0.3 = duck to 30% when voice detected. */
+    private float duckAmount = 0f;
+
+    /** Punch-in zoom: 1.0 = no zoom, 2.0 = 2x centered. */
+    private float zoomLevel = 1.0f;
+    private float zoomCenterX = 0.5f;
+    private float zoomCenterY = 0.5f;
+
     /** Rotation in degrees: 0, 90, 180, 270. */
     private int rotationDegrees = 0;
 
@@ -73,6 +83,225 @@ public class Clip {
      * and display as a single still frame during preview/export.
      */
     private boolean imageClip = false;
+
+    /**
+     * Source-time spans (ms, each {start,end}) removed by transcript editing.
+     * These are non-destructive: the preview player skips them, the timeline
+     * draws them as dark regions, and export bakes them out (the clip is split
+     * into the kept ranges). Stored in source time so they survive trim/move.
+     */
+    @NonNull
+    private final List<long[]> removedSpans = new ArrayList<>();
+
+    /**
+     * Detected silence ranges (source ms) shown as yellow "candidates" on the
+     * timeline. Transient (re-detected each session): tapping one moves it into
+     * {@link #removedSpans} (turns black / will be cut).
+     */
+    @NonNull
+    private final transient List<long[]> silenceCandidates = new ArrayList<>();
+
+    /**
+     * The clip's transcript versions (words + struck state). A clip can hold
+     * several — e.g. a fast Vosk pass for edit-by-text and a Whisper pass for
+     * captions — and {@link #activeTranscriptIndex} selects the one in use.
+     * Persisted so reopening a project never re-runs speech recognition.
+     */
+    @NonNull
+    private final List<com.fadcam.ui.faditor.transcript.NamedTranscript> transcripts =
+            new ArrayList<>();
+
+    /** Index into {@link #transcripts} of the active version, or -1 if none. */
+    private int activeTranscriptIndex = -1;
+
+    /** Display name to show when this clip's source is missing (for relink). */
+    @Nullable
+    private String displayName;
+
+    /** Whether animated on-screen captions are enabled for this clip. */
+    private boolean captionsEnabled = false;
+
+    /** Caption style preset id (see {@code CaptionStyle.presets()}). */
+    @NonNull
+    private String captionStyleId = "pop";
+
+    /** Caption block centre X in normalised video-content coords [0,1]. */
+    private float captionCenterX = 0.5f;
+
+    /** Caption block centre Y in normalised video-content coords [0,1]. */
+    private float captionCenterY = 0.82f;
+
+    /** Caption text height as a fraction of the video height. */
+    private float captionSizeFraction = 0.060f;
+
+    // ── Loop / Ping-pong ─────────────────────────────────────────────
+
+    /** Loop mode: 0=OFF, 1=LOOP (forward repeat), 2=PING_PONG (alternate), 3=STILL (freeze first/last frame). */
+    public static final int LOOP_MODE_OFF = 0;
+    public static final int LOOP_MODE_NORMAL = 1;
+    public static final int LOOP_MODE_PING_PONG = 2;
+    public static final int LOOP_MODE_STILL = 3;
+
+    private int loopMode = LOOP_MODE_OFF;
+
+    /** Loop extension before the clip start (ms), rendered semi-transparent. */
+    private long loopBeforeMs = 0;
+
+    /** Loop extension after the clip end (ms), rendered semi-transparent. */
+    private long loopAfterMs = 0;
+
+    /** Tracks playback direction toggle for ping-pong (transient, not persisted). */
+    private transient boolean pingPongForward = true;
+
+    public int getLoopMode() { return loopMode; }
+    public void setLoopMode(int mode) {
+        this.loopMode = (mode == LOOP_MODE_NORMAL || mode == LOOP_MODE_PING_PONG || mode == LOOP_MODE_STILL) ? mode : LOOP_MODE_OFF;
+        if (loopMode == LOOP_MODE_OFF) {
+            loopBeforeMs = 0;
+            loopAfterMs = 0;
+        }
+    }
+
+    public long getLoopBeforeMs() { return loopBeforeMs; }
+    public void setLoopBeforeMs(long ms) { this.loopBeforeMs = Math.max(0, ms); }
+
+    public long getLoopAfterMs() { return loopAfterMs; }
+    public void setLoopAfterMs(long ms) { this.loopAfterMs = Math.max(0, ms); }
+
+    public boolean hasLoopExtension() {
+        return loopMode != LOOP_MODE_OFF && (loopBeforeMs > 0 || loopAfterMs > 0);
+    }
+
+    public boolean isLoopModeLooping() {
+        return loopMode == LOOP_MODE_NORMAL || loopMode == LOOP_MODE_PING_PONG;
+    }
+
+    /**
+     * Total visual duration including loop extensions.
+     */
+    public long getVisualDurationMs() {
+        return getTrimmedDurationMs() + loopBeforeMs + loopAfterMs;
+    }
+
+    /**
+     * Map a timeline-visual position (0-based from clip start on the timeline)
+     * to the corresponding absolute source position. Used for thumbnail rendering
+     * in loop regions, playback seeking, and export frame mapping.
+     *
+     * @param visualMs position on the timeline relative to clip start
+     * @return absolute source ms, or -1 if out of range
+     */
+    public long mapToSourceMs(long visualMs) {
+        long trimmed = getTrimmedDurationMs();
+        if (trimmed <= 0) return inPointMs;
+        long visualDuration = getVisualDurationMs();
+        if (visualMs < 0 || visualMs >= visualDuration) return -1;
+
+        long posInBase = visualMs - loopBeforeMs;
+
+        // Inside the base clip region
+        if (posInBase >= 0 && posInBase < trimmed) {
+            return inPointMs + (long) (posInBase * speedMultiplier);
+        }
+
+        // In loop extension
+        if (loopMode == LOOP_MODE_OFF) {
+            return posInBase < 0 ? inPointMs : outPointMs - 1;
+        }
+
+        // Still mode: freeze first frame backwards, last frame forwards
+        if (loopMode == LOOP_MODE_STILL) {
+            return posInBase < 0 ? inPointMs : outPointMs - 1;
+        }
+
+        // Compute which repetition and offset within it
+        long absPos = posInBase < 0 ? -posInBase - 1 : posInBase - trimmed;
+        long rep = absPos / trimmed;
+        long offsetInRep = absPos % trimmed;
+
+        if (loopMode == LOOP_MODE_NORMAL) {
+            // Always forward
+            return inPointMs + (long) (offsetInRep * speedMultiplier);
+        } else {
+            // Ping-pong: alternate direction each repetition
+            if (rep % 2 == 0) {
+                return inPointMs + (long) (offsetInRep * speedMultiplier);
+            } else {
+                return outPointMs - (long) (offsetInRep * speedMultiplier) - 1;
+            }
+        }
+    }
+
+    /** Toggle the ping-pong direction (called when playback wraps). */
+    public void togglePingPongDirection() { pingPongForward = !pingPongForward; }
+    public boolean isPingPongForward() { return pingPongForward; }
+
+    /**
+     * Opacity automation keyframes (the visual "fade" envelope on the clip).
+     * Each keyframe is a (clip-local time in ms, opacity 0–1) point. Time is
+     * measured from the START of this clip on the timeline (0 = clip start),
+     * independent of trim so the envelope rides with the clip. Sorted ascending
+     * by time. When non-empty, the interpolated opacity (see
+     * {@link #opacityAtClipMs(long)}) overrides the default 1.0 on both preview
+     * and export.
+     */
+    @NonNull
+    private final List<OpacityKeyframe> opacityKeyframes = new ArrayList<>();
+
+    /** A single point on the clip opacity envelope. */
+    public static class OpacityKeyframe {
+        /** Clip-local time in ms (0 = clip start on the timeline). */
+        public long timeMs;
+        /** Opacity 0.0–1.0 (0 = invisible, 1 = fully visible). */
+        public float opacity;
+
+        public OpacityKeyframe(long timeMs, float opacity) {
+            this.timeMs = timeMs;
+            this.opacity = opacity;
+        }
+    }
+
+    @NonNull
+    private final List<CaptionStyleKeyframe> captionStyleKeyframes = new ArrayList<>();
+
+    /** A single keyframe in the caption style animation track. */
+    public static class CaptionStyleKeyframe {
+        /** Clip-local time in ms (0 = clip start on the timeline). */
+        public long timeMs;
+        /** CaptionStyle id (e.g. "pop", "zoom", "hidden"). */
+        @NonNull public String styleId;
+
+        public CaptionStyleKeyframe(long timeMs, @NonNull String styleId) {
+            this.timeMs = timeMs;
+            this.styleId = styleId;
+        }
+    }
+
+    /** A single point on the clip volume envelope (for video clips that carry audio). */
+    public static class VolumeKeyframe {
+        /** Clip-local time in ms (0 = clip start on the timeline). */
+        public long timeMs;
+        /** Volume/gain 0.0–2.0 (0 = silent, 1 = original, 2 = 200%). */
+        public float volume;
+
+        public VolumeKeyframe(long timeMs, float volume) {
+            this.timeMs = timeMs;
+            this.volume = volume;
+        }
+    }
+
+    @NonNull
+    private final List<VolumeKeyframe> volumeKeyframes = new ArrayList<>();
+
+    private EffectStack effectStack = new EffectStack();
+
+    /**
+     * Present only when this clip is an AI-authored fullscreen slide. Carries the
+     * authoring recipe (HTML + params); the rendered MP4 it points {@link #sourceUri}
+     * at is a regenerable cache. Null for ordinary clips.
+     */
+    @Nullable
+    private GeneratedSource generatedSource;
 
     /**
      * Create a new Clip from a video URI.
@@ -122,7 +351,18 @@ public class Clip {
      * @param other the clip to copy
      */
     public Clip(@NonNull Clip other) {
-        this.id = UUID.randomUUID().toString();
+        this(other, UUID.randomUUID().toString());
+    }
+
+    /**
+     * Deep copy with an explicit id. Used when splitting a clip into two children
+     * whose ids must be known to a follow-up operation (e.g. {@code REORDER_CLIPS}).
+     *
+     * @param other the clip to copy
+     * @param newId the id to assign the copy
+     */
+    public Clip(@NonNull Clip other, @NonNull String newId) {
+        this.id = newId;
         this.sourceUri = other.sourceUri;
         this.inPointMs = other.inPointMs;
         this.outPointMs = other.outPointMs;
@@ -139,6 +379,79 @@ public class Clip {
         this.cropRight = other.cropRight;
         this.cropBottom = other.cropBottom;
         this.imageClip = other.imageClip;
+        for (long[] s : other.removedSpans) {
+            this.removedSpans.add(new long[]{s[0], s[1]});
+        }
+        for (long[] s : other.silenceCandidates) {
+            this.silenceCandidates.add(new long[]{s[0], s[1]});
+        }
+        for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : other.transcripts) {
+            this.transcripts.add(nt.copy());
+        }
+        this.activeTranscriptIndex = other.activeTranscriptIndex;
+        this.displayName = other.displayName;
+        this.captionsEnabled = other.captionsEnabled;
+        this.captionStyleId = other.captionStyleId;
+        this.captionCenterX = other.captionCenterX;
+        this.captionCenterY = other.captionCenterY;
+        this.captionSizeFraction = other.captionSizeFraction;
+        this.effectStack = new EffectStack(other.effectStack);
+        this.duckAmount = other.duckAmount;
+        this.zoomLevel = other.zoomLevel;
+        this.zoomCenterX = other.zoomCenterX;
+        this.zoomCenterY = other.zoomCenterY;
+        for (OpacityKeyframe kf : other.opacityKeyframes) {
+            this.opacityKeyframes.add(new OpacityKeyframe(kf.timeMs, kf.opacity));
+        }
+        for (CaptionStyleKeyframe kf : other.captionStyleKeyframes) {
+            this.captionStyleKeyframes.add(new CaptionStyleKeyframe(kf.timeMs, kf.styleId));
+        }
+        this.generatedSource = other.generatedSource != null
+                ? other.generatedSource.copy() : null;
+        this.loopMode = other.loopMode;
+        this.loopBeforeMs = other.loopBeforeMs;
+        this.loopAfterMs = other.loopAfterMs;
+    }
+
+    /**
+     * Returns a copy of this clip pointing at a NEW source URI but keeping every
+     * edit (trim, speed, volume, crop, rotation, removed spans). Used to relink
+     * a clip whose original source can no longer be accessed.
+     */
+    @NonNull
+    public Clip relinked(@NonNull Uri newUri) {
+        Clip c = new Clip(id, newUri, inPointMs, outPointMs, sourceDurationMs,
+                speedMultiplier, audioMuted, volumeLevel, rotationDegrees,
+                flipHorizontal, flipVertical, cropPreset,
+                cropLeft, cropTop, cropRight, cropBottom);
+        c.imageClip = imageClip;
+        c.removedSpans.addAll(removedSpans);
+        for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : transcripts) {
+            c.transcripts.add(nt.copy());
+        }
+        c.activeTranscriptIndex = activeTranscriptIndex;
+        c.displayName = displayName;
+        c.captionsEnabled = captionsEnabled;
+        c.captionStyleId = captionStyleId;
+        c.captionCenterX = captionCenterX;
+        c.captionCenterY = captionCenterY;
+        c.captionSizeFraction = captionSizeFraction;
+        c.effectStack = new EffectStack(effectStack);
+        c.duckAmount = duckAmount;
+        c.zoomLevel = zoomLevel;
+        c.zoomCenterX = zoomCenterX;
+        c.zoomCenterY = zoomCenterY;
+        for (OpacityKeyframe kf : opacityKeyframes) {
+            c.opacityKeyframes.add(new OpacityKeyframe(kf.timeMs, kf.opacity));
+        }
+        for (CaptionStyleKeyframe kf : captionStyleKeyframes) {
+            c.captionStyleKeyframes.add(new CaptionStyleKeyframe(kf.timeMs, kf.styleId));
+        }
+        c.generatedSource = generatedSource != null ? generatedSource.copy() : null;
+        c.loopMode = loopMode;
+        c.loopBeforeMs = loopBeforeMs;
+        c.loopAfterMs = loopAfterMs;
+        return c;
     }
 
     // ── Getters ──────────────────────────────────────────────────────
@@ -204,6 +517,54 @@ public class Clip {
      */
     public boolean isImageClip() {
         return imageClip;
+    }
+
+    /**
+     * Source-time removed spans (each {startMs,endMs}), mutate-in-place list.
+     * Skipped in preview, drawn dark on the timeline, baked out on export.
+     */
+    @NonNull
+    public List<long[]> getRemovedSpans() {
+        return removedSpans;
+    }
+
+    public boolean hasRemovedSpans() {
+        return !removedSpans.isEmpty();
+    }
+
+    /**
+     * Replace all removed spans (kept as the same list object so views holding
+     * a reference stay valid). Spans are clamped to the trim and merged.
+     */
+    public void setRemovedSpans(@NonNull List<long[]> spans) {
+        removedSpans.clear();
+        removedSpans.addAll(spans);
+    }
+
+    @NonNull
+    public List<long[]> getSilenceCandidates() {
+        return silenceCandidates;
+    }
+
+    public void setSilenceCandidates(@NonNull List<long[]> spans) {
+        silenceCandidates.clear();
+        silenceCandidates.addAll(spans);
+    }
+
+    /**
+     * Effective (post-edit) trimmed duration in ms: the trimmed length minus
+     * removed spans, divided by speed. This is what the clip contributes to the
+     * exported video.
+     */
+    public long getEffectiveDurationMs() {
+        long removed = 0;
+        for (long[] s : removedSpans) {
+            long a = Math.max(inPointMs, s[0]);
+            long b = Math.min(outPointMs, s[1]);
+            if (b > a) removed += b - a;
+        }
+        long raw = (outPointMs - inPointMs) - removed;
+        return (long) (Math.max(0, raw) / speedMultiplier);
     }
 
     /**
@@ -286,6 +647,22 @@ public class Clip {
         this.volumeLevel = Math.max(0f, Math.min(level, 2.0f));
     }
 
+    public float getDuckAmount() { return duckAmount; }
+    public void setDuckAmount(float amount) {
+        this.duckAmount = Math.max(0f, Math.min(amount, 1f));
+    }
+
+    public float getZoomLevel() { return zoomLevel; }
+    public void setZoomLevel(float zoom) {
+        this.zoomLevel = Math.max(1.0f, Math.min(zoom, 8.0f));
+    }
+    public float getZoomCenterX() { return zoomCenterX; }
+    public float getZoomCenterY() { return zoomCenterY; }
+    public void setZoomCenter(float x, float y) {
+        this.zoomCenterX = Math.max(0f, Math.min(1f, x));
+        this.zoomCenterY = Math.max(0f, Math.min(1f, y));
+    }
+
     /**
      * Mark this clip as a still image clip (not video).
      *
@@ -306,6 +683,332 @@ public class Clip {
     }
 
     @NonNull
+    public EffectStack getEffectStack() {
+        return effectStack;
+    }
+
+    /** AI-authored slide recipe, or null for an ordinary clip. */
+    @Nullable
+    public GeneratedSource getGeneratedSource() {
+        return generatedSource;
+    }
+
+    public void setGeneratedSource(@Nullable GeneratedSource generatedSource) {
+        this.generatedSource = generatedSource;
+    }
+
+    /** Whether this clip is an AI-authored animated slide. */
+    public boolean isGeneratedSlide() {
+        return generatedSource != null;
+    }
+
+    // ── Transcript & captions ────────────────────────────────────────
+
+    /** All transcript versions for this clip (may be empty). */
+    @NonNull
+    public List<com.fadcam.ui.faditor.transcript.NamedTranscript> getTranscripts() {
+        return transcripts;
+    }
+
+    public int getActiveTranscriptIndex() {
+        return activeTranscriptIndex;
+    }
+
+    public void setActiveTranscriptIndex(int index) {
+        this.activeTranscriptIndex = (index >= 0 && index < transcripts.size()) ? index : -1;
+    }
+
+    /** The active transcript version, or null if none. */
+    @Nullable
+    public com.fadcam.ui.faditor.transcript.NamedTranscript getActiveNamedTranscript() {
+        return (activeTranscriptIndex >= 0 && activeTranscriptIndex < transcripts.size())
+                ? transcripts.get(activeTranscriptIndex) : null;
+    }
+
+    /** The active transcript's words, or null if none — back-compat accessor. */
+    @Nullable
+    public com.fadcam.ui.faditor.transcript.Transcript getTranscript() {
+        com.fadcam.ui.faditor.transcript.NamedTranscript nt = getActiveNamedTranscript();
+        return nt == null ? null : nt.transcript;
+    }
+
+    /**
+     * Add a transcript version and make it active. Returns the added version.
+     */
+    @NonNull
+    public com.fadcam.ui.faditor.transcript.NamedTranscript addTranscript(
+            @NonNull com.fadcam.ui.faditor.transcript.NamedTranscript named) {
+        transcripts.add(named);
+        activeTranscriptIndex = transcripts.size() - 1;
+        return named;
+    }
+
+    /** Remove the version at index, fixing up the active selection. */
+    public void removeTranscript(int index) {
+        if (index < 0 || index >= transcripts.size()) return;
+        transcripts.remove(index);
+        if (transcripts.isEmpty()) {
+            activeTranscriptIndex = -1;
+        } else if (activeTranscriptIndex >= transcripts.size()) {
+            activeTranscriptIndex = transcripts.size() - 1;
+        }
+    }
+
+    public boolean hasTranscript() {
+        com.fadcam.ui.faditor.transcript.Transcript t = getTranscript();
+        return t != null && !t.isEmpty();
+    }
+
+    @Nullable
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(@Nullable String displayName) {
+        this.displayName = displayName;
+    }
+
+    public boolean isCaptionsEnabled() {
+        return captionsEnabled;
+    }
+
+    public void setCaptionsEnabled(boolean enabled) {
+        this.captionsEnabled = enabled;
+    }
+
+    @NonNull
+    public String getCaptionStyleId() {
+        return captionStyleId;
+    }
+
+    public void setCaptionStyleId(@NonNull String id) {
+        this.captionStyleId = id;
+    }
+
+    public float getCaptionCenterX() { return captionCenterX; }
+
+    public float getCaptionCenterY() { return captionCenterY; }
+
+    public void setCaptionCenter(float x, float y) {
+        this.captionCenterX = Math.max(0f, Math.min(1f, x));
+        this.captionCenterY = Math.max(0f, Math.min(1f, y));
+    }
+
+    public float getCaptionSizeFraction() { return captionSizeFraction; }
+
+    public void setCaptionSizeFraction(float f) {
+        this.captionSizeFraction = Math.max(0.02f, Math.min(0.6f, f));
+    }
+
+    // ── Caption style keyframes ───────────────────────────────────────
+
+    @NonNull
+    public List<CaptionStyleKeyframe> getCaptionStyleKeyframes() { return captionStyleKeyframes; }
+
+    public boolean hasCaptionStyleKeyframes() { return !captionStyleKeyframes.isEmpty(); }
+
+    public void addOrUpdateCaptionStyleKeyframe(long timeMs, @NonNull String styleId) {
+        timeMs = Math.max(0, timeMs);
+        for (CaptionStyleKeyframe kf : captionStyleKeyframes) {
+            if (Math.abs(kf.timeMs - timeMs) <= 40) {
+                kf.styleId = styleId;
+                return;
+            }
+        }
+        captionStyleKeyframes.add(new CaptionStyleKeyframe(timeMs, styleId));
+        sortCaptionStyleKeyframes();
+    }
+
+    /** Remove the keyframe nearest to timeMs (within 40ms tolerance). */
+    public void removeCaptionStyleKeyframe(long timeMs) {
+        for (int i = 0; i < captionStyleKeyframes.size(); i++) {
+            if (Math.abs(captionStyleKeyframes.get(i).timeMs - timeMs) <= 40) {
+                captionStyleKeyframes.remove(i);
+                return;
+            }
+        }
+    }
+
+    /** Remove the keyframe at the given list index. */
+    public void removeCaptionStyleKeyframeAt(int index) {
+        if (index >= 0 && index < captionStyleKeyframes.size()) {
+            captionStyleKeyframes.remove(index);
+        }
+    }
+
+    public void clearCaptionStyleKeyframes() { captionStyleKeyframes.clear(); }
+
+    /** Replace all caption-style keyframes (used by undo/redo). Deep-copies, clamps and sorts. */
+    public void setCaptionStyleKeyframes(@NonNull List<CaptionStyleKeyframe> kfs) {
+        captionStyleKeyframes.clear();
+        for (CaptionStyleKeyframe kf : kfs) {
+            captionStyleKeyframes.add(new CaptionStyleKeyframe(Math.max(0, kf.timeMs), kf.styleId));
+        }
+        sortCaptionStyleKeyframes();
+    }
+
+    private void sortCaptionStyleKeyframes() {
+        java.util.Collections.sort(captionStyleKeyframes,
+                java.util.Comparator.comparingLong(k -> k.timeMs));
+    }
+
+    /**
+     * The effective caption style ID at a given clip-local time (ms).
+     * Returns the clip's base {@link #captionStyleId} when there are no
+     * keyframes, or when {@code clipMs} is before the first keyframe.
+     * Otherwise flat-held from the preceding keyframe.
+     */
+    @NonNull
+    public String captionStyleAtClipMs(long clipMs) {
+        if (captionStyleKeyframes.isEmpty()) return captionStyleId;
+        sortCaptionStyleKeyframes();
+        if (clipMs < captionStyleKeyframes.get(0).timeMs) return captionStyleId;
+        CaptionStyleKeyframe best = captionStyleKeyframes.get(0);
+        for (CaptionStyleKeyframe kf : captionStyleKeyframes) {
+            if (kf.timeMs <= clipMs) best = kf;
+            else break;
+        }
+        return best.styleId;
+    }
+
+    // ── Volume keyframes (audio gain envelope for video clips) ───────
+
+    /** The volume envelope keyframes (sorted ascending by time). */
+    @NonNull
+    public List<VolumeKeyframe> getVolumeKeyframes() { return volumeKeyframes; }
+
+    public boolean hasVolumeKeyframes() { return !volumeKeyframes.isEmpty(); }
+
+    /** Replace all keyframes (used on project load). Sorts and clamps. */
+    public void setVolumeKeyframes(@NonNull List<VolumeKeyframe> kfs) {
+        volumeKeyframes.clear();
+        for (VolumeKeyframe kf : kfs) {
+            volumeKeyframes.add(new VolumeKeyframe(
+                    Math.max(0, kf.timeMs), Math.max(0f, Math.min(kf.volume, 2.0f))));
+        }
+        sortVolumeKeyframes();
+    }
+
+    /**
+     * Add a keyframe at {@code timeMs} (clip-local), or update the volume of
+     * an existing keyframe at (approximately) the same time.
+     */
+    public void addOrUpdateVolumeKeyframe(long timeMs, float volume) {
+        timeMs = Math.max(0, timeMs);
+        volume = Math.max(0f, Math.min(volume, 2.0f));
+        for (VolumeKeyframe kf : volumeKeyframes) {
+            if (Math.abs(kf.timeMs - timeMs) <= 60) {
+                kf.volume = volume;
+                sortVolumeKeyframes();
+                return;
+            }
+        }
+        volumeKeyframes.add(new VolumeKeyframe(timeMs, volume));
+        sortVolumeKeyframes();
+    }
+
+    public void clearVolumeKeyframes() { volumeKeyframes.clear(); }
+
+    private void sortVolumeKeyframes() {
+        java.util.Collections.sort(volumeKeyframes,
+                java.util.Comparator.comparingLong(k -> k.timeMs));
+    }
+
+    /**
+     * The effective volume/gain at a given clip-local time (ms). When keyframes
+     * exist, the gain is linearly interpolated between surrounding keyframes
+     * (flat-held before the first / after the last). When none exist, returns
+     * the clip's base {@link #volumeLevel}.
+     */
+    public float gainAtClipMs(long clipMs) {
+        if (volumeKeyframes.isEmpty()) return volumeLevel;
+        if (volumeKeyframes.size() == 1) return volumeKeyframes.get(0).volume;
+        VolumeKeyframe first = volumeKeyframes.get(0);
+        if (clipMs <= first.timeMs) return first.volume;
+        VolumeKeyframe last = volumeKeyframes.get(volumeKeyframes.size() - 1);
+        if (clipMs >= last.timeMs) return last.volume;
+        for (int i = 0; i < volumeKeyframes.size() - 1; i++) {
+            VolumeKeyframe a = volumeKeyframes.get(i);
+            VolumeKeyframe b = volumeKeyframes.get(i + 1);
+            if (clipMs >= a.timeMs && clipMs <= b.timeMs) {
+                long span = b.timeMs - a.timeMs;
+                if (span <= 0) return b.volume;
+                float frac = (clipMs - a.timeMs) / (float) span;
+                return a.volume + (b.volume - a.volume) * frac;
+            }
+        }
+        return last.volume;
+    }
+
+    // ── Opacity keyframes (visual fade envelope) ─────────────────────
+
+    /** The opacity envelope keyframes (sorted ascending by time). */
+    @NonNull
+    public List<OpacityKeyframe> getOpacityKeyframes() { return opacityKeyframes; }
+
+    public boolean hasOpacityKeyframes() { return !opacityKeyframes.isEmpty(); }
+
+    /** Replace all keyframes (used on project load). Sorts and clamps. */
+    public void setOpacityKeyframes(@NonNull List<OpacityKeyframe> kfs) {
+        opacityKeyframes.clear();
+        for (OpacityKeyframe kf : kfs) {
+            opacityKeyframes.add(new OpacityKeyframe(
+                    Math.max(0, kf.timeMs), Math.max(0f, Math.min(kf.opacity, 1.0f))));
+        }
+        sortOpacityKeyframes();
+    }
+
+    /**
+     * Add a keyframe at {@code timeMs} (clip-local), or update the opacity of
+     * an existing keyframe at (approximately) the same time.
+     */
+    public void addOrUpdateOpacityKeyframe(long timeMs, float opacity) {
+        timeMs = Math.max(0, timeMs);
+        opacity = Math.max(0f, Math.min(opacity, 1.0f));
+        for (OpacityKeyframe kf : opacityKeyframes) {
+            if (Math.abs(kf.timeMs - timeMs) <= 40) {
+                kf.opacity = opacity;
+                return;
+            }
+        }
+        opacityKeyframes.add(new OpacityKeyframe(timeMs, opacity));
+        sortOpacityKeyframes();
+    }
+
+    public void clearOpacityKeyframes() { opacityKeyframes.clear(); }
+
+    private void sortOpacityKeyframes() {
+        java.util.Collections.sort(opacityKeyframes,
+                java.util.Comparator.comparingLong(k -> k.timeMs));
+    }
+
+    /**
+     * The effective opacity at a given clip-local time (ms). When keyframes
+     * exist, the opacity is linearly interpolated between the surrounding
+     * keyframes (flat-held before the first / after the last). When none
+     * exist, returns 1.0 (fully visible).
+     */
+    public float opacityAtClipMs(long clipMs) {
+        if (opacityKeyframes.isEmpty()) return 1.0f;
+        if (opacityKeyframes.size() == 1) return opacityKeyframes.get(0).opacity;
+        OpacityKeyframe first = opacityKeyframes.get(0);
+        if (clipMs <= first.timeMs) return first.opacity;
+        OpacityKeyframe last = opacityKeyframes.get(opacityKeyframes.size() - 1);
+        if (clipMs >= last.timeMs) return last.opacity;
+        for (int i = 0; i < opacityKeyframes.size() - 1; i++) {
+            OpacityKeyframe a = opacityKeyframes.get(i);
+            OpacityKeyframe b = opacityKeyframes.get(i + 1);
+            if (clipMs >= a.timeMs && clipMs <= b.timeMs) {
+                long span = b.timeMs - a.timeMs;
+                if (span <= 0) return b.opacity;
+                float frac = (clipMs - a.timeMs) / (float) span;
+                return a.opacity + (b.opacity - a.opacity) * frac;
+            }
+        }
+        return last.opacity;
+    }
+
+    @NonNull
     @Override
     public String toString() {
         return "Clip{id=" + id
@@ -317,5 +1020,6 @@ public class Clip {
                 + ", flipH=" + flipHorizontal
                 + ", flipV=" + flipVertical
                 + ", crop=" + cropPreset
+                + ", loop=" + loopMode + "(" + loopBeforeMs + "+" + loopAfterMs + ")"
                 + "}";
     }}

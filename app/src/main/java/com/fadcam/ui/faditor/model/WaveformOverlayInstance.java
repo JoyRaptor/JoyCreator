@@ -1,0 +1,242 @@
+package com.fadcam.ui.faditor.model;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import java.util.UUID;
+
+/**
+ * A placed waveform/spectrum visualizer on the timeline. Mirrors {@link TextOverlayItem}'s
+ * placement model (normalized center + size + rotation + time range) and references a
+ * {@link WaveformStyle} by id plus the clip/audio whose {@link WaveformData} drives it.
+ *
+ * <p>The extracted {@link WaveformData} is NOT stored here — it's cached on disk per source and
+ * recomputed by {@code WaveformExtractor}; this instance only carries the placement + style.</p>
+ */
+public class WaveformOverlayInstance {
+
+    @NonNull
+    private final String id;
+
+    /** Built-in or user style id (see {@link WaveformStyle#id}). */
+    @NonNull
+    private String styleId;
+
+    /** Id of the {@link Clip} (or AudioClip) whose audio drives this visualizer. */
+    @Nullable
+    private String audioSourceRef;
+
+    /** Visible time range on the timeline (ms). */
+    private long startMs = 0;
+    private long endMs = Long.MAX_VALUE;
+
+    // ── Orthogonal architecture overrides (decoupled from the gradient/look "style") ──
+    // Each is quick-cycled by a toggle button so a user can keep a gradient they like and only change
+    // the aspect that bothers them. -1 / default means "use the style's own default".
+    /** Vertical anchoring: -1=style default, 0=bottom, 1=center (mirror), 2=top. */
+    private int justify = -1;
+    /** Data/behaviour: -1=style default, 0=amplitude wave-flow, 1=static frequency spectrum. */
+    private int dataMode = -1;
+    /** Flip the bands/wave left↔right (e.g. bass↔treble for spectrum). */
+    private boolean horizontalMirror = false;
+
+    /** Frequency centre mode: -1=off (linear), 0=centre-low (bass at centre, treble at edges), 1=centre-high (treble at centre, bass at edges). */
+    private int centerMode = -1;
+    /** Render shape: 0=linear bars/wave, 1=radial (bars shoot outward from a centre ring). */
+    private int renderMode = 0;
+    /** Size of the centre ring as a fraction [0,1] of the minimum canvas dimension. Only used when renderMode == 1. */
+    private float radialRingSize = 0.35f;
+
+    /** Optional per-visualizer colour override (hex). Null = use the style preset's own colour. */
+    @Nullable
+    private String colorOverride;
+
+    /** Optional per-visualizer sensitivity (visual gain). 0 = use the style preset's own value. */
+    private float sensitivityOverride = 0f;
+
+    /** Optional per-visualizer gradient override (hex start/end). Null = use the preset / solid colour. */
+    @Nullable private String gradientStartOverride;
+    @Nullable private String gradientEndOverride;
+
+    /** Normalized placement in canvas coords [0,1]. */
+    private float centerX = 0.5f;
+    private float centerY = 0.5f;
+    private float widthFraction = 0.8f;
+    private float heightFraction = 0.25f;
+    private float rotationDeg = 0f;
+
+    /**
+     * Runtime-only mapping from output (edited) timeline time to the driving clip's SOURCE audio
+     * time, so the visualizer reads the right part of the waveform when the clip is trimmed or
+     * sped up. NOT persisted — the host refreshes it from the bound clip (inPoint + speed). Defaults
+     * (in=0, speed=1) reproduce the old naive {@code playhead - start} mapping.
+     */
+    private transient long runtimeSourceInMs = 0;
+    private transient float runtimeSpeed = 1f;
+    /** If true, the source time wraps modulo runtimeTrimDurationMs (for looped clips). */
+    private transient boolean runtimeHasLoopExtension = false;
+    /** Trimmed duration of the driving clip (for loop wrapping). */
+    private transient long runtimeTrimDurationMs = 0;
+
+    public WaveformOverlayInstance(@NonNull String styleId) {
+        this(UUID.randomUUID().toString(), styleId);
+    }
+
+    public WaveformOverlayInstance(@NonNull String id, @NonNull String styleId) {
+        this.id = id;
+        this.styleId = styleId;
+    }
+
+    @NonNull public String getId() { return id; }
+
+    @NonNull public String getStyleId() { return styleId; }
+    public void setStyleId(@NonNull String styleId) { this.styleId = styleId; }
+
+    @Nullable public String getAudioSourceRef() { return audioSourceRef; }
+    public void setAudioSourceRef(@Nullable String ref) { this.audioSourceRef = ref; }
+
+    public long getStartMs() { return startMs; }
+    public long getEndMs() { return endMs; }
+    public void setTimeRange(long startMs, long endMs) {
+        this.startMs = Math.max(0, startMs);
+        this.endMs = Math.max(this.startMs + 1, endMs);
+    }
+
+    public float getCenterX() { return centerX; }
+    public float getCenterY() { return centerY; }
+    public void setCenter(float x, float y) {
+        this.centerX = clamp01(x);
+        this.centerY = clamp01(y);
+    }
+
+    public float getWidthFraction() { return widthFraction; }
+    public float getHeightFraction() { return heightFraction; }
+    public void setSize(float widthFraction, float heightFraction) {
+        this.widthFraction = Math.max(0.05f, Math.min(1f, widthFraction));
+        this.heightFraction = Math.max(0.05f, Math.min(1f, heightFraction));
+    }
+
+    public float getRotationDeg() { return rotationDeg; }
+    public void setRotationDeg(float deg) { this.rotationDeg = deg; }
+
+    public int getJustify() { return justify; }
+    public void setJustify(int justify) { this.justify = justify; }
+    /** Cycle bottom → center → top. (Auto-snap-to-wall will later make Top mostly redundant.) */
+    public void cycleJustify() { this.justify = ((justify < 0 ? 0 : justify) + 1) % 3; }
+
+    public int getDataMode() { return dataMode; }
+    public void setDataMode(int dataMode) { this.dataMode = dataMode; }
+    /** Cycle amplitude wave ↔ frequency spectrum. */
+    public void cycleDataMode() { this.dataMode = ((dataMode < 0 ? 0 : dataMode) + 1) % 2; }
+
+    public boolean isHorizontalMirror() { return horizontalMirror; }
+    public void setHorizontalMirror(boolean v) { this.horizontalMirror = v; }
+    public void toggleHorizontalMirror() { this.horizontalMirror = !this.horizontalMirror; }
+
+    public int getCenterMode() { return centerMode; }
+    public void setCenterMode(int centerMode) { this.centerMode = centerMode; }
+    /** Cycle off → centre-low → centre-high. */
+    public void cycleCenterMode() {
+        int v = centerMode < 0 ? 0 : centerMode + 1;
+        if (v > 1) v = -1;
+        this.centerMode = v;
+    }
+
+    public int getRenderMode() { return renderMode; }
+    public void setRenderMode(int renderMode) { this.renderMode = renderMode; }
+    /** Toggle 0↔1. */
+    public void toggleRenderMode() { this.renderMode = this.renderMode == 0 ? 1 : 0; }
+
+    public float getRadialRingSize() { return radialRingSize; }
+    public void setRadialRingSize(float v) { this.radialRingSize = Math.max(0.05f, Math.min(0.95f, v)); }
+
+    /** Lowest frequency to display (Hz). */
+    private int frequencyRangeLowHz = 20;
+    /** Highest frequency to display (Hz). */
+    private int frequencyRangeHighHz = 20000;
+    /** Override number of bars/bands (0 = use the style preset's bandCount). */
+    private int bandCountOverride = 0;
+
+    public int getFrequencyRangeLowHz() { return frequencyRangeLowHz; }
+    public void setFrequencyRangeLowHz(int hz) { this.frequencyRangeLowHz = Math.max(1, Math.min(22000, hz)); }
+    public int getFrequencyRangeHighHz() { return frequencyRangeHighHz; }
+    public void setFrequencyRangeHighHz(int hz) { this.frequencyRangeHighHz = Math.max(frequencyRangeLowHz + 1, Math.min(22000, hz)); }
+    public int getBandCountOverride() { return bandCountOverride; }
+    public void setBandCountOverride(int v) { this.bandCountOverride = Math.max(0, Math.min(256, v)); }
+
+    @Nullable public String getColorOverride() { return colorOverride; }
+    /** Setting a solid colour clears any gradient override (the two are mutually exclusive). */
+    public void setColorOverride(@Nullable String hex) {
+        this.colorOverride = (hex == null || hex.isEmpty()) ? null : hex;
+        if (this.colorOverride != null) {
+            this.gradientStartOverride = null;
+            this.gradientEndOverride = null;
+        }
+    }
+
+    public float getSensitivityOverride() { return sensitivityOverride; }
+    public void setSensitivityOverride(float s) { this.sensitivityOverride = Math.max(0f, s); }
+
+    @Nullable public String getGradientStartOverride() { return gradientStartOverride; }
+    @Nullable public String getGradientEndOverride() { return gradientEndOverride; }
+    /** Setting a gradient clears any solid colour override (mutually exclusive). Null pair clears it. */
+    public void setGradientOverride(@Nullable String start, @Nullable String end) {
+        if (start == null || start.isEmpty() || end == null || end.isEmpty()) {
+            this.gradientStartOverride = null;
+            this.gradientEndOverride = null;
+            return;
+        }
+        this.gradientStartOverride = start;
+        this.gradientEndOverride = end;
+        this.colorOverride = null;
+    }
+
+    /** Apply this instance's per-visualizer overrides onto a base preset style (preview + export share this). */
+    @NonNull
+    public WaveformStyle applyOverrides(@NonNull WaveformStyle base) {
+        WaveformStyle s = base;
+        if (gradientStartOverride != null && gradientEndOverride != null) {
+            s = s.withGradientOverride(gradientStartOverride, gradientEndOverride);
+        } else if (colorOverride != null) {
+            s = s.withColorOverride(colorOverride);
+        }
+        if (sensitivityOverride > 0f) s = s.withSensitivity(sensitivityOverride);
+        return s;
+    }
+
+    /** Set the source-time mapping from the bound clip (runtime only, not persisted). */
+    public void setSourceMapping(long sourceInMs, float speed) {
+        this.runtimeSourceInMs = Math.max(0, sourceInMs);
+        this.runtimeSpeed = speed <= 0 ? 1f : speed;
+    }
+
+    public long getRuntimeSourceInMs() { return runtimeSourceInMs; }
+    public float getRuntimeSpeed() { return runtimeSpeed; }
+
+    /** Enable loop extension wrapping so the visualizer repeats its animation
+     *  through the extension region. */
+    public void setLoopExtension(long trimDurationMs) {
+        this.runtimeHasLoopExtension = trimDurationMs > 0;
+        this.runtimeTrimDurationMs = Math.max(1, trimDurationMs);
+    }
+
+    /**
+     * Map an output (edited) timeline timestamp to the driving clip's absolute SOURCE audio time,
+     * accounting for the clip's trim in-point and speed: {@code in + (outputMs - start) * speed}.
+     * For clips with loop extension, the output-time position wraps modulo the trimmed duration
+     * so the visualizer continues to animate through the extension region; speed is applied
+     * AFTER wrapping to avoid shortening the source cycle.
+     */
+    public long mapToSourceMs(long outputMs) {
+        long local = Math.max(0, outputMs - startMs);
+        if (!runtimeHasLoopExtension || runtimeTrimDurationMs <= 0) {
+            return runtimeSourceInMs + (long) (local * runtimeSpeed);
+        }
+        long offsetInCycle = local % runtimeTrimDurationMs;
+        return runtimeSourceInMs + (long) (offsetInCycle * runtimeSpeed);
+    }
+
+    private static float clamp01(float v) {
+        return v < 0 ? 0 : (v > 1 ? 1 : v);
+    }
+}

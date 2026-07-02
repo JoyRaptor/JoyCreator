@@ -138,19 +138,35 @@ public class FaditorMiniFragment extends BaseFragment {
         videoPickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    if (result.getResultCode() == Activity.RESULT_OK
-                            && result.getData() != null
-                            && result.getData().getData() != null) {
-                        Uri videoUri = result.getData().getData();
-                        // Take persistable read permission so the editor can access the URI
+                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
+                        return;
+                    }
+                    // Collect one or many picked videos, preserving selection order.
+                    List<Uri> uris = new ArrayList<>();
+                    android.content.ClipData clip = result.getData().getClipData();
+                    if (clip != null) {
+                        for (int i = 0; i < clip.getItemCount(); i++) {
+                            Uri u = clip.getItemAt(i).getUri();
+                            if (u != null) uris.add(u);
+                        }
+                    } else if (result.getData().getData() != null) {
+                        uris.add(result.getData().getData());
+                    }
+                    if (uris.isEmpty()) return;
+
+                    for (Uri u : uris) {
                         try {
                             requireContext().getContentResolver().takePersistableUriPermission(
-                                    videoUri,
-                                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                    u, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         } catch (SecurityException e) {
                             FLog.w(TAG, "Could not take persistable URI permission", e);
                         }
-                        launchEditor(videoUri);
+                    }
+
+                    if (uris.size() == 1) {
+                        launchEditor(uris.get(0));
+                    } else {
+                        promptNameThenCreateProject(uris);
                     }
                 }
         );
@@ -832,6 +848,8 @@ public class FaditorMiniFragment extends BaseFragment {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("video/*");
+        // Allow picking several clips at once → one ordered project.
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
 
@@ -859,12 +877,105 @@ public class FaditorMiniFragment extends BaseFragment {
      */
     private void launchEditor(@NonNull Uri videoUri, @Nullable String projectId) {
         Intent intent = new Intent(requireContext(), FaditorEditorActivity.class);
-        intent.setData(videoUri);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         if (projectId != null) {
+            // Saved project: the editor loads the source URI from storage itself.
+            // Attaching the content:// URI with a grant flag here crashes the app
+            // at launch if the persisted permission was lost (SecurityException).
             intent.putExtra(FaditorEditorActivity.EXTRA_PROJECT_ID, projectId);
+        } else {
+            // New project: URI is freshly picked, so the grant is valid.
+            intent.setData(videoUri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         }
-        editorLauncher.launch(intent);
+        try {
+            editorLauncher.launch(intent);
+        } catch (Exception e) {
+            FLog.e(TAG, "Failed to launch editor", e);
+            android.widget.Toast.makeText(requireContext(),
+                    "Couldn't open the project — the source video's access may have been lost.",
+                    android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * Ask for a project name, then build one project containing the picked
+     * videos in the order they were selected and open it in the editor.
+     */
+    private void promptNameThenCreateProject(@NonNull List<Uri> uris) {
+        final android.widget.EditText input = new android.widget.EditText(requireContext());
+        input.setHint(R.string.faditor_new_project_hint);
+        String defaultName = new SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+                .format(new Date());
+        input.setText(defaultName);
+        input.setSelectAllOnFocus(true);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout wrap = new android.widget.FrameLayout(requireContext());
+        wrap.setPadding(pad, pad / 2, pad, 0);
+        wrap.addView(input);
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(getString(R.string.faditor_new_project_title, uris.size()))
+                .setView(wrap)
+                .setNegativeButton(R.string.faditor_cancel, null)
+                .setPositiveButton(R.string.faditor_create, (d, w) -> {
+                    String name = input.getText().toString().trim();
+                    if (name.isEmpty()) name = defaultName;
+                    createMultiClipProject(name, uris);
+                })
+                .show();
+    }
+
+    /** Probe each video, build the project off the UI thread, then open it. */
+    private void createMultiClipProject(@NonNull String name, @NonNull List<Uri> uris) {
+        Toast.makeText(requireContext(), R.string.faditor_creating_project,
+                Toast.LENGTH_SHORT).show();
+        thumbnailExecutor.execute(() -> {
+            FaditorProject project = new FaditorProject(name);
+            Timeline timeline = project.getTimeline();
+            int added = 0;
+            for (Uri uri : uris) {
+                long durationMs = probeDurationMs(uri);
+                if (durationMs <= 0) {
+                    FLog.w(TAG, "Skipping clip with unknown duration: " + uri);
+                    continue;
+                }
+                Clip clip = new Clip(uri, durationMs);
+                clip.setDisplayName(extractDisplayName(uri.toString()));
+                timeline.addClip(clip);
+                added++;
+            }
+            final int finalAdded = added;
+            boolean saved = finalAdded > 0 && projectStorage.save(project);
+            if (!isAdded()) return;
+            requireActivity().runOnUiThread(() -> {
+                if (!saved) {
+                    Toast.makeText(requireContext(),
+                            R.string.faditor_create_failed, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // Open the saved multi-clip project by id (URI is loaded from storage).
+                launchEditor(uris.get(0), project.getId());
+            });
+        });
+    }
+
+    /** Probe a video's duration in milliseconds, or 0 if it can't be read. */
+    private long probeDurationMs(@NonNull Uri uri) {
+        MediaMetadataRetriever r = null;
+        try {
+            r = new MediaMetadataRetriever();
+            if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
+                r.setDataSource(uri.getPath());
+            } else {
+                r.setDataSource(requireContext(), uri);
+            }
+            String d = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            return d != null ? Long.parseLong(d) : 0;
+        } catch (Exception e) {
+            return 0;
+        } finally {
+            if (r != null) try { r.release(); } catch (Exception ignored) { }
+        }
     }
 
     /**

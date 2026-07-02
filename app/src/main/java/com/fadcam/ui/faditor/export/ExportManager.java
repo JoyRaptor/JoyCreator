@@ -3,6 +3,7 @@ package com.fadcam.ui.faditor.export;
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
@@ -16,6 +17,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.effect.Crop;
+import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
@@ -31,12 +33,21 @@ import androidx.media3.transformer.Transformer;
 
 import com.fadcam.Constants;
 import com.fadcam.SharedPreferencesManager;
+import com.fadcam.playback.FragmentedMp4Remuxer;
 import com.fadcam.ui.faditor.CanvasPickerBottomSheet;
+import com.fadcam.ui.faditor.gltransitions.GlTransitionExportEffect;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.ExportSettings;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.model.Transition;
+import com.fadcam.ui.faditor.model.WaveformData;
+import com.fadcam.ui.faditor.model.WaveformOverlayInstance;
+import com.fadcam.ui.faditor.model.WaveformStyle;
+import com.fadcam.ui.faditor.export.OpacityExportEffect;
+import com.fadcam.ui.faditor.waveform.WaveformExtractor;
+import com.fadcam.ui.faditor.waveform.WaveformStyleIO;
 import com.fadcam.utils.RecordingStoragePaths;
 
 import java.io.File;
@@ -51,8 +62,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Orchestrates video export using Media3 Transformer.
@@ -94,6 +107,67 @@ public class ExportManager {
     /** Interval between progress polls (ms). */
     private static final long PROGRESS_POLL_INTERVAL_MS = 300;
 
+    /** Length (ms) of the pre-generated silence WAV used to pad audio-track gaps. */
+    private static final long SILENCE_FILE_MS = 600_000L; // 10 minutes
+
+    /**
+     * Thread-local MediaMetadataRetriever cache used during composition building.
+     *
+     * <p>{@link MediaMetadataRetriever} is <strong>not thread-safe</strong>: a single instance
+     * must never be accessed concurrently from multiple threads. We keep one retriever per
+     * calling thread and reuse it across source-dimension probes and still-frame extractions
+     * within one {@link #buildComposition} call. The retriever is released in a
+     * {@code finally} block after the composition is built.</p>
+     *
+     * <p>Each thread has its own instance, so this satisfies the "one retriever per worker
+     * thread, never share" contract.</p>
+     */
+    private final ThreadLocal<android.media.MediaMetadataRetriever> retrieverPool = new ThreadLocal<>();
+    private final ThreadLocal<String> retrieverCurrentUri = new ThreadLocal<>();
+
+    /**
+     * Lazily-created remuxer used only to LOOK UP a cached seekable copy of a raw
+     * fragmented-MP4 source. The cache is warmed off the main thread by
+     * {@link ExportService} before export; this class never blocks on remuxing.
+     */
+    @Nullable
+    private FragmentedMp4Remuxer exportRemuxer;
+
+    /**
+     * Resolve a clip's source to a SEEKABLE URI for the MediaItem builders.
+     *
+     * <p>Raw FadCam recordings are fragmented MP4s that are NOT seekable to a
+     * non-zero start, so a {@link MediaItem.ClippingConfiguration} with a non-zero
+     * {@code startPositionMs} fails with "Illegal clipping: not seekable to start".
+     * If a cached remuxed (faststart) copy already exists for this source, point at
+     * it instead. This is a PURE LOOKUP — it never triggers a (blocking) remux. The
+     * cache is warmed off the main thread by {@link ExportService} before export.</p>
+     *
+     * <p>Returns the original URI unchanged for image clips, non-{@code file://}
+     * sources, or when no cached remux exists (the common imported/remuxed case).</p>
+     */
+    @Nullable
+    private android.net.Uri resolveSeekableSourceUri(@NonNull Clip clip) {
+        android.net.Uri uri = clip.getSourceUri();
+        if (clip.isImageClip() || uri == null
+                || !"file".equals(uri.getScheme()) || uri.getPath() == null) {
+            return uri;
+        }
+        try {
+            java.io.File f = new java.io.File(uri.getPath());
+            if (exportRemuxer == null) exportRemuxer = new FragmentedMp4Remuxer(context);
+            if (exportRemuxer.needsRemux(f) && exportRemuxer.hasRemuxedVersion(f)) {
+                java.io.File remuxed = exportRemuxer.getRemuxedFile(f);
+                if (remuxed != null && remuxed.exists()) {
+                    return android.net.Uri.fromFile(remuxed);
+                }
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "resolveSeekableSourceUri failed", e);
+        }
+        return uri;
+    }
+
     /**
      * Callback interface for export progress and completion events.
      */
@@ -105,9 +179,50 @@ public class ExportManager {
     }
 
     public ExportManager(@NonNull Context context,
-                         @NonNull SharedPreferencesManager prefsManager) {
+                          @NonNull SharedPreferencesManager prefsManager) {
         this.context = context.getApplicationContext();
         this.prefsManager = prefsManager;
+    }
+
+    /**
+     * Acquires a {@link MediaMetadataRetriever} for the current thread, creating it lazily.
+     * The caller must call {@link #releasePerThreadRetriever()} on the same thread when done.
+     */
+    @NonNull
+    private android.media.MediaMetadataRetriever acquireRetriever() {
+        android.media.MediaMetadataRetriever r = retrieverPool.get();
+        if (r == null) {
+            r = new android.media.MediaMetadataRetriever();
+            retrieverPool.set(r);
+            retrieverCurrentUri.set(null);
+        }
+        return r;
+    }
+
+    /**
+     * Points the thread-local retriever at {@code uri}, reusing the existing instance when
+     * possible. Must be called on the same thread that called {@link #acquireRetriever()}.
+     */
+    private void setRetrieverDataSource(@NonNull android.net.Uri uri) {
+        android.media.MediaMetadataRetriever r = acquireRetriever();
+        String uriString = uri.toString();
+        if (!uriString.equals(retrieverCurrentUri.get())) {
+            r.setDataSource(context, uri);
+            retrieverCurrentUri.set(uriString);
+        }
+    }
+
+    /**
+     * Releases the retriever owned by the current thread and clears the thread-local cache.
+     * Safe to call even if no retriever was acquired on this thread.
+     */
+    private void releasePerThreadRetriever() {
+        android.media.MediaMetadataRetriever r = retrieverPool.get();
+        if (r != null) {
+            try { r.release(); } catch (Exception ignored) {}
+            retrieverPool.remove();
+            retrieverCurrentUri.remove();
+        }
     }
 
     public void setExportListener(@Nullable ExportListener listener) {
@@ -144,10 +259,21 @@ public class ExportManager {
             // Build the Transformer
             Transformer.Builder builder = new Transformer.Builder(context)
                     .setVideoMimeType(MimeTypes.VIDEO_H264)
-                    .setAudioMimeType(MimeTypes.AUDIO_AAC);
+                    .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                    // Encode portrait output NATIVELY (coded WxH portrait, rotation=0)
+                    // instead of Media3's default "landscape + rotation flag"
+                    // optimization. That optimization made 9:16 exports come out as
+                    // 1546x870 with a rotate(-90) flag — correct on players that honor
+                    // the flag, but sideways / wrongly-sized on those that ignore it
+                    // (some social/web players). Forcing portrait encoding bakes the
+                    // pixels upright so the file is correct everywhere.
+                    .setPortraitEncodingEnabled(true);
 
             // For simple trim (single clip, no effects, normal speed, audio intact,
             // and no audio clips on the audio track) use near-lossless
+            // optimization. The fast-trim path bypasses the effects chain, so we
+            // must exclude any project that has overlays — otherwise text /
+            // captions / waveforms would be silently dropped.
             boolean isSimpleTrim = project.getTimeline().getClipCount() == 1
                     && !project.getTimeline().hasAudioClips()
                     && !project.getTimeline().getClip(0).isImageClip()
@@ -158,11 +284,18 @@ public class ExportManager {
                     && !project.getTimeline().getClip(0).isFlipHorizontal()
                     && !project.getTimeline().getClip(0).isFlipVertical()
                     && "none".equals(project.getTimeline().getClip(0).getCropPreset())
+                    && !project.getTimeline().getClip(0).hasOpacityKeyframes()
+                    && !project.getTimeline().hasTextOverlays()
+                    && !project.getTimeline().getClip(0).isCaptionsEnabled()
+                    && !project.getTimeline().hasWaveformOverlays()
+                    && !project.getTimeline().getClip(0).hasLoopExtension()
                     && "original".equals(project.getCanvasPreset());
 
             if (isSimpleTrim) {
                 builder.experimentalSetTrimOptimizationEnabled(true);
                 FLog.d(TAG, "Using near-lossless trim optimization");
+            } else {
+                FLog.d(TAG, "Using full re-encode path (effects, overlays, or canvas transform present)");
             }
 
             // Add progress listener
@@ -208,6 +341,7 @@ public class ExportManager {
                         tempFile.delete();
                     }
                     FLog.e(TAG, "Export failed", exception);
+                    writeExportErrorLog(project, exception, outputPath);
                     if (listener != null) {
                         listener.onExportError(exception);
                     }
@@ -217,7 +351,16 @@ public class ExportManager {
             transformer = builder.build();
 
             // Build Composition from timeline clips
-            Composition composition = buildComposition(project);
+            Composition composition;
+            try {
+                composition = buildComposition(project);
+            } finally {
+                // Release the thread-local MediaMetadataRetriever used during composition
+                // building (source dimension probes + still-frame extraction). Each export
+                // call runs on the calling thread, so releasing here is safe and prevents
+                // leaking the native retriever across exports.
+                releasePerThreadRetriever();
+            }
 
             // Start export
             transformer.start(composition, outputPath);
@@ -233,9 +376,59 @@ public class ExportManager {
         } catch (Exception e) {
             isExporting = false;
             FLog.e(TAG, "Failed to start export", e);
+            writeExportErrorLog(project, e, generateOutputPath(project));
             if (listener != null) {
                 listener.onExportError(e);
             }
+        }
+    }
+
+    /**
+     * Persist a detailed, timestamped export-failure report to
+     * {@code <externalFiles>/faditor_export_errors/}. Export failures previously
+     * left no durable trace (only a transient notification — and an OOM process
+     * kill leaves nothing at all), making them hard to diagnose after the fact.
+     * Best-effort: never throws.
+     */
+    private void writeExportErrorLog(@Nullable FaditorProject project,
+                                     @NonNull Throwable error, @Nullable String outputPath) {
+        try {
+            File dir = new File(context.getExternalFilesDir(null), "faditor_export_errors");
+            if (!dir.exists() && !dir.mkdirs()) {
+                dir = context.getExternalFilesDir(null); // fall back to the files root
+            }
+            String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                    .format(new java.util.Date());
+            File log = new File(dir, "export_error_" + ts + ".txt");
+            StringBuilder sb = new StringBuilder();
+            sb.append("Export failed: ").append(new java.util.Date()).append('\n');
+            sb.append("output=").append(outputPath).append('\n');
+            if (project != null) {
+                Timeline tl = project.getTimeline();
+                sb.append("projectId=").append(project.getId()).append('\n');
+                sb.append("canvasPreset=").append(project.getCanvasPreset()).append('\n');
+                sb.append("clips=").append(tl.getClipCount())
+                        .append(" audioClips=").append(tl.getAudioClips().size())
+                        .append(" transitions=").append(tl.getTransitions().size()).append('\n');
+                for (int i = 0; i < tl.getClipCount(); i++) {
+                    Clip c = tl.getClip(i);
+                    sb.append("  clip[").append(i).append("] img=").append(c.isImageClip())
+                            .append(" in=").append(c.getInPointMs())
+                            .append(" out=").append(c.getOutPointMs())
+                            .append(" loop=").append(c.getLoopMode())
+                            .append(" uri=").append(c.getSourceUri()).append('\n');
+                }
+            }
+            sb.append("\n--- stack trace ---\n");
+            java.io.StringWriter sw = new java.io.StringWriter();
+            error.printStackTrace(new java.io.PrintWriter(sw));
+            sb.append(sw);
+            try (FileOutputStream fos = new FileOutputStream(log)) {
+                fos.write(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            FLog.d(TAG, "Wrote export error log: " + log.getAbsolutePath());
+        } catch (Throwable t) {
+            FLog.w(TAG, "Failed to write export error log", t);
         }
     }
 
@@ -292,137 +485,134 @@ public class ExportManager {
 
     @NonNull
     private Composition buildComposition(@NonNull FaditorProject project) {
-        List<EditedMediaItem> items = new ArrayList<>();
-
-        // Resolve canvas dimensions if a canvas preset is active
+        Timeline timeline = project.getTimeline();
         String canvasPreset = project.getCanvasPreset();
-        int[] canvasDims = null;
-        if (!"original".equals(canvasPreset)) {
-            // Use first clip's source dimensions as base
-            Clip firstClip = project.getTimeline().getClip(0);
-            int srcW = firstClip.isImageClip() ? 1080 : getSourceWidth(firstClip);
-            int srcH = firstClip.isImageClip() ? 1920 : getSourceHeight(firstClip);
-            if (srcW > 0 && srcH > 0) {
-                canvasDims = CanvasPickerBottomSheet.resolveCanvasDimensions(
-                        canvasPreset, srcW, srcH);
+        int[] canvasDims = resolveCanvasDims(timeline, canvasPreset);
+        int outW = canvasDims != null ? canvasDims[0] : 0;
+        int outH = canvasDims != null ? canvasDims[1] : 0;
+        // For the "original" canvas preset we still need non-zero dimensions
+        // for overlay bitmaps and transition ratio calculations.
+        if ((outW <= 0 || outH <= 0) && timeline.getClipCount() > 0) {
+            int[] inferred = inferSourceDims(timeline);
+            if (inferred != null) {
+                outW = inferred[0];
+                outH = inferred[1];
             }
         }
 
-        for (Clip clip : project.getTimeline().getClips()) {
-            MediaItem mediaItem;
+        // Pre-load waveform data for all waveform overlays
+        Map<String, WaveformData> waveformCache = preloadWaveformData(timeline);
 
-            if (clip.isImageClip()) {
-                // Image clip: set image duration for Transformer to render still frames
-                long imageDurationMs = clip.getTrimmedDurationMs();
-                mediaItem = new MediaItem.Builder()
-                        .setUri(clip.getSourceUri())
-                        .setImageDurationMs(imageDurationMs)
-                        .build();
-            } else {
-                // Video clip: apply clipping configuration
-                MediaItem.ClippingConfiguration clipping =
-                        new MediaItem.ClippingConfiguration.Builder()
-                                .setStartPositionMs(clip.getInPointMs())
-                                .setEndPositionMs(clip.getOutPointMs())
-                                .build();
+        // Pre-load waveform style presets
+        List<WaveformStyle> builtinStyles = WaveformStyleIO.loadBuiltins(context);
 
-                mediaItem = new MediaItem.Builder()
-                        .setUri(clip.getSourceUri())
-                        .setClippingConfiguration(clipping)
-                        .build();
+        // Build per-clip composite overlays
+        List<CompositeExportOverlay.WaveformSlot> waveformSlots =
+                buildWaveformSlots(timeline, waveformCache, builtinStyles, outW, outH);
+
+        List<EditedMediaItem> items = new ArrayList<>();
+        long timelineCursorMs = 0;
+
+        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
+            Clip clip = timeline.getClip(ci);
+
+            // Check for a transition at the seam AFTER this clip
+            Transition trans = findTransitionAtSeam(timeline, ci);
+
+            // Check for a transition at the seam BEFORE this clip
+            Transition prevTrans = ci > 0 ? findTransitionAtSeam(timeline, ci - 1) : null;
+
+            boolean hasTailTransition = trans != null;
+            boolean hasHeadTransition = prevTrans != null;
+
+            // ── Determine main clip range (possibly shortened by transitions) ──
+            long clipInMs = clip.getInPointMs();
+            long clipOutMs = clip.getOutPointMs();
+
+            // If this clip is the SECOND clip in a transition, its head is overlapped
+            if (hasHeadTransition) {
+                long overlapSourceMs = Math.round(prevTrans.durationMs * clip.getSpeedMultiplier());
+                clipInMs = Math.min(clipOutMs, clipInMs + overlapSourceMs);
             }
 
-            EditedMediaItem.Builder editedBuilder = new EditedMediaItem.Builder(mediaItem);
-
-            // Image clips require frameRate for ImageAssetLoader
-            if (clip.isImageClip()) {
-                editedBuilder.setFrameRate(30);
+            // If this clip is the FIRST clip in a transition, its tail is overlapped
+            long mainOutMs = clipOutMs;
+            if (hasTailTransition) {
+                long overlapSourceMs = Math.round(trans.durationMs * clip.getSpeedMultiplier());
+                mainOutMs = Math.max(clipInMs, clipOutMs - overlapSourceMs);
             }
 
-            // Mute audio if requested or if image clip (no audio track)
-            if (clip.isAudioMuted() || clip.isImageClip()) {
-                editedBuilder.setRemoveAudio(true);
-            }
+            // ── Loop/ping-pong extensions BEFORE the main clip ──
+            if (clip.hasLoopExtension() && !clip.isImageClip()) {
+                long trimmedPlayMs = clip.getTrimmedDurationMs();
+                long loopBeforeMs = clip.getLoopBeforeMs();
 
-            // Collect effects
-            List<AudioProcessor> audioProcessors = new ArrayList<>();
-            List<Effect> videoEffects = new ArrayList<>();
-
-            // Speed change and/or volume adjustment
-            float speed = clip.getSpeedMultiplier();
-            float volume = clip.getVolumeLevel();
-            if (speed != 1.0f) {
-                videoEffects.add(new SpeedChangeEffect(speed));
-            }
-            // Apply audio processors (speed + volume) when audio is present
-            if (!clip.isAudioMuted()) {
-                if (speed != 1.0f) {
-                    SonicAudioProcessor sonicProcessor = new SonicAudioProcessor();
-                    sonicProcessor.setSpeed(speed);
-                    audioProcessors.add(sonicProcessor);
-                }
-                if (Math.abs(volume - 1.0f) >= 0.01f) {
-                    VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
-                    volumeProcessor.setVolume(volume);
-                    audioProcessors.add(volumeProcessor);
-                }
-            }
-
-            // Rotation and/or flip
-            int rotation = clip.getRotationDegrees();
-            boolean flipH = clip.isFlipHorizontal();
-            boolean flipV = clip.isFlipVertical();
-            if (rotation != 0 || flipH || flipV) {
-                ScaleAndRotateTransformation.Builder transformBuilder =
-                        new ScaleAndRotateTransformation.Builder();
-                if (rotation != 0) {
-                    transformBuilder.setRotationDegrees(rotation);
-                }
-                float scaleX = flipH ? -1f : 1f;
-                float scaleY = flipV ? -1f : 1f;
-                if (flipH || flipV) {
-                    transformBuilder.setScale(scaleX, scaleY);
-                }
-                videoEffects.add(transformBuilder.build());
-            }
-
-            // Crop preset or custom crop
-            String cropPreset = clip.getCropPreset();
-            if ("custom".equals(cropPreset)) {
-                // Convert normalised bounds (0-1) to NDC (-1 to 1)
-                float left  = clip.getCropLeft()  * 2f - 1f;
-                float right = clip.getCropRight() * 2f - 1f;
-                float top   = 1f - clip.getCropTop()    * 2f;
-                float bottom = 1f - clip.getCropBottom() * 2f;
-                videoEffects.add(new Crop(left, right, bottom, top));
-            } else if (!"none".equals(cropPreset)) {
-                float[] cropRect = getCropRect(cropPreset);
-                if (cropRect != null) {
-                    videoEffects.add(new Crop(
-                            cropRect[0], cropRect[1], cropRect[2], cropRect[3]));
+                if (loopBeforeMs > 0 && trimmedPlayMs > 0) {
+                    int reps = (int) Math.ceil(loopBeforeMs / (double) trimmedPlayMs);
+                    for (int r = 0; r < reps; r++) {
+                        EditedMediaItem extItem = buildLoopExtensionItem(project, clip,
+                                loopBeforeMs, trimmedPlayMs, reps, r,
+                                timelineCursorMs, outW, outH, canvasDims,
+                                waveformSlots, true);
+                        if (extItem != null) {
+                            items.add(extItem);
+                            timelineCursorMs += extItem.durationUs / 1000;
+                        }
+                    }
                 }
             }
 
-            // Canvas (output resolution / aspect ratio) — must be last video effect
-            if (canvasDims != null) {
-                videoEffects.add(Presentation.createForWidthAndHeight(
-                        canvasDims[0], canvasDims[1],
-                        Presentation.LAYOUT_SCALE_TO_FIT));
+            // ── Build the main clip item (the part NOT in the transition) ──
+            if (mainOutMs > clipInMs) {
+                long mainDurationMs = clipInMs >= clipOutMs ? 0 : (mainOutMs - clipInMs);
+                EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
+                        timelineCursorMs, outW, outH, canvasDims,
+                        waveformSlots);
+                items.add(mainItem);
+                timelineCursorMs += mainItem.durationUs / 1000;
             }
 
-            // Apply effects if any
-            if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
-                editedBuilder.setEffects(new Effects(audioProcessors, videoEffects));
+            // ── Build the transition item (if there's a tail transition) ──
+            if (hasTailTransition && ci + 1 < timeline.getClipCount()) {
+                Clip nextClip = timeline.getClip(ci + 1);
+                long transInMs = mainOutMs;
+                long transOutMs = clipOutMs;
+                if (transOutMs > transInMs) {
+                    // Transition item uses the first clip's source (clipped to overlap) with GL effect
+                    EditedMediaItem transItem = buildTransitionItem(project, clip, transInMs, transOutMs,
+                            nextClip, trans, timelineCursorMs, outW, outH, canvasDims, waveformSlots);
+                    if (transItem != null) {
+                        items.add(transItem);
+                        timelineCursorMs += transItem.durationUs / 1000;
+                    }
+                }
             }
 
-            items.add(editedBuilder.build());
+            // ── Loop/ping-pong extensions AFTER the main clip ──
+            if (clip.hasLoopExtension() && !clip.isImageClip()) {
+                long trimmedPlayMs = clip.getTrimmedDurationMs();
+                long loopAfterMs = clip.getLoopAfterMs();
+
+                if (loopAfterMs > 0 && trimmedPlayMs > 0) {
+                    int reps = (int) Math.ceil(loopAfterMs / (double) trimmedPlayMs);
+                    for (int r = 0; r < reps; r++) {
+                        EditedMediaItem extItem = buildLoopExtensionItem(project, clip,
+                                loopAfterMs, trimmedPlayMs, reps, r,
+                                timelineCursorMs, outW, outH, canvasDims,
+                                waveformSlots, false);
+                        if (extItem != null) {
+                            items.add(extItem);
+                            timelineCursorMs += extItem.durationUs / 1000;
+                        }
+                    }
+                }
+            }
         }
 
         EditedMediaItemSequence videoSequence =
                 new EditedMediaItemSequence.Builder(items).build();
 
         // Build audio sequence from AudioClips on the audio track (if any)
-        Timeline timeline = project.getTimeline();
         if (timeline.hasAudioClips()) {
             EditedMediaItemSequence audioSequence = buildAudioSequence(timeline);
             if (audioSequence != null) {
@@ -431,6 +621,602 @@ public class ExportManager {
         }
 
         return new Composition.Builder(videoSequence).build();
+    }
+
+    @Nullable
+    private static Transition findTransitionAtSeam(@NonNull Timeline timeline, int seam) {
+        for (Transition t : timeline.getTransitions()) {
+            if (t.clipIndex == seam) return t;
+        }
+        return null;
+    }
+
+    @Nullable
+    private int[] resolveCanvasDims(@NonNull Timeline timeline,
+                                      @NonNull String canvasPreset) {
+        if ("original".equals(canvasPreset) || timeline.getClipCount() == 0) return null;
+        int[] srcDims = inferSourceDims(timeline);
+        if (srcDims == null) return null;
+        return CanvasPickerBottomSheet.resolveCanvasDimensions(canvasPreset, srcDims[0], srcDims[1]);
+    }
+
+    @Nullable
+    private int[] inferSourceDims(@NonNull Timeline timeline) {
+        for (Clip c : timeline.getClips()) {
+            if (c.isImageClip()) continue;
+            int w = getSourceWidth(c);
+            int h = getSourceHeight(c);
+            if (w > 0 && h > 0) return new int[]{w, h};
+        }
+        for (Clip c : timeline.getClips()) {
+            if (!c.isImageClip()) continue;
+            // Image clips don't have source dims; use a reasonable portrait default.
+            return new int[]{1080, 1920};
+        }
+        return null;
+    }
+
+
+    @NonNull
+    private EditedMediaItem buildClipItem(@NonNull FaditorProject project,
+                                           @NonNull Clip clip,
+                                           long clipInMs, long clipOutMs,
+                                           long timelineCursorMs,
+                                           int outW, int outH,
+                                           @Nullable int[] canvasDims,
+                                           @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots) {
+        float speed = clip.getSpeedMultiplier();
+
+        MediaItem mediaItem;
+        long sourceDurationMs;
+        if (clip.isImageClip()) {
+            sourceDurationMs = Math.max(1L, clipOutMs - clipInMs);
+            mediaItem = new MediaItem.Builder()
+                    .setUri(clip.getSourceUri())
+                    .setImageDurationMs(sourceDurationMs)
+                    .build();
+        } else {
+            long endMs = Math.min(clipOutMs, clip.getSourceDurationMs());
+            sourceDurationMs = Math.max(1L, endMs - clipInMs);
+            MediaItem.ClippingConfiguration clipping =
+                    new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(clipInMs)
+                            .setEndPositionMs(endMs)
+                            .build();
+            mediaItem = new MediaItem.Builder()
+                    .setUri(resolveSeekableSourceUri(clip))
+                    .setClippingConfiguration(clipping)
+                    .build();
+        }
+
+        EditedMediaItem.Builder editedBuilder = new EditedMediaItem.Builder(mediaItem);
+        if (clip.isImageClip()) editedBuilder.setFrameRate(30);
+        if (clip.isAudioMuted() || clip.isImageClip()) editedBuilder.setRemoveAudio(true);
+
+        // Explicit timeline duration so callers can advance the composition cursor
+        // without relying on EditedMediaItem.durationUs (unset for video items).
+        long timelineDurationMs = Math.max(1L,
+                (long) (sourceDurationMs / Math.max(0.1f, speed)));
+        editedBuilder.setDurationUs(timelineDurationMs * 1000);
+
+        List<AudioProcessor> audioProcessors = new ArrayList<>();
+        float volume = clip.getVolumeLevel();
+
+        if (!clip.isAudioMuted()) {
+            if (speed != 1.0f) {
+                SonicAudioProcessor sonicProcessor = new SonicAudioProcessor();
+                sonicProcessor.setSpeed(speed);
+                audioProcessors.add(sonicProcessor);
+            }
+            VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
+            boolean volumeAdjusted = false;
+            if (clip.hasVolumeKeyframes()) {
+                List<Clip.VolumeKeyframe> kfs = clip.getVolumeKeyframes();
+                long[] times = new long[kfs.size()];
+                float[] vols = new float[kfs.size()];
+                for (int i = 0; i < kfs.size(); i++) {
+                    times[i] = kfs.get(i).timeMs;
+                    vols[i] = kfs.get(i).volume;
+                }
+                volumeProcessor.setVolumeEnvelope(times, vols);
+                volumeAdjusted = true;
+            } else if (Math.abs(volume - 1.0f) >= 0.01f) {
+                volumeProcessor.setVolume(volume);
+                volumeAdjusted = true;
+            }
+            // NOTE: do NOT gate on volumeProcessor.isActive() here — BaseAudioProcessor
+            // only becomes "active" after the Transformer pipeline calls configure(),
+            // which has not happened at composition-build time. isActive() is therefore
+            // always false here, so the old gate silently dropped EVERY clip's volume
+            // (static and keyframed) from the export. Add based on whether we set work.
+            if (volumeAdjusted) {
+                audioProcessors.add(volumeProcessor);
+            }
+        }
+
+        List<Effect> videoEffects = assembleClipVideoEffects(
+                clip, project, timelineCursorMs, outW, outH,
+                canvasDims, waveformSlots,
+                /* isTransitionItem = */ false,
+                /* preOverlayExtra = */ null);
+
+        if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
+            editedBuilder.setEffects(new Effects(audioProcessors, videoEffects));
+        }
+
+        return editedBuilder.build();
+    }
+
+    @Nullable
+    private EditedMediaItem buildTransitionItem(@NonNull FaditorProject project,
+                                                 @NonNull Clip clip,
+                                                 long transInMs, long transOutMs,
+                                                 @NonNull Clip nextClip,
+                                                 @NonNull Transition transition,
+                                                 long timelineCursorMs,
+                                                 int outW, int outH,
+                                                 @Nullable int[] canvasDims,
+                                                 @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots) {
+        long sourceDur = transOutMs - transInMs;
+        if (sourceDur <= 0) return null;
+
+        float speed = clip.getSpeedMultiplier();
+        long timelineDurMs = Math.max(1L, (long) (sourceDur / Math.max(0.1f, speed)));
+
+        // When the OUTGOING clip of a transition is an image, it must be built via the
+        // image pipeline (setImageDurationMs) — NOT as a clipped progressive media item.
+        // A ClippingConfiguration forces Media3 to read the source with extractors, and a
+        // JPEG/PNG cannot be read as a seekable video stream, so the export aborts with
+        // UnrecognizedInputFormatException ("Source error") the moment Media3 prepares the
+        // transition item. Mirror buildClipItem's image branch here.
+        MediaItem mediaItem;
+        EditedMediaItem.Builder eb;
+        if (clip.isImageClip()) {
+            mediaItem = new MediaItem.Builder()
+                    .setUri(clip.getSourceUri())
+                    .setImageDurationMs(timelineDurMs)
+                    .build();
+            eb = new EditedMediaItem.Builder(mediaItem);
+            eb.setFrameRate(30);
+            eb.setRemoveAudio(true);
+        } else {
+            long endMs = Math.min(transOutMs, clip.getSourceDurationMs());
+            mediaItem = new MediaItem.Builder()
+                    .setUri(resolveSeekableSourceUri(clip))
+                    .setClippingConfiguration(
+                            new MediaItem.ClippingConfiguration.Builder()
+                                    .setStartPositionMs(transInMs)
+                                    .setEndPositionMs(endMs)
+                                    .build())
+                    .build();
+            eb = new EditedMediaItem.Builder(mediaItem);
+        }
+        eb.setDurationUs(timelineDurMs * 1000);
+
+        Effect glTrans = null;
+        try {
+            glTrans = new GlTransitionExportEffect(
+                    context, transition, nextClip,
+                    timelineDurMs, timelineCursorMs, canvasDims, nextClip.getSourceUri(),
+                    outW, outH);
+        } catch (Exception e) {
+            FLog.w(TAG, "Failed to create transition effect", e);
+        }
+
+        List<Effect> videoEffects = assembleClipVideoEffects(
+                clip, project, timelineCursorMs, outW, outH,
+                canvasDims, waveformSlots,
+                /* isTransitionItem = */ true,
+                /* preOverlayExtra = */ glTrans);
+
+        // Audio: mirror the outgoing clip's mute/volume. Previously the transition
+        // segment carried the clip's ORIGINAL audio at full volume — so a muted clip
+        // (e.g. one relying on the music track) had its sound briefly return during
+        // the ~600ms transition overlap. Match buildClipItem's behaviour.
+        List<AudioProcessor> aps = new ArrayList<>();
+        if (clip.isImageClip() || clip.isAudioMuted()) {
+            eb.setRemoveAudio(true);
+        } else {
+            if (speed != 1.0f) {
+                SonicAudioProcessor sap = new SonicAudioProcessor();
+                sap.setSpeed(speed);
+                aps.add(sap);
+            }
+            float vol = clip.getVolumeLevel();
+            if (Math.abs(vol - 1.0f) >= 0.01f) {
+                VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                vp.setVolume(vol);
+                aps.add(vp);
+            }
+        }
+
+        if (!aps.isEmpty() || !videoEffects.isEmpty()) {
+            eb.setEffects(new Effects(aps, videoEffects));
+        }
+
+        return eb.build();
+    }
+
+    @Nullable
+    private EditedMediaItem buildLoopExtensionItem(@NonNull FaditorProject project,
+                                                    @NonNull Clip clip,
+                                                    long extensionMs,
+                                                    long trimmedPlayMs,
+                                                    int totalReps, int repIndex,
+                                                    long timelineCursorMs,
+                                                    int outW, int outH,
+                                                    @Nullable int[] canvasDims,
+                                                    @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots,
+                                                    boolean isBefore) {
+        if (trimmedPlayMs <= 0) return null;
+
+        int loopMode = clip.getLoopMode();
+
+        // STILL mode renders a single still image for the entire extension.
+        // Only the first rep (repIndex == 0) produces an item; subsequent reps
+        // are skipped by returning null so the outer loop doesn't add empty
+        // items to the timeline.
+        if (loopMode == Clip.LOOP_MODE_STILL) {
+            if (repIndex != 0) return null;
+            if (extensionMs <= 0) return null;
+            return buildStillLoopExtensionItem(project, clip, extensionMs, isBefore,
+                    timelineCursorMs, outW, outH, canvasDims, waveformSlots);
+        }
+
+        // Compute this rep's actual played duration (clamped so the sum of all
+        // rep durations equals exactly `extensionMs`).
+        long playedMs = Math.min(trimmedPlayMs,
+                extensionMs - (long) repIndex * trimmedPlayMs);
+        if (playedMs <= 0) return null;
+
+        boolean reverse = loopMode == Clip.LOOP_MODE_PING_PONG
+                && ((isBefore ? totalReps - 1 - repIndex : repIndex) % 2 == 1);
+
+        // Choose the source sub-range so playback length matches `playedMs`.
+        // Forward leg plays [inPoint, inPoint + playedMs*speed]; reverse leg
+        // plays [outPoint - playedMs*speed, outPoint] so it visually reads as
+        // the clip rolling backward in time.
+        float speed = clip.getSpeedMultiplier();
+        long inPointMs = clip.getInPointMs();
+        long outPointMs = clip.getOutPointMs();
+        long sourceSpanMs = Math.max(1L, (long) (playedMs * speed));
+        long startMs;
+        long endMs;
+        if (reverse) {
+            startMs = Math.max(inPointMs, outPointMs - sourceSpanMs);
+            endMs = outPointMs;
+        } else {
+            startMs = inPointMs;
+            endMs = Math.min(outPointMs, inPointMs + sourceSpanMs);
+        }
+
+        MediaItem mediaItem = new MediaItem.Builder()
+                .setUri(resolveSeekableSourceUri(clip))
+                .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                                .setStartPositionMs(startMs)
+                                .setEndPositionMs(endMs)
+                                .build())
+                .build();
+
+        EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem);
+        eb.setDurationUs(Math.max(1L, playedMs) * 1000);
+        if (clip.isAudioMuted() || clip.isImageClip()) eb.setRemoveAudio(true);
+
+        List<AudioProcessor> audioProcessors = new ArrayList<>();
+        if (speed != 1.0f && !clip.isAudioMuted()) {
+            SonicAudioProcessor sap = new SonicAudioProcessor();
+            sap.setSpeed(speed);
+            audioProcessors.add(sap);
+        }
+
+        // Media3 Transformer does not support true reverse playback. For
+        // ping-pong reverse cycles we mirror horizontally as a visual stand-in
+        // so the motion looks like a true reverse.
+        // TODO: This is an approximation — any text overlay rendered AFTER this
+        //  transform will also be mirrored (which is usually undesirable). A
+        //  proper reverse would require pre-rendering the source reversed or a
+        //  custom effect that handles the text overlay separately.
+        Effect reverseMirror = null;
+        if (reverse) {
+            ScaleAndRotateTransformation.Builder tb = new ScaleAndRotateTransformation.Builder();
+            tb.setScale(-1f, 1f);
+            reverseMirror = tb.build();
+        }
+
+        List<Effect> videoEffects = assembleClipVideoEffects(
+                clip, project, timelineCursorMs, outW, outH,
+                canvasDims, waveformSlots,
+                /* isTransitionItem = */ false,
+                /* preOverlayExtra = */ reverseMirror);
+
+        if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
+            eb.setEffects(new Effects(audioProcessors, videoEffects));
+        }
+        return eb.build();
+    }
+
+    /**
+     * Build a single {@link EditedMediaItem} that displays a frozen frame of
+     * the source video for the full extension duration. The frame is taken
+     * from the clip's first frame for a BEFORE extension (so playback can
+     * "enter" the clip) and from the last frame for an AFTER extension (so
+     * the clip's exit freezes in place).
+     *
+     * <p>The frame is extracted once as a JPEG in the export cache and reused
+     * across subsequent exports.</p>
+     */
+    @Nullable
+    private EditedMediaItem buildStillLoopExtensionItem(@NonNull FaditorProject project,
+                                                         @NonNull Clip clip,
+                                                         long extensionMs,
+                                                         boolean isBefore,
+                                                         long timelineCursorMs,
+                                                         int outW, int outH,
+                                                         @Nullable int[] canvasDims,
+                                                         @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots) {
+        Uri stillUri = extractStillFrameForLoop(clip, isBefore);
+        if (stillUri == null) {
+            FLog.w(TAG, "STILL loop extension: failed to extract still frame; skipping");
+            return null;
+        }
+
+        MediaItem mediaItem = new MediaItem.Builder()
+                .setUri(stillUri)
+                .setImageDurationMs(extensionMs)
+                .build();
+
+        EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
+                .setRemoveAudio(true)
+                .setFrameRate(30)
+                .setDurationUs(Math.max(1L, extensionMs) * 1000);
+
+        // The clip here is the original source video (used to read opacity
+        // envelopes, captions, and the in-point), but the MediaItem is the still
+        // image. Media3 applies Speed/Scale/Crop to image MediaItems correctly,
+        // so passing the original clip's properties through the canonical
+        // helper is the right call — a still-loop extension honors the user's
+        // speed/rotate/crop/captions/text exactly like a video extension would.
+        List<Effect> videoEffects = assembleClipVideoEffects(
+                clip, project, timelineCursorMs, outW, outH,
+                canvasDims, waveformSlots,
+                /* isTransitionItem = */ false,
+                /* preOverlayExtra = */ null);
+
+        if (!videoEffects.isEmpty()) {
+            eb.setEffects(new Effects(Collections.emptyList(), videoEffects));
+        }
+        return eb.build();
+    }
+
+    /**
+     * Extract a single frame of {@code clip}'s source as a JPEG in the export
+     * cache and return its file URI. Uses the first frame for a BEFORE
+     * extension and the last frame for an AFTER extension. The result is
+     * cached on disk so repeated exports don't re-decode the same frame.
+     */
+    @Nullable
+    private Uri extractStillFrameForLoop(@NonNull Clip clip, boolean isBefore) {
+        // A clip with no source URI cannot yield a still frame; bail cleanly so the
+        // caller skips this loop extension instead of throwing inside the retriever.
+        if (clip.getSourceUri() == null) {
+            FLog.w(TAG, "STILL loop extension: clip has null source URI; skipping");
+            return null;
+        }
+        long sourceDurationMs = Math.max(1L, clip.getSourceDurationMs());
+        long sourceMs;
+        if (isBefore) {
+            sourceMs = Math.max(0L, clip.getInPointMs());
+        } else {
+            sourceMs = Math.max(0L,
+                    Math.min(sourceDurationMs - 1L, clip.getOutPointMs() - 1L));
+        }
+
+        File cacheDir = new File(context.getCacheDir(), "faditor_export");
+        if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+            FLog.w(TAG, "STILL loop extension: cannot create cache dir for still frame");
+            return null;
+        }
+        File frameFile = new File(cacheDir, "loop_still_" + clip.getId()
+                + (isBefore ? "_first" : "_last") + ".jpg");
+        if (frameFile.exists() && frameFile.length() > 0) {
+            return Uri.fromFile(frameFile);
+        }
+
+        Bitmap frame = null;
+        try {
+            // Reuse the thread-local retriever instead of creating a new one per still frame.
+            setRetrieverDataSource(clip.getSourceUri());
+            android.media.MediaMetadataRetriever mmr = acquireRetriever();
+            frame = mmr.getFrameAtTime(sourceMs * 1000L,
+                    android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            if (frame == null) {
+                FLog.w(TAG, "STILL loop extension: MediaMetadataRetriever returned null frame at "
+                        + sourceMs + "ms");
+                return null;
+            }
+            try (FileOutputStream fos = new FileOutputStream(frameFile)) {
+                frame.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+            }
+            return Uri.fromFile(frameFile);
+        } catch (Exception e) {
+            FLog.w(TAG, "STILL loop extension: failed to extract still frame", e);
+            return null;
+        } finally {
+            if (frame != null) frame.recycle();
+        }
+    }
+
+    @NonNull
+    private Map<String, WaveformData> preloadWaveformData(@NonNull Timeline timeline) {
+        Map<String, WaveformData> cache = new HashMap<>();
+        FLog.d(TAG, "preloadWaveformData: waveformOverlayCount="
+                + timeline.getWaveformOverlays().size()
+                + " hasAny=" + timeline.hasWaveformOverlays());
+        if (!timeline.hasWaveformOverlays()) return cache;
+        WaveformExtractor extractor = new WaveformExtractor(context);
+        for (WaveformOverlayInstance woi : timeline.getWaveformOverlays()) {
+            String clipId = woi.getAudioSourceRef();
+            FLog.d(TAG, "preloadWaveformData: waveform " + woi.getId()
+                    + " style=" + woi.getStyleId()
+                    + " audioSourceRef=" + clipId);
+            if (clipId == null) continue;
+            android.net.Uri uri = resolveWaveformUri(timeline, clipId);
+            if (uri == null) {
+                FLog.w(TAG, "preloadWaveformData: no clip with id " + clipId
+                        + " for waveform " + woi.getId());
+                continue;
+            }
+            String key = uri.toString();
+            if (cache.containsKey(key)) continue;
+            try {
+                WaveformData data = extractor.extract(uri, 64);
+                if (data != null) {
+                    cache.put(key, data);
+                    FLog.d(TAG, "preloadWaveformData: extracted " + data.amplitudes.length
+                            + " buckets for " + key);
+                } else {
+                    FLog.w(TAG, "preloadWaveformData: extractor returned null for " + key);
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "Failed to preload waveform data for " + key, e);
+            }
+        }
+        return cache;
+    }
+
+    @Nullable
+    private static Uri resolveWaveformUri(@NonNull Timeline timeline, @NonNull String clipId) {
+        Clip clip = findClipById(timeline, clipId);
+        if (clip != null) return clip.getSourceUri();
+        AudioClip audioClip = findAudioClipById(timeline, clipId);
+        if (audioClip != null) return audioClip.getSourceUri();
+        return null;
+    }
+
+    @Nullable
+    private static Clip findClipById(@NonNull Timeline timeline, @NonNull String clipId) {
+        for (Clip c : timeline.getClips()) {
+            if (clipId.equals(c.getId())) return c;
+        }
+        return null;
+    }
+
+    @Nullable
+    private static AudioClip findAudioClipById(@NonNull Timeline timeline, @NonNull String clipId) {
+        for (AudioClip ac : timeline.getAudioClips()) {
+            if (clipId.equals(ac.getId())) return ac;
+        }
+        return null;
+    }
+
+    @NonNull
+    private List<CompositeExportOverlay.WaveformSlot> buildWaveformSlots(
+            @NonNull Timeline timeline,
+            @NonNull Map<String, WaveformData> waveformCache,
+            @NonNull List<WaveformStyle> builtinStyles,
+            int outW, int outH) {
+        List<CompositeExportOverlay.WaveformSlot> slots = new ArrayList<>();
+        FLog.d(TAG, "buildWaveformSlots: count=" + timeline.getWaveformOverlays().size()
+                + " outW=" + outW + " outH=" + outH
+                + " cacheSize=" + waveformCache.size()
+                + " builtinStyles=" + builtinStyles.size());
+        if (!timeline.hasWaveformOverlays()) return slots;
+
+        // When the caller passed 0×0 (original canvas for a single clip, no
+        // resolved dims), fall back to the first clip's source dimensions so
+        // waveform slots are still built. The slot positions/widths are
+        // computed in source-pixel space and the Presentation effect downstream
+        // scales the entire composited frame to the canvas.
+        if (outW <= 0 || outH <= 0) {
+            for (Clip c : timeline.getClips()) {
+                if (c.isImageClip()) continue;
+                int w = getSourceWidth(c);
+                int h = getSourceHeight(c);
+                if (w > 0 && h > 0) {
+                    outW = w;
+                    outH = h;
+                    FLog.d(TAG, "buildWaveformSlots: inferred dimensions from clip "
+                            + c.getId() + " → " + outW + "x" + outH);
+                    break;
+                }
+            }
+            if (outW <= 0 || outH <= 0) {
+                FLog.w(TAG, "buildWaveformSlots: cannot infer dimensions; no slots");
+                return slots;
+            }
+        }
+
+        for (WaveformOverlayInstance woi : timeline.getWaveformOverlays()) {
+            String clipId = woi.getAudioSourceRef();
+            if (clipId == null) {
+                FLog.w(TAG, "buildWaveformSlots: waveform overlay " + woi.getId()
+                        + " has null audioSourceRef — skipping");
+                continue;
+            }
+            Clip srcClip = findClipById(timeline, clipId);
+            AudioClip srcAudioClip = srcClip == null ? findAudioClipById(timeline, clipId) : null;
+            android.net.Uri wfUri;
+            if (srcClip != null) {
+                wfUri = srcClip.getSourceUri();
+            } else if (srcAudioClip != null) {
+                wfUri = srcAudioClip.getSourceUri();
+            } else {
+                // Fallback: the audioSourceRef clip ID didn't match any clip in
+                // the timeline (likely the project was loaded and clip UUIDs
+                // changed). Use the first clip that has audio as a last resort
+                // so the visualizer still renders SOMETHING, and update the
+                // instance's ref so per-clip filtering can attach it.
+                FLog.w(TAG, "buildWaveformSlots: no clip with id " + clipId
+                        + " for waveform " + woi.getId() + " — falling back to first clip with audio");
+                Clip fallback = null;
+                for (Clip c : timeline.getClips()) {
+                    if (!c.isImageClip() && c.getSourceUri() != null) {
+                        fallback = c;
+                        break;
+                    }
+                }
+                if (fallback == null) continue;
+                srcClip = fallback;
+                woi.setAudioSourceRef(fallback.getId());
+                wfUri = fallback.getSourceUri();
+                FLog.w(TAG, "buildWaveformSlots: using fallback clip "
+                        + fallback.getId() + " uri=" + wfUri);
+            }
+            WaveformData data = waveformCache.get(wfUri.toString());
+            if (data == null) {
+                FLog.w(TAG, "buildWaveformSlots: no cached waveform data for uri=" + wfUri
+                        + " (key=" + wfUri.toString() + ")");
+                continue;
+            }
+
+            // Configure runtime source mapping so the visualizer reads the
+            // correct trimmed/speed/loop position during export. Without this
+            // the visualizer always samples from source time 0 at speed 1.0.
+            if (srcClip != null) {
+                woi.setSourceMapping(srcClip.getInPointMs(), srcClip.getSpeedMultiplier());
+                if (srcClip.hasLoopExtension()) {
+                    woi.setLoopExtension(srcClip.getTrimmedDurationMs());
+                }
+            } else if (srcAudioClip != null) {
+                woi.setSourceMapping(srcAudioClip.getInPointMs(), 1.0f);
+            }
+
+            WaveformStyle base = null;
+            for (WaveformStyle s : builtinStyles) {
+                if (s.id.equals(woi.getStyleId())) { base = s; break; }
+            }
+            if (base == null) base = builtinStyles.isEmpty()
+                    ? new WaveformStyle() : builtinStyles.get(0);
+
+            WaveformStyle effective = woi.applyOverrides(base);
+            slots.add(new CompositeExportOverlay.WaveformSlot(
+                    woi, data, effective, outW, outH, 1f));
+            FLog.d(TAG, "buildWaveformSlots: added slot for waveform " + woi.getId()
+                    + " (style=" + woi.getStyleId() + ", clipId=" + woi.getAudioSourceRef()
+                    + " uri=" + wfUri + ")");
+        }
+        return slots;
     }
 
     /**
@@ -444,6 +1230,7 @@ public class ExportManager {
     @Nullable
     private EditedMediaItemSequence buildAudioSequence(@NonNull Timeline timeline) {
         List<AudioClip> clips = new ArrayList<>(timeline.getAudioClips());
+        FLog.d(TAG, "buildAudioSequence: audioClipCount=" + clips.size());
         if (clips.isEmpty()) return null;
 
         // Sort by offset so we insert gaps correctly
@@ -468,11 +1255,17 @@ public class ExportManager {
 
             long clipStartMs = ac.getOffsetMs();
 
-            // Insert silence gap if necessary
+            // Insert silence gap if necessary. The silence WAV is SILENCE_FILE_MS long,
+            // so a larger gap must be split into multiple items — otherwise the clip is
+            // capped at the file length and every later audio clip slides earlier on the
+            // timeline (the end song went silent because it landed ~250s too early).
             if (clipStartMs > cursorMs) {
-                long gapMs = clipStartMs - cursorMs;
-                EditedMediaItem silenceItem = buildSilenceItem(silenceUri, gapMs);
-                audioItems.add(silenceItem);
+                long remainingGapMs = clipStartMs - cursorMs;
+                while (remainingGapMs > 0) {
+                    long chunkMs = Math.min(remainingGapMs, SILENCE_FILE_MS);
+                    audioItems.add(buildSilenceItem(silenceUri, chunkMs));
+                    remainingGapMs -= chunkMs;
+                }
                 cursorMs = clipStartMs;
             }
 
@@ -491,11 +1284,29 @@ public class ExportManager {
             EditedMediaItem.Builder editBuilder = new EditedMediaItem.Builder(mediaItem)
                     .setRemoveVideo(true); // audio only
 
-            // Apply volume adjustment if needed
+            // Apply volume: the keyframe envelope (blue automation curve) takes
+            // precedence over a static level. The envelope was previously dropped here
+            // (only the static level was honored), so audio-clip fades did nothing on
+            // export. Times are clip-local ms (0 = clip in-point), matching
+            // VolumeAudioProcessor's frame-position clock for the clipped item.
             float volume = ac.getVolumeLevel();
-            if (Math.abs(volume - 1.0f) >= 0.01f) {
-                VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
+            VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
+            boolean volumeAdjusted = false;
+            if (ac.hasVolumeKeyframes()) {
+                List<AudioClip.VolumeKeyframe> kfs = ac.getVolumeKeyframes();
+                long[] times = new long[kfs.size()];
+                float[] vols = new float[kfs.size()];
+                for (int i = 0; i < kfs.size(); i++) {
+                    times[i] = kfs.get(i).timeMs;
+                    vols[i] = kfs.get(i).volume;
+                }
+                volumeProcessor.setVolumeEnvelope(times, vols);
+                volumeAdjusted = true;
+            } else if (Math.abs(volume - 1.0f) >= 0.01f) {
                 volumeProcessor.setVolume(volume);
+                volumeAdjusted = true;
+            }
+            if (volumeAdjusted) {
                 List<AudioProcessor> processors = new ArrayList<>();
                 processors.add(volumeProcessor);
                 editBuilder.setEffects(new Effects(processors, Collections.emptyList()));
@@ -510,6 +1321,8 @@ public class ExportManager {
             return null;
         }
 
+        FLog.d(TAG, "buildAudioSequence: built " + audioItems.size()
+                + " audio items, total ~" + cursorMs + "ms");
         return new EditedMediaItemSequence.Builder(audioItems).build();
     }
 
@@ -554,53 +1367,54 @@ public class ExportManager {
         }
 
         try {
-            // Generate a 10-minute silent WAV (enough for any gap)
+            // Generate a silent WAV (gaps larger than this are split into chunks).
             int sampleRate = 44100;
             int channels = 1;
             int bitsPerSample = 16;
-            long durationSeconds = 600; // 10 minutes
+            long durationSeconds = SILENCE_FILE_MS / 1000;
             long numSamples = sampleRate * durationSeconds;
             long dataSize = numSamples * channels * (bitsPerSample / 8);
 
-            FileOutputStream fos = new FileOutputStream(silenceFile);
+            // try-with-resources guarantees the stream is closed even if a write
+            // throws partway through, preventing a leaked native file descriptor.
+            try (FileOutputStream fos = new FileOutputStream(silenceFile)) {
+                // WAV header (44 bytes)
+                ByteBuffer header = ByteBuffer.allocate(44);
+                header.order(ByteOrder.LITTLE_ENDIAN);
+                // RIFF chunk
+                header.put((byte) 'R'); header.put((byte) 'I');
+                header.put((byte) 'F'); header.put((byte) 'F');
+                header.putInt((int) (36 + dataSize)); // file size - 8
+                header.put((byte) 'W'); header.put((byte) 'A');
+                header.put((byte) 'V'); header.put((byte) 'E');
+                // fmt sub-chunk
+                header.put((byte) 'f'); header.put((byte) 'm');
+                header.put((byte) 't'); header.put((byte) ' ');
+                header.putInt(16);                          // sub-chunk size
+                header.putShort((short) 1);                 // PCM format
+                header.putShort((short) channels);
+                header.putInt(sampleRate);
+                header.putInt(sampleRate * channels * bitsPerSample / 8); // byte rate
+                header.putShort((short) (channels * bitsPerSample / 8)); // block align
+                header.putShort((short) bitsPerSample);
+                // data sub-chunk
+                header.put((byte) 'd'); header.put((byte) 'a');
+                header.put((byte) 't'); header.put((byte) 'a');
+                header.putInt((int) dataSize);
 
-            // WAV header (44 bytes)
-            ByteBuffer header = ByteBuffer.allocate(44);
-            header.order(ByteOrder.LITTLE_ENDIAN);
-            // RIFF chunk
-            header.put((byte) 'R'); header.put((byte) 'I');
-            header.put((byte) 'F'); header.put((byte) 'F');
-            header.putInt((int) (36 + dataSize)); // file size - 8
-            header.put((byte) 'W'); header.put((byte) 'A');
-            header.put((byte) 'V'); header.put((byte) 'E');
-            // fmt sub-chunk
-            header.put((byte) 'f'); header.put((byte) 'm');
-            header.put((byte) 't'); header.put((byte) ' ');
-            header.putInt(16);                          // sub-chunk size
-            header.putShort((short) 1);                 // PCM format
-            header.putShort((short) channels);
-            header.putInt(sampleRate);
-            header.putInt(sampleRate * channels * bitsPerSample / 8); // byte rate
-            header.putShort((short) (channels * bitsPerSample / 8)); // block align
-            header.putShort((short) bitsPerSample);
-            // data sub-chunk
-            header.put((byte) 'd'); header.put((byte) 'a');
-            header.put((byte) 't'); header.put((byte) 'a');
-            header.putInt((int) dataSize);
+                fos.write(header.array());
 
-            fos.write(header.array());
+                // Write silence data in chunks (all zeros = silence)
+                byte[] zeroChunk = new byte[8192];
+                long remaining = dataSize;
+                while (remaining > 0) {
+                    int toWrite = (int) Math.min(zeroChunk.length, remaining);
+                    fos.write(zeroChunk, 0, toWrite);
+                    remaining -= toWrite;
+                }
 
-            // Write silence data in chunks (all zeros = silence)
-            byte[] zeroChunk = new byte[8192];
-            long remaining = dataSize;
-            while (remaining > 0) {
-                int toWrite = (int) Math.min(zeroChunk.length, remaining);
-                fos.write(zeroChunk, 0, toWrite);
-                remaining -= toWrite;
+                fos.flush();
             }
-
-            fos.flush();
-            fos.close();
 
             FLog.d(TAG, "Created silence file: " + silenceFile.getAbsolutePath()
                     + " (" + silenceFile.length() + " bytes)");
@@ -610,6 +1424,201 @@ public class ExportManager {
             FLog.e(TAG, "Failed to create silence WAV file", e);
             return null;
         }
+    }
+
+    /**
+     * Convert an absolute Media3 presentation time to the clip-local time used
+     * by per-frame effects (e.g. opacity envelopes, overlay animation). The
+     * input is in microseconds; result is in milliseconds relative to the start
+     * of the clip on the timeline.
+     */
+    static long clipMsFor(long presentationTimeUs, long clipTimelineStartMs) {
+        return presentationTimeUs / 1000 - clipTimelineStartMs;
+    }
+
+    /**
+     * Assemble the canonical-ordered {@code List<Effect>} for a clip's
+     * {@code EditedMediaItem}. Single source of truth for the export effect
+     * pipeline — every {@code buildXxxItem} method routes through this helper
+     * so the relative ordering of speed/rotate/crop/color-grade/overlay/opacity/
+     * presentation can't drift between call sites.
+     *
+     * <p>Canonical order (first applied → last applied):
+     * <ol>
+     *   <li>{@link SpeedChangeEffect} (video-only, skip for image clips)</li>
+     *   <li>{@link ScaleAndRotateTransformation} (rotate/flip, video-only)</li>
+     *   <li>{@link Crop} (preset or custom, video-only)</li>
+     *   <li>Color-grade {@code EffectStack.toEffects(...)}</li>
+     *   <li>Optional pre-overlay extra transform (e.g. ping-pong reverse mirror)</li>
+     *   <li>{@link OverlayEffect} for text + captions + waveform</li>
+     *   <li>{@link OpacityExportEffect} — post-process, affects the composited result</li>
+     *   <li>{@link Presentation} canvas resize</li>
+     * </ol>
+     *
+     * <p>Use {@code isTransitionItem=true} to draw only the speed change and any
+     * {@code preOverlayExtra} effect (e.g. the GL transition). Transition items
+     * must not apply per-clip transforms, overlays, opacity, or the canvas
+     * presentation — their job is to render the transition between two clips.</p>
+     */
+    @NonNull
+    private List<Effect> assembleClipVideoEffects(@NonNull Clip clip,
+                                                  @NonNull FaditorProject project,
+                                                  long timelineCursorMs,
+                                                  int outW, int outH,
+                                                  @Nullable int[] canvasDims,
+                                                  @NonNull List<CompositeExportOverlay.WaveformSlot> allWaveformSlots,
+                                                  boolean isTransitionItem,
+                                                  @Nullable Effect preOverlayExtra) {
+        List<Effect> videoEffects = new ArrayList<>();
+        boolean isVideo = !clip.isImageClip();
+
+        // Per-clip waveform slot filter: a visualizer's audioSourceRef points to
+        // ONE specific clip, so the slot should only be drawn on that clip's
+        // overlay — not on every clip in the timeline. Without this, the
+        // visualizer appears on every frame of the export (the user sees it
+        // "stuck" across transitions and into clips that don't have a
+        // visualizer). Slots whose audioSourceRef doesn't match any clip (the
+        // orphan-fallback case from buildWaveformSlots) are still drawn on the
+        // first matching non-image clip encountered, so this filter is a
+        // refinement, not a hard exclusion.
+        List<CompositeExportOverlay.WaveformSlot> clipWaveformSlots = new ArrayList<>();
+        if (isVideo && !isTransitionItem) {
+            for (CompositeExportOverlay.WaveformSlot slot : allWaveformSlots) {
+                String ref = slot.instance.getAudioSourceRef();
+                if (ref == null || ref.equals(clip.getId())) {
+                    clipWaveformSlots.add(slot);
+                }
+            }
+        }
+        FLog.d(TAG, "assembleClipVideoEffects clip=" + clip.getId()
+                + " timelineCursorMs=" + timelineCursorMs
+                + " isTransitionItem=" + isTransitionItem
+                + " totalSlots=" + allWaveformSlots.size()
+                + " clipSlots=" + clipWaveformSlots.size()
+                + " hasOpacityKf=" + clip.hasOpacityKeyframes()
+                + " hasCaptions=" + clip.isCaptionsEnabled());
+
+        if (isVideo) {
+            float speed = clip.getSpeedMultiplier();
+            if (speed != 1.0f) {
+                videoEffects.add(new SpeedChangeEffect(speed));
+            }
+        }
+
+        if (isVideo && !isTransitionItem) {
+            int rotation = clip.getRotationDegrees();
+            boolean flipH = clip.isFlipHorizontal();
+            boolean flipV = clip.isFlipVertical();
+            if (rotation != 0 || flipH || flipV) {
+                ScaleAndRotateTransformation.Builder tb = new ScaleAndRotateTransformation.Builder();
+                if (rotation != 0) tb.setRotationDegrees(rotation);
+                float sx = flipH ? -1f : 1f;
+                float sy = flipV ? -1f : 1f;
+                if (flipH || flipV) tb.setScale(sx, sy);
+                videoEffects.add(tb.build());
+            }
+        }
+
+        if (isVideo && !isTransitionItem) {
+            String cropPreset = clip.getCropPreset();
+            if ("custom".equals(cropPreset)) {
+                float left   = clip.getCropLeft()  * 2f - 1f;
+                float right  = clip.getCropRight() * 2f - 1f;
+                float top    = 1f - clip.getCropTop()    * 2f;
+                float bottom = 1f - clip.getCropBottom() * 2f;
+                videoEffects.add(new Crop(left, right, bottom, top));
+            } else if (!"none".equals(cropPreset)) {
+                float[] cr = getCropRect(cropPreset);
+                if (cr != null) videoEffects.add(new Crop(cr[0], cr[1], cr[2], cr[3]));
+            }
+        }
+
+        if (!isTransitionItem && clip.getEffectStack().isActive()) {
+            videoEffects.addAll(clip.getEffectStack().toEffects(context, false));
+        }
+
+        if (preOverlayExtra != null) {
+            videoEffects.add(preOverlayExtra);
+        }
+
+        int overlayW = outW;
+        int overlayH = outH;
+        if (!isTransitionItem && (overlayW <= 0 || overlayH <= 0)) {
+            overlayW = clip.isImageClip() ? 1080 : getSourceWidth(clip);
+            overlayH = clip.isImageClip() ? 1920 : getSourceHeight(clip);
+        }
+        if (!isTransitionItem && overlayW > 0 && overlayH > 0) {
+            // The overlay is added when EITHER the project has text overlays, OR
+            // this clip has captions enabled, OR this clip's URI is referenced by
+            // any waveform overlay in the project (even if slot building failed
+            // for that waveform). The last case is what carries visualizers on
+            // clips whose waveform slot couldn't be built (e.g. because the
+            // audioSourceRef clip ID didn't match any clip). Without this, clips
+            // with a misconfigured visualizer end up with no overlay at all.
+            boolean clipHasWaveformRef = false;
+            for (com.fadcam.ui.faditor.model.WaveformOverlayInstance woi
+                    : project.getTimeline().getWaveformOverlays()) {
+                String ref = woi.getAudioSourceRef();
+                if (ref != null && ref.equals(clip.getId())) {
+                    clipHasWaveformRef = true;
+                    break;
+                }
+            }
+            // ALSO create the overlay when a captioned AUDIO clip overlaps this
+            // video clip's timeline range. Audio-track captions render on whatever
+            // video happens to be playing underneath; without this, a clip that has
+            // no overlays of its own (no text, captions off, no visualizer) silently
+            // dropped the audio caption — so captions vanished mid-song the moment
+            // the timeline reached such a clip. (This was the "captions stop after a
+            // few videos" bug.)
+            boolean audioCaptionOverlaps = false;
+            long clipTlStart = timelineCursorMs;
+            long clipTlEnd = timelineCursorMs + clip.getTrimmedDurationMs();
+            for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                if (!ac.isCaptionsEnabled() || !ac.hasTranscript()) continue;
+                if ("hidden".equals(ac.getCaptionStyleId())) continue;
+                long aStart = ac.getOffsetMs();
+                long aEnd = ac.getOffsetMs() + ac.getTrimmedDurationMs();
+                if (aStart < clipTlEnd && aEnd > clipTlStart) {
+                    audioCaptionOverlaps = true;
+                    break;
+                }
+            }
+            boolean hasOverlays = project.getTimeline().hasTextOverlays()
+                    || clip.isCaptionsEnabled()
+                    || !clipWaveformSlots.isEmpty()
+                    || clipHasWaveformRef
+                    || audioCaptionOverlaps;
+            if (hasOverlays) {
+                CompositeExportOverlay overlay = new CompositeExportOverlay(
+                        context, timelineCursorMs, clip,
+                        overlayW, overlayH,
+                        project.getTimeline().getTextOverlays(),
+                        clipWaveformSlots,
+                        project.getTimeline().getAudioClips());
+                videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
+            }
+        } else if (!isTransitionItem) {
+            FLog.w(TAG, "assembleClipVideoEffects: cannot infer overlay dimensions for clip "
+                    + clip.getId() + " (uri=" + clip.getSourceUri() + "); skipping overlay");
+        }
+
+        if (!isTransitionItem && clip.hasOpacityKeyframes()) {
+            videoEffects.add(new OpacityExportEffect(clip, timelineCursorMs));
+        }
+
+        // Canvas resize applies to transition items TOO. The GL transition program
+        // outputs frames at the outgoing clip's SOURCE size (its configure() returns
+        // the input size), so without this the ~600ms transition segment was a
+        // different resolution/aspect than the surrounding canvas-scaled clips —
+        // the "aspect ratio messed up during the transition" glitch.
+        if (canvasDims != null) {
+            videoEffects.add(Presentation.createForWidthAndHeight(
+                    canvasDims[0], canvasDims[1],
+                    Presentation.LAYOUT_SCALE_TO_FIT));
+        }
+
+        return videoEffects;
     }
 
     /**
@@ -639,12 +1648,12 @@ public class ExportManager {
      * @return width in pixels, or 0 on failure
      */
     private int getSourceWidth(@NonNull Clip clip) {
+        if (clip.getSourceUri() == null) return 0;
         try {
-            android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
-            r.setDataSource(context, clip.getSourceUri());
+            setRetrieverDataSource(clip.getSourceUri());
+            android.media.MediaMetadataRetriever r = acquireRetriever();
             String w = r.extractMetadata(
                     android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
-            r.release();
             return w != null ? Integer.parseInt(w) : 0;
         } catch (Exception e) {
             FLog.w(TAG, "Failed to get source width", e);
@@ -659,12 +1668,12 @@ public class ExportManager {
      * @return height in pixels, or 0 on failure
      */
     private int getSourceHeight(@NonNull Clip clip) {
+        if (clip.getSourceUri() == null) return 0;
         try {
-            android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
-            r.setDataSource(context, clip.getSourceUri());
+            setRetrieverDataSource(clip.getSourceUri());
+            android.media.MediaMetadataRetriever r = acquireRetriever();
             String h = r.extractMetadata(
                     android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
-            r.release();
             return h != null ? Integer.parseInt(h) : 0;
         } catch (Exception e) {
             FLog.w(TAG, "Failed to get source height", e);
@@ -684,7 +1693,17 @@ public class ExportManager {
     private String generateOutputPath(@NonNull FaditorProject project) {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
                 .format(new Date());
-        String fileName = "Faditor_" + timestamp + "." + Constants.RECORDING_FILE_EXTENSION;
+        String defaultBaseName = "Faditor_" + timestamp;
+
+        String customBaseName = null;
+        if (project.getExportSettings() != null) {
+            customBaseName = sanitizeFileBaseName(project.getExportSettings().getOutputFileName());
+        }
+        String baseName = (customBaseName != null && !customBaseName.isEmpty())
+                ? customBaseName
+                : defaultBaseName;
+
+        String fileName = baseName + "." + Constants.RECORDING_FILE_EXTENSION;
 
         String storageMode = prefsManager.getStorageMode();
 
@@ -714,6 +1733,26 @@ public class ExportManager {
             safExportFileName = null;
             return new File(outputDir, fileName).getAbsolutePath();
         }
+    }
+
+    /**
+     * Defensively sanitize a user-provided output file base name (no extension).
+     *
+     * <p>Strips characters invalid in Android/FAT/NTFS file names, trims
+     * whitespace, and returns {@code null} if the result is blank so callers
+     * can fall back to the default timestamped name. This mirrors the
+     * sanitization already applied in the export confirmation dialog, kept
+     * here as a second line of defense in case this path is ever reached
+     * with an unsanitized value.</p>
+     *
+     * @param rawName the raw user-entered base name, or {@code null}
+     * @return a sanitized, trimmed base name, or {@code null}/empty if unusable
+     */
+    @Nullable
+    private static String sanitizeFileBaseName(@Nullable String rawName) {
+        if (rawName == null) return null;
+        String cleaned = rawName.trim().replaceAll("[/\\\\:*?\"<>|]", "");
+        return cleaned.trim();
     }
 
     /**

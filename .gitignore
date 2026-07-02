@@ -49,3 +49,5 @@ extras/*
 TASKS.md
 feedback.md
 tasks/*
+build.log
+prebuild.log

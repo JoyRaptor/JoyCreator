@@ -178,6 +178,13 @@
         <item name="pickerGradientEnd">#FF2A2A2A</item>
     </style>
 
+    <style name="Theme.FadCam.ChatAssistant" parent="Theme.FadCam.FaditorEditor">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
     <!-- Dark delete confirmation dialog with red action buttons.
          Extends AppCompat dark dialog to always show dark background regardless of device theme. -->
     <style name="WatchDeleteConfirmDialog" parent="Theme.AppCompat.Dialog.Alert">

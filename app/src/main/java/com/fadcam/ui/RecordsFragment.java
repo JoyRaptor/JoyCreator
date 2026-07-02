@@ -3348,8 +3348,7 @@ public class RecordsFragment extends BaseFragment implements
                     getString(R.string.records_batch_coming_soon), Toast.LENGTH_SHORT).show());
         }
         if (btnActionBatchFaditor != null) {
-            btnActionBatchFaditor.setOnClickListener(v -> Toast.makeText(requireContext(),
-                    getString(R.string.records_batch_coming_soon), Toast.LENGTH_SHORT).show());
+            btnActionBatchFaditor.setOnClickListener(v -> openSelectedInFaditor());
         }
         if (btnActionBatchDelete != null) {
             btnActionBatchDelete.setOnClickListener(v -> {
@@ -3362,6 +3361,17 @@ public class RecordsFragment extends BaseFragment implements
             });
         }
         updateSelectionActionRow();
+    }
+
+    private void openSelectedInFaditor() {
+        if (!isAdded() || getContext() == null || selectedUris.isEmpty()) {
+            Toast.makeText(requireContext(), getString(R.string.records_batch_select_items_first), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        ArrayList<Uri> ordered = new ArrayList<>(selectedUris);
+        Intent intent = new Intent(getContext(), com.fadcam.ui.faditor.FaditorEditorActivity.class);
+        intent.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_VIDEO_URIS, ordered);
+        startActivity(intent);
     }
 
     private void setActiveFilter(@NonNull VideoItem.Category filter) {

@@ -1,0 +1,15 @@
+﻿Calculating task graph as no cached configuration is available for tasks: clean
+> Task :app:externalNativeBuildCleanCalcProRelease
+> Task :app:externalNativeBuildCleanDefaultProPlus
+> Task :app:externalNativeBuildCleanDefaultRelease
+> Task :app:externalNativeBuildCleanNotesProRelease
+> Task :app:externalNativeBuildCleanWeatherProRelease
+
+> Task :app:externalNativeBuildCleanDefaultDebug
+Clean ggml-base-arm64-v8a, whisper_jni-arm64-v8a, ggml-cpu-arm64-v8a, ggml-arm64-v8a
+
+> Task :app:clean
+
+BUILD SUCCESSFUL in 5s
+7 actionable tasks: 7 executed
+Configuration cache entry stored.

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "caption_pop",
+    "name": "Pop Caption",
+    "fontFamily": "default",
+    "colorInt": -1,
+    "strokeColorInt": -16777216,
+    "strokeWidthPx": 6,
+    "shadowColorInt": -855642112,
+    "shadowRadiusPx": 6,
+    "entrance": "fade_scale",
+    "exit": "fade"
+  }
+]

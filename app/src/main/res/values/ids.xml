@@ -6,4 +6,90 @@
     <item name="tag_layer_active" type="id"/>
     <item name="tag_page_index" type="id"/>
     <item name="tag_page_active" type="id"/>
-</resources> 
+
+    <!-- Faditor editor bottom tools carousel (data-driven).
+         The carousel cells are built programmatically by FaditorToolsAdapter,
+         so the container LinearLayout no longer declares these ids inline.
+         They are declared here so existing findViewById(...) / cached field
+         references in FaditorEditorActivity keep resolving unchanged. -->
+    <item name="tool_trim" type="id"/>
+    <item name="tool_trim_icon" type="id"/>
+    <item name="tool_trim_label" type="id"/>
+    <item name="tool_speed" type="id"/>
+    <item name="tool_speed_icon" type="id"/>
+    <item name="tool_speed_label" type="id"/>
+    <item name="tool_mute" type="id"/>
+    <item name="tool_mute_icon" type="id"/>
+    <item name="tool_mute_label" type="id"/>
+    <item name="tool_opacity" type="id"/>
+    <item name="tool_opacity_icon" type="id"/>
+    <item name="tool_opacity_label" type="id"/>
+    <item name="tool_rotate" type="id"/>
+    <item name="tool_rotate_icon" type="id"/>
+    <item name="tool_rotate_label" type="id"/>
+    <item name="tool_flip" type="id"/>
+    <item name="tool_flip_icon" type="id"/>
+    <item name="tool_flip_label" type="id"/>
+    <item name="tool_crop" type="id"/>
+    <item name="tool_crop_icon" type="id"/>
+    <item name="tool_crop_label" type="id"/>
+    <item name="tool_canvas" type="id"/>
+    <item name="tool_canvas_icon" type="id"/>
+    <item name="tool_canvas_label" type="id"/>
+    <item name="tool_audio" type="id"/>
+    <item name="tool_audio_icon" type="id"/>
+    <item name="tool_audio_label" type="id"/>
+    <item name="tool_split" type="id"/>
+    <item name="tool_split_icon" type="id"/>
+    <item name="tool_split_label" type="id"/>
+    <item name="tool_heal" type="id"/>
+    <item name="tool_heal_icon" type="id"/>
+    <item name="tool_heal_label" type="id"/>
+    <item name="tool_delete" type="id"/>
+    <item name="tool_delete_icon" type="id"/>
+    <item name="tool_delete_label" type="id"/>
+    <item name="tool_duplicate" type="id"/>
+    <item name="tool_duplicate_icon" type="id"/>
+    <item name="tool_duplicate_label" type="id"/>
+    <item name="tool_add_asset" type="id"/>
+    <item name="tool_add_asset_icon" type="id"/>
+    <item name="tool_add_asset_label" type="id"/>
+    <item name="tool_text" type="id"/>
+    <item name="tool_text_icon" type="id"/>
+    <item name="tool_text_label" type="id"/>
+    <item name="tool_visualizer" type="id"/>
+    <item name="tool_visualizer_icon" type="id"/>
+    <item name="tool_visualizer_label" type="id"/>
+    <item name="tool_sticker" type="id"/>
+    <item name="tool_sticker_icon" type="id"/>
+    <item name="tool_sticker_label" type="id"/>
+    <item name="tool_captions" type="id"/>
+    <item name="tool_captions_icon" type="id"/>
+    <item name="tool_captions_label" type="id"/>
+    <item name="tool_filter" type="id"/>
+    <item name="tool_filter_icon" type="id"/>
+    <item name="tool_filter_label" type="id"/>
+    <item name="tool_move" type="id"/>
+    <item name="tool_move_icon" type="id"/>
+    <item name="tool_move_label" type="id"/>
+    <item name="tool_transitions" type="id"/>
+    <item name="tool_transitions_icon" type="id"/>
+    <item name="tool_transitions_label" type="id"/>
+    <item name="tool_transcript" type="id"/>
+    <item name="tool_transcript_icon" type="id"/>
+    <item name="tool_transcript_label" type="id"/>
+    <item name="tool_silence" type="id"/>
+    <item name="tool_silence_icon" type="id"/>
+    <item name="tool_silence_label" type="id"/>
+    <item name="tool_loop" type="id"/>
+    <item name="tool_loop_icon" type="id"/>
+    <item name="tool_loop_label" type="id"/>
+    <item name="tool_settings" type="id"/>
+    <item name="tool_settings_icon" type="id"/>
+    <item name="tool_settings_label" type="id"/>
+
+    <!-- Carousel container + Stage 3 edit-mode chip -->
+    <item name="faditor_tools_row" type="id"/>
+    <item name="faditor_tools_edit_chip" type="id"/>
+    <item name="faditor_tools_edit_chip_icon" type="id"/>
+</resources>

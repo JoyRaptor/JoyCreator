@@ -1,7 +1,10 @@
 package com.fadcam.ui.faditor.model;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -12,6 +15,19 @@ import java.util.UUID;
  * Phase 4 adds persistence via JSON serialization.</p>
  */
 public class FaditorProject {
+
+    /** Current project JSON schema version. Increment when the format changes. */
+    public static final int SCHEMA_VERSION = 7;
+
+    /**
+     * URI scheme used in saved project JSON for assets that live inside the project
+     * directory, stored as a path relative to the project root (e.g.
+     * {@code project://assets/<uuid>.png}). Resolved to an absolute {@code file://}
+     * URI at load time. This makes a project a self-contained, movable bundle
+     * (project.json + assets/) that survives reinstall and travels to another device,
+     * since absolute {@code content://}/{@code file://} URIs break off-device.
+     */
+    public static final String PROJECT_URI_SCHEME = "project";
 
     @NonNull
     private final String id;
@@ -29,9 +45,28 @@ public class FaditorProject {
     @NonNull
     private final ExportSettings exportSettings;
 
+    /** Schema version of this project's JSON. Set on creation, checked on load. */
+    private int schemaVersion = SCHEMA_VERSION;
+
     /** Canvas aspect ratio preset (project-level). "original" = no change. */
     @NonNull
     private String canvasPreset = "original";
+
+    /**
+     * Pinned asset directory tree URI (SAF content:// URI as string).
+     * Null when no directory is pinned. Saved with the project so AI and
+     * the asset browser can enumerate files in this directory.
+     */
+    @Nullable
+    private String pinnedAssetDir;
+
+    /**
+     * History of previously pinned asset directories (SAF tree URI strings).
+     * Users can navigate back/forward through these. The current
+     * {@link #pinnedAssetDir} is always the last entry when non-null.
+     */
+    @NonNull
+    private final List<String> assetDirHistory = new ArrayList<>();
 
     /**
      * Create a new empty project.
@@ -101,10 +136,59 @@ public class FaditorProject {
         return canvasPreset;
     }
 
+    @Nullable
+    public String getPinnedAssetDir() {
+        return pinnedAssetDir;
+    }
+
+    @NonNull
+    public List<String> getAssetDirHistory() {
+        return assetDirHistory;
+    }
+
+    public int getSchemaVersion() {
+        return schemaVersion;
+    }
+
+    public void setSchemaVersion(int version) {
+        this.schemaVersion = version;
+    }
+
     // ── Setters ──────────────────────────────────────────────────────
 
     public void setCanvasPreset(@NonNull String canvasPreset) {
         this.canvasPreset = canvasPreset;
+        touch();
+    }
+
+    /**
+     * Set the pinned asset directory. Adds the previous value to history
+     * (if different). Pass null to unpin.
+     */
+    public void setPinnedAssetDir(@Nullable String dir) {
+        if (dir == null) {
+            this.pinnedAssetDir = null;
+            touch();
+            return;
+        }
+        // Avoid duplicate consecutive entries
+        if (!dir.equals(this.pinnedAssetDir)) {
+            if (this.pinnedAssetDir != null && !assetDirHistory.contains(this.pinnedAssetDir)) {
+                assetDirHistory.add(this.pinnedAssetDir);
+            }
+            this.pinnedAssetDir = dir;
+            // Ensure current dir is also last in history for navigation
+            assetDirHistory.remove(dir);
+            assetDirHistory.add(dir);
+        }
+        touch();
+    }
+
+    public void removeAssetDirFromHistory(@NonNull String dir) {
+        while (assetDirHistory.remove(dir)) { }
+        if (dir.equals(this.pinnedAssetDir)) {
+            this.pinnedAssetDir = assetDirHistory.isEmpty() ? null : assetDirHistory.get(assetDirHistory.size() - 1);
+        }
         touch();
     }
 

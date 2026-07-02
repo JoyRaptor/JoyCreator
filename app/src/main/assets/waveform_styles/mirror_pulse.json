@@ -1,0 +1,16 @@
+{
+  "id": "mirror_pulse",
+  "displayName": "Mirror Pulse",
+  "type": "mirror_bars",
+  "color": "#FF4081",
+  "gradientStart": "#FF80AB",
+  "gradientEnd": "#F50057",
+  "barWidthDp": 4,
+  "barGapDp": 2,
+  "cornerRadiusDp": 3,
+  "glowColor": "#AAFF4081",
+  "glowRadiusDp": 6,
+  "bandCount": 40,
+  "sensitivity": 1.0,
+  "useSpectrum": false
+}

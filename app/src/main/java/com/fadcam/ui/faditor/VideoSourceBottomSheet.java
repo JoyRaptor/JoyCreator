@@ -69,6 +69,10 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
     @Nullable
     private Callback callback;
 
+    /** When set, the sheet is in "relink" mode and names the file being sought. */
+    @Nullable
+    private String lookingForName;
+
     private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor();
     private LinearLayout recordingsContainer;
     private View loadingIndicator;
@@ -79,6 +83,14 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
      */
     public void setCallback(@Nullable Callback callback) {
         this.callback = callback;
+    }
+
+    /**
+     * Put the sheet in relink mode: the header names the missing file so the
+     * user knows exactly which video to find.
+     */
+    public void setLookingFor(@Nullable String filename) {
+        this.lookingForName = filename;
     }
 
     // ── Theme & dark styling ─────────────────────────────────────────
@@ -119,7 +131,10 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
 
         // ── Title ───────────────────────────────────────────────
         TextView title = new TextView(requireContext());
-        title.setText(R.string.faditor_start_project);
+        boolean relinkMode = lookingForName != null;
+        title.setText(relinkMode
+                ? getString(R.string.faditor_relink_sheet_title)
+                : getString(R.string.faditor_start_project));
         title.setTextColor(0xFFFFFFFF);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
@@ -127,10 +142,15 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
                 (int) (20 * dp), (int) (4 * dp));
         root.addView(title);
 
-        // Subtitle / helper text
+        // Subtitle / helper text — in relink mode this names the missing file.
         TextView subtitle = new TextView(requireContext());
-        subtitle.setText(R.string.faditor_source_chooser_desc);
-        subtitle.setTextColor(0xFF888888);
+        if (relinkMode) {
+            subtitle.setText(getString(R.string.faditor_relink_sheet_sub, lookingForName));
+            subtitle.setTextColor(0xFFFFC107);
+        } else {
+            subtitle.setText(R.string.faditor_source_chooser_desc);
+            subtitle.setTextColor(0xFF888888);
+        }
         subtitle.setTextSize(13);
         subtitle.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (16 * dp));
         root.addView(subtitle);

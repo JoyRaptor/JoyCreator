@@ -4,6 +4,15 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 
+import androidx.annotation.Nullable;
+
+import com.fadcam.ui.faditor.transcript.NamedTranscript;
+import com.fadcam.ui.faditor.transcript.Transcript;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -63,6 +72,45 @@ public class AudioClip {
     @NonNull
     private String label = "Audio";
 
+    /**
+     * Optional volume automation keyframes (the blue "rubber-band" envelope).
+     * Each keyframe is a (clip-local time in ms, gain 0–2) point. Time is measured
+     * from the START of this clip on the timeline (0 = clip start), independent of
+     * trim/offset so the envelope rides with the clip. Sorted ascending by time.
+     * When non-empty, the interpolated gain (see {@link #gainAtClipMs(long)}) overrides
+     * the whole-clip {@link #volumeLevel} on both playback and export.
+     */
+    @NonNull
+    private final List<VolumeKeyframe> volumeKeyframes = new ArrayList<>();
+
+    // ── Transcripts (speech-to-text) ─────────────────────────────────
+
+    @NonNull
+    private final List<NamedTranscript> transcripts = new ArrayList<>();
+    private int activeTranscriptIndex = -1;
+    private boolean captionsEnabled = false;
+    @NonNull
+    private String captionStyleId = "pop";
+    private float captionCenterX = 0.5f;
+    private float captionCenterY = 0.82f;
+    // Matches Clip's default (0.060) and the CaptionOverlayView preview default so audio
+    // captions are not rendered 2x too large on export. Audio caption size is not persisted,
+    // so this default IS the effective size unless changed in-session.
+    private float captionSizeFraction = 0.060f;
+
+    /** A single point on the audio volume envelope. */
+    public static class VolumeKeyframe {
+        /** Clip-local time in ms (0 = clip start on the timeline). */
+        public long timeMs;
+        /** Gain multiplier 0.0–2.0. */
+        public float volume;
+
+        public VolumeKeyframe(long timeMs, float volume) {
+            this.timeMs = timeMs;
+            this.volume = volume;
+        }
+    }
+
     // ── Constructors ─────────────────────────────────────────────────
 
     /**
@@ -95,6 +143,19 @@ public class AudioClip {
         this.label = other.label;
         // Waveform data is shared (immutable int array after extraction)
         this.waveform = other.waveform;
+        for (VolumeKeyframe kf : other.volumeKeyframes) {
+            this.volumeKeyframes.add(new VolumeKeyframe(kf.timeMs, kf.volume));
+        }
+        // Copy transcripts
+        for (NamedTranscript nt : other.transcripts) {
+            this.transcripts.add(nt.copy());
+        }
+        this.activeTranscriptIndex = other.activeTranscriptIndex;
+        this.captionsEnabled = other.captionsEnabled;
+        this.captionStyleId = other.captionStyleId;
+        this.captionCenterX = other.captionCenterX;
+        this.captionCenterY = other.captionCenterY;
+        this.captionSizeFraction = other.captionSizeFraction;
     }
 
     // ── Getters ──────────────────────────────────────────────────────
@@ -159,6 +220,142 @@ public class AudioClip {
     public void setWaveform(int[] waveform) { this.waveform = waveform; }
 
     public void setLabel(@NonNull String label) { this.label = label; }
+
+    // ── Volume keyframes (automation envelope) ───────────────────────
+
+    /** The volume envelope keyframes (sorted ascending by time). */
+    @NonNull
+    public List<VolumeKeyframe> getVolumeKeyframes() { return volumeKeyframes; }
+
+    public boolean hasVolumeKeyframes() { return !volumeKeyframes.isEmpty(); }
+
+    /** Replace all keyframes (used on project load). Sorts and clamps. */
+    public void setVolumeKeyframes(@NonNull List<VolumeKeyframe> kfs) {
+        volumeKeyframes.clear();
+        for (VolumeKeyframe kf : kfs) {
+            volumeKeyframes.add(new VolumeKeyframe(
+                    Math.max(0, kf.timeMs), Math.max(0f, Math.min(kf.volume, 2.0f))));
+        }
+        sortKeyframes();
+    }
+
+    /**
+     * Add a keyframe at {@code timeMs} (clip-local), or update the gain of an
+     * existing keyframe at (approximately) the same time. Keeps the list sorted.
+     */
+    public void addOrUpdateVolumeKeyframe(long timeMs, float volume) {
+        timeMs = Math.max(0, timeMs);
+        volume = Math.max(0f, Math.min(volume, 2.0f));
+        for (VolumeKeyframe kf : volumeKeyframes) {
+            if (Math.abs(kf.timeMs - timeMs) <= 40) { // ~1 frame tolerance
+                kf.volume = volume;
+                return;
+            }
+        }
+        volumeKeyframes.add(new VolumeKeyframe(timeMs, volume));
+        sortKeyframes();
+    }
+
+    public void clearVolumeKeyframes() { volumeKeyframes.clear(); }
+
+    private void sortKeyframes() {
+        Collections.sort(volumeKeyframes, Comparator.comparingLong(k -> k.timeMs));
+    }
+
+    /**
+     * The effective gain at a given clip-local time (ms). When keyframes exist, the
+     * gain is linearly interpolated between the surrounding keyframes (flat-held before
+     * the first / after the last). When none exist, returns the whole-clip
+     * {@link #volumeLevel}. Muting is NOT applied here — callers handle mute.
+     */
+    public float gainAtClipMs(long clipMs) {
+        if (volumeKeyframes.isEmpty()) return volumeLevel;
+        if (volumeKeyframes.size() == 1) return volumeKeyframes.get(0).volume;
+        VolumeKeyframe first = volumeKeyframes.get(0);
+        if (clipMs <= first.timeMs) return first.volume;
+        VolumeKeyframe last = volumeKeyframes.get(volumeKeyframes.size() - 1);
+        if (clipMs >= last.timeMs) return last.volume;
+        for (int i = 0; i < volumeKeyframes.size() - 1; i++) {
+            VolumeKeyframe a = volumeKeyframes.get(i);
+            VolumeKeyframe b = volumeKeyframes.get(i + 1);
+            if (clipMs >= a.timeMs && clipMs <= b.timeMs) {
+                long span = b.timeMs - a.timeMs;
+                if (span <= 0) return b.volume;
+                float frac = (clipMs - a.timeMs) / (float) span;
+                return a.volume + (b.volume - a.volume) * frac;
+            }
+        }
+        return last.volume;
+    }
+
+    // ── Transcripts ──────────────────────────────────────────────────
+
+    @NonNull
+    public List<NamedTranscript> getTranscripts() { return transcripts; }
+
+    public int getActiveTranscriptIndex() { return activeTranscriptIndex; }
+
+    public void setActiveTranscriptIndex(int index) {
+        this.activeTranscriptIndex = (index >= 0 && index < transcripts.size()) ? index : -1;
+    }
+
+    @Nullable
+    public NamedTranscript getActiveNamedTranscript() {
+        return (activeTranscriptIndex >= 0 && activeTranscriptIndex < transcripts.size())
+                ? transcripts.get(activeTranscriptIndex) : null;
+    }
+
+    @Nullable
+    public Transcript getTranscript() {
+        NamedTranscript nt = getActiveNamedTranscript();
+        return nt == null ? null : nt.transcript;
+    }
+
+    @NonNull
+    public NamedTranscript addTranscript(@NonNull NamedTranscript named) {
+        transcripts.add(named);
+        activeTranscriptIndex = transcripts.size() - 1;
+        return named;
+    }
+
+    public void removeTranscript(int index) {
+        if (index < 0 || index >= transcripts.size()) return;
+        transcripts.remove(index);
+        if (transcripts.isEmpty()) {
+            activeTranscriptIndex = -1;
+        } else if (activeTranscriptIndex >= transcripts.size()) {
+            activeTranscriptIndex = transcripts.size() - 1;
+        }
+    }
+
+    public boolean hasTranscript() {
+        Transcript t = getTranscript();
+        return t != null && !t.isEmpty();
+    }
+
+    public boolean isCaptionsEnabled() { return captionsEnabled; }
+
+    public void setCaptionsEnabled(boolean enabled) { this.captionsEnabled = enabled; }
+
+    @NonNull
+    public String getCaptionStyleId() { return captionStyleId; }
+
+    public void setCaptionStyleId(@NonNull String id) { this.captionStyleId = id; }
+
+    public float getCaptionCenterX() { return captionCenterX; }
+
+    public float getCaptionCenterY() { return captionCenterY; }
+
+    public void setCaptionCenter(float x, float y) {
+        this.captionCenterX = Math.max(0f, Math.min(1f, x));
+        this.captionCenterY = Math.max(0f, Math.min(1f, y));
+    }
+
+    public float getCaptionSizeFraction() { return captionSizeFraction; }
+
+    public void setCaptionSizeFraction(float f) {
+        this.captionSizeFraction = Math.max(0.02f, Math.min(0.6f, f));
+    }
 
     // ── Utility ──────────────────────────────────────────────────────
 

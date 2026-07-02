@@ -41,6 +41,20 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/faditor_close" />
 
+        <!-- Asset Browser button (pinned folder icon) -->
+        <TextView
+            android:id="@+id/btn_asset_browser"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:fontFamily="@font/materialicons"
+            android:text="push_pin"
+            android:textColor="#888888"
+            android:textSize="22sp"
+            android:layout_marginStart="2dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/faditor_asset_browser" />
+
         <!-- Title -->
         <TextView
             android:id="@+id/editor_title"
@@ -53,7 +67,23 @@
             android:textStyle="bold"
             android:gravity="center"
             android:singleLine="true"
-            android:ellipsize="middle" />
+            android:ellipsize="marquee"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
+
+        <!-- AI Assistant button -->
+        <TextView
+            android:id="@+id/btn_ai_assistant"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:fontFamily="@font/materialicons"
+            android:text="smart_toy"
+            android:textColor="#FF4CAF50"
+            android:textSize="24sp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="AI Assistant" />
 
         <!-- Export button (compact icon) -->
         <TextView
@@ -69,6 +99,379 @@
             android:contentDescription="@string/faditor_export" />
     </LinearLayout>
 
+    <!-- Transitions panel -->
+    <LinearLayout
+        android:id="@+id/transition_panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#CC000000"
+        android:elevation="14dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/transition_panel_header"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:background="#FF1A1A1A">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/faditor_transitions"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/transition_panel_close"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:padding="10dp">
+
+            <LinearLayout
+                android:id="@+id/transition_card_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/transition_cross_dissolve"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="A↔B"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/transition_preview_crossfade_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_crossfade"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_fade_black"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="▰"
+                        android:textColor="#FFFFFF"
+                        android:textSize="28sp"
+                        android:background="@drawable/transition_preview_black_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_black"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_fade_white"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="▱"
+                        android:textColor="#111111"
+                        android:textSize="28sp"
+                        android:background="@drawable/transition_preview_white_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_white"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_wipe"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="➜"
+                        android:textColor="#FFFFFF"
+                        android:textSize="28sp"
+                        android:background="@drawable/transition_preview_wipe_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_wipe"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_radial"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="◎"
+                        android:textColor="#FFFFFF"
+                        android:textSize="28sp"
+                        android:background="@drawable/transition_preview_radial_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_radial"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_linear_mirror"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="⇆"
+                        android:textColor="#FFFFFF"
+                        android:textSize="28sp"
+                        android:background="@drawable/transition_preview_mirror_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_mirror"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_push"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="◀"
+                        android:textColor="#FFFFFF"
+                        android:textSize="28sp"
+                        android:background="@drawable/transition_preview_push_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_push"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_glitch"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="RGB"
+                        android:textColor="#00E5FF"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/transition_preview_glitch_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_glitch"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_tv_channel"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="TV"
+                        android:textColor="#FFFFFF"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/transition_preview_tv_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transition_tv_channel"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transition_gl_shader"
+                    android:layout_width="96dp"
+                    android:layout_height="118dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="8dp"
+                    android:background="#332A2A2A"
+                    android:layout_marginEnd="8dp">
+                    <TextView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:gravity="center"
+                        android:text="GL"
+                        android:textColor="#00E5FF"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/transition_preview_glitch_bg" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="GL Shader"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
+                        android:layout_marginTop="6dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </HorizontalScrollView>
+    <LinearLayout
+        android:id="@+id/transition_inspector"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="8dp"
+        android:background="#E01A1A1A"
+        android:elevation="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Transition"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/transition_inspector_type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#99FFFFFF"
+            android:textSize="12sp"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/transition_inspector_duration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#99FFFFFF"
+            android:textSize="12sp"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/btn_transition_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/faditor_transition_remove"
+            android:textColor="#FFFFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="@drawable/btn_remove_pill_bg" />
+    </LinearLayout>
+    </LinearLayout>
+
     <!-- ─── Player section (fills available space) ───────────────── -->
     <FrameLayout
         android:id="@+id/player_container"
@@ -79,6 +482,13 @@
         android:clipToPadding="false"
         android:background="@android:color/black">
 
+        <!-- Canvas backdrop: black canvas rect + diagonal hatch for out-of-canvas -->
+        <com.fadcam.ui.faditor.player.CanvasFrameView
+            android:id="@+id/canvas_frame"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
         <androidx.media3.ui.PlayerView
             android:id="@+id/player_view"
             android:layout_width="match_parent"
@@ -88,6 +498,20 @@
             app:surface_type="texture_view"
             app:resize_mode="fit"
             app:use_controller="false" />
+
+        <com.fadcam.ui.faditor.player.TransitionPreviewOverlayView
+            android:id="@+id/transition_preview_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <com.fadcam.ui.faditor.gltransitions.GlTransitionPreviewView
+            android:id="@+id/gl_transition_preview_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:visibility="gone" />
 
         <!-- Image preview overlay for still image clips -->
         <ImageView
@@ -100,12 +524,453 @@
             android:visibility="gone"
             android:contentDescription="@string/faditor_add_asset_image" />
 
+        <!-- Live, scrubbable preview for AI-generated animated slides -->
+        <com.fadcam.ui.faditor.slides.GeneratedSlideView
+            android:id="@+id/slide_preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <!-- Waveform/spectrum visualizer overlays (rendered below text overlays) -->
+        <com.fadcam.ui.faditor.waveform.WaveformOverlayView
+            android:id="@+id/waveform_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
+        <!-- Text overlay layer (draggable text on top of the video) -->
+        <com.fadcam.ui.faditor.overlay.TextOverlayLayer
+            android:id="@+id/overlay_layer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Animated caption layer for audio-clip transcripts (rendered below video captions) -->
+        <com.fadcam.ui.faditor.transcript.CaptionOverlayView
+            android:id="@+id/audio_caption_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <!-- Animated caption layer for video-clip transcripts (karaoke-style, on top of audio captions) -->
+        <com.fadcam.ui.faditor.transcript.CaptionOverlayView
+            android:id="@+id/caption_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <!-- Caption style picker (chips), shown while editing a caption -->
+        <HorizontalScrollView
+            android:id="@+id/caption_style_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:background="#99000000"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/caption_style_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="6dp" />
+        </HorizontalScrollView>
+
         <!-- Crop overlay (on top of player, hidden by default) -->
         <com.fadcam.ui.faditor.crop.CropOverlayView
             android:id="@+id/crop_overlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone" />
+
+        <!-- Transcript reopen tab (caret on right edge, shown when panel closed) -->
+        <TextView
+            android:id="@+id/transcript_reopen_tab"
+            android:layout_width="22dp"
+            android:layout_height="64dp"
+            android:layout_gravity="end|center_vertical"
+            android:gravity="center"
+            android:fontFamily="@font/materialicons"
+            android:text="chevron_left"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:background="#CC2A2A2A"
+            android:elevation="11dp"
+            android:visibility="gone" />
+
+        <!-- Transcript panel (slide-in from right) — stays within the preview
+             area so it never covers the play button / timeline below. -->
+        <LinearLayout
+            android:id="@+id/transcript_panel"
+            android:layout_width="260dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:orientation="horizontal"
+            android:background="@drawable/transcript_panel_bg"
+            android:elevation="12dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/transcript_resize_handle"
+                android:layout_width="18dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="drag_indicator"
+                android:textColor="#80FFFFFF"
+                android:textSize="16sp"
+                android:background="#33000000" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="6dp">
+
+                    <TextView
+                        android:id="@+id/transcript_search_btn"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="search"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="2dp"
+                        android:text="@string/faditor_transcript"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:singleLine="true"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <TextView
+                        android:id="@+id/transcript_break"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="wrap_text"
+                        android:textColor="#80FFFFFF"
+                        android:textSize="16sp"
+                        android:contentDescription="@string/faditor_transcript_break"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
+                        android:id="@+id/transcript_clean"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:gravity="center"
+                        android:text="@string/faditor_transcript_clean"
+                        android:textColor="#4DD0E1"
+                        android:textSize="11sp"
+                        android:singleLine="true"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
+                        android:id="@+id/transcript_apply"
+                        android:layout_width="wrap_content"
+                        android:layout_height="28dp"
+                        android:gravity="center"
+                        android:text="@string/faditor_transcript_apply"
+                        android:textColor="#4CAF50"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:singleLine="true"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
+                        android:id="@+id/transcript_close"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="chevron_right"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+                </LinearLayout>
+
+                <!-- Search bar (expands from the magnifier) -->
+                <LinearLayout
+                    android:id="@+id/transcript_search_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp"
+                    android:paddingBottom="4dp"
+                    android:visibility="gone">
+
+                    <EditText
+                        android:id="@+id/transcript_search_input"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="@string/faditor_transcript_search"
+                        android:textColorHint="#888888"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:singleLine="true"
+                        android:imeOptions="actionSearch"
+                        android:inputType="text" />
+
+                    <TextView
+                        android:id="@+id/transcript_search_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0/0"
+                        android:textColor="#AAAAAA"
+                        android:textSize="11sp"
+                        android:minWidth="34dp"
+                        android:gravity="center" />
+
+                    <TextView
+                        android:id="@+id/transcript_search_prev"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="keyboard_arrow_up"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
+                        android:id="@+id/transcript_search_next"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="keyboard_arrow_down"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
+                        android:id="@+id/transcript_search_close"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="close"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/transcript_progress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="6dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/transcript_progress_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transcript_working"
+                        android:textColor="#CCCCCC"
+                        android:textSize="12sp" />
+
+                    <com.google.android.material.progressindicator.LinearProgressIndicator
+                        android:id="@+id/transcript_progress_bar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:indeterminate="true"
+                        app:indicatorColor="#4DD0E1"
+                        app:trackColor="#333333"
+                        app:trackThickness="4dp" />
+                </LinearLayout>
+
+                <!-- First-run model picker (uses the panel's empty space).
+                     NestedScrollView so the fast/accurate/whisper options never
+                     clip off the bottom on short/zoomed-density screens; the
+                     drawer itself is unchanged (still the same panel, same
+                     transparency, same resize behavior). -->
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/transcript_model_choice"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:clipToPadding="false"
+                    android:fillViewport="true"
+                    android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/faditor_transcript_pick_model"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/faditor_transcript_pick_model_sub"
+                        android:textColor="#AAAAAA"
+                        android:textSize="12sp" />
+
+                    <LinearLayout
+                        android:id="@+id/transcript_model_fast"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="14dp"
+                        android:padding="12dp"
+                        android:background="@drawable/floating_button_item_bg"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/faditor_transcript_model_fast"
+                            android:textColor="#4DD0E1"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/faditor_transcript_model_fast_sub"
+                            android:textColor="#CCCCCC"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/transcript_model_accurate"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="10dp"
+                        android:padding="12dp"
+                        android:background="@drawable/floating_button_item_bg"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/faditor_transcript_model_accurate"
+                            android:textColor="#4CAF50"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/faditor_transcript_model_accurate_sub"
+                            android:textColor="#CCCCCC"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/transcript_model_whisper"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="10dp"
+                        android:padding="12dp"
+                        android:background="@drawable/floating_button_item_bg"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/faditor_transcript_model_whisper"
+                            android:textColor="#FFC107"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/faditor_transcript_model_whisper_sub"
+                            android:textColor="#CCCCCC"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/faditor_transcript_model_whisper_note"
+                        android:textColor="#777777"
+                        android:textSize="11sp" />
+                </LinearLayout>
+                </androidx.core.widget.NestedScrollView>
+
+                <HorizontalScrollView
+                    android:id="@+id/transcript_version_scroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none"
+                    android:paddingBottom="6dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:id="@+id/transcript_version_bar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+                </HorizontalScrollView>
+
+                <com.fadcam.ui.faditor.transcript.TranscriptPanelView
+                    android:id="@+id/transcript_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <!-- Grab handle: swipe up to dismiss the panel -->
+                <View
+                    android:id="@+id/transcript_grab_handle"
+                    android:layout_width="36dp"
+                    android:layout_height="5dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@drawable/grab_handle_bg" />
+            </LinearLayout>
+        </LinearLayout>
     </FrameLayout>
 
     <!-- ─── Controls section (bottom portion) ────────────────────── -->
@@ -117,70 +982,32 @@
         android:background="@drawable/controls_section_bg"
         android:elevation="4dp">
         <!-- Time display + play/pause -->
-        <LinearLayout
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
-
             android:paddingBottom="2dp">
 
-            <!-- Current time -->
             <TextView
                 android:id="@+id/time_current"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
                 android:text="00:00"
                 android:textColor="#999999"
                 android:textSize="11sp"
                 android:fontFamily="monospace" />
 
-            <!-- Spacer -->
-            <View
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
-
-            <!-- Undo: icon + count stacked vertically -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:layout_marginEnd="4dp">
-
-                <TextView
-                    android:id="@+id/btn_undo"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="undo"
-                    android:textColor="#FFFFFF"
-                    android:textSize="18sp"
-                    android:alpha="0.3"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/faditor_undo" />
-
-                <TextView
-                    android:id="@+id/undo_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="12dp"
-                    android:gravity="center"
-                    android:includeFontPadding="false"
-                    android:text="0"
-                    android:textSize="8sp"
-                    android:textColor="#777777"
-                    android:alpha="0.3" />
-            </LinearLayout>
-
-            <!-- Play / Pause -->
+            <!-- Play/pause is anchored to the true center (over the playhead). Side
+                 icon groups hang off it via toStartOf/toEndOf so adding or removing
+                 flanking icons never shifts the play button. -->
             <TextView
                 android:id="@+id/btn_play_pause"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:layout_centerInParent="true"
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="play_arrow"
@@ -189,55 +1016,153 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_play_pause" />
 
-            <!-- Redo: icon + count stacked vertically -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center_horizontal"
-                android:layout_marginStart="4dp">
+                android:layout_toStartOf="@id/btn_play_pause"
+                android:layout_centerVertical="true"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <TextView
-                    android:id="@+id/btn_redo"
+                    android:id="@+id/btn_soft_snap"
                     android:layout_width="30dp"
                     android:layout_height="30dp"
                     android:gravity="center"
                     android:fontFamily="@font/materialicons"
-                    android:text="redo"
-                    android:textColor="#FFFFFF"
+                    android:text="magnet"
+                    android:textColor="#4CAF50"
                     android:textSize="18sp"
-                    android:alpha="0.3"
+                    android:layout_marginEnd="8dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="@string/faditor_redo" />
+                    android:contentDescription="Soft snap overlays" />
 
-                <TextView
-                    android:id="@+id/redo_count"
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="12dp"
-                    android:gravity="center"
-                    android:includeFontPadding="false"
-                    android:text="0"
-                    android:textSize="8sp"
-                    android:textColor="#777777"
-                    android:alpha="0.3" />
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:layout_marginEnd="4dp">
+
+                    <TextView
+                        android:id="@+id/btn_undo"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="undo"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:alpha="0.3"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/faditor_undo" />
+
+                    <TextView
+                        android:id="@+id/undo_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="12dp"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="0"
+                        android:textSize="8sp"
+                        android:textColor="#777777"
+                        android:alpha="0.3" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- Spacer -->
-            <View
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_toEndOf="@id/btn_play_pause"
+                android:layout_centerVertical="true"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <!-- Total time -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:layout_marginStart="4dp">
+
+                    <TextView
+                        android:id="@+id/btn_redo"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="redo"
+                        android:textColor="#FFFFFF"
+                        android:textSize="18sp"
+                        android:alpha="0.3"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/faditor_redo" />
+
+                    <TextView
+                        android:id="@+id/redo_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="12dp"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="0"
+                        android:textSize="8sp"
+                        android:textColor="#777777"
+                        android:alpha="0.3" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/btn_relink_media"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:gravity="center"
+                    android:fontFamily="@font/materialicons"
+                    android:text="link"
+                    android:textColor="#888888"
+                    android:textSize="18sp"
+                    android:layout_marginStart="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/faditor_relink_btn" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/time_total"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
                 android:text="00:00"
                 android:textColor="#999999"
                 android:textSize="11sp"
                 android:fontFamily="monospace" />
-        </LinearLayout>
+
+            <TextView
+                android:id="@+id/transcript_status_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="24dp"
+                android:layout_alignParentEnd="true"
+                android:layout_marginTop="28dp"
+                android:gravity="center"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="Transcribing…"
+                android:textColor="#42A5F5"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="#332A2A2A"
+                android:visibility="gone" />
+
+            <com.google.android.material.progressindicator.LinearProgressIndicator
+                android:id="@+id/transcript_global_progress_bar"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_marginTop="54dp"
+                android:indeterminate="true"
+                android:visibility="gone"
+                app:indicatorColor="#42A5F5"
+                app:trackColor="#333333"
+                app:trackThickness="3dp" />
+        </RelativeLayout>
 
         <!-- Unified NLE-style timeline (horizontally scrollable) -->
         <HorizontalScrollView
@@ -253,14 +1178,21 @@
             <com.fadcam.ui.faditor.timeline.EditorTimelineView
                 android:id="@+id/editor_timeline_view"
                 android:layout_width="wrap_content"
-                android:layout_height="140dp"
+                android:layout_height="wrap_content"
+                android:minHeight="140dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp" />
         </HorizontalScrollView>
 
 
-        <!-- Bottom toolbar (scrollable) -->
-        <HorizontalScrollView
+        <!-- Bottom toolbar (data-driven carousel).
+             Cells are built programmatically by FaditorToolsAdapter into
+             @id/faditor_tools_row. Visually identical to the previous
+             hardcoded tool_* blocks (72dp cells, materialicons 22sp icon +
+             11sp label). See tools/FaditorTool.java and
+             tools/FaditorToolsAdapter.java. -->
+        <com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView
+            android:id="@+id/faditor_tools_scroll"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:scrollbars="none"
@@ -268,374 +1200,12 @@
             android:fillViewport="true">
 
             <LinearLayout
+                android:id="@id/faditor_tools_row"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:paddingEnd="8dp">
-
-
-            <!-- Trim tool - REMOVED: Use segment edge handles for trimming instead -->
-            <LinearLayout
-                android:id="@+id/tool_trim"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/tool_trim_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="content_cut"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_trim_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_trim"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Speed tool -->
-            <LinearLayout
-                android:id="@+id/tool_speed"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_speed_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="speed"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_speed_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_speed"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Mute tool -->
-            <LinearLayout
-                android:id="@+id/tool_mute"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_mute_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="volume_up"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_mute_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_sound"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Rotate tool -->
-            <LinearLayout
-                android:id="@+id/tool_rotate"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_rotate_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="rotate_right"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_rotate_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_rotate"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Flip tool -->
-            <LinearLayout
-                android:id="@+id/tool_flip"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_flip_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="flip"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_flip_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_flip"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Crop tool -->
-            <LinearLayout
-                android:id="@+id/tool_crop"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_crop_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="crop"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_crop_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_crop"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Canvas tool -->
-            <LinearLayout
-                android:id="@+id/tool_canvas"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_canvas_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="aspect_ratio"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_canvas_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_canvas"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Audio tool -->
-            <LinearLayout
-                android:id="@+id/tool_audio"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_audio_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="graphic_eq"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_audio_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_audio"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Split tool -->
-            <LinearLayout
-                android:id="@+id/tool_split"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_split_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="carpenter"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_split_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_split"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Delete segment tool -->
-            <LinearLayout
-                android:id="@+id/tool_delete"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_delete_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="delete"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_delete_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_delete"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Duplicate segment tool -->
-            <LinearLayout
-                android:id="@+id/tool_duplicate"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_duplicate_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="content_copy"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_duplicate_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_duplicate"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-
-            <!-- Add asset tool -->
-            <LinearLayout
-                android:id="@+id/tool_add_asset"
-                android:layout_width="72dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="8dp"
-                android:background="?attr/selectableItemBackgroundBorderless">
-
-                <TextView
-                    android:id="@+id/tool_add_asset_icon"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="add_circle"
-                    android:textColor="#888888"
-                    android:textSize="22sp" />
-
-                <TextView
-                    android:id="@+id/tool_add_asset_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/faditor_tool_add"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:layout_marginTop="2dp" />
-            </LinearLayout>
-        </LinearLayout>
-        </HorizontalScrollView>
+                android:paddingEnd="8dp" />
+        </com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView>
     </LinearLayout>
 
     <!-- ─── Crop mode toolbar (hidden by default) ──────────────────── -->
@@ -666,6 +1236,41 @@
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp" />
         </HorizontalScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/crop_btn_auto_crop"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="auto_crop"
+                android:textColor="#FFC107"
+                android:textSize="14sp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/crop_btn_snap_center"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="center_focus_strong"
+                android:textColor="#888888"
+                android:textSize="14sp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
 
         <!-- Cancel / Done buttons -->
         <LinearLayout
@@ -781,6 +1386,21 @@
     </FrameLayout>
 
 </LinearLayout> <!-- end editor_root -->
+
+    <!-- ─── Export progress stripe (thin, top edge) ─────────────────
+         Overlays the very top of the editor while a background export is
+         running, so it's visible without blocking/shifting any editor UI.
+         GONE by default; shown/hidden by FaditorEditorActivity's export
+         listener callbacks. Not clickable — purely a status indicator. -->
+    <com.fadcam.ui.faditor.ExportProgressStripeView
+        android:id="@+id/export_progress_stripe"
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_gravity="top"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone"
+        android:elevation="21dp" />
 
     <!-- ─── Export screen (fullscreen, hidden by default) ──────────── -->
     <FrameLayout
@@ -934,5 +1554,1126 @@
                 app:strokeColor="#666666" />
         </LinearLayout>
     </FrameLayout>
+
+    <!-- ─── Volume drag HUD (center, transient while dragging the Volume tool) ─── -->
+    <LinearLayout
+        android:id="@+id/volume_drag_hud"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:clickable="false"
+        android:elevation="20dp"
+        android:visibility="gone">
+
+        <!-- Finger-following relative fader: a short vertical track with a centre groove -->
+        <com.fadcam.ui.faditor.VolumeDragFaderView
+            android:id="@+id/volume_drag_fader"
+            android:layout_width="28dp"
+            android:layout_height="220dp"
+            android:layout_marginEnd="22dp" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingStart="22dp"
+            android:paddingEnd="22dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp"
+            android:background="@drawable/picker_bottom_sheet_dark_gradient_bg">
+
+            <TextView
+                android:id="@+id/volume_drag_hud_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/materialicons"
+                android:text="volume_up"
+                android:textColor="#FF4CAF50"
+                android:textSize="44sp" />
+
+            <TextView
+                android:id="@+id/volume_drag_hud_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="100%"
+                android:textColor="#FFFFFFFF"
+                android:textSize="30sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ─── Volume drawer (top drop-down; tap the Volume tool) ──────── -->
+    <LinearLayout
+        android:id="@+id/volume_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="@drawable/picker_bottom_sheet_dark_gradient_bg"
+        android:elevation="17dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <!-- Grab handle (swipe up to dismiss) -->
+        <View
+            android:id="@+id/volume_drawer_grab"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:background="#55FFFFFF" />
+
+        <LinearLayout
+            android:id="@+id/volume_drawer_header"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/volume_drawer_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/materialicons"
+                android:text="volume_up"
+                android:textColor="#FF4CAF50"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/volume_drawer_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="100%"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <!-- Keyframe arming stopwatch: gray off, green on -->
+            <TextView
+                android:id="@+id/volume_drawer_keyframe"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="timer"
+                android:textColor="#FF9E9E9E"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/volume_drawer_mute"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="volume_off"
+                android:textColor="#FF9E9E9E"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/volume_drawer_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <!-- Keyframe nav carets + the scrub-tracking volume bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
+
+            <TextView
+                android:id="@+id/volume_kf_prev"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_left"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <com.fadcam.ui.faditor.VolumeBarView
+                android:id="@+id/volume_bar"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/volume_kf_next"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_right"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ─── Opacity drawer (top drop-down, non-blocking) ────────────── -->
+    <LinearLayout
+        android:id="@+id/opacity_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#F0121212"
+        android:elevation="17dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <!-- Grab handle (swipe up to dismiss) -->
+        <View
+            android:id="@+id/opacity_drawer_grab"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:background="#55FFFFFF" />
+
+        <LinearLayout
+            android:id="@+id/opacity_drawer_header"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/opacity_drawer_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/materialicons"
+                android:text="opacity"
+                android:textColor="#FF4CAF50"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/opacity_drawer_value"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="100%"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <!-- Keyframe arming stopwatch: gray off, green on -->
+            <TextView
+                android:id="@+id/opacity_drawer_keyframe"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="timer"
+                android:textColor="#FF9E9E9E"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/opacity_drawer_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <!-- Keyframe nav carets + the scrub-tracking opacity slider -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
+
+            <TextView
+                android:id="@+id/opacity_kf_prev"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_left"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <SeekBar
+                android:id="@+id/opacity_slider"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="100" />
+
+            <TextView
+                android:id="@+id/opacity_kf_next"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_right"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ─── Loop / ping-pong drawer (top drop-down) ─────────────────── -->
+    <LinearLayout
+        android:id="@+id/loop_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#F0121212"
+        android:elevation="17dp"
+        android:paddingBottom="12dp"
+        android:visibility="gone">
+
+        <!-- Grab handle -->
+        <View
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:background="#55FFFFFF" />
+
+        <!-- Header: icon + mode label + close -->
+        <LinearLayout
+            android:id="@+id/loop_drawer_header"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/loop_drawer_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/materialicons"
+                android:text="loop"
+                android:textColor="#FF4CAF50"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/loop_drawer_mode_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="@string/faditor_loop_off"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/loop_drawer_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <!-- Mode selector: Off / Loop / Ping-pong -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="2dp">
+
+            <TextView
+                android:id="@+id/loop_mode_off"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="3dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_off"
+                android:textColor="#FFCCCCCC"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:background="#FF333333"
+                android:padding="6dp" />
+
+            <TextView
+                android:id="@+id/loop_mode_normal"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="3dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_normal"
+                android:textColor="#FFCCCCCC"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:background="#FF333333"
+                android:padding="6dp" />
+
+            <TextView
+                android:id="@+id/loop_mode_still"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="3dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_still"
+                android:textColor="#FFCCCCCC"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:background="#FF333333"
+                android:padding="6dp" />
+
+            <TextView
+                android:id="@+id/loop_mode_pingpong"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:layout_marginStart="3dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_pingpong"
+                android:textColor="#FFCCCCCC"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:background="#FF333333"
+                android:padding="6dp" />
+        </LinearLayout>
+
+        <!-- Extend action buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="4dp">
+
+            <TextView
+                android:id="@+id/loop_extend_start"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_extend_start"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:background="#FF333333"
+                android:padding="6dp" />
+
+            <TextView
+                android:id="@+id/loop_extend_end"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_extend_end"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:background="#FF333333"
+                android:padding="6dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="6dp">
+
+            <TextView
+                android:id="@+id/loop_extend_prev"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_extend_prev"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:background="#FF333333"
+                android:padding="6dp" />
+
+            <TextView
+                android:id="@+id/loop_extend_next"
+                android:layout_width="0dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:gravity="center"
+                android:text="@string/faditor_loop_extend_next"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:background="#FF333333"
+                android:padding="6dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ─── Caption style keyframe drawer (top drop-down) ───────────── -->
+    <LinearLayout
+        android:id="@+id/caption_keyframe_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#F0121212"
+        android:elevation="17dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <View
+            android:id="@+id/caption_kf_grab"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:background="#55FFFFFF" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/materialicons"
+                android:text="style"
+                android:textColor="#FF4CAF50"
+                android:textSize="22sp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="Caption Keyframes"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <!-- Arm toggle (green=keyframe mode active) -->
+            <TextView
+                android:id="@+id/caption_kf_arm"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="timer"
+                android:textColor="#FF9E9E9E"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/caption_kf_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <!-- Keyframe nav: prev caret, on-keyframe dot, delete, next caret -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
+
+            <TextView
+                android:id="@+id/caption_kf_prev"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_left"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:gravity="center">
+
+                <View
+                    android:id="@+id/caption_kf_onkeyframe"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:background="@drawable/circle_green"
+                    android:visibility="invisible" />
+
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/caption_kf_delete"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="delete"
+                android:textColor="#FFFF5252"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/caption_kf_next"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_right"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ─── Visualizer drawer (top drop-down, non-blocking) ─────────── -->
+    <LinearLayout
+        android:id="@+id/visualizer_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#80000000"
+        android:elevation="16dp"
+        android:visibility="gone">
+
+        <!-- Grab handle (swipe up to dismiss) -->
+        <View
+            android:id="@+id/visualizer_drawer_grab"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="2dp"
+            android:background="#55FFFFFF" />
+
+        <LinearLayout
+            android:id="@+id/visualizer_drawer_header"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="8dp"
+            android:visibility="gone"
+            android:background="#FF1A1A1A">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/faditor_visualizer_style_title"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/visualizer_drawer_close"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:visibility="gone"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/visualizer_drawer_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <!-- Bottom grab handle (swipe up to dismiss) -->
+        <View
+            android:id="@+id/visualizer_drawer_grab_bottom"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="8dp"
+            android:background="#55FFFFFF" />
+    </LinearLayout>
+
+    <!-- Caption customization drawer -->
+    <LinearLayout
+        android:id="@+id/caption_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#80000000"
+        android:elevation="16dp"
+        android:visibility="gone">
+
+        <View
+            android:id="@+id/caption_drawer_grab"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="2dp"
+            android:background="#55FFFFFF" />
+
+        <LinearLayout
+            android:id="@+id/caption_drawer_header"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="8dp"
+            android:background="#FF1A1A1A">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Caption Style"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/caption_drawer_close"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/caption_drawer_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="100dp" />
+
+        <View
+            android:id="@+id/caption_drawer_grab_bottom"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="8dp"
+            android:background="#55FFFFFF" />
+    </LinearLayout>
+
+    <!-- ─── Move drawer (non-modal top drawer for position/layer) ─── -->
+    <LinearLayout
+        android:id="@+id/move_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#F0121212"
+        android:elevation="17dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <View
+            android:id="@+id/move_drawer_grab"
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="4dp"
+            android:background="#55FFFFFF" />
+
+        <LinearLayout
+            android:id="@+id/move_drawer_header"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <TextView
+                android:id="@+id/move_drawer_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/materialicons"
+                android:text="open_with"
+                android:textColor="#FF4CAF50"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/move_drawer_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="@string/faditor_move_drawer_title"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/move_drawer_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <!-- Position info row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/move_position_timestamp"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:fontFamily="monospace"
+                android:text="00:00:00.000"
+                android:textColor="#FF9E9E9E"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/move_position_seconds"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="0.0s"
+                android:textColor="#FF9E9E9E"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/move_position_frames"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="0f"
+                android:textColor="#FF9E9E9E"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/move_position_layer"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Layer 1"
+                android:textColor="#FF9E9E9E"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <!-- Clip reorder row: send-to-start | move-left | move-right | send-to-end.
+             "Send all the way" buttons (wall-arrows) sit on the OUTSIDE of the
+             single-step move buttons. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingTop="2dp"
+            android:text="@string/faditor_move_clip_label"
+            android:textColor="#FF777777"
+            android:textSize="11sp"
+            android:letterSpacing="0.06" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp">
+
+            <TextView
+                android:id="@+id/move_clip_start"
+                android:layout_width="52dp"
+                android:layout_height="46dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="first_page"
+                android:textColor="#FFCCCCCC"
+                android:textSize="28sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/faditor_move_clip_start" />
+
+            <TextView
+                android:id="@+id/move_clip_left"
+                android:layout_width="52dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="6dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="arrow_back"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/faditor_move_clip_left" />
+
+            <TextView
+                android:id="@+id/move_clip_right"
+                android:layout_width="52dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="6dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="arrow_forward"
+                android:textColor="#FFCCCCCC"
+                android:textSize="26sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/faditor_move_clip_right" />
+
+            <TextView
+                android:id="@+id/move_clip_end"
+                android:layout_width="52dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="6dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="last_page"
+                android:textColor="#FFCCCCCC"
+                android:textSize="28sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/faditor_move_clip_end" />
+        </LinearLayout>
+
+        <!-- Layer up/down + target position input -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingTop="4dp">
+
+            <TextView
+                android:id="@+id/move_layer_up"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="arrow_upward"
+                android:textColor="#FFCCCCCC"
+                android:textSize="28sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/faditor_move_layer_up" />
+
+            <TextView
+                android:id="@+id/move_layer_down"
+                android:layout_width="44dp"
+                android:layout_height="48dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="arrow_downward"
+                android:textColor="#FFCCCCCC"
+                android:textSize="28sp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/faditor_move_layer_down" />
+
+            <EditText
+                android:id="@+id/move_target_input"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:background="@drawable/settings_home_row_bg"
+                android:paddingHorizontal="12dp"
+                android:textColor="#FFFFFFFF"
+                android:textColorHint="#FF666666"
+            android:hint="@string/faditor_move_to_time_hint"
+            android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:inputType="text"
+                android:imeOptions="actionGo"
+                android:maxLines="1" />
+
+            <TextView
+                android:id="@+id/move_go"
+                android:layout_width="48dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="play_arrow"
+                android:textColor="#FF4CAF50"
+                android:textSize="24sp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ─── Word scrub drawer (non-modal top drawer for scrubbing word timing) ─── -->
+    <LinearLayout
+        android:id="@+id/word_scrub_drawer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="@drawable/picker_bottom_sheet_dark_gradient_bg"
+        android:elevation="17dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <View
+            android:layout_width="44dp"
+            android:layout_height="5dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="4dp"
+            android:background="#55FFFFFF" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="4dp">
+
+            <EditText
+                android:id="@+id/word_scrub_word_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#FF4DD0E1"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:background="@null"
+                android:inputType="text"
+                android:imeOptions="actionDone" />
+
+            <TextView
+                android:id="@+id/word_scrub_timestamp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textColor="#FF4DD0E1"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="10dp"
+                android:background="@drawable/settings_home_row_bg" />
+
+            <TextView
+                android:id="@+id/word_scrub_prev"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_left"
+                android:textColor="#FFCCCCCC"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/word_scrub_next"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="chevron_right"
+                android:textColor="#FFCCCCCC"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/word_scrub_center"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="align_horizontal_center"
+                android:textColor="#FFCCCCCC"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <TextView
+                android:id="@+id/word_scrub_close"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="close"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+        </LinearLayout>
+
+        <com.fadcam.ui.faditor.WordScrubView
+            android:id="@+id/word_scrub_strip"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
 
 </FrameLayout> <!-- end root -->

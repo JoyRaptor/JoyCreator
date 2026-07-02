@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/floating_menu_bg"
-    android:padding="8dp"
-    android:minWidth="240dp">
+    android:padding="6dp"
+    android:minWidth="200dp">
 
     <!-- Header with close button -->
     <LinearLayout
@@ -48,15 +48,6 @@
         android:background="@drawable/floating_button_item_bg"
         android:padding="8dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/recording_controls"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:textColor="#B0FFFFFF"
-            android:paddingBottom="8dp" />
-
         <!-- Recording Buttons Row -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -71,7 +62,7 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:minHeight="68dp"
+                android:minHeight="52dp"
                 android:orientation="vertical"
                 android:gravity="center"
                 android:padding="8dp"
@@ -111,7 +102,7 @@
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:minHeight="68dp"
+                android:minHeight="52dp"
                 android:orientation="vertical"
                 android:gravity="center"
                 android:padding="8dp"
@@ -145,6 +136,56 @@
                     android:breakStrategy="balanced" />
             </LinearLayout>
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#30FFFFFF"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Webcam Overlay Toggle -->
+    <LinearLayout
+        android:id="@+id/btnWebcamToggle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true">
+
+        <TextView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:gravity="center"
+            android:text="videocam"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:fontFamily="@font/materialicons"
+            android:layout_marginEnd="10dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/webcam_overlay"
+            android:textSize="13sp"
+            android:textColor="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/webcamToggleState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/webcam_overlay_off"
+            android:textSize="11sp"
+            android:textColor="#AAAAAA" />
     </LinearLayout>
 
     <!-- Divider -->

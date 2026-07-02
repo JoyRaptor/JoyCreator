@@ -2,9 +2,11 @@ package com.fadcam.ui.faditor.undo;
 
 import androidx.annotation.NonNull;
 
+import com.fadcam.ui.faditor.effects.EffectStack;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
+import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 
 /**
@@ -133,6 +135,100 @@ public final class EditActions {
         }
     }
 
+    /**
+     * Generic before/after action driven by two {@link Runnable}s. Lets callers
+     * wire undo for property changes that span multiple model types (e.g. a caption
+     * change that may target a Clip OR an AudioClip) without a bespoke class each.
+     * The runnables must ONLY restore model data — the editor refreshes the UI after
+     * undo/redo via refreshEditorAfterUndoRedo().
+     */
+    public static final class LambdaAction implements EditAction {
+        private final String description;
+        private final Runnable redo, undo;
+
+        public LambdaAction(@NonNull String description,
+                            @NonNull Runnable redo, @NonNull Runnable undo) {
+            this.description = description;
+            this.redo = redo;
+            this.undo = undo;
+        }
+
+        @Override public void execute() { redo.run(); }
+        @Override public void undo() { undo.run(); }
+        @NonNull @Override public String getDescription() { return description; }
+    }
+
+    /** Color-grade / filter change (whole EffectStack before → after). */
+    public static final class EffectStackAction implements EditAction {
+        private final Clip clip;
+        private final EffectStack before, after;
+
+        public EffectStackAction(@NonNull Clip clip,
+                                 @NonNull EffectStack before, @NonNull EffectStack after) {
+            this.clip = clip;
+            this.before = new EffectStack(before);
+            this.after = new EffectStack(after);
+        }
+
+        @Override public void execute() { clip.getEffectStack().copyFrom(after); }
+        @Override public void undo() { clip.getEffectStack().copyFrom(before); }
+        @NonNull @Override public String getDescription() { return "Filter / color"; }
+    }
+
+    /** Opacity-keyframe change (whole keyframe list before → after). */
+    public static final class OpacityKeyframesAction implements EditAction {
+        private final Clip clip;
+        private final java.util.List<Clip.OpacityKeyframe> before, after;
+
+        public OpacityKeyframesAction(@NonNull Clip clip,
+                                      @NonNull java.util.List<Clip.OpacityKeyframe> before,
+                                      @NonNull java.util.List<Clip.OpacityKeyframe> after) {
+            this.clip = clip;
+            this.before = copy(before);
+            this.after = copy(after);
+        }
+
+        private static java.util.List<Clip.OpacityKeyframe> copy(
+                java.util.List<Clip.OpacityKeyframe> src) {
+            java.util.List<Clip.OpacityKeyframe> out = new java.util.ArrayList<>();
+            for (Clip.OpacityKeyframe kf : src) {
+                out.add(new Clip.OpacityKeyframe(kf.timeMs, kf.opacity));
+            }
+            return out;
+        }
+
+        @Override public void execute() { clip.setOpacityKeyframes(after); }
+        @Override public void undo() { clip.setOpacityKeyframes(before); }
+        @NonNull @Override public String getDescription() { return "Opacity keyframes"; }
+    }
+
+    /** Caption-style-keyframe change (whole keyframe list before → after). */
+    public static final class CaptionStyleKeyframesAction implements EditAction {
+        private final Clip clip;
+        private final java.util.List<Clip.CaptionStyleKeyframe> before, after;
+
+        public CaptionStyleKeyframesAction(@NonNull Clip clip,
+                                           @NonNull java.util.List<Clip.CaptionStyleKeyframe> before,
+                                           @NonNull java.util.List<Clip.CaptionStyleKeyframe> after) {
+            this.clip = clip;
+            this.before = copy(before);
+            this.after = copy(after);
+        }
+
+        private static java.util.List<Clip.CaptionStyleKeyframe> copy(
+                java.util.List<Clip.CaptionStyleKeyframe> src) {
+            java.util.List<Clip.CaptionStyleKeyframe> out = new java.util.ArrayList<>();
+            for (Clip.CaptionStyleKeyframe kf : src) {
+                out.add(new Clip.CaptionStyleKeyframe(kf.timeMs, kf.styleId));
+            }
+            return out;
+        }
+
+        @Override public void execute() { clip.setCaptionStyleKeyframes(after); }
+        @Override public void undo() { clip.setCaptionStyleKeyframes(before); }
+        @NonNull @Override public String getDescription() { return "Caption style keyframes"; }
+    }
+
     /** Horizontal flip change. */
     public static final class FlipHorizontalAction implements EditAction {
         private final Clip clip;
@@ -222,6 +318,31 @@ public final class EditActions {
         @NonNull @Override public String getDescription() {
             return "Canvas " + oldPreset + " → " + newPreset;
         }
+    }
+
+    /**
+     * Text/image overlay transform change from a drag/pinch gesture, a timeline
+     * time-range edge drag, or a timeline keyframe move — restores the overlay's
+     * full transform/time/keyframe snapshot (before ↔ after).
+     */
+    public static final class OverlayTransformAction implements EditAction {
+        private final TextOverlayItem item;
+        private final TextOverlayItem.TransformSnapshot before, after;
+        private final String description;
+
+        public OverlayTransformAction(@NonNull TextOverlayItem item,
+                                      @NonNull TextOverlayItem.TransformSnapshot before,
+                                      @NonNull TextOverlayItem.TransformSnapshot after,
+                                      @NonNull String description) {
+            this.item = item;
+            this.before = before;
+            this.after = after;
+            this.description = description;
+        }
+
+        @Override public void execute() { item.restoreTransform(after); }
+        @Override public void undo() { item.restoreTransform(before); }
+        @NonNull @Override public String getDescription() { return description; }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -454,6 +575,68 @@ public final class EditActions {
         @NonNull @Override public String getDescription() { return "Delete clip"; }
     }
 
+    /** Add a non-destructive removed span to a video clip. */
+    public static final class AddRemovedSpanAction implements EditAction {
+        private final Clip clip;
+        private final long startMs;
+        private final long endMs;
+
+        public AddRemovedSpanAction(@NonNull Clip clip, long startMs, long endMs) {
+            this.clip = clip;
+            this.startMs = startMs;
+            this.endMs = endMs;
+        }
+
+        @Override public void execute() {
+            clip.getRemovedSpans().add(new long[]{startMs, endMs});
+        }
+        @Override public void undo() {
+            java.util.Iterator<long[]> it = clip.getRemovedSpans().iterator();
+            while (it.hasNext()) {
+                long[] span = it.next();
+                if (span.length == 2 && span[0] == startMs && span[1] == endMs) {
+                    it.remove();
+                    return;
+                }
+            }
+        }
+        @NonNull @Override public String getDescription() { return "Heal gap"; }
+    }
+
+    /**
+     * Replace one clip with a sequence of clips at the same position
+     * (used by silence removal, which turns one clip into several jump-cuts).
+     */
+    public static final class ReplaceClipsAction implements EditAction {
+        private final Timeline timeline;
+        private final int index;
+        private final Clip original;
+        private final java.util.List<Clip> replacements;
+
+        public ReplaceClipsAction(@NonNull Timeline timeline, int index,
+                                  @NonNull Clip original,
+                                  @NonNull java.util.List<Clip> replacements) {
+            this.timeline = timeline;
+            this.index = index;
+            this.original = original;
+            this.replacements = replacements;
+        }
+
+        @Override public void execute() {
+            timeline.removeClip(index);
+            for (int i = replacements.size() - 1; i >= 0; i--) {
+                timeline.addClip(index, replacements.get(i));
+            }
+        }
+        @Override public void undo() {
+            for (int i = 0; i < replacements.size(); i++) {
+                timeline.removeClip(index);
+            }
+            timeline.addClip(index, original);
+        }
+        @NonNull @Override public String getDescription() { return "Remove silence"; }
+    }
+
     /** Delete an audio clip from the timeline. */
     public static final class DeleteAudioClipAction implements EditAction {
         private final Timeline timeline;
@@ -530,6 +713,65 @@ public final class EditActions {
         @Override public void undo() { timeline.moveClip(toIndex, fromIndex); }
         @NonNull @Override public String getDescription() {
             return "Reorder clip " + fromIndex + " → " + toIndex;
+        }
+    }
+
+    /** Replace a clip's source URI while keeping all edits (relink/replace media). */
+    public static final class ReplaceClipSourceAction implements EditAction {
+        @NonNull private final Timeline timeline;
+        private final int index;
+        @NonNull private final Clip oldClip;
+        @NonNull private final Clip newClip;
+
+        public ReplaceClipSourceAction(@NonNull Timeline timeline, int index,
+                                       @NonNull Clip oldClip, @NonNull Clip newClip) {
+            this.timeline = timeline;
+            this.index = index;
+            this.oldClip = oldClip;
+            this.newClip = newClip;
+        }
+
+        @Override public void execute() {
+            timeline.removeClip(index);
+            timeline.addClip(index, newClip);
+        }
+        @Override public void undo() {
+            timeline.removeClip(index);
+            timeline.addClip(index, oldClip);
+        }
+        @NonNull @Override public String getDescription() { return "Replace media"; }
+    }
+
+    /** Loop mode + extension change. */
+    public static final class LoopAction implements EditAction {
+        private final Clip clip;
+        private final int oldMode, newMode;
+        private final long oldBefore, oldAfter, newBefore, newAfter;
+
+        public LoopAction(@NonNull Clip clip,
+                          int oldMode, long oldBefore, long oldAfter,
+                          int newMode, long newBefore, long newAfter) {
+            this.clip = clip;
+            this.oldMode = oldMode;
+            this.oldBefore = oldBefore;
+            this.oldAfter = oldAfter;
+            this.newMode = newMode;
+            this.newBefore = newBefore;
+            this.newAfter = newAfter;
+        }
+
+        @Override public void execute() {
+            clip.setLoopMode(newMode);
+            clip.setLoopBeforeMs(newBefore);
+            clip.setLoopAfterMs(newAfter);
+        }
+        @Override public void undo() {
+            clip.setLoopMode(oldMode);
+            clip.setLoopBeforeMs(oldBefore);
+            clip.setLoopAfterMs(oldAfter);
+        }
+        @NonNull @Override public String getDescription() {
+            return "Loop " + oldMode + " → " + newMode + " [" + oldBefore + "+" + oldAfter + "] → [" + newBefore + "+" + newAfter + "]";
         }
     }
 }

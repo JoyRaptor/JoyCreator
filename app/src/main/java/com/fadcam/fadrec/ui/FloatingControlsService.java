@@ -52,6 +52,7 @@ public class FloatingControlsService extends Service {
     private View btnAddText, btnAddShape;
     
     private boolean isMenuExpanded = false;
+    private boolean autoPausedByMenu = false;
     private boolean isAnnotationsExpanded = false;
     private boolean isAnnotationActive = false;
     private ScreenRecordingState recordingState = ScreenRecordingState.NONE;
@@ -156,6 +157,14 @@ public class FloatingControlsService extends Service {
 
     private void showQuickMenu() {
         if (unifiedMenuView != null) return;
+
+        // Optionally pause recording while the menu is open so menu interactions
+        // don't end up in the recording; resumes on close.
+        if (recordingState == ScreenRecordingState.IN_PROGRESS
+                && com.fadcam.SharedPreferencesManager.getInstance(this).isMenuAutoPauseEnabled()) {
+            sendBroadcast(new Intent(Constants.ACTION_PAUSE_SCREEN_RECORDING));
+            autoPausedByMenu = true;
+        }
         
         // Inflate unified menu layout
         unifiedMenuView = LayoutInflater.from(this).inflate(R.layout.floating_unified_menu, null);
@@ -206,6 +215,25 @@ public class FloatingControlsService extends Service {
         
         btnCloseMenu.setOnClickListener(v -> {
             hideQuickMenu();
+        });
+
+        // Webcam overlay toggle
+        View btnWebcamToggle = unifiedMenuView.findViewById(R.id.btnWebcamToggle);
+        TextView webcamToggleState = unifiedMenuView.findViewById(R.id.webcamToggleState);
+        updateWebcamToggleLabel(webcamToggleState);
+        btnWebcamToggle.setOnClickListener(v -> {
+            Intent webcamIntent = new Intent(this, FloatingWebcamService.class);
+            if (isWebcamServiceRunning()) {
+                stopService(webcamIntent);
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(webcamIntent);
+                } else {
+                    startService(webcamIntent);
+                }
+            }
+            // Service state changes asynchronously; refresh label shortly after
+            btnWebcamToggle.postDelayed(() -> updateWebcamToggleLabel(webcamToggleState), 300);
         });
         
         // Annotations header toggle
@@ -282,14 +310,32 @@ public class FloatingControlsService extends Service {
             isMenuExpanded = false;
             isAnnotationsExpanded = false;
         }
+        if (autoPausedByMenu) {
+            autoPausedByMenu = false;
+            if (recordingState == ScreenRecordingState.PAUSED) {
+                sendBroadcast(new Intent(Constants.ACTION_RESUME_SCREEN_RECORDING));
+            }
+        }
     }
 
     private void updateFloatingButtonState() {
         if (btnFloating == null) return;
-        
+
         // Always show chevron_right icon - menu expands on click
         btnFloating.setText("chevron_right");
-        btnFloating.setTextColor(getResources().getColor(android.R.color.white));
+
+        // Subtle state tint: red while recording, orange while paused.
+        boolean tintEnabled = com.fadcam.SharedPreferencesManager
+                .getInstance(this).isFloatingButtonTintEnabled();
+        int color;
+        if (tintEnabled && recordingState == ScreenRecordingState.IN_PROGRESS) {
+            color = getResources().getColor(android.R.color.holo_red_light);
+        } else if (tintEnabled && recordingState == ScreenRecordingState.PAUSED) {
+            color = getResources().getColor(android.R.color.holo_orange_light);
+        } else {
+            color = getResources().getColor(android.R.color.white);
+        }
+        btnFloating.setTextColor(color);
     }
 
     private void updateQuickMenuButtons() {
@@ -340,6 +386,16 @@ public class FloatingControlsService extends Service {
         }
     }
     
+    private boolean isWebcamServiceRunning() {
+        return FloatingWebcamService.isRunning;
+    }
+
+    private void updateWebcamToggleLabel(TextView label) {
+        if (label == null) return;
+        label.setText(isWebcamServiceRunning()
+                ? R.string.webcam_overlay_on : R.string.webcam_overlay_off);
+    }
+
     private void startAnnotations() {
         Intent intent = new Intent(this, AnnotationService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -29,7 +29,18 @@ import java.util.List;
 public class UndoManager {
 
     private static final String TAG = "UndoManager";
-    private static final int DEFAULT_MAX_HISTORY = 200;
+    // Each persistent snapshot is a FULL project-JSON string. For a large project
+    // (many transcripts) that is multiple MB *each*; keeping 200 of them in memory
+    // was hundreds of MB of heap → GC thrashing/OOM. In-session undo uses precise
+    // per-action undo (cheap), so this cap only limits how far back undo reaches.
+    private static final int DEFAULT_MAX_HISTORY = 50;
+    // Minimum spacing between full-project snapshot captures. In-session undo never
+    // needs the snapshot (it replays the action); the snapshot only powers
+    // cross-session undo. Capturing one on EVERY edit serialized multi-MB JSON on
+    // the UI thread per trim/transition/move — the dominant per-edit stall. Spacing
+    // captures out keeps cross-session undo functional without the per-edit cost.
+    private static final long SNAPSHOT_MIN_INTERVAL_MS = 1500;
+    private long lastSnapshotElapsedMs = -SNAPSHOT_MIN_INTERVAL_MS;
 
     @NonNull
     private final Deque<HistoryEntry> undoStack;
@@ -167,9 +178,18 @@ public class UndoManager {
      * @param action the action that was just performed
      */
     public void recordAction(@NonNull EditAction action) {
+        // Capture a full-project snapshot only if enough time has passed since the
+        // last one (see SNAPSHOT_MIN_INTERVAL_MS). Skipping it just means this
+        // particular step won't be undoable after an app restart; in-session undo
+        // still works precisely via action.undo(). This avoids serializing the
+        // entire (possibly multi-MB) project on the UI thread for every edit.
         String snapshot = null;
         if (snapshotRestorer != null) {
-            snapshot = snapshotRestorer.captureSnapshot();
+            long now = android.os.SystemClock.elapsedRealtime();
+            if (now - lastSnapshotElapsedMs >= SNAPSHOT_MIN_INTERVAL_MS) {
+                snapshot = snapshotRestorer.captureSnapshot();
+                lastSnapshotElapsedMs = now;
+            }
         }
 
         HistoryEntry entry = new HistoryEntry(action, action.getDescription(), snapshot);
@@ -185,6 +205,31 @@ public class UndoManager {
                 + " (undo=" + undoStack.size() + ", redo=0"
                 + ", snapshot=" + (snapshot != null) + ")");
         notifyListener();
+    }
+
+    /**
+     * Free the in-memory full-project JSON snapshots held by entries that can be
+     * undone via their {@link EditAction} anyway (in-session entries). Call this
+     * before a memory-heavy operation (e.g. export) to reclaim potentially
+     * hundreds of MB of heap. In-session undo/redo is unaffected (it replays the
+     * action); only this app session's cross-session-undo persistence is reduced.
+     * Snapshot-only entries loaded from disk keep their snapshots.
+     */
+    public void releaseSnapshotMemory() {
+        int freed = 0;
+        for (HistoryEntry e : undoStack) {
+            if (e.action != null) {
+                if (e.snapshotBefore != null) { e.snapshotBefore = null; freed++; }
+                if (e.snapshotAfter != null) { e.snapshotAfter = null; freed++; }
+            }
+        }
+        for (HistoryEntry e : redoStack) {
+            if (e.action != null) {
+                if (e.snapshotBefore != null) { e.snapshotBefore = null; freed++; }
+                if (e.snapshotAfter != null) { e.snapshotAfter = null; freed++; }
+            }
+        }
+        FLog.d(TAG, "releaseSnapshotMemory: cleared " + freed + " in-session snapshots");
     }
 
     // ── Undo / Redo ──────────────────────────────────────────────────
@@ -206,8 +251,10 @@ public class UndoManager {
 
         HistoryEntry entry = undoStack.pop();
 
-        // Capture current state as "after" (needed for redo)
-        if (snapshotRestorer != null) {
+        // Capture current state as "after" (needed for redo) ONLY for snapshot-only
+        // entries — in-session entries redo via action.execute(), so serializing the
+        // whole project here would be a pointless multi-MB UI-thread stall.
+        if (entry.action == null && snapshotRestorer != null) {
             entry.snapshotAfter = snapshotRestorer.captureSnapshot();
         }
 
@@ -326,6 +373,22 @@ public class UndoManager {
         // Reverse so oldest is first
         java.util.Collections.reverse(list);
         return list;
+    }
+
+    /**
+     * Get the redo history, ordered so that index 0 is the entry that would be
+     * redone NEXT (i.e. top of the redo stack), index 1 the one after that, etc.
+     * This is the reverse chronological order used by the history popup (nearest
+     * redo first), as opposed to {@link #getUndoHistory()} which is oldest-first
+     * for persistence.
+     *
+     * @return list of redo entries, nearest-redo-first
+     */
+    @NonNull
+    public List<HistoryEntry> getRedoHistory() {
+        // ArrayDeque iteration is top-to-bottom (LIFO), i.e. the next redo first.
+        // That's exactly the order we want here, so no reversal needed.
+        return new ArrayList<>(redoStack);
     }
 
     /**

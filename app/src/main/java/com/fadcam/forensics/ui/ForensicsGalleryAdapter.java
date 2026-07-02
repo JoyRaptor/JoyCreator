@@ -82,7 +82,7 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
 
     private final List<Entry> entries = new ArrayList<>();
     private final List<ForensicsSnapshotWithMedia> rows = new ArrayList<>();
-    private final Set<String> selectedSnapshotIds = new HashSet<>();
+    private final Set<String> selectedSnapshotIds = new LinkedHashSet<>();
     /** Pre-built month → rows lookup. Rebuilt on every submit. */
     private final Map<String, List<ForensicsSnapshotWithMedia>> monthIndex = new HashMap<>();
     /** Pre-computed item numbers (1-based). Rebuilt on every rebuildEntries. */

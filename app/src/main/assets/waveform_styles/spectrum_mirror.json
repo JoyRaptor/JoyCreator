@@ -1,0 +1,16 @@
+{
+  "id": "spectrum_mirror",
+  "displayName": "Spectrum Mirror",
+  "type": "spectrum_mirror",
+  "color": "#40C4FF",
+  "gradientStart": "#18FFFF",
+  "gradientEnd": "#2979FF",
+  "barWidthDp": 5,
+  "barGapDp": 3,
+  "cornerRadiusDp": 2,
+  "glowColor": "#9940C4FF",
+  "glowRadiusDp": 7,
+  "bandCount": 48,
+  "sensitivity": 1.4,
+  "useSpectrum": true
+}

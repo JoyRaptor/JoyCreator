@@ -16,8 +16,14 @@ import java.util.UUID;
  */
 public class FaditorProject {
 
-    /** Current project JSON schema version. Increment when the format changes. */
-    public static final int SCHEMA_VERSION = 7;
+    /**
+     * Current project JSON schema version. Increment when the format changes.
+     * <p>v8 adds the additive layer/Track model (PLAN Part 2). It is written with
+     * DUAL-WRITE (PLAN §4.1): the v7 flat lists are still written byte-compatibly,
+     * and {@code schemaVersion} is only stamped 8 when the project genuinely uses a
+     * layer feature an old build can't represent (see {@code ProjectStorage.usesLayerFeatures}).</p>
+     */
+    public static final int SCHEMA_VERSION = 8;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project
@@ -47,6 +53,15 @@ public class FaditorProject {
 
     /** Schema version of this project's JSON. Set on creation, checked on load. */
     private int schemaVersion = SCHEMA_VERSION;
+
+    /**
+     * Downgrade guard (PLAN §4.1(2)). Set true when this project was loaded from a
+     * file whose on-disk {@code schemaVersion} is NEWER than this build's
+     * {@link #SCHEMA_VERSION}. When true, the save path refuses to overwrite the file
+     * (which would silently drop the unknown newer data). Not persisted — it is a
+     * per-load runtime marker.
+     */
+    private transient boolean loadedFromNewerVersion = false;
 
     /** Canvas aspect ratio preset (project-level). "original" = no change. */
     @NonNull
@@ -152,6 +167,20 @@ public class FaditorProject {
 
     public void setSchemaVersion(int version) {
         this.schemaVersion = version;
+    }
+
+    /**
+     * Whether this project was loaded from a file written by a NEWER build (on-disk
+     * schemaVersion &gt; this build's {@link #SCHEMA_VERSION}). When true the project
+     * is read-only: {@code ProjectStorage.save/saveAsync} refuse to overwrite it to
+     * avoid a lossy downgrade (PLAN §4.1(2)).
+     */
+    public boolean isLoadedFromNewerVersion() {
+        return loadedFromNewerVersion;
+    }
+
+    public void setLoadedFromNewerVersion(boolean value) {
+        this.loadedFromNewerVersion = value;
     }
 
     // ── Setters ──────────────────────────────────────────────────────

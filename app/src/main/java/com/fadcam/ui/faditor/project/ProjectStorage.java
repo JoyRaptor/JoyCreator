@@ -96,6 +96,13 @@ public class ProjectStorage {
      * @return true if successful, false otherwise
      */
     public boolean save(@NonNull FaditorProject project) {
+        // Downgrade guard (PLAN §4.1(2)): never overwrite a project written by a newer
+        // build — doing so would silently drop the data we couldn't parse. Refuse & log.
+        if (project.isLoadedFromNewerVersion()) {
+            FLog.w(TAG, "save() refused: project '" + project.getName()
+                    + "' was made with a newer version and is read-only.");
+            return false;
+        }
         String json = gson.toJson(project);
         return writeProjectJson(project.getId(), json);
     }
@@ -108,6 +115,12 @@ public class ProjectStorage {
      * the synchronous {@link #save} (optionally after {@link #flushPendingWrites}).
      */
     public void saveAsync(@NonNull FaditorProject project) {
+        // Downgrade guard (PLAN §4.1(2)) — see save().
+        if (project.isLoadedFromNewerVersion()) {
+            FLog.w(TAG, "saveAsync() refused: project '" + project.getName()
+                    + "' was made with a newer version and is read-only.");
+            return;
+        }
         final String id = project.getId();
         final String json = gson.toJson(project);   // serialize on caller thread (no CME)
         lastWrite = ioExecutor.submit(() -> writeProjectJson(id, json));
@@ -660,6 +673,106 @@ public class ProjectStorage {
         return gs;
     }
 
+    // ── Schema-v8 layer (Track/TimedItem) serialization (PLAN Part 2 + §4.2) ──
+
+    /**
+     * Predicate deciding v7-vs-v8 stamping (PLAN §4.1(1)). Returns true only when the
+     * project uses a layer feature an old build cannot represent — i.e. anything BEYOND
+     * the auto-migrated single TEXT layer + single AUDIO track with all-default metadata:
+     * a non-"ripple" ripple mode, any extra layer/audio track, any non-default track
+     * flag/name/zIndex, any TimedItem with a non-NORMAL blend, any TimedItem transform,
+     * or any non-zero zHint. Otherwise the project is fully re-expressible as v7 flat
+     * lists and is stamped 7 so old builds open it losslessly.
+     */
+    private static boolean usesLayerFeatures(@NonNull FaditorProject project) {
+        Timeline tl = project.getTimeline();
+        if (!"ripple".equals(tl.getRippleMode())) return true;
+        // The migration produces at most ONE TEXT layer and ONE AUDIO track; more than
+        // that means a real multi-track project.
+        if (tl.getLayers().size() > 1) return true;
+        if (tl.getAudioTracks().size() > 1) return true;
+        for (com.fadcam.ui.faditor.layers.Track t : tl.getLayers()) {
+            if (trackUsesFeatures(t)) return true;
+        }
+        for (com.fadcam.ui.faditor.layers.Track t : tl.getAudioTracks()) {
+            if (trackUsesFeatures(t)) return true;
+        }
+        // Master track: only its per-item metadata (blend/transform/zHint) matters —
+        // its item set is exactly the flat clips list.
+        if (trackUsesFeatures(tl.getMasterTrack())) return true;
+        return false;
+    }
+
+    /** True if this track carries any non-default metadata beyond the plain migration. */
+    private static boolean trackUsesFeatures(@NonNull com.fadcam.ui.faditor.layers.Track t) {
+        if (t.getZIndex() != 0 || t.isCollapsed() || t.isHidden()
+                || t.isLocked() || t.isMuted()) {
+            return true;
+        }
+        for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
+            if (item.getBlendMode() != com.fadcam.ui.faditor.layers.BlendMode.NORMAL) return true;
+            if (item.hasTransform()) return true;
+            if (item.getZHint() != 0) return true;
+        }
+        return false;
+    }
+
+    @NonNull
+    private static JsonObject serializeTrack(@NonNull com.fadcam.ui.faditor.layers.Track t) {
+        JsonObject tj = new JsonObject();
+        tj.addProperty("id", t.getId());
+        tj.addProperty("kind", t.getKind().name());
+        tj.addProperty("name", t.getName());
+        tj.addProperty("zIndex", t.getZIndex());
+        tj.addProperty("collapsed", t.isCollapsed());
+        tj.addProperty("hidden", t.isHidden());
+        tj.addProperty("locked", t.isLocked());
+        tj.addProperty("muted", t.isMuted());
+        JsonArray itemsArr = new JsonArray();
+        for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
+            itemsArr.add(serializeTimedItem(item));
+        }
+        tj.add("items", itemsArr);
+        return tj;
+    }
+
+    @NonNull
+    private static JsonObject serializeTimedItem(
+            @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+        JsonObject ij = new JsonObject();
+        ij.addProperty("id", item.getId());
+        ij.addProperty("timelineStartMs", item.getTimelineStartMs());
+        ij.addProperty("zHint", item.getZHint());
+        ij.addProperty("blendMode", item.getBlendMode().name());
+        // Payload discriminator — the payload itself lives in the flat lists (dual-write);
+        // here we only record which flat object this item wraps, by id.
+        ij.addProperty("payloadKind", item.payloadKind());
+        String payloadId = null;
+        if (item.getClip() != null) payloadId = item.getClip().getId();
+        else if (item.getTextOverlay() != null) payloadId = item.getTextOverlay().getId();
+        else if (item.getAudioClip() != null) payloadId = item.getAudioClip().getId();
+        if (payloadId != null) ij.addProperty("payloadId", payloadId);
+        // transform: reuse the EXACT overlay-keyframes JSON shape (see ~928-945:
+        // { property: [ {t,v,e}, ... ] }).
+        if (item.hasTransform()) {
+            JsonObject tracksJson = new JsonObject();
+            for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : item.getTransform().tracks()) {
+                if (tr.isEmpty()) continue;
+                JsonArray kfArr = new JsonArray();
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                    JsonObject kj = new JsonObject();
+                    kj.addProperty("t", k.timeMs);
+                    kj.addProperty("v", k.value);
+                    kj.addProperty("e", k.easing.name());
+                    kfArr.add(kj);
+                }
+                tracksJson.add(tr.property, kfArr);
+            }
+            ij.add("transform", tracksJson);
+        }
+        return ij;
+    }
+
     private static void serializeEffectStack(JsonObject clipJson,
                                              com.fadcam.ui.faditor.effects.EffectStack stack) {
         if (stack == null || !stack.isActive()) return;
@@ -704,7 +817,14 @@ public class ProjectStorage {
                                      JsonSerializationContext context) {
             File projectDir = getProjectDir(src.getId());
             JsonObject json = new JsonObject();
-            json.addProperty("schemaVersion", src.getSchemaVersion());
+            // Dual-write schema stamp (PLAN §4.1(1)): stamp v8 ONLY when the project
+            // genuinely uses a layer feature an old build can't represent; otherwise
+            // stamp 7 so an old build can still open it losslessly. The v8 `layers`
+            // block below is written either way (additive; old builds ignore it).
+            int stampedVersion = usesLayerFeatures(src)
+                    ? com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION  // 8
+                    : 7;
+            json.addProperty("schemaVersion", stampedVersion);
             json.addProperty("id", src.getId());
             json.addProperty("name", src.getName());
             json.addProperty("createdAt", src.getCreatedAt());
@@ -1010,6 +1130,25 @@ public class ProjectStorage {
                 timelineJson.add("transitions", transArray);
             }
 
+            // ── Schema-v8 additive layer block (PLAN Part 2 + §4.1) ──────
+            // Written alongside the v7 flat lists (dual-write). Payloads are NOT
+            // duplicated here — each layer item references its payload in the flat
+            // lists by discriminator + id (§4.2). Old builds ignore this key.
+            timelineJson.addProperty("rippleMode", src.getTimeline().getRippleMode());
+            JsonObject layersBlock = new JsonObject();
+            layersBlock.add("masterTrack", serializeTrack(src.getTimeline().getMasterTrack()));
+            JsonArray layersArr = new JsonArray();
+            for (com.fadcam.ui.faditor.layers.Track t : src.getTimeline().getLayers()) {
+                layersArr.add(serializeTrack(t));
+            }
+            layersBlock.add("layers", layersArr);
+            JsonArray audioTracksArr = new JsonArray();
+            for (com.fadcam.ui.faditor.layers.Track t : src.getTimeline().getAudioTracks()) {
+                audioTracksArr.add(serializeTrack(t));
+            }
+            layersBlock.add("audioTracks", audioTracksArr);
+            timelineJson.add("layers", layersBlock);
+
             json.add("timeline", timelineJson);
 
             // Serialize canvas preset
@@ -1068,8 +1207,24 @@ public class ProjectStorage {
             } else {
                 project = new FaditorProject(name);
             }
-            project.setSchemaVersion(schemaVersion);
-            project.setSchemaVersion(com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION);
+            // Downgrade guard (PLAN §4.1(2)). Previously this UNCONDITIONALLY stamped
+            // the running SCHEMA_VERSION onto every loaded project — so a project written
+            // by a NEWER build, opened here, would be silently re-saved at our (older)
+            // version, dropping the unknown newer data. Instead: keep the on-disk version,
+            // and if it is newer than we understand, mark the project read-only so the
+            // save path refuses to overwrite it.
+            int runningVersion = com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION;
+            if (schemaVersion > runningVersion) {
+                project.setSchemaVersion(schemaVersion);          // preserve the newer stamp
+                project.setLoadedFromNewerVersion(true);
+                FLog.w(TAG, "Project '" + name + "' was written by a NEWER build (schema v"
+                        + schemaVersion + " > running v" + runningVersion
+                        + "); opening read-only to avoid a lossy downgrade.");
+            } else {
+                // Same-or-older on-disk version: adopt the running version. The dual-write
+                // serializer re-decides v7-vs-v8 on the next save via usesLayerFeatures().
+                project.setSchemaVersion(runningVersion);
+            }
 
             // Restore timeline clips
             if (obj.has("timeline")) {
@@ -1460,6 +1615,19 @@ public class ProjectStorage {
                             project.getTimeline().addTransition(transition);
                         } catch (Exception ignored) { }
                     }
+                }
+            }
+
+            // Restore schema-v8 layer block (PLAN Part 2 + §4.2). Additive, .has()-guarded.
+            // The Track model is a synchronized view rebuilt from the flat lists on access
+            // (see Timeline), so the only field with a persistent home to restore here is
+            // rippleMode. The masterTrack/layers/audioTracks arrays are the dual-write
+            // mirror of the flat lists (payloads referenced by id) — they are round-tripped
+            // by the flat-list restore above and need no separate reconstruction in M5.
+            if (obj.has("timeline")) {
+                JsonObject tl = obj.getAsJsonObject("timeline");
+                if (tl.has("rippleMode")) {
+                    project.getTimeline().setRippleMode(tl.get("rippleMode").getAsString());
                 }
             }
 

@@ -516,7 +516,7 @@ These are not extra milestones; they're why the Track model is shaped to *host* 
 After each verified milestone: tick below, update `road_map.md` Phase 5 status, append a ≤8-line dated entry
 to `handoff.md`, keep the tree green.
 
-- [ ] M5 schema v8 + migration + shims + dual-write + downgrade guard (REGRESSION GATE)
+- [x] M5 schema v8 + migration + shims + dual-write + downgrade guard — LANDED 2026-07-02 compile-green (synchronized-from-flat views; ZERO call sites touched; ExportManager untouched; deserializer double-stamp bug fixed; save refused on newer-version projects). ⚠️ On-device REGRESSION GATE still owed (no device) — see REPORT_RELAY_20260702.md. ⚠️ Track flags/blend/transform are serialized but rebuild-as-default (views are ephemeral) — M6/M7 must give mutated fields a persistent home (side-table keyed by track id, or promote Track to storage-of-record).
 - [ ] M-COMP-0 master gapless engine (boundary-jump fix)
 - [ ] M6 multi-row timeline UI  [ ] M7 edit floating items
 - [ ] M-COMP-1 image/text/sticker/sprite preview  [ ] M-EXPORT-1 export N non-video layers + NORMAL-blend overlay video

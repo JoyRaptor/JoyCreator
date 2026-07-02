@@ -6,11 +6,29 @@ import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import com.fadcam.ui.faditor.layers.Track;
+import com.fadcam.ui.faditor.layers.TrackKind;
+import com.fadcam.ui.faditor.layers.TimedItem;
 /**
  * Ordered list of {@link Clip}s that make up the editor timeline.
  *
  * <p>For MVP (Phase 1) this holds a single clip.
  * Scales to multi-clip editing in Phase 2 without changes.</p>
+ *
+ * <h3>Schema-v8 layer model (M5)</h3>
+ * <p>The flat lists ({@link #clips}, {@link #textOverlays}, {@link #audioClips},
+ * {@link #waveformOverlays}, {@link #transitions}) remain the <b>storage of record</b>.
+ * The schema-v8 {@link Track} objects ({@link #getMasterTrack()}, {@link #getLayers()},
+ * {@link #getAudioTracks()}) are <b>synchronized views built on demand</b> from those
+ * flat lists per PLAN §2.2 — they are re-derived every call, never cached. This is the
+ * "synchronized-from-flat" strategy from PLAN §2.3: every existing call site
+ * (ExportManager, EditorTimelineView, FaditorEditorActivity, AIToolExecutor,
+ * ProjectStorage) keeps using {@link #getClips()} / {@link #getTextOverlays()} /
+ * {@link #getAudioClips()} unchanged and gets byte-identical content/order, while new
+ * layer-aware code reads the Track views. Because the views are always freshly derived
+ * from the flat lists, mutations through the existing flat APIs and reads through the
+ * new Track APIs can never diverge.</p>
  */
 public class Timeline {
 
@@ -32,6 +50,14 @@ public class Timeline {
     /** Placed waveform/spectrum visualizers (schema v7). */
     @NonNull
     private final List<WaveformOverlayInstance> waveformOverlays;
+
+    /**
+     * Master edit behavior (schema v8). "ripple" = deleting/trimming a master clip
+     * shifts later clips; "gap" = leaves a gap. Default "ripple". Floating layers are
+     * always absolute-time regardless of this setting. Only the master track honors it.
+     */
+    @NonNull
+    private String rippleMode = "ripple";
 
     public Timeline() {
         this.clips = new ArrayList<>();
@@ -417,5 +443,77 @@ public class Timeline {
 
     public boolean hasWaveformOverlays() {
         return !waveformOverlays.isEmpty();
+    }
+
+    // ── Schema-v8 layer model (M5) ───────────────────────────────────
+    //
+    // These are SYNCHRONIZED VIEWS built on demand from the flat lists above
+    // (PLAN §2.2/§2.3). The flat lists remain the storage of record; nothing here
+    // caches state, so the flat APIs and the Track APIs can never diverge.
+
+    /** Master edit behavior ("ripple" or "gap"). Default "ripple". */
+    @NonNull
+    public String getRippleMode() {
+        return rippleMode;
+    }
+
+    public void setRippleMode(@NonNull String mode) {
+        // Accept only the two known values; anything else falls back to the default.
+        this.rippleMode = "gap".equals(mode) ? "gap" : "ripple";
+    }
+
+    /**
+     * Build the MASTER track from {@link #clips} (PLAN §2.2). Each master item's
+     * absolute {@code timelineStartMs} is derived by summing prior clip durations,
+     * using the same loop-aware per-clip contribution as {@link #getVideoTrackDurationMs()}.
+     * Freshly rebuilt on every call.
+     */
+    @NonNull
+    public Track getMasterTrack() {
+        Track master = new Track("master", TrackKind.MASTER, "Master");
+        long cursorMs = 0;
+        for (Clip clip : clips) {
+            master.addItem(TimedItem.ofClip(clip, cursorMs));
+            cursorMs += clip.hasLoopExtension()
+                    ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs();
+        }
+        return master;
+    }
+
+    /**
+     * Build the floating layer tracks above the master (PLAN §2.2). For M5 this is
+     * exactly ONE TEXT layer wrapping every {@link #textOverlays} item (each already
+     * carries its own start/end + keyframes). Waveform overlays intentionally stay
+     * clip-attached and are NOT modelled as a track. Freshly rebuilt on every call.
+     */
+    @NonNull
+    public List<Track> getLayers() {
+        List<Track> layers = new ArrayList<>();
+        if (!textOverlays.isEmpty()) {
+            Track textTrack = new Track("text", TrackKind.TEXT, "Text");
+            for (TextOverlayItem overlay : textOverlays) {
+                textTrack.addItem(TimedItem.ofTextOverlay(overlay));
+            }
+            layers.add(textTrack);
+        }
+        return layers;
+    }
+
+    /**
+     * Build the audio tracks below the master (PLAN §2.2). For M5 this is exactly ONE
+     * AUDIO track wrapping every {@link #audioClips} item (each carries its own
+     * {@code offsetMs}). Freshly rebuilt on every call.
+     */
+    @NonNull
+    public List<Track> getAudioTracks() {
+        List<Track> tracks = new ArrayList<>();
+        if (!audioClips.isEmpty()) {
+            Track audioTrack = new Track("audio", TrackKind.AUDIO, "Audio");
+            for (AudioClip ac : audioClips) {
+                audioTrack.addItem(TimedItem.ofAudioClip(ac));
+            }
+            tracks.add(audioTrack);
+        }
+        return tracks;
     }
 }

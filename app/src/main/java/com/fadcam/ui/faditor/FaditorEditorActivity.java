@@ -2891,7 +2891,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * the player has already crossed the seam warm, so there is no re-prepare here. Runs on the
      * main thread (ExoPlayer callbacks are delivered on the app main thread).
      *
-     * @param newIndex    the master clip index the engine advanced to
+     * <p>L1: the engine now ALSO plays NORMAL-loop clips as extra playlist windows (before/after
+     * loop reps). It fires this callback ONLY when the TIMELINE CLIP actually changes — reps of
+     * the SAME looped clip are crossed silently inside the engine (see
+     * {@code MasterPlaybackEngine.SeamListener}), so the caption/overlay rebind and playhead
+     * re-homing below never re-run mid-loop, and {@code newIndex} is always a genuinely NEW clip.</p>
+     *
+     * @param newIndex    the master clip index the engine advanced to (a real clip change — never
+     *                    fired for a same-clip loop-rep wrap)
      * @param autoAdvance true when playback PLAYED THROUGH a plain cut (the playhead is naturally
      *                    at the new clip's start); false when the window change was caused by a
      *                    user ruler tap/scrub seeking across a boundary. On a user seek the tapped
@@ -6854,8 +6861,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return;
             }
 
+            if (clip.isLoopModeLooping() && clip.getLoopMode() == Clip.LOOP_MODE_NORMAL
+                    && playerManager.isGapless()) {
+                // L1: the gapless engine's playlist already contains this clip's before/after
+                // loop reps as warm ExoPlayer windows — wraps are crossed natively (no polling,
+                // no cold seekTo(0)) and internal rep-to-rep seams are suppressed by the engine
+                // (MasterPlaybackEngine.SeamListener fires only on a TIMELINE CLIP change), so
+                // isAtTrimEnd()/isAtEnd is false throughout the whole looped clip's playback —
+                // this legacy branch only reaches "true" here once the ENTIRE PLAYLIST truly
+                // ends. If this looped clip is also the LAST clip on the timeline, fall through
+                // to the shared end-of-timeline handling below (advance/pause) instead of running
+                // the poll-based wrap math, which would double-drive a playlist the engine
+                // already finished. (PLAN_LOOP_PINGPONG.md L1.)
+                FLog.d(TAG, "Loop: gapless NORMAL loop reached isAtEnd -> playlist truly ended");
+                Timeline timeline = project.getTimeline();
+                int nextIndex = selectedClipIndex + 1;
+                if (nextIndex < timeline.getClipCount()) {
+                    advanceToSegment(nextIndex, true);
+                } else {
+                    playerManager.pause();
+                    pauseAudioPlayer();
+                    updatePlayPauseButton(false);
+                    long totalMs = timeline.getTotalDurationMs();
+                    timeCurrent.setText(TimeFormatter.formatAuto(totalMs));
+                }
+                return;
+            }
+
             if (clip.isLoopModeLooping()) {
-                // NORMAL loop
+                // NORMAL loop (legacy poll-based path — gapless-active NORMAL clips return
+                // above; PING_PONG already returned earlier, so isLoopModeLooping() here can
+                // only mean NORMAL).
                 FLog.d(TAG, "Loop: isAtEnd pending=" + loopRestartPending
                         + " pos=" + currentPos + "/" + trimmedDur
                         + " vOff=" + loopVisualOffsetMs
@@ -7080,7 +7116,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // to source trim bounds and can never reach the extension region).
             long displayTimeMs = position;
             long trimmedDurationMs = clip.getTrimmedDurationMs();
-            if (clip.hasLoopExtension()) {
+            if (clip.hasLoopExtension() && clip.getLoopMode() == Clip.LOOP_MODE_NORMAL
+                    && playerManager.isGapless()) {
+                // L1: the gapless engine's getCurrentPosition() ALREADY reports a position
+                // that's continuous across the whole looped clip (loop-before start = 0, main
+                // pass, loop-after end = getVisualDurationMs()) — see
+                // MasterPlaybackEngine#getCurrentPositionInWindow(). So `position` here IS
+                // visualPosMs already; the legacy reconstruction below
+                // (loopBeforeMs + loopVisualOffsetMs + position) would DOUBLE-COUNT loopBeforeMs,
+                // since loopVisualOffsetMs never advances in gapless mode (the poll-based wrap
+                // block that increments it is bypassed — see the isAtEnd branch above).
+                long visualPosMs = Math.min(position, clip.getVisualDurationMs());
+                Timeline tl = project.getTimeline();
+                long clipStartMs = 0;
+                for (int i = 0; i < tl.getClipCount() && i < selectedClipIndex; i++) {
+                    Clip c = tl.getClip(i);
+                    clipStartMs += c.hasLoopExtension() ? c.getVisualDurationMs()
+                            : c.getTrimmedDurationMs();
+                }
+                long timelineMs = clipStartMs + visualPosMs;
+                FLog.d(TAG, "Loop playhead (gapless): pos=" + position + " vPos=" + visualPosMs
+                        + " clipStart=" + clipStartMs + " tlMs=" + timelineMs);
+                editorTimeline.setPlayheadPositionMs(timelineMs);
+                displayTimeMs = visualPosMs;
+            } else if (clip.hasLoopExtension()) {
                 // In ping-pong mode with decoupled timeline, the playhead advances
                 // at real-time speed via wall clock (like Still mode), independent
                 // of the video which performs forward/backward passes.

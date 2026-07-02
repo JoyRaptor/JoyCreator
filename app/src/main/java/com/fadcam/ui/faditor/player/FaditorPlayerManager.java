@@ -28,11 +28,14 @@ import com.fadcam.ui.faditor.compositor.MasterPlaybackEngine;
  * to support fragmented MP4 and SAF content:// URIs reliably.</p>
  *
  * <p><b>M-COMP-0 (gapless master playback):</b> when {@link #GAPLESS_ENGINE} is on and the
- * project is a plain-cut single track, this manager delegates its single-clip public API to a
+ * project is a plain-cut single track (PLUS L1: any NORMAL-mode loop-extension clips, see
+ * PLAN_LOOP_PINGPONG.md), this manager delegates its single-clip public API to a
  * {@link MasterPlaybackEngine} that plays the whole track as one pre-buffered
- * ClippingConfiguration playlist — so plain cuts cross warm (no cold re-prepare / boundary
- * freeze). All position/seek/transport calls are preserved as clip-local so
- * {@code FaditorEditorActivity}'s polling loop is unchanged. Loops / transitions / images fall
+ * ClippingConfiguration playlist — so plain cuts AND loop-extension wraps both cross warm (no
+ * cold re-prepare / boundary freeze, no poll-based seekTo(0)). All position/seek/transport calls
+ * are preserved as clip-local (CONTINUOUS across a looped clip's reps — see
+ * {@link MasterPlaybackEngine#getCurrentPositionInWindow()}) so {@code FaditorEditorActivity}'s
+ * polling loop is unchanged. PING_PONG / STILL loop clips, transitions, and images still fall
  * back to the legacy single-clip path below. See {@code MasterPlaybackEngine} for details.</p>
  */
 public class FaditorPlayerManager implements DefaultLifecycleObserver {
@@ -47,7 +50,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * eliminated; ineligible projects transparently keep today's engine. Flip to false to force
      * every project back to the legacy per-seam single-clip path.
      */
-    public static final boolean GAPLESS_ENGINE = true;
+    public static final boolean GAPLESS_ENGINE = false; // TEMP: L1 baseline measurement, restore true after
 
     @Nullable
     private ExoPlayer player;
@@ -229,6 +232,16 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     }
 
     /**
+     * Public mirror of {@link #gapless()} for callers outside this class (L1: the activity's
+     * playback tick needs to know whether the gapless engine already handles loop-extension wraps
+     * for the current clip via its playlist, so it can skip the legacy poll-based wrap/seek logic
+     * that would otherwise fight the engine — see {@code FaditorEditorActivity}'s tick, ~6805).
+     */
+    public boolean isGapless() {
+        return gapless();
+    }
+
+    /**
      * M-COMP-0: after the gapless engine auto-advances a seam warm, the activity's
      * {@code onGaplessSeam} calls this to point the manager's tracked clip at the new window —
      * WITHOUT any player op (the engine already crossed the cut). Keeps the {@code currentClip}-
@@ -297,8 +310,13 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             return;
         }
         if (playerView == null) return;
+        // Resume by CLIP ID + visual position, not a raw window index: once a looped clip (L1)
+        // spans multiple playlist windows, a window index is no longer interchangeable with a
+        // timeline clip index (a stale "window index used as clip index" here would resume on the
+        // WRONG clip whenever the user was scrubbed into a loop-rep window past index
+        // clipCount-1, or into any rep of a clip that isn't the first one).
+        String resumeClipId = gapless() ? gaplessEngine.getCurrentClipId() : null;
         long resumePos = gapless() ? gaplessEngine.getCurrentPositionInWindow() : 0L;
-        int resumeWindow = gapless() ? gaplessEngine.getCurrentWindow() : 0;
         boolean wasPlaying = gapless() && gaplessEngine.getPlayWhenReady();
         if (gaplessEngine == null) {
             gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
@@ -311,12 +329,10 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
         attachRegisteredListenersToEngine();
         gaplessEngine.seekInCurrentWindow(0L);
-        if (resumeWindow > 0) {
-            // Best-effort: restore the window the user was on (positions may shift after edits).
-            gaplessEngine.getPlayer();
-            gaplessEngine.seekInClip(
-                    gaplessTimeline.getClip(Math.min(resumeWindow, gaplessTimeline.getClipCount() - 1)).getId(),
-                    resumePos);
+        if (resumeClipId != null) {
+            // Best-effort: restore the clip + visual position the user was on (positions may
+            // shift after edits, e.g. a trim on an earlier clip, or the edited clip itself).
+            gaplessEngine.seekInClip(resumeClipId, resumePos);
         }
         if (wasPlaying) gaplessEngine.play();
     }

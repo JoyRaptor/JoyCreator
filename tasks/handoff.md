@@ -22,11 +22,16 @@
 ## 🔭 OPEN BACKLOG — START HERE (updated 2026-07-02 midday)
 
 **🐞 P0 BUGS (2026-07-02 user hand-test — fix BEFORE resuming the feature queue):**
-1. **Ruler scrub/tap intermittently snaps playhead to 0.** Happens while finger-dragging the ruler AND
-   while tap-tap-tapping across it ("follow, follow, then glitch to zero"). Suspects, in order: the
-   M-COMP-0 gapless engine's cross-MediaItem seek mapping (a failed/UNSET seek reporting position 0);
-   the new onScroll guard routing; negative scrolledX clamping; playhead auto-follow fighting the tap.
-   TAP-REPRODUCIBLE → an agent CAN verify this one with scripted taps + logcat position reads.
+1. **"Snap to zero" — USER-DIAGNOSED (2026-07-02 midday): NOT an engine bug.** Two stacked interaction
+   problems: (a) tapping a CLIP in the lane under the ruler selects it AND seeks to the CLIP'S START —
+   with a 1s first clip that looked like snapping to ~0 (playhead went to 1.0s, the clips' border);
+   (b) fat-finger ruler drags also graze the adjacent workspace/scrub surface → both react → forward/
+   backward seek fight. AGREED FIXES: clip tap = select + seek to the TAPPED position (not clip start);
+   gesture EXCLUSIVITY (first surface to claim a drag owns the pointer until lift; assess a few dp of
+   dead-zone between strips). An agent was mid-implementation when the midday window closed — check its
+   dated entry below + `git status`: finish or `git restore` per its notes. It was also told to
+   confirm/deny the gapless-engine transient theory with its instrumentation and CLOSE that thread.
+   The fat-finger overlap fix needs a USER hand-test at the end (unscriptable).
 2. **Layer-row items can't be TAP-selected** (purple "LayerOne" bar). Tap does nothing; only the
    on-canvas teal render responds (long-press → remove dialog). Blocks the whole M10 hand-test. Build
    tap-select + the §6 linkage highlight (PLAN_LAYERS_UX_ADDENDUM). Note: the sandbox item spans the

@@ -148,4 +148,27 @@ public class TimedItem {
         if (audioClip != null) return "audioClip";
         return "none";
     }
+
+    /**
+     * Duration in ms of this item's payload on the timeline, for row rendering
+     * (M6). {@code fallbackMs} (typically the timeline's total duration) is used
+     * when a payload's own end is unbounded (e.g. a text overlay spanning "the
+     * rest of the timeline", {@code Long.MAX_VALUE}) — mirrors the existing
+     * read-only layer-row logic in {@code EditorTimelineView#displayEndMs}.
+     */
+    public long getDisplayDurationMs(long fallbackMs) {
+        if (clip != null) {
+            return clip.hasLoopExtension() ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs();
+        }
+        if (audioClip != null) {
+            return audioClip.getTrimmedDurationMs();
+        }
+        if (textOverlay != null) {
+            long end = textOverlay.getEndMs();
+            long start = Math.max(0, textOverlay.getStartMs());
+            if (end == Long.MAX_VALUE || end <= start) return Math.max(0, fallbackMs - start);
+            return end - start;
+        }
+        return 0;
+    }
 }

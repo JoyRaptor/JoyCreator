@@ -518,7 +518,7 @@ to `handoff.md`, keep the tree green.
 
 - [x] M5 schema v8 + migration + shims + dual-write + downgrade guard — LANDED 2026-07-02 compile-green (synchronized-from-flat views; ZERO call sites touched; ExportManager untouched; deserializer double-stamp bug fixed; save refused on newer-version projects). ⚠️ On-device REGRESSION GATE still owed (no device) — see REPORT_RELAY_20260702.md. ⚠️ Track flags/blend/transform are serialized but rebuild-as-default (views are ephemeral) — M6/M7 must give mutated fields a persistent home (side-table keyed by track id, or promote Track to storage-of-record).
 - [ ] M-COMP-0 master gapless engine (boundary-jump fix)
-- [ ] M6 multi-row timeline UI  [ ] M7 edit floating items
+- [x] M6 multi-row timeline UI — LANDED 2026-07-02 compile-green (LayerRowRenderer 419 lines owns all rendering/hit-testing; EditorTimelineView +111 delegation-only; TrackFlags side-table persisted + applied by Timeline view builders, closing M5's ephemeral-flags gap; toggles = one LambdaAction undo step each; plain projects = zero new rows/height; rows default EXPANDED deliberately — collapsed-by-default would stamp v8 on every migrated project). Device pass owed. [ ] M7 edit floating items
 - [ ] M-COMP-1 image/text/sticker/sprite preview  [ ] M-EXPORT-1 export N non-video layers + NORMAL-blend overlay video
 - [ ] M-COMP-2 live second video (GL + decoder pool)  [ ] M-EXPORT-2 blend modes + full overlay-video export parity
 - [ ] M10 drag-between-layers  [ ] M11 ripple/gap toggle

@@ -10,6 +10,10 @@ import java.util.List;
 import com.fadcam.ui.faditor.layers.Track;
 import com.fadcam.ui.faditor.layers.TrackKind;
 import com.fadcam.ui.faditor.layers.TimedItem;
+import com.fadcam.ui.faditor.layers.TrackFlags;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 /**
  * Ordered list of {@link Clip}s that make up the editor timeline.
  *
@@ -58,6 +62,17 @@ public class Timeline {
      */
     @NonNull
     private String rippleMode = "ripple";
+
+    /**
+     * Persistent home for Track UI/edit flags (collapsed/hidden/locked/muted/zIndex),
+     * keyed by the track's stable id ("master" / "text" / "audio" — see
+     * {@link #getMasterTrack()} et al.). Required because the {@link Track} objects
+     * those methods return are rebuilt fresh on every call (M5 status note; M6 fix).
+     * M5/M6 only ever produce those three literal ids; M10 (new tracks) will need a
+     * stable-id scheme for user-created tracks, but that is out of scope here.
+     */
+    @NonNull
+    private final Map<String, TrackFlags> trackFlags = new LinkedHashMap<>();
 
     public Timeline() {
         this.clips = new ArrayList<>();
@@ -462,11 +477,93 @@ public class Timeline {
         this.rippleMode = "gap".equals(mode) ? "gap" : "ripple";
     }
 
+    // ── Track flags side-table (M6; PLAN Part 7 M6 scope 3 / M5 status note) ──
+
+    /**
+     * Persistent flags for the track with the given stable id, or {@code null} if none
+     * have ever been set (i.e. the track is at all-default state). Read-only lookup —
+     * use {@link #getOrCreateTrackFlags(String)} to mutate.
+     */
+    @Nullable
+    public TrackFlags getTrackFlags(@NonNull String trackId) {
+        return trackFlags.get(trackId);
+    }
+
+    /**
+     * Mutable flags entry for the given track id, creating a default (all-false/zero)
+     * entry on first access. This is the entry point M6's row-header toggles write
+     * through, followed by an undo-recording caller (see {@code FaditorEditorActivity}).
+     */
+    @NonNull
+    public TrackFlags getOrCreateTrackFlags(@NonNull String trackId) {
+        TrackFlags flags = trackFlags.get(trackId);
+        if (flags == null) {
+            flags = new TrackFlags();
+            trackFlags.put(trackId, flags);
+        }
+        return flags;
+    }
+
+    /**
+     * Replace the flags entry for a track id wholesale (used by undo to restore a
+     * captured snapshot). Removes the entry entirely if the restored flags are all-default,
+     * mirroring {@link #pruneDefaultTrackFlags()} so undo never leaves stray empty entries.
+     */
+    public void setTrackFlags(@NonNull String trackId, @Nullable TrackFlags flags) {
+        if (flags == null || flags.isDefault()) {
+            trackFlags.remove(trackId);
+        } else {
+            trackFlags.put(trackId, flags);
+        }
+    }
+
+    /** Drop any all-default entries (keeps the map/serialized block minimal). */
+    public void pruneDefaultTrackFlags() {
+        trackFlags.values().removeIf(TrackFlags::isDefault);
+    }
+
+    /**
+     * Live map of every non-default track-flags entry, keyed by track id. Used by
+     * {@code ProjectStorage} to serialize the side-table. Do not mutate the returned
+     * map directly from outside the storage layer — use {@link #getOrCreateTrackFlags}
+     * / {@link #setTrackFlags}.
+     */
+    @NonNull
+    public Map<String, TrackFlags> getAllTrackFlags() {
+        return trackFlags;
+    }
+
+    /**
+     * Apply a track's persisted flags (if any) onto a freshly-built view object.
+     *
+     * <p>Note on the PLAN §6.1 "collapsed is the default (on phones)" guidance: this is
+     * deliberately NOT implemented as an unpersisted rendering default here, because
+     * {@code usesLayerFeatures()} (PLAN §4.1's dual-write v7/v8 boundary) treats
+     * {@code isCollapsed()==true} as "the project uses a real layer feature." Seeding
+     * every migrated text/audio track collapsed by default would make every ordinary
+     * v7 project with a text overlay look v8-worthy on its very first load after this
+     * milestone — a regression against the M5 downgrade-guard contract. So M6 leaves
+     * the uncollapsed (expanded) state as the true, harmless default and only persists
+     * an entry once the user actually taps the caret. A per-track-kind visual default
+     * (rows starting visually collapsed without being a stored "feature") is left as a
+     * follow-up — see the M6 build report's "surprises / deliberately not done."</p>
+     */
+    private void applyTrackFlags(@NonNull Track track) {
+        TrackFlags flags = trackFlags.get(track.getId());
+        if (flags == null) return;
+        track.setCollapsed(flags.collapsed);
+        track.setHidden(flags.hidden);
+        track.setLocked(flags.locked);
+        track.setMuted(flags.muted);
+        track.setZIndex(flags.zIndex);
+    }
+
     /**
      * Build the MASTER track from {@link #clips} (PLAN §2.2). Each master item's
      * absolute {@code timelineStartMs} is derived by summing prior clip durations,
      * using the same loop-aware per-clip contribution as {@link #getVideoTrackDurationMs()}.
-     * Freshly rebuilt on every call.
+     * Freshly rebuilt on every call; persisted flags (M6) are re-applied via
+     * {@link #applyTrackFlags(Track)} so collapsed/hidden/locked/muted survive rebuilds.
      */
     @NonNull
     public Track getMasterTrack() {
@@ -477,6 +574,7 @@ public class Timeline {
             cursorMs += clip.hasLoopExtension()
                     ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs();
         }
+        applyTrackFlags(master);
         return master;
     }
 
@@ -484,7 +582,8 @@ public class Timeline {
      * Build the floating layer tracks above the master (PLAN §2.2). For M5 this is
      * exactly ONE TEXT layer wrapping every {@link #textOverlays} item (each already
      * carries its own start/end + keyframes). Waveform overlays intentionally stay
-     * clip-attached and are NOT modelled as a track. Freshly rebuilt on every call.
+     * clip-attached and are NOT modelled as a track. Freshly rebuilt on every call;
+     * persisted flags (M6) are re-applied per track.
      */
     @NonNull
     public List<Track> getLayers() {
@@ -494,6 +593,7 @@ public class Timeline {
             for (TextOverlayItem overlay : textOverlays) {
                 textTrack.addItem(TimedItem.ofTextOverlay(overlay));
             }
+            applyTrackFlags(textTrack);
             layers.add(textTrack);
         }
         return layers;
@@ -502,7 +602,8 @@ public class Timeline {
     /**
      * Build the audio tracks below the master (PLAN §2.2). For M5 this is exactly ONE
      * AUDIO track wrapping every {@link #audioClips} item (each carries its own
-     * {@code offsetMs}). Freshly rebuilt on every call.
+     * {@code offsetMs}). Freshly rebuilt on every call; persisted flags (M6) are
+     * re-applied per track.
      */
     @NonNull
     public List<Track> getAudioTracks() {
@@ -512,6 +613,7 @@ public class Timeline {
             for (AudioClip ac : audioClips) {
                 audioTrack.addItem(TimedItem.ofAudioClip(ac));
             }
+            applyTrackFlags(audioTrack);
             tracks.add(audioTrack);
         }
         return tracks;

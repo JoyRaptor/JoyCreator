@@ -1096,6 +1096,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         cropToolbar = findViewById(R.id.crop_toolbar);
         editorTimeline = findViewById(R.id.editor_timeline_view);
         editorTitle = findViewById(R.id.editor_title);
+        editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
         editorTimeline.setOnSegmentActionListener(new EditorTimelineView.OnSegmentActionListener() {
             @Override
             public void onSegmentSelected(int index) {
@@ -8259,7 +8260,78 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             editorTimeline.setCaptionSpans(capSpans);
             editorTimeline.setTransitions(project.getTimeline().getTransitions());
+            // M6: push the schema-v8 Track model in for the multi-row layer/audio-track
+            // UI (PLAN Part 7, row M6). Empty for a plain single-track project — renders
+            // nothing (LayerRowRenderer#isEmpty).
+            editorTimeline.setLayerTracks(tl.getLayers(), tl.getAudioTracks());
         }
+    }
+
+    /**
+     * M6 row-header toggle glue (PLAN Part 7, row M6; scope items 3-5): flips the
+     * tapped flag in {@code Timeline}'s persistent {@code TrackFlags} side-table
+     * (the fix for the M5 status note ⚠️ — a plain mutation on the Track VIEW object
+     * would be lost on the next rebuild-from-flat), records it as one undo step via
+     * the same {@code EditActions.LambdaAction} pattern used elsewhere in this class
+     * (e.g. "Remove visualizer" / "Delete text overlay" above), then refreshes the
+     * timeline. Toggles only affect THIS row's rendering/hit-testing in M6 — preview/
+     * export wiring is M-COMP-1 / M-EXPORT-1 (TODOs below at each effect site).
+     */
+    private void onTrackHeaderAction(@NonNull com.fadcam.ui.faditor.layers.Track track,
+                                      @NonNull com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone zone) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final String trackId = track.getId();
+        final com.fadcam.ui.faditor.layers.TrackFlags before =
+                timeline.getOrCreateTrackFlags(trackId).copy();
+
+        String description;
+        switch (zone) {
+            case CARET:
+                track.setCollapsed(!track.isCollapsed());
+                description = track.isCollapsed() ? "Collapse track" : "Expand track";
+                break;
+            case HIDE:
+                track.setHidden(!track.isHidden());
+                // TODO(M-COMP-1 / M-EXPORT-1): a hidden track must also be skipped by
+                // LayerPreviewController and ExportManager. M6 only affects timeline
+                // rendering (dimmed/ghosted row) and hit-testing.
+                description = track.isHidden() ? "Hide track" : "Show track";
+                break;
+            case LOCK:
+                track.setLocked(!track.isLocked());
+                // Locked already takes effect at the timeline level in M6 (row-body
+                // taps/gestures are swallowed by LayerRowRenderer/EditorTimelineView).
+                description = track.isLocked() ? "Lock track" : "Unlock track";
+                break;
+            case MUTE:
+                track.setMuted(!track.isMuted());
+                // TODO(M-COMP-1 / M-EXPORT-1): a muted track must also silence
+                // FaditorPlayerManager preview audio and ExportManager's audio mix.
+                // M6 only renders the mute icon state.
+                description = track.isMuted() ? "Mute track" : "Unmute track";
+                break;
+            default:
+                return;
+        }
+
+        // Persist into the side-table (the Track passed in is a rebuilt-from-flat VIEW —
+        // writing through it directly would be lost on the next getLayers()/etc. call).
+        com.fadcam.ui.faditor.layers.TrackFlags flags = timeline.getOrCreateTrackFlags(trackId);
+        flags.collapsed = track.isCollapsed();
+        flags.hidden = track.isHidden();
+        flags.locked = track.isLocked();
+        flags.muted = track.isMuted();
+        flags.zIndex = track.getZIndex();
+        timeline.pruneDefaultTrackFlags();
+        final com.fadcam.ui.faditor.layers.TrackFlags after = flags.copy();
+
+        undoManager.recordAction(new EditActions.LambdaAction(description,
+                () -> { timeline.setTrackFlags(trackId, after.copy()); syncTimelineOverlays(); },
+                () -> { timeline.setTrackFlags(trackId, before.copy()); syncTimelineOverlays(); }));
+
+        syncTimelineOverlays();
+        scheduleAutoSave();
     }
 
     /**

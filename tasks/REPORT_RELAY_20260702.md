@@ -49,3 +49,12 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   newer-version projects). ExportManager/call sites: ZERO changes. Undo snapshots carry full v8 block.
   ⚠️ M6/M7 NOTE: track flags/blend/transform serialize but rebuild-as-default — mutating UI must add a
   persistent home (side-table keyed by track id suggested). On-device regression gate owed (see above).
+- (2026-07-02 ~00:45) **M6 LANDED, compile-green** (Sonnet). Multi-row timeline: new `layers/LayerRowRenderer.java`
+  (419 lines, ALL rendering/measure/hit-testing) + `layers/TrackFlags.java`; EditorTimelineView +111 lines of
+  delegation ONLY; Timeline `trackFlags` side-table (persisted via ProjectStorage `restoreTrackFlags` ~739,
+  applied in all 3 view builders ~551-616) — M5's ephemeral-flags gap CLOSED; toggles undo as one LambdaAction
+  each (FaditorEditorActivity.onTrackHeaderAction ~8279); plain single-track projects: zero new rows/height/
+  behavior. NOTE: rows default EXPANDED (collapsed-by-default would flip usesLayerFeatures→v8 for every project).
+  Hide/lock/mute take effect at TIMELINE level only; preview/export wiring = M-COMP-1/M-EXPORT-1 (TODOs at
+  each toggle site). Device checklist: caret collapse, toggle icons/dim/lock-swallow, row-region vertical
+  scroll, pinned headers under horizontal scroll, toggle undo, plain-project zero-change.

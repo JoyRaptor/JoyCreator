@@ -736,6 +736,30 @@ public class ProjectStorage {
         return tj;
     }
 
+    /**
+     * Restore one serialized track's flags (collapsed/hidden/locked/muted/zIndex) into
+     * {@link Timeline}'s persistent trackFlags side-table (M6; PLAN Part 7 M6 scope 3).
+     * {@code .has()}-guarded per field so older-shaped entries degrade to defaults.
+     * A no-op (and never creates an entry) when the track carries only default flags,
+     * matching {@link Timeline#pruneDefaultTrackFlags()} so re-saving stays minimal.
+     */
+    private static void restoreTrackFlags(@NonNull Timeline timeline, @NonNull JsonObject tj) {
+        if (!tj.has("id")) return;
+        String id = tj.get("id").getAsString();
+        boolean collapsed = tj.has("collapsed") && tj.get("collapsed").getAsBoolean();
+        boolean hidden = tj.has("hidden") && tj.get("hidden").getAsBoolean();
+        boolean locked = tj.has("locked") && tj.get("locked").getAsBoolean();
+        boolean muted = tj.has("muted") && tj.get("muted").getAsBoolean();
+        int zIndex = tj.has("zIndex") ? tj.get("zIndex").getAsInt() : 0;
+        if (!collapsed && !hidden && !locked && !muted && zIndex == 0) return;
+        com.fadcam.ui.faditor.layers.TrackFlags flags = timeline.getOrCreateTrackFlags(id);
+        flags.collapsed = collapsed;
+        flags.hidden = hidden;
+        flags.locked = locked;
+        flags.muted = muted;
+        flags.zIndex = zIndex;
+    }
+
     @NonNull
     private static JsonObject serializeTimedItem(
             @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
@@ -1618,16 +1642,36 @@ public class ProjectStorage {
                 }
             }
 
-            // Restore schema-v8 layer block (PLAN Part 2 + §4.2). Additive, .has()-guarded.
-            // The Track model is a synchronized view rebuilt from the flat lists on access
-            // (see Timeline), so the only field with a persistent home to restore here is
-            // rippleMode. The masterTrack/layers/audioTracks arrays are the dual-write
-            // mirror of the flat lists (payloads referenced by id) — they are round-tripped
-            // by the flat-list restore above and need no separate reconstruction in M5.
+            // Restore schema-v8 layer block (PLAN Part 2 + §4.2, extended M6). Additive,
+            // .has()-guarded. The Track model itself is a synchronized view rebuilt from
+            // the flat lists on access (see Timeline) — the masterTrack/layers/audioTracks
+            // arrays are otherwise the dual-write mirror of the flat lists (payloads
+            // referenced by id) and need no separate reconstruction. BUT per-track flags
+            // (collapsed/hidden/locked/muted/zIndex) have no home on the flat lists, so M6
+            // restores them here into Timeline's persistent trackFlags side-table
+            // (Timeline.getOrCreateTrackFlags) keyed by each track's serialized id — the
+            // same "master"/"text"/"audio" ids the view builders assign.
             if (obj.has("timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
                 if (tl.has("rippleMode")) {
                     project.getTimeline().setRippleMode(tl.get("rippleMode").getAsString());
+                }
+                if (tl.has("layers")) {
+                    JsonObject layersBlock = tl.getAsJsonObject("layers");
+                    if (layersBlock.has("masterTrack")) {
+                        restoreTrackFlags(project.getTimeline(),
+                                layersBlock.getAsJsonObject("masterTrack"));
+                    }
+                    if (layersBlock.has("layers")) {
+                        for (JsonElement e : layersBlock.getAsJsonArray("layers")) {
+                            restoreTrackFlags(project.getTimeline(), e.getAsJsonObject());
+                        }
+                    }
+                    if (layersBlock.has("audioTracks")) {
+                        for (JsonElement e : layersBlock.getAsJsonArray("audioTracks")) {
+                            restoreTrackFlags(project.getTimeline(), e.getAsJsonObject());
+                        }
+                    }
                 }
             }
 

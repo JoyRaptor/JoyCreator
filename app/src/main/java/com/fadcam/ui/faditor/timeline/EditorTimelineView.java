@@ -222,6 +222,42 @@ public class EditorTimelineView extends View {
     private long layerDragInitialKeyLocalMs = -1;
     private long layerDragOriginalKeyLocalMs = -1;
 
+    // ── M6 multi-row Track UI (extract-on-touch: all logic in LayerRowRenderer) ──
+    private com.fadcam.ui.faditor.layers.LayerRowRenderer layerRowRenderer;
+    private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
+    private final List<com.fadcam.ui.faditor.layers.Track> audioLayerTracks = new ArrayList<>();
+    private OnTrackHeaderActionListener trackHeaderActionListener;
+    /** True while a drag that started inside the M6 row region is in progress (vertical scroll). */
+    private boolean m6RowDragActive = false;
+    private float m6RowLastY = 0f;
+
+    /** Callback for a tap on a track row-header icon (M6; glue lives in FaditorEditorActivity). */
+    public interface OnTrackHeaderActionListener {
+        void onTrackHeaderAction(@NonNull com.fadcam.ui.faditor.layers.Track track,
+                                  @NonNull com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone zone);
+    }
+
+    public void setOnTrackHeaderActionListener(OnTrackHeaderActionListener l) {
+        this.trackHeaderActionListener = l;
+    }
+
+    /**
+     * Push the current Track model in for the M6 multi-row UI (PLAN Part 7, row M6).
+     * Snapshots the lists (same convention as {@link #setOverlays}/{@link #setAudioClips})
+     * rather than holding a live {@code Timeline} reference. A plain single-track project
+     * passes two empty lists, which {@link com.fadcam.ui.faditor.layers.LayerRowRenderer}
+     * renders as zero rows — no visual change (PLAN Part 7 M6 scope item 6).
+     */
+    public void setLayerTracks(@NonNull List<com.fadcam.ui.faditor.layers.Track> layers,
+                               @NonNull List<com.fadcam.ui.faditor.layers.Track> audioTracks) {
+        layerTracks.clear();
+        layerTracks.addAll(layers);
+        audioLayerTracks.clear();
+        audioLayerTracks.addAll(audioTracks);
+        requestLayout();
+        invalidate();
+    }
+
     // ── State ────────────────────────────────────────────────────────
     private final List<SegmentData> segments = new ArrayList<>();
     private final List<RectF> segRects = new ArrayList<>();
@@ -625,6 +661,7 @@ public class EditorTimelineView extends View {
         audioLaneGapPx = AUDIO_LANE_GAP_DP * density;
         audioCornerPx = AUDIO_CORNER_DP * density;
         audioWaveBarGapPx = AUDIO_WAVEFORM_BAR_GAP_DP * density;
+        layerRowRenderer = new com.fadcam.ui.faditor.layers.LayerRowRenderer(density);
 
         rulerBgPaint.setColor(COLOR_RULER_BG);
         rulerBgPaint.setStyle(Paint.Style.FILL);
@@ -1230,6 +1267,9 @@ public class EditorTimelineView extends View {
         // Keep the established base height when there are no extra layer rows.
         float totalDp = Math.max(BASE_TIMELINE_DP, contentDp);
         int defH = (int) (totalDp * density);
+        // M6 hook: extra height for the Track-driven multi-row UI (zero for a plain
+        // single-track project — see LayerRowRenderer#isEmpty).
+        defH += (int) layerRowRenderer.measureExtraHeightPx(layerTracks, audioLayerTracks);
         int h = resolveSize(defH, hSpec);
         int w = MeasureSpec.getSize(wSpec);
         setMeasuredDimension(w, h);
@@ -1317,6 +1357,15 @@ public class EditorTimelineView extends View {
 
         // Transitions (fade/wipe/push bands between clips)
         drawTransitions(canvas);
+
+        // M6 hook: multi-row Track UI (pinned master above; extra layer/audio rows
+        // below, with their own capped-height vertical scroll). No-op for a plain
+        // single-track project (LayerRowRenderer#isEmpty). scrollOffsetPx is passed
+        // through so the row HEADERS (name/caret/hide/lock/mute) stay pinned to the
+        // left edge of the viewport like the rest of the timeline's left gutter,
+        // while item bodies stay in content-space so they line up with timeToX.
+        layerRowRenderer.layout(canvas, layerTracks, audioLayerTracks, getM6RowsTopPx(), w,
+                scrollOffsetPx, totalEffectiveMs, this::timeToX);
 
         canvas.restore();
 
@@ -1719,6 +1768,20 @@ public class EditorTimelineView extends View {
                 + (!audioClips.isEmpty() ? audioTrackGapPx + audioTrackTotalHeightPx() : 0f)
                 + transcriptOffset
                 + LAYER_TOP_GAP_DP * density;
+    }
+
+    /**
+     * Bottom Y of all EXISTING timeline content (master track + audio + read-only
+     * VIZ/CC/overlay rows), i.e. where the M6 Track-driven rows start. Mirrors the
+     * height math in {@code onMeasure} so the two never drift apart.
+     */
+    private float getM6RowsTopPx() {
+        int existingLayerRows = overlays.size() + waveformLayers.size()
+                + (captionSpans.isEmpty() ? 0 : 1);
+        if (existingLayerRows == 0) return getLayerTopPx();
+        float rowH = LAYER_ROW_HEIGHT_DP * density;
+        float rowGap = LAYER_ROW_GAP_DP * density;
+        return getLayerTopPx() + existingLayerRows * (rowH + rowGap) + 6f * density;
     }
 
     private long displayEndMs(@NonNull TextOverlayItem overlay) {
@@ -3656,6 +3719,35 @@ public class EditorTimelineView extends View {
         return super.onTouchEvent(e);
     }
 
+    /**
+     * M6 touch hook (extract-on-touch: the actual hit-testing lives in
+     * {@link com.fadcam.ui.faditor.layers.LayerRowRenderer}). Returns true if the
+     * touch was consumed by the multi-row Track UI.
+     */
+    private boolean handleM6RowTouch(float scrolledX, float y) {
+        float topPx = getM6RowsTopPx();
+        if (!layerRowRenderer.isWithinRowRegion(y, topPx)) return false;
+        com.fadcam.ui.faditor.layers.LayerRowRenderer.HeaderHit hit =
+                layerRowRenderer.hitTestHeader(scrolledX, y, topPx);
+        if (hit != null) {
+            if (hit.zone != com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.NONE
+                    && trackHeaderActionListener != null) {
+                trackHeaderActionListener.onTrackHeaderAction(hit.track, hit.zone);
+            }
+            invalidate();
+            return true;
+        }
+        // Not a header hit — the tap landed in a row's body or empty row space.
+        // Row-body item editing (move/trim/delete) is M7, out of scope here, so we
+        // just arm a vertical-drag-to-scroll for the row region (when content
+        // exceeds the capped viewport) and otherwise consume the touch (prevents
+        // it from falling through and misfiring against unrelated segment/
+        // transition hit-tests at this Y).
+        m6RowDragActive = true;
+        m6RowLastY = y;
+        return true;
+    }
+
     private boolean onDown(float x, float y) {
         FLog.d(TAG, "onDown: x=" + x + " y=" + y);
         downX = x;
@@ -3666,6 +3758,15 @@ public class EditorTimelineView extends View {
         // Adjust x for scroll offset
         float scrolledX = x + scrollOffsetPx;
         FLog.d(TAG, "onDown: scrolledX=" + scrolledX + " scrollOffset=" + scrollOffsetPx);
+
+        // M6 hook: touch dispatch into the multi-row Track UI. Header icon taps
+        // (caret/hide/lock/mute) are handled entirely here; a tap elsewhere in a
+        // LOCKED track's row is swallowed (locked = taps/gestures ignored at the
+        // timeline level per PLAN Part 7 M6 scope item 4); a tap in an unlocked
+        // row's body falls through (item editing is M7 — out of scope here).
+        if (handleM6RowTouch(scrolledX, y)) {
+            return true;
+        }
 
         pendingLayerTap = null;
         Drag layerHit = hitTestLayer(scrolledX, y);
@@ -3786,6 +3887,12 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onMove(float x, float y) {
+        if (m6RowDragActive) {
+            layerRowRenderer.scrollBy(m6RowLastY - y);
+            m6RowLastY = y;
+            invalidate();
+            return true;
+        }
         float dx = Math.abs(x - downX);
         float scrolledX = x + scrollOffsetPx;
 
@@ -3857,6 +3964,10 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
+        if (m6RowDragActive) {
+            m6RowDragActive = false;
+            return true;
+        }
         Drag last = activeDrag;
         float scrolledX = x + scrollOffsetPx;
 

@@ -230,6 +230,28 @@ public class EditorTimelineView extends View {
     /** True while a drag that started inside the M6 row region is in progress (vertical scroll). */
     private boolean m6RowDragActive = false;
     private float m6RowLastY = 0f;
+    /**
+     * True from DOWN when a touch lands inside the row region but misses every item/
+     * header (empty row space, or ANY touch — including a would-be item hit — on a
+     * locked/hidden/collapsed row body, since {@link com.fadcam.ui.faditor.layers.LayerRowRenderer#hitTestItem}
+     * returns {@code null} for those rows). Axis is not yet decided: the row band must
+     * support BOTH vertical row-scroll (M6) and horizontal timeline scrub pass-through
+     * (surface-overlap fix) from the same empty-space touch, so the decision is deferred
+     * to the first {@code onMove} past touch-slop, exactly like the segment/audio
+     * long-press-vs-drag disambiguation elsewhere in this class. Cleared once the axis
+     * is resolved (flips to {@link #m6RowDragActive} or {@link #m6RowScrubPassthroughActive}).
+     */
+    private boolean m6RowPendingAxisDecision = false;
+    private float m6RowPendingDownX = 0f, m6RowPendingLastX = 0f, m6RowPendingDownY = 0f;
+    /**
+     * True once a row-band touch has been resolved as a horizontal scrub (dominant-axis
+     * winner over vertical row-scroll). While true, {@code onMove} drives the SAME
+     * {@link #updatePlayheadFromX} primitive {@link GestureListener#onScroll} uses
+     * elsewhere, so scrubbing over a row feels identical to scrubbing anywhere else on
+     * the timeline (the user's reported bug: "I can't scrub through the timeline" on
+     * Layer 1 / the extracted-audio row).
+     */
+    private boolean m6RowScrubPassthroughActive = false;
 
     // ── M7 floating-item gestures (extract-on-touch: all logic in LayerGestureController) ──
     private com.fadcam.ui.faditor.layers.LayerGestureController layerGestureController;
@@ -3774,8 +3796,15 @@ public class EditorTimelineView extends View {
         // cross-row / drop-to-new-layer detection, which lives entirely in
         // onRowBodyMove) unreliable on fast/continuous drags. Bypassing the gesture
         // detector while either row flag is set mirrors the existing bypass for
-        // activeDrag/isDraggingAudio exactly.
-        if (activeDrag == Drag.NONE && !isDraggingAudio && !m7ItemGestureActive && !m6RowDragActive) {
+        // activeDrag/isDraggingAudio exactly. Surface-overlap fix: also bypass while a
+        // row-band touch's axis is undecided (m6RowPendingAxisDecision) or has already
+        // resolved to horizontal scrub-passthrough (m6RowScrubPassthroughActive) — the
+        // custom onMove below owns axis math for both, using its own downX-relative
+        // deltas; letting the gesture detector's onScroll race it here would double-
+        // drive (or steal) the scrub exactly like the M10 comment above describes for
+        // item drags.
+        if (activeDrag == Drag.NONE && !isDraggingAudio && !m7ItemGestureActive && !m6RowDragActive
+                && !m6RowPendingAxisDecision && !m6RowScrubPassthroughActive) {
             // Let gesture detector process events only when no active drag
             boolean gestureEvent = gestureDetector.onTouchEvent(e);
             if (gestureEvent) {
@@ -3823,16 +3852,23 @@ public class EditorTimelineView extends View {
         // Not a header hit — the tap landed in a row's body or empty row space.
         // M7: hand it to LayerGestureController first (move/trim an item, or arm a
         // long-press-to-delete). It returns false only for a miss (empty row space,
-        // a collapsed/locked/hidden row, or no item under the touch) — in that case
-        // fall back to M6's vertical-drag-to-scroll so the row region still scrolls
-        // and the touch is still consumed (prevents it falling through to unrelated
-        // segment/transition hit-tests at this Y).
+        // a collapsed/locked/hidden row, or no item under the touch).
         if (layerGestureController.onRowBodyDown(scrolledX, y, topPx, totalEffectiveMs, this::timeToX)) {
             m7ItemGestureActive = true;
             invalidate();
             return true;
         }
-        m6RowDragActive = true;
+        // Surface-overlap fix: a miss inside the row band is NOT immediately claimed as
+        // an M6 vertical-scroll drag anymore (that used to swallow every horizontal drag
+        // over a row too, blocking timeline scrub entirely over Layer 1 / the extracted
+        // -audio row and any locked row). Axis is undecided until onMove sees enough
+        // movement to tell a vertical row-scroll from a horizontal scrub; still consume
+        // the DOWN itself (matches every other surface's contract — a DOWN with no armed
+        // gesture yet always returns true).
+        m6RowPendingAxisDecision = true;
+        m6RowPendingDownX = scrolledX;
+        m6RowPendingLastX = scrolledX;
+        m6RowPendingDownY = y;
         m6RowLastY = y;
         return true;
     }
@@ -3988,6 +4024,54 @@ public class EditorTimelineView extends View {
             invalidate();
             return true;
         }
+        if (m6RowScrubPassthroughActive) {
+            // Axis already resolved horizontal: drive the SAME primitive
+            // GestureListener#onScroll uses, so this feels identical to scrubbing
+            // anywhere else on the timeline. x is raw view-space; scrolledX below is
+            // not used here since updatePlayheadFromX wants a view-space X relative to
+            // the current scroll offset, mirroring onScroll's `centerX + scrollOffsetPx
+            // + distanceX` (distanceX is the PREVIOUS-event-relative delta; we track the
+            // same thing via m6RowPendingLastX).
+            float scrolledXNow = x + scrollOffsetPx;
+            float distanceX = m6RowPendingLastX - scrolledXNow; // matches GestureDetector's convention (old - new)
+            m6RowPendingLastX = scrolledXNow;
+            float centerX = getWidth() / 2f;
+            float newPlayheadX = centerX + scrollOffsetPx + distanceX;
+            updatePlayheadFromX(newPlayheadX);
+            getParent().requestDisallowInterceptTouchEvent(true);
+            invalidate();
+            return true;
+        }
+        if (m6RowPendingAxisDecision) {
+            float scrolledXNow = x + scrollOffsetPx;
+            float rdx = Math.abs(scrolledXNow - m6RowPendingDownX);
+            float rdy = Math.abs(y - m6RowPendingDownY);
+            if (rdx > touchSlopPx || rdy > touchSlopPx) {
+                // Cancel any long-press armed for this touch (matches the generic
+                // slop-exceeded cancellation below — a row-band drag is not a tap).
+                longPressHandler.removeCallbacks(longPressRunnable);
+                if (rdx >= rdy) {
+                    // Horizontal-dominant: release into scrub pass-through. Seed
+                    // m6RowPendingLastX so the very first delta computed above is
+                    // relative to THIS move, not the original down (avoids a jump).
+                    m6RowPendingAxisDecision = false;
+                    m6RowScrubPassthroughActive = true;
+                    m6RowPendingLastX = scrolledXNow;
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    invalidate();
+                    return true;
+                } else {
+                    // Vertical-dominant: hand off to M6's existing row-scroll.
+                    m6RowPendingAxisDecision = false;
+                    m6RowDragActive = true;
+                    m6RowLastY = y;
+                    invalidate();
+                    return true;
+                }
+            }
+            // Still within slop — consume without committing to an axis yet.
+            return true;
+        }
         float dx = Math.abs(x - downX);
         float scrolledX = x + scrollOffsetPx;
 
@@ -4067,6 +4151,22 @@ public class EditorTimelineView extends View {
         }
         if (m6RowDragActive) {
             m6RowDragActive = false;
+            return true;
+        }
+        if (m6RowScrubPassthroughActive) {
+            // Mirrors GestureListener#onFling's guard shape (only meaningful here in
+            // that both leave scrollOffsetPx wherever the scrub left it — no fling
+            // velocity is tracked for a row-band scrub; lifting simply stops it, same
+            // as lifting mid-scrub anywhere else on a slow drag).
+            m6RowScrubPassthroughActive = false;
+            getParent().requestDisallowInterceptTouchEvent(false);
+            return true;
+        }
+        if (m6RowPendingAxisDecision) {
+            // Slop never exceeded — a tap on empty row space (or a locked/hidden row's
+            // body). Nothing to select, nothing to scrub; just consume like the M6
+            // header-hit "NONE zone" case does.
+            m6RowPendingAxisDecision = false;
             return true;
         }
         Drag last = activeDrag;

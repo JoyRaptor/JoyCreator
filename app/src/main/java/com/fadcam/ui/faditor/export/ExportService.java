@@ -269,25 +269,29 @@ public class ExportService extends Service {
             }
         });
 
-        // ── Warm the fMP4 remux cache off the main thread BEFORE exporting ──
-        // Raw FadCam recordings (file:// fragmented MP4s) are not seekable to a
-        // non-zero start, so ExportManager's ClippingConfiguration fails on a
-        // TRIMMED clip with "Illegal clipping: not seekable to start". Remuxing
-        // (faststart) produces a seekable copy that ExportManager then points at
-        // via resolveSeekableSourceUri(). We only do this for sources that NEED a
-        // remux and don't already have a cached one — so normal/imported projects
-        // (the common case) skip this entirely and export immediately as before.
+        // ── Warm caches off the main thread BEFORE exporting ──
+        // (1) fMP4 remux cache: raw FadCam recordings (file:// fragmented MP4s) are not seekable to
+        //     a non-zero start, so ExportManager's ClippingConfiguration fails on a TRIMMED clip
+        //     with "Illegal clipping: not seekable to start". Remuxing (faststart) produces a
+        //     seekable copy that ExportManager points at via resolveSeekableSourceUri().
+        // (2) L2 reversed-segment cache: a PING_PONG clip's reverse leg must play the SAME baked
+        //     reversed file the preview used, or export would silently fall back to forward-tail
+        //     while preview showed true reverse. Bake any missing reverse segment here (off-main)
+        //     so export never disagrees with a preview that showed true reverse.
+        // Both are skipped entirely for the common case (no fMP4, no ping-pong) → export immediately.
         final FaditorProject exportProject = project;
-        List<File> needsRemux = collectSourcesNeedingRemux(exportProject);
-        if (needsRemux.isEmpty()) {
-            // Common case: nothing to remux — behave exactly as before.
+        final List<File> needsRemux = collectSourcesNeedingRemux(exportProject);
+        final List<Clip> needsReverse = collectClipsNeedingReverse(exportProject);
+        if (needsRemux.isEmpty() && needsReverse.isEmpty()) {
+            // Common case: nothing to warm — behave exactly as before.
             exportManager.export(exportProject);
             return;
         }
 
-        FLog.i(TAG, "Warming remux cache for " + needsRemux.size()
-                + " raw fMP4 source(s) before export");
+        FLog.i(TAG, "Warming caches before export: " + needsRemux.size()
+                + " fMP4 remux(es), " + needsReverse.size() + " reverse bake(s)");
         final FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(this);
+        final ReversedSegmentCache reversedCache = new ReversedSegmentCache(this);
         if (remuxExecutor == null) {
             remuxExecutor = Executors.newSingleThreadExecutor();
         }
@@ -303,6 +307,21 @@ public class ExportService extends Service {
                     FLog.w(TAG, "Remux threw for " + f.getName(), e);
                 }
             }
+            // Reverse bakes AFTER remuxing, so a raw-fMP4 ping-pong source reverses from its
+            // now-cached seekable copy (accurate fast-seek), mirroring the preview input choice.
+            for (Clip c : needsReverse) {
+                try {
+                    File input = resolveReverseInputFile(c, remuxer);
+                    File out = reversedCache.bakeSync(c.getSourceUri(), input,
+                            c.getInPointMs(), c.getOutPointMs());
+                    if (out == null) {
+                        FLog.w(TAG, "Reverse bake unavailable for a ping-pong clip — export will "
+                                + "forward-tail that leg (matches an un-baked preview)");
+                    }
+                } catch (Exception e) {
+                    FLog.w(TAG, "Reverse bake threw for a ping-pong clip", e);
+                }
+            }
             // Hand back to the main thread to start the export (ExportManager
             // runs its Transformer on the main thread, as today).
             new Handler(Looper.getMainLooper()).post(() -> {
@@ -311,6 +330,49 @@ public class ExportService extends Service {
                 }
             });
         });
+    }
+
+    /**
+     * Collect PING_PONG loop clips whose baked-reversed segment is missing (and bakeable). Empty
+     * for the common case. Each returned clip needs an off-main reverse bake before export so the
+     * reverse leg matches preview.
+     */
+    @NonNull
+    private List<Clip> collectClipsNeedingReverse(@NonNull FaditorProject project) {
+        List<Clip> result = new ArrayList<>();
+        if (project.getTimeline() == null) return result;
+        ReversedSegmentCache cache = new ReversedSegmentCache(this);
+        for (Clip clip : project.getTimeline().getClips()) {
+            if (clip.isImageClip()) continue;
+            if (clip.getLoopMode() != Clip.LOOP_MODE_PING_PONG || !clip.hasLoopExtension()) continue;
+            long in = clip.getInPointMs();
+            long out = clip.getOutPointMs();
+            if (!ReversedSegmentCache.canBake(in, out)) continue; // guard: too long → forward-tail
+            if (!cache.isCached(clip.getSourceUri(), in, out)) result.add(clip);
+        }
+        return result;
+    }
+
+    /**
+     * The on-disk file to feed the reverse bake for {@code clip} — a remuxed/faststart copy when
+     * the source is a fragmented MP4 (accurate fast-seek), otherwise the raw file. Null if no local
+     * file resolves (e.g. a content:// source that isn't a plain file path).
+     */
+    @Nullable
+    private File resolveReverseInputFile(@NonNull Clip clip, @NonNull FragmentedMp4Remuxer remuxer) {
+        Uri uri = clip.getSourceUri();
+        if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) return null;
+        File raw = new File(uri.getPath());
+        if (!raw.exists()) return null;
+        try {
+            if (remuxer.needsRemux(raw) && remuxer.hasRemuxedVersion(raw)) {
+                File remuxed = remuxer.getRemuxedFile(raw);
+                if (remuxed != null && remuxed.exists()) return remuxed;
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "resolveReverseInputFile: falling back to raw for " + uri, e);
+        }
+        return raw;
     }
 
     /**

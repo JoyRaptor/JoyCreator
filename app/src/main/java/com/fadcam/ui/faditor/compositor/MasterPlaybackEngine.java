@@ -41,11 +41,15 @@ import java.util.List;
  *
  * <h3>Eligibility</h3>
  * The engine handles the plain-cut case (PLAN §3.1 / M-COMP-0) PLUS L1: NORMAL-mode ({@code
- * Clip#LOOP_MODE_NORMAL}) loop-extension clips (PLAN_LOOP_PINGPONG.md L1). It is eligible when
- * EVERY master clip is a non-image video clip whose loop mode is either OFF or NORMAL, and there
- * are NO transitions on the timeline. PING_PONG / STILL loop clips / transitions / image clips
- * keep the proven legacy single-clip path. Per-clip <b>speed</b> IS supported (applied on every
- * window, including loop reps).
+ * Clip#LOOP_MODE_NORMAL}) loop-extension clips, PLUS L2: PING_PONG ({@code
+ * Clip#LOOP_MODE_PING_PONG}) loop-extension clips whose baked-reversed file is already CACHED
+ * (via {@link SourceResolver#resolveReversed}). It is eligible when EVERY master clip is a
+ * non-image video clip whose loop mode is OFF / NORMAL / (baked) PING_PONG, and there are NO
+ * transitions on the timeline. A PING_PONG clip whose reverse bake is missing or guard-too-long,
+ * plus STILL clips / transitions / image clips, keep the proven legacy single-clip path (for
+ * PING_PONG that means the legacy forward-tail preview until the bake completes and a rebuild
+ * re-checks eligibility). Per-clip <b>speed</b> IS supported (applied on every window, including
+ * loop reps and reverse legs — reverse legs play the baked file at the clip's speed).
  *
  * <h3>Loop-extension reps (L1)</h3>
  * A NORMAL-loop clip is expanded into MULTIPLE consecutive playlist windows: zero or more
@@ -84,6 +88,19 @@ public class MasterPlaybackEngine {
     public interface SourceResolver {
         @NonNull
         Uri resolveSeekable(@NonNull Clip clip);
+
+        /**
+         * L2: resolve the CACHED baked-reversed file for a PING_PONG clip's trimmed sub-range, or
+         * {@code null} if the clip is not PING_PONG, its span is too long to bake, or the bake has
+         * not completed yet. When non-null, the engine builds this clip's ping-pong reverse legs
+         * from the returned file (TRUE reverse). When null for a PING_PONG clip, the clip (and thus
+         * the whole timeline) is INELIGIBLE and playback falls to the legacy forward-tail path until
+         * the bake finishes and a rebuild re-evaluates eligibility.
+         */
+        @Nullable
+        default Uri resolveReversed(@NonNull Clip clip) {
+            return null;
+        }
     }
 
     /**
@@ -202,12 +219,23 @@ public class MasterPlaybackEngine {
     // ── Eligibility ──────────────────────────────────────────────────────
 
     /**
-     * Whether the timeline is a plain-cut (+ L1 NORMAL-loop) single track the gapless playlist
-     * can serve. Requires ≥2 clips, all non-image video, no transitions, and every clip's loop
-     * mode is either OFF or {@code LOOP_MODE_NORMAL} (PING_PONG/STILL still fall back to legacy —
-     * L2/L3).
+     * Resolver-unaware eligibility (legacy callers). Treats PING_PONG clips as INELIGIBLE because
+     * without a resolver it can't know whether their reversed file is baked. Prefer
+     * {@link #isEligible(Timeline, SourceResolver)}.
      */
     public static boolean isEligible(@Nullable Timeline timeline) {
+        return isEligible(timeline, null);
+    }
+
+    /**
+     * Whether the timeline is a single track the gapless playlist can serve: plain cuts, L1
+     * NORMAL-loop clips, and (L2) PING_PONG-loop clips whose baked-reversed file is already CACHED
+     * ({@code resolver.resolveReversed(clip) != null}). Requires ≥2 clips, all non-image video, and
+     * no transitions. A PING_PONG clip whose bake is missing/too-long makes the whole timeline
+     * ineligible (legacy forward-tail path handles it until the bake completes and a rebuild
+     * re-checks). STILL clips remain legacy (L3).
+     */
+    public static boolean isEligible(@Nullable Timeline timeline, @Nullable SourceResolver resolver) {
         if (timeline == null) return false;
         int count = timeline.getClipCount();
         if (count < 2) return false;
@@ -216,7 +244,14 @@ public class MasterPlaybackEngine {
             Clip c = timeline.getClip(i);
             if (c == null || c.isImageClip()) return false;
             int loopMode = c.getLoopMode();
-            if (loopMode != Clip.LOOP_MODE_OFF && loopMode != Clip.LOOP_MODE_NORMAL) return false;
+            if (loopMode == Clip.LOOP_MODE_OFF || loopMode == Clip.LOOP_MODE_NORMAL) continue;
+            if (loopMode == Clip.LOOP_MODE_PING_PONG) {
+                // Eligible ONLY when the reverse leg's baked file is cached. Not-yet-baked or
+                // guard-too-long → ineligible → legacy forward-tail until a rebuild re-checks.
+                if (resolver != null && resolver.resolveReversed(c) != null) continue;
+                return false;
+            }
+            return false; // STILL (L3) or anything else → legacy
         }
         return true;
     }
@@ -228,7 +263,7 @@ public class MasterPlaybackEngine {
      * timeline is not eligible (caller must fall back to the legacy path).
      */
     public boolean prepareTimeline(@NonNull Timeline timeline, @NonNull PlayerView view) {
-        if (!isEligible(timeline)) return false;
+        if (!isEligible(timeline, resolver)) return false;
         releasePlayer();
         this.boundView = view;
 
@@ -238,8 +273,13 @@ public class MasterPlaybackEngine {
         for (int i = 0; i < count; i++) {
             Clip clip = timeline.getClip(i);
             Uri seekable = resolver.resolveSeekable(clip);
-            if (clip.getLoopMode() == Clip.LOOP_MODE_NORMAL && clip.hasLoopExtension()) {
-                buildLoopedClipWindows(i, clip, seekable, items);
+            int loopMode = clip.getLoopMode();
+            if (loopMode == Clip.LOOP_MODE_PING_PONG && clip.hasLoopExtension()) {
+                // L2: reversed file is guaranteed cached here (isEligible gated on it).
+                Uri reversed = resolver.resolveReversed(clip);
+                buildLoopedClipWindows(i, clip, seekable, reversed, items);
+            } else if (loopMode == Clip.LOOP_MODE_NORMAL && clip.hasLoopExtension()) {
+                buildLoopedClipWindows(i, clip, seekable, null, items);
             } else {
                 addMainWindow(i, clip, seekable, items, 0L, clip.getTrimmedDurationMs());
             }
@@ -270,20 +310,20 @@ public class MasterPlaybackEngine {
      * boundaries land on the same timeline offsets export produces (preview time == export time).
      */
     private void buildLoopedClipWindows(int clipIndex, @NonNull Clip clip, @NonNull Uri seekable,
-                                         @NonNull List<MediaItem> items) {
+                                         @Nullable Uri reversed, @NonNull List<MediaItem> items) {
         long trimmedPlayMs = clip.getTrimmedDurationMs();
         long loopBeforeMs = clip.getLoopBeforeMs();
         long loopAfterMs = clip.getLoopAfterMs();
         long visualCursorMs = 0L;
 
         if (loopBeforeMs > 0 && trimmedPlayMs > 0) {
-            visualCursorMs = addLoopReps(clipIndex, clip, seekable, items, RepKind.BEFORE,
+            visualCursorMs = addLoopReps(clipIndex, clip, seekable, reversed, items, RepKind.BEFORE,
                     loopBeforeMs, trimmedPlayMs, visualCursorMs);
         }
         addMainWindow(clipIndex, clip, seekable, items, visualCursorMs, trimmedPlayMs);
         visualCursorMs += trimmedPlayMs;
         if (loopAfterMs > 0 && trimmedPlayMs > 0) {
-            addLoopReps(clipIndex, clip, seekable, items, RepKind.AFTER,
+            addLoopReps(clipIndex, clip, seekable, reversed, items, RepKind.AFTER,
                     loopAfterMs, trimmedPlayMs, visualCursorMs);
         }
     }
@@ -291,14 +331,26 @@ public class MasterPlaybackEngine {
     /**
      * Append the before/after loop-extension rep windows for one side of a looped clip. Returns
      * the visual cursor AFTER the appended reps (== {@code startVisualMs + extensionMs}).
+     *
+     * <p>L2: when {@code reversedUri != null} this is a PING_PONG clip — alternate reps play the
+     * baked REVERSED file (true reverse). The reverse decision mirrors
+     * {@code ExportManager.buildLoopExtensionItem}: {@code reverse = (isBefore ? reps-1-r : r) % 2
+     * == 1}. For a forward rep the window clips the (forward) source {@code [inPoint, inPoint+span)}.
+     * For a reverse rep the window clips the reversed file to {@code [outPoint-endMs, outPoint-startMs)}
+     * where {@code [startMs,endMs]} is that forward source range — i.e. reversed-file coords
+     * {@code [(outPoint-inPoint) - span, (outPoint-inPoint))} = the LAST {@code span} ms of the
+     * reversed file = the clip's head rolling backward. This is the SAME mapping export uses, so
+     * preview reverse legs land on identical frames to export reverse legs.</p>
      */
     private long addLoopReps(int clipIndex, @NonNull Clip clip, @NonNull Uri seekable,
-                              @NonNull List<MediaItem> items, @NonNull RepKind kind,
+                              @Nullable Uri reversedUri, @NonNull List<MediaItem> items,
+                              @NonNull RepKind kind,
                               long extensionMs, long trimmedPlayMs, long startVisualMs) {
         int reps = (int) Math.ceil(extensionMs / (double) trimmedPlayMs);
         float speed = clip.getSpeedMultiplier();
         long inPointMs = clip.getInPointMs();
         long outPointMs = clip.getOutPointMs();
+        boolean isBefore = kind == RepKind.BEFORE;
         long visualCursorMs = startVisualMs;
         for (int r = 0; r < reps; r++) {
             // Same clamp as ExportManager.buildLoopExtensionItem: only the last rep in append
@@ -306,10 +358,28 @@ public class MasterPlaybackEngine {
             long playedMs = Math.min(trimmedPlayMs, extensionMs - (long) r * trimmedPlayMs);
             if (playedMs <= 0) continue;
             long sourceSpanMs = Math.max(1L, (long) (playedMs * speed));
-            long startMs = inPointMs;
-            long endMs = Math.min(outPointMs, inPointMs + sourceSpanMs);
+
+            boolean reverse = reversedUri != null
+                    && ((isBefore ? reps - 1 - r : r) % 2 == 1);
+
+            Uri uri;
+            long startMs;
+            long endMs;
+            if (reverse) {
+                // Forward source range for this rep is [inPoint, inPoint+span]; map into the
+                // reversed file (baked-time t ↔ source outPoint-t) → [outPoint-(inPoint+span),
+                // outPoint-inPoint] == [(out-in)-span, (out-in)].
+                uri = reversedUri;
+                long revLen = outPointMs - inPointMs; // reversed file's own duration
+                startMs = Math.max(0L, revLen - sourceSpanMs);
+                endMs = revLen;
+            } else {
+                uri = seekable;
+                startMs = inPointMs;
+                endMs = Math.min(outPointMs, inPointMs + sourceSpanMs);
+            }
             MediaItem item = new MediaItem.Builder()
-                    .setUri(seekable)
+                    .setUri(uri)
                     .setClippingConfiguration(
                             new MediaItem.ClippingConfiguration.Builder()
                                     .setStartPositionMs(startMs)

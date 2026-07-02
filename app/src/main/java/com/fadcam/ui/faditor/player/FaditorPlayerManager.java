@@ -28,15 +28,18 @@ import com.fadcam.ui.faditor.compositor.MasterPlaybackEngine;
  * to support fragmented MP4 and SAF content:// URIs reliably.</p>
  *
  * <p><b>M-COMP-0 (gapless master playback):</b> when {@link #GAPLESS_ENGINE} is on and the
- * project is a plain-cut single track (PLUS L1: any NORMAL-mode loop-extension clips, see
- * PLAN_LOOP_PINGPONG.md), this manager delegates its single-clip public API to a
- * {@link MasterPlaybackEngine} that plays the whole track as one pre-buffered
- * ClippingConfiguration playlist — so plain cuts AND loop-extension wraps both cross warm (no
+ * project is a plain-cut single track (PLUS L1: any NORMAL-mode loop-extension clips; PLUS L2:
+ * PING_PONG loop clips whose reversed segment is baked/cached — see PLAN_LOOP_PINGPONG.md), this
+ * manager delegates its single-clip public API to a {@link MasterPlaybackEngine} that plays the
+ * whole track as one pre-buffered ClippingConfiguration playlist — so plain cuts, loop-extension
+ * wraps, AND true ping-pong reverse legs (played from a baked reversed file) all cross warm (no
  * cold re-prepare / boundary freeze, no poll-based seekTo(0)). All position/seek/transport calls
  * are preserved as clip-local (CONTINUOUS across a looped clip's reps — see
  * {@link MasterPlaybackEngine#getCurrentPositionInWindow()}) so {@code FaditorEditorActivity}'s
- * polling loop is unchanged. PING_PONG / STILL loop clips, transitions, and images still fall
- * back to the legacy single-clip path below. See {@code MasterPlaybackEngine} for details.</p>
+ * polling loop is unchanged. STILL loop clips, transitions, images, and PING_PONG clips whose
+ * reverse bake isn't ready yet fall back to the legacy single-clip path below (for the last, that
+ * means a FORWARD-TAIL preview until the bake completes and a rebuild promotes it). See
+ * {@code MasterPlaybackEngine} for details.</p>
  */
 public class FaditorPlayerManager implements DefaultLifecycleObserver {
 
@@ -200,7 +203,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
                 || gaplessResolver == null || gaplessSeamListener == null || playerView == null) {
             return;
         }
-        if (!MasterPlaybackEngine.isEligible(gaplessTimeline)) return;
+        if (!MasterPlaybackEngine.isEligible(gaplessTimeline, gaplessResolver)) return;
         gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
         if (!gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {
             gaplessEngine.releasePlayer();
@@ -268,9 +271,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         this.gaplessTimeline = timeline;
         this.gaplessResolver = resolver;
         this.gaplessSeamListener = seamListener;
-        if (!GAPLESS_ENGINE || !MasterPlaybackEngine.isEligible(timeline)) {
+        if (!GAPLESS_ENGINE || !MasterPlaybackEngine.isEligible(timeline, resolver)) {
             FLog.d(TAG, "Gapless engine NOT active (flag=" + GAPLESS_ENGINE
-                    + ", eligible=" + MasterPlaybackEngine.isEligible(timeline) + ")");
+                    + ", eligible=" + MasterPlaybackEngine.isEligible(timeline, resolver) + ")");
             return;
         }
         if (player == null) initializePlayer();
@@ -301,7 +304,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
                 || gaplessTimeline == null) {
             return;
         }
-        if (!MasterPlaybackEngine.isEligible(gaplessTimeline)) {
+        if (!MasterPlaybackEngine.isEligible(gaplessTimeline, gaplessResolver)) {
             if (gaplessEngine != null) {
                 gaplessEngine.releasePlayer();
                 gaplessEngine = null;
@@ -516,7 +519,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         // Gapless: rebuild the playlist and restore position.
         if (GAPLESS_ENGINE && gaplessTimeline != null && gaplessResolver != null
                 && gaplessSeamListener != null
-                && MasterPlaybackEngine.isEligible(gaplessTimeline) && playerView != null) {
+                && MasterPlaybackEngine.isEligible(gaplessTimeline, gaplessResolver) && playerView != null) {
             if (player == null) initializePlayer();
             gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
             if (gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {

@@ -59,6 +59,7 @@ import com.fadcam.playback.FragmentedMp4Remuxer;
 import com.fadcam.ui.InputActionBottomSheetFragment;
 import com.fadcam.ui.faditor.assetbrowser.AssetItem;
 import com.fadcam.ui.faditor.export.ExportManager;
+import com.fadcam.ui.faditor.compositor.MasterPlaybackEngine;
 import com.fadcam.ui.faditor.export.ExportService;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
@@ -122,6 +123,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private ExportManager exportManager;
     private SharedPreferencesManager prefsManager;
     private FragmentedMp4Remuxer remuxer;
+    /** L2: cache of baked TRUE-reversed segments for PING_PONG loop legs (preview==export source). */
+    private com.fadcam.ui.faditor.export.ReversedSegmentCache reversedCache;
+    /** Off-main executor for baking reversed segments (drawer path). */
+    @Nullable
+    private java.util.concurrent.ExecutorService reverseBakeExecutor;
+    /** Source-URI+in+out keys whose reverse bake is in flight, so we don't double-launch. */
+    private final java.util.Set<String> reverseBakeInFlight =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    /** Whether the "reverse for long loops coming later" guard toast has been shown this session. */
+    private boolean reverseLongGuardToastShown = false;
 
     // ── Export service binding ────────────────────────────────────────
     private ExportService exportService;
@@ -582,13 +593,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Returns the total effective video duration (sum of all video clips' trimmed durations).
+     * Returns the total effective VISUAL video duration — the sum of each clip's on-timeline
+     * length INCLUDING its loop/ping-pong/still extensions (a looped clip contributes its full
+     * {@link Clip#getVisualDurationMs()}, not just its trimmed pass). This is the "video track
+     * ends here" boundary the audio-tail feature gates on (see {@code btnPlayPause} / the playback
+     * tick): if this undercounted the real timeline (as it did when it summed only
+     * {@code getTrimmedDurationMs()}), pressing Play while paused INSIDE a loop extension — whose
+     * back half sits past the sum-of-trimmed value — wrongly entered audio-tail mode (video frozen,
+     * playhead driven purely by wall-clock) instead of resuming real ExoPlayer playback. Mirrors
+     * the {@code hasLoopExtension() ? getVisualDurationMs() : getTrimmedDurationMs()} convention
+     * already used elsewhere in this file (e.g. the STILL-extension cumulative math ~6978).
      */
     private long totalEffectiveMs() {
         long total = 0;
         Timeline tl = project.getTimeline();
         for (int i = 0; i < tl.getClipCount(); i++) {
-            total += tl.getClip(i).getTrimmedDurationMs();
+            Clip c = tl.getClip(i);
+            total += c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
         }
         return total;
     }
@@ -1180,6 +1201,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // EXACT during the trim-edge preview) and land on the new in-frame.
                     playerManager.setExactSeek(false);
                 }
+                // L2: a trim changes in/out → the reverse-bake key changes → the OLD baked file no
+                // longer matches (cache miss), so a PING_PONG clip drops to forward-tail until a
+                // fresh bake for the new range lands and rebuilds the playlist. Kick that re-bake.
+                kickReverseBakeIfNeeded(clip);
                 updateCurrentTimeDisplay(0);
                 refreshTotalTimeDisplay();
                 saveProjectNow();
@@ -2712,6 +2737,109 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return clip.relinked(playbackUri);
     }
 
+    // ── L2: reversed-segment (ping-pong) cache plumbing ──────────────────
+
+    private com.fadcam.ui.faditor.export.ReversedSegmentCache reversedCache() {
+        if (reversedCache == null) {
+            reversedCache = new com.fadcam.ui.faditor.export.ReversedSegmentCache(this);
+        }
+        return reversedCache;
+    }
+
+    /**
+     * PURE LOOKUP for the gapless engine's {@code SourceResolver.resolveReversed}: returns the
+     * CACHED baked-reversed file URI for a PING_PONG clip's current trimmed sub-range, or null if
+     * the clip is not PING_PONG, its span is too long to bake, or the bake hasn't finished. Never
+     * blocks / never bakes — the bake is warmed off-main by {@link #kickReverseBakeIfNeeded} (drawer)
+     * or {@code ExportService} (pre-export). Determines the clip's gapless eligibility.
+     */
+    @Nullable
+    private Uri resolveReversedUri(@NonNull Clip clip) {
+        if (clip.getLoopMode() != Clip.LOOP_MODE_PING_PONG || !clip.hasLoopExtension()
+                || clip.isImageClip()) {
+            return null;
+        }
+        Uri src = clip.getSourceUri();
+        long in = clip.getInPointMs();
+        long out = clip.getOutPointMs();
+        if (!com.fadcam.ui.faditor.export.ReversedSegmentCache.canBake(in, out)) return null;
+        if (reversedCache().isCached(src, in, out)) {
+            return Uri.fromFile(reversedCache().fileFor(src, in, out));
+        }
+        return null;
+    }
+
+    /**
+     * The on-disk file ffmpeg should reverse for {@code clip} — a remuxed/faststart copy when the
+     * raw source is a fragmented MP4 (so the reverse bake's fast-seek is accurate + linear-decodes
+     * cleanly), otherwise the raw file. Returns null if no local file can be resolved.
+     */
+    @Nullable
+    private File resolveReverseInputFile(@NonNull Clip clip) {
+        Uri playbackUri = resolvePlaybackUri(clip.getSourceUri()); // remuxes fMP4 if needed (cached)
+        File f = resolveToFile(playbackUri);
+        if (f == null) f = resolveToFile(clip.getSourceUri());
+        return f;
+    }
+
+    /**
+     * Kick an OFF-MAIN reverse bake for a PING_PONG clip if one isn't cached / in flight, then on
+     * completion rebuild the gapless playlist on the MAIN thread so the (now-eligible) project
+     * promotes to the gapless engine with a TRUE reverse leg. Mirrors L1's lesson that a loop edit
+     * must rebuild the engine — here the rebuild is deferred until the bake lands. Long spans
+     * (> guard) skip the bake and show a one-time toast; the clip stays on the legacy forward-tail.
+     */
+    private void kickReverseBakeIfNeeded(@NonNull Clip clip) {
+        if (clip.getLoopMode() != Clip.LOOP_MODE_PING_PONG || !clip.hasLoopExtension()
+                || clip.isImageClip()) {
+            return;
+        }
+        final Uri src = clip.getSourceUri();
+        final long in = clip.getInPointMs();
+        final long out = clip.getOutPointMs();
+        if (!com.fadcam.ui.faditor.export.ReversedSegmentCache.canBake(in, out)) {
+            // Guard: span too long to bake — one-time toast, keep forward-tail fallback.
+            if (!reverseLongGuardToastShown) {
+                reverseLongGuardToastShown = true;
+                Toast.makeText(this, R.string.faditor_reverse_long_loop_later,
+                        Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        if (reversedCache().isCached(src, in, out)) return; // already baked
+        final String key = com.fadcam.ui.faditor.export.ReversedSegmentCache.keyFor(src, in, out);
+        if (!reverseBakeInFlight.add(key)) return; // already baking this exact range
+        final Clip bakeClip = clip;
+        final String clipId = clip.getId();
+        if (reverseBakeExecutor == null) {
+            reverseBakeExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        }
+        reverseBakeExecutor.execute(() -> {
+            // Resolve the input file OFF-MAIN — it may trigger a (blocking) fMP4 remux.
+            File input = resolveReverseInputFile(bakeClip);
+            File baked = reversedCache().bakeSync(src, input, in, out);
+            reverseBakeInFlight.remove(key);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || playerManager == null) return;
+                if (baked == null) {
+                    FLog.w(TAG, "Reverse bake unavailable for clip " + clipId
+                            + " — staying on forward-tail");
+                    return;
+                }
+                // The bake landed. If the clip is still PING_PONG with the same range, rebuild the
+                // gapless playlist so the engine re-evaluates eligibility and uses the reversed file.
+                Clip cur = findClipById(clipId);
+                if (cur != null && cur.getLoopMode() == Clip.LOOP_MODE_PING_PONG
+                        && cur.getInPointMs() == in && cur.getOutPointMs() == out
+                        && !cur.isImageClip()) {
+                    FLog.i(TAG, "Reverse bake ready for clip " + clipId
+                            + " — rebuilding gapless playlist for TRUE ping-pong");
+                    playerManager.rebuildGaplessTimeline();
+                }
+            });
+        });
+    }
+
     private void loadClipForPlayback(@NonNull Clip clip) {
         if (playerManager == null) return;
         transitionPlaybackActive = false;
@@ -2819,7 +2947,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // re-prepare. Route auto-seam UI sync through onGaplessSeam(). No-op when the flag
         // is off or the project isn't eligible (loops/transitions/images keep the legacy path).
         playerManager.setGaplessTimeline(project.getTimeline(),
-                clip -> resolvePlaybackUri(clip.getSourceUri()),
+                new MasterPlaybackEngine.SourceResolver() {
+                    @NonNull
+                    @Override
+                    public Uri resolveSeekable(@NonNull Clip clip) {
+                        return resolvePlaybackUri(clip.getSourceUri());
+                    }
+
+                    // L2: baked TRUE-reversed file for a PING_PONG clip (cached-only lookup).
+                    @Nullable
+                    @Override
+                    public Uri resolveReversed(@NonNull Clip clip) {
+                        return resolveReversedUri(clip);
+                    }
+                },
                 this::onGaplessSeam);
 
         // Load the clip
@@ -4146,6 +4287,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!clip.isImageClip()) {
             playerManager.updateTrimBounds(clip);
         }
+        // L2: if this made the clip PING_PONG, kick the off-main reverse bake now; when it lands it
+        // rebuilds the gapless playlist for a TRUE reverse leg (until then, forward-tail fallback).
+        kickReverseBakeIfNeeded(clip);
         saveProjectNow();
     }
 
@@ -4174,6 +4318,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!clip.isImageClip()) {
             playerManager.updateTrimBounds(clip);
         }
+        // L2: extendLoop doesn't change the trim range (only before/after ms), so the reverse-bake
+        // key is unchanged — but if this clip is PING_PONG and not yet baked, ensure a bake is in
+        // flight (cheap no-op when already cached).
+        kickReverseBakeIfNeeded(clip);
         saveProjectNow();
     }
 
@@ -6836,39 +6984,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
             long visualDuration = clip.getVisualDurationMs();
 
             if (clip.isLoopModeLooping() && clip.getLoopMode() == Clip.LOOP_MODE_PING_PONG) {
-                // PING-PONG: decoupled timeline + reverse video playback.
-                // Timeline advances at real-time speed via wall clock (like Still mode).
-                // Video plays forward (0→end), then backward (end→0) independently.
-                FLog.d(TAG, "PingPong: isAtEnd pending=" + loopRestartPending
-                        + " fwd=" + loopPingPongForward
-                        + " vOff=" + loopVisualOffsetMs
-                        + " pos=" + currentPos + "/" + trimmedDur);
+                // LEGACY (gapless flag OFF) PING_PONG preview = honest FORWARD-TAIL replay.
+                // The true reversed leg is a baked ffmpeg segment played only by the gapless engine
+                // (L2). When the flag is off (or a bake isn't ready) the preview must NOT fake
+                // reverse: Media3 REQUIRES playbackSpeed > 0, so the old setPlaybackSpeed(-1f) hack
+                // threw / was swallowed and never actually reversed. Instead we replay the trimmed
+                // pass FORWARD each wrap — exactly what export used to do for ping-pong before L2 —
+                // so the legacy path is simple, non-crashing, and matches its own (old) export.
+                FLog.d(TAG, "PingPong(legacy fwd-tail): isAtEnd pending=" + loopRestartPending
+                        + " vOff=" + loopVisualOffsetMs + " pos=" + currentPos + "/" + trimmedDur);
                 if (loopRestartPending) {
-                    FLog.d(TAG, "PingPong: still pending, skip");
+                    FLog.d(TAG, "PingPong(legacy): still pending, skip");
                     return;
                 }
                 loopRestartPending = true;
-                if (loopPingPongForward) {
-                    // Forward pass just ended → switch to reverse playback.
-                    loopPingPongForward = false;
-                    if (loopPingPongWallMs < 0) {
-                        // First time entering decoupled timeline: start wall clock
-                        // offset so elapsed = trimmedDur at the start (the first
-                        // forward pass already consumed that time).
-                        loopPingPongWallMs = android.os.SystemClock.elapsedRealtime() - trimmedDur;
-                        FLog.d(TAG, "PingPong: start wall clock");
+                loopVisualOffsetMs += trimmedDur;
+                long visualPos = clip.getLoopBeforeMs() + loopVisualOffsetMs;
+                if (visualPos >= visualDuration) {
+                    FLog.d(TAG, "PingPong(legacy): exhausted, advance");
+                    loopVisualOffsetMs = 0;
+                    Timeline timeline = project.getTimeline();
+                    int nextIndex = selectedClipIndex + 1;
+                    if (nextIndex < timeline.getClipCount()) {
+                        advanceToSegment(nextIndex, true);
+                    } else {
+                        playerManager.pause();
+                        pauseAudioPlayer();
+                        updatePlayPauseButton(false);
+                        timeCurrent.setText(TimeFormatter.formatAuto(timeline.getTotalDurationMs()));
                     }
-                    FLog.d(TAG, "PingPong: forward→backward");
-                    playerManager.seekTo(Math.max(0, trimmedDur - 50));
-                    playerManager.setPlaybackSpeed(-1f);
-                    if (!playerManager.isPlaying()) playerManager.play();
                 } else {
-                    // Backward pass just ended (unlikely via isAtEnd; handled in isPlaying block).
-                    // Treat as fallback: switch to forward.
-                    loopPingPongForward = true;
-                    loopVisualOffsetMs += trimmedDur;
                     playerManager.seekTo(0);
-                    playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
                     if (!playerManager.isPlaying()) playerManager.play();
                 }
                 return;
@@ -6992,39 +7138,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         } // end of if (isAtEnd && clip.hasLoopExtension())
 
-        // Ping-pong backward→forward detection (outside isPlaying so it fires even
-        // when ExoPlayer pauses automatically at the start of the reverse pass).
-        if (clip.hasLoopExtension() && clip.getLoopMode() == Clip.LOOP_MODE_PING_PONG
-                && !loopPingPongForward) {
-            long ppPos = playerManager.getCurrentPosition();
-            if (ppPos < 200) {
-                FLog.d(TAG, "PingPong: backward→forward at pos=" + ppPos);
-                loopPingPongForward = true;
-                loopVisualOffsetMs += clip.getTrimmedDurationMs();
-                long visualPos = clip.getLoopBeforeMs() + loopVisualOffsetMs;
-                if (visualPos >= clip.getVisualDurationMs()) {
-                    FLog.d(TAG, "PingPong: exhausted at pos=" + visualPos);
-                    loopVisualOffsetMs = 0;
-                    loopPingPongWallMs = -1;
-                    playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
-                    Timeline tl = project.getTimeline();
-                    int nextIdx = selectedClipIndex + 1;
-                    if (nextIdx < tl.getClipCount()) {
-                        advanceToSegment(nextIdx, true);
-                    } else {
-                        playerManager.pause();
-                        pauseAudioPlayer();
-                        updatePlayPauseButton(false);
-                        timeCurrent.setText(TimeFormatter.formatAuto(tl.getTotalDurationMs()));
-                    }
-                } else {
-                    playerManager.seekTo(0);
-                    playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
-                    if (!playerManager.isPlaying()) playerManager.play();
-                }
-                return;
-            }
-        }
+        // (L2) The legacy ping-pong "backward pass" detection was removed with the
+        // setPlaybackSpeed(-1f) reverse hack — legacy ping-pong now replays FORWARD (handled in
+        // the isAtEnd block above, identically to a NORMAL loop). True reverse is the gapless
+        // engine's baked-segment path only.
 
         if (isPlaying) {
             long currentPos = playerManager.getCurrentPosition();
@@ -7153,21 +7270,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 editorTimeline.setPlayheadPositionMs(timelineMs);
                 displayTimeMs = visualPosMs;
             } else if (clip.hasLoopExtension()) {
-                // In ping-pong mode with decoupled timeline, the playhead advances
-                // at real-time speed via wall clock (like Still mode), independent
-                // of the video which performs forward/backward passes.
-                long visualPosMs;
-                if (clip.getLoopMode() == Clip.LOOP_MODE_PING_PONG
-                        && loopPingPongWallMs >= 0) {
-                    long elapsed = android.os.SystemClock.elapsedRealtime() - loopPingPongWallMs;
-                    visualPosMs = clip.getLoopBeforeMs() + loopVisualOffsetMs + elapsed;
-                } else if (clip.getLoopMode() == Clip.LOOP_MODE_PING_PONG && !loopPingPongForward) {
-                    // Fallback: backward pass before wall clock started
-                    long relBackward = trimmedDurationMs - position;
-                    visualPosMs = clip.getLoopBeforeMs() + loopVisualOffsetMs + relBackward;
-                } else {
-                    visualPosMs = clip.getLoopBeforeMs() + loopVisualOffsetMs + position;
-                }
+                // Legacy (gapless flag OFF) looped-clip playhead: NORMAL and (now forward-tail)
+                // PING_PONG both advance the playhead as loopBefore + accumulated-rep-offset +
+                // the current forward position within the trimmed pass. (The old ping-pong
+                // decoupled-wall-clock / backward-pass mapping was removed with the -1f reverse.)
+                long visualPosMs = clip.getLoopBeforeMs() + loopVisualOffsetMs + position;
                 long visDur = clip.getVisualDurationMs();
                 if (visualPosMs > visDur) visualPosMs = visDur;
                 // Find this clip's cumulative start on the timeline

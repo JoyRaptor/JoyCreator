@@ -134,6 +134,32 @@ public class ExportManager {
     private FragmentedMp4Remuxer exportRemuxer;
 
     /**
+     * L2: lazily-created cache of baked TRUE-reversed segments for PING_PONG loop legs. Used only
+     * as a LOOKUP here (never blocks) — {@link ExportService} warms it synchronously off the main
+     * thread before export so a reverse leg the preview showed as true-reverse is baked in time.
+     */
+    @Nullable
+    private ReversedSegmentCache exportReversedCache;
+
+    /**
+     * The cached baked-reversed file URI for a PING_PONG clip's current trim range, or null if not
+     * cached / span too long. Pure lookup — mirrors the preview resolver so preview==export.
+     */
+    @Nullable
+    private android.net.Uri resolveReversedFileUri(@NonNull Clip clip) {
+        if (clip.getLoopMode() != Clip.LOOP_MODE_PING_PONG || clip.isImageClip()) return null;
+        if (exportReversedCache == null) exportReversedCache = new ReversedSegmentCache(context);
+        long in = clip.getInPointMs();
+        long out = clip.getOutPointMs();
+        if (!ReversedSegmentCache.canBake(in, out)) return null;
+        if (exportReversedCache.isCached(clip.getSourceUri(), in, out)) {
+            return android.net.Uri.fromFile(
+                    exportReversedCache.fileFor(clip.getSourceUri(), in, out));
+        }
+        return null;
+    }
+
+    /**
      * Resolve a clip's source to a SEEKABLE URI for the MediaItem builders.
      *
      * <p>Raw FadCam recordings are fragmented MP4s that are NOT seekable to a
@@ -873,25 +899,37 @@ public class ExportManager {
                 && ((isBefore ? totalReps - 1 - repIndex : repIndex) % 2 == 1);
 
         // Choose the source sub-range so playback length matches `playedMs`.
-        // Forward leg plays [inPoint, inPoint + playedMs*speed]; reverse leg
-        // plays [outPoint - playedMs*speed, outPoint] so it visually reads as
-        // the clip rolling backward in time.
         float speed = clip.getSpeedMultiplier();
         long inPointMs = clip.getInPointMs();
         long outPointMs = clip.getOutPointMs();
         long sourceSpanMs = Math.max(1L, (long) (playedMs * speed));
+
+        // L2: a reverse leg plays the SAME baked-reversed file the preview engine uses, mapped with
+        // the identical coordinates → preview==export by construction. Baked-file time t ↔ source
+        // outPoint-t, so the forward source range [inPoint, inPoint+span] maps to reversed-file
+        // range [ (out-in)-span, (out-in) ] (== revStart = outPoint-endMs, revEnd = outPoint-startMs
+        // minus the bake's inPoint offset). If NO bake exists (guard: span too long, or a warm
+        // failure) we fall back to a plain FORWARD head replay [inPoint, inPoint+span] with NO
+        // mirror — matching exactly what the (forward-tail) preview shows in that same un-baked case
+        // (the old setScale(-1) horizontal-mirror stand-in is GONE — it never matched preview).
+        android.net.Uri reversedUri = reverse ? resolveReversedFileUri(clip) : null;
+        android.net.Uri itemUri;
         long startMs;
         long endMs;
-        if (reverse) {
-            startMs = Math.max(inPointMs, outPointMs - sourceSpanMs);
-            endMs = outPointMs;
+        if (reverse && reversedUri != null) {
+            long revLen = outPointMs - inPointMs; // reversed file's own duration
+            itemUri = reversedUri;
+            startMs = Math.max(0L, revLen - sourceSpanMs);
+            endMs = revLen;
         } else {
+            // Forward leg, or reverse leg with no bake → forward head replay.
+            itemUri = resolveSeekableSourceUri(clip);
             startMs = inPointMs;
             endMs = Math.min(outPointMs, inPointMs + sourceSpanMs);
         }
 
         MediaItem mediaItem = new MediaItem.Builder()
-                .setUri(resolveSeekableSourceUri(clip))
+                .setUri(itemUri)
                 .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                                 .setStartPositionMs(startMs)
@@ -910,25 +948,14 @@ public class ExportManager {
             audioProcessors.add(sap);
         }
 
-        // Media3 Transformer does not support true reverse playback. For
-        // ping-pong reverse cycles we mirror horizontally as a visual stand-in
-        // so the motion looks like a true reverse.
-        // TODO: This is an approximation — any text overlay rendered AFTER this
-        //  transform will also be mirrored (which is usually undesirable). A
-        //  proper reverse would require pre-rendering the source reversed or a
-        //  custom effect that handles the text overlay separately.
-        Effect reverseMirror = null;
-        if (reverse) {
-            ScaleAndRotateTransformation.Builder tb = new ScaleAndRotateTransformation.Builder();
-            tb.setScale(-1f, 1f);
-            reverseMirror = tb.build();
-        }
-
+        // No reverse-mirror effect: a true reverse leg comes pre-reversed (video AND areverse'd
+        // audio) from the baked file, and the un-baked fallback is plain forward. Effects (overlay,
+        // opacity, presentation, crop, color) apply normally on top.
         List<Effect> videoEffects = assembleClipVideoEffects(
                 clip, project, timelineCursorMs, outW, outH,
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
-                /* preOverlayExtra = */ reverseMirror);
+                /* preOverlayExtra = */ null);
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             eb.setEffects(new Effects(audioProcessors, videoEffects));

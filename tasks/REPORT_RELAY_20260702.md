@@ -26,10 +26,13 @@ remuxed fMP4 — REQUIRES a device before the engine is built; do not build it b
 - then **M6** (multi-row timeline UI, Sonnet) → **M7** (edit floating items, Sonnet) → **M-COMP-1** (View-stack
   layer preview, Sonnet), as far as the usage window reaches. Checkpoint commit after each green milestone.
 
-## M5 DEVICE-GATE DEBT (IMPORTANT — first device session must run this BEFORE M6+ features are trusted)
-PLAN_LAYERS_V2 §5.3: export a real sandbox project BEFORE-M5 vs AFTER-M5 → must match (duration + frame
-spot-checks + audio RMS). Pre-M5 baseline = checkpoint `ff39b6a` (build APK from it if needed). Also:
-save/reload round-trip via `run-as cat project.json`, undo-after-trim, downgrade-guard behavior.
+## ✅ M5 REGRESSION GATE: **PASSED** (2026-07-02 ~02:10, Note 9)
+ff39b6a vs 01d0d66 sandbox exports: ALL 621 frames byte-identical (PSNR inf, MSE 0), raw video md5 identical,
+raw PCM md5 identical, RMS curves identical to 6dp, durations equal to the sample. Evidence + MP4s/frames in
+the session scratchpad (see agent report). Old-build save strips the layers block; current build re-materializes
+it losslessly — dual-write working as designed. Tree ended clean on joy-creator @ 01d0d66, build green,
+4.0.0-beta9 installed on the Note 9. Sandbox project untouched (6 clips intact).
+Still owed on-device: undo-after-trim spot check; downgrade-guard behavior (hand-stamped v9 project → read-only).
 
 ## FULL DEVICE-VERIFY BATCH (when ANY phone is attached; sandbox Note 9 SANDBOX_SERIAL preferred; NEVER the real project 27221664 / phone REAL_SERIAL)
 1. M5 regression gate (above) — FIRST.
@@ -80,3 +83,10 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   `applyAudioTrackMuteLive` ~8385; transform via existing KeyframeSet.valueAt. DEVICE-VERIFIED: launch, plain
   no-op, mute toggle + undo + on-disk round-trip, v7 stamp preserved. Still owed: interactive hide-tap pass,
   image-item render (needs M10).
+- (2026-07-02 ~02:10) **REGRESSION GATE PASSED on Note 9** (Opus; details in the GATE section above). Layers
+  foundation (M5→M-COMP-1) provably did not change single-track export output. M-EXPORT-1 is now PERMITTED
+  by the plan when its time comes (after M10 makes layer content creatable).
+- (2026-07-02 ~02:20) **M-COMP-0 agent LAUNCHED** (Opus): gapless master engine per PLAN §3.1, PROBE-FIRST
+  (ClippingConfiguration on remuxed fMP4 must be verified on the Note 9 BEFORE the engine is trusted),
+  feature-flagged with today's engine as fallback. If this was cut mid-run: check git status/build.log; the
+  feature flag must default OFF unless the agent's report says full device acceptance passed.

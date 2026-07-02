@@ -10,7 +10,9 @@ checkpoint-commit proposal), the export work package, the rebrand plan, agent st
 3. Export work package: minimize-during-export + edit-safety + out-of-process + quality setting (bundled).
 4. **Layers (Phase 5, keystone)** → execution plan = `tasks/PLAN_LAYERS_V2.md` (supersedes the Phase-5 section
    below and the older asset-browser/layers plans; schema is v8 not v6, includes downgrade guard + M-COMP-0
-   gapless engine which is also the real fix for transition preview).
+   gapless engine which is also the real fix for transition preview) **+ `tasks/PLAN_LAYERS_UX_ADDENDUM.md`**
+   (2026-07-02 binding decisions: row↔z mapping, grouped overlay z, M12 promote/demote drag, anchoring into M11,
+   one-attempt gesture-test rule).
 5. Sprite animation Build 1 (`C:\ObsidianBrain\sprite plan.md`).
 6. Visible rebrand + AI features + recording pipeline.
 Tactical state per item: `handoff.md` dated entries. History: DIAG Rounds 1–8.

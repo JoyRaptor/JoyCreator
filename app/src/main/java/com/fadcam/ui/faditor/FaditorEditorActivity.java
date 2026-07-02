@@ -11027,7 +11027,92 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
         });
+        hideChip.setOnLongClickListener(v -> {
+            showHideCaptionsOnAllClipsDialog();
+            return true;
+        });
         row.addView(hideChip);
+    }
+
+    /**
+     * Long-press on the "Hidden" (eye-slash) pill: offer to hide captions on ALL clips in
+     * the timeline (video + audio), mirroring the style chips' apply-to-all long-press.
+     * Caption-style keyframes are left untouched (captionsEnabled=false gates rendering
+     * entirely); undo restores each clip's prior enabled state. One undoable step.
+     */
+    private void showHideCaptionsOnAllClipsDialog() {
+        if (project == null) return;
+        java.util.List<Clip> clips = project.getTimeline().getClips();
+        java.util.List<AudioClip> audioClips = project.getTimeline().getAudioClips();
+        if (clips.isEmpty() && audioClips.isEmpty()) return;
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Hide captions on all clips?")
+                .setMessage("Captions on every clip in the timeline will be hidden. "
+                        + "Tap a style chip on a clip to show its captions again.")
+                .setPositiveButton(android.R.string.ok, (d, w) -> hideCaptionsOnAllClips())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** Hide captions on every video + audio clip, recorded as a single undoable step. */
+    private void hideCaptionsOnAllClips() {
+        if (project == null) return;
+        final java.util.List<Clip> videoTargets =
+                new java.util.ArrayList<>(project.getTimeline().getClips());
+        final java.util.List<AudioClip> audioTargets =
+                new java.util.ArrayList<>(project.getTimeline().getAudioClips());
+        final java.util.List<Boolean> videoBeforeEnabled = new java.util.ArrayList<>();
+        for (Clip c : videoTargets) videoBeforeEnabled.add(c.isCaptionsEnabled());
+        final java.util.List<Boolean> audioBeforeEnabled = new java.util.ArrayList<>();
+        for (AudioClip a : audioTargets) audioBeforeEnabled.add(a.isCaptionsEnabled());
+
+        Runnable applyForward = () -> {
+            for (Clip c : videoTargets) c.setCaptionsEnabled(false);
+            for (AudioClip a : audioTargets) a.setCaptionsEnabled(false);
+            refreshCaptionOverlayVisibilityAfterBulkHide();
+        };
+        Runnable restoreBackward = () -> {
+            for (int i = 0; i < videoTargets.size(); i++) {
+                videoTargets.get(i).setCaptionsEnabled(videoBeforeEnabled.get(i));
+            }
+            for (int i = 0; i < audioTargets.size(); i++) {
+                audioTargets.get(i).setCaptionsEnabled(audioBeforeEnabled.get(i));
+            }
+            refreshCaptionOverlayVisibilityAfterBulkHide();
+        };
+
+        applyForward.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                "Hide captions on all clips", applyForward, restoreBackward));
+        scheduleAutoSave();
+        Toast.makeText(this, "Captions hidden on all clips", Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Sync both caption overlays' visibility with the bound clips' captionsEnabled state after
+     * a bulk hide (or its undo), mirroring refreshActiveCaptionOverlaysAfterBulkStyleChange.
+     */
+    private void refreshCaptionOverlayVisibilityAfterBulkHide() {
+        if (captionOverlay != null) {
+            Clip cc = getSelectedClip();
+            if (cc != null && cc.hasTranscript() && cc.isCaptionsEnabled()) {
+                bindCaptionData(cc);
+                captionOverlay.setVisibility(View.VISIBLE);
+            } else {
+                captionOverlay.setVisibility(View.GONE);
+            }
+        }
+        if (audioCaptionOverlay != null) {
+            AudioClip ac = audioCaptionClipId != null ? findAudioClipById(audioCaptionClipId) : null;
+            if (ac != null && ac.hasTranscript() && ac.isCaptionsEnabled()) {
+                bindAudioCaptionData(ac);
+                audioCaptionOverlay.setVisibility(View.VISIBLE);
+            } else {
+                audioCaptionOverlay.setVisibility(View.GONE);
+            }
+        }
+        if (editorTimeline != null) editorTimeline.invalidate();
     }
 
     /**

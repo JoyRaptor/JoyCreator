@@ -46,3 +46,26 @@ The user wants NO political or activist identity in the app:
 - Visible rebrand (name/icon/splash/strings/theme): authorized, do incrementally.
 - applicationId change: ONE deliberate migration later, pre-release. Not now.
 - GPL: fork must remain GPL w/ attribution if ever distributed. User informed.
+
+## 7. Full-studio vision (2026-07-02, user brainstorm w/ orchestrator — direction, NOT a build order)
+The app is really four products sharing one body. Joy Creator = fold them into ONE flow:
+**CAPTURE → LIBRARY → STUDIO**, with REMOTE as a capture superpower.
+- **Capture**: camera, dual-cam (face+back simultaneously — future Layers PiP source), screen recorder
+  (fadrec + floating webcam + annotations), motion/noise-triggered capture, remote phone-as-webcam.
+- **Library**: records browser (VideoIndex/FastFileScanner backend), projects, trash, viewer. Polish
+  backlog: PROJECT RENAME (user-requested, trivial), project thumbnails/cards, search, tags.
+- **Studio**: the Faditor editor (Layers keystone) + AI tools.
+- **Remote**: `streaming/LiveM3U8Server` + `RemoteStreamService` + `assets/web/index.html` = the existing
+  "headless webcam over the network" (browser watches/controls the phone camera). Rebrand → "Remote Studio";
+  later: pull the remote stream in as a capture source / second camera for recordings.
+Legacy **forensics module** (the "evidence board" = ForensicsGallery/Events + Room DB of AiEvents/
+integrity logs/sync queue): identity conflicts with Joy Creator (spy/witness vibe — see §"remove
+political/activist elements") but the MECHANICS are gold, reskinned:
+1. Evidence board → **Story Board**: pin/tag/sequence clips+assets+notes pre-edit; hands a rough cut to
+   the editor. No mobile competitor has this.
+2. AiEvent/event-log + motion/noise detectors → **auto-markers**: interesting-moment chapters on long
+   recordings, jump-to markers in the editor timeline.
+3. Integrity hashing → optional "verified original" badge (park). SyncQueue → future cross-device sync (park).
+Rebrand rule for forensics: HIDE/park behind a settings toggle, do NOT delete (data safety) — repurpose
+piecemeal per the above. Priority: ALL of §7 sits BELOW the active queues (Layers/loops/feedback batches);
+cheap early wins when slack appears: project rename, auto-markers, Remote Studio rebrand pass.

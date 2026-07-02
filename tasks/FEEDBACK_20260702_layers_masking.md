@@ -15,7 +15,17 @@ same "surface overlap" root cause recorded in handoff (b760b40) as agreed-fix #2
 seek-to-start, landed in 9edad8a). Expected fix shape: within the row band, taps hit-test items first
 (select/trim-handles), horizontal drags NOT on an item (or not armed as an M7/M10 gesture) pass through to
 timeline scrubbing; vertical drags keep scrolling the row region; long-press keeps M10 pickup.
-STATUS: fix agent launched from the JoyRaptor session ~13:00. See handoff for outcome.
+STATUS: **FIXED + committed 6a47560, installed on Note 9** (~13:25). Root cause exactly as triaged:
+`handleM6RowTouch` claimed every non-item touch as row-scroll. Now: axis decision → horizontal = scrub
+pass-through (same updatePlayheadFromX primitive), vertical = row scroll, item hits unchanged. Scripted
+drags are IMPOSSIBLE on this Note 9 (input swipe truncates to one MOVE) → USER HAND-TEST CHECKLIST owed
+(in the agent report + relayed to user). ⚠️ CRITICAL DISCOVERY for "tap-select + purple linkage":
+**LayerRowRenderer has NO selection rendering at all** — selectedItemId is never drawn, so taps route
+correctly but show NOTHING. Selection visuals (highlight/border/trim handles keyed off
+LayerGestureController.getSelectedItemId()) are the PREREQUISITE before purple linkage. Also: both sandbox
+rows were saved LOCKED (partly why nothing responded); left unlocked after testing. Header toggles are NOT
+undo-tracked (contradicts M6 spec — verify/fix while in there). Tooling: screencap returns stale frames on
+this device — use screenrecord + ffmpeg frame extraction.
 
 ## B. FEATURE SCENARIOS (user's words condensed; treat as the spec of record)
 

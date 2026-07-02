@@ -8449,6 +8449,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * existing refresh paths so BOTH surfaces (the row on the timeline AND the on-canvas
      * {@code TextOverlayLayer} / the audio lane) stay coherent, since both read the SAME
      * mutated payload objects (PLAN scope item 6).
+     *
+     * <p><b>M10 one-undo-step merge:</b> {@code onItemMovedToTrack}/{@code onItemDroppedOnNewLayer}
+     * fire BEFORE {@code onGestureFinished} for the same gesture (see
+     * {@code LayerGestureController#onRowBodyUp}). They apply the track mutation
+     * immediately (so the model + preview are correct right away) but do NOT call
+     * {@code undoManager.recordAction} themselves — they stash the mutation's undo/redo
+     * halves in {@link #pendingLayerTrackUndo}, which {@code onGestureFinished} below
+     * picks up and folds into the SAME single action it records for the position
+     * change. A diagonal drag (changes both time AND track — the common case) therefore
+     * still produces exactly one {@code undoStack} entry (PLAN M10 acceptance (d)).</p>
      */
     private com.fadcam.ui.faditor.layers.LayerGestureController.Callback layerGestureCallback() {
         return new com.fadcam.ui.faditor.layers.LayerGestureController.Callback() {
@@ -8473,16 +8483,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         editorTimelineGestureController();
                 if (ctrl == null) return;
 
+                // M10: pick up (and clear) any track-change staged by onItemMovedToTrack/
+                // onItemDroppedOnNewLayer, which ran immediately before this callback for
+                // the SAME gesture — see class doc above.
+                PendingLayerTrackUndo trackChange = pendingLayerTrackUndo;
+                pendingLayerTrackUndo = null;
+
                 if (item.getTextOverlay() != null) {
                     com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
                     com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = ctrl.getTextBeforeSnapshot();
-                    if (before == null) return;
+                    if (before == null) { maybeRecordTrackOnlyChange(trackChange); return; }
                     com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after = o.snapshotTransform();
-                    if (!before.matches(after)) {
-                        String desc = kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE
-                                ? "Move overlay" : "Overlay time range";
-                        undoManager.recordAction(new EditActions.OverlayTransformAction(
-                                o, before, after, desc));
+                    boolean positionChanged = !before.matches(after);
+                    if (positionChanged || trackChange != null) {
+                        String desc = trackChange != null
+                                ? trackChange.description
+                                : (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE
+                                        ? "Move overlay" : "Overlay time range");
+                        undoManager.recordAction(mergedAction(desc,
+                                positionChanged ? () -> o.restoreTransform(after) : null,
+                                positionChanged ? () -> o.restoreTransform(before) : null,
+                                trackChange));
                     }
                     if (overlayLayer != null) {
                         overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
@@ -8497,14 +8518,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     long afterIn = ac.getInPointMs();
                     long afterOut = ac.getOutPointMs();
                     if (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE) {
-                        if (beforeOffset != afterOffset) {
-                            undoManager.recordAction(new EditActions.LambdaAction("Move audio clip",
-                                    () -> ac.setOffsetMs(afterOffset),
-                                    () -> ac.setOffsetMs(beforeOffset)));
+                        boolean positionChanged = beforeOffset != afterOffset;
+                        if (positionChanged || trackChange != null) {
+                            String desc = trackChange != null ? trackChange.description : "Move audio clip";
+                            undoManager.recordAction(mergedAction(desc,
+                                    positionChanged ? () -> ac.setOffsetMs(afterOffset) : null,
+                                    positionChanged ? () -> ac.setOffsetMs(beforeOffset) : null,
+                                    trackChange));
                         }
                     } else if (beforeIn != afterIn || beforeOut != afterOut) {
+                        // TRIM never carries a track change (LayerGestureController only
+                        // resolves a drag target for MOVE gestures), so no merge needed.
                         undoManager.recordAction(new EditActions.AudioTrimAction(
                                 ac, beforeIn, beforeOut, afterIn, afterOut));
+                    } else {
+                        maybeRecordTrackOnlyChange(trackChange);
                     }
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
                     prepareAudioPlayer();
@@ -8530,40 +8558,105 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onItemMovedToTrack(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
                     @NonNull com.fadcam.ui.faditor.layers.Track fromTrack,
                     @NonNull com.fadcam.ui.faditor.layers.Track toTrack) {
-                moveItemToLayerTrack(item, fromTrack.getId(), toTrack.getId(), toTrack.getId());
+                pendingLayerTrackUndo = stageMoveItemToLayerTrack(item, fromTrack.getId(), toTrack.getId());
             }
 
             @Override
             public void onItemDroppedOnNewLayer(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
                     @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {
-                createLayerAndMoveItem(item, fromTrack);
+                pendingLayerTrackUndo = stageCreateLayerAndMoveItem(item, fromTrack);
             }
         };
     }
 
     /**
-     * M10 glue: persist a cross-row drag (PLAN Part 7 row M10 scope 1) by writing the
-     * item's {@code layerId} — the ONLY thing that changed is WHICH layer track the item
-     * belongs to (its time-position is a SEPARATE undo step already recorded by
-     * {@code onGestureFinished} above), so this records its own one-line
-     * {@code LambdaAction} rather than folding into that one (independent no-op guards:
-     * a drag can change track without changing time, or vice versa — PLAN Part 7 row M10
-     * track-membership design).
+     * M10: the track-mutation half of a completed cross-row drag, staged by
+     * {@code onItemMovedToTrack}/{@code onItemDroppedOnNewLayer} and picked up by the
+     * immediately-following {@code onGestureFinished} call (same gesture — see
+     * {@code LayerGestureController#onRowBodyUp}) so BOTH halves land in exactly one
+     * {@code undoStack} entry (PLAN M10 acceptance (d)). {@code redo}/{@code undo} only
+     * touch the {@code layerId} (+ track creation/pruning); the position-change
+     * redo/undo (if any) is layered around these by {@code mergedAction}.
      */
-    private void moveItemToLayerTrack(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
-                                       @NonNull String fromTrackId, @NonNull String toTrackId,
-                                       @NonNull String description) {
-        if (project == null) return;
+    private static final class PendingLayerTrackUndo {
+        final String description;
+        final Runnable redo, undo;
+        PendingLayerTrackUndo(@NonNull String description, @NonNull Runnable redo, @NonNull Runnable undo) {
+            this.description = description;
+            this.redo = redo;
+            this.undo = undo;
+        }
+    }
+
+    /** Set by onItemMovedToTrack/onItemDroppedOnNewLayer, consumed by the very next onGestureFinished. */
+    @Nullable private PendingLayerTrackUndo pendingLayerTrackUndo;
+
+    /**
+     * Builds ONE {@code EditActions.LambdaAction} covering the position-change redo/undo
+     * (nullable — a drag can change track without changing time) AND the staged
+     * track-change redo/undo (nullable — a drag can change time without changing track),
+     * running the track half AFTER the position half on redo and BEFORE it on undo (undo
+     * order mirrors "last mutation applied, first mutation reverted"), so the merged
+     * action is a faithful single step regardless of which half(es) are present. At
+     * least one of {@code positionRedo}/{@code trackChange} is non-null whenever this is
+     * called (callers only call it when they already know something changed).
+     */
+    @NonNull
+    private EditActions.LambdaAction mergedAction(@NonNull String description,
+            @Nullable Runnable positionRedo, @Nullable Runnable positionUndo,
+            @Nullable PendingLayerTrackUndo trackChange) {
+        return new EditActions.LambdaAction(description,
+                () -> {
+                    if (positionRedo != null) positionRedo.run();
+                    if (trackChange != null) trackChange.redo.run();
+                },
+                () -> {
+                    if (trackChange != null) trackChange.undo.run();
+                    if (positionUndo != null) positionUndo.run();
+                });
+    }
+
+    /**
+     * A MOVE gesture can end with a track change but NO position change (e.g. the
+     * before-snapshot was unavailable, or the finger moved purely vertically) — in that
+     * case {@code onGestureFinished}'s normal "did the position change" guard would
+     * otherwise silently DROP the already-applied track mutation's undo step. Called
+     * from every early-return path in {@code onGestureFinished} so a track-only change
+     * is never lost.
+     */
+    private void maybeRecordTrackOnlyChange(@Nullable PendingLayerTrackUndo trackChange) {
+        if (trackChange == null) return;
+        undoManager.recordAction(mergedAction(trackChange.description, null, null, trackChange));
+        syncTimelineOverlays();
+        scheduleAutoSave();
+    }
+
+    /**
+     * M10 glue: apply a cross-row drag (PLAN Part 7 row M10 scope 1) by writing the
+     * item's {@code layerId} IMMEDIATELY (so the model/preview are correct as soon as
+     * the finger lifts) and returning the staged undo/redo halves for
+     * {@code onGestureFinished} to fold into ONE undo action alongside the position
+     * change (see {@link #pendingLayerTrackUndo}; PLAN M10 acceptance (d)).
+     */
+    @Nullable
+    private PendingLayerTrackUndo stageMoveItemToLayerTrack(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                                       @NonNull String fromTrackId, @NonNull String toTrackId) {
+        if (project == null) return null;
         final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
         final AudioClip audioPayload = item.getAudioClip();
-        if (textPayload == null && audioPayload == null) return; // master/clip items unreachable here
+        if (textPayload == null && audioPayload == null) return null; // master/clip items unreachable here
         // "text"/"audio" are the fixed default-track ids the migration always assigns;
         // storing null (rather than the literal string) for a move BACK to the default
         // track keeps old-shaped/never-touched items indistinguishable from ones
         // explicitly re-homed to the default (matches the serializer's omit-when-default
         // convention for layerId — see ProjectStorage).
         final String toStored = ("text".equals(toTrackId) || "audio".equals(toTrackId)) ? null : toTrackId;
-        undoManager.recordAction(new EditActions.LambdaAction("Move to layer",
+        final String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
+        if (textPayload != null) textPayload.setLayerId(toStored);
+        else audioPayload.setLayerId(toStored);
+        syncTimelineOverlays();
+        maybeRemoveEmptyLayerTrack(fromTrackId);
+        return new PendingLayerTrackUndo("Move to layer",
                 () -> {
                     if (textPayload != null) textPayload.setLayerId(toStored);
                     else audioPayload.setLayerId(toStored);
@@ -8571,16 +8664,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     maybeRemoveEmptyLayerTrack(fromTrackId);
                 },
                 () -> {
-                    String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
                     if (textPayload != null) textPayload.setLayerId(fromStored);
                     else audioPayload.setLayerId(fromStored);
                     syncTimelineOverlays();
-                }));
-        if (textPayload != null) textPayload.setLayerId(toStored);
-        else audioPayload.setLayerId(toStored);
-        syncTimelineOverlays();
-        maybeRemoveEmptyLayerTrack(fromTrackId);
-        scheduleAutoSave();
+                });
     }
 
     /**
@@ -8588,18 +8675,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * persistent track definition matching the dragged item's own band/kind (a TEXT/
      * STICKER item creates a TEXT track; an AUDIO item creates an AUDIO track — cross-
      * band drops are not offered by the gesture controller, see
-     * {@code LayerGestureController#updateDragTarget}'s same-band guard) and reassigns
-     * the item to it, as ONE undo step covering both the track creation and the move
-     * (undoing removes the item from the new track; since the track was created empty
-     * and only this item was ever added, the resulting empty track is pruned by the
-     * same {@link #maybeRemoveEmptyLayerTrack} helper the cross-row move uses).
+     * {@code LayerGestureController#updateDragTarget}'s same-band guard), reassigns the
+     * item to it IMMEDIATELY, and returns the staged undo/redo halves (track creation +
+     * move) for {@code onGestureFinished} to fold into ONE undo action alongside the
+     * position change (undoing removes the item from the new track; since the track was
+     * created empty and only this item was ever added, the resulting empty track is
+     * pruned by the same {@link #maybeRemoveEmptyLayerTrack} helper the cross-row move
+     * uses).
      */
-    private void createLayerAndMoveItem(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+    @Nullable
+    private PendingLayerTrackUndo stageCreateLayerAndMoveItem(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
                                          @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {
-        if (project == null || editorTimeline == null) return;
+        if (project == null || editorTimeline == null) return null;
         final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
         final AudioClip audioPayload = item.getAudioClip();
-        if (textPayload == null && audioPayload == null) return;
+        if (textPayload == null && audioPayload == null) return null;
         final Timeline timeline = project.getTimeline();
         boolean floatingBand = editorTimeline.isLayerTrackFloatingBand(fromTrack);
         com.fadcam.ui.faditor.layers.TrackKind newKind = floatingBand
@@ -8613,7 +8703,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String fromTrackId = fromTrack.getId();
         final String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
 
-        undoManager.recordAction(new EditActions.LambdaAction("New layer",
+        if (textPayload != null) textPayload.setLayerId(newTrackId);
+        else audioPayload.setLayerId(newTrackId);
+        syncTimelineOverlays();
+        maybeRemoveEmptyLayerTrack(fromTrackId);
+        return new PendingLayerTrackUndo("New layer",
                 () -> {
                     if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
                     if (textPayload != null) textPayload.setLayerId(newTrackId);
@@ -8626,10 +8720,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     else audioPayload.setLayerId(fromStored);
                     timeline.removeLayerTrackDef(newTrackId);
                     syncTimelineOverlays();
-                }));
-        syncTimelineOverlays();
-        maybeRemoveEmptyLayerTrack(fromTrackId);
-        scheduleAutoSave();
+                });
     }
 
     /**

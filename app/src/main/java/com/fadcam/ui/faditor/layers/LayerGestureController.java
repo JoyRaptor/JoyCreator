@@ -32,17 +32,21 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
  * receive {@code layerTracks}/{@code audioLayerTracks}, never the master). There is no
  * code path from a row-body touch here into a master {@code Clip}.</p>
  *
- * <p><b>Undo:</b> exactly one undo step per completed gesture. This class snapshots the
- * payload's before-state at gesture start (mirroring
+ * <p><b>Undo:</b> exactly one undo step per completed gesture — including a diagonal M10
+ * drag that changes BOTH time-position and track membership (PLAN M10 acceptance (d)).
+ * This class snapshots the payload's before-state at gesture start (mirroring
  * {@code FaditorEditorActivity#onOverlayDragStart}/{@code EditActions.AudioTrimAction}),
  * applies live mutations during the drag for immediate visual feedback (mirroring
- * {@code doAudioTrimDrag}/{@code doLayerDrag}), and reports the finished gesture via
- * {@link Callback#onGestureFinished} with the before-snapshot so the activity can record
- * a single {@code EditActions.OverlayTransformAction} / {@code EditActions.AudioTrimAction}
- * / {@code EditActions.LambdaAction} — the SAME undo classes M6-era code already uses, not
- * new parallel ones. Delete reports via {@link Callback#onItemDeleteRequested} so the
- * activity can reuse its existing confirmation-dialog pattern
- * ({@code onOverlayLayerLongPressed}/{@code deleteSelectedAudioClip}).</p>
+ * {@code doAudioTrimDrag}/{@code doLayerDrag}), and on {@link #onRowBodyUp} reports the
+ * finished gesture via, IN ORDER: {@link Callback#onItemMovedToTrack}/
+ * {@link Callback#onItemDroppedOnNewLayer} (if the row/track also changed) THEN
+ * {@link Callback#onGestureFinished} with the before-snapshot — so the activity can
+ * stage the track mutation's undo/redo halves in the first call and fold them into the
+ * SAME single {@code EditActions.OverlayTransformAction} / {@code EditActions.AudioTrimAction}
+ * / {@code EditActions.LambdaAction} the second call records — the SAME undo classes
+ * M6-era code already uses, not new parallel ones. Delete reports via
+ * {@link Callback#onItemDeleteRequested} so the activity can reuse its existing
+ * confirmation-dialog pattern ({@code onOverlayLayerLongPressed}/{@code deleteSelectedAudioClip}).</p>
  */
 public final class LayerGestureController {
 
@@ -74,22 +78,29 @@ public final class LayerGestureController {
          * where the drag started (PLAN Part 7 row M10 scope 1, drag-between-layers).
          * {@code fromTrack}/{@code toTrack} are the source/destination Track VIEWS at
          * gesture-start/end (both EPHEMERAL — read their {@code getId()} before this
-         * call returns, don't hold the objects). The activity is responsible for the
-         * persistent mutation (setting the item's {@code layerId} to {@code toTrack.getId()})
-         * and recording exactly one undo step alongside whatever
-         * {@link #onGestureFinished} already recorded for the time-position change —
-         * see the M10 build report for why this is a SEPARATE callback rather than
-         * folded into {@code onGestureFinished} (independent no-op guards: a drag can
-         * change track without changing time, or vice versa).
+         * call returns, don't hold the objects).
+         *
+         * <p><b>Fires BEFORE {@link #onGestureFinished} for the same gesture</b> (see
+         * {@link LayerGestureController#onRowBodyUp} doc). Implementations must apply
+         * the persistent mutation (setting the item's {@code layerId} to
+         * {@code toTrack.getId()}) immediately so the model is consistent for the
+         * upcoming {@code onGestureFinished} call, but should stage — not
+         * {@code undoManager.recordAction} — the undo/redo halves of that mutation, and
+         * hand them to the {@code onGestureFinished} handler to fold into the SAME
+         * single undo action as the position change (PLAN M10 acceptance (d): one undo
+         * step per completed drag, even when both position and track changed).</p>
          */
         void onItemMovedToTrack(@NonNull TimedItem item, @NonNull Track fromTrack, @NonNull Track toTrack);
 
         /**
          * A MOVE gesture on {@code item} ended with the finger over the "new layer"
          * drop zone below the last row (PLAN Part 7 row M10 scope 2, drop-to-new-layer).
-         * The activity creates a new persistent track (matching {@code fromTrack}'s
-         * band/kind — see {@code LayerRowRenderer#isFloatingBandRow}) and reassigns the
-         * item's {@code layerId} to it, as one undo step.
+         * Fires BEFORE {@link #onGestureFinished} for the same reason as
+         * {@link #onItemMovedToTrack} above. The activity creates a new persistent
+         * track (matching {@code fromTrack}'s band/kind — see
+         * {@code LayerRowRenderer#isFloatingBandRow}), reassigns the item's
+         * {@code layerId} to it immediately, and stages the undo/redo halves for
+         * {@code onGestureFinished} to fold into one action.
          */
         void onItemDroppedOnNewLayer(@NonNull TimedItem item, @NonNull Track fromTrack);
     }
@@ -365,6 +376,16 @@ public final class LayerGestureController {
      * naturally no-op-guarded the same way {@code recordOverlayTimelineDrag} /
      * {@code AudioTrimAction} recording already is upstream). Returns true if a
      * gesture was active (caller should consume the UP).
+     *
+     * <p><b>Ordering (deliberate, ONE-undo-step requirement):</b> the track-change
+     * callback ({@link Callback#onItemMovedToTrack}/{@link Callback#onItemDroppedOnNewLayer})
+     * fires BEFORE {@link Callback#onGestureFinished}, not after. A diagonal drag (the
+     * common case — a finger rarely moves in a perfectly straight vertical line) changes
+     * BOTH the item's time-position AND its track in the SAME gesture; firing the
+     * track-change callback first lets the activity stash the pending track mutation,
+     * then fold it into the SAME undo action {@code onGestureFinished} builds for the
+     * position change, rather than pushing two separate {@code undoStack} entries for
+     * one physical drag (PLAN M10 acceptance (d): "each completed drag = ONE undo step").</p>
      */
     public boolean onRowBodyUp() {
         cancelLongPress();
@@ -383,15 +404,14 @@ public final class LayerGestureController {
         hoverNewLayerZone = false;
         rowRenderer.setDragTargetTrackId(null);
         if (wasMoved && item != null) {
-            callback.onGestureFinished(item, activeKind);
-            // M10: cross-row / drop-to-new-layer are reported as SEPARATE events from
-            // the time-position change above (PLAN Part 7 row M10 scope 1/2) — a drag
-            // can end on a different row with or without also having moved in time.
+            // M10: report the track-change FIRST (see method doc) so the activity can
+            // fold it into the ONE undo action onGestureFinished below builds.
             if (droppedOnNewLayerZone && fromTrack != null) {
                 callback.onItemDroppedOnNewLayer(item, fromTrack);
             } else if (toTrack != null && fromTrack != null) {
                 callback.onItemMovedToTrack(item, fromTrack, toTrack);
             }
+            callback.onGestureFinished(item, activeKind);
         }
         return true;
     }

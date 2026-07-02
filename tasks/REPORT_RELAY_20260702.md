@@ -106,3 +106,24 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   Eligibility auto-fallback: loops/transitions/image clips use legacy. USER FEEDBACK #9 = CLOSED.
   Known-weak (next device session): waveform-level A/V sync proof; live export round-trip + bg/fg resume in
   gapless mode; >100% LoudnessEnhancer boost path. Engine WIP safety stash dropped after landing.
+- (2026-07-02 ~10:15) **M10 LANDED — drag-between-layers + drop-to-new-layer, compile-green** (Sonnet resume
+  of `0cf3a4c`'s WIP, which was already ~95% done). WIP had: `LayerTrackDef.java` (new persistent track defs),
+  `Timeline` layerId-grouping + `extraLayerTracks`, `LayerRowRenderer` cross-row highlight + "+ New layer"
+  zone (drawn BELOW the last row — the plan's "or a dedicated drop zone" branch, not an above-top-row zone),
+  `LayerGestureController` hover-target + same-band/locked/hidden rejection, full `ProjectStorage` v10 field
+  serialization, and the real pre-existing `onScroll` guard fix (row gesture flags now bypass the gesture
+  detector) — all kept as-is. **Fixed:** the WIP recorded position-change and track-change as TWO separate
+  undo pushes for a diagonal drag (violates acceptance (d) "ONE undo step"); flipped the callback order in
+  `LayerGestureController.onRowBodyUp()` so the track-change callbacks fire BEFORE `onGestureFinished` and
+  stage their undo/redo into `FaditorEditorActivity.pendingLayerTrackUndo`, which `onGestureFinished` now
+  folds into one `mergedAction()` (also fixed a silent-drop edge case: track-only change with no position
+  change). Files touched beyond the WIP: `layers/LayerGestureController.java` + `FaditorEditorActivity.java`
+  only — zero model/storage changes, v8-stamping untouched. Device-verified (cheap): tap-scrub + swipe-pan on
+  the master timeline both scrub correctly post-fix (onScroll guard confirmed regression-free — M6/M10 flags
+  never engage for plain projects); no crashes; sandbox `project.json` ground truth pulled (v8, one text +
+  one locked audio track, `trackDefs:[]`, clean baseline). The ONE scripted drag attempt missed the target
+  row (landed on timeline scrub instead) — confirmed zero mutation via before/after JSON diff, not iterated
+  on per the one-attempt rule. Full hand-test checklist in this session's final report + `handoff.md`.
+  **Owed:** the actual cross-row drag / drop-to-new-layer / locked-row-rejection gestures are UNCONFIRMED on
+  a real finger — next device session should run the checklist below before this milestone is called fully
+  device-accepted.

@@ -44,3 +44,27 @@ if master is A,B,C with stacks above A and C, deleting B ripples C left AND C's 
 Agents get ONE scripted attempt at drag/gesture verification. Then: verify state-level ground truth
 (project.json, undo, screenshots after taps) and hand the user a numbered HAND-TEST CHECKLIST
 (where to touch, what should happen). Do not grind synthetic input.
+
+## 6. Row-item selection + parent/child linkage highlight (2026-07-02 hand-test feedback)
+TAP a layer-row item = SELECT it (M7/M10 only wired long-press/drag; tap-select was missing and blocked
+the user's whole hand-test). Selection must show a visible LINKAGE: the row item's accent color (e.g the
+purple bar) is echoed onto every connected representation — the on-canvas render of that same object and
+any attached children — via a ~50% tint/outline in the SAME color. Rule: "everything that will move with
+this item wears its color while it's selected/long-pressed." Applies doubly once anchoring (§4) and
+promote/demote (§3) exist.
+
+## 7. Duration-on-create + numeric duration/placement (2026-07-02)
+Creating any layer-bound object (text, image, sprite, …) prompts for duration: default = LAST-USED
+duration; explicit option = "Entire project". After creation, duration and start time must be TYPEABLE
+(numeric fields, e.g. in the move/position drawer) — "put this at 00:15 for 6s" without scrolling and
+edge-dragging for minutes. This extends the existing move-tool spirit (numeric placement for fiddly
+small screens). A full-project-duration item is legitimate (simple projects) but must never be the
+unavoidable default for everyone.
+
+## 8. Locked/hidden item styling (2026-07-02, decided with user)
+Locked/frozen timeline items: KEEP THE HUE, cut saturation ~50%, overlay a subtle 45° diagonal hatch
+(thin translucent dark stripes — same family as the preview's out-of-canvas pattern), padlock glyph on
+the row header. The user must keep color-bearings ("the red thing is still over there") while instantly
+reading "this won't move." On an attempted interaction with a locked item: briefly brighten the hatch +
+wiggle the padlock — teaches WHY nothing moved. Full saturation = live/movable; desaturated+hatched =
+frozen. Hidden rows: same treatment + collapsed/dimmed further.

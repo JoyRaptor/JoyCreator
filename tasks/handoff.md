@@ -15,7 +15,41 @@
 
 > **2026-07-01 — Caption "apply style to all clips" FIXED + undo/redo popup spring animation (BUILT GREEN, device-verified).** Batch-2 items 1+2. **Root cause (item 1):** `applyCaptionStyleToAllClips` already set the base `captionStyleId` on every clip/audio clip correctly, but per-clip caption-style KEYFRAMES (`Clip.captionStyleAtClipMs`) take priority over the base style at render time in BOTH the live preview (`FaditorEditorActivity` ~6430) and export (`ExportManager`/`CompositeExportOverlay`) — so a keyframed clip kept showing its old style everywhere the keyframe track covered, base-style change or not. **Fix:** `applyCaptionStyleToAllClips` (~10739) now also snapshots + clears each video clip's caption-style keyframes as part of the same forward action, restoring them verbatim on undo (`Clip.setCaptionStyleKeyframes`); single `LambdaAction` undo step, unchanged dialog UX. **Item 2:** `showUndoRedoHistoryPopup` (~7731) now springs the popup (`card` root) in from the anchor button — pivot computed from the anchor's on-screen position translated into the popup's fixed-offset local coordinates (no layout wait needed), scale 0.3→1 + alpha, `OvershootInterpolator(1.6f)`, 200ms in / 150ms out with `AccelerateInterpolator`; row taps and outside-touch (`ACTION_OUTSIDE` via `setTouchInterceptor`) both route through one guarded animate-out-then-real-`dismiss()` path (double-dismiss-safe); the undo/redo jump itself runs synchronously before the out-animation starts. Known gap: system back-press still dismisses instantly (no public pre-dismiss hook on `PopupWindow` for that path) — accepted for this polish item. Device-verified on Note 9 sandbox (bdd51919…): created a real keyframe repro (armed caption-keyframe mode, dropped a "hot" keyframe on a "bounce"-styled clip), long-pressed a different chip → applied "zoom" to all 4 clips + 2 audio clips, confirmed via `project.json` ground truth (clip styles all → zoom, keyframe list cleared) AND a live screenshot showing "zoom"-style captions rendering on a previously-untouched clip; one Undo restored the exact prior per-clip styles + the keyframe byte-for-byte; popup animation confirmed via `screenrecord`→ffmpeg frame extraction (mid-fade frame captured for pop-in; shrink-out completes within ~9 frames of the outside-tap, no stray/stuck popup).
 
-## 🔭 OPEN BACKLOG — START HERE (as of 2026-07-01 evening)
+## 🔭 OPEN BACKLOG — START HERE (updated 2026-07-02 midday)
+
+**🐞 P0 BUGS (2026-07-02 user hand-test — fix BEFORE resuming the feature queue):**
+1. **Ruler scrub/tap intermittently snaps playhead to 0.** Happens while finger-dragging the ruler AND
+   while tap-tap-tapping across it ("follow, follow, then glitch to zero"). Suspects, in order: the
+   M-COMP-0 gapless engine's cross-MediaItem seek mapping (a failed/UNSET seek reporting position 0);
+   the new onScroll guard routing; negative scrolledX clamping; playhead auto-follow fighting the tap.
+   TAP-REPRODUCIBLE → an agent CAN verify this one with scripted taps + logcat position reads.
+2. **Layer-row items can't be TAP-selected** (purple "LayerOne" bar). Tap does nothing; only the
+   on-canvas teal render responds (long-press → remove dialog). Blocks the whole M10 hand-test. Build
+   tap-select + the §6 linkage highlight (PLAN_LAYERS_UX_ADDENDUM). Note: the sandbox item spans the
+   FULL project duration → cannot move sideways anyway; §7 duration-on-create + numeric fields is the
+   structural fix.
+
+**FEEDBACK BATCH 3 (2026-07-02, queue after P0s + rebrand/dedup):**
+a. Project title header: top-center "Untitled" → long-press = rename project; tap = open project
+   browser; replace pin icon with a twirl-down caret next to the centered title.
+b. Project selector: rename option per project; small dim hint text "hold to select multiple"
+   (a real user failed to discover multi-select delete).
+c. AI chat batch: (i) paperclip attach image → vision model; (ii) small tasteful model-slug label
+   (two-color gradient per DESIGN doc) so users know which model OpenRouter routed to; (iii) chat text
+   must be SELECTABLE/COPYABLE (timestamps, file names); (iv) BIG-TICKET: AI project-folder integration
+   (Claude-Code-style agentic access to the project's files) — needs its own plan doc before building.
+d. Layers UX addendum §6 (tap-select+linkage), §7 (duration-on-create + numeric duration/placement),
+   §8 (locked-item styling: keep hue, ~50% desat, diagonal hatch, padlock wiggle on attempted touch).
+e. AI-feedback integration tiers (EVAL of Minimax/DeepSeek/BigPickle doc, 2026-07-02): Tier-1
+   verify-then-fix durability/leak pass (faditor_audio cache bug, transitionFrameCache, messageLog,
+   AssetScanner threading, KEEP_SCREEN_ON, icon collision, dead trim/heal blocks); Tier-2 portability
+   package (zip export/import, Make Portable, auto-backup) after M-EXPORT-1; Tier-3 AI upgrades
+   (function-calling, streaming, token discipline, stock footage); Tier-4 plugin folder P0 + templates.
+   ✅ USER-APPROVED 2026-07-02 ("go ahead with your plan") — micro-items catalogued with provenance in
+   tasks/PLAN_QUICKWINS_20260702.md (§A folds into the Tier-1 agent, §B into rebrand pass 1, §C
+   opportunistic; skip-list documented there too). Everything remains VERIFY-THEN-FIX.
+
+(previous backlog below — 2026-07-01 evening)
 Strategy + standing rules: `tasks/EVAL_20260701_joy_creator.md`. Design/brand direction: `tasks/DESIGN_JOY_CREATOR.md`.
 2026-07-01 feedback batch 1 = DONE (11/11, entries below). **USER DECISIONS RECORDED:** checkpoint commits YES
 (local branch `joy-creator`, push DISABLED — commit after every green+verified feature, message style

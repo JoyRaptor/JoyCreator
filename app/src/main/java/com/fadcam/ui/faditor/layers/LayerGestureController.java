@@ -198,6 +198,38 @@ public final class LayerGestureController {
      *  confirmation; any other resolution (scrub/pickup/scroll/cancel) ignores it. */
     private boolean pendingDeleteBadge = false;
 
+    // ── FOLLOW-UP 1 (user spec 2026-07-03): occupied-row bookend snap ─────────────
+    /**
+     * Joint (content ms) the armed bookend shows — the target row's FIRST item's start
+     * (BEFORE side) or LAST item's end (AFTER side) — or {@link Long#MIN_VALUE} when no
+     * bookend is armed. The view polls this after each onRowBodyMove and runs the
+     * animated "excursion" that brings the joint on-screen (playhead stays
+     * content-locked as the temporary-maneuver cue).
+     */
+    private long bookendJointMs = Long.MIN_VALUE;
+    /** Snapped start (ms) for the dragged item while a bookend is armed. */
+    private long bookendSnapStartMs;
+    /** false = BEFORE the row's first item, true = AFTER the row's last item. */
+    private boolean bookendAfter;
+    /**
+     * While true (the view is animating its return from an excursion), onRowBodyMove
+     * skips the finger→time mapping — the view's scrollOffset is mid-animation, so
+     * mapping finger x through it would teleport the item. The item stays put until the
+     * view settles; the next MOVE after that resumes normal finger tracking.
+     */
+    private boolean suppressMoveMapping = false;
+
+    /** See {@link #bookendJointMs}. */
+    public long getBookendJointMs() { return bookendJointMs; }
+
+    /** See {@link #suppressMoveMapping} — set by the view around its return animation. */
+    public void setSuppressMoveMapping(boolean s) { suppressMoveMapping = s; }
+
+    private void clearBookend() {
+        if (bookendJointMs != Long.MIN_VALUE) RG("BOOKEND cleared");
+        bookendJointMs = Long.MIN_VALUE;
+    }
+
     public LayerGestureController(@NonNull LayerRowRenderer rowRenderer, @NonNull Callback callback) {
         this.rowRenderer = rowRenderer;
         this.callback = callback;
@@ -386,8 +418,17 @@ public final class LayerGestureController {
         }
         switch (activeKind) {
             case MOVE:
-                applyMove(t, totalMs);
-                updateDragTarget(y, topPx);
+                // Target/bookend first so the position applied below reflects THIS
+                // event's hover (updateDragTarget is y/finger-driven, independent of the
+                // item's current position, so the reorder is safe).
+                updateDragTarget(x, y, topPx, totalMs);
+                if (bookendJointMs != Long.MIN_VALUE) {
+                    // Occupied-row bookend armed: the item previews at the SNAPPED
+                    // position (butted to the joint), not at the finger (FOLLOW-UP 1).
+                    applyMoveTo(bookendSnapStartMs);
+                } else if (!suppressMoveMapping) {
+                    applyMove(t, totalMs);
+                }
                 break;
             case TRIM_LEFT:
                 applyTrim(t, true);
@@ -407,7 +448,7 @@ public final class LayerGestureController {
      * rows; cross-band moves are out of scope for M10) — those cases clear the
      * highlight instead of arming a bogus move.
      */
-    private void updateDragTarget(float y, float topPx) {
+    private void updateDragTarget(float x, float y, float topPx, long totalMs) {
         lastMoveY = y;
         lastMoveTopPx = topPx;
         boolean sourceIsFloatingBand = rowRenderer.isFloatingBandRow(activeTrack);
@@ -418,6 +459,7 @@ public final class LayerGestureController {
             hoverCrossBandNewLane = false;
             lastRejectedRowId = null;
             hoverTargetTrack = null;
+            clearBookend();
             rowRenderer.setDragTargetTrackId(null);
             rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
             return;
@@ -452,12 +494,50 @@ public final class LayerGestureController {
             }
             if (hoverTargetTrack != null) RG("HOVER cleared target (was " + hoverTargetTrack.getId() + ")");
             hoverTargetTrack = null;
+            clearBookend();
             rowRenderer.setDragTargetTrackId(null);
             return;
         }
         hoverCrossBandNewLane = false;
         lastRejectedRowId = null;
         rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
+
+        // FOLLOW-UP 1 (user spec 2026-07-03): the valid same-band target row is
+        // OCCUPIED → no overlap allowed on a layer row. Snap the dragged item to a
+        // BOOKEND of the row's content: which bookend = which half of the timeline
+        // PANEL the finger is in (panel-relative by design, for future landscape
+        // layouts where the preview panel sits beside the timeline panel). LEFT half →
+        // butt A before the row's FIRST item; RIGHT half → after the row's LAST item.
+        // The view polls getBookendJointMs() and animates the excursion that shows the
+        // joint. An EMPTY target row keeps the plain finger-driven placement.
+        java.util.List<TimedItem> items = candidate.getItems();
+        if (!items.isEmpty() && activeItem != null) {
+            long firstStart = Long.MAX_VALUE, lastEnd = Long.MIN_VALUE;
+            for (TimedItem it : items) {
+                long s = it.getTimelineStartMs();
+                long e = s + it.getDisplayDurationMs(totalMs);
+                if (s < firstStart) firstStart = s;
+                if (e > lastEnd) lastEnd = e;
+            }
+            float viewX = x - rowRenderer.getLastHScrollOffsetPx();
+            boolean after = rowRenderer.getLastWidthPx() > 0f
+                    && viewX >= rowRenderer.getLastWidthPx() / 2f;
+            long draggedDur = activeItem.getDisplayDurationMs(totalMs);
+            long snap = after ? lastEnd : Math.max(0, firstStart - draggedDur);
+            long joint = after ? lastEnd : firstStart;
+            if (bookendJointMs != joint || bookendAfter != after) {
+                RG("BOOKEND " + (after ? "AFTER" : "BEFORE") + " armed row=" + candidate.getId()
+                        + " joint=" + joint + " snapStart=" + snap
+                        + (snap == 0 && !after && firstStart < draggedDur
+                            ? " (CLAMPED to 0 - item longer than the gap)" : "")
+                        + " viewX=" + viewX);
+            }
+            bookendAfter = after;
+            bookendJointMs = joint;
+            bookendSnapStartMs = snap;
+        } else {
+            clearBookend();
+        }
         if (hoverTargetTrack == null || !hoverTargetTrack.getId().equals(candidate.getId())) {
             RG("HOVER -> valid target row=" + candidate.getId());
         }
@@ -484,6 +564,20 @@ public final class LayerGestureController {
 
     /** ms from the item's start to the finger's grab point, captured on first move. */
     private long moveGrabOffsetMs = -1;
+
+    /** Place the dragged item at an EXACT start (bookend snap) — no grab-offset math. */
+    private void applyMoveTo(long newStartMs) {
+        TimedItem item = activeItem;
+        if (item == null) return;
+        if (item.getTextOverlay() != null) {
+            TextOverlayItem o = item.getTextOverlay();
+            long duration = dragStartDurationMsForMove(o);
+            long end = (o.getEndMs() == Long.MAX_VALUE) ? Long.MAX_VALUE : newStartMs + duration;
+            o.setTimeRange(newStartMs, end);
+        } else if (item.getAudioClip() != null) {
+            item.getAudioClip().setOffsetMs(newStartMs);
+        }
+    }
 
     private long dragStartDurationMsForMove(@NonNull TextOverlayItem o) {
         if (dragStartDurationMs <= 0) {
@@ -587,6 +681,8 @@ public final class LayerGestureController {
         hoverNewLayerZone = false;
         hoverCrossBandNewLane = false;
         lastRejectedRowId = null;
+        bookendJointMs = Long.MIN_VALUE;
+        suppressMoveMapping = false;
         rowRenderer.setDragTargetTrackId(null);
         rowRenderer.setLiftedItemId(null);
         rowRenderer.setTrimmingItemId(null);

@@ -124,6 +124,11 @@ public final class LayerRowRenderer {
     private float lastHScrollOffsetPx = 0f;
     private float lastWidthPx = 0f;
 
+    /** Viewport-left in content-x at the last layout (for panel-relative gestures). */
+    public float getLastHScrollOffsetPx() { return lastHScrollOffsetPx; }
+    /** Timeline-panel width at the last layout (for panel-relative gestures). */
+    public float getLastWidthPx() { return lastWidthPx; }
+
     private static final class RowLayout {
         final Track track;
         /** True if this row came from the {@code layers} (floating) list, false if {@code audioTracks} (M10). */

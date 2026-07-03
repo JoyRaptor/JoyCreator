@@ -658,6 +658,73 @@ public class EditorTimelineView extends View {
     private android.view.VelocityTracker rowScrubVelocityTracker;
     private int minFlingVelocityPx, maxFlingVelocityPx;
 
+    // ── FOLLOW-UP 1: bookend "view excursion" (user spec 2026-07-03) ──────────────
+    /**
+     * True while the view is temporarily scrolled away from its anchor to show a
+     * bookend snap preview during a pickup-drag (and during the animated return).
+     * While true the playhead draws CONTENT-LOCKED (scrolls off-screen with the
+     * timeline) instead of re-centered — the user's deliberate cue that this scroll is
+     * a temporary maneuver and how far from "home" the view currently is.
+     */
+    private boolean excursionActive = false;
+    /** scrollOffsetPx to return to when the excursion ends (the pre-excursion anchor). */
+    private float excursionReturnOffsetPx;
+    /** Joint (content ms) the current excursion is showing; Long.MIN_VALUE = none. */
+    private long excursionShownJointMs = Long.MIN_VALUE;
+    private android.animation.ValueAnimator excursionAnimator;
+
+    /** Animate scrollOffsetPx to a target; excursion animations never teleport (spec). */
+    private void animateExcursionScrollTo(float targetOffset, @Nullable Runnable onEnd) {
+        if (excursionAnimator != null) {
+            excursionAnimator.removeAllListeners();
+            excursionAnimator.removeAllUpdateListeners();
+            excursionAnimator.cancel();
+        }
+        excursionAnimator = android.animation.ValueAnimator.ofFloat(scrollOffsetPx, targetOffset);
+        excursionAnimator.setDuration(260);
+        excursionAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        excursionAnimator.addUpdateListener(a -> {
+            scrollOffsetPx = (float) a.getAnimatedValue();
+            invalidate();
+        });
+        if (onEnd != null) {
+            excursionAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(android.animation.Animator animation) { onEnd.run(); }
+            });
+        }
+        excursionAnimator.start();
+    }
+
+    /** Enter (or retarget/flip) the excursion so the given joint lands screen-center. */
+    private void startOrRetargetExcursion(long jointMs) {
+        if (!excursionActive) {
+            excursionActive = true;
+            excursionReturnOffsetPx = scrollOffsetPx;
+            if (!flingScroller.isFinished()) flingScroller.abortAnimation();
+            RG("EXCURSION enter anchor=" + excursionReturnOffsetPx + " joint=" + jointMs);
+        } else {
+            RG("EXCURSION retarget joint=" + jointMs);
+        }
+        excursionShownJointMs = jointMs;
+        if (layerGestureController != null) layerGestureController.setSuppressMoveMapping(false);
+        animateExcursionScrollTo(timeToX(jointMs) - getWidth() / 2f, null);
+    }
+
+    /** Animate back to the pre-excursion anchor; playhead stays content-locked until home. */
+    private void endExcursion(String cause) {
+        if (!excursionActive) return;
+        RG("EXCURSION exit cause=" + cause + " -> return to anchor=" + excursionReturnOffsetPx);
+        excursionShownJointMs = Long.MIN_VALUE;
+        // Freeze the item's finger->time mapping while the view glides home — mapping
+        // finger x through a mid-animation scrollOffset would teleport the item.
+        if (layerGestureController != null) layerGestureController.setSuppressMoveMapping(true);
+        animateExcursionScrollTo(excursionReturnOffsetPx, () -> {
+            excursionActive = false;
+            if (layerGestureController != null) layerGestureController.setSuppressMoveMapping(false);
+            invalidate();
+        });
+    }
+
     @Nullable private OnSegmentActionListener listener;
 
     /** When true, detected-silence candidates are drawn yellow and are tappable. */
@@ -3047,13 +3114,19 @@ public class EditorTimelineView extends View {
     
     private void drawCenterPlayhead(Canvas canvas, float tTop, float tBot) {
         float centerX = getWidth() / 2f;
+        // FOLLOW-UP 1 (user spec 2026-07-03): during a bookend excursion the playhead is
+        // CONTENT-LOCKED — it scrolls away with the timeline instead of re-centering.
+        // That's the deliberate cue that the scroll is a temporary maneuver ("I can see
+        // the playhead way back there, so I know how far I've traveled").
+        float px = excursionActive ? (timeToX(playheadPositionMs) - scrollOffsetPx) : centerX;
+        if (px < -playheadWidthPx || px > getWidth() + playheadWidthPx) return; // off-screen mid-excursion
 
         // Start BELOW the minimap strip so the playhead lives only on the ruler + timeline (drawing it
         // over the minimap makes it look like a stray cursor on the overview).
         float lineTop = minimapHeightPx;
         float lineBot = tBot;
-        canvas.drawRect(centerX - playheadWidthPx / 2f, lineTop,
-                centerX + playheadWidthPx / 2f, lineBot, playheadPaint);
+        canvas.drawRect(px - playheadWidthPx / 2f, lineTop,
+                px + playheadWidthPx / 2f, lineBot, playheadPaint);
     }
 
     /**
@@ -4069,6 +4142,7 @@ public class EditorTimelineView extends View {
             // interruptions, never deliberate drops — abort, don't commit (review fix).
             if (layerGestureController != null) layerGestureController.onRowBodyUp(false);
         }
+        if (excursionActive) endExcursion("reset:" + cause);
         m6RowDragActive = false;
         m6RowScrubPassthroughActive = false;
         m6RowPendingAxisDecision = false;
@@ -4264,6 +4338,16 @@ public class EditorTimelineView extends View {
             // no-ops a MOVE that hasn't been picked up, so this only moves after pickup.
             float scrolledX = x + scrollOffsetPx;
             layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
+            // FOLLOW-UP 1: drive the bookend excursion from the controller's poll state —
+            // an armed bookend (occupied target row) animates the view to the joint;
+            // disarming (finger left that row) animates back to the anchor.
+            long joint = layerGestureController.getBookendJointMs();
+            if (joint != Long.MIN_VALUE && joint != excursionShownJointMs) {
+                startOrRetargetExcursion(joint);
+            } else if (joint == Long.MIN_VALUE && excursionActive
+                    && excursionShownJointMs != Long.MIN_VALUE) {
+                endExcursion("bookend disarmed");
+            }
             invalidate();
             return true;
         }
@@ -4417,6 +4501,10 @@ public class EditorTimelineView extends View {
             // isUp==false is an ACTION_CANCEL — the controller ABORTS (reverts the item,
             // fires no drop callbacks) instead of committing (review fix 2026-07-03).
             layerGestureController.onRowBodyUp(isUp);
+            // A drop (or cancel) during an excursion: glide home so the playhead is
+            // re-centered again (the normal invariant) — the user sees the result land
+            // at the bookend, then the view returns to where they were.
+            if (excursionActive) endExcursion(isUp ? "drop" : "cancel");
             invalidate();
             return true;
         }
@@ -5481,6 +5569,12 @@ public class EditorTimelineView extends View {
         if (rowScrubVelocityTracker != null) {
             rowScrubVelocityTracker.recycle();
             rowScrubVelocityTracker = null;
+        }
+        // Stop a mid-flight excursion animation (its update listener invalidates this view).
+        if (excursionAnimator != null) {
+            excursionAnimator.removeAllListeners();
+            excursionAnimator.removeAllUpdateListeners();
+            excursionAnimator.cancel();
         }
         // Shut down thumbnail loader
         thumbnailExecutor.shutdownNow();

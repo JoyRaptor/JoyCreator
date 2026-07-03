@@ -100,6 +100,17 @@ must show scroll consumption, and scroll position must be continuous across the 
 - [x] Contract redesign (9cf3080 — recovered agent diff + 2 orch fixes: dead-field compile error, onUp missing pending-TAP branch that left the pickup timer live)
 - [x] off-screen zone fix (9cf3080 — zone pinned to visible viewport bottom, zone height reserved so last row scrolls clear)
 - [x] delete relocation (trash roundel on the SELECTED item, right end inside the trim cap; ItemZone.DELETE hit-tested FIRST with finger slop; fires the same onItemDeleteRequested confirmation on DOWN like header icons; DownResult.CONSUMED; badge skipped on too-narrow items — geometry single-sourced in deleteBadgeCx)
-- [ ] sub-lane overlap rendering (follow-up)
-- [ ] post-pinch pan handback (follow-up 2)
-- [ ] device hand-test confirmed (checklist relayed 2026-07-03; pull `adb logcat -d -s ROWGESTURE:D` after)
+- [x] ~~sub-lane overlap rendering~~ SUPERSEDED by bookend snap (user decision 2026-07-03)
+- [x] feedback batch 1 (4375fab): badge 9dp+pinned, row fling, trim stripes, honest cross-band preview
+- [x] adversarial-review fixes (fcc0bd5): CANCEL aborts+reverts (was: committed the drop incl. lane
+      creation), delete badge deferred to tap-on-UP (was: fired on DOWN, hijacked swipes + swallowed the
+      right trim handle), VelocityTracker recycle
+- [x] FOLLOW-UP 1 bookend maneuver IMPLEMENTED (see commit): occupied-row snap (no overlap), panel-half
+      BEFORE/AFTER choice, animated view excursion w/ content-locked playhead, animate-back on
+      disarm/drop/cancel, suppressMoveMapping across the return glide. OPEN edges (documented, deferred):
+      same-row overlap not yet prevented (only cross-row drops snap); BEFORE-snap clamps to 0 when the
+      dragged item is longer than the gap before the row's first item (can still overlap there); interior
+      gaps of multi-item rows not placeable via drag.
+- [ ] post-pinch pan handback (follow-up 2) — NEXT
+- [ ] device hand-test confirmed for batch 1 + review fixes + bookend (checklist relayed 2026-07-03 ~04:00;
+      pull `adb logcat -d -s ROWGESTURE:D` after — look for BOOKEND/EXCURSION lines)

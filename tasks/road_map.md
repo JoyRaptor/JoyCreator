@@ -1,5 +1,42 @@
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
+## 🔄 2026-07-03 SYNC — corrections + previously-orphaned plans folded in
+**Read this section FIRST; it supersedes stale statuses below.** `tasks/handoff.md`'s top landing block is
+the tactical queue; this file is the strategic index. Two corrections + nine planned clusters that existed
+only in satellite docs are now indexed here:
+
+**STATUS CORRECTIONS:**
+- **Phase 5 Layers (5.1–5.5) is largely DONE**, not "NOT STARTED": schema v8 + Track model ✓, multi-row
+  timeline UI ✓, M-COMP-0 gapless engine ✓ (the compositor path chosen by PLAN_LAYERS_V2, which supersedes
+  5.3's original sketch), drag-between-layers M10 ✓ + full gesture contract redesign ✓ (2026-07-03 cluster,
+  device-verified). Remaining: M11 anchoring, M-EXPORT-1 export parity (Opus-tier), M12 promote/demote.
+- **Loops shipped post-roadmap:** L1 seamless normal loops ✓, L2 true ping-pong ✓ but **PARKED** (shared-
+  player reversed-item decode failure) — un-park is a real pending item (PLAN_LOOP_PINGPONG.md).
+
+**PREVIOUSLY-ORPHANED PLANS (now indexed; effort S/M/L; ~40+ items total):**
+| Cluster | Doc | Effort | Notes |
+|---|---|---|---|
+| Gesture remainder: **audio-overlap P0 bug**, same-row overlap rules, strip ROWGESTURE temp logging | PLAN_LAYER_GESTURE_CONTRACT.md | S | P0 first |
+| Drag-UX v3 + KineMaster batch (17 items: edge auto-pan, minimap drag-nav, free placement, snap tuning, layer-swap guardrail, trim shading/callout, bookmarks, keyframe row, full-screen timeline) | FEEDBACK_20260703_dragux_v3.md | S–L each | polish; parked by 07-03 priority call |
+| Timeline fidelity: W1 waveform render, W2 HD zoom tier, T1 sweep-cache accurate filmstrip | FEEDBACK_20260703_timeline_fidelity.md | S / M / M-L | W1 rides along with any timeline agent |
+| Loops L3 polish + **ping-pong UNPARK** (fix reversed-item decode → per-item forward fallback) | PLAN_LOOP_PINGPONG.md | M–L (Opus) | restores a shipped feature |
+| EVAL tiers: Tier-1 durability (verify-then-fix), Tier-2 portability (zip export/import, Make Portable, auto-backup), Tier-3 AI upgrades (function-calling, streaming, stock footage), Tier-4 plugin folder + templates | EVAL_20260701_joy_creator.md | M / M / M / L | Tier-1 user-approved 07-02 |
+| Feedback batch 3: project title rename/browser caret, selector multi-select hint, AI-chat (vision attach, model-slug label, selectable text, **AI project-folder integration** — needs own plan doc) | handoff.md §backlog | S / S / M / L | |
+| Masking / chroma-key / alpha (planning first) | FEEDBACK_20260702_layers_masking.md §C | plan: S, build: L | |
+| Studio drawers redesign | PLAN_studio_drawers_redesign.md | M | |
+| Quick-wins catalog §A/§B/§C | PLAN_QUICKWINS_20260702.md | S | §B folds into rebrand pass 1 |
+
+**SPRITE ANIMATION — promoted to a proper entry (was one invisible header line):** Build 1 = 7 milestones
+S1–S7 (model/sidecar → full-screen setup editor → 3-detent palette panel → preview view → timeline lane +
+keyframing → export via SpriteFrameResolver → missing-sheet safety), fast-follow A (presets + dope sheet),
+fast-follow B (AI authoring, key-gated). Effort: **L (2–4 sessions)**, risk Medium (mostly reuse of proven
+patterns; the one new primitive is the step/hold FrameTrack). Depends on: nothing hard (deliberately NOT
+blocked on Layers; model is pre-shaped for the SPRITE track kind). Plan doc: `C:\ObsidianBrain\sprite plan.md`
+(NOTE: lives in the user's vault, outside this repo — copy into tasks/ before an agent builds it).
+
+**Known dangling reference:** FEEDBACK_20260703_dragux_v3.md cites RESEARCH_COMPETITOR_UX_20260703.md
+("in progress") which was never created — treat the KineMaster C-items as unresearched until it exists.
+
 ## 🔭 START HERE (2026-07-01) — read `tasks/EVAL_20260701_joy_creator.md` FIRST
 That doc is the authoritative strategy: systemic findings (god-class decomposition rules, always-scroll rule,
 checkpoint-commit proposal), the export work package, the rebrand plan, agent standing rules, and the

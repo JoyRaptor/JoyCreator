@@ -39,5 +39,12 @@ OMX.qcom) — all Exynos-specific lore is VOID for this device.
    forward degrade + playback continues = rank-1 proven; **EXPORT the ping-pong project ON-DEVICE and
    frame-compare the reverse leg vs preview (the owed, never-run parity check)**; reverse-leg AUDIO listen.
 
-## Status
-- [ ] Rank-1 resilience  - [ ] Rank-2 HEVC bake chain  - [ ] Unpark flip  - [ ] Device verify incl. owed export parity
+## Status — ✅ COMPLETE 2026-07-03 (commit fe88e39, fully device-proven)
+- [x] Rank-1 resilience (forced-corruption drill: per-clip forward degrade, NO blackout, live video)
+- [x] Rank-2 bake chain — **hevc_mediacodec/nv12 won attempt 1 both bakes** (40.8Mbps AVC → 10.5Mbps HEVC
+  hvc1 = matches sources; single-codec playlist; libx264 fallback host-validated, never needed)
+- [x] Unpark flip (PING_PONG_PARKED=false, 4 seams live, chip undimmed on-device)
+- [x] Device verify: zero black/freeze frames; EventLogger = video/hevc every window (verdict SETTLED:
+  trigger was the codec-family swap, now impossible); **owed export parity RUN for the first time — export
+  reverse leg matches preview, same cache file (OMX.qcom hevc decoder)**; reversed audio present/continuous.
+- OWED TO USER: eyeball a live ping-pong wrap + ear-check reverse-leg audio quality (weird-by-nature OK).

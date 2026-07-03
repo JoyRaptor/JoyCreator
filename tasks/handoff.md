@@ -104,6 +104,21 @@
 > PICKUP armed + zoneInViewport=true + screenZoneBot < ~924, DELETE badge CONSUMED. Then queue items 2-5
 > below (sub-lanes → post-pinch handback → strip ROWGESTURE → rebrand...). ROWGESTURE logging still IN.**
 >
+> **🏓 2026-07-03 eve — PING-PONG UNPARKED, FULLY DEVICE-PROVEN (fe88e39). Diagnosis method: ultracode
+> 3-investigator + adversarial-judge workflow (plan + full evidence: tasks/PLAN_PINGPONG_UNPARK.md/.json).**
+> Root cause SETTLED: mid-playlist HEVC→AVC codec swap (amplified by zero error handling in the gapless
+> engine). Fixed: (1) rank-1 containment — onPlayerError → poison reversed URI → PER-CLIP forward degrade →
+> reseek+resume (corruption drill proven live, no blackout ever again) + debug EventLogger + bake-promote
+> rebuildGeneration race fix; (2) hevc_mediacodec bake (attempt-1 winner; 10.5Mbps HEVC hvc1 = source-matched;
+> ⚠️ h264_mediacodec fails on this device but hevc_mediacodec WORKS — remember); (3) PARKED flag flipped, 4
+> seams live. Export parity RUN ON-DEVICE for the first time (was only ever by-construction): reverse leg
+> matches preview, same cache file. OWED: user eyeball of live wrap + reverse-audio ear-check.
+> ⚠️ **CONCURRENT-SESSION WARNING:** ~11 rebrand files (splash/strings/manifest/onboarding + new
+> joy_creator_splash.png) are DIRTY in the tree from ANOTHER session's in-progress rebrand pass — NOT
+> committed here, owner unknown. Do NOT commit/revert them blindly; confirm with the user/other harness first.
+> Timeline-fidelity spec queued: tasks/FEEDBACK_20260703_timeline_fidelity.md (W1 waveform render = small,
+> ride-along candidate). v3 drag-UX spec: tasks/FEEDBACK_20260703_dragux_v3.md (P0 = A8 audio overlap).
+
 > **🛬 2026-07-03 ~03:15 — SESSION LANDING (JoyRaptor/Fable orchestrator at context limit). READ THIS FIRST.**
 > **⚠️ AN AGENT MAY STILL BE / HAVE BEEN IN FLIGHT at landing:** "gesture contract redesign" editing
 > EditorTimelineView / LayerGestureController / LayerRowRenderer / FaditorEditorActivity per

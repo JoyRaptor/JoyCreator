@@ -970,13 +970,16 @@ public class ProjectStorage {
                                      JsonSerializationContext context) {
             File projectDir = getProjectDir(src.getId());
             JsonObject json = new JsonObject();
-            // Dual-write schema stamp (PLAN §4.1(1)): stamp v8 ONLY when the project
-            // genuinely uses a layer feature an old build can't represent; otherwise
-            // stamp 7 so an old build can still open it losslessly. The v8 `layers`
-            // block below is written either way (additive; old builds ignore it).
-            int stampedVersion = usesLayerFeatures(src)
-                    ? com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION  // 8
-                    : 7;
+            // Dual-write schema stamp (PLAN §4.1(1)): stamp only the version the
+            // project GENUINELY needs, so older builds keep opening sprite-free /
+            // layer-free projects losslessly. v9 = sprites (PLAN_SPRITE_ANIMATION S1),
+            // v8 = layer features, else 7. All newer blocks are written additively
+            // either way (old builds ignore unknown fields).
+            boolean usesSprites = !src.getTimeline().getSpriteOverlays().isEmpty()
+                    || !src.getSpriteSheets().isEmpty();
+            int stampedVersion = usesSprites
+                    ? com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION  // 9
+                    : usesLayerFeatures(src) ? 8 : 7;
             json.addProperty("schemaVersion", stampedVersion);
             json.addProperty("id", src.getId());
             json.addProperty("name", src.getName());
@@ -1268,6 +1271,62 @@ public class ProjectStorage {
                 timelineJson.add("waveformOverlays", wfArray);
             }
 
+            // Serialize placed sprite overlays (schema v9, PLAN_SPRITE_ANIMATION S1).
+            // Sparse-write like every other overlay family; frame track entries are
+            // {t, c} (direct cell) or {t, p} (preset ref); keyframes reuse the exact
+            // text-overlay tracks shape.
+            if (!src.getTimeline().getSpriteOverlays().isEmpty()) {
+                JsonArray spArray = new JsonArray();
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so
+                        : src.getTimeline().getSpriteOverlays()) {
+                    JsonObject sj = new JsonObject();
+                    sj.addProperty("id", so.getId());
+                    sj.addProperty("sheetId", so.getSheetId());
+                    sj.addProperty("centerX", so.getCenterX());
+                    sj.addProperty("centerY", so.getCenterY());
+                    sj.addProperty("sizeFraction", so.getSizeFraction());
+                    if (so.getRotationDeg() != 0f) sj.addProperty("rotationDeg", so.getRotationDeg());
+                    if (so.getOpacity() != 1f) sj.addProperty("opacity", so.getOpacity());
+                    if (so.isFlipH()) sj.addProperty("flipH", true);
+                    if (so.isFlipV()) sj.addProperty("flipV", true);
+                    if (so.getStartMs() != 0) sj.addProperty("startMs", so.getStartMs());
+                    if (so.getEndMs() != Long.MAX_VALUE) sj.addProperty("endMs", so.getEndMs());
+                    if (so.getLayerId() != null) sj.addProperty("layerId", so.getLayerId());
+                    if (!"hold".equals(so.getEndBehavior())) sj.addProperty("endBehavior", so.getEndBehavior());
+                    if (!so.getFrameTrack().isEmpty()) {
+                        JsonArray ftArr = new JsonArray();
+                        for (com.fadcam.ui.faditor.sprite.FrameTrack.Key k
+                                : so.getFrameTrack().keys()) {
+                            JsonObject kj = new JsonObject();
+                            kj.addProperty("t", k.timeMs);
+                            if (k.presetId != null) kj.addProperty("p", k.presetId);
+                            else kj.addProperty("c", k.cellIndex);
+                            ftArr.add(kj);
+                        }
+                        sj.add("frameTrack", ftArr);
+                    }
+                    if (!so.getKeyframes().isEmpty()) {
+                        JsonObject tracksJson = new JsonObject();
+                        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr
+                                : so.getKeyframes().tracks()) {
+                            if (tr.isEmpty()) continue;
+                            JsonArray kfArr = new JsonArray();
+                            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                                JsonObject kj = new JsonObject();
+                                kj.addProperty("t", k.timeMs);
+                                kj.addProperty("v", k.value);
+                                kj.addProperty("e", k.easing.name());
+                                kfArr.add(kj);
+                            }
+                            tracksJson.add(tr.property, kfArr);
+                        }
+                        sj.add("keyframes", tracksJson);
+                    }
+                    spArray.add(sj);
+                }
+                timelineJson.add("spriteOverlays", spArray);
+            }
+
             // Serialize transitions
             if (!src.getTimeline().getTransitions().isEmpty()) {
                 JsonArray transArray = new JsonArray();
@@ -1328,6 +1387,19 @@ public class ProjectStorage {
             timelineJson.add("layers", layersBlock);
 
             json.add("timeline", timelineJson);
+
+            // Serialize sprite-sheet definitions (schema v9, project level). The sheet's
+            // own toJson emits the in-memory URI; convert to project://-relative here so
+            // the sheet image travels with the project bundle (imageUri convention).
+            if (!src.getSpriteSheets().isEmpty()) {
+                JsonArray sheetsArr = new JsonArray();
+                for (com.fadcam.ui.faditor.sprite.SpriteSheet sheet : src.getSpriteSheets()) {
+                    JsonObject shJson = sheet.toJson();
+                    shJson.addProperty("sheetUri", toStorageUri(projectDir, sheet.getSheetUri()));
+                    sheetsArr.add(shJson);
+                }
+                json.add("spriteSheets", sheetsArr);
+            }
 
             // Serialize canvas preset
             json.addProperty("canvasPreset", src.getCanvasPreset());
@@ -1764,6 +1836,88 @@ public class ProjectStorage {
                                     wj.get("gradEnd").getAsString());
                         }
                         project.getTimeline().addWaveformOverlay(wo);
+                    }
+                }
+            }
+
+            // Restore sprite-sheet definitions (schema v9, project level). Tolerant:
+            // absent on every pre-v9 project. sheetUri comes back project://-relative
+            // and is resolved to an absolute URI here (imageUri convention).
+            if (obj.has("spriteSheets")) {
+                JsonArray sheetsArr = obj.getAsJsonArray("spriteSheets");
+                for (int i = 0; i < sheetsArr.size(); i++) {
+                    try {
+                        com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                                com.fadcam.ui.faditor.sprite.SpriteSheet.fromJson(
+                                        sheetsArr.get(i).getAsJsonObject());
+                        if (!sheet.getSheetUri().isEmpty()) {
+                            sheet.setSheetUri(fromStorageUri(projectDir,
+                                    sheet.getSheetUri()).toString());
+                        }
+                        project.getSpriteSheets().add(sheet);
+                    } catch (Exception ignored) { }
+                }
+            }
+
+            // Restore placed sprite overlays (schema v9, timeline level).
+            if (obj.has("timeline")) {
+                JsonObject tl = obj.getAsJsonObject("timeline");
+                if (tl.has("spriteOverlays")) {
+                    JsonArray spArr = tl.getAsJsonArray("spriteOverlays");
+                    for (int i = 0; i < spArr.size(); i++) {
+                        try {
+                            JsonObject sj = spArr.get(i).getAsJsonObject();
+                            com.fadcam.ui.faditor.sprite.SpriteOverlayItem so =
+                                    new com.fadcam.ui.faditor.sprite.SpriteOverlayItem(
+                                            sj.get("id").getAsString(),
+                                            sj.get("sheetId").getAsString());
+                            if (sj.has("centerX") && sj.has("centerY")) {
+                                so.setCenter(sj.get("centerX").getAsFloat(),
+                                        sj.get("centerY").getAsFloat());
+                            }
+                            if (sj.has("sizeFraction")) so.setSizeFraction(sj.get("sizeFraction").getAsFloat());
+                            if (sj.has("rotationDeg")) so.setRotationDeg(sj.get("rotationDeg").getAsFloat());
+                            if (sj.has("opacity")) so.setOpacity(sj.get("opacity").getAsFloat());
+                            if (sj.has("flipH")) so.setFlipH(sj.get("flipH").getAsBoolean());
+                            if (sj.has("flipV")) so.setFlipV(sj.get("flipV").getAsBoolean());
+                            long sStart = sj.has("startMs") ? sj.get("startMs").getAsLong() : 0;
+                            long sEnd = sj.has("endMs") ? sj.get("endMs").getAsLong() : Long.MAX_VALUE;
+                            so.setTimeRange(sStart, sEnd);
+                            if (sj.has("layerId")) so.setLayerId(sj.get("layerId").getAsString());
+                            if (sj.has("endBehavior")) so.setEndBehavior(sj.get("endBehavior").getAsString());
+                            if (sj.has("frameTrack")) {
+                                JsonArray ftArr = sj.getAsJsonArray("frameTrack");
+                                for (int k = 0; k < ftArr.size(); k++) {
+                                    JsonObject kj = ftArr.get(k).getAsJsonObject();
+                                    long t = kj.get("t").getAsLong();
+                                    if (kj.has("p")) {
+                                        so.getFrameTrack().put(
+                                                com.fadcam.ui.faditor.sprite.FrameTrack.Key
+                                                        .ofPreset(t, kj.get("p").getAsString()));
+                                    } else if (kj.has("c")) {
+                                        so.getFrameTrack().put(
+                                                com.fadcam.ui.faditor.sprite.FrameTrack.Key
+                                                        .ofCell(t, kj.get("c").getAsInt()));
+                                    }
+                                }
+                            }
+                            if (sj.has("keyframes")) {
+                                JsonObject tracksJson = sj.getAsJsonObject("keyframes");
+                                for (java.util.Map.Entry<String, JsonElement> e
+                                        : tracksJson.entrySet()) {
+                                    com.fadcam.ui.faditor.keyframe.KeyframeTrack tr =
+                                            so.getKeyframes().getOrCreate(e.getKey());
+                                    JsonArray kfArr = e.getValue().getAsJsonArray();
+                                    for (int k = 0; k < kfArr.size(); k++) {
+                                        JsonObject kj = kfArr.get(k).getAsJsonObject();
+                                        tr.put(kj.get("t").getAsLong(), kj.get("v").getAsFloat(),
+                                                com.fadcam.ui.faditor.keyframe.Easing.fromName(
+                                                        kj.get("e").getAsString()));
+                                    }
+                                }
+                            }
+                            project.getTimeline().addSpriteOverlay(so);
+                        } catch (Exception ignored) { }
                     }
                 }
             }

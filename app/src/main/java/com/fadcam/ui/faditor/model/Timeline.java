@@ -56,6 +56,10 @@ public class Timeline {
     @NonNull
     private final List<WaveformOverlayInstance> waveformOverlays;
 
+    /** Placed sprite instances (schema v9 — PLAN_SPRITE_ANIMATION S1). */
+    @NonNull
+    private final List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteOverlays;
+
     /**
      * Master edit behavior (schema v8). "ripple" = deleting/trimming a master clip
      * shifts later clips; "gap" = leaves a gap. Default "ripple". Floating layers are
@@ -150,6 +154,7 @@ public class Timeline {
         this.textOverlays = new ArrayList<>();
         this.transitions = new ArrayList<>();
         this.waveformOverlays = new ArrayList<>();
+        this.spriteOverlays = new ArrayList<>();
     }
 
     // ── Clip management ──────────────────────────────────────────────
@@ -431,6 +436,26 @@ public class Timeline {
 
     public boolean hasTextOverlays() {
         return !textOverlays.isEmpty();
+    }
+
+    // ── Sprite overlay management (schema v9, PLAN_SPRITE_ANIMATION S1) ──
+
+    public void addSpriteOverlay(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite) {
+        spriteOverlays.add(sprite);
+    }
+
+    public void removeSpriteOverlay(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite) {
+        spriteOverlays.remove(sprite);
+    }
+
+    @NonNull
+    public List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> getSpriteOverlays() {
+        return spriteOverlays;
+    }
+
+    /** S6 export guard: {@code isSimpleTrim} MUST include this (fast-path lesson). */
+    public boolean hasSpriteOverlays() {
+        return !spriteOverlays.isEmpty();
     }
 
     // ── Transition management ───────────────────────────────────────
@@ -731,7 +756,45 @@ public class Timeline {
         for (Map.Entry<String, List<TextOverlayItem>> e : byLayer.entrySet()) {
             layers.add(buildTextTrack(e.getKey(), TrackKind.TEXT, "Text", e.getValue()));
         }
+
+        // SPRITE tracks (schema v9, PLAN_SPRITE_ANIMATION S1) — mirrors the text
+        // grouping exactly: default "sprite" bucket first, then SPRITE LayerTrackDefs,
+        // then defensive leftover buckets. Sprite rows sit after text rows in the
+        // floating band (z stays list-order until row-reorder ships).
+        Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> spritesByLayer =
+                new LinkedHashMap<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : spriteOverlays) {
+            String id = so.getLayerId() != null ? so.getLayerId() : "sprite";
+            spritesByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(so);
+        }
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteDefault =
+                spritesByLayer.remove("sprite");
+        if (spriteDefault != null && !spriteDefault.isEmpty()) {
+            layers.add(buildSpriteTrack("sprite", "Sprite", spriteDefault));
+        }
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() != TrackKind.SPRITE) continue;
+            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> bucket =
+                    spritesByLayer.remove(def.getId());
+            layers.add(buildSpriteTrack(def.getId(), def.getName(),
+                    bucket != null ? bucket : Collections.emptyList()));
+        }
+        for (Map.Entry<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> e
+                : spritesByLayer.entrySet()) {
+            layers.add(buildSpriteTrack(e.getKey(), "Sprite", e.getValue()));
+        }
         return layers;
+    }
+
+    @NonNull
+    private Track buildSpriteTrack(@NonNull String id, @NonNull String name,
+            @NonNull List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> items) {
+        Track track = new Track(id, TrackKind.SPRITE, name);
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : items) {
+            track.addItem(TimedItem.ofSprite(so));
+        }
+        applyTrackFlags(track);
+        return track;
     }
 
     @NonNull

@@ -22,8 +22,11 @@ public class FaditorProject {
      * DUAL-WRITE (PLAN §4.1): the v7 flat lists are still written byte-compatibly,
      * and {@code schemaVersion} is only stamped 8 when the project genuinely uses a
      * layer feature an old build can't represent (see {@code ProjectStorage.usesLayerFeatures}).</p>
+     * <p>v9 adds sprite sheets + placed sprite overlays (PLAN_SPRITE_ANIMATION S1),
+     * same dual-write discipline: additive blocks always written, {@code schemaVersion}
+     * stamped 9 only when the project actually contains sprite data.</p>
      */
-    public static final int SCHEMA_VERSION = 8;
+    public static final int SCHEMA_VERSION = 9;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project
@@ -50,6 +53,11 @@ public class FaditorProject {
 
     @NonNull
     private final ExportSettings exportSettings;
+
+    /** Sprite-sheet definitions owned by this project (schema v9). Never null. */
+    @NonNull
+    private final java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets =
+            new java.util.ArrayList<>();
 
     /** Schema version of this project's JSON. Set on creation, checked on load. */
     private int schemaVersion = SCHEMA_VERSION;
@@ -165,6 +173,22 @@ public class FaditorProject {
     @NonNull
     public ExportSettings getExportSettings() {
         return exportSettings;
+    }
+
+    /** Sprite-sheet definitions (schema v9) — live list, mutate directly. */
+    @NonNull
+    public java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> getSpriteSheets() {
+        return spriteSheets;
+    }
+
+    /** Sheet lookup by id, or null. */
+    @androidx.annotation.Nullable
+    public com.fadcam.ui.faditor.sprite.SpriteSheet spriteSheetById(@androidx.annotation.Nullable String id) {
+        if (id == null) return null;
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : spriteSheets) {
+            if (s.getId().equals(id)) return s;
+        }
+        return null;
     }
 
     @NonNull

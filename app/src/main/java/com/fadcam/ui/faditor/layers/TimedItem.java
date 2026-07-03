@@ -53,10 +53,9 @@ public class TimedItem {
     @Nullable
     private final AudioClip audioClip;
 
-    // SPRITE payload placeholder — SpriteOverlayItem does not exist yet (sprite plan).
-    // When it lands, add: @Nullable private final SpriteOverlayItem sprite;
-    // and a corresponding factory / discriminator branch. Until then a SPRITE track
-    // simply holds no items.
+    /** SPRITE payload (S1, PLAN_SPRITE_ANIMATION 2026-07-03 amendment). */
+    @Nullable
+    private final com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite;
 
     /**
      * Optional free-transform envelope (X/Y/SCALE/ROTATION/OPACITY) for an overlay
@@ -68,11 +67,13 @@ public class TimedItem {
     private KeyframeSet transform;
 
     private TimedItem(@NonNull String id, @Nullable Clip clip,
-                      @Nullable TextOverlayItem textOverlay, @Nullable AudioClip audioClip) {
+                      @Nullable TextOverlayItem textOverlay, @Nullable AudioClip audioClip,
+                      @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite) {
         this.id = id;
         this.clip = clip;
         this.textOverlay = textOverlay;
         this.audioClip = audioClip;
+        this.sprite = sprite;
     }
 
     // ── Factories (one per payload kind) ─────────────────────────────
@@ -80,7 +81,7 @@ public class TimedItem {
     /** Wrap a {@link Clip} (MASTER / VIDEO / IMAGE item). */
     @NonNull
     public static TimedItem ofClip(@NonNull Clip clip, long timelineStartMs) {
-        TimedItem t = new TimedItem(clip.getId(), clip, null, null);
+        TimedItem t = new TimedItem(clip.getId(), clip, null, null, null);
         t.timelineStartMs = timelineStartMs;
         return t;
     }
@@ -88,7 +89,7 @@ public class TimedItem {
     /** Wrap a {@link TextOverlayItem} (TEXT / STICKER item). */
     @NonNull
     public static TimedItem ofTextOverlay(@NonNull TextOverlayItem overlay) {
-        TimedItem t = new TimedItem(overlay.getId(), null, overlay, null);
+        TimedItem t = new TimedItem(overlay.getId(), null, overlay, null, null);
         t.timelineStartMs = overlay.getStartMs();
         return t;
     }
@@ -96,8 +97,16 @@ public class TimedItem {
     /** Wrap an {@link AudioClip} (AUDIO item). Its offset is the timeline start. */
     @NonNull
     public static TimedItem ofAudioClip(@NonNull AudioClip audioClip) {
-        TimedItem t = new TimedItem(audioClip.getId(), null, null, audioClip);
+        TimedItem t = new TimedItem(audioClip.getId(), null, null, audioClip, null);
         t.timelineStartMs = audioClip.getOffsetMs();
+        return t;
+    }
+
+    /** Wrap a {@link com.fadcam.ui.faditor.sprite.SpriteOverlayItem} (SPRITE item). */
+    @NonNull
+    public static TimedItem ofSprite(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite) {
+        TimedItem t = new TimedItem(sprite.getId(), null, null, null, sprite);
+        t.timelineStartMs = sprite.getStartMs();
         return t;
     }
 
@@ -129,6 +138,9 @@ public class TimedItem {
     public AudioClip getAudioClip() { return audioClip; }
 
     @Nullable
+    public com.fadcam.ui.faditor.sprite.SpriteOverlayItem getSprite() { return sprite; }
+
+    @Nullable
     public KeyframeSet getTransform() { return transform; }
 
     public void setTransform(@Nullable KeyframeSet transform) { this.transform = transform; }
@@ -146,6 +158,7 @@ public class TimedItem {
         if (clip != null) return "clip";
         if (textOverlay != null) return "textOverlay";
         if (audioClip != null) return "audioClip";
+        if (sprite != null) return "sprite";
         return "none";
     }
 
@@ -166,6 +179,13 @@ public class TimedItem {
         if (textOverlay != null) {
             long end = textOverlay.getEndMs();
             long start = Math.max(0, textOverlay.getStartMs());
+            if (end == Long.MAX_VALUE || end <= start) return Math.max(0, fallbackMs - start);
+            return end - start;
+        }
+        if (sprite != null) {
+            // Same open-end semantics as text overlays.
+            long end = sprite.getEndMs();
+            long start = Math.max(0, sprite.getStartMs());
             if (end == Long.MAX_VALUE || end <= start) return Math.max(0, fallbackMs - start);
             return end - start;
         }

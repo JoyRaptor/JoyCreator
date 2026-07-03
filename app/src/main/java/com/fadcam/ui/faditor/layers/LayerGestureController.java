@@ -127,12 +127,7 @@ public final class LayerGestureController {
      * immediate, unchanged from before). {@link #MISS} = empty row space / locked / hidden
      * / no item — caller falls through to its own axis decision (scrub vs row-scroll).
      */
-    public enum DownResult { MISS, PENDING, ARMED_TRIM,
-        /** The DOWN was fully handled here (the selected item's delete badge fired
-         *  {@link Callback#onItemDeleteRequested}) — caller consumes the touch, arms
-         *  NOTHING, and expects no follow-up routing for this gesture. Mirrors how a
-         *  header icon tap consumes on DOWN. */
-        CONSUMED }
+    public enum DownResult { MISS, PENDING, ARMED_TRIM }
 
     private static final long MIN_TEXT_DURATION_MS = 250;
     private static final long AUDIO_MIN_TRIM_GAP_MS = 500;
@@ -198,6 +193,10 @@ public final class LayerGestureController {
     private boolean pickupArmed = false;
     /** True from a body DOWN until UP/pickup — the caller is still disambiguating this touch. */
     private boolean pendingBodyDown = false;
+    /** True when the current PENDING body touch landed on the selected item's delete
+     *  badge — a tap-resolution (UP within slop, committed) fires the delete
+     *  confirmation; any other resolution (scrub/pickup/scroll/cancel) ignores it. */
+    private boolean pendingDeleteBadge = false;
 
     public LayerGestureController(@NonNull LayerRowRenderer rowRenderer, @NonNull Callback callback) {
         this.rowRenderer = rowRenderer;
@@ -238,18 +237,9 @@ public final class LayerGestureController {
             selectedItemId = null;
             active = false;
             pendingBodyDown = false;
+            pendingDeleteBadge = false;
             pickupArmed = false;
             return DownResult.MISS;
-        }
-        if (hit.zone == LayerRowRenderer.ItemZone.DELETE) {
-            // Trash badge on the SELECTED item (redesign: delete lives here now, not on
-            // long-press). Fire the same confirmation-dialog callback the long-press
-            // used and consume — nothing armed, selection untouched (the dialog's
-            // cancel path leaves the item selected exactly as before the tap).
-            RG("DOWN hit DELETE badge item=" + hit.item.getId() + " track=" + hit.track.getId()
-                    + " -> onItemDeleteRequested (CONSUMED, nothing armed)");
-            callback.onItemDeleteRequested(hit.track, hit.item);
-            return DownResult.CONSUMED;
         }
         activeTrack = hit.track;
         activeItem = hit.item;
@@ -258,6 +248,13 @@ public final class LayerGestureController {
         movedDuringGesture = false;
         pickupArmed = false;
         pendingBodyDown = false;
+        // Delete badge (review fix 2026-07-03): DEFERRED to a tap-on-UP instead of firing
+        // on DOWN. A DOWN on the badge routes exactly like a body hit (PENDING) with this
+        // flag set: a quick lift within slop = the delete tap (confirmation fires in
+        // onRowBodyUp); a horizontal swipe from the badge = SCRUB; a long-press = pickup.
+        // Firing on DOWN hijacked swipes that happened to start on the (viewport-pinned)
+        // badge with a blocking dialog — the contract says swipe must always scrub.
+        pendingDeleteBadge = hit.zone == LayerRowRenderer.ItemZone.DELETE;
         hoverTargetTrack = null;
         hoverNewLayerZone = false;
         rowRenderer.setDragTargetTrackId(null);
@@ -548,12 +545,24 @@ public final class LayerGestureController {
      * position change, rather than pushing two separate {@code undoStack} entries for
      * one physical drag (PLAN M10 acceptance (d): "each completed drag = ONE undo step").</p>
      */
-    public boolean onRowBodyUp() {
+    public boolean onRowBodyUp(boolean committed) {
         if (!active) return false;
         // A real committed change only happened if we actually moved (trim, or a
         // picked-up move). A body touch that lifted before pickup (pendingBodyDown still
         // set) is a TAP — selection already happened on DOWN, nothing to record.
         boolean wasMoved = movedDuringGesture && (activeKind != GestureKind.MOVE || pickupArmed);
+        // Review fix 2026-07-03 (CRITICAL): an INTERRUPTED gesture (ACTION_CANCEL,
+        // pinch second finger, parent intercept — anything but a deliberate finger
+        // lift) must ABORT, not commit. Without this, whatever hover state the last
+        // MOVE latched (incl. the cross-band/new-layer arm) was committed by the
+        // interruption — silently creating a new lane the user never released into.
+        // A cancel now restores the item to its exact gesture-start state and records
+        // nothing.
+        if (!committed && wasMoved) {
+            revertActiveItemToGestureStart();
+            wasMoved = false;
+            RG("UP(CANCEL) -> item reverted to gesture-start; no commit, no callbacks");
+        }
         TimedItem item = activeItem;
         Track fromTrack = activeTrack;
         Track toTrack = hoverTargetTrack;
@@ -564,7 +573,9 @@ public final class LayerGestureController {
         // promised.
         boolean droppedOnNewLayerZone = hoverNewLayerZone || hoverCrossBandNewLane;
         boolean wasTap = pendingBodyDown && !movedDuringGesture;
+        boolean wasDeleteTap = wasTap && pendingDeleteBadge;
         boolean wasPickup = pickupArmed;
+        pendingDeleteBadge = false;
         active = false;
         activeItem = null;
         activeTrack = null;
@@ -597,10 +608,46 @@ public final class LayerGestureController {
                 RG("DROP no track change (same-row move/trim only)");
             }
             callback.onGestureFinished(item, activeKind);
+        } else if (wasDeleteTap && committed && item != null && fromTrack != null) {
+            // Deferred delete-badge tap (review fix 2026-07-03): the badge no longer
+            // fires on DOWN — a clean tap on it resolves HERE, on the committed UP,
+            // after scrub/pickup/scroll have all been ruled out.
+            RG("UP -> DELETE badge tap resolved; onItemDeleteRequested item=" + item.getId());
+            callback.onItemDeleteRequested(fromTrack, item);
         } else {
             RG("UP no-op (tap = select-only, or never picked up — no move recorded)");
         }
         return true;
+    }
+
+    /**
+     * Restore the active item to its exact gesture-start state — the abort path for an
+     * INTERRUPTED touch stream (see the CANCEL block in {@link #onRowBodyUp}). Uses the
+     * same snapshots armMove/armTrim captured for undo, so the restore is exact.
+     */
+    private void revertActiveItemToGestureStart() {
+        TimedItem item = activeItem;
+        if (item == null) return;
+        if (activeKind == GestureKind.MOVE) {
+            if (item.getTextOverlay() != null) {
+                TextOverlayItem o = item.getTextOverlay();
+                long duration = dragStartDurationMsForMove(o);
+                long end = (o.getEndMs() == Long.MAX_VALUE) ? Long.MAX_VALUE
+                        : dragStartTimelineMs + duration;
+                o.setTimeRange(dragStartTimelineMs, end);
+            } else if (item.getAudioClip() != null) {
+                item.getAudioClip().setOffsetMs(audioBeforeOffsetMs);
+            }
+        } else {
+            if (item.getTextOverlay() != null) {
+                item.getTextOverlay().setTimeRange(dragStartTextStartMs, dragStartTextEndMs);
+            } else if (item.getAudioClip() != null) {
+                AudioClip ac = item.getAudioClip();
+                ac.setInPointMs(audioBeforeInMs);
+                ac.setOutPointMs(audioBeforeOutMs);
+            }
+        }
+        callback.onGestureLive(item); // refresh preview/timeline with the restored state
     }
 
     // ── Snapshot accessors for the caller's undo-recording (before-state) ──────

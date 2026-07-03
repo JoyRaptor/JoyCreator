@@ -889,11 +889,19 @@ public final class LayerRowRenderer {
                 float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
                 if (x < x0 - handleHalf || x > x1 + handleHalf) continue;
                 boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
+                if (selected && x <= x0 + handleHalf) {
+                    return new ItemHit(t, item, ItemZone.LEFT_HANDLE);
+                }
+                if (selected && x >= x1 - handleHalf) {
+                    return new ItemHit(t, item, ItemZone.RIGHT_HANDLE);
+                }
                 if (selected) {
-                    // Delete badge — checked FIRST: it sits just inside the right trim
-                    // cap and its finger slop overlaps that zone's inner edge; a finger
-                    // aiming at the visible glyph must win (the cap stays grabbable at
-                    // the item's actual edge, where its end-cap is drawn).
+                    // Delete badge — checked AFTER the trim handles (review fix
+                    // 2026-07-03: the badge's slop circle used to swallow the inner half
+                    // of the RIGHT_HANDLE zone, so a near-edge trim grab opened the
+                    // delete dialog). Trim owns [x1-handleHalf, x1+handleHalf]; the badge
+                    // gets the slop circle left of it (and the full circle when pinned
+                    // mid-item on long clips, where no handle overlaps).
                     float cx = deleteBadgeCx(x0, x1);
                     if (!Float.isNaN(cx)) {
                         float cy = (top + bottom) / 2f;
@@ -903,12 +911,6 @@ public final class LayerRowRenderer {
                             return new ItemHit(t, item, ItemZone.DELETE);
                         }
                     }
-                }
-                if (selected && x <= x0 + handleHalf) {
-                    return new ItemHit(t, item, ItemZone.LEFT_HANDLE);
-                }
-                if (selected && x >= x1 - handleHalf) {
-                    return new ItemHit(t, item, ItemZone.RIGHT_HANDLE);
                 }
                 if (x >= x0 && x <= x1) {
                     return new ItemHit(t, item, ItemZone.BODY);

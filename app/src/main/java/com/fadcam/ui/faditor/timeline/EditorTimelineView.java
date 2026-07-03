@@ -4018,14 +4018,6 @@ public class EditorTimelineView extends View {
             invalidate();
             return true;
         }
-        if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.CONSUMED) {
-            // Delete-badge tap (or any future fire-on-DOWN affordance): fully handled in
-            // the controller. Consume without arming any flag — same shape as a header
-            // icon hit above.
-            RG("ROUTE DOWN -> CONSUMED (delete badge) scrolledX=" + scrolledX + " y=" + y);
-            invalidate();
-            return true;
-        }
         if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.PENDING) {
             m7ItemPendingDown = true;
             m7PendingDownX = scrolledX;
@@ -4073,7 +4065,9 @@ public class EditorTimelineView extends View {
         if (m7ItemGestureActive || m7ItemPendingDown) {
             m7ItemGestureActive = false;
             m7ItemPendingDown = false;
-            if (layerGestureController != null) layerGestureController.onRowBodyUp();
+            // Flag-reset paths (pinch begin, fresh DOWN with a leaked flag) are always
+            // interruptions, never deliberate drops — abort, don't commit (review fix).
+            if (layerGestureController != null) layerGestureController.onRowBodyUp(false);
         }
         m6RowDragActive = false;
         m6RowScrubPassthroughActive = false;
@@ -4244,7 +4238,7 @@ public class EditorTimelineView extends View {
                     m7ItemPendingDown = false;
                     m6RowScrubPassthroughActive = true;
                     m6RowPendingLastX = x; // raw x seed, matches the scrub branch's convention
-                    if (layerGestureController != null) layerGestureController.onRowBodyUp(); // clear pending (no move)
+                    if (layerGestureController != null) layerGestureController.onRowBodyUp(false); // abort pending (no move)
                     RG("PENDING body -> AXIS HORIZONTAL -> scrub passthrough (item NOT moved) rdx=" + rdx + " rdy=" + rdy);
                     getParent().requestDisallowInterceptTouchEvent(true);
                     invalidate();
@@ -4256,7 +4250,7 @@ public class EditorTimelineView extends View {
                     m7ItemPendingDown = false;
                     m6RowDragActive = true;
                     m6RowLastY = y;
-                    if (layerGestureController != null) layerGestureController.onRowBodyUp(); // clear pending (no move)
+                    if (layerGestureController != null) layerGestureController.onRowBodyUp(false); // abort pending (no move)
                     RG("PENDING body -> AXIS VERTICAL -> row-scroll (item NOT moved) rdx=" + rdx + " rdy=" + rdy);
                     invalidate();
                     return true;
@@ -4412,7 +4406,7 @@ public class EditorTimelineView extends View {
             RG("UP/CANCEL pending body -> TAP (select-only; isUp=" + isUp + ")");
             longPressHandler.removeCallbacks(itemPickupRunnable);
             m7ItemPendingDown = false;
-            layerGestureController.onRowBodyUp();
+            layerGestureController.onRowBodyUp(isUp);
             getParent().requestDisallowInterceptTouchEvent(false);
             invalidate();
             return true;
@@ -4420,7 +4414,9 @@ public class EditorTimelineView extends View {
         if (m7ItemGestureActive) {
             RG("UP/CANCEL reset m7ItemGestureActive (isUp=" + isUp + ")");
             m7ItemGestureActive = false;
-            layerGestureController.onRowBodyUp();
+            // isUp==false is an ACTION_CANCEL — the controller ABORTS (reverts the item,
+            // fires no drop callbacks) instead of committing (review fix 2026-07-03).
+            layerGestureController.onRowBodyUp(isUp);
             invalidate();
             return true;
         }
@@ -5480,6 +5476,12 @@ public class EditorTimelineView extends View {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        // Return the pooled VelocityTracker (review fix: it was obtained but never
+        // recycled — one leaked pool instance per editor open/close).
+        if (rowScrubVelocityTracker != null) {
+            rowScrubVelocityTracker.recycle();
+            rowScrubVelocityTracker = null;
+        }
         // Shut down thumbnail loader
         thumbnailExecutor.shutdownNow();
         thumbnailsLoading.clear();

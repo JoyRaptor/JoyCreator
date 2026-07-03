@@ -222,6 +222,12 @@ public class EditorTimelineView extends View {
     private long layerDragInitialKeyLocalMs = -1;
     private long layerDragOriginalKeyLocalMs = -1;
 
+    // ── TEMP diagnostics (tag "ROWGESTURE") — strip after user confirms Bug A/B fixed.
+    // Gated so no string is built when disabled. Flip false / delete the RG(...) calls
+    // + this block to remove. Pairs with the same tag in LayerGestureController. ──
+    private static final boolean ROWGESTURE_LOG = true;
+    private static void RG(String msg) { if (ROWGESTURE_LOG) com.fadcam.FLog.d("ROWGESTURE", msg); }
+
     // ── M6 multi-row Track UI (extract-on-touch: all logic in LayerRowRenderer) ──
     private com.fadcam.ui.faditor.layers.LayerRowRenderer layerRowRenderer;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
@@ -3941,6 +3947,7 @@ public class EditorTimelineView extends View {
         // a collapsed/locked/hidden row, or no item under the touch).
         if (layerGestureController.onRowBodyDown(scrolledX, y, topPx, totalEffectiveMs, this::timeToX)) {
             m7ItemGestureActive = true;
+            RG("ROUTE DOWN -> item gesture (m7ItemGestureActive=true) scrolledX=" + scrolledX + " y=" + y);
             invalidate();
             return true;
         }
@@ -3956,6 +3963,7 @@ public class EditorTimelineView extends View {
         m6RowPendingLastX = scrolledX;
         m6RowPendingDownY = y;
         m6RowLastY = y;
+        RG("ROUTE DOWN -> pending-axis (empty/locked row band) scrolledX=" + scrolledX + " y=" + y);
         // Claim the gesture from the parent scroll container NOW, before the axis is
         // decided: every other armed-DOWN branch in onDown() ends with this call, but a
         // pending-axis DOWN returns true straight out of handleM6RowTouch and skips
@@ -3966,8 +3974,33 @@ public class EditorTimelineView extends View {
         return true;
     }
 
+    /**
+     * Tear down ALL M6/M7 row-gesture state in one place. Used when a competing gesture
+     * (a pinch — see {@code onScaleBegin}) hijacks the stream so the normal
+     * {@code onUp()} reset path is skipped, which would otherwise leak a flag until the
+     * next gesture and cause the "row scrub sticks sometimes" symptom. Idempotent.
+     */
+    private void resetRowGestureFlags(String cause) {
+        boolean any = m7ItemGestureActive || m6RowDragActive || m6RowScrubPassthroughActive
+                || m6RowPendingAxisDecision;
+        if (m7ItemGestureActive) {
+            m7ItemGestureActive = false;
+            if (layerGestureController != null) layerGestureController.onRowBodyUp();
+        }
+        m6RowDragActive = false;
+        m6RowScrubPassthroughActive = false;
+        m6RowPendingAxisDecision = false;
+        if (any) RG("resetRowGestureFlags cause=" + cause + " (cleared leaked row-gesture flag)");
+    }
+
     private boolean onDown(float x, float y) {
         FLog.d(TAG, "onDown: x=" + x + " y=" + y);
+        // Bug A safety net: a fresh DOWN starts a new gesture stream — no row gesture from
+        // a PRIOR stream can still be legitimately active. If any M6/M7 flag survived
+        // (e.g. an UP/CANCEL that was swallowed by a competing handler), clear it now so
+        // it can't misroute this gesture's MOVEs (the "sticks sometimes" symptom). The
+        // reset logs its cause, so if this ever fires in the pull it names the leak path.
+        resetRowGestureFlags("fresh-DOWN");
         downX = x;
         downY = y;
         downTime = System.currentTimeMillis();
@@ -4155,6 +4188,7 @@ public class EditorTimelineView extends View {
                     m6RowPendingAxisDecision = false;
                     m6RowScrubPassthroughActive = true;
                     m6RowPendingLastX = x;
+                    RG("AXIS resolved HORIZONTAL -> scrub passthrough (rdx=" + rdx + " rdy=" + rdy + ")");
                     getParent().requestDisallowInterceptTouchEvent(true);
                     invalidate();
                     return true;
@@ -4163,6 +4197,7 @@ public class EditorTimelineView extends View {
                     m6RowPendingAxisDecision = false;
                     m6RowDragActive = true;
                     m6RowLastY = y;
+                    RG("AXIS resolved VERTICAL -> row-scroll (rdx=" + rdx + " rdy=" + rdy + ")");
                     invalidate();
                     return true;
                 }
@@ -4242,12 +4277,14 @@ public class EditorTimelineView extends View {
 
     private boolean onUp(float x, float y, boolean isUp) {
         if (m7ItemGestureActive) {
+            RG("UP/CANCEL reset m7ItemGestureActive (isUp=" + isUp + ")");
             m7ItemGestureActive = false;
             layerGestureController.onRowBodyUp();
             invalidate();
             return true;
         }
         if (m6RowDragActive) {
+            RG("UP/CANCEL reset m6RowDragActive (isUp=" + isUp + ")");
             m6RowDragActive = false;
             return true;
         }
@@ -4256,6 +4293,7 @@ public class EditorTimelineView extends View {
             // that both leave scrollOffsetPx wherever the scrub left it — no fling
             // velocity is tracked for a row-band scrub; lifting simply stops it, same
             // as lifting mid-scrub anywhere else on a slow drag).
+            RG("UP/CANCEL reset m6RowScrubPassthroughActive (isUp=" + isUp + ")");
             m6RowScrubPassthroughActive = false;
             getParent().requestDisallowInterceptTouchEvent(false);
             return true;
@@ -4264,7 +4302,11 @@ public class EditorTimelineView extends View {
             // Slop never exceeded — a tap on empty row space (or a locked/hidden row's
             // body). Nothing to select, nothing to scrub; just consume like the M6
             // header-hit "NONE zone" case does.
+            RG("UP/CANCEL reset m6RowPendingAxisDecision (tap, no axis; isUp=" + isUp + ")");
             m6RowPendingAxisDecision = false;
+            // Release the parent-intercept claim taken on the pending DOWN (the armed
+            // branches above already do this; the tap-only path forgot to).
+            getParent().requestDisallowInterceptTouchEvent(false);
             return true;
         }
         Drag last = activeDrag;
@@ -5165,6 +5207,14 @@ public class EditorTimelineView extends View {
             longPressHandler.removeCallbacks(longPressRunnable);
             longPressHandler.removeCallbacks(audioLongPressRunnable);
             pendingAudioIndex = -1;
+            // Bug A ("row scrub sticks sometimes") — while isScaling is true, onTouchEvent
+            // early-returns for EVERY subsequent event including the terminal UP/CANCEL, so
+            // onUp() never runs and whichever M6/M7 row-gesture flag was set (a pinch that
+            // begins mid row-scrub / mid item-drag) LEAKS until it happens to be re-entered
+            // by a later gesture — driving a stale scrub with a stale m6RowPendingLastX (the
+            // "stick + jump"). Tear the row gesture down cleanly here, the same way we just
+            // cancelled the long-presses above.
+            resetRowGestureFlags("pinch(onScaleBegin)");
             initialZoom = zoomLevel;
             scaleAccumulator = 1f;
             getParent().requestDisallowInterceptTouchEvent(true);

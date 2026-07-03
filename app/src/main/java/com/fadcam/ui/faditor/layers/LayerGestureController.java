@@ -111,6 +111,14 @@ public final class LayerGestureController {
     private static final long AUDIO_MIN_TRIM_GAP_MS = 500;
     private static final long LONG_PRESS_MS = 500;
 
+    // ── TEMP diagnostics (tag "ROWGESTURE") — strip after user confirms Bug A/B fixed.
+    // Gated so no string is built when disabled (FLog has no isLoggable guard). Flip
+    // ROWGESTURE_LOG=false (or delete every RG(...) call + this block) to remove. ──
+    private static final boolean ROWGESTURE_LOG = true;
+    /** Movement slop (px) that promotes a touch to a drag — matches the horizontal value historically used here. */
+    private static final float MOVE_SLOP_PX = 4f;
+    private static void RG(String msg) { if (ROWGESTURE_LOG) com.fadcam.FLog.d("ROWGESTURE", msg); }
+
     private final LayerRowRenderer rowRenderer;
     private final Callback callback;
 
@@ -120,6 +128,7 @@ public final class LayerGestureController {
     private Track activeTrack;
     private TimedItem activeItem;
     private float dragStartX;
+    private float dragStartY;            // finger y at gesture start (for axis-agnostic move detection — cross-row drags are VERTICAL)
     private long dragStartTimelineMs;   // item's timelineStartMs at gesture start
     private long dragStartDurationMs;   // item's duration at gesture start (for MOVE)
     private long dragStartTrimInMs, dragStartTrimOutMs; // audio-only, for TRIM
@@ -169,13 +178,18 @@ public final class LayerGestureController {
         if (hit == null) {
             // Tap on empty row space (not on any item) — clear selection, consume the
             // touch (matches the M6 "consume, don't fall through" contract), no gesture.
+            RG("DOWN miss (no item under touch) x=" + x + " y=" + y + " topPx=" + topPx + " -> return false (falls through to axis-decision)");
             selectedItemId = null;
             active = false;
             return false;
         }
+        RG("DOWN hit item=" + hit.item.getId() + " zone=" + hit.zone + " track=" + hit.track.getId()
+                + " locked=" + hit.track.isLocked() + " floatingBand=" + rowRenderer.isFloatingBandRow(hit.track)
+                + " x=" + x + " y=" + y + " topPx=" + topPx + " -> ARM (m7ItemGestureActive)");
         activeTrack = hit.track;
         activeItem = hit.item;
         dragStartX = x;
+        dragStartY = y;
         movedDuringGesture = false;
         longPressFired = false;
         hoverTargetTrack = null;
@@ -195,6 +209,7 @@ public final class LayerGestureController {
             longPressRunnable = () -> {
                 if (!active || movedDuringGesture) return;
                 longPressFired = true;
+                RG("LONG-PRESS FIRED (delete dialog) item=" + activeItem.getId());
                 callback.onItemDeleteRequested(activeTrack, activeItem);
             };
             longPressHandler.postDelayed(longPressRunnable, LONG_PRESS_MS);
@@ -246,9 +261,21 @@ public final class LayerGestureController {
      */
     public void onRowBodyMove(float x, float y, float topPx, long totalMs, @NonNull XToTime xToTime) {
         if (!active || activeItem == null) return;
-        if (Math.abs(x - dragStartX) > 4f) {
+        // Promote to a drag on movement along EITHER axis. Cross-row item drags (M10 —
+        // moving a layer "between levels" / to the "+ New layer" zone) are inherently
+        // VERTICAL: the finger travels down (or up) while x barely changes. The old
+        // guard only tested |x - dragStartX|, so a straight-down drag never tripped
+        // movedDuringGesture — updateDragTarget() never ran (no hover/new-layer-zone
+        // detection) AND the 500ms long-press was never cancelled, so a cross-row drag
+        // silently did nothing or fired the DELETE dialog. Test both axes so a vertical
+        // drag arms the move too. (A pure-vertical drag leaves the item's TIME unchanged:
+        // applyMove maps the unchanged x back to the same start via moveGrabOffsetMs.)
+        if (!movedDuringGesture
+                && (Math.abs(x - dragStartX) > MOVE_SLOP_PX || Math.abs(y - dragStartY) > MOVE_SLOP_PX)) {
             cancelLongPress();
             movedDuringGesture = true;
+            RG("MOVE promoted to drag (long-press killed) kind=" + activeKind
+                    + " dx=" + (x - dragStartX) + " dy=" + (y - dragStartY));
         }
         if (!movedDuringGesture) return;
 
@@ -288,20 +315,34 @@ public final class LayerGestureController {
         boolean sourceIsFloatingBand = rowRenderer.isFloatingBandRow(activeTrack);
 
         if (rowRenderer.isWithinNewLayerZone(y, topPx)) {
+            if (!hoverNewLayerZone) RG("HOVER -> NEW-LAYER-ZONE (armed) y=" + y + " topPx=" + topPx);
             hoverNewLayerZone = true;
             hoverTargetTrack = null;
             rowRenderer.setDragTargetTrackId(null);
             return;
         }
+        if (hoverNewLayerZone) RG("HOVER left NEW-LAYER-ZONE y=" + y + " topPx=" + topPx);
         hoverNewLayerZone = false;
 
         Track candidate = rowRenderer.rowTrackAt(y, topPx);
         if (candidate == null || candidate.getId().equals(activeTrack.getId())
                 || candidate.isLocked() || candidate.isHidden()
                 || rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand) {
+            // TEMP: log WHY a row under the finger is not a valid drop target (helps prove
+            // the "can't move between levels" chicken-and-egg: with only 1 row per band the
+            // only legal target is the new-layer zone above).
+            if (candidate != null && !candidate.getId().equals(activeTrack.getId())) {
+                RG("HOVER row=" + candidate.getId() + " REJECTED reason="
+                        + (candidate.isLocked() ? "locked" : candidate.isHidden() ? "hidden"
+                            : rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand ? "cross-band" : "?"));
+            }
+            if (hoverTargetTrack != null) RG("HOVER cleared target (was " + hoverTargetTrack.getId() + ")");
             hoverTargetTrack = null;
             rowRenderer.setDragTargetTrackId(null);
             return;
+        }
+        if (hoverTargetTrack == null || !hoverTargetTrack.getId().equals(candidate.getId())) {
+            RG("HOVER -> valid target row=" + candidate.getId());
         }
         hoverTargetTrack = candidate;
         rowRenderer.setDragTargetTrackId(candidate.getId());
@@ -403,15 +444,24 @@ public final class LayerGestureController {
         hoverTargetTrack = null;
         hoverNewLayerZone = false;
         rowRenderer.setDragTargetTrackId(null);
+        RG("UP active=true wasMoved=" + wasMoved + " (moved=" + movedDuringGesture + " lpFired=" + longPressFired + ")"
+                + " kind=" + activeKind + " droppedOnNewLayer=" + droppedOnNewLayerZone
+                + " toTrack=" + (toTrack == null ? "null" : toTrack.getId()));
         if (wasMoved && item != null) {
             // M10: report the track-change FIRST (see method doc) so the activity can
             // fold it into the ONE undo action onGestureFinished below builds.
             if (droppedOnNewLayerZone && fromTrack != null) {
+                RG("DROP COMMIT -> onItemDroppedOnNewLayer (create new layer + move item " + item.getId() + ")");
                 callback.onItemDroppedOnNewLayer(item, fromTrack);
             } else if (toTrack != null && fromTrack != null) {
+                RG("DROP COMMIT -> onItemMovedToTrack " + fromTrack.getId() + "->" + toTrack.getId());
                 callback.onItemMovedToTrack(item, fromTrack, toTrack);
+            } else {
+                RG("DROP no track change (same-row move/trim only)");
             }
             callback.onGestureFinished(item, activeKind);
+        } else {
+            RG("UP no-op (tap or long-press-consumed — no move recorded)");
         }
         return true;
     }

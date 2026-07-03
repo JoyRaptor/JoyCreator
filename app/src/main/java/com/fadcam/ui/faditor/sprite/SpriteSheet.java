@@ -178,10 +178,11 @@ public class SpriteSheet {
         if (spacingY != 0) j.addProperty("spacingY", spacingY);
         if (!"row-major".equals(order)) j.addProperty("order", order);
         j.addProperty("fps", fps);
-        if (bgKeyColor != 0) {
-            j.addProperty("bgKeyColor", bgKeyColor);
-            j.addProperty("keyTolerance", keyTolerance);
-        }
+        if (bgKeyColor != 0) j.addProperty("bgKeyColor", bgKeyColor);
+        // Written independently of bgKeyColor (review gate 2026-07-03): a UI that
+        // disables the key while keeping the tolerance slider's value must not
+        // silently lose it across a save/reload.
+        if (keyTolerance != 0f) j.addProperty("keyTolerance", keyTolerance);
         if (pivotX != 0.5f) j.addProperty("pivotX", pivotX);
         if (pivotY != 0.5f) j.addProperty("pivotY", pivotY);
         if (!cells.isEmpty()) {
@@ -231,10 +232,8 @@ public class SpriteSheet {
                 j.has("spacingY") ? j.get("spacingY").getAsInt() : 0);
         if (j.has("order")) s.order = j.get("order").getAsString();
         if (j.has("fps")) s.setFps(j.get("fps").getAsFloat());
-        if (j.has("bgKeyColor")) {
-            s.setBgKey(j.get("bgKeyColor").getAsInt(),
-                    j.has("keyTolerance") ? j.get("keyTolerance").getAsFloat() : 0f);
-        }
+        s.setBgKey(j.has("bgKeyColor") ? j.get("bgKeyColor").getAsInt() : 0,
+                j.has("keyTolerance") ? j.get("keyTolerance").getAsFloat() : 0f);
         s.setPivot(j.has("pivotX") ? j.get("pivotX").getAsFloat() : 0.5f,
                 j.has("pivotY") ? j.get("pivotY").getAsFloat() : 0.5f);
         if (j.has("cells")) {

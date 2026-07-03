@@ -84,10 +84,16 @@ public class SpriteOverlayItem {
     public long getStartMs() { return startMs; }
     public long getEndMs() { return endMs; }
 
-    /** Mirrors {@code TextOverlayItem.setTimeRange} (start clamped ≥ 0; end may be MAX_VALUE). */
+    /**
+     * Mirrors {@code TextOverlayItem.setTimeRange} exactly, INCLUDING its
+     * degenerate-range guard (review gate 2026-07-03): an end ≤ start would make
+     * the sprite invisible at every time forever (isVisibleAt can never pass), so
+     * it coerces to open-ended instead — same protection text overlays get from
+     * the generic trim/drag gesture path and from hand-edited/AI-authored JSON.
+     */
     public void setTimeRange(long startMs, long endMs) {
         this.startMs = Math.max(0, startMs);
-        this.endMs = endMs;
+        this.endMs = (endMs <= this.startMs) ? Long.MAX_VALUE : endMs;
     }
 
     @Nullable public String getLayerId() { return layerId; }
@@ -99,9 +105,13 @@ public class SpriteOverlayItem {
     @NonNull public FrameTrack getFrameTrack() { return frameTrack; }
     @NonNull public KeyframeSet getKeyframes() { return keyframes; }
 
-    /** True when {@code timelineMs} falls inside this item's visible range. */
+    /**
+     * True when {@code timelineMs} falls inside this item's visible range.
+     * End-INCLUSIVE, matching {@code TextOverlayItem.isVisibleAt} exactly (review
+     * gate 2026-07-03: the two mirrored overlay families must agree at boundaries).
+     */
     public boolean isVisibleAt(long timelineMs) {
-        return timelineMs >= startMs && (endMs == Long.MAX_VALUE || timelineMs < endMs);
+        return timelineMs >= startMs && timelineMs <= endMs;
     }
 
     /** Convert an absolute timeline time to this item's local time base. */

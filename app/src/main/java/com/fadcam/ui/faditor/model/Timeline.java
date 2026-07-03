@@ -640,12 +640,16 @@ public class Timeline {
         liveIds.add("master");
         liveIds.add("text");
         liveIds.add("audio");
+        liveIds.add("sprite"); // default sprite track (schema v9) — review gate 2026-07-03
         for (LayerTrackDef def : extraLayerTracks) liveIds.add(def.getId());
         for (TextOverlayItem o : textOverlays) {
             if (o.getLayerId() != null) liveIds.add(o.getLayerId());
         }
         for (AudioClip ac : audioClips) {
             if (ac.getLayerId() != null) liveIds.add(ac.getLayerId());
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : spriteOverlays) {
+            if (so.getLayerId() != null) liveIds.add(so.getLayerId());
         }
         List<String> dropped = new ArrayList<>();
         java.util.Iterator<String> it = trackFlags.keySet().iterator();
@@ -853,8 +857,9 @@ public class Timeline {
 
     /**
      * Create a new, persistent, initially-EMPTY layer track and return its stable id.
-     * {@code kind} must be {@link TrackKind#TEXT}/{@link TrackKind#STICKER} (floating
-     * layer) or {@link TrackKind#AUDIO} (audio band) — those are the only kinds
+     * {@code kind} must be {@link TrackKind#TEXT}/{@link TrackKind#STICKER}/
+     * {@link TrackKind#SPRITE} (floating layer — SPRITE routed since schema v9,
+     * PLAN_SPRITE_ANIMATION S1) or {@link TrackKind#AUDIO} (audio band) — the kinds
      * {@link #getLayers()}/{@link #getAudioTracks()} route by {@code layerId} today.
      */
     @NonNull

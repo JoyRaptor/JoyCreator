@@ -70,6 +70,10 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     private MasterPlaybackEngine.SourceResolver gaplessResolver;
     @Nullable
     private MasterPlaybackEngine.SeamListener gaplessSeamListener;
+    /** Rank-1: forwarded to every engine built so a reverse-leg decode failure poisons that clip's
+     *  reversed URI + rebuilds (per-clip forward degrade) instead of a whole-timeline blackout. */
+    @Nullable
+    private MasterPlaybackEngine.ErrorRecoveryListener gaplessErrorRecoveryListener;
     @Nullable
     private String exportResumeClipId;
     private long exportResumePosMs = 0L;
@@ -205,6 +209,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
         if (!MasterPlaybackEngine.isEligible(gaplessTimeline, gaplessResolver)) return;
         gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
+        configureEngine(gaplessEngine);
         if (!gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {
             gaplessEngine.releasePlayer();
             gaplessEngine = null;
@@ -278,6 +283,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
         if (player == null) initializePlayer();
         gaplessEngine = new MasterPlaybackEngine(context, resolver, seamListener);
+        configureEngine(gaplessEngine);
         boolean ok = playerView != null
                 && gaplessEngine.prepareTimeline(timeline, playerView);
         if (!ok) {
@@ -324,6 +330,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (gaplessEngine == null) {
             gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
         }
+        configureEngine(gaplessEngine);
         boolean ok = gaplessEngine.prepareTimeline(gaplessTimeline, playerView);
         if (!ok) {
             gaplessEngine.releasePlayer();
@@ -522,6 +529,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
                 && MasterPlaybackEngine.isEligible(gaplessTimeline, gaplessResolver) && playerView != null) {
             if (player == null) initializePlayer();
             gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
+            configureEngine(gaplessEngine);
             if (gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {
                 attachRegisteredListenersToEngine();
                 if (exportResumeClipId != null) {
@@ -831,6 +839,30 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         for (Player.Listener l : registeredListeners) {
             ep.addListener(l);
         }
+    }
+
+    /**
+     * Rank-1: install the reverse-leg failure recovery hook that every engine build will honour.
+     * The activity supplies the poison-and-rebuild behaviour. Safe to call before or after the
+     * engine exists; re-applied on every (re)build via {@link #configureEngine}.
+     */
+    public void setErrorRecoveryListener(
+            @Nullable MasterPlaybackEngine.ErrorRecoveryListener listener) {
+        this.gaplessErrorRecoveryListener = listener;
+        if (gaplessEngine != null) {
+            gaplessEngine.setErrorRecoveryListener(listener);
+        }
+    }
+
+    /**
+     * Apply the cross-build engine configuration (error-recovery hook + debug EventLogger) to a
+     * freshly constructed engine. Called from EVERY place that builds a {@link MasterPlaybackEngine}
+     * BEFORE {@link MasterPlaybackEngine#prepareTimeline} so the config takes effect on the player
+     * that build creates.
+     */
+    private void configureEngine(@NonNull MasterPlaybackEngine engine) {
+        engine.setErrorRecoveryListener(gaplessErrorRecoveryListener);
+        engine.setEventLoggingEnabled(com.fadcam.BuildConfig.DEBUG);
     }
 
 

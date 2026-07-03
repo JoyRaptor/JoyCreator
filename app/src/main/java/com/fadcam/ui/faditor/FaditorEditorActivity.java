@@ -133,6 +133,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     /** Whether the "reverse for long loops coming later" guard toast has been shown this session. */
     private boolean reverseLongGuardToastShown = false;
+    /**
+     * RANK-1 resilience: per-session set of baked-reversed URIs that FAILED to decode in the gapless
+     * player. {@link #resolveReversedUri} returns null for any poisoned URI, so that PING_PONG clip
+     * degrades to forward reps ONLY (scoped, not project-wide) on the next playlist rebuild, and the
+     * decode-failure blackout can never spread. Cleared only when the app process dies (a clip re-trim
+     * yields a NEW reversed URI/key, so a fresh bake is naturally re-tried).
+     */
+    private final java.util.Set<Uri> poisonedReversedUris =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    /**
+     * RANK-1c rebuild-race guard: monotonically increasing token bumped on EVERY user-initiated
+     * gapless rebuild (trim/loop edit, mode change, poison recovery). {@link #kickReverseBakeIfNeeded}
+     * captures this at kick time; the bake-complete auto-promote rebuild is DISCARDED if the token
+     * advanced since (a later user edit already rebuilt), so a stale promote can't revert the timeline.
+     */
+    private volatile int rebuildGeneration = 0;
 
     // ── Export service binding ────────────────────────────────────────
     private ExportService exportService;
@@ -1194,6 +1210,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 clip.setOutPointMs(newOut);
                 editorTimeline.setTrimFromClip(clip);
                 if (!clip.isImageClip()) {
+                    // RANK-1c: trim-edge drag rebuilds the playlist — advance the generation so a
+                    // bake kicked before this drag discards its stale auto-promote.
+                    rebuildGeneration++;
                     playerManager.updateTrimBounds(clip);
                     // Restore fast keyframe seeking for normal scrubbing (we forced
                     // EXACT during the trim-edge preview) and land on the new in-frame.
@@ -1227,6 +1246,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // NORMAL loop) or so a stored PING_PONG clip stays correctly on the legacy
                 // forward-tail path (parked). This applies + persists the resized extension.
                 if (!clip.isImageClip()) {
+                    // RANK-1c: loop-edge resize rebuilds the playlist — advance the generation so a
+                    // bake kicked before this resize discards its stale auto-promote (the old
+                    // resize-revert race the parking commit called out).
+                    rebuildGeneration++;
                     playerManager.updateTrimBounds(clip);
                     playerManager.setExactSeek(false);
                 }
@@ -2785,9 +2808,61 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long out = clip.getOutPointMs();
         if (!com.fadcam.ui.faditor.export.ReversedSegmentCache.canBake(in, out)) return null;
         if (reversedCache().isCached(src, in, out)) {
-            return Uri.fromFile(reversedCache().fileFor(src, in, out));
+            Uri revUri = Uri.fromFile(reversedCache().fileFor(src, in, out));
+            // RANK-1: a reversed URI that already failed to decode in the gapless player is poisoned
+            // for this session → return null so this clip degrades to forward reps ONLY (scoped),
+            // instead of re-feeding the player a file that black-outs the whole timeline.
+            if (poisonedReversedUris.contains(revUri)) {
+                FLog.w(TAG, "resolveReversedUri: URI is POISONED (prior decode failure) — "
+                        + "degrading clip " + clip.getId() + " to forward reps");
+                return null;
+            }
+            return revUri;
         }
         return null;
+    }
+
+    /**
+     * RANK-1 recovery hook (registered on the player manager, fired on the main thread from the
+     * gapless engine's onPlayerError). A baked reversed leg failed to decode. Poison its URI so the
+     * resolver stops handing it out, rebuild the gapless playlist (that clip now degrades to forward
+     * reps — same clamp math, scoped to this ONE clip), and reseek to the pre-error visual position
+     * so playback resumes exactly where it black-outed instead of blacking the whole timeline.
+     */
+    private void onReverseWindowFailed(@Nullable String clipId, @Nullable Uri reversedUri,
+                                       @Nullable String resumeClipId, long resumeVisualPosMs) {
+        // Poison the reversed URI. Prefer the URI the engine reported; if absent, derive it from the
+        // clip's current trim range so a re-resolve still returns null.
+        Uri toPoison = reversedUri;
+        if (toPoison == null && clipId != null) {
+            Clip c = findClipById(clipId);
+            if (c != null
+                    && com.fadcam.ui.faditor.export.ReversedSegmentCache.canBake(
+                            c.getInPointMs(), c.getOutPointMs())) {
+                toPoison = Uri.fromFile(reversedCache().fileFor(
+                        c.getSourceUri(), c.getInPointMs(), c.getOutPointMs()));
+            }
+        }
+        if (toPoison != null) {
+            poisonedReversedUris.add(toPoison);
+            FLog.w(TAG, "RANK-1 recovery: POISONED reversed URI " + toPoison
+                    + " (clip " + clipId + ") — degrading this clip to forward reps");
+        } else {
+            FLog.w(TAG, "RANK-1 recovery: reverse-leg failure with no poisonable URI (clip "
+                    + clipId + ") — rebuilding anyway");
+        }
+        if (playerManager == null) return;
+        // A recovery rebuild is a user-visible timeline change → bump the generation so any in-flight
+        // stale bake auto-promote is discarded (rank-1c) and can't re-introduce the poisoned file.
+        rebuildGeneration++;
+        // rebuildGaplessTimeline() captures the current clip-id + visual position (which, at the
+        // error, is the failing reverse leg's pre-error visual position) and restores it after the
+        // rebuild — so the reseek to the pre-error position is handled there. Force playback to
+        // resume afterward (the errored player's play-intent may not survive the teardown).
+        playerManager.rebuildGaplessTimeline();
+        if (playerManager.isGapless()) {
+            playerManager.play();
+        }
     }
 
     /**
@@ -2836,6 +2911,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!reverseBakeInFlight.add(key)) return; // already baking this exact range
         final Clip bakeClip = clip;
         final String clipId = clip.getId();
+        // RANK-1c: capture the rebuild generation at KICK time. If a later user edit rebuilds the
+        // playlist before this bake lands, the generation advances and we DISCARD the stale
+        // auto-promote below — so a bake finishing after the user re-trimmed/removed the loop can't
+        // revert the timeline (the old resize-revert race).
+        final int kickGeneration = rebuildGeneration;
         if (reverseBakeExecutor == null) {
             reverseBakeExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
         }
@@ -2851,6 +2931,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             + " — staying on forward-tail");
                     return;
                 }
+                // RANK-1c: discard a stale auto-promote — a user edit rebuilt since the kick.
+                if (rebuildGeneration != kickGeneration) {
+                    FLog.i(TAG, "Reverse bake for clip " + clipId + " landed but rebuild generation "
+                            + "advanced (" + kickGeneration + "->" + rebuildGeneration
+                            + ") — DISCARDING stale auto-promote");
+                    return;
+                }
                 // The bake landed. If the clip is still PING_PONG with the same range, rebuild the
                 // gapless playlist so the engine re-evaluates eligibility and uses the reversed file.
                 Clip cur = findClipById(clipId);
@@ -2859,6 +2946,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         && !cur.isImageClip()) {
                     FLog.i(TAG, "Reverse bake ready for clip " + clipId
                             + " — rebuilding gapless playlist for TRUE ping-pong");
+                    rebuildGeneration++;
                     playerManager.rebuildGaplessTimeline();
                 }
             });
@@ -2987,6 +3075,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 },
                 this::onGaplessSeam);
+
+        // ── RANK-1 resilience: when the gapless player errors on a baked REVERSED leg, poison that
+        // reversed URI (so resolveReversedUri returns null → this clip degrades to forward reps
+        // ONLY, scoped per-clip) and rebuild the playlist, reseeking to the pre-error visual
+        // position. This contains what was the ffcdc86 whole-timeline blackout to zero clips.
+        playerManager.setErrorRecoveryListener(this::onReverseWindowFailed);
 
         // Load the clip
         Clip clip = getSelectedClip();
@@ -4370,6 +4464,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // (refreshEditorAfterUndoRedo) already do, or the engine keeps playing the OLD extension
         // until some unrelated action happens to trigger a rebuild.
         if (!clip.isImageClip()) {
+            // RANK-1c: a user loop edit rebuilds the playlist — advance the generation so any
+            // in-flight bake kicked before this edit discards its stale auto-promote.
+            rebuildGeneration++;
             playerManager.updateTrimBounds(clip);
         }
         // L2: if this made the clip PING_PONG, kick the off-main reverse bake now; when it lands it
@@ -4401,6 +4498,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // L1: same reasoning as applyLoopMode above — the extension length changed, so the
         // gapless engine's playlist (rep count/boundaries) is stale until rebuilt.
         if (!clip.isImageClip()) {
+            // RANK-1c: user loop edit → advance the rebuild generation (see applyLoopMode).
+            rebuildGeneration++;
             playerManager.updateTrimBounds(clip);
         }
         // L2: extendLoop doesn't change the trim range (only before/after ms), so the reverse-bake

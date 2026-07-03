@@ -127,12 +127,45 @@ public class MasterPlaybackEngine {
         void onSeam(int newClipIndex, boolean autoAdvance);
     }
 
+    /**
+     * Rank-1 resilience hook. Fired (on the app main thread, from the player's onPlayerError) when
+     * the shared gapless player errors on a window that plays a baked REVERSED file (a PING_PONG
+     * reverse leg). The listener MUST: (1) poison that clip's reversed URI in a per-session set the
+     * {@link SourceResolver#resolveReversed} consults (so it returns null → that clip degrades to
+     * forward reps ONLY, scoped per-clip), then (2) rebuild the gapless playlist and reseek to the
+     * pre-error visual position. Because the failing window degrades to a forward-source rep with
+     * the SAME clamp math, the black-out spread is contained to zero clips — playback resumes.
+     *
+     * <p>If the failing window is NOT a reverse leg (a forward source itself failing) the engine
+     * cannot recover by poisoning a reversed URI; it reports {@code reversed == null} and the
+     * listener falls back to whatever coarser handling it wants (today: log only, legacy behaviour).
+     */
+    public interface ErrorRecoveryListener {
+        /**
+         * @param clipId    the timeline clip id whose window failed, or null if unmappable
+         * @param reversed  the poisoned reversed URI when the failing window was a reverse leg
+         *                  (non-null ⇒ recoverable by degrading that clip to forward), else null
+         * @param resumeClipId  clip id to reseek to after the rebuild (the pre-error visual clip)
+         * @param resumeVisualPosMs  visual position within {@code resumeClipId} to reseek to
+         */
+        void onReverseWindowFailed(@Nullable String clipId, @Nullable Uri reversed,
+                                   @Nullable String resumeClipId, long resumeVisualPosMs);
+    }
+
     @NonNull
     private final Context context;
     @NonNull
     private final SourceResolver resolver;
     @NonNull
     private final SeamListener seamListener;
+    @Nullable
+    private ErrorRecoveryListener errorRecoveryListener;
+
+    /** Debug-only: attach a media3 {@link androidx.media3.exoplayer.util.EventLogger} to every
+     *  built player so the seam's decoder init/format-change/error signatures land in logcat. */
+    private boolean eventLoggingEnabled = false;
+    @Nullable
+    private androidx.media3.exoplayer.util.EventLogger eventLogger;
 
     @Nullable
     private ExoPlayer player;
@@ -158,15 +191,20 @@ public class MasterPlaybackEngine {
         final long visualStartMs; // this window's offset within the clip's VISUAL duration (0-based)
         final long visualLenMs;   // this window's contribution to the clip's visual duration
         final float speed;
+        /** True iff this window plays the baked REVERSED file (a PING_PONG reverse leg). Used by
+         *  {@link #internalListener}'s onPlayerError to decide whether a failing window can be
+         *  recovered by poisoning the reversed URI + degrading this clip to forward reps. */
+        final boolean reverse;
 
         WindowInfo(int clipIndex, @NonNull String clipId, @NonNull RepKind kind,
-                   long visualStartMs, long visualLenMs, float speed) {
+                   long visualStartMs, long visualLenMs, float speed, boolean reverse) {
             this.clipIndex = clipIndex;
             this.clipId = clipId;
             this.kind = kind;
             this.visualStartMs = visualStartMs;
             this.visualLenMs = visualLenMs;
             this.speed = speed;
+            this.reverse = reverse;
         }
     }
 
@@ -206,6 +244,46 @@ public class MasterPlaybackEngine {
                         + " clip=" + newClipIndex + " reason=" + reason);
             }
         }
+
+        @Override
+        public void onPlayerError(@NonNull androidx.media3.common.PlaybackException error) {
+            // RANK-1 RESILIENCE. With no handler here, ANY single-item decode failure left the one
+            // shared player permanently errored → black spread across every clip (the ffcdc86
+            // blackout). Map the failing window; if it is a baked REVERSED leg, hand it to the
+            // recovery listener to POISON that reversed URI + rebuild (that clip degrades to forward
+            // reps ONLY — scoped, not project-wide) + reseek to the pre-error visual position.
+            int idx = player != null ? player.getCurrentMediaItemIndex() : -1;
+            WindowInfo w = (idx >= 0 && idx < windows.size()) ? windows.get(idx) : null;
+            String failClipId = w != null ? w.clipId : null;
+            boolean isReverse = w != null && w.reverse;
+            // Pre-error visual position for the reseek: the current window's visual start + local pos
+            // (best-effort; if the player is already torn down we fall to the window's visual start).
+            long resumeVisualPos = w != null ? w.visualStartMs : 0L;
+            try {
+                if (player != null && idx == currentWindow) {
+                    long local = Math.max(0L, player.getCurrentPosition());
+                    resumeVisualPos = (w != null ? w.visualStartMs : 0L) + local;
+                }
+            } catch (Exception ignored) { /* player may be in error state */ }
+            FLog.e(TAG, "onPlayerError code=" + error.errorCode + " (" + error.getErrorCodeName()
+                    + ") window=" + idx + " clip=" + failClipId + " reverseLeg=" + isReverse
+                    + " msg=" + error.getMessage());
+            if (errorRecoveryListener != null) {
+                Uri reversedUri = null;
+                if (isReverse && failClipId != null) {
+                    // The reverse leg's own baked URI (the one to poison). All this clip's reverse
+                    // windows share it; grab from the failing MediaItem if available, else null and
+                    // let the listener resolve it from the clip id.
+                    androidx.media3.common.MediaItem mi =
+                            player != null ? player.getCurrentMediaItem() : null;
+                    if (mi != null && mi.localConfiguration != null) {
+                        reversedUri = mi.localConfiguration.uri;
+                    }
+                }
+                errorRecoveryListener.onReverseWindowFailed(failClipId, reversedUri,
+                        failClipId, resumeVisualPos);
+            }
+        }
     };
 
     public MasterPlaybackEngine(@NonNull Context context,
@@ -214,6 +292,18 @@ public class MasterPlaybackEngine {
         this.context = context.getApplicationContext();
         this.resolver = resolver;
         this.seamListener = seamListener;
+    }
+
+    /** Rank-1: register the reverse-leg failure recovery hook (see {@link ErrorRecoveryListener}). */
+    public void setErrorRecoveryListener(@Nullable ErrorRecoveryListener listener) {
+        this.errorRecoveryListener = listener;
+    }
+
+    /** Debug-flag-gated: when enabled, a media3 {@link androidx.media3.exoplayer.util.EventLogger}
+     *  is attached to every built player (decoder init / input-format change / videoDisabled /
+     *  onPlayerError → logcat under the "EventLogger" tag). Call BEFORE {@link #prepareTimeline}. */
+    public void setEventLoggingEnabled(boolean enabled) {
+        this.eventLoggingEnabled = enabled;
     }
 
     // ── Eligibility ──────────────────────────────────────────────────────
@@ -288,6 +378,15 @@ public class MasterPlaybackEngine {
         ExoPlayer p = new ExoPlayer.Builder(context).build();
         p.setRepeatMode(Player.REPEAT_MODE_OFF);
         p.addListener(internalListener);
+        if (eventLoggingEnabled) {
+            try {
+                eventLogger = new androidx.media3.exoplayer.util.EventLogger();
+                p.addAnalyticsListener(eventLogger);
+                FLog.d(TAG, "EventLogger attached to gapless player (debug)");
+            } catch (Throwable t) {
+                FLog.w(TAG, "EventLogger attach failed (non-fatal): " + t.getMessage());
+            }
+        }
         p.setMediaItems(items);
         p.prepare();
         currentWindow = 0;
@@ -388,7 +487,7 @@ public class MasterPlaybackEngine {
                     .build();
             items.add(item);
             windows.add(new WindowInfo(clipIndex, clip.getId(), kind,
-                    visualCursorMs, playedMs, speed));
+                    visualCursorMs, playedMs, speed, reverse));
             visualCursorMs += playedMs;
         }
         return visualCursorMs;
@@ -410,7 +509,7 @@ public class MasterPlaybackEngine {
                 .build();
         items.add(item);
         windows.add(new WindowInfo(clipIndex, clip.getId(), RepKind.MAIN,
-                visualStartMs, visualLenMs, clip.getSpeedMultiplier()));
+                visualStartMs, visualLenMs, clip.getSpeedMultiplier(), /* reverse = */ false));
     }
 
     private void applyWindowSpeed(int window) {
@@ -422,6 +521,10 @@ public class MasterPlaybackEngine {
     public void releasePlayer() {
         if (player != null) {
             player.removeListener(internalListener);
+            if (eventLogger != null) {
+                try { player.removeAnalyticsListener(eventLogger); } catch (Exception ignored) {}
+                eventLogger = null;
+            }
             player.release();
             player = null;
         }

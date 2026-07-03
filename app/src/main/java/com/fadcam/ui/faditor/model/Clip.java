@@ -156,8 +156,15 @@ public class Clip {
      *     gate);
      *   • NO reverse bake is ever kicked (incl. from resize) while parked.
      * Flip to {@code false} to un-park the L2 ping-pong path exactly as it was at 9d9539c.
+     *
+     * <p>UNPARKED (2026-07-03, tasks/PLAN_PINGPONG_UNPARK): the blackout amplifier is fixed —
+     * MasterPlaybackEngine now has an onPlayerError that poisons a failing reversed URI and degrades
+     * that clip to forward reps ONLY (scoped, no whole-timeline blackout), the reversed segments now
+     * bake single-codec HEVC (hevc_mediacodec, hardened-libx264 fallback) so the playlist stays hvc1
+     * end-to-end (no HEVC→AVC decoder swap at the seam), and the bake-complete auto-promote is gated
+     * on a rebuild generation so a stale promote can't revert a resize. All 4 seams below reactivate.
      */
-    public static final boolean PING_PONG_PARKED = true;
+    public static final boolean PING_PONG_PARKED = false;
 
     private int loopMode = LOOP_MODE_OFF;
 

@@ -79,16 +79,27 @@ public class ReversedSegmentCache {
     }
 
     /**
+     * Cache-key version tag. BUMP THIS whenever the bake command / codec changes so old artifacts
+     * from a previous codec (e.g. the pre-unpark ~40Mbps L4.0-violating libx264 files) can NEVER be
+     * mistaken for a current bake — a stale file would silently break preview==export parity. v2 =
+     * the single-codec HEVC-first chain (hevc_mediacodec → hardened libx264 fallback).
+     */
+    private static final String KEY_VERSION = "v2";
+
+    /**
      * The baked-file location for a key (may not exist yet). Filename embeds a hash of the full key
      * so different sources / trims never collide, plus the in/out ms for human-readable cache dirs.
+     * The {@link #KEY_VERSION} tag is folded into the hash AND the filename so a codec/command change
+     * invalidates every prior artifact.
      */
     @NonNull
     public File fileFor(@NonNull Uri sourceUri, long inPointMs, long outPointMs) {
         File cacheDir = new File(context.getCacheDir(), CACHE_DIR);
         if (!cacheDir.exists()) cacheDir.mkdirs();
-        String key = keyFor(sourceUri, inPointMs, outPointMs);
+        String key = keyFor(sourceUri, inPointMs, outPointMs) + "|" + KEY_VERSION;
         String hash = String.valueOf(Math.abs(key.hashCode() % 100000));
-        return new File(cacheDir, "rev-" + inPointMs + "-" + outPointMs + "-" + hash + ".mp4");
+        return new File(cacheDir, "rev-" + KEY_VERSION + "-" + inPointMs + "-" + outPointMs
+                + "-" + hash + ".mp4");
     }
 
     /** Whether the trimmed span is short enough to bake (see {@link #MAX_REVERSE_SPAN_MS}). */
@@ -148,30 +159,38 @@ public class ReversedSegmentCache {
         }
         if (out.exists()) out.delete();
 
-        String cmd = buildCommand(inputFile.getAbsolutePath(), out.getAbsolutePath(),
-                inPointMs, outPointMs);
         FLog.i(TAG, "Baking reversed segment [" + inPointMs + "," + outPointMs + "]ms -> "
                 + out.getName());
-        FLog.d(TAG, "ffmpeg: " + cmd);
+        String[] attempts = buildCommandChain(inputFile.getAbsolutePath(),
+                out.getAbsolutePath(), inPointMs, outPointMs);
         long t0 = System.currentTimeMillis();
-        try {
-            FFmpegSession session = FFmpegKit.execute(cmd);
-            if (ReturnCode.isSuccess(session.getReturnCode())
-                    && out.exists() && out.length() >= 1024) {
-                FLog.i(TAG, "Reverse bake OK: " + out.getName() + " ("
-                        + (out.length() / 1024) + " KB) in "
-                        + (System.currentTimeMillis() - t0) + "ms");
-                return out;
+        for (int attempt = 0; attempt < attempts.length; attempt++) {
+            String cmd = attempts[attempt];
+            if (out.exists()) out.delete();
+            FLog.d(TAG, "Reverse bake attempt " + (attempt + 1) + "/" + attempts.length
+                    + " (" + ATTEMPT_NAMES[attempt] + "): ffmpeg " + cmd);
+            try {
+                FFmpegSession session = FFmpegKit.execute(cmd);
+                if (ReturnCode.isSuccess(session.getReturnCode())
+                        && out.exists() && out.length() >= 1024) {
+                    FLog.i(TAG, "Reverse bake OK via attempt " + (attempt + 1) + " ("
+                            + ATTEMPT_NAMES[attempt] + "): " + out.getName() + " ("
+                            + (out.length() / 1024) + " KB) in "
+                            + (System.currentTimeMillis() - t0) + "ms");
+                    return out;
+                }
+                FLog.w(TAG, "Reverse bake attempt " + (attempt + 1) + " ("
+                        + ATTEMPT_NAMES[attempt] + ") FAILED rc=" + session.getReturnCode()
+                        + " — " + (attempt + 1 < attempts.length ? "trying next codec" : "no more attempts")
+                        + "; ffmpeg tail: " + tail(session.getOutput()));
+            } catch (Exception e) {
+                FLog.w(TAG, "Reverse bake attempt " + (attempt + 1) + " ("
+                        + ATTEMPT_NAMES[attempt] + ") threw: " + e.getMessage());
             }
-            FLog.e(TAG, "Reverse bake FAILED rc=" + session.getReturnCode()
-                    + " out=" + session.getOutput());
-            if (out.exists()) out.delete();
-            return null;
-        } catch (Exception e) {
-            FLog.e(TAG, "Reverse bake threw", e);
-            if (out.exists()) out.delete();
-            return null;
         }
+        FLog.e(TAG, "Reverse bake FAILED after " + attempts.length + " attempts for " + out.getName());
+        if (out.exists()) out.delete();
+        return null;
     }
 
     /**
@@ -196,54 +215,107 @@ public class ReversedSegmentCache {
             return;
         }
         if (out.exists()) out.delete();
-        String cmd = buildCommand(inputFile.getAbsolutePath(), out.getAbsolutePath(),
-                inPointMs, outPointMs);
+        final String[] attempts = buildCommandChain(inputFile.getAbsolutePath(),
+                out.getAbsolutePath(), inPointMs, outPointMs);
         FLog.i(TAG, "Async baking reversed segment [" + inPointMs + "," + outPointMs + "]ms -> "
                 + out.getName());
-        final long t0 = System.currentTimeMillis();
-        FFmpegKit.executeAsync(cmd, session -> {
-            boolean ok = ReturnCode.isSuccess(session.getReturnCode())
-                    && out.exists() && out.length() >= 1024;
-            if (ok) {
-                FLog.i(TAG, "Async reverse bake OK: " + out.getName() + " in "
-                        + (System.currentTimeMillis() - t0) + "ms");
-            } else {
-                FLog.e(TAG, "Async reverse bake FAILED rc=" + session.getReturnCode());
-                if (out.exists()) out.delete();
-            }
-            callback.onBakeComplete(ok, ok ? out : null, false);
-        }, log -> { /* ffmpeg logs — muted to avoid spam */ }, stats -> { /* progress unused */ });
+        runAsyncAttempt(attempts, 0, out, System.currentTimeMillis(), callback);
     }
 
     /**
-     * Builds the reverse-bake ffmpeg command. Fast-seek {@code -ss}/{@code -to} go BEFORE {@code -i}
-     * (decode only the trimmed span); {@code reverse}/{@code areverse} flip the buffered frames;
-     * {@code setpts/asetpts} re-base timestamps to 0; {@code +faststart} makes the result seekable.
+     * Run one attempt of the async bake chain; on ReturnCode failure, recurse to the next attempt.
+     * When all attempts are exhausted, report failure (caller falls back to the forward-tail).
+     */
+    private void runAsyncAttempt(@NonNull String[] attempts, int attempt, @NonNull File out,
+                                 long t0, @NonNull BakeCallback callback) {
+        if (attempt >= attempts.length) {
+            FLog.e(TAG, "Async reverse bake FAILED after " + attempts.length + " attempts: "
+                    + out.getName());
+            if (out.exists()) out.delete();
+            callback.onBakeComplete(false, null, false);
+            return;
+        }
+        if (out.exists()) out.delete();
+        final int attemptIdx = attempt;
+        FLog.d(TAG, "Async reverse bake attempt " + (attemptIdx + 1) + "/" + attempts.length
+                + " (" + ATTEMPT_NAMES[attemptIdx] + ")");
+        FFmpegKit.executeAsync(attempts[attemptIdx], session -> {
+            boolean ok = ReturnCode.isSuccess(session.getReturnCode())
+                    && out.exists() && out.length() >= 1024;
+            if (ok) {
+                FLog.i(TAG, "Async reverse bake OK via attempt " + (attemptIdx + 1) + " ("
+                        + ATTEMPT_NAMES[attemptIdx] + "): " + out.getName() + " in "
+                        + (System.currentTimeMillis() - t0) + "ms");
+                callback.onBakeComplete(true, out, false);
+            } else {
+                FLog.w(TAG, "Async reverse bake attempt " + (attemptIdx + 1) + " ("
+                        + ATTEMPT_NAMES[attemptIdx] + ") FAILED rc=" + session.getReturnCode()
+                        + (attemptIdx + 1 < attempts.length ? " — trying next codec" : ""));
+                runAsyncAttempt(attempts, attemptIdx + 1, out, t0, callback);
+            }
+        }, log -> { /* ffmpeg logs — muted to avoid spam */ }, stats -> { /* progress unused */ });
+    }
+
+    /** Human-readable names for each attempt in {@link #buildCommandChain}, for logging. */
+    private static final String[] ATTEMPT_NAMES = {
+            "hevc_mediacodec/nv12", "hevc_mediacodec/yuv420p", "libx264-hardened"
+    };
+
+    /**
+     * Builds the ReturnCode-checked reverse-bake command CHAIN (attempted in order until one
+     * succeeds). Rank-2 single-codec strategy: bake the reversed leg as HEVC so the preview playlist
+     * stays hvc1 end-to-end (no mid-playlist HEVC→AVC decoder swap on the shared player's surface —
+     * the leading blackout trigger), keeping ONE cache file shared by preview and export.
      *
-     * <p>The video is re-encoded with the SOFTWARE {@code libx264} encoder (bundled in ffmpeg-kit
-     * "full"), NOT the device's {@code h264_mediacodec} hardware encoder: on the Note 9 (and other
-     * devices) the hardware MediaCodec encoder failed to configure for these HEVC 1080×1920 fMP4
-     * sources ({@code MediaCodec configure failed, Error 0xffffffc3}). {@code -preset ultrafast}
-     * (fast bake, yields a Constrained-Baseline H.264 stream = maximally compatible) + {@code
-     * -pix_fmt yuv420p} + a keyframe every ~1s ({@code -g 30}) is portable and reliably seekable /
-     * decodable by Media3 for both preview and export.</p>
+     * <p>Common to every attempt: fast-seek {@code -ss}/{@code -to} BEFORE {@code -i} (decode only
+     * the trimmed span); {@code reverse}/{@code areverse} flip the buffered frames; {@code
+     * setpts/asetpts} re-base timestamps to 0; audio re-encoded AAC 192k; {@code +faststart} makes
+     * the result seekable for preview windowing. Audio path is UNCHANGED from the pre-unpark bake.</p>
+     *
+     * <ol>
+     *   <li><b>hevc_mediacodec / nv12</b> — HW HEVC encode, explicit {@code -b:v 10M}, {@code -g 30},
+     *       {@code -tag:v hvc1}. NO {@code -profile}/{@code -level} flags (the suspected 0xffffffc3
+     *       configure trigger in the AVC sibling). nv12 is the MediaCodec-native input layout.</li>
+     *   <li><b>hevc_mediacodec / yuv420p</b> — same, but {@code -pix_fmt yuv420p} in case the encoder
+     *       rejects nv12 for these sources.</li>
+     *   <li><b>hardened libx264</b> — the in-code fallback (hevc_mediacodec is binary-present but
+     *       device-UNPROVEN, and its AVC sibling failed configure). Pins the stream INSIDE H.264
+     *       Level 4.0: {@code -preset veryfast -crf 23 -profile:v high -level 4.0 -maxrate 12M
+     *       -bufsize 24M -pix_fmt yuv420p -g 30 -fps_mode passthrough}. This fixes the pre-unpark
+     *       ~40Mbps/L4.0-violating, VFR-collapsing command that could render silent-black on the
+     *       Note-9-class AVC decoder.</li>
+     * </ol>
      */
     @NonNull
-    private String buildCommand(@NonNull String inputPath, @NonNull String outputPath,
-                                long inPointMs, long outPointMs) {
+    private String[] buildCommandChain(@NonNull String inputPath, @NonNull String outputPath,
+                                       long inPointMs, long outPointMs) {
         double inSec = inPointMs / 1000.0;
         double outSec = outPointMs / 1000.0;
-        // -an would drop audio; we KEEP + areverse it (PLAN: reverse-leg audio comes areverse'd
-        // from the bake). Software x264 avoids the flaky hardware encoder; aac re-encodes the
-        // (already decoded + reversed) audio.
-        return String.format(Locale.US,
+        String seekIn = String.format(Locale.US,
                 "-ss %.3f -to %.3f -i \"%s\" "
                         + "-vf reverse,setpts=PTS-STARTPTS "
-                        + "-af areverse,asetpts=PTS-STARTPTS "
-                        + "-c:v libx264 -preset ultrafast -crf 20 -pix_fmt yuv420p -g 30 "
-                        + "-c:a aac -b:a 192k "
-                        + "-movflags +faststart -y \"%s\"",
-                inSec, outSec, inputPath, outputPath);
+                        + "-af areverse,asetpts=PTS-STARTPTS ", inSec, outSec, inputPath);
+        String audioTail = "-c:a aac -b:a 192k -movflags +faststart -y \"" + outputPath + "\"";
+
+        String hevcNv12 = seekIn
+                + "-c:v hevc_mediacodec -pix_fmt nv12 -b:v 10M -g 30 -tag:v hvc1 "
+                + audioTail;
+        String hevcYuv = seekIn
+                + "-c:v hevc_mediacodec -pix_fmt yuv420p -b:v 10M -g 30 -tag:v hvc1 "
+                + audioTail;
+        String libx264 = seekIn
+                + "-c:v libx264 -preset veryfast -crf 23 -profile:v high -level 4.0 "
+                + "-maxrate 12M -bufsize 24M -pix_fmt yuv420p -g 30 -fps_mode passthrough "
+                + audioTail;
+        return new String[]{ hevcNv12, hevcYuv, libx264 };
+    }
+
+    /** Last ~400 chars of an ffmpeg session log (for failure diagnostics without spamming). */
+    @NonNull
+    private static String tail(@Nullable String s) {
+        if (s == null) return "(none)";
+        s = s.trim();
+        return s.length() <= 400 ? s : s.substring(s.length() - 400);
     }
 
     // ── Housekeeping ──────────────────────────────────────────────────────

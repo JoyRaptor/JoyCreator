@@ -437,6 +437,11 @@ public class EditorTimelineView extends View {
 
     // ── Touch ────────────────────────────────────────────────────────
     private boolean isScaling = false;
+    /** FOLLOW-UP 2: true from onScaleEnd (a finger survived the pinch) until that
+     *  finger lifts — its MOVEs drive the scrub directly, re-anchored (see onScaleEnd). */
+    private boolean postPinchPanActive = false;
+    /** Previous raw x of the surviving pointer; NaN = not yet re-anchored. */
+    private float postPinchLastX = Float.NaN;
     
     private enum Drag {
         NONE,
@@ -3989,7 +3994,58 @@ public class EditorTimelineView extends View {
             FLog.d(TAG, "onTouchEvent: consumed by active pinch zoom");
             return true;
         }
-        
+
+        // FOLLOW-UP 2: post-pinch handback — the finger that survived the pinch pans
+        // the timeline immediately (no lift-and-retouch), re-anchored at its own
+        // position so there's zero jump. Placed BEFORE the gesture-detector guard: the
+        // detector missed the whole pinch (isScaling early-return) and its stale state
+        // must not see this stream. A new POINTER_DOWN (re-pinch) or DOWN hands off.
+        if (postPinchPanActive) {
+            int ppAction = e.getActionMasked();
+            if (ppAction == MotionEvent.ACTION_MOVE && e.getPointerCount() == 1) {
+                float px = e.getX();
+                if (Float.isNaN(postPinchLastX)) {
+                    postPinchLastX = px;
+                    // Restart velocity tracking from the re-anchor: this branch returns
+                    // before the shared feed below, and pinch-era samples are garbage
+                    // for the single surviving pointer anyway.
+                    if (rowScrubVelocityTracker == null) rowScrubVelocityTracker = android.view.VelocityTracker.obtain();
+                    else rowScrubVelocityTracker.clear();
+                    rowScrubVelocityTracker.addMovement(e);
+                    RG("PINCH-HANDBACK re-anchored at x=" + px + " (zero-jump seed)");
+                } else {
+                    if (rowScrubVelocityTracker != null) rowScrubVelocityTracker.addMovement(e);
+                    float distanceX = postPinchLastX - px;
+                    postPinchLastX = px;
+                    float centerX = getWidth() / 2f;
+                    updatePlayheadFromX(centerX + scrollOffsetPx + distanceX);
+                }
+                invalidate();
+                return true;
+            }
+            if (ppAction == MotionEvent.ACTION_UP || ppAction == MotionEvent.ACTION_CANCEL) {
+                RG("PINCH-HANDBACK end (" + (ppAction == MotionEvent.ACTION_UP ? "UP" : "CANCEL") + ")");
+                postPinchPanActive = false;
+                postPinchLastX = Float.NaN;
+                // Same glide parity as the row-band scrub: a flick that ends the
+                // pinch→pan motion flings like any other timeline swipe.
+                if (ppAction == MotionEvent.ACTION_UP && rowScrubVelocityTracker != null) {
+                    rowScrubVelocityTracker.computeCurrentVelocity(1000, maxFlingVelocityPx);
+                    float vx = rowScrubVelocityTracker.getXVelocity();
+                    if (Math.abs(vx) > minFlingVelocityPx) {
+                        RG("PINCH-HANDBACK UP -> fling handoff vx=" + vx);
+                        startPlayheadFling(vx);
+                    }
+                }
+                getParent().requestDisallowInterceptTouchEvent(false);
+                return true;
+            }
+            // POINTER_DOWN (a re-pinch starting) or an unexpected DOWN: hand off cleanly.
+            RG("PINCH-HANDBACK handoff (action=" + ppAction + ")");
+            postPinchPanActive = false;
+            postPinchLastX = Float.NaN;
+        }
+
         // When actively dragging a handle, audio clip, or reordering, bypass gesture detector
         // to prevent GestureDetector.onTouchEvent() returning true and blocking onMove/onUp.
         // M10 fix (pre-existing gap since M7): the M6/M7 row-gesture flags
@@ -5476,7 +5532,18 @@ public class EditorTimelineView extends View {
         public void onScaleEnd(ScaleGestureDetector detector) {
             FLog.d(TAG, "ScaleListener.onScaleEnd");
             isScaling = false;  // Clear flag to allow other touches
-            getParent().requestDisallowInterceptTouchEvent(false);
+            // FOLLOW-UP 2 (post-pinch dead zone): the pinch swallowed every event from
+            // the gesture detector (the isScaling early-return above it), so its
+            // internal state is stale — the surviving finger's MOVEs would be ignored
+            // (flight-recorder: action=2 stream, activeDrag=NONE, nothing consumes)
+            // until a re-touch. Hand the surviving pointer back to the pan/scrub path
+            // directly, RE-ANCHORED at its own next position (NaN seed → the first MOVE
+            // sets the anchor with zero delta, killing the 1151→541 active-pointer
+            // jump). Pinch→pan becomes one fluid motion.
+            postPinchPanActive = true;
+            postPinchLastX = Float.NaN;
+            RG("PINCH-HANDBACK armed (onScaleEnd; awaiting surviving pointer's first MOVE)");
+            // Keep the parent-intercept claim — the same finger is still mid-gesture.
         }
     }
     

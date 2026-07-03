@@ -31,6 +31,15 @@ On a layer-row item:
   viewport (M6 intended this) so no row is permanently off-screen. Add a subtle affordance/label so the user
   knows the zone is a drop target.
 
+## DESIGN PRINCIPLE (user-endorsed 2026-07-03): selection badges are the extension point
+The delete trash roundel established the pattern the user explicitly wants more of: per-item action
+BADGES that appear in the SELECTED state. "That really opens up and gives breathing room for more
+features without over-complicating touch maneuvers." Future per-item actions (duplicate, split,
+lock-one-item, properties/numeric-duration drawer, etc.) should be added as selection badges — NOT as new
+gestures, long-press variants, or toolbar modes. Badges follow the delete badge's rules: geometry
+single-sourced between draw and hit-test, generous finger slop, pinned into the visible viewport on long
+items, fire on committed tap-UP (never on DOWN), and lose to trim handles where zones overlap.
+
 ## ANCHORS
 - timeline/EditorTimelineView.java: row-band touch routing (handleM6RowTouch, the pending-axis + parent-
   intercept logic from 1a13557, onUp/onCancel, resetRowGestureFlags), getM6RowsTopPx, viewport height.

@@ -47,15 +47,44 @@ on zone → onItemDroppedOnNewLayer, new row visible; (f) drop on other band row
 delete still reachable via selection. Scripted drags impossible on this device — user hand-tests; design log
 lines decisive. ONE strong-model agent (gesture state machines are subtle); build green throughout.
 
-## FOLLOW-UP (user report 2026-07-03, do IMMEDIATELY AFTER the contract redesign lands — same files)
-**Same-row overlapping items stack unreadably.** User moved audio + text items onto one row: "weird they
-stack on each other... very difficult to maneuver." Overlap is allowed by design (M7), but rendering just
-piles them (zHint paint order). FIX: auto SUB-LANES within a row when items overlap in time — the codebase
-already does exactly this for overlapping audio clips on the classic audio lane (find that lane-assignment
-code in EditorTimelineView and mirror/reuse the algorithm in LayerRowRenderer). Each overlapping item gets
-its own thin lane (row grows or lanes compress per DESIGN §5 — don't bury the timeline); hit-testing per
-lane so each item is individually grabbable; selection/trim/pickup per the new contract work per-lane.
-NOT a data change — rendering + hit-test only.
+## ~~FOLLOW-UP (sub-lane overlap rendering)~~ — SUPERSEDED 2026-07-03 by the user's hand-test feedback
+The sub-lane idea is DEAD. The user's new binding model (described in their own detailed spec, feedback
+2026-07-03 post-redesign hand-test): **items on the same layer row DO NOT OVERLAP** — a row's items butt up
+sequentially, and dropping an item onto an occupied row SNAPS it to a bookend of the occupant(s). See the
+BOOKEND MANEUVER spec below, which replaces this section. (Existing projects that already contain overlaps
+are NOT migrated — drag-drop simply never creates new overlaps; other creation paths unchanged for now.)
+
+## FOLLOW-UP 1 (NEW, binding — user spec 2026-07-03): occupied-row BOOKEND SNAP + animated view excursion
+**The rule: no multiple items occupying the same time on the same layer.** Dropping item A onto a row
+occupied by item B (the primary case: B is long, both its ends off-screen) snaps A to a bookend:
+- While hovering an occupied row during a pickup-drag, the choice of bookend = which HALF of the TIMELINE
+  PANEL the finger is in (panel, NOT screen — the user explicitly wants this panel-relative for future
+  landscape layouts where the preview panel sits beside the timeline panel). The dividing line is the
+  panel's horizontal midpoint.
+- **Finger in LEFT half** → the timeline view ANIMATES a quick scroll to show B's START (row's FIRST item's
+  start), with a ghost preview of A butted up immediately BEFORE it (A.end == B.start, exact, no gap).
+- **Finger in RIGHT half** → quick animated scroll to B's END (row's LAST item's end), ghost preview of A
+  butted immediately AFTER it (A.start == B.end).
+- The user can flip left/right repeatedly while hovering that row; each flip re-animates to the other
+  bookend. Smooth animated scrolls ONLY — never teleport (mental-map preservation is the point).
+- **CRUCIAL playhead rule:** during this excursion the playhead stays LOCKED TO TIMELINE CONTENT (it
+  scrolls away off-screen with the content), NOT re-centered on screen. That is the deliberate visual cue
+  that the maneuver is temporary and shows how far you've traveled ("I observe the playhead is way back
+  there, so I am such-and-such far from where I was").
+- **Leaving the row upward (or to any other row/zone) without dropping** → the view quickly ANIMATES BACK
+  to where it was (the pre-excursion scroll anchor), and the normal preview for the new hover target shows
+  (empty row placement / cross-band insertion line / new-layer zone).
+- **Drop while a bookend preview is showing** → commit A at exactly the previewed snapped position (one
+  undo step, as with every completed drag).
+- Multi-item rows generalize: LEFT half = butt before the row's FIRST item; RIGHT half = butt after the
+  row's LAST item. (Placing into interior gaps of a multi-item row: future refinement, not this task.)
+**Engineering notes:** needs a "view excursion" mode in EditorTimelineView — temporarily animate
+scrollOffsetPx while REMEMBERING the pre-excursion anchor to return to, with the playhead drawn at its
+content position instead of re-centered (updatePlayheadFromX's recentering must be bypassed during the
+excursion); LayerGestureController's applyMove must override finger→time mapping with the snapped preview
+position while a bookend is armed; drop commit in onRowBodyUp. STRONG-MODEL (Opus-tier) task per the
+user's budget rule — this is a gesture state machine with animation coupling. Extend ROWGESTURE logging:
+excursion enter/flip/exit/commit lines with anchor + target offsets.
 
 ## FOLLOW-UP 2 (user report + flight-recorder confirmed 2026-07-03): post-pinch dead zone
 After a pinch ends with one finger still down, the surviving finger's MOVEs are ignored (log: onScaleEnd →

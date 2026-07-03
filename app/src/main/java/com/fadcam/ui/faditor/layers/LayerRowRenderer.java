@@ -118,6 +118,11 @@ public final class LayerRowRenderer {
     private float scrollOffsetPx = 0f;
     private float contentHeightPx = 0f;
     private float viewportHeightPx = 0f;
+    /** Horizontal scroll + view width captured at the last {@link #layout} call — the
+     *  visible viewport in content-x, needed to pin the delete badge on-screen for
+     *  items whose right end runs past the screen edge (user feedback 2026-07-03). */
+    private float lastHScrollOffsetPx = 0f;
+    private float lastWidthPx = 0f;
 
     private static final class RowLayout {
         final Track track;
@@ -228,6 +233,8 @@ public final class LayerRowRenderer {
                         @Nullable String selectedItemId) {
         rows.clear();
         newLayerZoneRect.setEmpty();
+        lastHScrollOffsetPx = hScrollOffsetPx;
+        lastWidthPx = widthPx;
         if (isEmpty(layers, audioTracks)) { contentHeightPx = 0f; return; }
 
         float rowGap = ROW_GAP_DP * density;
@@ -288,7 +295,68 @@ public final class LayerRowRenderer {
         if (dragActive && !newLayerZoneRect.isEmpty()) {
             drawNewLayerZone(canvas, dragOverNewLayerZone);
         }
+        if (dragActive && crossBandInsertionArmed) {
+            drawCrossBandInsertionLine(canvas, hScrollOffsetPx, widthPx);
+        }
         canvas.restore();
+    }
+
+    /** True while a picked-up drag hovers a row of the OTHER band — draw the insertion
+     *  line at the position the new lane will REALLY appear (see setter doc). */
+    private boolean crossBandInsertionArmed;
+    /** Band of the item being dragged when {@link #crossBandInsertionArmed} (true=floating/visual). */
+    private boolean crossBandDraggedIsFloating;
+
+    /**
+     * Arm/clear the cross-band insertion indicator (user feedback 2026-07-03): dragging a
+     * VISUAL item over the audio band used to preview it "below the audio" while the drop
+     * actually creates the new visual lane ABOVE the audio band (and vice versa for audio
+     * items) — the preview lied. While armed, a bright insertion line is drawn at the
+     * TRUE future position of the new lane: for a visual item, the visual/audio band
+     * boundary; for an audio item, below the last audio row (new audio lanes append to
+     * the bottom of the audio band).
+     */
+    public void setCrossBandInsertionArmed(boolean armed, boolean draggedIsFloating) {
+        this.crossBandInsertionArmed = armed;
+        this.crossBandDraggedIsFloating = draggedIsFloating;
+    }
+
+    private void drawCrossBandInsertionLine(@NonNull Canvas canvas, float hScrollOffsetPx, float widthPx) {
+        if (rows.isEmpty()) return;
+        float lineY = -1f;
+        if (crossBandDraggedIsFloating) {
+            // Visual item: new lane lands at the visual/audio band boundary (last visual
+            // row's bottom edge / first audio row's top edge — midpoint of the gap).
+            RowLayout prev = null;
+            for (RowLayout row : rows) {
+                if (!row.floatingBand) {
+                    lineY = prev != null ? (prev.bodyRect.bottom + row.headerRect.top) / 2f
+                            : row.headerRect.top - (ROW_GAP_DP * density) / 2f;
+                    break;
+                }
+                prev = row;
+            }
+            if (lineY < 0f && prev != null) {
+                // No audio rows at all: boundary = below the last visual row.
+                lineY = prev.bodyRect.bottom + (ROW_GAP_DP * density) / 2f;
+            }
+        } else {
+            // Audio item: new audio lanes append BELOW the last audio row.
+            RowLayout last = rows.get(rows.size() - 1);
+            lineY = last.bodyRect.bottom + (ROW_GAP_DP * density) / 2f;
+        }
+        if (lineY < 0f) return;
+        float left = hScrollOffsetPx + HEADER_WIDTH_DP * density;
+        float right = hScrollOffsetPx + widthPx;
+        stripPaint.setColor(COLOR_DROP_TARGET_RING); // fill paint; zone draw re-sets its color anyway
+        float half = 1.25f * density;
+        canvas.drawRoundRect(left, lineY - half, right - 4f * density, lineY + half,
+                half, half, stripPaint);
+        // Small caret label so it reads as "the new lane appears HERE on release".
+        itemLabelPaint.setColor(COLOR_DROP_TARGET_RING);
+        canvas.drawText("▸ new layer here", left + 6f * density,
+                lineY - 4f * density, itemLabelPaint);
+        itemLabelPaint.setColor(0xFFFFFFFF);
     }
 
     private void drawNewLayerZone(@NonNull Canvas canvas, boolean armed) {
@@ -391,6 +459,50 @@ public final class LayerRowRenderer {
 
     /** Set/clear which item (by id) is picked up for a move, so it draws with a lift affordance. */
     public void setLiftedItemId(@Nullable String itemId) { this.liftedItemId = itemId; }
+
+    /** Id of the item currently being edge-TRIMMED — rendered with timeline-locked stripes. */
+    @Nullable private String trimmingItemId;
+    /** uptimeMillis when the current trim armed, for the stripe fade-in. */
+    private long trimStripeFadeStartMs;
+
+    /** Set/clear which item (by id) is being trimmed, so it draws the stripe feedback. */
+    public void setTrimmingItemId(@Nullable String itemId) {
+        if (itemId != null && !itemId.equals(trimmingItemId)) {
+            trimStripeFadeStartMs = android.os.SystemClock.uptimeMillis();
+        }
+        this.trimmingItemId = itemId;
+    }
+
+    /** Paint for the trim-feedback stripes (configured per-draw; soft translucent white). */
+    private final Paint trimStripePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /**
+     * Trim-feedback stripes (user feedback 2026-07-03): a soft diagonal pattern whose
+     * stripe positions are a FIXED CONTENT-SPACE GRID (multiples of the spacing in
+     * absolute timeline-x), NOT item-relative — so while dragging an edge the pattern
+     * visibly stays put and the moving edge "eats"/reveals stripes. That's the cue that
+     * distinguishes a RESIZE (bar still, edge consuming stripes) from a MOVE (whole bar
+     * + its stripes sliding) even when the item's far end is off-screen. Fades in over
+     * ~180ms from trim-arm so it reads as feedback, not a permanent texture.
+     */
+    private void drawTrimStripes(@NonNull Canvas canvas, float x0, float top, float x1, float bottom) {
+        float t = Math.min(1f, (android.os.SystemClock.uptimeMillis() - trimStripeFadeStartMs) / 180f);
+        int alpha = (int) (0x3C * t);
+        if (alpha <= 0) return;
+        trimStripePaint.setStyle(Paint.Style.STROKE);
+        trimStripePaint.setStrokeWidth(2f * density);
+        trimStripePaint.setColor((alpha << 24) | 0x00FFFFFF);
+        canvas.save();
+        canvas.clipRect(x0, top, x1, bottom);
+        float spacing = 12f * density;
+        float h = bottom - top;
+        // 45° diagonals anchored to the absolute content-x grid (timeline-locked).
+        float sx = (float) (Math.floor((x0 - h) / spacing) * spacing);
+        for (; sx <= x1 + h; sx += spacing) {
+            canvas.drawLine(sx, bottom, sx + h, top, trimStripePaint);
+        }
+        canvas.restore();
+    }
 
     private void drawCaret(@NonNull Canvas canvas, @NonNull RectF r, boolean collapsed) {
         caretPath.reset();
@@ -514,6 +626,9 @@ public final class LayerRowRenderer {
             if (selectedItemId != null && selectedItemId.equals(item.getId())) {
                 drawItemSelection(canvas, x0, top, x1, bottom, baseColor);
             }
+            if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
+                drawTrimStripes(canvas, x0, top, x1, bottom);
+            }
         }
     }
 
@@ -572,19 +687,31 @@ public final class LayerRowRenderer {
         }
     }
 
-    /** Radius of the selected item's delete badge (the trash roundel). */
-    private static final float DELETE_BADGE_RADIUS_DP = 7f;
+    /** Radius of the selected item's delete badge (the trash roundel).
+     *  9dp (was 7) — user feedback 2026-07-03: "a little hard to hit" + log-proven
+     *  (a whole hand-test session produced ZERO DELETE-zone hits, all BODY). */
+    private static final float DELETE_BADGE_RADIUS_DP = 9f;
 
     /**
      * Center-x (content space) of the selected item's delete badge, or {@link Float#NaN}
      * when the item is too narrow to host one without colliding with the left trim
      * handle's zone. Single source of truth for {@link #drawItemSelection} AND
      * {@link #hitTestItem}.
+     *
+     * <p>Natural spot: just inside the right trim cap. If the item's right end runs past
+     * the right edge of the visible viewport, the badge PINS to the rightmost on-screen
+     * position instead, riding the screen edge as the view scrolls until the item's real
+     * end comes into view — so on a long item you never have to travel to its end to
+     * delete it (user feedback 2026-07-03).</p>
      */
     private float deleteBadgeCx(float x0, float x1) {
         float r = DELETE_BADGE_RADIUS_DP * density;
         float handle = ITEM_HANDLE_HALF_WIDTH_DP * density;
         float cx = x1 - handle - r;
+        if (lastWidthPx > 0f) {
+            float pinnedCx = lastHScrollOffsetPx + lastWidthPx - r - 4f * density;
+            cx = Math.min(cx, pinnedCx);
+        }
         return (cx - r < x0 + handle) ? Float.NaN : cx;
     }
 
@@ -770,7 +897,7 @@ public final class LayerRowRenderer {
                     float cx = deleteBadgeCx(x0, x1);
                     if (!Float.isNaN(cx)) {
                         float cy = (top + bottom) / 2f;
-                        float slopR = DELETE_BADGE_RADIUS_DP * density * 1.7f;
+                        float slopR = DELETE_BADGE_RADIUS_DP * density * 2.0f;
                         float ddx = x - cx, ddy = localY - cy;
                         if (ddx * ddx + ddy * ddy <= slopR * slopR) {
                             return new ItemHit(t, item, ItemZone.DELETE);

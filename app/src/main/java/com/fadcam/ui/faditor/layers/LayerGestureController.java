@@ -177,6 +177,19 @@ public final class LayerGestureController {
     private float lastMoveY, lastMoveTopPx;
 
     /**
+     * True while the picked-up drag hovers a row of the OTHER band (visual item over the
+     * audio band or vice versa). Redesigned semantics (user feedback 2026-07-03): instead
+     * of a silent dead zone, this ARMS the same new-lane drop the pinned zone offers —
+     * dropping a visual item "past its band" creates the new visual lane at its true
+     * position (above the audio band), which is what the user meant by the drag. The
+     * renderer draws an insertion line at that true position while armed, so the preview
+     * stops lying about where the item will land.
+     */
+    private boolean hoverCrossBandNewLane = false;
+    /** Last row id whose hover rejection was logged (throttle: one RG line per row, not per MOVE). */
+    @Nullable private String lastRejectedRowId;
+
+    /**
      * True once a long-press PICK-UP has committed for the current body touch — only then
      * does a drag actually MOVE the item (PLAN TARGET CONTRACT: swipe=scrub, hold=grab).
      * Before pickup, the caller owns the touch (deciding tap vs scrub vs row-scroll); this
@@ -253,6 +266,7 @@ public final class LayerGestureController {
                 || hit.zone == LayerRowRenderer.ItemZone.RIGHT_HANDLE) {
             boolean left = hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE;
             armTrim(hit.item, left);
+            rowRenderer.setTrimmingItemId(hit.item.getId()); // timeline-locked stripe feedback
             active = true;
             activeKind = left ? GestureKind.TRIM_LEFT : GestureKind.TRIM_RIGHT;
             RG("DOWN hit item=" + hit.item.getId() + " zone=" + hit.zone + " track=" + hit.track.getId()
@@ -404,8 +418,11 @@ public final class LayerGestureController {
         if (rowRenderer.isWithinNewLayerZone(y, topPx)) {
             if (!hoverNewLayerZone) RG("HOVER -> NEW-LAYER-ZONE (armed) y=" + y + " topPx=" + topPx);
             hoverNewLayerZone = true;
+            hoverCrossBandNewLane = false;
+            lastRejectedRowId = null;
             hoverTargetTrack = null;
             rowRenderer.setDragTargetTrackId(null);
+            rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
             return;
         }
         if (hoverNewLayerZone) RG("HOVER left NEW-LAYER-ZONE y=" + y + " topPx=" + topPx);
@@ -415,19 +432,35 @@ public final class LayerGestureController {
         if (candidate == null || candidate.getId().equals(activeTrack.getId())
                 || candidate.isLocked() || candidate.isHidden()
                 || rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand) {
-            // TEMP: log WHY a row under the finger is not a valid drop target (helps prove
-            // the "can't move between levels" chicken-and-egg: with only 1 row per band the
-            // only legal target is the new-layer zone above).
-            if (candidate != null && !candidate.getId().equals(activeTrack.getId())) {
+            boolean crossBand = candidate != null
+                    && rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand;
+            // Cross-band hover ARMS the new-lane drop at its TRUE position instead of
+            // being a silent dead zone (user feedback 2026-07-03) — see the field doc.
+            // Locked/hidden same-band rows stay plain rejections.
+            if (crossBand != hoverCrossBandNewLane) {
+                RG("HOVER cross-band new-lane " + (crossBand ? "ARMED" : "cleared")
+                        + " (draggedFloating=" + sourceIsFloatingBand + ")");
+            }
+            hoverCrossBandNewLane = crossBand;
+            rowRenderer.setCrossBandInsertionArmed(crossBand, sourceIsFloatingBand);
+            // TEMP: log WHY a row under the finger is not a valid same-band target —
+            // throttled to one line per rejected row (was one per MOVE event: ~60/s spam
+            // in the 2026-07-03 pull).
+            if (candidate != null && !candidate.getId().equals(activeTrack.getId())
+                    && !candidate.getId().equals(lastRejectedRowId)) {
+                lastRejectedRowId = candidate.getId();
                 RG("HOVER row=" + candidate.getId() + " REJECTED reason="
                         + (candidate.isLocked() ? "locked" : candidate.isHidden() ? "hidden"
-                            : rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand ? "cross-band" : "?"));
+                            : crossBand ? "cross-band (new-lane armed)" : "?"));
             }
             if (hoverTargetTrack != null) RG("HOVER cleared target (was " + hoverTargetTrack.getId() + ")");
             hoverTargetTrack = null;
             rowRenderer.setDragTargetTrackId(null);
             return;
         }
+        hoverCrossBandNewLane = false;
+        lastRejectedRowId = null;
+        rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
         if (hoverTargetTrack == null || !hoverTargetTrack.getId().equals(candidate.getId())) {
             RG("HOVER -> valid target row=" + candidate.getId());
         }
@@ -524,7 +557,12 @@ public final class LayerGestureController {
         TimedItem item = activeItem;
         Track fromTrack = activeTrack;
         Track toTrack = hoverTargetTrack;
-        boolean droppedOnNewLayerZone = hoverNewLayerZone;
+        // A release while hovering the other band commits the SAME new-lane drop as the
+        // pinned zone (user feedback 2026-07-03) — the lane is created band-correctly by
+        // the activity (fromTrack's kind), so a visual item dropped "on the audio" lands
+        // on a new visual lane above the audio band, exactly what the insertion line
+        // promised.
+        boolean droppedOnNewLayerZone = hoverNewLayerZone || hoverCrossBandNewLane;
         boolean wasTap = pendingBodyDown && !movedDuringGesture;
         boolean wasPickup = pickupArmed;
         active = false;
@@ -536,8 +574,12 @@ public final class LayerGestureController {
         pickupArmed = false;
         hoverTargetTrack = null;
         hoverNewLayerZone = false;
+        hoverCrossBandNewLane = false;
+        lastRejectedRowId = null;
         rowRenderer.setDragTargetTrackId(null);
         rowRenderer.setLiftedItemId(null);
+        rowRenderer.setTrimmingItemId(null);
+        rowRenderer.setCrossBandInsertionArmed(false, true);
         RG("UP active=true wasMoved=" + wasMoved + " outcome=" + (wasTap ? "TAP(select-only)"
                         : wasPickup ? "PICKUP-MOVE" : activeKind == GestureKind.TRIM_LEFT || activeKind == GestureKind.TRIM_RIGHT ? "TRIM" : "no-op")
                 + " kind=" + activeKind + " droppedOnNewLayer=" + droppedOnNewLayerZone

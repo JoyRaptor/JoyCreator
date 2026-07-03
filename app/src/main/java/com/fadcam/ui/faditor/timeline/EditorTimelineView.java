@@ -648,6 +648,15 @@ public class EditorTimelineView extends View {
     private GestureDetector gestureDetector;
     private OverScroller flingScroller;
     private boolean flingJustFinished = false;  // Tracks when fling ends so we can reset userDragging
+    /**
+     * Velocity for the CUSTOM-path row-band scrub (user feedback 2026-07-03: main-timeline
+     * swipes glide with inertia via GestureDetector's onFling; row-band scrubs stopped
+     * dead on lift because they bypass the detector). Fed every custom-path touch; read
+     * only when a scrub-passthrough gesture lifts, then handed to the SAME fling the
+     * detector uses ({@link #startPlayheadFling}).
+     */
+    private android.view.VelocityTracker rowScrubVelocityTracker;
+    private int minFlingVelocityPx, maxFlingVelocityPx;
 
     @Nullable private OnSegmentActionListener listener;
 
@@ -905,6 +914,9 @@ public class EditorTimelineView extends View {
         scaleDetector = new ScaleGestureDetector(getContext(), new ScaleListener());
         gestureDetector = new GestureDetector(getContext(), new GestureListener());
         flingScroller = new OverScroller(getContext());
+        android.view.ViewConfiguration vc = android.view.ViewConfiguration.get(getContext());
+        minFlingVelocityPx = vc.getScaledMinimumFlingVelocity();
+        maxFlingVelocityPx = vc.getScaledMaximumFlingVelocity();
     }
     
     private void updateDpPerSecond() {
@@ -3941,6 +3953,16 @@ public class EditorTimelineView extends View {
         
         // Handle custom touch logic for trim/reorder
         float x = e.getX(), y = e.getY();
+        // Row-band scrub fling: capture velocity for every custom-path touch. Consumed
+        // only when a scrub-passthrough lifts (see onUp) — harmless otherwise.
+        int maskedAction = e.getActionMasked();
+        if (maskedAction == MotionEvent.ACTION_DOWN) {
+            if (rowScrubVelocityTracker == null) rowScrubVelocityTracker = android.view.VelocityTracker.obtain();
+            else rowScrubVelocityTracker.clear();
+            rowScrubVelocityTracker.addMovement(e);
+        } else if (maskedAction == MotionEvent.ACTION_MOVE && rowScrubVelocityTracker != null) {
+            rowScrubVelocityTracker.addMovement(e);
+        }
         switch (e.getAction()) {
             case MotionEvent.ACTION_DOWN: 
                 FLog.d(TAG, "onTouchEvent: ACTION_DOWN - calling onDown");
@@ -4408,12 +4430,20 @@ public class EditorTimelineView extends View {
             return true;
         }
         if (m6RowScrubPassthroughActive) {
-            // Mirrors GestureListener#onFling's guard shape (only meaningful here in
-            // that both leave scrollOffsetPx wherever the scrub left it — no fling
-            // velocity is tracked for a row-band scrub; lifting simply stops it, same
-            // as lifting mid-scrub anywhere else on a slow drag).
             RG("UP/CANCEL reset m6RowScrubPassthroughActive (isUp=" + isUp + ")");
             m6RowScrubPassthroughActive = false;
+            // Fling-inertia parity (user feedback 2026-07-03: "the other bars lack this
+            // gliding feeling"): hand the release velocity to the SAME fling the gesture
+            // detector's onFling gives the main timeline, so a row-band scrub glides and
+            // decelerates identically. Only on a real UP — a CANCEL just stops.
+            if (isUp && rowScrubVelocityTracker != null) {
+                rowScrubVelocityTracker.computeCurrentVelocity(1000, maxFlingVelocityPx);
+                float vx = rowScrubVelocityTracker.getXVelocity();
+                if (Math.abs(vx) > minFlingVelocityPx) {
+                    RG("row scrub UP -> fling handoff vx=" + vx);
+                    startPlayheadFling(vx);
+                }
+            }
             getParent().requestDisallowInterceptTouchEvent(false);
             return true;
         }
@@ -5414,29 +5444,37 @@ public class EditorTimelineView extends View {
             if (activeDrag != Drag.NONE) {
                 return false;
             }
-            
-            // Mark that a fling is starting so we can signal drag finished when it ends
-            flingJustFinished = true;
-            
-            // Calculate proper scroll bounds to keep playhead within timeline range
-            float centerX = getWidth() / 2f;
-            float minScroll = edgePaddingPx - centerX;  // When 0ms at center
-            long timelineEnd = getTimelineEndMs();
-            float maxScroll = timeToX(timelineEnd) - centerX;  // When timeline end at center
-            
-            // Start fling animation (negative velocity because scrolling moves playhead position)
-            int startX = (int) scrollOffsetPx;
-            flingScroller.fling(
-                startX, 0,               // startX, startY
-                (int) -velocityX, 0,     // velocityX (invert), velocityY
-                (int) minScroll,         // minX (video start bound)
-                (int) maxScroll,         // maxX (video end bound)
-                0, 0                     // minY, maxY (no vertical scroll)
-            );
-            
-            postInvalidateOnAnimation();
+            startPlayheadFling(velocityX);
             return true;
         }
+    }
+
+    /**
+     * Start the playhead-scrub fling animation (extracted from {@link GestureListener#onFling}
+     * so the row-band scrub-passthrough UP can hand off the SAME glide — user feedback
+     * 2026-07-03: row scrubs stopped dead while main-timeline swipes glided).
+     */
+    private void startPlayheadFling(float velocityX) {
+        // Mark that a fling is starting so we can signal drag finished when it ends
+        flingJustFinished = true;
+
+        // Calculate proper scroll bounds to keep playhead within timeline range
+        float centerX = getWidth() / 2f;
+        float minScroll = edgePaddingPx - centerX;  // When 0ms at center
+        long timelineEnd = getTimelineEndMs();
+        float maxScroll = timeToX(timelineEnd) - centerX;  // When timeline end at center
+
+        // Start fling animation (negative velocity because scrolling moves playhead position)
+        int startX = (int) scrollOffsetPx;
+        flingScroller.fling(
+            startX, 0,               // startX, startY
+            (int) -velocityX, 0,     // velocityX (invert), velocityY
+            (int) minScroll,         // minX (video start bound)
+            (int) maxScroll,         // maxX (video end bound)
+            0, 0                     // minY, maxY (no vertical scroll)
+        );
+
+        postInvalidateOnAnimation();
     }
     
     @Override

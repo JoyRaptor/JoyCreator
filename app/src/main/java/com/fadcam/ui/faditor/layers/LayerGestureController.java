@@ -132,13 +132,8 @@ public final class LayerGestureController {
     private static final long MIN_TEXT_DURATION_MS = 250;
     private static final long AUDIO_MIN_TRIM_GAP_MS = 500;
 
-    // ── TEMP diagnostics (tag "ROWGESTURE") — strip after user confirms Bug A/B fixed.
-    // Gated so no string is built when disabled (FLog has no isLoggable guard). Flip
-    // ROWGESTURE_LOG=false (or delete every RG(...) call + this block) to remove. ──
-    private static final boolean ROWGESTURE_LOG = true;
     /** Movement slop (px) that promotes a touch to a drag — matches the horizontal value historically used here. */
     private static final float MOVE_SLOP_PX = 4f;
-    private static void RG(String msg) { if (ROWGESTURE_LOG) com.fadcam.FLog.d("ROWGESTURE", msg); }
 
     private final LayerRowRenderer rowRenderer;
     private final Callback callback;
@@ -238,7 +233,6 @@ public final class LayerGestureController {
     public void setSuppressMoveMapping(boolean s) { suppressMoveMapping = s; }
 
     private void clearBookend() {
-        if (bookendJointMs != Long.MIN_VALUE) RG("BOOKEND cleared");
         bookendJointMs = Long.MIN_VALUE;
     }
 
@@ -277,7 +271,6 @@ public final class LayerGestureController {
                                     @NonNull LayerRowRenderer.TimeToX timeToX) {
         LayerRowRenderer.ItemHit hit = rowRenderer.hitTestItem(x, y, topPx, totalMs, timeToX, selectedItemId);
         if (hit == null) {
-            RG("DOWN miss (no item under touch) x=" + x + " y=" + y + " topPx=" + topPx + " -> MISS (caller axis-decides scrub/scroll)");
             selectedItemId = null;
             active = false;
             pendingBodyDown = false;
@@ -310,8 +303,6 @@ public final class LayerGestureController {
             rowRenderer.setTrimmingItemId(hit.item.getId()); // timeline-locked stripe feedback
             active = true;
             activeKind = left ? GestureKind.TRIM_LEFT : GestureKind.TRIM_RIGHT;
-            RG("DOWN hit item=" + hit.item.getId() + " zone=" + hit.zone + " track=" + hit.track.getId()
-                    + " -> ARMED_TRIM (immediate)");
             return DownResult.ARMED_TRIM;
         }
 
@@ -325,9 +316,6 @@ public final class LayerGestureController {
         active = true;
         pendingBodyDown = true;
         activeKind = GestureKind.MOVE;
-        RG("DOWN hit item=" + hit.item.getId() + " zone=BODY track=" + hit.track.getId()
-                + " locked=" + hit.track.isLocked() + " floatingBand=" + rowRenderer.isFloatingBandRow(hit.track)
-                + " x=" + x + " y=" + y + " -> PENDING (selected; awaiting tap/scrub/pickup/scroll)");
         return DownResult.PENDING;
     }
 
@@ -349,8 +337,6 @@ public final class LayerGestureController {
         activeKind = GestureKind.MOVE;
         armMove(activeItem);
         rowRenderer.setLiftedItemId(activeItem.getId());
-        RG("PICKUP armed item=" + activeItem.getId() + " track=" + activeTrack.getId()
-                + " (long-press + low movement -> item now follows finger; lift visible)");
         return true;
     }
 
@@ -422,10 +408,6 @@ public final class LayerGestureController {
             dragStartDisplayDurMs = activeItem.getDisplayDurationMs(totalMs);
             rowRenderer.setHomeGhost(activeTrack.getId(),
                     activeItem.getTimelineStartMs(), dragStartDisplayDurMs);
-            RG("MOVE/TRIM first movement kind=" + activeKind
-                    + " dx=" + (x - dragStartX) + " dy=" + (y - dragStartY)
-                    + " homeGhost@" + activeItem.getTimelineStartMs() + "+" + dragStartDisplayDurMs
-                    + (activeKind == GestureKind.MOVE ? " (picked-up item now tracking finger)" : ""));
         }
         if (!movedDuringGesture) return;
 
@@ -493,7 +475,6 @@ public final class LayerGestureController {
         boolean sourceIsFloatingBand = rowRenderer.isFloatingBandRow(activeTrack);
 
         if (rowRenderer.isWithinNewLayerZone(y, topPx)) {
-            if (!hoverNewLayerZone) RG("HOVER -> NEW-LAYER-ZONE (armed) y=" + y + " topPx=" + topPx);
             hoverNewLayerZone = true;
             hoverCrossBandNewLane = false;
             hoveringHomeRow = false;
@@ -504,7 +485,6 @@ public final class LayerGestureController {
             rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
             return;
         }
-        if (hoverNewLayerZone) RG("HOVER left NEW-LAYER-ZONE y=" + y + " topPx=" + topPx);
         hoverNewLayerZone = false;
 
         Track candidate = rowRenderer.rowTrackAt(y, topPx);
@@ -519,23 +499,12 @@ public final class LayerGestureController {
             // Cross-band hover ARMS the new-lane drop at its TRUE position instead of
             // being a silent dead zone (user feedback 2026-07-03) — see the field doc.
             // Locked/hidden same-band rows stay plain rejections.
-            if (crossBand != hoverCrossBandNewLane) {
-                RG("HOVER cross-band new-lane " + (crossBand ? "ARMED" : "cleared")
-                        + " (draggedFloating=" + sourceIsFloatingBand + ")");
-            }
             hoverCrossBandNewLane = crossBand;
             rowRenderer.setCrossBandInsertionArmed(crossBand, sourceIsFloatingBand);
-            // TEMP: log WHY a row under the finger is not a valid same-band target —
-            // throttled to one line per rejected row (was one per MOVE event: ~60/s spam
-            // in the 2026-07-03 pull).
             if (candidate != null && !candidate.getId().equals(activeTrack.getId())
                     && !candidate.getId().equals(lastRejectedRowId)) {
                 lastRejectedRowId = candidate.getId();
-                RG("HOVER row=" + candidate.getId() + " REJECTED reason="
-                        + (candidate.isLocked() ? "locked" : candidate.isHidden() ? "hidden"
-                            : crossBand ? "cross-band (new-lane armed)" : "?"));
             }
-            if (hoverTargetTrack != null) RG("HOVER cleared target (was " + hoverTargetTrack.getId() + ")");
             hoverTargetTrack = null;
             clearBookend();
             rowRenderer.setDragTargetTrackId(null);
@@ -571,21 +540,11 @@ public final class LayerGestureController {
                     : activeItem.getDisplayDurationMs(totalMs);
             long snap = after ? lastEnd : Math.max(0, firstStart - draggedDur);
             long joint = after ? lastEnd : firstStart;
-            if (bookendJointMs != joint || bookendAfter != after) {
-                RG("BOOKEND " + (after ? "AFTER" : "BEFORE") + " armed row=" + candidate.getId()
-                        + " joint=" + joint + " snapStart=" + snap
-                        + (snap == 0 && !after && firstStart < draggedDur
-                            ? " (CLAMPED to 0 - item longer than the gap)" : "")
-                        + " viewX=" + viewX);
-            }
             bookendAfter = after;
             bookendJointMs = joint;
             bookendSnapStartMs = snap;
         } else {
             clearBookend();
-        }
-        if (hoverTargetTrack == null || !hoverTargetTrack.getId().equals(candidate.getId())) {
-            RG("HOVER -> valid target row=" + candidate.getId());
         }
         hoverTargetTrack = candidate;
         rowRenderer.setDragTargetTrackId(candidate.getId());
@@ -650,7 +609,6 @@ public final class LayerGestureController {
     private void setHomeSnapArmed(boolean armed) {
         if (armed != homeSnapArmed) {
             homeSnapArmed = armed;
-            RG("HOME-SNAP " + (armed ? "armed (release = exactly the original position/length)" : "released"));
         }
         rowRenderer.setHomeGhostArmed(armed);
     }
@@ -774,7 +732,6 @@ public final class LayerGestureController {
         if (!committed && wasMoved) {
             revertActiveItemToGestureStart();
             wasMoved = false;
-            RG("UP(CANCEL) -> item reverted to gesture-start; no commit, no callbacks");
         }
         TimedItem item = activeItem;
         Track fromTrack = activeTrack;
@@ -787,7 +744,6 @@ public final class LayerGestureController {
         boolean droppedOnNewLayerZone = hoverNewLayerZone || hoverCrossBandNewLane;
         boolean wasTap = pendingBodyDown && !movedDuringGesture;
         boolean wasDeleteTap = wasTap && pendingDeleteBadge;
-        boolean wasPickup = pickupArmed;
         pendingDeleteBadge = false;
         active = false;
         activeItem = null;
@@ -811,31 +767,20 @@ public final class LayerGestureController {
         rowRenderer.setHomeGhost(null, 0, 0);
         rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
-        RG("UP active=true wasMoved=" + wasMoved + " outcome=" + (wasTap ? "TAP(select-only)"
-                        : wasPickup ? "PICKUP-MOVE" : activeKind == GestureKind.TRIM_LEFT || activeKind == GestureKind.TRIM_RIGHT ? "TRIM" : "no-op")
-                + " kind=" + activeKind + " droppedOnNewLayer=" + droppedOnNewLayerZone
-                + " toTrack=" + (toTrack == null ? "null" : toTrack.getId()));
         if (wasMoved && item != null) {
             // M10: report the track-change FIRST (see method doc) so the activity can
             // fold it into the ONE undo action onGestureFinished below builds.
             if (droppedOnNewLayerZone && fromTrack != null) {
-                RG("DROP COMMIT -> onItemDroppedOnNewLayer (create new layer + move item " + item.getId() + ")");
                 callback.onItemDroppedOnNewLayer(item, fromTrack);
             } else if (toTrack != null && fromTrack != null) {
-                RG("DROP COMMIT -> onItemMovedToTrack " + fromTrack.getId() + "->" + toTrack.getId());
                 callback.onItemMovedToTrack(item, fromTrack, toTrack);
-            } else {
-                RG("DROP no track change (same-row move/trim only)");
             }
             callback.onGestureFinished(item, activeKind);
         } else if (wasDeleteTap && committed && item != null && fromTrack != null) {
             // Deferred delete-badge tap (review fix 2026-07-03): the badge no longer
             // fires on DOWN — a clean tap on it resolves HERE, on the committed UP,
             // after scrub/pickup/scroll have all been ruled out.
-            RG("UP -> DELETE badge tap resolved; onItemDeleteRequested item=" + item.getId());
             callback.onItemDeleteRequested(fromTrack, item);
-        } else {
-            RG("UP no-op (tap = select-only, or never picked up — no move recorded)");
         }
         return true;
     }

@@ -39,11 +39,6 @@ import java.util.List;
  */
 public final class LayerRowRenderer {
 
-    // TEMP diagnostics (tag "ROWGESTURE") — strip after Bug A/B confirmed. See layout().
-    private static final boolean ROWGESTURE_LOG = true;
-    /** One-shot latch so the ZONE geometry line logs once per drag-activation, not every frame. */
-    private boolean loggedDragActiveLastLayout = false;
-
     // ── Row geometry (dp) ───────────────────────────────────────────
     private static final float HEADER_WIDTH_DP = 92f;
     private static final float ROW_HEIGHT_EXPANDED_DP = 34f;
@@ -270,27 +265,6 @@ public final class LayerRowRenderer {
             newLayerZoneRect.set(hScrollOffsetPx + HEADER_WIDTH_DP * density, zoneTopContent,
                     hScrollOffsetPx + widthPx, zoneBottomContent);
         }
-        // TEMP (tag ROWGESTURE) — drop-zone reachability. Log ONCE per drag-activation
-        // transition. Post-fix the zone is PINNED to the on-screen viewport bottom, so
-        // zoneInViewport (judged in SCREEN-y against the band's visible bottom
-        // topPx+viewportHeightPx) must now read TRUE and screenZoneBot must sit ABOVE the
-        // EditorTimelineView height (~924px on the Note 9), the opposite of the old
-        // off-screen SCREEN-y[1021..1099] symptom. Strip with the rest of ROWGESTURE.
-        if (ROWGESTURE_LOG && dragActive && !loggedDragActiveLastLayout) {
-            float zoneTopContent = newLayerZoneRect.top;
-            float zoneBotContent = newLayerZoneRect.bottom;
-            float screenZoneTop = topPx + zoneTopContent - scrollOffsetPx;
-            float screenZoneBot = topPx + zoneBotContent - scrollOffsetPx;
-            float bandVisibleBottom = topPx + viewportHeightPx;
-            boolean zoneInViewport = screenZoneBot <= bandVisibleBottom + 0.5f;
-            com.fadcam.FLog.d("ROWGESTURE", "ZONE laid out (pinned): content[" + zoneTopContent + ".." + zoneBotContent
-                    + "] rowsH=" + rowsContentHeightPx + " contentH=" + contentHeightPx + " viewportH=" + viewportHeightPx
-                    + " scroll=" + scrollOffsetPx + " zoneInViewport=" + zoneInViewport
-                    + " | SCREEN-y[" + screenZoneTop + ".." + screenZoneBot + "] bandVisibleBottom=" + bandVisibleBottom
-                    + " topPx=" + topPx + " (screenZoneBot should be < view height ~924px)");
-        }
-        loggedDragActiveLastLayout = dragActive;
-
         canvas.save();
         canvas.clipRect(hScrollOffsetPx, topPx, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
         canvas.translate(0f, topPx - scrollOffsetPx);

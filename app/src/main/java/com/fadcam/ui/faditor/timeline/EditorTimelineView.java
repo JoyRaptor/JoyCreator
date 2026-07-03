@@ -222,12 +222,6 @@ public class EditorTimelineView extends View {
     private long layerDragInitialKeyLocalMs = -1;
     private long layerDragOriginalKeyLocalMs = -1;
 
-    // ── TEMP diagnostics (tag "ROWGESTURE") — strip after user confirms Bug A/B fixed.
-    // Gated so no string is built when disabled. Flip false / delete the RG(...) calls
-    // + this block to remove. Pairs with the same tag in LayerGestureController. ──
-    private static final boolean ROWGESTURE_LOG = true;
-    private static void RG(String msg) { if (ROWGESTURE_LOG) com.fadcam.FLog.d("ROWGESTURE", msg); }
-
     // ── M6 multi-row Track UI (extract-on-touch: all logic in LayerRowRenderer) ──
     private com.fadcam.ui.faditor.layers.LayerRowRenderer layerRowRenderer;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
@@ -732,9 +726,6 @@ public class EditorTimelineView extends View {
             excursionActive = true;
             excursionReturnOffsetPx = scrollOffsetPx;
             if (!flingScroller.isFinished()) flingScroller.abortAnimation();
-            RG("EXCURSION enter anchor=" + excursionReturnOffsetPx + " joint=" + jointMs);
-        } else {
-            RG("EXCURSION retarget joint=" + jointMs);
         }
         excursionShownJointMs = jointMs;
         if (layerGestureController != null) layerGestureController.setSuppressMoveMapping(false);
@@ -744,7 +735,6 @@ public class EditorTimelineView extends View {
     /** Animate back to the pre-excursion anchor; playhead stays content-locked until home. */
     private void endExcursion(String cause) {
         if (!excursionActive) return;
-        RG("EXCURSION exit cause=" + cause + " -> return to anchor=" + excursionReturnOffsetPx);
         excursionShownJointMs = Long.MIN_VALUE;
         // Freeze the item's finger->time mapping while the view glides home — mapping
         // finger x through a mid-animation scrollOffset would teleport the item.
@@ -4038,7 +4028,6 @@ public class EditorTimelineView extends View {
                     if (rowScrubVelocityTracker == null) rowScrubVelocityTracker = android.view.VelocityTracker.obtain();
                     else rowScrubVelocityTracker.clear();
                     rowScrubVelocityTracker.addMovement(e);
-                    RG("PINCH-HANDBACK re-anchored at x=" + px + " (zero-jump seed)");
                 } else {
                     if (rowScrubVelocityTracker != null) rowScrubVelocityTracker.addMovement(e);
                     float distanceX = postPinchLastX - px;
@@ -4050,7 +4039,6 @@ public class EditorTimelineView extends View {
                 return true;
             }
             if (ppAction == MotionEvent.ACTION_UP || ppAction == MotionEvent.ACTION_CANCEL) {
-                RG("PINCH-HANDBACK end (" + (ppAction == MotionEvent.ACTION_UP ? "UP" : "CANCEL") + ")");
                 postPinchPanActive = false;
                 postPinchLastX = Float.NaN;
                 // Same glide parity as the row-band scrub: a flick that ends the
@@ -4059,7 +4047,6 @@ public class EditorTimelineView extends View {
                     rowScrubVelocityTracker.computeCurrentVelocity(1000, maxFlingVelocityPx);
                     float vx = rowScrubVelocityTracker.getXVelocity();
                     if (Math.abs(vx) > minFlingVelocityPx) {
-                        RG("PINCH-HANDBACK UP -> fling handoff vx=" + vx);
                         startPlayheadFling(vx);
                     }
                 }
@@ -4067,7 +4054,6 @@ public class EditorTimelineView extends View {
                 return true;
             }
             // POINTER_DOWN (a re-pinch starting) or an unexpected DOWN: hand off cleanly.
-            RG("PINCH-HANDBACK handoff (action=" + ppAction + ")");
             postPinchPanActive = false;
             postPinchLastX = Float.NaN;
         }
@@ -4168,7 +4154,6 @@ public class EditorTimelineView extends View {
                 layerGestureController.onRowBodyDown(scrolledX, y, topPx, totalEffectiveMs, this::timeToX);
         if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.ARMED_TRIM) {
             m7ItemGestureActive = true;
-            RG("ROUTE DOWN -> ARMED_TRIM item gesture (m7ItemGestureActive=true) scrolledX=" + scrolledX + " y=" + y);
             getParent().requestDisallowInterceptTouchEvent(true);
             invalidate();
             return true;
@@ -4177,7 +4162,6 @@ public class EditorTimelineView extends View {
             m7ItemPendingDown = true;
             m7PendingDownX = scrolledX;
             m7PendingDownY = y;
-            RG("ROUTE DOWN -> PENDING body (selected; timer armed) scrolledX=" + scrolledX + " y=" + y);
             longPressHandler.removeCallbacks(itemPickupRunnable);
             longPressHandler.postDelayed(itemPickupRunnable, ITEM_PICKUP_MS);
             getParent().requestDisallowInterceptTouchEvent(true);
@@ -4196,7 +4180,6 @@ public class EditorTimelineView extends View {
         m6RowPendingLastX = scrolledX;
         m6RowPendingDownY = y;
         m6RowLastY = y;
-        RG("ROUTE DOWN -> pending-axis (empty/locked row band) scrolledX=" + scrolledX + " y=" + y);
         // Claim the gesture from the parent scroll container NOW, before the axis is
         // decided: every other armed-DOWN branch in onDown() ends with this call, but a
         // pending-axis DOWN returns true straight out of handleM6RowTouch and skips
@@ -4214,8 +4197,6 @@ public class EditorTimelineView extends View {
      * next gesture and cause the "row scrub sticks sometimes" symptom. Idempotent.
      */
     private void resetRowGestureFlags(String cause) {
-        boolean any = m7ItemGestureActive || m7ItemPendingDown || m6RowDragActive
-                || m6RowScrubPassthroughActive || m6RowPendingAxisDecision;
         longPressHandler.removeCallbacks(itemPickupRunnable);
         if (m7ItemGestureActive || m7ItemPendingDown) {
             m7ItemGestureActive = false;
@@ -4229,7 +4210,6 @@ public class EditorTimelineView extends View {
         m6RowDragActive = false;
         m6RowScrubPassthroughActive = false;
         m6RowPendingAxisDecision = false;
-        if (any) RG("resetRowGestureFlags cause=" + cause + " (cleared leaked row-gesture flag)");
     }
 
     private boolean onDown(float x, float y) {
@@ -4396,7 +4376,6 @@ public class EditorTimelineView extends View {
                     m6RowScrubPassthroughActive = true;
                     m6RowPendingLastX = x; // raw x seed, matches the scrub branch's convention
                     if (layerGestureController != null) layerGestureController.onRowBodyUp(false); // abort pending (no move)
-                    RG("PENDING body -> AXIS HORIZONTAL -> scrub passthrough (item NOT moved) rdx=" + rdx + " rdy=" + rdy);
                     getParent().requestDisallowInterceptTouchEvent(true);
                     invalidate();
                     return true;
@@ -4408,7 +4387,6 @@ public class EditorTimelineView extends View {
                     m6RowDragActive = true;
                     m6RowLastY = y;
                     if (layerGestureController != null) layerGestureController.onRowBodyUp(false); // abort pending (no move)
-                    RG("PENDING body -> AXIS VERTICAL -> row-scroll (item NOT moved) rdx=" + rdx + " rdy=" + rdy);
                     invalidate();
                     return true;
                 }
@@ -4490,7 +4468,6 @@ public class EditorTimelineView extends View {
                     m6RowPendingAxisDecision = false;
                     m6RowScrubPassthroughActive = true;
                     m6RowPendingLastX = x;
-                    RG("AXIS resolved HORIZONTAL -> scrub passthrough (rdx=" + rdx + " rdy=" + rdy + ")");
                     getParent().requestDisallowInterceptTouchEvent(true);
                     invalidate();
                     return true;
@@ -4499,7 +4476,6 @@ public class EditorTimelineView extends View {
                     m6RowPendingAxisDecision = false;
                     m6RowDragActive = true;
                     m6RowLastY = y;
-                    RG("AXIS resolved VERTICAL -> row-scroll (rdx=" + rdx + " rdy=" + rdy + ")");
                     invalidate();
                     return true;
                 }
@@ -4583,7 +4559,6 @@ public class EditorTimelineView extends View {
             // Selection already happened on DOWN; kill the timer (else it would fire
             // ~450ms AFTER the finger left and lift the item with nothing touching) and
             // close the controller's pending gesture (records nothing — no move).
-            RG("UP/CANCEL pending body -> TAP (select-only; isUp=" + isUp + ")");
             longPressHandler.removeCallbacks(itemPickupRunnable);
             m7ItemPendingDown = false;
             layerGestureController.onRowBodyUp(isUp);
@@ -4592,7 +4567,6 @@ public class EditorTimelineView extends View {
             return true;
         }
         if (m7ItemGestureActive) {
-            RG("UP/CANCEL reset m7ItemGestureActive (isUp=" + isUp + ")");
             m7ItemGestureActive = false;
             // isUp==false is an ACTION_CANCEL — the controller ABORTS (reverts the item,
             // fires no drop callbacks) instead of committing (review fix 2026-07-03).
@@ -4606,12 +4580,10 @@ public class EditorTimelineView extends View {
             return true;
         }
         if (m6RowDragActive) {
-            RG("UP/CANCEL reset m6RowDragActive (isUp=" + isUp + ")");
             m6RowDragActive = false;
             return true;
         }
         if (m6RowScrubPassthroughActive) {
-            RG("UP/CANCEL reset m6RowScrubPassthroughActive (isUp=" + isUp + ")");
             m6RowScrubPassthroughActive = false;
             // Fling-inertia parity (user feedback 2026-07-03: "the other bars lack this
             // gliding feeling"): hand the release velocity to the SAME fling the gesture
@@ -4621,7 +4593,6 @@ public class EditorTimelineView extends View {
                 rowScrubVelocityTracker.computeCurrentVelocity(1000, maxFlingVelocityPx);
                 float vx = rowScrubVelocityTracker.getXVelocity();
                 if (Math.abs(vx) > minFlingVelocityPx) {
-                    RG("row scrub UP -> fling handoff vx=" + vx);
                     startPlayheadFling(vx);
                 }
             }
@@ -4632,7 +4603,6 @@ public class EditorTimelineView extends View {
             // Slop never exceeded — a tap on empty row space (or a locked/hidden row's
             // body). Nothing to select, nothing to scrub; just consume like the M6
             // header-hit "NONE zone" case does.
-            RG("UP/CANCEL reset m6RowPendingAxisDecision (tap, no axis; isUp=" + isUp + ")");
             m6RowPendingAxisDecision = false;
             // Release the parent-intercept claim taken on the pending DOWN (the armed
             // branches above already do this; the tap-only path forgot to).
@@ -5583,7 +5553,6 @@ public class EditorTimelineView extends View {
             // jump). Pinch→pan becomes one fluid motion.
             postPinchPanActive = true;
             postPinchLastX = Float.NaN;
-            RG("PINCH-HANDBACK armed (onScaleEnd; awaiting surviving pointer's first MOVE)");
             // Keep the parent-intercept claim — the same finger is still mid-gesture.
         }
     }

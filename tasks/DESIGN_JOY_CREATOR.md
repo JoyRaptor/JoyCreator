@@ -44,6 +44,11 @@ The user wants NO political or activist identity in the app:
   panels open (resizable, frosted, collapsible).
 
 ## 6. Rebrand mechanics (see EVAL_20260701 §7)
+- **NAMING — DECIDED 2026-07-02 (user-confirmed): the official app name is "Joy Creator".**
+  "Studio" is a free-floating descriptor ONLY: small line in the splash/logo lockup, optional store-title
+  suffix ("Joy Creator — Video Studio") for search keywords, the in-app STUDIO section (Capture → Library
+  → Studio), and taglines ("a full video studio in your pocket"). It is NEVER part of the launcher/legal
+  name. Launcher icon = symbol only, no text (word-lockups are for splash/marketing surfaces).
 - Visible rebrand (name/icon/splash/strings/theme): authorized, do incrementally.
 - applicationId change: ONE deliberate migration later, pre-release. Not now.
 - GPL: fork must remain GPL w/ attribution if ever distributed. User informed.

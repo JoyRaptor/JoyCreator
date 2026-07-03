@@ -127,7 +127,12 @@ public final class LayerGestureController {
      * immediate, unchanged from before). {@link #MISS} = empty row space / locked / hidden
      * / no item — caller falls through to its own axis decision (scrub vs row-scroll).
      */
-    public enum DownResult { MISS, PENDING, ARMED_TRIM }
+    public enum DownResult { MISS, PENDING, ARMED_TRIM,
+        /** The DOWN was fully handled here (the selected item's delete badge fired
+         *  {@link Callback#onItemDeleteRequested}) — caller consumes the touch, arms
+         *  NOTHING, and expects no follow-up routing for this gesture. Mirrors how a
+         *  header icon tap consumes on DOWN. */
+        CONSUMED }
 
     private static final long MIN_TEXT_DURATION_MS = 250;
     private static final long AUDIO_MIN_TRIM_GAP_MS = 500;
@@ -222,6 +227,16 @@ public final class LayerGestureController {
             pendingBodyDown = false;
             pickupArmed = false;
             return DownResult.MISS;
+        }
+        if (hit.zone == LayerRowRenderer.ItemZone.DELETE) {
+            // Trash badge on the SELECTED item (redesign: delete lives here now, not on
+            // long-press). Fire the same confirmation-dialog callback the long-press
+            // used and consume — nothing armed, selection untouched (the dialog's
+            // cancel path leaves the item selected exactly as before the tap).
+            RG("DOWN hit DELETE badge item=" + hit.item.getId() + " track=" + hit.track.getId()
+                    + " -> onItemDeleteRequested (CONSUMED, nothing armed)");
+            callback.onItemDeleteRequested(hit.track, hit.item);
+            return DownResult.CONSUMED;
         }
         activeTrack = hit.track;
         activeItem = hit.item;

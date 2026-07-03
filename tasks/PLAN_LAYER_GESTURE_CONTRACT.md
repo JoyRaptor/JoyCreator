@@ -68,4 +68,9 @@ timeline surface (not just the row band). Verify via the existing onTouchEvent d
 must show scroll consumption, and scroll position must be continuous across the handback.
 
 ## Status
-- [ ] Contract redesign  - [ ] off-screen zone fix  - [ ] delete relocation  - [ ] sub-lane overlap rendering (follow-up)  - [ ] post-pinch pan handback (follow-up 2)  - [ ] device hand-test confirmed
+- [x] Contract redesign (9cf3080 — recovered agent diff + 2 orch fixes: dead-field compile error, onUp missing pending-TAP branch that left the pickup timer live)
+- [x] off-screen zone fix (9cf3080 — zone pinned to visible viewport bottom, zone height reserved so last row scrolls clear)
+- [x] delete relocation (trash roundel on the SELECTED item, right end inside the trim cap; ItemZone.DELETE hit-tested FIRST with finger slop; fires the same onItemDeleteRequested confirmation on DOWN like header icons; DownResult.CONSUMED; badge skipped on too-narrow items — geometry single-sourced in deleteBadgeCx)
+- [ ] sub-lane overlap rendering (follow-up)
+- [ ] post-pinch pan handback (follow-up 2)
+- [ ] device hand-test confirmed (checklist relayed 2026-07-03; pull `adb logcat -d -s ROWGESTURE:D` after)

@@ -3996,6 +3996,14 @@ public class EditorTimelineView extends View {
             invalidate();
             return true;
         }
+        if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.CONSUMED) {
+            // Delete-badge tap (or any future fire-on-DOWN affordance): fully handled in
+            // the controller. Consume without arming any flag — same shape as a header
+            // icon hit above.
+            RG("ROUTE DOWN -> CONSUMED (delete badge) scrolledX=" + scrolledX + " y=" + y);
+            invalidate();
+            return true;
+        }
         if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.PENDING) {
             m7ItemPendingDown = true;
             m7PendingDownX = scrolledX;

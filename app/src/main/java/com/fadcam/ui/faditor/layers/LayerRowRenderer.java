@@ -83,8 +83,10 @@ public final class LayerRowRenderer {
         }
     }
 
-    /** Which part of an item block a touch landed on (M7). */
-    public enum ItemZone { BODY, LEFT_HANDLE, RIGHT_HANDLE }
+    /** Which part of an item block a touch landed on (M7). DELETE = the trash roundel
+     *  drawn on the SELECTED item (redesign: delete moved off long-press, which is now
+     *  pick-up-for-move — see PLAN_LAYER_GESTURE_CONTRACT "DELETE relocates"). */
+    public enum ItemZone { BODY, LEFT_HANDLE, RIGHT_HANDLE, DELETE }
 
     /** Result of a row-BODY item hit-test (M7): which track + item + zone. */
     public static final class ItemHit {
@@ -541,6 +543,49 @@ public final class LayerRowRenderer {
         canvas.drawRoundRect(x1 - handleHalf / 2f, capTop, x1 + handleHalf / 2f, capTop + handleH,
                 handleHalf / 2f, handleHalf / 2f, itemSelectionPaint);
         itemSelectionPaint.setStyle(prevStyle);
+        // Delete badge (redesign): a small trash roundel at the selected item's right
+        // end, just inside the right trim cap. Tapping it routes the SAME
+        // Callback#onItemDeleteRequested → confirmation dialog the old long-press used
+        // (long-press is now pick-up-for-move). Skipped on items too narrow to host it
+        // without swallowing the trim caps — geometry shared with hitTestItem via
+        // deleteBadgeCx so glyph and hot zone can never drift apart.
+        float cx = deleteBadgeCx(x0, x1);
+        if (!Float.isNaN(cx)) {
+            float cy = (top + bottom) / 2f;
+            float r = DELETE_BADGE_RADIUS_DP * density;
+            int prevColor = itemSelectionPaint.getColor();
+            float prevW = itemSelectionPaint.getStrokeWidth();
+            itemSelectionPaint.setStyle(Paint.Style.FILL);
+            itemSelectionPaint.setColor(0xDD1C1C22);
+            canvas.drawCircle(cx, cy, r, itemSelectionPaint);
+            itemSelectionPaint.setStyle(Paint.Style.STROKE);
+            itemSelectionPaint.setStrokeWidth(1.2f * density);
+            itemSelectionPaint.setColor(0xFFFFFFFF);
+            // Minimal trash glyph: lid line over a body outline.
+            canvas.drawLine(cx - 0.55f * r, cy - 0.45f * r, cx + 0.55f * r, cy - 0.45f * r,
+                    itemSelectionPaint);
+            canvas.drawRoundRect(cx - 0.38f * r, cy - 0.2f * r, cx + 0.38f * r, cy + 0.55f * r,
+                    1f * density, 1f * density, itemSelectionPaint);
+            itemSelectionPaint.setStrokeWidth(prevW);
+            itemSelectionPaint.setColor(prevColor);
+            itemSelectionPaint.setStyle(prevStyle);
+        }
+    }
+
+    /** Radius of the selected item's delete badge (the trash roundel). */
+    private static final float DELETE_BADGE_RADIUS_DP = 7f;
+
+    /**
+     * Center-x (content space) of the selected item's delete badge, or {@link Float#NaN}
+     * when the item is too narrow to host one without colliding with the left trim
+     * handle's zone. Single source of truth for {@link #drawItemSelection} AND
+     * {@link #hitTestItem}.
+     */
+    private float deleteBadgeCx(float x0, float x1) {
+        float r = DELETE_BADGE_RADIUS_DP * density;
+        float handle = ITEM_HANDLE_HALF_WIDTH_DP * density;
+        float cx = x1 - handle - r;
+        return (cx - r < x0 + handle) ? Float.NaN : cx;
     }
 
     /** Blend {@code color} 55% toward white, preserving its alpha (a "brightened" accent). */
@@ -717,6 +762,21 @@ public final class LayerRowRenderer {
                 float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
                 if (x < x0 - handleHalf || x > x1 + handleHalf) continue;
                 boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
+                if (selected) {
+                    // Delete badge — checked FIRST: it sits just inside the right trim
+                    // cap and its finger slop overlaps that zone's inner edge; a finger
+                    // aiming at the visible glyph must win (the cap stays grabbable at
+                    // the item's actual edge, where its end-cap is drawn).
+                    float cx = deleteBadgeCx(x0, x1);
+                    if (!Float.isNaN(cx)) {
+                        float cy = (top + bottom) / 2f;
+                        float slopR = DELETE_BADGE_RADIUS_DP * density * 1.7f;
+                        float ddx = x - cx, ddy = localY - cy;
+                        if (ddx * ddx + ddy * ddy <= slopR * slopR) {
+                            return new ItemHit(t, item, ItemZone.DELETE);
+                        }
+                    }
+                }
                 if (selected && x <= x0 + handleHalf) {
                     return new ItemHit(t, item, ItemZone.LEFT_HANDLE);
                 }

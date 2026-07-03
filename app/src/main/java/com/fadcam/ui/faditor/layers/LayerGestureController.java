@@ -70,7 +70,16 @@ public final class LayerGestureController {
         /** Live mutation happened (not yet finished) — refresh preview/timeline now. */
         void onGestureLive(@NonNull TimedItem item);
 
-        /** Long-press on an item's body → the activity should offer to delete it. */
+        /**
+         * The user asked to delete {@code item} — the activity should offer to delete it
+         * (reusing its existing confirmation-dialog delete path). NOTE (redesign): this is
+         * NO LONGER wired to a raw long-press on the item body (that gesture is now
+         * PICK-UP-for-move — see {@link #beginPickup}). It is invoked from the SELECTED
+         * state instead: the caller routes its existing selection-delete affordance (the
+         * timeline toolbar trash) to the currently-selected row item. Kept as a callback so
+         * the activity owns the confirmation UX + undo, identical to how it deletes an
+         * overlay/audio clip selected on any other surface.
+         */
         void onItemDeleteRequested(@NonNull Track track, @NonNull TimedItem item);
 
         /**
@@ -107,9 +116,21 @@ public final class LayerGestureController {
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT }
 
+    /**
+     * Outcome of {@link #onRowBodyDown}: what the caller (EditorTimelineView) should do
+     * with the follow-up MotionEvents for this DOWN. The redesigned contract (PLAN
+     * TARGET CONTRACT) never arms a MOVE straight off a body touch — a plain horizontal
+     * swipe over an item must SCRUB the timeline, not nudge the item. So a body hit
+     * returns {@link #PENDING} (defer: tap vs scrub vs long-press-pickup vs row-scroll is
+     * decided by the caller from the first moves / a long-press timer); only an edge
+     * trim-handle on the already-selected item returns {@link #ARMED_TRIM} (drag = trim,
+     * immediate, unchanged from before). {@link #MISS} = empty row space / locked / hidden
+     * / no item — caller falls through to its own axis decision (scrub vs row-scroll).
+     */
+    public enum DownResult { MISS, PENDING, ARMED_TRIM }
+
     private static final long MIN_TEXT_DURATION_MS = 250;
     private static final long AUDIO_MIN_TRIM_GAP_MS = 500;
-    private static final long LONG_PRESS_MS = 500;
 
     // ── TEMP diagnostics (tag "ROWGESTURE") — strip after user confirms Bug A/B fixed.
     // Gated so no string is built when disabled (FLog has no isLoggable guard). Flip
@@ -150,10 +171,15 @@ public final class LayerGestureController {
     /** topPx/y of the last onRowBodyMove call, needed by onRowBodyUp's zone re-check. */
     private float lastMoveY, lastMoveTopPx;
 
-    /** True once a long-press has fired for the current touch-down (suppresses move-drag). */
-    private boolean longPressFired = false;
-    private final android.os.Handler longPressHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-    private Runnable longPressRunnable;
+    /**
+     * True once a long-press PICK-UP has committed for the current body touch — only then
+     * does a drag actually MOVE the item (PLAN TARGET CONTRACT: swipe=scrub, hold=grab).
+     * Before pickup, the caller owns the touch (deciding tap vs scrub vs row-scroll); this
+     * controller does nothing to the item. Drives the "lifted" visual in the renderer.
+     */
+    private boolean pickupArmed = false;
+    /** True from a body DOWN until UP/pickup — the caller is still disambiguating this touch. */
+    private boolean pendingBodyDown = false;
 
     public LayerGestureController(@NonNull LayerRowRenderer rowRenderer, @NonNull Callback callback) {
         this.rowRenderer = rowRenderer;
@@ -167,59 +193,102 @@ public final class LayerGestureController {
     public void clearSelection() { selectedItemId = null; }
 
     /**
-     * DOWN on a row body (already confirmed within the row region and not a header hit
-     * by the caller). Returns true if a gesture was armed (caller should consume the
-     * touch and suppress its own segment/audio hit-testing for this gesture).
+     * DOWN on a row body (already confirmed within the row region and not a header hit by
+     * the caller). See {@link DownResult}:
+     * <ul>
+     *   <li>{@link DownResult#ARMED_TRIM} — hit an edge trim-handle of the SELECTED item;
+     *       trim is armed, the caller should route follow-up MOVEs into
+     *       {@link #onRowBodyMove} (drag = trim) and consume the touch.</li>
+     *   <li>{@link DownResult#PENDING} — hit an item BODY. The item is SELECTED now
+     *       (tap-select feel on down), but NOTHING is armed to move yet. The caller must
+     *       disambiguate the follow-up MotionEvents itself (PLAN TARGET CONTRACT):
+     *       horizontal-dominant move = SCRUB (pass through, item not moved); a long-press
+     *       with low movement = PICK-UP (caller then calls {@link #beginPickup}); vertical
+     *       move before pickup = row-scroll. Only after {@link #beginPickup} does
+     *       {@link #onRowBodyMove} move the item.</li>
+     *   <li>{@link DownResult#MISS} — empty row space / locked / hidden / collapsed row /
+     *       no item under the touch. Selection cleared; caller falls through to its own
+     *       scrub-vs-row-scroll axis decision.</li>
+     * </ul>
      */
-    public boolean onRowBodyDown(float x, float y, float topPx, long totalMs,
-                                  @NonNull LayerRowRenderer.TimeToX timeToX) {
-        cancelLongPress();
+    @NonNull
+    public DownResult onRowBodyDown(float x, float y, float topPx, long totalMs,
+                                    @NonNull LayerRowRenderer.TimeToX timeToX) {
         LayerRowRenderer.ItemHit hit = rowRenderer.hitTestItem(x, y, topPx, totalMs, timeToX, selectedItemId);
         if (hit == null) {
-            // Tap on empty row space (not on any item) — clear selection, consume the
-            // touch (matches the M6 "consume, don't fall through" contract), no gesture.
-            RG("DOWN miss (no item under touch) x=" + x + " y=" + y + " topPx=" + topPx + " -> return false (falls through to axis-decision)");
+            RG("DOWN miss (no item under touch) x=" + x + " y=" + y + " topPx=" + topPx + " -> MISS (caller axis-decides scrub/scroll)");
             selectedItemId = null;
             active = false;
-            return false;
+            pendingBodyDown = false;
+            pickupArmed = false;
+            return DownResult.MISS;
         }
-        RG("DOWN hit item=" + hit.item.getId() + " zone=" + hit.zone + " track=" + hit.track.getId()
-                + " locked=" + hit.track.isLocked() + " floatingBand=" + rowRenderer.isFloatingBandRow(hit.track)
-                + " x=" + x + " y=" + y + " topPx=" + topPx + " -> ARM (m7ItemGestureActive)");
         activeTrack = hit.track;
         activeItem = hit.item;
         dragStartX = x;
         dragStartY = y;
         movedDuringGesture = false;
-        longPressFired = false;
+        pickupArmed = false;
+        pendingBodyDown = false;
         hoverTargetTrack = null;
         hoverNewLayerZone = false;
         rowRenderer.setDragTargetTrackId(null);
 
-        if (hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE) {
-            armTrim(hit.item, true);
-        } else if (hit.zone == LayerRowRenderer.ItemZone.RIGHT_HANDLE) {
-            armTrim(hit.item, false);
-        } else {
-            // Body tap: select it (exposes trim handles next touch) and arm a
-            // potential MOVE drag; a long-press instead offers delete (mirrors the
-            // existing overlay/audio long-press-to-delete affordance).
-            selectedItemId = hit.item.getId();
-            armMove(hit.item);
-            longPressRunnable = () -> {
-                if (!active || movedDuringGesture) return;
-                longPressFired = true;
-                RG("LONG-PRESS FIRED (delete dialog) item=" + activeItem.getId());
-                callback.onItemDeleteRequested(activeTrack, activeItem);
-            };
-            longPressHandler.postDelayed(longPressRunnable, LONG_PRESS_MS);
+        if (hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE
+                || hit.zone == LayerRowRenderer.ItemZone.RIGHT_HANDLE) {
+            boolean left = hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE;
+            armTrim(hit.item, left);
+            active = true;
+            activeKind = left ? GestureKind.TRIM_LEFT : GestureKind.TRIM_RIGHT;
+            RG("DOWN hit item=" + hit.item.getId() + " zone=" + hit.zone + " track=" + hit.track.getId()
+                    + " -> ARMED_TRIM (immediate)");
+            return DownResult.ARMED_TRIM;
         }
+
+        // Body hit: SELECT immediately (tap-select feel; also exposes trim handles), but
+        // DO NOT arm a move and DO NOT start a delete long-press. Whether this becomes a
+        // tap, a scrub, a row-scroll, or a pick-up-for-move is the caller's decision from
+        // the follow-up events. active=true so isMoveDragActive()/onRowBodyUp() have a
+        // consistent lifecycle, but activeKind stays MOVE only as the *potential* kind;
+        // movedDuringGesture stays false until beginPickup().
+        selectedItemId = hit.item.getId();
         active = true;
-        activeKind = (hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE) ? GestureKind.TRIM_LEFT
-                : (hit.zone == LayerRowRenderer.ItemZone.RIGHT_HANDLE) ? GestureKind.TRIM_RIGHT
-                : GestureKind.MOVE;
+        pendingBodyDown = true;
+        activeKind = GestureKind.MOVE;
+        RG("DOWN hit item=" + hit.item.getId() + " zone=BODY track=" + hit.track.getId()
+                + " locked=" + hit.track.isLocked() + " floatingBand=" + rowRenderer.isFloatingBandRow(hit.track)
+                + " x=" + x + " y=" + y + " -> PENDING (selected; awaiting tap/scrub/pickup/scroll)");
+        return DownResult.PENDING;
+    }
+
+    /**
+     * Promote a PENDING body touch (see {@link #onRowBodyDown}) into a PICK-UP for move:
+     * the long-press fired with low movement, so from here a drag MOVES the item
+     * (horizontal = reposition in time, vertical = change layer / new-layer zone). Arms
+     * the move snapshot and flags the "lifted" visual. No-op unless a body touch is
+     * currently pending (e.g. the caller already resolved it to scrub/scroll).
+     *
+     * @return true if pickup was armed (caller should now set its item-drag-active flag
+     *         and route MOVEs to {@link #onRowBodyMove}); false if there was nothing to
+     *         pick up.
+     */
+    public boolean beginPickup() {
+        if (!active || !pendingBodyDown || activeItem == null) return false;
+        pendingBodyDown = false;
+        pickupArmed = true;
+        activeKind = GestureKind.MOVE;
+        armMove(activeItem);
+        rowRenderer.setLiftedItemId(activeItem.getId());
+        RG("PICKUP armed item=" + activeItem.getId() + " track=" + activeTrack.getId()
+                + " (long-press + low movement -> item now follows finger; lift visible)");
         return true;
     }
+
+    /** True while a PENDING body touch is still awaiting the caller's tap/scrub/scroll/pickup decision. */
+    public boolean isPendingBodyDown() { return active && pendingBodyDown; }
+
+    /** True once {@link #beginPickup} has committed — a drag now moves the item + it renders lifted. */
+    public boolean isPickupArmed() { return pickupArmed; }
 
     private void armMove(@NonNull TimedItem item) {
         dragStartTimelineMs = item.getTimelineStartMs();
@@ -261,21 +330,24 @@ public final class LayerGestureController {
      */
     public void onRowBodyMove(float x, float y, float topPx, long totalMs, @NonNull XToTime xToTime) {
         if (!active || activeItem == null) return;
-        // Promote to a drag on movement along EITHER axis. Cross-row item drags (M10 —
-        // moving a layer "between levels" / to the "+ New layer" zone) are inherently
-        // VERTICAL: the finger travels down (or up) while x barely changes. The old
-        // guard only tested |x - dragStartX|, so a straight-down drag never tripped
-        // movedDuringGesture — updateDragTarget() never ran (no hover/new-layer-zone
-        // detection) AND the 500ms long-press was never cancelled, so a cross-row drag
-        // silently did nothing or fired the DELETE dialog. Test both axes so a vertical
-        // drag arms the move too. (A pure-vertical drag leaves the item's TIME unchanged:
-        // applyMove maps the unchanged x back to the same start via moveGrabOffsetMs.)
+        // Redesign gate (PLAN TARGET CONTRACT): a MOVE only happens AFTER a pick-up
+        // (long-press). Before pickup the caller keeps a body touch in its own pending
+        // state and never routes MOVEs here, so if this is a MOVE-kind gesture that has
+        // NOT been picked up, do nothing (defensive — a stray event must not nudge the
+        // item, which was the whole "purple feels stuck" bug: a plain swipe moved it a
+        // few ms instead of scrubbing). TRIM is unaffected — it arms immediately on DOWN.
+        if (activeKind == GestureKind.MOVE && !pickupArmed) return;
+
+        // First real move after pickup (MOVE) or first move of a trim: mark moved so the
+        // drop/commit path in onRowBodyUp records the change. For MOVE this also starts
+        // the cross-row hover/new-layer-zone tracking. Either axis counts (a cross-row
+        // drag is inherently VERTICAL — the finger travels down while x barely changes).
         if (!movedDuringGesture
                 && (Math.abs(x - dragStartX) > MOVE_SLOP_PX || Math.abs(y - dragStartY) > MOVE_SLOP_PX)) {
-            cancelLongPress();
             movedDuringGesture = true;
-            RG("MOVE promoted to drag (long-press killed) kind=" + activeKind
-                    + " dx=" + (x - dragStartX) + " dy=" + (y - dragStartY));
+            RG("MOVE/TRIM first movement kind=" + activeKind
+                    + " dx=" + (x - dragStartX) + " dy=" + (y - dragStartY)
+                    + (activeKind == GestureKind.MOVE ? " (picked-up item now tracking finger)" : ""));
         }
         if (!movedDuringGesture) return;
 
@@ -429,22 +501,30 @@ public final class LayerGestureController {
      * one physical drag (PLAN M10 acceptance (d): "each completed drag = ONE undo step").</p>
      */
     public boolean onRowBodyUp() {
-        cancelLongPress();
         if (!active) return false;
-        boolean wasMoved = movedDuringGesture && !longPressFired;
+        // A real committed change only happened if we actually moved (trim, or a
+        // picked-up move). A body touch that lifted before pickup (pendingBodyDown still
+        // set) is a TAP — selection already happened on DOWN, nothing to record.
+        boolean wasMoved = movedDuringGesture && (activeKind != GestureKind.MOVE || pickupArmed);
         TimedItem item = activeItem;
         Track fromTrack = activeTrack;
         Track toTrack = hoverTargetTrack;
         boolean droppedOnNewLayerZone = hoverNewLayerZone;
+        boolean wasTap = pendingBodyDown && !movedDuringGesture;
+        boolean wasPickup = pickupArmed;
         active = false;
         activeItem = null;
         activeTrack = null;
         moveGrabOffsetMs = -1;
         dragStartDurationMs = 0;
+        pendingBodyDown = false;
+        pickupArmed = false;
         hoverTargetTrack = null;
         hoverNewLayerZone = false;
         rowRenderer.setDragTargetTrackId(null);
-        RG("UP active=true wasMoved=" + wasMoved + " (moved=" + movedDuringGesture + " lpFired=" + longPressFired + ")"
+        rowRenderer.setLiftedItemId(null);
+        RG("UP active=true wasMoved=" + wasMoved + " outcome=" + (wasTap ? "TAP(select-only)"
+                        : wasPickup ? "PICKUP-MOVE" : activeKind == GestureKind.TRIM_LEFT || activeKind == GestureKind.TRIM_RIGHT ? "TRIM" : "no-op")
                 + " kind=" + activeKind + " droppedOnNewLayer=" + droppedOnNewLayerZone
                 + " toTrack=" + (toTrack == null ? "null" : toTrack.getId()));
         if (wasMoved && item != null) {
@@ -461,13 +541,9 @@ public final class LayerGestureController {
             }
             callback.onGestureFinished(item, activeKind);
         } else {
-            RG("UP no-op (tap or long-press-consumed — no move recorded)");
+            RG("UP no-op (tap = select-only, or never picked up — no move recorded)");
         }
         return true;
-    }
-
-    private void cancelLongPress() {
-        if (longPressRunnable != null) longPressHandler.removeCallbacks(longPressRunnable);
     }
 
     // ── Snapshot accessors for the caller's undo-recording (before-state) ──────
@@ -482,12 +558,15 @@ public final class LayerGestureController {
     // ── M10: drag-state queries for the caller's LayerRowRenderer#layout call ──
 
     /**
-     * True while a MOVE gesture (not TRIM) is in progress — the only gesture kind that
-     * has a cross-row concept — so the caller knows whether to pass {@code dragActive}
-     * into {@link LayerRowRenderer#layout} (which draws the new-layer drop zone).
+     * True while a PICKED-UP MOVE (not TRIM, not a pre-pickup body touch) is in progress —
+     * the only state that has a cross-row concept — so the caller knows whether to pass
+     * {@code dragActive} into {@link LayerRowRenderer#layout} (which draws + pins the
+     * new-layer drop zone). Gated on {@link #pickupArmed} so a plain swipe/scrub over an
+     * item never flashes the drop zone (PLAN TARGET CONTRACT: the zone only appears once
+     * the item is actually lifted for a move).
      */
     public boolean isMoveDragActive() {
-        return active && movedDuringGesture && activeKind == GestureKind.MOVE;
+        return active && pickupArmed && activeKind == GestureKind.MOVE;
     }
 
     /** True if the active MOVE gesture is currently hovering the new-layer drop zone. */

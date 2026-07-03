@@ -261,9 +261,40 @@ public class EditorTimelineView extends View {
 
     // ── M7 floating-item gestures (extract-on-touch: all logic in LayerGestureController) ──
     private com.fadcam.ui.faditor.layers.LayerGestureController layerGestureController;
-    /** True while a move/trim gesture on a row ITEM (not header, not empty space) is in progress. */
+    /**
+     * True while an ARMED move/trim gesture on a row ITEM is in progress: a trim (armed on
+     * DOWN over an edge handle) or a PICKED-UP move (after the long-press). Set only once
+     * the item is actually being manipulated — a plain body touch starts in
+     * {@link #m7ItemPendingDown} instead, so a swipe scrubs rather than nudging the item.
+     */
     private boolean m7ItemGestureActive = false;
+    /**
+     * True from a body DOWN on a row item until the touch resolves (PLAN TARGET CONTRACT).
+     * The item is SELECTED, but the gesture is undecided: a horizontal-dominant move →
+     * SCRUB (pass through, item not moved); the pickup timer firing with low movement →
+     * PICK-UP (flips to {@link #m7ItemGestureActive}, item follows finger); a
+     * vertical-dominant move before pickup → row-scroll; an UP within slop → TAP (select
+     * only). Mirrors the reorder/audio long-press-vs-drag disambiguation already in this
+     * class, but with scrub as the horizontal escape hatch.
+     */
+    private boolean m7ItemPendingDown = false;
+    private float m7PendingDownX = 0f, m7PendingDownY = 0f;
+    /** Long-press window that promotes a PENDING body touch to a pick-up-for-move. */
+    private static final long ITEM_PICKUP_MS = 450;
     private com.fadcam.ui.faditor.layers.LayerGestureController.Callback layerGestureCallback;
+    private final Runnable itemPickupRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!m7ItemPendingDown || layerGestureController == null || isScaling) return;
+            if (layerGestureController.beginPickup()) {
+                m7ItemPendingDown = false;
+                m7ItemGestureActive = true;
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                getParent().requestDisallowInterceptTouchEvent(true);
+                invalidate();
+            }
+        }
+    };
 
     public void setLayerGestureCallback(
             @Nullable com.fadcam.ui.faditor.layers.LayerGestureController.Callback cb) {
@@ -3895,9 +3926,12 @@ public class EditorTimelineView extends View {
         // deltas; letting the gesture detector's onScroll race it here would double-
         // drive (or steal) the scrub exactly like the M10 comment above describes for
         // item drags.
-        if (activeDrag == Drag.NONE && !isDraggingAudio && !m7ItemGestureActive && !m6RowDragActive
-                && !m6RowPendingAxisDecision && !m6RowScrubPassthroughActive) {
-            // Let gesture detector process events only when no active drag
+        if (activeDrag == Drag.NONE && !isDraggingAudio && !m7ItemGestureActive && !m7ItemPendingDown
+                && !m6RowDragActive && !m6RowPendingAxisDecision && !m6RowScrubPassthroughActive) {
+            // Let gesture detector process events only when no active drag. m7ItemPendingDown
+            // is included so a body touch's follow-up MOVEs reach the custom onMove (which
+            // owns the scrub-vs-pickup-vs-scroll disambiguation) instead of the detector's
+            // onScroll racing it — exactly like m6RowPendingAxisDecision for empty space.
             boolean gestureEvent = gestureDetector.onTouchEvent(e);
             if (gestureEvent) {
                 FLog.d(TAG, "onTouchEvent: consumed by gesture detector");
@@ -3942,12 +3976,34 @@ public class EditorTimelineView extends View {
             return true;
         }
         // Not a header hit — the tap landed in a row's body or empty row space.
-        // M7: hand it to LayerGestureController first (move/trim an item, or arm a
-        // long-press-to-delete). It returns false only for a miss (empty row space,
-        // a collapsed/locked/hidden row, or no item under the touch).
-        if (layerGestureController.onRowBodyDown(scrolledX, y, topPx, totalEffectiveMs, this::timeToX)) {
+        // M7 (redesigned, PLAN TARGET CONTRACT): hand it to LayerGestureController, which
+        // returns WHAT to do with the follow-ups:
+        //  • ARMED_TRIM — edge handle of the selected item: arm the item gesture NOW
+        //    (drag = trim), same as before.
+        //  • PENDING — a body hit: the item is SELECTED, but DO NOT arm a move. Enter the
+        //    pending-body state and start the pick-up timer. A horizontal swipe from here
+        //    scrubs (item not moved); a long-press picks it up for a move; a vertical drag
+        //    row-scrolls; a quick lift is a tap. This is the #1 fix for "purple feels
+        //    stuck" (a swipe used to nudge the item a few ms instead of scrubbing).
+        //  • MISS — empty/locked/hidden/collapsed row: fall through to the pending-axis
+        //    scrub-vs-row-scroll decision below (unchanged).
+        com.fadcam.ui.faditor.layers.LayerGestureController.DownResult down =
+                layerGestureController.onRowBodyDown(scrolledX, y, topPx, totalEffectiveMs, this::timeToX);
+        if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.ARMED_TRIM) {
             m7ItemGestureActive = true;
-            RG("ROUTE DOWN -> item gesture (m7ItemGestureActive=true) scrolledX=" + scrolledX + " y=" + y);
+            RG("ROUTE DOWN -> ARMED_TRIM item gesture (m7ItemGestureActive=true) scrolledX=" + scrolledX + " y=" + y);
+            getParent().requestDisallowInterceptTouchEvent(true);
+            invalidate();
+            return true;
+        }
+        if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.PENDING) {
+            m7ItemPendingDown = true;
+            m7PendingDownX = scrolledX;
+            m7PendingDownY = y;
+            RG("ROUTE DOWN -> PENDING body (selected; timer armed) scrolledX=" + scrolledX + " y=" + y);
+            longPressHandler.removeCallbacks(itemPickupRunnable);
+            longPressHandler.postDelayed(itemPickupRunnable, ITEM_PICKUP_MS);
+            getParent().requestDisallowInterceptTouchEvent(true);
             invalidate();
             return true;
         }
@@ -3981,10 +4037,12 @@ public class EditorTimelineView extends View {
      * next gesture and cause the "row scrub sticks sometimes" symptom. Idempotent.
      */
     private void resetRowGestureFlags(String cause) {
-        boolean any = m7ItemGestureActive || m6RowDragActive || m6RowScrubPassthroughActive
-                || m6RowPendingAxisDecision;
-        if (m7ItemGestureActive) {
+        boolean any = m7ItemGestureActive || m7ItemPendingDown || m6RowDragActive
+                || m6RowScrubPassthroughActive || m6RowPendingAxisDecision;
+        longPressHandler.removeCallbacks(itemPickupRunnable);
+        if (m7ItemGestureActive || m7ItemPendingDown) {
             m7ItemGestureActive = false;
+            m7ItemPendingDown = false;
             if (layerGestureController != null) layerGestureController.onRowBodyUp();
         }
         m6RowDragActive = false;
@@ -4139,7 +4197,47 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onMove(float x, float y) {
+        if (m7ItemPendingDown) {
+            // A body touch is selected but not yet committed. Decide from the first move
+            // past slop (PLAN TARGET CONTRACT). The pickup timer runs in parallel: if it
+            // fires first (finger still ~still) it flips us to m7ItemGestureActive before
+            // we get here again.
+            float scrolledXNow = x + scrollOffsetPx;
+            float rdx = Math.abs(scrolledXNow - m7PendingDownX);
+            float rdy = Math.abs(y - m7PendingDownY);
+            if (rdx > touchSlopPx || rdy > touchSlopPx) {
+                // Moved past slop before the long-press → NOT a pickup. Cancel the timer.
+                longPressHandler.removeCallbacks(itemPickupRunnable);
+                if (rdx >= rdy) {
+                    // Horizontal-dominant: SCRUB the timeline, item NOT moved (the #1 fix).
+                    // Release into the exact same scrub pass-through empty row space uses.
+                    m7ItemPendingDown = false;
+                    m6RowScrubPassthroughActive = true;
+                    m6RowPendingLastX = x; // raw x seed, matches the scrub branch's convention
+                    if (layerGestureController != null) layerGestureController.onRowBodyUp(); // clear pending (no move)
+                    RG("PENDING body -> AXIS HORIZONTAL -> scrub passthrough (item NOT moved) rdx=" + rdx + " rdy=" + rdy);
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    invalidate();
+                    return true;
+                } else {
+                    // Vertical-dominant before pickup: hand off to M6 row-scroll (band
+                    // scroll), item NOT moved. (Items usually fill the row, so this is
+                    // rarely exercised, but keeps parity with the empty-space contract.)
+                    m7ItemPendingDown = false;
+                    m6RowDragActive = true;
+                    m6RowLastY = y;
+                    if (layerGestureController != null) layerGestureController.onRowBodyUp(); // clear pending (no move)
+                    RG("PENDING body -> AXIS VERTICAL -> row-scroll (item NOT moved) rdx=" + rdx + " rdy=" + rdy);
+                    invalidate();
+                    return true;
+                }
+            }
+            // Still within slop — consume, keep waiting for pickup or a decisive move.
+            return true;
+        }
         if (m7ItemGestureActive) {
+            // ARMED: a trim, or a picked-up move — drive the item gesture. onRowBodyMove
+            // no-ops a MOVE that hasn't been picked up, so this only moves after pickup.
             float scrolledX = x + scrollOffsetPx;
             layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
             invalidate();
@@ -4276,6 +4374,19 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
+        if (m7ItemPendingDown) {
+            // Body touch resolved as a TAP: within slop, lifted before the pickup timer.
+            // Selection already happened on DOWN; kill the timer (else it would fire
+            // ~450ms AFTER the finger left and lift the item with nothing touching) and
+            // close the controller's pending gesture (records nothing — no move).
+            RG("UP/CANCEL pending body -> TAP (select-only; isUp=" + isUp + ")");
+            longPressHandler.removeCallbacks(itemPickupRunnable);
+            m7ItemPendingDown = false;
+            layerGestureController.onRowBodyUp();
+            getParent().requestDisallowInterceptTouchEvent(false);
+            invalidate();
+            return true;
+        }
         if (m7ItemGestureActive) {
             RG("UP/CANCEL reset m7ItemGestureActive (isUp=" + isUp + ")");
             m7ItemGestureActive = false;

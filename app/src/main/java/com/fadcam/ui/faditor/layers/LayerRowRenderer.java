@@ -232,32 +232,48 @@ public final class LayerRowRenderer {
         float y = TOP_GAP_DP * density;
         for (Track t : layers) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, true);
         for (Track t : audioTracks) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, false);
-        if (dragActive) {
-            float zoneH = NEW_LAYER_ZONE_DP * density;
-            newLayerZoneRect.set(hScrollOffsetPx + HEADER_WIDTH_DP * density, y,
-                    hScrollOffsetPx + widthPx, y + zoneH);
-            y += zoneH + rowGap;
-        }
-        contentHeightPx = y;
+        // Rows-only content height; the viewport caps at MAX_VISIBLE_ROWS_DP and the
+        // extra rows SCROLL beneath the pinned master (PLAN §6.1). Computed BEFORE the
+        // drop-zone so the zone can pin to the VISIBLE viewport bottom rather than being
+        // appended past it (the off-screen bug: it used to sit at content-y `y` after the
+        // last row, which on a tall band is well below the physical screen).
+        float rowsContentHeightPx = y;
+        float zoneH = NEW_LAYER_ZONE_DP * density;
+        // While a pick-up move is active, RESERVE zone height at the bottom so the last
+        // row can scroll clear of the pinned zone (nothing is permanently hidden), then
+        // pin the zone to the bottom of the on-screen viewport in CONTENT coordinates
+        // (viewport bottom in content-space = scrollOffsetPx + viewportHeightPx). After
+        // the canvas.translate(0, topPx - scrollOffsetPx) below, that lands the zone flush
+        // at the bottom edge of the visible band — always reachable, never off-screen.
+        // Storing it in content-space also keeps isWithinNewLayerZone()'s hit-test (same
+        // localY transform) correct with no extra math.
+        contentHeightPx = dragActive ? rowsContentHeightPx + zoneH + rowGap : rowsContentHeightPx;
         viewportHeightPx = Math.min(contentHeightPx, MAX_VISIBLE_ROWS_DP * density);
         scrollOffsetPx = clampScroll(scrollOffsetPx);
-        // TEMP (tag ROWGESTURE) — Suspect 3 (drop-zone reachability). Log ONCE per
-        // drag-activation transition: is the "+ New layer" zone inside the renderer's own
-        // capped viewport, and where does it sit in SCREEN-y (topPx + zoneTop - scroll)?
-        // Compare screenZoneBottom against the EditorTimelineView height (~924px on the
-        // Note 9) in the pull: if it exceeds that, the zone is drawn below the visible
-        // view and the finger can't reach it. Strip with the rest of ROWGESTURE.
+        if (dragActive) {
+            float zoneBottomContent = scrollOffsetPx + viewportHeightPx;
+            float zoneTopContent = zoneBottomContent - zoneH;
+            newLayerZoneRect.set(hScrollOffsetPx + HEADER_WIDTH_DP * density, zoneTopContent,
+                    hScrollOffsetPx + widthPx, zoneBottomContent);
+        }
+        // TEMP (tag ROWGESTURE) — drop-zone reachability. Log ONCE per drag-activation
+        // transition. Post-fix the zone is PINNED to the on-screen viewport bottom, so
+        // zoneInViewport (judged in SCREEN-y against the band's visible bottom
+        // topPx+viewportHeightPx) must now read TRUE and screenZoneBot must sit ABOVE the
+        // EditorTimelineView height (~924px on the Note 9), the opposite of the old
+        // off-screen SCREEN-y[1021..1099] symptom. Strip with the rest of ROWGESTURE.
         if (ROWGESTURE_LOG && dragActive && !loggedDragActiveLastLayout) {
             float zoneTopContent = newLayerZoneRect.top;
             float zoneBotContent = newLayerZoneRect.bottom;
-            boolean zoneInViewport = zoneBotContent <= viewportHeightPx + 0.5f;
             float screenZoneTop = topPx + zoneTopContent - scrollOffsetPx;
             float screenZoneBot = topPx + zoneBotContent - scrollOffsetPx;
-            com.fadcam.FLog.d("ROWGESTURE", "ZONE laid out: content[" + zoneTopContent + ".." + zoneBotContent
-                    + "] contentH=" + contentHeightPx + " viewportH=" + viewportHeightPx
-                    + " zoneInViewport=" + zoneInViewport
-                    + " | SCREEN-y[" + screenZoneTop + ".." + screenZoneBot + "] topPx=" + topPx
-                    + " scroll=" + scrollOffsetPx + " (compare screenZoneBot to view height ~924px)");
+            float bandVisibleBottom = topPx + viewportHeightPx;
+            boolean zoneInViewport = screenZoneBot <= bandVisibleBottom + 0.5f;
+            com.fadcam.FLog.d("ROWGESTURE", "ZONE laid out (pinned): content[" + zoneTopContent + ".." + zoneBotContent
+                    + "] rowsH=" + rowsContentHeightPx + " contentH=" + contentHeightPx + " viewportH=" + viewportHeightPx
+                    + " scroll=" + scrollOffsetPx + " zoneInViewport=" + zoneInViewport
+                    + " | SCREEN-y[" + screenZoneTop + ".." + screenZoneBot + "] bandVisibleBottom=" + bandVisibleBottom
+                    + " topPx=" + topPx + " (screenZoneBot should be < view height ~924px)");
         }
         loggedDragActiveLastLayout = dragActive;
 
@@ -276,13 +292,16 @@ public final class LayerRowRenderer {
     private void drawNewLayerZone(@NonNull Canvas canvas, boolean armed) {
         stripPaint.setColor(armed ? COLOR_NEW_LAYER_ZONE_ARMED : COLOR_NEW_LAYER_ZONE);
         canvas.drawRoundRect(newLayerZoneRect, 4f * density, 4f * density, stripPaint);
-        if (armed) {
-            canvas.drawRoundRect(newLayerZoneRect, 4f * density, 4f * density, dropTargetPaint);
-        }
-        String label = "+ New layer";
+        // Always outline the zone (brighter when armed) so it reads as a drop TARGET, not
+        // just a tinted strip — the plan's "subtle affordance so the user knows the zone
+        // is a drop target." The pinned position makes it a stable, always-visible target.
+        dropTargetPaint.setColor(armed ? COLOR_DROP_TARGET_RING : (COLOR_DROP_TARGET_RING & 0x66FFFFFF));
+        canvas.drawRoundRect(newLayerZoneRect, 4f * density, 4f * density, dropTargetPaint);
+        dropTargetPaint.setColor(COLOR_DROP_TARGET_RING); // restore default for the row highlight ring
+        String label = armed ? "+ Release to create layer" : "+ Drop here for new layer";
         float ty = newLayerZoneRect.centerY() + itemLabelPaint.getTextSize() / 3f;
         itemLabelPaint.setColor(0xFFFFFFFF);
-        canvas.drawText(label, newLayerZoneRect.left + 8f * density, ty, itemLabelPaint);
+        canvas.drawText(label, newLayerZoneRect.left + 10f * density, ty, itemLabelPaint);
     }
 
     /**
@@ -364,6 +383,12 @@ public final class LayerRowRenderer {
 
     /** Set/clear which row (by track id) should render the drag-target highlight ring (M10). */
     public void setDragTargetTrackId(@Nullable String trackId) { this.dragTargetTrackId = trackId; }
+
+    /** Id of the item currently "lifted" (picked up for a move) — rendered raised/brighter. */
+    @Nullable private String liftedItemId;
+
+    /** Set/clear which item (by id) is picked up for a move, so it draws with a lift affordance. */
+    public void setLiftedItemId(@Nullable String itemId) { this.liftedItemId = itemId; }
 
     private void drawCaret(@NonNull Canvas canvas, @NonNull RectF r, boolean collapsed) {
         caretPath.reset();
@@ -449,8 +474,25 @@ public final class LayerRowRenderer {
             float x0 = timeToX.map(item.getTimelineStartMs());
             long dur = item.getDisplayDurationMs(totalMs);
             float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
-            itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : baseColor);
-            canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
+            boolean lifted = liftedItemId != null && liftedItemId.equals(item.getId());
+            if (lifted) {
+                // Picked-up-for-move "lift": a soft drop shadow just below/right + a
+                // brightened, slightly inflated body so it visibly rises off the row
+                // (PLAN TARGET CONTRACT: "haptic + a visible lift"). Drawn before the
+                // body so the shadow sits under it.
+                itemPaint.setColor(0x66000000);
+                float sh = 2f * density;
+                canvas.drawRoundRect(x0 + sh, top + sh, x1 + sh, bottom + sh,
+                        3f * density, 3f * density, itemPaint);
+            }
+            itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : (lifted ? brighten(baseColor) : baseColor));
+            if (lifted) {
+                float grow = 1.5f * density;
+                canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
+                        3f * density, 3f * density, itemPaint);
+            } else {
+                canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
+            }
             String label = labelFor(item);
             if (label != null && !label.isEmpty()) {
                 canvas.save();

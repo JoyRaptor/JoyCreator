@@ -395,6 +395,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private View toolLoop;
     private TextView toolLoopIcon, toolLoopLabel;
     private View loopDrawer;
+    /** L3: scrolls the drawer's content (mode chips + extend rows) under the pinned
+     *  grab-handle/header so the drawer never clips off the bottom of a short screen —
+     *  see {@link #showLoopDrawer()} for the runtime height cap. */
+    private androidx.core.widget.NestedScrollView loopDrawerScroll;
     private TextView loopDrawerIcon, loopDrawerModeLabel;
     private View loopModeOff, loopModeNormal, loopModeStill, loopModePingpong;
     private View loopExtendStart, loopExtendEnd, loopExtendPrev, loopExtendNext;
@@ -408,12 +412,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Prevents re-entering the loop-restart path while the seek is still
      *  being applied by ExoPlayer (avoiding double-increment of offset). */
     private boolean loopRestartPending = false;
-    /** Direction of the current ping-pong pass: true = forward (0→end),
-     *  false = backward (end→0). Only meaningful when loopMode is PING_PONG. */
-    private boolean loopPingPongForward = true;
-    /** Wall-clock timestamp (elapsedRealtime) when the ping-pong decoupled
-     *  timeline started advancing. -1 when not in decoupled mode. */
-    private long loopPingPongWallMs = -1;
     private boolean loopDrawerOpen = false;
     private boolean loopDrawerWired = false;
 
@@ -1212,13 +1210,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onLoopTrimFinished(int segmentIndex, long oldBefore, long oldAfter, long newBefore, long newAfter) {
+                // NOTE: as of the resize-revert fix, a loop-extension edge drag fires THIS callback
+                // ONLY (never onTrimFinished — see EditorTimelineView ACTION_UP), because the clip's
+                // in/out points did not change (they were pinned to source bounds while the handle
+                // moved the overshoot into loopBefore/loopAfter). So this handler owns all the
+                // end-of-drag bookkeeping onTrimFinished used to do for this case.
+                userDragging = false;
                 Clip clip = project.getTimeline().getClip(segmentIndex);
                 if (clip == null) return;
                 // Loop values were already set on clip during drag; record undo
                 undoManager.recordAction(new EditActions.LoopAction(clip,
                         clip.getLoopMode(), oldBefore, oldAfter,
                         clip.getLoopMode(), newBefore, newAfter));
-                playerManager.updateTrimBounds(clip);
+                editorTimeline.setTrimFromClip(clip);
+                // Rebuild the gapless playlist so the new rep count/boundaries take effect (for a
+                // NORMAL loop) or so a stored PING_PONG clip stays correctly on the legacy
+                // forward-tail path (parked). This applies + persists the resized extension.
+                if (!clip.isImageClip()) {
+                    playerManager.updateTrimBounds(clip);
+                    playerManager.setExactSeek(false);
+                }
+                // PARKED: kickReverseBakeIfNeeded is a no-op while Clip.PING_PONG_PARKED (no bake is
+                // ever triggered from a resize). Kept as the single un-park seam.
+                kickReverseBakeIfNeeded(clip);
                 refreshTotalTimeDisplay();
                 saveProjectNow();
             }
@@ -1762,6 +1776,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         toolLoopIcon = findViewById(R.id.tool_loop_icon);
         toolLoopLabel = findViewById(R.id.tool_loop_label);
         loopDrawer = findViewById(R.id.loop_drawer);
+        loopDrawerScroll = findViewById(R.id.loop_drawer_scroll);
         loopDrawerIcon = findViewById(R.id.loop_drawer_icon);
         loopDrawerModeLabel = findViewById(R.id.loop_drawer_mode_label);
         loopModeOff = findViewById(R.id.loop_mode_off);
@@ -2755,6 +2770,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @Nullable
     private Uri resolveReversedUri(@NonNull Clip clip) {
+        // PARKED: while ping-pong is dormant, NEVER hand the gapless engine a reversed file. With
+        // this returning null, MasterPlaybackEngine.isEligible treats every PING_PONG clip as
+        // ineligible, so the whole project falls to the legacy path — where the tick plays a
+        // PING_PONG clip as a plain forward-tail wrap (a NORMAL loop). Graceful degrade, no black,
+        // no baked item ever referenced. (Un-park by flipping Clip.PING_PONG_PARKED.)
+        if (Clip.PING_PONG_PARKED) return null;
         if (clip.getLoopMode() != Clip.LOOP_MODE_PING_PONG || !clip.hasLoopExtension()
                 || clip.isImageClip()) {
             return null;
@@ -2790,6 +2811,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * (> guard) skip the bake and show a one-time toast; the clip stays on the legacy forward-tail.
      */
     private void kickReverseBakeIfNeeded(@NonNull Clip clip) {
+        // PARKED: no reverse bake is ever kicked while ping-pong is dormant — from ANY caller
+        // (drawer applyLoopMode/extendLoop, trim-edge drag onTrimFinished, or loop-edge drag
+        // onLoopTrimFinished). This is the "no new bakes, incl. from resize" guarantee.
+        if (Clip.PING_PONG_PARKED) return;
         if (clip.getLoopMode() != Clip.LOOP_MODE_PING_PONG || !clip.hasLoopExtension()
                 || clip.isImageClip()) {
             return;
@@ -4179,7 +4204,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         loopModeOff.setOnClickListener(v -> applyLoopMode(Clip.LOOP_MODE_OFF));
         loopModeNormal.setOnClickListener(v -> applyLoopMode(Clip.LOOP_MODE_NORMAL));
         loopModeStill.setOnClickListener(v -> applyLoopMode(Clip.LOOP_MODE_STILL));
-        loopModePingpong.setOnClickListener(v -> applyLoopMode(Clip.LOOP_MODE_PING_PONG));
+        if (Clip.PING_PONG_PARKED) {
+            // PARKED: the ping-pong chip is a disabled "coming soon" affordance — tapping it shows a
+            // toast and does NOT switch the clip into PING_PONG (so no new ping-pong project state,
+            // no bake, no gapless-eligibility flip). The dim styling is applied in refreshLoopDrawer.
+            // (loopModePingpong is a View field but the drawer chip is a <TextView> — safe cast.)
+            if (loopModePingpong instanceof TextView) {
+                ((TextView) loopModePingpong).setText(R.string.faditor_loop_pingpong_parked);
+            }
+            loopModePingpong.setOnClickListener(v ->
+                    Toast.makeText(this, R.string.faditor_loop_pingpong_parked_toast,
+                            Toast.LENGTH_LONG).show());
+        } else {
+            loopModePingpong.setOnClickListener(v -> applyLoopMode(Clip.LOOP_MODE_PING_PONG));
+        }
 
         // Extend buttons: add 1s of loop time
         loopExtendStart.setOnClickListener(v -> extendLoop(-1000));
@@ -4217,10 +4255,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refreshLoopDrawer();
         loopDrawerOpen = true;
         loopDrawer.setVisibility(View.VISIBLE);
+        // L3: cap the scrollable content (mode chips + extend rows) BEFORE the slide-in
+        // below reads loopDrawer.getHeight() for its translation distance, so a screen too
+        // short for the full drawer clamps first and the slide-in uses the corrected
+        // (already-scrollable) height — same measure-then-clamp shape as the layer-history
+        // popup's scroll cap, just applied to a fixed top drawer instead of a popup card.
+        clampLoopDrawerScrollHeight();
         loopDrawer.post(() -> {
             loopDrawer.setTranslationY(-loopDrawer.getHeight());
             loopDrawer.animate().translationY(0f).setDuration(180).start();
         });
+    }
+
+    /**
+     * Menu philosophy (DESIGN_JOY_CREATOR.md §5): "vertically shrink upper drawers where
+     * possible" — a large drawer covering the timeline is as bad as covering the preview.
+     * loop_drawer is a direct FrameLayout child anchored to the top, so its wrap_content
+     * height is only bounded by the screen itself; on a short/dense screen (or with the
+     * status bar + top app bar already eating space above it) its content could in
+     * principle run past the bottom. Rather than restructuring the drawer, only
+     * loop_drawer_scroll (everything below the pinned grab-handle/header) gets capped —
+     * inner scroll only, per the plan.
+     */
+    private void clampLoopDrawerScrollHeight() {
+        if (loopDrawerScroll == null) return;
+        loopDrawerScroll.getViewTreeObserver().addOnGlobalLayoutListener(
+                new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override public void onGlobalLayout() {
+                        loopDrawerScroll.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        int screenH = getResources().getDisplayMetrics().heightPixels;
+                        // Leave ~45% of the screen free below the drawer so the timeline
+                        // stays reachable while it's open (same balance the transcript/
+                        // caption-keyframe drawers strike with their own weighted scroll areas).
+                        int maxHeightPx = (int) (screenH * 0.55f) - loopDrawerScroll.getTop();
+                        if (maxHeightPx > 0 && loopDrawerScroll.getHeight() > maxHeightPx) {
+                            android.view.ViewGroup.LayoutParams lp = loopDrawerScroll.getLayoutParams();
+                            lp.height = maxHeightPx;
+                            loopDrawerScroll.setLayoutParams(lp);
+                        }
+                    }
+                });
     }
 
     private void hideLoopDrawer() {
@@ -4240,14 +4314,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
         loopModeOff.setBackgroundColor(mode == Clip.LOOP_MODE_OFF ? activeBg : normalBg);
         loopModeNormal.setBackgroundColor(mode == Clip.LOOP_MODE_NORMAL ? activeBg : normalBg);
         loopModeStill.setBackgroundColor(mode == Clip.LOOP_MODE_STILL ? activeBg : normalBg);
-        loopModePingpong.setBackgroundColor(mode == Clip.LOOP_MODE_PING_PONG ? activeBg : normalBg);
+        if (Clip.PING_PONG_PARKED) {
+            // PARKED: never highlight the ping-pong chip green — even a legacy PING_PONG clip is now
+            // playing as a plain forward loop, so a green "active" chip would misrepresent state.
+            // Keep it dim/disabled-looking regardless of the clip's stored mode.
+            loopModePingpong.setBackgroundColor(normalBg);
+            loopModePingpong.setAlpha(0.4f);
+        } else {
+            loopModePingpong.setBackgroundColor(mode == Clip.LOOP_MODE_PING_PONG ? activeBg : normalBg);
+        }
         // Update header label
         if (loopDrawerModeLabel != null) {
             int label;
             switch (mode) {
                 case Clip.LOOP_MODE_NORMAL: label = R.string.faditor_loop_normal; break;
                 case Clip.LOOP_MODE_STILL: label = R.string.faditor_loop_still; break;
-                case Clip.LOOP_MODE_PING_PONG: label = R.string.faditor_loop_pingpong; break;
+                // PARKED: a stored PING_PONG clip degrades to a forward loop — reflect that in the
+                // header label instead of advertising ping-pong the app no longer performs.
+                case Clip.LOOP_MODE_PING_PONG:
+                    label = Clip.PING_PONG_PARKED
+                            ? R.string.faditor_loop_normal : R.string.faditor_loop_pingpong;
+                    break;
                 default: label = R.string.faditor_loop_off;
             }
             loopDrawerModeLabel.setText(label);
@@ -4272,8 +4359,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Reset visual offset when mode changes
         loopVisualOffsetMs = 0;
         loopStillExtensionStartMs = -1;
-        loopPingPongForward = true;
-        loopPingPongWallMs = -1;
         // Record undo
         undoManager.recordAction(new EditActions.LoopAction(clip, prevMode, prevBefore, prevAfter,
                 mode, clip.getLoopBeforeMs(), clip.getLoopAfterMs()));
@@ -7610,8 +7695,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         loopVisualOffsetMs = 0;
         loopStillExtensionStartMs = -1;
         loopRestartPending = false;
-        loopPingPongForward = true;
-        loopPingPongWallMs = -1;
         FLog.d(TAG, "Auto-advancing to segment " + nextIndex);
 
         // Deactivate crop overlay when switching segments

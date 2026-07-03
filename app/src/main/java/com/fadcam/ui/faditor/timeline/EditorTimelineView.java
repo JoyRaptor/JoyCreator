@@ -429,6 +429,10 @@ public class EditorTimelineView extends View {
     private long trimDragLoopBefore;          // current loopBeforeMs during drag
     private long trimDragLoopAfter;           // current loopAfterMs during drag
     private boolean loopChangedDuringDrag;    // true if loop values were modified during drag
+    /** L3: true while the loop-extension readout bubble should be drawn (i.e. a
+     *  LEFT_HANDLE/RIGHT_HANDLE drag has crossed into loop-extension territory
+     *  this gesture). Cleared alongside the trim-edge preview on drag end. */
+    private boolean loopReadoutActive;
     private static final long LONG_PRESS_MS = 400;
 
     // ── Edge auto-scroll during trim drag ─────────────────────────────
@@ -1474,6 +1478,12 @@ public class EditorTimelineView extends View {
             drawTransitionDragPreview(canvas, w);
         }
 
+        // L3: live numeric readout while dragging a loop-extension edge (screen space,
+        // on top of all — same reasoning as the trim-edge preview bubble below).
+        if (loopReadoutActive && (activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE)) {
+            drawLoopExtensionReadout(canvas, w, tTop, tBot);
+        }
+
         // Frame-accurate trim-edge preview bubble (screen space, on top of all).
         // (Trim-edge preview now happens in the main video, not as a finger-blocking
         // bubble here — drawTrimEdgePreview is retained but no longer activated.)
@@ -1543,6 +1553,79 @@ public class EditorTimelineView extends View {
         float anchorY = below ? box.top : box.bottom;
         canvas.drawLine(Math.max(box.left, Math.min(handleScreenX, box.right)), anchorY,
                 handleScreenX, below ? trackBot : trackTop, trimPreviewBorderPaint);
+    }
+
+    /**
+     * L3: floating bubble showing the extension length (and, for looping modes, the
+     * resulting rep count) while dragging a loop-extension edge past source bounds —
+     * e.g. "+2.4s ~ 3 loops" or "+2.4s freeze" for STILL. Text-only sibling of
+     * {@link #drawTrimEdgePreview}: SAME box/border/label paints and anchor-over-handle
+     * + pointer-line layout, just sized to the label instead of a thumbnail bitmap.
+     */
+    private void drawLoopExtensionReadout(@NonNull Canvas canvas, int viewW, float trackTop, float trackBot) {
+        if (selectedIndex < 0 || selectedIndex >= segments.size()) return;
+        SegmentData sd = segments.get(selectedIndex);
+        Clip clip = sd.clip;
+        boolean isLeft = (activeDrag == Drag.LEFT_HANDLE);
+        long extensionMs = isLeft ? trimDragLoopBefore : trimDragLoopAfter;
+        if (extensionMs <= 0) return;
+
+        String label = formatLoopReadoutLabel(clip, extensionMs);
+
+        float handleScreenX = trimDragX - scrollOffsetPx;
+
+        trimPreviewLabelPaint.setTextSize(12f * density);
+        trimPreviewLabelPaint.setTextAlign(Paint.Align.CENTER);
+        float textW = trimPreviewLabelPaint.measureText(label);
+
+        float padH = 10f * density, padV = 7f * density;
+        float boxW = textW + padH * 2;
+        float boxH = 14f * density + padV * 2; // ~one text line at 12sp + vertical pad
+
+        float cx = handleScreenX;
+        float left = cx - boxW / 2f;
+        left = Math.max(2f * density, Math.min(left, viewW - boxW - 2f * density));
+        float top = trackTop - boxH - 8f * density;
+        boolean below = top < 2f * density;
+        if (below) top = trackBot + 8f * density;
+        RectF box = new RectF(left, top, left + boxW, top + boxH);
+
+        trimPreviewBgPaint.setColor(0xF0000000);
+        trimPreviewBorderPaint.setStyle(Paint.Style.STROKE);
+        trimPreviewBorderPaint.setStrokeWidth(1.5f * density);
+        trimPreviewBorderPaint.setColor(0xFF4CAF50);
+        float corner = 6f * density;
+        canvas.drawRoundRect(box, corner, corner, trimPreviewBgPaint);
+        canvas.drawRoundRect(box, corner, corner, trimPreviewBorderPaint);
+
+        trimPreviewLabelPaint.setColor(0xFFFFFFFF);
+        trimPreviewLabelPaint.setShadowLayer(2f * density, 0, 0, 0xFF000000);
+        canvas.drawText(label, box.centerX(), box.centerY() + 4.5f * density, trimPreviewLabelPaint);
+        trimPreviewLabelPaint.clearShadowLayer();
+
+        trimPreviewBorderPaint.setStrokeWidth(1.2f * density);
+        float anchorY = below ? box.top : box.bottom;
+        canvas.drawLine(Math.max(box.left, Math.min(handleScreenX, box.right)), anchorY,
+                handleScreenX, below ? trackBot : trackTop, trimPreviewBorderPaint);
+    }
+
+    /**
+     * "+2.4s ≈ 3 loops" (NORMAL/PING_PONG — rep count mirrors ExportManager's exact
+     * clamp formula, {@code ceil(extensionMs / trimmedPlayMs)}, so the readout never
+     * disagrees with what export actually renders) or "+2.4s freeze" (STILL, which
+     * has no rep concept — the whole extension is one held frame). "≈" matches the
+     * existing effective-duration readout's own use of the glyph (activity ~6596).
+     */
+    @NonNull
+    private String formatLoopReadoutLabel(@NonNull Clip clip, long extensionMs) {
+        String secs = String.format(java.util.Locale.US, "+%.1fs", extensionMs / 1000f);
+        if (clip.getLoopMode() == Clip.LOOP_MODE_STILL) {
+            return secs + " freeze";
+        }
+        long trimmedPlayMs = clip.getTrimmedDurationMs();
+        if (trimmedPlayMs <= 0) return secs;
+        int reps = (int) Math.ceil(extensionMs / (double) trimmedPlayMs);
+        return secs + " ≈ " + reps + (reps == 1 ? " loop" : " loops");
     }
 
     /** mm:ss.fff style timecode for the trim-edge label (source position). */
@@ -3968,6 +4051,7 @@ public class EditorTimelineView extends View {
                 trimDragLoopBefore = trimDragStartLoopBefore;
                 trimDragLoopAfter = trimDragStartLoopAfter;
                 loopChangedDuringDrag = false;
+                loopReadoutActive = false; // L3: fresh drag starts with the readout hidden
                 getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
             }
@@ -4183,6 +4267,7 @@ public class EditorTimelineView extends View {
         // Tear down the frame-accurate trim-edge preview when a trim drag ends.
         if (last == Drag.LEFT_HANDLE || last == Drag.RIGHT_HANDLE) {
             clearTrimEdgePreview();
+            loopReadoutActive = false; // L3: hide the loop-extension readout on release
         }
 
         // Finish audio drag
@@ -4251,11 +4336,20 @@ public class EditorTimelineView extends View {
 
         if (last == Drag.LEFT_HANDLE || last == Drag.RIGHT_HANDLE) {
             if (listener != null) {
-                // Use the drag-tracked fractions (segment data was not updated during drag)
-                listener.onTrimFinished(selectedIndex, trimDragStartFrac, trimDragEndFrac);
-                // Notify loop extension if loop values changed during drag
                 if (loopChangedDuringDrag) {
-                    listener.onLoopTrimFinished(selectedIndex, trimDragStartLoopBefore, trimDragStartLoopAfter, trimDragLoopBefore, trimDragLoopAfter);
+                    // LOOP-EXTENSION drag: the in/out points were PINNED to the source bounds while
+                    // the handle crossed past them (doTrimDrag clamps newOut→sourceDuration /
+                    // newIn→0 and moves the overshoot into loopBefore/loopAfter). So trimDragEndFrac
+                    // is 1.0 (or startFrac 0.0) — NOT the clip's real trim. Firing onTrimFinished
+                    // here would commit that clamped fraction as a genuine trim, EXPANDING an
+                    // already-trimmed clip out to its full source (the "resize reverts / changes
+                    // size" regression). Fire ONLY the loop callback; the trim is unchanged.
+                    listener.onLoopTrimFinished(selectedIndex,
+                            trimDragStartLoopBefore, trimDragStartLoopAfter,
+                            trimDragLoopBefore, trimDragLoopAfter);
+                } else {
+                    // Plain trim (handle stayed within source bounds): commit the trim fractions.
+                    listener.onTrimFinished(selectedIndex, trimDragStartFrac, trimDragEndFrac);
                 }
             }
             loopChangedDuringDrag = false;
@@ -4401,6 +4495,7 @@ public class EditorTimelineView extends View {
                     trimDragLoopBefore = loopBeforeDelta;
                     newInMs = 0;
                     loopChangedDuringDrag = true;
+                    loopReadoutActive = true; // L3: live readout bubble
                 } else {
                     trimDragLoopBefore = 0;
                 }
@@ -4422,6 +4517,7 @@ public class EditorTimelineView extends View {
                     trimDragLoopAfter = newOutMs - sd.sourceDurationMs;
                     newOutMs = sd.sourceDurationMs;
                     loopChangedDuringDrag = true;
+                    loopReadoutActive = true; // L3: live readout bubble
                 } else {
                     trimDragLoopAfter = 0;
                 }

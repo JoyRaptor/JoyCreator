@@ -142,6 +142,23 @@ public class Clip {
     public static final int LOOP_MODE_PING_PONG = 2;
     public static final int LOOP_MODE_STILL = 3;
 
+    /**
+     * PING-PONG PARKED (user decision 2026-07-02). True-reverse ping-pong (L2, baked reversed
+     * segments) is DORMANT: it was buggy on-device (a reversed playlist item that failed to decode
+     * blacked out the whole shared gapless player and the black spread across every clip; edge-drag
+     * resize also fought the trim path). While this flag is true the entire L2 pipeline stays
+     * PARKED but INTACT — no code deleted — behind these gates:
+     *   • the loop drawer's ping-pong chip is disabled ("coming soon");
+     *   • any clip that ALREADY has {@code loopMode == PING_PONG} (from a project saved before
+     *     parking) DEGRADES GRACEFULLY to a plain forward NORMAL-loop wrap in BOTH preview and
+     *     export — never black, never crash (see {@code MasterPlaybackEngine} eligibility gate via
+     *     the resolver returning null, and {@code ExportManager.buildLoopExtensionItem}'s reverse
+     *     gate);
+     *   • NO reverse bake is ever kicked (incl. from resize) while parked.
+     * Flip to {@code false} to un-park the L2 ping-pong path exactly as it was at 9d9539c.
+     */
+    public static final boolean PING_PONG_PARKED = true;
+
     private int loopMode = LOOP_MODE_OFF;
 
     /** Loop extension before the clip start (ms), rendered semi-transparent. */

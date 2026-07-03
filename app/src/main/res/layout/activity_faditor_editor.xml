@@ -1960,6 +1960,24 @@
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
 
+        <!-- L3: content below the pinned grab-handle/header scrolls internally so the
+             drawer itself never restructures or clips off the bottom of a short/dense
+             screen (1080x2280-class); it just gets a scrollbar once content exceeds the
+             runtime-computed cap set in showLoopDrawer(). Same "inner scroll only" pattern
+             as transcript_model_choice — the drawer stays the same panel, same transparency,
+             same resize behavior. -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/loop_drawer_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:fillViewport="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
         <!-- Mode selector: Off / Loop / Ping-pong -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -2097,6 +2115,9 @@
                 android:background="#FF333333"
                 android:padding="6dp" />
         </LinearLayout>
+
+        </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
     </LinearLayout>
 
     <!-- ─── Caption style keyframe drawer (top drop-down) ───────────── -->

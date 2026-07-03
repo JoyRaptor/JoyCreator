@@ -1,5 +1,32 @@
 # RELAY REPORT — JoyRaptor-account window, started 2026-07-01 ~23:45 (updates in place as milestones land)
 
+## 🅿️ 2026-07-02 late — PING-PONG PARKED + resize/black-screen regression fixed (device-verified, NO commit)
+User report (Note 9, after L2 9d9539c): resizing a loop reverted its size; then that clip + others went BLACK.
+- **Root cause (cluster):** BLACK = the gapless engine is ONE shared ExoPlayer/ONE playlist; a PING_PONG clip
+  auto-promotes the whole project + injects baked-reversed items — an item that fails to decode blacks out the
+  shared player and the black spreads to every clip (evidence: an orphan `cache/reversed/rev-1899-4884-*.mp4`
+  for clip[3], which was saved OFF → user set ping-pong, hit black, reverted). RESIZE REVERT = loop-edge drag
+  fired BOTH `onTrimFinished` (endFraction→1.0 ⇒ clobbered the trimmed out-point out to full source) AND
+  `onLoopTrimFinished`.
+- **Fix:** single flag `Clip.PING_PONG_PARKED=true` (all L2 code kept dormant) gates the drawer chip (dimmed +
+  "coming soon" toast, no mode switch), `resolveReversedUri`→null (⇒ isEligible rejects PING_PONG ⇒ project
+  stays legacy ⇒ stored ping-pong degrades to a forward NORMAL-loop wrap in preview+export, never black/crash),
+  `kickReverseBakeIfNeeded` no-op (no bake ever, incl. resize), ExportManager reverse-leg forced forward-tail.
+  Resize fix: ACTION_UP fires `onLoopTrimFinished` only when `loopChangedDuringDrag`; handler self-sufficient.
+- **Device-verified (sandbox bdd51919…):** ping-pong chip dimmed + tap leaves loopMode=1 (project.json); Loop
+  stays green; "Extend to end" 11000→12000 (in/out unchanged) + clean gapless rebuild; undo→11000 + clean
+  rebuild; force-stop+relaunch = "Gapless engine ACTIVE for 4 clips", zero black across all clips/screenshots.
+- **L3 WIP kept** (dead-field delete + drag readout + drawer small-screen scroll). Build GREEN. **No commit.**
+- **§6 rows (diagnostic, report-only):** the bottom TEXT (LayerOne) + AUDIO (extracted) rows are STILL dead —
+  horizontal swipe does NOT scrub, long-press does NOT open the remove dialog. Flags are CLEAN in project.json
+  (both hidden:false/locked:false; audio muted:true is user-set) so it is NOT a stale-flag issue — it's a
+  gesture/hit-test routing gap in EditorTimelineView/LayerRowRenderer (those rows are canvas-drawn, not in the
+  a11y tree). Left for the next agent per scope. Un-park owed: fix the black-decode (per-item forward fallback).
+- **Hand-test owed (unscriptable):** the raw edge-DRAG loop resize — one scripted attempt missed the handle
+  hit-zone in the per-clip zoom (reflow), but the underlying updateTrimBounds→rebuild path is proven via the
+  "Extend to end" button. Ask user to drag a loop extension edge and confirm: new size persists, no revert,
+  no black, undo restores.
+
 ## ⚠️ FOR THE 14:25 SCHEDULED SESSION (written 13:15)
 The JoyRaptor session is ACTIVE this afternoon and OWNS two tracks — do not collide:
 1. **Layer-row touch fix** (user-reported: rows block scrub/select/trim; = handoff's "surface overlap" fix #2)

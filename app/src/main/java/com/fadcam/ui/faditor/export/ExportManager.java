@@ -895,7 +895,12 @@ public class ExportManager {
                 extensionMs - (long) repIndex * trimmedPlayMs);
         if (playedMs <= 0) return null;
 
-        boolean reverse = loopMode == Clip.LOOP_MODE_PING_PONG
+        // PARKED (Clip.PING_PONG_PARKED): while ping-pong is dormant, a PING_PONG clip exports as a
+        // plain forward NORMAL-loop wrap — same graceful degrade as preview. Forcing reverse=false
+        // routes every rep through the forward head-replay branch below, so export matches the
+        // parked preview by construction and never references a baked reversed file.
+        boolean reverse = !Clip.PING_PONG_PARKED
+                && loopMode == Clip.LOOP_MODE_PING_PONG
                 && ((isBefore ? totalReps - 1 - repIndex : repIndex) % 2 == 1);
 
         // Choose the source sub-range so playback length matches `playedMs`.

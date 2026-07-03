@@ -1114,6 +1114,8 @@
     <string name="faditor_loop_off">Off</string>
     <string name="faditor_loop_normal">Loop</string>
     <string name="faditor_loop_pingpong">Ping-pong</string>
+    <string name="faditor_loop_pingpong_parked">Ping-pong (soon)</string>
+    <string name="faditor_loop_pingpong_parked_toast">True ping-pong is being polished — coming soon. Use Loop for a smooth forward repeat.</string>
     <string name="faditor_loop_still">Still</string>
     <string name="faditor_loop_extend_start">Extend to start</string>
     <string name="faditor_loop_extend_end">Extend to end</string>

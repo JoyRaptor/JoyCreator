@@ -1,0 +1,58 @@
+# Feedback Batch — Drag/Move/Trim UX v3 + KineMaster adoptions (2026-07-03, user hand-test)
+
+> User tested JoyRaptor's gesture cluster (through 8f8c764). Items marked RE-VERIFY may already be fixed by
+> 8f8c764's butting/ghost work — the user's test may predate that build; verify on-device before re-fixing.
+> Companion: tasks/RESEARCH_COMPETITOR_UX_20260703.md (in progress) for the KineMaster-inspired items.
+
+## A. Drag/move (v3 on the row-gesture system)
+1. **Edge auto-pan while dragging (P1):** dragging an item near the screen's left/right edge must
+   continuously pan the timeline to open more room — currently placement is limited to what's visible.
+   (Distinct from the bookend "excursion": this is sustained scroll-while-held.)
+2. **Minimap drag-navigation (P1, killer feature):** with an item held, sliding the finger ONTO the
+   timeline minimap slides the view to that region; pulling the finger back down continues the drag with
+   the item still attached, ready to place. Long-distance moves without repeated edge-crawling.
+3. **Free placement on a track (P1):** items must be placeable ANYWHERE on a row — currently placement
+   gravitates to ahead-of/behind existing clips only. Butting stays as a gentle snap, not the only option.
+4. **Snap tolerance (P1):** ~4mm today → 1–2mm target. Express as dp constant (~8–12dp at 420dpi);
+   single source for all drag snaps. "Not too aggressive" is the user's explicit principle.
+5. **Snap-to-origin confirmation (RE-VERIFY):** outline glow/lighten when snapped back to origin =
+   "release now and it won't count as a move/undo". 8f8c764 claims ghost light-up — confirm it reads.
+6. **Butting outline clearance (RE-VERIFY):** when snapping to a clip's front/back, the dragged outline
+   must fully CLEAR the underlying clip (edges meet exactly, no overlap). 8f8c764 claims fixed.
+7. **Under-finger shift at butting (RE-VERIFY):** dragged clip may shift under the finger so the joint
+   is visible (excursion centers the joint per 8f8c764 — confirm it satisfies).
+8. **BUG — audio overlap allowed (P0):** audio items can still be stacked overlapping on a track.
+   Same-row overlap must be rejected (snap to adjacent butting position or snap-back on release).
+9. **Vertical layer-swap guardrail (P1):** moving an item straight up/down = change LAYER ONLY, time
+   locked, with a guardrail snap (small horizontal tolerance before time unlocks). While time-locked:
+   1px dotted vertical lines at the item's front/back bounds (dim), disappearing the moment movement
+   goes diagonal, reappearing if timing re-matches exactly. Also: swapping adjacent items A↔B vertically
+   is currently near-impossible (hover-over-item pans away; hover-above does nothing) — a time-locked
+   drop onto an occupied row places at same time and resolves collision via the butting rules.
+
+## B. Trim polish
+10. **Trim ghost shading:** trimming IN → the subtracted region renders dark (~50% opacity of item
+    color); trimming OUT → the added region renders ~10% BRIGHTER than the item color. Reads as
+    "what am I removing vs adding" at a glance.
+11. **Trim callout:** small pill/rounded-rect with a caret, hovering above the dragged edge, showing
+    exact time + frame number. On release: fades if no net change; flashes-then-fades if a change
+    committed.
+
+## C. KineMaster-inspired (screenshots studied; web research in flight — see RESEARCH doc)
+12. Full-height playhead through the entire timeline; with a layer item selected, the playhead segment
+    over that item is visually marked (KM: dotted yellow) = "a split applies HERE, to THIS item".
+13. Playhead time chip displays exact time (mm:ss.mmm).
+14. **Bookmarks:** droppable markers on the ruler; long-press a marker → options (jump/remove/remove all).
+15. **Keyframe transport row:** add-keyframe button that flips to remove-keyframe when the playhead sits
+    on one; adjacent CURVE/easing button opening a preset gallery (KM ships ~18 curves; our KeyframeSet
+    already has Easing — this is surfacing, not new math).
+16. **Full-screen timeline mode:** expand toggle → timeline fills the screen, preview becomes a draggable
+    picture-in-picture window. Perfect fit for layer-heavy work + DESIGN §5 menu philosophy.
+17. **Interaction mapping (PROPOSED, user to veto):** TAP the time chip = jump-to-time entry + quick nav
+    (move tool / layers); TAP the playhead line itself (or double-tap the chip) = drop bookmark;
+    long-press a bookmark marker = options. Separates "numeric/exacting" (chip) from "marking" (line).
+
+## Priority order
+P0: A8 (audio overlap). P1 core feel: A1, A2, A3, A4, A9. RE-VERIFY pass: A5/A6/A7 (cheap, first).
+B10/B11 = contained quick wins. C-items: after research doc lands; C12/C13/C14 cheap, C15 medium,
+C16 medium-large (own milestone).

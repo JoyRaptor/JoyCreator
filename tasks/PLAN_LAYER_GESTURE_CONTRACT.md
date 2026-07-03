@@ -47,5 +47,15 @@ on zone → onItemDroppedOnNewLayer, new row visible; (f) drop on other band row
 delete still reachable via selection. Scripted drags impossible on this device — user hand-tests; design log
 lines decisive. ONE strong-model agent (gesture state machines are subtle); build green throughout.
 
+## FOLLOW-UP (user report 2026-07-03, do IMMEDIATELY AFTER the contract redesign lands — same files)
+**Same-row overlapping items stack unreadably.** User moved audio + text items onto one row: "weird they
+stack on each other... very difficult to maneuver." Overlap is allowed by design (M7), but rendering just
+piles them (zHint paint order). FIX: auto SUB-LANES within a row when items overlap in time — the codebase
+already does exactly this for overlapping audio clips on the classic audio lane (find that lane-assignment
+code in EditorTimelineView and mirror/reuse the algorithm in LayerRowRenderer). Each overlapping item gets
+its own thin lane (row grows or lanes compress per DESIGN §5 — don't bury the timeline); hit-testing per
+lane so each item is individually grabbable; selection/trim/pickup per the new contract work per-lane.
+NOT a data change — rendering + hit-test only.
+
 ## Status
-- [ ] Contract redesign  - [ ] off-screen zone fix  - [ ] delete relocation  - [ ] device hand-test confirmed
+- [ ] Contract redesign  - [ ] off-screen zone fix  - [ ] delete relocation  - [ ] sub-lane overlap rendering (follow-up)  - [ ] device hand-test confirmed

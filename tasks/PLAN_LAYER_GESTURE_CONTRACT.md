@@ -120,6 +120,10 @@ must show scroll consumption, and scroll position must be continuous across the 
       same-row overlap not yet prevented (only cross-row drops snap); BEFORE-snap clamps to 0 when the
       dragged item is longer than the gap before the row's first item (can still overlap there); interior
       gaps of multi-item rows not placeable via drag.
-- [ ] post-pinch pan handback (follow-up 2) — NEXT
-- [ ] device hand-test confirmed for batch 1 + review fixes + bookend (checklist relayed 2026-07-03 ~04:00;
-      pull `adb logcat -d -s ROWGESTURE:D` after — look for BOOKEND/EXCURSION lines)
+- [x] post-pinch pan handback (follow-up 2, 5ac5701): onScaleEnd arms a handback branch placed BEFORE the
+      stale gesture-detector guard; surviving finger re-anchors on its first MOVE (zero jump) and drives
+      updatePlayheadFromX raw-x deltas; UP flings (velocity restarted from the re-anchor). Pinch→pan→fling
+      = one fluid motion. Log lines: PINCH-HANDBACK armed/re-anchored/end/fling.
+- [ ] device hand-test confirmed for the WHOLE cluster (checklist relayed 2026-07-03 ~04:15; pull
+      `adb logcat -d -s ROWGESTURE:D` after — look for BOOKEND / EXCURSION / PINCH-HANDBACK / DELETE lines)
+- [ ] strip TEMP ROWGESTURE logging once the user confirms the feel (queue item 4)

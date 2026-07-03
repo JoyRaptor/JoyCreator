@@ -7,6 +7,34 @@
 
 > **2026-07-02 late — PING-PONG PARKED by user decision + resize-revert/black-screen regression FIXED (BUILT GREEN, device-verified Note 9 sandbox, NO commit).** User hit two bugs after L2 (9d9539c): resizing a loop reverted its size, then that clip + others went BLACK. ROOT CAUSE (cluster): (1) BLACK SPREAD = the gapless engine is ONE shared ExoPlayer/ONE playlist; a PING_PONG clip auto-promotes the whole project to gapless and injects baked-reversed MediaItems — if a reversed item fails to decode (or the auto-promote rebuild races) the shared player blacks out and the black spreads to EVERY clip. Evidence: an orphan baked file `cache/reversed/rev-1899-4884-*.mp4` existed for clip[3] but clip[3] was saved OFF — user set ping-pong, hit the black, reverted (deleted that orphan). (2) RESIZE REVERT = a loop-extension edge drag fired BOTH `onTrimFinished` AND `onLoopTrimFinished`; for a right-loop-drag the trim `endFraction`→1.0 (handle pinned to source bound), so `onTrimFinished` clobbered the clip's real out-point out to full source. FIX: new single flag `Clip.PING_PONG_PARKED=true` gates 4 seams (all L2 code KEPT, just dormant) — (a) loop-drawer ping-pong chip disabled/dimmed + "coming soon" toast, no mode switch; (b) `resolveReversedUri` returns null while parked → `MasterPlaybackEngine.isEligible` rejects every PING_PONG clip → whole project drops to LEGACY forward-tail = a stored ping-pong clip DEGRADES to a plain forward NORMAL-loop wrap (never black, never crash) in preview; (c) `ExportManager.buildLoopExtensionItem` `reverse` forced false → export forward-tail too (preview==export); (d) `kickReverseBakeIfNeeded` early-returns → NO bake ever kicked, incl. from resize. RESIZE FIX: `EditorTimelineView` ACTION_UP now fires `onLoopTrimFinished` ONLY (not `onTrimFinished`) when `loopChangedDuringDrag`, so a loop resize no longer clobbers in/out; `onLoopTrimFinished` made self-sufficient (`userDragging=false`, `setTrimFromClip`, `updateTrimBounds`, `setExactSeek`). DEVICE-VERIFIED (Note 9 sandbox bdd51919…, package com.fadcam.beta): loop drawer shows ping-pong DIMMED + tapping it leaves loopMode=1 (proven via project.json), Loop chip stays green; "Extend to end" grew clip[1] loopAfterMs 11000→12000 with in/out UNCHANGED (0/8962) + clean gapless rebuild (6 items, no PlayerError) — this is the same updateTrimBounds→rebuild path an edge-drag uses; undo restored 11000 + clean rebuild; force-stop+relaunch came back "Gapless engine ACTIVE for 4 clips", zero black in any of ~6 screenshots across all clips. L3 WIP KEPT (see PLAN §Status). NOTE for un-parking: flip `Clip.PING_PONG_PARKED=false` restores L2 exactly as 9d9539c — but FIRST fix the black-decode root cause (a reversed item that won't decode must fall back to forward per-item, not black the shared player). §6 rows still dead (see below). NOT re-attempted: the raw edge-DRAG resize gesture (one scripted attempt missed the handle hit-zone in the reflowing per-clip zoom view) — hand-test item for user; the code path itself is proven via the drawer button.
 
+> **🛬 2026-07-03 ~04:15 — SESSION LANDING (Fable orchestrator, autonomous overnight run complete). READ THIS FIRST.**
+> **The ENTIRE gesture cluster is DONE and installed on the sandbox (SANDBOX_SERIAL), awaiting ONE morning
+> hand-test.** Code commits this session, all BUILT GREEN via the watcher, each checkpoint-committed:
+> 9cf3080 (contract redesign recovered from the lost agent + 2 orch fixes) → aadf9c1 (delete = selection
+> trash badge) → 4375fab (feedback batch 1: badge 9dp+viewport-pinned, row-scrub FLING, timeline-locked
+> TRIM STRIPES, honest cross-band preview + insertion line) → fcc0bd5 (adversarial-review fixes — CRITICAL:
+> ACTION_CANCEL/pinch-interrupt now ABORTS+REVERTS instead of committing the drop/new-lane; delete badge
+> deferred to tap-on-UP so swipes-from-badge scrub; trim handles win the badge-overlap strip; VelocityTracker
+> recycle) → c0248db (BOOKEND MANEUVER: occupied-row snap, panel-half BEFORE/AFTER, animated view excursion
+> with CONTENT-LOCKED playhead cue, animate-back, suppressMoveMapping across the return glide) → 5ac5701
+> (post-pinch dead zone: surviving finger pans immediately, re-anchored zero-jump, flings on release).
+> **Review evidence:** a 3-lens × 2-skeptic adversarial workflow confirmed 5 defects (all fixed in fcc0bd5);
+> full findings JSON in the session task output. Hand-test #1 evidence: ROWGESTURE pull proved every
+> contract case (AXIS-HORIZONTAL scrub-not-move, TAP select-only, PICKUP, drop commits) and proved the old
+> 7dp badge got ZERO hits (hence the redesign). Logcat buffer CLEARED at landing for a clean morning pull.
+> **USER DECISIONS RECORDED THIS SESSION:** (1) bookend/no-overlap spec confirmed "correct" — sub-lane
+> overlap rendering is DEAD/superseded; (2) DESIGN PRINCIPLE: per-item actions = SELECTION BADGES (trash
+> roundel pattern), never new gestures — see PLAN_LAYER_GESTURE_CONTRACT.md §DESIGN PRINCIPLE.
+> **NEXT (strict order):** (1) morning hand-test checklist (relayed in the session's final message —
+> 6 items: swipe-scrub, tap+trash-badge incl. pinned-on-long-item, pickup+bookend excursion feel, cross-band
+> insertion line honesty, trim stripes, pinch→pan handback) + pull `adb logcat -d -s ROWGESTURE:D`, verify
+> BOOKEND/EXCURSION/PINCH-HANDBACK/DELETE lines; (2) fix whatever the feel-test surfaces; (3) STRIP the TEMP
+> ROWGESTURE logging (LayerGestureController ROWGESTURE_LOG + all RG() in EditorTimelineView/LayerRowRenderer);
+> (4) then the standing queue: rebrand pass 1 (name DECIDED "Joy Creator", icons in art/, quick-wins d86a3c0)
+> → Tier-1 durability → transcript dedup (timestamped project.json backup FIRST) → M11 → M-EXPORT-1 (Opus) →
+> ping-pong unpark. Known deferred bookend edges are listed in the PLAN Status block (same-row overlap,
+> 0-clamp, interior gaps).
+>
 > **🛬 2026-07-03 ~03:45 UPDATE 2 — HAND-TEST #1 PASSED (log-verified) + FEEDBACK BATCH 1 LANDED (4375fab).**
 > User hand-tested the redesign: core contract CONFIRMED by feel AND by ROWGESTURE pull (AXIS HORIZONTAL
 > scrub-not-move ×2, TAP select-only, PICKUP-MOVE commits, droppedOnNewLayer=true, cross-row toTrack move;

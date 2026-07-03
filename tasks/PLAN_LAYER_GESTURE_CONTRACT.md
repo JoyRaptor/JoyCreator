@@ -57,5 +57,15 @@ its own thin lane (row grows or lanes compress per DESIGN §5 — don't bury the
 lane so each item is individually grabbable; selection/trim/pickup per the new contract work per-lane.
 NOT a data change — rendering + hit-test only.
 
+## FOLLOW-UP 2 (user report + flight-recorder confirmed 2026-07-03): post-pinch dead zone
+After a pinch ends with one finger still down, the surviving finger's MOVEs are ignored (log: onScaleEnd →
+isScaling=false → continuing action=2 stream with activeDrag=NONE, nothing consumes it) until the user lifts
+and re-touches = "stuck for a while." ALSO: the tracked x jumped 1151→541 at scale end (active-pointer
+switch) — a naive continuation would teleport the view. FIX: on onScaleEnd with a pointer still down,
+hand back to the normal pan/scroll path RE-ANCHORED at the surviving pointer's current position (proper
+activePointerId handling; zero jump, zero dead zone — pinch→pan as one fluid motion). Applies to the main
+timeline surface (not just the row band). Verify via the existing onTouchEvent debug lines: post-scale MOVEs
+must show scroll consumption, and scroll position must be continuous across the handback.
+
 ## Status
-- [ ] Contract redesign  - [ ] off-screen zone fix  - [ ] delete relocation  - [ ] sub-lane overlap rendering (follow-up)  - [ ] device hand-test confirmed
+- [ ] Contract redesign  - [ ] off-screen zone fix  - [ ] delete relocation  - [ ] sub-lane overlap rendering (follow-up)  - [ ] post-pinch pan handback (follow-up 2)  - [ ] device hand-test confirmed

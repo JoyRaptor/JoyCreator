@@ -563,14 +563,55 @@ public final class LayerGestureController {
             boolean openEnded = dragStartDurationMs == Long.MAX_VALUE;
             // targetTimeMs is where the finger's x maps to; anchor MOVE so the item's
             // start tracks the finger delta from the drag-start x, not an absolute jump.
-            long newStart = Math.max(0, targetTimeMs - moveGrabOffsetMs);
+            long newStart = resolveNoOverlapStart(
+                    Math.max(0, targetTimeMs - moveGrabOffsetMs), totalMs);
             long newEnd = openEnded ? Long.MAX_VALUE : newStart + duration;
             o.setTimeRange(newStart, newEnd);
         } else if (item.getAudioClip() != null) {
             AudioClip ac = item.getAudioClip();
-            long newOffset = Math.max(0, targetTimeMs - moveGrabOffsetMs);
+            long newOffset = resolveNoOverlapStart(
+                    Math.max(0, targetTimeMs - moveGrabOffsetMs), totalMs);
             ac.setOffsetMs(newOffset);
         }
+    }
+
+    /**
+     * No-overlap rule (P0 fix, FEEDBACK_20260703_dragux_v3 A8 + the user's binding
+     * "no multiple items occupying the same time on a layer" decision): during a
+     * finger-driven same-band move, if the desired position would overlap a SIBLING
+     * on the row the item will land on (the hover-target row when one is armed,
+     * else its own row), snap to the nearer legal butting edge instead. Cross-row
+     * drops onto OCCUPIED rows are already handled by the bookend snap (which
+     * bypasses this path via applyMoveTo); this closes the same-row hole that let
+     * audio items stack. Iterates a few times so being pushed out of one sibling
+     * into another resolves to a stable legal spot (chains of ≥4 give up and keep
+     * the last computed position — the drop can still be aborted via the home ghost).
+     */
+    private long resolveNoOverlapStart(long desiredStart, long totalMs) {
+        Track row = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
+        if (row == null || activeItem == null) return desiredStart;
+        long dur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
+                : activeItem.getDisplayDurationMs(totalMs);
+        if (dur <= 0) return desiredStart;
+        long start = desiredStart;
+        for (int pass = 0; pass < 4; pass++) {
+            boolean moved = false;
+            for (TimedItem sib : row.getItems()) {
+                if (sib.getId().equals(activeItem.getId())) continue;
+                long ss = sib.getTimelineStartMs();
+                long se = ss + sib.getDisplayDurationMs(totalMs);
+                if (start < se && start + dur > ss) {
+                    long before = ss - dur;  // butt our end to the sibling's start
+                    long after = se;         // butt our start to the sibling's end
+                    start = (before >= 0
+                            && Math.abs(desiredStart - before) <= Math.abs(desiredStart - after))
+                            ? before : after;
+                    moved = true;
+                }
+            }
+            if (!moved) break;
+        }
+        return Math.max(0, start);
     }
 
     /** ms from the item's start to the finger's grab point, captured on first move. */

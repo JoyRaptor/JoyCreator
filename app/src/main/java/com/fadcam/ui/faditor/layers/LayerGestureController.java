@@ -166,8 +166,6 @@ public final class LayerGestureController {
                                   @NonNull LayerRowRenderer.TimeToX timeToX) {
         cancelLongPress();
         LayerRowRenderer.ItemHit hit = rowRenderer.hitTestItem(x, y, topPx, totalMs, timeToX, selectedItemId);
-        com.fadcam.FLog.d("LayerGestureController", "DIAG onRowBodyDown: x=" + x + " y=" + y
-                + " topPx=" + topPx + " hit=" + (hit == null ? "null" : (hit.zone + " item=" + hit.item.getId())));
         if (hit == null) {
             // Tap on empty row space (not on any item) — clear selection, consume the
             // touch (matches the M6 "consume, don't fall through" contract), no gesture.

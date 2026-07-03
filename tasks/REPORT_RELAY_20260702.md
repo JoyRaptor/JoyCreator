@@ -1,5 +1,29 @@
 # RELAY REPORT — JoyRaptor-account window, started 2026-07-01 ~23:45 (updates in place as milestones land)
 
+## ✅ 2026-07-02 night — §6 LAYER ROWS NOW INTERACTIVE (tap-select + long-press-delete + scrub-over-rows), device-verified, NO commit
+The two bottom Track rows (purple "Text"/aqua "Audio") that were completely dead — no tap, no long-press, no
+scrub — are FIXED. This unblocks your Layers hand-test.
+- **What was wrong:** the row-header hit-test had no left/right bounds, so it grabbed touches on the whole row
+  (header AND the item body to its right) and then did nothing with them — swallowing every tap, long-press,
+  and swipe over those rows. Two follow-on bugs also blocked scrubbing specifically (the parent view stealing
+  the swipe, and a math error that froze the playhead after the first move). All three fixed, minimally.
+- **Verified on-device (sandbox bdd51919…):** tapping the "Enter text" item shows the purple selection outline
+  + end handles; long-pressing it opens the "Remove text overlay?" dialog; swiping horizontally across the row
+  band scrubs the timeline (playhead + ruler + preview all moved). Build GREEN, all temp logging removed, no commit.
+
+### 🖐️ 60-SECOND HAND-TEST (please feel-check these on the two bottom Text/Audio rows — the ones with the caret/eye/lock/mute icons on the left):
+1. **Tap** the purple text item ("Enter text"/"LayerOne") → it should get a lighter-purple outline with little
+   end-cap handles (that's "selected"). Tap the aqua audio item → aqua outline. Tap empty space → deselects.
+2. **Long-press** (~half a second) the purple item → the "Remove text overlay?" dialog should pop (Cancel to keep it).
+   Long-press the aqua audio item → its remove dialog.
+3. **Swipe left/right** across the row band (over the bars or the empty strip in those rows) → the timeline should
+   SCRUB (playhead moves, ruler numbers change), exactly like scrubbing up on the filmstrip. It should NOT feel dead.
+4. **Header icons** (caret/eye/lock/mute on the left of each row) should still work as before (untouched by this fix).
+5. Sanity: normal filmstrip scrubbing, clip selection, and the master timeline should feel exactly the same as before.
+- KNOWN LIMIT (not a bug in this fix): your text/audio items currently span the whole project, so they can't be
+  dragged sideways and there's little empty in-row space — the real ergonomic fix for that is the planned
+  duration-on-create + numeric time fields (§7), still to come.
+
 ## 🅿️ 2026-07-02 late — PING-PONG PARKED + resize/black-screen regression fixed (device-verified, NO commit)
 User report (Note 9, after L2 9d9539c): resizing a loop reverted its size; then that clip + others went BLACK.
 - **Root cause (cluster):** BLACK = the gapless engine is ONE shared ExoPlayer/ONE playlist; a PING_PONG clip

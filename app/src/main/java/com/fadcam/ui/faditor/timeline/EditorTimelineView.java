@@ -3956,6 +3956,13 @@ public class EditorTimelineView extends View {
         m6RowPendingLastX = scrolledX;
         m6RowPendingDownY = y;
         m6RowLastY = y;
+        // Claim the gesture from the parent scroll container NOW, before the axis is
+        // decided: every other armed-DOWN branch in onDown() ends with this call, but a
+        // pending-axis DOWN returns true straight out of handleM6RowTouch and skips
+        // onDown()'s trailing requestDisallowInterceptTouchEvent — so without this the
+        // parent could intercept the follow-up MOVEs and the axis decision (scrub vs
+        // row-scroll) in onMove would never run. Both axes re-assert it on resolution.
+        getParent().requestDisallowInterceptTouchEvent(true);
         return true;
     }
 
@@ -4114,14 +4121,17 @@ public class EditorTimelineView extends View {
         if (m6RowScrubPassthroughActive) {
             // Axis already resolved horizontal: drive the SAME primitive
             // GestureListener#onScroll uses, so this feels identical to scrubbing
-            // anywhere else on the timeline. x is raw view-space; scrolledX below is
-            // not used here since updatePlayheadFromX wants a view-space X relative to
-            // the current scroll offset, mirroring onScroll's `centerX + scrollOffsetPx
-            // + distanceX` (distanceX is the PREVIOUS-event-relative delta; we track the
-            // same thing via m6RowPendingLastX).
-            float scrolledXNow = x + scrollOffsetPx;
-            float distanceX = m6RowPendingLastX - scrolledXNow; // matches GestureDetector's convention (old - new)
-            m6RowPendingLastX = scrolledXNow;
+            // anywhere else on the timeline. The delta MUST be computed in RAW
+            // view-space x (previous raw x - current raw x), exactly like
+            // GestureDetector's distanceX that onScroll consumes — NOT in content-space
+            // (x + scrollOffsetPx). updatePlayheadFromX re-centers the timeline every
+            // call, so scrollOffsetPx shifts by ~the same amount x moved; a content-space
+            // delta (x + scrollOffsetPx) therefore nets to ~0 after the first event and
+            // the playhead freezes (the bug: scrub axis resolved but the playhead never
+            // moved). m6RowPendingLastX holds the previous RAW x (seeded to raw x at
+            // axis-resolution below).
+            float distanceX = m6RowPendingLastX - x; // raw prev - raw cur (GestureDetector convention)
+            m6RowPendingLastX = x;
             float centerX = getWidth() / 2f;
             float newPlayheadX = centerX + scrollOffsetPx + distanceX;
             updatePlayheadFromX(newPlayheadX);
@@ -4139,11 +4149,12 @@ public class EditorTimelineView extends View {
                 longPressHandler.removeCallbacks(longPressRunnable);
                 if (rdx >= rdy) {
                     // Horizontal-dominant: release into scrub pass-through. Seed
-                    // m6RowPendingLastX so the very first delta computed above is
-                    // relative to THIS move, not the original down (avoids a jump).
+                    // m6RowPendingLastX with the RAW view-space x (the scrub branch above
+                    // computes its delta in raw x to mirror GestureDetector) so the very
+                    // first scrub delta is relative to THIS move, not the original down.
                     m6RowPendingAxisDecision = false;
                     m6RowScrubPassthroughActive = true;
-                    m6RowPendingLastX = scrolledXNow;
+                    m6RowPendingLastX = x;
                     getParent().requestDisallowInterceptTouchEvent(true);
                     invalidate();
                     return true;

@@ -529,6 +529,15 @@ public final class LayerRowRenderer {
         if (y < topPx || y > topPx + viewportHeightPx) return null;
         for (RowLayout row : rows) {
             if (localY < row.headerRect.top || localY > row.headerRect.bottom) continue;
+            // X-bounds guard: the headerRect spans the row's full height but only the
+            // left HEADER_WIDTH_DP column is the header — the rest of the row (to its
+            // right) is the item BODY. Without this check, a touch anywhere in the row
+            // body fell through the four icon .contains() tests below and hit the
+            // HitZone.NONE fallthrough, so hitTestHeader "consumed" every body touch —
+            // starving the M7 item hit-test (select/long-press/drag) and the horizontal
+            // scrub pass-through of the DOWN entirely. A body-column touch is not a
+            // header hit: skip this row so the caller falls through to onRowBodyDown.
+            if (x < row.headerRect.left || x > row.headerRect.right) continue;
             if (row.caretRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.CARET);
             if (row.hideRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.HIDE);
             if (row.lockRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.LOCK);

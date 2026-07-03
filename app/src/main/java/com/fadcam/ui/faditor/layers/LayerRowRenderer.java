@@ -465,6 +465,45 @@ public final class LayerRowRenderer {
     /** Set/clear which item (by id) is picked up for a move, so it draws with a lift affordance. */
     public void setLiftedItemId(@Nullable String itemId) { this.liftedItemId = itemId; }
 
+    // ── Home ghost (feedback 2026-07-03am): the item's ORIGINAL extent during a
+    // move/trim gesture — a grey outline at where-it-was, brightening when the gesture
+    // is within snap range of putting it back exactly (release = original, no undo). ──
+    @Nullable private String homeGhostTrackId;
+    private long homeGhostStartMs, homeGhostDurMs;
+    private boolean homeGhostArmed;
+
+    /** Set (trackId non-null) or clear (null) the home ghost for the active gesture. */
+    public void setHomeGhost(@Nullable String trackId, long startMs, long durMs) {
+        this.homeGhostTrackId = trackId;
+        this.homeGhostStartMs = startMs;
+        this.homeGhostDurMs = durMs;
+    }
+
+    /** Brighten the ghost: the current gesture would land EXACTLY back on it. */
+    public void setHomeGhostArmed(boolean armed) { this.homeGhostArmed = armed; }
+
+    private void drawHomeGhost(@NonNull Canvas canvas, float top, float bottom,
+                                @NonNull TimeToX timeToX) {
+        float gx0 = timeToX.map(homeGhostStartMs);
+        float gx1 = Math.max(gx0 + 2f * density, timeToX.map(homeGhostStartMs + homeGhostDurMs));
+        int prevColor = itemSelectionPaint.getColor();
+        Paint.Style prevStyle = itemSelectionPaint.getStyle();
+        float prevW = itemSelectionPaint.getStrokeWidth();
+        if (homeGhostArmed) {
+            // Lit: subtle fill + light outline = "release here → exactly where it was".
+            itemSelectionPaint.setStyle(Paint.Style.FILL);
+            itemSelectionPaint.setColor(0x2EFFFFFF);
+            canvas.drawRoundRect(gx0, top, gx1, bottom, 3f * density, 3f * density, itemSelectionPaint);
+        }
+        itemSelectionPaint.setStyle(Paint.Style.STROKE);
+        itemSelectionPaint.setStrokeWidth(1.5f * density);
+        itemSelectionPaint.setColor(homeGhostArmed ? 0xFFE2E2E8 : 0x8C90909A);
+        canvas.drawRoundRect(gx0, top, gx1, bottom, 3f * density, 3f * density, itemSelectionPaint);
+        itemSelectionPaint.setStrokeWidth(prevW);
+        itemSelectionPaint.setColor(prevColor);
+        itemSelectionPaint.setStyle(prevStyle);
+    }
+
     /** Id of the item currently being edge-TRIMMED — rendered with timeline-locked stripes. */
     @Nullable private String trimmingItemId;
     /** uptimeMillis when the current trim armed, for the stripe fade-in. */
@@ -589,10 +628,20 @@ public final class LayerRowRenderer {
         boolean ghosted = t.isHidden();
         float top = row.bodyRect.top + 3f * density;
         float bottom = row.bodyRect.bottom - 3f * density;
+        // Home ghost first — it sits UNDER the live items (the moving/trimming item
+        // slides over its own origin outline).
+        if (homeGhostTrackId != null && homeGhostTrackId.equals(t.getId())) {
+            drawHomeGhost(canvas, top, bottom, timeToX);
+        }
         for (TimedItem item : t.getItems()) {
             float x0 = timeToX.map(item.getTimelineStartMs());
             long dur = item.getDisplayDurationMs(totalMs);
-            float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
+            // Draw floor 2dp (was 6dp): short clips must not RENDER wider than their
+            // true length — a floored bar overlapped its bookend neighbor and read as
+            // "the preview is longer than the clip" (feedback 2026-07-03am). Hit-testing
+            // keeps a wider grab floor; forgiving hit > honest hit, but drawing must be
+            // honest.
+            float x1 = Math.max(x0 + 2f * density, timeToX.map(item.getTimelineStartMs() + dur));
             boolean lifted = liftedItemId != null && liftedItemId.equals(item.getId());
             if (lifted) {
                 // Picked-up-for-move "lift": a soft drop shadow just below/right + a

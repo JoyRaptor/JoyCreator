@@ -212,6 +212,18 @@ public final class LayerGestureController {
     /** false = BEFORE the row's first item, true = AFTER the row's last item. */
     private boolean bookendAfter;
     /**
+     * The dragged item's DISPLAYED duration captured at first movement (pre-mutation).
+     * Used for all bookend/ghost math instead of live getDisplayDurationMs: for an
+     * open-ended text item the live value changes as the item moves (it renders "to
+     * project end"), which made the BEFORE-snap overlap and the AFTER-snap preview
+     * longer than the clip (user feedback 2026-07-03 morning).
+     */
+    private long dragStartDisplayDurMs = 0;
+    /** True while the picked-up drag hovers the item's OWN row (home-snap eligibility). */
+    private boolean hoveringHomeRow = false;
+    /** Log-throttle + state for the home/original snap being engaged. */
+    private boolean homeSnapArmed = false;
+    /**
      * While true (the view is animating its return from an excursion), onRowBodyMove
      * skips the finger→time mapping — the view's scrollOffset is mid-animation, so
      * mapping finger x through it would teleport the item. The item stays put until the
@@ -403,13 +415,23 @@ public final class LayerGestureController {
         if (!movedDuringGesture
                 && (Math.abs(x - dragStartX) > MOVE_SLOP_PX || Math.abs(y - dragStartY) > MOVE_SLOP_PX)) {
             movedDuringGesture = true;
+            // Capture the pre-mutation displayed extent ONCE: it drives the bookend
+            // math AND the "home ghost" — the grey outline left at the item's original
+            // position/length so the user always sees where it came from and can snap
+            // back exactly (no undo needed). Same mechanism for MOVE and TRIM.
+            dragStartDisplayDurMs = activeItem.getDisplayDurationMs(totalMs);
+            rowRenderer.setHomeGhost(activeTrack.getId(),
+                    activeItem.getTimelineStartMs(), dragStartDisplayDurMs);
             RG("MOVE/TRIM first movement kind=" + activeKind
                     + " dx=" + (x - dragStartX) + " dy=" + (y - dragStartY)
+                    + " homeGhost@" + activeItem.getTimelineStartMs() + "+" + dragStartDisplayDurMs
                     + (activeKind == GestureKind.MOVE ? " (picked-up item now tracking finger)" : ""));
         }
         if (!movedDuringGesture) return;
 
         long t = xToTime.map(x);
+        // Snap radius for the home/original snap, in ms at the CURRENT zoom (~48 raw px).
+        long snapThrMs = Math.abs(xToTime.map(x + 48f) - t);
         if (activeKind == GestureKind.MOVE && moveGrabOffsetMs < 0) {
             // First move of a MOVE gesture: capture how far into the item the finger
             // grabbed it, so the item tracks the finger instead of snapping its start
@@ -425,16 +447,33 @@ public final class LayerGestureController {
                 if (bookendJointMs != Long.MIN_VALUE) {
                     // Occupied-row bookend armed: the item previews at the SNAPPED
                     // position (butted to the joint), not at the finger (FOLLOW-UP 1).
-                    applyMoveTo(bookendSnapStartMs);
+                    // closeOpenEnd=true: an open-ended text item takes its captured
+                    // displayed length so the preview butts EXACTLY end-to-end instead
+                    // of "tagging on to the end" past the joint (feedback 2026-07-03am).
+                    applyMoveTo(bookendSnapStartMs, true);
+                    setHomeSnapArmed(false);
                 } else if (!suppressMoveMapping) {
-                    applyMove(t, totalMs);
+                    long prospective = Math.max(0, t - moveGrabOffsetMs);
+                    if (hoveringHomeRow
+                            && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs) {
+                        // HOME SNAP (feedback 2026-07-03am): the user is putting the item
+                        // back where it started — snap it EXACTLY there and light the
+                        // ghost, so "release = exactly where you started", no undo needed.
+                        applyMoveTo(dragStartTimelineMs, false);
+                        setHomeSnapArmed(true);
+                    } else {
+                        applyMove(t, totalMs);
+                        setHomeSnapArmed(false);
+                    }
                 }
                 break;
             case TRIM_LEFT:
                 applyTrim(t, true);
+                maybeSnapTrimHome(true, snapThrMs);
                 break;
             case TRIM_RIGHT:
                 applyTrim(t, false);
+                maybeSnapTrimHome(false, snapThrMs);
                 break;
         }
         callback.onGestureLive(activeItem);
@@ -457,6 +496,7 @@ public final class LayerGestureController {
             if (!hoverNewLayerZone) RG("HOVER -> NEW-LAYER-ZONE (armed) y=" + y + " topPx=" + topPx);
             hoverNewLayerZone = true;
             hoverCrossBandNewLane = false;
+            hoveringHomeRow = false;
             lastRejectedRowId = null;
             hoverTargetTrack = null;
             clearBookend();
@@ -468,6 +508,9 @@ public final class LayerGestureController {
         hoverNewLayerZone = false;
 
         Track candidate = rowRenderer.rowTrackAt(y, topPx);
+        // Home-snap eligibility: only while hovering the item's OWN row (putting it
+        // back where it started must not fight the bookend/cross-band logic of others).
+        hoveringHomeRow = candidate != null && candidate.getId().equals(activeTrack.getId());
         if (candidate == null || candidate.getId().equals(activeTrack.getId())
                 || candidate.isLocked() || candidate.isHidden()
                 || rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand) {
@@ -522,7 +565,10 @@ public final class LayerGestureController {
             float viewX = x - rowRenderer.getLastHScrollOffsetPx();
             boolean after = rowRenderer.getLastWidthPx() > 0f
                     && viewX >= rowRenderer.getLastWidthPx() / 2f;
-            long draggedDur = activeItem.getDisplayDurationMs(totalMs);
+            // Captured pre-mutation duration (NOT live displayDuration — open-ended
+            // items' live value shifts with position and caused BEFORE-side overlap).
+            long draggedDur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
+                    : activeItem.getDisplayDurationMs(totalMs);
             long snap = after ? lastEnd : Math.max(0, firstStart - draggedDur);
             long joint = after ? lastEnd : firstStart;
             if (bookendJointMs != joint || bookendAfter != after) {
@@ -550,10 +596,16 @@ public final class LayerGestureController {
         if (item.getTextOverlay() != null) {
             TextOverlayItem o = item.getTextOverlay();
             long duration = (dragStartDurationMsForMove(o));
+            // Open-endedness is decided by the DRAG-START cache, not the item's current
+            // end: a bookend preview may have temporarily CLOSED an open-ended item
+            // (applyMoveTo closeOpenEnd) — moving off the bookend must restore the
+            // open-ended behavior, not freeze the closed end (or worse, a 0-length item
+            // from the cached MAX→0 duration).
+            boolean openEnded = dragStartDurationMs == Long.MAX_VALUE;
             // targetTimeMs is where the finger's x maps to; anchor MOVE so the item's
             // start tracks the finger delta from the drag-start x, not an absolute jump.
             long newStart = Math.max(0, targetTimeMs - moveGrabOffsetMs);
-            long newEnd = (o.getEndMs() == Long.MAX_VALUE) ? Long.MAX_VALUE : newStart + duration;
+            long newEnd = openEnded ? Long.MAX_VALUE : newStart + duration;
             o.setTimeRange(newStart, newEnd);
         } else if (item.getAudioClip() != null) {
             AudioClip ac = item.getAudioClip();
@@ -565,18 +617,85 @@ public final class LayerGestureController {
     /** ms from the item's start to the finger's grab point, captured on first move. */
     private long moveGrabOffsetMs = -1;
 
-    /** Place the dragged item at an EXACT start (bookend snap) — no grab-offset math. */
-    private void applyMoveTo(long newStartMs) {
+    /**
+     * Place the dragged item at an EXACT start (bookend/home snap) — no grab-offset math.
+     *
+     * @param closeOpenEnd bookend snaps pass true: an open-ended text item takes its
+     *                     captured displayed length ({@link #dragStartDisplayDurMs}) so
+     *                     the preview (and the drop) butts exactly end-to-end. The home
+     *                     snap passes false — "exactly where you started" must preserve
+     *                     the original open end.
+     */
+    private void applyMoveTo(long newStartMs, boolean closeOpenEnd) {
         TimedItem item = activeItem;
         if (item == null) return;
         if (item.getTextOverlay() != null) {
             TextOverlayItem o = item.getTextOverlay();
             long duration = dragStartDurationMsForMove(o);
-            long end = (o.getEndMs() == Long.MAX_VALUE) ? Long.MAX_VALUE : newStartMs + duration;
+            boolean openEnded = dragStartDurationMs == Long.MAX_VALUE;
+            long end;
+            if (openEnded) {
+                end = closeOpenEnd && dragStartDisplayDurMs > 0
+                        ? newStartMs + dragStartDisplayDurMs : Long.MAX_VALUE;
+            } else {
+                end = newStartMs + duration;
+            }
             o.setTimeRange(newStartMs, end);
         } else if (item.getAudioClip() != null) {
             item.getAudioClip().setOffsetMs(newStartMs);
         }
+    }
+
+    /** Home/original-position snap state → renderer ghost highlight + throttled log. */
+    private void setHomeSnapArmed(boolean armed) {
+        if (armed != homeSnapArmed) {
+            homeSnapArmed = armed;
+            RG("HOME-SNAP " + (armed ? "armed (release = exactly the original position/length)" : "released"));
+        }
+        rowRenderer.setHomeGhostArmed(armed);
+    }
+
+    /**
+     * TRIM home snap (feedback 2026-07-03am): if the dragged edge is back within the
+     * snap radius of its ORIGINAL position, restore the original extent exactly and
+     * light the ghost — the user can see "release = original length", no undo needed.
+     */
+    private void maybeSnapTrimHome(boolean left, long thrMs) {
+        TimedItem item = activeItem;
+        if (item == null) return;
+        boolean snapped = false;
+        if (item.getTextOverlay() != null) {
+            TextOverlayItem o = item.getTextOverlay();
+            if (left) {
+                if (Math.abs(o.getStartMs() - dragStartTextStartMs) <= thrMs) {
+                    o.setTimeRange(dragStartTextStartMs, dragStartTextEndMs);
+                    snapped = true;
+                }
+            } else if (dragStartTextEndMs == Long.MAX_VALUE) {
+                // Original end was open-ended: compare against the DISPLAYED ghost end
+                // and restore the open end on snap.
+                if (dragStartDisplayDurMs > 0 && Math.abs(o.getEndMs()
+                        - (dragStartTextStartMs + dragStartDisplayDurMs)) <= thrMs) {
+                    o.setTimeRange(dragStartTextStartMs, Long.MAX_VALUE);
+                    snapped = true;
+                }
+            } else if (Math.abs(o.getEndMs() - dragStartTextEndMs) <= thrMs) {
+                o.setTimeRange(dragStartTextStartMs, dragStartTextEndMs);
+                snapped = true;
+            }
+        } else if (item.getAudioClip() != null) {
+            AudioClip ac = item.getAudioClip();
+            if (left) {
+                if (Math.abs(ac.getInPointMs() - audioBeforeInMs) <= thrMs) {
+                    ac.setInPointMs(audioBeforeInMs);
+                    snapped = true;
+                }
+            } else if (Math.abs(ac.getOutPointMs() - audioBeforeOutMs) <= thrMs) {
+                ac.setOutPointMs(audioBeforeOutMs);
+                snapped = true;
+            }
+        }
+        setHomeSnapArmed(snapped);
     }
 
     private long dragStartDurationMsForMove(@NonNull TextOverlayItem o) {
@@ -683,9 +802,14 @@ public final class LayerGestureController {
         lastRejectedRowId = null;
         bookendJointMs = Long.MIN_VALUE;
         suppressMoveMapping = false;
+        hoveringHomeRow = false;
+        homeSnapArmed = false;
+        dragStartDisplayDurMs = 0;
         rowRenderer.setDragTargetTrackId(null);
         rowRenderer.setLiftedItemId(null);
         rowRenderer.setTrimmingItemId(null);
+        rowRenderer.setHomeGhost(null, 0, 0);
+        rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
         RG("UP active=true wasMoved=" + wasMoved + " outcome=" + (wasTap ? "TAP(select-only)"
                         : wasPickup ? "PICKUP-MOVE" : activeKind == GestureKind.TRIM_LEFT || activeKind == GestureKind.TRIM_RIGHT ? "TRIM" : "no-op")

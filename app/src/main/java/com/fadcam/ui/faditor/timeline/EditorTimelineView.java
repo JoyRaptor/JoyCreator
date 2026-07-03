@@ -677,6 +677,30 @@ public class EditorTimelineView extends View {
     /** Joint (content ms) the current excursion is showing; Long.MIN_VALUE = none. */
     private long excursionShownJointMs = Long.MIN_VALUE;
     private android.animation.ValueAnimator excursionAnimator;
+    /**
+     * Dwell before the FIRST pan of a drag (feedback 2026-07-03am): someone moving the
+     * item slowly through the rows shouldn't have the view yanked sideways the instant
+     * a bookend arms — the excursion starts only after the bookend has been held
+     * ~220ms. Flips while ALREADY out on an excursion stay immediate (deliberate).
+     */
+    private static final long EXCURSION_DWELL_MS = 220;
+    private long pendingExcursionJointMs = Long.MIN_VALUE;
+    private final Runnable excursionEnterRunnable = new Runnable() {
+        @Override
+        public void run() {
+            long j = pendingExcursionJointMs;
+            pendingExcursionJointMs = Long.MIN_VALUE;
+            if (j != Long.MIN_VALUE && m7ItemGestureActive && layerGestureController != null
+                    && layerGestureController.getBookendJointMs() == j) {
+                startOrRetargetExcursion(j);
+            }
+        }
+    };
+
+    private void cancelPendingExcursionEnter() {
+        longPressHandler.removeCallbacks(excursionEnterRunnable);
+        pendingExcursionJointMs = Long.MIN_VALUE;
+    }
 
     /** Animate scrollOffsetPx to a target; excursion animations never teleport (spec). */
     private void animateExcursionScrollTo(float targetOffset, @Nullable Runnable onEnd) {
@@ -686,8 +710,10 @@ public class EditorTimelineView extends View {
             excursionAnimator.cancel();
         }
         excursionAnimator = android.animation.ValueAnimator.ofFloat(scrollOffsetPx, targetOffset);
-        excursionAnimator.setDuration(260);
-        excursionAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        // 420ms ease-in-out (was 260ms decelerate) — "the pans to the sides could go a
+        // little bit slower, make it smooth" (feedback 2026-07-03am).
+        excursionAnimator.setDuration(420);
+        excursionAnimator.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
         excursionAnimator.addUpdateListener(a -> {
             scrollOffsetPx = (float) a.getAnimatedValue();
             invalidate();
@@ -4198,6 +4224,7 @@ public class EditorTimelineView extends View {
             // interruptions, never deliberate drops — abort, don't commit (review fix).
             if (layerGestureController != null) layerGestureController.onRowBodyUp(false);
         }
+        cancelPendingExcursionEnter();
         if (excursionActive) endExcursion("reset:" + cause);
         m6RowDragActive = false;
         m6RowScrubPassthroughActive = false;
@@ -4399,10 +4426,23 @@ public class EditorTimelineView extends View {
             // disarming (finger left that row) animates back to the anchor.
             long joint = layerGestureController.getBookendJointMs();
             if (joint != Long.MIN_VALUE && joint != excursionShownJointMs) {
-                startOrRetargetExcursion(joint);
-            } else if (joint == Long.MIN_VALUE && excursionActive
-                    && excursionShownJointMs != Long.MIN_VALUE) {
-                endExcursion("bookend disarmed");
+                if (excursionActive) {
+                    // Already out on the excursion: a flip/retarget is deliberate —
+                    // immediate (no dwell).
+                    cancelPendingExcursionEnter();
+                    startOrRetargetExcursion(joint);
+                } else if (pendingExcursionJointMs != joint) {
+                    // First pan of this hover: dwell so a slow pass-through doesn't
+                    // yank the view (feedback 2026-07-03am).
+                    longPressHandler.removeCallbacks(excursionEnterRunnable);
+                    pendingExcursionJointMs = joint;
+                    longPressHandler.postDelayed(excursionEnterRunnable, EXCURSION_DWELL_MS);
+                }
+            } else if (joint == Long.MIN_VALUE) {
+                cancelPendingExcursionEnter();
+                if (excursionActive && excursionShownJointMs != Long.MIN_VALUE) {
+                    endExcursion("bookend disarmed");
+                }
             }
             invalidate();
             return true;
@@ -4560,6 +4600,7 @@ public class EditorTimelineView extends View {
             // A drop (or cancel) during an excursion: glide home so the playhead is
             // re-centered again (the normal invariant) — the user sees the result land
             // at the bookend, then the view returns to where they were.
+            cancelPendingExcursionEnter();
             if (excursionActive) endExcursion(isUp ? "drop" : "cancel");
             invalidate();
             return true;

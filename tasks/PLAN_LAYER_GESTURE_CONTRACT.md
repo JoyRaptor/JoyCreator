@@ -124,6 +124,15 @@ must show scroll consumption, and scroll position must be continuous across the 
       stale gesture-detector guard; surviving finger re-anchors on its first MOVE (zero jump) and drives
       updatePlayheadFromX raw-x deltas; UP flings (velocity restarted from the re-anchor). Pinch→pan→fling
       = one fluid motion. Log lines: PINCH-HANDBACK armed/re-anchored/end/fling.
-- [ ] device hand-test confirmed for the WHOLE cluster (checklist relayed 2026-07-03 ~04:15; pull
-      `adb logcat -d -s ROWGESTURE:D` after — look for BOOKEND / EXCURSION / PINCH-HANDBACK / DELETE lines)
+- [x] morning feedback batch 2 (2026-07-03am, user hand-tested the cluster — "looking a lot better"):
+      excursion 420ms ease-in-out + 220ms dwell before the FIRST pan (slow movers not yanked; flips while
+      out stay immediate); bookend previews butt EXACTLY (captured pre-mutation dragStartDisplayDurMs
+      replaces live displayDuration — open-ended text was rendering "to project end" = overlap + tag-on;
+      bookend drop CLOSES an open end to the displayed length, home snap preserves it); draw floor 6dp→2dp
+      (short clips no longer render wider than真 length; hit floor stays 6dp = forgiving); HOME GHOST —
+      grey outline at the original extent during ANY move/trim, item snaps back exactly + ghost brightens
+      when within ~48px of home ("release = exactly where you started/original length", no undo), same
+      mechanism for MOVE (own-row + start pos) and TRIM (per-edge, open-end restored).
+- [ ] device hand-test confirmed for the WHOLE cluster incl. batch 2 (pull `adb logcat -d -s ROWGESTURE:D`
+      after — look for BOOKEND / EXCURSION / PINCH-HANDBACK / DELETE / HOME-SNAP lines)
 - [ ] strip TEMP ROWGESTURE logging once the user confirms the feel (queue item 4)

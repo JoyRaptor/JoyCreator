@@ -3,6 +3,13 @@
 > bubble in screen recordings). Companion external research from another AI incoming — merge its findings
 > into §Candidates when it arrives. Builds ON TOP of sprite Build 1 (PLAN_SPRITE_ANIMATION) and its RIG
 > VISION section; nothing here blocks S2–S7.
+>
+> **USER DECISIONS (2026-07-03 eve):** (1) Avatar Studio is JOYRAPTOR'S work lane — other sessions coordinate
+> via this doc + handoff, don't double-build. (2) ARCHITECTURE CONTRACT: Avatar Studio is SEPARATE from
+> the editor. The editor consumes avatars as STANDALONE DROPPABLE OBJECTS (like sprites/overlays) — each
+> placed avatar carries its OWN settings for integrating into the video (its integration config lives on
+> the placed object, not in the studio). Editor-side work = a thin "avatar item" object type + drop/insert
+> path + per-item settings surface; everything else stays in Avatar Studio.
 
 ## Feasibility verdict
 FEASIBLE, offline, on phone-class hardware including the Note 9 tier. A 2D sprite-swap puppet is orders of

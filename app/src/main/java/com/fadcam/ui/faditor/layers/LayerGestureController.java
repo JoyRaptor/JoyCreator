@@ -135,6 +135,18 @@ public final class LayerGestureController {
     /** Movement slop (px) that promotes a touch to a drag — matches the horizontal value historically used here. */
     private static final float MOVE_SLOP_PX = 4f;
 
+    /**
+     * Snap radius in RAW px — the ONE tunable for every drag snap in this controller
+     * (home snap, trim-home snap, butting suggestion). The view supplies a dp-scaled
+     * value at construction (FEEDBACK_20260703_dragux_v3 A4: user measured the old
+     * hardcoded 48px as "~4mm, too aggressive"; target is 1–2mm ≈ 8dp). Default stays
+     * conservative for any caller that never wires the setter.
+     */
+    private float snapRadiusPx = 24f;
+
+    /** See {@link #snapRadiusPx} — the view calls this once with {@code SNAP_RADIUS_DP * density}. */
+    public void setSnapRadiusPx(float px) { if (px > 0f) snapRadiusPx = px; }
+
     private final LayerRowRenderer rowRenderer;
     private final Callback callback;
 
@@ -412,8 +424,9 @@ public final class LayerGestureController {
         if (!movedDuringGesture) return;
 
         long t = xToTime.map(x);
-        // Snap radius for the home/original snap, in ms at the CURRENT zoom (~48 raw px).
-        long snapThrMs = Math.abs(xToTime.map(x + 48f) - t);
+        // Snap radius in ms at the CURRENT zoom — from the single dp-scaled tunable
+        // (A4: gentle, ~1–2mm; was a hardcoded 48px ≈ 4mm the user called too grabby).
+        long snapThrMs = Math.abs(xToTime.map(x + snapRadiusPx) - t);
         if (activeKind == GestureKind.MOVE && moveGrabOffsetMs < 0) {
             // First move of a MOVE gesture: capture how far into the item the finger
             // grabbed it, so the item tracks the finger instead of snapping its start
@@ -422,31 +435,48 @@ public final class LayerGestureController {
         }
         switch (activeKind) {
             case MOVE:
-                // Target/bookend first so the position applied below reflects THIS
-                // event's hover (updateDragTarget is y/finger-driven, independent of the
-                // item's current position, so the reorder is safe).
+                // Target/hover first so the placement below reflects THIS event's row
+                // (updateDragTarget is y/finger-driven, independent of the item's
+                // current position, so the reorder is safe).
                 updateDragTarget(x, y, topPx, totalMs);
-                if (bookendJointMs != Long.MIN_VALUE) {
-                    // Occupied-row bookend armed: the item previews at the SNAPPED
-                    // position (butted to the joint), not at the finger (FOLLOW-UP 1).
-                    // closeOpenEnd=true: an open-ended text item takes its captured
-                    // displayed length so the preview butts EXACTLY end-to-end instead
-                    // of "tagging on to the end" past the joint (feedback 2026-07-03am).
-                    applyMoveTo(bookendSnapStartMs, true);
-                    setHomeSnapArmed(false);
-                } else if (!suppressMoveMapping) {
+                if (!suppressMoveMapping) {
                     long prospective = Math.max(0, t - moveGrabOffsetMs);
+                    long draggedDur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
+                            : activeItem.getDisplayDurationMs(totalMs);
                     if (hoveringHomeRow
                             && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs) {
                         // HOME SNAP (feedback 2026-07-03am): the user is putting the item
                         // back where it started — snap it EXACTLY there and light the
                         // ghost, so "release = exactly where you started", no undo needed.
+                        clearBookend();
                         applyMoveTo(dragStartTimelineMs, false);
                         setHomeSnapArmed(true);
-                    } else {
-                        applyMove(t, totalMs);
-                        setHomeSnapArmed(false);
+                        break;
                     }
+                    // FREE PLACEMENT FIRST (dragux_v3 A3): anywhere legal on the landing
+                    // row is allowed; butting is a SUGGESTION within the gentle radius,
+                    // never a forced destination. Overlap still resolves to the nearest
+                    // butting edge (A8 no-overlap rule) — and when it does, the joint is
+                    // published via the bookend fields so the view's excursion can bring
+                    // an off-screen joint into view (A6/A7 joint visibility preserved).
+                    long resolved = resolveNoOverlapStart(prospective, totalMs);
+                    if (lastButtJointMs != Long.MIN_VALUE) {
+                        // Overlap push → we ARE butting: preview exactly end-to-end.
+                        bookendJointMs = lastButtJointMs;
+                        bookendSnapStartMs = resolved;
+                        bookendAfter = resolved >= lastButtJointMs;
+                        applyMoveTo(resolved, true);
+                    } else {
+                        long suggested = nearestButtWithin(prospective, draggedDur, totalMs, snapThrMs);
+                        if (suggested != Long.MIN_VALUE) {
+                            // Gentle butt-snap (A4): near a sibling edge → click into it.
+                            applyMoveTo(suggested, true);
+                        } else {
+                            clearBookend();
+                            applyMoveTo(resolved, false);
+                        }
+                    }
+                    setHomeSnapArmed(false);
                 }
                 break;
             case TRIM_LEFT:
@@ -514,65 +544,15 @@ public final class LayerGestureController {
         lastRejectedRowId = null;
         rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
 
-        // FOLLOW-UP 1 (user spec 2026-07-03): the valid same-band target row is
-        // OCCUPIED → no overlap allowed on a layer row. Snap the dragged item to a
-        // BOOKEND of the row's content: which bookend = which half of the timeline
-        // PANEL the finger is in (panel-relative by design, for future landscape
-        // layouts where the preview panel sits beside the timeline panel). LEFT half →
-        // butt A before the row's FIRST item; RIGHT half → after the row's LAST item.
-        // The view polls getBookendJointMs() and animates the excursion that shows the
-        // joint. An EMPTY target row keeps the plain finger-driven placement.
-        java.util.List<TimedItem> items = candidate.getItems();
-        if (!items.isEmpty() && activeItem != null) {
-            long firstStart = Long.MAX_VALUE, lastEnd = Long.MIN_VALUE;
-            for (TimedItem it : items) {
-                long s = it.getTimelineStartMs();
-                long e = s + it.getDisplayDurationMs(totalMs);
-                if (s < firstStart) firstStart = s;
-                if (e > lastEnd) lastEnd = e;
-            }
-            float viewX = x - rowRenderer.getLastHScrollOffsetPx();
-            boolean after = rowRenderer.getLastWidthPx() > 0f
-                    && viewX >= rowRenderer.getLastWidthPx() / 2f;
-            // Captured pre-mutation duration (NOT live displayDuration — open-ended
-            // items' live value shifts with position and caused BEFORE-side overlap).
-            long draggedDur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
-                    : activeItem.getDisplayDurationMs(totalMs);
-            long snap = after ? lastEnd : Math.max(0, firstStart - draggedDur);
-            long joint = after ? lastEnd : firstStart;
-            bookendAfter = after;
-            bookendJointMs = joint;
-            bookendSnapStartMs = snap;
-        } else {
-            clearBookend();
-        }
+        // REDESIGNED (dragux_v3 A3, supersedes FOLLOW-UP 1's forced bookend): hovering
+        // an OCCUPIED same-band row no longer teleports the item to a screen-half
+        // bookend — the user must be able to place ANYWHERE legal on the row. The MOVE
+        // branch in onRowBodyMove now owns all placement: free position via the
+        // no-overlap resolver, gentle radius-gated butt-snap, and it publishes the
+        // joint through the bookend fields (for the view's excursion) only when an
+        // actual butting is in effect. Here we just track the hover target.
         hoverTargetTrack = candidate;
         rowRenderer.setDragTargetTrackId(candidate.getId());
-    }
-
-    private void applyMove(long targetTimeMs, long totalMs) {
-        TimedItem item = activeItem;
-        if (item.getTextOverlay() != null) {
-            TextOverlayItem o = item.getTextOverlay();
-            long duration = (dragStartDurationMsForMove(o));
-            // Open-endedness is decided by the DRAG-START cache, not the item's current
-            // end: a bookend preview may have temporarily CLOSED an open-ended item
-            // (applyMoveTo closeOpenEnd) — moving off the bookend must restore the
-            // open-ended behavior, not freeze the closed end (or worse, a 0-length item
-            // from the cached MAX→0 duration).
-            boolean openEnded = dragStartDurationMs == Long.MAX_VALUE;
-            // targetTimeMs is where the finger's x maps to; anchor MOVE so the item's
-            // start tracks the finger delta from the drag-start x, not an absolute jump.
-            long newStart = resolveNoOverlapStart(
-                    Math.max(0, targetTimeMs - moveGrabOffsetMs), totalMs);
-            long newEnd = openEnded ? Long.MAX_VALUE : newStart + duration;
-            o.setTimeRange(newStart, newEnd);
-        } else if (item.getAudioClip() != null) {
-            AudioClip ac = item.getAudioClip();
-            long newOffset = resolveNoOverlapStart(
-                    Math.max(0, targetTimeMs - moveGrabOffsetMs), totalMs);
-            ac.setOffsetMs(newOffset);
-        }
     }
 
     /**
@@ -588,6 +568,7 @@ public final class LayerGestureController {
      * the last computed position — the drop can still be aborted via the home ghost).
      */
     private long resolveNoOverlapStart(long desiredStart, long totalMs) {
+        lastButtJointMs = Long.MIN_VALUE;
         Track row = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
         if (row == null || activeItem == null) return desiredStart;
         long dur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
@@ -603,15 +584,58 @@ public final class LayerGestureController {
                 if (start < se && start + dur > ss) {
                     long before = ss - dur;  // butt our end to the sibling's start
                     long after = se;         // butt our start to the sibling's end
-                    start = (before >= 0
-                            && Math.abs(desiredStart - before) <= Math.abs(desiredStart - after))
-                            ? before : after;
+                    boolean choseBefore = before >= 0
+                            && Math.abs(desiredStart - before) <= Math.abs(desiredStart - after);
+                    start = choseBefore ? before : after;
+                    // Publish the joint we butted against (dragux_v3 A6/A7: the MOVE
+                    // branch feeds this to the view's excursion so an off-screen joint
+                    // gets brought into view; last resolution wins on chained pushes).
+                    lastButtJointMs = choseBefore ? ss : se;
                     moved = true;
                 }
             }
             if (!moved) break;
         }
         return Math.max(0, start);
+    }
+
+    /** Joint (ms) the last {@link #resolveNoOverlapStart} butted against, else MIN_VALUE. */
+    private long lastButtJointMs = Long.MIN_VALUE;
+
+    /**
+     * Gentle butting SUGGESTION (dragux_v3 A3+A4): if {@code prospective} sits within
+     * the snap radius of a legal butting position against any sibling on the landing
+     * row (before its start or after its end), return that snapped start and publish
+     * the joint via the bookend fields; else return {@link Long#MIN_VALUE} (no snap —
+     * free placement). Unlike the overlap resolver this NEVER moves a far position;
+     * it only "clicks in" when the user is already almost there.
+     */
+    private long nearestButtWithin(long prospective, long draggedDur, long totalMs, long thrMs) {
+        Track row = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
+        if (row == null || activeItem == null || draggedDur <= 0) return Long.MIN_VALUE;
+        long bestStart = Long.MIN_VALUE, bestJoint = 0, bestDist = thrMs + 1;
+        for (TimedItem sib : row.getItems()) {
+            if (sib.getId().equals(activeItem.getId())) continue;
+            long ss = sib.getTimelineStartMs();
+            long se = ss + sib.getDisplayDurationMs(totalMs);
+            long before = ss - draggedDur;   // our end butts the sibling's start
+            long after = se;                  // our start butts the sibling's end
+            if (before >= 0 && Math.abs(prospective - before) < bestDist) {
+                bestDist = Math.abs(prospective - before);
+                bestStart = before;
+                bestJoint = ss;
+            }
+            if (Math.abs(prospective - after) < bestDist) {
+                bestDist = Math.abs(prospective - after);
+                bestStart = after;
+                bestJoint = se;
+            }
+        }
+        if (bestStart == Long.MIN_VALUE || bestDist > thrMs) return Long.MIN_VALUE;
+        bookendJointMs = bestJoint;
+        bookendSnapStartMs = bestStart;
+        bookendAfter = bestStart >= bestJoint;
+        return bestStart;
     }
 
     /** ms from the item's start to the finger's grab point, captured on first move. */

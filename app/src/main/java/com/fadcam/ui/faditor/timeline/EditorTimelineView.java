@@ -296,6 +296,9 @@ public class EditorTimelineView extends View {
         if (layerRowRenderer != null) {
             layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
                     layerRowRenderer, cb != null ? cb : NOOP_GESTURE_CALLBACK);
+            // dragux_v3 A4: the ONE snap tunable — gentle ~8dp (≈1–2mm), was 48raw px.
+            layerGestureController.setSnapRadiusPx(
+                    8f * getResources().getDisplayMetrics().density);
         }
     }
 

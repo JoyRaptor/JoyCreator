@@ -1860,8 +1860,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_settings).setOnClickListener(v ->
                 com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance()
                         .show(getSupportFragmentManager(), "faditorSettings"));
+        findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpriteSheetManager());
         toolMove.setOnClickListener(v -> toggleMoveDrawer());
         initMoveDrawer();
+        // (Sprites tool wired above; manager implementation below the tool handlers.)
         findViewById(R.id.tool_transcript).setOnClickListener(v -> {
             if (transcriptPanel != null && transcriptPanel.getVisibility() == View.VISIBLE) {
                 showTranscriptPanel(false);
@@ -12706,6 +12708,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
         hideTransitionInspector();
         saveProjectNow();
         Toast.makeText(this, R.string.faditor_transition_removed, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Sprites tool (PLAN_SPRITE_ANIMATION S2): list the project's sprite sheets +
+     * "+ New sprite sheet", launching the full-screen setup editor. Cross-activity
+     * write-back rides the ChatAssistant pattern: our onPause autosave runs when the
+     * editor activity opens; it saves + signalModified; we reload on resume.
+     */
+    private void openSpriteSheetManager() {
+        java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = project.getSpriteSheets();
+        String[] items = new String[sheets.size() + 1];
+        for (int i = 0; i < sheets.size(); i++) items[i] = sheets.get(i).getName();
+        items[sheets.size()] = getString(R.string.sprite_sheet_picker_new);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.sprite_sheet_picker_title)
+                .setItems(items, (d, which) -> {
+                    android.content.Intent it = new android.content.Intent(this,
+                            com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class);
+                    it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
+                            .EXTRA_PROJECT_ID, project.getId());
+                    if (which < sheets.size()) {
+                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
+                                .EXTRA_SHEET_ID, sheets.get(which).getId());
+                    }
+                    startActivity(it);
+                })
+                .show();
     }
 
     /** Opens the panel; reuses an existing transcript, picks a model, or transcribes. */

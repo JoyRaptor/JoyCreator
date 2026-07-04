@@ -109,6 +109,9 @@ public final class FaditorToolRegistry {
         add(t, "loop", R.id.tool_loop, R.id.tool_loop_icon, R.id.tool_loop_label,
                 ctx.getString(R.string.faditor_tool_loop), "loop",
                 FaditorTool.BindMode.CLICK, false);
+        add(t, "sprites", R.id.tool_sprites, R.id.tool_sprites_icon, R.id.tool_sprites_label,
+                ctx.getString(R.string.faditor_tool_sprites), "animation",
+                FaditorTool.BindMode.CLICK, false);
         add(t, "settings", R.id.tool_settings, R.id.tool_settings_icon, R.id.tool_settings_label,
                 ctx.getString(R.string.faditor_tool_settings), "settings",
                 FaditorTool.BindMode.CLICK, false);

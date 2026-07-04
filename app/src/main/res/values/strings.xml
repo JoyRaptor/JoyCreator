@@ -1105,6 +1105,25 @@
     <string name="faditor_tool_silence">Silence</string>
     <string name="faditor_tool_loop">Loop</string>
     <string name="faditor_tool_settings">Settings</string>
+    <string name="faditor_tool_sprites">Sprites</string>
+
+    <!-- Sprite sheet setup editor (PLAN_SPRITE_ANIMATION S2) -->
+    <string name="sprite_editor_missing_image">Sheet image missing — re-import it</string>
+    <string name="sprite_editor_no_project">No project found — open the editor first</string>
+    <string name="sprite_editor_default_name">Sprite</string>
+    <string name="sprite_editor_name_hint">Sprite sheet name</string>
+    <string name="sprite_editor_cell_name_hint">Cell name (alias)</string>
+    <string name="sprite_editor_cell_enabled">On</string>
+    <string name="sprite_editor_cell_prefix">Cell</string>
+    <string name="sprite_editor_save">Save</string>
+    <string name="sprite_editor_saved">Sprite sheet saved</string>
+    <string name="sprite_editor_save_failed">Save failed — try again</string>
+    <string name="sprite_editor_import_failed">Couldn\'t import that image</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">Pivot</string>
+    <string name="sprite_sheet_picker_title">Sprite sheets</string>
+    <string name="sprite_sheet_picker_new">+ New sprite sheet</string>
     <string name="faditor_tools_all_title">All tools</string>
     <string name="faditor_tools_edit">Edit</string>
     <string name="faditor_tools_edit_done">Done</string>

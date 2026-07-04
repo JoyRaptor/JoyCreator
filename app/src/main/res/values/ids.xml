@@ -97,4 +97,9 @@
     <item name="faditor_tools_divider" type="id"/>
     <item name="faditor_tools_drop_line" type="id"/>
     <item name="faditor_tools_done" type="id"/>
+
+    <!-- Sprite animation (PLAN_SPRITE_ANIMATION S2/S3): the Sprites carousel tool. -->
+    <item name="tool_sprites" type="id"/>
+    <item name="tool_sprites_icon" type="id"/>
+    <item name="tool_sprites_label" type="id"/>
 </resources>

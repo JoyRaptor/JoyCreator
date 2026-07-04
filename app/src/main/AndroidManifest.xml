@@ -116,6 +116,9 @@
 
         <activity android:name="com.fadcam.ui.faditor.ai.ChatAssistantActivity" android:theme="@style/Theme.FadCam.ChatAssistant" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustResize" />
 
+        <!-- Sprite sheet setup editor (PLAN_SPRITE_ANIMATION S2) -->
+        <activity android:name="com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustPan" />
+
         <!-- Headless activity for applying EditScripts from external tools/ADB -->
         <activity android:name="com.fadcam.ui.faditor.ai.ApplyEditsActivity" android:theme="@android:style/Theme.NoDisplay" android:exported="true" android:noHistory="true">
             <intent-filter>

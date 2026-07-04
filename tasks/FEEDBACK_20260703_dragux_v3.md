@@ -61,9 +61,13 @@
     row (M10's documented deviation) — so items can move DOWN to new layers but never UP above the top
     row. Mirror the zone above the top row; z-addendum applies (higher row = higher z, so "new layer
     above" = "draw on top of everything").
-14. Slice status: slice 1 (A3+A4 free placement + gentle snap) live + user-confirmed (home snap seen);
-    slice 1.1 (commit guard) live; slice 2 = A12+A13; slice 3 = A9 dotted time-lock verticals; then A1
-    edge auto-pan, A2 minimap drag-nav, B10/B11 trim polish.
+14. Slice status (2026-07-04 evening): ✅ slice 1 (A3+A4 free placement + gentle snap, user-confirmed);
+    ✅ 1.1 drop guard (caa628e); ✅ 1.2 trim guards both lanes (f646bb9); ✅ 1.3 honest closed-length
+    drag preview + open-end restore at drop + joint hysteresis so the excursion pan fires (40338ea);
+    ✅ 1.4 ghost restyle (passive gray dashed box — was near-white stroke reading backwards) + **A2
+    MINIMAP DRAG-NAV BUILT** (5d23d5b). REMAINING: slice 2 = A13 above-top new-layer zone + A12
+    wedge-insert w/ preview; slice 3 = A9 dotted time-lock verticals + vertical guardrail; A1 edge
+    auto-pan; B10/B11 trim shading + callout. All hand-test-gated by the user.
 
 ## Priority order
 P0: A8 (audio overlap). P1 core feel: A1, A2, A3, A4, A9. RE-VERIFY pass: A5/A6/A7 (cheap, first).

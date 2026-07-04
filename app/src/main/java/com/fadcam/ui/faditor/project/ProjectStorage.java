@@ -309,6 +309,8 @@ public class ProjectStorage {
                     // point so a LATER save from this same in-memory copy can detect if
                     // some OTHER instance has since saved something newer.
                     p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                    // One-time transcript-duplicate migration (backup-first; see method doc).
+                    dedupTranscriptsWithBackup(p, file);
                     return p;
                 }
                 FLog.w(TAG, "Main project file empty/invalid, trying backup: " + projectId);
@@ -325,6 +327,9 @@ public class ProjectStorage {
                     FLog.i(TAG, "Recovered project from backup: " + projectId);
                     // Same sync-point bookkeeping as the main-file path above.
                     p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                    // Same duplicate migration as the main-file path (backs up the
+                    // .bak we actually loaded from).
+                    dedupTranscriptsWithBackup(p, bak);
                     return p;
                 }
             } catch (Exception e) {
@@ -334,6 +339,83 @@ public class ProjectStorage {
 
         FLog.d(TAG, "No loadable project found: " + projectId);
         return null;
+    }
+
+    /**
+     * One-time (idempotent) migration: strip accumulated duplicate transcript
+     * versions from a freshly loaded project — see {@link
+     * com.fadcam.ui.faditor.transcript.TranscriptDedup} for the exact keep/remove
+     * rule (live version untouched by identity, user-edited versions never
+     * removed).
+     *
+     * <p><b>Backup-first, verified:</b> nothing is mutated until a timestamped
+     * byte-copy of the exact file we loaded from exists under
+     * {@code <projectDir>/backups/project-yyyyMMdd-HHmmss.json} and is non-empty
+     * and size-identical to the source. If the backup can't be verified the
+     * project is returned exactly as parsed (no dedup).</p>
+     *
+     * <p><b>Undo safety:</b> this runs inside {@link #load} — before the editor
+     * creates its UndoManager or loads undo history, so no in-session snapshot
+     * can predate it. Persisted undo snapshots from OLD sessions may still
+     * contain the duplicates, but every snapshot restore goes through
+     * {@link #fromJson}, which applies the same (memory-only) dedup — so an
+     * undo can never resurrect the duplicates.</p>
+     *
+     * <p>After a verified backup the deduped JSON is written straight back via
+     * {@link #writeProjectJson} — deliberately NOT {@link #save}: no
+     * {@code touch()} (lastModified stays as loaded, so the recent-projects
+     * order and the concurrent-instance staleness signal are unaffected) and no
+     * re-entrant merge machinery. Downgrade guard respected: projects written
+     * by a newer app version are never touched.</p>
+     */
+    private void dedupTranscriptsWithBackup(@NonNull FaditorProject p, @NonNull File sourceFile) {
+        try {
+            if (p.isLoadedFromNewerVersion()) return;
+            int removable = com.fadcam.ui.faditor.transcript.TranscriptDedup.countRemovable(p);
+            if (removable <= 0) return;
+
+            // 1) Timestamped backup of the exact bytes we loaded, verified.
+            File backupsDir = new File(sourceFile.getParentFile(), "backups");
+            if (!backupsDir.exists() && !backupsDir.mkdirs()) {
+                FLog.w(TAG, "transcriptDedup: cannot create backups dir — skipping dedup");
+                return;
+            }
+            String ts = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                    .format(new java.util.Date());
+            File backup = new File(backupsDir, "project-" + ts + ".json");
+            try (java.io.FileInputStream in = new java.io.FileInputStream(sourceFile);
+                 java.io.FileOutputStream out = new java.io.FileOutputStream(backup)) {
+                byte[] buf = new byte[65536];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                out.flush();
+                out.getFD().sync();
+            }
+            if (!backup.exists() || backup.length() <= 0
+                    || backup.length() != sourceFile.length()) {
+                FLog.w(TAG, "transcriptDedup: backup verification FAILED ("
+                        + backup + ") — skipping dedup");
+                backup.delete();
+                return;
+            }
+
+            // 2) Mutate the in-memory model (live/edited versions untouched).
+            long beforeBytes = sourceFile.length();
+            int removed = com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupProject(p);
+
+            // 3) Persist the slimmed project immediately so the shrink is real
+            //    even if the user makes no edit this session.
+            String json = gson.toJson(p);
+            boolean ok = writeProjectJson(p.getId(), json);
+            File after = new File(getProjectDir(p.getId()), PROJECT_FILE);
+            FLog.i(TAG, "transcriptDedup: removed " + removed
+                    + " duplicate transcript version(s); backup=" + backup.getName()
+                    + "; bytes " + beforeBytes + " -> "
+                    + (ok ? after.length() : beforeBytes + " (rewrite failed; memory-only)"));
+        } catch (Exception e) {
+            // Never let the migration break project loading.
+            FLog.e(TAG, "transcriptDedup: failed — project loaded un-deduped", e);
+        }
     }
 
     /**
@@ -535,7 +617,21 @@ public class ProjectStorage {
     @Nullable
     public FaditorProject fromJson(@NonNull String json) {
         try {
-            return gson.fromJson(json, FaditorProject.class);
+            FaditorProject p = gson.fromJson(json, FaditorProject.class);
+            // Memory-only duplicate-transcript strip on EVERY snapshot restore:
+            // persisted undo snapshots from before the dedup migration still
+            // contain the stacked duplicates, and without this an undo would
+            // resurrect them. Same conservative rule as the load migration
+            // (live version kept by identity, edited versions never removed),
+            // so the restored state the user sees is unchanged.
+            if (p != null && !p.isLoadedFromNewerVersion()) {
+                int removed = com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupProject(p);
+                if (removed > 0) {
+                    FLog.i(TAG, "fromJson: stripped " + removed
+                            + " duplicate transcript version(s) from snapshot");
+                }
+            }
+            return p;
         } catch (Exception e) {
             FLog.e(TAG, "Failed to deserialize project from JSON snapshot", e);
             return null;

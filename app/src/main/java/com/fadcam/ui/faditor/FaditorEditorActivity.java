@@ -12946,6 +12946,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     R.string.faditor_transcript_empty, Toast.LENGTH_SHORT).show();
                         }
                         if (updateTranscriptVersion(clipId, versionId, t)) {
+                            // Re-running the same model REPLACES its previous run
+                            // instead of stacking another copy: drop older versions
+                            // of the same engine+label that carry no user edits.
+                            // (Edited/active versions are never removed — see
+                            // TranscriptDedup's rule.)
+                            if (isAudio && fAudioClip != null) {
+                                com.fadcam.ui.faditor.transcript.TranscriptDedup
+                                        .dedupAudioClip(fAudioClip, true);
+                            } else if (fClip != null) {
+                                com.fadcam.ui.faditor.transcript.TranscriptDedup
+                                        .dedupClip(fClip, true);
+                            }
                             currentTranscript = t;
                             transcriptClipId = clipId;
                             transcriptView.setTranscript(t);

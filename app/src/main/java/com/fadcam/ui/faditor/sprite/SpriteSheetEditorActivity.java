@@ -91,14 +91,17 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
         String sheetId = getIntent().getStringExtra(EXTRA_SHEET_ID);
         sheet = project.spriteSheetById(sheetId);
-        buildUi();
+        // Sheet must exist BEFORE buildUi(): the steppers' initial sync reads
+        // sheet geometry (device-caught NPE on the new-sheet flow).
         if (sheet == null) {
             isNewSheet = true;
             sheet = SpriteSheet.create(getString(R.string.sprite_editor_default_name), "");
-            nameField.setText(sheet.getName());
+        }
+        buildUi();
+        nameField.setText(sheet.getName());
+        if (isNewSheet) {
             imagePicker.launch(new String[]{"image/*"});
         } else {
-            nameField.setText(sheet.getName());
             reloadRenderer();
         }
     }

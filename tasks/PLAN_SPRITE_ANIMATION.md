@@ -32,6 +32,16 @@ implementation can't parallelize (one watcher tree, god-class files); reviews ca
 **S2 design gate:** before building the setup editor UX, do a design pass against competitor workflows —
 fold in tasks/RESEARCH_COMPETITOR_UX_20260703.md when it lands (in flight from another worker).
 
+**S2 STATUS 2026-07-04: CORE SHIPPED + DEVICE-PROVEN** (cb07ad7 + the onCreate-order NPE fix):
+engine (SpriteSheetRenderer: decode-once, color-key-at-decode, cellRectSource geometry authority),
+SpriteGridEditorView (zoom/pan/tap/pivot), SpriteSheetEditorActivity (import→slice→name→save), Sprites
+carousel tool + sheet-list dialog. DEVICE PROOF (Note 9, adb-driven end-to-end): launched editor → OS
+picker → picked star-guy from Downloads → grid 3x3→4x4 via steppers → named cell 0 "idle" → Save →
+project.json shows schemaVersion 9 (conditional stamp correct), sheet with cols/rows 4/4, cell {0,"idle"},
+sheetUri project://assets/<uuid>.png (bundle copy + relative-URI conversion working) → RELOADED by sheet
+id: 4/4 + "idle" restored on screen. v9 write path + round-trip = PROVEN. S2b still deferred: auto-detect
+grid, onion skin, bg-key UI, sw600dp two-pane, sidecar export button, filmstrip polish.
+
 **RIG VISION (user 2026-07-03, binding design direction — shape for it, don't build it yet):**
 keyframable transforms (scale/rotate/move — already in S1 via KeyframeSet) + a settable ANCHOR/pivot
 point + PARENT LAYERS = full animation rigs: a head sprite parented to a body sprite, arm/hand-gesture

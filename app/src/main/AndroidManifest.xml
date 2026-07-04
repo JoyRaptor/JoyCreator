@@ -144,24 +144,8 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Palestine App Icon (Activity Alias) -->
-        <activity-alias android:name=".MainActivity.PalestineIcon" android:enabled="false" android:label="I❤️Palestine" android:icon="@mipmap/ic_launcher_palestine" android:roundIcon="@mipmap/ic_launcher_palestine_round" android:targetActivity=".MainActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
         <!-- MadeInPK App Icon (Activity Alias) -->
         <activity-alias android:name=".MainActivity.PakistanIcon" android:enabled="false" android:label="FadCam" android:icon="@mipmap/ic_launcher_pakistan" android:roundIcon="@mipmap/ic_launcher_pakistan_round" android:targetActivity=".MainActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <!-- $ ~/r00t App Icon (Activity Alias) -->
-        <activity-alias android:name=".MainActivity.FadSecLabIcon" android:enabled="false" android:label="FadSec Lab" android:icon="@mipmap/ic_launcher_fadseclab" android:roundIcon="@mipmap/ic_launcher_fadseclab_round" android:targetActivity=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

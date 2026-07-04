@@ -217,35 +217,12 @@ public class AboutFragment extends BaseFragment {
         String[] questions = getResources().getStringArray(R.array.questions_array);
         String[] answers = getResources().getStringArray(R.array.answers_array);
         
-        // Setup footer text with Palestine and Pakistan flags
+        // Setup footer text with dev attribution (de-politicized: no flags/country messaging,
+        // see tasks/DESIGN_JOY_CREATOR.md §4).
         if (tvAboutFooter != null) {
-            String footer = "Made with Palestine at FadSec Lab in Pakistan";
+            String footer = "Built on FadSec Lab foundations";
             android.text.SpannableString spannable = new android.text.SpannableString(footer);
-            
-            // Palestine flag image
-            Drawable palestine = androidx.core.content.res.ResourcesCompat.getDrawable(getResources(), R.drawable.palestine, null);
-            if (palestine != null) {
-                int size = (int) android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, 18, getResources().getDisplayMetrics());
-                palestine.setBounds(0, 0, size, size);
-                android.text.style.ImageSpan palestineSpan = new android.text.style.ImageSpan(palestine, android.text.style.ImageSpan.ALIGN_BOTTOM);
-                int palestineIndex = footer.indexOf("Palestine");
-                if (palestineIndex != -1) {
-                    spannable.setSpan(palestineSpan, palestineIndex, palestineIndex + "Palestine".length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-            }
-            
-            // Pakistan flag image
-            Drawable pakistan = androidx.core.content.res.ResourcesCompat.getDrawable(getResources(), R.drawable.pakistan, null);
-            if (pakistan != null) {
-                int size = (int) android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_DIP, 18, getResources().getDisplayMetrics());
-                pakistan.setBounds(0, 0, size, size);
-                android.text.style.ImageSpan pakistanSpan = new android.text.style.ImageSpan(pakistan, android.text.style.ImageSpan.ALIGN_BOTTOM);
-                int pakistanIndex = footer.indexOf("Pakistan");
-                if (pakistanIndex != -1) {
-                    spannable.setSpan(pakistanSpan, pakistanIndex, pakistanIndex + "Pakistan".length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-            }
-            
+
             // FadSec Lab clickable, bold, and red
             int fadSecLabStart = footer.indexOf("FadSec Lab");
             int fadSecLabEnd = fadSecLabStart + "FadSec Lab".length();

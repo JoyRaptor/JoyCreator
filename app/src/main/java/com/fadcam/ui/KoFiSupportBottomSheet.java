@@ -93,11 +93,11 @@ public class KoFiSupportBottomSheet extends BottomSheetDialogFragment {
         // Styled description (left-aligned, only keywords bold, project names red/clickable)
         TextView tvKoFiDescription = view.findViewById(R.id.tvKoFiDescription);
         if (tvKoFiDescription != null) {
-            String desc = "Built and maintained by the developer behind FadCam, FadCrypt, and other projects at FadSec Lab — a community-driven initiative focused on privacy-first, ad-free, tracker-free, and fully open-source tools, crafted over hundreds of hours of effort.\n\nIf you find value in this work and want to support the vision, you're welcome to buy the maintainer a coffee. ☕";
+            String desc = "Built and maintained by the developer behind Joy Creator, FadCrypt, and other projects at FadSec Lab — a community-driven initiative focused on privacy-first, ad-free, tracker-free, and fully open-source tools, crafted over hundreds of hours of effort.\n\nIf you find value in this work and want to support the vision, you're welcome to buy the maintainer a coffee. ☕";
             android.text.SpannableString spannable = new android.text.SpannableString(desc);
-            // Make FadCam red and clickable
-            int fadCamStart = desc.indexOf("FadCam");
-            int fadCamEnd = fadCamStart + "FadCam".length();
+            // Make Joy Creator red and clickable
+            int fadCamStart = desc.indexOf("Joy Creator");
+            int fadCamEnd = fadCamStart + "Joy Creator".length();
             if (fadCamStart >= 0) {
                 spannable.setSpan(new android.text.style.ForegroundColorSpan(Color.parseColor("#E43C3C")), fadCamStart, fadCamEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 spannable.setSpan(new android.text.style.ClickableSpan() {
@@ -166,33 +166,12 @@ public class KoFiSupportBottomSheet extends BottomSheetDialogFragment {
             tvKoFiDescription.setGravity(android.view.Gravity.START);
         }
 
-        // Footer: Made with Palestine at FadSec Lab in Pakistan here
+        // Footer: dev attribution (de-politicized: no flags/country messaging,
+        // see tasks/DESIGN_JOY_CREATOR.md §4).
         TextView tvKoFiFooterFull = view.findViewById(R.id.tvKoFiFooterFull);
         if (tvKoFiFooterFull != null) {
-            String footer = "Made with Palestine at FadSec Lab in Pakistan";
+            String footer = "Built on FadSec Lab foundations";
             SpannableString spannable = new SpannableString(footer);
-            // Palestine flag image
-            Drawable palestine = AppCompatResources.getDrawable(requireContext(), R.drawable.palestine);
-            if (palestine != null) {
-                int size = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 18, requireContext().getResources().getDisplayMetrics());
-                palestine.setBounds(0, 0, size, size);
-                ImageSpan palestineSpan = new ImageSpan(palestine, ImageSpan.ALIGN_BOTTOM);
-                int palestineIndex = footer.indexOf("Palestine");
-                if (palestineIndex != -1) {
-                    spannable.setSpan(palestineSpan, palestineIndex, palestineIndex + "Palestine".length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-            }
-            // Pakistan flag image
-            Drawable pakistan = AppCompatResources.getDrawable(requireContext(), R.drawable.pakistan);
-            if (pakistan != null) {
-                int size = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 18, requireContext().getResources().getDisplayMetrics());
-                pakistan.setBounds(0, 0, size, size);
-                ImageSpan pakistanSpan = new ImageSpan(pakistan, ImageSpan.ALIGN_BOTTOM);
-                int pakistanIndex = footer.indexOf("Pakistan");
-                if (pakistanIndex != -1) {
-                    spannable.setSpan(pakistanSpan, pakistanIndex, pakistanIndex + "Pakistan".length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-            }
             // FadSec Lab clickable, bold, and red
             int fadSecLabStart = footer.indexOf("FadSec Lab");
             int fadSecLabEnd = fadSecLabStart + "FadSec Lab".length();

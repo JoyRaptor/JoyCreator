@@ -50,13 +50,6 @@ public class OnboardingHumanFragment extends Fragment {
         titleText = v.findViewById(R.id.tvHumanTitle);
         descText = v.findViewById(R.id.tvHumanDesc);
         
-        // Find the PalestineRainView and prevent it from intercepting touch events
-        View palestineRainView = v.findViewById(R.id.palestineRainView);
-        if (palestineRainView != null) {
-            palestineRainView.setClickable(false);
-            palestineRainView.setFocusable(false);
-        }
-        
         // Configure the LottieAnimationView
         LottieAnimationView lottieHuman = v.findViewById(R.id.lottieHuman);
         if (lottieHuman != null) {

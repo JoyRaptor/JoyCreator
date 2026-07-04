@@ -440,14 +440,8 @@ public class AppearanceSettingsFragment extends Fragment {
         else if (key.equals(Constants.APP_ICON_FADED)) button.setText(
             getString(R.string.app_icon_faded)
         );
-        else if (key.equals(Constants.APP_ICON_PALESTINE)) button.setText(
-            getString(R.string.app_icon_palestine)
-        );
         else if (key.equals(Constants.APP_ICON_PAKISTAN)) button.setText(
             getString(R.string.app_icon_pakistan)
-        );
-        else if (key.equals(Constants.APP_ICON_FADSECLAB)) button.setText(
-            getString(R.string.app_icon_fadseclab)
         );
         else if (key.equals(Constants.APP_ICON_NOOR)) button.setText(
             getString(R.string.app_icon_noor)
@@ -536,23 +530,9 @@ public class AppearanceSettingsFragment extends Fragment {
         );
         items.add(
             new com.fadcam.ui.picker.OptionItem(
-                Constants.APP_ICON_PALESTINE,
-                getString(R.string.app_icon_palestine),
-                R.mipmap.ic_launcher_palestine
-            )
-        );
-        items.add(
-            new com.fadcam.ui.picker.OptionItem(
                 Constants.APP_ICON_PAKISTAN,
                 getString(R.string.app_icon_pakistan),
                 R.mipmap.ic_launcher_pakistan
-            )
-        );
-        items.add(
-            new com.fadcam.ui.picker.OptionItem(
-                Constants.APP_ICON_FADSECLAB,
-                getString(R.string.app_icon_fadseclab),
-                R.mipmap.ic_launcher_fadseclab
             )
         );
         items.add(
@@ -661,17 +641,9 @@ public class AppearanceSettingsFragment extends Fragment {
             requireContext(),
             "com.fadcam.MainActivity.FadedIcon"
         );
-        ComponentName palestineIcon = new ComponentName(
-            requireContext(),
-            "com.fadcam.MainActivity.PalestineIcon"
-        );
         ComponentName pakistanIcon = new ComponentName(
             requireContext(),
             "com.fadcam.MainActivity.PakistanIcon"
-        );
-        ComponentName fadseclabIcon = new ComponentName(
-            requireContext(),
-            "com.fadcam.MainActivity.FadSecLabIcon"
         );
         ComponentName noorIcon = new ComponentName(
             requireContext(),
@@ -726,9 +698,7 @@ public class AppearanceSettingsFragment extends Fragment {
             defaultIcon,
             alternativeIcon,
             fadedIcon,
-            palestineIcon,
             pakistanIcon,
-            fadseclabIcon,
             noorIcon,
             batIcon,
             redbinaryIcon,
@@ -755,12 +725,8 @@ public class AppearanceSettingsFragment extends Fragment {
         else if (Constants.APP_ICON_ALTERNATIVE.equals(iconKey)) enable =
             alternativeIcon;
         else if (Constants.APP_ICON_FADED.equals(iconKey)) enable = fadedIcon;
-        else if (Constants.APP_ICON_PALESTINE.equals(iconKey)) enable =
-            palestineIcon;
         else if (Constants.APP_ICON_PAKISTAN.equals(iconKey)) enable =
             pakistanIcon;
-        else if (Constants.APP_ICON_FADSECLAB.equals(iconKey)) enable =
-            fadseclabIcon;
         else if (Constants.APP_ICON_NOOR.equals(iconKey)) enable = noorIcon;
         else if (Constants.APP_ICON_BAT.equals(iconKey)) enable = batIcon;
         else if (Constants.APP_ICON_REDBINARY.equals(iconKey)) enable =

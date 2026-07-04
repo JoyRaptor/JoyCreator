@@ -40,8 +40,15 @@ import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.ExportSettings;
 import com.fadcam.ui.faditor.model.FaditorProject;
+import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
+import com.fadcam.ui.faditor.compositor.LayerPreviewController;
+import com.fadcam.ui.faditor.layers.BlendMode;
+import com.fadcam.ui.faditor.layers.TimedItem;
+import com.fadcam.ui.faditor.layers.Track;
+import com.fadcam.ui.faditor.layers.TrackFlags;
+import com.fadcam.ui.faditor.layers.TrackKind;
 import com.fadcam.ui.faditor.model.WaveformData;
 import com.fadcam.ui.faditor.model.WaveformOverlayInstance;
 import com.fadcam.ui.faditor.model.WaveformStyle;
@@ -315,7 +322,11 @@ public class ExportManager {
                     && !project.getTimeline().getClip(0).isCaptionsEnabled()
                     && !project.getTimeline().hasWaveformOverlays()
                     && !project.getTimeline().getClip(0).hasLoopExtension()
-                    && "original".equals(project.getCanvasPreset());
+                    && "original".equals(project.getCanvasPreset())
+                    // M-EXPORT-1 (PLAN §5.3(2)): the near-lossless fast path bypasses the
+                    // effects chain entirely, so it must be excluded whenever ANY layer
+                    // feature is present — layers take the full re-encode path, always.
+                    && !usesLayerFeaturesAffectingExport(project.getTimeline());
 
             if (isSimpleTrim) {
                 builder.experimentalSetTrimOptimizationEnabled(true);
@@ -638,15 +649,28 @@ public class ExportManager {
         EditedMediaItemSequence videoSequence =
                 new EditedMediaItemSequence.Builder(items).build();
 
+        List<EditedMediaItemSequence> sequences = new ArrayList<>();
+        sequences.add(videoSequence);
+
+        // M-EXPORT-1 scope 4: overlay-VIDEO layers as a second video sequence.
+        // Unreachable today (no UI can create a VIDEO layer track) — additive-inert.
+        EditedMediaItemSequence overlayVideoSequence =
+                buildOverlayVideoSequence(timeline, canvasDims);
+        if (overlayVideoSequence != null) {
+            FLog.w(TAG, "OVERLAY-VIDEO export path ENGAGED (experimental, M-EXPORT-1 §5.1): "
+                    + "second video sequence added; z-order/positioning not device-verified yet");
+            sequences.add(overlayVideoSequence);
+        }
+
         // Build audio sequence from AudioClips on the audio track (if any)
         if (timeline.hasAudioClips()) {
             EditedMediaItemSequence audioSequence = buildAudioSequence(timeline);
             if (audioSequence != null) {
-                return new Composition.Builder(videoSequence, audioSequence).build();
+                sequences.add(audioSequence);
             }
         }
 
-        return new Composition.Builder(videoSequence).build();
+        return new Composition.Builder(sequences).build();
     }
 
     @Nullable
@@ -1280,8 +1304,17 @@ public class ExportManager {
         long cursorMs = 0; // current position on the timeline
 
         for (AudioClip ac : clips) {
-            if (ac.isMuted()) {
-                // Skip muted audio clips entirely
+            // M-EXPORT-1: track-level mute composes MULTIPLICATIVELY over the clip's own
+            // mute — same semantics as the preview's LayerPreviewController
+            // .effectivePreviewVolume (clip muted OR owning track muted → volume 0).
+            // Volume 0 on export == skip the clip: the silence-gap logic below keys off
+            // each clip's own offset, so skipping never shifts later clips (this is the
+            // exact treatment ac.isMuted() has always received). A plain project has no
+            // muted-track flags, so isAudioClipTrackMuted is false for every clip —
+            // byte-identical output.
+            if (ac.isMuted() || LayerPreviewController.isAudioClipTrackMuted(timeline, ac)) {
+                FLog.d(TAG, "buildAudioSequence: skipping muted audio clip " + ac.getId()
+                        + " (clipMuted=" + ac.isMuted() + ")");
                 continue;
             }
 
@@ -1469,6 +1502,129 @@ public class ExportManager {
     }
 
     /**
+     * M-EXPORT-1 (PLAN §5.3(2)): the single predicate answering "does this project use ANY
+     * schema-v8 layer feature that affects export output?" — the fast-path/slow-path feature-set
+     * lesson. If this returns true the near-lossless trim optimization is disabled and the full
+     * re-encode path (which knows how to composite layers) is taken.
+     *
+     * <p>Checked, in order of cheapness:
+     * <ol>
+     *   <li>Sprite overlays (the S6 guard {@code Timeline#hasSpriteOverlays()} asked for).</li>
+     *   <li>Any user-created layer track definition (M10 {@code LayerTrackDef}), even if
+     *       still empty — its flags/kind could shape output the moment an item lands on it.</li>
+     *   <li>Any item assigned to a non-default layer ({@code layerId != null}).</li>
+     *   <li>Any persisted {@link TrackFlags} entry whose OUTPUT-affecting fields are set:
+     *       hidden, muted, or a non-zero zIndex (collapsed/locked are UI-only and ignored).</li>
+     *   <li>Any {@link TimedItem} across all track views with a non-NORMAL blend or a
+     *       free-transform envelope. Today the Track views are rebuilt with default
+     *       blend/transform on every call (M5 ephemeral-views note), so this is defensively
+     *       future-proof rather than reachable — but it makes the predicate complete against
+     *       the M6/M7 "persistent home for mutated fields" follow-up.</li>
+     * </ol>
+     * A project that never touched a layer feature hits none of these (empty defs, null
+     * layerIds, no non-default flags) — the fast-path decision is byte-identical to before.</p>
+     */
+    static boolean usesLayerFeaturesAffectingExport(@NonNull Timeline timeline) {
+        if (timeline.hasSpriteOverlays()) return true;
+        if (!timeline.getExtraLayerTracks().isEmpty()) return true;
+        for (TextOverlayItem o : timeline.getTextOverlays()) {
+            if (o.getLayerId() != null && !"text".equals(o.getLayerId())) return true;
+        }
+        for (AudioClip ac : timeline.getAudioClips()) {
+            if (ac.getLayerId() != null && !"audio".equals(ac.getLayerId())) return true;
+        }
+        for (Map.Entry<String, TrackFlags> e : timeline.getAllTrackFlags().entrySet()) {
+            TrackFlags f = e.getValue();
+            if (f == null) continue;
+            if (f.hidden || f.muted || f.zIndex != 0) return true;
+        }
+        List<Track> allTracks = new ArrayList<>();
+        allTracks.add(timeline.getMasterTrack());
+        allTracks.addAll(timeline.getLayers());
+        allTracks.addAll(timeline.getAudioTracks());
+        for (Track track : allTracks) {
+            for (TimedItem item : track.getItems()) {
+                if (item.getBlendMode() != BlendMode.NORMAL) return true;
+                if (item.hasTransform()) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * M-EXPORT-1 scope 4 (PLAN §5.1): overlay-VIDEO layers export as a SECOND
+     * {@link EditedMediaItemSequence} composited over the master sequence, each item carrying
+     * a {@link ScaleAndRotateTransformation} (scale/rotation from its transform envelope,
+     * NORMAL blend only) plus the canvas {@link Presentation}.
+     *
+     * <p><b>ADDITIVE-INERT TODAY:</b> no UI can create a VIDEO-kind layer track yet —
+     * {@code Timeline#getLayers()} only ever produces TEXT/STICKER/SPRITE tracks — so this
+     * method returns {@code null} for every current project and the composition is built
+     * exactly as before. The moment a VIDEO overlay track with clip items exists, this path
+     * engages and logs loudly (see buildComposition).</p>
+     *
+     * <p>TODO(M-EXPORT-2 / M-COMP-2): keyframed (per-frame) transform motion, X/Y position
+     * placement and opacity need OverlaySettings/GL support (a static
+     * ScaleAndRotateTransformation cannot animate, and Presentation cannot offset a PiP);
+     * on-device verification of Media3 multi-video-sequence z-order is owed per PLAN Part 10
+     * item 3 before this is user-reachable.</p>
+     */
+    @Nullable
+    private EditedMediaItemSequence buildOverlayVideoSequence(@NonNull Timeline timeline,
+                                                              @Nullable int[] canvasDims) {
+        List<EditedMediaItem> overlayItems = new ArrayList<>();
+        for (Track track : timeline.getLayers()) {
+            if (track.getKind() != TrackKind.VIDEO) continue;
+            if (track.isHidden()) {
+                FLog.i(TAG, "Overlay-VIDEO track '" + track.getId() + "' is hidden — skipped on export");
+                continue;
+            }
+            for (TimedItem item : track.getItems()) {
+                Clip clip = item.getClip();
+                if (clip == null || clip.getSourceUri() == null) continue;
+                long inMs = clip.getInPointMs();
+                long outMs = Math.min(clip.getOutPointMs(), clip.getSourceDurationMs());
+                if (outMs <= inMs) continue;
+                MediaItem mediaItem = new MediaItem.Builder()
+                        .setUri(resolveSeekableSourceUri(clip))
+                        .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                                .setStartPositionMs(inMs)
+                                .setEndPositionMs(outMs)
+                                .build())
+                        .build();
+                EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
+                        .setRemoveAudio(true) // overlay video contributes pixels only (M-EXPORT-1)
+                        .setDurationUs(Math.max(1L, outMs - inMs) * 1000);
+                List<Effect> fx = new ArrayList<>();
+                com.fadcam.ui.faditor.keyframe.KeyframeSet t = item.getTransform();
+                if (t != null && !t.isEmpty()) {
+                    // Static transform sampled at the item's own start (see class TODO for
+                    // keyframed motion) — SAME evaluator (KeyframeSet.valueAt) preview uses.
+                    float scale = t.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0L, 1f);
+                    float rot = t.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, 0L, 0f);
+                    if (scale != 1f || rot != 0f) {
+                        ScaleAndRotateTransformation.Builder tb =
+                                new ScaleAndRotateTransformation.Builder();
+                        if (scale != 1f) tb.setScale(scale, scale);
+                        if (rot != 0f) tb.setRotationDegrees(rot);
+                        fx.add(tb.build());
+                    }
+                }
+                if (canvasDims != null) {
+                    fx.add(Presentation.createForWidthAndHeight(
+                            canvasDims[0], canvasDims[1], Presentation.LAYOUT_SCALE_TO_FIT));
+                }
+                if (!fx.isEmpty()) {
+                    eb.setEffects(new Effects(Collections.emptyList(), fx));
+                }
+                overlayItems.add(eb.build());
+            }
+        }
+        if (overlayItems.isEmpty()) return null;
+        return new EditedMediaItemSequence.Builder(overlayItems).build();
+    }
+
+    /**
      * Assemble the canonical-ordered {@code List<Effect>} for a clip's
      * {@code EditedMediaItem}. Single source of truth for the export effect
      * pipeline — every {@code buildXxxItem} method routes through this helper
@@ -1616,7 +1772,17 @@ public class ExportManager {
                     break;
                 }
             }
-            boolean hasOverlays = project.getTimeline().hasTextOverlays()
+            // M-EXPORT-1: the text/image/sticker overlay list comes from the SAME
+            // shared authority the live preview feeds TextOverlayLayer from
+            // (LayerPreviewController.visibleTextOverlays): every item on every
+            // non-hidden TEXT/STICKER layer track, in track-z order. For a plain
+            // project (single unhidden "text" track) this is the exact same objects
+            // in the exact same order as the old getTextOverlays() call — identical
+            // composition, byte-identical output. Hidden layer tracks' items are
+            // excluded here exactly as they are from the preview (PLAN §5.3(4)).
+            List<TextOverlayItem> exportTextOverlays =
+                    LayerPreviewController.visibleTextOverlays(project.getTimeline());
+            boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || clip.isCaptionsEnabled()
                     || !clipWaveformSlots.isEmpty()
                     || clipHasWaveformRef
@@ -1625,7 +1791,7 @@ public class ExportManager {
                 CompositeExportOverlay overlay = new CompositeExportOverlay(
                         context, timelineCursorMs, clip,
                         overlayW, overlayH,
-                        project.getTimeline().getTextOverlays(),
+                        exportTextOverlays,
                         clipWaveformSlots,
                         project.getTimeline().getAudioClips());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));

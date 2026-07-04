@@ -46,11 +46,23 @@ public final class LayerPreviewController {
      */
     @NonNull
     public static List<TextOverlayItem> visibleTextOverlays(@NonNull Timeline timeline) {
-        List<Track> layers = timeline.getLayers();
+        // M-EXPORT-1: this is now the SHARED authority for both the live preview
+        // (TextOverlayLayer#setData call sites) AND the export path
+        // (ExportManager#assembleClipVideoEffects → CompositeExportOverlay), so
+        // visibility + draw-order decisions cannot diverge between the two.
+        // Z-order: tracks are drawn in getLayers() order refined by a STABLE sort
+        // on Track#getZIndex() (the M6 TrackFlags side-table value). Every track's
+        // zIndex is 0 unless a flags entry says otherwise, so a plain project keeps
+        // the exact original order (stable sort = no-op) — byte-identical behavior.
+        // Per-item zHint is deliberately NOT consulted: TimedItem views are rebuilt
+        // with default zHint=0 on every getLayers() call (M5 ephemeral-views note),
+        // so within a track insertion order IS the z order today.
+        List<Track> layers = new ArrayList<>(timeline.getLayers());
+        layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
         List<TextOverlayItem> result = new ArrayList<>();
         for (Track track : layers) {
             if (track.getKind() != TrackKind.TEXT && track.getKind() != TrackKind.STICKER) continue;
-            if (track.isHidden()) continue; // TODO(M-EXPORT-1): mirror this skip in ExportManager.
+            if (track.isHidden()) continue; // Mirrored on export (shared: ExportManager uses this method).
             for (TimedItem item : track.getItems()) {
                 TextOverlayItem overlay = item.getTextOverlay();
                 if (overlay != null) result.add(overlay);

@@ -738,9 +738,17 @@ public final class LayerGestureController {
                 long maxStart = (dragStartTextEndMs == Long.MAX_VALUE)
                         ? Long.MAX_VALUE : dragStartTextEndMs - MIN_TEXT_DURATION_MS;
                 long newStart = Math.max(0, Math.min(targetTimeMs, maxStart));
+                // No-overlap law on trims (dragux_v3 A8 hardening 2026-07-04): the
+                // left edge may not cross into a same-row sibling.
+                long ourEnd = dragStartTextEndMs == Long.MAX_VALUE
+                        ? Long.MAX_VALUE / 4 : dragStartTextEndMs;
+                newStart = Math.max(newStart, trimSiblingFloor(newStart, ourEnd));
+                newStart = Math.min(newStart, maxStart == Long.MAX_VALUE ? newStart : maxStart);
                 o.setTimeRange(newStart, dragStartTextEndMs);
             } else {
                 long newEnd = Math.max(dragStartTextStartMs + MIN_TEXT_DURATION_MS, targetTimeMs);
+                newEnd = Math.min(newEnd, trimSiblingCeil(dragStartTextStartMs, newEnd));
+                newEnd = Math.max(newEnd, dragStartTextStartMs + MIN_TEXT_DURATION_MS);
                 o.setTimeRange(dragStartTextStartMs, newEnd);
             }
         } else if (item.getAudioClip() != null) {
@@ -867,6 +875,32 @@ public final class LayerGestureController {
             callback.onItemDeleteRequested(fromTrack, item);
         }
         return true;
+    }
+
+    /** Lowest legal start for a row-system LEFT trim (may not cross a same-row sibling). */
+    private long trimSiblingFloor(long proposedStart, long ourEnd) {
+        if (activeTrack == null || activeItem == null) return proposedStart;
+        long floor = proposedStart;
+        for (TimedItem sib : activeTrack.getItems()) {
+            if (sib.getId().equals(activeItem.getId())) continue;
+            long ss = sib.getTimelineStartMs();
+            long se = ss + Math.max(0, sib.getDisplayDurationMs(Long.MAX_VALUE / 4));
+            if (ss < ourEnd && se > proposedStart) floor = Math.max(floor, se);
+        }
+        return floor;
+    }
+
+    /** Highest legal end for a row-system RIGHT trim (may not cross a same-row sibling). */
+    private long trimSiblingCeil(long ourStart, long proposedEnd) {
+        if (activeTrack == null || activeItem == null) return proposedEnd;
+        long ceil = proposedEnd;
+        for (TimedItem sib : activeTrack.getItems()) {
+            if (sib.getId().equals(activeItem.getId())) continue;
+            long ss = sib.getTimelineStartMs();
+            long se = ss + Math.max(0, sib.getDisplayDurationMs(Long.MAX_VALUE / 4));
+            if (se > ourStart && ss < proposedEnd) ceil = Math.min(ceil, ss);
+        }
+        return ceil;
     }
 
     /**

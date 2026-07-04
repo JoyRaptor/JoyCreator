@@ -5056,6 +5056,38 @@ public class EditorTimelineView extends View {
         }
     }
 
+    /** Same-lane test for the legacy overlay lane's no-overlap clamps (null layerId groups as "text"). */
+    private boolean sameLayerLane(TextOverlayItem a, TextOverlayItem b) {
+        String ka = a.getLayerId() == null ? "text" : a.getLayerId();
+        String kb = b.getLayerId() == null ? "text" : b.getLayerId();
+        return ka.equals(kb);
+    }
+
+    /** Lowest legal start for a LEFT-handle trim: may not cross into a same-lane sibling. */
+    private long layerSiblingFloor(TextOverlayItem ov, long proposedStart, long endMs) {
+        long floor = proposedStart;
+        for (TextOverlayItem sib : overlays) {
+            if (sib == ov || !sameLayerLane(ov, sib)) continue;
+            long ss = Math.max(0, sib.getStartMs());
+            long se = sib.getEndMs() == Long.MAX_VALUE ? totalEffectiveMs : sib.getEndMs();
+            if (ss < endMs && se > proposedStart) floor = Math.max(floor, se);
+        }
+        // Pre-existing overlaps (created before this law) must not force an un-trim.
+        return Math.min(floor, Math.max(0, endMs - 250));
+    }
+
+    /** Highest legal end for a RIGHT-handle trim: may not cross into a same-lane sibling. */
+    private long layerSiblingCeil(TextOverlayItem ov, long startMs, long proposedEnd) {
+        long ceil = proposedEnd;
+        for (TextOverlayItem sib : overlays) {
+            if (sib == ov || !sameLayerLane(ov, sib)) continue;
+            long ss = Math.max(0, sib.getStartMs());
+            long se = sib.getEndMs() == Long.MAX_VALUE ? totalEffectiveMs : sib.getEndMs();
+            if (se > startMs && ss < proposedEnd) ceil = Math.min(ceil, ss);
+        }
+        return Math.max(ceil, startMs + 250);
+    }
+
     private void doLayerDrag(float x) {
         if (activeLayerIndex < 0 || activeLayerIndex >= overlays.size()
                 || totalEffectiveMs <= 0) {
@@ -5069,6 +5101,10 @@ public class EditorTimelineView extends View {
         if (activeDrag == Drag.LAYER_LEFT_HANDLE) {
             long endMs = layerDragEndMs;
             long newStart = Math.min(t, Math.max(0, endMs - minGapMs));
+            // No-overlap law (dragux_v3 A8, 2026-07-04 user repro): the LEGACY overlay
+            // lane bypassed the row-system guards entirely — clamp the moving edge
+            // against same-layer siblings so a trim can never extend into one.
+            newStart = Math.max(newStart, layerSiblingFloor(overlay, newStart, endMs));
             overlay.setTimeRange(newStart,
                     overlay.getEndMs() == Long.MAX_VALUE ? Long.MAX_VALUE : endMs);
             if (listener != null) {
@@ -5079,6 +5115,7 @@ public class EditorTimelineView extends View {
             long startMs = layerDragStartMs;
             long newEnd = Math.max(t, startMs + minGapMs);
             newEnd = Math.min(newEnd, Math.max(startMs + minGapMs, totalEffectiveMs));
+            newEnd = Math.min(newEnd, layerSiblingCeil(overlay, startMs, newEnd));
             overlay.setTimeRange(startMs, newEnd >= totalEffectiveMs ? Long.MAX_VALUE : newEnd);
             if (listener != null) {
                 listener.onOverlayRangeChanged(activeLayerIndex,

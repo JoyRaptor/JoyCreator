@@ -77,9 +77,9 @@ Sequencing vs sprites: A1 needs sprite S2 (sheet slicing) + benefits from S4 (pr
 Avatar A1 after sprite S4 lands.
 
 ## Risks
-Thermal on long recordings (tracking-fps governor + input downscale); boundary flicker (hysteresis is
-non-negotiable); scope seduction toward Live2D-style MESH WARPING — explicitly OUT OF SCOPE, sprite-swap
-rigs are the lane; old-device GPU delegate quirks (CPU fallback path required).
+Thermal on long recordings (tracking-fps governor + input downscale); boundary flicker (hysteresis +
+pin-snap crossfade — see §Pin-warp); old-device GPU delegate quirks (CPU fallback path required); scope
+seduction toward DENSE Live2D-style mesh authoring — still out of scope (see §Pin-warp for what IS in).
 
 ## Candidates to verify against external research (merge their findings here)
 MediaPipe Tasks (Face/Pose Landmarker), ML Kit Face Detection, TFLite/ONNX Runtime Mobile, One-Euro filter,
@@ -87,5 +87,52 @@ Vosk (in-app already), OpenSeeFace (PC reference impl), Inochi2D (open puppet fo
 VTube Studio / Animaze (UX reference), Adobe Character Animator (triggers/visemes/behaviors reference),
 Cartoon Animator G3 360 head (the matrix reference), Moho smart bones/actions.
 
+## MERGE 2026-07-03 eve — user's pin-warp design (BINDING) + external (z.ai) research adoption
+
+### Pin-warp limbs (user's Adobe-Ch rig design — IN SCOPE, revises the old "no mesh warp" line)
+The user's proven Character Animator workflow: limbs are LOW-COUNT PIN-WARPED strips, not just swaps.
+An arm = a quad-strip mesh (~8–20 triangles) with 3 pins (shoulder/elbow/wrist) set PER CELL of a 5-cell
+angle strip (front → extended → overhead). Between thresholds the strip WARPS (2-bone-IK/bezier through
+the pins); past a threshold it HOT-SWAPS to the next cell's art. Mirror a finished limb for the other
+side, or author asymmetric sets. **Perf verdict: effectively free** — 3-pin skinning of 9–20 vertices is
+microseconds on CPU; a dozen such strips is nothing to any phone GPU; the cost center remains tracking.
+The line I originally drew excluded DENSE Live2D-style mesh authoring (hundreds of art-directed vertices
++ weight painting — an authoring-tool explosion). That stays out. Sparse PIN warp is in.
+**Pose domains generalized (schema rev):** poseGrid becomes per-GROUP pose domains — HEAD: 2-D grid
+(yaw × pitch, 3x3/5x5); LIMB/BODY/LEGS: 1-D 5-cell strips over their driver angle; MISC (tail/parallax):
+1-D strips over any driver. Each cell stores per-part {pos, rot, scale, z, flip, spriteCell, pins[]}.
+The user's 5x5 budget intuition (5 head / 5 arm / 5 body / 5 legs / 5 misc) = five 1-D/2-D domains.
+**Pin-snap crossfade (adopted from z.ai — genuinely good):** at a swap threshold, draw BOTH cells for
+3–5 frames, alpha-crossfading, with pins mapped to IDENTICAL world positions — the swap happens over the
+same geometric pose and reads as a smooth 3D turn, not a glitch. Combine with hysteresis (crossfade fixes
+the visual pop; hysteresis still prevents rapid re-triggering at the boundary). Mouth visemes stay HARD
+snaps (crisp reads better for lips); crossfade is for profile/limb-angle swaps.
+**Renderer implication:** limbs need a GL path earlier than planned (vertex warp ≠ Canvas blit). A1 can
+still prove the model with Canvas + rigid parts; the GL strip renderer lands with the limb phase.
+
+### Adopted from the z.ai report (verified sensible)
+- **TarsosDSP** (pure-Java DSP): formant/pitch extraction for viseme classes — the v2 audio tier
+  candidate; far cheaper than a neural audio model. Small buffers (~1024 samples) for lip-sync latency.
+- **Gotcha — camera single-owner:** the tracking camera must live ENTIRELY in FloatingWebcamService
+  during recording and ENTIRELY in the Avatar Studio activity during editing — never both (Android
+  camera-in-use exceptions). Design the tracker engine as a component both hosts mount exclusively.
+- **Gotcha — texture edge padding:** warped strips need edge clamping / a ~2px transparent border on
+  limb art or edges tear at warp extremes (art-import step should auto-pad).
+- **References:** libGDX TextureAtlas/SpriteBatch (pattern for the GL sprite batch), Spine 2D's format
+  (bones/slots/attachments — sanity-check our rig JSON against it), CameraX → tracker frame pipeline.
+- Convergent with this plan (independent confirmation): MediaPipe FaceLandmarker + blendshapes, bilinear
+  matrix interpolation, threshold z/flip snapping, FloatingWebcamService surface swap, cloud-assisted
+  auto-rig with offline runtime, avatar-as-timeline-object.
+
+### Rejected/corrected from that report
+- "Bilinearly lerp zOrder" — no: z is discrete, threshold+hysteresis only (the report contradicts itself
+  two sections later; our rule stands).
+- "<10% CPU, NPU-accelerated, 30+fps" — flagship-optimistic; plan for CPU/GPU delegates on the Note 9
+  tier at 15–20fps tracking, interpolated rendering (already our budget).
+- OpenCV Haar-cascade fallback — dead end; ML Kit IS the light fallback tier.
+- Crossfade for EVERY sprite swap — no; visemes hard-snap (see above).
+
 ## Status
-- [ ] merge external research  - [ ] A1  - [ ] A2  - [ ] A3  - [ ] A4  - [ ] A5  - [ ] A6
+- [x] merge external research (z.ai avatar report merged above; KineMaster/competitor research from the
+      other worker was LOST — still owed, still gating sprite S2's design pass)
+- [ ] A1  - [ ] A2  - [ ] A3  - [ ] A4  - [ ] A5  - [ ] A6 (limbs = tracking trigger + PIN-WARP strips + dangle physics)

@@ -134,9 +134,18 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
 - Crossfade for EVERY sprite swap — no; visemes hard-snap (see above).
 
 ## Status
-- [x] merge external research (z.ai avatar report merged above; KineMaster/competitor research from the
-      other worker was LOST — still owed, still gating sprite S2's design pass)
-- [ ] A1  - [ ] A2  - [ ] A3  - [ ] A4  - [ ] A5  - [ ] A6 (limbs = tracking trigger + PIN-WARP strips + dangle physics)
+- [x] merge external research (z.ai merged; GLM-5.1 mining merged 827947c — bake-to-param-track,
+      driverType split, life package, empty-cell inheritance, Spine license landmine all folded in)
+- [x] A1 MODEL COMPLETE (a9d6cc5): AvatarRig schema (parts/parentId/anchors/followWeight, 1D+2D
+      PoseDomains with per-cell PartPose incl. warp pins, visemeMap, self-serializing JSON) +
+      PuppetPoseResolver — pure single-authority evaluator: bilinear blend of continuous props AND pins,
+      EMPTY-CELL INHERITANCE via weight renormalization, discrete cell/z/flip via dominant-corner
+      hysteresis + swapped flag (= pin-snap crossfade trigger), caller-owned DiscreteState so baked-param
+      replay is deterministic. FaditorProject.avatarRigs[] + storage round-trip, dual-write stamp v10.
+      STILL OWED for A1 sign-off: resolver review gate + a scrub-driven matrix-editor scaffold (the UI
+      half of A1) — next session's first work item.
+- [ ] A1-UI matrix editor  - [ ] A2 tracking driver  - [ ] A3 visemes  - [ ] A4 recorder integration
+- [ ] A5 AI rigging  - [ ] A6 limbs (tracking trigger + PIN-WARP strips + dangle physics)
 
 ## MINED — GLM-5.1 external review, orchestrator-vetted (2026-07-04)
 ADOPT AS BINDING:

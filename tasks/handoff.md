@@ -1,7 +1,29 @@
 # FadCam AI Handoff
 
 > Living document for the next agent. Update this file when you change architecture, fix a recurring bug class, or make a non-obvious design choice.
-> Last updated: 2026-07-02
+> Last updated: 2026-07-04
+
+> **🛬 2026-07-04 eve — JOYRAPTOR LANDING: sprite S2 DEVICE-PROVEN end-to-end + avatar A1 model COMPLETE.**
+> **S2 (cb07ad7 + a44350a):** full adb-driven device proof on the Note 9 — editor launch → OS picker →
+> star-guy from Downloads (fresh pushes need a MEDIA SCAN broadcast to appear in DocumentsUI) → steppers
+> 3x3→4x4 → cell 0 named "idle" → Save → project.json: schemaVersion **9** (conditional stamp correct),
+> sheetUri project://assets/<uuid>.png, cells [{0,"idle"}] → reopened by sheet id: state restored on
+> screen. **v9 write + round-trip PROVEN** (closes the S1 acceptance). Device-caught + fixed: new-sheet
+> NPE (buildUi before sheet creation). Verification technique for the never-idle editor: uiautomator can't
+> dump FaditorEditorActivity (live player invalidation) — launch the TARGET activity directly; the temp
+> exported=true flip never entered git history (flipped + reverted between commits).
+> **Avatar A1 model (a9d6cc5):** PuppetPoseResolver (pure single-authority: bilinear continuous+pin blend,
+> empty-cell inheritance, dominant-corner hysteresis, swapped→crossfade signal, caller-owned DiscreteState
+> = deterministic bake replay) + AvatarRig storage, schema **v10** stamped only when rigs exist. GLM-5.1
+> mined decisions (827947c) folded into the build.
+> **⚠️ DISCLOSURE for the dragux lane:** a9d6cc5's `git add -A` accidentally swept your two in-flight
+> files (LayerGestureController +17, LayerRowRenderer +40) — they built green and are committed under my
+> A1 message; nothing lost, but your WIP is now in history there.
+> **NEXT (JoyRaptor lane, strict order):** (1) resolver review gate + A1-UI matrix-editor scaffold
+> (scrub/slider-driven, no ML); (2) sprite S4 preview (SpriteOverlayView, resolver-driven, below captions);
+> (3) S2b polish batch; (4) A2 tracking driver (MediaPipe + One-Euro + thermal governor per MINED).
+> User hand-test owed when convenient: open Sprites tool from the carousel → does the star-guy sheet feel
+> right to slice by hand (pinch-zoom, pivot drag — unscriptable gestures).
 
 > **2026-07-02 night — §6/M6+M7 ROW-BAND TOUCH FIXED: tap-select, long-press-delete, AND scrub-over-rows all work now (BUILT GREEN, device-verified Note 9 sandbox bdd51919…, com.fadcam.beta, NO commit). This unblocks the Layers hand-test.** The two bottom Track rows (purple "Text"/aqua "Audio") were totally inert — no select, no long-press, no scrub — because touches were consumed then dropped. **ROOT CAUSE (proven with temp logging, now removed): `LayerRowRenderer.hitTestHeader` had NO X-bounds check.** The per-row `headerRect` spans the row's FULL width in Y but is only meant to be the left 92dp header column; with only a Y-band test, ANY body touch (content-x well right of the header) fell through the 4 icon `.contains()` tests and hit the `return HitZone.NONE` fallthrough → `handleM6RowTouch` treated the whole row (header AND body) as a header hit, returned true, and never called `onRowBodyDown` (M7 select/long-press/drag) NOR reached the scrub axis-decision. Log proof: body tap at content-x=398 → `headerHit=NONE`, hitTestItem never ran. **FIX 1 (the primary):** added `if (x < row.headerRect.left || x > row.headerRect.right) continue;` in `hitTestHeader` — body-column touches now skip the header and fall through correctly. That alone restored TAP-select (brightened purple stroke + end-cap handles from 7ae8e42 now show — screenshotted) and LONG-PRESS ("Remove text overlay?" dialog fires — screenshotted). **Two more bugs surfaced for the SCRUB path (6a47560's intent) and were also fixed:** FIX 2 — the pending-axis DOWN in `handleM6RowTouch` returned true but never called `getParent().requestDisallowInterceptTouchEvent(true)` (every other armed-DOWN branch does), so the parent scroll container stole the follow-up MOVEs and the axis decision in `onMove` never ran → added that call. FIX 3 — the scrub-passthrough delta was computed in CONTENT-space (`x + scrollOffsetPx`), but `updatePlayheadFromX` re-centers every call so `scrollOffsetPx` shifts by ~the same amount x moved → the delta netted to ~0 and the playhead froze after the first event; changed it to RAW view-space x deltas (`m6RowPendingLastX - x`), exactly mirroring `GestureListener.onScroll`'s `distanceX`. After all three: horizontal swipe over the empty row band scrubs (log-proven playhead 5394→6815ms + ruler moved 0s→17s, screenshotted), vertical stays row-scroll (symmetric branch; not meaningfully exercisable here since content 202px ≤ viewport 210px = nothing to scroll), a drag STARTING on an item still arms M7 move (`hit=BODY` → m7ItemGestureActive — 6a47560's "item hits keep M7/M10 untouched" preserved), and DOWN above/below the rows still passes to normal timeline (`within=false`). Files: `layers/LayerRowRenderer.java` (+9, the X guard), `timeline/EditorTimelineView.java` (3 hunks: disallow-intercept + raw-x scrub ×2). Also removed a prior agent's leftover `DIAG onRowBodyDown` FLog in `LayerGestureController` (temp instrumentation, same class as mine). ALL my temp logging (M6_DIAG/LRR_DIAG) grep-verified gone. NOTE: this sandbox's items span the FULL project width, so there's little in-row EMPTY space to scrub from (mostly the top/bottom dead-bands + gaps) and items can't slide sideways — §7 duration-on-create + numeric fields is still the real ergonomic fix for that; the mechanism is correct regardless. User hand-test list in REPORT_RELAY.
 

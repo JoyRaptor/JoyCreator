@@ -1,4 +1,5 @@
 # PLAN — Avatar Studio (Character-Animator-class puppets, offline, on-device)
+> ⛏️ GLM-5.1 MINING RESULTS (2026-07-04, orchestrator-vetted — JoyRaptor: fold these in; full analysis below §MINED).
 > Fable architectural plan 2026-07-03 (user's vision: webcam-driven sprite avatars replacing the webcam
 > bubble in screen recordings). Companion external research from another AI incoming — merge its findings
 > into §Candidates when it arrives. Builds ON TOP of sprite Build 1 (PLAN_SPRITE_ANIMATION) and its RIG
@@ -136,3 +137,17 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
 - [x] merge external research (z.ai avatar report merged above; KineMaster/competitor research from the
       other worker was LOST — still owed, still gating sprite S2's design pass)
 - [ ] A1  - [ ] A2  - [ ] A3  - [ ] A4  - [ ] A5  - [ ] A6 (limbs = tracking trigger + PIN-WARP strips + dangle physics)
+
+## MINED — GLM-5.1 external review, orchestrator-vetted (2026-07-04)
+ADOPT AS BINDING:
+- **Bake-to-parameter-track architecture**: recording saves RESOLVED driver params (yaw/pitch/visemes/pin coords) into a hidden track; export replays them through resolveTransformAt — webcam never re-runs at export. Matches our preview==export doctrine (same lesson L2 taught). Plus "Bake to Video" tool to flatten a rig to a normal clip.
+- **driverType schema split**: 2D_MATRIX (heads) vs 1D_ANGLE (limbs, 5-cell strip + pin-warp crossfade). Limbs are 1D; do not force the 9-cell grid on them.
+- **Tracking/render decoupling**: MediaPipe 15-20fps on its own thread, GL/render 60fps, interpolate last pose. + One-Euro filter on ALL tracking inputs (tiny, implement from paper, no dep).
+- **Life package** (near-zero cost, huge feel): idle-loop fallback w/ -45dB/2s audio gate; breathing sine on body scaleY; saccade micro-darts every 3-5s; asymmetric blink (1-frame eye delay).
+- **Authoring UX**: pose-grid EMPTY-CELL INHERITANCE (rig 3 cells → auto-blend the rest, dashed "auto-blended" cells + completeness glow); pin auto-weighting by distance; Pin Dial radial rotate control (touch-first); viseme CALIBRATION flow ("say Ah/Eh/Ee/Oh/Oo" → personal formant polygon in rig JSON).
+- **TarsosDSP** (pure Java, GPL-compatible) for formant→viseme + amplitude; **FABRIK** for IK (implement, ~50 lines); **behavior trigger hotbar** during recording (tap preset override, blend back to live); **texture edge padding** (auto-duplicate edge pixels 2px on import — prevents warp tearing); **thermal governor** (PowerManager thermal listener → degrade tracking fps → physics off) + Eco/Balanced/High toggle; **anchor snapping + bounding-box auto-crop** for placement in recordings; mouth mask driven by amplitude (scale) / visemes (shape) — implement via Canvas clipPath on the Canvas path, GL stencil ONLY where a GL surface already exists (recorder).
+SKIP / PARK (with reasons):
+- ❌ **Spine Runtimes as code reference — LICENSE LANDMINE**: GLM claimed Apache-2.0; the Spine Runtimes license actually REQUIRES a paid Spine editor license for runtime use. Do not copy/port their code. FABRIK + own math instead.
+- Runtime texture-atlas baking / libGDX SpriteBatch adaptation: premature at our scale (1 avatar, ~10 parts); sheet-decode-once + sub-rect blits already is a de-facto atlas. Revisit only if profiling shows bind overhead.
+- JOML: 3D GL math lib for a 2D affine problem — android.graphics.Matrix suffices.
+- MobileSAM auto-segmentation + AI-generated 3/4-view extremes: park as fast-follow experiments (model size, stylized-art quality risk, pivot inference fragile). Aligns with sprite plan fast-follow B when it comes.

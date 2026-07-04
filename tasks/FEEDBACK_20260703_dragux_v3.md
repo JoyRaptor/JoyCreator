@@ -52,6 +52,19 @@
     (move tool / layers); TAP the playhead line itself (or double-tap the chip) = drop bookmark;
     long-press a bookmark marker = options. Separates "numeric/exacting" (chip) from "marking" (line).
 
+## A-additions from the 2026-07-04 hand-test (user, after slice 1)
+12. **Wedge-insert (P1, slice 2):** dropping between two BUTTED items on a row must wedge in — push the
+    later sibling(s) right by the dragged duration, with a live preview of the shifted layout — or at
+    minimum resolve to an end. NEVER overlap. (Commit-time no-overlap guard shipped in caa628e as the
+    stopgap: a drop now re-resolves to the nearest butting edge; the wedge is the desired ideal.)
+13. **Above-top new-layer zone (P1, slice 2):** the "+ New layer" drop zone exists only BELOW the bottom
+    row (M10's documented deviation) — so items can move DOWN to new layers but never UP above the top
+    row. Mirror the zone above the top row; z-addendum applies (higher row = higher z, so "new layer
+    above" = "draw on top of everything").
+14. Slice status: slice 1 (A3+A4 free placement + gentle snap) live + user-confirmed (home snap seen);
+    slice 1.1 (commit guard) live; slice 2 = A12+A13; slice 3 = A9 dotted time-lock verticals; then A1
+    edge auto-pan, A2 minimap drag-nav, B10/B11 trim polish.
+
 ## Priority order
 P0: A8 (audio overlap). P1 core feel: A1, A2, A3, A4, A9. RE-VERIFY pass: A5/A6/A7 (cheap, first).
 B10/B11 = contained quick wins. C-items: after research doc lands; C12/C13/C14 cheap, C15 medium,

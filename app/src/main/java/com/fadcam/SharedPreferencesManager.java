@@ -1984,9 +1984,6 @@ public class SharedPreferencesManager {
             Constants.APP_ICON_FADED.equals(iconKey)
         ) return com.fadcam.R.mipmap.ic_launcher_faded;
         if (
-            Constants.APP_ICON_PALESTINE.equals(iconKey)
-        ) return com.fadcam.R.mipmap.ic_launcher_palestine;
-        if (
             Constants.APP_ICON_PAKISTAN.equals(iconKey)
         ) return com.fadcam.R.mipmap.ic_launcher_pakistan;
         if (
@@ -2045,9 +2042,6 @@ public class SharedPreferencesManager {
             if (Constants.APP_ICON_FADED.equals(key)) return context.getString(
                 R.string.app_icon_faded
             );
-            if (
-                Constants.APP_ICON_PALESTINE.equals(key)
-            ) return context.getString(R.string.app_icon_palestine);
             if (
                 Constants.APP_ICON_PAKISTAN.equals(key)
             ) return context.getString(R.string.app_icon_pakistan);

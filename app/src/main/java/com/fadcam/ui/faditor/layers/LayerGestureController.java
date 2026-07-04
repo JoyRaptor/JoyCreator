@@ -809,6 +809,9 @@ public final class LayerGestureController {
         boolean droppedOnNewLayerZone = hoverNewLayerZone || hoverCrossBandNewLane;
         boolean wasTap = pendingBodyDown && !movedDuringGesture;
         boolean wasDeleteTap = wasTap && pendingDeleteBadge;
+        // Captured BEFORE the reset block below wipes them (commit-time overlap guard).
+        long commitDur = dragStartDisplayDurMs;
+        boolean commitWasMoveKind = activeKind == GestureKind.MOVE;
         pendingDeleteBadge = false;
         active = false;
         activeItem = null;
@@ -833,6 +836,22 @@ public final class LayerGestureController {
         rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
         if (wasMoved && item != null) {
+            // COMMIT-TIME NO-OVERLAP GUARANTEE (dragux_v3 A8 hardening, user repro
+            // 2026-07-04: dropping onto a row with two butted items could land
+            // overlapping despite the live-preview resolver — preview state can race
+            // the final hover). Whatever the preview showed, the DROP re-resolves the
+            // item's start against the actual destination row's siblings; overlap can
+            // never persist past a release. New-layer drops skip it (empty row).
+            if (!droppedOnNewLayerZone && commitWasMoveKind && commitDur > 0) {
+                Track dest = toTrack != null ? toTrack : fromTrack;
+                if (dest != null) {
+                    long cur = item.getTimelineStartMs();
+                    long fixed = resolveOverlapOnRow(dest, item, cur, commitDur);
+                    if (fixed != cur) {
+                        applyCommittedStart(item, fixed);
+                    }
+                }
+            }
             // M10: report the track-change FIRST (see method doc) so the activity can
             // fold it into the ONE undo action onGestureFinished below builds.
             if (droppedOnNewLayerZone && fromTrack != null) {
@@ -848,6 +867,49 @@ public final class LayerGestureController {
             callback.onItemDeleteRequested(fromTrack, item);
         }
         return true;
+    }
+
+    /**
+     * Stateless overlap resolver for the COMMIT-TIME guard in {@link #onRowBodyUp} —
+     * same push-to-nearest-butting-edge loop as {@link #resolveNoOverlapStart}, but
+     * against an explicit row/duration (the gesture fields are already reset when the
+     * guard runs). Duration comes from the pre-reset captured display duration.
+     */
+    private static long resolveOverlapOnRow(@NonNull Track row, @NonNull TimedItem moved,
+                                            long desiredStart, long dur) {
+        long start = desiredStart;
+        for (int pass = 0; pass < 4; pass++) {
+            boolean pushed = false;
+            for (TimedItem sib : row.getItems()) {
+                if (sib.getId().equals(moved.getId())) continue;
+                long ss = sib.getTimelineStartMs();
+                long se = ss + Math.max(0, sib.getDisplayDurationMs(Long.MAX_VALUE / 4));
+                if (start < se && start + dur > ss) {
+                    long before = ss - dur;
+                    long after = se;
+                    start = (before >= 0
+                            && Math.abs(desiredStart - before) <= Math.abs(desiredStart - after))
+                            ? before : after;
+                    pushed = true;
+                }
+            }
+            if (!pushed) break;
+        }
+        return Math.max(0, start);
+    }
+
+    /** Apply a commit-time corrected start to {@code item}, preserving duration + open end. */
+    private static void applyCommittedStart(@NonNull TimedItem item, long newStartMs) {
+        if (item.getTextOverlay() != null) {
+            TextOverlayItem o = item.getTextOverlay();
+            long oldStart = Math.max(0, o.getStartMs());
+            long oldEnd = o.getEndMs();
+            long newEnd = (oldEnd == Long.MAX_VALUE) ? Long.MAX_VALUE
+                    : newStartMs + Math.max(0, oldEnd - oldStart);
+            o.setTimeRange(newStartMs, newEnd);
+        } else if (item.getAudioClip() != null) {
+            item.getAudioClip().setOffsetMs(newStartMs);
+        }
     }
 
     /**

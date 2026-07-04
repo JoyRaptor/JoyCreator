@@ -472,8 +472,21 @@ public final class LayerGestureController {
                             // Gentle butt-snap (A4): near a sibling edge → click into it.
                             applyMoveTo(suggested, true);
                         } else {
-                            clearBookend();
-                            applyMoveTo(resolved, false);
+                            // JOINT HYSTERESIS (user repro 2026-07-04: view never panned
+                            // to show the butt): keep the last joint published until the
+                            // finger has CLEARLY departed (2× radius) — per-event
+                            // disarming flickered the joint and endlessly reset the
+                            // view's 220ms excursion dwell timer, so the pan never fired.
+                            if (bookendJointMs != Long.MIN_VALUE
+                                    && Math.abs(prospective - bookendSnapStartMs) > snapThrMs * 2) {
+                                clearBookend();
+                            }
+                            // HONEST PREVIEW (user repro 2026-07-04: open-ended items
+                            // previewed at to-project-end length, painting their outline
+                            // OVER siblings the overlap math had already cleared): during
+                            // a MOVE drag, ALWAYS preview at the captured closed length.
+                            // Open-endedness is restored at DROP when legal (onRowBodyUp).
+                            applyMoveTo(resolved, true);
                         }
                     }
                     setHomeSnapArmed(false);
@@ -817,9 +830,12 @@ public final class LayerGestureController {
         boolean droppedOnNewLayerZone = hoverNewLayerZone || hoverCrossBandNewLane;
         boolean wasTap = pendingBodyDown && !movedDuringGesture;
         boolean wasDeleteTap = wasTap && pendingDeleteBadge;
-        // Captured BEFORE the reset block below wipes them (commit-time overlap guard).
+        // Captured BEFORE the reset block below wipes them (commit-time overlap guard
+        // + open-endedness restoration).
         long commitDur = dragStartDisplayDurMs;
         boolean commitWasMoveKind = activeKind == GestureKind.MOVE;
+        boolean commitWasOpenEnded = dragStartDurationMs == Long.MAX_VALUE;
+        boolean commitHomeSnapped = homeSnapArmed;
         pendingDeleteBadge = false;
         active = false;
         activeItem = null;
@@ -858,6 +874,31 @@ public final class LayerGestureController {
                     if (fixed != cur) {
                         applyCommittedStart(item, fixed);
                     }
+                }
+            }
+            // OPEN-ENDEDNESS RESTORATION (pairs with the honest closed-length drag
+            // preview): a MOVE of an originally open-ended text item re-opens its end
+            // at DROP when that is legal — home snap always restores the original open
+            // end; elsewhere only if NO sibling on the landing row starts at/after the
+            // item's new start (an open end would run over it otherwise — the law wins).
+            if (commitWasMoveKind && commitWasOpenEnded && item.getTextOverlay() != null) {
+                TextOverlayItem o = item.getTextOverlay();
+                boolean reopen;
+                if (commitHomeSnapped) {
+                    reopen = true;
+                } else {
+                    Track dest = droppedOnNewLayerZone ? null : (toTrack != null ? toTrack : fromTrack);
+                    reopen = true;
+                    if (dest != null) {
+                        long myStart = item.getTimelineStartMs();
+                        for (TimedItem sib : dest.getItems()) {
+                            if (sib.getId().equals(item.getId())) continue;
+                            if (sib.getTimelineStartMs() >= myStart) { reopen = false; break; }
+                        }
+                    }
+                }
+                if (reopen && o.getEndMs() != Long.MAX_VALUE) {
+                    o.setTimeRange(Math.max(0, o.getStartMs()), Long.MAX_VALUE);
                 }
             }
             // M10: report the track-change FIRST (see method doc) so the activity can

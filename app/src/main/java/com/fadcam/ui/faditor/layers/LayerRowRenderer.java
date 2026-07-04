@@ -463,16 +463,26 @@ public final class LayerRowRenderer {
         int prevColor = itemSelectionPaint.getColor();
         Paint.Style prevStyle = itemSelectionPaint.getStyle();
         float prevW = itemSelectionPaint.getStrokeWidth();
-        if (homeGhostArmed) {
-            // Lit: subtle fill + light outline = "release here → exactly where it was".
-            itemSelectionPaint.setStyle(Paint.Style.FILL);
-            itemSelectionPaint.setColor(0x2EFFFFFF);
-            canvas.drawRoundRect(gx0, top, gx1, bottom, 3f * density, 3f * density, itemSelectionPaint);
-        }
+        android.graphics.PathEffect prevEffect = itemSelectionPaint.getPathEffect();
+        // RESTYLE (user 2026-07-04: "the outline should be left behind as a GRAY BOX of
+        // where it was" — the old near-white bright stroke read as the ACTIVE preview
+        // and made the drag visuals feel backwards). The ghost is now unmistakably a
+        // passive memory: dim translucent gray FILL + dim DASHED gray stroke. The solid
+        // full-color item under the finger is the loudest thing on the row; the ghost
+        // whispers. Armed (home snap) = the ghost warms slightly + stroke solidifies —
+        // still gray family, never brighter than the live item.
+        itemSelectionPaint.setStyle(Paint.Style.FILL);
+        itemSelectionPaint.setColor(homeGhostArmed ? 0x4AB8B8C0 : 0x2A88888E);
+        canvas.drawRoundRect(gx0, top, gx1, bottom, 3f * density, 3f * density, itemSelectionPaint);
         itemSelectionPaint.setStyle(Paint.Style.STROKE);
         itemSelectionPaint.setStrokeWidth(1.5f * density);
-        itemSelectionPaint.setColor(homeGhostArmed ? 0xFFE2E2E8 : 0x8C90909A);
+        itemSelectionPaint.setColor(homeGhostArmed ? 0xC8C4C4CC : 0x6E8A8A92);
+        if (!homeGhostArmed) {
+            itemSelectionPaint.setPathEffect(new android.graphics.DashPathEffect(
+                    new float[]{4f * density, 3f * density}, 0f));
+        }
         canvas.drawRoundRect(gx0, top, gx1, bottom, 3f * density, 3f * density, itemSelectionPaint);
+        itemSelectionPaint.setPathEffect(prevEffect);
         itemSelectionPaint.setStrokeWidth(prevW);
         itemSelectionPaint.setColor(prevColor);
         itemSelectionPaint.setStyle(prevStyle);

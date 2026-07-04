@@ -263,6 +263,12 @@ public class EditorTimelineView extends View {
      */
     private boolean m7ItemGestureActive = false;
     /**
+     * A2 minimap drag-nav (dragux_v3, user 2026-07-04): true while a picked-up item
+     * drag has slid INTO the minimap band — the view navigates, the item's mapping is
+     * suppressed (it stays put), and the drag resumes when the finger leaves the band.
+     */
+    private boolean itemDragMinimapNav = false;
+    /**
      * True from a body DOWN on a row item until the touch resolves (PLAN TARGET CONTRACT).
      * The item is SELECTED, but the gesture is undecided: a horizontal-dominant move →
      * SCRUB (pass through, item not moved); the pickup timer firing with low movement →
@@ -4201,6 +4207,10 @@ public class EditorTimelineView extends View {
      */
     private void resetRowGestureFlags(String cause) {
         longPressHandler.removeCallbacks(itemPickupRunnable);
+        if (itemDragMinimapNav) {
+            itemDragMinimapNav = false;
+            if (layerGestureController != null) layerGestureController.setSuppressMoveMapping(false);
+        }
         if (m7ItemGestureActive || m7ItemPendingDown) {
             m7ItemGestureActive = false;
             m7ItemPendingDown = false;
@@ -4398,6 +4408,24 @@ public class EditorTimelineView extends View {
             return true;
         }
         if (m7ItemGestureActive) {
+            // A2 MINIMAP DRAG-NAV (user 2026-07-04: "drag onto the minimap, it slides
+            // to that region, pull back down and the clip is still attached"): with a
+            // picked-up MOVE, the finger entering the minimap band navigates the view
+            // instead of moving the item — mapping suppressed so the item stays put;
+            // leaving the band resumes normal finger tracking through the NEW offset.
+            if (y <= minimapHeightPx && layerGestureController.isMoveDragActive()) {
+                if (!itemDragMinimapNav) {
+                    itemDragMinimapNav = true;
+                    layerGestureController.setSuppressMoveMapping(true);
+                    cancelPendingExcursionEnter();
+                }
+                seekFromMinimap(x);
+                invalidate();
+                return true;
+            } else if (itemDragMinimapNav) {
+                itemDragMinimapNav = false;
+                layerGestureController.setSuppressMoveMapping(false);
+            }
             // ARMED: a trim, or a picked-up move — drive the item gesture. onRowBodyMove
             // no-ops a MOVE that hasn't been picked up, so this only moves after pickup.
             float scrolledX = x + scrollOffsetPx;
@@ -4571,6 +4599,12 @@ public class EditorTimelineView extends View {
         }
         if (m7ItemGestureActive) {
             m7ItemGestureActive = false;
+            if (itemDragMinimapNav) {
+                // Finger lifted while parked on the minimap band: end the nav state;
+                // the commit below drops the item where it already legally sits.
+                itemDragMinimapNav = false;
+                layerGestureController.setSuppressMoveMapping(false);
+            }
             // isUp==false is an ACTION_CANCEL — the controller ABORTS (reverts the item,
             // fires no drop callbacks) instead of committing (review fix 2026-07-03).
             layerGestureController.onRowBodyUp(isUp);

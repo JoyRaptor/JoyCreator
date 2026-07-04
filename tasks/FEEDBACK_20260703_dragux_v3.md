@@ -69,6 +69,31 @@
     wedge-insert w/ preview; slice 3 = A9 dotted time-lock verticals + vertical guardrail; A1 edge
     auto-pan; B10/B11 trim shading + callout. All hand-test-gated by the user.
 
+## SLICE 2 BLUEPRINT — unified gap-insertion model (2026-07-04 eve; CapCut-gap analysis, BINDING)
+The jank root cause: THREE bolted-on new-layer affordances from different eras — the pinned
+"+ Drop here for new layer" zone (below-bottom only), the cross-band "new layer here" arm w/ purple
+line, and nothing at all between rows or above the top. They can render SIMULTANEOUSLY and disagree
+(user screenshot 2026-07-04 eve). The market model (CapCut/VN/LumaFusion) has ONE vocabulary:
+- **The GAP is the target.** While an item is held: every gap between adjacent rows, PLUS above the
+  topmost row, PLUS below the bottommost, is a new-layer insertion target. Hovering a gap draws ONE
+  insertion-line style (horizontal accent line in the gap, item's band color). Releasing creates the
+  new track AT THAT POSITION (ordering = z per the addendum: higher row = higher z).
+- **Hovering a row body = join that row** (existing highlight ring). Line-in-gap and row-highlight are
+  mutually exclusive by construction — never two affordances at once.
+- KILL: the pinned bottom zone, the cross-band arm/purple line, the "new layer here" text — all
+  replaced by gap targets. Empty user-track auto-prune (M10) stays.
+- Requires: onItemDroppedOnNewLayer gains an insertion INDEX (activity creates the LayerTrackDef at
+  that position, not appended); renderer gap hit-zones + insertion-line draw; controller hover state
+  becomes {rowTarget | gapIndex | none}. Solves A13 (upward creation) as a special case of "gap above top".
+- EXECUTE at the top of a fresh window (widest rework of the slices — half of it helps nobody).
+
+## A14 — retire the legacy teal overlay lane (user question 2026-07-04 eve: "should overlays piggyback
+on the layer?") YES, direction confirmed: the teal lane and the rows render THE SAME objects twice,
+far apart (the visual weirdness the user feels), and the teal lane is where the overlap-law bypass
+lived. Plan: parity audit first — the teal lane's remaining exclusives (keyframe-diamond editing,
+opacity keyframe drag) must exist on rows before the lane collapses. Then the lane goes; rows become
+the single home. Big vertical-space win. NOT a quick flip — schedule after slice 2+3.
+
 ## Priority order
 P0: A8 (audio overlap). P1 core feel: A1, A2, A3, A4, A9. RE-VERIFY pass: A5/A6/A7 (cheap, first).
 B10/B11 = contained quick wins. C-items: after research doc lands; C12/C13/C14 cheap, C15 medium,

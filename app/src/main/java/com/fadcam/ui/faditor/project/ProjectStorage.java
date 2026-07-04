@@ -1071,10 +1071,12 @@ public class ProjectStorage {
             // layer-free projects losslessly. v9 = sprites (PLAN_SPRITE_ANIMATION S1),
             // v8 = layer features, else 7. All newer blocks are written additively
             // either way (old builds ignore unknown fields).
+            boolean usesRigs = !src.getAvatarRigs().isEmpty();
             boolean usesSprites = !src.getTimeline().getSpriteOverlays().isEmpty()
                     || !src.getSpriteSheets().isEmpty();
-            int stampedVersion = usesSprites
-                    ? com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION  // 9
+            int stampedVersion = usesRigs
+                    ? com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION  // 10
+                    : usesSprites ? 9
                     : usesLayerFeatures(src) ? 8 : 7;
             json.addProperty("schemaVersion", stampedVersion);
             json.addProperty("id", src.getId());
@@ -1495,6 +1497,15 @@ public class ProjectStorage {
                     sheetsArr.add(shJson);
                 }
                 json.add("spriteSheets", sheetsArr);
+            }
+
+            // Serialize avatar rigs (schema v10, project level; self-serializing model).
+            if (!src.getAvatarRigs().isEmpty()) {
+                JsonArray rigsArr = new JsonArray();
+                for (com.fadcam.ui.faditor.avatar.AvatarRig rig : src.getAvatarRigs()) {
+                    rigsArr.add(rig.toJson());
+                }
+                json.add("avatarRigs", rigsArr);
             }
 
             // Serialize canvas preset
@@ -1951,6 +1962,18 @@ public class ProjectStorage {
                                     sheet.getSheetUri()).toString());
                         }
                         project.getSpriteSheets().add(sheet);
+                    } catch (Exception ignored) { }
+                }
+            }
+
+            // Restore avatar rigs (schema v10, project level). Tolerant: absent pre-v10.
+            if (obj.has("avatarRigs")) {
+                JsonArray rigsArr = obj.getAsJsonArray("avatarRigs");
+                for (int i = 0; i < rigsArr.size(); i++) {
+                    try {
+                        project.getAvatarRigs().add(
+                                com.fadcam.ui.faditor.avatar.AvatarRig.fromJson(
+                                        rigsArr.get(i).getAsJsonObject()));
                     } catch (Exception ignored) { }
                 }
             }

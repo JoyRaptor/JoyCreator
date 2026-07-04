@@ -451,8 +451,24 @@ public final class LayerGestureController {
                         clearBookend();
                         applyMoveTo(dragStartTimelineMs, false);
                         setHomeSnapArmed(true);
+                        rowRenderer.setTimeLockGuides(false, 0, 0);
                         break;
                     }
+                    // A9 TIME-LOCK GUARDRAIL (dragux_v3, user spec): hovering a DIFFERENT
+                    // row while the would-be start stays within a gentle dead-zone of the
+                    // original time = a pure LAYER change, not a time change. Lock time to
+                    // the original (overlap-resolved on the target row) and draw dotted
+                    // vertical guides at the item's bounds ("same time, different layer").
+                    // A larger horizontal move unlocks + hides them (diagonal = move both).
+                    if (hoverTargetTrack != null
+                            && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs * 3) {
+                        long locked = resolveNoOverlapStart(dragStartTimelineMs, totalMs);
+                        applyMoveTo(locked, true);
+                        rowRenderer.setTimeLockGuides(true, locked, draggedDur);
+                        setHomeSnapArmed(false);
+                        break;
+                    }
+                    rowRenderer.setTimeLockGuides(false, 0, 0);
                     // FREE PLACEMENT FIRST (dragux_v3 A3): anywhere legal on the landing
                     // row is allowed; butting is a SUGGESTION within the gentle radius,
                     // never a forced destination. Overlap still resolves to the nearest
@@ -859,6 +875,7 @@ public final class LayerGestureController {
         rowRenderer.setHomeGhost(null, 0, 0);
         rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
+        rowRenderer.setTimeLockGuides(false, 0, 0);
         if (wasMoved && item != null) {
             // COMMIT-TIME NO-OVERLAP GUARANTEE (dragux_v3 A8 hardening, user repro
             // 2026-07-04: dropping onto a row with two butted items could land

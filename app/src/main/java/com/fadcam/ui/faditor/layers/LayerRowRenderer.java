@@ -277,7 +277,47 @@ public final class LayerRowRenderer {
         if (dragActive && crossBandInsertionArmed) {
             drawCrossBandInsertionLine(canvas, hScrollOffsetPx, widthPx);
         }
+        if (dragActive && timeLockGuidesArmed) {
+            drawTimeLockGuides(canvas, timeToX);
+        }
         canvas.restore();
+    }
+
+    // ── A9-lite time-lock guides (dragux_v3 A9, user spec): while a cross-row move is
+    // time-locked (near-vertical drag keeping the original timing), 1px dotted vertical
+    // lines at the item's original start/end bounds confirm "same time, different layer".
+    // They vanish the moment the drag goes diagonal (controller disarms them). Dim by
+    // design — "they don't have to be very bright" (user).
+    private boolean timeLockGuidesArmed;
+    private long timeLockStartMs, timeLockDurMs;
+
+    public void setTimeLockGuides(boolean armed, long startMs, long durMs) {
+        this.timeLockGuidesArmed = armed;
+        this.timeLockStartMs = startMs;
+        this.timeLockDurMs = durMs;
+    }
+
+    private void drawTimeLockGuides(@NonNull Canvas canvas, @NonNull TimeToX timeToX) {
+        if (rows.isEmpty()) return;
+        float top = rows.get(0).bodyRect.top;
+        float bottom = rows.get(rows.size() - 1).bodyRect.bottom;
+        float x0 = timeToX.map(timeLockStartMs);
+        float x1 = timeToX.map(timeLockStartMs + Math.max(0, timeLockDurMs));
+        int prevColor = itemSelectionPaint.getColor();
+        Paint.Style prevStyle = itemSelectionPaint.getStyle();
+        float prevW = itemSelectionPaint.getStrokeWidth();
+        android.graphics.PathEffect prevEffect = itemSelectionPaint.getPathEffect();
+        itemSelectionPaint.setStyle(Paint.Style.STROKE);
+        itemSelectionPaint.setStrokeWidth(1f); // single-pixel per spec
+        itemSelectionPaint.setColor(0x9ACFCFD6);
+        itemSelectionPaint.setPathEffect(new android.graphics.DashPathEffect(
+                new float[]{2f * density, 2.5f * density}, 0f));
+        canvas.drawLine(x0, top, x0, bottom, itemSelectionPaint);
+        if (x1 > x0 + 1f) canvas.drawLine(x1, top, x1, bottom, itemSelectionPaint);
+        itemSelectionPaint.setPathEffect(prevEffect);
+        itemSelectionPaint.setStrokeWidth(prevW);
+        itemSelectionPaint.setColor(prevColor);
+        itemSelectionPaint.setStyle(prevStyle);
     }
 
     /** True while a picked-up drag hovers a row of the OTHER band — draw the insertion

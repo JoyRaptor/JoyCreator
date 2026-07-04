@@ -25,8 +25,9 @@ public class FaditorProject {
      * <p>v9 adds sprite sheets + placed sprite overlays (PLAN_SPRITE_ANIMATION S1),
      * same dual-write discipline: additive blocks always written, {@code schemaVersion}
      * stamped 9 only when the project actually contains sprite data.</p>
+     * <p>v10 adds avatar rigs (PLAN_AVATAR_STUDIO A1), stamped 10 only when rigs exist.</p>
      */
-    public static final int SCHEMA_VERSION = 9;
+    public static final int SCHEMA_VERSION = 10;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project
@@ -57,6 +58,11 @@ public class FaditorProject {
     /** Sprite-sheet definitions owned by this project (schema v9). Never null. */
     @NonNull
     private final java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets =
+            new java.util.ArrayList<>();
+
+    /** Avatar rigs owned by this project (schema v10, PLAN_AVATAR_STUDIO A1). Never null. */
+    @NonNull
+    private final java.util.List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs =
             new java.util.ArrayList<>();
 
     /** Schema version of this project's JSON. Set on creation, checked on load. */
@@ -187,6 +193,22 @@ public class FaditorProject {
         if (id == null) return null;
         for (com.fadcam.ui.faditor.sprite.SpriteSheet s : spriteSheets) {
             if (s.getId().equals(id)) return s;
+        }
+        return null;
+    }
+
+    /** Avatar rigs (schema v10) — live list, mutate directly. */
+    @NonNull
+    public java.util.List<com.fadcam.ui.faditor.avatar.AvatarRig> getAvatarRigs() {
+        return avatarRigs;
+    }
+
+    /** Rig lookup by id, or null. */
+    @androidx.annotation.Nullable
+    public com.fadcam.ui.faditor.avatar.AvatarRig avatarRigById(@androidx.annotation.Nullable String id) {
+        if (id == null) return null;
+        for (com.fadcam.ui.faditor.avatar.AvatarRig r : avatarRigs) {
+            if (r.getId().equals(id)) return r;
         }
         return null;
     }

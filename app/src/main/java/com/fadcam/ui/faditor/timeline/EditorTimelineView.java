@@ -509,6 +509,9 @@ public class EditorTimelineView extends View {
     private float trimDragStartFrac;          // Start fraction computed during trim drag
     private float trimDragEndFrac;            // End fraction computed during trim drag
     private float lastTrimFingerScreenX;      // Last finger screen X during trim drag (for edge scroll)
+    // A1 (slice 3): last finger SCREEN position during a picked-up item MOVE, consumed
+    // by edgeScrollRunnable's item branch to keep re-mapping the item as the view pans.
+    private float lastItemDragScreenX, lastItemDragScreenY;
     private long trimDragStartLoopBefore;     // loopBeforeMs at drag start (for loop extension)
     private long trimDragStartLoopAfter;      // loopAfterMs at drag start (for loop extension)
     private long trimDragLoopBefore;          // current loopBeforeMs during drag
@@ -642,6 +645,36 @@ public class EditorTimelineView extends View {
                 return;
             }
             reorderScrollPx = Math.max(0f, Math.min(reorderMaxScrollPx, reorderScrollPx + delta));
+            invalidate();
+            edgeScrollHandler.postDelayed(this, EDGE_SCROLL_INTERVAL_MS);
+            return;
+        }
+        // A1 (slice 3): picked-up row-item MOVE near a screen edge — pan the timeline
+        // continuously and re-map the item through the new offset each tick, so the
+        // item travels with the view and the WYSIWYG resolver keeps the preview legal
+        // the whole way. Suppressed while the minimap nav owns the finger or an
+        // excursion animation owns scrollOffsetPx (precedence handled in onMove).
+        if (m7ItemGestureActive && layerGestureController != null
+                && layerGestureController.isMoveDragActive() && !itemDragMinimapNav) {
+            if (excursionActive) {
+                isEdgeScrolling = false;
+                return;
+            }
+            float fx = lastItemDragScreenX;
+            int vw = getWidth();
+            float delta;
+            if (fx < edgeScrollZonePx) {
+                delta = -edgeScrollMaxSpeedPx * (1f - fx / edgeScrollZonePx);
+            } else if (fx > vw - edgeScrollZonePx) {
+                delta = edgeScrollMaxSpeedPx * (1f - (vw - fx) / edgeScrollZonePx);
+            } else {
+                isEdgeScrolling = false;
+                return;
+            }
+            scrollOffsetPx += delta;
+            clampScroll();
+            layerGestureController.onRowBodyMove(fx + scrollOffsetPx, lastItemDragScreenY,
+                    getM6RowsTopPx(), totalEffectiveMs, EditorTimelineView.this::xToTime);
             invalidate();
             edgeScrollHandler.postDelayed(this, EDGE_SCROLL_INTERVAL_MS);
             return;
@@ -807,6 +840,24 @@ public class EditorTimelineView extends View {
         float maxScroll = timeToX(getTimelineEndMs()) - centerX;
         target = Math.max(minScroll, Math.min(target, maxScroll));
         animateExcursionScrollTo(target, null);
+    }
+
+    /**
+     * Abandon an excursion IN PLACE (no glide home): the user deliberately started
+     * A1 edge auto-pan mid-excursion, so continuous travel takes over from wherever
+     * the view currently is — the pre-excursion anchor is forgotten (precedence rule:
+     * edge-pan = deliberate travel, beats the targeted butt reveal).
+     */
+    private void abandonExcursionInPlace() {
+        if (!excursionActive) return;
+        if (excursionAnimator != null) {
+            excursionAnimator.removeAllListeners();
+            excursionAnimator.removeAllUpdateListeners();
+            excursionAnimator.cancel();
+        }
+        excursionActive = false;
+        excursionShownJointMs = Long.MIN_VALUE;
+        if (layerGestureController != null) layerGestureController.setSuppressMoveMapping(false);
     }
 
     /** Animate back to the pre-excursion anchor; playhead stays content-locked until home. */
@@ -4513,11 +4564,31 @@ public class EditorTimelineView extends View {
             // no-ops a MOVE that hasn't been picked up, so this only moves after pickup.
             float scrolledX = x + scrollOffsetPx;
             layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
+            // A1 EDGE AUTO-PAN for a held item (dragux_v3, slice 3): sustained hold near
+            // the screen's left/right edge pans the timeline continuously to open more
+            // room. PRECEDENCE vs the off-screen butt reveal (S5): edge-pan = deliberate
+            // continuous travel and WINS while the finger is inside the edge zone — the
+            // excursion's dwell timer is cancelled and an in-flight excursion is
+            // abandoned in place (no glide home under a travelling finger). Outside the
+            // edge zone the targeted excursion reveal runs exactly as before.
+            boolean inEdgeZone = false;
+            if (layerGestureController.isMoveDragActive()) {
+                lastItemDragScreenX = x;
+                lastItemDragScreenY = y;
+                inEdgeZone = x < edgeScrollZonePx || x > getWidth() - edgeScrollZonePx;
+                if (inEdgeZone) {
+                    cancelPendingExcursionEnter();
+                    abandonExcursionInPlace();
+                }
+                startOrStopEdgeScroll(x);
+            }
             // FOLLOW-UP 1: drive the bookend excursion from the controller's poll state —
             // an armed bookend (occupied target row) animates the view to the joint;
             // disarming (finger left that row) animates back to the anchor.
             long joint = layerGestureController.getBookendJointMs();
-            if (joint != Long.MIN_VALUE && joint != excursionShownJointMs) {
+            if (inEdgeZone) {
+                // Edge-pan owns the view; the excursion stays out of the fight.
+            } else if (joint != Long.MIN_VALUE && joint != excursionShownJointMs) {
                 if (excursionActive) {
                     // Already out on the excursion: a flip/retarget is deliberate —
                     // immediate (no dwell).
@@ -4698,6 +4769,7 @@ public class EditorTimelineView extends View {
         }
         if (m7ItemGestureActive) {
             m7ItemGestureActive = false;
+            stopEdgeScroll(); // A1: the held-item edge pan ends with the finger
             if (itemDragMinimapNav) {
                 // Finger lifted while parked on the minimap band: end the nav state;
                 // the commit below drops the item where it already legally sits.

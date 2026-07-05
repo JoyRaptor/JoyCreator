@@ -349,6 +349,7 @@ public final class LayerGestureController {
         activeKind = GestureKind.MOVE;
         armMove(activeItem);
         rowRenderer.setLiftedItemId(activeItem.getId());
+        rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_SAME_ROW);
         return true;
     }
 
@@ -439,6 +440,16 @@ public final class LayerGestureController {
                 // (updateDragTarget is y/finger-driven, independent of the item's
                 // current position, so the reorder is safe).
                 updateDragTarget(x, y, topPx, totalMs);
+                // S5 off-screen butt placement (dragux_v3 slice-3 #5, user-designed,
+                // panel-relative like the original bookend spec): which HALF of the
+                // TIMELINE PANEL the finger is in decides which side of a covering
+                // sibling the resolver butts to when the desired spot is occupied —
+                // LEFT half = butt BEFORE the occupant (view then reveals the earlier
+                // joint), RIGHT half = butt AFTER. Free placement is unaffected; this
+                // only picks the ESCAPE side when the finger is inside a block.
+                float panelW = rowRenderer.getLastWidthPx();
+                fingerSidePref = panelW > 0f
+                        ? ((x - rowRenderer.getLastHScrollOffsetPx()) < panelW / 2f ? -1 : 1) : 0;
                 if (!suppressMoveMapping) {
                     long prospective = Math.max(0, t - moveGrabOffsetMs);
                     long draggedDur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
@@ -475,13 +486,28 @@ public final class LayerGestureController {
                         // the item to the nearest legal edge and we draw THAT (WYSIWYG),
                         // publishing the joint so the view reveals the butt.
                         long locked = resolveNoOverlapStart(dragStartTimelineMs, totalMs);
+                        long lockJoint = lastButtJointMs;
+                        if (locked == dragStartTimelineMs) {
+                            // A9 re-engage rule (b) (dragux_v3 SNAP-PRIORITY, BINDING):
+                            // while time-locked the butt-magnets stay FULLY suppressed —
+                            // EXCEPT when the item's edge AT ITS LOCKED TIME is already
+                            // within the snap radius of a neighbor's edge ("only when it
+                            // comes close to touching it"). Then, and only then, the
+                            // magnet clicks it the last millimetre into the butt.
+                            long touch = nearestButtWithin(dragStartTimelineMs, draggedDur,
+                                    totalMs, snapThrMs);
+                            if (touch != Long.MIN_VALUE) {
+                                locked = touch;
+                                lockJoint = bookendJointMs; // published by nearestButtWithin
+                            }
+                        }
                         applyMoveTo(locked, true);
                         rowRenderer.setTimeLockGuides(true, locked, draggedDur);
-                        if (locked != dragStartTimelineMs && lastButtJointMs != Long.MIN_VALUE) {
-                            bookendJointMs = lastButtJointMs;
+                        if (locked != dragStartTimelineMs && lockJoint != Long.MIN_VALUE) {
+                            bookendJointMs = lockJoint;
                             bookendSnapStartMs = locked;
-                            bookendAfter = locked >= lastButtJointMs;
-                        } else {
+                            bookendAfter = locked >= lockJoint;
+                        } else if (lockJoint == Long.MIN_VALUE) {
                             clearBookend();
                         }
                         setHomeSnapArmed(false);
@@ -561,6 +587,7 @@ public final class LayerGestureController {
             clearBookend();
             rowRenderer.setDragTargetTrackId(null);
             rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
+            rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_NEW_LAYER);
             return;
         }
         hoverNewLayerZone = false;
@@ -586,11 +613,20 @@ public final class LayerGestureController {
             hoverTargetTrack = null;
             clearBookend();
             rowRenderer.setDragTargetTrackId(null);
+            // S3 state colors: cross-band hover arms a NEW-LAYER drop → purple family
+            // (dashed); own row / plain rejection = a same-row move → item's own color.
+            rowRenderer.setDragOutlineState(crossBand
+                    ? LayerRowRenderer.DRAG_OUTLINE_NEW_LAYER
+                    : LayerRowRenderer.DRAG_OUTLINE_SAME_ROW);
             return;
         }
         hoverCrossBandNewLane = false;
         lastRejectedRowId = null;
         rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
+        // S3 (user 2026-07-04: outline "shows WHITE; expects the established PURPLE
+        // cross-row affordance"): hovering ANOTHER row = cross-row move → the dragged
+        // item's outline goes purple, same family as the target-row ring.
+        rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_CROSS_ROW);
 
         // REDESIGNED (dragux_v3 A3, supersedes FOLLOW-UP 1's forced bookend): hovering
         // an OCCUPIED same-band row no longer teleports the item to a screen-half
@@ -622,10 +658,20 @@ public final class LayerGestureController {
         long dur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
                 : activeItem.getDisplayDurationMs(totalMs);
         if (dur <= 0) return Math.max(0, desiredStart);
-        long[] r = nearestFreeStart(row, activeItem.getId(), desiredStart, dur, totalMs);
-        lastButtJointMs = r[1]; // MIN_VALUE when the placement touches nothing
-        return r[0];
+        long start = nearestFreeStart(row, activeItem.getId(), desiredStart, dur, totalMs,
+                fingerSidePref);
+        // lastButtJointMs is set by nearestFreeStart (MIN_VALUE when touching nothing).
+        return start;
     }
+
+    /** -1 = finger in LEFT half of the timeline panel, +1 = RIGHT half, 0 = unknown (S5). */
+    private int fingerSidePref = 0;
+
+    // ── Resolver scratch buffers (S2 perf: the resolver runs on EVERY move event, so
+    // it must not allocate — these primitive arrays are reused across calls and only
+    // regrow when a row gains more items than ever seen before). ──
+    private long[] blockStartBuf = new long[8];
+    private long[] blockEndBuf = new long[8];
 
     /**
      * Robust no-overlap placement (dragux_v3, user repro 2026-07-05: "I was able to
@@ -640,35 +686,88 @@ public final class LayerGestureController {
      * start ALWAYS exists — overlap can NEVER be returned. Proven over 13 cases in a
      * standalone harness before porting.
      *
-     * @return {@code {start, jointMs}} — {@code jointMs} is the sibling-block edge the
-     *         placement abuts (fed to the view's excursion so an off-screen joint is
-     *         revealed), or {@link Long#MIN_VALUE} when it lands in open space.
+     * <p><b>Perf (S2):</b> this runs on EVERY move event (the WYSIWYG live-resolved
+     * preview), so it is allocation-free: siblings are gathered into the reusable
+     * {@link #blockStartBuf}/{@link #blockEndBuf} arrays, insertion-sorted (rows hold a
+     * handful of items) and merged in place.</p>
+     *
+     * <p><b>S5 side preference:</b> when {@code sidePref != 0} AND the desired interval
+     * actually intersects an occupied block (the finger is "inside" a sibling), the
+     * escape side is chosen by the finger's timeline-panel half instead of raw
+     * nearest-distance: {@code -1} = butt BEFORE that block, {@code +1} = butt AFTER —
+     * falling back to the other side, then to nearest, when the preferred side has no
+     * room. Free placements ignore the preference entirely.</p>
+     *
+     * <p>Sets {@link #lastButtJointMs} to the sibling-block edge the placement abuts
+     * (fed to the view's excursion so an off-screen joint is revealed), or
+     * {@link Long#MIN_VALUE} when it lands in open space; returns the start.</p>
      */
-    @NonNull
-    private static long[] nearestFreeStart(@NonNull Track row, @NonNull String selfId,
-                                           long desiredStart, long dur, long totalMs) {
-        java.util.List<long[]> iv = new java.util.ArrayList<>();
+    private long nearestFreeStart(@NonNull Track row, @NonNull String selfId,
+                                  long desiredStart, long dur, long totalMs, int sidePref) {
+        lastButtJointMs = Long.MIN_VALUE;
+        int n = 0;
         for (TimedItem sib : row.getItems()) {
             if (sib.getId().equals(selfId)) continue;
             long ss = sib.getTimelineStartMs();
             long se = ss + Math.max(0, sib.getDisplayDurationMs(totalMs));
-            if (se > ss) iv.add(new long[]{ss, se});
+            if (se <= ss) continue;
+            if (n == blockStartBuf.length) {
+                blockStartBuf = java.util.Arrays.copyOf(blockStartBuf, n * 2);
+                blockEndBuf = java.util.Arrays.copyOf(blockEndBuf, n * 2);
+            }
+            // Insertion sort by start (rows hold a handful of items).
+            int j = n;
+            while (j > 0 && blockStartBuf[j - 1] > ss) {
+                blockStartBuf[j] = blockStartBuf[j - 1];
+                blockEndBuf[j] = blockEndBuf[j - 1];
+                j--;
+            }
+            blockStartBuf[j] = ss;
+            blockEndBuf[j] = se;
+            n++;
         }
-        if (iv.isEmpty()) return new long[]{Math.max(0, desiredStart), Long.MIN_VALUE};
-        java.util.Collections.sort(iv, (a, b) -> Long.compare(a[0], b[0]));
-        // Merge touching/overlapping siblings into occupied blocks.
-        java.util.List<long[]> blocks = new java.util.ArrayList<>();
-        long bs = iv.get(0)[0], be = iv.get(0)[1];
-        for (int i = 1; i < iv.size(); i++) {
-            long[] cur = iv.get(i);
-            if (cur[0] <= be) be = Math.max(be, cur[1]);
-            else { blocks.add(new long[]{bs, be}); bs = cur[0]; be = cur[1]; }
+        if (n == 0) return Math.max(0, desiredStart);
+        // Merge touching/overlapping siblings into occupied blocks, in place.
+        int m = 0;
+        for (int i = 1; i < n; i++) {
+            if (blockStartBuf[i] <= blockEndBuf[m]) {
+                blockEndBuf[m] = Math.max(blockEndBuf[m], blockEndBuf[i]);
+            } else {
+                m++;
+                blockStartBuf[m] = blockStartBuf[i];
+                blockEndBuf[m] = blockEndBuf[i];
+            }
         }
-        blocks.add(new long[]{bs, be});
+        int blockCount = m + 1;
+
+        // S5: finger inside a block + a side preference → escape to the chosen side.
+        if (sidePref != 0) {
+            for (int i = 0; i < blockCount; i++) {
+                if (desiredStart < blockEndBuf[i] && desiredStart + dur > blockStartBuf[i]) {
+                    long beforeStart = blockStartBuf[i] - dur;
+                    boolean beforeOk = beforeStart >= 0
+                            && (i == 0 || beforeStart >= blockEndBuf[i - 1]);
+                    long afterStart = blockEndBuf[i];
+                    boolean afterOk = i + 1 >= blockCount
+                            || blockStartBuf[i + 1] - afterStart >= dur;
+                    if (sidePref < 0 ? beforeOk : afterOk) {
+                        boolean before = sidePref < 0;
+                        lastButtJointMs = before ? blockStartBuf[i] : blockEndBuf[i];
+                        return before ? beforeStart : afterStart;
+                    }
+                    if (sidePref < 0 ? afterOk : beforeOk) {
+                        boolean before = sidePref >= 0; // preferred side had no room → flip
+                        lastButtJointMs = before ? blockStartBuf[i] : blockEndBuf[i];
+                        return before ? beforeStart : afterStart;
+                    }
+                    break; // neither adjacent side fits → nearest-logic below decides
+                }
+            }
+        }
 
         long bestStart = Long.MIN_VALUE, bestJoint = Long.MIN_VALUE, bestDist = Long.MAX_VALUE;
         // (a) Before the first block.
-        long firstStart = blocks.get(0)[0];
+        long firstStart = blockStartBuf[0];
         if (firstStart - dur >= 0) {
             long hi = firstStart - dur;
             long cand = Math.max(0, Math.min(desiredStart, hi));
@@ -677,27 +776,28 @@ public final class LayerGestureController {
             if (dist < bestDist) { bestDist = dist; bestStart = cand; bestJoint = joint; }
         }
         // (b) Between consecutive blocks (only gaps wide enough for dur).
-        for (int i = 0; i + 1 < blocks.size(); i++) {
-            long gapLo = blocks.get(i)[1];
-            long gapHi = blocks.get(i + 1)[0] - dur;
+        for (int i = 0; i + 1 < blockCount; i++) {
+            long gapLo = blockEndBuf[i];
+            long gapHi = blockStartBuf[i + 1] - dur;
             if (gapHi >= gapLo) {
                 long cand = Math.max(gapLo, Math.min(desiredStart, gapHi));
                 long dist = Math.abs(cand - desiredStart);
                 long joint = Long.MIN_VALUE;
-                if (cand == gapLo) joint = blocks.get(i)[1];
-                else if (cand + dur == blocks.get(i + 1)[0]) joint = blocks.get(i + 1)[0];
+                if (cand == gapLo) joint = blockEndBuf[i];
+                else if (cand + dur == blockStartBuf[i + 1]) joint = blockStartBuf[i + 1];
                 if (dist < bestDist) { bestDist = dist; bestStart = cand; bestJoint = joint; }
             }
         }
         // (c) After the last block — always feasible, so a legal spot ALWAYS exists.
-        long tailLo = blocks.get(blocks.size() - 1)[1];
+        long tailLo = blockEndBuf[blockCount - 1];
         long cand = Math.max(tailLo, desiredStart);
         long dist = Math.abs(cand - desiredStart);
         if (dist < bestDist) {
             bestStart = cand;
             bestJoint = (cand == tailLo) ? tailLo : Long.MIN_VALUE;
         }
-        return new long[]{Math.max(0, bestStart), bestJoint};
+        lastButtJointMs = bestJoint;
+        return Math.max(0, bestStart);
     }
 
     /** Joint (ms) the last {@link #resolveNoOverlapStart} butted against, else MIN_VALUE. */
@@ -966,6 +1066,7 @@ public final class LayerGestureController {
         rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
         rowRenderer.setTimeLockGuides(false, 0, 0);
+        rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_NONE);
         if (wasMoved && item != null) {
             // COMMIT-TIME NO-OVERLAP GUARANTEE (dragux_v3 A8 hardening, user repro
             // 2026-07-04: dropping onto a row with two butted items could land
@@ -1059,9 +1160,13 @@ public final class LayerGestureController {
      * same oscillate-and-give-up-overlapping bug — user repro 2026-07-05). Duration comes
      * from the pre-reset captured display duration.
      */
-    private static long resolveOverlapOnRow(@NonNull Track row, @NonNull TimedItem moved,
-                                            long desiredStart, long dur) {
-        return nearestFreeStart(row, moved.getId(), desiredStart, dur, Long.MAX_VALUE / 4)[0];
+    private long resolveOverlapOnRow(@NonNull Track row, @NonNull TimedItem moved,
+                                     long desiredStart, long dur) {
+        // Same side preference as the live preview (S5) so the commit can never land on
+        // a different side than the WYSIWYG outline forecast (the guard normally no-ops:
+        // the live position is already legal, so the resolver returns it unchanged).
+        return nearestFreeStart(row, moved.getId(), desiredStart, dur, Long.MAX_VALUE / 4,
+                fingerSidePref);
     }
 
     /** Apply a commit-time corrected start to {@code item}, preserving duration + open end. */

@@ -487,6 +487,52 @@ public final class LayerRowRenderer {
     /** Set/clear which item (by id) is picked up for a move, so it draws with a lift affordance. */
     public void setLiftedItemId(@Nullable String itemId) { this.liftedItemId = itemId; }
 
+    // ── S3 drag-state outline (dragux_v3 slice-3 #2, user hand-tests 2026-07-04/05):
+    // one unambiguous outline color per drag state on the LIFTED item itself. The user
+    // saw WHITE where purple was expected — that was the generic selection stroke
+    // (base color blended 55% toward white) still drawing on the dragged item; while
+    // lifted, THIS outline replaces it entirely. ──
+    /** No pickup in progress — no drag outline. */
+    public static final int DRAG_OUTLINE_NONE = 0;
+    /** Landing on the item's OWN row: outline = the item's own color family (slightly
+     *  brightened, never blended near white). */
+    public static final int DRAG_OUTLINE_SAME_ROW = 1;
+    /** Landing on ANOTHER row: the established PURPLE cross-row/linkage affordance. */
+    public static final int DRAG_OUTLINE_CROSS_ROW = 2;
+    /** Landing creates a NEW layer (pinned zone or cross-band arm): lighter purple,
+     *  DASHED — same family as cross-row but visibly "not an existing row". */
+    public static final int DRAG_OUTLINE_NEW_LAYER = 3;
+    private int dragOutlineState = DRAG_OUTLINE_NONE;
+
+    /** Set by {@link LayerGestureController} as the hover target changes mid-drag. */
+    public void setDragOutlineState(int state) { this.dragOutlineState = state; }
+
+    /** Outline around the lifted item encoding the CURRENT landing state (see consts).
+     *  Snap-home keeps its own cue (the brightened home ghost) — unchanged. */
+    private void drawDragStateOutline(@NonNull Canvas canvas, float x0, float top,
+                                       float x1, float bottom, int baseColor) {
+        int color;
+        boolean dashed = false;
+        switch (dragOutlineState) {
+            case DRAG_OUTLINE_CROSS_ROW: color = COLOR_DROP_TARGET_RING; break;
+            case DRAG_OUTLINE_NEW_LAYER: color = brighten(COLOR_DROP_TARGET_RING); dashed = true; break;
+            case DRAG_OUTLINE_SAME_ROW: color = blendToWhite(baseColor | 0xFF000000, 0.22f); break;
+            default: return;
+        }
+        int prevColor = itemSelectionPaint.getColor();
+        android.graphics.PathEffect prevEffect = itemSelectionPaint.getPathEffect();
+        itemSelectionPaint.setColor(color);
+        if (dashed) {
+            itemSelectionPaint.setPathEffect(new android.graphics.DashPathEffect(
+                    new float[]{5f * density, 3f * density}, 0f));
+        }
+        float ins = (SELECTION_STROKE_DP * density) / 2f;
+        canvas.drawRoundRect(x0 + ins, top + ins, x1 - ins, bottom - ins,
+                3f * density, 3f * density, itemSelectionPaint);
+        itemSelectionPaint.setPathEffect(prevEffect);
+        itemSelectionPaint.setColor(prevColor);
+    }
+
     // ── Home ghost (feedback 2026-07-03am): the item's ORIGINAL extent during a
     // move/trim gesture — a grey outline at where-it-was, brightening when the gesture
     // is within snap range of putting it back exactly (release = original, no undo). ──
@@ -709,7 +755,12 @@ public final class LayerRowRenderer {
             // mirroring the exact zones hitTestItem already hit-tests for a selected
             // item (ITEM_HANDLE_HALF_WIDTH_DP) — those zones were already live/
             // draggable; this just makes them visible instead of an invisible hot zone.
-            if (selectedItemId != null && selectedItemId.equals(item.getId())) {
+            if (lifted) {
+                // S3: while lifted, the drag-state outline is the ONLY outline — the
+                // generic near-white selection stroke is suppressed (it was the WHITE
+                // the user reported where purple was expected).
+                drawDragStateOutline(canvas, x0, top, x1, bottom, baseColor);
+            } else if (selectedItemId != null && selectedItemId.equals(item.getId())) {
                 drawItemSelection(canvas, x0, top, x1, bottom, baseColor);
             }
             if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
@@ -803,11 +854,15 @@ public final class LayerRowRenderer {
 
     /** Blend {@code color} 55% toward white, preserving its alpha (a "brightened" accent). */
     private static int brighten(int color) {
+        return blendToWhite(color, 0.55f);
+    }
+
+    /** Blend {@code color} {@code t} of the way toward white, preserving its alpha. */
+    private static int blendToWhite(int color, float t) {
         int a = (color >>> 24) & 0xFF;
         int r = (color >>> 16) & 0xFF;
         int g = (color >>> 8) & 0xFF;
         int b = color & 0xFF;
-        float t = 0.55f;
         r = (int) (r + (255 - r) * t);
         g = (int) (g + (255 - g) * t);
         b = (int) (b + (255 - b) * t);

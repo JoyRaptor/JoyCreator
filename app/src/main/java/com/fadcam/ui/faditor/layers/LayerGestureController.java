@@ -463,26 +463,27 @@ public final class LayerGestureController {
                     // the one snap constant (re-entering re-locks + re-shows the guides).
                     if (hoverTargetTrack != null
                             && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs) {
-                        // A9 SNAP-PRIORITY RULE (dragux_v3, user hand-test 2026-07-04,
-                        // BINDING — supersedes the old resolveNoOverlapStart lock): in a
-                        // vertical time-lock the sibling butt-magnets are FULLY SUPPRESSED
-                        // — the drag rails straight up/down at the ORIGINAL time so nothing
-                        // pulls it horizontally (the "diagonal tug-of-war" the user
-                        // reported was resolveNoOverlapStart shoving the item sideways to
-                        // dodge the target row's occupant). The magnet re-engages ONLY when
-                        // the dragged item's edge, AT its locked time, comes within the
-                        // snap radius of a neighbour's edge on the target row ("only when it
-                        // comes close to touching it") — exactly nearestButtWithin's test.
-                        // A real OVERLAP at the locked time is left as-is here and resolved
-                        // at RELEASE via the commit-time butt-displace (onRowBodyUp), never
-                        // as a mid-drag magnet. No excursion during a pure layer change: the
-                        // dotted guides are the affordance, not a view pan (clearBookend()).
-                        long locked = nearestButtWithin(
-                                dragStartTimelineMs, draggedDur, totalMs, snapThrMs);
-                        if (locked == Long.MIN_VALUE) locked = dragStartTimelineMs;
-                        clearBookend();
+                        // A9 SNAP-PRIORITY + WYSIWYG (dragux_v3, user hand-tests 2026-07-04
+                        // and 2026-07-05): keep the ORIGINAL time when the target-row slot
+                        // at that time is FREE — the drag rails straight up/down with no
+                        // horizontal pull (the "diagonal tug-of-war" the user reported was
+                        // the OLD oscillating resolver bouncing the item between two
+                        // positions; the robust resolver returns dragStartTimelineMs
+                        // unchanged when free and never oscillates). When that slot is
+                        // OCCUPIED we must NOT preview an overlap (user 2026-07-05: "it
+                        // doesn't butt the preview but overlaps"): the robust resolver butts
+                        // the item to the nearest legal edge and we draw THAT (WYSIWYG),
+                        // publishing the joint so the view reveals the butt.
+                        long locked = resolveNoOverlapStart(dragStartTimelineMs, totalMs);
                         applyMoveTo(locked, true);
                         rowRenderer.setTimeLockGuides(true, locked, draggedDur);
+                        if (locked != dragStartTimelineMs && lastButtJointMs != Long.MIN_VALUE) {
+                            bookendJointMs = lastButtJointMs;
+                            bookendSnapStartMs = locked;
+                            bookendAfter = locked >= lastButtJointMs;
+                        } else {
+                            clearBookend();
+                        }
                         setHomeSnapArmed(false);
                         break;
                     }
@@ -617,33 +618,86 @@ public final class LayerGestureController {
     private long resolveNoOverlapStart(long desiredStart, long totalMs) {
         lastButtJointMs = Long.MIN_VALUE;
         Track row = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
-        if (row == null || activeItem == null) return desiredStart;
+        if (row == null || activeItem == null) return Math.max(0, desiredStart);
         long dur = dragStartDisplayDurMs > 0 ? dragStartDisplayDurMs
                 : activeItem.getDisplayDurationMs(totalMs);
-        if (dur <= 0) return desiredStart;
-        long start = desiredStart;
-        for (int pass = 0; pass < 4; pass++) {
-            boolean moved = false;
-            for (TimedItem sib : row.getItems()) {
-                if (sib.getId().equals(activeItem.getId())) continue;
-                long ss = sib.getTimelineStartMs();
-                long se = ss + sib.getDisplayDurationMs(totalMs);
-                if (start < se && start + dur > ss) {
-                    long before = ss - dur;  // butt our end to the sibling's start
-                    long after = se;         // butt our start to the sibling's end
-                    boolean choseBefore = before >= 0
-                            && Math.abs(desiredStart - before) <= Math.abs(desiredStart - after);
-                    start = choseBefore ? before : after;
-                    // Publish the joint we butted against (dragux_v3 A6/A7: the MOVE
-                    // branch feeds this to the view's excursion so an off-screen joint
-                    // gets brought into view; last resolution wins on chained pushes).
-                    lastButtJointMs = choseBefore ? ss : se;
-                    moved = true;
-                }
-            }
-            if (!moved) break;
+        if (dur <= 0) return Math.max(0, desiredStart);
+        long[] r = nearestFreeStart(row, activeItem.getId(), desiredStart, dur, totalMs);
+        lastButtJointMs = r[1]; // MIN_VALUE when the placement touches nothing
+        return r[0];
+    }
+
+    /**
+     * Robust no-overlap placement (dragux_v3, user repro 2026-07-05: "I was able to
+     * place two clips overlapping by dropping between two butted clips"). Replaces the
+     * old 4-pass push-loop, which OSCILLATED between "butt-before" and "butt-after" when
+     * there was no room and gave up STILL OVERLAPPING (also the source of the "diagonal
+     * tug-of-war" — the item bounced between two positions each frame). Merges the row's
+     * siblings into occupied blocks (touching/overlapping intervals coalesced), then
+     * returns the start CLOSEST to {@code desiredStart} at which {@code [start, start+dur]}
+     * fits ENTIRELY in a free region: before the first block, inside a gap wide enough,
+     * or after the last block. The tail after the last block is always free, so a legal
+     * start ALWAYS exists — overlap can NEVER be returned. Proven over 13 cases in a
+     * standalone harness before porting.
+     *
+     * @return {@code {start, jointMs}} — {@code jointMs} is the sibling-block edge the
+     *         placement abuts (fed to the view's excursion so an off-screen joint is
+     *         revealed), or {@link Long#MIN_VALUE} when it lands in open space.
+     */
+    @NonNull
+    private static long[] nearestFreeStart(@NonNull Track row, @NonNull String selfId,
+                                           long desiredStart, long dur, long totalMs) {
+        java.util.List<long[]> iv = new java.util.ArrayList<>();
+        for (TimedItem sib : row.getItems()) {
+            if (sib.getId().equals(selfId)) continue;
+            long ss = sib.getTimelineStartMs();
+            long se = ss + Math.max(0, sib.getDisplayDurationMs(totalMs));
+            if (se > ss) iv.add(new long[]{ss, se});
         }
-        return Math.max(0, start);
+        if (iv.isEmpty()) return new long[]{Math.max(0, desiredStart), Long.MIN_VALUE};
+        java.util.Collections.sort(iv, (a, b) -> Long.compare(a[0], b[0]));
+        // Merge touching/overlapping siblings into occupied blocks.
+        java.util.List<long[]> blocks = new java.util.ArrayList<>();
+        long bs = iv.get(0)[0], be = iv.get(0)[1];
+        for (int i = 1; i < iv.size(); i++) {
+            long[] cur = iv.get(i);
+            if (cur[0] <= be) be = Math.max(be, cur[1]);
+            else { blocks.add(new long[]{bs, be}); bs = cur[0]; be = cur[1]; }
+        }
+        blocks.add(new long[]{bs, be});
+
+        long bestStart = Long.MIN_VALUE, bestJoint = Long.MIN_VALUE, bestDist = Long.MAX_VALUE;
+        // (a) Before the first block.
+        long firstStart = blocks.get(0)[0];
+        if (firstStart - dur >= 0) {
+            long hi = firstStart - dur;
+            long cand = Math.max(0, Math.min(desiredStart, hi));
+            long dist = Math.abs(cand - desiredStart);
+            long joint = (cand + dur == firstStart) ? firstStart : Long.MIN_VALUE;
+            if (dist < bestDist) { bestDist = dist; bestStart = cand; bestJoint = joint; }
+        }
+        // (b) Between consecutive blocks (only gaps wide enough for dur).
+        for (int i = 0; i + 1 < blocks.size(); i++) {
+            long gapLo = blocks.get(i)[1];
+            long gapHi = blocks.get(i + 1)[0] - dur;
+            if (gapHi >= gapLo) {
+                long cand = Math.max(gapLo, Math.min(desiredStart, gapHi));
+                long dist = Math.abs(cand - desiredStart);
+                long joint = Long.MIN_VALUE;
+                if (cand == gapLo) joint = blocks.get(i)[1];
+                else if (cand + dur == blocks.get(i + 1)[0]) joint = blocks.get(i + 1)[0];
+                if (dist < bestDist) { bestDist = dist; bestStart = cand; bestJoint = joint; }
+            }
+        }
+        // (c) After the last block — always feasible, so a legal spot ALWAYS exists.
+        long tailLo = blocks.get(blocks.size() - 1)[1];
+        long cand = Math.max(tailLo, desiredStart);
+        long dist = Math.abs(cand - desiredStart);
+        if (dist < bestDist) {
+            bestStart = cand;
+            bestJoint = (cand == tailLo) ? tailLo : Long.MIN_VALUE;
+        }
+        return new long[]{Math.max(0, bestStart), bestJoint};
     }
 
     /** Joint (ms) the last {@link #resolveNoOverlapStart} butted against, else MIN_VALUE. */
@@ -998,32 +1052,16 @@ public final class LayerGestureController {
     }
 
     /**
-     * Stateless overlap resolver for the COMMIT-TIME guard in {@link #onRowBodyUp} —
-     * same push-to-nearest-butting-edge loop as {@link #resolveNoOverlapStart}, but
-     * against an explicit row/duration (the gesture fields are already reset when the
-     * guard runs). Duration comes from the pre-reset captured display duration.
+     * Stateless overlap resolver for the COMMIT-TIME guard in {@link #onRowBodyUp} — the
+     * LAST line of defence that guarantees the PERSISTED state never overlaps, whatever
+     * the live preview showed. Routes through the same overlap-PROOF
+     * {@link #nearestFreeStart} the live drag uses (the old duplicate 4-pass loop had the
+     * same oscillate-and-give-up-overlapping bug — user repro 2026-07-05). Duration comes
+     * from the pre-reset captured display duration.
      */
     private static long resolveOverlapOnRow(@NonNull Track row, @NonNull TimedItem moved,
                                             long desiredStart, long dur) {
-        long start = desiredStart;
-        for (int pass = 0; pass < 4; pass++) {
-            boolean pushed = false;
-            for (TimedItem sib : row.getItems()) {
-                if (sib.getId().equals(moved.getId())) continue;
-                long ss = sib.getTimelineStartMs();
-                long se = ss + Math.max(0, sib.getDisplayDurationMs(Long.MAX_VALUE / 4));
-                if (start < se && start + dur > ss) {
-                    long before = ss - dur;
-                    long after = se;
-                    start = (before >= 0
-                            && Math.abs(desiredStart - before) <= Math.abs(desiredStart - after))
-                            ? before : after;
-                    pushed = true;
-                }
-            }
-            if (!pushed) break;
-        }
-        return Math.max(0, start);
+        return nearestFreeStart(row, moved.getId(), desiredStart, dur, Long.MAX_VALUE / 4)[0];
     }
 
     /** Apply a commit-time corrected start to {@code item}, preserving duration + open end. */

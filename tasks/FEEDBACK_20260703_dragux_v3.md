@@ -88,7 +88,10 @@ exist on the shipped build).
 THE FIX (mandatory redesign, device-in-the-loop, NOT "by construction"): ONE drag proxy that follows the
 finger in BOTH axes continuously; its X is fed through the SAME resolver used at drop so it renders at the
 RESOLVED (butted, never-overlapping) position live; its Y selects the target row; a subtle origin-gap marker
-may remain but the moving object is ONE thing. Edge auto-pan + off-screen panel-half butt hang off that one
+may remain but the moving object is ONE thing. It must draw on EXACTLY ONE row (the hovered target) and
+nowhere else. 2026-07-05 GREEN-BUILD symptoms confirming this: (a) butt preview near objects on ANOTHER
+layer is inaccurate (E2 not running the resolver at finger X); (b) a stray preview of the item ALSO renders
+in the bottom row where it isn't targeted (E2 drawing on wrong rows). Edge auto-pan (A1) DID work on green. Edge auto-pan + off-screen panel-half butt hang off that one
 proxy's finger position. VERIFICATION RULE GOING FORWARD: no gesture item is "done" until the USER confirms
 on a GREEN build — instrument (ROWGESTURE-style) and iterate on user report + logcat, never code-trace alone.
 

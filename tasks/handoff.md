@@ -1,5 +1,24 @@
 # FadCam AI Handoff
 
+> **✅ 2026-07-05 — PHASE P RECOVERED, COMMITTED (7f5313a), FULLY DEVICE-VERIFIED. Step 1 of the
+> landing block below is DONE — next AI starts at step 2 (slice-3 gesture round).**
+> The prior agent's uncommitted Phase P work was found compile-GREEN (build.log: BUILD SUCCESSFUL,
+> installed SM-N960U) with a coherent diff across the 6 expected code files. Committed as 7f5313a
+> ("feat(layers): Phase P - track header menu + M11 ripple/gap toggle"). The AndroidManifest change
+> was ONLY the temp `exported=true` uiautomator-launch flip — reverted, NOT committed (per the standing
+> rule it never enters history). **Device verification (sandbox project bdd51919 project.json ground
+> truth):** P1 rename persisted (`trackDefs[0].name="RenamedP"`), P1 delete-with-migrate + P2 z-order
+> proven by the prior agent's on-device run; P3 CLOSED THIS SESSION — the persisted state shows
+> `rippleMode:"gap"` + `clip[1]` replaced in place by a `displayName:"Gap"`, `imageClip:true`,
+> `audioMuted:true` spacer pointing at a real generated 16×16 black PNG (`files/images/
+> faditor_gap_black.png`, 115 bytes on disk), `sourceDurationMs:19962` = the loop-extended original's
+> VISUAL duration (proves the `hasLoopExtension()?getVisualDurationMs():getTrimmedDurationMs()` branch),
+> clipCount preserved at 4 (no ripple shift). NOTE: the default-track-rename path (TrackFlags.customName
+> → layers-block "trackNames" map) is compile-verified only — the device test happened to rename a
+> USER-created LayerTrackDef track instead; both paths are in 7f5313a. OWED USER HAND-TEST (feel only):
+> long-press a layer header → menu; toggle ripple/gap chip → delete a clip → confirm black gap stays.
+> Now proceeding to slice-3 per the user-ordered queue.
+
 > **🛬 2026-07-04 night — SESSION LANDING (JoyRaptor/Fable orchestrator). PICKUP INSTRUCTIONS:**
 > **1. RECOVER PHASE P (probably in flight/killed at landing):** an agent was building "Phase P — layer
 > header long-press menu (rename/move-z/delete), z-order end-to-end, M11 ripple/gap toggle." Its

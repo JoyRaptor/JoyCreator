@@ -14,6 +14,12 @@
 > device-verify: (1) Avatar Studio opens + add part + arm/drag/blend; (2) place star-guy → scrub →
 > drag → undo; (3) export a clip with a sprite → ffmpeg frame extraction == preview (S6 acceptance).
 > Remaining Build-1: S3 palette panel → S5 lane/keyframing → S7 relink; then A2 MediaPipe driver.
+> **S3 LANDED TOO (ca496e7):** SpritePalettePanel — micro (frame-step transport + live cell readout)
+> + palette detents (instance chips, live cell-thumb carousel where TAP = drop a swap at the playhead
+> w/ one-step undo, flips, end-behavior cycle, ⚙ manager, empty "+ Load"). Sprites tool button now
+> opens the PANEL; manager dialog reachable via ⚙. Panel + full activity javac-clean (merged stub-R).
+> Build-1 now: S5 lane visuals (diamonds/ribbon on EditorTimelineView) + S7 relink are the only gaps;
+> swap-dropping itself already works via the palette (S5's mechanism, minus lane rendering).
 
 > **⚠️ 2026-07-05 ~09:30 — BUILD WATCHER IS DEAD (build.log frozen at 03:06; no gradle/java process).
 > USER: please restart the watcher** (`.\gradlew.bat installDefaultDebug --continuous > build.log` or

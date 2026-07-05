@@ -1,3 +1,7 @@
+# 📊 BUILD-1 STATUS 2026-07-05 (JoyRaptor lane): S1 ✅ S2 ✅ S2b-core ✅(c924c9f) S3 ✅(ca496e7)
+# S4 ✅(7df95e9) S6 ✅(f270f48) — S5 lane visuals + S7 relink remain; ALL of today's work is
+# javac-verified but OWED watcher-green + on-device acceptance (watcher died 03:06, see handoff).
+
 # ⚡ AMENDMENT 2026-07-03 (Fable, BINDING — read before the original plan below)
 The original plan (2026-07-01) predates the Layers landing and says "build on the current overlay system,
 migrate into Layers later." **That premise is obsolete — Layers SHIPPED (schema v8, Track/TimedItem,

@@ -9,6 +9,8 @@ import android.graphics.Typeface;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.ui.faditor.sprite.FrameTrack;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,10 +63,16 @@ public final class LayerRowRenderer {
     private static final int COLOR_ITEM_TEXT      = 0xDD8C3DFA;   // purple (TEXT/STICKER)
     private static final int COLOR_ITEM_VIDEO     = 0xDD4397FD;   // blue (VIDEO/IMAGE)
     private static final int COLOR_ITEM_AUDIO     = 0xDD35F6BF;   // aqua (AUDIO)
+    private static final int COLOR_ITEM_SPRITE    = 0xDDFFB74D;   // amber (SPRITE, S5)
     private static final int COLOR_ITEM_HIDDEN    = 0x552A2A2A;   // dimmed/ghosted
     private static final int COLOR_STRIP          = 0x99CC27FF;   // collapsed summary strip
     /** Selection stroke width, item-hit-test PLAN §6: "accent-colored stroke... per the item's color family." */
     private static final float SELECTION_STROKE_DP = 2f;
+
+    /** Reusable path for sprite frame-swap diamonds. */
+    private final Path spriteDiamondPath = new Path();
+    /** Paint for sprite frame-swap diamonds. */
+    private final Paint spriteDiamondPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     /** Which header icon zone a touch landed on. */
     public enum HitZone { CARET, HIDE, LOCK, MUTE, NONE }
@@ -748,6 +756,24 @@ public final class LayerRowRenderer {
                         row.bodyRect.centerY() + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
                 canvas.restore();
             }
+            // Frame-swap diamonds for sprite items (S5)
+            if (item.getSprite() != null) {
+                float cy = row.bodyRect.centerY();
+                float r = 4f * density;
+                int diamondColor = ghosted ? 0x66FFFFFF : 0xE6FFFFFF;
+                spriteDiamondPaint.setColor(diamondColor);
+                for (FrameTrack.Key k : item.getSprite().getFrameTrack().keys()) {
+                    float dx = timeToX.map(item.getTimelineStartMs() + k.timeMs);
+                    if (dx < x0 + 3f || dx > x1 - 3f) continue;
+                    spriteDiamondPath.rewind();
+                    spriteDiamondPath.moveTo(dx, cy - r);
+                    spriteDiamondPath.lineTo(dx + r, cy);
+                    spriteDiamondPath.lineTo(dx, cy + r);
+                    spriteDiamondPath.lineTo(dx - r, cy);
+                    spriteDiamondPath.close();
+                    canvas.drawPath(spriteDiamondPath, spriteDiamondPaint);
+                }
+            }
             // Stage 2 (PLAN §6): tap-select a row item → draw a clear selection state —
             // a brightened stroke in the item's OWN color family (not a generic white
             // ring), so the family reads at a glance (purple selection on a purple
@@ -876,6 +902,8 @@ public final class LayerRowRenderer {
                 return COLOR_ITEM_TEXT;
             case AUDIO:
                 return COLOR_ITEM_AUDIO;
+            case SPRITE:
+                return COLOR_ITEM_SPRITE;
             default:
                 return COLOR_ITEM_VIDEO;
         }
@@ -887,6 +915,10 @@ public final class LayerRowRenderer {
             return item.getTextOverlay().isImage() ? "IMG" : item.getTextOverlay().getText();
         }
         if (item.getAudioClip() != null) return item.getAudioClip().getLabel();
+        if (item.getSprite() != null) {
+            int keys = item.getSprite().getFrameTrack().size();
+            return keys > 1 ? "✦ " + keys : "✦";
+        }
         if (item.getClip() != null) return null; // master items already show thumbnails elsewhere
         return null;
     }

@@ -15,6 +15,14 @@
 > claim was a STALE build.log read (03:06 build) — retroactively covered by today's javac+harness.
 > Owed user hand-test when convenient: Sprites → Avatar Studio → new avatar → add star-guy part →
 > arm center cell, drag it, disarm, wiggle yaw/pitch — does the blend feel right?
+> **S4 SPRITE PREVIEW ALSO LANDED (7df95e9):** SpriteOverlayView above video / below text+captions,
+> resolver cells + keyframed transforms + drag/pinch/auto-keyframe/snap (TextOverlayLayer parity),
+> visibleSpriteItems shared filter (S6 export must reuse it), renderer cache identity-validated.
+> Interim placement: Sprites tool → tap sheet → "Place on video". javac-verified except
+> FaditorEditorActivity + XML (watcher). WHEN WATCHER RETURNS: confirm green, then device-verify
+> S4 (place star-guy, scrub, drag) + Avatar Studio launch. Remaining Build-1 queue: S3 palette
+> panel → S5 lane/keyframing → S6 export (via visibleSpriteItems + resolver) → S7 missing-sheet;
+> avatar A2 tracking driver AFTER (needs MediaPipe gradle dep = watcher).
 
 > **🎭 2026-07-05 — JOYRAPTOR LANE: A1 RESOLVER REVIEW GATE CLOSED (eafb687; see honesty note above re verification).**
 > Gate found 3 confirmed MAJOR defects in a9d6cc5's PuppetPoseResolver, all FIXED: (1) discrete props

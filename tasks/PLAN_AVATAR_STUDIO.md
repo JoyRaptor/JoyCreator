@@ -144,7 +144,15 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       replay is deterministic. FaditorProject.avatarRigs[] + storage round-trip, dual-write stamp v10.
       STILL OWED for A1 sign-off: resolver review gate + a scrub-driven matrix-editor scaffold (the UI
       half of A1) — next session's first work item.
-- [ ] A1-UI matrix editor  - [ ] A2 tracking driver  - [ ] A3 visemes  - [ ] A4 recorder integration
+- [x] A1-UI matrix editor SHIPPED (bb68685, 2026-07-05): AvatarStudioActivity + PuppetPreviewView
+      (parent∘child matrix composition at draw time, MISSING placeholder, drag-to-pose when armed) +
+      PoseMatrixView (authored solid / auto-blend dashed / armed ring / live blend marker). Arm-a-cell
+      seeds poses from the CURRENT blended state; clear-cell restores auto-blend. Entry: Sprites tool →
+      Avatar Studio → rig list. Review-gate fixes landed first (eafb687): per-part discrete hysteresis
+      (DiscreteState keyed domainId/partId), swapped-on-source-change, tolerant fromJson, pin
+      renormalization over pin-carriers — all proven by a JVM harness (7 cases green). OWED: on-device
+      launch verify once the build watcher returns; user feel-test of the blend.
+- [ ] A2 tracking driver (BLOCKED on watcher for the MediaPipe gradle dep)  - [ ] A3 visemes  - [ ] A4 recorder integration
 - [ ] A5 AI rigging  - [ ] A6 limbs (tracking trigger + PIN-WARP strips + dangle physics)
 
 ## MINED — GLM-5.1 external review, orchestrator-vetted (2026-07-04)

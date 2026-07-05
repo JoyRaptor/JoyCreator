@@ -32,6 +32,15 @@ implementation can't parallelize (one watcher tree, god-class files); reviews ca
 **S2 design gate:** before building the setup editor UX, do a design pass against competitor workflows —
 fold in tasks/RESEARCH_COMPETITOR_UX_20260703.md when it lands (in flight from another worker).
 
+**S4 STATUS 2026-07-05: PREVIEW SHIPPED (7df95e9), device verify owed (watcher down).**
+SpriteOverlayView in the preview stack (above video, below text/captions per the export rule):
+resolver-driven cell, KeyframeSet transforms, drag/pinch with auto-keyframe-when-armed + snap
+(TextOverlayLayer contract parity), MISSING placeholder, pass-through touches. SpriteOverlayItem
+gained the animated* helpers + TransformSnapshot (one undo step per gesture).
+LayerPreviewController.visibleSpriteItems is the SHARED hidden-track filter — S6 export MUST call it.
+Interim placement path until S3: Sprites tool → tap sheet → "Place on video" (first enabled cell,
+holds from playhead). S3 palette panel + S5 lane/keyframing remain next in Build 1.
+
 **S2 STATUS 2026-07-04: CORE SHIPPED + DEVICE-PROVEN** (cb07ad7 + the onCreate-order NPE fix):
 engine (SpriteSheetRenderer: decode-once, color-key-at-decode, cellRectSource geometry authority),
 SpriteGridEditorView (zoom/pan/tap/pivot), SpriteSheetEditorActivity (import→slice→name→save), Sprites

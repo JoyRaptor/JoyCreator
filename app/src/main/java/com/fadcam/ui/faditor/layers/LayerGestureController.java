@@ -460,8 +460,11 @@ public final class LayerGestureController {
                     // the original (overlap-resolved on the target row) and draw dotted
                     // vertical guides at the item's bounds ("same time, different layer").
                     // A larger horizontal move unlocks + hides them (diagonal = move both).
+                    // PHASE-R R3/R4: the lock zone IS the one snap constant (was 3× —
+                    // every drag-snap threshold now derives from the single 8dp tunable;
+                    // re-entering the zone re-locks + re-shows the guides).
                     if (hoverTargetTrack != null
-                            && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs * 3) {
+                            && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs) {
                         long locked = resolveNoOverlapStart(dragStartTimelineMs, totalMs);
                         applyMoveTo(locked, true);
                         rowRenderer.setTimeLockGuides(true, locked, draggedDur);
@@ -789,13 +792,31 @@ public final class LayerGestureController {
             // untouched by a trim gesture — only by MOVE. targetTimeMs is an absolute
             // timeline ms; the clip's offset is fixed during a trim, so subtracting it
             // converts to a source-relative in/out point.
+            // No-overlap law on AUDIO trims (PHASE-R R2, closing the f646bb9 gap: only
+            // the TEXT branch got sibling clamps). An audio item's timeline extent is
+            // [offsetMs, offsetMs + (out-in)] and offsetMs is FIXED during a trim, so
+            // ANY duration growth (right handle raising out, OR left handle lowering in)
+            // extends the item's END rightward and can cross a later same-row sibling.
+            // Clamp growth at the sibling ceiling; never force below the gesture-start
+            // extent (pre-existing overlaps must not un-trim, mirroring f646bb9), and
+            // the 500ms minimum always wins (mirrors the text MIN_TEXT_DURATION rule).
+            long offset = ac.getOffsetMs();
+            long startExtentEnd = offset + (dragStartTrimOutMs - dragStartTrimInMs);
             if (left) {
                 long newIn = Math.max(0, Math.min(dragStartTrimOutMs - AUDIO_MIN_TRIM_GAP_MS,
-                        targetTimeMs - ac.getOffsetMs()));
-                ac.setInPointMs(newIn);
+                        targetTimeMs - offset));
+                long proposedEnd = offset + (dragStartTrimOutMs - newIn);
+                long ceil = Math.max(trimSiblingCeil(offset, proposedEnd), startExtentEnd);
+                newIn = Math.max(newIn, offset + dragStartTrimOutMs - ceil);
+                newIn = Math.min(newIn, dragStartTrimOutMs - AUDIO_MIN_TRIM_GAP_MS);
+                ac.setInPointMs(Math.max(0, newIn));
             } else {
                 long newOut = Math.max(dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS,
-                        Math.min(srcDur, targetTimeMs - ac.getOffsetMs()));
+                        Math.min(srcDur, targetTimeMs - offset));
+                long proposedEnd = offset + (newOut - dragStartTrimInMs);
+                long ceil = Math.max(trimSiblingCeil(offset, proposedEnd), startExtentEnd);
+                newOut = Math.min(newOut, ceil - offset + dragStartTrimInMs);
+                newOut = Math.max(newOut, dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS);
                 ac.setOutPointMs(newOut);
             }
         }

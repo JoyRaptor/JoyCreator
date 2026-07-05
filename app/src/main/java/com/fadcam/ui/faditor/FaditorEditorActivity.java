@@ -8827,12 +8827,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         undoManager.recordAction(new EditActions.LambdaAction(description,
                 () -> { timeline.setTrackFlags(trackId, after.copy()); syncTimelineOverlays();
-                        applyAudioTrackMuteLive(timeline); },
+                        refreshPreviewOverlayVisibility(); applyAudioTrackMuteLive(timeline); },
                 () -> { timeline.setTrackFlags(trackId, before.copy()); syncTimelineOverlays();
-                        applyAudioTrackMuteLive(timeline); }));
+                        refreshPreviewOverlayVisibility(); applyAudioTrackMuteLive(timeline); }));
 
         syncTimelineOverlays();
+        // PHASE-R R1 (M-EXPORT-1 finding): syncTimelineOverlays() refreshes the TIMELINE
+        // rows + the (always-empty) image overlay surface, but the on-canvas PREVIEW
+        // TextOverlayLayer keeps whatever list its last setData() call fed it — so a
+        // hide toggle dimmed the row while the text stayed visible in the preview until
+        // a project reload re-fed it. Re-feed it through the same visibility authority
+        // here (and in the undo/redo lambdas above; performUndo/-Redo additionally goes
+        // through refreshEditorAfterUndoRedo which already re-feeds).
+        refreshPreviewOverlayVisibility();
         scheduleAutoSave();
+    }
+
+    /**
+     * PHASE-R R1: re-feed the preview {@code TextOverlayLayer} from
+     * {@link com.fadcam.ui.faditor.compositor.LayerPreviewController#visibleTextOverlays}
+     * (the single preview/export visibility authority) and re-evaluate it at the current
+     * playhead, so track hide/unhide takes effect in the preview immediately. Mirrors the
+     * refresh {@code refreshEditorAfterUndoRedo()} already performs.
+     */
+    private void refreshPreviewOverlayVisibility() {
+        if (overlayLayer != null && project != null) {
+            overlayLayer.setData(
+                    com.fadcam.ui.faditor.compositor.LayerPreviewController
+                            .visibleTextOverlays(project.getTimeline()),
+                    overlayLayerCallback());
+            overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+        }
     }
 
     /**

@@ -4662,6 +4662,24 @@ public class EditorTimelineView extends View {
 
         // Finish audio drag
         if (isDraggingAudio) {
+            // PHASE-R R2 (P0 A8, the user's repro path): the legacy waveform-lane drag
+            // wrote setOffsetMs raw all the way to release, so same-lane audio items
+            // could be dropped STACKED. Commit-time resolve to the nearest butting
+            // position (the established no-overlap rule); if no legal spot exists,
+            // snap back to the drag origin (established cancel behavior). No listener
+            // fires from this legacy path (pre-existing), so no undo semantics change.
+            if (dragAudioIndex >= 0 && dragAudioIndex < audioClips.size()) {
+                AudioClip movedAc = audioClips.get(dragAudioIndex);
+                if (!isUp) {
+                    // ACTION_CANCEL = interrupted gesture → abort, restore origin
+                    // (same rule the row-system controller applies on CANCEL).
+                    movedAc.setOffsetMs(dragAudioStartOffsetMs);
+                } else {
+                    long resolved = resolveAudioDropOffset(movedAc, movedAc.getOffsetMs());
+                    movedAc.setOffsetMs(resolved == Long.MIN_VALUE
+                            ? dragAudioStartOffsetMs : resolved);
+                }
+            }
             isDraggingAudio = false;
             dragAudioIndex = -1;
             pendingAudioIndex = -1;
@@ -5063,10 +5081,18 @@ public class EditorTimelineView extends View {
         long minGap = 500; // minimum 500ms
 
         boolean isLeft = (activeDrag == Drag.AUDIO_LEFT_HANDLE);
+        // PHASE-R R2: no-overlap law on legacy-lane audio trims. Extent grows rightward
+        // from the fixed offsetMs whenever (out - in) grows, on EITHER handle — clamp
+        // the growth at the same-lane sibling ceiling (never forcing an un-trim of a
+        // pre-existing overlap); the 500ms minimum always wins.
+        long curEnd = ac.getOffsetMs() + Math.max(0, ac.getTrimmedDurationMs());
         if (isLeft) {
             float deltaX = x - rect.left;
             long deltaMs = (long) (deltaX / pxPerMs);
             long newIn = Math.max(0, Math.min(ac.getOutPointMs() - minGap, ac.getInPointMs() + deltaMs));
+            long ceil = audioSiblingCeil(ac, ac.getOffsetMs() + (ac.getOutPointMs() - newIn), curEnd);
+            newIn = Math.max(newIn, ac.getOffsetMs() + ac.getOutPointMs() - ceil);
+            newIn = Math.max(0, Math.min(newIn, ac.getOutPointMs() - minGap));
             audioTrimDragInMs = newIn;
             audioTrimDragOutMs = ac.getOutPointMs();
         } else {
@@ -5074,6 +5100,9 @@ public class EditorTimelineView extends View {
             long deltaMs = (long) (deltaX / pxPerMs);
             long newOut = Math.max(ac.getInPointMs() + minGap,
                     Math.min(srcDur, ac.getOutPointMs() + deltaMs));
+            long ceil = audioSiblingCeil(ac, ac.getOffsetMs() + (newOut - ac.getInPointMs()), curEnd);
+            newOut = Math.min(newOut, ceil - ac.getOffsetMs() + ac.getInPointMs());
+            newOut = Math.max(newOut, ac.getInPointMs() + minGap);
             audioTrimDragInMs = ac.getInPointMs();
             audioTrimDragOutMs = newOut;
         }
@@ -5088,6 +5117,67 @@ public class EditorTimelineView extends View {
         if (listener != null) {
             listener.onAudioTrimChanged(selectedAudioIndex, audioTrimDragInMs, audioTrimDragOutMs, isLeft);
         }
+    }
+
+    /** Same-lane test for AUDIO clips (null layerId groups as "audio", mirroring Timeline#getAudioTracks). */
+    private boolean sameAudioLane(AudioClip a, AudioClip b) {
+        String ka = a.getLayerId() == null ? "audio" : a.getLayerId();
+        String kb = b.getLayerId() == null ? "audio" : b.getLayerId();
+        return ka.equals(kb);
+    }
+
+    /**
+     * PHASE-R R2: highest legal timeline END for {@code ac} (extent grows rightward from
+     * its fixed {@code offsetMs} during a trim) — may not cross into a same-lane sibling.
+     * Never forces below {@code currentEnd} (pre-existing overlaps must not un-trim,
+     * mirroring the f646bb9 text-lane pattern).
+     */
+    private long audioSiblingCeil(AudioClip ac, long proposedEnd, long currentEnd) {
+        long ceil = proposedEnd;
+        long ourStart = ac.getOffsetMs();
+        for (AudioClip sib : audioClips) {
+            if (sib == ac || !sameAudioLane(ac, sib)) continue;
+            long ss = sib.getOffsetMs();
+            long se = ss + Math.max(0, sib.getTrimmedDurationMs());
+            if (se > ourStart && ss < ceil) ceil = Math.min(ceil, ss);
+        }
+        return Math.max(ceil, currentEnd);
+    }
+
+    /**
+     * PHASE-R R2 (the user's audio-stacking repro lived on THIS legacy lane — the
+     * row-system got its resolver in c7442ae/caa628e, but the legacy waveform-lane
+     * long-press drag wrote {@code setOffsetMs} raw): resolve a dropped audio offset
+     * against same-lane siblings with the SAME butting rule as
+     * {@code LayerGestureController#resolveOverlapOnRow} — push to the nearer legal
+     * butt edge, multi-pass for chained pushes. Returns {@link Long#MIN_VALUE} when no
+     * non-overlapping position was found (caller snaps back to the drag origin,
+     * matching the established cancel behavior).
+     */
+    private long resolveAudioDropOffset(AudioClip moved, long desiredOffset) {
+        long dur = Math.max(0, moved.getTrimmedDurationMs());
+        if (dur <= 0) return desiredOffset;
+        long start = desiredOffset;
+        for (int pass = 0; pass < 4; pass++) {
+            boolean pushed = false;
+            for (AudioClip sib : audioClips) {
+                if (sib == moved || !sameAudioLane(moved, sib)) continue;
+                long ss = sib.getOffsetMs();
+                long se = ss + Math.max(0, sib.getTrimmedDurationMs());
+                if (start < se && start + dur > ss) {
+                    long before = ss - dur;
+                    long after = se;
+                    start = (before >= 0
+                            && Math.abs(desiredOffset - before) <= Math.abs(desiredOffset - after))
+                            ? before : after;
+                    pushed = true;
+                }
+            }
+            if (!pushed) {
+                return Math.max(0, start);
+            }
+        }
+        return Long.MIN_VALUE; // still colliding after 4 passes → snap-back
     }
 
     /** Same-lane test for the legacy overlay lane's no-overlap clamps (null layerId groups as "text"). */

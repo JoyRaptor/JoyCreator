@@ -1,5 +1,20 @@
 # FadCam AI Handoff
 
+> **🧵 2026-07-05 ~10:30 — JOYRAPTOR LANE SESSION SUMMARY (all commits local, watcher STILL down):**
+> eafb687 resolver review-gate fixes → bb68685 A1-UI matrix editor → 7df95e9 S4 sprite preview +
+> placement path → c924c9f S2b (grid auto-detect + bg-key UI + sidecar export) → f270f48 S6 export
+> compositing (preview parity by construction) → A2 core (One-Euro filter + smoother bank, harness
+> ALL GREEN). **EVERY touched .java file is compile-verified via direct javac** (technique now in
+> DEVICE_CONTROL_RUNBOOK-adjacent memory + reproduced below): real jars from ~/.gradle/caches
+> transforms + app intermediates + a javap-regenerated full stub R (new resource names injected);
+> fresh .class output dir FIRST on the classpath. Pure logic additionally proven by JVM harnesses
+> (ResolverGateTest 7/7, DetectorTest 6/6, OneEuroTest 6/6 — sources in the session scratchpad).
+> **NOT verified (needs watcher):** 3 XML files (manifest activity entry, layout sprite_overlay_layer
+> slot, strings) + on-device behavior. FIRST ACTION WHEN WATCHER RETURNS: confirm green build, then
+> device-verify: (1) Avatar Studio opens + add part + arm/drag/blend; (2) place star-guy → scrub →
+> drag → undo; (3) export a clip with a sprite → ffmpeg frame extraction == preview (S6 acceptance).
+> Remaining Build-1: S3 palette panel → S5 lane/keyframing → S7 relink; then A2 MediaPipe driver.
+
 > **⚠️ 2026-07-05 ~09:30 — BUILD WATCHER IS DEAD (build.log frozen at 03:06; no gradle/java process).
 > USER: please restart the watcher** (`.\gradlew.bat installDefaultDebug --continuous > build.log` or
 > your usual command). Gradle STILL can't run in-agent (loopback, re-tested today even unsandboxed).

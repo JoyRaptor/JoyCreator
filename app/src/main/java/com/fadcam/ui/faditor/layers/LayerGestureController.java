@@ -306,7 +306,10 @@ public final class LayerGestureController {
         pendingDeleteBadge = hit.zone == LayerRowRenderer.ItemZone.DELETE;
         hoverTargetTrack = null;
         hoverNewLayerZone = false;
+        lastLoggedHoverRow = null;
         rowRenderer.setDragTargetTrackId(null);
+        rowRenderer.setProxyRowTrackId(null);
+        rowRenderer.setProxyItem(null);
 
         if (hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE
                 || hit.zone == LayerRowRenderer.ItemZone.RIGHT_HANDLE) {
@@ -349,7 +352,15 @@ public final class LayerGestureController {
         activeKind = GestureKind.MOVE;
         armMove(activeItem);
         rowRenderer.setLiftedItemId(activeItem.getId());
+        // SPLIT-ELEMENT FIX: register the ONE proxy. proxyRowTrackId == null means "draw
+        // on the item's own/home row" (it starts on its home row); the renderer draws the
+        // single coherent body there, and moves it to the hovered target row as
+        // updateDragTarget flips proxyRowTrackId below.
+        rowRenderer.setProxyItem(activeItem);
+        rowRenderer.setProxyRowTrackId(null);
         rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_SAME_ROW);
+        rowGestureLog("pickup item=" + activeItem.getId() + " row=" + activeTrack.getId()
+                + " startMs=" + dragStartTimelineMs);
         return true;
     }
 
@@ -586,8 +597,13 @@ public final class LayerGestureController {
             hoverTargetTrack = null;
             clearBookend();
             rowRenderer.setDragTargetTrackId(null);
+            // SPLIT-ELEMENT FIX: over the new-layer zone the proxy stays on its HOME row
+            // (the insertion line shows where the new lane appears; the moving object
+            // itself remains the ONE coherent body on its origin row — no wrong-row leak).
+            rowRenderer.setProxyRowTrackId(null);
             rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
             rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_NEW_LAYER);
+            logHoverTarget("new-layer-zone");
             return;
         }
         hoverNewLayerZone = false;
@@ -613,11 +629,16 @@ public final class LayerGestureController {
             hoverTargetTrack = null;
             clearBookend();
             rowRenderer.setDragTargetTrackId(null);
+            // SPLIT-ELEMENT FIX: own row / locked-hidden reject / cross-band arm all keep
+            // the proxy on its HOME row (proxyRowTrackId == null) — the single body tracks
+            // the finger's X in place; it never leaks onto a rejected/other-band row.
+            rowRenderer.setProxyRowTrackId(null);
             // S3 state colors: cross-band hover arms a NEW-LAYER drop → purple family
             // (dashed); own row / plain rejection = a same-row move → item's own color.
             rowRenderer.setDragOutlineState(crossBand
                     ? LayerRowRenderer.DRAG_OUTLINE_NEW_LAYER
                     : LayerRowRenderer.DRAG_OUTLINE_SAME_ROW);
+            logHoverTarget(crossBand ? "cross-band-newlane" : "reject/own-row");
             return;
         }
         hoverCrossBandNewLane = false;
@@ -637,6 +658,39 @@ public final class LayerGestureController {
         // actual butting is in effect. Here we just track the hover target.
         hoverTargetTrack = candidate;
         rowRenderer.setDragTargetTrackId(candidate.getId());
+        // SPLIT-ELEMENT FIX: this is a VALID cross-row target — the ONE proxy body now
+        // draws on THIS row (candidate), at its resolved model X, and on no other row.
+        // The old E1 (source-row ghost) is suppressed and the old full-row E2 ring
+        // becomes just the target-row highlight behind the coherent proxy.
+        rowRenderer.setProxyRowTrackId(candidate.getId());
+        logHoverTarget("cross-row:" + candidate.getId());
+    }
+
+    // ── ROWGESTURE instrumentation (TEMP, split-element rewrite 2026-07-05) ──────────
+    // Greppable log tag for the device-in-the-loop hand-test: `adb logcat -d -s ROWGESTURE:D`.
+    // Gated behind ROWGESTURE_DEBUG so it is cheap when off. LEFT IN (marked TEMP) for the
+    // follow-up strip once the user confirms the single-proxy drag on a GREEN build.
+    /** TEMP: flip false to silence ROWGESTURE logs (kept true through the hand-test cycle). */
+    public static final boolean ROWGESTURE_DEBUG = true;
+    private static final String RG_TAG = "ROWGESTURE";
+    /** Last hover row id logged, to throttle per-move spam to one line per row change. */
+    @Nullable private String lastLoggedHoverRow;
+
+    static void rowGestureLog(@NonNull String msg) {
+        if (ROWGESTURE_DEBUG) com.fadcam.FLog.d(RG_TAG, msg);
+    }
+
+    /** Throttled hover/proxy-row log: one line whenever the hovered/target row changes. */
+    private void logHoverTarget(@NonNull String tag) {
+        if (!ROWGESTURE_DEBUG) return;
+        String key = tag;
+        if (!key.equals(lastLoggedHoverRow)) {
+            lastLoggedHoverRow = key;
+            String proxyRow = hoverTargetTrack != null ? hoverTargetTrack.getId()
+                    : (activeTrack != null ? activeTrack.getId() + "(home)" : "?");
+            rowGestureLog("hover " + tag + " drawnRow=" + proxyRow
+                    + " newLayerZone=" + hoverNewLayerZone);
+        }
     }
 
     /**

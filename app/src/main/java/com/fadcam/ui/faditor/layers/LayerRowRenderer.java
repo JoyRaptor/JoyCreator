@@ -495,6 +495,35 @@ public final class LayerRowRenderer {
     /** Set/clear which item (by id) is picked up for a move, so it draws with a lift affordance. */
     public void setLiftedItemId(@Nullable String itemId) { this.liftedItemId = itemId; }
 
+    // ── SPLIT-ELEMENT FIX (2026-07-05, user root-cause on real phone): the drag used to
+    // render as TWO disconnected half-objects — E1 (the brightened lifted body, drawn on
+    // its SOURCE row in drawExpandedItems, tracking finger-X only because the model row
+    // membership doesn't change until DROP) and E2 (the full-row purple ring in drawRow,
+    // tracking which row-Y is hovered but never the finger-X / the resolver). The fix:
+    // ONE proxy. The lifted body is now drawn on EXACTLY the hovered target row
+    // (proxyRowTrackId), at its already-resolved model X — so what you see under the
+    // finger is one coherent object that follows both axes and forecasts the drop
+    // (WYSIWYG). On its HOME row it leaves only the passive home-ghost gap marker; it is
+    // NOT redrawn there (no origin duplicate). It draws on no other row (no wrong-row
+    // leak). The controller keeps proxyRowTrackId == the hovered cross-row target, or ==
+    // the home row when the finger is over its own row / new-layer zone. ──
+    /** Row (track id) the single drag proxy body is drawn on this frame, or null (= home row). */
+    @Nullable private String proxyRowTrackId;
+    /** The lifted item itself (its model X is resolved live), so the proxy can be drawn on
+     *  a row it is not (yet) a member of — model membership only changes at DROP. */
+    @Nullable private TimedItem proxyItem;
+
+    /** Set the lifted item whose proxy body renders on {@link #proxyRowTrackId}. */
+    public void setProxyItem(@Nullable TimedItem item) { this.proxyItem = item; }
+
+    /**
+     * Set the row the lifted item's coherent proxy body renders on (the hovered cross-row
+     * target). {@code null} = the item's own/home row (the finger is over its own row, the
+     * new-layer zone, or no valid other target). The proxy is drawn on this row ONLY and
+     * nowhere else, eliminating the old source-row duplicate + wrong-row leak.
+     */
+    public void setProxyRowTrackId(@Nullable String trackId) { this.proxyRowTrackId = trackId; }
+
     // ── S3 drag-state outline (dragux_v3 slice-3 #2, user hand-tests 2026-07-04/05):
     // one unambiguous outline color per drag state on the LIFTED item itself. The user
     // saw WHITE where purple was expected — that was the generic selection stroke
@@ -720,78 +749,121 @@ public final class LayerRowRenderer {
             drawHomeGhost(canvas, top, bottom, timeToX);
         }
         for (TimedItem item : t.getItems()) {
-            float x0 = timeToX.map(item.getTimelineStartMs());
-            long dur = item.getDisplayDurationMs(totalMs);
-            // Draw floor 2dp (was 6dp): short clips must not RENDER wider than their
-            // true length — a floored bar overlapped its bookend neighbor and read as
-            // "the preview is longer than the clip" (feedback 2026-07-03am). Hit-testing
-            // keeps a wider grab floor; forgiving hit > honest hit, but drawing must be
-            // honest.
-            float x1 = Math.max(x0 + 2f * density, timeToX.map(item.getTimelineStartMs() + dur));
             boolean lifted = liftedItemId != null && liftedItemId.equals(item.getId());
-            if (lifted) {
-                // Picked-up-for-move "lift": a soft drop shadow just below/right + a
-                // brightened, slightly inflated body so it visibly rises off the row
-                // (PLAN TARGET CONTRACT: "haptic + a visible lift"). Drawn before the
-                // body so the shadow sits under it.
-                itemPaint.setColor(0x66000000);
-                float sh = 2f * density;
-                canvas.drawRoundRect(x0 + sh, top + sh, x1 + sh, bottom + sh,
-                        3f * density, 3f * density, itemPaint);
+            // SPLIT-ELEMENT FIX: the lifted item is a single PROXY drawn on the hovered
+            // target row (proxyRowTrackId), NOT here on its source row, whenever the proxy
+            // has moved to another row. On its home row (proxyRowTrackId == null or ==
+            // this row) it still draws here so a same-row move tracks under the finger.
+            if (lifted && proxyRowTrackId != null && !proxyRowTrackId.equals(t.getId())) {
+                // The moving object left this row; leave only the passive home-ghost gap
+                // marker (drawn above) — do NOT draw a second copy of the item here.
+                continue;
             }
-            itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : (lifted ? brighten(baseColor) : baseColor));
-            if (lifted) {
-                float grow = 1.5f * density;
-                canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
-                        3f * density, 3f * density, itemPaint);
-            } else {
-                canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
+            drawItemBody(canvas, item, t.getKind(), baseColor, ghosted, lifted,
+                    top, bottom, row.bodyRect.centerY(), totalMs, timeToX, selectedItemId);
+        }
+        // SPLIT-ELEMENT FIX (single proxy): if THIS row is the hovered cross-row target
+        // and the lifted proxy item's home row is a DIFFERENT track, draw the ONE proxy
+        // body here — at its already-resolved model X (WYSIWYG, fed by the same drop
+        // resolver every move) — so the coherent moving object lives under the finger on
+        // exactly this row and nowhere else.
+        if (proxyItem != null && proxyRowTrackId != null && proxyRowTrackId.equals(t.getId())
+                && liftedItemId != null && liftedItemId.equals(proxyItem.getId())
+                && !isItemOnRow(proxyItem, t)) {
+            drawItemBody(canvas, proxyItem, t.getKind(), baseColorFor(t.getKind()), ghosted,
+                    true, top, bottom, row.bodyRect.centerY(), totalMs, timeToX, selectedItemId);
+        }
+    }
+
+    /** True if {@code item} is a member of {@code t}'s (ephemeral) item list this frame. */
+    private static boolean isItemOnRow(@NonNull TimedItem item, @NonNull Track t) {
+        for (TimedItem sib : t.getItems()) {
+            if (sib.getId().equals(item.getId())) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Draw a single item block (body + label + sprite diamonds + selection/drag outline
+     * + trim stripes). Extracted so the SPLIT-ELEMENT single-proxy fix can render the
+     * lifted item on its hovered target row (a row it is not yet a member of) with the
+     * exact same visuals as an in-place item, guaranteeing one coherent object.
+     */
+    private void drawItemBody(@NonNull Canvas canvas, @NonNull TimedItem item,
+                               @NonNull TrackKind rowKind, int baseColor, boolean ghosted,
+                               boolean lifted, float top, float bottom, float centerY,
+                               long totalMs, @NonNull TimeToX timeToX,
+                               @Nullable String selectedItemId) {
+        float x0 = timeToX.map(item.getTimelineStartMs());
+        long dur = item.getDisplayDurationMs(totalMs);
+        // Draw floor 2dp (was 6dp): short clips must not RENDER wider than their
+        // true length — a floored bar overlapped its bookend neighbor and read as
+        // "the preview is longer than the clip" (feedback 2026-07-03am). Hit-testing
+        // keeps a wider grab floor; forgiving hit > honest hit, but drawing must be
+        // honest.
+        float x1 = Math.max(x0 + 2f * density, timeToX.map(item.getTimelineStartMs() + dur));
+        if (lifted) {
+            // Picked-up-for-move "lift": a soft drop shadow just below/right + a
+            // brightened, slightly inflated body so it visibly rises off the row
+            // (PLAN TARGET CONTRACT: "haptic + a visible lift"). Drawn before the
+            // body so the shadow sits under it.
+            itemPaint.setColor(0x66000000);
+            float sh = 2f * density;
+            canvas.drawRoundRect(x0 + sh, top + sh, x1 + sh, bottom + sh,
+                    3f * density, 3f * density, itemPaint);
+        }
+        itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : (lifted ? brighten(baseColor) : baseColor));
+        if (lifted) {
+            float grow = 1.5f * density;
+            canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
+                    3f * density, 3f * density, itemPaint);
+        } else {
+            canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
+        }
+        String label = labelFor(item);
+        if (label != null && !label.isEmpty()) {
+            canvas.save();
+            canvas.clipRect(x0, top, x1, bottom);
+            itemLabelPaint.setColor(ghosted ? 0x88FFFFFF : 0xFFFFFFFF);
+            canvas.drawText(label, x0 + 5f * density,
+                    centerY + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
+            canvas.restore();
+        }
+        // Frame-swap diamonds for sprite items (S5)
+        if (item.getSprite() != null) {
+            float cy = centerY;
+            float r = 4f * density;
+            int diamondColor = ghosted ? 0x66FFFFFF : 0xE6FFFFFF;
+            spriteDiamondPaint.setColor(diamondColor);
+            for (FrameTrack.Key k : item.getSprite().getFrameTrack().keys()) {
+                float dx = timeToX.map(item.getTimelineStartMs() + k.timeMs);
+                if (dx < x0 + 3f || dx > x1 - 3f) continue;
+                spriteDiamondPath.rewind();
+                spriteDiamondPath.moveTo(dx, cy - r);
+                spriteDiamondPath.lineTo(dx + r, cy);
+                spriteDiamondPath.lineTo(dx, cy + r);
+                spriteDiamondPath.lineTo(dx - r, cy);
+                spriteDiamondPath.close();
+                canvas.drawPath(spriteDiamondPath, spriteDiamondPaint);
             }
-            String label = labelFor(item);
-            if (label != null && !label.isEmpty()) {
-                canvas.save();
-                canvas.clipRect(x0, top, x1, bottom);
-                itemLabelPaint.setColor(ghosted ? 0x88FFFFFF : 0xFFFFFFFF);
-                canvas.drawText(label, x0 + 5f * density,
-                        row.bodyRect.centerY() + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
-                canvas.restore();
-            }
-            // Frame-swap diamonds for sprite items (S5)
-            if (item.getSprite() != null) {
-                float cy = row.bodyRect.centerY();
-                float r = 4f * density;
-                int diamondColor = ghosted ? 0x66FFFFFF : 0xE6FFFFFF;
-                spriteDiamondPaint.setColor(diamondColor);
-                for (FrameTrack.Key k : item.getSprite().getFrameTrack().keys()) {
-                    float dx = timeToX.map(item.getTimelineStartMs() + k.timeMs);
-                    if (dx < x0 + 3f || dx > x1 - 3f) continue;
-                    spriteDiamondPath.rewind();
-                    spriteDiamondPath.moveTo(dx, cy - r);
-                    spriteDiamondPath.lineTo(dx + r, cy);
-                    spriteDiamondPath.lineTo(dx, cy + r);
-                    spriteDiamondPath.lineTo(dx - r, cy);
-                    spriteDiamondPath.close();
-                    canvas.drawPath(spriteDiamondPath, spriteDiamondPaint);
-                }
-            }
-            // Stage 2 (PLAN §6): tap-select a row item → draw a clear selection state —
-            // a brightened stroke in the item's OWN color family (not a generic white
-            // ring), so the family reads at a glance (purple selection on a purple
-            // TEXT item, aqua on an AUDIO item, etc.), plus small trim-handle end caps
-            // mirroring the exact zones hitTestItem already hit-tests for a selected
-            // item (ITEM_HANDLE_HALF_WIDTH_DP) — those zones were already live/
-            // draggable; this just makes them visible instead of an invisible hot zone.
-            if (lifted) {
-                // S3: while lifted, the drag-state outline is the ONLY outline — the
-                // generic near-white selection stroke is suppressed (it was the WHITE
-                // the user reported where purple was expected).
-                drawDragStateOutline(canvas, x0, top, x1, bottom, baseColor);
-            } else if (selectedItemId != null && selectedItemId.equals(item.getId())) {
-                drawItemSelection(canvas, x0, top, x1, bottom, baseColor);
-            }
-            if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
-                drawTrimStripes(canvas, x0, top, x1, bottom);
-            }
+        }
+        // Stage 2 (PLAN §6): tap-select a row item → draw a clear selection state —
+        // a brightened stroke in the item's OWN color family (not a generic white
+        // ring), so the family reads at a glance (purple selection on a purple
+        // TEXT item, aqua on an AUDIO item, etc.), plus small trim-handle end caps
+        // mirroring the exact zones hitTestItem already hit-tests for a selected
+        // item (ITEM_HANDLE_HALF_WIDTH_DP) — those zones were already live/
+        // draggable; this just makes them visible instead of an invisible hot zone.
+        if (lifted) {
+            // S3: while lifted, the drag-state outline is the ONLY outline — the
+            // generic near-white selection stroke is suppressed (it was the WHITE
+            // the user reported where purple was expected).
+            drawDragStateOutline(canvas, x0, top, x1, bottom, baseColor);
+        } else if (selectedItemId != null && selectedItemId.equals(item.getId())) {
+            drawItemSelection(canvas, x0, top, x1, bottom, baseColor);
+        }
+        if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
+            drawTrimStripes(canvas, x0, top, x1, bottom);
         }
     }
 

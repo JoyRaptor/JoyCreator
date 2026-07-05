@@ -55,6 +55,10 @@ public class SpritePalettePanel extends FrameLayout {
         void onPanelCollapsed();
         @Nullable SpriteSheet lookupSheet(@NonNull String sheetId);
         @Nullable SpriteSheetRenderer lookupRenderer(@NonNull String sheetId);
+        /** Nudge the key at (or near) the playhead by ±100ms. */
+        default void onNudgeKey(@NonNull SpriteOverlayItem item, int direction) {}
+        /** Delete the key at (or near) the playhead. */
+        default void onDeleteKeyAtPlayhead(@NonNull SpriteOverlayItem item) {}
     }
 
     private static final int DETENT_MICRO = 0;
@@ -64,6 +68,9 @@ public class SpritePalettePanel extends FrameLayout {
     private final LinearLayout panel;
     private final LinearLayout contentArea;
     private final TextView cellIndicator;
+    private final TextView nudgeLeft;
+    private final TextView nudgeRight;
+    private final TextView deleteKey;
     @Nullable private Callback callback;
 
     private List<SpriteOverlayItem> items = java.util.Collections.emptyList();
@@ -132,11 +139,27 @@ public class SpritePalettePanel extends FrameLayout {
         LinearLayout.LayoutParams ciLp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         ciLp.leftMargin = pad;
+        nudgeLeft = chip("◄k");
+        nudgeLeft.setOnClickListener(v -> {
+            if (callback != null && selected != null) callback.onNudgeKey(selected, -1);
+        });
+        nudgeRight = chip("k►");
+        nudgeRight.setOnClickListener(v -> {
+            if (callback != null && selected != null) callback.onNudgeKey(selected, +1);
+        });
+        deleteKey = chip("✕k");
+        deleteKey.setVisibility(GONE);
+        deleteKey.setOnClickListener(v -> {
+            if (callback != null && selected != null) callback.onDeleteKeyAtPlayhead(selected);
+        });
         TextView close = chip("✕");
         close.setOnClickListener(v -> collapse());
         transport.addView(back, chipLp());
         transport.addView(fwd, chipLp());
         transport.addView(cellIndicator, ciLp);
+        transport.addView(nudgeLeft, chipLp());
+        transport.addView(nudgeRight, chipLp());
+        transport.addView(deleteKey, chipLp());
         transport.addView(close, chipLp());
         panel.addView(transport);
 
@@ -160,10 +183,20 @@ public class SpritePalettePanel extends FrameLayout {
 
     @Nullable public SpriteOverlayItem getSelected() { return selected; }
 
-    /** Playhead tick: refresh the live cell indicator (cheap, no rebuild). */
+    /** Playhead tick: refresh the live cell indicator and key-delete visibility. */
     public void setPlayheadMs(long timelineMs) {
         this.playheadMs = timelineMs;
         syncIndicator();
+        if (selected != null) {
+            long localMs = selected.toLocalMs(timelineMs);
+            boolean onKey = false;
+            for (FrameTrack.Key k : selected.getFrameTrack().keys()) {
+                if (Math.abs(k.timeMs - localMs) <= 120) { onKey = true; break; }
+            }
+            deleteKey.setVisibility(onKey ? VISIBLE : GONE);
+        } else {
+            deleteKey.setVisibility(GONE);
+        }
     }
 
     public void collapse() {

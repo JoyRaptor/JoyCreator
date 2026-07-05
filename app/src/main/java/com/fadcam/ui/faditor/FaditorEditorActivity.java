@@ -11491,6 +11491,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @NonNull String sheetId) {
                 return spriteRendererFor(sheetId);
             }
+
+            @Override
+            public void onNudgeKey(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, int direction) {
+                long localMs = Math.max(0, item.toLocalMs(lastPlayheadAbsoluteMs));
+                com.fadcam.ui.faditor.sprite.FrameTrack.Key found = null;
+                for (com.fadcam.ui.faditor.sprite.FrameTrack.Key k : item.getFrameTrack().keys()) {
+                    if (Math.abs(k.timeMs - localMs) <= 120) { found = k; break; }
+                }
+                if (found == null) return;
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                item.getFrameTrack().removeAt(found.timeMs);
+                long newTime = Math.max(0, found.timeMs + direction * 100L);
+                item.getFrameTrack().put(
+                        com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(newTime, found.cellIndex));
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                undoManager.recordAction(new EditActions.LambdaAction("Nudge key",
+                        () -> { restoreFrameKeys(item, after); },
+                        () -> { restoreFrameKeys(item, before); }));
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                p.setPlayheadMs(lastPlayheadAbsoluteMs);
+            }
+
+            @Override
+            public void onDeleteKeyAtPlayhead(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                long localMs = Math.max(0, item.toLocalMs(lastPlayheadAbsoluteMs));
+                com.fadcam.ui.faditor.sprite.FrameTrack.Key found = null;
+                for (com.fadcam.ui.faditor.sprite.FrameTrack.Key k : item.getFrameTrack().keys()) {
+                    if (Math.abs(k.timeMs - localMs) <= 120) { found = k; break; }
+                }
+                if (found == null) return;
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                item.getFrameTrack().removeAt(found.timeMs);
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                undoManager.recordAction(new EditActions.LambdaAction("Delete key",
+                        () -> { restoreFrameKeys(item, after); },
+                        () -> { restoreFrameKeys(item, before); }));
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                p.setPlayheadMs(lastPlayheadAbsoluteMs);
+            }
         });
         p.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
                 .visibleSpriteItems(project.getTimeline()));

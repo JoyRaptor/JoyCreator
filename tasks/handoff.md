@@ -1,5 +1,25 @@
 # FadCam AI Handoff
 
+> **🎚️ 2026-07-05 — SLICE-3 GESTURE ROUND: 3 of 5 items LANDED (commit after 7f5313a), BUILD GREEN,
+> installed on Note 9. AWAITING USER HAND-TEST (drag-feel = unscriptable on this device).**
+> Spec: tasks/FEEDBACK_20260703_dragux_v3.md (A9 SNAP-PRIORITY + WYSIWYG DROP PRINCIPLE, both BINDING).
+> **DONE:** (#3/A9) diagonal tug-of-war killed — in a vertical time-lock the drag now RAILS STRAIGHT at
+> the original time (was: resolveNoOverlapStart shoving it sideways to dodge the target row's occupant);
+> the butt-magnet re-engages only when an edge comes within snap radius of a neighbour AT the locked
+> time; real overlap resolves at RELEASE via the existing commit-time butt-displace; no excursion during
+> a pure layer change. (#2) cross-row affordances now PURPLE not white — one constant
+> (COLOR_DROP_TARGET_RING) drives the drag-target ring + new-layer zone outline + cross-band line;
+> same-row keeps item color, snap-home stays gray. (#4) excursion no longer centers the joint (overshoot)
+> — pans the MINIMUM to reveal it + 56dp margin, holds if already visible, clamped to scroll bounds.
+> (#1 WYSIWYG live resolved preview was ALREADY built via per-move resolveNoOverlapStart+applyMoveTo; A9
+> completes its time-lock case.) **DEFERRED — #5 off-screen panel-half butt selection** (held LEFT of
+> panel center previews butted-BEFORE, RIGHT = butted-AFTER): partially served by the excursion reveal;
+> the panel-half before/after CHOICE is a larger design-y interaction that deserves its own focused pass
+> + feel-test. Files: LayerGestureController / LayerRowRenderer / EditorTimelineView. **OWED USER
+> HAND-TEST (≤4 gestures, relayed this session):** see the numbered checklist in the session's final
+> message. After the user re-tests: fix what the feel surfaces, then either build #5 or move to the next
+> queue item (transcript dedup relaunch).
+
 > **✅ 2026-07-05 — PHASE P RECOVERED, COMMITTED (7f5313a), FULLY DEVICE-VERIFIED. Step 1 of the
 > landing block below is DONE — next AI starts at step 2 (slice-3 gesture round).**
 > The prior agent's uncommitted Phase P work was found compile-GREEN (build.log: BUILD SUCCESSFUL,

@@ -1137,6 +1137,7 @@
     <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
     <string name="sprite_sheet_action_edit">Edit sheet</string>
     <string name="sprite_sheet_action_place">Place on video</string>
+    <string name="sprite_sheet_action_relink">Relink image…</string>
     <string name="sprite_placed">Sprite placed — drag it on the preview</string>
     <string name="sprite_palette_load">+ Load sprite sheet</string>
     <string name="sprite_palette_cell_prefix">cell</string>

@@ -13400,17 +13400,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .show();
     }
 
-    /** Existing sheet tapped: edit it, or place an instance on the video (the
-     *  minimal S4 placement path until the S3 palette panel lands). */
+    /** Existing sheet tapped: edit, place an instance, or relink dead art (S7). */
     private void showSpriteSheetActions(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
         String[] actions = {
                 getString(R.string.sprite_sheet_action_edit),
-                getString(R.string.sprite_sheet_action_place)};
+                getString(R.string.sprite_sheet_action_place),
+                getString(R.string.sprite_sheet_action_relink)};
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(sheet.getName())
                 .setItems(actions, (d, which) -> {
-                    if (which == 0) launchSpriteSheetEditor(sheet.getId());
-                    else placeSpriteOnVideo(sheet);
+                    if (which == 0) {
+                        launchSpriteSheetEditor(sheet.getId());
+                    } else if (which == 1) {
+                        placeSpriteOnVideo(sheet);
+                    } else {
+                        android.content.Intent it = new android.content.Intent(this,
+                                com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class);
+                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
+                                .EXTRA_PROJECT_ID, project.getId());
+                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
+                                .EXTRA_SHEET_ID, sheet.getId());
+                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
+                                .EXTRA_RELINK, true);
+                        startActivity(it);
+                    }
                 })
                 .show();
     }

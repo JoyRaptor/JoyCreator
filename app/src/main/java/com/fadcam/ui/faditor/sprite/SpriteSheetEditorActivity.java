@@ -53,6 +53,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     public static final String EXTRA_PROJECT_ID = "sprite_editor_project_id";
     /** Absent/null = create a NEW sheet (image picker opens immediately). */
     public static final String EXTRA_SHEET_ID = "sprite_editor_sheet_id";
+    /** S7: open the image picker immediately to REPLACE an existing sheet's
+     *  image (dead URI relink) — grid/cells/pivot survive untouched. */
+    public static final String EXTRA_RELINK = "sprite_editor_relink";
 
     private ProjectStorage storage;
     private FaditorProject project;
@@ -75,7 +78,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     private final ActivityResultLauncher<String[]> imagePicker =
             registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
-                if (uri == null) { finish(); return; }
+                if (uri == null) {
+                    // New-sheet flow has nothing to edit without an image; a
+                    // cancelled RELINK just stays in the editor (S7).
+                    if (isNewSheet) finish();
+                    return;
+                }
                 importSheetImage(uri);
             });
 
@@ -101,6 +109,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         buildUi();
         nameField.setText(sheet.getName());
         if (isNewSheet) {
+            imagePicker.launch(new String[]{"image/*"});
+        } else if (getIntent().getBooleanExtra(EXTRA_RELINK, false)) {
+            // S7 relink: same import path as a new sheet — copy into the bundle,
+            // point sheetUri at it, re-decode. Slicing metadata is untouched.
+            reloadRenderer(); // show whatever loads (or MISSING) behind the picker
             imagePicker.launch(new String[]{"image/*"});
         } else {
             reloadRenderer();

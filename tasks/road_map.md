@@ -8,8 +8,11 @@ hide-refresh), Phase P track management (rename/move-z/delete + M11 ripple/gap, 
 Loops: L1 seamless + L2 TRUE ping-pong (unparked, HEVC bake, error containment) + L3 polish.
 Sprites/Avatar (JoyRaptor's lane): S2/S2b/S3/S4/S6 + A1/A2/A6+A3 landed. Rebrand pass 1 committed.
 **ACTIVE ROADMAP TO "COMPLETE" (strict order, ONE agent at a time):**
-1. 🔄 Slice-3 gesture round (IN FLIGHT): WYSIWYG drop principle + A9 snap priority + excursion clamp +
-   off-screen butt placement + A1 edge auto-pan — user's binding spec, their re-test = acceptance gate.
+1. ✅ Slice-3 gesture round LANDED (470f936, javac-verified — WATCHER WAS DEAD at build time; user must
+   restart watch-build.ps1 before installs). USER RE-TEST = acceptance gate (4-gesture list in the
+   2026-07-04 handoff entry). ⚠️ Device swap noticed: sandbox Note 9 detached; MAIN phone REAL_SERIAL
+   attached but ADB-UNAUTHORIZED — if user authorizes it, the never-run REAL-PROJECT session becomes
+   possible (read/verify only!).
 2. Transcript dedup + stacking-source fix (backup-first; spec in handoff 🛬 blocks).
 3. Timeline fidelity W1/W2 (honest waveforms) → T1 sweep-cache filmstrip (FEEDBACK_20260703_timeline_fidelity.md).
 4. v3 slice 2: unified gap-insertion model (dragux doc blueprint) + B10/B11 trim polish + KineMaster C-items.

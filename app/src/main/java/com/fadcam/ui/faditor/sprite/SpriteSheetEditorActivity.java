@@ -90,6 +90,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 importSheetImage(uri);
             });
 
+    private final ActivityResultLauncher<String[]> sidecarImportLauncher =
+            registerForActivityResult(new ActivityResultContracts.OpenDocument(), uri -> {
+                if (uri == null) return;
+                importSidecar(uri);
+            });
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -313,7 +319,13 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         controls.addView(keyBtn, keyLp);
         syncKeyChip();
 
-        // S2b: standalone sidecar export (<image>.sprite.json — the sharing format).
+        // S2b: standalone sidecar export/import (<image>.sprite.json — the sharing format).
+        TextView importScBtn = chip(getString(R.string.sprite_editor_import_sidecar));
+        importScBtn.setOnClickListener(v -> sidecarImportLauncher.launch(new String[]{"application/json"}));
+        LinearLayout.LayoutParams iscLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        iscLp.leftMargin = (int) (8 * d);
+        controls.addView(importScBtn, iscLp);
         TextView sidecarBtn = chip(getString(R.string.sprite_editor_export_sidecar));
         sidecarBtn.setOnClickListener(v -> exportSidecar());
         LinearLayout.LayoutParams scLp = new LinearLayout.LayoutParams(
@@ -529,6 +541,40 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.sprite_editor_sidecar_saved, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Toast.makeText(this, R.string.sprite_editor_sidecar_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** Import slicing metadata from a sidecar JSON file (grid, fps, pivot, bgKey, cell names). */
+    private void importSidecar(@NonNull android.net.Uri uri) {
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+            if (in == null) { throw new Exception("null stream"); }
+            java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+            byte[] tmp = new byte[4096];
+            int n;
+            while ((n = in.read(tmp)) > 0) buf.write(tmp, 0, n);
+            String text = new String(buf.toByteArray(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            com.fadcam.ui.faditor.sprite.SpriteSheet imported =
+                    com.fadcam.ui.faditor.sprite.SpriteSheet.fromJson(
+                            com.google.gson.JsonParser.parseString(text).getAsJsonObject());
+            sheet.setGrid(imported.getCols(), imported.getRows());
+            sheet.setMargins(imported.getMarginX(), imported.getMarginY());
+            sheet.setSpacing(imported.getSpacingX(), imported.getSpacingY());
+            sheet.setFps(imported.getFps());
+            sheet.setPivot(imported.getPivotX(), imported.getPivotY());
+            sheet.setBgKey(imported.getBgKeyColor(), imported.getBgKeyTolerance());
+            sheet.getCells().clear();
+            for (com.fadcam.ui.faditor.sprite.SpriteSheet.Cell c : imported.getCells()) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet.Cell copy =
+                        new com.fadcam.ui.faditor.sprite.SpriteSheet.Cell(c.index, c.name);
+                copy.enabled = c.enabled;
+                sheet.getCells().add(copy);
+            }
+            gridChanged();
+            reloadRenderer();
+            Toast.makeText(this, R.string.sprite_editor_sidecar_imported, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.sprite_editor_sidecar_import_failed, Toast.LENGTH_LONG).show();
         }
     }
 

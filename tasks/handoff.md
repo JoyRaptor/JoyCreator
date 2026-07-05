@@ -1,5 +1,20 @@
 # FadCam AI Handoff
 
+> **🎭 2026-07-05 — JOYRAPTOR LANE: A1 RESOLVER REVIEW GATE CLOSED (eafb687, build green, installed).**
+> Gate found 3 confirmed MAJOR defects in a9d6cc5's PuppetPoseResolver, all FIXED: (1) discrete props
+> were domain-dominant-cell-global → sparse-authored cells reset unposed parts' sprites to cell 0;
+> discrete choice is now PER PART (heaviest corner posing that part, own hysteresis, DiscreteState
+> keyed "domainId/partId", sticky when the neighborhood doesn't pose it); (2) swapped/crossfade signal
+> now fires exactly when a part's committed source cell changes (was: silent hard-cut for parts absent
+> from the new dominant cell); (3) AvatarRig.fromJson is now truly tolerant-read — missing id/partId or
+> malformed pin entries skip THEMSELVES instead of NPE-ing the whole rig into storage's silent drop.
+> Plus: pins renormalize over pin-carrying poses only (pinless neighbor abstains, no drag toward origin).
+> **⚠️ NEW BINDING USER RULE (2026-07-05): NO PARALLEL AGENT SWARMS / multi-agent workflows — a "small"
+> review workflow burned ~5h of the usage plan in 6 min (43 agents). Reviews are done by the main agent
+> reading the code personally; at most ONE subagent at a time. Recorded in orchestrator memory too.**
+> **NEXT (JoyRaptor lane, unchanged order):** A1-UI matrix editor scaffold (built personally, in flight) →
+> S4 sprite preview (SpriteOverlayView) → S2b polish → A2 tracking driver.
+
 > **🛠️ 2026-07-05 — OVERLAP BUG FIXED (1bc4652), root-caused + PROVEN. User re-tested slice-3 and hit:
 > (a) could place two clips OVERLAPPING by dropping between two butted clips; (b) cross-row preview
 > OVERLAPS instead of butting. ROOT CAUSE (both, + the old diagonal tug-of-war): resolveNoOverlapStart /

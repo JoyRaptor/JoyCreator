@@ -37,6 +37,14 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         void onAudioSelected();
 
         /**
+         * Called when the user picks "Add image as new layer" — imports a still
+         * image onto a brand-new floating layer track above the master (the
+         * reliable, button-driven cross-layer path). Default no-op so existing
+         * callers compile unchanged.
+         */
+        default void onImageAsNewLayerSelected() { }
+
+        /**
          * Called when the user picks "Video overlay (PiP)" — a floating video
          * layer over the master track (M-COMP-2). Default no-op so existing
          * callers compile unchanged.
@@ -111,6 +119,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 getString(R.string.faditor_add_asset_image),
                 "image", materialIcons, dp,
                 () -> { if (callback != null) callback.onAssetTypeSelected(true); }));
+
+        // Image-as-new-layer row (reliable cross-layer path — closes the
+        // "can't add an image to a new layer" blocker). TODO(strings).
+        root.addView(createOptionRow(
+                "Image as new layer",
+                "layers", materialIcons, dp,
+                () -> { if (callback != null) callback.onImageAsNewLayerSelected(); }));
 
         // Video row
         root.addView(createOptionRow(

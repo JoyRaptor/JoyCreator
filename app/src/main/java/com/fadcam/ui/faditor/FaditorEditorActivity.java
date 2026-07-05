@@ -210,6 +210,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView overlayVideoLayer;
     /** The next videoPickerLauncher result creates a PiP overlay, not a master clip. */
     private boolean overlayVideoPickerPending;
+    /** The next overlayImagePickerLauncher result creates a NEW layer track for the
+     *  image (P1 reliable path), not an overlay on the default text track. */
+    private boolean imageAsNewLayerPending;
     /** Decode-once sprite sheet renderers for the preview, keyed by sheetId. The
      *  paired SpriteSheet reference validates the cache across project reloads
      *  (new model objects → stale entry recycled + re-decoded). */
@@ -1718,24 +1721,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         project.getTimeline().getTextOverlays();
                 if (overlayIndex < 0 || overlayIndex >= os.size()) return;
                 final com.fadcam.ui.faditor.model.TextOverlayItem o = os.get(overlayIndex);
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(
-                        FaditorEditorActivity.this)
-                        .setTitle(o.isImage() ? "Remove image overlay?" : "Remove text overlay?")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Remove", (d, w) -> {
-                            project.getTimeline().removeTextOverlay(o);
-                            undoManager.recordAction(new EditActions.LambdaAction(
-                                    o.isImage() ? "Delete image overlay" : "Delete text overlay",
-                                    () -> project.getTimeline().removeTextOverlay(o),
-                                    () -> project.getTimeline().addTextOverlay(o)));
-                            syncTimelineOverlays();
-                            if (overlayLayer != null) overlayLayer.invalidate();
-                            editorTimeline.invalidate();
-                            scheduleAutoSave();
-                            Toast.makeText(FaditorEditorActivity.this, "Overlay removed",
-                                    Toast.LENGTH_SHORT).show();
-                        })
-                        .show();
+                showLayerItemActionsDialog(o);
             }
 
             @Override
@@ -11793,6 +11779,265 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
     }
 
+    /**
+     * P1 (reliable cross-layer path): add a picked image as a brand-NEW floating
+     * layer track above the master. Reuses the SAME image payload the M-COMP-1 /
+     * M-EXPORT-1 preview+export path already renders ({@link
+     * com.fadcam.ui.faditor.model.TextOverlayItem#createImage}, fed to
+     * {@code TextOverlayLayer} via {@link
+     * com.fadcam.ui.faditor.compositor.LayerPreviewController#visibleTextOverlays}),
+     * and the SAME project-bundle asset copy the other imported assets use
+     * ({@link #importInsertedAsset}, which yields a URI that serializes as a
+     * portable {@code project://} path — see {@code ProjectStorage#toStorageUri}).
+     * The image is dropped onto a fresh TEXT-kind {@link
+     * com.fadcam.ui.faditor.layers.LayerTrackDef} sitting on TOP of every existing
+     * layer (highest zIndex — reuses the Phase-P z convention), at the current
+     * playhead with a bounded {@value #IMAGE_CLIP_DURATION_MS}ms window. ONE undo
+     * step covers track-creation + item-add (mirrors {@link
+     * #stageCreateLayerAndMoveItem}'s create+assign+prune pattern).
+     */
+    private void onImageAsNewLayerPicked(@NonNull Uri pickedUri) {
+        if (project == null) return;
+        try {
+            getContentResolver().takePersistableUriPermission(
+                    pickedUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException e) {
+            FLog.w(TAG, "Could not take persistable URI permission for image layer", e);
+        }
+        // Portable copy into the project bundle (same as every other imported asset).
+        final Uri storedUri = importInsertedAsset(
+                pickedUri, com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE, null);
+
+        final Timeline timeline = project.getTimeline();
+
+        // Create a new TEXT-kind layer track ABOVE all existing layers.
+        final String newTrackId = timeline.createLayerTrack(
+                com.fadcam.ui.faditor.layers.TrackKind.TEXT,
+                "Image " + (timeline.getLayers().size() + 1)); // TODO(strings)
+        final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
+                timeline.getLayerTrackDef(newTrackId);
+        final int topZ = topLayerZIndex(timeline) + 1;
+        timeline.getOrCreateTrackFlags(newTrackId).zIndex = topZ;
+
+        // Build the image payload at the current playhead, bounded window.
+        long playheadMs = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
+        final com.fadcam.ui.faditor.model.TextOverlayItem item =
+                com.fadcam.ui.faditor.model.TextOverlayItem.createImage(
+                        storedUri.toString(), 0.5f, 0.5f, 0.30f);
+        item.setLayerId(newTrackId);
+        item.setTimeRange(playheadMs, playheadMs + IMAGE_CLIP_DURATION_MS);
+
+        Runnable redo = () -> {
+            if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
+            timeline.getOrCreateTrackFlags(newTrackId).zIndex = topZ;
+            timeline.addTextOverlay(item);
+            refreshAfterOverlayLayerChange();
+        };
+        Runnable undo = () -> {
+            timeline.removeTextOverlay(item);
+            timeline.removeLayerTrackDef(newTrackId);
+            timeline.setTrackFlags(newTrackId, null);
+            refreshAfterOverlayLayerChange();
+        };
+        redo.run();
+        undoManager.recordAction(new EditActions.LambdaAction("Add image as new layer", redo, undo));
+        scheduleAutoSave();
+        Toast.makeText(this, "Image added as new layer", Toast.LENGTH_SHORT).show(); // TODO(strings)
+    }
+
+    /**
+     * Highest persisted {@code zIndex} across the floating (text/sticker/image/…)
+     * layer band, or 0 when nothing has ever been z-ordered. Used to place a
+     * newly-created layer above ({@code +1}) or below ({@code min-1}) the stack,
+     * matching the Phase-P {@code moveTrackZ} convention (higher z = painted on
+     * top / drawn as the upper row).
+     */
+    private int topLayerZIndex(@NonNull Timeline timeline) {
+        int max = 0;
+        boolean any = false;
+        for (com.fadcam.ui.faditor.layers.Track t : timeline.getLayers()) {
+            if (!any || t.getZIndex() > max) { max = t.getZIndex(); any = true; }
+        }
+        return any ? max : 0;
+    }
+
+    /** Lowest persisted {@code zIndex} across the floating layer band (see {@link #topLayerZIndex}). */
+    private int bottomLayerZIndex(@NonNull Timeline timeline) {
+        int min = 0;
+        boolean any = false;
+        for (com.fadcam.ui.faditor.layers.Track t : timeline.getLayers()) {
+            if (!any || t.getZIndex() < min) { min = t.getZIndex(); any = true; }
+        }
+        return any ? min : 0;
+    }
+
+    /**
+     * Shared refresh after any change to the floating-overlay layer set (add/move/
+     * new-layer): re-feed the preview overlay from the shared visibility authority,
+     * resync the timeline rows, and refresh preview visibility — the exact trio the
+     * existing overlay mutations call individually.
+     */
+    private void refreshAfterOverlayLayerChange() {
+        if (project == null) return;
+        if (overlayLayer != null) {
+            overlayLayer.setData(
+                    com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(
+                            project.getTimeline()), overlayLayerCallback());
+            overlayLayer.invalidate();
+        }
+        syncTimelineOverlays();
+        refreshPreviewOverlayVisibility();
+        if (editorTimeline != null) editorTimeline.invalidate();
+    }
+
+    // ── P2: reliable cross-layer move (button-driven — closes the "sandwich" blocker) ──
+
+    /**
+     * The move-clip dialog for a SELECTED LAYER ITEM (P2 reliable path). Explicit
+     * buttons — never the fragile drag engine — that let the user put an item onto a
+     * new layer above/below (enabling the layer sandwich they want) or shift it to an
+     * adjacent existing layer. Each action is ONE undo step. Delete stays available.
+     */
+    private void showLayerItemActionsDialog(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        java.util.List<Runnable> actions = new java.util.ArrayList<>();
+
+        labels.add("New layer above");           // TODO(strings)
+        actions.add(() -> moveOverlayItemToNewLayer(o, true));
+        labels.add("New layer below");           // TODO(strings)
+        actions.add(() -> moveOverlayItemToNewLayer(o, false));
+
+        // Adjacent-layer moves only make sense with >1 floating layer present.
+        java.util.List<com.fadcam.ui.faditor.layers.Track> layers = timeline.getLayers();
+        int rowIdx = overlayItemRowIndex(o, layers);
+        if (layers.size() > 1 && rowIdx >= 0) {
+            if (rowIdx > 0) { // not already the top row (row 0 = highest z)
+                labels.add("Move to layer ▲"); // up = ▲   TODO(strings)
+                actions.add(() -> moveOverlayItemToAdjacentLayer(o, true));
+            }
+            if (rowIdx < layers.size() - 1) {
+                labels.add("Move to layer ▼"); // down = ▼  TODO(strings)
+                actions.add(() -> moveOverlayItemToAdjacentLayer(o, false));
+            }
+        }
+
+        labels.add(o.isImage() ? "Remove image" : "Remove text"); // TODO(strings)
+        actions.add(() -> {
+            timeline.removeTextOverlay(o);
+            final String fromTrackId = o.getLayerId();
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    o.isImage() ? "Delete image overlay" : "Delete text overlay",
+                    () -> { timeline.removeTextOverlay(o);
+                            if (fromTrackId != null) maybeRemoveEmptyLayerTrack(fromTrackId);
+                            refreshAfterOverlayLayerChange(); },
+                    () -> { timeline.addTextOverlay(o); refreshAfterOverlayLayerChange(); }));
+            if (fromTrackId != null) maybeRemoveEmptyLayerTrack(fromTrackId);
+            refreshAfterOverlayLayerChange();
+            scheduleAutoSave();
+            Toast.makeText(FaditorEditorActivity.this, "Removed", Toast.LENGTH_SHORT).show();
+        });
+
+        final Runnable[] acts = actions.toArray(new Runnable[0]);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                .setTitle(o.isImage() ? "Image layer" : "Text layer") // TODO(strings)
+                .setItems(labels.toArray(new CharSequence[0]),
+                        (d, which) -> { if (which >= 0 && which < acts.length) acts[which].run(); })
+                .setNegativeButton("Cancel", null) // TODO(strings)
+                .show();
+    }
+
+    /**
+     * Row index of the layer holding {@code o} within {@code getLayers()} (0 = top
+     * row = highest z). {@code -1} if the item's track isn't in the floating band
+     * (shouldn't happen for a text/image/sticker item). The item's {@code layerId}
+     * is {@code null} for the default "text" track.
+     */
+    private int overlayItemRowIndex(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                    @NonNull java.util.List<com.fadcam.ui.faditor.layers.Track> layers) {
+        String layerId = o.getLayerId();
+        String effective = (layerId == null) ? "text" : layerId;
+        for (int i = 0; i < layers.size(); i++) {
+            if (layers.get(i).getId().equals(effective)) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * P2 core: create a brand-new TEXT-kind layer track ABOVE ({@code above=true},
+     * highest z) or BELOW ({@code above=false}, lowest z) the current floating stack
+     * and move {@code o} onto it — this is what builds the user's layer sandwich. The
+     * old track is pruned if it was user-created and is now empty. ONE undo step
+     * (create + reassign + z; undo reverts layerId, deletes the track, prunes flags).
+     */
+    private void moveOverlayItemToNewLayer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                           boolean above) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final String fromLayerId = o.getLayerId(); // null = default "text" track
+        final String newTrackId = timeline.createLayerTrack(
+                com.fadcam.ui.faditor.layers.TrackKind.TEXT,
+                (o.isImage() ? "Image " : "Text ") + (timeline.getLayers().size() + 1)); // TODO(strings)
+        final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
+                timeline.getLayerTrackDef(newTrackId);
+        final int newZ = above ? topLayerZIndex(timeline) + 1 : bottomLayerZIndex(timeline) - 1;
+
+        Runnable redo = () -> {
+            if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
+            timeline.getOrCreateTrackFlags(newTrackId).zIndex = newZ;
+            o.setLayerId(newTrackId);
+            if (fromLayerId != null) maybeRemoveEmptyLayerTrack(fromLayerId);
+            refreshAfterOverlayLayerChange();
+        };
+        Runnable undo = () -> {
+            o.setLayerId(fromLayerId);
+            timeline.removeLayerTrackDef(newTrackId);
+            timeline.setTrackFlags(newTrackId, null);
+            refreshAfterOverlayLayerChange();
+        };
+        redo.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                above ? "New layer above" : "New layer below", redo, undo));
+        scheduleAutoSave();
+        Toast.makeText(this, above ? "Moved to new layer above" : "Moved to new layer below",
+                Toast.LENGTH_SHORT).show(); // TODO(strings)
+    }
+
+    /**
+     * P2: move {@code o} onto the ADJACENT existing layer — the row above ({@code
+     * up=true}) or below — reusing the Phase-P row order ({@code getLayers()} sorted
+     * DESC by z; row 0 = top). Just reassigns {@code layerId} (no track creation);
+     * the vacated source track is pruned if empty. ONE undo step.
+     */
+    private void moveOverlayItemToAdjacentLayer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                                boolean up) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        java.util.List<com.fadcam.ui.faditor.layers.Track> layers = timeline.getLayers();
+        int rowIdx = overlayItemRowIndex(o, layers);
+        int target = rowIdx + (up ? -1 : 1);
+        if (rowIdx < 0 || target < 0 || target >= layers.size()) return;
+        final String fromLayerId = o.getLayerId();
+        String targetId = layers.get(target).getId();
+        final String toLayerId = "text".equals(targetId) ? null : targetId;
+
+        Runnable redo = () -> {
+            o.setLayerId(toLayerId);
+            if (fromLayerId != null) maybeRemoveEmptyLayerTrack(fromLayerId);
+            refreshAfterOverlayLayerChange();
+        };
+        Runnable undo = () -> { o.setLayerId(fromLayerId); refreshAfterOverlayLayerChange(); };
+        redo.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                up ? "Move to layer up" : "Move to layer down", redo, undo));
+        scheduleAutoSave();
+        Toast.makeText(this, up ? "Moved up a layer" : "Moved down a layer",
+                Toast.LENGTH_SHORT).show(); // TODO(strings)
+    }
+
     /** Simple dialog to edit an overlay's text and colour, or delete it. */
     private void showTextOverlayEditor(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
@@ -14927,10 +15172,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         overlayImagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
+                    boolean asNewLayer = imageAsNewLayerPending;
+                    imageAsNewLayerPending = false;
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         Uri uri = result.getData().getData();
                         if (uri != null) {
-                            onOverlayImagePicked(uri);
+                            if (asNewLayer) {
+                                onImageAsNewLayerPicked(uri);
+                            } else {
+                                onOverlayImagePicked(uri);
+                            }
                         }
                     }
                 });
@@ -15680,6 +15931,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 });
                 vs.show(getSupportFragmentManager(), "videoSource");
                 }
+            }
+
+            @Override
+            public void onImageAsNewLayerSelected() {
+                imageAsNewLayerPending = true;
+                overlayImagePickerLauncher.launch(openDocumentIntent("image/*"));
             }
         });
         sheet.show(getSupportFragmentManager(), "addAsset");

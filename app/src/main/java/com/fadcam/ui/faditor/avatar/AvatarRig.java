@@ -225,6 +225,9 @@ public class AvatarRig {
             JsonArray pArr = j.getAsJsonArray("parts");
             for (int i = 0; i < pArr.size(); i++) {
                 JsonObject pj = pArr.get(i).getAsJsonObject();
+                // Tolerant read: a malformed element (AI-emitted JSON) drops
+                // ITSELF, never the whole rig (2026-07-05 review-gate fix).
+                if (!pj.has("id")) continue;
                 Part p = new Part(pj.get("id").getAsString(),
                         pj.has("sheetId") ? pj.get("sheetId").getAsString() : "");
                 if (pj.has("parentId")) p.parentId = pj.get("parentId").getAsString();
@@ -240,6 +243,7 @@ public class AvatarRig {
             JsonArray dArr = j.getAsJsonArray("domains");
             for (int i = 0; i < dArr.size(); i++) {
                 JsonObject dj = dArr.get(i).getAsJsonObject();
+                if (!dj.has("id")) continue; // tolerant read — skip, don't crash
                 PoseDomain d = new PoseDomain(dj.get("id").getAsString());
                 if (dj.has("driverX")) d.driverX = dj.get("driverX").getAsString();
                 if (dj.has("driverY")) d.driverY = dj.get("driverY").getAsString();
@@ -256,6 +260,7 @@ public class AvatarRig {
                             JsonArray ppArr = cj.getAsJsonArray("poses");
                             for (int k = 0; k < ppArr.size(); k++) {
                                 JsonObject ppj = ppArr.get(k).getAsJsonObject();
+                                if (!ppj.has("partId")) continue; // tolerant read
                                 PartPose pp = new PartPose(ppj.get("partId").getAsString());
                                 if (ppj.has("x")) pp.x = ppj.get("x").getAsFloat();
                                 if (ppj.has("y")) pp.y = ppj.get("y").getAsFloat();
@@ -268,7 +273,10 @@ public class AvatarRig {
                                 if (ppj.has("pins")) {
                                     JsonArray pins = ppj.getAsJsonArray("pins");
                                     for (int q = 0; q < pins.size(); q++) {
+                                        // Pin must be a [x,y] numeric pair; skip anything else.
+                                        if (!pins.get(q).isJsonArray()) continue;
                                         JsonArray one = pins.get(q).getAsJsonArray();
+                                        if (one.size() < 2) continue;
                                         pp.pins.add(new float[]{
                                                 one.get(0).getAsFloat(), one.get(1).getAsFloat()});
                                     }

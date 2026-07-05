@@ -29,11 +29,15 @@ import java.util.Map;
  *       per-part pose simply drops out of the blend and the remaining weights
  *       renormalize — rig 3 cells and the rest auto-blend. No authored cell at
  *       all → the part's neutral base pose.</li>
- *   <li>DISCRETE properties (sprite cell / z / flips) come from the dominant
- *       corner cell with HYSTERESIS: the previous choice sticks until another
+ *   <li>DISCRETE properties (sprite cell / z / flips) are chosen PER PART:
+ *       each part follows the heaviest corner cell that actually poses it,
+ *       with HYSTERESIS — the previous choice sticks until a challenger
  *       cell's weight exceeds it by {@link #HYSTERESIS}. A committed change
- *       reports {@code swapped=true} so the renderer can run the pin-snap
- *       crossfade (draw both cells briefly at identical pin geometry).</li>
+ *       reports {@code swapped=true} on that part so the renderer can run
+ *       the pin-snap crossfade (draw both cells briefly at identical pin
+ *       geometry). Per-part (not per-domain) choice is what makes sparse
+ *       authoring safe: a cell that doesn't pose a part never resets that
+ *       part's sprite to defaults (2026-07-05 review-gate fix).</li>
  * </ul>
  */
 public final class PuppetPoseResolver {
@@ -43,9 +47,10 @@ public final class PuppetPoseResolver {
     /** Weight margin a challenger cell must win by before a discrete swap commits. */
     public static final float HYSTERESIS = 0.15f;
 
-    /** Caller-owned discrete-swap memory, keyed by domainId (one dominant cell each). */
+    /** Caller-owned discrete-swap memory, keyed by "domainId/partId" (each part
+     *  tracks the cell its discrete props last came from). */
     public static class DiscreteState {
-        final Map<String, Integer> dominantCell = new HashMap<>(); // domainId -> cell linear index
+        final Map<String, Integer> partSourceCell = new HashMap<>(); // "domainId/partId" -> cell linear index
     }
 
     /** Resolved state for one part at one instant. */
@@ -121,6 +126,9 @@ public final class PuppetPoseResolver {
             float wSum = 0f;
             float x = 0f, y = 0f, scale = 0f, rot = 0f;
             List<float[]> pinAcc = null;
+            float pinWSum = 0f; // pins renormalize over PIN-CARRYING poses only —
+                                // pins are absolute cell-space positions, so a
+                                // pinless neighbor must abstain, not vote (0,0)
             int pinCount = Integer.MAX_VALUE;
             for (int i = 0; i < 4; i++) {
                 if (weights[i] <= 0f) continue;
@@ -134,6 +142,7 @@ public final class PuppetPoseResolver {
                 scale += pp.scale * w;
                 rot += pp.rotationDeg * w;
                 if (!pp.pins.isEmpty()) {
+                    pinWSum += w;
                     pinCount = Math.min(pinCount, pp.pins.size());
                     if (pinAcc == null) {
                         pinAcc = new ArrayList<>();
@@ -150,53 +159,79 @@ public final class PuppetPoseResolver {
                 ps.y += y / wSum;
                 ps.scale *= scale / wSum;
                 ps.rotationDeg += rot / wSum;
-                if (pinAcc != null) {
+                if (pinAcc != null && pinWSum > 0f) {
                     ps.pins.clear();
                     for (int q = 0; q < Math.min(pinCount, pinAcc.size()); q++) {
-                        ps.pins.add(new float[]{pinAcc.get(q)[0] / wSum, pinAcc.get(q)[1] / wSum});
+                        ps.pins.add(new float[]{pinAcc.get(q)[0] / pinWSum, pinAcc.get(q)[1] / pinWSum});
                     }
                 }
             }
             // else: no authored pose anywhere near — neutral base (inheritance floor).
         }
 
-        // ── Discrete choice with hysteresis (one dominant cell per domain) ──
-        int bestIdx = -1;
-        float bestW = -1f;
-        for (int i = 0; i < 4; i++) {
-            if (weights[i] > bestW) { bestW = weights[i]; bestIdx = i; }
-        }
-        int bestLinear = corners[bestIdx][1] * cols + corners[bestIdx][0];
-        Integer prev = state.dominantCell.get(d.id);
-        int chosenLinear;
-        boolean swapped = false;
-        if (prev == null) {
-            chosenLinear = bestLinear;
-            state.dominantCell.put(d.id, chosenLinear);
-        } else if (bestLinear != prev) {
-            float prevW = weightOfLinear(prev, cols, corners, weights);
-            if (bestW > prevW + HYSTERESIS) {
-                chosenLinear = bestLinear;
-                state.dominantCell.put(d.id, chosenLinear);
-                swapped = true;
+        // ── Discrete choice: PER-PART hysteresis over corners that pose it ──
+        // (2026-07-05 review-gate fix: a single domain-dominant cell reset any
+        // part it didn't pose to cellIndex=0/no-flips — breaking the sparse
+        // authoring the empty-cell inheritance exists for — and parts leaving
+        // the dominant cell reverted with no crossfade signal. Each part now
+        // runs its own hysteresis machine over the corners that DO pose it,
+        // and swapped fires exactly when that part's committed source changes.)
+        for (String partId : partIds) {
+            PartState ps = out.get(partId);
+            if (ps == null) continue;
+            int bestLinear = -1;
+            float bestW = -1f;
+            for (int i = 0; i < 4; i++) {
+                AvatarRig.Cell cell = d.cellAt(corners[i][0], corners[i][1]);
+                if (cell == null || cell.poseFor(partId) == null) continue;
+                if (weights[i] > bestW) {
+                    bestW = weights[i];
+                    bestLinear = corners[i][1] * cols + corners[i][0];
+                }
+            }
+            String key = d.id + "/" + partId;
+            Integer prev = state.partSourceCell.get(key);
+            boolean prevValid = prev != null && poseAtLinear(d, prev, cols, partId) != null;
+            int chosen;
+            boolean swapped = false;
+            if (!prevValid) {
+                // First resolve, or the remembered cell no longer poses this
+                // part (rig edited): commit the best candidate silently.
+                chosen = bestLinear;
+            } else if (bestLinear < 0) {
+                // No corner in the current neighborhood poses it — STICK with
+                // the previous source (never revert to defaults mid-motion).
+                chosen = prev;
+            } else if (bestLinear != prev) {
+                float prevW = weightOfLinear(prev, cols, corners, weights);
+                if (bestW > prevW + HYSTERESIS) {
+                    chosen = bestLinear;
+                    swapped = true;
+                } else {
+                    chosen = prev;
+                }
             } else {
-                chosenLinear = prev;
+                chosen = prev;
             }
-        } else {
-            chosenLinear = prev;
+            if (chosen < 0) continue; // no discrete author anywhere — neutral base
+            state.partSourceCell.put(key, chosen);
+            AvatarRig.PartPose pp = poseAtLinear(d, chosen, cols, partId);
+            if (pp == null) continue;
+            ps.cellIndex = pp.cellIndex;
+            ps.z = pp.z != 0 ? pp.z : ps.z;
+            ps.flipH = pp.flipH;
+            ps.flipV = pp.flipV;
+            ps.swapped |= swapped;
         }
-        AvatarRig.Cell chosen = d.cellAt(chosenLinear % cols, chosenLinear / cols);
-        if (chosen != null) {
-            for (AvatarRig.PartPose pp : chosen.poses) {
-                PartState ps = out.get(pp.partId);
-                if (ps == null) continue;
-                ps.cellIndex = pp.cellIndex;
-                ps.z = pp.z != 0 ? pp.z : ps.z;
-                ps.flipH = pp.flipH;
-                ps.flipV = pp.flipV;
-                ps.swapped |= swapped;
-            }
-        }
+    }
+
+    /** The pose a linear cell index holds for {@code partId}, or null when the
+     *  cell doesn't exist / doesn't pose the part. */
+    @Nullable
+    private static AvatarRig.PartPose poseAtLinear(@NonNull AvatarRig.PoseDomain d, int linear,
+                                                   int cols, @NonNull String partId) {
+        AvatarRig.Cell cell = d.cellAt(linear % cols, linear / cols);
+        return cell != null ? cell.poseFor(partId) : null;
     }
 
     /** The bilinear weight of a previously-chosen cell if it's one of the current

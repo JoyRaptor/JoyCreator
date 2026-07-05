@@ -84,6 +84,27 @@ THE RULE (user-specified):
 User is deliberately deferring re-test until the buildout completes — fold into slice 3 (A9 verticals +
 guardrail) alongside A1 edge auto-pan.
 
+### SLICE 3 EXPANDED SPEC (2026-07-04 night, second hand-test — the WYSIWYG DROP PRINCIPLE, BINDING)
+User re-tested; five defects, one root principle: **at every instant mid-drag, what is drawn = exactly
+what release will produce.** Today the drag draws the raw finger position (overlapping!) and only
+resolves at release — "I can't tell if it's going to overlap or not... nothing tells me it's actually
+going to butt up. Very imprecise."
+1. **Live RESOLVED preview:** while held, if release would butt-resolve, draw the outline AT the butted
+   position (never overlapping a sibling). The outline IS the landing forecast. (Follows caa628e's
+   commit-time resolver — run the SAME resolver per-move and draw its output.)
+2. **Outline color/state wrong:** shows WHITE; user expects the established PURPLE cross-row affordance
+   when the drop target is another row/linkage context. Audit outline colors per state (same-row move vs
+   cross-row vs new-layer vs snap-home) — each state one unambiguous color, purple = cross-row family.
+3. **Diagonal pull still present** (A9 snap-priority rule above NOT yet built — this re-confirms it).
+4. **Excursion overshoot:** the auto-pan "camera moves too far over — disorienting." Tune: pan the
+   MINIMUM needed to reveal the joint + small margin; never past it.
+5. **Off-screen butt placement (user-designed interaction, center-playhead panel):** while holding an
+   item whose butt target lies outside the window — item held LEFT of panel center → view scrubs
+   EARLIER and previews the item butted-BEFORE the neighbor; item held RIGHT of center → view shifts to
+   preview butted-AFTER. Both must render the butted (resolved) preview, zero overlap, before release.
+   This composes with (A1) edge auto-pan: sustained hold at screen edge = continuous scroll.
+PRIORITY: this slice-3 round jumps the queue — runs IMMEDIATELY after Phase P lands (before dedup).
+
 ## SLICE 2 BLUEPRINT — unified gap-insertion model (2026-07-04 eve; CapCut-gap analysis, BINDING)
 The jank root cause: THREE bolted-on new-layer affordances from different eras — the pinned
 "+ Drop here for new layer" zone (below-bottom only), the cross-band "new layer here" arm w/ purple

@@ -332,6 +332,14 @@ public class AIToolExecutor {
                         NamedTranscript nt = new NamedTranscript(
                                 finalModelType.label, finalModelType.engine.name().toLowerCase(), transcript);
                         clip.addTranscript(nt);
+                        // Re-running the same model REPLACES its previous run instead of
+                        // stacking another near-identical copy in project.json. Only
+                        // un-edited, non-active older runs of the same engine+label are
+                        // dropped (see TranscriptDedup's conservative rule); guarded on a
+                        // non-empty result so an empty run can never displace real words.
+                        if (!transcript.words.isEmpty()) {
+                            com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupClip(clip, true);
+                        }
                         storage.save(proj);
                         AIChatState.signalModified(projectId);
                         resultRef.set("Transcript generated successfully. "

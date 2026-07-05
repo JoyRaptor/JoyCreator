@@ -154,6 +154,15 @@ public class TranscriptSynthesizer {
         NamedTranscript newNt = new NamedTranscript(newId,
                 "Synthesized (Vosk timing + Whisper words)", "synth", synthesized);
         clip.addTranscript(newNt);
+        // Re-synthesis REPLACES a previous un-edited synth run instead of stacking.
+        // NOTE the deliberate limitation: synthesis auto-strikes fillers, and an
+        // auto-struck word is indistinguishable from a user strike after the fact,
+        // so TranscriptDedup treats such runs as "edited" and keeps them (doubt ⇒
+        // keep — a user-touched run is never silently dropped). Only genuinely
+        // pristine older synth runs are collapsed.
+        if (!synthesized.words.isEmpty()) {
+            com.fadcam.ui.faditor.transcript.TranscriptDedup.dedupClip(clip, true);
+        }
 
         // Save the silence candidates if we ran detection
         if (runSilence && silenceSpans != null && !silenceSpans.isEmpty()) {

@@ -1735,6 +1735,35 @@ public class ExportManager {
             overlayW = clip.isImageClip() ? 1080 : getSourceWidth(clip);
             overlayH = clip.isImageClip() ? 1920 : getSourceHeight(clip);
         }
+
+        // EXPORT-CANVAS-FIX: normalize an IMAGE clip's frame up to the authoring
+        // canvas (overlayW x overlayH) BEFORE the OverlayEffect composites.
+        //
+        // The OverlayEffect sizes its per-frame bitmap to the CURRENT decoded frame
+        // (CompositeExportOverlay.configure() receives that size). Overlays are
+        // authored in overlayW x overlayH coordinates and then scaled by
+        // frameW/overlayW onto that frame. For a video clip the decoded frame is the
+        // real source resolution (e.g. 1080x1920), so the scale is ~1:1 and overlays
+        // render full-size. But an IMAGE clip can decode to a tiny native size — the
+        // project's black "Gap" placeholder is a 16x16 PNG — so the overlay bitmap
+        // collapses to 16x16, the scale factor is 16/1080 ≈ 0.015, and EVERY overlay
+        // (captions, text, image-as-layer) shrinks to sub-pixel and vanishes; the
+        // image content itself is also left at 16x16 and upscaled to a blurry mess.
+        // (When canvasPreset != "original" the downstream Presentation at the end of
+        // this chain already normalized these clips — but for "original" preset
+        // canvasDims is null, so that Presentation is skipped and nothing rescued the
+        // 16x16 image. This is why the bug is preset-specific and pre-existing.)
+        //
+        // Inserting a Presentation here (image clips only) scales the decoded image
+        // to the authoring canvas up front, so configure() sees overlayW x overlayH,
+        // the overlay scale is 1:1, and overlays composite correctly. Video clips are
+        // NOT touched — their branch of this method is byte-identical to before, so
+        // the M-EXPORT-1 no-overlay/healthy-clip regression gate is preserved.
+        if (!isTransitionItem && clip.isImageClip() && overlayW > 0 && overlayH > 0) {
+            videoEffects.add(Presentation.createForWidthAndHeight(
+                    overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT));
+        }
+
         if (!isTransitionItem && overlayW > 0 && overlayH > 0) {
             // The overlay is added when EITHER the project has text overlays, OR
             // this clip has captions enabled, OR this clip's URI is referenced by

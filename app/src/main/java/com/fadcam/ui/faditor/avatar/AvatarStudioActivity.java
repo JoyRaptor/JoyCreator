@@ -65,7 +65,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
     private TextView hintLine;
     private SeekBar yawSlider, pitchSlider;
     private LinearLayout partChipRow;
-    private TextView flipHChip, flipVChip;
+    private TextView flipHChip, flipVChip, mirrorChip;
     private TextView cellValue, scaleValue, rotValue;
 
     private int armedCol = -1, armedRow = -1;
@@ -196,6 +196,40 @@ public class AvatarStudioActivity extends AppCompatActivity {
         refreshMatrix();
         syncPoseControls();
         resolveNow();
+    }
+
+    private void mirrorArmedPose() {
+        if (armedCol < 0) return;
+        int mirrorCol = (domain.cols - 1) - armedCol;
+        if (mirrorCol == armedCol) return; // center column, nothing to mirror
+        AvatarRig.Cell src = domain.cellAt(armedCol, armedRow);
+        if (src == null || src.poses.isEmpty()) return;
+        AvatarRig.Cell dst = domain.cellAt(mirrorCol, armedRow);
+        if (dst == null) {
+            dst = new AvatarRig.Cell();
+            dst.col = mirrorCol;
+            dst.row = armedRow;
+            domain.cells.add(dst);
+        }
+        dst.poses.clear();
+        for (AvatarRig.PartPose p : src.poses) {
+            AvatarRig.PartPose mp = new AvatarRig.PartPose(p.partId);
+            mp.cellIndex = p.cellIndex;
+            mp.x = -p.x;
+            mp.y = p.y;
+            mp.scale = p.scale;
+            mp.rotationDeg = -p.rotationDeg;
+            mp.flipH = !p.flipH;
+            mp.flipV = p.flipV;
+            mp.z = p.z;
+            for (float[] pin : p.pins) {
+                mp.pins.add(new float[]{1f - pin[0], pin[1]});
+            }
+            dst.poses.add(mp);
+        }
+        refreshMatrix();
+        resolveNow();
+        Toast.makeText(this, R.string.avatar_studio_mirrored, Toast.LENGTH_SHORT).show();
     }
 
     private void refreshMatrix() {
@@ -359,7 +393,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         AvatarRig.PartPose pose = armedPosePeek();
         boolean editable = armedCol >= 0 && selectedPartId != null;
         float alpha = editable ? 1f : 0.35f;
-        for (View v : new View[]{cellValue, scaleValue, rotValue, flipHChip, flipVChip}) {
+        for (View v : new View[]{cellValue, scaleValue, rotValue, flipHChip, flipVChip, mirrorChip}) {
             v.setAlpha(alpha);
         }
         cellValue.setText(String.valueOf(pose != null ? pose.cellIndex : 0));
@@ -520,6 +554,10 @@ public class AvatarStudioActivity extends AppCompatActivity {
         flipVChip = chip(getString(R.string.avatar_studio_flip_v));
         flipVChip.setOnClickListener(v -> editArmedPose(p -> p.flipV = !p.flipV));
         controls.addView(flipVChip, chipLp());
+
+        mirrorChip = chip(getString(R.string.avatar_studio_mirror));
+        mirrorChip.setOnClickListener(v -> mirrorArmedPose());
+        controls.addView(mirrorChip, chipLp());
 
         TextView clearCell = chip(getString(R.string.avatar_studio_clear_cell));
         clearCell.setOnClickListener(v -> clearArmedCell());

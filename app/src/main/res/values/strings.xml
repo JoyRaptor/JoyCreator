@@ -1172,6 +1172,8 @@
     <string name="avatar_studio_rotation">Rot</string>
     <string name="avatar_studio_flip_h">Flip H</string>
     <string name="avatar_studio_flip_v">Flip V</string>
+    <string name="avatar_studio_mirror">Mirror ⇋</string>
+    <string name="avatar_studio_mirrored">Mirrored to the opposite cell</string>
     <string name="avatar_studio_clear_cell">Clear cell</string>
     <string name="avatar_studio_cell_cleared">Cell cleared — auto-blends again</string>
     <string name="faditor_tools_all_title">All tools</string>

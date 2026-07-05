@@ -69,6 +69,40 @@
     wedge-insert w/ preview; slice 3 = A9 dotted time-lock verticals + vertical guardrail; A1 edge
     auto-pan; B10/B11 trim shading + callout. All hand-test-gated by the user.
 
+## 🩺 ROOT CAUSE FOUND (2026-07-05, user hand-test on REAL phone) — THE SPLIT-ELEMENT BUG (BINDING)
+CRITICAL CONTEXT: the tree was COMMITTED-RED for an unknown period (sprite/avatar compile break, found
+2026-07-05) → the user's phone ran a STALE build; every "device-verified by construction / code-trace"
+gesture claim since ~slice-3 was NEVER actually on the shipped build. Re-verify EVERYTHING on green.
+The user's decisive observation (verbatim intent): "When I move a clip horizontally it just shows the clip
+get brighter and slide left-right. But moving vertically, it shows the clip lighter on the layer I LEFT,
+and a purple outline in the layer I'm GOING to. The layer I left slides with my finger but won't go up/down;
+the layer outline goes up/down but won't slide with my finger."
+=> THE DRAG IS RENDERED AS TWO DISCONNECTED ELEMENTS:
+  (E1) origin ghost — brightened clip pinned to the SOURCE row, tracks X only (no Y).
+  (E2) target outline — purple box on the HOVERED row, tracks Y (row) only, does NOT track X, does NOT run
+       the butt-resolver at the finger's X → so it overlaps and is "not scrubbable/not placeable."
+NEITHER element is a single object under the finger. This is why: butt-preview overlaps (E2 ignores the
+resolver/X), the purple "isn't placeable" (E2 has no X), vertical feels disconnected (two half-objects),
+and edge-scroll/off-screen-butt never engage (they were wired to a coherent single-object drag that doesn't
+exist on the shipped build).
+THE FIX (mandatory redesign, device-in-the-loop, NOT "by construction"): ONE drag proxy that follows the
+finger in BOTH axes continuously; its X is fed through the SAME resolver used at drop so it renders at the
+RESOLVED (butted, never-overlapping) position live; its Y selects the target row; a subtle origin-gap marker
+may remain but the moving object is ONE thing. Edge auto-pan + off-screen panel-half butt hang off that one
+proxy's finger position. VERIFICATION RULE GOING FORWARD: no gesture item is "done" until the USER confirms
+on a GREEN build — instrument (ROWGESTURE-style) and iterate on user report + logcat, never code-trace alone.
+
+## DESIGN DECISION (2026-07-05, user-proposed + orchestrator-endorsed): RELIABLE PATH ALONGSIDE DRAG
+User: "the reorder window has nice things that get lost if the timeline+layers become fully interactive
+drag... perhaps the reorder window becomes part of the move-clip dialog." ENDORSED. Two-track strategy:
+- RELIABLE (build FIRST, fully tap-testable, unblocks the user NOW): the move-clip dialog gains explicit
+  cross-layer controls — "Move to new layer above / below", "New layer from this clip", "Move to layer N",
+  "Move to main timeline", plus "Add image/asset AS a new layer". Button-driven = works every time, no drag
+  engine dependency. This directly fixes the user's blockers: can't move clip to a layer, can't create a
+  layer sandwich, can't add an image to a new layer.
+- DELIGHT (polish over time, device-in-the-loop): the direct-manipulation drag per the split-element fix.
+The reorder window's virtues (see-all, precise placement) fold into the move-clip dialog per the user.
+
 ## A9 SNAP-PRIORITY RULE (2026-07-04 late, user hand-test of Phase R 26cf3cf — BINDING for slice 3)
 ✅ User-confirmed: audio clips no longer stack (R2 works). ⚠️ Vertical swap "keeps wanting to pull
 diagonal — conflicting, wants to snap to something next to it." Diagnosis: the sibling butt-magnet

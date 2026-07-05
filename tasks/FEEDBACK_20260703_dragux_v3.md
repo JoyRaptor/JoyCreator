@@ -69,6 +69,21 @@
     wedge-insert w/ preview; slice 3 = A9 dotted time-lock verticals + vertical guardrail; A1 edge
     auto-pan; B10/B11 trim shading + callout. All hand-test-gated by the user.
 
+## A9 SNAP-PRIORITY RULE (2026-07-04 late, user hand-test of Phase R 26cf3cf — BINDING for slice 3)
+✅ User-confirmed: audio clips no longer stack (R2 works). ⚠️ Vertical swap "keeps wanting to pull
+diagonal — conflicting, wants to snap to something next to it." Diagnosis: the sibling butt-magnet
+(nearestButtWithin) stays live DURING the vertical time-lock and yanks horizontally = tug-of-war.
+THE RULE (user-specified):
+1. In vertical time-lock (|dx| ≤ snap constant, hovering another row): sibling butt-magnets FULLY
+   SUPPRESSED — nothing pulls horizontally; the drag rails straight up/down.
+2. Butt-magnets re-engage ONLY when (a) intentional horizontal motion breaks the lock (|dx| > lock,
+   hysteresis), OR (b) the dragged item's edge comes within snap radius of a neighbor's edge AT ITS
+   LOCKED TIME ("only when it comes close to touching it").
+3. Same-row collision at a time-locked drop resolves at RELEASE via the R2 butt-displace — never as a
+   mid-drag magnet.
+User is deliberately deferring re-test until the buildout completes — fold into slice 3 (A9 verticals +
+guardrail) alongside A1 edge auto-pan.
+
 ## SLICE 2 BLUEPRINT — unified gap-insertion model (2026-07-04 eve; CapCut-gap analysis, BINDING)
 The jank root cause: THREE bolted-on new-layer affordances from different eras — the pinned
 "+ Drop here for new layer" zone (below-bottom only), the cross-band "new layer here" arm w/ purple

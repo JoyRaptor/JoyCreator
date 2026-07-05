@@ -109,13 +109,23 @@ public class CompositeExportOverlay extends BitmapOverlay {
         }
     }
 
+    // S6: sprites for this clip window + their project-level sheet definitions.
+    // Renderers decode lazily (one shared bitmap per sheet) and recycle in release().
+    private final List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteItems;
+    private final List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets;
+    private final java.util.Map<String, com.fadcam.ui.faditor.sprite.SpriteSheetRenderer>
+            spriteRenderers = new java.util.HashMap<>();
+    private final Paint spritePaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+
     public CompositeExportOverlay(@NonNull Context context,
                                    long clipTimelineStartMs,
                                    @NonNull Clip clip,
                                    int outW, int outH,
                                    @NonNull List<TextOverlayItem> allTextOverlays,
                                    @NonNull List<WaveformSlot> waveformSlots,
-                                   @NonNull List<AudioClip> audioClips) {
+                                   @NonNull List<AudioClip> audioClips,
+                                   @NonNull List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> allSpriteItems,
+                                   @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets) {
         this.context = context.getApplicationContext();
         this.clipTimelineStartMs = clipTimelineStartMs;
         this.clip = clip;
@@ -123,6 +133,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.outH = Math.max(1, outH);
         this.clipVisualEndMs = clipTimelineStartMs + clip.getVisualDurationMs();
         this.textOverlays = filterTextOverlays(allTextOverlays);
+        this.spriteItems = filterSpriteItems(allSpriteItems);
+        this.spriteSheets = spriteSheets;
         this.waveformSlots = waveformSlots;
         this.waveRenderer = new WaveformStyleRenderer();
 
@@ -176,6 +188,42 @@ public class CompositeExportOverlay extends BitmapOverlay {
         return slots;
     }
 
+    /** Same clip-window filter as text overlays (visual-duration upper bound;
+     *  the per-frame isVisibleAt check does the exact gating). */
+    private List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> filterSpriteItems(
+            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> all) {
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> out = new ArrayList<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : all) {
+            if (o.getEndMs() < clipTimelineStartMs) continue;
+            if (o.getStartMs() > clipVisualEndMs) continue;
+            out.add(o);
+        }
+        return out;
+    }
+
+    /** Lazy decode-once renderer per sheet; null (missing art) cached too. */
+    @Nullable
+    private com.fadcam.ui.faditor.sprite.SpriteSheetRenderer spriteRendererFor(
+            @NonNull String sheetId) {
+        if (spriteRenderers.containsKey(sheetId)) return spriteRenderers.get(sheetId);
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = null;
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : spriteSheets) {
+            if (s.getId().equals(sheetId)) { sheet = s; break; }
+        }
+        com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r = sheet != null
+                ? com.fadcam.ui.faditor.sprite.SpriteSheetRenderer.load(context, sheet) : null;
+        spriteRenderers.put(sheetId, r);
+        return r;
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.sprite.SpriteSheet sheetById(@NonNull String sheetId) {
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : spriteSheets) {
+            if (s.getId().equals(sheetId)) return s;
+        }
+        return null;
+    }
+
     private List<TextOverlayItem> filterTextOverlays(List<TextOverlayItem> all) {
         List<TextOverlayItem> out = new ArrayList<>();
         // Use the clip's full visual duration (trimmed range + loop/ping-pong
@@ -207,6 +255,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private int framesWithText = 0;
     private int framesWithCaption = 0;
     private int framesWithWaveform = 0;
+    private int framesWithSprite = 0;
     private boolean loggedNullTextWarning = false;
     private boolean loggedNullCaptionWarning = false;
     private boolean loggedNullWaveformWarning = false;
@@ -215,6 +264,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private boolean loggedTextDrawError = false;
     private boolean loggedCaptionDrawError = false;
     private boolean loggedWaveformDrawError = false;
+    private boolean loggedSpriteDrawError = false;
 
     @NonNull
     @Override
@@ -264,6 +314,53 @@ public class CompositeExportOverlay extends BitmapOverlay {
         if (outW > 0 && outH > 0 && (frameW != outW || frameH != outH)) {
             canvas.scale(frameW / (float) outW, frameH / (float) outH);
         }
+
+        // S6 sprites — drawn FIRST so they sit above the video but BELOW text +
+        // captions, matching the preview stack (SpriteOverlayView sits under
+        // TextOverlayLayer) and the plan's draw-order rule. Same evaluation as
+        // the preview by construction: SpriteFrameResolver for the cell,
+        // animated* keyframe reads for the transform — divergence impossible.
+        int drawnSprite = 0;
+        int spriteSaveCount = canvas.getSaveCount();
+        try {
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : spriteItems) {
+                if (!o.isVisibleAt(timelineMs)) continue;
+                float opacity = o.animatedOpacity(timelineMs);
+                if (opacity <= 0.001f) continue;
+                com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetById(o.getSheetId());
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r =
+                        sheet != null ? spriteRendererFor(o.getSheetId()) : null;
+                if (sheet == null || r == null) continue; // missing art: preview shows
+                                                          // the placeholder; export omits
+                int cell = com.fadcam.ui.faditor.sprite.SpriteFrameResolver
+                        .resolveCellAt(sheet, o, timelineMs);
+                if (cell == com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL) continue;
+                float cx = o.animatedCenterX(timelineMs) * outW;
+                float cy = o.animatedCenterY(timelineMs) * outH;
+                float h = o.animatedSizeFraction(timelineMs) * outH;
+                float aspect = r.cellAspect();
+                float w = h * (aspect > 0 ? aspect : 1f);
+                spritePaint.setAlpha(Math.round(opacity * 255));
+                canvas.save();
+                canvas.rotate(o.animatedRotation(timelineMs), cx, cy);
+                if (o.isFlipH() || o.isFlipV()) {
+                    canvas.scale(o.isFlipH() ? -1f : 1f, o.isFlipV() ? -1f : 1f, cx, cy);
+                }
+                android.graphics.RectF dest = new android.graphics.RectF(
+                        cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
+                r.drawCell(canvas, cell, dest, spritePaint);
+                canvas.restore();
+                drawnSprite++;
+            }
+        } catch (Throwable t) {
+            canvas.restoreToCount(spriteSaveCount);
+            if (!loggedSpriteDrawError) {
+                FLog.w(TAG, "Sprite draw threw; sprites skipped for this frame "
+                        + "(this warning is logged once)", t);
+                loggedSpriteDrawError = true;
+            }
+        }
+        if (drawnSprite > 0) framesWithSprite++;
 
         // Text overlays
         int drawnText = 0;
@@ -476,9 +573,14 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 + " textFrames=" + framesWithText
                 + " captionFrames=" + framesWithCaption
                 + " waveformFrames=" + framesWithWaveform
+                + " spriteFrames=" + framesWithSprite
                 + " (clip " + clip.getId() + " in=" + clip.getInPointMs()
                 + " out=" + clip.getOutPointMs()
                 + " speed=" + clip.getSpeedMultiplier() + ")");
+        for (com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r : spriteRenderers.values()) {
+            if (r != null) r.recycle();
+        }
+        spriteRenderers.clear();
         if (lastReturnedBitmap != null && !lastReturnedBitmap.isRecycled()) {
             lastReturnedBitmap.recycle();
         }

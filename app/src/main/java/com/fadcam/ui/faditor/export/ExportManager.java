@@ -1782,7 +1782,13 @@ public class ExportManager {
             // excluded here exactly as they are from the preview (PLAN §5.3(4)).
             List<TextOverlayItem> exportTextOverlays =
                     LayerPreviewController.visibleTextOverlays(project.getTimeline());
+            // S6: sprites ride the SAME shared authority the preview's
+            // SpriteOverlayView feeds from (visibleSpriteItems) — hidden SPRITE
+            // tracks are excluded identically in both places by construction.
+            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> exportSpriteItems =
+                    LayerPreviewController.visibleSpriteItems(project.getTimeline());
             boolean hasOverlays = !exportTextOverlays.isEmpty()
+                    || !exportSpriteItems.isEmpty()
                     || clip.isCaptionsEnabled()
                     || !clipWaveformSlots.isEmpty()
                     || clipHasWaveformRef
@@ -1793,7 +1799,9 @@ public class ExportManager {
                         overlayW, overlayH,
                         exportTextOverlays,
                         clipWaveformSlots,
-                        project.getTimeline().getAudioClips());
+                        project.getTimeline().getAudioClips(),
+                        exportSpriteItems,
+                        project.getSpriteSheets());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

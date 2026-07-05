@@ -1,5 +1,37 @@
 # FadCam AI Handoff
 
+> **🎬 2026-07-05 ~16:50 — M-COMP-2 LIVE PiP LANDED + PROBE #1 CLOSED (0453db9). WATCHER ALIVE, device attached.**
+> **Probe #1 (PLAN_LAYERS_V2 Part 10) verdict: GO with headroom** — the Note 9 ran 2 AND 3 simultaneous
+> 1080x1920 **HEVC** decoders at full ~29fps, zero steady-state drops (`compositor/DecoderBudgetProbeActivity`,
+> permanent adb-driven debug tool; temp-flip exported to use). **2b creation** = AddAssetBottomSheet
+> "Video overlay (PiP)" row (feature flag `OverlayVideoPreviewView.LIVE_PIP`) → background import → overlay
+> Clip on layer "video" @ playhead, x/y/scale starter keys at t=0. **2c preview** = `compositor/
+> OverlayVideoPreviewView` (one overlay ExoPlayer, top-most-visible clip only, TextureView transformed per
+> tick from overlayTransform via KeyframeSet.valueAt at ABSOLUTE timeline ms — same evaluator export samples;
+> drag/pinch mirrors SpriteOverlayView; decoder released when no PiP; master play/pause edges via
+> onIsPlayingChanged). DEVICE-VERIFIED on the bdd51919 sandbox: PiP row (blue) renders; hidden before window;
+> LIVE during playback at exact x=0.72/y=0.22/scale=0.35; hidden past end; paused scrub shows correct still;
+> **save round-trip PROVEN** (serializer re-wrote overlayClips full-fielded, masters untouched — closes 2a's
+> owed proof). Known NON-bug: this sandbox ends master playback ~1.4s after play — control-proven
+> pre-existing (reproduces with zero overlay clips). Sandbox now contains an injected PiP clip; on-device
+> backup at project.json.bak-mcomp2-20260705.
+> **NEXT (M-COMP-2 lane, strict order): (1) M-EXPORT-2** — run probe #3 first (export the PiP sandbox, read
+> what the current inert path produces), then fix export: overlay timing (overlayStartMs → sequence offset/gap),
+> per-frame transform (media3 1.8 `VideoCompositorSettings.getOverlaySettings(seqIdx, presentationTimeUs)` =
+> native keyframe support — sample the SAME KeyframeSet), opacity, z-vs-captions parity (PiP must stay UNDER
+> text/captions like preview; may need composition-level overlay), migrate buildOverlayVideoSequence to
+> `LayerPreviewController.visibleOverlayVideoClips`, THEN blend modes (BlendModeGlEffect after
+> GlTransitionExportEffect pattern). **(2) A6 pin-warp GL strip renderer** (FabrikSolver landed 0fe01bd, plan
+> §Pin-warp: quad-strip + 3 pins, warp between cells, pin-snap crossfade; GL path since Canvas can't warp).
+> **DELEGABLE (weaker AI, well-patterned):** PiP timeline-lane move/trim — add `item.getClip()` branches to
+> `LayerGestureController` mutation sites (mirror TextOverlayItem/AudioClip: MOVE→setOverlayStartMs,
+> TRIM→in/out points + undo snapshots); PiP still-frame fallback for 2nd+ simultaneous overlay (MMR poster
+> into an ImageView when not top-most); PiP opacity/blend UI drawer (reuse opacity drawer pattern).
+> **USER HAND-TEST OWED (PiP, ≤4 gestures):** open sandbox → scrub across 1s..6.7s (PiP appears/disappears,
+> shows frames while paused) → drag the PiP around + pinch-scale (undo once after) → add your own via
+> + asset sheet → "Video overlay (PiP)". Opencode/DeepSeek queue updated in tasks/Opencode-work.md (TASK 0
+> reduced to verify-clean; 2 files added to its do-not-touch list).
+
 > **🤖 2026-07-05 ~12:00 — OPENCODE/DEEPSEEK WORK QUEUE ISSUED: `tasks/Opencode-work.md`.**
 > While JoyRaptor/Basil are on cooldown, a Sonnet-class model on the opencode harness executes that
 > file's TASK 0–9 (tree recovery + first real build of today's javac-only work, device smoke

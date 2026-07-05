@@ -60,10 +60,17 @@ plus pure-math avatar cores (`OneEuroFilter`, `LifeSignals`, `FabrikSolver`,
 `sprite_overlay_layer` in activity_faditor_editor.xml, new strings) has never been
 through a real build**, and none of it has run on the device yet. That's your TASK 0/1.
 
-Another session left M-COMP-2 (overlay-video PiP) work IN FLIGHT: modified
-`FaditorEditorActivity`, `AddAssetBottomSheet`, `LayerPreviewController`, manifest,
-layout, strings + new untracked `compositor/DecoderBudgetProbeActivity.java` and
-`compositor/OverlayVideoPreviewView.java`. Its last commit was 306aa27.
+~~Another session left M-COMP-2 (overlay-video PiP) work IN FLIGHT~~ **SUPERSEDED
+2026-07-05 ~16:45 (Fable, M-COMP-2 lane): that in-flight work is COMMITTED as 0453db9
+(M-COMP-2b+2c, device-verified, manifest exported flips already reverted). The tree is
+CLEAN. TASK 0 reduces to: verify `git status --short` is clean + one green
+`compileDefaultDebugJavaWithJavac`, then go straight to TASK 1.** Two additions to the
+DO-NOT-TOUCH list: `compositor/OverlayVideoPreviewView.java` and
+`compositor/DecoderBudgetProbeActivity.java` (M-COMP-2 lane, Fable-tier). One known
+non-bug: the bdd51919 sandbox project ends master playback ~1.4s after pressing play —
+CONTROL-PROVEN pre-existing (reproduces with zero overlay clips); do not chase it as a
+PiP regression. The sandbox project currently contains one injected PiP overlay clip
+(backup at `project.json.bak-mcomp2-20260705` on-device) — leave both in place.
 
 ---
 ## TASK 0 — Recover the tree + first green build  (do this FIRST, carefully)

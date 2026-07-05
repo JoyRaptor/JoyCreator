@@ -1138,6 +1138,11 @@
     <string name="sprite_sheet_action_edit">Edit sheet</string>
     <string name="sprite_sheet_action_place">Place on video</string>
     <string name="sprite_placed">Sprite placed — drag it on the preview</string>
+    <string name="sprite_palette_load">+ Load sprite sheet</string>
+    <string name="sprite_palette_cell_prefix">cell</string>
+    <string name="sprite_palette_no_cell">no frame yet — tap a cell</string>
+    <string name="sprite_palette_end_prefix">end:</string>
+    <string name="sprite_palette_swap_dropped">Swap dropped at playhead</string>
 
     <!-- Avatar Studio matrix editor (PLAN_AVATAR_STUDIO A1-UI) -->
     <string name="avatar_studio_title">Avatars</string>

@@ -1882,7 +1882,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_settings).setOnClickListener(v ->
                 com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance()
                         .show(getSupportFragmentManager(), "faditorSettings"));
-        findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpriteSheetManager());
+        findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
         toolMove.setOnClickListener(v -> toggleMoveDrawer());
         initMoveDrawer();
         // (Sprites tool wired above; manager implementation below the tool handlers.)
@@ -6827,6 +6827,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (spriteOverlayView != null && !spriteOverlayView.isEmpty()) {
             spriteOverlayView.setPlayheadMs(absoluteMs);
         }
+        // S3: live cell indicator in the palette panel's transport row.
+        if (spritePalettePanel != null) {
+            spritePalettePanel.setPlayheadMs(absoluteMs);
+        }
         // Drive waveform/spectrum visualizers from the TIMELINE playhead position,
         // not the source position — visualizers are placed at timeline positions
         // and their mapToSourceMs needs a timeline timestamp.
@@ -8792,6 +8796,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItems(tl),
                         spriteOverlayCallback());
                 spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
+            }
+            // S3: the palette panel mirrors the same filtered list when open.
+            if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
+                spritePalettePanel.setData(
+                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItems(tl));
             }
             // PHASE-P P3: keep the ripple/gap button in sync with the model (covers
             // initial load, toggle, and undo/redo — all funnel through this sync).
@@ -11331,6 +11340,144 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         item, before, after, "Move overlay"));
             }
         };
+    }
+
+    /** S3: sprite palette panel (AssetBrowserPanel overlay idiom). */
+    @Nullable private com.fadcam.ui.faditor.sprite.SpritePalettePanel spritePalettePanel;
+
+    /**
+     * S3: Sprites tool now opens the PALETTE PANEL (micro/palette detents);
+     * the sheet-manager dialog stays reachable via the panel's ⚙ / empty-state
+     * "+ Load" (and still handles new-sheet import + Avatar Studio entry).
+     */
+    private void openSpritePalette() {
+        if (project == null) return;
+        if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) return;
+        com.fadcam.ui.faditor.sprite.SpritePalettePanel p =
+                new com.fadcam.ui.faditor.sprite.SpritePalettePanel(this);
+        spritePalettePanel = p;
+        p.setCallback(new com.fadcam.ui.faditor.sprite.SpritePalettePanel.Callback() {
+            @Override
+            public void onCellChipTapped(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, int cellIndex) {
+                // Drop/replace a swap at the playhead (item-LOCAL time base). One
+                // undo step restores the exact prior key list.
+                final long localMs = Math.max(0, item.toLocalMs(lastPlayheadAbsoluteMs));
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                item.getFrameTrack().put(
+                        com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(localMs, cellIndex));
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                undoManager.recordAction(new EditActions.LambdaAction("Sprite swap",
+                        () -> { restoreFrameKeys(item, after); },
+                        () -> { restoreFrameKeys(item, before); }));
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                p.setPlayheadMs(lastPlayheadAbsoluteMs);
+                Toast.makeText(FaditorEditorActivity.this,
+                        R.string.sprite_palette_swap_dropped, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onInstanceSelected(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                p.setPlayheadMs(lastPlayheadAbsoluteMs);
+            }
+
+            @Override
+            public void onFlipH(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                item.setFlipH(!item.isFlipH());
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                p.rebuild();
+            }
+
+            @Override
+            public void onFlipV(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                item.setFlipV(!item.isFlipV());
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                p.rebuild();
+            }
+
+            @Override
+            public void onEndBehaviorCycled(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                String next = "hold".equals(item.getEndBehavior()) ? "loop"
+                        : "loop".equals(item.getEndBehavior()) ? "pingpong" : "hold";
+                item.setEndBehavior(next);
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                p.rebuild();
+            }
+
+            @Override
+            public void onDeleteInstance(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                project.getTimeline().removeSpriteOverlay(item);
+                syncTimelineOverlays();
+                undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
+                        () -> { project.getTimeline().removeSpriteOverlay(item); syncTimelineOverlays(); },
+                        () -> { project.getTimeline().addSpriteOverlay(item); syncTimelineOverlays(); }));
+                scheduleAutoSave();
+                p.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .visibleSpriteItems(project.getTimeline()));
+            }
+
+            @Override
+            public void onManageSheets() {
+                openSpriteSheetManager();
+            }
+
+            @Override
+            public void onFrameStep(int direction) {
+                // One frame at the selected sprite's sheet fps (fallback 8fps).
+                float fps = 8f;
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem sel = p.getSelected();
+                if (sel != null) {
+                    com.fadcam.ui.faditor.sprite.SpriteSheet s =
+                            project.spriteSheetById(sel.getSheetId());
+                    if (s != null && s.getFps() > 0f) fps = s.getFps();
+                }
+                long step = Math.max(1, Math.round(1000f / fps));
+                editorTimeline.seekToTimelineMs(
+                        Math.max(0, lastPlayheadAbsoluteMs + direction * step));
+            }
+
+            @Override
+            public void onPanelCollapsed() {
+                spritePalettePanel = null;
+            }
+
+            @Override
+            public com.fadcam.ui.faditor.sprite.SpriteSheet lookupSheet(@NonNull String sheetId) {
+                return project.spriteSheetById(sheetId);
+            }
+
+            @Override
+            public com.fadcam.ui.faditor.sprite.SpriteSheetRenderer lookupRenderer(
+                    @NonNull String sheetId) {
+                return spriteRendererFor(sheetId);
+            }
+        });
+        p.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
+                .visibleSpriteItems(project.getTimeline()));
+        p.setPlayheadMs(lastPlayheadAbsoluteMs);
+        ViewGroup root = findViewById(android.R.id.content);
+        root.addView(p);
+    }
+
+    /** Replace an item's frame keys with a snapshot (sprite-swap undo/redo). */
+    private void restoreFrameKeys(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+            @NonNull java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> snapshot) {
+        java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> live =
+                item.getFrameTrack().keys();
+        live.clear();
+        live.addAll(snapshot);
+        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+        if (spritePalettePanel != null) spritePalettePanel.setPlayheadMs(lastPlayheadAbsoluteMs);
     }
 
     /** S4: sprite preview callback — mirrors {@link #overlayLayerCallback()}. */

@@ -29,6 +29,8 @@ public class SpriteGridEditorView extends View {
     public interface Listener {
         void onCellTapped(int index);
         void onPivotChanged(float pivotX, float pivotY);
+        /** S2b: a tap while color-pick mode is armed sampled this sheet pixel. */
+        default void onColorPicked(int argb) {}
     }
 
     @Nullable private SpriteSheet sheet;
@@ -42,6 +44,7 @@ public class SpriteGridEditorView extends View {
     private int selectedCell = -1;
     private boolean pivotMode = false;
     private boolean draggingPivot = false;
+    private boolean colorPickMode = false;
 
     private final Paint bmpPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -100,6 +103,10 @@ public class SpriteGridEditorView extends View {
     /** Toggle pivot-editing: drags inside the selected cell move the pivot. */
     public void setPivotMode(boolean on) { pivotMode = on; invalidate(); }
     public boolean isPivotMode() { return pivotMode; }
+
+    /** S2b: arm bg-key color picking — the next tap samples the sheet pixel. */
+    public void setColorPickMode(boolean on) { colorPickMode = on; invalidate(); }
+    public boolean isColorPickMode() { return colorPickMode; }
 
     /** Re-fit on next draw (geometry controls changed nothing about the matrix). */
     public void refresh() { invalidate(); }
@@ -235,6 +242,16 @@ public class SpriteGridEditorView extends View {
         if (renderer == null || sheet == null) return;
         float[] p = new float[2];
         if (!toSource(vx, vy, p)) return;
+        if (colorPickMode) {
+            android.graphics.Bitmap bmp = renderer.getBitmap();
+            int bx = Math.round(p[0] * bmp.getWidth() / Math.max(1, renderer.sourceWidth()));
+            int by = Math.round(p[1] * bmp.getHeight() / Math.max(1, renderer.sourceHeight()));
+            if (bx >= 0 && bx < bmp.getWidth() && by >= 0 && by < bmp.getHeight()) {
+                colorPickMode = false;
+                if (listener != null) listener.onColorPicked(bmp.getPixel(bx, by));
+            }
+            return;
+        }
         for (int i = 0; i < sheet.cellCount(); i++) {
             Rect r = SpriteSheetRenderer.cellRectSource(sheet, i, renderer.sourceWidth(), renderer.sourceHeight());
             if (r.contains(Math.round(p[0]), Math.round(p[1]))) {

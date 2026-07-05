@@ -1122,6 +1122,16 @@
     <string name="sprite_editor_play">▶</string>
     <string name="sprite_editor_stop">■</string>
     <string name="sprite_editor_pivot">Pivot</string>
+    <string name="sprite_editor_auto">Auto</string>
+    <string name="sprite_editor_auto_applied">Grid detected: %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">No clear grid found — set it with the steppers</string>
+    <string name="sprite_editor_key">Key</string>
+    <string name="sprite_editor_key_clear">Key ✕</string>
+    <string name="sprite_editor_key_pick_hint">Tap the background color to key out</string>
+    <string name="sprite_editor_key_cleared">Background key cleared</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">Sidecar saved next to the sheet image</string>
+    <string name="sprite_editor_sidecar_failed">Couldn\'t write the sidecar file</string>
     <string name="sprite_sheet_picker_title">Sprite sheets</string>
     <string name="sprite_sheet_picker_new">+ New sprite sheet</string>
     <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>

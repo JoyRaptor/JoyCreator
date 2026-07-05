@@ -67,6 +67,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private EditText cellNameField;
     private Switch cellEnabled;
     private TextView pivotBtn;
+    private TextView keyBtn;
     private TextView playBtn;
     private CellCyclePreview preview;
     private TextView fpsValue;
@@ -195,6 +196,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         gridView.setListener(new SpriteGridEditorView.Listener() {
             @Override public void onCellTapped(int index) { onCellSelected(index); }
             @Override public void onPivotChanged(float px, float py) { /* live-drawn */ }
+            @Override public void onColorPicked(int argb) { applyBgKey(argb); }
         });
 
         // Cell panel (selected-cell name + enabled)
@@ -268,6 +270,31 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             pivotBtn.setBackgroundColor(gridView.isPivotMode() ? 0xFF4A3B5C : 0xFF26262E);
         });
         controls.addView(pivotBtn);
+
+        // S2b: algorithmic grid auto-detect (gutter scan).
+        TextView autoBtn = chip(getString(R.string.sprite_editor_auto));
+        autoBtn.setOnClickListener(v -> autoDetectGrid());
+        LinearLayout.LayoutParams autoLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        autoLp.leftMargin = (int) (8 * d);
+        controls.addView(autoBtn, autoLp);
+
+        // S2b: background color-key (engine applies it once at decode; this is the UI).
+        keyBtn = chip(getString(R.string.sprite_editor_key));
+        keyBtn.setOnClickListener(v -> onKeyChipTapped());
+        LinearLayout.LayoutParams keyLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        keyLp.leftMargin = (int) (8 * d);
+        controls.addView(keyBtn, keyLp);
+        syncKeyChip();
+
+        // S2b: standalone sidecar export (<image>.sprite.json — the sharing format).
+        TextView sidecarBtn = chip(getString(R.string.sprite_editor_export_sidecar));
+        sidecarBtn.setOnClickListener(v -> exportSidecar());
+        LinearLayout.LayoutParams scLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        scLp.leftMargin = (int) (8 * d);
+        controls.addView(sidecarBtn, scLp);
 
         addStepper(controls, "Cols", () -> sheet.getCols(),
                 delta -> sheet.setGrid(sheet.getCols() + delta, sheet.getRows()));
@@ -398,6 +425,85 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         cellNameField.setText(meta != null ? meta.name : "");
         cellEnabled.setChecked(meta == null || meta.enabled);
         syncControls();
+    }
+
+    // ── S2b: auto-detect / bg-key / sidecar ───────────────────────────────
+
+    /** Gutter-scan the decoded bitmap; detected geometry is scaled back to
+     *  SOURCE pixels (the space the sheet's margins/spacing live in). */
+    private void autoDetectGrid() {
+        if (renderer == null) {
+            Toast.makeText(this, R.string.sprite_editor_auto_failed, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        android.graphics.Bitmap bmp = renderer.getBitmap();
+        SpriteGridDetector.Result r = SpriteGridDetector.detect(bmp, sheet.getBgKeyColor());
+        if (r == null) {
+            Toast.makeText(this, R.string.sprite_editor_auto_failed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        float sx = renderer.sourceWidth() / (float) Math.max(1, bmp.getWidth());
+        float sy = renderer.sourceHeight() / (float) Math.max(1, bmp.getHeight());
+        sheet.setGrid(r.cols, r.rows);
+        sheet.setMargins(Math.round(r.marginX * sx), Math.round(r.marginY * sy));
+        sheet.setSpacing(Math.round(r.spacingX * sx), Math.round(r.spacingY * sy));
+        gridChanged();
+        Toast.makeText(this, getString(R.string.sprite_editor_auto_applied, r.cols, r.rows),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** Key chip: no key set → arm pick mode; key set → clear it. */
+    private void onKeyChipTapped() {
+        if (sheet.getBgKeyColor() != 0) {
+            sheet.setBgKey(0, 0f);
+            reloadRenderer(); // re-decode without the key
+            syncKeyChip();
+            Toast.makeText(this, R.string.sprite_editor_key_cleared, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        gridView.setColorPickMode(!gridView.isColorPickMode());
+        syncKeyChip();
+        if (gridView.isColorPickMode()) {
+            Toast.makeText(this, R.string.sprite_editor_key_pick_hint, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void applyBgKey(int argb) {
+        // Opaque key color; 8% tolerance is a sane default for flat-color bgs.
+        sheet.setBgKey(0xFF000000 | (argb & 0x00FFFFFF), 0.08f);
+        reloadRenderer(); // one-time color→alpha at decode (preview==export pixels)
+        syncKeyChip();
+    }
+
+    private void syncKeyChip() {
+        if (keyBtn == null) return;
+        boolean keyed = sheet.getBgKeyColor() != 0;
+        keyBtn.setText(keyed ? getString(R.string.sprite_editor_key_clear)
+                : getString(R.string.sprite_editor_key));
+        keyBtn.setBackgroundColor(keyed || gridView.isColorPickMode() ? 0xFF4A3B5C : 0xFF26262E);
+    }
+
+    /** Write the standalone sidecar (<image>.sprite.json, same JSON as the
+     *  project embed) next to the sheet image in the project bundle. */
+    private void exportSidecar() {
+        try {
+            android.net.Uri uri = android.net.Uri.parse(sheet.getSheetUri());
+            String path = uri.getPath();
+            if (path == null || !"file".equals(uri.getScheme())) {
+                Toast.makeText(this, R.string.sprite_editor_sidecar_failed, Toast.LENGTH_LONG).show();
+                return;
+            }
+            File img = new File(path);
+            String base = img.getName().contains(".")
+                    ? img.getName().substring(0, img.getName().lastIndexOf('.')) : img.getName();
+            File out = new File(img.getParentFile(), base + ".sprite.json");
+            try (FileOutputStream fos = new FileOutputStream(out)) {
+                fos.write(sheet.toJson().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Toast.makeText(this, R.string.sprite_editor_sidecar_saved, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.sprite_editor_sidecar_failed, Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override

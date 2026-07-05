@@ -118,6 +118,35 @@ public final class LayerPreviewController {
         return result;
     }
 
+    // ── VIDEO (overlay/PiP) tracks → OverlayVideoPreviewView input ─────────────────
+
+    /**
+     * The list to feed {@link OverlayVideoPreviewView#setClips}: every overlay
+     * {@link com.fadcam.ui.faditor.model.Clip} from a visible (not hidden) VIDEO
+     * track, in zIndex-sorted track order, bottom→top (same authority rule as
+     * {@link #visibleTextOverlays} — M-EXPORT-2's overlay-video sequence must
+     * consume THIS method too, so preview/export visibility cannot diverge; the
+     * current M-EXPORT-1 {@code buildOverlayVideoSequence} iterates tracks itself
+     * and must be migrated when M-EXPORT-2 lands). Empty for every project without
+     * PiP clips — the overlay view releases its decoder and passes touches through.
+     */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.model.Clip> visibleOverlayVideoClips(
+            @NonNull Timeline timeline) {
+        List<Track> layers = new ArrayList<>(timeline.getLayers());
+        layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
+        List<com.fadcam.ui.faditor.model.Clip> result = new ArrayList<>();
+        for (Track track : layers) {
+            if (track.getKind() != TrackKind.VIDEO) continue;
+            if (track.isHidden()) continue; // M-EXPORT-2 export mirrors via this shared method.
+            for (TimedItem item : track.getItems()) {
+                com.fadcam.ui.faditor.model.Clip clip = item.getClip();
+                if (clip != null && clip.isOverlayClip()) result.add(clip);
+            }
+        }
+        return result;
+    }
+
     // ── Muted AUDIO tracks → per-clip preview-volume gate ──────────────────────────
 
     /**

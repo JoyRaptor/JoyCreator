@@ -532,6 +532,14 @@
             android:layout_gravity="center"
             android:visibility="gone" />
 
+        <!-- M-COMP-2: live overlay-video (PiP) layer — above the master surfaces,
+             below visualizer/image/sprite/text overlays (plan §3.3 stack order). -->
+        <com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView
+            android:id="@+id/overlay_video_layer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
         <!-- Waveform/spectrum visualizer overlays (rendered below text overlays) -->
         <com.fadcam.ui.faditor.waveform.WaveformOverlayView
             android:id="@+id/waveform_overlay"

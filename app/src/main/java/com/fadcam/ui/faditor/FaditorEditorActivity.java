@@ -206,6 +206,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.compositor.LayerImageOverlayView layerImageOverlay;
     /** Sprite preview surface (S4): resolver-driven, above video, below text/captions. */
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayView;
+    /** Live overlay-video (PiP) preview surface (M-COMP-2; plan §3.3). */
+    private com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView overlayVideoLayer;
+    /** The next videoPickerLauncher result creates a PiP overlay, not a master clip. */
+    private boolean overlayVideoPickerPending;
     /** Decode-once sprite sheet renderers for the preview, keyed by sheetId. The
      *  paired SpriteSheet reference validates the cache across project reloads
      *  (new model objects → stale entry recycled + re-decoded). */
@@ -1052,6 +1056,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         super.onPause();
         playheadHandler.removeCallbacks(playheadUpdater);
         hideTransitionPreview();
+        // M-COMP-2: park the overlay decoder while backgrounded.
+        if (overlayVideoLayer != null) overlayVideoLayer.pausePlayback();
         // Save project on pause (e.g. user switches away) — force-flush undo history.
         saveProjectNow(true);
     }
@@ -1066,6 +1072,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (waveformExtractor != null) waveformExtractor.shutdown();
         releaseAudioPlayer();
         releaseTransitionRetriever();
+        // M-COMP-2: free the overlay-video decoder.
+        if (overlayVideoLayer != null) overlayVideoLayer.releasePlayer();
         audioExecutor.shutdownNow();
         assetImportExecutor.shutdownNow();
         // S4: release the shared sprite-sheet bitmaps.
@@ -1144,6 +1152,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             layerImageOverlay.setRectProvider(this::computeCanvasRect);
         }
         spriteOverlayView = findViewById(R.id.sprite_overlay_layer);
+        overlayVideoLayer = findViewById(R.id.overlay_video_layer);
         waveformOverlayView = findViewById(R.id.waveform_overlay);
         waveformExtractor = new com.fadcam.ui.faditor.waveform.WaveformExtractor(this);
         cropOverlay = findViewById(R.id.crop_overlay);
@@ -3117,6 +3126,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // Don't override button state during audio-tail (video paused, audio playing)
                 if (!audioTailActive) {
                     updatePlayPauseButton(isPlaying);
+                }
+                // M-COMP-2: the overlay decoder must see every master play/pause EDGE —
+                // the playhead tick loop can stop (pause/ENDED) before delivering one,
+                // which left the PiP free-running (device-caught 2026-07-05).
+                if (overlayVideoLayer != null && !overlayVideoLayer.isEmpty()) {
+                    overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs, isPlaying);
                 }
                 // Sync audio player with ExoPlayer state
                 if (isPlaying) {
@@ -6827,6 +6842,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (spriteOverlayView != null && !spriteOverlayView.isEmpty()) {
             spriteOverlayView.setPlayheadMs(absoluteMs);
         }
+        // M-COMP-2: same tick drives the live PiP layer — time-range visibility,
+        // keyframed transform, and overlay-decoder sync against the master clock.
+        if (overlayVideoLayer != null && !overlayVideoLayer.isEmpty()) {
+            overlayVideoLayer.setPlayheadMs(absoluteMs,
+                    playerManager != null && playerManager.isPlaying());
+        }
         // S3: live cell indicator in the palette panel's transport row.
         if (spritePalettePanel != null) {
             spritePalettePanel.setPlayheadMs(absoluteMs);
@@ -8801,6 +8822,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
                 spritePalettePanel.setData(
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItems(tl));
+            }
+            // M-COMP-2: re-bind the live PiP layer from the (hidden-filtered) Track
+            // model — the same single authority M-EXPORT-2's export must consume.
+            if (overlayVideoLayer != null) {
+                overlayVideoLayer.setClips(
+                        com.fadcam.ui.faditor.compositor.LayerPreviewController
+                                .visibleOverlayVideoClips(tl),
+                        overlayVideoCallback());
+                overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
+                        playerManager != null && playerManager.isPlaying());
             }
             // PHASE-P P3: keep the ripple/gap button in sync with the model (covers
             // initial load, toggle, and undo/redo — all funnel through this sync).
@@ -11524,6 +11555,128 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }));
             }
         };
+    }
+
+    /**
+     * M-COMP-2: glue for the live PiP layer. Same shape as {@link #spriteOverlayCallback}:
+     * content rect from the shared canvas math, the SAME remux-to-seekable resolver the
+     * master gapless engine uses, autosave on change, one undo step per gesture via a
+     * whole-KeyframeSet snapshot.
+     */
+    private com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.Callback overlayVideoCallback() {
+        return new com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.Callback() {
+            @NonNull
+            @Override
+            public android.graphics.RectF getVideoContentRect() {
+                return computeCanvasRect();
+            }
+
+            @NonNull
+            @Override
+            public Uri resolveSeekable(@NonNull Clip clip) {
+                return resolvePlaybackUri(clip.getSourceUri());
+            }
+
+            @Override
+            public void onOverlayVideoChanged() {
+                scheduleAutoSave();
+            }
+
+            @Override
+            public void onOverlayVideoManipulated(@NonNull Clip clip,
+                    @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet before) {
+                final com.fadcam.ui.faditor.keyframe.KeyframeSet after =
+                        clip.getOverlayTransform() != null
+                                ? clip.getOverlayTransform().copy()
+                                : new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                undoManager.recordAction(new EditActions.LambdaAction("Move video overlay",
+                        () -> {
+                            restoreOverlayTransform(clip, after);
+                        },
+                        () -> {
+                            restoreOverlayTransform(clip, before);
+                        }));
+            }
+        };
+    }
+
+    /** Undo/redo helper: restore a PiP transform snapshot in place + refresh the layer. */
+    private void restoreOverlayTransform(@NonNull Clip clip,
+            @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet snapshot) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = clip.getOverlayTransform();
+        if (kf == null) {
+            kf = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+            clip.setOverlayTransform(kf);
+        }
+        kf.copyFrom(snapshot);
+        if (overlayVideoLayer != null) {
+            overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
+                    playerManager != null && playerManager.isPlaying());
+        }
+    }
+
+    /**
+     * M-COMP-2b: place a picked video as a floating overlay (PiP) starting at the
+     * playhead — mirrors {@link #onVideoAssetPicked}'s background import (the copy +
+     * duration probe ANR lesson), then creates an overlay {@link Clip} on the default
+     * "video" layer with the standard top-right-corner starter transform (keyframes at
+     * t=0 — the same convention preview AND export sample via KeyframeSet.valueAt).
+     * One undo step; persists via {@code Timeline.overlayClips} (schema v8 stamp).
+     */
+    private void onOverlayVideoPicked(@NonNull Uri pickedUri) {
+        showRemuxProgress();
+        final Uri srcUri = pickedUri;
+        assetImportExecutor.execute(() -> {
+            Uri resolvedUri = srcUri;
+            long durationMs = -1;
+            try {
+                resolvedUri = copyUriToInternalStorage(srcUri, "videos");
+                try {
+                    getContentResolver().takePersistableUriPermission(
+                            resolvedUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (SecurityException e) {
+                    FLog.w(TAG, "Could not take persistable URI permission", e);
+                }
+                durationMs = getVideoDuration(resolvedUri);
+            } catch (Exception e) {
+                FLog.e(TAG, "Failed to import overlay video (IO)", e);
+            }
+
+            final Uri videoUri = resolvedUri;
+            final long finalDuration = durationMs;
+            runOnUiThread(() -> {
+                hideRemuxProgress();
+                if (isFinishing() || isDestroyed() || project == null) return;
+                if (finalDuration <= 0) {
+                    Toast.makeText(this, R.string.faditor_asset_error, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                final Clip overlay = new Clip(videoUri, finalDuration);
+                overlay.setLayerId("video");
+                overlay.setOverlayStartMs(Math.max(0, lastPlayheadAbsoluteMs));
+                overlay.setAudioMuted(true); // pixels only in preview AND export (M-EXPORT-1 rule)
+                com.fadcam.ui.faditor.keyframe.KeyframeSet kf =
+                        new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X).put(0L,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X,
+                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y).put(0L,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y,
+                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE).put(0L,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_SCALE,
+                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                overlay.setOverlayTransform(kf);
+
+                project.getTimeline().addOverlayClip(overlay);
+                syncTimelineOverlays();
+                undoManager.recordAction(new EditActions.LambdaAction("Add video overlay",
+                        () -> { project.getTimeline().addOverlayClip(overlay); syncTimelineOverlays(); },
+                        () -> { project.getTimeline().removeOverlayClip(overlay); syncTimelineOverlays(); }));
+                scheduleAutoSave();
+                Toast.makeText(this, R.string.faditor_pip_added, Toast.LENGTH_SHORT).show();
+            });
+        });
     }
 
     /**
@@ -14710,10 +14863,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 int idx = relinkPendingIndex;
                                 relinkPendingIndex = -1;
                                 handleRelinkPick(idx, uri);
+                            } else if (overlayVideoPickerPending) {
+                                overlayVideoPickerPending = false;
+                                onOverlayVideoPicked(uri);
                             } else {
                                 onVideoAssetPicked(uri);
                             }
+                        } else {
+                            overlayVideoPickerPending = false;
                         }
+                    } else {
+                        overlayVideoPickerPending = false;
                     }
                 });
 
@@ -15429,6 +15589,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onAudioSelected() {
                 audioPickerLauncher.launch(openDocumentIntent("audio/*"));
+            }
+
+            @Override
+            public void onOverlayVideoSelected() {
+                // M-COMP-2b: pick a source for the floating PiP layer — same
+                // FadCam-recordings-first source sheet the master video path uses.
+                VideoSourceBottomSheet vs = new VideoSourceBottomSheet();
+                vs.setCallback(new VideoSourceBottomSheet.Callback() {
+                    @Override
+                    public void onRecordingSelected(@NonNull Uri videoUri) {
+                        onOverlayVideoPicked(videoUri);
+                    }
+
+                    @Override
+                    public void onBrowseDevice() {
+                        overlayVideoPickerPending = true;
+                        videoPickerLauncher.launch(openDocumentIntent("video/*"));
+                    }
+                });
+                vs.show(getSupportFragmentManager(), "pipVideoSource");
             }
 
             @Override

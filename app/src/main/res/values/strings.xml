@@ -1345,6 +1345,8 @@
     <string name="faditor_add_asset_image">Image (5s still)</string>
     <string name="faditor_add_asset_video">Video clip</string>
     <string name="faditor_add_asset_audio">Audio</string>
+    <string name="faditor_add_asset_pip">Video overlay (PiP)</string>
+    <string name="faditor_pip_added">Video overlay placed — drag it on the preview</string>
     <string name="faditor_audio_import_added">Audio added to the timeline</string>
     <string name="faditor_audio_import_error">Couldn\'t read that audio file</string>
     <string name="faditor_asset_added">Asset added to timeline</string>

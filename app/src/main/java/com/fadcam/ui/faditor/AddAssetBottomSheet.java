@@ -35,6 +35,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
 
         /** Called when the user selects audio. */
         void onAudioSelected();
+
+        /**
+         * Called when the user picks "Video overlay (PiP)" — a floating video
+         * layer over the master track (M-COMP-2). Default no-op so existing
+         * callers compile unchanged.
+         */
+        default void onOverlayVideoSelected() { }
     }
 
     @Nullable
@@ -110,6 +117,14 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 getString(R.string.faditor_add_asset_video),
                 "videocam", materialIcons, dp,
                 () -> { if (callback != null) callback.onAssetTypeSelected(false); }));
+
+        // Overlay video (PiP) row — feature-flagged with M-COMP-2.
+        if (com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.LIVE_PIP) {
+            root.addView(createOptionRow(
+                    getString(R.string.faditor_add_asset_pip),
+                    "picture_in_picture", materialIcons, dp,
+                    () -> { if (callback != null) callback.onOverlayVideoSelected(); }));
+        }
 
         // Audio row
         root.addView(createOptionRow(

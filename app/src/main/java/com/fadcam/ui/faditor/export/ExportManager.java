@@ -1787,8 +1787,14 @@ public class ExportManager {
             // tracks are excluded identically in both places by construction.
             List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> exportSpriteItems =
                     LayerPreviewController.visibleSpriteItems(project.getTimeline());
+            // M-EXPORT-2: overlay-video (PiP) clips ride the SAME shared authority
+            // the preview's OverlayVideoPreviewView binds from — hidden VIDEO
+            // tracks are excluded identically in both places by construction.
+            List<Clip> exportOverlayVideoClips =
+                    LayerPreviewController.visibleOverlayVideoClips(project.getTimeline());
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
+                    || !exportOverlayVideoClips.isEmpty()
                     || clip.isCaptionsEnabled()
                     || !clipWaveformSlots.isEmpty()
                     || clipHasWaveformRef
@@ -1801,7 +1807,8 @@ public class ExportManager {
                         clipWaveformSlots,
                         project.getTimeline().getAudioClips(),
                         exportSpriteItems,
-                        project.getSpriteSheets());
+                        project.getSpriteSheets(),
+                        exportOverlayVideoClips);
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

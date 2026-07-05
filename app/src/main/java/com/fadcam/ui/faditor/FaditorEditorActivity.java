@@ -204,6 +204,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.overlay.TextOverlayLayer overlayLayer;
     /** IMAGE-track layer preview surface (M-COMP-1; PLAN §3.2 scope item 4). */
     private com.fadcam.ui.faditor.compositor.LayerImageOverlayView layerImageOverlay;
+    /** Sprite preview surface (S4): resolver-driven, above video, below text/captions. */
+    private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayView;
+    /** Decode-once sprite sheet renderers for the preview, keyed by sheetId. The
+     *  paired SpriteSheet reference validates the cache across project reloads
+     *  (new model objects → stale entry recycled + re-decoded). */
+    private final java.util.Map<String, android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
+            com.fadcam.ui.faditor.sprite.SpriteSheetRenderer>> spriteRendererCache =
+            new java.util.HashMap<>();
     /** Text overlays whose ADD has already been recorded for undo (avoid double-record on re-edit). */
     private final java.util.Set<com.fadcam.ui.faditor.model.TextOverlayItem> textOverlayAddRecorded =
             java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -1060,6 +1068,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         releaseTransitionRetriever();
         audioExecutor.shutdownNow();
         assetImportExecutor.shutdownNow();
+        // S4: release the shared sprite-sheet bitmaps.
+        for (android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> p : spriteRendererCache.values()) {
+            if (p.second != null) p.second.recycle();
+        }
+        spriteRendererCache.clear();
         saveProjectNow(true);
         // Unbind from export service but do NOT cancel — let it continue in background
         if (exportServiceBound) {
@@ -1129,6 +1143,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (layerImageOverlay != null) {
             layerImageOverlay.setRectProvider(this::computeCanvasRect);
         }
+        spriteOverlayView = findViewById(R.id.sprite_overlay_layer);
         waveformOverlayView = findViewById(R.id.waveform_overlay);
         waveformExtractor = new com.fadcam.ui.faditor.waveform.WaveformExtractor(this);
         cropOverlay = findViewById(R.id.crop_overlay);
@@ -6808,6 +6823,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (layerImageOverlay != null) {
             layerImageOverlay.setPlayheadMs(absoluteMs);
         }
+        // S4: same tick drives sprite frame resolution + keyframed transforms.
+        if (spriteOverlayView != null && !spriteOverlayView.isEmpty()) {
+            spriteOverlayView.setPlayheadMs(absoluteMs);
+        }
         // Drive waveform/spectrum visualizers from the TIMELINE playhead position,
         // not the source position — visualizers are placed at timeline positions
         // and their mapToSourceMs needs a timeline timestamp.
@@ -8765,6 +8784,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 layerImageOverlay.setItems(
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleImageItems(tl));
                 layerImageOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
+            }
+            // S4: re-bind the sprite preview from the (hidden-filtered) Track model —
+            // same single-authority filter S6's export will consume.
+            if (spriteOverlayView != null) {
+                spriteOverlayView.setData(
+                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItems(tl),
+                        spriteOverlayCallback());
+                spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
             }
             // PHASE-P P3: keep the ripple/gap button in sync with the model (covers
             // initial load, toggle, and undo/redo — all funnel through this sync).
@@ -11306,6 +11333,75 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
     }
 
+    /** S4: sprite preview callback — mirrors {@link #overlayLayerCallback()}. */
+    private com.fadcam.ui.faditor.sprite.SpriteOverlayView.Callback spriteOverlayCallback() {
+        return new com.fadcam.ui.faditor.sprite.SpriteOverlayView.Callback() {
+            @NonNull
+            @Override
+            public android.graphics.RectF getVideoContentRect() {
+                // Canvas-relative so sprites match the export framing/size.
+                return computeCanvasRect();
+            }
+
+            @Override
+            public com.fadcam.ui.faditor.sprite.SpriteSheet lookupSheet(@NonNull String sheetId) {
+                return project != null ? project.spriteSheetById(sheetId) : null;
+            }
+
+            @Override
+            public com.fadcam.ui.faditor.sprite.SpriteSheetRenderer lookupRenderer(
+                    @NonNull String sheetId) {
+                return spriteRendererFor(sheetId);
+            }
+
+            @Override
+            public void onSpriteChanged() {
+                scheduleAutoSave();
+            }
+
+            @Override
+            public void onSpriteManipulated(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before) {
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot after =
+                        item.snapshotTransform();
+                if (before.matches(after)) return;
+                undoManager.recordAction(new EditActions.LambdaAction("Move sprite",
+                        () -> {
+                            item.restoreTransform(after);
+                            if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                        },
+                        () -> {
+                            item.restoreTransform(before);
+                            if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                        }));
+            }
+        };
+    }
+
+    /**
+     * Decode-once renderer for a sheet, cache-validated by SpriteSheet object
+     * identity so a project reload (new model objects, possibly re-sliced
+     * geometry) re-decodes once instead of serving stale pixels. A null
+     * renderer (missing art) is cached too — no per-frame retry storm; the
+     * overlay draws the MISSING placeholder (S7 rule).
+     */
+    private com.fadcam.ui.faditor.sprite.SpriteSheetRenderer spriteRendererFor(
+            @NonNull String sheetId) {
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                project != null ? project.spriteSheetById(sheetId) : null;
+        if (sheet == null) return null;
+        android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> cached =
+                spriteRendererCache.get(sheetId);
+        if (cached != null && cached.first == sheet) return cached.second;
+        if (cached != null && cached.second != null) cached.second.recycle();
+        com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r =
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer.load(this, sheet);
+        spriteRendererCache.put(sheetId, android.util.Pair.create(sheet, r));
+        return r;
+    }
+
     /**
      * Build an OPEN_DOCUMENT picker intent that grants PERSISTABLE read access.
      * (ACTION_GET_CONTENT cannot be persisted, so its URIs go blank once the
@@ -13148,17 +13244,70 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         openAvatarStudioManager();
                         return;
                     }
-                    android.content.Intent it = new android.content.Intent(this,
-                            com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class);
-                    it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
-                            .EXTRA_PROJECT_ID, project.getId());
                     if (which < sheets.size()) {
-                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
-                                .EXTRA_SHEET_ID, sheets.get(which).getId());
+                        showSpriteSheetActions(sheets.get(which));
+                        return;
                     }
-                    startActivity(it);
+                    launchSpriteSheetEditor(null); // + New sprite sheet
                 })
                 .show();
+    }
+
+    /** Existing sheet tapped: edit it, or place an instance on the video (the
+     *  minimal S4 placement path until the S3 palette panel lands). */
+    private void showSpriteSheetActions(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        String[] actions = {
+                getString(R.string.sprite_sheet_action_edit),
+                getString(R.string.sprite_sheet_action_place)};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(sheet.getName())
+                .setItems(actions, (d, which) -> {
+                    if (which == 0) launchSpriteSheetEditor(sheet.getId());
+                    else placeSpriteOnVideo(sheet);
+                })
+                .show();
+    }
+
+    private void launchSpriteSheetEditor(@Nullable String sheetId) {
+        android.content.Intent it = new android.content.Intent(this,
+                com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class);
+        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
+                .EXTRA_PROJECT_ID, project.getId());
+        if (sheetId != null) {
+            it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
+                    .EXTRA_SHEET_ID, sheetId);
+        }
+        startActivity(it);
+    }
+
+    /**
+     * S4 placement: drop a sprite instance at the playhead, first cell showing
+     * from time 0 of the item (a single-cell "hold" — S5's lane + the S3 palette
+     * add real frame animation on top). One undo step; persists via autosave.
+     */
+    private void placeSpriteOnVideo(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem item =
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem.create(sheet.getId());
+        item.getFrameTrack().put(
+                com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(0, firstEnabledCell(sheet)));
+        item.setTimeRange(Math.max(0, lastPlayheadAbsoluteMs), Long.MAX_VALUE);
+        project.getTimeline().addSpriteOverlay(item);
+        syncTimelineOverlays();
+        undoManager.recordAction(new EditActions.LambdaAction("Place sprite",
+                () -> { project.getTimeline().addSpriteOverlay(item); syncTimelineOverlays(); },
+                () -> { project.getTimeline().removeSpriteOverlay(item); syncTimelineOverlays(); }));
+        scheduleAutoSave();
+        Toast.makeText(this, R.string.sprite_placed, Toast.LENGTH_SHORT).show();
+    }
+
+    /** Lowest-index ENABLED cell (cells with no meta default to enabled). */
+    private int firstEnabledCell(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        for (int i = 0; i < sheet.cellCount(); i++) {
+            com.fadcam.ui.faditor.sprite.SpriteSheet.Cell meta = sheet.cellAt(i);
+            if (meta == null || meta.enabled) return i;
+        }
+        return 0;
     }
 
     /**

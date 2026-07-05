@@ -547,6 +547,14 @@
             android:layout_height="match_parent"
             android:layout_gravity="center" />
 
+        <!-- Sprite overlay layer (S4): resolver-driven sprites above video,
+             below text overlays + captions — matches the export draw order. -->
+        <com.fadcam.ui.faditor.sprite.SpriteOverlayView
+            android:id="@+id/sprite_overlay_layer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
         <!-- Text overlay layer (draggable text on top of the video) -->
         <com.fadcam.ui.faditor.overlay.TextOverlayLayer
             android:id="@+id/overlay_layer"

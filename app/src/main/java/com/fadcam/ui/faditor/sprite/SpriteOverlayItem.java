@@ -118,4 +118,121 @@ public class SpriteOverlayItem {
     public long toLocalMs(long timelineMs) {
         return timelineMs - startMs;
     }
+
+    // ── Animated transform evaluation (S4; mirrors TextOverlayItem exactly:
+    //    item-LOCAL keyframe time base, static field as the fallback) ──────
+
+    /** "Armed" = has at least one keyframe (After-Effects stopwatch semantics). */
+    public boolean isArmed() {
+        return !keyframes.isEmpty();
+    }
+
+    private long localTime(long timelineMs) {
+        return Math.max(0, timelineMs - startMs);
+    }
+
+    public float animatedCenterX(long timelineMs) {
+        return keyframes.valueAt(KeyframeSet.X, localTime(timelineMs), centerX);
+    }
+
+    public float animatedCenterY(long timelineMs) {
+        return keyframes.valueAt(KeyframeSet.Y, localTime(timelineMs), centerY);
+    }
+
+    /** Animated size fraction (the scale track stores the absolute fraction). */
+    public float animatedSizeFraction(long timelineMs) {
+        return keyframes.valueAt(KeyframeSet.SCALE, localTime(timelineMs), sizeFraction);
+    }
+
+    public float animatedRotation(long timelineMs) {
+        return keyframes.valueAt(KeyframeSet.ROTATION, localTime(timelineMs), rotationDeg);
+    }
+
+    public float animatedOpacity(long timelineMs) {
+        return keyframes.valueAt(KeyframeSet.OPACITY, localTime(timelineMs), opacity);
+    }
+
+    /** Record the current static transform as a keyframe at the given timeline
+     *  time on every transform track (TextOverlayItem.addKeyframeAt semantics). */
+    public void addKeyframeAt(long timelineMs) {
+        long t = localTime(timelineMs);
+        com.fadcam.ui.faditor.keyframe.Easing ease =
+                com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+        keyframes.getOrCreate(KeyframeSet.X).put(t, centerX, ease);
+        keyframes.getOrCreate(KeyframeSet.Y).put(t, centerY, ease);
+        keyframes.getOrCreate(KeyframeSet.SCALE).put(t, sizeFraction, ease);
+        keyframes.getOrCreate(KeyframeSet.ROTATION).put(t, rotationDeg, ease);
+        keyframes.getOrCreate(KeyframeSet.OPACITY).put(t, opacity, ease);
+    }
+
+    // ── Undo snapshot (one undo step per preview gesture, house rule) ─────
+
+    /** Immutable static-transform + keyframe snapshot for gesture undo. */
+    public static class TransformSnapshot {
+        public final float centerX, centerY, sizeFraction, rotationDeg, opacity;
+        public final boolean flipH, flipV;
+        @NonNull public final KeyframeSet keyframes;
+
+        TransformSnapshot(@NonNull SpriteOverlayItem o) {
+            this.centerX = o.centerX;
+            this.centerY = o.centerY;
+            this.sizeFraction = o.sizeFraction;
+            this.rotationDeg = o.rotationDeg;
+            this.opacity = o.opacity;
+            this.flipH = o.flipH;
+            this.flipV = o.flipV;
+            this.keyframes = o.keyframes.copy();
+        }
+
+        public boolean matches(@NonNull TransformSnapshot other) {
+            return centerX == other.centerX && centerY == other.centerY
+                    && sizeFraction == other.sizeFraction
+                    && rotationDeg == other.rotationDeg && opacity == other.opacity
+                    && flipH == other.flipH && flipV == other.flipV
+                    && keyframesEqual(keyframes, other.keyframes);
+        }
+
+        /** Structural equality, mirroring TextOverlayItem.TransformSnapshot. */
+        private static boolean keyframesEqual(@NonNull KeyframeSet a, @NonNull KeyframeSet b) {
+            java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> ta = trackList(a);
+            java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> tb = trackList(b);
+            if (ta.size() != tb.size()) return false;
+            for (int i = 0; i < ta.size(); i++) {
+                com.fadcam.ui.faditor.keyframe.KeyframeTrack x = ta.get(i), y = tb.get(i);
+                if (!x.property.equals(y.property)) return false;
+                if (x.keyframes.size() != y.keyframes.size()) return false;
+                for (int j = 0; j < x.keyframes.size(); j++) {
+                    com.fadcam.ui.faditor.keyframe.Keyframe kx = x.keyframes.get(j);
+                    com.fadcam.ui.faditor.keyframe.Keyframe ky = y.keyframes.get(j);
+                    if (kx.timeMs != ky.timeMs || kx.value != ky.value
+                            || kx.easing != ky.easing) return false;
+                }
+            }
+            return true;
+        }
+
+        private static java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> trackList(
+                @NonNull KeyframeSet s) {
+            java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> out =
+                    new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t : s.tracks()) out.add(t);
+            return out;
+        }
+    }
+
+    @NonNull
+    public TransformSnapshot snapshotTransform() {
+        return new TransformSnapshot(this);
+    }
+
+    public void restoreTransform(@NonNull TransformSnapshot s) {
+        this.centerX = s.centerX;
+        this.centerY = s.centerY;
+        this.sizeFraction = s.sizeFraction;
+        this.rotationDeg = s.rotationDeg;
+        this.opacity = s.opacity;
+        this.flipH = s.flipH;
+        this.flipV = s.flipV;
+        this.keyframes.copyFrom(s.keyframes);
+    }
 }

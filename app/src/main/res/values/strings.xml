@@ -1125,6 +1125,9 @@
     <string name="sprite_sheet_picker_title">Sprite sheets</string>
     <string name="sprite_sheet_picker_new">+ New sprite sheet</string>
     <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
+    <string name="sprite_sheet_action_edit">Edit sheet</string>
+    <string name="sprite_sheet_action_place">Place on video</string>
+    <string name="sprite_placed">Sprite placed — drag it on the preview</string>
 
     <!-- Avatar Studio matrix editor (PLAN_AVATAR_STUDIO A1-UI) -->
     <string name="avatar_studio_title">Avatars</string>

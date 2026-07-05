@@ -91,6 +91,33 @@ public final class LayerPreviewController {
         return result;
     }
 
+    // ── SPRITE tracks → SpriteOverlayView input ────────────────────────────────────
+
+    /**
+     * The list to feed {@code SpriteOverlayView#setData}: every
+     * {@link com.fadcam.ui.faditor.sprite.SpriteOverlayItem} from a visible (not
+     * hidden) SPRITE track, in zIndex-sorted track order (same authority rule as
+     * {@link #visibleTextOverlays} — S6 export must call THIS method too, so
+     * preview/export visibility cannot diverge). A project with no sprites returns
+     * an empty list — the overlay view draws nothing and passes touches through.
+     */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> visibleSpriteItems(
+            @NonNull Timeline timeline) {
+        List<Track> layers = new ArrayList<>(timeline.getLayers());
+        layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> result = new ArrayList<>();
+        for (Track track : layers) {
+            if (track.getKind() != TrackKind.SPRITE) continue;
+            if (track.isHidden()) continue; // S6 export mirrors via this shared method.
+            for (TimedItem item : track.getItems()) {
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = item.getSprite();
+                if (sprite != null) result.add(sprite);
+            }
+        }
+        return result;
+    }
+
     // ── Muted AUDIO tracks → per-clip preview-volume gate ──────────────────────────
 
     /**

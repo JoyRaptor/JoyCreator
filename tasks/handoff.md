@@ -126,6 +126,18 @@
 > PICKUP armed + zoneInViewport=true + screenZoneBot < ~924, DELETE badge CONSUMED. Then queue items 2-5
 > below (sub-lanes → post-pinch handback → strip ROWGESTURE → rebrand...). ROWGESTURE logging still IN.**
 >
+> **2026-07-04 — LAYERS MVP COMPLETE (M-EXPORT-1 @ 1d0c0b0: shared-authority export parity, decoded-stream
+> md5 gate) + PHASE R ROBUSTNESS LANDED (26cf3cf: hide-toggle live refresh device-proven; same-row overlap
+> never persists — row system + legacy waveform lane + audio-trim clamps; ONE 8dp snap constant everywhere;
+> time-locked vertical swap w/ dashed guides, occupant-never-moves). PHASE P IN FLIGHT (Fable): layer header
+> long-press menu (rename/move-z/delete), z-order end-to-end, M11 ripple/gap toggle — if found dirty, assess
+> diff + build.log per the twice-proven resume protocol.** USER HAND-TEST OWED (Phase R, 4 gestures: audio
+> stack attempt must butt/snap-back; vertical time-locked swap w/ guides; free placement w/ gentle 1-2mm
+> magnets; audio trim stops at neighbor). OPEN USER CALLS: muted-track captions show or hide?; main-phone
+> real-project session. QUEUE AFTER P: transcript dedup relaunch (spec self-contained in prior prompt/
+> handoff), v3 remaining P1s (edge auto-pan, minimap drag-nav), timeline fidelity W1/W2/T1, M-COMP-2
+> probe-first, preview perf memoization (Track views rebuild per access), export-duration math oddity.
+
 > **🏓 2026-07-03 eve — PING-PONG UNPARKED, FULLY DEVICE-PROVEN (fe88e39). Diagnosis method: ultracode
 > 3-investigator + adversarial-judge workflow (plan + full evidence: tasks/PLAN_PINGPONG_UNPARK.md/.json).**
 > Root cause SETTLED: mid-playlist HEVC→AVC codec swap (amplified by zero error handling in the gapless

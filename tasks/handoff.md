@@ -1,5 +1,14 @@
 # FadCam AI Handoff
 
+> **🤖 2026-07-05 ~12:00 — OPENCODE/DEEPSEEK WORK QUEUE ISSUED: `tasks/Opencode-work.md`.**
+> While JoyRaptor/Basil are on cooldown, a Sonnet-class model on the opencode harness executes that
+> file's TASK 0–9 (tree recovery + first real build of today's javac-only work, device smoke
+> verification, JVM harness regression run, totalEffectiveMs one-liner, S5 lane visuals, palette
+> key chip, onion skin, mirror-pose, sidecar import). Its progress log is APPENDED to that file —
+> read it before assuming anything about tree state. JVM harnesses now live IN-REPO at
+> `tools/jvm-harness/`. NOTE: the M-COMP-2 (PiP) session left in-flight dirty files; Opencode
+> TASK 0 handles them by the twice-proven recover-or-stash protocol.
+
 > **🧵 2026-07-05 ~10:30 — JOYRAPTOR LANE SESSION SUMMARY (all commits local, watcher STILL down):**
 > eafb687 resolver review-gate fixes → bb68685 A1-UI matrix editor → 7df95e9 S4 sprite preview +
 > placement path → c924c9f S2b (grid auto-detect + bg-key UI + sidecar export) → f270f48 S6 export

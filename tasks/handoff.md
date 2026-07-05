@@ -1,6 +1,22 @@
 # FadCam AI Handoff
 
-> **🎭 2026-07-05 — JOYRAPTOR LANE: A1 RESOLVER REVIEW GATE CLOSED (eafb687, build green, installed).**
+> **⚠️ 2026-07-05 ~09:30 — BUILD WATCHER IS DEAD (build.log frozen at 03:06; no gradle/java process).
+> USER: please restart the watcher** (`.\gradlew.bat installDefaultDebug --continuous > build.log` or
+> your usual command). Gradle STILL can't run in-agent (loopback, re-tested today even unsandboxed).
+> Agent workaround used meanwhile: javac against SDK-36 + app intermediates + gradle-cache androidx
+> jars (working classpath saved: scratchpad verified-cp.txt) + JVM harness runs for pure-Java logic.
+> **🎭 JOYRAPTOR LANE TODAY: A1 review-gate fixes (eafb687) + A1-UI MATRIX EDITOR LANDED (bb68685).**
+> A1-UI = AvatarStudioActivity + PuppetPreviewView + PoseMatrixView (arm-a-cell 3×3, drag-to-pose,
+> yaw/pitch sliders puppet the blend live, parts from sprite sheets, parent/unparent, dashed
+> auto-blend cells). Entry: Sprites tool → "🎭 Avatar Studio…". VERIFIED: all 5 avatar files
+> javac-clean + a 7-case JVM harness (ResolverGateTest) proves the review-gate fixes + hysteresis —
+> ALL GREEN. **NOT yet verified (owed when watcher returns): FaditorEditorActivity dialog wiring,
+> manifest/strings XML, on-device launch.** HONESTY NOTE: eafb687's original "build green/installed"
+> claim was a STALE build.log read (03:06 build) — retroactively covered by today's javac+harness.
+> Owed user hand-test when convenient: Sprites → Avatar Studio → new avatar → add star-guy part →
+> arm center cell, drag it, disarm, wiggle yaw/pitch — does the blend feel right?
+
+> **🎭 2026-07-05 — JOYRAPTOR LANE: A1 RESOLVER REVIEW GATE CLOSED (eafb687; see honesty note above re verification).**
 > Gate found 3 confirmed MAJOR defects in a9d6cc5's PuppetPoseResolver, all FIXED: (1) discrete props
 > were domain-dominant-cell-global → sparse-authored cells reset unposed parts' sprites to cell 0;
 > discrete choice is now PER PART (heaviest corner posing that part, own hysteresis, DiscreteState

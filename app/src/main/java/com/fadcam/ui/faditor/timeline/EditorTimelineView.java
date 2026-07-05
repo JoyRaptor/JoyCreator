@@ -769,7 +769,20 @@ public class EditorTimelineView extends View {
         excursionAnimator.start();
     }
 
-    /** Enter (or retarget/flip) the excursion so the given joint lands screen-center. */
+    /**
+     * Margin (dp) kept between a revealed bookend joint and the screen edge — the joint
+     * is brought JUST inside the viewport by this much, never centered (slice-3 #4).
+     */
+    private static final float EXCURSION_REVEAL_MARGIN_DP = 56f;
+
+    /**
+     * Enter (or retarget/flip) the excursion so the given joint is revealed. MINIMUM-PAN
+     * (dragux_v3 slice-3 #4, user hand-test 2026-07-04: "the camera moves too far over —
+     * disorienting"): pan only enough to bring {@code jointMs} on-screen with a small
+     * margin — never centering it — and if it is already comfortably visible, hold the
+     * current offset (no pan at all). The target is clamped to the same bounds
+     * {@link #clampScroll()} enforces so it never over-pans past the timeline ends.
+     */
     private void startOrRetargetExcursion(long jointMs) {
         if (!excursionActive) {
             excursionActive = true;
@@ -778,7 +791,22 @@ public class EditorTimelineView extends View {
         }
         excursionShownJointMs = jointMs;
         if (layerGestureController != null) layerGestureController.setSuppressMoveMapping(false);
-        animateExcursionScrollTo(timeToX(jointMs) - getWidth() / 2f, null);
+        float jointContentX = timeToX(jointMs);
+        float margin = EXCURSION_REVEAL_MARGIN_DP * density;
+        float screenX = jointContentX - scrollOffsetPx;
+        float target;
+        if (screenX < margin) {
+            target = jointContentX - margin;                 // just off the left → nudge right
+        } else if (screenX > getWidth() - margin) {
+            target = jointContentX - (getWidth() - margin);  // just off the right → nudge left
+        } else {
+            target = scrollOffsetPx;                          // already visible → hold, no pan
+        }
+        float centerX = getWidth() / 2f;
+        float minScroll = edgePaddingPx - centerX;
+        float maxScroll = timeToX(getTimelineEndMs()) - centerX;
+        target = Math.max(minScroll, Math.min(target, maxScroll));
+        animateExcursionScrollTo(target, null);
     }
 
     /** Animate back to the pre-excursion anchor; playhead stays content-locked until home. */

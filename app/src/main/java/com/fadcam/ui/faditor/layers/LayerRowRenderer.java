@@ -141,7 +141,15 @@ public final class LayerRowRenderer {
     private static final float NEW_LAYER_ZONE_DP = 30f;
     private static final int COLOR_NEW_LAYER_ZONE = 0x448C3DFA;
     private static final int COLOR_NEW_LAYER_ZONE_ARMED = 0xAA8C3DFA;
-    private static final int COLOR_DROP_TARGET_RING = 0xFFFFFFFF;
+    /**
+     * The ONE cross-row / new-layer affordance color (dragux_v3 slice-3 #2, user
+     * hand-test 2026-07-04: the old white ring "should be the established PURPLE
+     * cross-row affordance"). Drives the cross-row drag-target highlight ring, the
+     * new-layer drop-zone outline, and the cross-band insertion line — every
+     * "landing on another row / linkage context" cue reads as one purple family.
+     * Same-row moves keep the item's own color; snap-home stays gray (home ghost).
+     */
+    private static final int COLOR_DROP_TARGET_RING = 0xFF8C3DFA;
     private final RectF newLayerZoneRect = new RectF();
     private final Paint dropTargetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 

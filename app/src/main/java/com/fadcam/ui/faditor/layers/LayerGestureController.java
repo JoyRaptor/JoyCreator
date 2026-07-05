@@ -457,15 +457,30 @@ public final class LayerGestureController {
                     // A9 TIME-LOCK GUARDRAIL (dragux_v3, user spec): hovering a DIFFERENT
                     // row while the would-be start stays within a gentle dead-zone of the
                     // original time = a pure LAYER change, not a time change. Lock time to
-                    // the original (overlap-resolved on the target row) and draw dotted
-                    // vertical guides at the item's bounds ("same time, different layer").
-                    // A larger horizontal move unlocks + hides them (diagonal = move both).
-                    // PHASE-R R3/R4: the lock zone IS the one snap constant (was 3× —
-                    // every drag-snap threshold now derives from the single 8dp tunable;
-                    // re-entering the zone re-locks + re-shows the guides).
+                    // the original and draw dotted vertical guides at the item's bounds
+                    // ("same time, different layer"). A larger horizontal move unlocks +
+                    // hides them (diagonal = move both). PHASE-R R3/R4: the lock zone IS
+                    // the one snap constant (re-entering re-locks + re-shows the guides).
                     if (hoverTargetTrack != null
                             && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs) {
-                        long locked = resolveNoOverlapStart(dragStartTimelineMs, totalMs);
+                        // A9 SNAP-PRIORITY RULE (dragux_v3, user hand-test 2026-07-04,
+                        // BINDING — supersedes the old resolveNoOverlapStart lock): in a
+                        // vertical time-lock the sibling butt-magnets are FULLY SUPPRESSED
+                        // — the drag rails straight up/down at the ORIGINAL time so nothing
+                        // pulls it horizontally (the "diagonal tug-of-war" the user
+                        // reported was resolveNoOverlapStart shoving the item sideways to
+                        // dodge the target row's occupant). The magnet re-engages ONLY when
+                        // the dragged item's edge, AT its locked time, comes within the
+                        // snap radius of a neighbour's edge on the target row ("only when it
+                        // comes close to touching it") — exactly nearestButtWithin's test.
+                        // A real OVERLAP at the locked time is left as-is here and resolved
+                        // at RELEASE via the commit-time butt-displace (onRowBodyUp), never
+                        // as a mid-drag magnet. No excursion during a pure layer change: the
+                        // dotted guides are the affordance, not a view pan (clearBookend()).
+                        long locked = nearestButtWithin(
+                                dragStartTimelineMs, draggedDur, totalMs, snapThrMs);
+                        if (locked == Long.MIN_VALUE) locked = dragStartTimelineMs;
+                        clearBookend();
                         applyMoveTo(locked, true);
                         rowRenderer.setTimeLockGuides(true, locked, draggedDur);
                         setHomeSnapArmed(false);

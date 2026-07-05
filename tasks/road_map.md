@@ -1,5 +1,26 @@
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
+## 🎯 2026-07-04 STRATEGIC STATE (supersedes everything below; handoff.md top block = tactical queue)
+**DONE (device-proven):** Layers MVP COMPLETE — schema v8→v10, gapless engine (seam freezes 0ms),
+multi-row timeline, item editing + cross-row drag, preview compositing, M-EXPORT-1 export parity
+(decoded-stream md5 gate), Phase R robustness (overlap rejection everywhere, unified 8dp snap,
+hide-refresh), Phase P track management (rename/move-z/delete + M11 ripple/gap, device-verified).
+Loops: L1 seamless + L2 TRUE ping-pong (unparked, HEVC bake, error containment) + L3 polish.
+Sprites/Avatar (JoyRaptor's lane): S2/S2b/S3/S4/S6 + A1/A2/A6+A3 landed. Rebrand pass 1 committed.
+**ACTIVE ROADMAP TO "COMPLETE" (strict order, ONE agent at a time):**
+1. 🔄 Slice-3 gesture round (IN FLIGHT): WYSIWYG drop principle + A9 snap priority + excursion clamp +
+   off-screen butt placement + A1 edge auto-pan — user's binding spec, their re-test = acceptance gate.
+2. Transcript dedup + stacking-source fix (backup-first; spec in handoff 🛬 blocks).
+3. Timeline fidelity W1/W2 (honest waveforms) → T1 sweep-cache filmstrip (FEEDBACK_20260703_timeline_fidelity.md).
+4. v3 slice 2: unified gap-insertion model (dragux doc blueprint) + B10/B11 trim polish + KineMaster C-items.
+5. M-COMP-2 live PiP video (probe-first per PLAN_LAYERS_V2 Part 10 #1, feature-flagged) → M-EXPORT-2 blends.
+6. Feedback stragglers: #5 transcribe-on-add + editor settings gear, #6 tools drawer, #8 small-screen pass.
+7. GL wave features (masking/chroma/track-matte — FEEDBACK_20260702_layers_masking.md §C) after M-COMP-2.
+**GATES:** main-phone real-project session (NEVER YET RUN — needs REAL_SERIAL plugged); downgrade-guard
+drill; muted-track-caption user decision; preview perf memoization before 10-layer projects.
+**RULES:** sequential agents only (no parallel edit fan-outs — burns usage + the shared watcher);
+Fable/Opus for gesture/export/playback, Sonnet for the rest; commit every green item; docs before risk.
+
 ## 🔄 2026-07-03 SYNC — corrections + previously-orphaned plans folded in
 **Read this section FIRST; it supersedes stale statuses below.** `tasks/handoff.md`'s top landing block is
 the tactical queue; this file is the strategic index. Two corrections + nine planned clusters that existed

@@ -1,5 +1,24 @@
 # FadCam AI Handoff
 
+> **🛠️ 2026-07-05 — OVERLAP BUG FIXED (1bc4652), root-caused + PROVEN. User re-tested slice-3 and hit:
+> (a) could place two clips OVERLAPPING by dropping between two butted clips; (b) cross-row preview
+> OVERLAPS instead of butting. ROOT CAUSE (both, + the old diagonal tug-of-war): resolveNoOverlapStart /
+> resolveOverlapOnRow were a 4-pass push-loop that OSCILLATED butt-before/after with no room and gave up
+> STILL OVERLAPPING. Replaced with nearestFreeStart (merge siblings into blocks → place in nearest
+> free region; tail always free so a legal spot ALWAYS exists → overlap impossible). Verified 13 cases
+> in a standalone javac/java harness (scratchpad ResolverTest.java) incl. the exact repro BEFORE porting.
+> Both live preview AND the commit-time guard (the PERSISTED-state guarantee) route through it. Time-lock
+> reverted to WYSIWYG (rail straight when free, show BUTTED preview when occupied — never preview overlap).
+> **STILL OPEN from the same user message (NOT yet built):** (1) A1 EDGE AUTO-PAN for row-item drags —
+> holding a picked-up item at the screen edge must continuously pan the timeline so you can place further
+> than the current view (edge-scroll infra exists for asset/audio drags ~line 655, NOT wired to the
+> row-item pickup path); (2) #5 OFF-SCREEN BUTT / same-row before→after — dragging a clip to butt AFTER
+> another whose far edge is off-screen: the view should pan to show that side + preview them butted
+> (the min-pan excursion partially does this when a joint is armed, but the panel-half before/after
+> CHOICE + sustained edge-pan is the missing piece). These two are the user's next priority — build A1
+> first (concrete, infra exists), then #5. Files: EditorTimelineView (edge-pan/excursion) +
+> LayerGestureController. Owed user hand-test after. Everything below is prior state.**
+
 > **🎚️ 2026-07-05 — SLICE-3 GESTURE ROUND: 3 of 5 items LANDED (commit after 7f5313a), BUILD GREEN,
 > installed on Note 9. AWAITING USER HAND-TEST (drag-feel = unscriptable on this device).**
 > Spec: tasks/FEEDBACK_20260703_dragux_v3.md (A9 SNAP-PRIORITY + WYSIWYG DROP PRINCIPLE, both BINDING).

@@ -118,6 +118,42 @@ public class Clip {
     @Nullable
     private String displayName;
 
+    // ── Floating overlay-video placement (M-COMP-2, PLAN_LAYERS_V2 §3.3) ──
+
+    /**
+     * Non-null ⇒ this clip is a FLOATING overlay (PiP) living on that VIDEO/IMAGE
+     * layer track, stored in {@code Timeline#overlayClips} — never in the master
+     * {@code clips} list. {@code null} (the default) ⇒ an ordinary master clip;
+     * every pre-existing serialization stays byte-identical.
+     */
+    @Nullable
+    private String layerId;
+
+    /**
+     * Absolute timeline start (ms) of a floating overlay clip — the persisted home
+     * of {@code TimedItem#timelineStartMs} for clip payloads (text/audio/sprite
+     * payloads carry their own start; master clips derive theirs by summation).
+     * Meaningless while {@link #layerId} is null.
+     */
+    private long overlayStartMs;
+
+    /**
+     * Free-transform envelope (X/Y/SCALE/ROTATION/OPACITY) for a floating overlay
+     * clip — the persisted home of {@code TimedItem#transform}. Uses the same
+     * {@code KeyframeSet} primitive text overlays animate with. Null = identity.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.keyframe.KeyframeSet overlayTransform;
+
+    /**
+     * Compositing blend-mode NAME ({@code layers.BlendMode}) for a floating overlay
+     * clip. Stored as a String so the model package doesn't depend on the layers
+     * package; parse with {@code BlendMode.fromName}. Only NORMAL is honoured until
+     * M-EXPORT-2 lands the blend {@code GlEffect}.
+     */
+    @NonNull
+    private String overlayBlendMode = "NORMAL";
+
     /** Whether animated on-screen captions are enabled for this clip. */
     private boolean captionsEnabled = false;
 
@@ -790,6 +826,53 @@ public class Clip {
 
     public void setDisplayName(@Nullable String displayName) {
         this.displayName = displayName;
+    }
+
+    // ── Floating overlay-video accessors (M-COMP-2) ──────────────────
+
+    /** @see #layerId */
+    @Nullable
+    public String getLayerId() {
+        return layerId;
+    }
+
+    public void setLayerId(@Nullable String layerId) {
+        this.layerId = layerId;
+    }
+
+    /** True when this clip is a floating overlay (PiP) rather than a master clip. */
+    public boolean isOverlayClip() {
+        return layerId != null;
+    }
+
+    /** @see #overlayStartMs */
+    public long getOverlayStartMs() {
+        return overlayStartMs;
+    }
+
+    public void setOverlayStartMs(long overlayStartMs) {
+        this.overlayStartMs = Math.max(0, overlayStartMs);
+    }
+
+    /** @see #overlayTransform */
+    @Nullable
+    public com.fadcam.ui.faditor.keyframe.KeyframeSet getOverlayTransform() {
+        return overlayTransform;
+    }
+
+    public void setOverlayTransform(
+            @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet overlayTransform) {
+        this.overlayTransform = overlayTransform;
+    }
+
+    /** @see #overlayBlendMode */
+    @NonNull
+    public String getOverlayBlendMode() {
+        return overlayBlendMode;
+    }
+
+    public void setOverlayBlendMode(@Nullable String overlayBlendMode) {
+        this.overlayBlendMode = overlayBlendMode == null ? "NORMAL" : overlayBlendMode;
     }
 
     public boolean isCaptionsEnabled() {

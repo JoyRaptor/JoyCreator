@@ -148,6 +148,17 @@ public class Timeline {
     @NonNull
     private final List<LayerTrackDef> extraLayerTracks = new ArrayList<>();
 
+    /**
+     * FLOATING overlay-video/PiP clips (M-COMP-2, PLAN_LAYERS_V2 §3.3) — the flat
+     * storage-of-record for VIDEO/IMAGE layer items, exactly parallel to
+     * {@link #textOverlays}/{@link #spriteOverlays}. NEVER mixed into {@link #clips}
+     * (the master list stays byte-frozen); each clip here carries its own
+     * {@code layerId}/{@code overlayStartMs}/{@code overlayTransform}. Empty for
+     * every project that predates M-COMP-2.
+     */
+    @NonNull
+    private final List<Clip> overlayClips = new ArrayList<>();
+
     public Timeline() {
         this.clips = new ArrayList<>();
         this.audioClips = new ArrayList<>();
@@ -183,6 +194,32 @@ public class Timeline {
     @NonNull
     public List<Clip> getClips() {
         return Collections.unmodifiableList(clips);
+    }
+
+    // ── Floating overlay-video clips (M-COMP-2) ──────────────────────
+
+    /** Unmodifiable view of the floating overlay (PiP) clips. */
+    @NonNull
+    public List<Clip> getOverlayClips() {
+        return Collections.unmodifiableList(overlayClips);
+    }
+
+    /** Add a floating overlay clip. The clip must carry a non-null {@code layerId}. */
+    public void addOverlayClip(@NonNull Clip clip) {
+        overlayClips.add(clip);
+    }
+
+    public void removeOverlayClip(@NonNull Clip clip) {
+        overlayClips.remove(clip);
+    }
+
+    /** Find a floating overlay clip by id, or null. */
+    @Nullable
+    public Clip findOverlayClip(@NonNull String id) {
+        for (Clip c : overlayClips) {
+            if (c.getId().equals(id)) return c;
+        }
+        return null;
     }
 
     /**
@@ -641,6 +678,7 @@ public class Timeline {
         liveIds.add("text");
         liveIds.add("audio");
         liveIds.add("sprite"); // default sprite track (schema v9) — review gate 2026-07-03
+        liveIds.add("video");  // default overlay-video track (M-COMP-2) — same bug class
         for (LayerTrackDef def : extraLayerTracks) liveIds.add(def.getId());
         for (TextOverlayItem o : textOverlays) {
             if (o.getLayerId() != null) liveIds.add(o.getLayerId());
@@ -650,6 +688,9 @@ public class Timeline {
         }
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : spriteOverlays) {
             if (so.getLayerId() != null) liveIds.add(so.getLayerId());
+        }
+        for (Clip oc : overlayClips) {
+            if (oc.getLayerId() != null) liveIds.add(oc.getLayerId());
         }
         List<String> dropped = new ArrayList<>();
         java.util.Iterator<String> it = trackFlags.keySet().iterator();
@@ -805,8 +846,55 @@ public class Timeline {
                 : spritesByLayer.entrySet()) {
             layers.add(buildSpriteTrack(e.getKey(), "Sprite", e.getValue()));
         }
+
+        // VIDEO/IMAGE overlay tracks (M-COMP-2) — mirrors the sprite grouping
+        // exactly: default "video" bucket first, then VIDEO/IMAGE LayerTrackDefs,
+        // then defensive leftover buckets. Zero-cost for every project without
+        // overlay clips (the list is empty → no buckets, and the def pass below
+        // only sees defs the user explicitly created).
+        Map<String, List<Clip>> videosByLayer = new LinkedHashMap<>();
+        for (Clip oc : overlayClips) {
+            String id = oc.getLayerId() != null ? oc.getLayerId() : "video";
+            videosByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(oc);
+        }
+        List<Clip> videoDefault = videosByLayer.remove("video");
+        if (videoDefault != null && !videoDefault.isEmpty()) {
+            layers.add(buildVideoTrack("video", TrackKind.VIDEO, "PiP", videoDefault));
+        }
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() != TrackKind.VIDEO && def.getKind() != TrackKind.IMAGE) continue;
+            List<Clip> bucket = videosByLayer.remove(def.getId());
+            layers.add(buildVideoTrack(def.getId(), def.getKind(), def.getName(),
+                    bucket != null ? bucket : Collections.emptyList()));
+        }
+        for (Map.Entry<String, List<Clip>> e : videosByLayer.entrySet()) {
+            layers.add(buildVideoTrack(e.getKey(), TrackKind.VIDEO, "PiP", e.getValue()));
+        }
+
         sortBandByZIndex(layers); // PHASE-P P2: row order follows persisted zIndex
         return layers;
+    }
+
+    /**
+     * Build one VIDEO/IMAGE overlay track (M-COMP-2). The {@link TimedItem} view
+     * mirrors each clip's PERSISTED overlay fields: {@code overlayStartMs} becomes
+     * the item start, {@code overlayTransform} the item transform, and
+     * {@code overlayBlendMode} the item blend — so preview/export consumers read
+     * the exact state storage round-trips (single-authority rule).
+     */
+    @NonNull
+    private Track buildVideoTrack(@NonNull String id, @NonNull TrackKind kind,
+            @NonNull String name, @NonNull List<Clip> items) {
+        Track track = new Track(id, kind, name);
+        for (Clip oc : items) {
+            TimedItem item = TimedItem.ofClip(oc, oc.getOverlayStartMs());
+            item.setTransform(oc.getOverlayTransform());
+            item.setBlendMode(com.fadcam.ui.faditor.layers.BlendMode
+                    .fromName(oc.getOverlayBlendMode()));
+            track.addItem(item);
+        }
+        applyTrackFlags(track);
+        return track;
     }
 
     @NonNull

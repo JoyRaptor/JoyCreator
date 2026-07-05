@@ -911,6 +911,9 @@ public class ProjectStorage {
         Timeline tl = project.getTimeline();
         if (!"ripple".equals(tl.getRippleMode())) return true;
         if (!tl.getExtraLayerTracks().isEmpty()) return true;
+        // M-COMP-2: a floating overlay-video (PiP) clip is a layer feature an old
+        // build cannot represent — stamp v8.
+        if (!tl.getOverlayClips().isEmpty()) return true;
         // PHASE-P P1: a renamed DEFAULT track (TrackFlags.customName) is a layer
         // feature an old build can't represent — stamp v8.
         for (com.fadcam.ui.faditor.layers.TrackFlags f : tl.getAllTrackFlags().values()) {
@@ -1027,6 +1030,357 @@ public class ProjectStorage {
         return ij;
     }
 
+    /**
+     * Serialize ONE {@link Clip} to its project.json object. Extracted VERBATIM from
+     * the master-clips loop (M-COMP-2 refactor) so master clips and floating
+     * {@code overlayClips} share a single serializer — field order and every
+     * conditional are unchanged, keeping master-clip JSON byte-identical. The
+     * overlay-only fields at the end are guarded on {@code layerId != null}, which
+     * is never true for a master clip.
+     */
+    @NonNull
+    private JsonObject serializeClipObject(@NonNull File projectDir, @NonNull Clip clip) {
+        JsonObject clipJson = new JsonObject();
+        clipJson.addProperty("id", clip.getId());
+        clipJson.addProperty("sourceUri", toStorageUri(projectDir, clip.getSourceUri().toString()));
+        clipJson.addProperty("imageClip", clip.isImageClip());
+        clipJson.addProperty("inPointMs", clip.getInPointMs());
+        clipJson.addProperty("outPointMs", clip.getOutPointMs());
+        clipJson.addProperty("sourceDurationMs", clip.getSourceDurationMs());
+        clipJson.addProperty("speedMultiplier", clip.getSpeedMultiplier());
+        clipJson.addProperty("audioMuted", clip.isAudioMuted());
+        clipJson.addProperty("volumeLevel", clip.getVolumeLevel());
+        clipJson.addProperty("rotationDegrees", clip.getRotationDegrees());
+        clipJson.addProperty("flipHorizontal", clip.isFlipHorizontal());
+        clipJson.addProperty("flipVertical", clip.isFlipVertical());
+        clipJson.addProperty("cropPreset", clip.getCropPreset());
+        clipJson.addProperty("cropLeft", clip.getCropLeft());
+        clipJson.addProperty("cropTop", clip.getCropTop());
+        clipJson.addProperty("cropRight", clip.getCropRight());
+        clipJson.addProperty("cropBottom", clip.getCropBottom());
+        if (!clip.getRemovedSpans().isEmpty()) {
+            JsonArray spans = new JsonArray();
+            for (long[] s : clip.getRemovedSpans()) {
+                JsonArray pair = new JsonArray();
+                pair.add(s[0]);
+                pair.add(s[1]);
+                spans.add(pair);
+            }
+            clipJson.add("removedSpans", spans);
+        }
+        // Transcript versions (word timings + struck state) so reopening
+        // never re-transcribes and captions can be rebuilt for export.
+        java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> versions =
+                clip.getTranscripts();
+        if (!versions.isEmpty()) {
+            JsonArray versionsArr = new JsonArray();
+            for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : versions) {
+                JsonObject vj = new JsonObject();
+                vj.addProperty("id", nt.id);
+                vj.addProperty("label", nt.label);
+                vj.addProperty("engine", nt.engine);
+                JsonArray wordsArr = new JsonArray();
+                for (com.fadcam.ui.faditor.transcript.TranscriptWord w : nt.transcript.words) {
+                    JsonObject wj = new JsonObject();
+                    wj.addProperty("t", w.text);
+                    wj.addProperty("s", w.startMs);
+                    wj.addProperty("e", w.endMs);
+                    if (w.struck) wj.addProperty("x", true);
+                    if (w.forceLineBreakAfter) wj.addProperty("b", true);
+                    wordsArr.add(wj);
+                }
+                vj.add("words", wordsArr);
+                versionsArr.add(vj);
+            }
+            clipJson.add("transcripts", versionsArr);
+            clipJson.addProperty("activeTranscript", clip.getActiveTranscriptIndex());
+        }
+        if (clip.getDisplayName() != null) {
+            clipJson.addProperty("displayName", clip.getDisplayName());
+        }
+        // Caption settings.
+        clipJson.addProperty("captionsEnabled", clip.isCaptionsEnabled());
+        clipJson.addProperty("captionStyleId", clip.getCaptionStyleId());
+        clipJson.addProperty("captionCenterX", clip.getCaptionCenterX());
+        clipJson.addProperty("captionCenterY", clip.getCaptionCenterY());
+        clipJson.addProperty("captionSizeFraction", clip.getCaptionSizeFraction());
+        // Audio ducking and punch-in zoom (schema v2)
+        if (clip.getDuckAmount() > 0f) {
+            clipJson.addProperty("duckAmount", clip.getDuckAmount());
+        }
+        if (clip.getZoomLevel() > 1.0f) {
+            clipJson.addProperty("zoomLevel", clip.getZoomLevel());
+            clipJson.addProperty("zoomCenterX", clip.getZoomCenterX());
+            clipJson.addProperty("zoomCenterY", clip.getZoomCenterY());
+        }
+        if (clip.getLoopMode() != com.fadcam.ui.faditor.model.Clip.LOOP_MODE_OFF) {
+            clipJson.addProperty("loopMode", clip.getLoopMode());
+            clipJson.addProperty("loopBeforeMs", clip.getLoopBeforeMs());
+            clipJson.addProperty("loopAfterMs", clip.getLoopAfterMs());
+        }
+        if (clip.hasOpacityKeyframes()) {
+            JsonArray kfArr = new JsonArray();
+            for (com.fadcam.ui.faditor.model.Clip.OpacityKeyframe kf
+                    : clip.getOpacityKeyframes()) {
+                JsonObject kfJson = new JsonObject();
+                kfJson.addProperty("t", kf.timeMs);
+                kfJson.addProperty("o", kf.opacity);
+                kfArr.add(kfJson);
+            }
+            clipJson.add("opacityKeyframes", kfArr);
+        }
+        if (clip.hasVolumeKeyframes()) {
+            JsonArray kfArr = new JsonArray();
+            for (com.fadcam.ui.faditor.model.Clip.VolumeKeyframe kf
+                    : clip.getVolumeKeyframes()) {
+                JsonObject kfJson = new JsonObject();
+                kfJson.addProperty("t", kf.timeMs);
+                kfJson.addProperty("v", kf.volume);
+                kfArr.add(kfJson);
+            }
+            clipJson.add("volumeKeyframes", kfArr);
+        }
+        if (clip.hasCaptionStyleKeyframes()) {
+            JsonArray kfArr = new JsonArray();
+            for (com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe kf
+                    : clip.getCaptionStyleKeyframes()) {
+                JsonObject kfJson = new JsonObject();
+                kfJson.addProperty("t", kf.timeMs);
+                kfJson.addProperty("s", kf.styleId);
+                kfArr.add(kfJson);
+            }
+            clipJson.add("captionStyleKeyframes", kfArr);
+        }
+        serializeEffectStack(clipJson, clip.getEffectStack());
+        serializeGeneratedSource(clipJson, clip.getGeneratedSource());
+        // ── Floating overlay-video fields (M-COMP-2) — never present on a master
+        // clip (layerId is null there), so pre-existing JSON stays byte-identical.
+        if (clip.getLayerId() != null) {
+            clipJson.addProperty("layerId", clip.getLayerId());
+            clipJson.addProperty("overlayStartMs", clip.getOverlayStartMs());
+            if (!"NORMAL".equals(clip.getOverlayBlendMode())) {
+                clipJson.addProperty("overlayBlendMode", clip.getOverlayBlendMode());
+            }
+            com.fadcam.ui.faditor.keyframe.KeyframeSet ot = clip.getOverlayTransform();
+            if (ot != null && !ot.isEmpty()) {
+                // Same { property: [ {t,v,e}, ... ] } shape as overlay/sprite keyframes.
+                JsonObject tracksJson = new JsonObject();
+                for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : ot.tracks()) {
+                    if (tr.isEmpty()) continue;
+                    JsonArray kfArr = new JsonArray();
+                    for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                        JsonObject kj = new JsonObject();
+                        kj.addProperty("t", k.timeMs);
+                        kj.addProperty("v", k.value);
+                        kj.addProperty("e", k.easing.name());
+                        kfArr.add(kj);
+                    }
+                    tracksJson.add(tr.property, kfArr);
+                }
+                clipJson.add("overlayTransform", tracksJson);
+            }
+        }
+        return clipJson;
+    }
+
+    /**
+     * Deserialize ONE clip object from project.json. Extracted VERBATIM from the
+     * master-clips loop (M-COMP-2 refactor) so master clips and floating
+     * {@code overlayClips} share a single deserializer — every {@code .has()}
+     * guard and default is unchanged. The overlay-only fields at the end are
+     * absent on master clips, so restoring them is a no-op there.
+     */
+    @NonNull
+    private Clip deserializeClipObject(@NonNull File projectDir, @NonNull JsonObject clipObj) {
+        String clipId = clipObj.get("id").getAsString();
+        Uri sourceUri = fromStorageUri(projectDir, clipObj.get("sourceUri").getAsString());
+        long inPointMs = clipObj.get("inPointMs").getAsLong();
+        long outPointMs = clipObj.get("outPointMs").getAsLong();
+        long sourceDurationMs = clipObj.get("sourceDurationMs").getAsLong();
+        float speed = clipObj.has("speedMultiplier")
+                ? clipObj.get("speedMultiplier").getAsFloat() : 1.0f;
+        boolean audioMuted = clipObj.has("audioMuted")
+                && clipObj.get("audioMuted").getAsBoolean();
+        float volumeLevel = clipObj.has("volumeLevel")
+                ? clipObj.get("volumeLevel").getAsFloat() : 1.0f;
+        int rotationDeg = clipObj.has("rotationDegrees")
+                ? clipObj.get("rotationDegrees").getAsInt() : 0;
+        boolean flipH = clipObj.has("flipHorizontal")
+                && clipObj.get("flipHorizontal").getAsBoolean();
+        boolean flipV = clipObj.has("flipVertical")
+                && clipObj.get("flipVertical").getAsBoolean();
+        String crop = clipObj.has("cropPreset")
+                ? clipObj.get("cropPreset").getAsString() : "none";
+        float cropL = clipObj.has("cropLeft")
+                ? clipObj.get("cropLeft").getAsFloat() : 0f;
+        float cropT = clipObj.has("cropTop")
+                ? clipObj.get("cropTop").getAsFloat() : 0f;
+        float cropR = clipObj.has("cropRight")
+                ? clipObj.get("cropRight").getAsFloat() : 1f;
+        float cropB = clipObj.has("cropBottom")
+                ? clipObj.get("cropBottom").getAsFloat() : 1f;
+
+        Clip clip = new Clip(clipId, sourceUri,
+                inPointMs, outPointMs, sourceDurationMs,
+                speed, audioMuted, volumeLevel,
+                rotationDeg, flipH, flipV, crop,
+                cropL, cropT, cropR, cropB);
+        if (clipObj.has("imageClip")) {
+            clip.setImageClip(clipObj.get("imageClip").getAsBoolean());
+        }
+        if (clipObj.has("removedSpans")) {
+            JsonArray spans = clipObj.getAsJsonArray("removedSpans");
+            java.util.List<long[]> list = new java.util.ArrayList<>();
+            for (int s = 0; s < spans.size(); s++) {
+                JsonArray pair = spans.get(s).getAsJsonArray();
+                list.add(new long[]{pair.get(0).getAsLong(),
+                        pair.get(1).getAsLong()});
+            }
+            clip.setRemovedSpans(list);
+        }
+        // New format: list of named transcript versions.
+        if (clipObj.has("transcripts")) {
+            JsonArray versionsArr = clipObj.getAsJsonArray("transcripts");
+            for (int v = 0; v < versionsArr.size(); v++) {
+                JsonObject vj = versionsArr.get(v).getAsJsonObject();
+                com.fadcam.ui.faditor.transcript.Transcript tr =
+                        parseWordsArray(vj.getAsJsonArray("words"));
+                String id = vj.has("id") ? vj.get("id").getAsString()
+                        : java.util.UUID.randomUUID().toString();
+                String label = vj.has("label") ? vj.get("label").getAsString()
+                        : "Transcript";
+                String engine = vj.has("engine") ? vj.get("engine").getAsString()
+                        : "vosk";
+                clip.addTranscript(
+                        new com.fadcam.ui.faditor.transcript.NamedTranscript(
+                                id, label, engine, tr));
+            }
+            if (clipObj.has("activeTranscript")) {
+                clip.setActiveTranscriptIndex(
+                        clipObj.get("activeTranscript").getAsInt());
+            }
+        } else if (clipObj.has("transcript")) {
+            // Back-compat: a single un-named transcript.
+            com.fadcam.ui.faditor.transcript.Transcript tr =
+                    parseWordsArray(clipObj.getAsJsonArray("transcript"));
+            clip.addTranscript(
+                    new com.fadcam.ui.faditor.transcript.NamedTranscript(
+                            "Transcript", "vosk", tr));
+        }
+        if (clipObj.has("displayName")) {
+            clip.setDisplayName(clipObj.get("displayName").getAsString());
+        }
+        if (clipObj.has("captionsEnabled")) {
+            clip.setCaptionsEnabled(
+                    clipObj.get("captionsEnabled").getAsBoolean());
+        }
+        if (clipObj.has("captionStyleId")) {
+            clip.setCaptionStyleId(
+                    clipObj.get("captionStyleId").getAsString());
+        }
+        if (clipObj.has("captionCenterX") && clipObj.has("captionCenterY")) {
+            clip.setCaptionCenter(
+                    clipObj.get("captionCenterX").getAsFloat(),
+                    clipObj.get("captionCenterY").getAsFloat());
+        }
+        if (clipObj.has("captionSizeFraction")) {
+            clip.setCaptionSizeFraction(
+                    clipObj.get("captionSizeFraction").getAsFloat());
+        }
+        // Audio ducking and punch-in zoom (schema v2)
+        if (clipObj.has("duckAmount")) {
+            clip.setDuckAmount(clipObj.get("duckAmount").getAsFloat());
+        }
+        if (clipObj.has("zoomLevel")) {
+            clip.setZoomLevel(clipObj.get("zoomLevel").getAsFloat());
+            float zcx = clipObj.has("zoomCenterX")
+                    ? clipObj.get("zoomCenterX").getAsFloat() : 0.5f;
+            float zcy = clipObj.has("zoomCenterY")
+                    ? clipObj.get("zoomCenterY").getAsFloat() : 0.5f;
+            clip.setZoomCenter(zcx, zcy);
+        }
+        // Loop / ping-pong (schema v6+)
+        if (clipObj.has("loopMode")) {
+            clip.setLoopMode(clipObj.get("loopMode").getAsInt());
+            clip.setLoopBeforeMs(clipObj.has("loopBeforeMs")
+                    ? clipObj.get("loopBeforeMs").getAsLong() : 0);
+            clip.setLoopAfterMs(clipObj.has("loopAfterMs")
+                    ? clipObj.get("loopAfterMs").getAsLong() : 0);
+        }
+        if (clipObj.has("opacityKeyframes")) {
+            JsonArray kfArr = clipObj.getAsJsonArray("opacityKeyframes");
+            java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.OpacityKeyframe> kfs =
+                    new java.util.ArrayList<>();
+            for (int k = 0; k < kfArr.size(); k++) {
+                JsonObject kf = kfArr.get(k).getAsJsonObject();
+                kfs.add(new com.fadcam.ui.faditor.model.Clip.OpacityKeyframe(
+                        kf.get("t").getAsLong(),
+                        kf.get("o").getAsFloat()));
+            }
+            clip.setOpacityKeyframes(kfs);
+        }
+        if (clipObj.has("volumeKeyframes")) {
+            JsonArray kfArr = clipObj.getAsJsonArray("volumeKeyframes");
+            java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.VolumeKeyframe> kfs =
+                    new java.util.ArrayList<>();
+            for (int k = 0; k < kfArr.size(); k++) {
+                JsonObject kf = kfArr.get(k).getAsJsonObject();
+                kfs.add(new com.fadcam.ui.faditor.model.Clip.VolumeKeyframe(
+                        kf.get("t").getAsLong(),
+                        kf.get("v").getAsFloat()));
+            }
+            clip.setVolumeKeyframes(kfs);
+        }
+        if (clipObj.has("captionStyleKeyframes")) {
+            JsonArray kfArr = clipObj.getAsJsonArray("captionStyleKeyframes");
+            java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe> kfs =
+                    new java.util.ArrayList<>();
+            for (int k = 0; k < kfArr.size(); k++) {
+                JsonObject kf = kfArr.get(k).getAsJsonObject();
+                kfs.add(new com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe(
+                        kf.get("t").getAsLong(),
+                        kf.get("s").getAsString()));
+            }
+            clip.getCaptionStyleKeyframes().addAll(kfs);
+        }
+        if (clipObj.has("effectStack")) {
+            deserializeEffectStack(clip.getEffectStack(),
+                    clipObj.getAsJsonObject("effectStack"));
+        }
+        if (clipObj.has("generatedSource")) {
+            clip.setGeneratedSource(deserializeGeneratedSource(
+                    clipObj.getAsJsonObject("generatedSource")));
+        }
+        // ── Floating overlay-video fields (M-COMP-2) — absent on master clips. ──
+        if (clipObj.has("layerId")) {
+            clip.setLayerId(clipObj.get("layerId").getAsString());
+            if (clipObj.has("overlayStartMs")) {
+                clip.setOverlayStartMs(clipObj.get("overlayStartMs").getAsLong());
+            }
+            if (clipObj.has("overlayBlendMode")) {
+                clip.setOverlayBlendMode(clipObj.get("overlayBlendMode").getAsString());
+            }
+            if (clipObj.has("overlayTransform")) {
+                com.fadcam.ui.faditor.keyframe.KeyframeSet ks =
+                        new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                JsonObject tracksJson = clipObj.getAsJsonObject("overlayTransform");
+                for (java.util.Map.Entry<String, JsonElement> e : tracksJson.entrySet()) {
+                    com.fadcam.ui.faditor.keyframe.KeyframeTrack tr =
+                            ks.getOrCreate(e.getKey());
+                    JsonArray kfArr = e.getValue().getAsJsonArray();
+                    for (int k = 0; k < kfArr.size(); k++) {
+                        JsonObject kj = kfArr.get(k).getAsJsonObject();
+                        tr.put(kj.get("t").getAsLong(), kj.get("v").getAsFloat(),
+                                com.fadcam.ui.faditor.keyframe.Easing.fromName(
+                                        kj.get("e").getAsString()));
+                    }
+                }
+                if (!ks.isEmpty()) clip.setOverlayTransform(ks);
+            }
+        }
+        return clip;
+    }
+
     private static void serializeEffectStack(JsonObject clipJson,
                                              com.fadcam.ui.faditor.effects.EffectStack stack) {
         if (stack == null || !stack.isActive()) return;
@@ -1093,122 +1447,20 @@ public class ProjectStorage {
             JsonObject timelineJson = new JsonObject();
             JsonArray clipsArray = new JsonArray();
             for (Clip clip : src.getTimeline().getClips()) {
-                JsonObject clipJson = new JsonObject();
-                clipJson.addProperty("id", clip.getId());
-                clipJson.addProperty("sourceUri", toStorageUri(projectDir, clip.getSourceUri().toString()));
-                clipJson.addProperty("imageClip", clip.isImageClip());
-                clipJson.addProperty("inPointMs", clip.getInPointMs());
-                clipJson.addProperty("outPointMs", clip.getOutPointMs());
-                clipJson.addProperty("sourceDurationMs", clip.getSourceDurationMs());
-                clipJson.addProperty("speedMultiplier", clip.getSpeedMultiplier());
-                clipJson.addProperty("audioMuted", clip.isAudioMuted());
-                clipJson.addProperty("volumeLevel", clip.getVolumeLevel());
-                clipJson.addProperty("rotationDegrees", clip.getRotationDegrees());
-                clipJson.addProperty("flipHorizontal", clip.isFlipHorizontal());
-                clipJson.addProperty("flipVertical", clip.isFlipVertical());
-                clipJson.addProperty("cropPreset", clip.getCropPreset());
-                clipJson.addProperty("cropLeft", clip.getCropLeft());
-                clipJson.addProperty("cropTop", clip.getCropTop());
-                clipJson.addProperty("cropRight", clip.getCropRight());
-                clipJson.addProperty("cropBottom", clip.getCropBottom());
-                if (!clip.getRemovedSpans().isEmpty()) {
-                    JsonArray spans = new JsonArray();
-                    for (long[] s : clip.getRemovedSpans()) {
-                        JsonArray pair = new JsonArray();
-                        pair.add(s[0]);
-                        pair.add(s[1]);
-                        spans.add(pair);
-                    }
-                    clipJson.add("removedSpans", spans);
-                }
-                // Transcript versions (word timings + struck state) so reopening
-                // never re-transcribes and captions can be rebuilt for export.
-                java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> versions =
-                        clip.getTranscripts();
-                if (!versions.isEmpty()) {
-                    JsonArray versionsArr = new JsonArray();
-                    for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : versions) {
-                        JsonObject vj = new JsonObject();
-                        vj.addProperty("id", nt.id);
-                        vj.addProperty("label", nt.label);
-                        vj.addProperty("engine", nt.engine);
-                        JsonArray wordsArr = new JsonArray();
-                        for (com.fadcam.ui.faditor.transcript.TranscriptWord w : nt.transcript.words) {
-                            JsonObject wj = new JsonObject();
-                            wj.addProperty("t", w.text);
-                            wj.addProperty("s", w.startMs);
-                            wj.addProperty("e", w.endMs);
-                            if (w.struck) wj.addProperty("x", true);
-                            if (w.forceLineBreakAfter) wj.addProperty("b", true);
-                            wordsArr.add(wj);
-                        }
-                        vj.add("words", wordsArr);
-                        versionsArr.add(vj);
-                    }
-                    clipJson.add("transcripts", versionsArr);
-                    clipJson.addProperty("activeTranscript", clip.getActiveTranscriptIndex());
-                }
-                if (clip.getDisplayName() != null) {
-                    clipJson.addProperty("displayName", clip.getDisplayName());
-                }
-                // Caption settings.
-                clipJson.addProperty("captionsEnabled", clip.isCaptionsEnabled());
-                clipJson.addProperty("captionStyleId", clip.getCaptionStyleId());
-                clipJson.addProperty("captionCenterX", clip.getCaptionCenterX());
-                clipJson.addProperty("captionCenterY", clip.getCaptionCenterY());
-                clipJson.addProperty("captionSizeFraction", clip.getCaptionSizeFraction());
-                // Audio ducking and punch-in zoom (schema v2)
-                if (clip.getDuckAmount() > 0f) {
-                    clipJson.addProperty("duckAmount", clip.getDuckAmount());
-                }
-                if (clip.getZoomLevel() > 1.0f) {
-                    clipJson.addProperty("zoomLevel", clip.getZoomLevel());
-                    clipJson.addProperty("zoomCenterX", clip.getZoomCenterX());
-                    clipJson.addProperty("zoomCenterY", clip.getZoomCenterY());
-                }
-                if (clip.getLoopMode() != com.fadcam.ui.faditor.model.Clip.LOOP_MODE_OFF) {
-                    clipJson.addProperty("loopMode", clip.getLoopMode());
-                    clipJson.addProperty("loopBeforeMs", clip.getLoopBeforeMs());
-                    clipJson.addProperty("loopAfterMs", clip.getLoopAfterMs());
-                }
-                if (clip.hasOpacityKeyframes()) {
-                    JsonArray kfArr = new JsonArray();
-                    for (com.fadcam.ui.faditor.model.Clip.OpacityKeyframe kf
-                            : clip.getOpacityKeyframes()) {
-                        JsonObject kfJson = new JsonObject();
-                        kfJson.addProperty("t", kf.timeMs);
-                        kfJson.addProperty("o", kf.opacity);
-                        kfArr.add(kfJson);
-                    }
-                    clipJson.add("opacityKeyframes", kfArr);
-                }
-                if (clip.hasVolumeKeyframes()) {
-                    JsonArray kfArr = new JsonArray();
-                    for (com.fadcam.ui.faditor.model.Clip.VolumeKeyframe kf
-                            : clip.getVolumeKeyframes()) {
-                        JsonObject kfJson = new JsonObject();
-                        kfJson.addProperty("t", kf.timeMs);
-                        kfJson.addProperty("v", kf.volume);
-                        kfArr.add(kfJson);
-                    }
-                    clipJson.add("volumeKeyframes", kfArr);
-                }
-                if (clip.hasCaptionStyleKeyframes()) {
-                    JsonArray kfArr = new JsonArray();
-                    for (com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe kf
-                            : clip.getCaptionStyleKeyframes()) {
-                        JsonObject kfJson = new JsonObject();
-                        kfJson.addProperty("t", kf.timeMs);
-                        kfJson.addProperty("s", kf.styleId);
-                        kfArr.add(kfJson);
-                    }
-                    clipJson.add("captionStyleKeyframes", kfArr);
-                }
-                serializeEffectStack(clipJson, clip.getEffectStack());
-                serializeGeneratedSource(clipJson, clip.getGeneratedSource());
-                clipsArray.add(clipJson);
+                clipsArray.add(serializeClipObject(projectDir, clip));
             }
             timelineJson.add("clips", clipsArray);
+
+            // Floating overlay-video (PiP) clips — M-COMP-2. Additive: the array is
+            // only written when non-empty, so every pre-existing project's JSON is
+            // byte-identical. Same clip serializer as the master list (one authority).
+            if (!src.getTimeline().getOverlayClips().isEmpty()) {
+                JsonArray overlayClipsArray = new JsonArray();
+                for (Clip oc : src.getTimeline().getOverlayClips()) {
+                    overlayClipsArray.add(serializeClipObject(projectDir, oc));
+                }
+                timelineJson.add("overlayClips", overlayClipsArray);
+            }
 
             // Serialize audio clips
             JsonArray audioArray = new JsonArray();
@@ -1609,166 +1861,24 @@ public class ProjectStorage {
                     JsonArray clips = timelineJson.getAsJsonArray("clips");
                     for (int i = 0; i < clips.size(); i++) {
                         JsonObject clipObj = clips.get(i).getAsJsonObject();
-                        String clipId = clipObj.get("id").getAsString();
-                        Uri sourceUri = fromStorageUri(projectDir, clipObj.get("sourceUri").getAsString());
-                        long inPointMs = clipObj.get("inPointMs").getAsLong();
-                        long outPointMs = clipObj.get("outPointMs").getAsLong();
-                        long sourceDurationMs = clipObj.get("sourceDurationMs").getAsLong();
-                        float speed = clipObj.has("speedMultiplier")
-                                ? clipObj.get("speedMultiplier").getAsFloat() : 1.0f;
-                        boolean audioMuted = clipObj.has("audioMuted")
-                                && clipObj.get("audioMuted").getAsBoolean();
-                        float volumeLevel = clipObj.has("volumeLevel")
-                                ? clipObj.get("volumeLevel").getAsFloat() : 1.0f;
-                        int rotationDeg = clipObj.has("rotationDegrees")
-                                ? clipObj.get("rotationDegrees").getAsInt() : 0;
-                        boolean flipH = clipObj.has("flipHorizontal")
-                                && clipObj.get("flipHorizontal").getAsBoolean();
-                        boolean flipV = clipObj.has("flipVertical")
-                                && clipObj.get("flipVertical").getAsBoolean();
-                        String crop = clipObj.has("cropPreset")
-                                ? clipObj.get("cropPreset").getAsString() : "none";
-                        float cropL = clipObj.has("cropLeft")
-                                ? clipObj.get("cropLeft").getAsFloat() : 0f;
-                        float cropT = clipObj.has("cropTop")
-                                ? clipObj.get("cropTop").getAsFloat() : 0f;
-                        float cropR = clipObj.has("cropRight")
-                                ? clipObj.get("cropRight").getAsFloat() : 1f;
-                        float cropB = clipObj.has("cropBottom")
-                                ? clipObj.get("cropBottom").getAsFloat() : 1f;
-
-                        Clip clip = new Clip(clipId, sourceUri,
-                                inPointMs, outPointMs, sourceDurationMs,
-                                speed, audioMuted, volumeLevel,
-                                rotationDeg, flipH, flipV, crop,
-                                cropL, cropT, cropR, cropB);
-                        if (clipObj.has("imageClip")) {
-                            clip.setImageClip(clipObj.get("imageClip").getAsBoolean());
+                        project.getTimeline().addClip(
+                                deserializeClipObject(projectDir, clipObj));
+                    }
+                }
+                // Floating overlay-video (PiP) clips — M-COMP-2. Absent on every
+                // pre-existing project; same clip deserializer as the master list.
+                if (timelineJson.has("overlayClips")) {
+                    JsonArray overlayArr = timelineJson.getAsJsonArray("overlayClips");
+                    for (int i = 0; i < overlayArr.size(); i++) {
+                        JsonObject clipObj = overlayArr.get(i).getAsJsonObject();
+                        Clip oc = deserializeClipObject(projectDir, clipObj);
+                        if (oc.getLayerId() == null) {
+                            // Tolerant-read (A1 fromJson lesson): an overlay clip whose
+                            // layerId was lost lands on the default PiP layer instead of
+                            // silently vanishing into neither list.
+                            oc.setLayerId("video");
                         }
-                        if (clipObj.has("removedSpans")) {
-                            JsonArray spans = clipObj.getAsJsonArray("removedSpans");
-                            java.util.List<long[]> list = new java.util.ArrayList<>();
-                            for (int s = 0; s < spans.size(); s++) {
-                                JsonArray pair = spans.get(s).getAsJsonArray();
-                                list.add(new long[]{pair.get(0).getAsLong(),
-                                        pair.get(1).getAsLong()});
-                            }
-                            clip.setRemovedSpans(list);
-                        }
-                        // New format: list of named transcript versions.
-                        if (clipObj.has("transcripts")) {
-                            JsonArray versionsArr = clipObj.getAsJsonArray("transcripts");
-                            for (int v = 0; v < versionsArr.size(); v++) {
-                                JsonObject vj = versionsArr.get(v).getAsJsonObject();
-                                com.fadcam.ui.faditor.transcript.Transcript tr =
-                                        parseWordsArray(vj.getAsJsonArray("words"));
-                                String id = vj.has("id") ? vj.get("id").getAsString()
-                                        : java.util.UUID.randomUUID().toString();
-                                String label = vj.has("label") ? vj.get("label").getAsString()
-                                        : "Transcript";
-                                String engine = vj.has("engine") ? vj.get("engine").getAsString()
-                                        : "vosk";
-                                clip.addTranscript(
-                                        new com.fadcam.ui.faditor.transcript.NamedTranscript(
-                                                id, label, engine, tr));
-                            }
-                            if (clipObj.has("activeTranscript")) {
-                                clip.setActiveTranscriptIndex(
-                                        clipObj.get("activeTranscript").getAsInt());
-                            }
-                        } else if (clipObj.has("transcript")) {
-                            // Back-compat: a single un-named transcript.
-                            com.fadcam.ui.faditor.transcript.Transcript tr =
-                                    parseWordsArray(clipObj.getAsJsonArray("transcript"));
-                            clip.addTranscript(
-                                    new com.fadcam.ui.faditor.transcript.NamedTranscript(
-                                            "Transcript", "vosk", tr));
-                        }
-                        if (clipObj.has("displayName")) {
-                            clip.setDisplayName(clipObj.get("displayName").getAsString());
-                        }
-                        if (clipObj.has("captionsEnabled")) {
-                            clip.setCaptionsEnabled(
-                                    clipObj.get("captionsEnabled").getAsBoolean());
-                        }
-                        if (clipObj.has("captionStyleId")) {
-                            clip.setCaptionStyleId(
-                                    clipObj.get("captionStyleId").getAsString());
-                        }
-                        if (clipObj.has("captionCenterX") && clipObj.has("captionCenterY")) {
-                            clip.setCaptionCenter(
-                                    clipObj.get("captionCenterX").getAsFloat(),
-                                    clipObj.get("captionCenterY").getAsFloat());
-                        }
-                        if (clipObj.has("captionSizeFraction")) {
-                            clip.setCaptionSizeFraction(
-                                    clipObj.get("captionSizeFraction").getAsFloat());
-                        }
-                        // Audio ducking and punch-in zoom (schema v2)
-                        if (clipObj.has("duckAmount")) {
-                            clip.setDuckAmount(clipObj.get("duckAmount").getAsFloat());
-                        }
-                        if (clipObj.has("zoomLevel")) {
-                            clip.setZoomLevel(clipObj.get("zoomLevel").getAsFloat());
-                            float zcx = clipObj.has("zoomCenterX")
-                                    ? clipObj.get("zoomCenterX").getAsFloat() : 0.5f;
-                            float zcy = clipObj.has("zoomCenterY")
-                                    ? clipObj.get("zoomCenterY").getAsFloat() : 0.5f;
-                            clip.setZoomCenter(zcx, zcy);
-                        }
-                        // Loop / ping-pong (schema v6+)
-                        if (clipObj.has("loopMode")) {
-                            clip.setLoopMode(clipObj.get("loopMode").getAsInt());
-                            clip.setLoopBeforeMs(clipObj.has("loopBeforeMs")
-                                    ? clipObj.get("loopBeforeMs").getAsLong() : 0);
-                            clip.setLoopAfterMs(clipObj.has("loopAfterMs")
-                                    ? clipObj.get("loopAfterMs").getAsLong() : 0);
-                        }
-                        if (clipObj.has("opacityKeyframes")) {
-                            JsonArray kfArr = clipObj.getAsJsonArray("opacityKeyframes");
-                            java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.OpacityKeyframe> kfs =
-                                    new java.util.ArrayList<>();
-                            for (int k = 0; k < kfArr.size(); k++) {
-                                JsonObject kf = kfArr.get(k).getAsJsonObject();
-                                kfs.add(new com.fadcam.ui.faditor.model.Clip.OpacityKeyframe(
-                                        kf.get("t").getAsLong(),
-                                        kf.get("o").getAsFloat()));
-                            }
-                            clip.setOpacityKeyframes(kfs);
-                        }
-                        if (clipObj.has("volumeKeyframes")) {
-                            JsonArray kfArr = clipObj.getAsJsonArray("volumeKeyframes");
-                            java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.VolumeKeyframe> kfs =
-                                    new java.util.ArrayList<>();
-                            for (int k = 0; k < kfArr.size(); k++) {
-                                JsonObject kf = kfArr.get(k).getAsJsonObject();
-                                kfs.add(new com.fadcam.ui.faditor.model.Clip.VolumeKeyframe(
-                                        kf.get("t").getAsLong(),
-                                        kf.get("v").getAsFloat()));
-                            }
-                            clip.setVolumeKeyframes(kfs);
-                        }
-                        if (clipObj.has("captionStyleKeyframes")) {
-                            JsonArray kfArr = clipObj.getAsJsonArray("captionStyleKeyframes");
-                            java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe> kfs =
-                                    new java.util.ArrayList<>();
-                            for (int k = 0; k < kfArr.size(); k++) {
-                                JsonObject kf = kfArr.get(k).getAsJsonObject();
-                                kfs.add(new com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe(
-                                        kf.get("t").getAsLong(),
-                                        kf.get("s").getAsString()));
-                            }
-                            clip.getCaptionStyleKeyframes().addAll(kfs);
-                        }
-                        if (clipObj.has("effectStack")) {
-                            deserializeEffectStack(clip.getEffectStack(),
-                                    clipObj.getAsJsonObject("effectStack"));
-                        }
-                        if (clipObj.has("generatedSource")) {
-                            clip.setGeneratedSource(deserializeGeneratedSource(
-                                    clipObj.getAsJsonObject("generatedSource")));
-                        }
-                        project.getTimeline().addClip(clip);
+                        project.getTimeline().addOverlayClip(oc);
                     }
                 }
             }

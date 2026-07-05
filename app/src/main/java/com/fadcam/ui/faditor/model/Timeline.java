@@ -697,6 +697,24 @@ public class Timeline {
         track.setLocked(flags.locked);
         track.setMuted(flags.muted);
         track.setZIndex(flags.zIndex);
+        // PHASE-P P1: rename home for the default "text"/"audio"/"sprite" tracks —
+        // they have no LayerTrackDef to carry a name, so a user rename persists here.
+        if (flags.customName != null && !flags.customName.isEmpty()) {
+            track.setName(flags.customName);
+        }
+    }
+
+    /**
+     * PHASE-P P2: order a freshly-built band of Track views so the row RENDER order
+     * follows the persisted zIndex. STABLE sort, DESCENDING zIndex: the top row (drawn
+     * first by LayerRowRenderer) is the HIGHEST z — matching the preview/export paint
+     * authority ({@code LayerPreviewController.visibleTextOverlays} stable-sorts
+     * ASCENDING and draws later-elements on top, so highest z paints last/on top there
+     * too). Every zIndex defaults to 0, so a project that never used Move up/down keeps
+     * the exact builder order (stable sort = no-op) — byte-identical behavior.
+     */
+    private static void sortBandByZIndex(@NonNull List<Track> band) {
+        band.sort((a, b) -> Integer.compare(b.getZIndex(), a.getZIndex()));
     }
 
     /**
@@ -787,6 +805,7 @@ public class Timeline {
                 : spritesByLayer.entrySet()) {
             layers.add(buildSpriteTrack(e.getKey(), "Sprite", e.getValue()));
         }
+        sortBandByZIndex(layers); // PHASE-P P2: row order follows persisted zIndex
         return layers;
     }
 
@@ -839,6 +858,7 @@ public class Timeline {
         for (Map.Entry<String, List<AudioClip>> e : byLayer.entrySet()) {
             tracks.add(buildAudioTrack(e.getKey(), "Audio", e.getValue()));
         }
+        sortBandByZIndex(tracks); // PHASE-P P2: row order follows persisted zIndex
         return tracks;
     }
 

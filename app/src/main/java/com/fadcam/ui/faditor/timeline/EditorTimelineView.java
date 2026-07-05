@@ -366,6 +366,46 @@ public class EditorTimelineView extends View {
     }
 
     /**
+     * PHASE-P P1: long-press on a layer/audio row HEADER (the pinned left icon column)
+     * opens the track-management menu (rename / move up / move down / delete). The
+     * MASTER row never appears in these rows, so it is structurally excluded.
+     * {@code viewX}/{@code viewY} are raw view-space coords for menu anchoring.
+     */
+    public interface OnTrackHeaderLongPressListener {
+        void onTrackHeaderLongPress(@NonNull com.fadcam.ui.faditor.layers.Track track,
+                                     float viewX, float viewY);
+    }
+
+    private OnTrackHeaderLongPressListener trackHeaderLongPressListener;
+
+    public void setOnTrackHeaderLongPressListener(OnTrackHeaderLongPressListener l) {
+        this.trackHeaderLongPressListener = l;
+    }
+
+    // ── PHASE-P P1: pending header touch (tap deferred to UP so a long-press can win) ──
+    private com.fadcam.ui.faditor.layers.LayerRowRenderer.HeaderHit pendingHeaderHit;
+    private float headerDownRawX, headerDownRawY;
+    private boolean headerLongPressFired;
+    private final Runnable headerLongPressRunnable = new Runnable() {
+        @Override public void run() {
+            if (pendingHeaderHit == null) return;
+            headerLongPressFired = true;
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            if (trackHeaderLongPressListener != null) {
+                trackHeaderLongPressListener.onTrackHeaderLongPress(
+                        pendingHeaderHit.track, headerDownRawX, headerDownRawY);
+            }
+        }
+    };
+
+    /** Cancel any pending header tap/long-press (shared by move-past-slop, UP, and resets). */
+    private void cancelPendingHeaderTouch() {
+        longPressHandler.removeCallbacks(headerLongPressRunnable);
+        pendingHeaderHit = null;
+        headerLongPressFired = false;
+    }
+
+    /**
      * Push the current Track model in for the M6 multi-row UI (PLAN Part 7, row M6).
      * Snapshots the lists (same convention as {@link #setOverlays}/{@link #setAudioClips})
      * rather than holding a live {@code Timeline} reference. A plain single-track project
@@ -4140,10 +4180,15 @@ public class EditorTimelineView extends View {
         com.fadcam.ui.faditor.layers.LayerRowRenderer.HeaderHit hit =
                 layerRowRenderer.hitTestHeader(scrolledX, y, topPx);
         if (hit != null) {
-            if (hit.zone != com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.NONE
-                    && trackHeaderActionListener != null) {
-                trackHeaderActionListener.onTrackHeaderAction(hit.track, hit.zone);
-            }
+            // PHASE-P P1: don't fire the icon action on DOWN anymore — defer to UP so a
+            // 450ms hold can open the track-management menu instead (tap semantics are
+            // unchanged for a quick press: DOWN→UP within slop fires the same action).
+            cancelPendingHeaderTouch();
+            pendingHeaderHit = hit;
+            headerDownRawX = scrolledX - scrollOffsetPx;
+            headerDownRawY = y;
+            longPressHandler.postDelayed(headerLongPressRunnable, ITEM_PICKUP_MS);
+            getParent().requestDisallowInterceptTouchEvent(true);
             invalidate();
             return true;
         }
@@ -4206,6 +4251,7 @@ public class EditorTimelineView extends View {
      * next gesture and cause the "row scrub sticks sometimes" symptom. Idempotent.
      */
     private void resetRowGestureFlags(String cause) {
+        cancelPendingHeaderTouch();
         longPressHandler.removeCallbacks(itemPickupRunnable);
         if (itemDragMinimapNav) {
             itemDragMinimapNav = false;
@@ -4371,6 +4417,15 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onMove(float x, float y) {
+        if (pendingHeaderHit != null) {
+            // PHASE-P P1: a header press that wanders past slop is neither a tap nor a
+            // long-press — cancel both. Headers have no drag behavior; keep consuming.
+            if (Math.abs(x - headerDownRawX) > touchSlopPx
+                    || Math.abs(y - headerDownRawY) > touchSlopPx) {
+                cancelPendingHeaderTouch();
+            }
+            return true;
+        }
         if (m7ItemPendingDown) {
             // A body touch is selected but not yet committed. Decide from the first move
             // past slop (PLAN TARGET CONTRACT). The pickup timer runs in parallel: if it
@@ -4585,6 +4640,22 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
+        if (pendingHeaderHit != null) {
+            // PHASE-P P1: header press resolved. A quick tap (long-press didn't fire,
+            // real UP) fires the same icon action the old on-DOWN path did; after a
+            // long-press (menu already open) or a CANCEL, just clean up.
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.HeaderHit hit = pendingHeaderHit;
+            boolean fired = headerLongPressFired;
+            cancelPendingHeaderTouch();
+            if (isUp && !fired
+                    && hit.zone != com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.NONE
+                    && trackHeaderActionListener != null) {
+                trackHeaderActionListener.onTrackHeaderAction(hit.track, hit.zone);
+            }
+            getParent().requestDisallowInterceptTouchEvent(false);
+            invalidate();
+            return true;
+        }
         if (m7ItemPendingDown) {
             // Body touch resolved as a TAP: within slop, lifted before the pickup timer.
             // Selection already happened on DOWN; kill the timer (else it would fire

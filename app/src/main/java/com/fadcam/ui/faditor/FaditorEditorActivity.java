@@ -399,6 +399,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean splitHealMode = false;
     private TextView btnSoftSnap;
     private boolean overlaySoftSnapEnabled = true;
+    /** PHASE-P P3 (M11): master ripple/gap edit-mode toggle button. */
+    private TextView btnRippleMode;
     private View toolMove;
     private TextView toolMoveIcon, toolMoveLabel;
     // Data-driven bottom tools carousel (Stage 1).
@@ -1138,6 +1140,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline = findViewById(R.id.editor_timeline_view);
         editorTitle = findViewById(R.id.editor_title);
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
+        editorTimeline.setOnTrackHeaderLongPressListener(this::onTrackHeaderLongPress);
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
         editorTimeline.setOnSegmentActionListener(new EditorTimelineView.OnSegmentActionListener() {
             @Override
@@ -1829,6 +1832,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnRelinkMedia.setOnClickListener(v -> showRelinkCatalog());
         if (btnSoftSnap != null) {
             btnSoftSnap.setOnClickListener(v -> toggleOverlaySoftSnap());
+        }
+        btnRippleMode = findViewById(R.id.btn_ripple_mode);
+        if (btnRippleMode != null) {
+            btnRippleMode.setOnClickListener(v -> toggleRippleMode());
         }
         undoManager.setOnStateChangedListener((canUndo, canRedo) -> {
             btnUndo.setAlpha(canUndo ? 1.0f : 0.3f);
@@ -8759,6 +8766,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleImageItems(tl));
                 layerImageOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
             }
+            // PHASE-P P3: keep the ripple/gap button in sync with the model (covers
+            // initial load, toggle, and undo/redo — all funnel through this sync).
+            updateRippleModeButton();
         }
     }
 
@@ -8857,6 +8867,390 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             .visibleTextOverlays(project.getTimeline()),
                     overlayLayerCallback());
             overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+        }
+    }
+
+    // ── PHASE-P P1: layer header long-press menu (rename / move / delete) ──────────
+
+    /**
+     * Long-press on a layer/audio row header (PHASE-P P1): compact dark-card menu with
+     * Rename / Move up / Move down / Delete layer (delete only for user-created
+     * {@code LayerTrackDef} tracks — the fixed default tracks and the master row have
+     * nothing to delete; the master row never even reaches here because it is not part
+     * of the {@code LayerRowRenderer} row band). Styling mirrors the undo-history popup
+     * (dark 0xFF1A1A2E card, 12dp radius). Every action records ONE undo step.
+     */
+    private void onTrackHeaderLongPress(@NonNull com.fadcam.ui.faditor.layers.Track track,
+                                        float viewX, float viewY) {
+        if (project == null || editorTimeline == null) return;
+        if (track.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER) return; // structural exclusion
+        final Timeline timeline = project.getTimeline();
+        final boolean floatingBand = editorTimeline.isLayerTrackFloatingBand(track);
+        final boolean userCreated = timeline.getLayerTrackDef(track.getId()) != null;
+
+        float dp = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout list = new android.widget.LinearLayout(this);
+        list.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int padV = (int) (6 * dp);
+        list.setPadding(0, padV, 0, padV);
+
+        android.graphics.drawable.GradientDrawable cardBg =
+                new android.graphics.drawable.GradientDrawable();
+        cardBg.setColor(0xFF1A1A2E);
+        cardBg.setCornerRadius(12 * dp);
+        cardBg.setStroke((int) (1 * dp), 0xFF444444);
+        list.setBackground(cardBg);
+
+        final android.widget.PopupWindow popup = new android.widget.PopupWindow(
+                list, (int) (190 * dp), android.view.ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setOutsideTouchable(true);
+        popup.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(
+                android.graphics.Color.TRANSPARENT));
+        popup.setElevation(8 * dp);
+
+        // TODO(strings): hardcoded per the rebrand-freeze standing rule.
+        addTrackMenuRow(list, popup, "Rename", () -> showRenameTrackDialog(track));
+        addTrackMenuRow(list, popup, "Move up", () -> moveTrackZ(track, true, floatingBand));
+        addTrackMenuRow(list, popup, "Move down", () -> moveTrackZ(track, false, floatingBand));
+        if (userCreated) {
+            addTrackMenuRow(list, popup, "Delete layer", () -> confirmDeleteLayerTrack(track));
+        }
+
+        int[] loc = new int[2];
+        editorTimeline.getLocationOnScreen(loc);
+        popup.showAtLocation(editorTimeline, android.view.Gravity.NO_GRAVITY,
+                loc[0] + (int) viewX + (int) (8 * dp), loc[1] + (int) viewY - (int) (8 * dp));
+    }
+
+    /** One tappable row of the P1 track menu; dismisses the popup, then runs the action. */
+    private void addTrackMenuRow(@NonNull android.widget.LinearLayout parent,
+                                 @NonNull android.widget.PopupWindow popup,
+                                 @NonNull String label, @NonNull Runnable action) {
+        float dp = getResources().getDisplayMetrics().density;
+        TextView row = new TextView(this);
+        row.setText(label);
+        row.setTextColor(0xFFEDEDED);
+        row.setTextSize(14f);
+        row.setPadding((int) (16 * dp), (int) (10 * dp), (int) (16 * dp), (int) (10 * dp));
+        android.util.TypedValue tv = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true);
+        row.setBackgroundResource(tv.resourceId);
+        row.setOnClickListener(v -> { popup.dismiss(); action.run(); });
+        parent.addView(row);
+    }
+
+    /**
+     * P1 Rename: user-created tracks persist via {@code LayerTrackDef#setName} (already
+     * serialized in the trackDefs block); the fixed DEFAULT tracks ("text"/"audio"/
+     * "sprite") have no def, so the rename persists in the additive
+     * {@code TrackFlags.customName} side-table field (serialized as the layers-block
+     * "trackNames" map — absent for any project that never renamed one, so old
+     * projects/builds are untouched). One undo step either way.
+     */
+    private void showRenameTrackDialog(@NonNull com.fadcam.ui.faditor.layers.Track track) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final String trackId = track.getId();
+
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setText(track.getName());
+        input.setSelectAllOnFocus(true);
+        input.setSingleLine(true);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+        wrap.setPadding(pad, pad / 2, pad, 0);
+        wrap.addView(input);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Rename layer") // TODO(strings)
+                .setView(wrap)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    String newName = input.getText().toString().trim();
+                    if (newName.isEmpty() || newName.equals(track.getName())) return;
+                    com.fadcam.ui.faditor.layers.LayerTrackDef def =
+                            timeline.getLayerTrackDef(trackId);
+                    if (def != null) {
+                        final String before = def.getName();
+                        def.setName(newName);
+                        undoManager.recordAction(new EditActions.LambdaAction("Rename layer",
+                                () -> { def.setName(newName); syncTimelineOverlays(); },
+                                () -> { def.setName(before); syncTimelineOverlays(); }));
+                    } else {
+                        final com.fadcam.ui.faditor.layers.TrackFlags before =
+                                timeline.getOrCreateTrackFlags(trackId).copy();
+                        com.fadcam.ui.faditor.layers.TrackFlags flags =
+                                timeline.getOrCreateTrackFlags(trackId);
+                        flags.customName = newName;
+                        timeline.pruneDefaultTrackFlags();
+                        final com.fadcam.ui.faditor.layers.TrackFlags after = flags.copy();
+                        undoManager.recordAction(new EditActions.LambdaAction("Rename layer",
+                                () -> { timeline.setTrackFlags(trackId, after.copy());
+                                        syncTimelineOverlays(); },
+                                () -> { timeline.setTrackFlags(trackId, before.copy());
+                                        syncTimelineOverlays(); }));
+                    }
+                    syncTimelineOverlays();
+                    scheduleAutoSave();
+                })
+                .show();
+    }
+
+    /**
+     * P2 Move up/down: mutates the persisted {@code TrackFlags.zIndex} for EVERY track
+     * in the band (normalized so top row = highest z, bottom = 0), with the target and
+     * its neighbor swapped. Row render order ({@code Timeline#getLayers()}/{@code
+     * getAudioTracks()} stable-sort DESC), preview paint order ({@code
+     * LayerPreviewController#visibleTextOverlays} stable-sort ASC, later = on top) and
+     * export (same shared authority, M-EXPORT-1) all follow the same field, so "row
+     * above" always means "painted on top". Per-item zHint stays out of scope
+     * (ephemeral view field — PLAN M5 note). One undo step restores the whole band.
+     */
+    private void moveTrackZ(@NonNull com.fadcam.ui.faditor.layers.Track track,
+                            boolean up, boolean floatingBand) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        java.util.List<com.fadcam.ui.faditor.layers.Track> band =
+                floatingBand ? timeline.getLayers() : timeline.getAudioTracks();
+        int idx = -1;
+        for (int i = 0; i < band.size(); i++) {
+            if (band.get(i).getId().equals(track.getId())) { idx = i; break; }
+        }
+        int target = idx + (up ? -1 : 1);
+        if (idx < 0 || target < 0 || target >= band.size()) {
+            Toast.makeText(this, up ? "Already at top" : "Already at bottom",
+                    Toast.LENGTH_SHORT).show(); // TODO(strings)
+            return;
+        }
+
+        // Snapshot BEFORE state of every band track's flags (null = no entry).
+        final java.util.Map<String, com.fadcam.ui.faditor.layers.TrackFlags> before =
+                snapshotBandFlags(timeline, band);
+
+        // Desired render order = current order with idx/target swapped; normalize
+        // zIndex = (n-1-i) so the top row carries the highest z.
+        java.util.List<String> order = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.layers.Track t : band) order.add(t.getId());
+        java.util.Collections.swap(order, idx, target);
+        int n = order.size();
+        for (int i = 0; i < n; i++) {
+            timeline.getOrCreateTrackFlags(order.get(i)).zIndex = n - 1 - i;
+        }
+        timeline.pruneDefaultTrackFlags();
+        final java.util.Map<String, com.fadcam.ui.faditor.layers.TrackFlags> after =
+                snapshotBandFlags(timeline, band);
+
+        undoManager.recordAction(new EditActions.LambdaAction(
+                up ? "Move layer up" : "Move layer down",
+                () -> applyBandFlags(timeline, after),
+                () -> applyBandFlags(timeline, before)));
+
+        syncTimelineOverlays();
+        refreshPreviewOverlayVisibility();
+        scheduleAutoSave();
+    }
+
+    /** Copy each band track's current flags entry (or null) keyed by id, for undo. */
+    @NonNull
+    private java.util.Map<String, com.fadcam.ui.faditor.layers.TrackFlags> snapshotBandFlags(
+            @NonNull Timeline timeline,
+            @NonNull java.util.List<com.fadcam.ui.faditor.layers.Track> band) {
+        java.util.Map<String, com.fadcam.ui.faditor.layers.TrackFlags> snap =
+                new java.util.HashMap<>();
+        for (com.fadcam.ui.faditor.layers.Track t : band) {
+            com.fadcam.ui.faditor.layers.TrackFlags f = timeline.getTrackFlags(t.getId());
+            snap.put(t.getId(), f == null ? null : f.copy());
+        }
+        return snap;
+    }
+
+    /** Restore a band flags snapshot wholesale (undo/redo of a z-order move). */
+    private void applyBandFlags(@NonNull Timeline timeline,
+            @NonNull java.util.Map<String, com.fadcam.ui.faditor.layers.TrackFlags> snap) {
+        for (java.util.Map.Entry<String, com.fadcam.ui.faditor.layers.TrackFlags> e
+                : snap.entrySet()) {
+            timeline.setTrackFlags(e.getKey(),
+                    e.getValue() == null ? null : e.getValue().copy());
+        }
+        syncTimelineOverlays();
+        refreshPreviewOverlayVisibility();
+    }
+
+    /**
+     * P1 Delete layer (user-created tracks only — the menu row is hidden otherwise):
+     * items still on the layer MIGRATE to the default track of their band (layerId →
+     * null routes text/sticker items to "text", sprites to "sprite", audio to "audio"
+     * — see {@code Timeline#getLayers()}/{@code getAudioTracks()} grouping), then the
+     * def + its flags entry are removed. Confirmed first when items exist. ONE undo
+     * step restores the def, the flags, and every migrated item's layerId.
+     */
+    private void confirmDeleteLayerTrack(@NonNull com.fadcam.ui.faditor.layers.Track track) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final String trackId = track.getId();
+        final com.fadcam.ui.faditor.layers.LayerTrackDef def = timeline.getLayerTrackDef(trackId);
+        if (def == null) return;
+
+        final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> texts = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : timeline.getTextOverlays()) {
+            if (trackId.equals(o.getLayerId())) texts.add(o);
+        }
+        final java.util.List<AudioClip> audios = new java.util.ArrayList<>();
+        for (AudioClip ac : timeline.getAudioClips()) {
+            if (trackId.equals(ac.getLayerId())) audios.add(ac);
+        }
+        final java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sprites =
+                new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : timeline.getSpriteOverlays()) {
+            if (trackId.equals(so.getLayerId())) sprites.add(so);
+        }
+        int itemCount = texts.size() + audios.size() + sprites.size();
+
+        Runnable doDelete = () -> {
+            final com.fadcam.ui.faditor.layers.TrackFlags flagsBefore =
+                    timeline.getTrackFlags(trackId) == null
+                            ? null : timeline.getTrackFlags(trackId).copy();
+            Runnable redo = () -> {
+                for (com.fadcam.ui.faditor.model.TextOverlayItem o : texts) o.setLayerId(null);
+                for (AudioClip ac : audios) ac.setLayerId(null);
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : sprites) {
+                    so.setLayerId(null);
+                }
+                timeline.removeLayerTrackDef(trackId);
+                timeline.setTrackFlags(trackId, null);
+                syncTimelineOverlays();
+                refreshPreviewOverlayVisibility();
+            };
+            Runnable undo = () -> {
+                timeline.restoreLayerTrackDef(def);
+                timeline.setTrackFlags(trackId,
+                        flagsBefore == null ? null : flagsBefore.copy());
+                for (com.fadcam.ui.faditor.model.TextOverlayItem o : texts) o.setLayerId(trackId);
+                for (AudioClip ac : audios) ac.setLayerId(trackId);
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : sprites) {
+                    so.setLayerId(trackId);
+                }
+                syncTimelineOverlays();
+                refreshPreviewOverlayVisibility();
+            };
+            redo.run();
+            undoManager.recordAction(new EditActions.LambdaAction("Delete layer", redo, undo));
+            scheduleAutoSave();
+        };
+
+        if (itemCount == 0) {
+            doDelete.run();
+        } else {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Delete layer") // TODO(strings)
+                    .setMessage("Move " + itemCount + " item(s) to the default track and delete this layer?")
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton("Delete", (d, w) -> doDelete.run())
+                    .show();
+        }
+    }
+
+    // ── PHASE-P P3 (M11): master ripple/gap edit-mode toggle ───────────────────────
+
+    /**
+     * Toggle {@code Timeline.rippleMode} "ripple" ↔ "gap" (M11). Ripple (today's
+     * default) is untouched: a master delete shifts later clips left. Gap mode makes
+     * {@link #deleteSelectedSegment()} leave a black spacer instead (see
+     * {@link #gapDeleteSelectedSegment}). Persisted via the existing rippleMode
+     * serialization (M5); non-"ripple" also stamps the project v8
+     * (ProjectStorage#usesLayerFeatures). One undo step.
+     */
+    private void toggleRippleMode() {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final String before = timeline.getRippleMode();
+        final String after = "ripple".equals(before) ? "gap" : "ripple";
+        timeline.setRippleMode(after);
+        undoManager.recordAction(new EditActions.LambdaAction("Edit mode: " + after,
+                () -> { timeline.setRippleMode(after); updateRippleModeButton(); },
+                () -> { timeline.setRippleMode(before); updateRippleModeButton(); }));
+        updateRippleModeButton();
+        scheduleAutoSave();
+        // TODO(strings)
+        Toast.makeText(this, "gap".equals(after)
+                ? "Gap mode: deleting a clip leaves a black gap"
+                : "Ripple mode: deleting a clip closes the gap", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Sync the toggle's tint with the model: green = ripple (default), amber = gap. */
+    private void updateRippleModeButton() {
+        if (btnRippleMode == null || project == null) return;
+        boolean ripple = "ripple".equals(project.getTimeline().getRippleMode());
+        btnRippleMode.setTextColor(ripple ? 0xFF4CAF50 : 0xFFFFB300);
+    }
+
+    /**
+     * Gap-mode master delete (M11): the clip is REPLACED in place by a black still-image
+     * spacer of the same timeline duration, so later clips do NOT shift and the timeline
+     * keeps its length. Representation choice: an {@code isImageClip} Clip pointing at a
+     * generated black PNG — the least invasive form that already survives save/load
+     * (plain clip serialization), previews (the existing image-clip preview path) and
+     * exports black (ExportManager's existing image-clip branch) with ZERO new machinery;
+     * a true first-class gap object would touch every clip iterator in the app. Floating
+     * layers/audio are absolute-positioned and are untouched by construction. One undo
+     * step swaps the original clip back.
+     */
+    private void gapDeleteSelectedSegment(@NonNull Timeline timeline) {
+        final int index = selectedClipIndex;
+        if (index < 0 || index >= timeline.getClipCount()) return;
+        final Clip original = timeline.getClip(index);
+        Uri blackUri = ensureBlackSpacerUri();
+        if (blackUri == null) {
+            Toast.makeText(this, "Could not create gap spacer", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        long durMs = original.hasLoopExtension()
+                ? original.getVisualDurationMs() : original.getTrimmedDurationMs();
+        final Clip spacer = new Clip(blackUri, Math.max(100, durMs));
+        spacer.setImageClip(true);
+        spacer.setAudioMuted(true);
+        spacer.setDisplayName("Gap"); // TODO(strings)
+
+        timeline.removeClip(index);
+        timeline.addClip(index, spacer);
+        undoManager.recordAction(new EditActions.LambdaAction("Delete clip (gap)",
+                () -> { timeline.removeClip(index); timeline.addClip(index, spacer); },
+                () -> { timeline.removeClip(index); timeline.addClip(index, original); }));
+
+        editorTimeline.setTimeline(timeline, index);
+        selectSegment(index);
+        syncTimelineOverlays();
+        editorTimeline.invalidate();
+        refreshTotalTimeDisplay();
+        saveProjectNow();
+        Toast.makeText(this, "Clip removed — gap left in place", Toast.LENGTH_SHORT).show(); // TODO(strings)
+    }
+
+    /**
+     * Lazily generate the shared 16×16 black PNG the gap spacer clips reference
+     * (internal files dir, "images" — same home {@code copyUriToInternalStorage} uses
+     * for imported image assets, so project bundling/export asset resolution treat it
+     * exactly like any user image).
+     */
+    @Nullable
+    private Uri ensureBlackSpacerUri() {
+        try {
+            java.io.File dir = new java.io.File(getFilesDir(), "images");
+            if (!dir.exists()) dir.mkdirs();
+            java.io.File f = new java.io.File(dir, "faditor_gap_black.png");
+            if (!f.exists() || f.length() == 0) {
+                android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(
+                        16, 16, android.graphics.Bitmap.Config.ARGB_8888);
+                bmp.eraseColor(0xFF000000);
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                    bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out);
+                }
+                bmp.recycle();
+            }
+            return Uri.fromFile(f);
+        } catch (Exception e) {
+            FLog.e(TAG, "ensureBlackSpacerUri failed", e);
+            return null;
         }
     }
 
@@ -15254,6 +15648,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Timeline timeline = project.getTimeline();
             if (timeline.getClipCount() <= 1) {
                 Toast.makeText(this, R.string.faditor_delete_last_segment, Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // PHASE-P P3 (M11): in gap mode a master delete leaves a black spacer in
+            // place instead of rippling later clips left. Ripple mode = unchanged path.
+            if ("gap".equals(timeline.getRippleMode())) {
+                gapDeleteSelectedSegment(timeline);
                 return;
             }
 

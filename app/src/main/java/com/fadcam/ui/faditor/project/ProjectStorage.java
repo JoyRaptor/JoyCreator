@@ -911,6 +911,11 @@ public class ProjectStorage {
         Timeline tl = project.getTimeline();
         if (!"ripple".equals(tl.getRippleMode())) return true;
         if (!tl.getExtraLayerTracks().isEmpty()) return true;
+        // PHASE-P P1: a renamed DEFAULT track (TrackFlags.customName) is a layer
+        // feature an old build can't represent — stamp v8.
+        for (com.fadcam.ui.faditor.layers.TrackFlags f : tl.getAllTrackFlags().values()) {
+            if (f.customName != null && !f.customName.isEmpty()) return true;
+        }
         // The migration produces at most ONE TEXT layer and ONE AUDIO track; more than
         // that means a real multi-track project (belt-and-suspenders with the check
         // above — also catches any non-default layerId that lacks a def, defensively).
@@ -1482,6 +1487,20 @@ public class ProjectStorage {
                 trackDefsArr.add(dj);
             }
             layersBlock.add("trackDefs", trackDefsArr);
+            // PHASE-P P1 (additive): user renames of the DEFAULT "text"/"audio"/"sprite"
+            // tracks live in the TrackFlags side-table (customName) — those tracks have
+            // no LayerTrackDef to carry a name. Serialized as {trackId: name}; absent
+            // for every project that never renamed a default track.
+            JsonObject trackNamesObj = new JsonObject();
+            for (java.util.Map.Entry<String, com.fadcam.ui.faditor.layers.TrackFlags> e
+                    : src.getTimeline().getAllTrackFlags().entrySet()) {
+                if (e.getValue().customName != null && !e.getValue().customName.isEmpty()) {
+                    trackNamesObj.addProperty(e.getKey(), e.getValue().customName);
+                }
+            }
+            if (trackNamesObj.size() > 0) {
+                layersBlock.add("trackNames", trackNamesObj);
+            }
             timelineJson.add("layers", layersBlock);
 
             json.add("timeline", timelineJson);
@@ -2119,6 +2138,17 @@ public class ProjectStorage {
                     if (layersBlock.has("audioTracks")) {
                         for (JsonElement e : layersBlock.getAsJsonArray("audioTracks")) {
                             restoreTrackFlags(project.getTimeline(), e.getAsJsonObject());
+                        }
+                    }
+                    // PHASE-P P1: restore default-track renames into the flags side-table.
+                    if (layersBlock.has("trackNames")) {
+                        JsonObject namesObj = layersBlock.getAsJsonObject("trackNames");
+                        for (java.util.Map.Entry<String, JsonElement> e : namesObj.entrySet()) {
+                            String nm = e.getValue().getAsString();
+                            if (nm != null && !nm.isEmpty()) {
+                                project.getTimeline()
+                                        .getOrCreateTrackFlags(e.getKey()).customName = nm;
+                            }
                         }
                     }
                 }

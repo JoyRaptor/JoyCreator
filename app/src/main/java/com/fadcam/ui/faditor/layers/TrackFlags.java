@@ -26,6 +26,14 @@ public final class TrackFlags {
     public boolean locked;
     public boolean muted;
     public int zIndex;
+    /**
+     * PHASE-P P1: user rename home for the DEFAULT tracks ("text"/"audio"/"sprite"),
+     * which have no {@code LayerTrackDef} to carry a name (user-created tracks rename
+     * via {@code LayerTrackDef#setName} instead). {@code null} = no rename, the view
+     * builder's built-in default name applies — additive, old projects never set it.
+     */
+    @androidx.annotation.Nullable
+    public String customName;
 
     public TrackFlags() {
     }
@@ -40,12 +48,15 @@ public final class TrackFlags {
 
     /** True if every field is at its default (i.e. this entry is safe to omit/drop). */
     public boolean isDefault() {
-        return !collapsed && !hidden && !locked && !muted && zIndex == 0;
+        return !collapsed && !hidden && !locked && !muted && zIndex == 0
+                && (customName == null || customName.isEmpty());
     }
 
     /** Deep copy, used by undo actions to snapshot before/after state. */
     public TrackFlags copy() {
-        return new TrackFlags(collapsed, hidden, locked, muted, zIndex);
+        TrackFlags c = new TrackFlags(collapsed, hidden, locked, muted, zIndex);
+        c.customName = customName;
+        return c;
     }
 
     /** Copy all fields from another instance into this one (in-place restore for undo). */
@@ -55,6 +66,7 @@ public final class TrackFlags {
         this.locked = other.locked;
         this.muted = other.muted;
         this.zIndex = other.zIndex;
+        this.customName = other.customName;
     }
 
     /**
@@ -69,6 +81,7 @@ public final class TrackFlags {
         if (other == null) return false;
         return collapsed == other.collapsed && hidden == other.hidden
                 && locked == other.locked && muted == other.muted
-                && zIndex == other.zIndex;
+                && zIndex == other.zIndex
+                && java.util.Objects.equals(customName, other.customName);
     }
 }

@@ -1070,6 +1070,22 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Soft snap overlays" />
 
+                <!-- PHASE-P P3 (M11): master ripple/gap edit-mode toggle. Green
+                     align icon = ripple (deletes close the gap, today's default);
+                     amber = gap (a master delete leaves a black gap spacer). -->
+                <TextView
+                    android:id="@+id/btn_ripple_mode"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:gravity="center"
+                    android:fontFamily="@font/materialicons"
+                    android:text="align_horizontal_center"
+                    android:textColor="#4CAF50"
+                    android:textSize="18sp"
+                    android:layout_marginEnd="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Ripple or gap delete mode" />
+
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"

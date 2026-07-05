@@ -1,5 +1,25 @@
 # FadCam AI Handoff
 
+> **🛠️ 2026-07-05 eve (Fable orchestrator) — GREEN-FIX + RELIABLE CROSS-LAYER + EXPORT FIX; DRAG REWRITE IN FLIGHT.**
+> Sequence this session (all committed, watcher green, Note 9 attached): (1) **ee19a86** greened a
+> committed-red tree — one getter typo (`getBgKeyTolerance`→`getKeyTolerance`, c5880be); the "100+ errors"
+> were stale build.log noise. The user's phone had been on a STALE build → the reason gesture fixes "never
+> landed"; NEW RULE: nothing is "done" on code-trace, only on user confirmation against a green build.
+> (2) **13c382a** RELIABLE cross-layer path (user-endorsed over fragile drag): add-image-as-new-layer
+> (device-proven preview+persist, uses TextOverlayItem.createImage shared render path) + move-clip dialog
+> "New layer above/below / Move to layer" (green+installed, long-press entry HAND-TEST-OWED). P3 master→layer
+> promote left as proposal — NOW REVISIT: M-COMP-2 PiP just landed, so a non-destructive "copy master clip to
+> video PiP layer" is viable (was blocked on live-PiP). (3) **c8eae1e** fixed a PRE-EXISTING export bug:
+> image/gap clips (16x16 faditor_gap_black.png) collapsed ALL overlays to sub-pixel on export ("original"
+> preset had no rescue Presentation); image-clip-gated scale-to-fit, video path byte-identical, before/after
+> device frames prove overlays restored. (4) 🔄 IN FLIGHT: **split-element drag rewrite** (opus) — user
+> diagnosed the drag as two half-objects (origin ghost tracks X, target outline tracks Y, leaks into wrong
+> row); rewrite = ONE proxy at (resolvedX, hoveredRow), drawn on exactly one row, ROWGESTURE-instrumented,
+> USER hand-test is the gate. Spec: FEEDBACK_20260703_dragux_v3.md "🩺 ROOT CAUSE". Edge-scroll CONFIRMED
+> working on green; don't regress it. QUEUE AFTER: dedup device-verify (logic harness-proven, owed on-device);
+> waveform fidelity W1; sprite same-frame-dup (JOYRAPTOR lane, FEEDBACK_20260705.md); 16x16 placeholder data-smell.
+> USER OWED HAND-TESTS: P2 new-layer long-press dialog; the drag rewrite when it lands.
+
 > **🎬 2026-07-05 ~16:50 — M-COMP-2 LIVE PiP LANDED + PROBE #1 CLOSED (0453db9). WATCHER ALIVE, device attached.**
 > **Probe #1 (PLAN_LAYERS_V2 Part 10) verdict: GO with headroom** — the Note 9 ran 2 AND 3 simultaneous
 > 1080x1920 **HEVC** decoders at full ~29fps, zero steady-state drops (`compositor/DecoderBudgetProbeActivity`,

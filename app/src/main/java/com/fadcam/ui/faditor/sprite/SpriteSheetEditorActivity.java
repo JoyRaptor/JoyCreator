@@ -562,7 +562,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             sheet.setSpacing(imported.getSpacingX(), imported.getSpacingY());
             sheet.setFps(imported.getFps());
             sheet.setPivot(imported.getPivotX(), imported.getPivotY());
-            sheet.setBgKey(imported.getBgKeyColor(), imported.getBgKeyTolerance());
+            sheet.setBgKey(imported.getBgKeyColor(), imported.getKeyTolerance());
             sheet.getCells().clear();
             for (com.fadcam.ui.faditor.sprite.SpriteSheet.Cell c : imported.getCells()) {
                 com.fadcam.ui.faditor.sprite.SpriteSheet.Cell copy =

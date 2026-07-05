@@ -1,5 +1,28 @@
 # FadCam AI Handoff
 
+> **🛬 2026-07-04 night — SESSION LANDING (JoyRaptor/Fable orchestrator). PICKUP INSTRUCTIONS:**
+> **1. RECOVER PHASE P (probably in flight/killed at landing):** an agent was building "Phase P — layer
+> header long-press menu (rename/move-z/delete), z-order end-to-end, M11 ripple/gap toggle." Its
+> UNCOMMITTED work (compile-GREEN at landing) touches: AndroidManifest, FaditorEditorActivity, TrackFlags,
+> Timeline, ProjectStorage, EditorTimelineView, activity_faditor_editor.xml. Protocol (proven 3×):
+> `git status` + build.log green + coherent `git diff` → COMMIT with an honest message; red/incoherent →
+> stash named clearly, restore green from 2995db4. Verify M11 gap-mode + menu behaviors on the sandbox
+> Note 9 if attached (taps are scriptable; screencap STALE → screenrecord+ffmpeg; input swipe can't drag).
+> **2. THEN slice-3 gesture round (JUMPS the queue, user-ordered):** tasks/FEEDBACK_20260703_dragux_v3.md
+> — the "A9 SNAP-PRIORITY RULE" + "SLICE 3 EXPANDED SPEC (WYSIWYG DROP PRINCIPLE)" sections are BINDING
+> and written implementation-ready. One Fable/strong agent, files: LayerGestureController/LayerRowRenderer/
+> EditorTimelineView. User re-tests after; expect a ≤4-gesture hand-test list back to them.
+> **3. THEN:** transcript dedup relaunch (conditions in the 🛬 2026-07-03 block + prior prompts: timestamped
+> backup FIRST, live/edited transcripts byte-untouched, fix the stacking source, synthesize duplicates on
+> sandbox to verify) → v3 slice 2 (unified gap-insertion blueprint in the dragux doc) → timeline fidelity
+> W1/W2/T1 (tasks/FEEDBACK_20260703_timeline_fidelity.md) → M-COMP-2 probe-first (PLAN_LAYERS_V2 Part 10 #1).
+> **OPEN USER CALLS:** muted-track captions show/hide?; main-phone real-project session (never yet run).
+> **STANDING RULES:** ONE editing agent at a time (shared watcher; parallel edits burn — proven). NEVER
+> gradle (watcher builds on save; "BUILD FAILED" from install/device/EOF lines = compile SUCCESS). Sandbox
+> Note 9 SANDBOX_SERIAL only; NEVER main phone REAL_SERIAL/project 27221664. Commit each green item.
+> Local commits only, NEVER push. Don't touch faditor/avatar/ or sprite files (JoyRaptor's lane) or stash@{0}.
+> Everything below this block is history; the queue above is current.
+
 > Living document for the next agent. Update this file when you change architecture, fix a recurring bug class, or make a non-obvious design choice.
 > Last updated: 2026-07-04
 

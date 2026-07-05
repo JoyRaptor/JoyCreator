@@ -1124,6 +1124,36 @@
     <string name="sprite_editor_pivot">Pivot</string>
     <string name="sprite_sheet_picker_title">Sprite sheets</string>
     <string name="sprite_sheet_picker_new">+ New sprite sheet</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
+
+    <!-- Avatar Studio matrix editor (PLAN_AVATAR_STUDIO A1-UI) -->
+    <string name="avatar_studio_title">Avatars</string>
+    <string name="avatar_studio_new">+ New avatar</string>
+    <string name="avatar_studio_default_name">Avatar</string>
+    <string name="avatar_studio_name_hint">Avatar name</string>
+    <string name="avatar_studio_save">Save</string>
+    <string name="avatar_studio_saved">Avatar saved</string>
+    <string name="avatar_studio_save_failed">Save failed — try again</string>
+    <string name="avatar_studio_no_project">No project found — open the editor first</string>
+    <string name="avatar_studio_add_part">+ Part</string>
+    <string name="avatar_studio_pick_sheet">Sprite sheet for the new part</string>
+    <string name="avatar_studio_no_sheets">Slice a sprite sheet first (Sprites tool) — parts draw from sheets</string>
+    <string name="avatar_studio_part_name_hint">Part name (head, body, armL…)</string>
+    <string name="avatar_studio_part_menu_parent">Set parent…</string>
+    <string name="avatar_studio_part_menu_unparent">Clear parent</string>
+    <string name="avatar_studio_part_menu_remove">Remove part</string>
+    <string name="avatar_studio_parent_pick_title">Parent for %1$s</string>
+    <string name="avatar_studio_armed_hint">Cell armed — drag parts to pose this extreme</string>
+    <string name="avatar_studio_disarm_hint">Grid free — sliders puppet the blend</string>
+    <string name="avatar_studio_yaw">Yaw</string>
+    <string name="avatar_studio_pitch">Pitch</string>
+    <string name="avatar_studio_cell_stepper">Sprite cell</string>
+    <string name="avatar_studio_scale">Scale</string>
+    <string name="avatar_studio_rotation">Rot</string>
+    <string name="avatar_studio_flip_h">Flip H</string>
+    <string name="avatar_studio_flip_v">Flip V</string>
+    <string name="avatar_studio_clear_cell">Clear cell</string>
+    <string name="avatar_studio_cell_cleared">Cell cleared — auto-blends again</string>
     <string name="faditor_tools_all_title">All tools</string>
     <string name="faditor_tools_edit">Edit</string>
     <string name="faditor_tools_edit_done">Done</string>

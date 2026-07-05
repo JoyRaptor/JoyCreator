@@ -13137,12 +13137,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void openSpriteSheetManager() {
         java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = project.getSpriteSheets();
-        String[] items = new String[sheets.size() + 1];
+        String[] items = new String[sheets.size() + 2];
         for (int i = 0; i < sheets.size(); i++) items[i] = sheets.get(i).getName();
         items[sheets.size()] = getString(R.string.sprite_sheet_picker_new);
+        items[sheets.size() + 1] = getString(R.string.sprite_sheet_picker_avatars);
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.sprite_sheet_picker_title)
                 .setItems(items, (d, which) -> {
+                    if (which == sheets.size() + 1) {
+                        openAvatarStudioManager();
+                        return;
+                    }
                     android.content.Intent it = new android.content.Intent(this,
                             com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class);
                     it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
@@ -13150,6 +13155,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (which < sheets.size()) {
                         it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
                                 .EXTRA_SHEET_ID, sheets.get(which).getId());
+                    }
+                    startActivity(it);
+                })
+                .show();
+    }
+
+    /**
+     * Avatar Studio rig list (PLAN_AVATAR_STUDIO A1-UI): the project's rigs +
+     * "+ New avatar", launching the matrix editor. Same write-back pattern as
+     * the sprite setup editor. Editor-side surface stays THIN per the
+     * architecture contract — authoring lives entirely in Avatar Studio.
+     */
+    private void openAvatarStudioManager() {
+        java.util.List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs = project.getAvatarRigs();
+        String[] items = new String[rigs.size() + 1];
+        for (int i = 0; i < rigs.size(); i++) items[i] = rigs.get(i).getName();
+        items[rigs.size()] = getString(R.string.avatar_studio_new);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.avatar_studio_title)
+                .setItems(items, (d, which) -> {
+                    android.content.Intent it = new android.content.Intent(this,
+                            com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class);
+                    it.putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity
+                            .EXTRA_PROJECT_ID, project.getId());
+                    if (which < rigs.size()) {
+                        it.putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity
+                                .EXTRA_RIG_ID, rigs.get(which).getId());
                     }
                     startActivity(it);
                 })

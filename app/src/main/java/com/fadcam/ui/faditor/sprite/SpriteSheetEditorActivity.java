@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -70,6 +71,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private EditText cellNameField;
     private Switch cellEnabled;
     private TextView pivotBtn;
+    private TextView onionBtn;
+    private boolean onionMode = false;
     private TextView keyBtn;
     private TextView playBtn;
     private CellCyclePreview preview;
@@ -284,6 +287,15 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         });
         controls.addView(pivotBtn);
 
+        // S2b: onion skin — ghost previous enabled cell under the selected cell.
+        onionBtn = chip(getString(R.string.sprite_editor_onion));
+        onionBtn.setOnClickListener(v -> {
+            onionMode = !onionMode;
+            onionBtn.setBackgroundColor(onionMode ? 0xFF4A3B5C : 0xFF26262E);
+            preview.invalidate();
+        });
+        controls.addView(onionBtn);
+
         // S2b: algorithmic grid auto-detect (gutter scan).
         TextView autoBtn = chip(getString(R.string.sprite_editor_auto));
         autoBtn.setOnClickListener(v -> autoDetectGrid());
@@ -437,6 +449,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         SpriteSheet.Cell meta = sheet.cellAt(index);
         cellNameField.setText(meta != null ? meta.name : "");
         cellEnabled.setChecked(meta == null || meta.enabled);
+        preview.setCursor(index);
         syncControls();
     }
 
@@ -530,9 +543,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private static class CellCyclePreview extends View {
         @Nullable private SpriteSheet sheet;
         @Nullable private SpriteSheetRenderer renderer;
+        @Nullable private SpriteSheetEditorActivity activity;
         private boolean playing = false;
         private int cursor = 0;
         private final RectF dest = new RectF();
+        private final Paint onionPaint = new Paint();
         private final Runnable tick = new Runnable() {
             @Override public void run() {
                 if (!playing || sheet == null) return;
@@ -545,6 +560,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         CellCyclePreview(Context ctx) {
             super(ctx);
             setBackgroundColor(0xFF1B1B22);
+            if (ctx instanceof SpriteSheetEditorActivity) activity = (SpriteSheetEditorActivity) ctx;
         }
 
         void bind(@Nullable SpriteSheet s, @Nullable SpriteSheetRenderer r) {
@@ -555,6 +571,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
 
         boolean isPlaying() { return playing; }
+
+        void setCursor(int cell) {
+            cursor = Math.max(0, cell);
+            invalidate();
+        }
 
         void setPlaying(boolean p) {
             playing = p;
@@ -573,11 +594,32 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             return from % n;
         }
 
+        /** Scan backward from {@code from} (excluding {@code from}) for an enabled cell, wrap around. */
+        private int previousEnabled(int from) {
+            if (sheet == null || sheet.cellCount() == 0) return -1;
+            int n = sheet.cellCount();
+            for (int i = 1; i <= n; i++) {
+                int idx = (from - i + n) % n;
+                SpriteSheet.Cell meta = sheet.cellAt(idx);
+                if (meta == null || meta.enabled) return idx;
+            }
+            return -1;
+        }
+
         @Override
         protected void onDraw(Canvas canvas) {
             if (renderer == null || sheet == null) return;
             dest.set(2, 2, getWidth() - 2, getHeight() - 2);
-            renderer.drawCell(canvas, Math.min(cursor, sheet.cellCount() - 1), dest, null);
+            int showCell = Math.min(cursor, sheet.cellCount() - 1);
+            // Onion skin: draw the previous enabled cell ghosted under the current cell.
+            if (activity != null && activity.onionMode && showCell >= 0) {
+                int prev = previousEnabled(showCell);
+                if (prev >= 0 && prev != showCell) {
+                    onionPaint.setAlpha(90);
+                    renderer.drawCell(canvas, prev, dest, onionPaint);
+                }
+            }
+            renderer.drawCell(canvas, showCell, dest, null);
         }
     }
 }

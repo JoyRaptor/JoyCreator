@@ -1129,6 +1129,7 @@
     <string name="sprite_editor_key_clear">Key ✕</string>
     <string name="sprite_editor_key_pick_hint">Tap the background color to key out</string>
     <string name="sprite_editor_key_cleared">Background key cleared</string>
+    <string name="sprite_editor_onion">Onion</string>
     <string name="sprite_editor_export_sidecar">⇪ .json</string>
     <string name="sprite_editor_sidecar_saved">Sidecar saved next to the sheet image</string>
     <string name="sprite_editor_sidecar_failed">Couldn\'t write the sidecar file</string>

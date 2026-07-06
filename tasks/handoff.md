@@ -1,5 +1,18 @@
 # FadCam AI Handoff
 
+> **🌌 2026-07-06 ~08:10 — AUTONOMOUS RUN #2: PiP still-fallback + A6 mesh density. STATE-OF-THE-WORLD:**
+> **M-EXPORT-2 is COMPLETE (parity a7f7b89 + blend fc3055a). A6 is COMPLETE for the editor** (pin-warp core
+> 5e3a94d, smooth+density c54e981/4ede612, pin authoring 0fc9365, dangle 00733aa, mesh overlay) — only the
+> A2 tracking hookup (MediaPipe, USER-GATED) remains. This run landed: **(bfb60f4) PiP still-frame fallback**
+> — 2nd+ simultaneous overlay videos now render a cached MMR still instead of nothing (device-proven: two
+> overlapping PiPs both visible, top-most live + lower as still at its authored xy); **(4ede612) per-part
+> warp mesh density** — `AvatarRig.Part.warpSegments` + a "Mesh" stepper (device-proven: 8 bands faceted →
+> 40 smooth, persisted to JSON) + fixed a stale initial-label desync. Full run-#1 detail in the block below.
+> **REMAINING FABLE (ungated):** A6 polish candidates (per-row alpha-extent strip clamp; PiP blend-preview
+> approximation so blend clips aren't invisible-until-export), broader adversarial sweeps. **GATED (need
+> user):** A2 MediaPipe gradle dep; blend-picker UI design; main phone; push. Sandbox = 1 NORMAL PiP + the
+> a6-smoke-rig (dangle+4 pins). Autonomous chain: next wakeup 13:01, self-perpetuating +5h.
+
 > **🌙 2026-07-06 ~03:35 — AUTONOMOUS RUN #1 (3:01 wakeup): M-EXPORT-2 FULLY COMPLETE + review fixes.**
 > **Blend modes LANDED + DEVICE-PROVEN (fc3055a):** `export/BlendModeGlEffect` (MULTIPLY/SCREEN/OVERLAY/ADD
 > against the ACCUMULATED frame, GlTransitionExportEffect pattern) fed by `export/PipFrameOverlay` (MMR
@@ -49,6 +62,13 @@
 > **A6 REMAINING (Fable):** FABRIK→posed-pins tracking hookup (A2, MediaPipe dep), dangle physics,
 > timeline/export warp surfaces (ride A4). **USER FEEL-TEST OWED (2 min):** Avatar Studio → "A6 Warp
 > Smoke" → ⌖ Pins → drag pins around (star re-warps live), sweep Yaw — does authoring feel right?
+
+---
+## ═══════════ ARCHIVE — history below (superseded by the current blocks above) ═══════════
+The blocks above are the live queue + recent landings. Everything below is dated history kept for
+provenance: A6 pin-warp build-up (smoke/core), M-EXPORT-2 core, the 2026-07-05 DeepSeek/drag/M-COMP-2
+rounds, and older. Read top-down only if you need the "why" behind a current decision.
+---
 
 > **✅ 2026-07-06 ~23:05 — A6 PIN-WARP DEVICE SMOKE PASSED (frame-proven on the Note 9).** Injected
 > "a6-smoke-rig" (3-pin arm, 1×3 yaw strip, cell swap at the right extreme) into the bdd51919 sandbox:

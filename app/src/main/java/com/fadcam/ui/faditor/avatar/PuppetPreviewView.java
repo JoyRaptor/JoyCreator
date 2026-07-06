@@ -46,8 +46,11 @@ public class PuppetPreviewView extends View {
 
     /** A root part's neutral width as a fraction of the canvas' short side. */
     private static final float PART_BASE_FRACTION = 0.34f;
-    /** Warp mesh bands — plenty at puppet scale (plan: ~8–20 triangles/limb). */
-    private static final int WARP_SEGMENTS = 10;
+    /** Warp mesh bands. 24 bands ≈ 50 triangles/part — still nothing to a phone
+     *  GPU (drawBitmapMesh is hardware-accelerated; mobile GPUs push millions of
+     *  tris). 10 was the over-cautious v1 value; the first hand-test read strong
+     *  bends as choppy, and density + joint-smoothed normals fixed it. */
+    private static final int WARP_SEGMENTS = 24;
     /** Pin-snap crossfade window after a discrete cell swap (plan §Pin-warp). */
     private static final long CROSSFADE_MS = 130;
 
@@ -352,6 +355,24 @@ public class PuppetPreviewView extends View {
             float[] box = part != null ? partBox(part) : null;
             if (part != null && box != null && box[0] > 0) {
                 Matrix m = fullPartMatrix(part);
+
+                // Mesh wireframe (user-requested "why does it bend like that" view):
+                // the LIVE warp grid, mapped local→view. Only when the part warps.
+                PuppetPoseResolver.PartState mps = resolved.get(part.id);
+                float[] mverts = mps != null ? warpVertsFor(part, mps, box[0], box[1]) : null;
+                if (mverts != null) {
+                    m.mapPoints(mverts);
+                    for (int r = 0; r <= WARP_SEGMENTS; r++) {
+                        canvas.drawLine(mverts[r * 4], mverts[r * 4 + 1],
+                                mverts[r * 4 + 2], mverts[r * 4 + 3], pinLink);
+                        if (r < WARP_SEGMENTS) {
+                            canvas.drawLine(mverts[r * 4], mverts[r * 4 + 1],
+                                    mverts[r * 4 + 4], mverts[r * 4 + 5], pinLink);
+                            canvas.drawLine(mverts[r * 4 + 2], mverts[r * 4 + 3],
+                                    mverts[r * 4 + 6], mverts[r * 4 + 7], pinLink);
+                        }
+                    }
+                }
                 float density = getResources().getDisplayMetrics().density;
                 float radius = 9f * density;
                 float prevX = 0, prevY = 0;
@@ -500,11 +521,16 @@ public class PuppetPreviewView extends View {
                                  float dw, float dh) {
         if (part.restPins.size() < PinWarpStrip.MIN_PINS) return null;
         if (ps.pins.size() != part.restPins.size()) return null;
+        // Self-contained box origin (NOT the shared workRect, which holds the
+        // LAST drawn part's rect — the mesh-overlay pass calls this outside
+        // drawPart and would otherwise warp against a stale origin).
+        float[] box = partBox(part);
+        if (box == null || box[0] <= 0 || box[1] <= 0) return null;
         java.util.List<float[]> posed = new java.util.ArrayList<>(ps.pins.size());
         for (float[] pin : ps.pins) {
             posed.add(new float[]{
-                    workRect.left + pin[0] * dw,
-                    workRect.top + pin[1] * dh});
+                    box[2] + pin[0] * dw,
+                    box[3] + pin[1] * dh});
         }
         return PinWarpStrip.buildMeshVerts(part.restPins, posed, dw, WARP_SEGMENTS);
     }

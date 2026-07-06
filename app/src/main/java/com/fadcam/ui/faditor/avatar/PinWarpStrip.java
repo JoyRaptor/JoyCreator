@@ -62,6 +62,36 @@ public final class PinWarpStrip {
         if (k < MIN_PINS || posedPins.size() != k || segments < 1) return null;
         if (!isChainMonotonic(restPins)) return null;
 
+        // Per-joint SMOOTHED directions (ribbon smoothing): a joint's direction is the
+        // normalized average of its adjacent posed segments; chain ends keep their
+        // segment's direction. Per-row directions interpolate between the two joint
+        // directions, so bends curve smoothly instead of creasing at every pin —
+        // the "choppy warp" the first hand-test surfaced. Width stays EXACT because
+        // columns offset along one unit normal per row (PinWarpTest's bend case).
+        float[][] segDir = new float[k - 1][2];
+        for (int i = 0; i < k - 1; i++) {
+            float dx = posedPins.get(i + 1)[0] - posedPins.get(i)[0];
+            float dy = posedPins.get(i + 1)[1] - posedPins.get(i)[1];
+            float len = (float) Math.sqrt(dx * dx + dy * dy);
+            if (len < 1e-6f) { dx = 0f; dy = 1f; len = 1f; } // coincident pins: point down
+            segDir[i][0] = dx / len;
+            segDir[i][1] = dy / len;
+        }
+        float[][] jointDir = new float[k][2];
+        for (int j = 0; j < k; j++) {
+            float jx, jy;
+            if (j == 0) { jx = segDir[0][0]; jy = segDir[0][1]; }
+            else if (j == k - 1) { jx = segDir[k - 2][0]; jy = segDir[k - 2][1]; }
+            else {
+                jx = segDir[j - 1][0] + segDir[j][0];
+                jy = segDir[j - 1][1] + segDir[j][1];
+            }
+            float len = (float) Math.sqrt(jx * jx + jy * jy);
+            if (len < 1e-6f) { jx = segDir[j - 1][0]; jy = segDir[j - 1][1]; len = 1f; }
+            jointDir[j][0] = jx / len;
+            jointDir[j][1] = jy / len;
+        }
+
         float[] verts = new float[(segments + 1) * 2 * 2];
         int out = 0;
         for (int row = 0; row <= segments; row++) {
@@ -75,20 +105,21 @@ public final class PinWarpStrip {
             // Rest centerline x at this row → lateral offsets of the two columns.
             float cx = lerp(restPins.get(i)[0], restPins.get(i + 1)[0], t);
 
-            // Posed base point + per-segment unit direction/normal.
+            // Posed base point along the polyline + the row's SMOOTHED direction.
             float qx0 = posedPins.get(i)[0], qy0 = posedPins.get(i)[1];
-            float qx1 = posedPins.get(i + 1)[0], qy1 = posedPins.get(i + 1)[1];
-            float dx = qx1 - qx0, dy = qy1 - qy0;
-            float len = (float) Math.sqrt(dx * dx + dy * dy);
-            if (len < 1e-6f) { dx = 0f; dy = 1f; len = 1f; } // coincident pins: point down
-            float ux = dx / len, uy = dy / len;
+            float bx = qx0 + (posedPins.get(i + 1)[0] - qx0) * t;
+            float by = qy0 + (posedPins.get(i + 1)[1] - qy0) * t;
+            float tc = Math.max(0f, Math.min(1f, t)); // extrapolated rows keep end dirs
+            float ux = lerp(jointDir[i][0], jointDir[i + 1][0], tc);
+            float uy = lerp(jointDir[i][1], jointDir[i + 1][1], tc);
+            float ulen = (float) Math.sqrt(ux * ux + uy * uy);
+            if (ulen < 1e-6f) { ux = 0f; uy = 1f; ulen = 1f; }
+            ux /= ulen;
+            uy /= ulen;
             // Normal = direction rotated +90° in y-DOWN screen coords, so a straight-down
             // chain maps the cell's left edge to the left (identity, not a mirror) —
             // pinned by PinWarpTest's identity case.
             float nx = uy, ny = -ux;
-
-            float bx = qx0 + dx * t;
-            float by = qy0 + dy * t;
 
             for (int col = 0; col <= 1; col++) {
                 float lat = (col - cx) * destWidth; // col ∈ {0,1} = cell-space u

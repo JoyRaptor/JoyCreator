@@ -172,6 +172,25 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       Zero crashes. The rig is left in the sandbox for the user's feel-test (on-device
       backup: project.json.bak-a6-20260706).
 
+## USER FEEDBACK 2026-07-06 (first A6 hand-test — "looks great") + roadmap candidates
+User read strong bends as CHOPPY → fixed same night: WARP_SEGMENTS 10→24 (GPU cost is a
+rounding error — drawBitmapMesh is hardware-accelerated; even 50 bands ≈ 100 tris/part vs
+the millions mobile GPUs push) + JOINT-SMOOTHED normals in PinWarpStrip (per-joint averaged
+segment directions, lerped per row — the crease at each pin was the bigger chop source than
+density). Mesh WIREFRAME overlay added: pin mode now draws the live warp grid ("why does it
+bend like that" view, user-requested).
+**Recorded candidates (user asked; not built, honest status):**
+- **Alpha-traced contour mesh** (Ch-style: trace opaque pixels + padding, mesh only there):
+  at our poly counts it saves nothing — its value is warp QUALITY on wide/irregular art. It
+  drags in the dense-mesh pipeline (marching squares → triangulation → distance-weighted
+  skinning) this plan deliberately excluded. PARKED as an A6 fast-follow experiment; a cheap
+  middle step if wanted sooner: per-row alpha-extent clamping of the strip width.
+- **Vector draw tools** (lines/curves/shapes with handles): NOT on the roadmap — all art is
+  bitmap sprite-sheet based. Recorded as a candidate feature family; would be its own plan.
+- **Mesh density / algorithm options** (Adobe ships 3 algorithms + density settings): we ship
+  ONE algorithm (smoothed strip sweep). Per-part density is data-not-code whenever UI appetite
+  exists (WARP_SEGMENTS → a Part field + a stepper chip; delegable once designed).
+
 ## MINED — GLM-5.1 external review, orchestrator-vetted (2026-07-04)
 ADOPT AS BINDING:
 - **Bake-to-parameter-track architecture**: recording saves RESOLVED driver params (yaw/pitch/visemes/pin coords) into a hidden track; export replays them through resolveTransformAt — webcam never re-runs at export. Matches our preview==export doctrine (same lesson L2 taught). Plus "Bake to Video" tool to flatten a rig to a normal clip.

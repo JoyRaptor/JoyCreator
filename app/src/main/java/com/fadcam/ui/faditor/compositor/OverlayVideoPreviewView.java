@@ -277,6 +277,11 @@ public class OverlayVideoPreviewView extends FrameLayout {
         textureView.setAlpha(alpha);
         textureView.setTranslationX((x - 0.5f) * r.width());
         textureView.setTranslationY((y - 0.5f) * r.height());
+        // Export clips the PiP at the canvas; the preview must not show pixels
+        // the export can't have (M-EXPORT-2 review note: preview-honesty clamp).
+        setClipBounds(new android.graphics.Rect(
+                Math.round(r.left), Math.round(r.top),
+                Math.round(r.right), Math.round(r.bottom)));
     }
 
     private float readValue(@NonNull Clip clip, @NonNull String property, float fallback) {

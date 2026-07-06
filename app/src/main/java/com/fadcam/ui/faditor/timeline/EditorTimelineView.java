@@ -1628,6 +1628,12 @@ public class EditorTimelineView extends View {
         // M6 hook: extra height for the Track-driven multi-row UI (zero for a plain
         // single-track project — see LayerRowRenderer#isEmpty).
         defH += (int) layerRowRenderer.measureExtraHeightPx(layerTracks, audioLayerTracks);
+        // Slice E: the M6 layer band moved ABOVE the master track, with a divider gap
+        // between the band and master (see masterTopPx). Reserve that gap here so the
+        // AUDIO band at the very bottom is never clipped by the measured height.
+        if (!layerTracks.isEmpty() || !audioLayerTracks.isEmpty()) {
+            defH += (int) (LAYER_TOP_GAP_DP * density);
+        }
         int h = resolveSize(defH, hSpec);
         int w = MeasureSpec.getSize(wSpec);
         setMeasuredDimension(w, h);
@@ -2218,9 +2224,29 @@ public class EditorTimelineView extends View {
     //  identical before the flip.
     // ══════════════════════════════════════════════════════════════════
 
-    /** Top Y (px) of the MASTER video track band. */
+    /**
+     * Height (px) the M6 layer band occupies just below the ruler (Slice E: the
+     * overlay/caption/visualizer/sprite rows now sit ABOVE the master track). Mirrors
+     * {@code onMeasure}'s reservation so master lands exactly at the band's bottom edge.
+     * Zero for a plain single-track project (no rows → no band → master stays at top).
+     */
+    private float m6BandFootprintPx() {
+        return layerRowRenderer.measureExtraHeightPx(layerTracks, audioLayerTracks);
+    }
+
+    /**
+     * Top Y (px) of the MASTER video track band. Slice E (FEEDBACK #3): master is no
+     * longer pinned at the ruler bottom — the nameless layer substrate (overlays / CC /
+     * visualizers / sprites) sits ABOVE it, so master is pushed down below that band with
+     * a divider gap, leaving it centered with AUDIO below. Master keeps its size
+     * (56dp) which is already larger than a 34dp layer row, so it reads as the dominant
+     * band (JoyRaptor 2026-07-06: "larger relative to the other layers", no resize needed).
+     * Plain single-track projects (no layer band) keep master at the ruler bottom exactly
+     * as before.
+     */
     private float masterTopPx() {
-        return rulerHeightPx;
+        float band = m6BandFootprintPx();
+        return band > 0f ? rulerHeightPx + band + LAYER_TOP_GAP_DP * density : rulerHeightPx;
     }
 
     /** Bottom Y (px) of the MASTER video track band. */
@@ -2251,17 +2277,17 @@ public class EditorTimelineView extends View {
     }
 
     /**
-     * Bottom Y of all EXISTING timeline content (master track + audio + read-only
-     * VIZ/CC/overlay rows), i.e. where the M6 Track-driven rows start. Mirrors the
-     * height math in {@code onMeasure} so the two never drift apart.
+     * Top Y (px) where the M6 Track-driven rows (the nameless layer substrate) begin.
+     * Slice E (FEEDBACK #3): this band moved to the TOP — directly under the ruler /
+     * minimap — so the overlays / captions / visualizers / sprites read as sitting ABOVE
+     * the master track (JoyRaptor's industry-standard order), instead of below it where they
+     * looked inverted. The renderer adds its own top gap internally, so the first row
+     * starts a hair below {@code rulerHeightPx}. master + audio are pushed below via
+     * {@link #masterTopPx}. Both the renderer draw and the M6 hit-testing consume this
+     * one value, so the band and its touch zone always move together.
      */
     private float getM6RowsTopPx() {
-        int existingLayerRows = overlays.size() + waveformLayers.size()
-                + (captionSpans.isEmpty() ? 0 : 1);
-        if (existingLayerRows == 0) return getLayerTopPx();
-        float rowH = LAYER_ROW_HEIGHT_DP * density;
-        float rowGap = LAYER_ROW_GAP_DP * density;
-        return getLayerTopPx() + existingLayerRows * (rowH + rowGap) + 6f * density;
+        return rulerHeightPx;
     }
 
     private long displayEndMs(@NonNull TextOverlayItem overlay) {

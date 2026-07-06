@@ -94,6 +94,26 @@ public class OverlayVideoPreviewView extends FrameLayout {
     private int videoW, videoH;             // active overlay's decoded size
     private int baseW, baseH;               // TextureView layout box (full-fit in content rect)
 
+    // ── Still-frame fallback (plan §3.3): simultaneously-visible overlay clips
+    // BELOW the live top-most render a cached MMR still instead of nothing
+    // ("preview shows one live overlay video; export shows all" — the stills
+    // close the "nothing" half). Decoded ASYNC on one worker (MMR on the UI
+    // thread would jank every tick); refreshed on a coarse time bucket. Drawn
+    // in onDraw = behind the TextureView child = correct z (stills are always
+    // below the live top-most by definition).
+    private static final long STILL_BUCKET_MS = 400;
+    private final java.util.Map<String, StillFrame> stills = new java.util.HashMap<>();
+    private final java.util.concurrent.ExecutorService stillExecutor =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final android.graphics.Paint stillPaint = new android.graphics.Paint(
+            android.graphics.Paint.FILTER_BITMAP_FLAG | android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+    private static final class StillFrame {
+        @Nullable android.graphics.Bitmap bitmap;
+        long bucketMs = Long.MIN_VALUE;     // source bucket the bitmap shows
+        long pendingBucketMs = Long.MIN_VALUE; // bucket a worker decode is in flight for
+    }
+
     // Gesture state (SpriteOverlayView contract).
     private final ScaleGestureDetector scaleDetector;
     @Nullable private Clip manipulating;
@@ -105,6 +125,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
 
     public OverlayVideoPreviewView(Context ctx, @Nullable AttributeSet attrs) {
         super(ctx, attrs);
+        setWillNotDraw(false); // stills draw in onDraw (behind the TextureView child)
         textureView = new TextureView(ctx);
         textureView.setVisibility(GONE);
         addView(textureView, new LayoutParams(1, 1, Gravity.CENTER));
@@ -165,6 +186,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
     private void syncToTime() {
         if (callback == null) return;
         Clip top = topVisibleAt(currentTimeMs);
+        refreshStills(top);
         if (top == null) {
             textureView.setVisibility(GONE);
             if (player != null) player.pause();
@@ -189,6 +211,119 @@ public class OverlayVideoPreviewView extends FrameLayout {
             if (Math.abs(pos - want) > SCRUB_RESEEK_MS) {
                 player.seekTo(want);
             }
+        }
+    }
+
+    /**
+     * Still-frame upkeep for every visible clip EXCEPT the live top-most: kick an
+     * async decode when the clip's 400ms source bucket moved, drop stills for
+     * clips no longer visible (bounded memory), and redraw when anything changed.
+     */
+    private void refreshStills(@Nullable Clip top) {
+        boolean changed = false;
+        java.util.Set<String> visibleIds = new java.util.HashSet<>();
+        for (Clip c : clips) {
+            if (c == top) continue;
+            long start = c.getOverlayStartMs();
+            long end = start + Math.max(0, c.getTrimmedDurationMs());
+            if (currentTimeMs < start || currentTimeMs > end) continue;
+            visibleIds.add(c.getId());
+            long sourceMs = c.getInPointMs() + (currentTimeMs - start);
+            long bucket = (sourceMs / STILL_BUCKET_MS) * STILL_BUCKET_MS;
+            StillFrame sf = stills.get(c.getId());
+            if (sf == null) {
+                sf = new StillFrame();
+                stills.put(c.getId(), sf);
+            }
+            if (sf.bucketMs != bucket && sf.pendingBucketMs != bucket) {
+                sf.pendingBucketMs = bucket;
+                decodeStillAsync(c, bucket);
+            }
+        }
+        java.util.Iterator<java.util.Map.Entry<String, StillFrame>> it =
+                stills.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<String, StillFrame> e = it.next();
+            if (!visibleIds.contains(e.getKey())) {
+                if (e.getValue().bitmap != null) e.getValue().bitmap.recycle();
+                it.remove();
+                changed = true;
+            }
+        }
+        if (changed) invalidate();
+    }
+
+    private void decodeStillAsync(@NonNull Clip clip, long bucketMs) {
+        final Uri uri = callback != null ? callback.resolveSeekable(clip) : clip.getSourceUri();
+        final String id = clip.getId();
+        final Runnable task = () -> {
+            android.graphics.Bitmap frame = null;
+            android.media.MediaMetadataRetriever r = null;
+            try {
+                r = new android.media.MediaMetadataRetriever();
+                r.setDataSource(getContext(), uri);
+                frame = r.getFrameAtTime(bucketMs * 1000L,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            } catch (Exception e) {
+                FLog.w(TAG, "still decode failed for " + uri.getLastPathSegment(), e);
+            } finally {
+                if (r != null) { try { r.release(); } catch (Exception ignored) { } }
+            }
+            final android.graphics.Bitmap result = frame;
+            post(() -> {
+                StillFrame sf = stills.get(id);
+                if (sf == null) { // clip left visibility while we decoded
+                    if (result != null) result.recycle();
+                    return;
+                }
+                if (result != null) {
+                    if (sf.bitmap != null) sf.bitmap.recycle();
+                    sf.bitmap = result;
+                    sf.bucketMs = bucketMs;
+                }
+                if (sf.pendingBucketMs == bucketMs) sf.pendingBucketMs = Long.MIN_VALUE;
+                invalidate();
+            });
+        };
+        try {
+            stillExecutor.execute(task);
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // Detached (executor shut down) — stills simply stop refreshing.
+        }
+    }
+
+    @Override
+    protected void onDraw(android.graphics.Canvas canvas) {
+        super.onDraw(canvas);
+        if (callback == null || stills.isEmpty()) return;
+        RectF r = callback.getVideoContentRect();
+        if (r.width() <= 0 || r.height() <= 0) return;
+        Clip top = topVisibleAt(currentTimeMs);
+        // List order = z bottom→top; stills are all below the live TextureView child.
+        for (Clip c : clips) {
+            if (c == top) continue;
+            StillFrame sf = stills.get(c.getId());
+            if (sf == null || sf.bitmap == null || sf.bitmap.isRecycled()) continue;
+            KeyframeSet kf = c.getOverlayTransform();
+            long t = currentTimeMs;
+            float x = kf == null ? DEFAULT_X : kf.valueAt(KeyframeSet.X, t, DEFAULT_X);
+            float y = kf == null ? DEFAULT_Y : kf.valueAt(KeyframeSet.Y, t, DEFAULT_Y);
+            float scale = kf == null ? DEFAULT_SCALE : kf.valueAt(KeyframeSet.SCALE, t, DEFAULT_SCALE);
+            float rot = kf == null ? 0f : kf.valueAt(KeyframeSet.ROTATION, t, 0f);
+            float alpha = kf == null ? 1f : Math.max(0f, Math.min(1f,
+                    kf.valueAt(KeyframeSet.OPACITY, t, 1f)));
+            float fit = Math.min(r.width() / sf.bitmap.getWidth(),
+                    r.height() / sf.bitmap.getHeight());
+            float w = sf.bitmap.getWidth() * fit * scale;
+            float h = sf.bitmap.getHeight() * fit * scale;
+            float cx = r.left + x * r.width();
+            float cy = r.top + y * r.height();
+            stillPaint.setAlpha(Math.round(alpha * 255));
+            canvas.save();
+            if (rot != 0f) canvas.rotate(rot, cx, cy);
+            canvas.drawBitmap(sf.bitmap, null, new RectF(
+                    cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), stillPaint);
+            canvas.restore();
         }
     }
 
@@ -387,5 +522,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         releasePlayer();
+        for (StillFrame sf : stills.values()) {
+            if (sf.bitmap != null && !sf.bitmap.isRecycled()) sf.bitmap.recycle();
+        }
+        stills.clear();
+        stillExecutor.shutdownNow();
     }
 }

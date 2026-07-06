@@ -1564,7 +1564,7 @@ public class EditorTimelineView extends View {
             contentWidthPx = 0;
             return;
         }
-        float tTop = rulerHeightPx;
+        float tTop = masterTopPx();
         float x = edgePaddingPx;
 
         for (int i = 0; i < segments.size(); i++) {
@@ -1585,8 +1585,7 @@ public class EditorTimelineView extends View {
         audioClipRects.clear();
         recomputeAudioLanes();
         if (!audioClips.isEmpty() && totalEffectiveMs > 0) {
-            float audioTop = rulerHeightPx + trackHeightPx
-                    + (segmentTranscripts.isEmpty() ? 0f : 17f * density) + audioTrackGapPx;
+            float audioTop = audioBandTopPx();
             for (int i = 0; i < audioClips.size(); i++) {
                 AudioClip ac = audioClips.get(i);
                 float clipStartX = edgePaddingPx
@@ -1660,12 +1659,12 @@ public class EditorTimelineView extends View {
         }
 
         int w = getWidth();
-        float tTop = rulerHeightPx;
-        float tBot = tTop + trackHeightPx;
+        float tTop = masterTopPx();
+        float tBot = masterBotPx();
         // Reserve the transcript-row space below the segments (matches onMeasure) so the audio track /
         // waveform doesn't ride up over the inline transcript words.
-        float audioTop = tBot + (segmentTranscripts.isEmpty() ? 0f : 17f * density) + audioTrackGapPx;
-        float audioBot = audioTop + audioTrackTotalHeightPx();
+        float audioTop = audioBandTopPx();
+        float audioBot = audioBandBotPx();
 
         // Backgrounds
         canvas.drawRect(0, 0, w, rulerHeightPx, rulerBgPaint);
@@ -2207,11 +2206,47 @@ public class EditorTimelineView extends View {
         return cumul;
     }
 
+    // ══════════════════════════════════════════════════════════════════
+    //  BAND GEOMETRY (Slice E) — single source of truth for every band's Y.
+    //
+    //  Every render + hit-test site that used to recompute the master/audio
+    //  band bounds inline now routes through these accessors, so the vertical
+    //  re-layout (Slice E step 2: overlays/layers ABOVE master, MASTER centered,
+    //  AUDIO below) is a change to THESE FIVE METHODS ONLY — no scattered edits,
+    //  no site left on the old geometry. Step 1 keeps the CURRENT order (master
+    //  pinned at the ruler bottom) so the centralization is provably pixel-
+    //  identical before the flip.
+    // ══════════════════════════════════════════════════════════════════
+
+    /** Top Y (px) of the MASTER video track band. */
+    private float masterTopPx() {
+        return rulerHeightPx;
+    }
+
+    /** Bottom Y (px) of the MASTER video track band. */
+    private float masterBotPx() {
+        return masterTopPx() + trackHeightPx;
+    }
+
+    /** Reserved vertical space (px) for the master transcript row below the tape. */
+    private float transcriptReservePx() {
+        return segmentTranscripts.isEmpty() ? 0f : 17f * density;
+    }
+
+    /** Top Y (px) of the AUDIO band (directly below master + its transcript reserve). */
+    private float audioBandTopPx() {
+        return masterBotPx() + transcriptReservePx() + audioTrackGapPx;
+    }
+
+    /** Bottom Y (px) of the AUDIO band. */
+    private float audioBandBotPx() {
+        return audioBandTopPx() + audioTrackTotalHeightPx();
+    }
+
     private float getLayerTopPx() {
-        float transcriptOffset = segmentTranscripts.isEmpty() ? 0f : 17f * density;
-        return rulerHeightPx + trackHeightPx
+        return masterBotPx()
                 + (!audioClips.isEmpty() ? audioTrackGapPx + audioTrackTotalHeightPx() : 0f)
-                + transcriptOffset
+                + transcriptReservePx()
                 + LAYER_TOP_GAP_DP * density;
     }
 
@@ -5545,7 +5580,7 @@ public class EditorTimelineView extends View {
 
     private int hitTestTransition(float x, float y) {
         if (transitions.isEmpty() || segments.isEmpty()) return -1;
-        if (y < rulerHeightPx - touchSlopPx || y > rulerHeightPx + trackHeightPx + touchSlopPx) return -1;
+        if (y < masterTopPx() - touchSlopPx || y > masterBotPx() + touchSlopPx) return -1;
         float bandW = 6f * density;
         for (int i = transitions.size() - 1; i >= 0; i--) {
             RectF rect = getTransitionRect(i, bandW);
@@ -5557,7 +5592,7 @@ public class EditorTimelineView extends View {
     }
 
     private int hitTestSegment(float x, float y) {
-        if (y < rulerHeightPx - touchSlopPx / 2 || y > rulerHeightPx + trackHeightPx + touchSlopPx / 2) {
+        if (y < masterTopPx() - touchSlopPx / 2 || y > masterBotPx() + touchSlopPx / 2) {
             return -1;
         }
         for (int i = 0; i < segRects.size(); i++) {
@@ -5573,9 +5608,8 @@ public class EditorTimelineView extends View {
      */
     private int hitTestAudioClip(float x, float y) {
         if (audioClipRects.isEmpty()) return -1;
-        float audioTop = rulerHeightPx + trackHeightPx
-                + (segmentTranscripts.isEmpty() ? 0f : 17f * density) + audioTrackGapPx;
-        float audioBot = audioTop + audioTrackTotalHeightPx();
+        float audioTop = audioBandTopPx();
+        float audioBot = audioBandBotPx();
         if (y < audioTop - touchSlopPx / 2 || y > audioBot + touchSlopPx / 2) return -1;
         // With stacked lanes, match the actual per-clip rect (x AND y), not just x.
         for (int i = 0; i < audioClipRects.size(); i++) {
@@ -5768,8 +5802,8 @@ public class EditorTimelineView extends View {
         if (!transitionDragActive || transitionDragSeam < 0
                 || transitionDragSeam >= segRects.size() - 1) return;
         float sx = segRects.get(transitionDragSeam).right - scrollOffsetPx;
-        float tTop = rulerHeightPx;
-        float tBot = tTop + trackHeightPx;
+        float tTop = masterTopPx();
+        float tBot = masterBotPx();
         int prevColor = dragGhostPaint.getColor();
         Paint.Style prevStyle = dragGhostPaint.getStyle();
         // Buttress highlight: outline the two clips the transition will join.
@@ -5810,10 +5844,9 @@ public class EditorTimelineView extends View {
     private void drawAssetDragPreview(@NonNull Canvas canvas, int viewW) {
         if (!assetDragActive || !assetDragOverTimeline) return;
         float x = Math.max(0, Math.min(assetDragScreenX, viewW));
-        float tTop = rulerHeightPx;
-        float audioTop = tTop + trackHeightPx
-                + (segmentTranscripts.isEmpty() ? 0f : 17f * density) + audioTrackGapPx;
-        float tBot = audioClips.isEmpty() ? tTop + trackHeightPx : audioTop + audioTrackHeightPx;
+        float tTop = masterTopPx();
+        float audioTop = audioBandTopPx();
+        float tBot = audioClips.isEmpty() ? masterBotPx() : audioTop + audioTrackHeightPx;
         dragGhostPaint.setStrokeWidth(4f * density);
         dragGhostPaint.setStrokeCap(Paint.Cap.ROUND);
         canvas.drawLine(x, tTop - 10f * density, x, tBot + 10f * density, dragGhostPaint);

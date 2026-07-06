@@ -320,11 +320,44 @@ public class OverlayVideoPreviewView extends FrameLayout {
             float cy = r.top + y * r.height();
             stillPaint.setAlpha(Math.round(alpha * 255));
             canvas.save();
+            // Compositing masks (§C): same shapes, same authority as export —
+            // clip in content-rect space BEFORE the rotate (a hole stays put
+            // over the frame while the PiP moves under it, mirroring
+            // PipFrameOverlay's order exactly).
+            com.fadcam.ui.faditor.model.MaskPathBuilder.clipCanvas(
+                    canvas, c.getCompositing(), r);
             if (rot != 0f) canvas.rotate(rot, cx, cy);
             canvas.drawBitmap(sf.bitmap, null, new RectF(
                     cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), stillPaint);
             canvas.restore();
         }
+    }
+
+    /**
+     * Compositing masks on the LIVE overlay (§C): the TextureView child clips
+     * through the SAME MaskPathBuilder authority as the export, in parent
+     * space (the child's translate/scale/rotate applies inside drawChild, so
+     * the mask stays fixed over the content rect while the PiP moves — the
+     * export-order parity). TextureView renders through the view-hierarchy
+     * canvas (unlike SurfaceView), so canvas clipping genuinely applies.
+     */
+    @Override
+    protected boolean drawChild(@NonNull android.graphics.Canvas canvas,
+                                @NonNull android.view.View child, long drawingTime) {
+        if (child == textureView && active != null && callback != null) {
+            com.fadcam.ui.faditor.model.CompositingSpec cs = active.getCompositing();
+            if (cs != null && cs.hasMasks()) {
+                RectF r = callback.getVideoContentRect();
+                if (r.width() > 0 && r.height() > 0) {
+                    int save = canvas.save();
+                    com.fadcam.ui.faditor.model.MaskPathBuilder.clipCanvas(canvas, cs, r);
+                    boolean res = super.drawChild(canvas, child, drawingTime);
+                    canvas.restoreToCount(save);
+                    return res;
+                }
+            }
+        }
+        return super.drawChild(canvas, child, drawingTime);
     }
 
     /** Top-most visible overlay clip (list order = z, bottom→top; end-INCLUSIVE like sprites). */

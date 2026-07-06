@@ -1763,8 +1763,29 @@ public class ExportManager {
             // renders as shader mode 0 (plain SRC_OVER). PiPs must all live in
             // ONE compositor: splitting NORMAL into CompositeExportOverlay and
             // blends into the chain z-inverted any project that interleaved them.
+            //
+            // Track mattes (§C B3): a clip whose compositing names a matte peer
+            // gets that peer resolved and fed as its luma-matte source; the peer
+            // itself is HIDDEN from normal rendering while it serves (its pixels
+            // exist only as the recipient's alpha). A dangling peerId degrades
+            // to unmatted — never a broken export.
+            java.util.Set<String> servingMatteIds = new java.util.HashSet<>();
             for (Clip oc : exportOverlayVideoClips) {
-                videoEffects.add(new BlendModeGlEffect(context, oc));
+                com.fadcam.ui.faditor.model.CompositingSpec cs = oc.getCompositing();
+                if (cs != null && cs.mattePeerId != null) {
+                    servingMatteIds.add(cs.mattePeerId);
+                }
+            }
+            for (Clip oc : exportOverlayVideoClips) {
+                if (servingMatteIds.contains(oc.getId())) continue; // matte source: hidden
+                com.fadcam.ui.faditor.model.CompositingSpec cs = oc.getCompositing();
+                Clip matte = null;
+                if (cs != null && cs.mattePeerId != null) {
+                    for (Clip peer : exportOverlayVideoClips) {
+                        if (peer.getId().equals(cs.mattePeerId)) { matte = peer; break; }
+                    }
+                }
+                videoEffects.add(new BlendModeGlEffect(context, oc, matte));
             }
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()

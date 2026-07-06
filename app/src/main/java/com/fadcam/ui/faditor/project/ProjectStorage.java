@@ -1160,6 +1160,12 @@ public class ProjectStorage {
         }
         serializeEffectStack(clipJson, clip.getEffectStack());
         serializeGeneratedSource(clipJson, clip.getGeneratedSource());
+        // Per-item compositing spec (masks/chroma-key/matte) — omitted when
+        // absent, so pre-existing JSON stays byte-identical.
+        com.fadcam.ui.faditor.model.CompositingSpec comp = clip.getCompositing();
+        if (comp != null && !comp.isEmpty()) {
+            clipJson.add("compositing", comp.toJson());
+        }
         // ── Floating overlay-video fields (M-COMP-2) — never present on a master
         // clip (layerId is null there), so pre-existing JSON stays byte-identical.
         if (clip.getLayerId() != null) {
@@ -1360,6 +1366,12 @@ public class ProjectStorage {
         if (clipObj.has("generatedSource")) {
             clip.setGeneratedSource(deserializeGeneratedSource(
                     clipObj.getAsJsonObject("generatedSource")));
+        }
+        // Per-item compositing spec — restored for masters AND overlays (the
+        // serializer writes it at clip level, outside the layerId block).
+        if (clipObj.has("compositing")) {
+            clip.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec
+                    .fromJson(clipObj.getAsJsonObject("compositing")));
         }
         // ── Floating overlay-video fields (M-COMP-2) — absent on master clips. ──
         if (clipObj.has("layerId")) {

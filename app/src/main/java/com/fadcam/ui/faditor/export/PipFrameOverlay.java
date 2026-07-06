@@ -58,6 +58,19 @@ final class PipFrameOverlay extends BitmapOverlay {
         frameH = Math.max(1, videoSize.getHeight());
     }
 
+    /**
+     * Whether this clip's overlay window covers {@code presentationTimeUs} —
+     * the CPU-side gate for track mattes: outside the matte's window the
+     * recipient must render UNMATTED (B3: "wherever one overlaps the other in
+     * time"), and the shader cannot tell an inactive matte from a black one.
+     */
+    boolean activeAt(long presentationTimeUs) {
+        long timelineMs = presentationTimeUs / 1000;
+        long start = clip.getOverlayStartMs();
+        long end = start + Math.max(0, clip.getTrimmedDurationMs());
+        return timelineMs >= start && timelineMs <= end;
+    }
+
     @NonNull
     @Override
     public Bitmap getBitmap(long presentationTimeUs) {
@@ -100,6 +113,12 @@ final class PipFrameOverlay extends BitmapOverlay {
 
         paint.setAlpha(Math.round(opacity * 255));
         canvas.save();
+        // Compositing masks (§C family): clip to the spec's visible region in
+        // FRAME space — the same canvas-normalized shapes the preview clips
+        // with, scaled onto this frame. Applied BEFORE the rotate so a hole
+        // stays put over the composed frame while the PiP moves under it.
+        com.fadcam.ui.faditor.model.MaskPathBuilder.clipCanvas(
+                canvas, clip.getCompositing(), frameW, frameH);
         if (rot != 0f) canvas.rotate(rot, cx, cy);
         canvas.drawBitmap(frame, null,
                 new RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), paint);

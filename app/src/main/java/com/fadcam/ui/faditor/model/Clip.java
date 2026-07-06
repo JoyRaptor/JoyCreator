@@ -157,6 +157,14 @@ public class Clip {
     @NonNull
     private String overlayBlendMode = "NORMAL";
 
+    /**
+     * Per-item compositing spec — vector masks / chroma key / track matte
+     * (FEEDBACK_20260702 §C, one additive family). Null (the default) = none;
+     * pre-existing serialization stays byte-identical.
+     */
+    @Nullable
+    private CompositingSpec compositing;
+
     /** Whether animated on-screen captions are enabled for this clip. */
     private boolean captionsEnabled = false;
 
@@ -482,6 +490,7 @@ public class Clip {
         this.overlayTransform = other.overlayTransform != null
                 ? other.overlayTransform.copy() : null;
         this.overlayBlendMode = other.overlayBlendMode;
+        this.compositing = other.compositing != null ? other.compositing.copy() : null;
     }
 
     /**
@@ -529,6 +538,7 @@ public class Clip {
         c.overlayStartMs = overlayStartMs;
         c.overlayTransform = overlayTransform != null ? overlayTransform.copy() : null;
         c.overlayBlendMode = overlayBlendMode;
+        c.compositing = compositing != null ? compositing.copy() : null;
         return c;
     }
 
@@ -895,6 +905,17 @@ public class Clip {
     @NonNull
     public String getOverlayBlendMode() {
         return overlayBlendMode;
+    }
+
+    /** @see #compositing */
+    @Nullable
+    public CompositingSpec getCompositing() {
+        return compositing;
+    }
+
+    /** An empty spec normalizes to null so serialization stays omit-clean. */
+    public void setCompositing(@Nullable CompositingSpec spec) {
+        this.compositing = spec != null && spec.isEmpty() ? null : spec;
     }
 
     public void setOverlayBlendMode(@Nullable String overlayBlendMode) {

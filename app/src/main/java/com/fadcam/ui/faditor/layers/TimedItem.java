@@ -57,6 +57,18 @@ public class TimedItem {
     @Nullable
     private final com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite;
 
+    /** VISUALIZER payload (layers-UX Slice A) — a placed audio waveform/spectrum visualizer. */
+    @Nullable
+    private final com.fadcam.ui.faditor.model.WaveformOverlayInstance waveform;
+
+    /**
+     * CAPTION payload (layers-UX Slice A) — a read-only VIEW of a clip's caption span. Captions
+     * stay {@code Clip}-owned; this ref never becomes a second source of truth (see
+     * {@link CaptionSpanRef}).
+     */
+    @Nullable
+    private final CaptionSpanRef captionSpan;
+
     /**
      * Optional free-transform envelope (X/Y/SCALE/ROTATION/OPACITY) for an overlay
      * video/image, reusing the same {@link KeyframeSet} primitive {@link TextOverlayItem}
@@ -68,12 +80,16 @@ public class TimedItem {
 
     private TimedItem(@NonNull String id, @Nullable Clip clip,
                       @Nullable TextOverlayItem textOverlay, @Nullable AudioClip audioClip,
-                      @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite) {
+                      @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite,
+                      @Nullable com.fadcam.ui.faditor.model.WaveformOverlayInstance waveform,
+                      @Nullable CaptionSpanRef captionSpan) {
         this.id = id;
         this.clip = clip;
         this.textOverlay = textOverlay;
         this.audioClip = audioClip;
         this.sprite = sprite;
+        this.waveform = waveform;
+        this.captionSpan = captionSpan;
     }
 
     // ── Factories (one per payload kind) ─────────────────────────────
@@ -81,7 +97,7 @@ public class TimedItem {
     /** Wrap a {@link Clip} (MASTER / VIDEO / IMAGE item). */
     @NonNull
     public static TimedItem ofClip(@NonNull Clip clip, long timelineStartMs) {
-        TimedItem t = new TimedItem(clip.getId(), clip, null, null, null);
+        TimedItem t = new TimedItem(clip.getId(), clip, null, null, null, null, null);
         t.timelineStartMs = timelineStartMs;
         return t;
     }
@@ -89,7 +105,7 @@ public class TimedItem {
     /** Wrap a {@link TextOverlayItem} (TEXT / STICKER item). */
     @NonNull
     public static TimedItem ofTextOverlay(@NonNull TextOverlayItem overlay) {
-        TimedItem t = new TimedItem(overlay.getId(), null, overlay, null, null);
+        TimedItem t = new TimedItem(overlay.getId(), null, overlay, null, null, null, null);
         t.timelineStartMs = overlay.getStartMs();
         return t;
     }
@@ -97,7 +113,7 @@ public class TimedItem {
     /** Wrap an {@link AudioClip} (AUDIO item). Its offset is the timeline start. */
     @NonNull
     public static TimedItem ofAudioClip(@NonNull AudioClip audioClip) {
-        TimedItem t = new TimedItem(audioClip.getId(), null, null, audioClip, null);
+        TimedItem t = new TimedItem(audioClip.getId(), null, null, audioClip, null, null, null);
         t.timelineStartMs = audioClip.getOffsetMs();
         return t;
     }
@@ -105,8 +121,32 @@ public class TimedItem {
     /** Wrap a {@link com.fadcam.ui.faditor.sprite.SpriteOverlayItem} (SPRITE item). */
     @NonNull
     public static TimedItem ofSprite(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite) {
-        TimedItem t = new TimedItem(sprite.getId(), null, null, null, sprite);
+        TimedItem t = new TimedItem(sprite.getId(), null, null, null, sprite, null, null);
         t.timelineStartMs = sprite.getStartMs();
+        return t;
+    }
+
+    /**
+     * Wrap a {@link com.fadcam.ui.faditor.model.WaveformOverlayInstance} (VISUALIZER item,
+     * layers-UX Slice A). Its {@code startMs} is the timeline start.
+     */
+    @NonNull
+    public static TimedItem ofWaveform(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance waveform) {
+        TimedItem t = new TimedItem(waveform.getId(), null, null, null, null, waveform, null);
+        t.timelineStartMs = waveform.getStartMs();
+        return t;
+    }
+
+    /**
+     * Wrap a {@link CaptionSpanRef} (CAPTION item, layers-UX Slice A). The ref's clip id is the
+     * item id (one caption span per clip); its start is the timeline start. Read-only view.
+     */
+    @NonNull
+    public static TimedItem ofCaptionSpan(@NonNull CaptionSpanRef captionSpan) {
+        TimedItem t = new TimedItem(captionSpan.getClip().getId(), null, null, null, null, null,
+                captionSpan);
+        t.timelineStartMs = Math.max(0, captionSpan.getStartMs());
         return t;
     }
 
@@ -141,6 +181,12 @@ public class TimedItem {
     public com.fadcam.ui.faditor.sprite.SpriteOverlayItem getSprite() { return sprite; }
 
     @Nullable
+    public com.fadcam.ui.faditor.model.WaveformOverlayInstance getWaveform() { return waveform; }
+
+    @Nullable
+    public CaptionSpanRef getCaptionSpan() { return captionSpan; }
+
+    @Nullable
     public KeyframeSet getTransform() { return transform; }
 
     public void setTransform(@Nullable KeyframeSet transform) { this.transform = transform; }
@@ -159,6 +205,8 @@ public class TimedItem {
         if (textOverlay != null) return "textOverlay";
         if (audioClip != null) return "audioClip";
         if (sprite != null) return "sprite";
+        if (waveform != null) return "waveform";
+        if (captionSpan != null) return "captionSpan";
         return "none";
     }
 
@@ -186,6 +234,20 @@ public class TimedItem {
             // Same open-end semantics as text overlays.
             long end = sprite.getEndMs();
             long start = Math.max(0, sprite.getStartMs());
+            if (end == Long.MAX_VALUE || end <= start) return Math.max(0, fallbackMs - start);
+            return end - start;
+        }
+        if (waveform != null) {
+            // Same open-end semantics as text overlays.
+            long end = waveform.getEndMs();
+            long start = Math.max(0, waveform.getStartMs());
+            if (end == Long.MAX_VALUE || end <= start) return Math.max(0, fallbackMs - start);
+            return end - start;
+        }
+        if (captionSpan != null) {
+            // Read-only view of a clip's caption span; open-end (last clip) runs to the fallback.
+            long end = captionSpan.getEndMs();
+            long start = Math.max(0, captionSpan.getStartMs());
             if (end == Long.MAX_VALUE || end <= start) return Math.max(0, fallbackMs - start);
             return end - start;
         }

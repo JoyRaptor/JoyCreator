@@ -1102,6 +1102,74 @@ public class Timeline {
         return audioTrack;
     }
 
+    // ── Caption / visualizer band views (layers-UX Slice A, 2026-07-06) ──
+    // Read-only VIEWS so captions & visualizers become headered {@link Track} rows in
+    // LayerRowRenderer alongside every other item type (renderer consolidation). NOT wired into
+    // setLayerTracks yet — Slice B feeds these into the band(s) and adds the render cases; here
+    // they only exist so the getters are ready and correct. Existing UI is byte-for-byte unchanged.
+
+    /**
+     * Build the caption/CC row(s) — a read-only VIEW over clip-owned caption spans, matching the
+     * old {@code FaditorEditorActivity#syncTimelineOverlays} capSpans computation exactly (one span
+     * per clip that {@code isCaptionsEnabled() && hasTranscript()}; the last clip runs open-ended).
+     * Captions stay {@code Clip}-owned — this Track is never a second source of truth. Returns a
+     * single CAPTION track (all spans share one CC row, as the old renderer drew them), or an empty
+     * list when no clip has captions.
+     */
+    @NonNull
+    public List<Track> getCaptionTracks() {
+        List<TimedItem> items = new ArrayList<>();
+        int n = clips.size();
+        for (int i = 0; i < n; i++) {
+            Clip c = clips.get(i);
+            if (c != null && c.isCaptionsEnabled() && c.hasTranscript()) {
+                long start = segmentStartMs(i);
+                long end = (i + 1 < n) ? segmentStartMs(i + 1) : Long.MAX_VALUE;
+                items.add(TimedItem.ofCaptionSpan(
+                        new com.fadcam.ui.faditor.layers.CaptionSpanRef(c, i, start, end)));
+            }
+        }
+        if (items.isEmpty()) return Collections.emptyList();
+        Track track = new Track("caption", TrackKind.CAPTION, "CC");
+        for (TimedItem it : items) track.addItem(it);
+        applyTrackFlags(track);
+        return Collections.singletonList(track);
+    }
+
+    /**
+     * Build the visualizer row(s) — one VISUALIZER track per placed {@link WaveformOverlayInstance},
+     * mirroring the old renderer where each waveform occupied its own row. {@code WaveformOverlayInstance}
+     * carries no {@code layerId}, so each instance keys its own nameless lane (id {@code "viz:"+id}).
+     * Read-only view over the live instances (single-authority rule).
+     */
+    @NonNull
+    public List<Track> getVisualizerTracks() {
+        List<Track> tracks = new ArrayList<>();
+        for (WaveformOverlayInstance wf : waveformOverlays) {
+            Track track = new Track("viz:" + wf.getId(), TrackKind.VISUALIZER, "VIZ");
+            track.addItem(TimedItem.ofWaveform(wf));
+            applyTrackFlags(track);
+            tracks.add(track);
+        }
+        return tracks;
+    }
+
+    /**
+     * Absolute start (ms) of the master clip at {@code index} — the gapless cumulative sum of prior
+     * clips' on-timeline durations. Uses the same per-clip term as {@link #getTotalDurationMs()}
+     * (loop-extended → visual duration, else trimmed duration), so caption spans line up exactly
+     * with the master tape. Mirrors {@code EditorTimelineView#getSegmentStartTime}.
+     */
+    private long segmentStartMs(int index) {
+        long t = 0;
+        int upto = Math.min(index, clips.size());
+        for (int i = 0; i < upto; i++) {
+            Clip c = clips.get(i);
+            t += c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
+        }
+        return t;
+    }
+
     // ── User-created layer-track definitions (M10) ─────────────────────
 
     /**

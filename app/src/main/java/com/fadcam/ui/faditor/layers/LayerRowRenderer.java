@@ -111,6 +111,7 @@ public final class LayerRowRenderer {
     private final Paint stripPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     /** Selection stroke around a selected item's body (Stage 2; PLAN §6). */
     private final Paint itemSelectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path caretPath = new Path();
     private final Path mutePath = new Path();
 
@@ -825,12 +826,22 @@ public final class LayerRowRenderer {
                     3f * density, 3f * density, itemPaint);
         }
         itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : (lifted ? brighten(baseColor) : baseColor));
-        if (lifted) {
-            float grow = 1.5f * density;
-            canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
-                    3f * density, 3f * density, itemPaint);
+        int[] waveform = (item.getAudioClip() != null) ? item.getAudioClip().getWaveform() : null;
+        if (waveform != null) {
+            if (lifted) {
+                float grow = 1.5f * density;
+                canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
+                        3f * density, 3f * density, itemPaint);
+            }
+            drawAudioWaveform(canvas, waveform, x0, top, x1, bottom, baseColor, ghosted);
         } else {
-            canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
+            if (lifted) {
+                float grow = 1.5f * density;
+                canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
+                        3f * density, 3f * density, itemPaint);
+            } else {
+                canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
+            }
         }
         String label = labelFor(item);
         if (label != null && !label.isEmpty()) {
@@ -876,6 +887,28 @@ public final class LayerRowRenderer {
         }
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
+        }
+    }
+
+    private void drawAudioWaveform(@NonNull Canvas canvas, @NonNull int[] waveform,
+                                    float x0, float top, float x1, float bottom,
+                                    int baseColor, boolean ghosted) {
+        float w = x1 - x0;
+        if (w <= 0) return;
+        float centerY = (top + bottom) / 2f;
+        float halfH = Math.max(1f, (bottom - top) / 2f - 2f * density);
+        // Mute baseColor to a dim alpha for the bars
+        int barColor = ghosted ? 0x404CAF50 : (0xCC35F6BF);
+        barPaint.setColor(barColor);
+        float barW = Math.max(1f, 2f * density);
+        float step = w / waveform.length;
+        for (int i = 0; i < waveform.length; i++) {
+            float bx = x0 + i * step;
+            if (bx > x1) break;
+            float amp = (waveform[i] & 0xFF) / 255f;
+            amp = (float) Math.pow(amp, 0.7);
+            float barH = Math.max(1f, amp * halfH);
+            canvas.drawRect(bx, centerY - barH, bx + barW, centerY + barH, barPaint);
         }
     }
 

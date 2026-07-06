@@ -6951,6 +6951,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 audioCaptionOverlay.setVisibility(View.GONE);
             }
         }
+        // FEEDBACK #4 (layers-UX): the caption STYLE chooser (Pop/Zoom/Boxed/…) is only useful
+        // while a captioned clip or audio clip is actually under the playhead — it used to stay
+        // pinned to the bottom of the preview permanently. Mirror the video/audio caption-overlay
+        // visibility just computed above (both were toggled from the model this same pass) so the
+        // chooser auto-hides the moment no caption is in play, and reappears when one is.
+        if (captionStyleBar != null) {
+            boolean captionInPlay =
+                    (captionOverlay != null && captionOverlay.getVisibility() == View.VISIBLE)
+                    || (audioCaptionOverlay != null
+                        && audioCaptionOverlay.getVisibility() == View.VISIBLE);
+            int wantCaptionBarVis = captionInPlay ? View.VISIBLE : View.GONE;
+            if (captionStyleBar.getVisibility() != wantCaptionBarVis) {
+                captionStyleBar.setVisibility(wantCaptionBarVis);
+            }
+        }
 
         // Drive the transcript highlight and animated captions from playback.
         if (currentTranscript != null) {

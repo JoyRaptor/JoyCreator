@@ -1,5 +1,52 @@
 # FadCam AI Handoff
 
+> **🧾 2026-07-05 night — FABLE REVIEW GATE ON THE DEEPSEEK BATCH + DRAG REMAINDER: ALL COMMITTED.**
+> Personal review (no-swarm rule) of the two uncommitted batches; both compile-green in the 19:30 watcher
+> build and now in history: **bbd0530** = the stalled opus drag-rewrite finishing pass (collapsed-row proxy
+> render, TEMP ROWGESTURE move/drop lines, proxy-state reset — the single-proxy CORE was already committed;
+> USER HAND-TEST remains the gate, logging stays until it passes). **fa086c7** = DeepSeek's 12 quickwins +
+> THREE review fixes for defects that compiled green but would have broken on device: (1) cross_dissolve.glsl
+> had its own main()/samplers — the loader WRAPS spec-format bodies → runtime shader-compile failure;
+> rewritten as `vec4 transition(uv)`. (2) The playhead-ticker optimization never restarted on play (onResume's
+> post dies at the first paused tick) → playhead/time/captions/audio scheduling freeze on first play; restart
+> added at `onIsPlayingChanged(true)` (remove-then-post). (3) pitchCompensation was never persisted → now in
+> the shared clip serializer (written only when false; existing JSON byte-identical). Ride-along: Clip's
+> deep-copy ctor + `relinked()` now carry the PiP overlay fields (a relinked PiP stayed a PiP). FLAGGED not
+> fixed: copy-ctor drops volumeKeyframes (pre-existing); preview ignores pitch-compensation-OFF (export
+> chipmunks, preview doesn't — only in the non-default state, opencode TASK 7); pitch toggle not undoable.
+> **OPENCODE ROUND-2 QUEUE ISSUED: tasks/Opencode-work.md fully rewritten** (8 tasks: device-verify round-1 +
+> playhead-restart regression check, PiP row move/trim/delete/undo with exact site list, export-dialog
+> duration estimate, W1/W2 waveforms, 4 bottom-sheet scroll wrappers, preview-pitch investigate, verify
+> sweep; progress log preserved; do-not-touch updated — ExportManager + ProjectStorage now whole-file
+> Fable-lane). **DEVICE NOTE:** Note 9 was attached earlier tonight but the last watcher build says "No
+> connected devices" — re-plug before device tasks. **FABLE NEXT (unchanged order): M-EXPORT-2** — probe #3
+> first (export the PiP sandbox, read what the inert path produces), then sequence-gap/offset timing,
+> per-frame transform via media3 VideoCompositorSettings sampling the SAME KeyframeSet, opacity, z-vs-captions,
+> migrate buildOverlayVideoSequence to a shared LayerPreviewController authority, THEN BlendModeGlEffect;
+> **then A6 pin-warp GL strip renderer** (FabrikSolver landed 0fe01bd). Sprite/avatar remaining: A2 MediaPipe
+> driver (dep now possible — watcher alive), A4 recorder integration, A5 AI rigging; Build-1 sprite items are
+> otherwise COMPLETE (S5 landed 3e9bd43, S7 landed 4b90a68).
+
+> **🤖 2026-07-05 ~22:00 — OPENCODE AGENT DeepSeek V4 BATCH (all compile-verified, no commit yet — SUPERSEDED: committed as fa086c7 with review fixes, see block above).**
+> Batch of Sonnet-class quick wins from the planner road map (tasks/PLAN_QUICKWINS_20260702.md +
+> handoff backlog items) that don't touch the 3 dirty drag-rewrite files (LayerGestureController,
+> LayerRowRenderer, EditorTimelineView) or JoyRaptor-lane sprite/avatar files. **ALL build-verified green.**
+> **COMPLETED (11 items):**
+> 1. **Audio tool icon** `graphic_eq` → `equalizer` (`FaditorToolRegistry.java:64`)
+> 2. **Visualizer tool icon** `graphic_eq` → `music_note` (`FaditorToolRegistry.java:86`)
+> 3. **Split tool icon** `carpenter` → `content_cut` (tool registry + editor activity)
+> 4. **"Silence" → "Clean" rename** (`strings.xml:1105`)
+> 5. **Chat text selectable** (`ChatAssistantActivity.java`: `tv.setTextIsSelectable(true)` in addUserMessage/addBotMessage)
+> 6. **MessageLog ring buffer** (200-entry cap with `trimMessageLog()`)
+> 7. **FLAG_KEEP_SCREEN_ON scoping** (play=true / pause=false, removed blanket flag from editor + chat)
+> 8. **Transcribe prompt gap** (auto-show transcribe prompt after asset-browser insert, for video clips)
+> 9. **AI rename/describe tools** (3 new tools in `AIToolExecutor.java`: rename_clip, rename_asset, describe_clip)
+> 10. **Real GLSL CROSS_DISSOLVE** (new `cross_dissolve.glsl` in assets/gl_transitions/, GLTransitionCatalog entry, Transition.java default return → "cross_dissolve")
+> 11. **Playhead tick optimization** (20#7: `playheadUpdater` only re-posts when `isPlaying()` or `audioTailActive`)
+> 12. **Pitch compensation toggle** (field + getter/setter in `Clip.java`, "Maintain pitch" checkbox in `SpeedSliderBottomSheet.java`, export wired via `SonicAudioProcessor.setPitch(1.0f)` per-clip)
+> **NOT TOUCHED (deferred/excluded):** Task 12 (Delete dead Trim/Heal layout blocks — risky cleanup), Task 18 (Rebrand pass 1 — user excluded), Task 19 (Visualizer Rolodex redesign — user excluded).
+> **NEXT:** user to review + commit; then continue with remaining quick wins or next queue item.
+>
 > **🛠️ 2026-07-05 eve (Fable orchestrator) — GREEN-FIX + RELIABLE CROSS-LAYER + EXPORT FIX; DRAG REWRITE IN FLIGHT.**
 > Sequence this session (all committed, watcher green, Note 9 attached): (1) **ee19a86** greened a
 > committed-red tree — one getter typo (`getBgKeyTolerance`→`getKeyTolerance`, c5880be); the "100+ errors"

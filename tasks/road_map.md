@@ -13,12 +13,18 @@ Sprites/Avatar (JoyRaptor's lane): S2/S2b/S3/S4/S6 + A1/A2/A6+A3 landed. Rebrand
    2026-07-04 handoff entry). ⚠️ Device swap noticed: sandbox Note 9 detached; MAIN phone REAL_SERIAL
    attached but ADB-UNAUTHORIZED — if user authorizes it, the never-run REAL-PROJECT session becomes
    possible (read/verify only!).
-2. Transcript dedup + stacking-source fix (backup-first; spec in handoff 🛬 blocks).
-3. Timeline fidelity W1/W2 (honest waveforms) → T1 sweep-cache filmstrip (FEEDBACK_20260703_timeline_fidelity.md).
+2. ✅ DeepSeek V4 batch (2026-07-05): tool icons, silence→Clean rename, chat selectable, messageLog ring
+>    buffer, FLAG_KEEP_SCREEN_ON scoping, transcribe prompt gap, AI rename/describe tools, GLSL
+>    CROSS_DISSOLVE shader, playhead tick optimization, pitch compensation toggle.
+3. ✅ Transcript dedup + stacking-source fix LANDED (dbd82fa; on-device duplicate-synthesis verify owed).
 4. v3 slice 2: unified gap-insertion model (dragux doc blueprint) + B10/B11 trim polish + KineMaster C-items.
-5. M-COMP-2 live PiP video (probe-first per PLAN_LAYERS_V2 Part 10 #1, feature-flagged) → M-EXPORT-2 blends.
-6. Feedback stragglers: #5 transcribe-on-add + editor settings gear, #6 tools drawer, #8 small-screen pass.
-7. GL wave features (masking/chroma/track-matte — FEEDBACK_20260702_layers_masking.md §C) after M-COMP-2.
+5. ✅ M-COMP-2 live PiP LANDED + DEVICE-VERIFIED (0453db9 + model 306aa27; probe #1 verdict: 3 simultaneous
+   1080p decoders OK on the Note 9). **→ ACTIVE: M-EXPORT-2** (probe #3 → timing/transform/opacity parity →
+   BlendModeGlEffect; spec = handoff 16:50 block). Then A6 pin-warp GL strip renderer (Fable-tier).
+6. Feedback stragglers: #5 transcribe-on-add (asset-browser gap ✅ fa086c7) + #6 tools drawer, #8 small-screen
+   pass (→ opencode ROUND-2 TASK 6). Split lane: opencode ROUND-2 queue = PiP row gestures, W1/W2 waveforms,
+   export-dialog estimate, preview-pitch — tasks/Opencode-work.md.
+7. GL wave features (masking/chroma/track-matte — FEEDBACK_20260702_layers_masking.md §C) after M-EXPORT-2.
 **GATES:** main-phone real-project session (NEVER YET RUN — needs REAL_SERIAL plugged); downgrade-guard
 drill; muted-track-caption user decision; preview perf memoization before 10-layer projects.
 **RULES:** sequential agents only (no parallel edit fan-outs — burns usage + the shared watcher);

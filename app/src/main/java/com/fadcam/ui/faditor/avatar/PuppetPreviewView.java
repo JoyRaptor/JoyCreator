@@ -51,6 +51,18 @@ public class PuppetPreviewView extends View {
      *  tris). 10 was the over-cautious v1 value; the first hand-test read strong
      *  bends as choppy, and density + joint-smoothed normals fixed it. */
     private static final int WARP_SEGMENTS = 24;
+    private static final int WARP_SEGMENTS_MIN = 8, WARP_SEGMENTS_MAX = 64;
+
+    /** Per-part band count: the part's own {@code warpSegments} (clamped) or the default. */
+    private static int segmentsFor(@NonNull AvatarRig.Part part) {
+        if (part.warpSegments <= 0) return WARP_SEGMENTS;
+        return Math.max(WARP_SEGMENTS_MIN, Math.min(WARP_SEGMENTS_MAX, part.warpSegments));
+    }
+
+    /** Band count encoded in a vert array from {@link #warpVertsFor} ((segments+1)*4 floats). */
+    private static int segmentsOf(@NonNull float[] verts) {
+        return verts.length / 4 - 1;
+    }
     /** Pin-snap crossfade window after a discrete cell swap (plan §Pin-warp). */
     private static final long CROSSFADE_MS = 130;
 
@@ -391,10 +403,11 @@ public class PuppetPreviewView extends View {
                 float[] mverts = mps != null ? warpVertsFor(part, mps, box[0], box[1]) : null;
                 if (mverts != null) {
                     m.mapPoints(mverts);
-                    for (int r = 0; r <= WARP_SEGMENTS; r++) {
+                    int segs = segmentsOf(mverts);
+                    for (int r = 0; r <= segs; r++) {
                         canvas.drawLine(mverts[r * 4], mverts[r * 4 + 1],
                                 mverts[r * 4 + 2], mverts[r * 4 + 3], pinLink);
-                        if (r < WARP_SEGMENTS) {
+                        if (r < segs) {
                             canvas.drawLine(mverts[r * 4], mverts[r * 4 + 1],
                                     mverts[r * 4 + 4], mverts[r * 4 + 5], pinLink);
                             canvas.drawLine(mverts[r * 4 + 2], mverts[r * 4 + 3],
@@ -489,10 +502,11 @@ public class PuppetPreviewView extends View {
             long[] swap = swapAtMs.get(part.id);
             float fade = crossfadeAlpha(swap);
             if (verts != null) {
+                int meshH = segmentsOf(verts); // matches whatever built these verts
                 android.graphics.Bitmap cell = cellBitmapFor(part.sheetId, r, ps.cellIndex);
                 if (cell != null) {
                     warpPaint.setAlpha(255);
-                    canvas.drawBitmapMesh(cell, 1, WARP_SEGMENTS, verts, 0, null, 0, warpPaint);
+                    canvas.drawBitmapMesh(cell, 1, meshH, verts, 0, null, 0, warpPaint);
                     // Pin-snap crossfade: the OLD cell rides the SAME verts, so the
                     // swap happens over identical geometry (plan §Pin-warp).
                     if (fade > 0f && swap != null) {
@@ -500,7 +514,7 @@ public class PuppetPreviewView extends View {
                                 cellBitmapFor(part.sheetId, r, (int) swap[1]);
                         if (prev != null) {
                             warpPaint.setAlpha(Math.round(fade * 255));
-                            canvas.drawBitmapMesh(prev, 1, WARP_SEGMENTS, verts, 0, null, 0, warpPaint);
+                            canvas.drawBitmapMesh(prev, 1, meshH, verts, 0, null, 0, warpPaint);
                             warpPaint.setAlpha(255);
                         }
                         postInvalidateOnAnimation();
@@ -617,7 +631,7 @@ public class PuppetPreviewView extends View {
                     box[2] + pin[0] * dw,
                     box[3] + pin[1] * dh});
         }
-        return PinWarpStrip.buildMeshVerts(part.restPins, posed, dw, WARP_SEGMENTS);
+        return PinWarpStrip.buildMeshVerts(part.restPins, posed, dw, segmentsFor(part));
     }
 
     /** Decode-once cell bitmap for mesh drawing (a cell is a sheet sub-rect). */

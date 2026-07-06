@@ -72,7 +72,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
     @Nullable private String selectedPartId;
     /** A6 pin authoring mode: disarmed = edit the REST chain, armed = pose pins. */
     private boolean pinMode;
-    private TextView pinsChip, pinDelChip;
+    private TextView pinsChip, pinDelChip, densityValue;
     private int partCounter = 0;
 
     private float density() { return getResources().getDisplayMetrics().density; }
@@ -111,6 +111,9 @@ public class AvatarStudioActivity extends AppCompatActivity {
         refreshMatrix();
         resolveNow();
         updateHint();
+        // buildUi's syncPoseControls ran before selectedPartId was assigned, so
+        // the per-part Mesh density label was stale ("24"); refresh now.
+        syncPoseControls();
     }
 
     // ── Resolve pipeline (the ONLY caller of the resolver here) ───────────
@@ -414,6 +417,15 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 pose != null ? pose.rotationDeg : 0f));
         flipHChip.setBackgroundColor(pose != null && pose.flipH ? 0xFF4A3B5C : 0xFF26262E);
         flipVChip.setBackgroundColor(pose != null && pose.flipV ? 0xFF4A3B5C : 0xFF26262E);
+        // A6 density reflects the SELECTED part (a rig property, not the armed
+        // cell): enabled whenever the part actually warps (has a rest chain).
+        if (densityValue != null) {
+            AvatarRig.Part sel = selectedPartId != null ? rig.partById(selectedPartId) : null;
+            boolean warps = sel != null && sel.restPins.size() >= 2;
+            densityValue.setAlpha(warps ? 1f : 0.35f);
+            densityValue.setText(sel == null || sel.warpSegments == 0
+                    ? "24" : String.valueOf(sel.warpSegments));
+        }
         // A6: keep pin editing bound to the current part/armed target — PEEK
         // only (never creates a pose from a passive sync).
         if (pinsChip != null) syncPinEditing(false);
@@ -695,6 +707,18 @@ public class AvatarStudioActivity extends AppCompatActivity {
         pinDelChip = chip(getString(R.string.avatar_studio_pin_del));
         pinDelChip.setOnClickListener(v -> deleteLastRestPin());
         controls.addView(pinDelChip, chipLp());
+
+        // A6 per-part warp mesh density (data-not-code): 0 = default (24), else [8,64].
+        densityValue = addStepper(controls, getString(R.string.avatar_studio_density),
+                delta -> {
+                    AvatarRig.Part part = selectedPartId != null
+                            ? rig.partById(selectedPartId) : null;
+                    if (part == null) return;
+                    int cur = part.warpSegments == 0 ? 24 : part.warpSegments;
+                    part.warpSegments = Math.max(8, Math.min(64, cur + delta * 4));
+                    syncPoseControls();
+                    preview.invalidate();
+                });
 
         TextView clearCell = chip(getString(R.string.avatar_studio_clear_cell));
         clearCell.setOnClickListener(v -> clearArmedCell());

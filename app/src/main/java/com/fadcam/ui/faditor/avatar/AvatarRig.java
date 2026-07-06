@@ -69,6 +69,13 @@ public class AvatarRig {
          * blends; this is the fixed art-space reference they deform against.
          */
         @NonNull public final List<float[]> restPins = new ArrayList<>();
+        /**
+         * A6 warp mesh density (bands along the strip). 0 = use the renderer's
+         * default (24). Higher = smoother bends on wide/high-curvature art at
+         * negligible GPU cost (drawBitmapMesh is hardware-accelerated) — the
+         * data-not-code density knob the plan calls for. Clamped [8, 64] on read.
+         */
+        public int warpSegments = 0;
 
         public Part(@NonNull String id, @NonNull String sheetId) {
             this.id = id;
@@ -167,6 +174,7 @@ public class AvatarRig {
             if (p.followWeight != 1f) pj.addProperty("followWeight", p.followWeight);
             if (p.z != 0) pj.addProperty("z", p.z);
             if (p.dangle) pj.addProperty("dangle", true);
+            if (p.warpSegments != 0) pj.addProperty("warpSegments", p.warpSegments);
             if (!p.restPins.isEmpty()) {
                 // Same [x,y]-pair shape as PartPose pins.
                 JsonArray pins = new JsonArray();
@@ -255,6 +263,7 @@ public class AvatarRig {
                 if (pj.has("followWeight")) p.followWeight = pj.get("followWeight").getAsFloat();
                 if (pj.has("z")) p.z = pj.get("z").getAsInt();
                 if (pj.has("dangle")) p.dangle = pj.get("dangle").getAsBoolean();
+                if (pj.has("warpSegments")) p.warpSegments = pj.get("warpSegments").getAsInt();
                 if (pj.has("restPins") && pj.get("restPins").isJsonArray()) {
                     JsonArray pins = pj.getAsJsonArray("restPins");
                     for (int q = 0; q < pins.size(); q++) {

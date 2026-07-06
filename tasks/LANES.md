@@ -42,19 +42,23 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE
-since: 2026-07-06 ~09:40 (z-unification landed a4fbeba — M-EXPORT-2 fully closed.
-       Tree clean. Ready for the Fable-day Tier-1 task: masking / A2 tracking / ping-pong unpark.)
-files: (none. Standing locks: avatar/PinWarpStrip.java, avatar/DangleSim.java,
-       export/BlendModeGlEffect.java, export/PipFrameOverlay.java)
+status: ACTIVE
+since: 2026-07-06 ~10:30 (Fable-day: A2 tracking core [dep-free driver bus + FABRIK hookup],
+       then masking family [CompositingSpec / chroma key / track matte]. Commit per slice;
+       will re-read this board before each slice + before any device batch.)
+files: avatar/AvatarStudioActivity.java, avatar/PuppetPreviewView.java,
+       NEW avatar/TrackingFrame|TrackingSource|TrackingParamPipeline|TrackingDriverBus|
+       SyntheticTrackingSource.java, NEW tools/jvm-harness/TrackingCoreTest.java.
+       NOT touching strings.xml (chip labels literal) to stay clear of opencode's §A/§C sweep.
+       LATER SLICES (will re-claim here first): model/Clip.java + overlay-item model,
+       export/CompositeExportOverlay|BlendModeGlEffect|PipFrameOverlay|ExportManager (standing
+       locks), compositor/LayerPreviewController (standing lock). (Plus standing locks.)
 NOTE (build infra): watcher + opencode gradle running CONCURRENTLY corrupts the
 incremental resource merge (missing .flat → 100 "class R" errors; fix = delete
 app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: ACTIVE
-since: 2026-07-06 ~10:00 (self-refilling loop start: investigate 3 findings + AI-chat cluster + quick-wins §A/§C + W2 + portability Tier-2)
-files: tasks/LANES.md, tasks/Opencode-work.md, LayerRowRenderer.java (draw paths), ChatAssistantActivity.java, AIToolExecutor.java,
-        FaditorEditorActivity.java (export-dialog, project-title rename), various §A/§C files, EditorTimelineView.java (draw paths),
-        PLAN_studio_drawers_redesign.md items, new portability classes
+status: ACTIVE (code-only, no device needed)
+since: 2026-07-06 ~10:00 (self-refilling loop: released device, doing pure code work)
+files: FaditorEditorActivity.java, ChatAssistantActivity.java, CaptionStyle.java, tasks/LANES.md, tasks/Opencode-work.md

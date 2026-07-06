@@ -27,6 +27,7 @@ import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.EditText;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -1167,6 +1168,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         cropToolbar = findViewById(R.id.crop_toolbar);
         editorTimeline = findViewById(R.id.editor_timeline_view);
         editorTitle = findViewById(R.id.editor_title);
+        editorTitle.setOnClickListener(v -> showRenameProjectDialog());
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
         editorTimeline.setOnTrackHeaderLongPressListener(this::onTrackHeaderLongPress);
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
@@ -3067,6 +3069,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTitle.setEllipsize(TextUtils.TruncateAt.MARQUEE);
         editorTitle.setMarqueeRepeatLimit(-1);
         editorTitle.setSelected(true);
+    }
+
+    private void showRenameProjectDialog() {
+        if (project == null) return;
+        String rawName = project.getName();
+        final String currentName = rawName != null ? rawName : "";
+
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(pad, pad, pad, pad);
+
+        EditText input = new EditText(this);
+        input.setText(currentName);
+        input.setSelection(0, currentName.length());
+        input.setTextColor(0xFFFFFFFF);
+        input.setHint("Project name");
+        root.addView(input);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Rename project")
+                .setView(root)
+                .setPositiveButton("Rename", (d, w) -> {
+                    String newName = input.getText().toString().trim();
+                    if (!newName.isEmpty() && !newName.equals(currentName)) {
+                        project.setName(newName);
+                        scheduleAutoSave();
+                        updateEditorTitle();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void initPlayer() {

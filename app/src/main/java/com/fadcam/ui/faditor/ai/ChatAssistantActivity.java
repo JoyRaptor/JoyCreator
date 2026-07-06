@@ -88,7 +88,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     // Static message log — survives Activity recreation so the user sees
-    // their conversation when they reopen the chat.
+    // their conversation when they reopen the chat. Capped at 200 entries
+    // to prevent unbounded memory growth.
+    private static final int MAX_MESSAGE_LOG = 200;
     private static final List<String[]> messageLog = new ArrayList<>(); // [role, text]
 
     // Static conversation history — survives Activity recreation so the
@@ -112,7 +114,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         // Make the window translucent so the editor is faintly visible behind
         // the chat — keeps the user mentally "in" the editor.
         getWindow().setFlags(
@@ -856,10 +857,20 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     // ── UI helpers ─────────────────────────────────────────────────
 
+    /** Trim messageLog to MAX_MESSAGE_LOG entries (oldest removed first). */
+    private static void trimMessageLog() {
+        synchronized (messageLog) {
+            while (messageLog.size() > MAX_MESSAGE_LOG) {
+                messageLog.remove(0);
+            }
+        }
+    }
+
     private void addUserMessage(@NonNull String text) {
-        synchronized (messageLog) { messageLog.add(new String[]{"user", text}); }
+        synchronized (messageLog) { messageLog.add(new String[]{"user", text}); trimMessageLog(); }
         TextView tv = new TextView(this);
         tv.setText(text);
+        tv.setTextIsSelectable(true);
         tv.setTextColor(0xFFFFFFFF);
         tv.setBackgroundResource(R.drawable.chat_bubble_user);
         tv.setPadding(dp(14), dp(10), dp(14), dp(10));
@@ -872,9 +883,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void addBotMessage(@NonNull String text) {
-        synchronized (messageLog) { messageLog.add(new String[]{"bot", text}); }
+        synchronized (messageLog) { messageLog.add(new String[]{"bot", text}); trimMessageLog(); }
         TextView tv = new TextView(this);
         tv.setText(text);
+        tv.setTextIsSelectable(true);
         tv.setTextColor(0xFFDDDDDD);
         tv.setBackgroundResource(R.drawable.chat_bubble_bot);
         tv.setPadding(dp(14), dp(10), dp(14), dp(10));
@@ -1127,9 +1139,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
                     last[1] = text;
                 } else {
                     messageLog.add(new String[]{"bot", text});
+                    trimMessageLog();
                 }
             } else {
                 messageLog.add(new String[]{"bot", text});
+                trimMessageLog();
             }
         }
         scrollToBottom();

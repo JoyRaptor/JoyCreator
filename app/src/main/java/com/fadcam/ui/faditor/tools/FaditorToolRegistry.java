@@ -61,10 +61,10 @@ public final class FaditorToolRegistry {
                 ctx.getString(R.string.faditor_tool_canvas), "aspect_ratio",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "audio", R.id.tool_audio, R.id.tool_audio_icon, R.id.tool_audio_label,
-                ctx.getString(R.string.faditor_tool_audio), "graphic_eq",
+                ctx.getString(R.string.faditor_tool_audio), "equalizer",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "split", R.id.tool_split, R.id.tool_split_icon, R.id.tool_split_label,
-                ctx.getString(R.string.faditor_tool_split), "carpenter",
+                ctx.getString(R.string.faditor_tool_split), "content_cut",
                 FaditorTool.BindMode.CLICK, false);
         // heal — was android:visibility="gone" (kept hidden, id preserved).
         add(t, "heal", R.id.tool_heal, R.id.tool_heal_icon, R.id.tool_heal_label,
@@ -83,7 +83,7 @@ public final class FaditorToolRegistry {
                 ctx.getString(R.string.faditor_tool_text), "text_fields",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "visualizer", R.id.tool_visualizer, R.id.tool_visualizer_icon, R.id.tool_visualizer_label,
-                "Visualizer", "graphic_eq",
+                "Visualizer", "music_note",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "sticker", R.id.tool_sticker, R.id.tool_sticker_icon, R.id.tool_sticker_label,
                 ctx.getString(R.string.faditor_tool_sticker), "image",

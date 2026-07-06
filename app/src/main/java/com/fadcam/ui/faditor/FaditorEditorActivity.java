@@ -568,7 +568,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } catch (Exception e) {
                 FLog.e(TAG, "Error in updatePlayheadPosition", e);
             }
-            playheadHandler.postDelayed(this, PLAYHEAD_UPDATE_INTERVAL_MS);
+            // Only keep ticking if actively playing — avoids wasting CPU
+            // redrawing the playhead position when nothing is moving.
+            if ((playerManager != null && playerManager.isPlaying()) || audioTailActive) {
+                playheadHandler.postDelayed(this, PLAYHEAD_UPDATE_INTERVAL_MS);
+            }
         }
     };
 
@@ -920,9 +924,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         relinkPendingIndex = -1;
                     }
                 });
-
-        // Keep screen on while editing
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         // ── True fullscreen: hide status bar and nav bar ────────────
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -3109,6 +3110,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         playerManager.addListener(new Player.Listener() {
             @Override
             public void onIsPlayingChanged(boolean isPlaying) {
+                // Keep screen on only during active playback
+                if (isPlaying) {
+                    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                    // REVIEW FIX (2026-07-05): playheadUpdater now self-terminates while
+                    // paused (the CPU optimization above at ~line 571), so EVERY real
+                    // playback start must re-arm it or the playhead/time display/caption
+                    // sync/audio-player scheduling all freeze on first play. This listener
+                    // fires for every play edge (user play, gapless resume, auto-advance),
+                    // making it the single restart point; remove-then-post keeps the loop
+                    // single-instance even if the audio-tail path posted it explicitly.
+                    playheadHandler.removeCallbacks(playheadUpdater);
+                    playheadHandler.post(playheadUpdater);
+                } else {
+                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                }
                 // Don't override button state during audio-tail (video paused, audio playing)
                 if (!audioTailActive) {
                     updatePlayPauseButton(isPlaying);
@@ -4917,16 +4933,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showSpeedSlider() {
         Clip clip = getSelectedClip();
         float oldSpeed = clip.getSpeedMultiplier();
-        SpeedSliderBottomSheet sheet = SpeedSliderBottomSheet.newInstance(clip.getSpeedMultiplier());
-        sheet.setCallback(speed -> {
-            if (oldSpeed != speed) {
-                undoManager.recordAction(new EditActions.SpeedAction(
-                        clip, oldSpeed, speed));
+        boolean oldPitch = clip.isPitchCompensationEnabled();
+        SpeedSliderBottomSheet sheet = SpeedSliderBottomSheet.newInstance(
+                clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
+        sheet.setCallback(new SpeedSliderBottomSheet.Callback() {
+            @Override
+            public void onSpeedChanged(float speed) {
+                if (oldSpeed != speed) {
+                    undoManager.recordAction(new EditActions.SpeedAction(
+                            clip, oldSpeed, speed));
+                }
+                clip.setSpeedMultiplier(speed);
+                playerManager.setPlaybackSpeed(speed);
+                updateSpeedUI(speed);
+                scheduleAutoSave();
             }
-            clip.setSpeedMultiplier(speed);
-            playerManager.setPlaybackSpeed(speed);
-            updateSpeedUI(speed);
-            scheduleAutoSave();
+
+            @Override
+            public void onPitchCompensationChanged(boolean enabled) {
+                clip.setPitchCompensationEnabled(enabled);
+                scheduleAutoSave();
+            }
         });
         sheet.show(getSupportFragmentManager(), "speed_slider");
     }
@@ -15746,6 +15773,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             refreshTotalTimeDisplay();
             saveProjectNow();
             Toast.makeText(this, R.string.faditor_asset_added, Toast.LENGTH_SHORT).show();
+            if (item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE
+                    && item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.AUDIO) {
+                maybeShowTranscribePrompt();
+            }
         } catch (Exception e) {
             FLog.e(TAG, "Failed to insert asset", e);
             Toast.makeText(this, R.string.faditor_asset_error, Toast.LENGTH_SHORT).show();
@@ -16237,7 +16268,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         splitHealMode = heal;
         if (toolSplitIcon != null) {
-            toolSplitIcon.setText(heal ? "healing" : "carpenter");
+            toolSplitIcon.setText(heal ? "healing" : "content_cut");
             toolSplitIcon.setTextColor(heal ? 0xFFFFC107 : 0xFF888888);
         }
         if (toolSplitLabel != null) {

@@ -38,6 +38,9 @@ public class Clip {
     /** Playback speed multiplier (0.1 – 10.0, default 1.0). */
     private float speedMultiplier = 1.0f;
 
+    /** Whether pitch is kept constant when speed changes (default true). */
+    private boolean pitchCompensation = true;
+
     /** Whether audio is muted for this clip. */
     private boolean audioMuted = false;
 
@@ -428,6 +431,7 @@ public class Clip {
         this.outPointMs = other.outPointMs;
         this.sourceDurationMs = other.sourceDurationMs;
         this.speedMultiplier = other.speedMultiplier;
+        this.pitchCompensation = other.pitchCompensation;
         this.audioMuted = other.audioMuted;
         this.volumeLevel = other.volumeLevel;
         this.rotationDegrees = other.rotationDegrees;
@@ -471,6 +475,13 @@ public class Clip {
         this.loopMode = other.loopMode;
         this.loopBeforeMs = other.loopBeforeMs;
         this.loopAfterMs = other.loopAfterMs;
+        // Floating overlay (PiP) identity/placement (M-COMP-2 review fix: a copy
+        // of an overlay clip must stay an overlay clip; null/defaults for masters).
+        this.layerId = other.layerId;
+        this.overlayStartMs = other.overlayStartMs;
+        this.overlayTransform = other.overlayTransform != null
+                ? other.overlayTransform.copy() : null;
+        this.overlayBlendMode = other.overlayBlendMode;
     }
 
     /**
@@ -497,6 +508,7 @@ public class Clip {
         c.captionCenterY = captionCenterY;
         c.captionSizeFraction = captionSizeFraction;
         c.effectStack = new EffectStack(effectStack);
+        c.pitchCompensation = pitchCompensation;
         c.duckAmount = duckAmount;
         c.zoomLevel = zoomLevel;
         c.zoomCenterX = zoomCenterX;
@@ -511,6 +523,12 @@ public class Clip {
         c.loopMode = loopMode;
         c.loopBeforeMs = loopBeforeMs;
         c.loopAfterMs = loopAfterMs;
+        // Floating overlay (PiP) identity/placement — a relinked PiP must remain
+        // a PiP on its layer (M-COMP-2 review fix).
+        c.layerId = layerId;
+        c.overlayStartMs = overlayStartMs;
+        c.overlayTransform = overlayTransform != null ? overlayTransform.copy() : null;
+        c.overlayBlendMode = overlayBlendMode;
         return c;
     }
 
@@ -540,6 +558,14 @@ public class Clip {
 
     public float getSpeedMultiplier() {
         return speedMultiplier;
+    }
+
+    public boolean isPitchCompensationEnabled() {
+        return pitchCompensation;
+    }
+
+    public void setPitchCompensationEnabled(boolean enabled) {
+        this.pitchCompensation = enabled;
     }
 
     public boolean isAudioMuted() {

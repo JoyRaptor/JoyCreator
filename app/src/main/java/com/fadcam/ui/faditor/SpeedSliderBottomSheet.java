@@ -31,11 +31,17 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
     /** Callback for speed changes. */
     public interface Callback {
         void onSpeedChanged(float speed);
+        /** Called when the user toggles pitch compensation. Default no-op for existing callers. */
+        default void onPitchCompensationChanged(boolean enabled) {}
     }
 
     @Nullable
     private Callback callback;
     private float currentSpeed = 1.0f;
+    private boolean pitchCompensation = true;
+
+    /** Default pitch compensation state (maintain pitch when speed changes). */
+    private static final String ARG_PITCH = "pitch";
 
     /** Common preset speeds. */
     private static final float[] PRESETS = {0.25f, 0.5f, 0.75f, 1.0f, 1.5f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f, 10.0f};
@@ -47,9 +53,14 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
      * @return new instance
      */
     public static SpeedSliderBottomSheet newInstance(float speed) {
+        return newInstance(speed, true);
+    }
+
+    public static SpeedSliderBottomSheet newInstance(float speed, boolean pitchCompensation) {
         SpeedSliderBottomSheet sheet = new SpeedSliderBottomSheet();
         Bundle args = new Bundle();
         args.putFloat("speed", speed);
+        args.putBoolean(ARG_PITCH, pitchCompensation);
         sheet.setArguments(args);
         return sheet;
     }
@@ -84,6 +95,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
                              @Nullable Bundle savedInstanceState) {
         if (getArguments() != null) {
             currentSpeed = getArguments().getFloat("speed", 1.0f);
+            pitchCompensation = getArguments().getBoolean(ARG_PITCH, true);
         }
 
         float dp = getResources().getDisplayMetrics().density;
@@ -209,6 +221,24 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
 
             chipRow.addView(chip);
         }
+
+        // ── Pitch compensation toggle ────────────────────────────────
+        LinearLayout pitchRow = new LinearLayout(requireContext());
+        pitchRow.setOrientation(LinearLayout.HORIZONTAL);
+        pitchRow.setGravity(Gravity.CENTER_VERTICAL);
+        pitchRow.setPadding(0, (int) (8 * dp), 0, 0);
+        root.addView(pitchRow);
+
+        android.widget.CheckBox pitchCheck = new android.widget.CheckBox(requireContext());
+        pitchCheck.setChecked(pitchCompensation);
+        pitchCheck.setTextColor(0xFFCCCCCC);
+        pitchCheck.setTextSize(14);
+        pitchCheck.setText("Maintain pitch");
+        pitchCheck.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            pitchCompensation = isChecked;
+            if (callback != null) callback.onPitchCompensationChanged(isChecked);
+        });
+        pitchRow.addView(pitchCheck);
 
         // ── Reset button (consistent row style) ─────────────────────
         LinearLayout resetRow = new LinearLayout(requireContext());

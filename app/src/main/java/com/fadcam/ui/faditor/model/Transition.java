@@ -136,7 +136,7 @@ public class Transition {
             case WIPE_DOWN:  return "WipeDown";
             case GLITCH:     return "FadcamGlitch";
             case RADIAL:     return "Radial";
-            case CROSS_DISSOLVE: return "Dreamy";
+            case CROSS_DISSOLVE: return "cross_dissolve";
             case FADE_IN_FROM_BLACK:
             case FADE_OUT_TO_BLACK: return "HSVfade";
             case FADE_IN_FROM_WHITE:

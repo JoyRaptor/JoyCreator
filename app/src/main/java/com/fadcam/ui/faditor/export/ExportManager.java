@@ -756,6 +756,7 @@ public class ExportManager {
             if (speed != 1.0f) {
                 SonicAudioProcessor sonicProcessor = new SonicAudioProcessor();
                 sonicProcessor.setSpeed(speed);
+                if (clip.isPitchCompensationEnabled()) sonicProcessor.setPitch(1.0f);
                 audioProcessors.add(sonicProcessor);
             }
             VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
@@ -870,6 +871,7 @@ public class ExportManager {
             if (speed != 1.0f) {
                 SonicAudioProcessor sap = new SonicAudioProcessor();
                 sap.setSpeed(speed);
+                if (clip.isPitchCompensationEnabled()) sap.setPitch(1.0f);
                 aps.add(sap);
             }
             float vol = clip.getVolumeLevel();

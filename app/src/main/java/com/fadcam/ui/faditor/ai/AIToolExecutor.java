@@ -125,6 +125,9 @@ public class AIToolExecutor {
                 case "suggest_broll_placements": return toolSuggestBrollPlacements(args);
                 case "apply_narrative_proposal": return toolApplyNarrativeProposal(args);
                 case "apply_broll_proposal": return toolApplyBrollProposal(args);
+                case "rename_clip": return toolRenameClip(args);
+                case "rename_asset": return toolRenameAsset(args);
+                case "describe_clip": return toolDescribeClip(args);
                 default: return "Error: unknown tool '" + toolName + "'";
             }
         } catch (Exception e) {
@@ -257,6 +260,20 @@ public class AIToolExecutor {
                 Each entry is matched against clip names (case-insensitive contains match).
                 Clips not matched stay in their original relative order at the end.
                 If clips are on different layers, the tool asks the user to confirm.
+
+            32. rename_clip — Rename a single clip by id.
+                Use when the user says e.g. "rename the first clip to Intro".
+                args: {"clipId":"...", "newName":"Intro"}
+
+            33. rename_asset — Batch rename clips whose names/labels contain a pattern.
+                Use when the user says e.g. "rename all IMG_ clips to Vacation".
+                args: {"namePattern":"IMG_", "newName":"Vacation", "startIndex":1}
+                startIndex is the starting counter for numbered suffixes (default 1).
+                Result: "Vacation 1", "Vacation 2", ...
+
+            34. describe_clip — Show detailed info about a clip (name, duration, source, overlays).
+                Use when the user wants to know about a specific clip.
+                args: {"clipId":"..."}
 
             31. resize_overlay — Resize a text/image overlay by percentage.
                 Use when the user says e.g. "make the title bigger", "shrink the logo by 50%".
@@ -2171,6 +2188,97 @@ public class AIToolExecutor {
         }
         sb.append("Canvas: ").append(proj.getCanvasPreset()).append("\n");
         return sb.toString();
+    }
+
+    private String toolRenameClip(@NonNull JSONObject args) {
+        String clipId = args.optString("clipId", "");
+        String newName = args.optString("newName", "");
+        if (clipId.isEmpty() || newName.isEmpty()) {
+            return "Error: 'clipId' and 'newName' are required";
+        }
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        Timeline tl = proj.getTimeline();
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c.getId().equals(clipId)) {
+                c.setDisplayName(newName);
+                storage.save(proj);
+                AIChatState.signalModified(projectId);
+                return "Renamed clip " + clipId + " to \"" + newName + "\"";
+            }
+        }
+        return "Error: clip '" + clipId + "' not found";
+    }
+
+    private String toolRenameAsset(@NonNull JSONObject args) {
+        String pattern = args.optString("namePattern", "");
+        String newName = args.optString("newName", "");
+        int startIndex = args.optInt("startIndex", 1);
+        if (pattern.isEmpty() || newName.isEmpty()) {
+            return "Error: 'namePattern' and 'newName' are required";
+        }
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        Timeline tl = proj.getTimeline();
+        int counter = startIndex;
+        int renamed = 0;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            String name = friendlyClipName(c).toLowerCase();
+            if (name.contains(pattern.toLowerCase())) {
+                c.setDisplayName(newName + " " + counter);
+                counter++;
+                renamed++;
+            }
+        }
+        if (renamed > 0) {
+            storage.save(proj);
+            AIChatState.signalModified(projectId);
+            return "Renamed " + renamed + " clips to \"" + newName + " N\"";
+        }
+        return "No clips matched pattern '" + pattern + "'";
+    }
+
+    private String toolDescribeClip(@NonNull JSONObject args) {
+        String clipId = args.optString("clipId", "");
+        if (clipId.isEmpty()) {
+            return "Error: 'clipId' is required";
+        }
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        Timeline tl = proj.getTimeline();
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c.getId().equals(clipId)) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("Clip: ").append(friendlyClipName(c)).append("\n");
+                sb.append("  ID: ").append(c.getId()).append("\n");
+                sb.append("  Duration: ").append(c.getTrimmedDurationMs()).append("ms");
+                if (c.hasLoopExtension()) {
+                    sb.append(" (loop visual: ").append(c.getVisualDurationMs()).append("ms)");
+                }
+                sb.append("\n");
+                sb.append("  Speed: ").append(c.getSpeedMultiplier()).append("x\n");
+                sb.append("  Muted: ").append(c.isAudioMuted()).append("\n");
+                sb.append("  Captions: ").append(c.isCaptionsEnabled()).append("\n");
+                sb.append("  Source URI: ").append(c.getSourceUri()).append("\n");
+                if (!c.getRemovedSpans().isEmpty()) {
+                    sb.append("  Silent cuts: ").append(c.getRemovedSpans().size()).append("\n");
+                }
+                java.util.List<NamedTranscript> transcripts = c.getTranscripts();
+                if (!transcripts.isEmpty()) {
+                    NamedTranscript active = c.getActiveNamedTranscript();
+                    if (active == null) active = transcripts.get(0);
+                    sb.append("  Transcript: ").append(active.transcript.words.size())
+                            .append(" words (").append(active.engine).append(")\n");
+                } else {
+                    sb.append("  Transcript: none\n");
+                }
+                return sb.toString();
+            }
+        }
+        return "Error: clip '" + clipId + "' not found";
     }
 }
 

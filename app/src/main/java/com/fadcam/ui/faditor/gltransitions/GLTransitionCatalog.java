@@ -68,6 +68,7 @@ public final class GLTransitionCatalog {
                 param("z", 1.5f, 0.1f, 10f),
                 param("speed", 5.0f, 0.1f, 20f))));
         entries.add(entry("polar_function", "Polar Warp", "warp", "Medium"));
+        entries.add(entry("cross_dissolve", "Cross Dissolve", "dissolve", "Light"));
         entries.add(entry("Dreamy", "Dreamy Wave", "warp", "Light"));
         entries.add(entry("swap", "Swap", "slide", "Light", params(
                 param("reflection", 0.4f, 0f, 1f),

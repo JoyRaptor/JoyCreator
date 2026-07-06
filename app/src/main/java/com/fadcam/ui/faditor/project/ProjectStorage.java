@@ -1118,6 +1118,13 @@ public class ProjectStorage {
             clipJson.addProperty("loopBeforeMs", clip.getLoopBeforeMs());
             clipJson.addProperty("loopAfterMs", clip.getLoopAfterMs());
         }
+        // Pitch compensation (review fix 2026-07-05: the quickwin batch added the
+        // field + UI + export wiring but never persisted it, so unchecking silently
+        // reverted on reload). Default true → written only when non-default, keeping
+        // every pre-existing project's JSON byte-identical.
+        if (!clip.isPitchCompensationEnabled()) {
+            clipJson.addProperty("pitchCompensation", false);
+        }
         if (clip.hasOpacityKeyframes()) {
             JsonArray kfArr = new JsonArray();
             for (com.fadcam.ui.faditor.model.Clip.OpacityKeyframe kf
@@ -1306,6 +1313,9 @@ public class ProjectStorage {
                     ? clipObj.get("loopBeforeMs").getAsLong() : 0);
             clip.setLoopAfterMs(clipObj.has("loopAfterMs")
                     ? clipObj.get("loopAfterMs").getAsLong() : 0);
+        }
+        if (clipObj.has("pitchCompensation")) {
+            clip.setPitchCompensationEnabled(clipObj.get("pitchCompensation").getAsBoolean());
         }
         if (clipObj.has("opacityKeyframes")) {
             JsonArray kfArr = clipObj.getAsJsonArray("opacityKeyframes");

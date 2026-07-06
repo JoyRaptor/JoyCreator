@@ -118,6 +118,11 @@ public class PuppetPreviewView extends View {
             new java.util.HashMap<>();
     private long lastFrameNanos;
 
+    // A2 tracking: partId → view-normalized IK target (from the driver bus's
+    // pinTarget.* params). A part with a target gets its posed pins re-aimed
+    // by FABRIK each frame — the tracking→warp hookup.
+    @Nullable private Map<String, float[]> trackedPinTargets;
+
     // A6 pin authoring state (null = pin mode off).
     @Nullable private List<float[]> pinEditing;
     @Nullable private PinEditListener pinListener;
@@ -200,6 +205,17 @@ public class PuppetPreviewView extends View {
     public void setDragEnabled(boolean enabled) {
         this.dragEnabled = enabled;
         if (!enabled) dragging = false;
+    }
+
+    /**
+     * A2: the current frame's tracked IK targets (partId → view-normalized
+     * [x,y]) or null when tracking is off. A targeted part's posed pins are
+     * FABRIK-solved toward the target at draw time; tracking outranks dangle
+     * physics on the same part (an IK'd arm must not also flop).
+     */
+    public void setTrackedPinTargets(@Nullable Map<String, float[]> targets) {
+        this.trackedPinTargets = targets;
+        invalidate();
     }
 
     /**
@@ -577,6 +593,8 @@ public class PuppetPreviewView extends View {
         java.util.List<float[]> resolvedPins = ps.pins.isEmpty() ? part.restPins : ps.pins;
         if (resolvedPins.size() != part.restPins.size()) return null;
         if (pinEditing != null && part.id.equals(selectedPartId)) return null;
+        // A2: a tracked IK target owns this part — physics yields to tracking.
+        if (trackedPinTargets != null && trackedPinTargets.containsKey(part.id)) return null;
         float[] box = partBox(part);
         if (box == null || box[0] <= 0 || box[1] <= 0) return null;
         Matrix m = fullPartMatrix(part);
@@ -621,9 +639,13 @@ public class PuppetPreviewView extends View {
         // drawPart and would otherwise warp against a stale origin).
         float[] box = partBox(part);
         if (box == null || box[0] <= 0 || box[1] <= 0) return null;
-        // A6 dangle: this frame's simulated chain (stepped once in onDraw's
-        // preamble) overrides the resolver's pins for dangle-tagged parts.
-        java.util.List<float[]> srcPins = frameDanglePins.get(part.id);
+        // A2 tracking override first (outranks dangle — danglePins already
+        // abstains for targeted parts), then this frame's dangle chain, then
+        // the resolver's blend.
+        java.util.List<float[]> srcPins = null;
+        float[] target = trackedPinTargets != null ? trackedPinTargets.get(part.id) : null;
+        if (target != null) srcPins = trackedPins(part, resolvedPins, target, box);
+        if (srcPins == null) srcPins = frameDanglePins.get(part.id);
         if (srcPins == null) srcPins = resolvedPins;
         java.util.List<float[]> posed = new java.util.ArrayList<>(srcPins.size());
         for (float[] pin : srcPins) {
@@ -632,6 +654,40 @@ public class PuppetPreviewView extends View {
                     box[3] + pin[1] * dh});
         }
         return PinWarpStrip.buildMeshVerts(part.restPins, posed, dw, segmentsFor(part));
+    }
+
+    /**
+     * A2: FABRIK-solve a part's posed pin chain toward its tracked target —
+     * the tracking→warp hookup. The chain solves in the part's LOCAL draw
+     * space (the space warp verts live in): pins map cell→local via the art
+     * box, the view-normalized target maps view→local through the inverted
+     * part matrix, {@link FabrikSolver} re-aims the chain (base pin fixed,
+     * segment lengths from the CURRENT resolved pose — drift-proof), and the
+     * result maps back to cell space for {@link PinWarpStrip}. Returns null
+     * on degenerate geometry → caller falls back to the resolved pins.
+     */
+    @Nullable
+    private java.util.List<float[]> trackedPins(@NonNull AvatarRig.Part part,
+                                                @NonNull java.util.List<float[]> resolvedPins,
+                                                @NonNull float[] targetViewNorm,
+                                                @NonNull float[] box) {
+        if (resolvedPins.size() < 2 || getWidth() <= 0 || getHeight() <= 0) return null;
+        if (!fullPartMatrix(part).invert(invMatrix)) return null;
+        int n = resolvedPins.size();
+        float[] joints = new float[n * 2];
+        for (int i = 0; i < n; i++) {
+            joints[i * 2] = box[2] + resolvedPins.get(i)[0] * box[0];
+            joints[i * 2 + 1] = box[3] + resolvedPins.get(i)[1] * box[1];
+        }
+        float[] t = {targetViewNorm[0] * getWidth(), targetViewNorm[1] * getHeight()};
+        invMatrix.mapPoints(t);
+        FabrikSolver.solve(joints, t[0], t[1]);
+        java.util.List<float[]> out = new java.util.ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            out.add(new float[]{(joints[i * 2] - box[2]) / box[0],
+                                (joints[i * 2 + 1] - box[3]) / box[1]});
+        }
+        return out;
     }
 
     /** Decode-once cell bitmap for mesh drawing (a cell is a sheet sub-rect). */

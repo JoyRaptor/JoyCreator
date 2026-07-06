@@ -75,6 +75,10 @@ public class AvatarStudioActivity extends AppCompatActivity {
     private TextView pinsChip, pinDelChip, densityValue;
     private int partCounter = 0;
 
+    /** A2: mounted while the synthetic tracking demo is live, else null. */
+    @Nullable private TrackingDriverBus trackingBus;
+    private TextView trackChip;
+
     private float density() { return getResources().getDisplayMetrics().density; }
 
     @Override
@@ -126,16 +130,81 @@ public class AvatarStudioActivity extends AppCompatActivity {
         Map<String, Float> params = new HashMap<>();
         params.put(domain.driverX, sliderValue(yawSlider));
         if (domain.driverY != null) params.put(domain.driverY, sliderValue(pitchSlider));
+        resolveWith(params);
+    }
+
+    /** Resolve + matrix-marker update from ANY param source (sliders or the
+     *  A2 tracking bus — the same map either way, single-authority rule). */
+    private void resolveWith(@NonNull Map<String, Float> params) {
         preview.setResolved(PuppetPoseResolver.resolve(rig, params, discreteState));
-        float gx = (sliderValue(yawSlider) + 1f) / 2f * (Math.max(1, domain.cols) - 1);
-        float gy = domain.rows > 1
-                ? (sliderValue(pitchSlider) + 1f) / 2f * (domain.rows - 1) : 0f;
+        Float xv = params.get(domain.driverX);
+        float dx = xv != null ? Math.max(-1f, Math.min(1f, xv)) : 0f;
+        Float yv = domain.driverY != null ? params.get(domain.driverY) : null;
+        float dy = yv != null ? Math.max(-1f, Math.min(1f, yv)) : 0f;
+        float gx = (dx + 1f) / 2f * (Math.max(1, domain.cols) - 1);
+        float gy = domain.rows > 1 ? (dy + 1f) / 2f * (domain.rows - 1) : 0f;
         matrix.setDriverPoint(gx, gy);
+    }
+
+    // ── A2 tracking (synthetic source until the MediaPipe dep is approved) ──
+
+    /** vsync-paced pull loop: bus snapshot → resolver → view (tracker pushes
+     *  on its own thread; render pulls at its own rate — plan decoupling). */
+    private final Runnable trackTick = new Runnable() {
+        @Override public void run() {
+            if (trackingBus == null) return;
+            Map<String, Float> p = trackingBus.latest();
+            if (p != null) {
+                resolveWith(p);
+                preview.setTrackedPinTargets(TrackingDriverBus.extractPinTargets(p));
+            }
+            preview.postOnAnimation(this);
+        }
+    };
+
+    private void startTracking() {
+        if (trackingBus != null) return;
+        if (armedCol >= 0) onCellTapped(armedCol, armedRow); // disarm first
+        // Every warpable part gets an IK orbit — including dangle parts, so
+        // the tracking-outranks-physics rule is exercised on device.
+        java.util.List<String> ikParts = new java.util.ArrayList<>();
+        for (AvatarRig.Part part : rig.getParts()) {
+            if (part.restPins.size() >= 2) ikParts.add(part.id);
+        }
+        trackingBus = new TrackingDriverBus();
+        trackingBus.start(new SyntheticTrackingSource(ikParts), 20260706L);
+        trackChip.setBackgroundColor(0xFF1B4A3B);
+        yawSlider.setEnabled(false);
+        pitchSlider.setEnabled(false);
+        preview.postOnAnimation(trackTick);
+        hintLine.setText("Tracking (synthetic): driver bus is puppeting the rig");
+        hintLine.setTextColor(0xFF64FFDA);
+    }
+
+    private void stopTracking() {
+        if (trackingBus == null) return;
+        trackingBus.stop();
+        trackingBus = null;
+        preview.removeCallbacks(trackTick);
+        preview.setTrackedPinTargets(null);
+        trackChip.setBackgroundColor(0xFF26262E);
+        boolean armed = armedCol >= 0;
+        yawSlider.setEnabled(!armed);
+        pitchSlider.setEnabled(!armed);
+        resolveNow();
+        updateHint();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopTracking(); // tracker thread must not outlive the visible studio
     }
 
     // ── Arming + cell authoring ────────────────────────────────────────────
 
     private void onCellTapped(int col, int row) {
+        stopTracking(); // authoring wins — arming while tracked would fight the bus
         if (col == armedCol && row == armedRow) {
             armedCol = armedRow = -1; // disarm
         } else {
@@ -719,6 +788,14 @@ public class AvatarStudioActivity extends AppCompatActivity {
                     syncPoseControls();
                     preview.invalidate();
                 });
+
+        // A2 tracking demo chip (label literal by design — the tracking UI is
+        // provisional until the MediaPipe source lands; no strings.xml churn).
+        trackChip = chip("🎯 Track");
+        trackChip.setOnClickListener(v -> {
+            if (trackingBus != null) stopTracking(); else startTracking();
+        });
+        controls.addView(trackChip, chipLp());
 
         TextView clearCell = chip(getString(R.string.avatar_studio_clear_cell));
         clearCell.setOnClickListener(v -> clearArmedCell());

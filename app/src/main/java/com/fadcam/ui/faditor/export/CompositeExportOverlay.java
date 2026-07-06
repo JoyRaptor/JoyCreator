@@ -127,6 +127,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private final List<Clip> overlayVideoClips;
     private final java.util.Map<String, android.media.MediaMetadataRetriever> pipRetrievers =
             new java.util.HashMap<>();
+    /** MMR is not thread-safe; guards frame extraction vs release() — the same
+     *  defensive lock GlTransitionFrameOverlay documents for the identical risk. */
+    private final Object pipRetrieverLock = new Object();
     private final Paint pipPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     private boolean loggedPipDrawError = false;
     private int framesWithPip = 0;
@@ -235,20 +238,32 @@ public class CompositeExportOverlay extends BitmapOverlay {
      *  cached — a transient failure logs once and retries next frame. */
     @Nullable
     private android.media.MediaMetadataRetriever pipRetrieverFor(@NonNull Clip oc) {
-        android.media.MediaMetadataRetriever r = pipRetrievers.get(oc.getId());
-        if (r != null) return r;
-        try {
-            r = new android.media.MediaMetadataRetriever();
-            r.setDataSource(context, oc.getSourceUri());
-            pipRetrievers.put(oc.getId(), r);
-            return r;
-        } catch (Exception e) {
-            if (!loggedPipDrawError) {
-                FLog.w(TAG, "PiP retriever failed for " + oc.getSourceUri()
-                        + " (logged once)", e);
-                loggedPipDrawError = true;
+        synchronized (pipRetrieverLock) {
+            android.media.MediaMetadataRetriever r = pipRetrievers.get(oc.getId());
+            if (r != null) return r;
+            try {
+                r = new android.media.MediaMetadataRetriever();
+                r.setDataSource(context, oc.getSourceUri());
+                pipRetrievers.put(oc.getId(), r);
+                return r;
+            } catch (Exception e) {
+                if (!loggedPipDrawError) {
+                    FLog.w(TAG, "PiP retriever failed for " + oc.getSourceUri()
+                            + " (logged once)", e);
+                    loggedPipDrawError = true;
+                }
+                return null;
             }
-            return null;
+        }
+    }
+
+    /** Frame extraction under the same lock release() takes — an extraction racing
+     *  a release() would hit a dead retriever (the GlTransitionFrameOverlay risk). */
+    @Nullable
+    private Bitmap pipFrameAt(@NonNull android.media.MediaMetadataRetriever r, long sourceMs) {
+        synchronized (pipRetrieverLock) {
+            return r.getFrameAtTime(sourceMs * 1000L,
+                    android.media.MediaMetadataRetriever.OPTION_CLOSEST);
         }
     }
 
@@ -390,8 +405,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 if (r == null) continue; // missing art: preview hides; export omits
                 long sourceMs = oc.getInPointMs() + (timelineMs - ocStart);
                 sourceMs = Math.min(sourceMs, Math.max(oc.getInPointMs(), oc.getOutPointMs() - 1));
-                Bitmap frame = r.getFrameAtTime(sourceMs * 1000L,
-                        android.media.MediaMetadataRetriever.OPTION_CLOSEST);
+                Bitmap frame = pipFrameAt(r, sourceMs);
                 if (frame == null) continue;
                 final float dx = com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X;
                 final float dy = com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y;
@@ -697,10 +711,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (r != null) r.recycle();
         }
         spriteRenderers.clear();
-        for (android.media.MediaMetadataRetriever r : pipRetrievers.values()) {
-            try { r.release(); } catch (Exception ignored) { }
+        synchronized (pipRetrieverLock) {
+            for (android.media.MediaMetadataRetriever r : pipRetrievers.values()) {
+                try { r.release(); } catch (Exception ignored) { }
+            }
+            pipRetrievers.clear();
         }
-        pipRetrievers.clear();
         if (lastReturnedBitmap != null && !lastReturnedBitmap.isRecycled()) {
             lastReturnedBitmap.recycle();
         }

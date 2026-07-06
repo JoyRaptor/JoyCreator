@@ -1,5 +1,21 @@
 # FadCam AI Handoff
 
+> **🪂 2026-07-07 ~00:35 — A6 DANGLE PHYSICS LANDED + DEVICE-PROVEN (00733aa). A6 build phase COMPLETE
+> minus the A2-gated tracking hookup.** `avatar/DangleSim` (deterministic verlet chain, anchor-motion
+> excitation, FABRIK-style final normalization = exact bone lengths at ANY whip violence — the harness
+> caught 3 relaxation passes stretching ~10%; DangleTest 9/9). The chain's nodes BECOME the part's posed
+> pins → PinWarpStrip renders the bend: dangle + warp are ONE pipeline (bendy hair/tails free). Steps
+> once/frame in PuppetPreviewView's onDraw preamble, vsync-paced; pin-editing a part suspends its physics.
+> DEVICE-PROVEN: screenrecord diffs spike exactly at each yaw jerk (0.356/0.351) and zero out on settle.
+> **DEVICE LORE (runbook-grade):** a continuously-invalidating view makes `screencap` STALE while making
+> `screenrecord` RELIABLE — the two tools' failure modes are complements; pick by whether the screen
+> animates. **FEEL KNOBS deliberately conservative** (DAMPING .90 = settles <1s, GRAVITY 2200): user
+> feel-test decides floatier hair. Sandbox rig now has dangle:true on "arm" (backups on-device).
+> **AUTONOMOUS OVERNIGHT CHAIN ARMED:** 3:01 AM one-shot wakeup, self-perpetuating +5h per run, queue =
+> finish anything in flight → adversarial self-review of tonight's 6 landings → BlendModeGlEffect +
+> injection test → delegable stragglers → per-part mesh density → docs consolidation. A2 MediaPipe dep
+> stays USER-GATED.
+
 > **🎯 2026-07-06 ~23:15 — A6 PIN AUTHORING UI LANDED + DEVICE-PROVEN (0fc9365). A6 is now AUTHORABLE
 > end-to-end without JSON injection.** "⌖ Pins" chip in Avatar Studio: disarmed = edit the REST chain
 > (tap adds y-SORTED, drag moves with neighbor-clamped y — the PinWarpStrip monotonic convention is

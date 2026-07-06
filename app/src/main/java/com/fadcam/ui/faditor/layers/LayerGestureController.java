@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.model.AudioClip;
+import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 
 /**
@@ -166,6 +167,7 @@ public final class LayerGestureController {
     /** Snapshot captured at gesture-start, handed back on finish so the caller can undo. */
     @Nullable private TextOverlayItem.TransformSnapshot textBeforeSnapshot;
     private long audioBeforeOffsetMs, audioBeforeInMs, audioBeforeOutMs;
+    private long clipBeforeStartMs, clipBeforeInMs, clipBeforeOutMs;
 
     /** Item id selected for trim-handle exposure (mirrors the audio/overlay "selected → handles show" convention). */
     @Nullable private String selectedItemId;
@@ -381,6 +383,10 @@ public final class LayerGestureController {
             audioBeforeOffsetMs = ac.getOffsetMs();
             audioBeforeInMs = ac.getInPointMs();
             audioBeforeOutMs = ac.getOutPointMs();
+        } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            clipBeforeStartMs = item.getClip().getOverlayStartMs();
+            clipBeforeInMs = item.getClip().getInPointMs();
+            clipBeforeOutMs = item.getClip().getOutPointMs();
         }
     }
 
@@ -397,6 +403,12 @@ public final class LayerGestureController {
             audioBeforeOutMs = ac.getOutPointMs();
             dragStartTrimInMs = ac.getInPointMs();
             dragStartTrimOutMs = ac.getOutPointMs();
+        } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            clipBeforeStartMs = item.getClip().getOverlayStartMs();
+            clipBeforeInMs = item.getClip().getInPointMs();
+            clipBeforeOutMs = item.getClip().getOutPointMs();
+            dragStartTrimInMs = item.getClip().getInPointMs();
+            dragStartTrimOutMs = item.getClip().getOutPointMs();
         }
     }
 
@@ -629,7 +641,8 @@ public final class LayerGestureController {
         hoveringHomeRow = candidate != null && candidate.getId().equals(activeTrack.getId());
         if (candidate == null || candidate.getId().equals(activeTrack.getId())
                 || candidate.isLocked() || candidate.isHidden()
-                || rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand) {
+                || rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand
+                || !payloadCompatible(activeItem, candidate)) {
             boolean crossBand = candidate != null
                     && rowRenderer.isFloatingBandRow(candidate) != sourceIsFloatingBand;
             // Cross-band hover ARMS the new-lane drop at its TRUE position instead of
@@ -937,6 +950,8 @@ public final class LayerGestureController {
             o.setTimeRange(newStartMs, end);
         } else if (item.getAudioClip() != null) {
             item.getAudioClip().setOffsetMs(newStartMs);
+        } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            item.getClip().setOverlayStartMs(newStartMs);
         }
     }
 
@@ -985,6 +1000,17 @@ public final class LayerGestureController {
                 }
             } else if (Math.abs(ac.getOutPointMs() - audioBeforeOutMs) <= thrMs) {
                 ac.setOutPointMs(audioBeforeOutMs);
+                snapped = true;
+            }
+        } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            Clip c = item.getClip();
+            if (left) {
+                if (Math.abs(c.getInPointMs() - clipBeforeInMs) <= thrMs) {
+                    c.setInPointMs(clipBeforeInMs);
+                    snapped = true;
+                }
+            } else if (Math.abs(c.getOutPointMs() - clipBeforeOutMs) <= thrMs) {
+                c.setOutPointMs(clipBeforeOutMs);
                 snapped = true;
             }
         }
@@ -1056,6 +1082,29 @@ public final class LayerGestureController {
                 newOut = Math.min(newOut, ceil - offset + dragStartTrimInMs);
                 newOut = Math.max(newOut, dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS);
                 ac.setOutPointMs(newOut);
+            }
+        } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            Clip c = item.getClip();
+            long srcDur = c.getSourceDurationMs();
+            if (srcDur <= 0) return;
+            long offset = c.getOverlayStartMs();
+            long startExtentEnd = offset + (dragStartTrimOutMs - dragStartTrimInMs);
+            if (left) {
+                long newIn = Math.max(0, Math.min(dragStartTrimOutMs - AUDIO_MIN_TRIM_GAP_MS,
+                        targetTimeMs - offset));
+                long proposedEnd = offset + (dragStartTrimOutMs - newIn);
+                long ceil = Math.max(trimSiblingCeil(offset, proposedEnd), startExtentEnd);
+                newIn = Math.max(newIn, offset + dragStartTrimOutMs - ceil);
+                newIn = Math.min(newIn, dragStartTrimOutMs - AUDIO_MIN_TRIM_GAP_MS);
+                c.setInPointMs(Math.max(0, newIn));
+            } else {
+                long newOut = Math.max(dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS,
+                        Math.min(srcDur, targetTimeMs - offset));
+                long proposedEnd = offset + (newOut - dragStartTrimInMs);
+                long ceil = Math.max(trimSiblingCeil(offset, proposedEnd), startExtentEnd);
+                newOut = Math.min(newOut, ceil - offset + dragStartTrimInMs);
+                newOut = Math.max(newOut, dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS);
+                c.setOutPointMs(newOut);
             }
         }
     }
@@ -1257,6 +1306,8 @@ public final class LayerGestureController {
             o.setTimeRange(newStartMs, newEnd);
         } else if (item.getAudioClip() != null) {
             item.getAudioClip().setOffsetMs(newStartMs);
+        } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            item.getClip().setOverlayStartMs(newStartMs);
         }
     }
 
@@ -1277,6 +1328,8 @@ public final class LayerGestureController {
                 o.setTimeRange(dragStartTimelineMs, end);
             } else if (item.getAudioClip() != null) {
                 item.getAudioClip().setOffsetMs(audioBeforeOffsetMs);
+            } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                item.getClip().setOverlayStartMs(clipBeforeStartMs);
             }
         } else {
             if (item.getTextOverlay() != null) {
@@ -1285,6 +1338,9 @@ public final class LayerGestureController {
                 AudioClip ac = item.getAudioClip();
                 ac.setInPointMs(audioBeforeInMs);
                 ac.setOutPointMs(audioBeforeOutMs);
+            } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                item.getClip().setInPointMs(clipBeforeInMs);
+                item.getClip().setOutPointMs(clipBeforeOutMs);
             }
         }
         callback.onGestureLive(item); // refresh preview/timeline with the restored state
@@ -1298,6 +1354,9 @@ public final class LayerGestureController {
     public long getAudioBeforeOffsetMs() { return audioBeforeOffsetMs; }
     public long getAudioBeforeInMs() { return audioBeforeInMs; }
     public long getAudioBeforeOutMs() { return audioBeforeOutMs; }
+    public long getClipBeforeStartMs() { return clipBeforeStartMs; }
+    public long getClipBeforeInMs() { return clipBeforeInMs; }
+    public long getClipBeforeOutMs() { return clipBeforeOutMs; }
 
     // ── M10: drag-state queries for the caller's LayerRowRenderer#layout call ──
 
@@ -1315,4 +1374,21 @@ public final class LayerGestureController {
 
     /** True if the active MOVE gesture is currently hovering the new-layer drop zone. */
     public boolean isHoveringNewLayerZone() { return hoverNewLayerZone; }
+
+    /** Guard: a payload may only be dropped on a track whose kind accepts it. */
+    private static boolean payloadCompatible(@NonNull TimedItem item, @NonNull Track candidate) {
+        if (item.getClip() != null) {
+            return candidate.getKind() == TrackKind.VIDEO || candidate.getKind() == TrackKind.IMAGE;
+        }
+        if (item.getTextOverlay() != null) {
+            return candidate.getKind() == TrackKind.TEXT || candidate.getKind() == TrackKind.STICKER;
+        }
+        if (item.getSprite() != null) {
+            return candidate.getKind() == TrackKind.SPRITE;
+        }
+        if (item.getAudioClip() != null) {
+            return candidate.getKind() == TrackKind.AUDIO;
+        }
+        return false;
+    }
 }

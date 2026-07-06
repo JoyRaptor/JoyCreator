@@ -9451,6 +9451,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
                     prepareAudioPlayer();
+                } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                    Clip oc = item.getClip();
+                    long beforeStart = ctrl.getClipBeforeStartMs();
+                    long beforeIn = ctrl.getClipBeforeInMs();
+                    long beforeOut = ctrl.getClipBeforeOutMs();
+                    long afterStart = oc.getOverlayStartMs();
+                    long afterIn = oc.getInPointMs();
+                    long afterOut = oc.getOutPointMs();
+                    if (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE) {
+                        boolean positionChanged = beforeStart != afterStart;
+                        if (positionChanged || trackChange != null) {
+                            String desc = trackChange != null ? trackChange.description : "Move PiP";
+                            undoManager.recordAction(mergedAction(desc,
+                                    positionChanged ? () -> oc.setOverlayStartMs(afterStart) : null,
+                                    positionChanged ? () -> oc.setOverlayStartMs(beforeStart) : null,
+                                    trackChange));
+                        }
+                    } else if (beforeIn != afterIn || beforeOut != afterOut) {
+                        undoManager.recordAction(mergedAction("Trim PiP",
+                                () -> { oc.setInPointMs(afterIn); oc.setOutPointMs(afterOut); },
+                                () -> { oc.setInPointMs(beforeIn); oc.setOutPointMs(beforeOut); },
+                                null));
+                    } else {
+                        maybeRecordTrackOnlyChange(trackChange);
+                    }
                 }
                 syncTimelineOverlays();
                 scheduleAutoSave();
@@ -9466,6 +9491,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     deleteTextOverlayWithConfirmation(item.getTextOverlay());
                 } else if (item.getAudioClip() != null) {
                     deleteAudioClipWithConfirmation(item.getAudioClip());
+                } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                    deleteOverlayClipWithConfirmation(item.getClip());
                 }
             }
 
@@ -9559,7 +9586,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return null;
         final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
         final AudioClip audioPayload = item.getAudioClip();
-        if (textPayload == null && audioPayload == null) return null; // master/clip items unreachable here
+        final Clip clipPayload = item.getClip();
+        if (textPayload == null && audioPayload == null && (clipPayload == null || !clipPayload.isOverlayClip())) return null;
         // "text"/"audio" are the fixed default-track ids the migration always assigns;
         // storing null (rather than the literal string) for a move BACK to the default
         // track keeps old-shaped/never-touched items indistinguishable from ones
@@ -9567,20 +9595,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // convention for layerId — see ProjectStorage).
         final String toStored = ("text".equals(toTrackId) || "audio".equals(toTrackId)) ? null : toTrackId;
         final String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
+        // CRITICAL: overlay clip's layerId must NEVER be null (null = master-clip semantics;
+        // isOverlayClip() breaks). Store the literal toTrackId always.
+        final String clipToStored = toTrackId;
+        final String clipFromStored = fromTrackId != null ? fromTrackId : "video";
         if (textPayload != null) textPayload.setLayerId(toStored);
-        else audioPayload.setLayerId(toStored);
+        else if (audioPayload != null) audioPayload.setLayerId(toStored);
+        else if (clipPayload != null) clipPayload.setLayerId(clipToStored);
         syncTimelineOverlays();
         maybeRemoveEmptyLayerTrack(fromTrackId);
         return new PendingLayerTrackUndo("Move to layer",
                 () -> {
                     if (textPayload != null) textPayload.setLayerId(toStored);
-                    else audioPayload.setLayerId(toStored);
+                    else if (audioPayload != null) audioPayload.setLayerId(toStored);
+                    else if (clipPayload != null) clipPayload.setLayerId(clipToStored);
                     syncTimelineOverlays();
                     maybeRemoveEmptyLayerTrack(fromTrackId);
                 },
                 () -> {
                     if (textPayload != null) textPayload.setLayerId(fromStored);
-                    else audioPayload.setLayerId(fromStored);
+                    else if (audioPayload != null) audioPayload.setLayerId(fromStored);
+                    else if (clipPayload != null) clipPayload.setLayerId(clipFromStored);
                     syncTimelineOverlays();
                 });
     }
@@ -9722,6 +9757,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     scheduleAutoSave();
                     Toast.makeText(FaditorEditorActivity.this, "Audio clip removed", Toast.LENGTH_SHORT).show();
+                })
+                .show();
+    }
+
+    private void deleteOverlayClipWithConfirmation(@NonNull Clip clip) {
+        if (project == null) return;
+        Timeline timeline = project.getTimeline();
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Remove video overlay?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Remove", (d, w) -> {
+                    undoManager.recordAction(new EditActions.LambdaAction("Remove video overlay",
+                            () -> timeline.removeOverlayClip(clip),
+                            () -> timeline.addOverlayClip(clip)));
+                    timeline.removeOverlayClip(clip);
+                    syncTimelineOverlays();
+                    editorTimeline.invalidate();
+                    scheduleAutoSave();
+                    Toast.makeText(FaditorEditorActivity.this, "Video overlay removed", Toast.LENGTH_SHORT).show();
                 })
                 .show();
     }

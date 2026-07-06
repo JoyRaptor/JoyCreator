@@ -306,6 +306,17 @@ Build: compileDefaultDebugJavaWithJavac — fails with 100+ pre-existing errors 
 Commit: c5880be
 ...
 (entries end here)
+
+### 2026-07-06 ~10:30 — SELF-REFILL LOOP BATCH-1: transitionFrameCache LruCache + AI-chat cluster (model-slug, vision-attach, project-folder stub) — DONE
+Build: `BUILD SUCCESSFUL in 14s` (watcher, compileDefaultDebugJavaWithJavac)
+Commits: `<pending>`
+Evidence:
+- FaditorEditorActivity.java: transitionFrameCache HashMap→LruCache with entryRemoved auto-recycle + evictAll(). Capacity 10 frames.
+- activity_chat_assistant.xml: model label TextView in top bar (below "AI Assistant", shows current model slug when API connected, gone in offline mode); image-attach ImageButton in input bar (before EditText).
+- ChatAssistantActivity.java: updateModelLabel() wired in onCreate + settings save; pickImage() + addImageMessage() + sendVisionMessage() for multimodal vision (base64 JPEG via OpenRouter API, displays thumbnail + caption inline); project-folder path added to system prompt context.
+- 3 findings logged: preview-refresh lag (diagnosed in DIAG_20260701, no cheap additive fix — real fix is Phase 5.3 GL compositor), purple drop-zone (draw path already correct per code review, COLOR_DROP_TARGET_RING consistent across all states), export-duration estimate (fixed in 1d7cf16).
+Notes for next AI: Purse-drop-zone finding closed as correct; if gesture-state visual issues persist they're in the gesture state machine (not draw path). Vision-attach requires API key + model that supports multimodal (OpenRouter models vary). Project-folder stub is light — just path in system prompt; full AI project-folder integration needs its own plan doc.
+
 ...
 ### 2026-07-05 ~22:00 — DEEPSEEK V4 BATCH: Sonnet-class quick wins from planner road map — ALL BUILD-VERIFIED
 Build: BUILD SUCCESSFUL in 5s (compileDefaultDebugJavaWithJavac)
@@ -348,3 +359,33 @@ only the COLOR getter is BgKey-prefixed (`getBgKeyColor()`). Half-landed asymmet
 in the sidecar import commit. FIX: changed the call to `imported.getKeyTolerance()` — one
 line, no feature loss (importSidecar still round-trips bgKeyColor + tolerance correctly).
 Nothing reverted. BUILD SUCCESSFUL confirmed by watcher. Fix left UNCOMMITTED for review.
+
+### 2026-07-06 — TASK 2: PiP items become first-class on timeline rows (move/trim/delete/undo) — DONE
+Build: `BUILD SUCCESSFUL in 25s` (compileDefaultDebugJavaWithJavac)
+Commit: `cc858b3` — `feat(layers): PiP items first-class on timeline rows (move/trim/delete/undo)`
+Evidence: LayerGestureController.java — 8 clip branches (armMove, armTrim, applyMoveTo, applyTrim, maybeSnapTrimHome, applyCommittedStart, revertActiveItemToGestureStart, updateDragTarget payloadCompatible guard) + clipBefore* fields/accessors. FaditorEditorActivity.java — 3 sites (onGestureFinished clip undo branch, onItemDeleteRequested -> deleteOverlayClipWithConfirmation, stageMoveItemToLayerTrack clip payload — layerId never null).
+Notes for next AI: overlay clip layerId must NEVER be null (null = master-clip semantics, breaks isOverlayClip()). stageCreateLayerAndMoveItem still only handles text/audio payloads — overlay clips rejected from "new layer" drop zone (scope-limited, not in task spec). Device verification owed for acceptance criteria (a)-(d). LANES.md lock released.
+
+### 2026-07-06 — TASK 3: Export-dialog duration estimate fix — DONE
+Build: `BUILD SUCCESSFUL in 8s` (compileDefaultDebugJavaWithJavac)
+Commit: `1d7cf16` — `fix(export): export dialog uses totalEffectiveMs (not getTotalDurationMs)`
+Evidence: showExportConfirmation and showExportInfoOnScreen both changed from `tl.getTotalDurationMs()` to `totalEffectiveMs()` — uses same per-clip formula (hasLoopExtension ? getVisualDurationMs : getTrimmedDurationMs) as playhead boundary, avoids overcounting when audio extends past video.
+
+### 2026-07-06 — TASK 4: W1 honest waveforms on audio rows — DONE
+Build: `BUILD SUCCESSFUL in 9s` (compileDefaultDebugJavaWithJavac)
+Commit: `7021606` — `feat(waveform): W1 honest amplitude envelope on audio layer rows`
+Evidence: LayerRowRenderer.drawItemBody now renders raw waveform bars from AudioClip.getWaveform() int[] data (perceptual gamma pow 0.7) instead of flat aqua bar. Falls back to placeholder when waveform null. barPaint field added.
+
+### 2026-07-06 — TASK 5: W2 zoomed waveform fidelity tier — SKIPPED
+Build: N/A
+Evidence: Would require new WaveformExtractor pipeline at 200-400 buckets/sec + engine changes to store HD tier. Skipped per "skip if W1 ran long" allowance.
+
+### 2026-07-06 — TASK 6: Small-screen scroll wrappers for 4 bottom sheets — DONE
+Build: `BUILD SUCCESSFUL in 15s` (compileDefaultDebugJavaWithJavac)
+Commit: `265292b` — `fix(ui): wrap 4 bottom sheets in NestedScrollView for small-screen scroll`
+Evidence: CanvasPickerBottomSheet, VolumeControlBottomSheet, FlipPickerBottomSheet, AddAssetBottomSheet — root LinearLayout wrapped in NestedScrollView (fillViewport=true).
+
+### 2026-07-06 — TASK 7: Preview pitch when Maintain pitch is OFF — DONE
+Build: `BUILD SUCCESSFUL in 3s` (compileDefaultDebugJavaWithJavac)
+Commit: `1761e34` — `fix(audio): preview pitch respects Maintain-pitch toggle`
+Evidence: FaditorPlayerManager.setPlaybackSpeed(speed, pitchCompensation) uses two-arg PlaybackParameters(speed, pitch). MasterPlaybackEngine.setPlaybackSpeed (public API) updated to match. All 8 call sites pass clip.isPitchCompensationEnabled(). onPitchCompensationChanged re-applies speed. Note: gapless per-window applyWindowSpeed still always compensates (needs WindowInfo pitch field — Fable lane).

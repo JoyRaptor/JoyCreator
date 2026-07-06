@@ -24,15 +24,31 @@
             android:tint="#FFFFFFFF"
             android:contentDescription="Close" />
 
-        <TextView
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="AI Assistant"
-            android:textColor="#FFFFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginStart="8dp" />
+            android:orientation="vertical"
+            android:layout_marginStart="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AI Assistant"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/chat_model_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FF888888"
+                android:textSize="10sp"
+                android:singleLine="true"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <ImageButton
             android:id="@+id/chat_settings"
@@ -147,13 +163,13 @@
         android:padding="8dp">
 
         <ImageButton
-            android:id="@+id/chat_mic"
+            android:id="@+id/chat_attach"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_btn_speak_now"
-            android:tint="#FF4CAF50"
-            android:contentDescription="Voice input" />
+            android:src="@android:drawable/ic_menu_gallery"
+            android:tint="#FF888888"
+            android:contentDescription="Attach image" />
 
         <EditText
             android:id="@+id/chat_input"
@@ -167,6 +183,15 @@
             android:padding="12dp"
             android:maxLines="4"
             android:inputType="textMultiLine|textCapSentences" />
+
+        <ImageButton
+            android:id="@+id/chat_mic"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_btn_speak_now"
+            android:tint="#FF4CAF50"
+            android:contentDescription="Voice input" />
 
         <ImageButton
             android:id="@+id/chat_send"

@@ -3,7 +3,10 @@ package com.fadcam.ui.faditor.ai;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,6 +19,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -33,7 +37,9 @@ import com.fadcam.SharedPreferencesManager;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -75,6 +81,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private ImageButton sendButton;
     private ScrollView scrollContainer;
     private LinearLayout tickerContainer;
+    private TextView modelLabel;
     private final List<View> messageViews = new ArrayList<>();
 
     // Status bar UI
@@ -198,6 +205,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         sendButton.setOnClickListener(v -> sendMessage());
         findViewById(R.id.chat_back).setOnClickListener(v -> finish());
+
+        modelLabel = findViewById(R.id.chat_model_label);
+        updateModelLabel();
+
+        ImageButton btnAttach = findViewById(R.id.chat_attach);
+        btnAttach.setOnClickListener(v -> pickImage());
 
         ImageButton btnSettings = findViewById(R.id.chat_settings);
         btnSettings.setOnClickListener(v -> showSettingsDialog());
@@ -325,6 +338,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private static final int VOICE_REQUEST_CODE = 1001;
+    private static final int IMAGE_PICK_REQUEST_CODE = 1002;
 
     private void startVoiceInput() {
         try {
@@ -338,6 +352,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
     }
 
+    private void pickImage() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        startActivityForResult(intent, IMAGE_PICK_REQUEST_CODE);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -349,7 +370,165 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 inputField.setSelection(inputField.getText().length());
                 inputField.requestFocus();
             }
+        } else if (requestCode == IMAGE_PICK_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+            Uri imageUri = data.getData();
+            if (imageUri != null) {
+                try {
+                    // Read the image into a bitmap and show it as an attached image message
+                    InputStream in = getContentResolver().openInputStream(imageUri);
+                    if (in != null) {
+                        Bitmap bitmap = BitmapFactory.decodeStream(in);
+                        in.close();
+                        if (bitmap != null) {
+                            addImageMessage(bitmap, imageUri);
+                        } else {
+                            addBotMessage("Could not decode the selected image.");
+                        }
+                    }
+                } catch (Exception e) {
+                    addBotMessage("Error reading image: " + e.getMessage());
+                }
+            }
         }
+    }
+
+    /** Show an attached image as a user message and send it to the AI for vision analysis. */
+    private void addImageMessage(@NonNull Bitmap bitmap, @NonNull Uri imageUri) {
+        // Take a temporary persistence grant so the URI stays readable
+        try {
+            getContentResolver().takePersistableUriPermission(imageUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (Exception ignored) { }
+
+        // Show the attached image inline
+        LinearLayout wrapper = new LinearLayout(this);
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        wrapper.setBackgroundResource(R.drawable.chat_bubble_user);
+        wrapper.setPadding(dp(8), dp(8), dp(8), dp(8));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(60), dp(4), dp(8), dp(4));
+        wrapper.setLayoutParams(lp);
+
+        // Image preview (thumbnail, max 240dp)
+        ImageView iv = new ImageView(this);
+        int maxDim = dp(120);
+        float scale = Math.min((float) maxDim / bitmap.getWidth(), (float) maxDim / bitmap.getHeight());
+        Bitmap thumb = Bitmap.createScaledBitmap(bitmap,
+                Math.max(1, (int) (bitmap.getWidth() * scale)),
+                Math.max(1, (int) (bitmap.getHeight() * scale)), true);
+        iv.setImageBitmap(thumb);
+        iv.setAdjustViewBounds(true);
+        iv.setMaxHeight(dp(240));
+        iv.setPadding(0, 0, 0, dp(4));
+        wrapper.addView(iv);
+
+        // Caption text
+        TextView caption = new TextView(this);
+        caption.setText("[Attached image] Describe what you see.");
+        caption.setTextColor(0xFFAAAAAA);
+        caption.setTextSize(12);
+        wrapper.addView(caption);
+
+        messagesContainer.addView(wrapper);
+        messageViews.add(wrapper);
+        addTickerTick(true);
+        scrollToBottom();
+
+        // Reset input to "describe this image" context
+        inputField.setText("Describe what's in this image.");
+
+        // Encode the full-size bitmap as base64 for the AI vision API
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos);
+        byte[] imageBytes = baos.toByteArray();
+        String base64 = android.util.Base64.encodeToString(imageBytes, android.util.Base64.NO_WRAP);
+
+        // Send as a multimodal vision message if API key is set
+        if (apiKey != null && !apiKey.isEmpty()) {
+            sendVisionMessage(base64, bitmap.getWidth(), bitmap.getHeight());
+        } else {
+            addBotMessage("I can see an image is attached. "
+                    + "Connect an API key (top-right settings) for AI vision analysis.");
+        }
+        bitmap.recycle();
+    }
+
+    /** Send a multimodal vision message to the AI with an image (base64 JPEG). */
+    private void sendVisionMessage(@NonNull String base64Image, int imgW, int imgH) {
+        addBotMessage("Thinking...");
+
+        aiExecutor.execute(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("model", model);
+                body.put("max_tokens", 1024);
+                body.put("temperature", 0.7);
+
+                // Build multimodal content: text + image
+                JSONArray content = new JSONArray();
+
+                JSONObject textPart = new JSONObject();
+                textPart.put("type", "text");
+                textPart.put("text", inputField.getText().toString().trim());
+                content.put(textPart);
+
+                JSONObject imagePart = new JSONObject();
+                JSONObject imageUrl = new JSONObject();
+                imageUrl.put("url", "data:image/jpeg;base64," + base64Image);
+                imagePart.put("type", "image_url");
+                imagePart.put("image_url", imageUrl);
+                content.put(imagePart);
+
+                JSONObject userMsg = new JSONObject();
+                userMsg.put("role", "user");
+                userMsg.put("content", content);
+                conversationHistory.add(userMsg);
+
+                // Build the request body with messages including the system prompt
+                JSONArray messages = new JSONArray();
+                for (JSONObject msg : conversationHistory) messages.put(msg);
+
+                body.put("messages", messages);
+
+                Request request = new Request.Builder()
+                        .url(DEFAULT_ENDPOINT)
+                        .addHeader("Authorization", "Bearer " + apiKey)
+                        .addHeader("Content-Type", "application/json")
+                        .post(RequestBody.create(body.toString(), JSON))
+                        .build();
+
+                Response response = httpClient.newCall(request).execute();
+                String responseBody = response.body() != null ? response.body().string() : "";
+
+                if (!response.isSuccessful()) {
+                    runOnUiThread(() -> updateLastBotMessage(
+                            "API error " + response.code() + ": "
+                                    + responseBody.substring(0, Math.min(200, responseBody.length()))));
+                    return;
+                }
+
+                JSONObject json = new JSONObject(responseBody);
+                JSONArray choices = json.optJSONArray("choices");
+                if (choices == null || choices.length() == 0) {
+                    runOnUiThread(() -> updateLastBotMessage("Empty response from AI."));
+                    return;
+                }
+
+                String aiText = choices.getJSONObject(0)
+                        .getJSONObject("message")
+                        .getString("content");
+
+                JSONObject aiMsg = new JSONObject();
+                aiMsg.put("role", "assistant");
+                aiMsg.put("content", aiText);
+                conversationHistory.add(aiMsg);
+
+                runOnUiThread(() -> updateLastBotMessage(aiText));
+            } catch (Exception e) {
+                runOnUiThread(() -> updateLastBotMessage("Vision error: " + e.getMessage()));
+            }
+        });
     }
 
     private void initSystemPrompt() {
@@ -398,6 +577,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.model.FaditorProject proj = storage.load(projectId);
                     if (proj != null) {
                         sb.append("Project: ").append(proj.getName()).append("\n");
+                        sb.append("Project folder: ").append(
+                                new java.io.File(getFilesDir(), "faditor/projects/" + projectId).getAbsolutePath()
+                        ).append("\n");
                         sb.append("Clips: ").append(proj.getTimeline().getClipCount()).append("\n");
                         com.fadcam.ui.faditor.model.Timeline tl = proj.getTimeline();
                         for (int i = 0; i < tl.getClipCount(); i++) {
@@ -859,6 +1041,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                             .apply();
                     apiKey = key;
                     model = mdl;
+                    updateModelLabel();
                     addBotMessage("Settings updated. Model: " + model
                             + (key.isEmpty() ? " (offline mode)" : " (connected)"));
                 })
@@ -1261,5 +1444,20 @@ public class ChatAssistantActivity extends AppCompatActivity {
         super.onDestroy();
         AIChatState.chatActive = false;
         aiExecutor.shutdownNow();
+    }
+
+    /** Update the model-slug label to show the current model name. */
+    private void updateModelLabel() {
+        if (modelLabel == null) return;
+        boolean hasKey = apiKey != null && !apiKey.isEmpty();
+        if (hasKey && model != null && !model.isEmpty() && !DEFAULT_MODEL.equals(model)) {
+            modelLabel.setText(model);
+            modelLabel.setVisibility(View.VISIBLE);
+        } else if (hasKey) {
+            modelLabel.setText("connected");
+            modelLabel.setVisibility(View.VISIBLE);
+        } else {
+            modelLabel.setVisibility(View.GONE);
+        }
     }
 }

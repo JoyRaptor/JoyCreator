@@ -7720,24 +7720,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // for the same frame every tick; decoding once (the keyframe is identical across
     // the short window anyway) keeps the scrub smooth instead of snagging on each
     // getFrameAtTime/decodeStream call. Cleared in hideTransitionPreview().
-    private final java.util.HashMap<String, Bitmap> transitionFrameCache = new java.util.HashMap<>();
+    // Uses LruCache (was HashMap) for bounded memory: evicted bitmaps are recycled
+    // automatically via entryRemoved. Capacity = 10 frames (enough for the visible
+    // transition window + a few cached from adjacent clips).
+    private final android.util.LruCache<String, Bitmap> transitionFrameCache =
+            new android.util.LruCache<String, Bitmap>(10) {
+                @Override
+                protected void entryRemoved(boolean evicted, String key,
+                        Bitmap oldValue, Bitmap newValue) {
+                    if (oldValue != null && !oldValue.isRecycled()) oldValue.recycle();
+                }
+            };
     // Keys that failed to decode (e.g. broken SAF link) — don't retry the slow,
     // failing setDataSource/getFrameAtTime on every scrub tick.
     private final java.util.HashSet<String> transitionFrameFailed = new java.util.HashSet<>();
 
     @Nullable
     private Bitmap cachedTransitionFrame(@NonNull String key) {
-        Bitmap b = transitionFrameCache.get(key);
-        return (b != null && !b.isRecycled()) ? b : null;
+        return transitionFrameCache.get(key);
     }
 
     private void clearTransitionFrameCache() {
         transitionFrameFailed.clear();
-        if (transitionFrameCache.isEmpty()) return;
-        for (Bitmap b : transitionFrameCache.values()) {
-            if (b != null && !b.isRecycled()) b.recycle();
-        }
-        transitionFrameCache.clear();
+        transitionFrameCache.evictAll();
     }
 
     @Nullable

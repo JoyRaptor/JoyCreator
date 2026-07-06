@@ -17,12 +17,27 @@ how they avoid clobbering each other. Protocol — no exceptions:
    the on-disk state is what matters).
 5. `git status` is the fallback truth: if the other agent's claimed files are dirty in
    the tree, treat the claim as live even if the timestamp is old.
+6. **SOLE BUILDER: never run gradle/gradlew.** The user's watcher is the ONE builder.
+   Compile-verify by SAVING and reading `build.log` for a fresh `BUILD SUCCESSFUL`.
+   Two gradle processes corrupt the resource merge (missing `.flat` → "100 class R
+   errors"). If `build.log` won't update, STOP and tell the user — never invoke gradle.
+7. **DEVICE is single-owner.** Before ANY device command (`am start`, `input`,
+   `screencap`, `screenrecord`, `logcat`), read the `DEVICE:` token below. Take it only
+   when it reads `free` (or the holder is IDLE): set `DEVICE: <you>`, do your batch,
+   then set it back to `free`. Never drive the device while the other agent holds it.
+
+## DEVICE TOKEN
+DEVICE: free
+(Fable owns it during hard interactive device-loops; opencode does code+compile-only
+and BATCHES its device-verify into windows when this reads `free` / Fable is IDLE.)
 
 **Standing (permanent) Fable locks — never touch regardless of this board:**
-`export/ExportManager.java`, `export/BlendModeGlEffect.java` (when it appears),
-`project/ProjectStorage.java`, `compositor/MasterPlaybackEngine.java`,
-`compositor/OverlayVideoPreviewView.java`, `compositor/DecoderBudgetProbeActivity.java`,
-`avatar/PuppetPoseResolver.java`, `avatar/AvatarRig.java`.
+`export/ExportManager.java`, `export/BlendModeGlEffect.java`, `export/PipFrameOverlay.java`,
+`export/CompositeExportOverlay.java`, `project/ProjectStorage.java`,
+`compositor/MasterPlaybackEngine.java`, `compositor/OverlayVideoPreviewView.java`,
+`compositor/LayerPreviewController.java`, `compositor/DecoderBudgetProbeActivity.java`,
+`avatar/PuppetPoseResolver.java`, `avatar/AvatarRig.java`, `avatar/PinWarpStrip.java`,
+`avatar/DangleSim.java`, `avatar/PuppetPreviewView.java`, `avatar/FabrikSolver.java`.
 
 ---
 
@@ -38,6 +53,8 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE
-since: 2026-07-06 (AI copy btn + ticker nav deployed; awaiting TASK 8 results)
-files: (none)
+status: ACTIVE
+since: 2026-07-06 ~10:00 (self-refilling loop start: investigate 3 findings + AI-chat cluster + quick-wins §A/§C + W2 + portability Tier-2)
+files: tasks/LANES.md, tasks/Opencode-work.md, LayerRowRenderer.java (draw paths), ChatAssistantActivity.java, AIToolExecutor.java,
+        FaditorEditorActivity.java (export-dialog, project-title rename), various §A/§C files, EditorTimelineView.java (draw paths),
+        PLAN_studio_drawers_redesign.md items, new portability classes

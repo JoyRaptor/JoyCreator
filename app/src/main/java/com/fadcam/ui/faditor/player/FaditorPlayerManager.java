@@ -615,16 +615,18 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * Set the playback speed for preview (does not affect export).
      *
      * @param speed multiplier (e.g. 0.5 = half speed, 2.0 = double speed)
+     * @param pitchCompensation true to keep original pitch, false to shift with speed
      */
-    public void setPlaybackSpeed(float speed) {
+    public void setPlaybackSpeed(float speed, boolean pitchCompensation) {
+        float pitch = pitchCompensation ? 1.0f : speed;
         if (gapless()) {
-            gaplessEngine.setPlaybackSpeed(speed);
+            gaplessEngine.setPlaybackSpeed(speed, pitchCompensation);
             return;
         }
         if (player != null) {
             player.setPlaybackParameters(
-                    new androidx.media3.common.PlaybackParameters(speed));
-            FLog.d(TAG, "Playback speed set to " + speed + "x");
+                    new androidx.media3.common.PlaybackParameters(speed, pitch));
+            FLog.d(TAG, "Playback speed set to " + speed + "x (pitchCompensation=" + pitchCompensation + ")");
         }
     }
 

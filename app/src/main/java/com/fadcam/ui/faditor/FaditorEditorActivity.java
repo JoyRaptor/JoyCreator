@@ -753,7 +753,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // relinked clips whose stored duration may be stale).
                 durationCorrectionPending = true;
                 playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
-                playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
+                playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
                 updatePreviewTransforms();
             }
 
@@ -1337,7 +1337,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         hideSlidePreview();
                         loadClipForPlayback(clip);
                         playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
-                        playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
+                        playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
                         updatePreviewTransforms();
                     }
                 }
@@ -1415,7 +1415,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 if (playerManager != null) {
                                     loadClipForPlayback(clip);
                                     playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
-                                playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
+                                playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
                                 updatePreviewTransforms();
 
                                 // Seek to the playhead position within the newly loaded clip
@@ -3182,7 +3182,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Sync initial volume and speed from clip state
         playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
-        playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
+        playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
     }
 
     /**
@@ -3230,7 +3230,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Per-clip volume + speed follow the new window (engine sets speed too, but keep the
         // UI + LoudnessEnhancer path here identical to advanceToSegment's non-player half).
         playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
-        playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier());
+        playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier(), nextClip.isPitchCompensationEnabled());
         updatePreviewTransforms();
         // Re-home the playhead to the new clip's start ONLY when playback auto-advanced across the
         // cut. For a user-initiated cross-item SEEK (ruler tap/scrub), onPlayheadSeeked already set
@@ -4944,7 +4944,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             clip, oldSpeed, speed));
                 }
                 clip.setSpeedMultiplier(speed);
-                playerManager.setPlaybackSpeed(speed);
+                playerManager.setPlaybackSpeed(speed, clip.isPitchCompensationEnabled());
                 updateSpeedUI(speed);
                 scheduleAutoSave();
             }
@@ -4952,6 +4952,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onPitchCompensationChanged(boolean enabled) {
                 clip.setPitchCompensationEnabled(enabled);
+                playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), enabled);
                 scheduleAutoSave();
             }
         });
@@ -7896,7 +7897,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             hideImagePreview();
             loadClipForPlayback(nextClip);
             playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
-            playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier());
+            playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier(), nextClip.isPitchCompensationEnabled());
             updatePreviewTransforms();
             if (autoPlay) {
                 playerManager.play();
@@ -8621,7 +8622,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!clip.isImageClip()) {
             playerManager.updateTrimBounds(clip);
             playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
-            playerManager.setPlaybackSpeed(clip.getSpeedMultiplier());
+            playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
         }
 
         // Update toolbar UI

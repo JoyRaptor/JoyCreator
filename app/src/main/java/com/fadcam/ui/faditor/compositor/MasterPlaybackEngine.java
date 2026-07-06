@@ -710,8 +710,11 @@ public class MasterPlaybackEngine {
         return player != null && player.getPlaybackState() == Player.STATE_ENDED;
     }
 
-    public void setPlaybackSpeed(float speed) {
-        if (player != null) player.setPlaybackParameters(new PlaybackParameters(speed));
+    public void setPlaybackSpeed(float speed, boolean pitchCompensation) {
+        if (player != null) {
+            float pitch = pitchCompensation ? 1.0f : speed;
+            player.setPlaybackParameters(new PlaybackParameters(speed, pitch));
+        }
     }
 
     public void setExactSeek(boolean exact) {

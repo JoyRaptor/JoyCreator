@@ -8873,7 +8873,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     new java.util.ArrayList<>(tl.getLayers());
             layerBand.addAll(tl.getVisualizerTracks());
             layerBand.addAll(tl.getCaptionTracks());
-            editorTimeline.setLayerTracks(layerBand, tl.getAudioTracks());
+            // Audio consolidation (FEEDBACK #1 "two extract-from-video audio bars"): suppress the
+            // NEW headered audio rows. They were a half-functional DUPLICATE of the complete old
+            // audio system — every primary audio op (volume keyframes, split, per-clip mute,
+            // trim-to-selection, delete-selected, etc.) anchors on the OLD timeline audio selection
+            // (EditorTimelineView#getSelectedAudioIndex), which the new rows don't drive. Showing
+            // both gave two audio bars AND a second selection that couldn't run those ops. The old
+            // audio bars stay as the single, coherent audio UI. Full migration of audio into the
+            // unified LayerRowRenderer (re-anchoring those ~9 ops to the new selection) is a
+            // dedicated follow-up — see tasks/LANES.md.
+            editorTimeline.setLayerTracks(layerBand, java.util.Collections.emptyList());
             // M-COMP-1: re-bind the preview overlay layers from the (possibly track-
             // hidden-filtered) Track model. TextOverlayLayer already got the filtered
             // list via overlayLayer.setData(...) at each of its own call sites; here we

@@ -70,6 +70,9 @@ public class AvatarStudioActivity extends AppCompatActivity {
 
     private int armedCol = -1, armedRow = -1;
     @Nullable private String selectedPartId;
+    /** A6 pin authoring mode: disarmed = edit the REST chain, armed = pose pins. */
+    private boolean pinMode;
+    private TextView pinsChip, pinDelChip;
     private int partCounter = 0;
 
     private float density() { return getResources().getDisplayMetrics().density; }
@@ -147,6 +150,9 @@ public class AvatarStudioActivity extends AppCompatActivity {
         preview.setDragEnabled(armed);
         matrix.setArmed(armedCol, armedRow);
         syncPoseControls();
+        // A6: arming while pin mode is on re-targets pin editing to the armed
+        // cell's pose (explicit user action → creation allowed).
+        if (pinMode) syncPinEditing(true);
         resolveNow();
         updateHint();
     }
@@ -180,6 +186,11 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 pose.cellIndex = cur.cellIndex;
                 pose.flipH = cur.flipH;
                 pose.flipV = cur.flipV;
+                // A6: the blended warp pins are part of "what you see" — snapshot
+                // them too, so arming then posing pins starts from the blend.
+                for (float[] pin : cur.pins) {
+                    pose.pins.add(new float[]{pin[0], pin[1]});
+                }
             }
             cell.poses.add(pose);
         }
@@ -403,6 +414,9 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 pose != null ? pose.rotationDeg : 0f));
         flipHChip.setBackgroundColor(pose != null && pose.flipH ? 0xFF4A3B5C : 0xFF26262E);
         flipVChip.setBackgroundColor(pose != null && pose.flipV ? 0xFF4A3B5C : 0xFF26262E);
+        // A6: keep pin editing bound to the current part/armed target — PEEK
+        // only (never creates a pose from a passive sync).
+        if (pinsChip != null) syncPinEditing(false);
     }
 
     private void editArmedPose(@NonNull java.util.function.Consumer<AvatarRig.PartPose> edit) {
@@ -411,6 +425,118 @@ public class AvatarStudioActivity extends AppCompatActivity {
         if (pose == null) return;
         edit.accept(pose);
         syncPoseControls();
+        resolveNow();
+    }
+
+    // ── A6 pin authoring ──────────────────────────────────────────────────
+
+    /**
+     * Re-binds the preview's pin-edit surface to the current target: the selected
+     * part's REST chain while disarmed, or the ARMED cell's posed pins (created +
+     * seeded on entry — explicit user action, unlike the peek-only sync rule).
+     * Rest edits keep the {@link PinWarpStrip} top→bottom convention: adds insert
+     * sorted by y, moves clamp y between neighbors, and any COUNT change re-seeds
+     * every cell pose's pins for that part (a count mismatch would silently drop
+     * the whole warp to rigid — worse than losing per-cell pin tweaks).
+     */
+    private void syncPinEditing(boolean allowCreate) {
+        AvatarRig.Part part = selectedPartId != null ? rig.partById(selectedPartId) : null;
+        if (!pinMode || part == null) {
+            pinMode = false;
+            preview.setPinEditing(null, null);
+            pinsChip.setBackgroundColor(0xFF26262E);
+            pinDelChip.setAlpha(0.35f);
+            updateHint();
+            return;
+        }
+        pinsChip.setBackgroundColor(0xFF1B4A3B);
+        java.util.List<float[]> target;
+        boolean editingRest = armedCol < 0;
+        if (editingRest) {
+            target = part.restPins;
+        } else {
+            // Peek on passive syncs — creating a pose here would resurrect a
+            // just-cleared cell (the peek-only sync rule). Creation happens only
+            // on the explicit chip toggle / cell arm (allowCreate).
+            AvatarRig.PartPose pose = allowCreate ? ensureArmedPose(part.id) : armedPosePeek();
+            if (pose == null) {
+                preview.setPinEditing(null, null);
+                pinDelChip.setAlpha(0.35f);
+                return;
+            }
+            if (pose.pins.size() != part.restPins.size()) {
+                if (!allowCreate) { preview.setPinEditing(null, null); return; }
+                pose.pins.clear();
+                for (float[] pin : part.restPins) {
+                    pose.pins.add(new float[]{pin[0], pin[1]});
+                }
+            }
+            target = pose.pins;
+        }
+        pinDelChip.setAlpha(editingRest && !part.restPins.isEmpty() ? 1f : 0.35f);
+        final AvatarRig.Part fPart = part;
+        final boolean fRest = editingRest;
+        preview.setPinEditing(target, new PuppetPreviewView.PinEditListener() {
+            @Override
+            public void onPinAdd(float cellX, float cellY) {
+                if (!fRest) {
+                    Toast.makeText(AvatarStudioActivity.this,
+                            R.string.avatar_studio_pin_add_disarmed, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                // Insert keeping y ascending (the warp convention).
+                int at = 0;
+                while (at < fPart.restPins.size()
+                        && fPart.restPins.get(at)[1] < cellY) at++;
+                fPart.restPins.add(at, new float[]{cellX, cellY});
+                reseedCellPins(fPart);
+                syncPinEditing(false); // re-bind (list identity + delete-chip state)
+                resolveNow();
+            }
+
+            @Override
+            public void onPinMove(int index, float cellX, float cellY) {
+                java.util.List<float[]> pins = fRest ? fPart.restPins : target;
+                if (index < 0 || index >= pins.size()) return;
+                float y = cellY;
+                if (fRest) {
+                    // Clamp between neighbors so the chain stays monotonic.
+                    if (index > 0) y = Math.max(y, pins.get(index - 1)[1] + 0.01f);
+                    if (index < pins.size() - 1) y = Math.min(y, pins.get(index + 1)[1] - 0.01f);
+                }
+                pins.get(index)[0] = cellX;
+                pins.get(index)[1] = y;
+                resolveNow();
+            }
+        });
+        updateHint();
+    }
+
+    /** Rest-chain count changed → every cell pose of this part re-seeds (identity). */
+    private void reseedCellPins(@NonNull AvatarRig.Part part) {
+        int reseeded = 0;
+        for (AvatarRig.PoseDomain d : rig.getDomains()) {
+            for (AvatarRig.Cell cell : d.cells) {
+                AvatarRig.PartPose pose = cell.poseFor(part.id);
+                if (pose == null) continue;
+                pose.pins.clear();
+                for (float[] pin : part.restPins) {
+                    pose.pins.add(new float[]{pin[0], pin[1]});
+                }
+                reseeded++;
+            }
+        }
+        if (reseeded > 0) {
+            Toast.makeText(this, R.string.avatar_studio_pins_reseeded, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void deleteLastRestPin() {
+        AvatarRig.Part part = selectedPartId != null ? rig.partById(selectedPartId) : null;
+        if (!pinMode || armedCol >= 0 || part == null || part.restPins.isEmpty()) return;
+        part.restPins.remove(part.restPins.size() - 1);
+        reseedCellPins(part);
+        syncPinEditing(false);
         resolveNow();
     }
 
@@ -558,6 +684,17 @@ public class AvatarStudioActivity extends AppCompatActivity {
         mirrorChip = chip(getString(R.string.avatar_studio_mirror));
         mirrorChip.setOnClickListener(v -> mirrorArmedPose());
         controls.addView(mirrorChip, chipLp());
+
+        // A6 pin authoring: toggle chip + delete-last (rest mode only).
+        pinsChip = chip(getString(R.string.avatar_studio_pins));
+        pinsChip.setOnClickListener(v -> {
+            pinMode = !pinMode;
+            syncPinEditing(true);
+        });
+        controls.addView(pinsChip, chipLp());
+        pinDelChip = chip(getString(R.string.avatar_studio_pin_del));
+        pinDelChip.setOnClickListener(v -> deleteLastRestPin());
+        controls.addView(pinDelChip, chipLp());
 
         TextView clearCell = chip(getString(R.string.avatar_studio_clear_cell));
         clearCell.setOnClickListener(v -> clearArmedCell());

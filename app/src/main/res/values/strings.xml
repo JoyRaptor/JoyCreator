@@ -1177,6 +1177,10 @@
     <string name="avatar_studio_flip_v">Flip V</string>
     <string name="avatar_studio_mirror">Mirror ⇋</string>
     <string name="avatar_studio_mirrored">Mirrored to the opposite cell</string>
+    <string name="avatar_studio_pins">⌖ Pins</string>
+    <string name="avatar_studio_pin_del">✕ pin</string>
+    <string name="avatar_studio_pin_add_disarmed">Disarm the cell to add or remove pins (rest chain)</string>
+    <string name="avatar_studio_pins_reseeded">Cell pins re-seeded from the rest chain</string>
     <string name="avatar_studio_clear_cell">Clear cell</string>
     <string name="avatar_studio_cell_cleared">Cell cleared — auto-blends again</string>
     <string name="faditor_tools_all_title">All tools</string>

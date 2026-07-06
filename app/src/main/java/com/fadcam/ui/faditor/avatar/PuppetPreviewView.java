@@ -56,6 +56,19 @@ public class PuppetPreviewView extends View {
         void onPartDragged(float dxNorm, float dyNorm);
     }
 
+    /**
+     * A6 pin authoring. The view renders/hit-tests the pin list the activity
+     * supplies (rest chain OR an armed cell's posed pins — the view doesn't
+     * know which; model writes stay in the activity, single-authority rule)
+     * and reports edits in CELL space (0..1 of the selected part's art box).
+     */
+    public interface PinEditListener {
+        /** Tap on empty part art — activity may add a pin here (rest mode only). */
+        void onPinAdd(float cellX, float cellY);
+        /** A handle is being dragged (continuous). */
+        void onPinMove(int index, float cellX, float cellY);
+    }
+
     @Nullable private AvatarRig rig;
     @Nullable private Map<String, PuppetPoseResolver.PartState> resolved;
     /** sheetId → renderer (null result = missing art). Owned by the activity. */
@@ -81,12 +94,30 @@ public class PuppetPreviewView extends View {
     /** partId → the cell shown BEFORE the current one (crossfade source). */
     private final java.util.Map<String, Integer> lastCell = new java.util.HashMap<>();
 
+    // A6 pin authoring state (null = pin mode off).
+    @Nullable private List<float[]> pinEditing;
+    @Nullable private PinEditListener pinListener;
+    private final Paint pinFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint pinRing = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint pinLink = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Matrix invMatrix = new Matrix();
+    private int draggingPin = -1;
+    private boolean pinMoved;
+    private float pinDownX, pinDownY;
+
     private float lastX, lastY;
     private boolean dragging = false;
 
     public PuppetPreviewView(Context ctx) {
         super(ctx);
         setBackgroundColor(0xFF15151A);
+        pinFill.setColor(0xFF64FFDA);
+        pinRing.setStyle(Paint.Style.STROKE);
+        pinRing.setStrokeWidth(3f);
+        pinRing.setColor(0xFF15151A);
+        pinLink.setStyle(Paint.Style.STROKE);
+        pinLink.setStrokeWidth(2f);
+        pinLink.setColor(0x9964FFDA);
         missingPaint.setStyle(Paint.Style.STROKE);
         missingPaint.setStrokeWidth(3f);
         missingPaint.setColor(0xFFE040FB);
@@ -145,8 +176,62 @@ public class PuppetPreviewView extends View {
         if (!enabled) dragging = false;
     }
 
+    /**
+     * A6: enter/exit pin editing. {@code pins} is the LIVE list the activity is
+     * editing (rest chain or armed pose pins, in cell space) — the view renders
+     * handles for it on the selected part and reports edits via {@code l}.
+     * Null exits pin mode. Pin mode takes touch priority over pose-drag.
+     */
+    public void setPinEditing(@Nullable List<float[]> pins, @Nullable PinEditListener l) {
+        this.pinEditing = pins;
+        this.pinListener = pins == null ? null : l;
+        this.draggingPin = -1;
+        invalidate();
+    }
+
+    /** Art-box geometry of a part in its LOCAL space: {dw, dh, left, top}. */
+    @Nullable
+    private float[] partBox(@NonNull AvatarRig.Part part) {
+        SpriteSheetRenderer r = rendererLookup != null ? rendererLookup.apply(part.sheetId) : null;
+        float shortSide = Math.min(getWidth(), getHeight());
+        float dw = shortSide * PART_BASE_FRACTION;
+        float aspect = r != null ? r.cellAspect() : 1f;
+        float dh = aspect > 0 ? dw / aspect : dw;
+        float ax = part.anchorX != null ? part.anchorX : (r != null ? sheetPivotX(part) : 0.5f);
+        float ay = part.anchorY != null ? part.anchorY : (r != null ? sheetPivotY(part) : 0.5f);
+        return new float[]{dw, dh, -ax * dw, -ay * dh};
+    }
+
+    /** world ∘ flip matrix for a part — the full local→view transform. */
+    @NonNull
+    private Matrix fullPartMatrix(@NonNull AvatarRig.Part part) {
+        Matrix m = new Matrix();
+        PuppetPoseResolver.PartState ps = resolved != null ? resolved.get(part.id) : null;
+        if (ps != null && (ps.flipH || ps.flipV)) {
+            m.setScale(ps.flipH ? -1f : 1f, ps.flipV ? -1f : 1f);
+        }
+        m.postConcat(worldMatrix(part));
+        return m;
+    }
+
+    /** Maps a view-space touch into the selected part's CELL space, or null. */
+    @Nullable
+    private float[] viewToCell(@NonNull AvatarRig.Part part, float vx, float vy) {
+        float[] box = partBox(part);
+        if (box == null || box[0] <= 0 || box[1] <= 0) return null;
+        if (!fullPartMatrix(part).invert(invMatrix)) return null;
+        float[] pt = {vx, vy};
+        invMatrix.mapPoints(pt);
+        return new float[]{(pt[0] - box[2]) / box[0], (pt[1] - box[3]) / box[1]};
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        // A6 pin mode takes priority over pose-drag while active.
+        if (pinEditing != null && selectedPartId != null && rig != null) {
+            AvatarRig.Part part = rig.partById(selectedPartId);
+            if (part != null && handlePinTouch(e, part)) return true;
+        }
         if (!dragEnabled || selectedPartId == null) return false;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -172,6 +257,73 @@ public class PuppetPreviewView extends View {
         return false;
     }
 
+    /** Pin-mode gesture: drag a handle to move it, tap empty part art to add. */
+    private boolean handlePinTouch(@NonNull MotionEvent e, @NonNull AvatarRig.Part part) {
+        List<float[]> pins = pinEditing;
+        if (pins == null) return false;
+        float slop = 28f * getResources().getDisplayMetrics().density / 2f;
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                pinDownX = e.getX();
+                pinDownY = e.getY();
+                pinMoved = false;
+                draggingPin = -1;
+                float[] box = partBox(part);
+                if (box == null) return false;
+                Matrix m = fullPartMatrix(part);
+                for (int i = 0; i < pins.size(); i++) {
+                    float[] pt = {box[2] + pins.get(i)[0] * box[0],
+                                  box[3] + pins.get(i)[1] * box[1]};
+                    m.mapPoints(pt);
+                    if (Math.hypot(pt[0] - e.getX(), pt[1] - e.getY()) <= slop * 2) {
+                        draggingPin = i;
+                        break;
+                    }
+                }
+                float[] cell = viewToCell(part, e.getX(), e.getY());
+                boolean insideArt = cell != null
+                        && cell[0] >= -0.05f && cell[0] <= 1.05f
+                        && cell[1] >= -0.05f && cell[1] <= 1.05f;
+                if (draggingPin >= 0 || insideArt) {
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    return true;
+                }
+                return false;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                if (Math.hypot(e.getX() - pinDownX, e.getY() - pinDownY) > 8) pinMoved = true;
+                if (draggingPin >= 0 && draggingPin < pins.size() && pinListener != null) {
+                    float[] cell = viewToCell(part, e.getX(), e.getY());
+                    if (cell != null) {
+                        pinListener.onPinMove(draggingPin,
+                                clamp01(cell[0]), clamp01(cell[1]));
+                        invalidate();
+                    }
+                }
+                return true;
+            }
+            case MotionEvent.ACTION_UP: {
+                if (!pinMoved && draggingPin < 0 && pinListener != null) {
+                    float[] cell = viewToCell(part, e.getX(), e.getY());
+                    if (cell != null) {
+                        pinListener.onPinAdd(clamp01(cell[0]), clamp01(cell[1]));
+                        invalidate();
+                    }
+                }
+                draggingPin = -1;
+                return true;
+            }
+            case MotionEvent.ACTION_CANCEL:
+                draggingPin = -1;
+                return true;
+        }
+        return false;
+    }
+
+    private static float clamp01(float v) {
+        return Math.max(0f, Math.min(1f, v));
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         int w = getWidth(), h = getHeight();
@@ -191,6 +343,38 @@ public class PuppetPreviewView extends View {
             if (ps == null) continue;
             workMatrix.set(worldMatrix(part));
             drawPart(canvas, part, ps, workMatrix);
+        }
+
+        // A6 pin authoring overlay: handles + chain links for the edited list,
+        // drawn in VIEW space so handle size stays finger-sized at any part scale.
+        if (pinEditing != null && selectedPartId != null) {
+            AvatarRig.Part part = rig.partById(selectedPartId);
+            float[] box = part != null ? partBox(part) : null;
+            if (part != null && box != null && box[0] > 0) {
+                Matrix m = fullPartMatrix(part);
+                float density = getResources().getDisplayMetrics().density;
+                float radius = 9f * density;
+                float prevX = 0, prevY = 0;
+                for (int i = 0; i < pinEditing.size(); i++) {
+                    float[] pt = {box[2] + pinEditing.get(i)[0] * box[0],
+                                  box[3] + pinEditing.get(i)[1] * box[1]};
+                    m.mapPoints(pt);
+                    if (i > 0) canvas.drawLine(prevX, prevY, pt[0], pt[1], pinLink);
+                    prevX = pt[0];
+                    prevY = pt[1];
+                }
+                for (int i = 0; i < pinEditing.size(); i++) {
+                    float[] pt = {box[2] + pinEditing.get(i)[0] * box[0],
+                                  box[3] + pinEditing.get(i)[1] * box[1]};
+                    m.mapPoints(pt);
+                    canvas.drawCircle(pt[0], pt[1], radius, pinFill);
+                    canvas.drawCircle(pt[0], pt[1], radius, pinRing);
+                    missingText.setColor(0xFF15151A);
+                    canvas.drawText(String.valueOf(i + 1), pt[0],
+                            pt[1] + missingText.getTextSize() / 3f, missingText);
+                    missingText.setColor(0xFFE040FB);
+                }
+            }
         }
     }
 

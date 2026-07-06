@@ -1,5 +1,26 @@
 # FadCam AI Handoff
 
+> **🌙 2026-07-06 ~03:35 — AUTONOMOUS RUN #1 (3:01 wakeup): M-EXPORT-2 FULLY COMPLETE + review fixes.**
+> **Blend modes LANDED + DEVICE-PROVEN (fc3055a):** `export/BlendModeGlEffect` (MULTIPLY/SCREEN/OVERLAY/ADD
+> against the ACCUMULATED frame, GlTransitionExportEffect pattern) fed by `export/PipFrameOverlay` (MMR
+> frames positioned by the SAME transform conventions as the NORMAL pass; both BitmapOverlay texture-identity
+> traps handled — new-instance-per-live-frame AND identity-stable transparent for empty paths). Inserted
+> BEFORE the text OverlayEffect (preview z-rule); CompositeExportOverlay skips non-NORMAL (no double
+> composite). ACCEPTANCE: MULTIPLY over the black gap clip → PiP-region luma 82.2→17.1, control region
+> byte-identical (diff 0.0), pipFrames 171→0 proves the skip. Preview shows NORMAL for blend clips (probe #4
+> rule: export = ground truth). Blend-picker UI awaits the user's design call — engine ready.
+> **ADVERSARIAL REVIEW of the 07-06 landings — 2 CONFIRMED defects fixed:** (03b9d59) PiP MMR extraction/
+> release now share one lock (the GlTransitionFrameOverlay thread-safety precedent); (d6850c1) unposed rig
+> fell back to NOTHING — rest chain now doubles as the pose (identity warp) so freshly authored pins +
+> dangle are live without arming a cell (was a silent authoring dead-end). All six JVM harnesses re-run ALL
+> GREEN. PLAUSIBLE-but-unconfirmed (noted, not churned): GRAVITY/damping are px-based → feel varies with
+> density (feel-test knob anyway); dangle rest lengths go stale if the view resizes (studio is orientation-
+> locked); armed pin-editing with a count-mismatched pose silently hides handles until re-toggle.
+> **Preview-honesty clamp also landed:** PiP now clipped to the video content rect (setClipBounds), closing
+> the review's overhang divergence. Sandbox restored to NORMAL blend; manifest flips reverted.
+> **REMAINING for next runs:** PiP still-frame fallback (2nd+ simultaneous overlay), per-part mesh density,
+> handoff consolidation. GATED: A2 MediaPipe dep, blend UI design, main phone.
+
 > **🪂 2026-07-07 ~00:35 — A6 DANGLE PHYSICS LANDED + DEVICE-PROVEN (00733aa). A6 build phase COMPLETE
 > minus the A2-gated tracking hookup.** `avatar/DangleSim` (deterministic verlet chain, anchor-motion
 > excitation, FABRIK-style final normalization = exact bone lengths at ANY whip violence — the harness

@@ -25,10 +25,19 @@ import java.util.Map;
  * composing parent∘child transforms at draw time exactly as the doctrine
  * assigns to renderers.
  *
- * <p>Scaffold scope: Canvas + rigid parts (no pin warp — that's the limb
- * phase's GL renderer), followWeight treated as full inheritance (=1) with the
- * attenuated path deferred to the tracking phase. Missing sheet art draws the
- * S7-style MISSING placeholder, never crashes.</p>
+ * <p>A6: parts carrying a {@link AvatarRig.Part#restPins} chain draw through the
+ * PIN-WARP path — {@link PinWarpStrip} builds the vertex grid and
+ * {@code Canvas.drawBitmapMesh} warps the cell art along the RESOLVED pin chain
+ * (the plan's "GL renderer" premise was wrong: Canvas mesh-draw does sparse
+ * vertex warps natively, which keeps preview/export on the same drawing stack).
+ * The resolver's {@code swapped} signal starts a PIN-SNAP CROSSFADE: the
+ * previous cell draws over the new one for {@value #CROSSFADE_MS}ms with both
+ * warped by the SAME vertex grid — the swap happens over identical geometry and
+ * reads as a smooth turn (plan §Pin-warp). Convention violations (short chain,
+ * non-monotonic rest pins, missing art) fall back to the rigid draw — never
+ * crash, never garble. followWeight is treated as full inheritance (=1) with
+ * the attenuated path deferred to the tracking phase. Missing sheet art draws
+ * the S7-style MISSING placeholder.</p>
  *
  * <p>When an armed cell + selected part are set, one-finger drag on the canvas
  * reports normalized deltas so the activity can pose that part in the cell.</p>
@@ -37,6 +46,10 @@ public class PuppetPreviewView extends View {
 
     /** A root part's neutral width as a fraction of the canvas' short side. */
     private static final float PART_BASE_FRACTION = 0.34f;
+    /** Warp mesh bands — plenty at puppet scale (plan: ~8–20 triangles/limb). */
+    private static final int WARP_SEGMENTS = 10;
+    /** Pin-snap crossfade window after a discrete cell swap (plan §Pin-warp). */
+    private static final long CROSSFADE_MS = 130;
 
     public interface Listener {
         /** Drag while a cell is armed: deltas normalized to the view's size. */
@@ -55,8 +68,18 @@ public class PuppetPreviewView extends View {
     private final Paint missingText = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint selectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bgGrid = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint warpPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     private final Matrix workMatrix = new Matrix();
     private final RectF workRect = new RectF();
+
+    // A6: cell-bitmap cache for drawBitmapMesh (a sheet cell is a sub-rect; mesh
+    // draw needs its own Bitmap). Keyed sheetId/cellIndex; cleared on bind().
+    private final java.util.Map<String, android.graphics.Bitmap> cellBitmaps =
+            new java.util.HashMap<>();
+    /** partId → crossfade state from the resolver's swapped signal. */
+    private final java.util.Map<String, long[]> swapAtMs = new java.util.HashMap<>();
+    /** partId → the cell shown BEFORE the current one (crossfade source). */
+    private final java.util.Map<String, Integer> lastCell = new java.util.HashMap<>();
 
     private float lastX, lastY;
     private boolean dragging = false;
@@ -83,11 +106,30 @@ public class PuppetPreviewView extends View {
                      @Nullable java.util.function.Function<String, SpriteSheetRenderer> rendererLookup) {
         this.rig = rig;
         this.rendererLookup = rendererLookup;
+        for (android.graphics.Bitmap b : cellBitmaps.values()) {
+            if (b != null && !b.isRecycled()) b.recycle();
+        }
+        cellBitmaps.clear();
+        swapAtMs.clear();
+        lastCell.clear();
         invalidate();
     }
 
     /** New resolved state from the activity's resolve pass. */
     public void setResolved(@Nullable Map<String, PuppetPoseResolver.PartState> r) {
+        // A6 pin-snap crossfade bookkeeping: catch the swapped edge BEFORE the
+        // draw pass consumes the new cell, remembering which cell fades out.
+        if (r != null) {
+            long now = android.os.SystemClock.uptimeMillis();
+            for (Map.Entry<String, PuppetPoseResolver.PartState> e : r.entrySet()) {
+                PuppetPoseResolver.PartState ps = e.getValue();
+                Integer prev = lastCell.get(e.getKey());
+                if (ps.swapped && prev != null && prev != ps.cellIndex) {
+                    swapAtMs.put(e.getKey(), new long[]{now, prev});
+                }
+                lastCell.put(e.getKey(), ps.cellIndex);
+            }
+        }
         this.resolved = r;
         invalidate();
     }
@@ -207,7 +249,41 @@ public class PuppetPreviewView extends View {
             canvas.scale(ps.flipH ? -1f : 1f, ps.flipV ? -1f : 1f);
         }
         if (r != null) {
-            r.drawCell(canvas, ps.cellIndex, workRect, null);
+            // A6: warp when the part carries a valid rest chain and the resolver
+            // supplied matching posed pins; anything off-contract = rigid draw.
+            float[] verts = warpVertsFor(part, ps, dw, dh);
+            long[] swap = swapAtMs.get(part.id);
+            float fade = crossfadeAlpha(swap);
+            if (verts != null) {
+                android.graphics.Bitmap cell = cellBitmapFor(part.sheetId, r, ps.cellIndex);
+                if (cell != null) {
+                    warpPaint.setAlpha(255);
+                    canvas.drawBitmapMesh(cell, 1, WARP_SEGMENTS, verts, 0, null, 0, warpPaint);
+                    // Pin-snap crossfade: the OLD cell rides the SAME verts, so the
+                    // swap happens over identical geometry (plan §Pin-warp).
+                    if (fade > 0f && swap != null) {
+                        android.graphics.Bitmap prev =
+                                cellBitmapFor(part.sheetId, r, (int) swap[1]);
+                        if (prev != null) {
+                            warpPaint.setAlpha(Math.round(fade * 255));
+                            canvas.drawBitmapMesh(prev, 1, WARP_SEGMENTS, verts, 0, null, 0, warpPaint);
+                            warpPaint.setAlpha(255);
+                        }
+                        postInvalidateOnAnimation();
+                    }
+                } else {
+                    r.drawCell(canvas, ps.cellIndex, workRect, null);
+                }
+            } else {
+                r.drawCell(canvas, ps.cellIndex, workRect, null);
+                if (fade > 0f && swap != null) {
+                    // Rigid parts crossfade too (same signal, same window).
+                    warpPaint.setAlpha(Math.round(fade * 255));
+                    r.drawCell(canvas, (int) swap[1], workRect, warpPaint);
+                    warpPaint.setAlpha(255);
+                    postInvalidateOnAnimation();
+                }
+            }
         } else {
             canvas.drawRect(workRect, missingPaint);
             canvas.drawText(part.id + "?", workRect.centerX(),
@@ -217,6 +293,60 @@ public class PuppetPreviewView extends View {
             canvas.drawRect(workRect, selectPaint);
         }
         canvas.restore();
+    }
+
+    /** Fading weight of a crossfade window, 0 when absent/expired. */
+    private float crossfadeAlpha(@Nullable long[] swap) {
+        if (swap == null) return 0f;
+        long age = android.os.SystemClock.uptimeMillis() - swap[0];
+        if (age >= CROSSFADE_MS) return 0f;
+        return 1f - age / (float) CROSSFADE_MS;
+    }
+
+    /**
+     * A6 warp verts for a part in its LOCAL draw space (the same space workRect
+     * lives in — the world matrix is already on the canvas). Posed pins are
+     * item-normalized (resolver contract) and map into the part's cell box; the
+     * rest chain comes from {@link AvatarRig.Part#restPins}. Returns null on any
+     * contract violation → rigid fallback.
+     */
+    @Nullable
+    private float[] warpVertsFor(@NonNull AvatarRig.Part part,
+                                 @NonNull PuppetPoseResolver.PartState ps,
+                                 float dw, float dh) {
+        if (part.restPins.size() < PinWarpStrip.MIN_PINS) return null;
+        if (ps.pins.size() != part.restPins.size()) return null;
+        java.util.List<float[]> posed = new java.util.ArrayList<>(ps.pins.size());
+        for (float[] pin : ps.pins) {
+            posed.add(new float[]{
+                    workRect.left + pin[0] * dw,
+                    workRect.top + pin[1] * dh});
+        }
+        return PinWarpStrip.buildMeshVerts(part.restPins, posed, dw, WARP_SEGMENTS);
+    }
+
+    /** Decode-once cell bitmap for mesh drawing (a cell is a sheet sub-rect). */
+    @Nullable
+    private android.graphics.Bitmap cellBitmapFor(@NonNull String sheetId,
+                                                  @NonNull SpriteSheetRenderer r,
+                                                  int cellIndex) {
+        String key = sheetId + "/" + cellIndex;
+        if (cellBitmaps.containsKey(key)) {
+            android.graphics.Bitmap cached = cellBitmaps.get(key);
+            // null stays cached (failed extraction — no per-frame retry storm).
+            return cached != null && !cached.isRecycled() ? cached : null;
+        }
+        try {
+            android.graphics.Rect src = r.cellRectBitmap(cellIndex);
+            if (src.width() <= 0 || src.height() <= 0) return null;
+            android.graphics.Bitmap cell = android.graphics.Bitmap.createBitmap(
+                    r.getBitmap(), src.left, src.top, src.width(), src.height());
+            cellBitmaps.put(key, cell);
+            return cell;
+        } catch (RuntimeException e) {
+            cellBitmaps.put(key, null); // no per-frame retry storm
+            return null;
+        }
     }
 
     private float sheetPivotX(@NonNull AvatarRig.Part part) {
@@ -240,5 +370,14 @@ public class PuppetPreviewView extends View {
     @Nullable
     private com.fadcam.ui.faditor.sprite.SpriteSheet sheetOf(@NonNull AvatarRig.Part part) {
         return sheetLookup != null ? sheetLookup.apply(part.sheetId) : null;
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        for (android.graphics.Bitmap b : cellBitmaps.values()) {
+            if (b != null && !b.isRecycled()) b.recycle();
+        }
+        cellBitmaps.clear();
     }
 }

@@ -61,6 +61,14 @@ public class AvatarRig {
         public int z = 0;
         /** Optional "dangle" physics tag (hair/ears/tail) — cheap verlet, A6. */
         public boolean dangle = false;
+        /**
+         * A6 pin-warp: where the pin chain sits ON THE ARTWORK — the REST chain in
+         * cell space ({@code [x,y]} 0..1, top→bottom monotonic in y per the
+         * {@link PinWarpStrip} authoring convention). Empty = rigid part (no warp).
+         * Per-cell {@link PartPose#pins} are the POSED positions the resolver
+         * blends; this is the fixed art-space reference they deform against.
+         */
+        @NonNull public final List<float[]> restPins = new ArrayList<>();
 
         public Part(@NonNull String id, @NonNull String sheetId) {
             this.id = id;
@@ -159,6 +167,17 @@ public class AvatarRig {
             if (p.followWeight != 1f) pj.addProperty("followWeight", p.followWeight);
             if (p.z != 0) pj.addProperty("z", p.z);
             if (p.dangle) pj.addProperty("dangle", true);
+            if (!p.restPins.isEmpty()) {
+                // Same [x,y]-pair shape as PartPose pins.
+                JsonArray pins = new JsonArray();
+                for (float[] pin : p.restPins) {
+                    JsonArray one = new JsonArray();
+                    one.add(pin[0]);
+                    one.add(pin[1]);
+                    pins.add(one);
+                }
+                pj.add("restPins", pins);
+            }
             pArr.add(pj);
         }
         j.add("parts", pArr);
@@ -236,6 +255,17 @@ public class AvatarRig {
                 if (pj.has("followWeight")) p.followWeight = pj.get("followWeight").getAsFloat();
                 if (pj.has("z")) p.z = pj.get("z").getAsInt();
                 if (pj.has("dangle")) p.dangle = pj.get("dangle").getAsBoolean();
+                if (pj.has("restPins") && pj.get("restPins").isJsonArray()) {
+                    JsonArray pins = pj.getAsJsonArray("restPins");
+                    for (int q = 0; q < pins.size(); q++) {
+                        // Tolerant read: each pin must be a [x,y] pair; skip anything else.
+                        if (!pins.get(q).isJsonArray()) continue;
+                        JsonArray one = pins.get(q).getAsJsonArray();
+                        if (one.size() < 2) continue;
+                        p.restPins.add(new float[]{
+                                one.get(0).getAsFloat(), one.get(1).getAsFloat()});
+                    }
+                }
                 rig.parts.add(p);
             }
         }

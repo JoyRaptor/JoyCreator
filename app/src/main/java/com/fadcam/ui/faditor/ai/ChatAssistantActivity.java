@@ -1,20 +1,27 @@
 package com.fadcam.ui.faditor.ai;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -67,6 +74,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private EditText inputField;
     private ImageButton sendButton;
     private ScrollView scrollContainer;
+    private LinearLayout tickerContainer;
+    private final List<View> messageViews = new ArrayList<>();
 
     // Status bar UI
     private View statusBar;
@@ -177,6 +186,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         inputField = findViewById(R.id.chat_input);
         sendButton = findViewById(R.id.chat_send);
         scrollContainer = findViewById(R.id.chat_scroll);
+        tickerContainer = findViewById(R.id.chat_ticker);
+        rebuildTicker();
 
         statusBar = findViewById(R.id.chat_status_bar);
         statusText = findViewById(R.id.chat_status_text);
@@ -868,34 +879,72 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void addUserMessage(@NonNull String text) {
         synchronized (messageLog) { messageLog.add(new String[]{"user", text}); trimMessageLog(); }
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextIsSelectable(true);
-        tv.setTextColor(0xFFFFFFFF);
-        tv.setBackgroundResource(R.drawable.chat_bubble_user);
-        tv.setPadding(dp(14), dp(10), dp(14), dp(10));
+        FrameLayout wrapper = createMessageBubble(text, true);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(dp(60), dp(4), dp(8), dp(4));
-        tv.setLayoutParams(lp);
-        messagesContainer.addView(tv);
+        wrapper.setLayoutParams(lp);
+        messagesContainer.addView(wrapper);
+        messageViews.add(wrapper);
+        addTickerTick(true);
         scrollToBottom();
     }
 
     private void addBotMessage(@NonNull String text) {
         synchronized (messageLog) { messageLog.add(new String[]{"bot", text}); trimMessageLog(); }
-        TextView tv = new TextView(this);
-        tv.setText(text);
-        tv.setTextIsSelectable(true);
-        tv.setTextColor(0xFFDDDDDD);
-        tv.setBackgroundResource(R.drawable.chat_bubble_bot);
-        tv.setPadding(dp(14), dp(10), dp(14), dp(10));
+        FrameLayout wrapper = createMessageBubble(text, false);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(dp(8), dp(4), dp(60), dp(4));
-        tv.setLayoutParams(lp);
-        messagesContainer.addView(tv);
+        wrapper.setLayoutParams(lp);
+        messagesContainer.addView(wrapper);
+        messageViews.add(wrapper);
+        addTickerTick(false);
         scrollToBottom();
+    }
+
+    private FrameLayout createMessageBubble(@NonNull String text, boolean isUser) {
+        FrameLayout wrapper = new FrameLayout(this);
+
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextIsSelectable(true);
+        tv.setTextColor(isUser ? 0xFFFFFFFF : 0xFFDDDDDD);
+        tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_bot);
+        tv.setPadding(dp(14), dp(10), dp(14), dp(10));
+        tv.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT));
+        wrapper.addView(tv);
+
+        // Copy button at bottom-right corner
+        TextView copyBtn = new TextView(this);
+        copyBtn.setText("Copy");
+        copyBtn.setTextColor(0xFFBBBBBB);
+        copyBtn.setTextSize(10);
+        copyBtn.setPadding(dp(8), dp(4), dp(8), dp(4));
+        GradientDrawable copyBg = new GradientDrawable();
+        copyBg.setCornerRadius(dp(6));
+        copyBg.setColor(0xFF333333);
+        copyBtn.setBackground(copyBg);
+        FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT);
+        clp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+        clp.setMargins(0, 0, dp(4), dp(4));
+        copyBtn.setLayoutParams(clp);
+        copyBtn.setTag(text);
+        copyBtn.setOnClickListener(v -> {
+            ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (cm != null) {
+                cm.setPrimaryClip(ClipData.newPlainText("message", (CharSequence) v.getTag()));
+                Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
+            }
+        });
+        wrapper.addView(copyBtn);
+
+        wrapper.setPadding(0, 0, 0, dp(4));
+        return wrapper;
     }
 
     // ── Proposal confirmation cards (narrative reorder / b-roll) ─────
@@ -1127,7 +1176,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
         int count = messagesContainer.getChildCount();
         if (count > 0) {
             View last = messagesContainer.getChildAt(count - 1);
-            if (last instanceof TextView) {
+            if (last instanceof FrameLayout) {
+                FrameLayout fl = (FrameLayout) last;
+                if (fl.getChildCount() > 0 && fl.getChildAt(0) instanceof TextView) {
+                    ((TextView) fl.getChildAt(0)).setText(text);
+                }
+                if (fl.getChildCount() > 1) {
+                    fl.getChildAt(1).setTag(text);
+                }
+            } else if (last instanceof TextView) {
                 ((TextView) last).setText(text);
             }
         }
@@ -1155,6 +1212,44 @@ public class ChatAssistantActivity extends AppCompatActivity {
             messagesContainer.requestLayout();
         });
         scrollContainer.postDelayed(() -> scrollContainer.fullScroll(ScrollView.FOCUS_DOWN), 100);
+    }
+
+    private void addTickerTick(boolean isUser) {
+        if (tickerContainer == null) return;
+        View tick = new View(this);
+        int tickSize = dp(6);
+        int margin = dp(2);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(tickSize, tickSize);
+        lp.setMargins(0, margin, 0, margin);
+        lp.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        tick.setLayoutParams(lp);
+        GradientDrawable shape = new GradientDrawable();
+        shape.setShape(GradientDrawable.OVAL);
+        shape.setColor(isUser ? 0xFF666666 : 0xFF4CAF50);
+        tick.setBackground(shape);
+        final int idx = messageViews.size() - 1;
+        tick.setOnClickListener(v -> scrollToMessage(idx));
+        tickerContainer.addView(tick);
+    }
+
+    private void rebuildTicker() {
+        if (tickerContainer == null) return;
+        tickerContainer.removeAllViews();
+        for (int i = 0; i < messageViews.size(); i++) {
+            boolean isUser = false;
+            if (i < messageLog.size()) {
+                String[] entry = messageLog.get(i);
+                isUser = "user".equals(entry[0]);
+            }
+            addTickerTick(isUser);
+        }
+    }
+
+    private void scrollToMessage(int index) {
+        if (index < 0 || index >= messageViews.size()) return;
+        View target = messageViews.get(index);
+        int scrollY = target.getTop() - scrollContainer.getPaddingTop();
+        scrollContainer.smoothScrollTo(0, Math.max(0, scrollY));
     }
 
     private int dp(int value) {

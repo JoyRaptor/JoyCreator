@@ -28,8 +28,8 @@ how they avoid clobbering each other. Protocol — no exceptions:
 
 ## FABLE (Claude) — dynamic lane
 status: IDLE
-since: 2026-07-06 ~08:15 (run #2 landed: still-fallback bfb60f4, mesh density 4ede612,
-       handoff consolidated. Next wakeup 13:01, self-perpetuating +5h.)
+since: 2026-07-06 ~09:40 (z-unification landed a4fbeba — M-EXPORT-2 fully closed.
+       Tree clean. Ready for the Fable-day Tier-1 task: masking / A2 tracking / ping-pong unpark.)
 files: (none. Standing locks: avatar/PinWarpStrip.java, avatar/DangleSim.java,
        export/BlendModeGlEffect.java, export/PipFrameOverlay.java)
 NOTE (build infra): watcher + opencode gradle running CONCURRENTLY corrupts the
@@ -38,6 +38,6 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: ACTIVE
-since: 2026-07-06
-files: layers/LayerGestureController.java, faditor/FaditorEditorActivity.java
+status: IDLE
+since: 2026-07-06 (AI copy btn + ticker nav deployed; awaiting TASK 8 results)
+files: (none)

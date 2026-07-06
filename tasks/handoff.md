@@ -1,5 +1,18 @@
 # FadCam AI Handoff
 
+> **🎯 2026-07-06 ~23:15 — A6 PIN AUTHORING UI LANDED + DEVICE-PROVEN (0fc9365). A6 is now AUTHORABLE
+> end-to-end without JSON injection.** "⌖ Pins" chip in Avatar Studio: disarmed = edit the REST chain
+> (tap adds y-SORTED, drag moves with neighbor-clamped y — the PinWarpStrip monotonic convention is
+> UI-unviolable; count changes re-seed every cell's pose pins), armed = pose the armed cell's pins
+> (created/seeded only on explicit toggle/arm — passive syncs peek, Clear-cell can't be resurrected).
+> The warp deforms LIVE under the finger (resolveNow per move). DEVICE-PROVEN on the smoke rig: handles
+> render, drag persisted x 0.5→0.886, tap-add inserted sorted (y .786 before .9), 3 cells re-seeded to 4
+> pins, Save round-tripped to project.json, zero crashes. NOTE: screenrecord on this device now flakes
+> repeatedly (unfinalized moov) — `adb exec-out screencap -p` is fresh and reliable; prefer it for stills.
+> **A6 REMAINING (Fable):** FABRIK→posed-pins tracking hookup (A2, MediaPipe dep), dangle physics,
+> timeline/export warp surfaces (ride A4). **USER FEEL-TEST OWED (2 min):** Avatar Studio → "A6 Warp
+> Smoke" → ⌖ Pins → drag pins around (star re-warps live), sweep Yaw — does authoring feel right?
+
 > **✅ 2026-07-06 ~23:05 — A6 PIN-WARP DEVICE SMOKE PASSED (frame-proven on the Note 9).** Injected
 > "a6-smoke-rig" (3-pin arm, 1×3 yaw strip, cell swap at the right extreme) into the bdd51919 sandbox:
 > warp bends per the authored pins at BOTH yaw extremes, the discrete swap fires, and the pin-snap

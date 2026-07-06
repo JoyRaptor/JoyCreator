@@ -117,22 +117,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
             spriteRenderers = new java.util.HashMap<>();
     private final Paint spritePaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
 
-    // M-EXPORT-2: floating overlay-video (PiP) clips whose window intersects this
-    // item, z-ordered bottom→top. Frames come from one lazily-created
-    // MediaMetadataRetriever per clip (the GlTransitionFrameOverlay mechanism —
-    // probe #3 killed the second-video-sequence path: DefaultVideoCompositor draws
-    // the PRIMARY stream on top, so a second sequence composites the PiP UNDER the
-    // opaque master, invisible). Preview shows only the top-most visible PiP live;
-    // export composites ALL of them full-quality (documented plan §3.3 tradeoff).
-    private final List<Clip> overlayVideoClips;
-    private final java.util.Map<String, android.media.MediaMetadataRetriever> pipRetrievers =
-            new java.util.HashMap<>();
-    /** MMR is not thread-safe; guards frame extraction vs release() — the same
-     *  defensive lock GlTransitionFrameOverlay documents for the identical risk. */
-    private final Object pipRetrieverLock = new Object();
-    private final Paint pipPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
-    private boolean loggedPipDrawError = false;
-    private int framesWithPip = 0;
+    // (PiP drawing moved OUT to BlendModeGlEffect/PipFrameOverlay — the
+    // z-unification fix: all PiPs composite in the effect chain in z-order;
+    // this overlay keeps only sprites/text/captions/waveforms, which sit
+    // ABOVE every PiP per the preview stack.)
 
     public CompositeExportOverlay(@NonNull Context context,
                                    long clipTimelineStartMs,
@@ -142,8 +130,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<WaveformSlot> waveformSlots,
                                    @NonNull List<AudioClip> audioClips,
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> allSpriteItems,
-                                   @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets,
-                                   @NonNull List<Clip> allOverlayVideoClips) {
+                                   @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets) {
         this.context = context.getApplicationContext();
         this.clipTimelineStartMs = clipTimelineStartMs;
         this.clip = clip;
@@ -153,7 +140,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.textOverlays = filterTextOverlays(allTextOverlays);
         this.spriteItems = filterSpriteItems(allSpriteItems);
         this.spriteSheets = spriteSheets;
-        this.overlayVideoClips = filterOverlayVideoClips(allOverlayVideoClips);
         this.waveformSlots = waveformSlots;
         this.waveRenderer = new WaveformStyleRenderer();
 
@@ -218,53 +204,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
             out.add(o);
         }
         return out;
-    }
-
-    /** Same clip-window filter as sprites (visual-duration upper bound;
-     *  the per-frame window check does the exact gating). */
-    private List<Clip> filterOverlayVideoClips(List<Clip> all) {
-        List<Clip> out = new ArrayList<>();
-        for (Clip oc : all) {
-            long start = oc.getOverlayStartMs();
-            long end = start + Math.max(0, oc.getTrimmedDurationMs());
-            if (end < clipTimelineStartMs) continue;
-            if (start > clipVisualEndMs) continue;
-            out.add(oc);
-        }
-        return out;
-    }
-
-    /** Lazy per-clip retriever for PiP frame extraction; null (bad source) is NOT
-     *  cached — a transient failure logs once and retries next frame. */
-    @Nullable
-    private android.media.MediaMetadataRetriever pipRetrieverFor(@NonNull Clip oc) {
-        synchronized (pipRetrieverLock) {
-            android.media.MediaMetadataRetriever r = pipRetrievers.get(oc.getId());
-            if (r != null) return r;
-            try {
-                r = new android.media.MediaMetadataRetriever();
-                r.setDataSource(context, oc.getSourceUri());
-                pipRetrievers.put(oc.getId(), r);
-                return r;
-            } catch (Exception e) {
-                if (!loggedPipDrawError) {
-                    FLog.w(TAG, "PiP retriever failed for " + oc.getSourceUri()
-                            + " (logged once)", e);
-                    loggedPipDrawError = true;
-                }
-                return null;
-            }
-        }
-    }
-
-    /** Frame extraction under the same lock release() takes — an extraction racing
-     *  a release() would hit a dead retriever (the GlTransitionFrameOverlay risk). */
-    @Nullable
-    private Bitmap pipFrameAt(@NonNull android.media.MediaMetadataRetriever r, long sourceMs) {
-        synchronized (pipRetrieverLock) {
-            return r.getFrameAtTime(sourceMs * 1000L,
-                    android.media.MediaMetadataRetriever.OPTION_CLOSEST);
-        }
     }
 
     /** Lazy decode-once renderer per sheet; null (missing art) cached too. */
@@ -380,73 +319,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
         if (outW > 0 && outH > 0 && (frameW != outW || frameH != outH)) {
             canvas.scale(frameW / (float) outW, frameH / (float) outH);
         }
-
-        // M-EXPORT-2 overlay-video (PiP) — drawn FIRST of all overlay families:
-        // above the video frame, below waveform/sprite/text/captions, matching
-        // the preview stack (OverlayVideoPreviewView sits directly above the
-        // master surfaces). Transform sampled from the SAME KeyframeSet with the
-        // SAME defaults the preview uses (OverlayVideoPreviewView.DEFAULT_*), at
-        // the same absolute timelineMs — parity by shared convention. The scale
-        // reference is the full-fit box of the decoded frame in the canvas,
-        // identical to the preview's updateBaseLayout() math.
-        int drawnPip = 0;
-        int pipSaveCount = canvas.getSaveCount();
-        try {
-            for (Clip oc : overlayVideoClips) {
-                // M-EXPORT-2 blend: non-NORMAL clips composite via their own
-                // BlendModeGlEffect in the effect chain — drawing them here too
-                // would double-composite.
-                if (!"NORMAL".equals(oc.getOverlayBlendMode())) continue;
-                long ocStart = oc.getOverlayStartMs();
-                long ocEnd = ocStart + Math.max(0, oc.getTrimmedDurationMs());
-                // End-INCLUSIVE window, mirroring the preview's topVisibleAt.
-                if (timelineMs < ocStart || timelineMs > ocEnd) continue;
-                com.fadcam.ui.faditor.keyframe.KeyframeSet kf = oc.getOverlayTransform();
-                float opacity = kf == null ? 1f : Math.max(0f, Math.min(1f, kf.valueAt(
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, timelineMs, 1f)));
-                if (opacity <= 0.001f) continue;
-                android.media.MediaMetadataRetriever r = pipRetrieverFor(oc);
-                if (r == null) continue; // missing art: preview hides; export omits
-                long sourceMs = oc.getInPointMs() + (timelineMs - ocStart);
-                sourceMs = Math.min(sourceMs, Math.max(oc.getInPointMs(), oc.getOutPointMs() - 1));
-                Bitmap frame = pipFrameAt(r, sourceMs);
-                if (frame == null) continue;
-                final float dx = com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X;
-                final float dy = com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y;
-                final float ds = com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_SCALE;
-                float x = kf == null ? dx : kf.valueAt(
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.X, timelineMs, dx);
-                float y = kf == null ? dy : kf.valueAt(
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, timelineMs, dy);
-                float scale = kf == null ? ds : kf.valueAt(
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, timelineMs, ds);
-                float rot = kf == null ? 0f : kf.valueAt(
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, timelineMs, 0f);
-                float fit = Math.min(outW / (float) frame.getWidth(),
-                        outH / (float) frame.getHeight());
-                float w = frame.getWidth() * fit * scale;
-                float h = frame.getHeight() * fit * scale;
-                float cx = x * outW;
-                float cy = y * outH;
-                pipPaint.setAlpha(Math.round(opacity * 255));
-                canvas.save();
-                if (rot != 0f) canvas.rotate(rot, cx, cy);
-                android.graphics.RectF dest = new android.graphics.RectF(
-                        cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
-                canvas.drawBitmap(frame, null, dest, pipPaint);
-                canvas.restore();
-                frame.recycle();
-                drawnPip++;
-            }
-        } catch (Throwable t) {
-            canvas.restoreToCount(pipSaveCount);
-            if (!loggedPipDrawError) {
-                FLog.w(TAG, "PiP draw threw; overlay video skipped for this frame "
-                        + "(this warning is logged once)", t);
-                loggedPipDrawError = true;
-            }
-        }
-        if (drawnPip > 0) framesWithPip++;
 
         // S6 sprites — drawn FIRST so they sit above the video but BELOW text +
         // captions, matching the preview stack (SpriteOverlayView sits under
@@ -707,7 +579,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 + " captionFrames=" + framesWithCaption
                 + " waveformFrames=" + framesWithWaveform
                 + " spriteFrames=" + framesWithSprite
-                + " pipFrames=" + framesWithPip
                 + " (clip " + clip.getId() + " in=" + clip.getInPointMs()
                 + " out=" + clip.getOutPointMs()
                 + " speed=" + clip.getSpeedMultiplier() + ")");
@@ -715,12 +586,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (r != null) r.recycle();
         }
         spriteRenderers.clear();
-        synchronized (pipRetrieverLock) {
-            for (android.media.MediaMetadataRetriever r : pipRetrievers.values()) {
-                try { r.release(); } catch (Exception ignored) { }
-            }
-            pipRetrievers.clear();
-        }
         if (lastReturnedBitmap != null && !lastReturnedBitmap.isRecycled()) {
             lastReturnedBitmap.recycle();
         }

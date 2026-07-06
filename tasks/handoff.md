@@ -12,15 +12,15 @@
 > approximation so blend clips aren't invisible-until-export), broader adversarial sweeps. **GATED (need
 > user):** A2 MediaPipe gradle dep; blend-picker UI design; main phone; push. Sandbox = 1 NORMAL PiP + the
 > a6-smoke-rig (dangle+4 pins). Autonomous chain: next wakeup 13:01, self-perpetuating +5h.
-> **⚠️ REVIEW FINDING (fc3055a, CONFIRMED, edge-case, DEFERRED — needs device-proof before fixing):**
-> blend PiPs composite via `BlendModeGlEffect` in the master item's EFFECT CHAIN (before the overlay);
-> NORMAL PiPs composite in `CompositeExportOverlay` (after). So a project that stacks a NORMAL PiP ABOVE a
-> blend PiP in z-order gets them INVERTED on export (the NORMAL always ends up on top). Only bites when a
-> single project mixes NORMAL + non-NORMAL PiPs with interleaved z; preview is unaffected (blend clips show
-> NORMAL there anyway). CLEAN FIX (do with device proof, not blind): route ALL PiPs through the effect chain
-> in z-order — give the shader a mode-0 = plain SRC_OVER branch (currently mode 0 would wrongly hit the
-> MULTIPLY branch, but it's never created today), and REMOVE PiP drawing from CompositeExportOverlay so it
-> keeps only sprites/text/captions (which must stay on top). That unifies PiP z and kills the inversion.
+> **✅ REVIEW FINDING FIXED + DEVICE-PROVEN (z-unification commit, Opus landed Fable's fix):** blend PiPs and
+> NORMAL PiPs used to composite through DIFFERENT paths (chain vs CompositeExportOverlay), inverting z when
+> interleaved. NOW: EVERY PiP composites via `BlendModeGlEffect` in the effect chain in track z-order (shader
+> gained a mode-0 = SRC_OVER branch for NORMAL); PiP drawing + MMR machinery REMOVED from
+> CompositeExportOverlay (which keeps sprites/text/captions/waveforms, all above every PiP). ONE PiP z
+> authority. Proof: injected NORMAL-under-MULTIPLY overlap → MULTIPLY on top (inversion gone); A/B vs
+> c2=NORMAL: c2 region 103.7 luma (MULTIPLY) vs 129.4 (NORMAL), RGB diff 25.8 = genuine blend not plain-over;
+> c1-only control diff 0.0 = NORMAL rendering unchanged. Sprites/text above both. M-EXPORT-2 is now fully
+> closed (parity + blend + unified z).
 > Other review notes (all benign): blend GlEffect runs a full-screen pass every master frame even outside the
 > PiP window (src.a=0 → base passthrough; transparent texture uploaded ONCE via identity-stable bitmap — the
 > cost is one cheap shader pass, unavoidable since media3 effects can't time-scope to part of a clip).

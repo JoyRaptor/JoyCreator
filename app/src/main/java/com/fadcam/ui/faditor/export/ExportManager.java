@@ -1757,18 +1757,17 @@ public class ExportManager {
             // tracks are excluded identically in both places by construction.
             List<Clip> exportOverlayVideoClips =
                     LayerPreviewController.visibleOverlayVideoClips(project.getTimeline());
-            // M-EXPORT-2 blend: non-NORMAL PiP clips blend against the ACCUMULATED
-            // frame — not expressible via BitmapOverlay — so each gets its own
-            // GlEffect HERE, before the text/caption OverlayEffect (preview z-rule:
-            // PiP under sprites/text/captions). CompositeExportOverlay skips them.
+            // M-EXPORT-2 z-unification: EVERY PiP clip composites here, one
+            // BlendModeGlEffect per clip in track z-order (bottom→top — chain
+            // order IS z-order), before the text/caption OverlayEffect. NORMAL
+            // renders as shader mode 0 (plain SRC_OVER). PiPs must all live in
+            // ONE compositor: splitting NORMAL into CompositeExportOverlay and
+            // blends into the chain z-inverted any project that interleaved them.
             for (Clip oc : exportOverlayVideoClips) {
-                if (!"NORMAL".equals(oc.getOverlayBlendMode())) {
-                    videoEffects.add(new BlendModeGlEffect(context, oc));
-                }
+                videoEffects.add(new BlendModeGlEffect(context, oc));
             }
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
-                    || !exportOverlayVideoClips.isEmpty()
                     || clip.isCaptionsEnabled()
                     || !clipWaveformSlots.isEmpty()
                     || clipHasWaveformRef
@@ -1781,8 +1780,7 @@ public class ExportManager {
                         clipWaveformSlots,
                         project.getTimeline().getAudioClips(),
                         exportSpriteItems,
-                        project.getSpriteSheets(),
-                        exportOverlayVideoClips);
+                        project.getSpriteSheets());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

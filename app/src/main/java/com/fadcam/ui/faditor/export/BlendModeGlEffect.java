@@ -14,11 +14,15 @@ import androidx.media3.effect.GlEffect;
 import com.fadcam.ui.faditor.model.Clip;
 
 /**
- * M-EXPORT-2 blend modes (PLAN_LAYERS_V2 §5.2) — the one PiP capability a
- * {@code BitmapOverlay} cannot express: blending the overlay against the
- * ACCUMULATED frame. One instance per blend-mode PiP clip, inserted into the
- * master item's effect list BEFORE the text/caption {@code OverlayEffect}, so
- * blend PiPs keep the preview z-rule (video < PiP < sprites/text/captions).
+ * M-EXPORT-2 — the export compositor for EVERY PiP clip (one instance per clip,
+ * NORMAL included since the z-unification fix): inserted into the master item's
+ * effect list in track z-order (bottom→top), BEFORE the text/caption
+ * {@code OverlayEffect}, so ALL PiPs share one z authority and keep the preview
+ * rule (video < PiPs-in-z-order < sprites/text/captions). NORMAL renders as
+ * plain SRC_OVER (shader mode 0); MULTIPLY/SCREEN/OVERLAY/ADD blend against the
+ * ACCUMULATED frame — the capability a {@code BitmapOverlay} cannot express and
+ * the reason PiPs left {@code CompositeExportOverlay} (drawing NORMAL there and
+ * blends here z-inverted any project that interleaved them).
  *
  * <p>Follows {@code GlTransitionExportEffect}/{@code GlTransitionShaderProgram}
  * exactly: a {@link BaseGlShaderProgram} whose fragment shader samples the frame
@@ -41,7 +45,7 @@ public final class BlendModeGlEffect implements GlEffect {
             case "SCREEN":   return 2;
             case "OVERLAY":  return 3;
             case "ADD":      return 4;
-            default:          return 0; // NORMAL — callers shouldn't create us for it
+            default:          return 0; // NORMAL = plain SRC_OVER (mode 0 in the shader)
         }
     }
 
@@ -82,6 +86,7 @@ public final class BlendModeGlEffect implements GlEffect {
                 + "uniform sampler2D uOverlayTexSampler0;\n"
                 + "uniform float uBlendMode;\n" // float: ES2 int uniforms are patchy on old drivers
                 + "vec3 blendPix(vec3 b, vec3 s) {\n"
+                + "  if (uBlendMode < 0.5) return s;\n" // NORMAL: mix-by-alpha below = SRC_OVER
                 + "  if (uBlendMode < 1.5) return b * s;\n"
                 + "  if (uBlendMode < 2.5) return 1.0 - (1.0 - b) * (1.0 - s);\n"
                 + "  if (uBlendMode < 3.5) {\n"

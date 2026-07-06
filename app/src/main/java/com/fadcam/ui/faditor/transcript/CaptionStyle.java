@@ -55,7 +55,11 @@ public class CaptionStyle {
                 new CaptionStyle("boxed", "Boxed", 0xFFFFFFFF, 0xFFFFC107,
                         true, 0xCC000000, true, Anim.POP),
                 new CaptionStyle("hot", "Hot", 0xFFFFFFFF, 0xFFFF5252,
-                        true, 0x99000000, true, Anim.ZOOM));
+                        true, 0x99000000, true, Anim.ZOOM),
+                new CaptionStyle("meme", "Meme", 0xFFFFFFFF, 0xFFFFEB3B,
+                        true, 0xCC000000, true, Anim.POP),
+                new CaptionStyle("bright", "Bright", 0xFF4DD0E1, 0xFFFF4081,
+                        false, 0, true, Anim.BOUNCE));
     }
 
     /** The special "hidden" pseudo-style (captions not rendered). */

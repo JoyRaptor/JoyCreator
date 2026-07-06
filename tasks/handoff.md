@@ -1,5 +1,38 @@
 # FadCam AI Handoff
 
+> **🎭 2026-07-06 ~12:05 — FABLE-DAY: A2 TRACKING CORE + COMPOSITING FAMILY LANDED, ALL DEVICE-PROVEN
+> (fafb0a8 + 22f29ee), + a REVIEW CATCH fixed: a4fbeba had flipped every PiP vertically on export.**
+> **A2 core (fafb0a8, dep-free — MediaPipe stays USER-GATED):** params ARE the contract
+> (`TrackingFrame`: yaw/pitch [-1..1], blendshapes by name, limb IK as `pinTarget.<partId>.x|.y`) →
+> `TrackingParamPipeline` (One-Euro ALL inputs → amplitude-jaw fallback → LifeSignals merge,
+> deterministic = bake-replay safe) → `TrackingDriverBus` (tracker-thread push / render-pull,
+> stale-source guard) → `PuppetPreviewView` FABRIK-re-aims targeted parts' posed pins (outranks
+> dangle). `SyntheticTrackingSource` (scripted, frame-counter-pure) + a "🎯 Track" studio chip =
+> the device proof: smoke rig puppets itself, yaw sweep + arm orbit, frame-diffs 2.5–15.6 luma/s,
+> USER-CONFIRMED motion, zero crashes. TrackingCoreTest 18/18. MediaPipe = drop-in behind
+> `TrackingSource` (exact mapping in tasks/SPEC_FABLEDAY_20260706_delegation.md §D4).
+> **Compositing family (22f29ee, §C of FEEDBACK_20260702 — ONE additive model, not three bolt-ons):**
+> `CompositingSpec { masks[], chromaKey, matte }` on Clip (gson, tolerant, omit-empty);
+> `MaskPathBuilder` = the single Path authority (Path.op; canvas-normalized shapes; add∪−sub∪,
+> invert = window mode). Masks: PipFrameOverlay clips at export, OverlayVideoPreviewView clips the
+> live TextureView child (drawChild) + stills at preview — DEVICE-PROVEN both (A/B export diff:
+> hole at authored coords ±0.01, subtract-notch kept). Chroma key (shader: RGB-distance
+> smoothstep tolerance/fuzziness + offset): PROVEN — keyed PiP region colorful-frac 0.04→0.64.
+> Track matte (2nd PipFrameOverlay per recipient, luma×alpha, CPU `activeAt` gate; ExportManager
+> resolves peerId + hides the serving peer): PROVEN — alpha follows matte luma (pure-PiP 0.82→0.48),
+> unmatted outside the matte window (0.83 = control), peer hidden.
+> **⚠️ REVIEW CATCH (device-proven, fixed in 22f29ee):** since a4fbeba (this morning) EVERY PiP
+> exported VERTICALLY FLIPPED in place (bitmap textures Y-down vs frame UVs Y-up; authored y=.378
+> rendered at .622; the blend A/B luma proof was symmetric in the flip = blind). Fix: shader samples
+> overlay/matte V-flipped. Do not remove.
+> **PLAUSIBLE-DEFECT NOTE (pre-existing, re-confirmed):** PiPs do NOT composite over IMAGE/gap
+> master clips (gap-black item at t=4.2 renders no PiP, matte or not) — fix shape in SPEC §D6.
+> **PREVIEW-HONESTY LEDGER:** preview shows clips unkeyed/unmatted + matte peer still visible
+> (probe-#4: export = ground truth); masks DO preview live. Closing steps spec'd (§D3).
+> **DELEGATION-READY:** tasks/SPEC_FABLEDAY_20260706_delegation.md — mask UI, key drawer + swatch
+> sampling, matte pairing + dotted line, MediaPipe adapter, sprite/text masks, polish ledger.
+> Sandbox restored (project.json.bak reverted, manifest flips reverted, temp cleaned).
+
 > **🌌 2026-07-06 ~08:10 — AUTONOMOUS RUN #2: PiP still-fallback + A6 mesh density. STATE-OF-THE-WORLD:**
 > **M-EXPORT-2 is COMPLETE (parity a7f7b89 + blend fc3055a). A6 is COMPLETE for the editor** (pin-warp core
 > 5e3a94d, smooth+density c54e981/4ede612, pin authoring 0fc9365, dangle 00733aa, mesh overlay) — only the

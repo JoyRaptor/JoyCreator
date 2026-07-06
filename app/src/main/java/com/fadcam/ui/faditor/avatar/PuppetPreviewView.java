@@ -557,7 +557,11 @@ public class PuppetPreviewView extends View {
                                                float dtSeconds) {
         if (!part.dangle) return null;
         if (part.restPins.size() < PinWarpStrip.MIN_PINS) return null;
-        if (ps.pins.size() != part.restPins.size()) return null;
+        // Unposed rig (no cell carries pins → resolver emits none): the rest chain
+        // IS the pose. Without this, a freshly-authored dangle part is silently
+        // inert until the user arms and poses a cell — an authoring dead-end.
+        java.util.List<float[]> resolvedPins = ps.pins.isEmpty() ? part.restPins : ps.pins;
+        if (resolvedPins.size() != part.restPins.size()) return null;
         if (pinEditing != null && part.id.equals(selectedPartId)) return null;
         float[] box = partBox(part);
         if (box == null || box[0] <= 0 || box[1] <= 0) return null;
@@ -573,8 +577,8 @@ public class PuppetPreviewView extends View {
             sim = new DangleSim(restPx);
             dangleSims.put(part.id, sim);
         }
-        float[] anchor = {box[2] + ps.pins.get(0)[0] * box[0],
-                          box[3] + ps.pins.get(0)[1] * box[1]};
+        float[] anchor = {box[2] + resolvedPins.get(0)[0] * box[0],
+                          box[3] + resolvedPins.get(0)[1] * box[1]};
         m.mapPoints(anchor);
         sim.step(anchor[0], anchor[1], dtSeconds);
 
@@ -594,7 +598,10 @@ public class PuppetPreviewView extends View {
                                  @NonNull PuppetPoseResolver.PartState ps,
                                  float dw, float dh) {
         if (part.restPins.size() < PinWarpStrip.MIN_PINS) return null;
-        if (ps.pins.size() != part.restPins.size()) return null;
+        // Unposed rig fallback: rest chain = pose (identity warp) so freshly
+        // authored pins are immediately live — mirrors danglePins' rule.
+        java.util.List<float[]> resolvedPins = ps.pins.isEmpty() ? part.restPins : ps.pins;
+        if (resolvedPins.size() != part.restPins.size()) return null;
         // Self-contained box origin (NOT the shared workRect, which holds the
         // LAST drawn part's rect — the mesh-overlay pass calls this outside
         // drawPart and would otherwise warp against a stale origin).
@@ -603,7 +610,7 @@ public class PuppetPreviewView extends View {
         // A6 dangle: this frame's simulated chain (stepped once in onDraw's
         // preamble) overrides the resolver's pins for dangle-tagged parts.
         java.util.List<float[]> srcPins = frameDanglePins.get(part.id);
-        if (srcPins == null) srcPins = ps.pins;
+        if (srcPins == null) srcPins = resolvedPins;
         java.util.List<float[]> posed = new java.util.ArrayList<>(srcPins.size());
         for (float[] pin : srcPins) {
             posed.add(new float[]{

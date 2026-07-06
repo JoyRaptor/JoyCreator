@@ -97,6 +97,15 @@ public class PuppetPreviewView extends View {
     /** partId → the cell shown BEFORE the current one (crossfade source). */
     private final java.util.Map<String, Integer> lastCell = new java.util.HashMap<>();
 
+    // A6 dangle physics: one verlet chain per dangle-tagged part, stepped ONCE
+    // per frame in onDraw's preamble (warpVertsFor may run twice per frame when
+    // the mesh overlay is up — double-stepping would double the sim rate).
+    // Vsync-paced via postInvalidateOnAnimation while any dangle part exists.
+    private final java.util.Map<String, DangleSim> dangleSims = new java.util.HashMap<>();
+    private final java.util.Map<String, java.util.List<float[]>> frameDanglePins =
+            new java.util.HashMap<>();
+    private long lastFrameNanos;
+
     // A6 pin authoring state (null = pin mode off).
     @Nullable private List<float[]> pinEditing;
     @Nullable private PinEditListener pinListener;
@@ -146,6 +155,8 @@ public class PuppetPreviewView extends View {
         cellBitmaps.clear();
         swapAtMs.clear();
         lastCell.clear();
+        dangleSims.clear();
+        lastFrameNanos = 0;
         invalidate();
     }
 
@@ -335,6 +346,24 @@ public class PuppetPreviewView extends View {
         canvas.drawLine(0, h / 2f, w, h / 2f, bgGrid);
         if (rig == null || resolved == null) return;
 
+        // A6 dangle preamble: step every dangle chain exactly once this frame.
+        long now = System.nanoTime();
+        float dt = lastFrameNanos > 0 ? (now - lastFrameNanos) / 1e9f : 1f / 60f;
+        lastFrameNanos = now;
+        frameDanglePins.clear();
+        boolean anyDangle = false;
+        for (AvatarRig.Part part : rig.getParts()) {
+            if (!part.dangle) continue;
+            PuppetPoseResolver.PartState ps = resolved.get(part.id);
+            if (ps == null) continue;
+            java.util.List<float[]> pins = danglePins(part, ps, dt);
+            if (pins != null) {
+                frameDanglePins.put(part.id, pins);
+                anyDangle = true;
+            }
+        }
+        if (anyDangle) postInvalidateOnAnimation();
+
         // Draw order: resolved z ascending, stable on the rig's part order.
         List<AvatarRig.Part> order = new ArrayList<>(rig.getParts());
         java.util.Collections.sort(order, (a, b) -> {
@@ -515,6 +544,51 @@ public class PuppetPreviewView extends View {
      * rest chain comes from {@link AvatarRig.Part#restPins}. Returns null on any
      * contract violation → rigid fallback.
      */
+    /**
+     * A6 dangle: for a dangle-tagged part, the verlet chain (anchored at the
+     * part's first POSED pin in view space — the anchor's own motion is the
+     * excitation) overrides the resolved pins. Returns cell-space pins, or null
+     * when dangle doesn't apply (untagged / no chain / pin-editing this part —
+     * physics fighting the user's drag would be maddening).
+     */
+    @Nullable
+    private java.util.List<float[]> danglePins(@NonNull AvatarRig.Part part,
+                                               @NonNull PuppetPoseResolver.PartState ps,
+                                               float dtSeconds) {
+        if (!part.dangle) return null;
+        if (part.restPins.size() < PinWarpStrip.MIN_PINS) return null;
+        if (ps.pins.size() != part.restPins.size()) return null;
+        if (pinEditing != null && part.id.equals(selectedPartId)) return null;
+        float[] box = partBox(part);
+        if (box == null || box[0] <= 0 || box[1] <= 0) return null;
+        Matrix m = fullPartMatrix(part);
+        if (!m.invert(invMatrix)) return null;
+
+        DangleSim sim = dangleSims.get(part.id);
+        if (sim == null || sim.nodeCount() != part.restPins.size()) {
+            java.util.List<float[]> restPx = new java.util.ArrayList<>();
+            for (float[] pin : part.restPins) {
+                restPx.add(new float[]{pin[0] * box[0], pin[1] * box[1]});
+            }
+            sim = new DangleSim(restPx);
+            dangleSims.put(part.id, sim);
+        }
+        float[] anchor = {box[2] + ps.pins.get(0)[0] * box[0],
+                          box[3] + ps.pins.get(0)[1] * box[1]};
+        m.mapPoints(anchor);
+        sim.step(anchor[0], anchor[1], dtSeconds);
+
+        java.util.List<float[]> cellPins = new java.util.ArrayList<>(sim.nodeCount());
+        float[] pt = new float[2];
+        for (int i = 0; i < sim.nodeCount(); i++) {
+            pt[0] = sim.nodeX(i);
+            pt[1] = sim.nodeY(i);
+            invMatrix.mapPoints(pt);
+            cellPins.add(new float[]{(pt[0] - box[2]) / box[0], (pt[1] - box[3]) / box[1]});
+        }
+        return cellPins;
+    }
+
     @Nullable
     private float[] warpVertsFor(@NonNull AvatarRig.Part part,
                                  @NonNull PuppetPoseResolver.PartState ps,
@@ -526,8 +600,12 @@ public class PuppetPreviewView extends View {
         // drawPart and would otherwise warp against a stale origin).
         float[] box = partBox(part);
         if (box == null || box[0] <= 0 || box[1] <= 0) return null;
-        java.util.List<float[]> posed = new java.util.ArrayList<>(ps.pins.size());
-        for (float[] pin : ps.pins) {
+        // A6 dangle: this frame's simulated chain (stepped once in onDraw's
+        // preamble) overrides the resolver's pins for dangle-tagged parts.
+        java.util.List<float[]> srcPins = frameDanglePins.get(part.id);
+        if (srcPins == null) srcPins = ps.pins;
+        java.util.List<float[]> posed = new java.util.ArrayList<>(srcPins.size());
+        for (float[] pin : srcPins) {
             posed.add(new float[]{
                     box[2] + pin[0] * dw,
                     box[3] + pin[1] * dh});

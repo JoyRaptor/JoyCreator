@@ -153,7 +153,18 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       renormalization over pin-carriers — all proven by a JVM harness (7 cases green). OWED: on-device
       launch verify once the build watcher returns; user feel-test of the blend.
 - [ ] A2 tracking driver (BLOCKED on watcher for the MediaPipe gradle dep)  - [ ] A3 visemes  - [ ] A4 recorder integration
-- [ ] A5 AI rigging  - [ ] A6 limbs (tracking trigger + PIN-WARP strips + dangle physics)
+- [ ] A5 AI rigging
+- [~] A6 limbs — **PIN-WARP CORE LANDED 2026-07-06 (5e3a94d)**: PinWarpStrip math (JVM harness
+      PinWarpTest 16/16 — identity/translation/90° bend/guards/degenerates), Part.restPins
+      schema (additive, tolerant read; ResolverGateTest re-run green), PuppetPreviewView warp
+      draw + 130ms pin-snap crossfade on the resolver's swapped signal (old cell rides the
+      SAME verts = swap over identical geometry). NOTE §Pin-warp's "renderer implication" is
+      CORRECTED: Canvas.drawBitmapMesh does sparse warps natively (hardware-accelerated, same
+      Canvas stack as every compositing surface — one vertex authority for preview AND export);
+      no GL renderer needed at puppet scale, revisit only if profiling disagrees. REMAINING:
+      pin authoring UI (place/drag rest pins in the studio — design pass first), FABRIK→posed-
+      pins tracking hookup (A2), dangle physics, device smoke via injected restPins rig
+      (technique in handoff 2026-07-06 block).
 
 ## MINED — GLM-5.1 external review, orchestrator-vetted (2026-07-04)
 ADOPT AS BINDING:

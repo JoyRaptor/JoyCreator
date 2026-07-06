@@ -1,5 +1,19 @@
 # FadCam AI Handoff
 
+> **🦾 2026-07-06 — A6 PIN-WARP CORE LANDED (5e3a94d, harnesses 16/16 + resolver-gate re-run GREEN).**
+> `avatar/PinWarpStrip` (pure math → `Canvas.drawBitmapMesh` vertex grid; width-preserving sweep along the
+> resolved pin chain, end-bone extrapolation, monotonic-chain guard → rigid fallback) +
+> `AvatarRig.Part.restPins` (additive tolerant-read schema — the art-space rest chain) +
+> `PuppetPreviewView` warp path with the 130ms PIN-SNAP CROSSFADE off the resolver's swapped signal (old
+> cell rides the SAME verts = swap over identical geometry). **ARCHITECTURE CORRECTION recorded:** the
+> plan's "limbs need GL" premise was wrong — Canvas mesh-draw warps natively and keeps ALL surfaces
+> (studio preview / sprite overlay / export overlay) on one Canvas vertex authority. GL only if profiling
+> ever disagrees. **REMAINING A6:** pin authoring UI in Avatar Studio (design-y, Fable); FABRIK→posed-pins
+> tracking hookup (A2); dangle physics; timeline/export warp path rides A4 avatar-as-timeline-object.
+> **DEVICE SMOKE OWED:** no rig with restPins exists yet — inject one (same technique as the PiP injection:
+> rig JSON with a 2-part arm, restPins [[.5,.1],[.5,.5],[.5,.9]], 1D domain cells with posed pins) → open
+> Avatar Studio → wiggle the domain slider → strip must bend smoothly + crossfade on cell swap.
+
 > **📦 2026-07-06 — M-EXPORT-2 CORE LANDED + DEVICE-PROVEN (Fable lane). PiP now exports with preview parity.**
 > The 9956123-recovered WIP is completed: **PiP export rides `CompositeExportOverlay`** (a bottom-most
 > overlay-video pass drawing MMR-decoded frames per absolute timelineMs, transform sampled from the SAME

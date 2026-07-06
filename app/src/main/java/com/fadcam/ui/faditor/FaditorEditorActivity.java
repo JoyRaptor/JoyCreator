@@ -8841,27 +8841,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Push the current overlays to the timeline so their layer bars show. */
     private void syncTimelineOverlays() {
         if (editorTimeline != null && project != null) {
-            editorTimeline.setOverlays(project.getTimeline().getTextOverlays());
-            editorTimeline.setWaveformLayers(project.getTimeline().getWaveformOverlays());
-            // Caption layer rows: one span per clip that has captions enabled + a transcript.
-            java.util.List<long[]> capSpans = new java.util.ArrayList<>();
             Timeline tl = project.getTimeline();
-            int n = tl.getClipCount();
-            for (int i = 0; i < n; i++) {
-                Clip c = tl.getClip(i);
-                if (c != null && c.isCaptionsEnabled() && c.hasTranscript()) {
-                    long start = editorTimeline.getSegmentStartTimeMs(i);
-                    long end = (i + 1 < n) ? editorTimeline.getSegmentStartTimeMs(i + 1)
-                            : Long.MAX_VALUE;
-                    capSpans.add(new long[]{start, end, i}); // [2] = clip index for tap→select
-                }
-            }
-            editorTimeline.setCaptionSpans(capSpans);
-            editorTimeline.setTransitions(project.getTimeline().getTransitions());
-            // M6: push the schema-v8 Track model in for the multi-row layer/audio-track
-            // UI (PLAN Part 7, row M6). Empty for a plain single-track project — renders
-            // nothing (LayerRowRenderer#isEmpty).
-            editorTimeline.setLayerTracks(tl.getLayers(), tl.getAudioTracks());
+            // Layers-UX Slice C: the OLD read-only layer bars (EditorTimelineView#drawLayers —
+            // text/image overlays, visualizers, captions) are RETIRED. Captions & visualizers
+            // are now first-class headered Track rows in LayerRowRenderer (Slice A/B), so still
+            // feeding the old renderer would DOUBLE-RENDER them (JoyRaptor's FEEDBACK #1). We stop
+            // feeding setOverlays/setWaveformLayers/setCaptionSpans; those lists stay empty →
+            // drawLayers early-returns, its old hit-testing goes inert (handleM6RowTouch already
+            // takes priority), and its reserved band collapses (getM6RowsTopPx == getLayerTopPx,
+            // no empty reserved band). (Audio's old bar path is consolidated in a later slice.)
+            editorTimeline.setTransitions(tl.getTransitions());
+            // Slice B: captions & visualizers ride the SAME headered-row renderer as every other
+            // item type. Appended to the floating layer band; Slice E re-splits the bands
+            // (overlays+CC on top). Empty for a plain single-track project (renders nothing).
+            java.util.List<com.fadcam.ui.faditor.layers.Track> layerBand =
+                    new java.util.ArrayList<>(tl.getLayers());
+            layerBand.addAll(tl.getVisualizerTracks());
+            layerBand.addAll(tl.getCaptionTracks());
+            editorTimeline.setLayerTracks(layerBand, tl.getAudioTracks());
             // M-COMP-1: re-bind the preview overlay layers from the (possibly track-
             // hidden-filtered) Track model. TextOverlayLayer already got the filtered
             // list via overlayLayer.setData(...) at each of its own call sites; here we
@@ -9548,6 +9545,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     deleteAudioClipWithConfirmation(item.getAudioClip());
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
                     deleteOverlayClipWithConfirmation(item.getClip());
+                } else if (item.getWaveform() != null) {
+                    // Layers-UX Slice C: visualizer delete now rides the selection badge
+                    // (the old long-press-on-bar path is retired with drawLayers).
+                    deleteVisualizerWithConfirmation(item.getWaveform());
                 }
             }
 
@@ -9831,6 +9832,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     editorTimeline.invalidate();
                     scheduleAutoSave();
                     Toast.makeText(FaditorEditorActivity.this, "Video overlay removed", Toast.LENGTH_SHORT).show();
+                })
+                .show();
+    }
+
+    /**
+     * Layers-UX Slice C: delete a visualizer via the new selection delete-badge, preserving the
+     * EXACT removal + undo the retired long-press-on-old-bar path used ({@code onVisualizerLayerLongPressed}).
+     */
+    private void deleteVisualizerWithConfirmation(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wv) {
+        if (project == null) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Remove visualizer?")
+                .setMessage("This removes the visualizer overlay from the timeline.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Remove", (d, w) -> {
+                    project.getTimeline().removeWaveformOverlay(wv);
+                    undoManager.recordAction(new EditActions.LambdaAction("Remove visualizer",
+                            () -> project.getTimeline().removeWaveformOverlay(wv),
+                            () -> project.getTimeline().addWaveformOverlay(wv)));
+                    if (waveformOverlayView != null) {
+                        waveformOverlayView.setOverlays(project.getTimeline().getWaveformOverlays());
+                        waveformOverlayView.invalidate();
+                    }
+                    syncTimelineOverlays();
+                    editorTimeline.invalidate();
+                    scheduleAutoSave();
+                    Toast.makeText(FaditorEditorActivity.this, "Visualizer removed",
+                            Toast.LENGTH_SHORT).show();
                 })
                 .show();
     }

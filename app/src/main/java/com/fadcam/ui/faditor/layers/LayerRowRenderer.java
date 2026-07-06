@@ -64,6 +64,8 @@ public final class LayerRowRenderer {
     private static final int COLOR_ITEM_VIDEO     = 0xDD4397FD;   // blue (VIDEO/IMAGE)
     private static final int COLOR_ITEM_AUDIO     = 0xDD35F6BF;   // aqua (AUDIO)
     private static final int COLOR_ITEM_SPRITE    = 0xDDFFB74D;   // amber (SPRITE, S5)
+    private static final int COLOR_ITEM_CAPTION   = 0xDDFFC107;   // amber-gold (CAPTION/CC, Slice B)
+    private static final int COLOR_ITEM_VIZ       = 0xDD4DD0E1;   // cyan (VISUALIZER, Slice B)
     private static final int COLOR_ITEM_HIDDEN    = 0x552A2A2A;   // dimmed/ghosted
     private static final int COLOR_STRIP          = 0x99CC27FF;   // collapsed summary strip
     /** Selection stroke width, item-hit-test PLAN §6: "accent-colored stroke... per the item's color family." */
@@ -843,6 +845,40 @@ public final class LayerRowRenderer {
                 canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             }
         }
+        // CAPTION per-keyframe style segments (layers-UX Slice B): overdraw the amber base bar
+        // with each keyframe region's active-style colour, mirroring the old drawLayers caption
+        // branch so keyframed captions keep their colour segments in the consolidated renderer.
+        if (item.getCaptionSpan() != null && !ghosted) {
+            com.fadcam.ui.faditor.model.Clip clip = item.getCaptionSpan().getClip();
+            if (clip.hasCaptionStyleKeyframes()) {
+                long startMs = item.getTimelineStartMs();
+                long endMs = startMs + dur;
+                canvas.save();
+                canvas.clipRect(x0, top, x1, bottom);
+                long segLeftMs = startMs;
+                String styleId = clip.captionStyleAtClipMs(0);
+                for (com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe kf
+                        : clip.getCaptionStyleKeyframes()) {
+                    long segRightMs = Math.min(startMs + kf.timeMs, endMs);
+                    float sx0 = timeToX.map(segLeftMs);
+                    float sx1 = timeToX.map(segRightMs);
+                    if (sx1 > sx0) {
+                        int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId).activeColor;
+                        itemPaint.setColor(0xDD000000 | (c & 0x00FFFFFF));
+                        canvas.drawRect(sx0, top, sx1, bottom, itemPaint);
+                    }
+                    segLeftMs = segRightMs;
+                    styleId = kf.styleId;
+                }
+                if (segLeftMs < endMs) {
+                    float sx0 = timeToX.map(segLeftMs);
+                    int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId).activeColor;
+                    itemPaint.setColor(0xDD000000 | (c & 0x00FFFFFF));
+                    canvas.drawRect(sx0, top, x1, bottom, itemPaint);
+                }
+                canvas.restore();
+            }
+        }
         String label = labelFor(item);
         if (label != null && !label.isEmpty()) {
             canvas.save();
@@ -868,6 +904,28 @@ public final class LayerRowRenderer {
                 spriteDiamondPath.lineTo(dx - r, cy);
                 spriteDiamondPath.close();
                 canvas.drawPath(spriteDiamondPath, spriteDiamondPaint);
+            }
+        }
+        // Caption style keyframe diamonds (layers-UX Slice B) — mirrors the sprite block above so
+        // caption style keys stay visible in the consolidated renderer.
+        if (item.getCaptionSpan() != null) {
+            com.fadcam.ui.faditor.model.Clip clip = item.getCaptionSpan().getClip();
+            if (clip.hasCaptionStyleKeyframes()) {
+                float cy = centerY;
+                float r = 4f * density;
+                spriteDiamondPaint.setColor(ghosted ? 0x66FFFFFF : 0xE6FFFFFF);
+                for (com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe kf
+                        : clip.getCaptionStyleKeyframes()) {
+                    float dx = timeToX.map(item.getTimelineStartMs() + kf.timeMs);
+                    if (dx < x0 + 3f || dx > x1 - 3f) continue;
+                    spriteDiamondPath.rewind();
+                    spriteDiamondPath.moveTo(dx, cy - r);
+                    spriteDiamondPath.lineTo(dx + r, cy);
+                    spriteDiamondPath.lineTo(dx, cy + r);
+                    spriteDiamondPath.lineTo(dx - r, cy);
+                    spriteDiamondPath.close();
+                    canvas.drawPath(spriteDiamondPath, spriteDiamondPaint);
+                }
             }
         }
         // Stage 2 (PLAN §6): tap-select a row item → draw a clear selection state —
@@ -1021,6 +1079,10 @@ public final class LayerRowRenderer {
                 return COLOR_ITEM_AUDIO;
             case SPRITE:
                 return COLOR_ITEM_SPRITE;
+            case CAPTION:
+                return COLOR_ITEM_CAPTION;
+            case VISUALIZER:
+                return COLOR_ITEM_VIZ;
             default:
                 return COLOR_ITEM_VIDEO;
         }
@@ -1036,6 +1098,8 @@ public final class LayerRowRenderer {
             int keys = item.getSprite().getFrameTrack().size();
             return keys > 1 ? "✦ " + keys : "✦";
         }
+        if (item.getWaveform() != null) return "VIZ";
+        if (item.getCaptionSpan() != null) return "CC";
         if (item.getClip() != null) return null; // master items already show thumbnails elsewhere
         return null;
     }

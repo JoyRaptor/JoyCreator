@@ -1757,6 +1757,15 @@ public class ExportManager {
             // tracks are excluded identically in both places by construction.
             List<Clip> exportOverlayVideoClips =
                     LayerPreviewController.visibleOverlayVideoClips(project.getTimeline());
+            // M-EXPORT-2 blend: non-NORMAL PiP clips blend against the ACCUMULATED
+            // frame — not expressible via BitmapOverlay — so each gets its own
+            // GlEffect HERE, before the text/caption OverlayEffect (preview z-rule:
+            // PiP under sprites/text/captions). CompositeExportOverlay skips them.
+            for (Clip oc : exportOverlayVideoClips) {
+                if (!"NORMAL".equals(oc.getOverlayBlendMode())) {
+                    videoEffects.add(new BlendModeGlEffect(context, oc));
+                }
+            }
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
                     || !exportOverlayVideoClips.isEmpty()

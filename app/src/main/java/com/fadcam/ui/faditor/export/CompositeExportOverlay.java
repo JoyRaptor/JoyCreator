@@ -393,6 +393,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
         int pipSaveCount = canvas.getSaveCount();
         try {
             for (Clip oc : overlayVideoClips) {
+                // M-EXPORT-2 blend: non-NORMAL clips composite via their own
+                // BlendModeGlEffect in the effect chain — drawing them here too
+                // would double-composite.
+                if (!"NORMAL".equals(oc.getOverlayBlendMode())) continue;
                 long ocStart = oc.getOverlayStartMs();
                 long ocEnd = ocStart + Math.max(0, oc.getTrimmedDurationMs());
                 // End-INCLUSIVE window, mirroring the preview's topVisibleAt.

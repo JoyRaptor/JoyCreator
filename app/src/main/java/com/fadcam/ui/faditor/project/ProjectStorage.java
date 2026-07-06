@@ -1986,7 +1986,7 @@ public class ProjectStorage {
                                     acObj.get("captionCenterX").getAsFloat(),
                                     acObj.get("captionCenterY").getAsFloat());
                         }
-                        project.getTimeline().addAudioClip(ac);
+                        project.getTimeline().addAudioClip(ac, false);
                     }
                 }
             }

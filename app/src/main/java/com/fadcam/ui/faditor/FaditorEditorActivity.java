@@ -16571,8 +16571,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Remove original, add the two new clips
         timeline.removeAudioClip(audioIdx);
-        timeline.addAudioClip(left);
-        timeline.addAudioClip(right);
+        timeline.addAudioClip(left, false);
+        timeline.addAudioClip(right, false);
 
         editorTimeline.setAudioClips(timeline.getAudioClips());
         prepareAudioPlayer();

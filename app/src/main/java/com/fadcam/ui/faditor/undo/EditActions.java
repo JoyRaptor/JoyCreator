@@ -370,7 +370,7 @@ public final class EditActions {
         }
 
         @Override public void execute() {
-            timeline.addAudioClip(audioClip);
+            timeline.addAudioClip(audioClip, false);
             if (autoMutedClip != null) {
                 autoMutedClip.setAudioMuted(true);
                 autoMutedClip.setVolumeLevel(0f);
@@ -408,9 +408,9 @@ public final class EditActions {
             if (index >= 0 && index <= timeline.getAudioClipCount()) {
                 timeline.getAudioClips(); // just verify
                 // Timeline doesn't have addAudioClip(index), so add at end
-                timeline.addAudioClip(audioClip);
+                timeline.addAudioClip(audioClip, false);
             } else {
-                timeline.addAudioClip(audioClip);
+                timeline.addAudioClip(audioClip, false);
             }
         }
         @NonNull @Override public String getDescription() {
@@ -540,13 +540,13 @@ public final class EditActions {
 
         @Override public void execute() {
             timeline.removeAudioClip(originalClip);
-            timeline.addAudioClip(leftClip);
-            timeline.addAudioClip(rightClip);
+            timeline.addAudioClip(leftClip, false);
+            timeline.addAudioClip(rightClip, false);
         }
         @Override public void undo() {
             timeline.removeAudioClip(rightClip);
             timeline.removeAudioClip(leftClip);
-            timeline.addAudioClip(originalClip);
+            timeline.addAudioClip(originalClip, false);
         }
         @NonNull @Override public String getDescription() { return "Split audio clip"; }
     }
@@ -653,9 +653,9 @@ public final class EditActions {
         @Override public void execute() { timeline.removeAudioClip(audioClip); }
         @Override public void undo() {
             if (index >= 0 && index <= timeline.getAudioClipCount()) {
-                timeline.addAudioClip(audioClip);
+                timeline.addAudioClip(audioClip, false);
             } else {
-                timeline.addAudioClip(audioClip);
+                timeline.addAudioClip(audioClip, false);
             }
         }
         @NonNull @Override public String getDescription() { return "Delete audio clip"; }

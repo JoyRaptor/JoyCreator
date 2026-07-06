@@ -403,10 +403,108 @@ public class Timeline {
     // ── Audio clip management ────────────────────────────────────────
 
     /**
-     * Add an audio clip to the audio track.
+     * Add an audio clip to the audio track, auto-resolving any overlap
+     * with existing clips on the same layer track (audio-overlap P0 fix).
      */
     public void addAudioClip(@NonNull AudioClip audioClip) {
+        long resolved = resolveAudioOverlap(audioClip.getOffsetMs(), audioClip);
+        if (resolved != audioClip.getOffsetMs()) {
+            audioClip.setOffsetMs(resolved);
+        }
         audioClips.add(audioClip);
+    }
+
+    /**
+     * Add an audio clip with optional overlap resolution. Pass {@code false}
+     * for {@code resolveOverlap} when exact positioning must be preserved
+     * (undo/restore).
+     */
+    public void addAudioClip(@NonNull AudioClip audioClip, boolean resolveOverlap) {
+        if (resolveOverlap) {
+            long resolved = resolveAudioOverlap(audioClip.getOffsetMs(), audioClip);
+            if (resolved != audioClip.getOffsetMs()) {
+                audioClip.setOffsetMs(resolved);
+            }
+        }
+        audioClips.add(audioClip);
+    }
+
+    /**
+     * Find the nearest non-overlapping offset for an audio clip on its
+     * layer track. Uses the same block-coalescing algorithm as
+     * LayerGestureController.nearestFreeStart. Always returns a legal
+     * position (tail of the last sibling is always free).
+     */
+    private long resolveAudioOverlap(long desiredStartMs, @NonNull AudioClip self) {
+        String selfLayer = self.getLayerId();
+        long dur = Math.max(1, self.getTrimmedDurationMs());
+        // Collect siblings on the same layer.
+        List<AudioClip> sibs = new ArrayList<>();
+        for (AudioClip ac : audioClips) {
+            if (ac == self) continue;
+            String layer = ac.getLayerId();
+            if (selfLayer == null ? layer == null : selfLayer.equals(layer)) {
+                sibs.add(ac);
+            }
+        }
+        if (sibs.isEmpty()) return Math.max(0, desiredStartMs);
+
+        // Build occupied blocks (coalescing touching/overlapping siblings).
+        int n = sibs.size();
+        long[] startBuf = new long[n];
+        long[] endBuf = new long[n];
+        for (int i = 0; i < n; i++) {
+            AudioClip sib = sibs.get(i);
+            long ss = sib.getOffsetMs();
+            long se = ss + Math.max(1, sib.getTrimmedDurationMs());
+            // Insertion sort by start.
+            int j = i;
+            while (j > 0 && startBuf[j - 1] > ss) {
+                startBuf[j] = startBuf[j - 1];
+                endBuf[j] = endBuf[j - 1];
+                j--;
+            }
+            startBuf[j] = ss;
+            endBuf[j] = se;
+        }
+        // Merge touching/overlapping blocks.
+        int m = 0;
+        for (int i = 1; i < n; i++) {
+            if (startBuf[i] <= endBuf[m]) {
+                endBuf[m] = Math.max(endBuf[m], endBuf[i]);
+            } else {
+                m++;
+                startBuf[m] = startBuf[i];
+                endBuf[m] = endBuf[i];
+            }
+        }
+        int blockCount = m + 1;
+
+        long bestStart = Long.MIN_VALUE, bestDist = Long.MAX_VALUE;
+        // (a) Before the first block.
+        long firstStart = startBuf[0];
+        if (firstStart - dur >= 0) {
+            long hi = firstStart - dur;
+            long cand = Math.max(0, Math.min(desiredStartMs, hi));
+            long dist = Math.abs(cand - desiredStartMs);
+            if (dist < bestDist) { bestDist = dist; bestStart = cand; }
+        }
+        // (b) Between consecutive blocks.
+        for (int i = 0; i + 1 < blockCount; i++) {
+            long gapLo = endBuf[i];
+            long gapHi = startBuf[i + 1] - dur;
+            if (gapHi >= gapLo) {
+                long cand = Math.max(gapLo, Math.min(desiredStartMs, gapHi));
+                long dist = Math.abs(cand - desiredStartMs);
+                if (dist < bestDist) { bestDist = dist; bestStart = cand; }
+            }
+        }
+        // (c) After the last block — always feasible.
+        long tailLo = endBuf[blockCount - 1];
+        long cand = Math.max(tailLo, desiredStartMs);
+        long dist = Math.abs(cand - desiredStartMs);
+        if (dist < bestDist) { bestStart = cand; }
+        return Math.max(0, bestStart);
     }
 
     /**

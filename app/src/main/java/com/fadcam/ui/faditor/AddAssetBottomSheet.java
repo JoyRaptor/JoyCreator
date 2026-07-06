@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import androidx.core.widget.NestedScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -147,7 +148,10 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 "music_note", materialIcons, dp,
                 () -> { if (callback != null) callback.onAudioSelected(); }));
 
-        return root;
+        NestedScrollView scroll = new NestedScrollView(requireContext());
+        scroll.setFillViewport(true);
+        scroll.addView(root);
+        return scroll;
     }
 
     /**

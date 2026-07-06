@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ContextThemeWrapper;
 import android.widget.LinearLayout;
+import androidx.core.widget.NestedScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -404,7 +405,10 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
             });
         }
 
-        return root;
+        NestedScrollView scroll = new NestedScrollView(requireContext());
+        scroll.setFillViewport(true);
+        scroll.addView(root);
+        return scroll;
     }
 
     private void updatePercentText(TextView tv, float volume, boolean muted) {

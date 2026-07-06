@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import androidx.core.widget.NestedScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -191,7 +192,10 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             root.addView(row);
         }
 
-        return root;
+        NestedScrollView scroll = new NestedScrollView(requireContext());
+        scroll.setFillViewport(true);
+        scroll.addView(root);
+        return scroll;
     }
 
     /**

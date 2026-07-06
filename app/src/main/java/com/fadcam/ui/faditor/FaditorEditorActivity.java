@@ -9469,13 +9469,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     positionChanged ? () -> oc.setOverlayStartMs(beforeStart) : null,
                                     trackChange));
                         }
-                    } else if (beforeIn != afterIn || beforeOut != afterOut) {
-                        undoManager.recordAction(mergedAction("Trim PiP",
-                                () -> { oc.setInPointMs(afterIn); oc.setOutPointMs(afterOut); },
-                                () -> { oc.setInPointMs(beforeIn); oc.setOutPointMs(beforeOut); },
-                                null));
                     } else {
-                        maybeRecordTrackOnlyChange(trackChange);
+                        boolean startChanged = beforeStart != afterStart;
+                        boolean trimChanged = beforeIn != afterIn || beforeOut != afterOut;
+                        if (startChanged || trimChanged) {
+                            String desc = trackChange != null ? trackChange.description : "Trim PiP";
+                            undoManager.recordAction(mergedAction(desc,
+                                    () -> { oc.setOverlayStartMs(afterStart); oc.setInPointMs(afterIn); oc.setOutPointMs(afterOut); },
+                                    () -> { oc.setOverlayStartMs(beforeStart); oc.setInPointMs(beforeIn); oc.setOutPointMs(beforeOut); },
+                                    trackChange));
+                        } else {
+                            maybeRecordTrackOnlyChange(trackChange);
+                        }
                     }
                 }
                 syncTimelineOverlays();

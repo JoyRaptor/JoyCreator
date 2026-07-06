@@ -1005,8 +1005,10 @@ public final class LayerGestureController {
         } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
             Clip c = item.getClip();
             if (left) {
-                if (Math.abs(c.getInPointMs() - clipBeforeInMs) <= thrMs) {
-                    c.setInPointMs(clipBeforeInMs);
+                long rightEdgeMs = clipBeforeStartMs + (clipBeforeOutMs - clipBeforeInMs);
+                if (Math.abs(c.getOverlayStartMs() - clipBeforeStartMs) <= thrMs) {
+                    c.setOverlayStartMs(clipBeforeStartMs);
+                    c.setOutPointMs(clipBeforeOutMs);
                     snapped = true;
                 }
             } else if (Math.abs(c.getOutPointMs() - clipBeforeOutMs) <= thrMs) {
@@ -1090,13 +1092,18 @@ public final class LayerGestureController {
             long offset = c.getOverlayStartMs();
             long startExtentEnd = offset + (dragStartTrimOutMs - dragStartTrimInMs);
             if (left) {
-                long newIn = Math.max(0, Math.min(dragStartTrimOutMs - AUDIO_MIN_TRIM_GAP_MS,
-                        targetTimeMs - offset));
-                long proposedEnd = offset + (dragStartTrimOutMs - newIn);
-                long ceil = Math.max(trimSiblingCeil(offset, proposedEnd), startExtentEnd);
-                newIn = Math.max(newIn, offset + dragStartTrimOutMs - ceil);
-                newIn = Math.min(newIn, dragStartTrimOutMs - AUDIO_MIN_TRIM_GAP_MS);
-                c.setInPointMs(Math.max(0, newIn));
+                long rightEdgeMs = clipBeforeStartMs + (dragStartTrimOutMs - dragStartTrimInMs);
+                long minStart = 0;
+                long maxStart = rightEdgeMs - AUDIO_MIN_TRIM_GAP_MS;
+                long newStartMs = Math.max(minStart, Math.min(targetTimeMs, maxStart));
+                newStartMs = Math.max(newStartMs, trimSiblingFloor(newStartMs, rightEdgeMs));
+                newStartMs = Math.min(newStartMs, maxStart);
+                c.setOverlayStartMs(newStartMs);
+                long newDuration = rightEdgeMs - newStartMs;
+                long newOutMs = dragStartTrimInMs + newDuration;
+                newOutMs = Math.min(srcDur, newOutMs);
+                newOutMs = Math.max(dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS, newOutMs);
+                c.setOutPointMs(newOutMs);
             } else {
                 long newOut = Math.max(dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS,
                         Math.min(srcDur, targetTimeMs - offset));
@@ -1339,6 +1346,7 @@ public final class LayerGestureController {
                 ac.setInPointMs(audioBeforeInMs);
                 ac.setOutPointMs(audioBeforeOutMs);
             } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                item.getClip().setOverlayStartMs(clipBeforeStartMs);
                 item.getClip().setInPointMs(clipBeforeInMs);
                 item.getClip().setOutPointMs(clipBeforeOutMs);
             }

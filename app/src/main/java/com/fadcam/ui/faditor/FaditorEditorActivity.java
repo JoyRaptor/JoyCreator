@@ -7928,7 +7928,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         Timeline tl = project.getTimeline();
         int clipCount = tl.getClipCount();
-        long totalDurationMs = tl.getTotalDurationMs();
+        long totalDurationMs = totalEffectiveMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
         String audioInfo = hasAudio
@@ -8147,7 +8147,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         Timeline tl = project.getTimeline();
         int clipCount = tl.getClipCount();
-        long totalDurationMs = tl.getTotalDurationMs();
+        long totalDurationMs = totalEffectiveMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
         String audioInfo = hasAudio

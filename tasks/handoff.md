@@ -1,5 +1,20 @@
 # FadCam AI Handoff
 
+> **✅ 2026-07-06 ~23:05 — A6 PIN-WARP DEVICE SMOKE PASSED (frame-proven on the Note 9).** Injected
+> "a6-smoke-rig" (3-pin arm, 1×3 yaw strip, cell swap at the right extreme) into the bdd51919 sandbox:
+> warp bends per the authored pins at BOTH yaw extremes, the discrete swap fires, and the pin-snap
+> CROSSFADE was frame-captured MID-FADE — both cells double-drawn on the SAME warped verts, exactly the
+> plan's "swap over identical geometry" read. Zero crashes. Rig left in the sandbox for the user feel-test
+> (backup project.json.bak-a6-20260706 on-device; manifest flips reverted). **BUILD-INFRA LESSON (cost
+> ~20 min):** opencode's own gradle runs + the user's watcher built CONCURRENTLY and corrupted the
+> incremental resource merge (missing .flat → "100 errors: class R"). Recovery: delete
+> app/build/intermediates between builds + retrigger. RULE GOING FORWARD: while the user's watcher is
+> running, opencode must NOT invoke gradle itself — save-and-wait like the Fable lane, or the user pauses
+> one side. **USER HAND-TEST OWED (A6, 1 min):** Sprites → Avatar Studio → "A6 Warp Smoke" → sweep Yaw
+> slowly — the star should bend like a hose left/right and do a soft 130ms cross-dissolve at the right
+> threshold; does the warp FEEL right? **NEXT FABLE:** A6 pin authoring UI (design sketch below in the
+> plan queue), then FABRIK→tracking (A2, MediaPipe dep).
+
 > **🦾 2026-07-06 — A6 PIN-WARP CORE LANDED (5e3a94d, harnesses 16/16 + resolver-gate re-run GREEN).**
 > `avatar/PinWarpStrip` (pure math → `Canvas.drawBitmapMesh` vertex grid; width-preserving sweep along the
 > resolved pin chain, end-bone extrapolation, monotonic-chain guard → rigid fallback) +

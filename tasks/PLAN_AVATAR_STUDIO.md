@@ -163,8 +163,14 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       Canvas stack as every compositing surface — one vertex authority for preview AND export);
       no GL renderer needed at puppet scale, revisit only if profiling disagrees. REMAINING:
       pin authoring UI (place/drag rest pins in the studio — design pass first), FABRIK→posed-
-      pins tracking hookup (A2), dangle physics, device smoke via injected restPins rig
-      (technique in handoff 2026-07-06 block).
+      pins tracking hookup (A2), dangle physics.
+      **DEVICE SMOKE PASSED 2026-07-06 ~23:00 (Note 9):** injected "a6-smoke-rig" (3-pin arm,
+      3-cell yaw strip, cell swap at the right extreme) into the bdd51919 sandbox → Avatar
+      Studio opened it, yaw slider drove the blend, and frame extraction proved: warp bends
+      per the authored pins at BOTH extremes, the discrete swap fires, and the pin-snap
+      crossfade was caught MID-FADE with both cells double-drawn on the same warped verts.
+      Zero crashes. The rig is left in the sandbox for the user's feel-test (on-device
+      backup: project.json.bak-a6-20260706).
 
 ## MINED — GLM-5.1 external review, orchestrator-vetted (2026-07-04)
 ADOPT AS BINDING:

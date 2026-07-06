@@ -1,5 +1,23 @@
 # FadCam AI Handoff
 
+> **📦 2026-07-06 — M-EXPORT-2 CORE LANDED + DEVICE-PROVEN (Fable lane). PiP now exports with preview parity.**
+> The 9956123-recovered WIP is completed: **PiP export rides `CompositeExportOverlay`** (a bottom-most
+> overlay-video pass drawing MMR-decoded frames per absolute timelineMs, transform sampled from the SAME
+> KeyframeSet + the preview's own DEFAULT_* constants). **The M-EXPORT-1 second-video-sequence path is
+> DELETED** — probe #3 (verified against DefaultVideoCompositor source): the compositor draws the PRIMARY
+> sequence ON TOP, so a second sequence composited the PiP invisibly UNDER the master; never resurrect it.
+> `usesLayerFeaturesAffectingExport` now checks `overlayClips` explicitly (fast-path can never swallow a PiP).
+> **DEVICE ACCEPTANCE (sandbox export Faditor_20260705_221335.mp4, ffmpeg frames):** PiP present ONLY inside
+> its 4.85–10.5s window (pipFrames=171 on exactly the hosting item, 0 elsewhere); geometry pixel-matches the
+> authored keys (x .859 / y .378 / scale .646 — the values opencode's TASK-2 drag persisted, so their lane's
+> move+trim is transitively device-proven too); z-order = preview stack (PiP UNDER sprite/text/captions).
+> **KNOWN GAPS (documented, next in lane):** (1) blend modes — BlendModeGlEffect after the
+> GlTransitionExportEffect pattern, the last M-EXPORT-2 item; (2) preview lets a PiP overhang the video
+> content rect, export clips at the canvas — small preview-honesty fix: clamp/clip the PiP TextureView to
+> the content rect (delegable); (3) transition items don't carry overlays (pre-existing, brief); (4) MMR
+> per-frame decode is the PiP export cost — streaming-decoder TextureOverlay is the perf follow-up if real
+> projects hurt. NEXT FABLE: A6 pin-warp GL strip renderer (FabrikSolver 0fe01bd + plan §Pin-warp).
+
 > **🧾 2026-07-05 night — FABLE REVIEW GATE ON THE DEEPSEEK BATCH + DRAG REMAINDER: ALL COMMITTED.**
 > Personal review (no-swarm rule) of the two uncommitted batches; both compile-green in the 19:30 watcher
 > build and now in history: **bbd0530** = the stalled opus drag-rewrite finishing pass (collapsed-row proxy

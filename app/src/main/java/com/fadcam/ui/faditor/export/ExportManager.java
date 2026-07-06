@@ -652,15 +652,13 @@ public class ExportManager {
         List<EditedMediaItemSequence> sequences = new ArrayList<>();
         sequences.add(videoSequence);
 
-        // M-EXPORT-1 scope 4: overlay-VIDEO layers as a second video sequence.
-        // Unreachable today (no UI can create a VIDEO layer track) — additive-inert.
-        EditedMediaItemSequence overlayVideoSequence =
-                buildOverlayVideoSequence(timeline, canvasDims);
-        if (overlayVideoSequence != null) {
-            FLog.w(TAG, "OVERLAY-VIDEO export path ENGAGED (experimental, M-EXPORT-1 §5.1): "
-                    + "second video sequence added; z-order/positioning not device-verified yet");
-            sequences.add(overlayVideoSequence);
-        }
+        // M-EXPORT-2: overlay-VIDEO (PiP) clips are composited by CompositeExportOverlay
+        // (the BitmapOverlay pass in assembleClipVideoEffects), NOT by a second video
+        // sequence. Probe #3 (PLAN Part 10, verified against DefaultVideoCompositor
+        // source): the compositor draws sequences back-to-front with the PRIMARY stream
+        // ON TOP, so a secondary sequence composites the PiP UNDERNEATH the opaque
+        // master — invisible. The overlay pass also keeps the PiP below text/captions,
+        // matching the preview stack, which a second sequence never could.
 
         // Build audio sequence from AudioClips on the audio track (if any)
         if (timeline.hasAudioClips()) {
@@ -1527,6 +1525,10 @@ public class ExportManager {
      * layerIds, no non-default flags) — the fast-path decision is byte-identical to before.</p>
      */
     static boolean usesLayerFeaturesAffectingExport(@NonNull Timeline timeline) {
+        // M-EXPORT-2: a floating PiP clip ALWAYS forces the full re-encode path —
+        // explicit check (cheapest first) rather than relying on the mirrored
+        // TimedItem.hasTransform() below, which would miss a transform-less overlay.
+        if (!timeline.getOverlayClips().isEmpty()) return true;
         if (timeline.hasSpriteOverlays()) return true;
         if (!timeline.getExtraLayerTracks().isEmpty()) return true;
         for (TextOverlayItem o : timeline.getTextOverlays()) {
@@ -1553,78 +1555,10 @@ public class ExportManager {
         return false;
     }
 
-    /**
-     * M-EXPORT-1 scope 4 (PLAN §5.1): overlay-VIDEO layers export as a SECOND
-     * {@link EditedMediaItemSequence} composited over the master sequence, each item carrying
-     * a {@link ScaleAndRotateTransformation} (scale/rotation from its transform envelope,
-     * NORMAL blend only) plus the canvas {@link Presentation}.
-     *
-     * <p><b>ADDITIVE-INERT TODAY:</b> no UI can create a VIDEO-kind layer track yet —
-     * {@code Timeline#getLayers()} only ever produces TEXT/STICKER/SPRITE tracks — so this
-     * method returns {@code null} for every current project and the composition is built
-     * exactly as before. The moment a VIDEO overlay track with clip items exists, this path
-     * engages and logs loudly (see buildComposition).</p>
-     *
-     * <p>TODO(M-EXPORT-2 / M-COMP-2): keyframed (per-frame) transform motion, X/Y position
-     * placement and opacity need OverlaySettings/GL support (a static
-     * ScaleAndRotateTransformation cannot animate, and Presentation cannot offset a PiP);
-     * on-device verification of Media3 multi-video-sequence z-order is owed per PLAN Part 10
-     * item 3 before this is user-reachable.</p>
-     */
-    @Nullable
-    private EditedMediaItemSequence buildOverlayVideoSequence(@NonNull Timeline timeline,
-                                                              @Nullable int[] canvasDims) {
-        List<EditedMediaItem> overlayItems = new ArrayList<>();
-        for (Track track : timeline.getLayers()) {
-            if (track.getKind() != TrackKind.VIDEO) continue;
-            if (track.isHidden()) {
-                FLog.i(TAG, "Overlay-VIDEO track '" + track.getId() + "' is hidden — skipped on export");
-                continue;
-            }
-            for (TimedItem item : track.getItems()) {
-                Clip clip = item.getClip();
-                if (clip == null || clip.getSourceUri() == null) continue;
-                long inMs = clip.getInPointMs();
-                long outMs = Math.min(clip.getOutPointMs(), clip.getSourceDurationMs());
-                if (outMs <= inMs) continue;
-                MediaItem mediaItem = new MediaItem.Builder()
-                        .setUri(resolveSeekableSourceUri(clip))
-                        .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
-                                .setStartPositionMs(inMs)
-                                .setEndPositionMs(outMs)
-                                .build())
-                        .build();
-                EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
-                        .setRemoveAudio(true) // overlay video contributes pixels only (M-EXPORT-1)
-                        .setDurationUs(Math.max(1L, outMs - inMs) * 1000);
-                List<Effect> fx = new ArrayList<>();
-                com.fadcam.ui.faditor.keyframe.KeyframeSet t = item.getTransform();
-                if (t != null && !t.isEmpty()) {
-                    // Static transform sampled at the item's own start (see class TODO for
-                    // keyframed motion) — SAME evaluator (KeyframeSet.valueAt) preview uses.
-                    float scale = t.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0L, 1f);
-                    float rot = t.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, 0L, 0f);
-                    if (scale != 1f || rot != 0f) {
-                        ScaleAndRotateTransformation.Builder tb =
-                                new ScaleAndRotateTransformation.Builder();
-                        if (scale != 1f) tb.setScale(scale, scale);
-                        if (rot != 0f) tb.setRotationDegrees(rot);
-                        fx.add(tb.build());
-                    }
-                }
-                if (canvasDims != null) {
-                    fx.add(Presentation.createForWidthAndHeight(
-                            canvasDims[0], canvasDims[1], Presentation.LAYOUT_SCALE_TO_FIT));
-                }
-                if (!fx.isEmpty()) {
-                    eb.setEffects(new Effects(Collections.emptyList(), fx));
-                }
-                overlayItems.add(eb.build());
-            }
-        }
-        if (overlayItems.isEmpty()) return null;
-        return new EditedMediaItemSequence.Builder(overlayItems).build();
-    }
+    // (M-EXPORT-1's buildOverlayVideoSequence was DELETED in M-EXPORT-2: probe #3 proved
+    // DefaultVideoCompositor draws the primary sequence ON TOP, so a second video sequence
+    // composites the PiP invisibly under the master. PiP export now rides
+    // CompositeExportOverlay — see the overlay-video pass there and PLAN_LAYERS_V2 §5.)
 
     /**
      * Assemble the canonical-ordered {@code List<Effect>} for a clip's

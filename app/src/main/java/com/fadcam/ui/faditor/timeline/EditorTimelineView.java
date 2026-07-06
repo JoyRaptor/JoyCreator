@@ -673,6 +673,10 @@ public class EditorTimelineView extends View {
             }
             scrollOffsetPx += delta;
             clampScroll();
+            if (com.fadcam.ui.faditor.layers.LayerGestureController.ROWGESTURE_DEBUG) {
+                FLog.d("ROWGESTURE", "edge-pan tick delta=" + (int) delta
+                        + " fx=" + (int) fx + " scrollOffsetPx=" + (int) scrollOffsetPx);
+            }
             layerGestureController.onRowBodyMove(fx + scrollOffsetPx, lastItemDragScreenY,
                     getM6RowsTopPx(), totalEffectiveMs, EditorTimelineView.this::xToTime);
             invalidate();

@@ -470,6 +470,18 @@ public final class LayerRowRenderer {
 
         if (collapsed) {
             drawCollapsedStrip(canvas, row, totalMs, timeToX);
+            // SPLIT-ELEMENT FIX: even when the hovered target row is COLLAPSED, the ONE
+            // proxy body must render on it (never vanish) — draw it over the thin strip
+            // so the coherent object is always visible under the finger.
+            if (proxyItem != null && proxyRowTrackId != null && proxyRowTrackId.equals(t.getId())
+                    && liftedItemId != null && liftedItemId.equals(proxyItem.getId())
+                    && !isItemOnRow(proxyItem, t)) {
+                float top = row.bodyRect.top + 3f * density;
+                float bottom = row.bodyRect.bottom - 3f * density;
+                drawItemBody(canvas, proxyItem, t.getKind(), baseColorFor(t.getKind()),
+                        t.isHidden(), true, top, bottom, row.bodyRect.centerY(),
+                        totalMs, timeToX, selectedItemId);
+            }
         } else {
             drawExpandedItems(canvas, row, t, totalMs, timeToX, selectedItemId);
         }

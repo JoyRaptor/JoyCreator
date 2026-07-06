@@ -573,6 +573,21 @@ public final class LayerGestureController {
                 maybeSnapTrimHome(false, snapThrMs);
                 break;
         }
+        // ROWGESTURE per-move (TEMP): finger x/y, resolved model start, the row the proxy
+        // is drawn on, and butt/lock state — one line per move so the hand-test + logcat
+        // reads exactly what the single proxy did each frame (resolved vs finger).
+        if (ROWGESTURE_DEBUG && activeKind == GestureKind.MOVE && pickupArmed) {
+            String drawnRow = hoverTargetTrack != null ? hoverTargetTrack.getId()
+                    : (activeTrack != null ? activeTrack.getId() + "(home)" : "?");
+            rowGestureLog("move fx=" + (int) x + " fy=" + (int) y
+                    + " fingerMs=" + t
+                    + " resolvedMs=" + activeItem.getTimelineStartMs()
+                    + " drawnRow=" + drawnRow
+                    + " timeLock=" + (hoverTargetTrack != null
+                        && Math.abs(Math.max(0, t - moveGrabOffsetMs) - dragStartTimelineMs) <= snapThrMs)
+                    + " buttJoint=" + (bookendJointMs == Long.MIN_VALUE ? "-" : bookendJointMs)
+                    + " homeSnap=" + homeSnapArmed);
+        }
         callback.onGestureLive(activeItem);
     }
 
@@ -1113,7 +1128,10 @@ public final class LayerGestureController {
         hoveringHomeRow = false;
         homeSnapArmed = false;
         dragStartDisplayDurMs = 0;
+        lastLoggedHoverRow = null;
         rowRenderer.setDragTargetTrackId(null);
+        rowRenderer.setProxyRowTrackId(null);
+        rowRenderer.setProxyItem(null);
         rowRenderer.setLiftedItemId(null);
         rowRenderer.setTrimmingItemId(null);
         rowRenderer.setHomeGhost(null, 0, 0);
@@ -1163,6 +1181,11 @@ public final class LayerGestureController {
                     o.setTimeRange(Math.max(0, o.getStartMs()), Long.MAX_VALUE);
                 }
             }
+            rowGestureLog("drop-commit item=" + item.getId()
+                    + " committedStartMs=" + item.getTimelineStartMs()
+                    + " fromRow=" + (fromTrack != null ? fromTrack.getId() : "?")
+                    + " toRow=" + (toTrack != null ? toTrack.getId() : (fromTrack != null ? fromTrack.getId() + "(same)" : "?"))
+                    + " newLayerZone=" + droppedOnNewLayerZone);
             // M10: report the track-change FIRST (see method doc) so the activity can
             // fold it into the ONE undo action onGestureFinished below builds.
             if (droppedOnNewLayerZone && fromTrack != null) {

@@ -964,6 +964,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 initViews();
                 project = loaded;
 
+                // T8: split any legacy sprites that share one lane (pre-T8 placements all
+                // left layerId=null → one overlapping "sprite" track). Idempotent + purely
+                // model-level, so it is safe here before the timeline view is wired up; the
+                // deterministic lane ids persist on the next autosave.
+                int movedSprites = project.getTimeline().migrateSpriteLayers();
+                if (movedSprites > 0) {
+                    FLog.i(TAG, "T8 sprite-layer migration: moved " + movedSprites
+                            + " overlapping sprite(s) to their own lanes");
+                }
+
                 // Check if any clips have stale cache/remux paths and try to
                 // recover the original source before loading.
                 recoverStaleCachePaths();
@@ -14020,6 +14030,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         final com.fadcam.ui.faditor.sprite.SpriteOverlayItem item =
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem.create(sheet.getId());
+        // T8: every placed sprite gets its OWN lane (unique layerId) so two sprites never
+        // collapse onto one shared "sprite" track and overlap (FEEDBACK_20260706 #2).
+        item.setLayerId(com.fadcam.ui.faditor.model.Timeline.spriteLayerIdFor(item));
         item.getFrameTrack().put(
                 com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(0, firstEnabledCell(sheet)));
         item.setTimeRange(Math.max(0, lastPlayheadAbsoluteMs), Long.MAX_VALUE);

@@ -593,6 +593,49 @@ public class Timeline {
         return !spriteOverlays.isEmpty();
     }
 
+    /**
+     * T8: the stable, per-item sprite LANE id — one lane per placed sprite (FEEDBACK
+     * _20260706 #2 "every item its own lane"). DETERMINISTIC (derived from the item id,
+     * itself a UUID): re-deriving always yields the same id, so {@link #migrateSpriteLayers}
+     * is idempotent and a sprite keeps its lane even across an UNSAVED session. There is no
+     * {@code LayerTrackDef} — {@link #getLayers()}'s defensive leftover-bucket branch already
+     * surfaces any non-default sprite {@code layerId} as its own {@code buildSpriteTrack}
+     * lane, and {@code TrackFlags} (hide/lock/rename) key off the id directly.
+     */
+    @NonNull
+    public static String spriteLayerIdFor(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        return "sprite-" + item.getId();
+    }
+
+    /**
+     * T8 migration: split legacy sprite overlays that share ONE timeline lane. Before T8
+     * every placed sprite left {@code layerId == null}, so {@link #getLayers()} bucketed
+     * them ALL into the single default {@code "sprite"} track where they visually
+     * overlapped. For any lane that holds two or more sprites, this gives every sprite
+     * PAST THE FIRST its own {@link #spriteLayerIdFor} lane, so N sprites become N lanes.
+     * Idempotent: a no-op once every bucket holds at most one sprite (so it is safe to run
+     * on every load, including undo/redo snapshot restores). Returns how many sprites were
+     * moved to a fresh lane (0 = nothing to do).
+     */
+    public int migrateSpriteLayers() {
+        Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> byLayer =
+                new LinkedHashMap<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : spriteOverlays) {
+            String id = so.getLayerId() != null ? so.getLayerId() : "sprite";
+            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(so);
+        }
+        int moved = 0;
+        for (List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> bucket : byLayer.values()) {
+            // Keep the first sprite on its current lane; move the rest to their own.
+            for (int i = 1; i < bucket.size(); i++) {
+                bucket.get(i).setLayerId(spriteLayerIdFor(bucket.get(i)));
+                moved++;
+            }
+        }
+        return moved;
+    }
+
     // ── Transition management ───────────────────────────────────────
 
     public void addTransition(@NonNull Transition transition) {

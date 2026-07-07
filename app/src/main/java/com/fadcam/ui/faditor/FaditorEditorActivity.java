@@ -370,6 +370,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private View toolOpacity;
     private TextView toolOpacityIcon;
     private TextView toolOpacityLabel;
+    // Captions tool-row cell (armed-state tint mirrors toolMuteIcon/toolOpacityIcon below).
+    private TextView toolCaptionsIcon;
+    private TextView toolCaptionsLabel;
     // Opacity top-drawer: scrub-tracking slider + keyframe stopwatch + carets.
     private View opacityDrawer;
     private SeekBar opacitySlider;
@@ -1928,6 +1931,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         findViewById(R.id.tool_transitions).setOnClickListener(v -> showTransitionPanel(!transitionPanelOpen));
         findViewById(R.id.tool_captions).setOnClickListener(v -> toggleCaptions());
+        toolCaptionsIcon = findViewById(R.id.tool_captions_icon);
+        toolCaptionsLabel = findViewById(R.id.tool_captions_label);
         toolLoop.setOnClickListener(v -> {
             if (loopDrawerOpen) {
                 hideLoopDrawer();
@@ -4956,6 +4961,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         // Mirror the same armed state onto the bottom-bar stopwatch shortcut (if built).
         updateCaptionKfArmShortcutUI();
+
+        // Mirror the armed state onto the Captions tool-row cell itself, matching the
+        // existing toolMuteIcon/toolOpacityIcon convention (green when armed, grey otherwise).
+        if (toolCaptionsIcon != null) {
+            toolCaptionsIcon.setTextColor(captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF888888);
+        }
+        if (toolCaptionsLabel != null) {
+            toolCaptionsLabel.setTextColor(captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF888888);
+        }
 
         if (cc == null) return;
 

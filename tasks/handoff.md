@@ -1,5 +1,49 @@
 # FadCam AI Handoff
 
+> **🎛️ 2026-07-07 — FABLE: G1 GROUNDWORK — held-item MOVE now reaches hidden lanes + honest drop-target
+> affordance (green, on device; drag-FEEL hand-test owed).** Two refinements to the existing pickup-move
+> machinery that JoyRaptor's 2026-07-07 hand-test surfaced, prep for the full G1 state machine:
+> **(1) M6 VERTICAL auto-scroll during a held-item drag** — holding a picked-up item near the top/bottom
+> of the capped row band now auto-scrolls the LayerRowRenderer viewport so hidden lanes become reachable
+> mid-drag (was horizontal-only). New `EditorTimelineView.m6MoveDragVerticalScrollDelta(fy)` (neutral
+> middle → 0; returns 0 when content fits, so no spurious scroll; gentler 0.6× speed since rows are
+> short); wired into the edge-scroll runnable + the onMove trigger (kicks the loop when near a H edge OR a
+> V band edge, self-stops when neither). **(2) M10 DROP-TARGET affordance** — the cross-row target was a
+> full-width purple STROKE ring that read as an oversized "false size" of a small item (JoyRaptor: "a purple
+> outline bigger than it… why show me this false size?"). Replaced with a thin left-edge purple accent bar
+> + ~12% purple wash = clearly "this ROW", while the single coherent proxy body (drawn at the item's TRUE
+> size + resolved drop X) stays the size cue. Files: `EditorTimelineView.java`, `layers/LayerRowRenderer.java`.
+> Watcher green (BUILD SUCCESSFUL), installed SM-N960U, editor launches clean. ROWGESTURE logging retained.
+> **OWED HAND-TEST (JoyRaptor, drag-feel — ≤4 gestures):** (a) hold-lift a Text/Sprite item, drag it up so the
+> band scrolls to reveal a hidden lane; drop it there — does the auto-scroll pace feel right, does it stop
+> when you pull back to the middle? (b) drag a SMALL item over another lane — is the purple target now a
+> tidy left-edge accent (not an oversized outline), with the moving proxy showing the item's real size?
+> **NEXT (G1 proper):** the hold/tap/double-tap state machine (contract §1, §7-G1) — STRONG-MODEL.
+>
+> **✨ 2026-07-06 ~15:25 — FABLE: T8 multi-sprite-per-lane bug FIXED + DEVICE-VERIFIED (b55b1cd).**
+> Pre-T8 every placed sprite left `layerId=null`, so `Timeline.getLayers()` bucketed them ALL into the
+> single default `"sprite"` track → they overlapped (JoyRaptor's FEEDBACK_20260706 #2). Fix (Timeline.java +
+> FaditorEditorActivity.java, +56 lines, dep-free): `Timeline.spriteLayerIdFor(item)="sprite-"+item.id`
+> (DETERMINISTIC → idempotent migration, stable lane even unsaved) + `Timeline.migrateSpriteLayers()`
+> (splits any lane with 2+ sprites: keeps the first, moves the rest; run once in the saved-project load
+> path) + `placeSpriteOnVideo()` stamps every NEW sprite its own lane. NO LayerTrackDef — getLayers()'s
+> leftover-bucket branch already surfaces each non-default sprite layerId as its own buildSpriteTrack lane.
+> DEVICE PROOF (SM-N960U, project bdd51919): load logged "moved 1 overlapping sprite(s)"; timeline now
+> renders TWO "Sprite" rows (was one); project.json split s2 → `layerId sprite-81563c97…`; a placed 3rd
+> sprite got its own `sprite-9a97698f…` lane (then removed to restore JoyRaptor's 2-sprite content). Watcher
+> green (14s). KNOWN-COSMETIC: migrated/leftover lanes show the generic "Sprite" header name — per-lane
+> naming lands with the LAYERS-UX renderer consolidation (FEEDBACK #1), which is the NEXT track.
+> **NEXT-TRACK PLAN READY:** `tasks/PLAN_LAYERS_UX_EXECUTION.md` — the layers-UX overhaul HOW, grounded in
+> confirmed code facts: BOTH row-render systems run in `onDraw` (`EditorTimelineView.drawLayers` +
+> `LayerRowRenderer.layout`), fed together at `FaditorEditorActivity.syncTimelineOverlays()` 8844-8864.
+> Text & audio render TWICE (the dup rows); captions & visualizers have NO TrackKind so they live ONLY in
+> the old path. Plan = 7 always-green slices A–G (A: add CAPTION/VISUALIZER TrackKinds + TimedItem sockets
+> + Timeline banding views; B: render them in LayerRowRenderer; C: delete old drawLayers rows + old
+> selectedLayerKind hit-testing = removes ALL duplication; D: header hit zones + caption-chooser autohide;
+> E: vertical re-layout; F: no-overlap-all-types + move-between-layers; G: gesture language DESIGN-FIRST
+> with JoyRaptor). Not started — clean stop after T8. Sharp edge flagged: the god-class `selectedLayerKind`
+> hit-test path must not be orphaned when the old renderer is deleted (Slice C).
+>
 > **🎭 2026-07-06 ~12:05 — FABLE-DAY: A2 TRACKING CORE + COMPOSITING FAMILY LANDED, ALL DEVICE-PROVEN
 > (fafb0a8 + 22f29ee), + a REVIEW CATCH fixed: a4fbeba had flipped every PiP vertically on export.**
 > **A2 core (fafb0a8, dep-free — MediaPipe stays USER-GATED):** params ARE the contract

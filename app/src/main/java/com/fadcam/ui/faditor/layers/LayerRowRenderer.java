@@ -489,12 +489,23 @@ public final class LayerRowRenderer {
             drawExpandedItems(canvas, row, t, totalMs, timeToX, selectedItemId);
         }
 
-        // M10: highlight this row when a cross-row item drag is currently hovering it
-        // (PLAN Part 7 row M10 scope 1 "item block follows the finger across rows").
+        // M10: highlight the row a cross-row item drag is hovering. This used to be a full-width
+        // purple STROKE around the whole row body — but for a small clip that bordering outline read
+        // as an oversized "false size" of the item itself (JoyRaptor 2026-07-07: "a purple outline bigger
+        // than it... why show me this false size?"). The single coherent proxy body (drawn at the
+        // item's TRUE size + resolved drop X) is the size cue; the row target now reads as a thin
+        // purple accent bar down the row's left edge + a faint wash — clearly "this ROW", not an item.
         if (dragTargetTrackId != null && dragTargetTrackId.equals(t.getId())) {
-            RectF ring = new RectF(row.bodyRect);
-            ring.inset(1f * density, 1f * density);
-            canvas.drawRoundRect(ring, 3f * density, 3f * density, dropTargetPaint);
+            int prevColor = barPaint.getColor();
+            Paint.Style prevStyle = barPaint.getStyle();
+            barPaint.setStyle(Paint.Style.FILL);
+            barPaint.setColor(0x1F8C3DFA); // ~12% purple wash over the target row
+            canvas.drawRoundRect(row.bodyRect, 3f * density, 3f * density, barPaint);
+            barPaint.setColor(COLOR_DROP_TARGET_RING); // solid accent bar at the left edge
+            canvas.drawRect(row.bodyRect.left, row.bodyRect.top,
+                    row.bodyRect.left + 3f * density, row.bodyRect.bottom, barPaint);
+            barPaint.setColor(prevColor);
+            barPaint.setStyle(prevStyle);
         }
     }
 

@@ -670,23 +670,30 @@ public class EditorTimelineView extends View {
                 return;
             }
             float fx = lastItemDragScreenX;
+            float fy = lastItemDragScreenY;
             int vw = getWidth();
-            float delta;
+            float hDelta = 0f;
             if (fx < edgeScrollZonePx) {
-                delta = -edgeScrollMaxSpeedPx * (1f - fx / edgeScrollZonePx);
+                hDelta = -edgeScrollMaxSpeedPx * (1f - fx / edgeScrollZonePx);
             } else if (fx > vw - edgeScrollZonePx) {
-                delta = edgeScrollMaxSpeedPx * (1f - (vw - fx) / edgeScrollZonePx);
-            } else {
+                hDelta = edgeScrollMaxSpeedPx * (1f - (vw - fx) / edgeScrollZonePx);
+            }
+            // VERTICAL M6 auto-scroll (JoyRaptor 2026-07-07 hand-test): a held item near the top/bottom of
+            // the capped row band scrolls the rows so hidden lanes — and the "+ new layer" zone pinned
+            // at the band bottom — become reachable during the drag (was horizontal-only before).
+            float vDelta = m6MoveDragVerticalScrollDelta(fy);
+            if (hDelta == 0f && vDelta == 0f) {
                 isEdgeScrolling = false;
                 return;
             }
-            scrollOffsetPx += delta;
-            clampScroll();
-            if (com.fadcam.ui.faditor.layers.LayerGestureController.ROWGESTURE_DEBUG) {
-                FLog.d("ROWGESTURE", "edge-pan tick delta=" + (int) delta
-                        + " fx=" + (int) fx + " scrollOffsetPx=" + (int) scrollOffsetPx);
+            if (hDelta != 0f) {
+                scrollOffsetPx += hDelta;
+                clampScroll();
             }
-            layerGestureController.onRowBodyMove(fx + scrollOffsetPx, lastItemDragScreenY,
+            if (vDelta != 0f) {
+                layerRowRenderer.scrollBy(vDelta);
+            }
+            layerGestureController.onRowBodyMove(fx + scrollOffsetPx, fy,
                     getM6RowsTopPx(), totalEffectiveMs, EditorTimelineView.this::xToTime);
             invalidate();
             edgeScrollHandler.postDelayed(this, EDGE_SCROLL_INTERVAL_MS);
@@ -4710,7 +4717,17 @@ public class EditorTimelineView extends View {
                     cancelPendingExcursionEnter();
                     abandonExcursionInPlace();
                 }
-                startOrStopEdgeScroll(x);
+                // Kick the edge-scroll loop when near a horizontal edge OR a vertical M6 band edge —
+                // the vertical case reveals hidden rows + the new-layer zone during a held-item move
+                // (JoyRaptor 2026-07-07: "can't reach hidden rows"). The runnable self-stops when neither
+                // zone is active (both deltas 0).
+                boolean inVZone = m6MoveDragVerticalScrollDelta(y) != 0f;
+                if ((inEdgeZone || inVZone) && !isEdgeScrolling) {
+                    isEdgeScrolling = true;
+                    edgeScrollHandler.post(edgeScrollRunnable);
+                } else if (!inEdgeZone && !inVZone && isEdgeScrolling) {
+                    stopEdgeScroll();
+                }
             }
             // FOLLOW-UP 1: drive the bookend excursion from the controller's poll state —
             // an armed bookend (occupied target row) animates the view to the joint;
@@ -5607,6 +5624,34 @@ public class EditorTimelineView extends View {
         return Drag.NONE;
     }
     
+    /**
+     * Vertical auto-scroll delta (px) for a held-item MOVE whose finger dwells near the top or bottom
+     * of the capped M6 row band, so hidden lanes (and the new-layer zone pinned at the band bottom)
+     * become reachable mid-drag. Returns 0 when the finger is in the neutral middle, or when nothing is
+     * hidden (content fits the viewport). Scrolls the {@code layerRowRenderer}, not the timeline.
+     * (JoyRaptor 2026-07-07 hand-test: "I can't hold it up top or below to have it scroll automatically so
+     * I can reach hidden rows.")
+     */
+    private float m6MoveDragVerticalScrollDelta(float fy) {
+        if (layerRowRenderer == null) return 0f;
+        float viewportH = layerRowRenderer.getViewportHeightPx();
+        if (viewportH <= 0f) return 0f;
+        if (layerRowRenderer.getContentHeightPx() <= viewportH + 1f) return 0f; // nothing hidden
+        float bandTop = getM6RowsTopPx();
+        float bandBot = bandTop + viewportH;
+        float vZone = Math.min(edgeScrollZonePx, viewportH * 0.35f);
+        float speed = edgeScrollMaxSpeedPx * 0.6f; // rows are short — a gentler pace reads better
+        if (fy < bandTop + vZone) {
+            float depth = Math.max(0f, Math.min(1f, (bandTop + vZone - fy) / vZone));
+            return -speed * depth;
+        }
+        if (fy > bandBot - vZone) {
+            float depth = Math.max(0f, Math.min(1f, (fy - (bandBot - vZone)) / vZone));
+            return speed * depth;
+        }
+        return 0f;
+    }
+
     /**
      * Start or stop edge auto-scrolling based on finger position.
      * Called on every MOVE event during a trim drag.

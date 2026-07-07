@@ -66,7 +66,7 @@ public class EditorTimelineView extends View {
     private static final float SEGMENT_GAP_DP = 4f;
     private static final float SEGMENT_CORNER_DP = 6f;
 
-    private static final float HANDLE_WIDTH_DP = 14f;
+    private static final float HANDLE_WIDTH_DP = 11f; // a touch narrower (JoyRaptor 2026-07-06); hit-zone stays generous (+touchSlop)
     private static final float HANDLE_OVERHANG_DP = 4f;
     private static final float HANDLE_NOTCH_WIDTH_DP = 3f;
     private static final float HANDLE_NOTCH_HEIGHT_DP = 18f;
@@ -1713,6 +1713,10 @@ public class EditorTimelineView extends View {
             drawSegment(canvas, i);
         }
 
+        // Master "filmstrip" frame (JoyRaptor 2026-07-06): drawn in content space (travels with the scroll)
+        // and BEFORE the trim handles so the green handles paint on top of the film, not behind it.
+        drawMasterFilmstrip(canvas, tTop, tBot, w);
+
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
         }
@@ -1745,12 +1749,6 @@ public class EditorTimelineView extends View {
                 layerGestureController != null ? layerGestureController.getSelectedItemId() : null);
 
         canvas.restore();
-
-        // Master-track "filmstrip" delineation (JoyRaptor 2026-07-06): frame the main track as a strip of
-        // film so it reads as the anchor band — overlays sit above it, audio below. Screen space, over
-        // the thumbnails, so the frame stays put as the strip scrolls. (Master always exists here —
-        // onDraw returned early above if segments were empty.)
-        drawMasterFilmstrip(canvas, tTop, tBot, w);
 
         // Draw fixed center playhead (NOT affected by scroll)
         float playheadBot = !audioClips.isEmpty() ? audioBot : tBot;
@@ -3346,17 +3344,24 @@ public class EditorTimelineView extends View {
      * spaced perforations across the viewport width.
      */
     private void drawMasterFilmstrip(@NonNull Canvas canvas, float tTop, float tBot, int w) {
+        // Drawn in CONTENT space (inside the scroll translate) BEFORE the trim handles, so (a) the
+        // sprocket holes are content-locked and TRAVEL with the strip as it scrolls, and (b) the green
+        // trim handles paint on TOP of the frame, not behind it (JoyRaptor 2026-07-06). Rails + holes are
+        // culled to the visible content span so the cost is constant regardless of timeline length.
         float railH = 7f * density;
+        float left = scrollOffsetPx;
+        float right = scrollOffsetPx + w;
         filmPaint.setStyle(Paint.Style.FILL);
         filmPaint.setColor(COLOR_FILM_RAIL);
-        canvas.drawRect(0, tTop, w, tTop + railH, filmPaint);
-        canvas.drawRect(0, tBot - railH, w, tBot, filmPaint);
-        // Sprocket perforations punched along each rail (evenly spaced across the viewport).
+        canvas.drawRect(left, tTop, right, tTop + railH, filmPaint);
+        canvas.drawRect(left, tBot - railH, right, tBot, filmPaint);
+        // Perforations at fixed content-X intervals → they scroll with the film like real sprocket holes.
         filmPaint.setColor(COLOR_FILM_SPROCKET);
         float holeW = 5f * density, holeH = 3.5f * density, corner = 1f * density;
         float pitch = 14f * density;
         float topCy = tTop + railH / 2f, botCy = tBot - railH / 2f;
-        for (float cx = pitch / 2f; cx < w; cx += pitch) {
+        float firstCx = (float) (Math.floor((left - pitch / 2f) / pitch) * pitch) + pitch / 2f;
+        for (float cx = firstCx; cx < right + pitch; cx += pitch) {
             canvas.drawRoundRect(cx - holeW / 2f, topCy - holeH / 2f,
                     cx + holeW / 2f, topCy + holeH / 2f, corner, corner, filmPaint);
             canvas.drawRoundRect(cx - holeW / 2f, botCy - holeH / 2f,

@@ -6145,20 +6145,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             if (allSamples.isEmpty()) return null;
 
-            // Downsample to targetSamples bins
+            // Downsample to PEAK bins. W1 accuracy (JoyRaptor 2026-07-06): store the peak (max |sample|)
+            // per bin, NOT the mean — averaging smeared out onsets/transients so words couldn't be
+            // lined up by ear. Resolution scales with duration (~60 bins/sec, capped) so a long clip
+            // isn't crushed into a coarse 800-bin smear; short clips keep the caller's fine target.
             int totalSamples = allSamples.size();
-            int samplesPerBin = Math.max(1, totalSamples / targetSamples);
-            int[] waveform = new int[Math.min(targetSamples, totalSamples)];
+            int channels = 1;
+            try { channels = Math.max(1, format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)); } catch (Exception ignore) {}
+            int sampleRate = 44100;
+            try { sampleRate = Math.max(8000, format.getInteger(MediaFormat.KEY_SAMPLE_RATE)); } catch (Exception ignore) {}
+            float durationSec = (totalSamples / (float) channels) / sampleRate;
+            int target = Math.max(targetSamples, Math.min(6000, Math.round(durationSec * 60f)));
+            int samplesPerBin = Math.max(1, totalSamples / target);
+            int[] waveform = new int[Math.min(target, totalSamples)];
             for (int i = 0; i < waveform.length; i++) {
-                long sum = 0;
                 int start = i * samplesPerBin;
                 int end = Math.min(start + samplesPerBin, totalSamples);
+                int peak = 0;
                 for (int j = start; j < end; j++) {
-                    sum += Math.abs(allSamples.get(j));
+                    int a = Math.abs(allSamples.get(j));
+                    if (a > peak) peak = a;
                 }
-                long avg = sum / (end - start);
-                // Normalise to 0–255
-                waveform[i] = (int) Math.min(255, (avg * 255) / 32768);
+                // Normalise to 0–255.
+                waveform[i] = (int) Math.min(255, ((long) peak * 255) / 32768);
             }
             return waveform;
 

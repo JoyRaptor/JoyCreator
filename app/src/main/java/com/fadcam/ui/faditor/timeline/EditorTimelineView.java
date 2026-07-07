@@ -3443,13 +3443,20 @@ public class EditorTimelineView extends View {
                 canvas.clipRect(rect);
                 RectF barRect = new RectF();
                 for (int j = 0; j < barCount; j++) {
-                    float samplePos = (j / (float) barCount) * waveform.length;
-                    int si = Math.min((int) samplePos, waveform.length - 1);
-                    int si2 = Math.min(si + 1, waveform.length - 1);
-                    float frac = samplePos - si;
-                    float amplitude = ((waveform[si] * (1f - frac)) + (waveform[si2] * frac)) / 255f;
+                    // W1 peak-preserving envelope (JoyRaptor 2026-07-06): each bar shows the LOUDEST sample
+                    // bin in the span it covers, not one point-sampled value — so onsets & transients
+                    // pop and quiet passages still read (the DAW look you align words by), instead of
+                    // the old averaged smear that skipped every peak between sampled points.
+                    float p0 = (j / (float) barCount) * waveform.length;
+                    float p1 = ((j + 1) / (float) barCount) * waveform.length;
+                    int s0 = Math.max(0, Math.min((int) p0, waveform.length - 1));
+                    int s1 = Math.max(s0 + 1, Math.min((int) Math.ceil(p1), waveform.length));
+                    int peak = 0;
+                    for (int s = s0; s < s1; s++) if (waveform[s] > peak) peak = waveform[s];
+                    float amplitude = peak / 255f;
 
-                    amplitude = (float) Math.pow(amplitude, 0.7);
+                    // Perceptual scaling (sqrt-ish) lifts quiet detail above the floor.
+                    amplitude = (float) Math.pow(amplitude, 0.6);
 
                     float minBar = 1f * density;
                     float topH = Math.max(minBar, amplitude * topHalf);

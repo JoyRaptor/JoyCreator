@@ -5931,8 +5931,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             saveProjectNow();
 
             // Format label for toast
-            String displayLabel = preset.replace("_", ":");
-            if ("original".equals(preset)) displayLabel = "Original";
+            String displayLabel = CanvasPickerBottomSheet.displayLabel(preset);
             Toast.makeText(this, getString(R.string.faditor_canvas_applied, displayLabel), Toast.LENGTH_SHORT).show();
         });
         sheet.show(getSupportFragmentManager(), "canvas_picker");
@@ -5948,7 +5947,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             toolCanvasIcon.setTextColor(color);
         }
         if (toolCanvasLabel != null) {
-            String label = active ? preset.replace("_", ":") :
+            String label = active ? CanvasPickerBottomSheet.displayLabel(preset) :
                     getString(R.string.faditor_tool_canvas);
             toolCanvasLabel.setText(label);
             toolCanvasLabel.setTextColor(color);
@@ -6024,6 +6023,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * slide). Returns -1 when unknown (caller fills the preview).
      */
     private float resolveCanvasAspect() {
+        String rawPreset = project.getCanvasPreset();
+        if (rawPreset != null && rawPreset.startsWith("custom_")) {
+            // Literal W×H custom resolution: resolve via the same parser the
+            // export path uses, source dims don't matter here (already fixed).
+            int[] dims = CanvasPickerBottomSheet.resolveCanvasDimensions(rawPreset, 0, 0);
+            if (dims != null && dims[0] > 0 && dims[1] > 0) {
+                return (float) dims[0] / dims[1];
+            }
+        }
         String preset = project.getCanvasPreset().replace('_', ':').trim();
         switch (preset) {
             case "16:9": return 16f / 9f;

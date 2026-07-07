@@ -51,6 +51,43 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         {"21_9",     "21:9  Cinematic",    "21", "9"},
     };
 
+    /** Prefix for a custom-resolution preset key, e.g. "custom_1080_1920". */
+    private static final String CUSTOM_PREFIX = "custom_";
+
+    /**
+     * Parses a custom-resolution preset key ({@code "custom_<w>_<h>"}) into literal
+     * pixel dimensions, or {@code null} if {@code preset} isn't a custom key.
+     */
+    @Nullable
+    private static int[] parseCustomDims(@NonNull String preset) {
+        if (!preset.startsWith(CUSTOM_PREFIX)) return null;
+        String[] parts = preset.substring(CUSTOM_PREFIX.length()).split("_");
+        if (parts.length != 2) return null;
+        try {
+            int w = Integer.parseInt(parts[0]);
+            int h = Integer.parseInt(parts[1]);
+            if (w <= 0 || h <= 0) return null;
+            return new int[]{w, h};
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Builds a custom-resolution preset key from literal pixel dimensions. */
+    @NonNull
+    public static String customPresetKey(int w, int h) {
+        return CUSTOM_PREFIX + w + "_" + h;
+    }
+
+    /** A human-readable label for any preset key, including custom ones (e.g. "1080×1920"). */
+    @NonNull
+    public static String displayLabel(@NonNull String preset) {
+        int[] dims = parseCustomDims(preset);
+        if (dims != null) return dims[0] + "×" + dims[1];
+        if ("original".equals(preset)) return "Original";
+        return preset.replace("_", ":");
+    }
+
     @Nullable private Callback callback;
     @NonNull private String currentPreset = "original";
 
@@ -192,10 +229,130 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             root.addView(row);
         }
 
+        // Custom W×H row (road_map "canvas custom-resolution input"). Mirrors the
+        // crop toolbar's Custom-ratio chip pattern (numeric-entry AlertDialog).
+        boolean customSelected = currentPreset.startsWith(CUSTOM_PREFIX);
+        LinearLayout customRow = new LinearLayout(requireContext());
+        customRow.setOrientation(LinearLayout.HORIZONTAL);
+        customRow.setGravity(Gravity.CENTER_VERTICAL);
+        customRow.setBackgroundResource(R.drawable.settings_home_row_bg);
+        int hPad = (int) (20 * dp);
+        int vPad = (int) (14 * dp);
+        customRow.setPadding(hPad, vPad, hPad, vPad);
+        LinearLayout.LayoutParams customRowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        customRowLp.setMargins((int) (12 * dp), (int) (2 * dp), (int) (12 * dp), (int) (2 * dp));
+        customRow.setLayoutParams(customRowLp);
+
+        TextView customIcon = new TextView(requireContext());
+        customIcon.setTypeface(materialIcons);
+        customIcon.setText("aspect_ratio");
+        customIcon.setTextSize(20);
+        customIcon.setTextColor(customSelected ? 0xFF4CAF50 : 0xFF666666);
+        customIcon.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams customIconLp = new LinearLayout.LayoutParams(
+                (int) (40 * dp), (int) (40 * dp));
+        customIconLp.setMarginEnd((int) (16 * dp));
+        customIcon.setLayoutParams(customIconLp);
+        customRow.addView(customIcon);
+
+        TextView customLabel = new TextView(requireContext());
+        customLabel.setText(customSelected ? displayLabel(currentPreset) : "Custom…");
+        customLabel.setTextSize(15);
+        customLabel.setTextColor(customSelected ? 0xFF4CAF50 : 0xFFCCCCCC);
+        customLabel.setTypeface(null, customSelected ? Typeface.BOLD : Typeface.NORMAL);
+        LinearLayout.LayoutParams customLabelLp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        customLabel.setLayoutParams(customLabelLp);
+        customRow.addView(customLabel);
+
+        if (customSelected) {
+            TextView customCheck = new TextView(requireContext());
+            customCheck.setTypeface(materialIcons);
+            customCheck.setText("check");
+            customCheck.setTextSize(20);
+            customCheck.setTextColor(0xFF4CAF50);
+            customCheck.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
+                    (int) (24 * dp), (int) (24 * dp));
+            customCheck.setLayoutParams(checkLp);
+            customRow.addView(customCheck);
+        }
+
+        customRow.setOnClickListener(v -> showCustomResolutionDialog());
+        root.addView(customRow);
+
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);
         scroll.addView(root);
         return scroll;
+    }
+
+    /**
+     * Prompt for a custom W×H output resolution (road_map "canvas custom-resolution
+     * input"), mirroring FaditorEditorActivity#showCustomCropRatioDialog's numeric-entry
+     * AlertDialog pattern. On confirm, builds a {@code "custom_<w>_<h>"} preset key and
+     * notifies the callback exactly like a normal preset tap. Invalid/blank input is
+     * ignored (dialog just closes, nothing changes).
+     */
+    private void showCustomResolutionDialog() {
+        float dp = getResources().getDisplayMetrics().density;
+        LinearLayout rowLayout = new LinearLayout(requireContext());
+        rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+        rowLayout.setGravity(Gravity.CENTER_VERTICAL);
+        int pad = (int) (20 * dp);
+        rowLayout.setPadding(pad, (int) (8 * dp), pad, 0);
+
+        int[] existing = parseCustomDims(currentPreset);
+
+        android.widget.EditText wField = new android.widget.EditText(requireContext());
+        wField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        wField.setHint("Width");
+        wField.setGravity(Gravity.CENTER);
+        if (existing != null) wField.setText(String.valueOf(existing[0]));
+        LinearLayout.LayoutParams wLp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        wField.setLayoutParams(wLp);
+        rowLayout.addView(wField);
+
+        TextView x = new TextView(requireContext());
+        x.setText("×");
+        x.setTextSize(20);
+        x.setTextColor(0xFFCCCCCC);
+        x.setPadding((int) (12 * dp), 0, (int) (12 * dp), 0);
+        rowLayout.addView(x);
+
+        android.widget.EditText hField = new android.widget.EditText(requireContext());
+        hField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        hField.setHint("Height");
+        hField.setGravity(Gravity.CENTER);
+        if (existing != null) hField.setText(String.valueOf(existing[1]));
+        LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        hField.setLayoutParams(hLp);
+        rowLayout.addView(hField);
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(R.string.faditor_canvas_custom_res_title)
+                .setView(rowLayout)
+                .setPositiveButton(android.R.string.ok, (d, which) -> {
+                    try {
+                        int w = Integer.parseInt(wField.getText().toString().trim());
+                        int h = Integer.parseInt(hField.getText().toString().trim());
+                        if (w > 0 && h > 0) {
+                            // Even-align, matching resolveCanvasDimensions' encoder constraint.
+                            w = (w / 2) * 2;
+                            h = (h / 2) * 2;
+                            if (w > 0 && h > 0 && callback != null) {
+                                callback.onCanvasSelected(customPresetKey(w, h));
+                            }
+                            dismiss();
+                        }
+                    } catch (NumberFormatException ignored) { /* keep current selection */ }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /**
@@ -287,6 +444,12 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
      */
     public static int[] resolveCanvasDimensions(@NonNull String preset,
                                                  int srcWidth, int srcHeight) {
+        int[] custom = parseCustomDims(preset);
+        if (custom != null) {
+            // Literal user-entered resolution — already even-aligned at entry time,
+            // but re-clamp defensively in case a stale/hand-edited project.json isn't.
+            return new int[]{(custom[0] / 2) * 2, (custom[1] / 2) * 2};
+        }
         int ratioW, ratioH;
         switch (preset) {
             case "16_9":  ratioW = 16; ratioH = 9;  break;

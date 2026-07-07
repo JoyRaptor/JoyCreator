@@ -9932,6 +9932,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // in the preview; deselect (or selecting a type without a handles
                 // target yet) hides them.
                 updatePreviewHandlesForSelection(item);
+                // G7 (contract §6/§7): first-ever selection teaches the invisible
+                // per-item gestures (double-tap / hold / drag) once.
+                if (item != null) maybeShowGestureCoachMark();
             }
         };
     }
@@ -12687,6 +12690,106 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
         }
+    }
+
+    // ── G7: one-time gesture coach-mark (contract §6/§7) ──────────────────
+    /** Pref flag (in {@code faditor_ui}): the per-item gesture coach-mark has been shown. */
+    private static final String PREF_COACHMARK_ITEM_GESTURES = "coachmark_item_gestures_shown";
+    /** Live coach-mark banner view, if one is on screen (null otherwise). */
+    @Nullable private View gestureCoachMark;
+
+    /**
+     * The first time the user ever selects a timeline item, surface a one-time,
+     * non-blocking banner teaching the three invisible per-item gestures
+     * (double-tap = edit, hold = its menu, drag = move). Hold and double-tap are
+     * undiscoverable, so JoyRaptor explicitly asked for a first-run hint (contract §6).
+     * Shows once ever (persisted), auto-dismisses after a few seconds or on tap,
+     * and is fully wrapped so a layout hiccup can never break selection.
+     */
+    private void maybeShowGestureCoachMark() {
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences("faditor_ui", MODE_PRIVATE);
+            if (prefs.getBoolean(PREF_COACHMARK_ITEM_GESTURES, false)) return;
+            if (gestureCoachMark != null) return; // already up this session
+            prefs.edit().putBoolean(PREF_COACHMARK_ITEM_GESTURES, true).apply();
+
+            View rootView = findViewById(R.id.editor_root);
+            if (rootView == null || !(rootView.getParent() instanceof android.view.ViewGroup)) return;
+            android.view.ViewGroup root = (android.view.ViewGroup) rootView.getParent();
+
+            float d = getResources().getDisplayMetrics().density;
+            android.widget.LinearLayout card = new android.widget.LinearLayout(this);
+            card.setOrientation(android.widget.LinearLayout.VERTICAL);
+            int pad = (int) (14 * d);
+            card.setPadding(pad, (int) (12 * d), pad, (int) (12 * d));
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(0xF21E1E1E);
+            bg.setCornerRadius(14 * d);
+            bg.setStroke((int) (1 * d), 0x554CAF50);
+            card.setBackground(bg);
+            card.setElevation(12 * d);
+
+            TextView title = new TextView(this);
+            title.setText(R.string.faditor_coachmark_gestures_title);
+            title.setTextColor(0xFF4CAF50);
+            title.setTextSize(13);
+            title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+            card.addView(title);
+
+            TextView body = new TextView(this);
+            body.setText(R.string.faditor_coachmark_gestures_body);
+            body.setTextColor(0xFFEEEEEE);
+            body.setTextSize(13);
+            android.widget.LinearLayout.LayoutParams blp = new android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            blp.topMargin = (int) (4 * d);
+            card.addView(body, blp);
+
+            TextView gotIt = new TextView(this);
+            gotIt.setText(R.string.faditor_coachmark_got_it);
+            gotIt.setTextColor(0xFF4CAF50);
+            gotIt.setTextSize(13);
+            gotIt.setTypeface(gotIt.getTypeface(), android.graphics.Typeface.BOLD);
+            gotIt.setGravity(android.view.Gravity.END);
+            android.widget.LinearLayout.LayoutParams glp = new android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            glp.topMargin = (int) (8 * d);
+            card.addView(gotIt, glp);
+
+            android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL);
+            lp.topMargin = (int) (72 * d); // clear of the top bar
+            lp.leftMargin = lp.rightMargin = (int) (16 * d);
+            gestureCoachMark = card;
+            root.addView(card, lp);
+
+            card.setAlpha(0f);
+            card.setTranslationY(-8 * d);
+            card.animate().alpha(1f).translationY(0f).setDuration(220).start();
+
+            gotIt.setOnClickListener(v -> dismissGestureCoachMark());
+            card.setOnClickListener(v -> dismissGestureCoachMark());
+            card.postDelayed(this::dismissGestureCoachMark, 7000);
+        } catch (Exception e) {
+            FLog.e(TAG, "coach-mark show failed (non-fatal)", e);
+        }
+    }
+
+    /** Animate the coach-mark banner out and detach it (idempotent, null-safe). */
+    private void dismissGestureCoachMark() {
+        final View card = gestureCoachMark;
+        if (card == null) return;
+        gestureCoachMark = null;
+        float d = getResources().getDisplayMetrics().density;
+        card.animate().alpha(0f).translationY(-8 * d).setDuration(180).withEndAction(() -> {
+            if (card.getParent() instanceof android.view.ViewGroup) {
+                ((android.view.ViewGroup) card.getParent()).removeView(card);
+            }
+        }).start();
     }
 
     /**

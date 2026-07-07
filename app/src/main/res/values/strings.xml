@@ -1320,6 +1320,11 @@
     <string name="faditor_kf_set_end">End here</string>
     <string name="faditor_kf_range_set">Overlay timing updated</string>
     <string name="faditor_kf_range_invalid">Move the playhead — the end must come after the start.</string>
+    <!-- G7 coach-marks: one-time hint teaching the invisible per-item gestures the first
+         time an item is selected on the timeline (hold + double-tap are undiscoverable). -->
+    <string name="faditor_coachmark_gestures_title">Editing an item</string>
+    <string name="faditor_coachmark_gestures_body">Double-tap to edit  ·  Hold for its menu  ·  Drag to move</string>
+    <string name="faditor_coachmark_got_it">Got it</string>
     <string name="faditor_clean_audio_label">Clean Audio v2</string>
     <string name="faditor_clean_audio_desc">Denoises, smooths dynamics, and uses two-pass loudness correction with true-peak limiting. Adds extra export time.</string>
     <string name="faditor_transcript">Transcript</string>

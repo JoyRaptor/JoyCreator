@@ -1,5 +1,22 @@
 # FadCam AI Handoff
 
+> **📐 2026-07-07 — FABLE: G6.1 RESIZABLE TIMELINE — grab bar between preview & timeline, DEVICE-VERIFIED
+> both directions + persistence (contract §5's headline space-win).** A thin grab bar (grip pill) now sits
+> on the preview↔timeline boundary (new `@id/timeline_grab_bar`, direct child of `editor_root` between the
+> `layout_weight=1` player_container and controls_section). Vertical drag reallocates space by driving the
+> M6 layer-band viewport cap: `LayerRowRenderer.MAX_VISIBLE_ROWS_DP` const → resizable field
+> `maxVisibleRowsDp` (clamped 40–460dp) + get/set/default; `EditorTimelineView.setLayerBandMaxHeightDp()`
+> forwards + `requestLayout()` (taller band ⇒ taller measured height ⇒ the weight=1 preview reflows
+> smaller, and vice-versa); `FaditorEditorActivity.setupTimelineResizeGrabBar()` maps the drag delta→dp,
+> persists to `faditor_ui`/`timeline_band_max_dp`, restores on load. **DEVICE-PROVEN (SM-N960U, project
+> FadCam_20260621_145132):** default 4 rows → drag UP revealed all 7 rows (Text×4 + Sprite×2 + PiP) with a
+> smaller preview → drag DOWN collapsed to 2 rows with a big preview → Close&Save + reopen RESTORED the
+> 2-row state (persistence). No layout break, no crash. Green (BUILD SUCCESSFUL 21s). NOTE: sandbox left
+> with the band dragged small — just drag the grip up to restore. **G6 REMAINDER (next):** G6.2 snap
+> detents (video-dominant/balanced/timeline-dominant), G6.3 fullscreen extreme → draggable PiP preview,
+> G6.4 small-preview/landscape → PiP promotion (contract §5). Scaling the MASTER track height itself
+> (FEEDBACK #3 literal) is a separate knob — this slice resizes the layer band, the primary §5 use-case.
+>
 > **🧩 2026-07-07 — FABLE: SLICE F no-overlap invariant COMPLETE across ALL item types (PiP added).**
 > Added `Timeline.enforceNoOverlapVideoLanes()` — a direct mirror of the shipped/proven text packer
 > (F1) for PiP/video `overlayClips`: groups by `layerId`, packs each lane's overlapping clips into the

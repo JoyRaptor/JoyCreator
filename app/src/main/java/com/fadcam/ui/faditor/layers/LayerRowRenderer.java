@@ -50,8 +50,14 @@ public final class LayerRowRenderer {
     private static final float ICON_SIZE_DP = 12f;
     private static final float ICON_GAP_DP = 4f;
     private static final float CARET_SIZE_DP = 6f;
-    /** Cap the visible height of the scrollable layer/audio-row region (rest scrolls). */
-    private static final float MAX_VISIBLE_ROWS_DP = 140f;
+    /** Default cap on the visible height of the scrollable layer/audio-row region (rest scrolls). */
+    private static final float DEFAULT_MAX_VISIBLE_ROWS_DP = 140f;
+    /** G6 resizable timeline: floor/ceiling for the user-controlled band cap (dp). Floor ≈ one
+     * expanded row; ceiling is generous — the physical screen clamps the effective preview shrink. */
+    private static final float MIN_VISIBLE_ROWS_DP = 40f;
+    private static final float MAX_VISIBLE_ROWS_CAP_DP = 460f;
+    /** G6: the current layer-band viewport cap (dp), user-resizable via the preview/timeline grab bar. */
+    private float maxVisibleRowsDp = DEFAULT_MAX_VISIBLE_ROWS_DP;
 
     // ── Colors (frosted dark glass — DESIGN §5) ─────────────────────
     private static final int COLOR_HEADER_BG      = 0x99141420; // semi-transparent dark
@@ -199,7 +205,7 @@ public final class LayerRowRenderer {
         float total = 0f;
         for (Track t : layers) total += rowHeightPx(t) + rowGap;
         for (Track t : audioTracks) total += rowHeightPx(t) + rowGap;
-        float capped = Math.min(total, MAX_VISIBLE_ROWS_DP * density);
+        float capped = Math.min(total, maxVisibleRowsDp * density);
         return TOP_GAP_DP * density + capped;
     }
 
@@ -209,7 +215,7 @@ public final class LayerRowRenderer {
 
     /**
      * Lay out + draw every layer/audio row starting at {@code topPx}, within a viewport
-     * capped at {@link #MAX_VISIBLE_ROWS_DP} (extra rows scroll — this is the "master row
+     * capped at {@link #maxVisibleRowsDp} (extra rows scroll — this is the "master row
      * stays pinned; layer/audio rows scroll beneath it" behavior from PLAN §6.1: the master
      * row and all existing timeline content live entirely above {@code topPx} and are never
      * part of this scrolling region).
@@ -260,7 +266,7 @@ public final class LayerRowRenderer {
         float y = TOP_GAP_DP * density;
         for (Track t : layers) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, true);
         for (Track t : audioTracks) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, false);
-        // Rows-only content height; the viewport caps at MAX_VISIBLE_ROWS_DP and the
+        // Rows-only content height; the viewport caps at maxVisibleRowsDp and the
         // extra rows SCROLL beneath the pinned master (PLAN §6.1). Computed BEFORE the
         // drop-zone so the zone can pin to the VISIBLE viewport bottom rather than being
         // appended past it (the off-screen bug: it used to sit at content-y `y` after the
@@ -276,7 +282,7 @@ public final class LayerRowRenderer {
         // Storing it in content-space also keeps isWithinNewLayerZone()'s hit-test (same
         // localY transform) correct with no extra math.
         contentHeightPx = dragActive ? rowsContentHeightPx + zoneH + rowGap : rowsContentHeightPx;
-        viewportHeightPx = Math.min(contentHeightPx, MAX_VISIBLE_ROWS_DP * density);
+        viewportHeightPx = Math.min(contentHeightPx, maxVisibleRowsDp * density);
         scrollOffsetPx = clampScroll(scrollOffsetPx);
         if (dragActive) {
             float zoneBottomContent = scrollOffsetPx + viewportHeightPx;
@@ -1300,4 +1306,21 @@ public final class LayerRowRenderer {
 
     public float getContentHeightPx() { return contentHeightPx; }
     public float getViewportHeightPx() { return viewportHeightPx; }
+
+    // ── G6 resizable timeline ───────────────────────────────────────
+    /** Current layer-band viewport cap (dp), user-controlled via the preview/timeline grab bar. */
+    public float getMaxVisibleRowsDp() { return maxVisibleRowsDp; }
+
+    /** Default cap (dp) — used to reset / seed persistence. */
+    public float getDefaultMaxVisibleRowsDp() { return DEFAULT_MAX_VISIBLE_ROWS_DP; }
+
+    /**
+     * G6: set the layer-band viewport cap (dp), clamped to [{@link #MIN_VISIBLE_ROWS_DP},
+     * {@link #MAX_VISIBLE_ROWS_CAP_DP}]. Returns the clamped value actually applied so the caller
+     * can persist / feed a slider without re-clamping. Pure state — the caller triggers relayout.
+     */
+    public float setMaxVisibleRowsDp(float dp) {
+        maxVisibleRowsDp = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(MAX_VISIBLE_ROWS_CAP_DP, dp));
+        return maxVisibleRowsDp;
+    }
 }

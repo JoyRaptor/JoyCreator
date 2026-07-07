@@ -1052,6 +1052,7 @@
     <string name="faditor_undo">Undo</string>
     <string name="faditor_redo">Redo</string>
     <string name="faditor_play_pause">Play or pause</string>
+    <string name="faditor_timeline_resize_handle">Drag to resize timeline and preview</string>
     <string name="faditor_export">Export</string>
     <string name="faditor_cancel">Cancel</string>
     <string name="faditor_exporting">Exportingâ€¦</string>

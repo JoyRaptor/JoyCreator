@@ -1659,12 +1659,32 @@ public class EditorTimelineView extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         computeRects();
-        
+
         // Center timeline on current playhead position when view size changes
         if (!segments.isEmpty()) {
             centerPlayhead();
         }
     }
+
+    // ── G6 resizable timeline (contract §5) ─────────────────────────────
+    /**
+     * Set the layer-band viewport cap (dp) from the preview/timeline grab bar and relayout. The band
+     * grows/shrinks inside this cap, changing this view's measured height, which — because the preview
+     * (player_container) is {@code layout_weight=1} — reflows the split: taller band ⇒ more rows visible
+     * + smaller preview; shorter band ⇒ bigger preview. Returns the clamped value actually applied.
+     */
+    public float setLayerBandMaxHeightDp(float dp) {
+        float applied = layerRowRenderer.setMaxVisibleRowsDp(dp);
+        requestLayout();
+        invalidate();
+        return applied;
+    }
+
+    /** Current layer-band viewport cap (dp) — for the grab-bar drag baseline + persistence. */
+    public float getLayerBandMaxHeightDp() { return layerRowRenderer.getMaxVisibleRowsDp(); }
+
+    /** Default band cap (dp) — seed value when nothing is persisted yet. */
+    public float getLayerBandDefaultMaxHeightDp() { return layerRowRenderer.getDefaultMaxVisibleRowsDp(); }
 
     // ══════════════════════════════════════════════════════════════════
     //  DRAWING

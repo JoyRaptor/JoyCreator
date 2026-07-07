@@ -1199,6 +1199,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
         editorTimeline.setOnTrackHeaderLongPressListener(this::onTrackHeaderLongPress);
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
+        setupTimelineResizeGrabBar();
         editorTimeline.setOnSegmentActionListener(new EditorTimelineView.OnSegmentActionListener() {
             @Override
             public void onSegmentSelected(int index) {
@@ -8949,6 +8950,54 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // initial load, toggle, and undo/redo — all funnel through this sync).
             updateRippleModeButton();
         }
+    }
+
+    private static final String PREF_TIMELINE_BAND_DP = "timeline_band_max_dp";
+
+    /**
+     * G6 resizable timeline (contract §5): wire the grab bar sitting on the preview↔timeline boundary.
+     * A vertical drag reallocates space — drag UP → taller timeline (more layer rows visible, smaller
+     * preview); drag DOWN → bigger preview — by driving {@link EditorTimelineView}'s layer-band viewport
+     * cap (the band grows/shrinks inside the cap, changing the timeline's measured height, which reflows
+     * the {@code layout_weight=1} preview above it). The chosen size PERSISTS per install.
+     */
+    private void setupTimelineResizeGrabBar() {
+        final View grabBar = findViewById(R.id.timeline_grab_bar);
+        if (grabBar == null || editorTimeline == null) return;
+        final android.content.SharedPreferences ui =
+                getSharedPreferences("faditor_ui", MODE_PRIVATE);
+        // Restore the persisted band cap (default = the view's built-in default).
+        editorTimeline.setLayerBandMaxHeightDp(
+                ui.getFloat(PREF_TIMELINE_BAND_DP, editorTimeline.getLayerBandDefaultMaxHeightDp()));
+        final float density = getResources().getDisplayMetrics().density;
+        grabBar.setOnTouchListener(new View.OnTouchListener() {
+            float downRawY;
+            float baselineDp;
+            @Override
+            public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downRawY = e.getRawY();
+                        baselineDp = editorTimeline.getLayerBandMaxHeightDp();
+                        v.setPressed(true);
+                        return true;
+                    case MotionEvent.ACTION_MOVE: {
+                        // Drag UP (rawY decreases) grows the timeline; DOWN shrinks it.
+                        float deltaDp = (downRawY - e.getRawY()) / density;
+                        editorTimeline.setLayerBandMaxHeightDp(baselineDp + deltaDp);
+                        return true;
+                    }
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.setPressed(false);
+                        ui.edit().putFloat(PREF_TIMELINE_BAND_DP,
+                                editorTimeline.getLayerBandMaxHeightDp()).apply();
+                        v.performClick();
+                        return true;
+                }
+                return false;
+            }
+        });
     }
 
     /**

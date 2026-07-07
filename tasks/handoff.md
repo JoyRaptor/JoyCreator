@@ -1,5 +1,20 @@
 # FadCam AI Handoff
 
+> **✂️ 2026-07-07 — FABLE: crop aspect gaps filled (road_map "small features") — 4:5 + Custom ratio.**
+> The crop presets row (`CROP_ASPECT_PRESETS`/`applyCropAspectPreset`) had 1:1/4:3/3:4/16:9/9:16 but was
+> missing **4:5 (Instagram portrait)** — added — and had no **custom numeric ratio** (the road_map
+> "numeric ratio entry" gap) — added a "Custom" chip → `showCustomCropRatioDialog()` (W:H number fields →
+> `setLockedAspectRatio(w/h)`, remembers the last ratio for the session, ignores blank/invalid). Green.
+> DEVICE-VERIFIED: crop mode now shows `Free · 1:1 · 4:5 · 4:3 · 3:4 · 16:9 · 9:16 · Custom` (screencap).
+> OWED (1 tap): confirm the Custom chip opens the W:H dialog — scripted point-taps kept catching the
+> adjacent confirm ✓; the chips render + the dialog is a standard AlertDialog wired like the proven chips.
+> ROADMAP NOTE: a doc-sweep this session found MUCH of the "small never-built features" backlog is already
+> DONE (speed preset chips ✓, crop rule-of-thirds grid ✓, crop aspect presets ✓, transitionFrameCache ✓,
+> KEEP_SCREEN_ON ✓). Genuinely-remaining = diffuse perf micro-opts (hard to verify a benefit), JoyRaptor UX
+> decisions (bookmarks/time-chip/muted-caption), locked export code, and the BIG never-started features
+> (AI slides, dual-stream recording, visualizer studio phase 3, LUT filters, GL transition preview cards)
+> which are each multi-session + flagged "need a fresh go-ahead". See road_map.md §BACKLOG.
+>
 > **🛟 2026-07-07 — FABLE: DURABILITY (road_map Tier-1) — extracted audio no longer lost on OS cache
 > wipe.** Both audio-extraction sites (`AudioExtractor.extract()` + `FaditorEditorActivity` extract-from-
 > video path) wrote the muxed `.m4a` to `getCacheDir()/faditor_audio` — but that file's `Uri.fromFile()`

@@ -5270,11 +5270,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private static final String[][] CROP_ASPECT_PRESETS = {
         {"free",  "Free"},
         {"1_1",   "1:1"},
+        {"4_5",   "4:5"},
         {"4_3",   "4:3"},
         {"3_4",   "3:4"},
         {"16_9",  "16:9"},
         {"9_16",  "9:16"},
+        {"custom_ratio", "Custom"},
     };
+
+    /** Last-entered custom crop ratio W:H (persisted in-session so the Custom chip re-applies it). */
+    private float customCropRatioW = 0f;
+    private float customCropRatioH = 0f;
 
     /**
      * Enters crop mode: shows the crop overlay on the video preview and
@@ -5491,9 +5497,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void applyCropAspectPreset(String key) {
         if (cropOverlay == null || !cropOverlay.isActive()) return;
 
+        if ("custom_ratio".equals(key)) {
+            showCustomCropRatioDialog();
+            return;
+        }
+
         float ratio;
         switch (key) {
             case "1_1":  ratio = 1f;            break;
+            case "4_5":  ratio = 4f / 5f;       break;
             case "4_3":  ratio = 4f / 3f;       break;
             case "3_4":  ratio = 3f / 4f;       break;
             case "16_9": ratio = 16f / 9f;      break;
@@ -5503,6 +5515,74 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         cropOverlay.setLockedAspectRatio(ratio);
         highlightActivePresetChip(key);
+    }
+
+    /**
+     * Prompt for a custom W:H crop aspect ratio (road_map "numeric ratio entry"). Two number fields;
+     * on confirm, locks the crop overlay to W/H and highlights the Custom chip. Invalid/blank input is
+     * ignored (keeps the current lock). The last-entered ratio is remembered for the session so tapping
+     * Custom again pre-fills it.
+     */
+    private void showCustomCropRatioDialog() {
+        if (cropOverlay == null || !cropOverlay.isActive()) return;
+        float dp = getResources().getDisplayMetrics().density;
+        LinearLayout rowLayout = new LinearLayout(this);
+        rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+        rowLayout.setGravity(Gravity.CENTER_VERTICAL);
+        int pad = (int) (20 * dp);
+        rowLayout.setPadding(pad, (int) (8 * dp), pad, 0);
+
+        android.widget.EditText wField = new android.widget.EditText(this);
+        wField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        wField.setHint("W");
+        wField.setGravity(Gravity.CENTER);
+        if (customCropRatioW > 0f) wField.setText(trimNum(customCropRatioW));
+        LinearLayout.LayoutParams wLp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        wField.setLayoutParams(wLp);
+        rowLayout.addView(wField);
+
+        TextView colon = new TextView(this);
+        colon.setText(":");
+        colon.setTextSize(20);
+        colon.setPadding((int) (12 * dp), 0, (int) (12 * dp), 0);
+        rowLayout.addView(colon);
+
+        android.widget.EditText hField = new android.widget.EditText(this);
+        hField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        hField.setHint("H");
+        hField.setGravity(Gravity.CENTER);
+        if (customCropRatioH > 0f) hField.setText(trimNum(customCropRatioH));
+        LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        hField.setLayoutParams(hLp);
+        rowLayout.addView(hField);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.faditor_crop_custom_ratio_title)
+                .setView(rowLayout)
+                .setPositiveButton(android.R.string.ok, (d, which) -> {
+                    try {
+                        float w = Float.parseFloat(wField.getText().toString().trim());
+                        float h = Float.parseFloat(hField.getText().toString().trim());
+                        if (w > 0f && h > 0f) {
+                            customCropRatioW = w;
+                            customCropRatioH = h;
+                            cropOverlay.setLockedAspectRatio(w / h);
+                            highlightActivePresetChip("custom_ratio");
+                        }
+                    } catch (NumberFormatException ignored) { /* keep current lock */ }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** Format a positive float as a compact ratio component (drops a trailing ".0"). */
+    private static String trimNum(float v) {
+        if (v == Math.rint(v)) return String.valueOf((int) v);
+        return String.valueOf(v);
     }
 
     /**

@@ -1,5 +1,30 @@
 # FadCam AI Handoff
 
+> **👆 2026-07-07 — OPUS: G1 GESTURE STATE MACHINE — double-tap + hold-release landed (contract §1).**
+> Two of the four G1 gestures are now wired, ALWAYS-GREEN, additive with zero change to the existing
+> move/trim/pickup/scrub machinery. **G1a double-tap → type editor (c17ec31, DEVICE-PROVEN):** detection
+> in `LayerGestureController.onRowBodyUp`'s tap-resolution (a 2nd clean tap on the SAME item within a 320ms
+> UP-to-UP window) fires a new default `Callback.onItemDoubleTapped`; `FaditorEditorActivity` routes
+> text/image→`showTextOverlayEditor`, sprite→`openSpritePalette`, visualizer→`showVisualizerDrawer`
+> (audio/PiP = documented no-op until their drawers exist). Single tap still only selects (unchanged).
+> DEVICE PROOF (SM-N960U, sandbox bdd51919): single tap on a text row bar = select only (delete badge, no
+> dialog); double-tap opens the "Edit text" editor (field/colours/fonts/opacity/keyframes). **G1b
+> hold→release-in-place → general menu (64566be, BUILD-GREEN + pickup-path-proven):** after a pickup lifts
+> the item, releasing WITHOUT crossing the move slop fires `Callback.onItemMenuRequested` (guarded
+> `pickupArmed && !movedDuringGesture && committed`, mutually exclusive with MOVE/TAP/double-tap/delete/
+> CANCEL) → text/image route to the existing `showLayerItemActionsDialog` as the interim §2 menu. The
+> pickup path is device-confirmed (ROWGESTURE logs); the menu-pop is an **OWED HAND-TEST** (folds into
+> JoyRaptor's owed G1 feel-test): hold a text/image row item ~0.5s without moving → the layer-actions dialog.
+> **DEVICE LORE (saved to memory):** a truly-stationary long-press CANNOT be adb-injected on this device —
+> `sendevent` is root-denied, `input swipe` scrubs (0-distance ignores duration; any distance scrubs and
+> scales oddly), `input draganddrop` fires pickup but always drifts ~35px = a MOVE. To force a stationary
+> hold-release proof, temp-raise `MOVE_SLOP_PX` above the drift (same trick as temp-widening a double-tap
+> window); restore after. **BUG FOUND (pre-existing, spawned task):** sandbox overlay 9d7fef2b has
+> startMs=Long.MAX_VALUE/4 → vanishes off-timeline; already corrupt in the pre-session .bak, so NOT from
+> this work — likely the trim/overlap code's MAX/4 open-ended fallback. Needs repro + fix + load-time
+> self-heal sanitizer. **G1 REMAINDER:** tap→preview manipulation handles is G4 (separate slice); the
+> §2/§3 peek/sandwich general menu (G2/G3) supersedes the interim `showLayerItemActionsDialog` when built.
+>
 > **✂️ 2026-07-07 — FABLE: crop aspect gaps filled (road_map "small features") — 4:5 + Custom ratio.**
 > The crop presets row (`CROP_ASPECT_PRESETS`/`applyCropAspectPreset`) had 1:1/4:3/3:4/16:9/9:16 but was
 > missing **4:5 (Instagram portrait)** — added — and had no **custom numeric ratio** (the road_map

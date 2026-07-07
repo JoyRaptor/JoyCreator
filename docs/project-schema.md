@@ -1,75 +1,170 @@
 # Faditor Project JSON Schema
 
-**Schema Version:** 5  
-**Last Updated:** 2026-06-19
+**Schema Version:** 10 (dual-write stamped — see "Schema Version Stamping" below)
+**Last Updated:** 2026-07-07
 
 ## Overview
 
 A Faditor project is a single JSON file stored in the app's project directory.
 It describes a complete video editing timeline: clips, trims, effects,
-transcripts, overlays, transitions, audio tracks, and export settings.
+transcripts, overlays, transitions, audio tracks, layers/tracks, sprite
+animation, avatar rigs, waveform visualizers, and export settings.
 
 External tools (AI agents, CLI scripts, desktop editors) can read and modify
-project JSON as long as they follow this schema. Unknown fields should be
-preserved but ignored.
+project JSON as long as they follow this schema.
+
+**Read/write is hand-written (not reflective Gson field-mapping).**
+`ProjectStorage.java` implements custom `JsonSerializer`/`JsonDeserializer`s
+that build/read `JsonObject`s field-by-field with `.has(key)` guards. This
+means:
+- **Reads are tolerant**: a missing or absent field on load always falls back
+  to a sensible default — old projects load fine, and hand-edited JSON with a
+  field omitted won't crash.
+- **Unrecognized fields are NOT preserved on save** — unlike a fully generic
+  schema-less store, the serializer only re-emits fields it explicitly knows
+  about. Any genuinely foreign top-level or object key present in hand-edited
+  JSON is silently dropped the next time the app saves the project. If you
+  need to round-trip custom metadata, there is currently no "extras" bag to
+  put it in.
+
+## Schema Version Stamping (dual-write, not monotonic-only)
+
+`FaditorProject.SCHEMA_VERSION = 10` is the current build's ceiling, but the
+serializer does **not** always stamp 10. It stamps the **minimum version the
+project's actual content needs**, so older app builds can still open
+projects that don't use newer features (`ProjectStorage.java` —
+`ProjectSerializer.serialize`, ~line 1450):
+
+```
+usesAvatarRigs   -> stamp 10
+else usesSprites -> stamp 9
+else usesLayers  -> stamp 8
+else             -> stamp 7
+```
+
+`usesLayerFeatures()` (~line 910) checks whether the project has any
+layer/track-only state (extra layer tracks, track flags, overlay/PiP clips,
+etc.) beyond the always-present flat lists. All newer JSON blocks (layers,
+sprites, avatar rigs, waveform overlays) are written additively regardless
+of the stamped number — an older build simply never looks for keys it
+doesn't know, and a project that later gains e.g. a sprite gets re-stamped
+to 9 on its next save.
+
+On load, `schemaVersion` is read with a default of 0 for legacy
+(pre-versioning) projects, and every loaded project effectively upgrades to
+whatever the running build's `SCHEMA_VERSION` supports the next time it's
+saved (the stamp is recomputed from content, not carried forward blindly).
 
 ## Top-Level Fields
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `schemaVersion` | int | yes | Schema version (currently 2). Old projects default to 0. |
+| `schemaVersion` | int | yes | Minimum schema version this project's content needs (7–10, or lower for legacy). See stamping rule above. |
 | `id` | string | yes | UUID. Unique project identifier. |
 | `name` | string | yes | User-visible project name. |
 | `createdAt` | long | yes | Unix epoch milliseconds. |
 | `lastModified` | long | yes | Unix epoch milliseconds. |
-| `timeline` | object | yes | Timeline container (clips, audio, overlays, transitions). |
-| `canvasPreset` | string | no | Aspect ratio: `original`, `16:9`, `9:16`, `1:1`, `4:5`. |
+| `timeline` | object | yes | Timeline container (clips, audio, overlays, layers, transitions). |
+| `canvasPreset` | string | no | Aspect ratio preset key, or `custom_<w>_<h>` for a user-entered resolution. |
 | `exportSettings` | object | no | Export configuration. |
+| `pinnedAssetDir` | string | no | SAF tree URI of the user's pinned asset browser folder. **(v3)** |
+| `assetDirHistory` | array | no | Recently-used asset folder URIs. **(v3)** |
+| `spriteSheets` | array | no | Project-level sprite sheet definitions. See below. **(v9)** |
+| `avatarRigs` | array | no | Project-level avatar rig definitions. See below. **(v10)** |
 
 ## Timeline Object
 
 | Field | Type | Description |
 |---|---|---|
-| `clips` | array | Video/image clips in playback order. |
+| `clips` | array | Video/image clips in playback order (the master track). |
 | `audioClips` | array | Audio track clips (separate from video). |
 | `textOverlays` | array | Text and image overlays. |
 | `transitions` | array | Transitions between/at clips. |
+| `waveformOverlays` | array | Placed audio waveform/spectrum visualizer instances. **(v7)** |
+| `spriteOverlays` | array | Placed sprite-sheet animation instances. **(v9)** |
+| `overlayClips` | array | Floating video overlay clips (PiP) — same `Clip` shape as `clips`, distinguished by a non-null `layerId`. **(v8)** |
+| `rippleMode` | string | `"ripple"` or `"gap"` — how downstream clips react to trims/deletes. **(v8)** |
+| `trackFlags` | object | Map of `layerId` → per-track UI state (collapsed/hidden/locked/muted/zIndex/customName). Persistent side-table, keyed by track id. **(v8)** |
+| `extraLayerTracks` | array | User-created empty layer track definitions (id/kind/name) that exist even with no items yet. **(v8, "M10")** |
+
+Note: `timeline.layers` (a `masterTrack`/`layers[]`/`audioTracks[]`/`trackDefs[]`/`trackNames{}`
+block) may also appear in the JSON — this is a **derived view mirror** written
+for convenience/debugging, rebuilt fresh from the flat lists above on every
+save. It is not a separate source of truth; do not hand-edit it expecting
+the change to stick — edit the flat lists (`clips`, `textOverlays`,
+`spriteOverlays`, `overlayClips`, etc.) instead.
 
 ## Clip Object
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `id` | string | yes | — | UUID. Referenced by EditScripts. |
-| `sourceUri` | string | yes | — | URI to source media (`file://`, `content://`). |
+| `sourceUri` | string | yes | — | URI to source media (`file://`, `content://`, or `project://<relative>` for in-bundle assets). **(v6)** |
 | `inPointMs` | long | yes | 0 | Trim start (ms within source). |
 | `outPointMs` | long | yes | sourceDuration | Trim end (ms within source). |
 | `sourceDurationMs` | long | yes | — | Total duration of source media (ms). |
 | `speedMultiplier` | float | no | 1.0 | Playback speed (0.1–10.0). |
+| `pitchCompensation` | bool | no | true | Whether pitch is corrected to normal when speed ≠ 1.0 (unchecked = "chipmunk"/"slow-mo drawl"). Written only when `false`. |
 | `audioMuted` | bool | no | false | Whether audio is muted. |
 | `volumeLevel` | float | no | 1.0 | Volume multiplier (0.0–2.0). |
-| `rotationDegrees` | int | no | 0 | Rotation: 0, 90, 180, 270. |
-| `flipHorizontal` | bool | no | false | Mirror horizontally. |
-| `flipVertical` | bool | no | false | Mirror vertically. |
-| `cropPreset` | string | no | `"none"` | Crop preset: `none`, `16:9`, `9:16`, `4:3`, `3:4`, `1:1`, `21:9`, `custom`. |
-| `cropLeft` | float | no | 0.0 | Custom crop left (0.0–1.0). |
-| `cropTop` | float | no | 0.0 | Custom crop top (0.0–1.0). |
-| `cropRight` | float | no | 1.0 | Custom crop right (0.0–1.0). |
-| `cropBottom` | float | no | 1.0 | Custom crop bottom (0.0–1.0). |
-| `removedSpans` | array | no | `[]` | Non-destructive cut spans: `[[startMs, endMs], ...]` in source time. |
-| `transcripts` | array | no | `[]` | Transcript versions (Vosk/Whisper). See below. |
-| `activeTranscript` | int | no | -1 | Index into `transcripts`. |
-| `displayName` | string | no | null | Friendly name for relink UI. |
-| `captionsEnabled` | bool | no | false | Whether animated captions are on. |
-| `captionStyleId` | string | no | `"pop"` | Caption style: `pop`, `zoom`, `bounce`, `boxed`, `hot`. |
-| `captionCenterX` | float | no | 0.5 | Caption center X (0.0–1.0). |
-| `captionCenterY` | float | no | 0.82 | Caption center Y (0.0–1.0). |
-| `captionSizeFraction` | float | no | 0.060 | Caption height as fraction of video height. |
 | `duckAmount` | float | no | 0.0 | Audio ducking: 0 = off, 0.3 = duck to 30%. **(v2)** |
 | `zoomLevel` | float | no | 1.0 | Punch-in zoom: 1.0 = none, 2.0 = 2x. **(v2)** |
 | `zoomCenterX` | float | no | 0.5 | Zoom center X (0.0–1.0). **(v2)** |
 | `zoomCenterY` | float | no | 0.5 | Zoom center Y (0.0–1.0). **(v2)** |
+| `rotationDegrees` | int | no | 0 | Rotation: 0, 90, 180, 270. |
+| `flipHorizontal` | bool | no | false | Mirror horizontally. |
+| `flipVertical` | bool | no | false | Mirror vertically. |
+| `cropPreset` | string | no | `"none"` | Crop preset: `none`, `1:1`, `4:5`, `4:3`, `3:4`, `16:9`, `9:16`, `21:9`, `custom`. |
+| `cropLeft` | float | no | 0.0 | Custom crop left (0.0–1.0). |
+| `cropTop` | float | no | 0.0 | Custom crop top (0.0–1.0). |
+| `cropRight` | float | no | 1.0 | Custom crop right (0.0–1.0). |
+| `cropBottom` | float | no | 1.0 | Custom crop bottom (0.0–1.0). |
+| `imageClip` | bool | no | false | True if this clip's source is a still image, not video. |
+| `removedSpans` | array | no | `[]` | Non-destructive cut spans: `[[startMs, endMs], ...]` in source time. |
+| `transcripts` | array | no | `[]` | Transcript versions (Vosk/Whisper). See below. |
+| `activeTranscript` | int | no | -1 | Index into `transcripts`. |
+| `displayName` | string | no | null | Friendly name for relink UI. |
+| `layerId` | string | no | null | If non-null, this clip is a **floating overlay clip** (PiP) living in `timeline.overlayClips` on the named track, not the master `clips` list. Never null for a genuine master-track clip. **(v8)** |
+| `overlayStartMs` | long | no (overlay clips only) | — | Absolute timeline position (ms) for an overlay clip. **(v8)** |
+| `overlayTransform` | object | no | null | Keyframe-animatable position/scale/rotation for the overlay (same `KeyframeSet` shape as text overlay keyframes). **(v8)** |
+| `overlayBlendMode` | string | no | `"NORMAL"` | `NORMAL`, `MULTIPLY`, `SCREEN`, `OVERLAY`, `ADD` — GL blend mode composited against the accumulated frame. **(v8)** |
+| `compositing` | object | no | null | Masks / chroma-key / track-matte spec. See below. **(v8)** |
+| `captionsEnabled` | bool | no | false | Whether animated captions are on. |
+| `captionStyleId` | string | no | `"pop"` | Caption style: `pop`, `zoom`, `bounce`, `boxed`, `hot`, `meme`, `bright`. |
+| `captionCenterX` | float | no | 0.5 | Caption center X (0.0–1.0). |
+| `captionCenterY` | float | no | 0.82 | Caption center Y (0.0–1.0). |
+| `captionSizeFraction` | float | no | 0.060 | Caption height as fraction of video height. |
+| `loopMode` | string | no | null | Loop-extension mode when a still/short clip should visually fill more timeline than its source. |
+| `loopBeforeMs` / `loopAfterMs` | long | no | 0 | Loop padding before/after the trimmed content. |
+| `opacityKeyframes` | object | no | — | Keyframe track for opacity (same shape as overlay keyframes). |
+| `captionStyleKeyframes` | object | no | — | Keyframe track for caption style property animation. |
+| `volumeKeyframes` | object | no | — | Keyframe track for volume automation. |
 | `effectStack` | object | no | — | Per-clip color/effect stack (exposure, contrast, LUT, etc.). **(v4)** |
 | `generatedSource` | object | no | null | Present only for AI-authored fullscreen animated slides. See below. **(v5)** |
+
+## Compositing Spec Object (inside a Clip's `compositing`)
+
+Additive mask / chroma-key / track-matte spec, all optional and independent
+of each other. **(v8)**
+
+| Field | Type | Description |
+|---|---|---|
+| `masks` | array | Array of mask shapes (see below). Omitted if empty. |
+| `invertMasks` | bool | Only present when `masks` is non-empty. Inverts the combined mask (window mode vs. cutout mode). |
+| `keyEnabled` | bool | Gates the `chromaKey` object — true = chroma keying active. |
+| `chromaKey` | object | `{ "color": "#RRGGBB", "tolerance": float, "fuzziness": float, "offset": float }` — RGB-distance keying with smoothstep tolerance/fuzziness. |
+| `mattePeerId` | string | Gates the `matte` object — id of the peer clip supplying the luma track matte. |
+| `matte` | object | `{ "peerId": "<clip id>", "mode": "luma" }` — the serving peer is hidden at export, its luma×alpha gates this clip's visibility. |
+
+### Mask Object (inside `masks` array)
+
+| Field | Type | Description |
+|---|---|---|
+| `cx` / `cy` | float | Mask center (0.0–1.0, canvas-normalized). |
+| `w` / `h` | float | Mask width/height (0.0–1.0). |
+| `corner` | float | Optional corner radius fraction (rounded-rect masks). |
+| `rot` | float | Optional rotation in degrees. |
+| `sub` | bool | Optional — if true, this mask subtracts from (notches out of) the combined shape instead of adding to it. |
 
 ## Generated Source Object (inside a Clip's `generatedSource`)
 
@@ -113,7 +208,7 @@ content-addressed cache — same rule as remuxed media paths, never the truth.
 | Field | Type | Description |
 |---|---|---|
 | `id` | string | UUID. |
-| `sourceUri` | string | URI to audio file. |
+| `sourceUri` | string | URI to audio file (`project://` if bundled). |
 | `sourceDurationMs` | long | Total duration (ms). |
 | `inPointMs` | long | Trim start (ms). |
 | `outPointMs` | long | Trim end (ms). |
@@ -121,7 +216,7 @@ content-addressed cache — same rule as remuxed media paths, never the truth.
 | `volumeLevel` | float | Volume (0.0–2.0). |
 | `muted` | bool | Whether muted. |
 | `label` | string | Display name. |
-| `waveform` | array | (optional) Downsampled waveform peaks (0–255). |
+| `waveform` | array | (optional) Downsampled waveform peaks (0–255), extracted once and disk-cached (see `WaveformExtractor`). |
 
 ## Text Overlay Object (inside `textOverlays` array)
 
@@ -135,9 +230,10 @@ content-addressed cache — same rule as remuxed media paths, never the truth.
 | `sizeFraction` | float | Size as fraction of video height. |
 | `rotationDeg` | float | Rotation in degrees. |
 | `fontFamily` | string | (optional) Font key. Default: `"default"`. |
-| `imageUri` | string | (optional) Image URI for image overlays. |
+| `imageUri` | string | (optional) Image URI for image overlays (`project://` if bundled). |
 | `startMs` | long | (optional) Timeline start. Default: 0. |
 | `endMs` | long | (optional) Timeline end. Default: `Long.MAX_VALUE`. |
+| `layerId` | string | (optional) Layer/track membership id. Omitted for the default track. **(v8, "M10")** |
 | `keyframes` | object | (optional) Animation tracks. See below. |
 
 ## Keyframe Object (inside `keyframes`)
@@ -150,6 +246,128 @@ Value is an array of keyframe entries:
 | `t` | long | Time in timeline ms. |
 | `v` | float | Value at this time. |
 | `e` | string | Easing: `LINEAR`, `EASE_IN`, `EASE_OUT`, `EASE_IN_OUT`. |
+
+## Waveform Overlay Object (inside `timeline.waveformOverlays` array)
+
+A placed audio-reactive waveform/spectrum visualizer. **(v7)**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | UUID. |
+| `styleId` | string | Visualizer style/preset key. |
+| `audioSourceRef` | string | (optional) Which audio source drives this visualizer. |
+| `startMs` / `endMs` | long | (optional) Timeline range. Defaults: 0 / `Long.MAX_VALUE`. |
+| `centerX` / `centerY` | float | Center position (0.0–1.0). |
+| `widthFraction` / `heightFraction` | float | Size as a fraction of canvas dimensions. |
+| `rotationDeg` | float | (optional) Rotation. |
+| `justify` | string | (optional) Alignment. |
+| `dataMode` | string | (optional) Amplitude vs. frequency-band data source. |
+| `horizontalMirror` | bool | (optional, JSON key `hMirror`) Mirror left/right. |
+| `centerMode` | string | (optional) Layout mode. |
+| `renderMode` | string | (optional) Bars/line/radial rendering style. |
+| `radialRingSize` | float | (optional) Radial-mode ring thickness. |
+| `frequencyRangeLowHz` / `frequencyRangeHighHz` | float | (optional, JSON keys `freqLowHz`/`freqHighHz`) Frequency band filter. |
+| `bandCountOverride` | int | (optional, JSON key `bandCount`) Override the default bar/band count. |
+| `colorOverride` | int | (optional) ARGB override. |
+| `sensitivityOverride` | float | (optional, JSON key `sensitivity`) Amplitude sensitivity. |
+| `gradientStartOverride` / `gradientEndOverride` | int | (optional, JSON keys `gradStart`/`gradEnd`) Written together only. |
+
+## Sprite Sheet Object (top-level `spriteSheets` array)
+
+Project-level sprite sheet definitions (the source art + grid layout).
+**(v9)** Has its own independent nested `SPRITE_SCHEMA_VERSION` (currently 1)
+— do not confuse with the project `schemaVersion`.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | UUID. |
+| `name` | string | Display name. |
+| `sheetUri` | string | Image URI (`project://` if bundled). |
+| `cols` / `rows` | int | Grid dimensions. |
+| `marginX` / `marginY` | float | (optional) Outer margin. |
+| `spacingX` / `spacingY` | float | (optional) Cell spacing. |
+| `order` | string | (optional) Cell enumeration order. Default: `"row-major"`. |
+| `fps` | float | Default playback frame rate. |
+| `bgKeyColor` | int | (optional) Background chroma-key color for the sheet. |
+| `keyTolerance` | float | (optional) Chroma-key tolerance. |
+| `pivotX` / `pivotY` | float | (optional) Cell pivot point. |
+| `cells` | array | Per-cell metadata: `{ "index": int, "name": string, "tags": [string] (opt), "enabled": bool (opt) }`. |
+| `presets` | array | Named frame-sequence presets: `{ "id", "name", "type", "fps" (opt), "frames": [int] }`. |
+
+## Sprite Overlay Object (inside `timeline.spriteOverlays` array)
+
+A placed, animatable instance of a sprite sheet. **(v9)**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | UUID. |
+| `sheetId` | string | References a `spriteSheets[].id`. |
+| `centerX` / `centerY` | float | Position (0.0–1.0). |
+| `sizeFraction` | float | Size as a fraction of video height. |
+| `rotationDeg` | float | (optional) Rotation. |
+| `opacity` | float | (optional) Opacity. |
+| `flipH` / `flipV` | bool | (optional) Mirror. |
+| `startMs` / `endMs` | long | (optional) Timeline range. |
+| `layerId` | string | (optional) Track membership — one lane per sprite by default (deterministic `sprite-<id>`) so multiple sprites don't overlap; see migration note below. |
+| `endBehavior` | string | (optional) What happens after the last frame key. Default: `"hold"`. |
+| `frameTrack` | array | Cell-swap keyframes: `[{ "t": long, "c": int }]` (cell index) or `[{ "t": long, "p": string }]` (preset id reference). |
+| `keyframes` | object | (optional) Same `{property: [{t,v,e}]}` shape as text overlay keyframes (position/scale/rotation/opacity). |
+
+**Migration note:** `Timeline.migrateSpriteLayers()` runs on load and splits
+any legacy lane sharing 2+ sprites (pre-dating per-sprite lanes) into one
+lane per sprite, using the deterministic id `sprite-<itemId>`. Idempotent —
+safe to run on an already-migrated project.
+
+## Avatar Rig Object (top-level `avatarRigs` array)
+
+Project-level rigged-puppet definitions for the sprite Avatar Studio.
+**(v10)** Has its own independent nested `RIG_SCHEMA_VERSION` (currently 1)
+— do not confuse with the project `schemaVersion`.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | UUID. |
+| `name` | string | Display name. |
+| `parts` | array | Rig parts (limbs/pieces). See below. |
+| `domains` | array | Pose-space domains (e.g. a yaw/pitch grid of pose cells). See below. |
+| `visemeMap` | object | `{ "<visemeClass>": <cellIndex> }` — lip-sync viseme → pose cell mapping. |
+
+### Part Object (inside `parts`)
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Part id. |
+| `sheetId` | string | References a `spriteSheets[].id` for this part's art. |
+| `parentId` | string | (optional) Parent part id, for hierarchical rigs. |
+| `anchorX` / `anchorY` | float | (optional) Attachment anchor point. |
+| `followWeight` | float | (optional) How strongly this part follows its parent's motion. Default: 1. |
+| `z` | float | (optional) Z-order / layering hint. |
+| `dangle` | bool | (optional) Enables verlet-chain dangle physics (hair/tails) on this part. |
+| `warpSegments` | int | (optional) Pin-warp mesh density (band count). |
+| `restPins` | array | Rest-pose pin chain: `[[x, y], ...]` pairs, art-space normalized. |
+
+### Pose Domain Object (inside `domains`)
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Domain id. |
+| `driverX` | string | Driver signal for the horizontal axis (e.g. head yaw). |
+| `driverY` | string | (optional) Driver signal for the vertical axis. |
+| `cols` / `rows` | int | Grid dimensions. |
+| `cells` | array | Pose cells: `{ "col", "row", "poses": [PartPose, ...] }`. |
+
+### Part Pose Object (inside a cell's `poses`)
+
+| Field | Type | Description |
+|---|---|---|
+| `partId` | string | References a `parts[].id`. |
+| `x` / `y` | float | (optional) Position offset. |
+| `scale` | float | (optional) Scale. |
+| `rotationDeg` | float | (optional, JSON key `rot`) Rotation. |
+| `cellIndex` | int | (optional, JSON key `cell`) Sprite cell for this pose. |
+| `z` | float | (optional) Z-order override. |
+| `flipH` / `flipV` | bool | (optional) Mirror. |
+| `pins` | array | (optional) Posed pin chain `[[x, y], ...]`, overriding the part's rest pins for this cell. |
 
 ## Transition Object (inside `transitions` array)
 
@@ -168,12 +386,50 @@ Valid types: `FADE_IN_FROM_BLACK`, `FADE_OUT_TO_BLACK`, `FADE_IN_FROM_WHITE`,
 
 | Field | Type | Description |
 |---|---|---|
-| `resolution` | string | `ORIGINAL`, `FHD_1080P`, `HD_720P`, `SD_480P`. |
-| `quality` | string | `HIGH`, `MEDIUM`, `LOW`. |
+| `resolution` | string | `ORIGINAL`, `FHD_1080P`, `HD_720P`, `SD_480P`. **Not currently read by the export pipeline** — `ExportManager` has no code path consuming this enum yet (canvas preset governs actual output dimensions instead). |
+| `quality` | string | `HIGH`, `MEDIUM`, `LOW`. **Same caveat as `resolution`** — persisted but not yet wired into the encoder. |
 | `format` | string | `MP4`, `WEBM`. |
 | `cleanAudio` | bool | Enable Clean Audio v2 post-pass. |
 
 ## Schema Version History
+
+### v10 (avatar rigs)
+- Added top-level `avatarRigs[]` to `FaditorProject` — rigged sprite puppets
+  (pin-warp mesh deformation, dangle physics, pose domains, viseme map).
+  Stamped only when the project actually has a rig; sprite/layer/plain
+  projects keep stamping 9/8/7.
+- No `Clip`/`Timeline` field additions for v10 — purely the new rig array.
+
+### v9 (sprite animation)
+- Added top-level `spriteSheets[]` (sheet definitions: grid, cells, presets,
+  chroma-key) and `timeline.spriteOverlays[]` (placed, keyframe-animatable
+  instances with cell-swap `frameTrack`).
+- `Timeline.migrateSpriteLayers()` splits any pre-migration shared sprite
+  lane into one lane per sprite (deterministic `sprite-<id>`), idempotent.
+- Stamped only when sprites/sheets are actually present.
+
+### v8 (layers/tracks + PiP compositing)
+- Added `timeline.overlayClips[]` — floating video overlay (PiP) clips,
+  same `Clip` shape as the master `clips` list, distinguished by a non-null
+  `layerId`. New `Clip` fields: `layerId`, `overlayStartMs`,
+  `overlayTransform`, `overlayBlendMode`.
+- Added `Clip.compositing` (masks / chroma-key / track-matte spec — one
+  additive model, not three separate bolt-ons).
+- Added `timeline.rippleMode`, `timeline.trackFlags` (persistent per-track
+  UI state), `timeline.extraLayerTracks` (user-created empty tracks), and
+  `TextOverlayItem.layerId` (track membership).
+- A derived `timeline.layers` view-mirror block may also be present
+  (rebuilt from the flat lists on every save — not authoritative).
+- Stamped only when the project actually uses any layer feature
+  (`usesLayerFeatures()`); a project with only master clips/audio/text
+  keeps stamping 7.
+
+### v7 (waveform visualizers)
+- Added `timeline.waveformOverlays[]` — placed audio-reactive
+  waveform/spectrum visualizer instances (bars/line/radial render modes,
+  frequency-band filtering, gradient/color overrides).
+- Baseline "dual-write" stamp floor — this is the lowest version any
+  build running the current serializer will stamp.
 
 ### v6 (2026-06-19)
 - **Relative asset paths.** Assets living inside the project directory are now stored
@@ -255,3 +511,9 @@ operations to apply to a project. It is validated and applied atomically.
 - `SPLIT_CLIP_AT_TIME` — Split one clip into two at a source-time point, partitioning `removedSpans` and transcript words by time. Params: `clipId`, `atSourceMs` (must be ≥100 ms inside the trim), optional `firstClipId` (defaults to the original id) and `secondClipId` (defaults to a new UUID) so a follow-up `REORDER_CLIPS` can reference the children. Rejected for image/slide clips.
 - `REORDER_CLIPS` — Rebuild the clip array to exactly `newOrder` (array of clip ids), in that order. **Any current clip id omitted from `newOrder` is deleted.** Transitions are kept only if their two flanking clips remain adjacent in the new order (others dropped); surviving `clipIndex` values are re-derived. Params: `newOrder`.
 - `INSERT_BROLL_CUTAWAY` — Documentary cutaway: b-roll replaces the visible frame for a span while the original narration keeps playing underneath. Splits the target clip at the span start/end, replaces the span's video with the b-roll clip (`audioMuted:true`, trimmed to fit), and adds the original span audio as an `audioClips` entry positioned at `offsetMs=atMs`. Params: `atMs` (timeline ms), `durationMs` (1500–8000), `assetUri`. v1 requires the span to lie within a single 1× clip with no removed spans, and not in the first/last 2 s.
+- `ADD_VISUALIZER` — Place a waveform/spectrum visualizer overlay. Params: `presetId`/`styleId`, `audioSourceRef`/`clipId`, `startMs`, `durationMs`. **(rides v7's `waveformOverlays`)**
+
+**Coverage gap (as of v10):** sprite overlays, avatar rigs, PiP/video overlay
+clips, compositing (masks/chroma-key/matte), and layer-track creation have
+no EditScript operations yet — those v8-v10 model features are not
+currently AI-scriptable; they're authored only through the editor UI.

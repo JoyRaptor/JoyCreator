@@ -113,6 +113,17 @@ public final class LayerGestureController {
          * {@code onGestureFinished} to fold into one action.
          */
         void onItemDroppedOnNewLayer(@NonNull TimedItem item, @NonNull Track fromTrack);
+
+        /**
+         * The user DOUBLE-TAPPED {@code item} — two quick taps on the SAME item within the
+         * double-tap window (gesture contract §1: double-tap = the express lane to that
+         * object's POWER-TOOLS DRAWER / type editor). Fires from the SECOND tap's UP
+         * resolution in {@link LayerGestureController#onRowBodyUp}; the item is already
+         * SELECTED (selection happens on the first tap's DOWN, unchanged). The activity
+         * routes to the per-type editor (text/image → text editor, sprite → sprite palette,
+         * …). A single tap NEVER fires this — it only selects.
+         */
+        default void onItemDoubleTapped(@NonNull TimedItem item) {}
     }
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT }
@@ -171,6 +182,18 @@ public final class LayerGestureController {
 
     /** Item id selected for trim-handle exposure (mirrors the audio/overlay "selected → handles show" convention). */
     @Nullable private String selectedItemId;
+
+    // ── G1: double-tap detection (gesture contract §1 — double-tap = open type editor) ──
+    /** Item id of the last resolved single TAP awaiting a possible second tap, or null. */
+    @Nullable private String lastTapItemId;
+    /** {@code SystemClock.uptimeMillis()} of the last resolved TAP's UP (pairs with {@link #lastTapItemId}). */
+    private long lastTapUpMs;
+    /**
+     * Max ms between two taps' UPs to count as a double-tap. Measured UP-to-UP (a real
+     * double-tap's second UP lands ~200ms after the first); kept tight so two deliberate
+     * single taps on the same item don't accidentally pair.
+     */
+    private static final long DOUBLE_TAP_WINDOW_MS = 320;
 
     // ── M10: cross-row drag-target tracking (MOVE gestures only) ───────────────
     /** Row the active MOVE gesture is currently hovering, or null (own row / no valid target). */
@@ -290,6 +313,7 @@ public final class LayerGestureController {
             pendingBodyDown = false;
             pendingDeleteBadge = false;
             pickupArmed = false;
+            lastTapItemId = null; // an empty-space touch breaks any pending double-tap pairing
             return DownResult.MISS;
         }
         activeTrack = hit.track;
@@ -1255,6 +1279,20 @@ public final class LayerGestureController {
             // fires on DOWN — a clean tap on it resolves HERE, on the committed UP,
             // after scrub/pickup/scroll have all been ruled out.
             callback.onItemDeleteRequested(fromTrack, item);
+            lastTapItemId = null; // a delete tap never pairs into a double-tap
+        } else if (wasTap && committed && item != null) {
+            // G1 (gesture contract §1): a clean body TAP, resolved AFTER scrub/pickup/
+            // scroll were ruled out. The first tap only SELECTS (done on DOWN). A SECOND
+            // tap on the SAME item within the window is the express lane to that object's
+            // type editor — reported via onItemDoubleTapped; the single tap fires nothing.
+            long now = android.os.SystemClock.uptimeMillis();
+            if (item.getId().equals(lastTapItemId) && now - lastTapUpMs <= DOUBLE_TAP_WINDOW_MS) {
+                lastTapItemId = null;
+                callback.onItemDoubleTapped(item);
+            } else {
+                lastTapItemId = item.getId();
+                lastTapUpMs = now;
+            }
         }
         return true;
     }

@@ -9798,6 +9798,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {
                 pendingLayerTrackUndo = stageCreateLayerAndMoveItem(item, fromTrack);
             }
+
+            @Override
+            public void onItemDoubleTapped(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                // G1 (gesture contract §1): double-tap a layer-row item = the express lane
+                // to that object's type editor / power-tools drawer. The item is already
+                // selected (first tap); here we just open the right editor per payload type.
+                if (item.getTextOverlay() != null) {
+                    showTextOverlayEditor(item.getTextOverlay());
+                } else if (item.getSprite() != null) {
+                    openSpritePalette();
+                } else if (item.getWaveform() != null) {
+                    showVisualizerDrawer(true);
+                }
+                // Audio / PiP: no dedicated type editor exists yet — the selection from the
+                // first tap stands, and double-tap will route here once those power-tools
+                // drawers land (gesture contract §2 general menu / per-type editors).
+            }
         };
     }
 

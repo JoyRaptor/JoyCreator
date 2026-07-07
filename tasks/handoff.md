@@ -1,5 +1,45 @@
 # FadCam AI Handoff
 
+> **🚨 2026-07-07 ~16:15-17:00 — SONNET: first-ever main-phone real-project verify session, surfaced a P0
+> gapless-engine gap. Full detail + fix guidance filed in `road_map.md`'s new 🔴 P0 block (top of file) —
+> this entry is the session narrative/evidence trail.** Device `REAL_SERIAL` (real phone, SM_N986U) had
+> gone `unauthorized` in adb; JoyRaptor cycled the USB-debugging toggle on-device to force a fresh authorization
+> prompt (killing/restarting the adb server alone did NOT trigger it — needs the toggle cycle). Installed
+> the current debug build over the existing `4.0.0-beta9` (same package, `com.fadcam.beta` — confirmed via
+> `applicationIdSuffix` in `build.gradle.kts`), pulled an off-device backup of the target real project
+> (`27221664-21e9-4e9d-8fd7-e8884bb0eb55`, schemaVersion 7 on disk, last touched 2026-06-27 — i.e. never
+> opened by any build with the Layers-model schema work) before doing anything, per JoyRaptor's explicit go-ahead
+> to test with it (already-finished project, on-device `.bak` also exists). JoyRaptor opened it herself in-app:
+> **no crash**, migration completed clean (new Layers-model fields present after re-save; the persisted
+> `schemaVersion` number itself did not bump to 8+, likely cosmetic — worth a doc note, not a bug by itself).
+> JoyRaptor then reported playback hiccups at clip changes/transitions and asked for a screen-recording pass
+> while she pressed play. **Diagnostic method:** `adb shell screenrecord` capturing device screen while JoyRaptor
+> played from the timeline start; pulled the mp4 via `adb exec-out cat` (plain `adb pull` mysteriously
+> failed to create local files all session — root cause not chased, exec-out streaming worked every time,
+> future sessions should just default to it); used `ffmpeg` to extract 30fps PNG frames across the suspect
+> window, cropped to the content region, and `md5sum`'d each frame — a run of 22-72 consecutive identical
+> hashes (~0.7-2.4s) landed right at a clip boundary a colorful title-card clip cutting to a grayscale
+> scene, at a recording-relative timestamp that lines up with JoyRaptor's independently-reported "paused at three
+> seconds after play" once corrected for the gap between recording-start and play-tap. JoyRaptor confirmed this
+> wasn't an infinite hang — she had to manually re-tap play (multiple times) to get past the stall, which is
+> the exact cold-re-prepare-per-seam signature `DIAG_20260701_transition_preview.md` originally diagnosed,
+> now shown to still be reachable through a specific project shape. **Root cause traced to code:**
+> `MasterPlaybackEngine.isEligible()` (line 335) bails the ENTIRE timeline out of the gapless engine if
+> *any* clip is `isImageClip()` — this project has 15 video clips + one `frame-10.00s.jpg` freeze-frame
+> insert (5000ms, `imageClip: true`), which is enough to disqualify all 14 other seams too, not just the one
+> next to the still image. **Unresolved side-note (not blocking, flagged separately in road_map.md):**
+> grepped the project JSON (both the pre-session backup and a fresh pull afterward) for any persisted
+> `Transition` object/type string (`WIPE_LEFT` etc., per `model/Transition.java`'s enum) and found none, even
+> though JoyRaptor visually confirmed a wipe renders correctly on scrub at that same boundary — either it's a
+> real transition the serializer isn't persisting, or the freeze-frame's own content (lifted from the
+> surrounding footage) just looks wipe-like against the following scene. Didn't chase further this session;
+> next person touching this area should check `ProjectStorage`'s transition serialize/restore path
+> (`ProjectStorage.java:1713-1735` write, `:2203-2207` read) against what the UI actually persists when a
+> transition is placed. **Hand-off ask:** JoyRaptor wants this documented "wherever it's supposed to be" — landed
+> as a 🔴 P0 in `road_map.md` (top of file, above the strict-order active queue) since it blocks ordinary
+> project shapes, not an edge case. Fix is Opus-tier per `PLAN_LAYERS_V2.md`'s own sizing table (same
+> model/file as M-COMP-0 itself).
+>
 > **🏔️ 2026-07-07 ~13:25–14:05 — FABLE(5) "finish the frontier" swoop #1: ALL SIX remaining 🟡-tier
 > items LANDED build-green + committed; session was INTERRUPTED mid-device-verify-batch (~14:05), so
 > device coverage of these is UNKNOWN — the follow-on session re-smokes them.** The landings:

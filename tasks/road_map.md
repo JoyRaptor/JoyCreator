@@ -1,7 +1,8 @@
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
 ## 🎯 2026-07-06 STRATEGIC STATE (supersedes the 07-04 block + everything below; handoff.md top block = tactical detail)
-**DONE (device-proven):** Layers MVP + schema v8→v10, gapless engine, multi-row timeline, cross-row drag,
+**DONE (device-proven):** Layers MVP + schema v8→v10, gapless engine ⚠️ **(see 🔴 P0 critical gap below —
+gapless engine does NOT cover projects with image clips)**, multi-row timeline, cross-row drag,
 M-EXPORT-1/2 (export parity + blend modes, `fc3055a`), M-COMP-2 live PiP (preview+export parity,
 `0453db9`+`306aa27`), compositing family — masks/chroma-key/track-matte (`22f29ee`), Phase P/R track
 management, loops (L1/L2/L3), transcript dedup, Layers-UX Slices A–D (renderer consolidation, double-render
@@ -14,6 +15,33 @@ sheets, preview-pitch fix) — all committed, reviewed.
 **A full doc sweep (2026-07-06) confirmed the above and folded every remaining open item — old and new —
 into §BACKLOG below. Nothing from the 57 tasks/*.md files is untracked as of this pass.**
 
+**🔴 P0 CRITICAL — jumped the queue 2026-07-07, real-project-verify finding (JoyRaptor: "this has got to get
+fixed... it's definitely a killjoy"):** `MasterPlaybackEngine.isEligible()`
+(`compositor/MasterPlaybackEngine.java:335`) excludes the ENTIRE timeline from the gapless engine if ANY
+single clip is an image clip (`if (c == null || c.isImageClip()) return false;` — not scoped to the seams
+adjacent to the image, the WHOLE project falls back to the legacy path). Image clips (freeze-frame inserts,
+photos) are an ordinary, common editing move — "everybody wants images in their projects" — so this isn't
+an edge case, it's a landmine under most real projects. The legacy fallback is the exact pre-M-COMP-0
+cold-re-prepare stall `DIAG_20260701_transition_preview.md` originally diagnosed: playback freezes at every
+clip boundary (not just near the image), sometimes requiring the user to manually re-tap play multiple
+times to get past a seam. **Device-confirmed 2026-07-07** on the real project (`27221664…`, 15 clips + 1
+image clip + no configured Transition object, REAL_SERIAL/SM_N986U): screen-recording frame-hash analysis
+showed a run of 22-72 identical consecutive frames (~0.7-2.4s) right at a clip boundary; timing matched
+JoyRaptor's independent real-time report of the stall landing at the ~3s mark, needing multiple play-taps to get
+past. Scrub-preview renders correctly (different, non-realtime compositing path) — only live playback
+stalls. **Fix options for whoever picks this up (Opus-tier, same file/model tier as M-COMP-0 itself per
+PLAN_LAYERS_V2's own sizing table):** (a) extend `MasterPlaybackEngine`'s gapless multi-`MediaItem`
+playlist to also handle image clips (likely: represent the image as a still-frame `MediaItem` with a
+generated/looping single-frame source, or a short synthetic clip), or (b) give the legacy fallback path its
+own pre-buffering fix so image-containing projects aren't punished with the ORIGINAL bug. Do not ship
+either fix without a device screen-recording proof across an image-clip boundary (same method as this
+diagnostic — frame-hash a screenrecord, confirm no >2-3 consecutive identical frames at 30fps). **One loose
+thread from the diagnostic, not blocking this fix:** the visual "wipe" JoyRaptor sees at that boundary was NOT
+found as a persisted `Transition` object anywhere in the project JSON (checked both pre- and post-migration
+copies) — worth confirming whether it's an actual configured transition being silently dropped by
+`ProjectStorage`'s save path, or just the image-clip's freeze-frame content itself looking wipe-like against
+the surrounding footage. Separate concern from the P0 above; check opportunistically.
+
 **ACTIVE ROADMAP TO "COMPLETE" (strict order, ONE agent at a time):**
 1. **Layers/Timeline UX overhaul, remainder — FABLE/OPUS LANE.** Design locked in
    `PLAN_GESTURE_CONTRACT_FINAL_20260706.md` + `PLAN_LAYERS_UX_EXECUTION.md`. Slices A–D done; **Slice E
@@ -22,16 +50,27 @@ into §BACKLOG below. Nothing from the 57 tasks/*.md files is untracked as of th
    manipulation handles, attach/detach overlays, resizable+fullscreen timeline, coach-marks, marquee
    multi-select, object linking). G1 and Slice E are high regression-risk (touch shared hit-test/gesture
    code) — keep them on a strong model. Bootstrap prompt ready: `BOOTSTRAP_LAYERS_BUILD_20260706.md`.
-2. **Opencode/Sonnet-tier lane (parallel, see `tasks/LANES.md` for the lock protocol):** Tier-1 durability
-   pass (§BACKLOG below), rebrand-pass-1 remainder, avatar A4/A5, sprite fast-follows T3/T4, dead-code
-   cleanup of the old `drawLayers`/`selectedLayerKind` path (only after Slice F lands), audio old-vs-new
-   row consolidation, small never-built features (§BACKLOG). Queue lives in `tasks/Opencode-work.md`.
+2. **Opencode/Sonnet-tier lane (parallel, see `tasks/LANES.md` for the lock protocol):** ~~rebrand-pass-1
+   remainder~~ DONE (see §BACKLOG); avatar A4 (recorder integration)/A5 (AI rigging) — still open, but both
+   are JoyRaptor's-lane/high-novelty, not a solo-Sonnet pick; "sprite fast-follows T3/T4" — **orphaned reference,
+   verified 2026-07-07**: no doc (`PLAN_SPRITE_ANIMATION.md`, `PLAN_AVATAR_STUDIO.md`, `Opencode-work.md`,
+   the ObsidianBrain source doc) defines a T3/T4 — likely shorthand from a conversation that never made it
+   into a doc; needs JoyRaptor to clarify what these actually refer to before anyone can pick them up; ~~dead-code
+   cleanup of the old `drawLayers`/`selectedLayerKind` path~~ DONE (`96cba7f`, verified zero remaining
+   references); audio old-vs-new row consolidation — still open, genuinely hard (flagged multi-session
+   backbone, ~9 call sites, Fable/Opus territory); small never-built features — see §BACKLOG, mostly closed
+   as of the 2026-07-07 sweep. Queue lives in `tasks/Opencode-work.md`.
 3. Export work package (minimize-during-export + edit-safety + out-of-process + quality setting) —
    **Fable lane** (touches `ExportManager`), not yet started, bundled as one phase.
 4. GL wave / timeline-fidelity items (T1 filmstrip sweep-cache; masking already shipped via the
    compositing family, this is the remaining timeline-render polish).
-**GATES:** main-phone real-project session (NEVER YET RUN — needs `REAL_SERIAL` plugged, read/verify only);
-downgrade-guard drill; muted-track-caption user decision (open since M-EXPORT-1); bookmarks/playhead-
+**GATES:** ~~main-phone real-project session (NEVER YET RUN)~~ **RUN 2026-07-07** — device authorized,
+current build installed, real project (`27221664…`, schemaVersion 7 on disk, pre-Layers-model) opened
+successfully; schema migration completed with no crash (new Layers-model fields present in-memory/on
+re-save; the on-disk `schemaVersion` number itself stayed `7` — worth a quick check whether that field is
+meant to bump on save, likely cosmetic not functional); surfaced the P0 image-clip gapless gap above — see
+that entry for detail; downgrade-guard drill still not run (this session only exercised the forward
+migration, not a downgrade); muted-track-caption user decision (open since M-EXPORT-1); bookmarks/playhead-
 time-chip — decide whether these fold into Slice G or drop, they're not covered by the current contract;
 de-politicize sweep (`DESIGN_JOY_CREATOR.md` binding rule — old activist branding removal, never confirmed
 done); rebrand asset set (icon/wordmark/notification glyph — `ASSETS_WISHLIST.md`, blocks a real ship,
@@ -52,13 +91,27 @@ pooled buffer; photo capture 6× `glReadPixels` fresh IntBuffers → PixelCopy/r
 1s → 2s default (configurable); `docs/project-schema.md` says v5, code is v8-v10 → regenerate. (Done already:
 `transitionFrameCache` → LruCache `f97e4f5`; KEEP_SCREEN_ON scoping + playhead-tick gating `fa086c7`.)
 
-**Rebrand pass 1 remainder (lane: opencode):** armed-state icon tint convention (tools tint when armed, e.g.
-volume keyframes); delete dead Trim/Heal layout blocks + strings (needs care — ID references).
+**~~Rebrand pass 1 remainder~~ — CLOSED (verified 2026-07-07):** armed-state icon tint convention now covers
+Volume/Opacity/Captions (`FaditorEditorActivity.java:4982-4983` — Captions mirrors the existing convention,
+landed `7612053`); dead Trim/Heal layout blocks + strings fully removed, no references remain
+(`50d78ce`, confirmed via live grep — zero hits for tool_trim/tool_heal). Nothing to do here.
 
-**Small never-built features (lane: opencode, additive/low-risk):** speed preset chips alongside the slider;
-crop rule-of-thirds grid overlay + numeric ratio entry; canvas custom-resolution input; 9:16 safe-zone
-overlay toggle; low-bandwidth export preset (720p/H.264 baseline); save-as-preset standing pattern
-(implement per-tool as touched, not a big-bang).
+**Small never-built features (lane: opencode, additive/low-risk) — status corrected 2026-07-07:**
+~~canvas custom-resolution input~~ DONE (`805d69f`); ~~9:16 safe-zone overlay toggle~~ DONE (`cdaf9c3`);
+~~low-bandwidth export preset~~ FUNCTIONALLY DONE — `showExportConfirmation()`
+(`FaditorEditorActivity.java:8240-8365`) already has independent Resolution (Original/1080p/720p/480p) +
+Quality (High/Medium/Low) spinners wired to the encoder (`ExportManager.java:310-323`), so 720p+Low is
+already user-reachable; only a combined one-tap "low bandwidth" preset chip is missing, and that's cosmetic
+polish, not a blocker. ~~speed preset chips alongside the slider~~ ALSO ALREADY DONE — `SpeedSliderBottomSheet`
+(the live sheet, wired at `FaditorEditorActivity.java:5083`) has a horizontal preset-chip row
+(0.25x/0.5x/0.75x/1x/1.5x/2x/3x/4x/6x/8x/10x) right under the slider (lines 173-223); a second, unused
+`SpeedPickerBottomSheet.java` (zero references anywhere) was confirmed fully dead and deleted 2026-07-07.
+~~crop rule-of-thirds grid overlay + numeric ratio entry~~ ALSO ALREADY DONE —
+`CropOverlayView.onDraw()` draws the thirds grid while dragging (`crop/CropOverlayView.java:270-284`), and
+`FaditorEditorActivity.showCustomCropRatioDialog()` (line 5559, comment literally cites this road_map item)
+implements the W:H numeric entry dialog wired to `cropOverlay.setLockedAspectRatio(w/h)`. **Only genuinely
+open item left in this list:** save-as-preset standing pattern (implement per-tool as touched, not a
+big-bang — no single task to point at).
 
 **Timeline fidelity remainder (`FEEDBACK_20260703_timeline_fidelity.md` — W1 waveforms shipped by opencode;
 lane: opencode unless it touches shared render paths):** T1 — accurate filmstrip via a background
@@ -69,10 +122,12 @@ opencode round 2, still open too, same lane).
 markers) and playhead time-chip (mm:ss.mmm precision readout) — designed in dragux_v3 but NOT covered by
 the new G1–G9 contract; decide fold-in vs drop. Muted-track caption show/hide (open since M-EXPORT-1).
 
-**Flagged-not-fixed code smells (`todo.md` — lane: whoever's touching that file next, low priority):**
-`CompositeExportOverlay` clip-end math still derived from trimmed duration, not loop-aware; the
-`isSimpleTrim` single-clip+"original"-canvas path may still bypass the overlay entirely (needs a live code
-check, not just doc reading — may already be closed by the export-hardening rounds).
+**~~Flagged-not-fixed code smells~~ — CLOSED (verified 2026-07-07 live code check, not just doc reading):**
+both were fixed in a later `todo.md` hardening pass, prior to this catalog being written. `isSimpleTrim`
+(`ExportManager.java:333-355`) now excludes overlays/captions/waveforms/opacity-keyframes/loop-extensions/
+layer-features/non-default-quality; `CompositeExportOverlay` has an explicit `clipVisualEndMs` field
+(`clipTimelineStartMs + getVisualDurationMs()`) so text overlays inside loop-extension regions aren't
+filtered early. Nothing to do here.
 
 **Assets, not code (`ASSETS_WISHLIST.md` — blocks a real rebrand ship):** adaptive app icon
 (foreground/background/monochrome), wordmark SVG, notification/status-bar glyph, splash branding (optional),

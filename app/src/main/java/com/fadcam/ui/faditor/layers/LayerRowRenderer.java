@@ -1295,6 +1295,96 @@ public final class LayerRowRenderer {
         return null;
     }
 
+    // ── G8 marquee multi-select ─────────────────────────────────────
+
+    /**
+     * G8: collect every item whose block intersects (inclusive/crossing mode) or is
+     * fully enclosed by (exclusive/window mode) the marquee. The rect arrives in the
+     * renderer's CONTENT space: x = scroll-adjusted content-x (the same axis
+     * {@code timeToX} maps into), y = band-local content-y (0 = top of the first row
+     * region, the same axis {@code rows} rects live on). Locked/hidden/collapsed rows
+     * never contribute — same exclusions as {@link #hitTestItem}.
+     */
+    @NonNull
+    public List<ItemHit> collectItemsInRect(@NonNull RectF contentRect, long totalMs,
+                                            @NonNull TimeToX timeToX,
+                                            boolean requireFullContainment) {
+        List<ItemHit> out = new ArrayList<>();
+        for (RowLayout row : rows) {
+            Track t = row.track;
+            if (t.isCollapsed() || t.isLocked() || t.isHidden()) continue;
+            float top = row.bodyRect.top + 3f * density;
+            float bottom = row.bodyRect.bottom - 3f * density;
+            boolean yIntersects = bottom >= contentRect.top && top <= contentRect.bottom;
+            boolean yContained = top >= contentRect.top && bottom <= contentRect.bottom;
+            if (requireFullContainment ? !yContained : !yIntersects) continue;
+            for (TimedItem item : t.getItems()) {
+                float x0 = timeToX.map(item.getTimelineStartMs());
+                long dur = item.getDisplayDurationMs(totalMs);
+                float x1 = Math.max(x0 + 6f * density,
+                        timeToX.map(item.getTimelineStartMs() + dur));
+                boolean xIntersects = x1 >= contentRect.left && x0 <= contentRect.right;
+                boolean xContained = x0 >= contentRect.left && x1 <= contentRect.right;
+                if (requireFullContainment ? xContained : xIntersects) {
+                    out.add(new ItemHit(t, item, ItemZone.BODY));
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * G8: highlight every marquee-selected item — a translucent white wash + white
+     * stroke over each item block. Must be called inside the god view's
+     * {@code canvas.translate(-hScrollOffsetPx, 0)} block, right after {@link #layout}
+     * (same convention as layout itself): x is content-space, the clip window is the
+     * band viewport expressed in content-x. Geometry mirrors {@link #hitTestItem}/
+     * {@link #collectItemsInRect} exactly.
+     */
+    public void drawMultiSelection(@NonNull Canvas canvas, @NonNull java.util.Set<String> ids,
+                                   float topPx, long totalMs, @NonNull TimeToX timeToX) {
+        if (ids.isEmpty() || rows.isEmpty()) return;
+        canvas.save();
+        canvas.clipRect(lastHScrollOffsetPx, topPx,
+                lastHScrollOffsetPx + lastWidthPx, topPx + viewportHeightPx);
+        for (RowLayout row : rows) {
+            Track t = row.track;
+            float top = topPx + row.bodyRect.top + 3f * density - scrollOffsetPx;
+            float bottom = topPx + row.bodyRect.bottom - 3f * density - scrollOffsetPx;
+            for (TimedItem item : t.getItems()) {
+                if (!ids.contains(item.getId())) continue;
+                float x0 = timeToX.map(item.getTimelineStartMs());
+                long dur = item.getDisplayDurationMs(totalMs);
+                float x1 = Math.max(x0 + 6f * density,
+                        timeToX.map(item.getTimelineStartMs() + dur));
+                itemPaint.setColor(0x33FFFFFF);
+                canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density, itemPaint);
+                itemSelectionPaint.setColor(0xFFFFFFFF);
+                canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density,
+                        itemSelectionPaint);
+            }
+        }
+        canvas.restore();
+    }
+
+    /** G8: current vertical scroll (px) of the band viewport, for marquee coordinate math. */
+    public float getScrollOffsetPx() { return scrollOffsetPx; }
+
+    /** G8: resolve a set of selected item ids back to live (track, item) pairs. */
+    @NonNull
+    public List<ItemHit> collectItemsByIds(@NonNull java.util.Set<String> ids) {
+        List<ItemHit> out = new ArrayList<>();
+        if (ids.isEmpty()) return out;
+        for (RowLayout row : rows) {
+            for (TimedItem item : row.track.getItems()) {
+                if (ids.contains(item.getId())) {
+                    out.add(new ItemHit(row.track, item, ItemZone.BODY));
+                }
+            }
+        }
+        return out;
+    }
+
     /** Scroll the row region by {@code dy} px (clamped); returns true if it consumed the scroll. */
     public boolean scrollBy(float dy) {
         float before = scrollOffsetPx;

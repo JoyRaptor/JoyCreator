@@ -108,6 +108,10 @@ public final class FaditorToolRegistry {
         add(t, "compact", R.id.tool_compact, R.id.tool_compact_icon, R.id.tool_compact_label,
                 "Compact", "compress",
                 FaditorTool.BindMode.CLICK, false);
+        // G8: marquee multi-select mode toggle (off / inclusive-crossing / exclusive-window).
+        add(t, "select", R.id.tool_select, R.id.tool_select_icon, R.id.tool_select_label,
+                "Select", "highlight_alt",
+                FaditorTool.BindMode.CLICK, false);
         add(t, "settings", R.id.tool_settings, R.id.tool_settings_icon, R.id.tool_settings_label,
                 ctx.getString(R.string.faditor_tool_settings), "settings",
                 FaditorTool.BindMode.CLICK, false);

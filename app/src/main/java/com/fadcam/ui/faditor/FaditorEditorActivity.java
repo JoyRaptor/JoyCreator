@@ -1926,6 +1926,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
         View toolCompact = findViewById(R.id.tool_compact);
         if (toolCompact != null) toolCompact.setOnClickListener(v -> compactLayers());
+        // G8 (contract §5.5): three-state marquee multi-select toggle.
+        View toolSelect = findViewById(R.id.tool_select);
+        if (toolSelect != null) toolSelect.setOnClickListener(v -> cycleMarqueeMode());
+        wireMarqueeListener();
         toolMove.setOnClickListener(v -> toggleMoveDrawer());
         initMoveDrawer();
         // (Sprites tool wired above; manager implementation below the tool handlers.)
@@ -9401,6 +9405,147 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    // ═══════════ G8 marquee multi-select (contract §5.5) — activity glue ═══════════
+
+    /** OFF → INCLUSIVE (crossing) → EXCLUSIVE (window) → OFF, with icon tint + hint. */
+    private void cycleMarqueeMode() {
+        if (editorTimeline == null) return;
+        com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode next;
+        String hint;
+        int tint;
+        switch (editorTimeline.getMarqueeMode()) {
+            case OFF:
+                next = com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode.INCLUSIVE;
+                hint = "Select: touch anything the box crosses";
+                tint = 0xFF4CAF50;
+                break;
+            case INCLUSIVE:
+                next = com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode.EXCLUSIVE;
+                hint = "Select: only fully-boxed objects";
+                tint = 0xFFFFB74D;
+                break;
+            default:
+                next = com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode.OFF;
+                hint = "Select mode off";
+                tint = 0xFFCCCCCC;
+                break;
+        }
+        editorTimeline.setMarqueeMode(next);
+        TextView icon = findViewById(R.id.tool_select_icon);
+        if (icon != null) icon.setTextColor(tint);
+        Toast.makeText(this, hint, Toast.LENGTH_SHORT).show();
+    }
+
+    private void wireMarqueeListener() {
+        if (editorTimeline == null) return;
+        editorTimeline.setMarqueeListener(
+                new com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeListener() {
+                    @Override
+                    public void onBatchActionRequested(@NonNull java.util.List<
+                            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+                        showMarqueeBatchMenu(items);
+                    }
+
+                    @Override
+                    public void onMarqueeSelectionChanged(int count) {
+                        // Selection visuals live on the timeline itself; nothing modal here.
+                    }
+                });
+    }
+
+    /** Batch menu: only actions UNIVERSAL to every selected type appear (contract §5.5).
+     *  v1 ships DELETE; more batch props (opacity/lock/move) ride later slices. */
+    private void showMarqueeBatchMenu(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        if (project == null || items.isEmpty()) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(items.size() + " objects selected")
+                .setItems(new CharSequence[]{"Delete selected"}, (d, w) -> {
+                    if (w == 0) confirmMarqueeBatchDelete(items);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void confirmMarqueeBatchDelete(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Delete " + items.size() + " selected objects?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", (d, w) -> performMarqueeBatchDelete(items))
+                .show();
+    }
+
+    /**
+     * One-shot batch delete with ONE composite undo step. Handles the payload types
+     * whose add/remove pairs are pure timeline mutations (text/image overlays, sprites,
+     * visualizers, PiP overlay clips). Captions (clip-owned, no delete semantics) and
+     * audio clips (index-anchored legacy subsystem) are skipped with a note.
+     */
+    private void performMarqueeBatchDelete(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> texts =
+                new java.util.ArrayList<>();
+        final java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sprites =
+                new java.util.ArrayList<>();
+        final java.util.List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> waves =
+                new java.util.ArrayList<>();
+        final java.util.List<Clip> pips = new java.util.ArrayList<>();
+        int skipped = 0;
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
+            com.fadcam.ui.faditor.layers.TimedItem it = h.item;
+            if (it.getTextOverlay() != null) texts.add(it.getTextOverlay());
+            else if (it.getSprite() != null) sprites.add(it.getSprite());
+            else if (it.getWaveform() != null) waves.add(it.getWaveform());
+            else if (it.getClip() != null && it.getClip().isOverlayClip()) pips.add(it.getClip());
+            else skipped++;
+        }
+        int deletable = texts.size() + sprites.size() + waves.size() + pips.size();
+        if (deletable == 0) {
+            Toast.makeText(this, "Nothing deletable in the selection", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final Runnable applyDelete = () -> {
+            for (com.fadcam.ui.faditor.model.TextOverlayItem t : texts) timeline.removeTextOverlay(t);
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : sprites) timeline.removeSpriteOverlay(s);
+            for (com.fadcam.ui.faditor.model.WaveformOverlayInstance v : waves) timeline.removeWaveformOverlay(v);
+            for (Clip c : pips) timeline.removeOverlayClip(c);
+            refreshAfterMarqueeBatchDelete();
+        };
+        final Runnable revertDelete = () -> {
+            for (com.fadcam.ui.faditor.model.TextOverlayItem t : texts) timeline.addTextOverlay(t);
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : sprites) timeline.addSpriteOverlay(s);
+            for (com.fadcam.ui.faditor.model.WaveformOverlayInstance v : waves) timeline.addWaveformOverlay(v);
+            for (Clip c : pips) timeline.addOverlayClip(c);
+            refreshAfterMarqueeBatchDelete();
+        };
+        applyDelete.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                "Delete " + deletable + " objects", applyDelete, revertDelete));
+        if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
+        scheduleAutoSave();
+        Toast.makeText(this, deletable + " deleted"
+                + (skipped > 0 ? " (" + skipped + " skipped)" : ""), Toast.LENGTH_SHORT).show();
+    }
+
+    /** Every preview surface a batch delete can touch, refreshed in one place. */
+    private void refreshAfterMarqueeBatchDelete() {
+        syncTimelineOverlays();
+        if (overlayLayer != null && project != null) {
+            overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
+                    .visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
+            overlayLayer.invalidate();
+        }
+        if (waveformOverlayView != null && project != null) {
+            waveformOverlayView.setOverlays(project.getTimeline().getWaveformOverlays());
+            waveformOverlayView.invalidate();
+        }
+        refreshSpritePreviewData();
+        if (editorTimeline != null) editorTimeline.invalidate();
+    }
+
     /**
      * M6 row-header toggle glue (PLAN Part 7, row M6; scope items 3-5): flips the
      * tapped flag in {@code Timeline}'s persistent {@code TrackFlags} side-table
@@ -11333,6 +11478,86 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void onStopTrackingTouch(SeekBar sb) { }
         });
         root.addView(freqRow);
+
+        // ── Bar width + gap row (visualizer-studio Phase 3: per-instance overrides,
+        //    0/left edge = "auto" i.e. the preset's own values) ──
+        LinearLayout barRow = new LinearLayout(this);
+        barRow.setOrientation(LinearLayout.HORIZONTAL);
+        barRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        barRow.setPadding(0, (int) (2 * dp), 0, 0);
+
+        TextView widthLabel = new TextView(this);
+        widthLabel.setText("Width");
+        widthLabel.setTextColor(0xFF9E9E9E);
+        widthLabel.setTextSize(11);
+        widthLabel.setPadding(0, 0, (int) (4 * dp), 0);
+        barRow.addView(widthLabel);
+
+        TextView widthText = new TextView(this);
+        widthText.setTextSize(11);
+        widthText.setTextColor(0xFFCCCCCC);
+        widthText.setMinEms(2);
+        barRow.addView(widthText);
+
+        SeekBar widthSeek = new SeekBar(this);
+        widthSeek.setMax(48); // 0 = auto, 1..48 dp
+        widthSeek.setProgress(Math.round(overlay.getBarWidthOverrideDp()));
+        LinearLayout.LayoutParams widthLp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        widthLp.setMargins(0, 0, (int) (4 * dp), 0);
+        barRow.addView(widthSeek, widthLp);
+
+        TextView gapLabel = new TextView(this);
+        gapLabel.setText("Gap");
+        gapLabel.setTextColor(0xFF9E9E9E);
+        gapLabel.setTextSize(11);
+        gapLabel.setPadding((int) (6 * dp), 0, (int) (4 * dp), 0);
+        barRow.addView(gapLabel);
+
+        TextView gapText = new TextView(this);
+        gapText.setTextSize(11);
+        gapText.setTextColor(0xFFCCCCCC);
+        gapText.setMinEms(2);
+        barRow.addView(gapText);
+
+        SeekBar gapSeek = new SeekBar(this);
+        gapSeek.setMax(24); // 0 = auto, 1..24 dp
+        gapSeek.setProgress(Math.round(overlay.getBarGapOverrideDp()));
+        LinearLayout.LayoutParams gapLp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        gapLp.setMargins((int) (4 * dp), 0, 0, 0);
+        barRow.addView(gapSeek, gapLp);
+
+        Runnable updateBarDimLabels = () -> {
+            float bw = overlay.getBarWidthOverrideDp();
+            float bg = overlay.getBarGapOverrideDp();
+            widthText.setText(bw > 0f ? String.valueOf(Math.round(bw)) : "auto");
+            gapText.setText(bg > 0f ? String.valueOf(Math.round(bg)) : "auto");
+        };
+        updateBarDimLabels.run();
+        widthSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
+                if (!fromUser) return;
+                overlay.setBarWidthOverrideDp(p); // 0 = auto (preset value)
+                updateBarDimLabels.run();
+                if (waveformOverlayView != null) waveformOverlayView.invalidate();
+                scheduleAutoSave();
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) { }
+            @Override public void onStopTrackingTouch(SeekBar sb) { }
+        });
+        gapSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
+                if (!fromUser) return;
+                overlay.setBarGapOverrideDp(p); // 0 = auto (preset value)
+                updateBarDimLabels.run();
+                if (waveformOverlayView != null) waveformOverlayView.invalidate();
+                scheduleAutoSave();
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) { }
+            @Override public void onStopTrackingTouch(SeekBar sb) { }
+        });
+        root.addView(barRow);
 
         // ── Columns area (with a faint centre groove band behind the carousels) ──
         android.widget.FrameLayout colsFrame = new android.widget.FrameLayout(this);

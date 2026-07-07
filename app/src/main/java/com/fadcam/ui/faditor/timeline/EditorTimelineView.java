@@ -1761,6 +1761,14 @@ public class EditorTimelineView extends View {
                 layerGestureController != null && layerGestureController.isHoveringNewLayerZone(),
                 layerGestureController != null ? layerGestureController.getSelectedItemId() : null);
 
+        // G8: marquee multi-selection highlights + the live selection box — content-x
+        // space, so they ride the same translate as the rows themselves.
+        if (!marqueeSelectedIds.isEmpty()) {
+            layerRowRenderer.drawMultiSelection(canvas, marqueeSelectedIds, getM6RowsTopPx(),
+                    totalEffectiveMs, this::timeToX);
+        }
+        drawMarqueeBox(canvas);
+
         canvas.restore();
 
         // Draw fixed center playhead (NOT affected by scroll)
@@ -4110,11 +4118,20 @@ public class EditorTimelineView extends View {
             longPressHandler.removeCallbacks(longPressRunnable);
             longPressHandler.removeCallbacks(audioLongPressRunnable);
             pendingAudioIndex = -1;
+            cancelMarqueeTouch();
         }
 
         // If actually pinch-zooming, block other handlers
         if (isScaling) {
             FLog.d(TAG, "onTouchEvent: consumed by active pinch zoom");
+            return true;
+        }
+
+        // G8 marquee multi-select: while the select-mode toggle is armed, single-finger
+        // touches are OWNED by the marquee (drag paints a selection box; tap toggles an
+        // item; scrub is intentionally unavailable — that's what the mode toggle means,
+        // contract §5.5). Placed AFTER the pinch handling so two fingers still zoom.
+        if (marqueeMode != MarqueeMode.OFF && handleMarqueeTouch(e)) {
             return true;
         }
 
@@ -4223,6 +4240,261 @@ public class EditorTimelineView extends View {
                 return onUp(x, y, e.getAction() == MotionEvent.ACTION_UP);
         }
         return super.onTouchEvent(e);
+    }
+
+    // ═══════════ G8 marquee multi-select (gesture contract §5.5) ═══════════
+
+    /** Marquee selection mode: OFF = normal gestures; INCLUSIVE = crossing (touch any
+     *  part selects the whole object); EXCLUSIVE = window (only fully-enclosed objects). */
+    public enum MarqueeMode { OFF, INCLUSIVE, EXCLUSIVE }
+
+    /** Host callbacks for the marquee mode. */
+    public interface MarqueeListener {
+        /** Long-press on a selected item while a multi-selection is active → batch menu. */
+        void onBatchActionRequested(
+                @NonNull java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items);
+        /** The multi-selection changed (count 0 = cleared). */
+        void onMarqueeSelectionChanged(int count);
+    }
+
+    private MarqueeMode marqueeMode = MarqueeMode.OFF;
+    @Nullable private MarqueeListener marqueeListener;
+    private final java.util.LinkedHashSet<String> marqueeSelectedIds =
+            new java.util.LinkedHashSet<>();
+    private boolean marqueeTouchActive = false;
+    private boolean marqueeDragActive = false;
+    private boolean marqueeBatchFired = false;
+    private float marqueeDownViewX, marqueeDownViewY;
+    /** Marquee corners are CONTENT-anchored (x = scrolled content-x, y = band-local
+     *  content-y) so edge-scrolling extends the box instead of dragging it along. */
+    private float marqueeAnchorContentX, marqueeAnchorLocalY;
+    private float marqueeCurContentX, marqueeCurLocalY;
+    private float marqueeLastViewX, marqueeLastViewY;
+    private boolean marqueeEdgeScrollActive = false;
+    private final android.graphics.RectF marqueeContentRect = new android.graphics.RectF();
+    @Nullable private Paint marqueeFillPaint;
+    @Nullable private Paint marqueeStrokePaint;
+
+    public void setMarqueeListener(@Nullable MarqueeListener l) { this.marqueeListener = l; }
+
+    @NonNull
+    public MarqueeMode getMarqueeMode() { return marqueeMode; }
+
+    /** Arm/cycle the marquee mode. Turning it OFF clears the multi-selection. */
+    public void setMarqueeMode(@NonNull MarqueeMode mode) {
+        if (marqueeMode == mode) return;
+        marqueeMode = mode;
+        cancelMarqueeTouch();
+        if (mode == MarqueeMode.OFF && !marqueeSelectedIds.isEmpty()) {
+            marqueeSelectedIds.clear();
+            notifyMarqueeSelectionChanged();
+        }
+        invalidate();
+    }
+
+    /** Snapshot of the current multi-selection resolved to live track items. */
+    @NonNull
+    public java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit>
+            getMarqueeSelectedItems() {
+        return layerRowRenderer.collectItemsByIds(marqueeSelectedIds);
+    }
+
+    public void clearMarqueeSelection() {
+        if (marqueeSelectedIds.isEmpty()) return;
+        marqueeSelectedIds.clear();
+        notifyMarqueeSelectionChanged();
+        invalidate();
+    }
+
+    private void notifyMarqueeSelectionChanged() {
+        if (marqueeListener != null) {
+            marqueeListener.onMarqueeSelectionChanged(marqueeSelectedIds.size());
+        }
+    }
+
+    private final Runnable marqueeBatchLongPressRunnable = () -> {
+        if (!marqueeTouchActive || marqueeDragActive || marqueeSelectedIds.isEmpty()) return;
+        marqueeBatchFired = true;
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        if (marqueeListener != null) {
+            marqueeListener.onBatchActionRequested(getMarqueeSelectedItems());
+        }
+    };
+
+    /** Owns every single-finger touch while select mode is armed. Always consumes. */
+    private boolean handleMarqueeTouch(@NonNull MotionEvent e) {
+        float x = e.getX(), y = e.getY();
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN: {
+                marqueeTouchActive = true;
+                marqueeDragActive = false;
+                marqueeBatchFired = false;
+                // The marquee consumes the UP a post-pinch pan would normally reset on —
+                // clear it here so a pinch during select mode can't leak a stale pan.
+                postPinchPanActive = false;
+                postPinchLastX = Float.NaN;
+                marqueeDownViewX = x;
+                marqueeDownViewY = y;
+                marqueeLastViewX = x;
+                marqueeLastViewY = y;
+                marqueeAnchorContentX = x + scrollOffsetPx;
+                marqueeAnchorLocalY = y - getM6RowsTopPx() + layerRowRenderer.getScrollOffsetPx();
+                // Batch long-press arms only when the touch starts ON a selected item.
+                if (!marqueeSelectedIds.isEmpty()) {
+                    com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit hit =
+                            layerRowRenderer.hitTestItem(x + scrollOffsetPx, y, getM6RowsTopPx(),
+                                    totalEffectiveMs, this::timeToX, null);
+                    if (hit != null && marqueeSelectedIds.contains(hit.item.getId())) {
+                        longPressHandler.postDelayed(marqueeBatchLongPressRunnable, ITEM_PICKUP_MS);
+                    }
+                }
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                if (!marqueeTouchActive || marqueeBatchFired) return true;
+                marqueeLastViewX = x;
+                marqueeLastViewY = y;
+                float slop = 8f * density;
+                if (!marqueeDragActive && (Math.abs(x - marqueeDownViewX) > slop
+                        || Math.abs(y - marqueeDownViewY) > slop)) {
+                    marqueeDragActive = true;
+                    longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
+                    startMarqueeEdgeScroll();
+                }
+                if (marqueeDragActive) {
+                    updateMarqueeTo(x, y);
+                }
+                return true;
+            }
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL: {
+                longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
+                boolean wasDrag = marqueeDragActive;
+                boolean batchFired = marqueeBatchFired;
+                marqueeDragActive = false;
+                marqueeTouchActive = false;
+                marqueeBatchFired = false;
+                if (e.getActionMasked() == MotionEvent.ACTION_UP && !wasDrag && !batchFired) {
+                    onMarqueeTap(x, y);
+                }
+                getParent().requestDisallowInterceptTouchEvent(false);
+                invalidate();
+                return true;
+            }
+        }
+        return true;
+    }
+
+    /** Abort any in-flight marquee touch (pinch started, mode flipped, …). */
+    private void cancelMarqueeTouch() {
+        longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
+        marqueeTouchActive = false;
+        marqueeDragActive = false;
+        marqueeBatchFired = false;
+    }
+
+    /** Recompute the marquee rect + LIVE selection from the current finger position. */
+    private void updateMarqueeTo(float viewX, float viewY) {
+        marqueeCurContentX = viewX + scrollOffsetPx;
+        marqueeCurLocalY = viewY - getM6RowsTopPx() + layerRowRenderer.getScrollOffsetPx();
+        marqueeContentRect.set(
+                Math.min(marqueeAnchorContentX, marqueeCurContentX),
+                Math.min(marqueeAnchorLocalY, marqueeCurLocalY),
+                Math.max(marqueeAnchorContentX, marqueeCurContentX),
+                Math.max(marqueeAnchorLocalY, marqueeCurLocalY));
+        java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> hits =
+                layerRowRenderer.collectItemsInRect(marqueeContentRect, totalEffectiveMs,
+                        this::timeToX, marqueeMode == MarqueeMode.EXCLUSIVE);
+        marqueeSelectedIds.clear();
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : hits) {
+            marqueeSelectedIds.add(h.item.getId());
+        }
+        notifyMarqueeSelectionChanged();
+        invalidate();
+    }
+
+    /** Tap in select mode: toggle the item under the finger; empty space clears all. */
+    private void onMarqueeTap(float viewX, float viewY) {
+        com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit hit =
+                layerRowRenderer.hitTestItem(viewX + scrollOffsetPx, viewY, getM6RowsTopPx(),
+                        totalEffectiveMs, this::timeToX, null);
+        if (hit != null) {
+            String id = hit.item.getId();
+            if (!marqueeSelectedIds.remove(id)) marqueeSelectedIds.add(id);
+        } else {
+            marqueeSelectedIds.clear();
+        }
+        notifyMarqueeSelectionChanged();
+    }
+
+    /** Both-axis edge auto-scroll while roping a marquee (contract §5.5). The corners are
+     *  content-anchored, so scrolling extends the box over content the viewport didn't show. */
+    private final Runnable marqueeEdgeScrollRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!marqueeDragActive) {
+                marqueeEdgeScrollActive = false;
+                return;
+            }
+            float edge = 40f * density;
+            float step = 12f * density;
+            boolean scrolled = false;
+            float w = getWidth();
+            if (marqueeLastViewX < edge) {
+                updatePlayheadFromX(w / 2f + scrollOffsetPx - step);
+                scrolled = true;
+            } else if (marqueeLastViewX > w - edge) {
+                updatePlayheadFromX(w / 2f + scrollOffsetPx + step);
+                scrolled = true;
+            }
+            float bandTop = getM6RowsTopPx();
+            float bandBot = bandTop + layerRowRenderer.getViewportHeightPx();
+            if (marqueeLastViewY < bandTop + 20f * density) {
+                scrolled |= layerRowRenderer.scrollBy(-step * 0.6f);
+            } else if (marqueeLastViewY > bandBot - 20f * density) {
+                scrolled |= layerRowRenderer.scrollBy(step * 0.6f);
+            }
+            if (scrolled) {
+                updateMarqueeTo(marqueeLastViewX, marqueeLastViewY);
+            }
+            postOnAnimation(this);
+        }
+    };
+
+    private void startMarqueeEdgeScroll() {
+        if (marqueeEdgeScrollActive) return;
+        marqueeEdgeScrollActive = true;
+        postOnAnimation(marqueeEdgeScrollRunnable);
+    }
+
+    /** Draw the active marquee box. Called INSIDE the scroll-translated canvas block
+     *  (content-x space), after the rows have laid out. */
+    private void drawMarqueeBox(@NonNull android.graphics.Canvas canvas) {
+        if (!marqueeDragActive) return;
+        if (marqueeFillPaint == null) {
+            marqueeFillPaint = new Paint();
+            marqueeFillPaint.setStyle(Paint.Style.FILL);
+            marqueeFillPaint.setColor(0x268C3DFA);
+            marqueeStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            marqueeStrokePaint.setStyle(Paint.Style.STROKE);
+            marqueeStrokePaint.setStrokeWidth(1.5f * density);
+            marqueeStrokePaint.setColor(0xFF8C3DFA);
+            marqueeStrokePaint.setPathEffect(new android.graphics.DashPathEffect(
+                    new float[]{6f * density, 4f * density}, 0f));
+        }
+        float topPx = getM6RowsTopPx();
+        float bandScroll = layerRowRenderer.getScrollOffsetPx();
+        float l = marqueeContentRect.left;
+        float r = marqueeContentRect.right;
+        float t = topPx + marqueeContentRect.top - bandScroll;
+        float b = topPx + marqueeContentRect.bottom - bandScroll;
+        canvas.save();
+        canvas.clipRect(scrollOffsetPx, topPx, scrollOffsetPx + getWidth(),
+                topPx + layerRowRenderer.getViewportHeightPx());
+        canvas.drawRect(l, t, r, b, marqueeFillPaint);
+        canvas.drawRect(l, t, r, b, marqueeStrokePaint);
+        canvas.restore();
     }
 
     /**

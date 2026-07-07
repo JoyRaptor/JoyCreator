@@ -100,4 +100,8 @@
     <item name="tool_compact" type="id"/>
     <item name="tool_compact_icon" type="id"/>
     <item name="tool_compact_label" type="id"/>
+    <!-- G8: marquee multi-select mode toggle (off / inclusive-crossing / exclusive-window). -->
+    <item name="tool_select" type="id"/>
+    <item name="tool_select_icon" type="id"/>
+    <item name="tool_select_label" type="id"/>
 </resources>

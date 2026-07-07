@@ -2418,6 +2418,19 @@ public class GLWatermarkRenderer {
         this.encoderHeight = height;
     }
 
+    // Reused glReadPixels destination for captureEncoderFrameBitmap — photo capture calls this
+    // up to 6x per shot (capturePhotoFrame's stale-frame-flush loop) at the SAME dimensions each
+    // time, so a fresh IntBuffer.allocate(width*height) per call was 6 allocations of the full
+    // frame size per photo. Grown only when the requested size changes.
+    private java.nio.IntBuffer encoderReadPixelsBuffer;
+    private int encoderReadPixelsW = -1;
+    private int encoderReadPixelsH = -1;
+
+    // Same pooling for capturePreviewFrameBitmap's separate GL surface/lock.
+    private java.nio.IntBuffer previewReadPixelsBuffer;
+    private int previewReadPixelsW = -1;
+    private int previewReadPixelsH = -1;
+
     @Nullable
     public Bitmap captureEncoderFrameBitmap() {
         synchronized (renderLock) {
@@ -2433,11 +2446,17 @@ public class GLWatermarkRenderer {
                 return null;
             }
 
-            java.nio.IntBuffer ib = java.nio.IntBuffer.allocate(width * height);
+            if (encoderReadPixelsBuffer == null || encoderReadPixelsW != width || encoderReadPixelsH != height) {
+                encoderReadPixelsBuffer = java.nio.IntBuffer.allocate(width * height);
+                encoderReadPixelsW = width;
+                encoderReadPixelsH = height;
+            }
+            java.nio.IntBuffer ib = encoderReadPixelsBuffer;
+            ib.clear();
             GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, ib);
 
             int[] src = ib.array();
-            int[] dst = new int[src.length];
+            int[] dst = new int[width * height];
             for (int y = 0; y < height; y++) {
                 int srcOffset = y * width;
                 int dstOffset = (height - y - 1) * width;
@@ -2468,11 +2487,17 @@ public class GLWatermarkRenderer {
                 return null;
             }
 
-            java.nio.IntBuffer ib = java.nio.IntBuffer.allocate(width * height);
+            if (previewReadPixelsBuffer == null || previewReadPixelsW != width || previewReadPixelsH != height) {
+                previewReadPixelsBuffer = java.nio.IntBuffer.allocate(width * height);
+                previewReadPixelsW = width;
+                previewReadPixelsH = height;
+            }
+            java.nio.IntBuffer ib = previewReadPixelsBuffer;
+            ib.clear();
             GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, ib);
 
             int[] src = ib.array();
-            int[] dst = new int[src.length];
+            int[] dst = new int[width * height];
             for (int y = 0; y < height; y++) {
                 int srcOffset = y * width;
                 int dstOffset = (height - y - 1) * width;

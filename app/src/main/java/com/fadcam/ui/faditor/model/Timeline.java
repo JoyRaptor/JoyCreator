@@ -636,6 +636,56 @@ public class Timeline {
         return moved;
     }
 
+    /**
+     * Slice F — enforce the no-overlap invariant on TEXT overlay lanes (FEEDBACK #2: "it must be
+     * IMPOSSIBLE for two items to overlap on one lane"). {@link #getLayers()} groups text overlays by
+     * {@code layerId}; items sharing a lane could OVERLAP in time. For each lane that holds
+     * overlapping items, this packs them into the FEWEST no-overlap sub-lanes: in start order, each
+     * item lands on the first sub-lane whose previous item has already ended, else a fresh sub-lane is
+     * minted. Sub-lane 0 keeps the original lane; overflow items get a deterministic {@code "text-<id>"}
+     * lane, so the result is IDEMPOTENT (safe on every load / undo-redo restore — a lane that already
+     * holds ≤1 item, or whose items merely butt/gap, is untouched). This ENFORCES the invariant only;
+     * it does NOT merge deliberately-separated non-overlapping lanes — that is the manual "compact
+     * lanes" action. Returns how many items were moved to a fresh lane (0 = nothing to fix).
+     */
+    public int enforceNoOverlapTextLanes() {
+        Map<String, List<TextOverlayItem>> byLayer = new LinkedHashMap<>();
+        for (TextOverlayItem o : textOverlays) {
+            String id = o.getLayerId() != null ? o.getLayerId() : "text";
+            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(o);
+        }
+        int moved = 0;
+        for (List<TextOverlayItem> lane : byLayer.values()) {
+            if (lane.size() < 2) continue;
+            List<TextOverlayItem> sorted = new ArrayList<>(lane);
+            sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
+            List<Long> subLaneEnd = new ArrayList<>(); // last end (ms) per sub-lane
+            for (TextOverlayItem o : sorted) {
+                long s = o.getStartMs();
+                long e = textEndForPacking(o);
+                int placed = -1;
+                for (int k = 0; k < subLaneEnd.size(); k++) {
+                    if (subLaneEnd.get(k) <= s) { placed = k; break; }
+                }
+                if (placed < 0) { placed = subLaneEnd.size(); subLaneEnd.add(e); }
+                else subLaneEnd.set(placed, e);
+                if (placed > 0) {
+                    // Overflow → its own deterministic lane (idempotent across loads).
+                    String want = "text-" + o.getId();
+                    if (!want.equals(o.getLayerId())) { o.setLayerId(want); moved++; }
+                }
+                // placed == 0 keeps its original lane id (may be the default/null bucket).
+            }
+        }
+        return moved;
+    }
+
+    /** End (ms) used to detect text-lane overlaps: an open-ended overlay occupies its lane forever. */
+    private static long textEndForPacking(@NonNull TextOverlayItem o) {
+        long e = o.getEndMs();
+        return (e == Long.MAX_VALUE || e <= o.getStartMs()) ? Long.MAX_VALUE : e;
+    }
+
     // ── Transition management ───────────────────────────────────────
 
     public void addTransition(@NonNull Transition transition) {

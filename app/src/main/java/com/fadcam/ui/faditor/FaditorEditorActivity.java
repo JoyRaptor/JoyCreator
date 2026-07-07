@@ -973,6 +973,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "T8 sprite-layer migration: moved " + movedSprites
                             + " overlapping sprite(s) to their own lanes");
                 }
+                // Slice F: enforce the no-overlap invariant on text overlay lanes (two text overlays
+                // could share a lane and overlap in time). Idempotent + model-level, same as the sprite
+                // migration above; deterministic lane ids persist on the next autosave.
+                int movedText = project.getTimeline().enforceNoOverlapTextLanes();
+                if (movedText > 0) {
+                    FLog.i(TAG, "Slice F: separated " + movedText
+                            + " overlapping text overlay(s) onto their own lanes");
+                }
 
                 // Check if any clips have stale cache/remux paths and try to
                 // recover the original source before loading.

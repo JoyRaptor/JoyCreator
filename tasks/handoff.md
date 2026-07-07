@@ -1,5 +1,34 @@
 # FadCam AI Handoff
 
+> **🎯 2026-07-07 — FABLE(5): G3 committed + G4 PREVIEW MANIPULATION HANDLES landed, DEVICE-PROVEN
+> (975ade2 + 5b53db4).** G3 (built pre-interruption, recovered): diamond swipe=prev/next key nav,
+> long-press=delete key, top ◀◇▶ ribbon over the preview while a keyframeable property is focused —
+> committed after reverting the temp MOVE_SLOP_PX 80f→4f. **G4 (contract §1/§7-G4): tap-select a
+> text/image/sprite row item → handles spawn over the PREVIEW** — dashed box (drag inside = MOVE,
+> center-snap), corner squares (uniform SCALE), rotate stalk (ROTATE, cardinal snap); outside-box
+> touches pass through. New `overlay/PreviewHandlesOverlay` (payload-agnostic `Target` adapters, the
+> ObjectMenuSheet.Prop split) + new `LayerGestureController.Callback.onItemSelectionChanged` (fires
+> only on real selection transitions). Writes = the G2 slider conventions verbatim (armed→key at
+> playhead, unarmed→static; ONE undo step per gesture via recordOverlay/SpriteMenuUndo). Text box =
+> the exact laid-out TextOverlayLayer child; sprite box = drawSprite math. NO aspect handles (models
+> have uniform sizeFraction only — visualizer's 8-handle box already covers free-form). Audio/PiP/viz/
+> caption targets ride their future §2 Prop adapters, same staging as G2. **DEVICE PROOFS (SM-N960U,
+> bdd51919, scripted `input swipe` — preview-handle drags need NO hold, fully adb-drivable, unlike row
+> pickups):** sprite MOVE persisted→undo restored+box re-anchored (badge 50→49/redo 1 = one step);
+> ROTATE ~12° tilt, new step cleared redo; SCALE corner ~2.5× with rotated box tracking; visibility
+> guard (item@23.5s selected, playhead@14s → box correctly hidden); text box wraps "Enter text"
+> exactly; empty-space tap → box hides. **NITS/OWED:** (a) tap-on-empty cleared the handles but the
+> bar's selected highlight looked stale in the same screencap — re-look on device, likely a missing
+> invalidate on the MISS path (cosmetic, possibly pre-existing); (b) JoyRaptor feel-test ≤4 gestures:
+> handle sizes/grab radius (14dp), rotate-stalk reach, MOVE snap feel, and whether swallowing
+> tap-inside-box (previously = tap-to-edit on the overlay itself) bothers her — double-tap on the ROW
+> is the editor express lane per contract, but the preview tap-to-edit muscle memory changed for the
+> SELECTED item only; (c) device was found in LANDSCAPE with the preview off-screen — G6.4's
+> small-preview→PiP promotion is the real fix, until then editing landscape is rough (I temp-locked
+> portrait for the test, auto-rotate RESTORED after). **G-SERIES REMAINDER:** G5 attach/detach
+> (needs Slice-A caption/viz Track kinds — next hard slice), G6.3/G6.4 fullscreen-PiP + landscape-PiP,
+> G7 coach-marks, G8 marquee, G9 linking; G2 audio/PiP/viz Prop adapters.
+>
 > **🗂️ 2026-07-07 — FABLE: G2 GENERAL ADVANCED MENU landed — peek/expand object bottom sheet (contract
 > §2/§3), DEVICE-PROVEN for text/image (7e934f5) + SPRITE (follow-up commit).** Hold→release-in-place (and
 > canvas long-press) now opens a NON-MODAL sheet in the activity tree: **peek** = grip + the active

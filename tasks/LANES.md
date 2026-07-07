@@ -32,7 +32,7 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: Fable (2026-07-07 ~08:15 — G-series device-verify batches; G2 done, G3 next)
+DEVICE: free (Fable released 2026-07-07 ~10:30 after the G4 verify batch; auto-rotate RESTORED)
 (Fable owns it during hard interactive device-loops; opencode does code+compile-only
 and BATCHES its device-verify into windows when this reads `free` / Fable is IDLE.)
 
@@ -47,11 +47,11 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-07-07 — G-series continuation. DONE this session: G2 sheet 7e934f5 +
-        sprite adapter a45edc6 + docs d371de8, all device-proven. NOW: G3 diamonds/ribbon.)
-files: faditor/FaditorEditorActivity.java, faditor/views/EditorTimelineView.java,
-       faditor/layers/* (LayerGestureController/LayerRowRenderer), NEW faditor object-menu sheet class(es),
-       res/layout/* (new sheet layout), res/values/strings.xml (menu labels only — opencode inactive).
+status: IDLE (2026-07-07 ~10:30 — Fable-5 session wrapped. Landed: G3 committed 975ade2
+        [recovered pre-interruption work, temp slop reverted 80f→4f] + G4 preview manipulation
+        handles 5b53db4 [NEW overlay/PreviewHandlesOverlay + Callback.onItemSelectionChanged],
+        both DEVICE-PROVEN — see handoff.md top block. NEXT hard slice: G5 attach/detach.)
+files: (none — released; committed, code tree clean)
 prior-status: IDLE (2026-07-07 continuation session wrapped). Landed + committed this session:
   • 5b492e0 G1-groundwork: held-item MOVE reaches hidden lanes (M6 vertical edge-scroll) +
     honest drop-target affordance. Drag-FEEL hand-test owed (see handoff checklist).

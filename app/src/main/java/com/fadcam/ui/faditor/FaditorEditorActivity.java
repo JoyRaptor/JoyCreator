@@ -9088,6 +9088,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private static final String PREF_TIMELINE_BAND_DP = "timeline_band_max_dp";
 
     /**
+     * G6.2 snap detents (contract §5): the sensible band-height splits the grab bar snaps to on release.
+     * Match {@code LayerRowRenderer}'s MIN (40) / DEFAULT (140) / CAP (460) — video-dominant · balanced ·
+     * timeline-dominant. {@code setLayerBandMaxHeightDp} re-clamps to that same range, so these self-heal
+     * if the renderer's bounds ever change.
+     */
+    private static final float[] TIMELINE_BAND_DETENTS_DP = { 40f, 140f, 460f };
+    /** Snap radius (dp): within this of a detent on release → snap; further out keeps the free-drag split. */
+    private static final float TIMELINE_BAND_SNAP_RADIUS_DP = 32f;
+
+    /** G6.2: nearest detent to {@code dp} within {@link #TIMELINE_BAND_SNAP_RADIUS_DP}, else {@code dp} unchanged. */
+    private float snapTimelineBandToDetent(float dp) {
+        float best = dp, bestDist = TIMELINE_BAND_SNAP_RADIUS_DP;
+        for (float d : TIMELINE_BAND_DETENTS_DP) {
+            float dist = Math.abs(dp - d);
+            if (dist < bestDist) { bestDist = dist; best = d; }
+        }
+        return best;
+    }
+
+    /**
      * G6 resizable timeline (contract §5): wire the grab bar sitting on the preview↔timeline boundary.
      * A vertical drag reallocates space — drag UP → taller timeline (more layer rows visible, smaller
      * preview); drag DOWN → bigger preview — by driving {@link EditorTimelineView}'s layer-band viewport
@@ -9123,6 +9143,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         v.setPressed(false);
+                        // G6.2 (contract §5): snap the released split to the nearest sensible detent
+                        // (video-dominant / balanced / timeline-dominant) when close; free-drag
+                        // positions further from any detent are kept as-is.
+                        float snapped = snapTimelineBandToDetent(editorTimeline.getLayerBandMaxHeightDp());
+                        if (snapped != editorTimeline.getLayerBandMaxHeightDp()) {
+                            editorTimeline.setLayerBandMaxHeightDp(snapped);
+                            v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                        }
                         ui.edit().putFloat(PREF_TIMELINE_BAND_DP,
                                 editorTimeline.getLayerBandMaxHeightDp()).apply();
                         v.performClick();

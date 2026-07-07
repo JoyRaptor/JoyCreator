@@ -1064,7 +1064,6 @@
     <string name="faditor_remuxing_percent">Optimizingâ€¦ %1$ds processed</string>
     <string name="faditor_error_no_video">No video selected</string>
     <string name="faditor_error_picker">Could not open file picker</string>
-    <string name="faditor_tool_trim">Trim</string>
     <string name="faditor_tool_speed">1x</string>
     <string name="faditor_tool_muted">Muted</string>
     <string name="faditor_tool_sound">Sound</string>
@@ -1092,7 +1091,6 @@
     <string name="faditor_audio_added">Audio added to timeline</string>
     <string name="faditor_audio_no_track">No audio track found in this video</string>
     <string name="faditor_tool_split">Split</string>
-    <string name="faditor_tool_heal">Heal Gap</string>
     <string name="faditor_tool_delete">Delete</string>
     <string name="faditor_tool_duplicate">Duplicate</string>
     <string name="faditor_tool_add">Add</string>

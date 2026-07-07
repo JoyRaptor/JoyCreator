@@ -35,10 +35,6 @@ public final class FaditorToolRegistry {
     public static List<FaditorTool> defaultTools(@NonNull Context ctx) {
         List<FaditorTool> t = new ArrayList<>();
 
-        // trim — was android:visibility="gone" (kept hidden, id preserved).
-        add(t, "trim", R.id.tool_trim, R.id.tool_trim_icon, R.id.tool_trim_label,
-                ctx.getString(R.string.faditor_tool_trim), "content_cut",
-                FaditorTool.BindMode.CLICK, true);
         add(t, "speed", R.id.tool_speed, R.id.tool_speed_icon, R.id.tool_speed_label,
                 ctx.getString(R.string.faditor_tool_speed), "speed",
                 FaditorTool.BindMode.CLICK, false);
@@ -66,10 +62,6 @@ public final class FaditorToolRegistry {
         add(t, "split", R.id.tool_split, R.id.tool_split_icon, R.id.tool_split_label,
                 ctx.getString(R.string.faditor_tool_split), "content_cut",
                 FaditorTool.BindMode.CLICK, false);
-        // heal — was android:visibility="gone" (kept hidden, id preserved).
-        add(t, "heal", R.id.tool_heal, R.id.tool_heal_icon, R.id.tool_heal_label,
-                ctx.getString(R.string.faditor_tool_heal), "auto_fix_high",
-                FaditorTool.BindMode.CLICK, true);
         add(t, "delete", R.id.tool_delete, R.id.tool_delete_icon, R.id.tool_delete_label,
                 ctx.getString(R.string.faditor_tool_delete), "delete",
                 FaditorTool.BindMode.CLICK, false);

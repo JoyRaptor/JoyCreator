@@ -925,7 +925,6 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="faditor_tool_sound">Aawaz</string>
     <string name="faditor_tool_speed">1x</string>
     <string name="faditor_tool_split">Bel Ka</string>
-    <string name="faditor_tool_trim">Trim</string>
     <string name="faditor_tool_volume">Aawaz</string>
     <string name="faditor_undo">Wrusta</string>
     <string name="faditor_version_info">Faditor Mini · Phase 1 · Trim + Export</string>

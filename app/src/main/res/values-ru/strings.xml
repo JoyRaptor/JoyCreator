@@ -2094,7 +2094,6 @@ FadCam использует фрагментированный формат MP4 
 
     <string name="faditor_error_picker">Не удалось открыть выбор файлов</string>
 
-    <string name="faditor_tool_trim">Обрезка</string>
 
     <string name="faditor_tool_speed">1x</string>
 

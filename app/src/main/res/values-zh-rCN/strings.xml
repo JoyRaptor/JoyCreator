@@ -1947,8 +1947,6 @@ FadCam 为录制使用分段式 MP4 格式。这意味着视频被保存为多�
 <!-- faditor_tool_split -->
 <string name="faditor_tool_split">分割</string>
 
-<!-- faditor_tool_trim -->
-<string name="faditor_tool_trim">裁剪</string>
 
 <!-- faditor_tool_volume -->
 <string name="faditor_tool_volume">音量</string>

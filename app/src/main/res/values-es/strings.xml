@@ -1054,7 +1054,6 @@
     <string name="faditor_remuxing_percent">Optimizando… %1$ds procesado(s)</string>
     <string name="faditor_error_no_video">Ningún video seleccionado</string>
     <string name="faditor_error_picker">No se pudo abrir el selector de archivos</string>
-    <string name="faditor_tool_trim">Recortar</string>
     <string name="faditor_tool_speed">1x</string>
     <string name="faditor_tool_muted">Silenciado</string>
     <string name="faditor_tool_sound">Sonido</string>

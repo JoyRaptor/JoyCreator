@@ -1013,7 +1013,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_remuxing_percent">Βελτιστοποίηση… %1$s δευτ. επεξεργασίας</string>
     <string name="faditor_error_no_video">Δεν επιλέχθηκε βίντεο</string>
     <string name="faditor_error_picker">Δεν ήταν δυνατό το άνοιγμα του επιλογέα αρχείων</string>
-    <string name="faditor_tool_trim">Περικοπή</string>
     <string name="faditor_tool_speed">1x</string>
     <string name="faditor_tool_muted">Σίγαση</string>
     <string name="faditor_tool_sound">Ήχος</string>

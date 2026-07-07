@@ -12,9 +12,6 @@
          so the container LinearLayout no longer declares these ids inline.
          They are declared here so existing findViewById(...) / cached field
          references in FaditorEditorActivity keep resolving unchanged. -->
-    <item name="tool_trim" type="id"/>
-    <item name="tool_trim_icon" type="id"/>
-    <item name="tool_trim_label" type="id"/>
     <item name="tool_speed" type="id"/>
     <item name="tool_speed_icon" type="id"/>
     <item name="tool_speed_label" type="id"/>
@@ -42,9 +39,6 @@
     <item name="tool_split" type="id"/>
     <item name="tool_split_icon" type="id"/>
     <item name="tool_split_label" type="id"/>
-    <item name="tool_heal" type="id"/>
-    <item name="tool_heal_icon" type="id"/>
-    <item name="tool_heal_label" type="id"/>
     <item name="tool_delete" type="id"/>
     <item name="tool_delete_icon" type="id"/>
     <item name="tool_delete_label" type="id"/>

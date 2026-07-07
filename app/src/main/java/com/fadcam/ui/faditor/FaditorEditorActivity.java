@@ -350,7 +350,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean cropSnapToCenter = false;
 
     // ── Tool buttons ─────────────────────────────────────────────────
-    private View toolTrim;
     private View toolSpeed;
     private View toolMute;
     private TextView toolMuteIcon;
@@ -1798,7 +1797,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         buildToolsCarousel();
 
         // Tool buttons
-        toolTrim = findViewById(R.id.tool_trim);
         toolSpeed = findViewById(R.id.tool_speed);
         toolMute = findViewById(R.id.tool_mute);
         toolMuteIcon = findViewById(R.id.tool_mute_icon);
@@ -1903,7 +1901,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
 
         // Segment tools
-        findViewById(R.id.tool_heal).setVisibility(View.GONE);
         findViewById(R.id.tool_split).setOnClickListener(v -> splitOrHealAtPlayhead());
         findViewById(R.id.tool_delete).setOnClickListener(v -> deleteSelectedSegment());
         findViewById(R.id.tool_duplicate).setOnClickListener(v -> duplicateSelectedSegment());

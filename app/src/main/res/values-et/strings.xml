@@ -1035,7 +1035,6 @@
     <string name="faditor_remuxing_percent">Optimeerimine… %1$d s töödeldud</string>
     <string name="faditor_error_no_video">Videot pole valitud</string>
     <string name="faditor_error_picker">Failivalija avamine nurjus</string>
-    <string name="faditor_tool_trim">Lõika</string>
     <string name="faditor_tool_speed">1x</string>
     <string name="faditor_tool_muted">Vaigistatud</string>
     <string name="faditor_tool_sound">Heli</string>

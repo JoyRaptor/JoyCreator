@@ -1588,7 +1588,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_tool_sound">Ton</string>
     <string name="faditor_tool_speed">1x</string>
     <string name="faditor_tool_split">Teilen</string>
-    <string name="faditor_tool_trim">Trimmen</string>
     <string name="faditor_tool_volume">Lautstärke</string>
     <string name="faditor_undo">Rückgängig</string>
     <string name="faditor_version_info">Faditor Mini · Phase 1 · Trimmen + Export</string>

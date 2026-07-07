@@ -1022,7 +1022,6 @@
     <string name="faditor_remuxing_percent">Remuxing %1$d%%</string>
     <string name="faditor_error_no_video">Nessun video selezionato</string>
     <string name="faditor_error_picker">Errore selettore video</string>
-    <string name="faditor_tool_trim">Taglia</string>
     <string name="faditor_tool_speed">Velocità</string>
     <string name="faditor_tool_muted">Muto</string>
     <string name="faditor_tool_sound">Audio</string>

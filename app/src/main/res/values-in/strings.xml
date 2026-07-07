@@ -1062,7 +1062,6 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="faditor_remuxing_percent">Optimizing… %1$ds processed</string>
     <string name="faditor_error_no_video">No video selected</string>
     <string name="faditor_error_picker">Could not open file picker</string>
-    <string name="faditor_tool_trim">Trim</string>
     <string name="faditor_tool_speed">1x</string>
     <string name="faditor_tool_muted">Muted</string>
     <string name="faditor_tool_sound">Sound</string>

@@ -1692,7 +1692,6 @@
 <string name="faditor_remuxing_percent">Optimize ediliyor… %1$ds işlendi</string>
 <string name="faditor_error_no_video">Video seçilmedi</string>
 <string name="faditor_error_picker">Dosya seçici açılamadı</string>
-<string name="faditor_tool_trim">Kırp</string>
 <string name="faditor_tool_speed">1x</string>
 <string name="faditor_tool_muted">Sessiz</string>
 <string name="faditor_tool_sound">Ses</string>

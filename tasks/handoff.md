@@ -1,5 +1,30 @@
 # FadCam AI Handoff
 
+> **🗂️ 2026-07-07 — FABLE: G2 GENERAL ADVANCED MENU landed — peek/expand object bottom sheet (contract
+> §2/§3), DEVICE-PROVEN for text/image (7e934f5) + SPRITE (follow-up commit).** Hold→release-in-place (and
+> canvas long-press) now opens a NON-MODAL sheet in the activity tree: **peek** = grip + the active
+> property row (slider + keyframe diamond) with preview AND timeline still live — scrub while nudging;
+> **expand** (grip drag-up/tap) = identity header (swatch · name · trash · ✕) + general rows Pos X/Y ·
+> Scale · Rotate · Opacity + object actions + "More…" into the SAME type editor double-tap opens. Rows are
+> `ObjectMenuSheet.Prop` adapters (payload-agnostic chrome): keyframe-aware writes — armed items
+> record/update a key at the playhead via new `TextOverlayItem/SpriteOverlayItem.addPropertyKeyframeAt`
+> (mirrors the shipped opacity-slider convention, X anchored as canonical); unarmed = static setters.
+> Diamond = G2 basics only (solid=on-key ±66ms, tap=drop key, first drop arms the whole pose); swipe-nav /
+> long-press-delete / top ribbon = G3. ONE undo step per slider gesture / diamond tap (TransformSnapshot;
+> sprite via LambdaAction+restoreTransform mirroring onSpriteManipulated). Text/image actions = the old
+> interim dialog's layer moves (new layer above/below · move ▲/▼) — `showLayerItemActionsDialog` is
+> REMOVED (both former callers rerouted). Sprite = no layer actions (T8 one-per-lane), More…→palette,
+> delete=confirm+undo. **DEVICE PROOFS (SM-N960U, bdd51919, temp-slop trick):** text: hold→peek → expand →
+> opacity drag persisted 0.504 → undo restored default → diamond tap keyed full pose at t=0 (all diamonds
+> solid) → undo cleared → collapse → dismiss, ROWGESTURE pickup/hold-release-menu logs clean. Sprite:
+> hold→peek → expand ("Sprite" title) → Scale drag persisted 0.509 → undo reverted in-memory to 25%
+> (badges 50→49 undo/1 redo; json read was a pre-undo autosave — undo doesn't force-save, app-wide
+> behavior). **Sheet refresh rides `updateCurrentTimeDisplay`** (values+diamonds track the scrub). **OWED
+> HAND-TESTS (JoyRaptor, ≤4 gestures):** (a) peek-scrub feel — hold a text item, scrub while the peek row is up;
+> (b) grip drag-up/down feel vs tap; (c) More…/trash from the expanded sheet; (d) canvas long-press route.
+> **G2 REMAINDER:** audio (volume row) / PiP / visualizer Prop adapters — their §2 sections come online
+> with their type editors; peek-row "active property" persistence across reopens is session-only by design.
+>
 > **👆 2026-07-07 — OPUS: G1 GESTURE STATE MACHINE — double-tap + hold-release landed (contract §1).**
 > Two of the four G1 gestures are now wired, ALWAYS-GREEN, additive with zero change to the existing
 > move/trim/pickup/scrub machinery. **G1a double-tap → type editor (c17ec31, DEVICE-PROVEN):** detection

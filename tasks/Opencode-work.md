@@ -397,3 +397,169 @@ Evidence: CanvasPickerBottomSheet, VolumeControlBottomSheet, FlipPickerBottomShe
 Build: `BUILD SUCCESSFUL in 3s` (compileDefaultDebugJavaWithJavac)
 Commit: `1761e34` — `fix(audio): preview pitch respects Maintain-pitch toggle`
 Evidence: FaditorPlayerManager.setPlaybackSpeed(speed, pitchCompensation) uses two-arg PlaybackParameters(speed, pitch). MasterPlaybackEngine.setPlaybackSpeed (public API) updated to match. All 8 call sites pass clip.isPitchCompensationEnabled(). onPitchCompensationChanged re-applies speed. Note: gapless per-window applyWindowSpeed still always compensates (needs WindowInfo pitch field — Fable lane).
+
+---
+### 2026-07-07 — AUTONOMOUS RUN (Sonnet/opencode lane): 6-task queue from road_map §BACKLOG — 4 DONE, 1 BLOCKED, 1 INVESTIGATED-DEFERRED
+
+Followed tasks/LANES.md protocol throughout (claimed ACTIVE with exact files before each edit,
+released to IDLE between tasks). Branch `joy-creator`, never ran gradle (watcher-only), device
+`SANDBOX_SERIAL` touched only for `adb devices`/package check (no drag/gesture scripting attempted
+this session — see hand-test lists below).
+
+#### TASK 1: Armed-state icon tint for tools missing the convention — DONE
+Build: `BUILD SUCCESSFUL in 16s` (compileDefaultDebugJavaWithJavac)
+Commit: `7612053` — "Tint Captions tool-row icon when keyframe mode is armed"
+Evidence: grepped "armed" across FaditorEditorActivity.java — found the convention already applied
+to Volume (`toolMuteIcon`, line ~4208) and Opacity (`toolOpacityIcon`, line ~5022) tool-row cells
+(green 0xFF4CAF50 when their respective keyframe mode is armed, grey/state-color otherwise), but
+NOT to Captions — `captionStyleKeyframeMode` only tinted the in-drawer arm icon
+(`caption_kf_arm`) and the bottom-bar shortcut (`caption_kf_arm_shortcut`), never the tool-row cell
+itself (no `toolCaptionsIcon`/`toolCaptionsLabel` fields existed at all). Added those two fields +
+findViewById + tint logic inside the existing `refreshCaptionKeyframeDrawer()` refresh path (already
+called right after `toggleCaptionStyleKeyframeMode()` sets the flag, so it stays in sync for free).
+Files: FaditorEditorActivity.java.
+Hand-test owed: long-press the Captions tool with a clip selected → the tool-row Captions icon/label
+should turn green immediately, matching Volume/Opacity's existing behavior; tap again → back to grey.
+
+#### TASK 2: Delete dead Trim/Heal layout blocks + strings — DONE
+Build: `BUILD SUCCESSFUL in 26s` (compileDefaultDebugJavaWithJavac, resource-merge touched — many
+res files changed)
+Commit: `50d78ce` — "Remove dead Trim/Heal tool-row entries + strings (rebrand pass 1 remainder)"
+Evidence: the tool-row is fully data-driven now (FaditorToolsAdapter/FaditorToolRegistry), so there
+was no leftover XML *layout* block to find — the "care needed for ID references" risk was in the
+registry + ids.xml + activity fields instead. Verified zero live references before deleting each:
+- "trim": `FaditorToolRegistry` entry had `alwaysHidden=true` and ZERO click handler anywhere
+  (`toolTrim` field was declared + findViewById'd but never read/used past that) — fully dead.
+- "heal": also `alwaysHidden=true`; its functionality is fully live but reached through the
+  "Split" tool's contextual heal-mode instead (`splitOrHealAtPlayhead`/`healAtPlayhead`,
+  `updateSplitHealButton` already retints `tool_split`'s own icon/label to "Heal"/amber when near a
+  seam) — the dedicated `tool_heal` button was superseded and its
+  `findViewById(R.id.tool_heal).setVisibility(View.GONE)` line was a redundant no-op (the registry's
+  `alwaysHidden` already sets GONE at adapter build time).
+Removed: the two `add(...)` entries in FaditorToolRegistry.java; the dead `toolTrim` field +
+findViewById + the redundant heal visibility line in FaditorEditorActivity.java; 6 id declarations
+in ids.xml; `faditor_tool_trim`/`faditor_tool_heal` strings from base strings.xml + `faditor_tool_trim`
+from all 11 locale files that had it (values-ar/de/el/es/et/fr/in/it/ps/ru/tr + the comment+string
+pair in values-zh-rCN). Confirmed `FaditorToolPrefs.resolveOrder`/`dividerIndex` already guard
+unknown pinned ids (`byId.containsKey` check) — a stale persisted "trim"/"heal" pin in some user's
+prefs degrades gracefully, not a crash.
+Files: FaditorToolRegistry.java, FaditorEditorActivity.java, ids.xml, strings.xml (12 locale files).
+
+#### TASK 3: Canvas custom-resolution input — DONE
+Build: `BUILD SUCCESSFUL in 15s` (compileDefaultDebugJavaWithJavac)
+Commit: `805d69f` — "Add custom W×H resolution entry to the canvas picker"
+Evidence: followed the exact numeric-entry AlertDialog pattern from
+`showCustomCropRatioDialog`/`CROP_ASPECT_PRESETS`'s "Custom" chip (per handoff.md's 2026-07-07
+crop-aspect-gaps entry) as instructed. Added a "Custom…" row to `CanvasPickerBottomSheet` that opens
+a W×H `EditText` dialog and emits a `"custom_<w>_<h>"` preset key through the SAME
+`onCanvasSelected` callback every other preset uses, so `FaditorEditorActivity`'s undo/save/toast/UI
+plumbing (`showCanvasPicker`) needed zero changes to its control flow. `resolveCanvasDimensions()`
+(the static helper `ExportManager` calls via its own `resolveCanvasDims` wrapper — confirmed
+`ExportManager.java` was NOT edited, only this call target) now special-cases the `custom_` prefix to
+return the literal even-aligned W×H instead of resolving a ratio against source dims. Added a new
+`displayLabel()` helper used by both the picker row and `FaditorEditorActivity.updateCanvasUI()` /
+the applied-toast, so a custom canvas shows "1080×1920" instead of a garbled `preset.replace("_",
+":")` result. `resolveCanvasAspect()` (preview sizing) also special-cased the custom_ prefix — without
+this the preview would have silently fallen through to the source clip's aspect instead of the
+custom one.
+Files: CanvasPickerBottomSheet.java, FaditorEditorActivity.java (canvas section only), strings.xml.
+Hand-test owed (scripted attempt not tried — text-entry dialogs are usually more robust to adb than
+drag gestures per device lore, but untested this session): open canvas tool → tap "Custom…" → enter
+e.g. 1080×1920 → OK → tool-row Canvas label should read "1080×1920", preview should show a 9:16
+framed canvas; re-export and confirm output dimensions via `ffprobe` match (even-aligned).
+
+#### TASK 4: 9:16 safe-zone overlay toggle — DONE
+Build: `BUILD SUCCESSFUL in 15s` (compileDefaultDebugJavaWithJavac)
+Commit: `cdaf9c3` — "Add 9:16 safe-zone preview guide toggle"
+Evidence: found no prior "safe zone" feature; followed the closest existing pattern (the crop
+rule-of-thirds grid's preview-only contract) but implemented as a persistent Settings-sheet toggle
+per the task spec, using `FaditorSettingsBottomSheet`'s existing `addSwitchRow` helper (same pattern
+as the ask-to-transcribe row) + a new `SharedPreferencesManager.isFaditorSafeZoneOverlayEnabled()`
+pref (default off). New `player/SafeZoneOverlayView` (dashed safe-area rect + thirds ticks, amber,
+non-interactive — `clickable="false"` in XML) added as a sibling of `crop_overlay` in
+`activity_faditor_editor.xml`; sized to the same canvas rect as the video content inside the existing
+`applyCanvasFrame()` (so its margins read against the real output frame, not the whole hatched
+preview area). The view only actually draws when the canvas aspect is within tolerance of 9:16 (so
+toggling it on for a 16:9/1:1 canvas is a harmless no-op, never misleading). Purely additive to the
+preview layer — never touches the project model, so export is provably unaffected (no ExportManager
+change).
+Files: Constants.java, SharedPreferencesManager.java, FaditorEditorActivity.java,
+FaditorSettingsBottomSheet.java, activity_faditor_editor.xml, strings.xml, new
+player/SafeZoneOverlayView.java.
+Hand-test owed: create/open a 9:16-canvas project → Settings → enable "9:16 safe-zone guide" → dashed
+amber rect + thirds ticks should appear over the preview; switch canvas to 16:9 → guide should
+disappear (aspect gate); toggle off → guide gone; confirm exported video has NO guide baked in.
+
+#### TASK 5: Low-bandwidth 720p/H.264 baseline export preset — BLOCKED, SKIPPED per the standing-lock rule
+Build: N/A (no code changed)
+Commit: none
+Evidence: `ExportSettings.java` already declares `Resolution.HD_720P` and `Quality.LOW` enum values,
+but grepping `ExportManager.java` for `getResolution()`/`getQuality()`/`ExportSettings.Resolution`/
+`ExportSettings.Quality` returns ZERO hits — the Transformer pipeline never reads either enum (they're
+dead-on-arrival, only touched by `ai/EditScriptApplier.java` for AI script parsing and
+`ProjectStorage.java` for persistence). The export dialog (`showExportConfirmation`) only exposes a
+filename field + a "Clean audio" checkbox — there is no resolution/quality picker UI at all yet to
+extend. Resolution COULD be added without touching ExportManager (the canvas-preset system already
+routes pixel dimensions through `CanvasPickerBottomSheet.resolveCanvasDimensions`, called from
+`ExportManager` only via the untouched `resolveCanvasDims` wrapper — same trick TASK 3 used). But "720p
+H.264 baseline" also specifies an H.264 **profile** (Baseline, distinct from High/Main — a
+`MediaCodecInfo.CodecProfileLevel`/`VideoEncoderSettings.Builder().setProfile(...)` concern), and
+`ExportManager.java` has ZERO encoder-profile configuration anywhere (`Transformer.Builder` never sets
+one; grepped for `CodecProfile`/`H264_PROFILE`/`profile(`/`EncoderSelector`/
+`MediaCodecInfo.CodecProfileLevel` — no hits). There is no `Codec.EncoderFactory`/
+`VideoEncoderSettings` hook to attach a profile through anywhere outside the locked file. Per the
+task's explicit instruction ("if the preset can't be added without touching it, STOP, log exactly
+what's blocking you, and skip this task") — stopping here.
+Notes for next AI (Fable/Opus lane, since it requires ExportManager): the actual work is (a) add an
+encoder-profile knob to the Transformer.Builder — Media3 doesn't expose a trivial per-preset baseline
+override, likely needs a custom `Codec.EncoderFactory` wrapping `DefaultEncoderFactory` with
+`VideoEncoderSettings.Builder().setProfile(MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)` — and
+(b) surface a resolution/quality picker in `showExportConfirmation()` (currently has none at all,
+not even for the existing HD_720P/LOW enum values) so a "Low bandwidth" preset has somewhere to live.
+Wiring resolution alone (no profile) is real opencode-lane work if JoyRaptor wants it split from the
+profile part — flagging as a possible follow-up task, not attempted here since the task asked for
+BOTH under one preset.
+
+#### TASK 6: Dead-code cleanup — old drawLayers/selectedLayerKind path — INVESTIGATED, removal DEFERRED
+Build: N/A (no code changed — read-only investigation per the task's own instruction to "treat as
+read-only investigation first... before deleting anything")
+Commit: none
+Evidence (via a dedicated subagent trace of every call site, high confidence, zero doubt flags):
+- `drawLayers` (EditorTimelineView.java:1963) — called once from `onDraw`, but unconditionally
+  early-returns because `overlays`/`waveformLayers`/`captionSpans` are never populated by any caller
+  anywhere (`FaditorEditorActivity.syncTimelineOverlays`, lines ~9081-9092, explicitly documents that
+  Slice C stopped feeding these lists to avoid double-rendering with `LayerRowRenderer`). SAFE TO DELETE.
+- `hitTestLayerRow`/`hitTestLayerTap`/`hitTestLayer` (lines 2355/2375/2421) — all guard on the same
+  always-empty lists → always return -1/null/`Drag.NONE`; reached only if the LIVE
+  `handleM6RowTouch`/gesture-controller path (onDown, line ~4532) returns unconsumed first. SAFE TO DELETE.
+- `activeLayerIndex` (line 223) — only ever set inside the unreachable `hitTestLayer`; every read site
+  is guarded `activeLayerIndex >= 0`, permanently false. SAFE TO DELETE.
+- `Drag.LAYER_LEFT_HANDLE`/`LAYER_RIGHT_HANDLE`/`LAYER_KEYFRAME` enum constants (lines 504-506) — only
+  ever assigned via the unreachable `hitTestLayer`; every comparison site is consequently unreachable.
+  Other `Drag` enum members (LEFT_HANDLE, AUDIO_*, TRANSITION_*) are unrelated and must NOT be touched.
+  SAFE TO DELETE (the 3 LAYER_* constants only).
+- `selectedLayerKind`/`selectedLayerValue` (lines 229-230) — only written from `pendingLayerTap`'s
+  UP-branch, itself fed only by the unreachable `hitTestLayerTap`; only read inside the dead
+  `drawLayers`. SAFE TO DELETE.
+- `LayerGestureController.java` (the live, actively-extended G-series gesture system) was grepped for
+  all 5 symbols: ZERO references. Fully independent, no coupling.
+DECISION TO DEFER instead of delete: despite the high-confidence verdict, the actual removal touches
+~30 scattered call sites across a 6200-line file (EditorTimelineView.java) that other agents (Fable/
+Opus G-series) are actively extending RIGHT NOW per LANES.md's standing note. The task's own framing
+flags this as "optional/lowest-priority" and stresses extreme conservatism ("if you have ANY doubt...
+skip it"). A correct multi-site removal needs careful sequential editing + a full rebuild-and-smoke
+check I did not have session budget to do justice to alongside the other 5 tasks, so I chose not to
+risk a half-finished edit landing in a shared hot file. Leaving this report as a ready-to-execute
+punch list (exact line numbers above, as of this commit) for the next AI or a dedicated follow-up
+session — it should be a fast, mechanical, single-purpose commit given the trace above.
+Notes for next AI: re-grep the 5 symbol names fresh before deleting (line numbers will have drifted
+if Fable's G-series work has touched this file since) — the VERDICT logic (which lists are always
+empty, which enum members are unreachable) should still hold since it's structural, not
+line-number-dependent. Delete in this order to keep the file compiling at each step: (1) the 3
+`Drag.LAYER_*` enum constants + all comparison sites, (2) `hitTestLayer`/`hitTestLayerRow`/
+`hitTestLayerTap`, (3) `drawLayers` + its call site in `onDraw`, (4) the now-unused fields
+(`activeLayerIndex`, `selectedLayerKind`, `selectedLayerValue`, `pendingLayerTap`,
+`layerDragStartMs`/`EndMs`/`InitialKeyLocalMs`/`OriginalKeyLocalMs`, `getLayerTopPx`). Also flagged
+by the subagent but NOT in the original task list: `EditorTimelineView.setOverlays`/
+`setWaveformLayers`/`setCaptionSpans` public methods (lines ~1224/1232/1241) have zero callers
+anywhere either — same dead-code family, same removal batch.

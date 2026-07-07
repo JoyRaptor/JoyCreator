@@ -1,5 +1,34 @@
 # FadCam AI Handoff
 
+> **🧰 2026-07-07 — OPENCODE/SONNET: 6-task road_map §BACKLOG queue — 4 landed, 1 blocked, 1
+> investigated-deferred.** All additive/low-risk, none touched a standing-locked file. **DONE:**
+> (1) Captions tool-row icon now tints green when caption-style keyframe mode is armed, matching
+> the existing Volume/Opacity convention (`7612053`). (2) Removed the dead "trim"/"heal" tool-row
+> entries (registry + ids.xml + activity fields + strings, 12 locale files) — trim had zero
+> handler, heal was fully superseded by the Split tool's contextual heal-mode (`50d78ce`). (3)
+> Canvas picker gained a "Custom…" W×H numeric-entry dialog (mirrors the crop toolbar's Custom-
+> ratio chip pattern exactly), emitting a `custom_<w>_<h>` preset key through the existing
+> callback — `CanvasPickerBottomSheet.resolveCanvasDimensions`/`displayLabel` updated, ExportManager
+> untouched (`805d69f`). (4) New 9:16 safe-zone preview guide toggle in the Settings sheet (new
+> `SafeZoneOverlayView`, dashed amber rect + thirds ticks, only draws near true 9:16, preview-only —
+> never touches the project model or export) (`cdaf9c3`). **BLOCKED:** (5) low-bandwidth 720p/H.264-
+> baseline export preset — `ExportManager` has zero encoder-profile hook anywhere (no
+> `Codec.EncoderFactory`/`VideoEncoderSettings`) and the export dialog has no resolution/quality
+> picker UI at all yet; needs the Fable/Opus lane since it requires editing the locked file. Full
+> blocker detail + a possible resolution-only follow-up split in `tasks/Opencode-work.md`.
+> **INVESTIGATED, DEFERRED:** (6) the old `drawLayers`/`hitTestLayer*`/`activeLayerIndex`/
+> `Drag.LAYER_*`/`selectedLayerKind` path — a dedicated subagent trace confirmed ALL 5 symbols are
+> genuinely dead (every list they read is permanently empty since Slice C; `LayerGestureController`
+> has zero coupling to any of them) with a ready-to-execute line-by-line removal punch list in
+> `Opencode-work.md`, but the actual multi-site edit (~30 call sites across the 6200-line, actively-
+> G-series-extended `EditorTimelineView.java`) was deliberately left undone this session per the
+> task's own "if you have ANY doubt, skip it" conservatism — a clean, fast follow-up for the next AI.
+> **HAND-TESTS OWED (JoyRaptor, no drags — all taps/dialogs, none scripted this session):** (a) long-press
+> Captions tool → tool-row icon should turn green; (b) Canvas tool → Custom… → enter W×H → label
+> should read "1080×1920" style, preview reframes, exported file matches (ffprobe); (c) Settings →
+> enable 9:16 safe-zone guide on a 9:16 project → dashed guide appears, disappears on a 16:9 canvas,
+> confirmed absent from the exported file.
+>
 > **🎯 2026-07-07 — FABLE(5): G3 committed + G4 PREVIEW MANIPULATION HANDLES landed, DEVICE-PROVEN
 > (975ade2 + 5b53db4).** G3 (built pre-interruption, recovered): diamond swipe=prev/next key nav,
 > long-press=delete key, top ◀◇▶ ribbon over the preview while a keyframeable property is focused —

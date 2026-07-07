@@ -24,12 +24,14 @@ import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.common.Effect;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.Transformer;
+import androidx.media3.transformer.VideoEncoderSettings;
 
 import com.fadcam.Constants;
 import com.fadcam.SharedPreferencesManager;
@@ -302,6 +304,27 @@ public class ExportManager {
                     // pixels upright so the file is correct everywhere.
                     .setPortraitEncodingEnabled(true);
 
+            // ── User export settings (resolution cap + quality/bitrate) ──
+            // Defaults (ORIGINAL + HIGH) leave this entire path byte-identical to
+            // before: no encoder factory is set and no resolution cap applies.
+            ExportSettings exportSettings = project.getExportSettings();
+            boolean qualityIsDefault = exportSettings == null
+                    || exportSettings.getQuality() == ExportSettings.Quality.HIGH;
+            boolean resolutionIsDefault = exportSettings == null
+                    || exportSettings.getResolution() == ExportSettings.Resolution.ORIGINAL;
+            if (!qualityIsDefault) {
+                int bitrate = suggestedExportBitrate(project);
+                if (bitrate > 0) {
+                    builder.setEncoderFactory(new DefaultEncoderFactory.Builder(context)
+                            .setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder()
+                                    .setBitrate(bitrate)
+                                    .build())
+                            .build());
+                    FLog.d(TAG, "Export quality " + exportSettings.getQuality()
+                            + " → requested video bitrate " + bitrate);
+                }
+            }
+
             // For simple trim (single clip, no effects, normal speed, audio intact,
             // and no audio clips on the audio track) use near-lossless
             // optimization. The fast-trim path bypasses the effects chain, so we
@@ -326,7 +349,10 @@ public class ExportManager {
                     // M-EXPORT-1 (PLAN §5.3(2)): the near-lossless fast path bypasses the
                     // effects chain entirely, so it must be excluded whenever ANY layer
                     // feature is present — layers take the full re-encode path, always.
-                    && !usesLayerFeaturesAffectingExport(project.getTimeline());
+                    && !usesLayerFeaturesAffectingExport(project.getTimeline())
+                    // A non-default resolution/quality choice requires a re-encode: the
+                    // near-lossless path passes source samples through untouched.
+                    && qualityIsDefault && resolutionIsDefault;
 
             if (isSimpleTrim) {
                 builder.experimentalSetTrimOptimizationEnabled(true);
@@ -525,6 +551,23 @@ public class ExportManager {
         Timeline timeline = project.getTimeline();
         String canvasPreset = project.getCanvasPreset();
         int[] canvasDims = resolveCanvasDims(timeline, canvasPreset);
+        // Export resolution cap (user setting). Composes with the canvas: the final
+        // output is the canvas (or source) geometry scaled DOWN to fit the cap,
+        // aspect preserved, never upscaled. Activating canvasDims here routes the
+        // capped size through the exact same overlay-sizing + final-Presentation
+        // machinery a canvas preset already exercises — one geometry authority.
+        ExportSettings.Resolution exportRes = project.getExportSettings() != null
+                ? project.getExportSettings().getResolution() : null;
+        if (exportRes != null && exportRes != ExportSettings.Resolution.ORIGINAL) {
+            int[] base = canvasDims != null ? canvasDims : inferSourceDims(timeline);
+            int[] capped = capDimsToExportResolution(base, exportRes);
+            if (base != null && capped != null
+                    && (capped[0] != base[0] || capped[1] != base[1])) {
+                canvasDims = capped;
+                FLog.d(TAG, "Export resolution cap " + exportRes
+                        + " → " + capped[0] + "x" + capped[1]);
+            }
+        }
         int outW = canvasDims != null ? canvasDims[0] : 0;
         int outH = canvasDims != null ? canvasDims[1] : 0;
         // For the "original" canvas preset we still need non-zero dimensions
@@ -686,6 +729,60 @@ public class ExportManager {
         int[] srcDims = inferSourceDims(timeline);
         if (srcDims == null) return null;
         return CanvasPickerBottomSheet.resolveCanvasDimensions(canvasPreset, srcDims[0], srcDims[1]);
+    }
+
+    /**
+     * Scale {@code dims} down (never up) so its long/short edges fit within the
+     * chosen resolution preset, aspect preserved, rounded to even. Orientation-aware:
+     * portrait 1080p means 1080x1920. Returns {@code dims} unchanged when no cap
+     * applies or the source is already within it.
+     */
+    @Nullable
+    private static int[] capDimsToExportResolution(@Nullable int[] dims,
+                                                   @Nullable ExportSettings.Resolution res) {
+        if (dims == null || res == null || res == ExportSettings.Resolution.ORIGINAL) return dims;
+        final int capLong;
+        final int capShort;
+        switch (res) {
+            case FHD_1080P: capLong = 1920; capShort = 1080; break;
+            case HD_720P:   capLong = 1280; capShort = 720;  break;
+            case SD_480P:   capLong = 854;  capShort = 480;  break;
+            default:        return dims;
+        }
+        int w = dims[0];
+        int h = dims[1];
+        if (w <= 0 || h <= 0) return dims;
+        int longEdge = Math.max(w, h);
+        int shortEdge = Math.min(w, h);
+        float scale = Math.min(1f,
+                Math.min((float) capLong / longEdge, (float) capShort / shortEdge));
+        if (scale >= 1f) return dims; // already within the cap — never upscale
+        int outW = Math.max(2, Math.round(w * scale / 2f) * 2);
+        int outH = Math.max(2, Math.round(h * scale / 2f) * 2);
+        return new int[]{outW, outH};
+    }
+
+    /**
+     * Video bitrate (bps) for the project's chosen export {@link ExportSettings.Quality},
+     * computed against the FINAL output dimensions (canvas/source after the resolution
+     * cap) at a fixed 30fps reference. Returns 0 for HIGH (or when dimensions can't be
+     * resolved), meaning "leave the encoder at its default" — the legacy path.
+     */
+    private int suggestedExportBitrate(@NonNull FaditorProject project) {
+        ExportSettings settings = project.getExportSettings();
+        if (settings == null) return 0;
+        final float bitsPerPixel;
+        switch (settings.getQuality()) {
+            case MEDIUM: bitsPerPixel = 0.09f;  break;
+            case LOW:    bitsPerPixel = 0.045f; break;
+            default:     return 0; // HIGH → encoder default (legacy behavior)
+        }
+        Timeline timeline = project.getTimeline();
+        int[] dims = resolveCanvasDims(timeline, project.getCanvasPreset());
+        if (dims == null) dims = inferSourceDims(timeline);
+        dims = capDimsToExportResolution(dims, settings.getResolution());
+        if (dims == null || dims[0] <= 0 || dims[1] <= 0) return 0;
+        return Math.max(500_000, Math.round(dims[0] * dims[1] * 30f * bitsPerPixel));
     }
 
     @Nullable

@@ -182,6 +182,26 @@ public class ExportService extends Service {
             return;
         }
 
+        // EDIT-SAFETY: the activity hands us its LIVE project by reference, and the
+        // editor stays reachable while we run (notification tap, minimize-to-background),
+        // so any edit made mid-export would mutate the Timeline this export is reading.
+        // Deep-snapshot through the project serializer — the same round-trip every
+        // app-restart export already survives — so this export is immune to concurrent
+        // edits. On any snapshot failure, fall back to the live reference (old behavior).
+        try {
+            com.fadcam.ui.faditor.project.ProjectStorage storage =
+                    new com.fadcam.ui.faditor.project.ProjectStorage(this);
+            FaditorProject snapshot = storage.fromJson(storage.toJson(project));
+            if (snapshot != null) {
+                project = snapshot;
+                FLog.d(TAG, "Export project snapshotted — concurrent edits cannot affect this export");
+            } else {
+                FLog.w(TAG, "Export snapshot deserialize returned null — exporting live reference");
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Export snapshot failed — exporting live reference", e);
+        }
+
         if (isExporting) {
             FLog.w(TAG, "Export already in progress");
             return;

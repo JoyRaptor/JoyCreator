@@ -1,5 +1,40 @@
 # FadCam AI Handoff
 
+> **🎯 2026-07-07 ~18:00-19:20 — FABLE(5) FINAL-DAY SESSION: 🔴 P0 image-clip gapless gap FIXED +
+> DEVICE-PROVEN (`62b227f`), a NEW pre-existing engine freeze found/bisected/guarded (`f855e51`), the
+> gradle build blocker for agent shells root-caused + memoried, and opencode round-3 chat-UI work
+> reviewed/committed (`cd95162` + `62012a4` + docs `6340e83`).**
+> **(1) P0 FIX:** engine serves image clips as native media3 image windows (`setImageDurationMs`, same
+> pipeline as export; ImageRenderer/PlayerView image output confirmed present in the patched media3 1.8);
+> one image window spans the clip's whole visual duration (loop-extending a still = a longer still).
+> Activity: legacy image-timer gated on `!isGapless()` (play button / tick), `onGaplessSeam` swaps the
+> proven Glide overlay in/out (overlay = display, engine = clock), selectSegment/drag-finish sync the
+> engine window + window-local seek, scrub-into-image pauses like the video path. **DEVICE PROOF
+> (SM-N960U, isolated project video→9.86s-image→2 videos):** `Gapless engine ACTIVE for 4 clips` (this
+> shape was ineligible before), ONE play tap crossed video→image→video→video with warm AUTO_TRANSITION
+> seams (image window ran exactly 9864ms), and frame-hashing the 30fps screenrecording found no
+> identical run >3 frames vs the bug's 22-72. NOT yet re-verified on JoyRaptor's real phone/project — that's
+> the next session's first errand (install current build on REAL_SERIAL, reopen `27221664…`, play across
+> the freeze-frame boundary; her project must also dodge the new P1 below, i.e. check it for short
+> speed≠1 clips first).
+> **(2) NEW 🔴 P1 (pre-existing, exposed by verify):** short speed≠1 clipped windows wedge the gapless
+> clock entirely — full detail + bisect matrix + interim eligibility guard in road_map.md's top block.
+> Guard verified on device: the freeze project now takes legacy and plays; long-2x and 1x controls keep
+> gapless and play.
+> **(3) BUILD LORE (critical for any agent shell):** `gradlew` fails with `Unable to establish loopback
+> connection` / `Invalid argument: connect` because JDK17 `Pipe.open()` uses AF_UNIX sockets in
+> `java.io.tmpdir`, and AF_UNIX connect() gets WSAEINVAL for ANY socket file under
+> `C:\Users\JoyRaptor\AppData\Local\Temp` (subdirs incl. the agent scratchpad too; other dirs on the
+> same volume work — underlying cause unknown, maybe AV/filter driver; flag to JoyRaptor if her own builds
+> break). WORKAROUND (memoried): `$env:TEMP='C:\Users\JoyRaptor\gtmp'; $env:TMP=$env:TEMP` before any
+> gradlew call. Also: failed clients leave busy zombie daemons (kill stray `java.exe`), and `cmd | tail`
+> masks gradle's exit code — grep for BUILD SUCCESSFUL.
+> **(4) Sandbox-phone housekeeping:** 6 disposable test projects were pushed to the SM-N960U project
+> browser (`P0 image gapless verify`, `P0 control no image`, `P0 control2 plain`, `P0 img isolated`,
+> `bisect A/B/C…`) — keep `bisect A/B/C` + `P0 img isolated` as repro assets (road_map references them),
+> the rest are safe to delete from the browser. Their transcript `words` arrays are corrupted (PS JSON
+> round-trip) — fine for playback repro, unusable for transcript testing.
+
 > **🚨 2026-07-07 ~16:15-17:00 — SONNET: first-ever main-phone real-project verify session, surfaced a P0
 > gapless-engine gap. Full detail + fix guidance filed in `road_map.md`'s new 🔴 P0 block (top of file) —
 > this entry is the session narrative/evidence trail.** Device `REAL_SERIAL` (real phone, SM_N986U) had

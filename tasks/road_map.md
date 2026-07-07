@@ -15,8 +15,30 @@ sheets, preview-pitch fix) — all committed, reviewed.
 **A full doc sweep (2026-07-06) confirmed the above and folded every remaining open item — old and new —
 into §BACKLOG below. Nothing from the 57 tasks/*.md files is untracked as of this pass.**
 
-**🔴 P0 CRITICAL — jumped the queue 2026-07-07, real-project-verify finding (JoyRaptor: "this has got to get
-fixed... it's definitely a killjoy"):** `MasterPlaybackEngine.isEligible()`
+**✅ P0 FIXED 2026-07-07 (Fable, `62b227f` + guard `f855e51`, DEVICE-PROVEN on SM-N960U):** image clips
+now play as native media3 image playlist windows (`MediaItem.setImageDurationMs` — the same pipeline
+export uses; media3 1.8 ImageRenderer + PlayerView image output), so a freeze-frame/photo insert no
+longer ejects the WHOLE project from the gapless engine. Activity keeps the proven Glide image overlay
+as the DISPLAY while the engine drives the clock; legacy image-timer machinery is gated on
+`!isGapless()`. Proof (isolated project video→9.86s-image→video→video): logcat shows warm
+`AUTO_TRANSITION` seams both ways with the image window running exactly its 9864ms on ONE play tap
+(no re-taps), and a 30fps frame-hash of the screenrecording found NO identical-frame run >3 frames
+(~100ms) anywhere — vs the bug's 22-72-frame (0.7-2.4s) stall signature. Original entry kept below for
+context. **⚠️ NEW 🔴 P1 FOUND DURING VERIFY — gapless clock freeze on SHORT speed≠1 clips (pre-existing,
+NOT from this fix; reproduced with the image removed):** a 250ms@2x clipped window wedges the whole
+gapless player — READY + isPlaying=true but the position clock never starts (player must be force-left;
+pause/seek/play does not unwedge). Bisect: 500ms@1x plays, 10.2s@2x plays ⇒ trigger = short clipped
+window + Sonic speedup; likely the audio sink's start/drain is never satisfied for a sub-second
+speed-adjusted window (media3 `DefaultAudioSink`/Sonic EOS-drain territory, possibly device-specific —
+only proven on SM-N960U/Android 10 so far). INTERIM GUARD SHIPPED (`f855e51`): speed≠1 clips that are
+<3s trimmed or loop-extended make the timeline ineligible → legacy path (today's behavior, playable).
+Long plain speed clips stay gapless (device-proven). REAL FIX = Fable/Opus lane, media3-patched
+`DefaultAudioSink` or engine-side workaround; repro projects live on the sandbox phone
+(`bisect A 2x clip` = freeze repro sans guard, `bisect B 1x clip0`/`bisect C long 2x` = controls;
+NOTE: these test projects have cosmetically-corrupted transcript `words` arrays from a PowerShell JSON
+round-trip — harmless for playback repro, don't reuse them for transcript work).
+
+**Original P0 entry (2026-07-07, now fixed — kept for the diagnostic method):** `MasterPlaybackEngine.isEligible()`
 (`compositor/MasterPlaybackEngine.java:335`) excludes the ENTIRE timeline from the gapless engine if ANY
 single clip is an image clip (`if (c == null || c.isImageClip()) return false;` — not scoped to the seams
 adjacent to the image, the WHOLE project falls back to the legacy path). Image clips (freeze-frame inserts,

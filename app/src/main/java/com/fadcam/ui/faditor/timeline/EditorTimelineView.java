@@ -98,7 +98,11 @@ public class EditorTimelineView extends View {
     private static final int COLOR_RULER_BG      = 0xFF141414;
     private static final int COLOR_RULER_TEXT     = 0xFF777777;
     private static final int COLOR_RULER_TICK     = 0xFF444444;
-    private static final int COLOR_TRACK_BG       = 0xFF1A1A1A;
+    private static final int COLOR_TRACK_BG       = 0xFF101014; // deep "film black" — the main track reads as the anchor (Slice E delineation)
+    /** Near-black film-border rails framing the master track's top & bottom edges. */
+    private static final int COLOR_FILM_RAIL      = 0xFF050507;
+    /** Sprocket perforations punched along the film rails. */
+    private static final int COLOR_FILM_SPROCKET  = 0xFF2A2A32;
     private static final int COLOR_SEGMENT        = 0xFF2D2D2D;
     private static final int COLOR_SEGMENT_SEL    = 0xFF1B3A20;
     private static final int COLOR_BORDER_SEL     = 0xFF4CAF50;
@@ -123,6 +127,8 @@ public class EditorTimelineView extends View {
     private final Paint rulerTextPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rulerTickPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trackBgPaint       = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** Master-track "filmstrip" frame (rails + sprocket holes) — Slice E delineation. */
+    private final Paint filmPaint          = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint segmentPaint       = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint borderPaint        = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handlePaint        = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1740,6 +1746,12 @@ public class EditorTimelineView extends View {
 
         canvas.restore();
 
+        // Master-track "filmstrip" delineation (JoyRaptor 2026-07-06): frame the main track as a strip of
+        // film so it reads as the anchor band — overlays sit above it, audio below. Screen space, over
+        // the thumbnails, so the frame stays put as the strip scrolls. (Master always exists here —
+        // onDraw returned early above if segments were empty.)
+        drawMasterFilmstrip(canvas, tTop, tBot, w);
+
         // Draw fixed center playhead (NOT affected by scroll)
         float playheadBot = !audioClips.isEmpty() ? audioBot : tBot;
         drawCenterPlayhead(canvas, tTop, playheadBot);
@@ -3326,6 +3338,32 @@ public class EditorTimelineView extends View {
         return cropped;
     }
     
+    /**
+     * Slice E delineation (JoyRaptor 2026-07-06): frame the MASTER track as a strip of FILM so it reads as
+     * the anchor band the overlays sit above and the audio sits below. Near-black sprocket rails punched
+     * along the top &amp; bottom edges + the deep film-black body (COLOR_TRACK_BG). Drawn in SCREEN space
+     * over the thumbnails — a fixed film gate the strip scrolls through. Cheap: two rails + evenly
+     * spaced perforations across the viewport width.
+     */
+    private void drawMasterFilmstrip(@NonNull Canvas canvas, float tTop, float tBot, int w) {
+        float railH = 7f * density;
+        filmPaint.setStyle(Paint.Style.FILL);
+        filmPaint.setColor(COLOR_FILM_RAIL);
+        canvas.drawRect(0, tTop, w, tTop + railH, filmPaint);
+        canvas.drawRect(0, tBot - railH, w, tBot, filmPaint);
+        // Sprocket perforations punched along each rail (evenly spaced across the viewport).
+        filmPaint.setColor(COLOR_FILM_SPROCKET);
+        float holeW = 5f * density, holeH = 3.5f * density, corner = 1f * density;
+        float pitch = 14f * density;
+        float topCy = tTop + railH / 2f, botCy = tBot - railH / 2f;
+        for (float cx = pitch / 2f; cx < w; cx += pitch) {
+            canvas.drawRoundRect(cx - holeW / 2f, topCy - holeH / 2f,
+                    cx + holeW / 2f, topCy + holeH / 2f, corner, corner, filmPaint);
+            canvas.drawRoundRect(cx - holeW / 2f, botCy - holeH / 2f,
+                    cx + holeW / 2f, botCy + holeH / 2f, corner, corner, filmPaint);
+        }
+    }
+
     private void drawCenterPlayhead(Canvas canvas, float tTop, float tBot) {
         float centerX = getWidth() / 2f;
         // FOLLOW-UP 1 (user spec 2026-07-03): during a bookend excursion the playhead is

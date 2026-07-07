@@ -1,5 +1,17 @@
 # FadCam AI Handoff
 
+> **🛟 2026-07-07 — FABLE: DURABILITY (road_map Tier-1) — extracted audio no longer lost on OS cache
+> wipe.** Both audio-extraction sites (`AudioExtractor.extract()` + `FaditorEditorActivity` extract-from-
+> video path) wrote the muxed `.m4a` to `getCacheDir()/faditor_audio` — but that file's `Uri.fromFile()`
+> becomes the AudioClip's PERSISTED `sourceUri`, so an OS cache-clear silently broke the track
+> (`recoverStaleCachePaths()` only recovers VIDEO clips). Now → `getFilesDir()/faditor_audio` (app-internal,
+> not OS-cleared, matching the existing `getFilesDir()/images` precedent; new path has no "cache" so it's
+> also never mis-flagged stale). BUG DEMONSTRATED on device: `cache/faditor_audio` held 3 at-risk
+> `.m4a`s (incl. today's project audio); `files/faditor_audio` will now receive new extractions. Green
+> (BUILD SUCCESSFUL 14s). FOLLOW-UP (open): a load-path MIGRATION to rescue EXISTING projects' cache-path
+> audio (copy → files/ + rewrite the persisted AudioClip URIs) — the forward-fix only makes NEW
+> extractions durable; existing cache-path clips stay at-risk until re-extracted.
+>
 > **📐 2026-07-07 — FABLE: G6.1 RESIZABLE TIMELINE — grab bar between preview & timeline, DEVICE-VERIFIED
 > both directions + persistence (contract §5's headline space-win).** A thin grab bar (grip pill) now sits
 > on the preview↔timeline boundary (new `@id/timeline_grab_bar`, direct child of `editor_root` between the

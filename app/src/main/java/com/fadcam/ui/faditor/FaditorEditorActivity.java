@@ -6002,11 +6002,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     durationMs = clip.getSourceDurationMs();
                 }
 
-                // Mux audio track into a proper M4A container (MediaPlayer needs headers)
+                // Mux audio track into a proper M4A container (MediaPlayer needs headers).
+                // DURABILITY (road_map Tier-1): this file's Uri becomes the AudioClip's PERSISTED
+                // sourceUri, so it must survive the OS clearing the cache dir — use getFilesDir()
+                // (app-internal, not OS-cleared) like the images dir, NOT getCacheDir(). A cache-dir
+                // path would also be silently unrecoverable (recoverStaleCachePaths handles only video).
                 extractor.selectTrack(audioTrackIndex);
-                File cacheDir = new File(getCacheDir(), "faditor_audio");
-                if (!cacheDir.exists()) cacheDir.mkdirs();
-                File audioFile = new File(cacheDir,
+                File audioDir = new File(getFilesDir(), "faditor_audio");
+                if (!audioDir.exists()) audioDir.mkdirs();
+                File audioFile = new File(audioDir,
                         "audio_" + System.currentTimeMillis() + ".m4a");
 
                 MediaMuxer muxer = new MediaMuxer(audioFile.getAbsolutePath(),

@@ -140,10 +140,13 @@ public class AudioExtractor {
 
             extractor.selectTrack(audioTrackIndex);
 
-            // Create output file
-            File cacheDir = new File(context.getCacheDir(), "faditor_audio");
-            if (!cacheDir.exists()) cacheDir.mkdirs();
-            File outputFile = new File(cacheDir,
+            // Create output file. DURABILITY (road_map Tier-1): extracted audio becomes an AudioClip's
+            // PERSISTED sourceUri — it must survive the OS wiping the cache dir, else the track silently
+            // breaks (recoverStaleCachePaths only recovers VIDEO clips). Use getFilesDir() (app-internal,
+            // not OS-cleared) like the images dir, NOT getCacheDir().
+            File audioDir = new File(context.getFilesDir(), "faditor_audio");
+            if (!audioDir.exists()) audioDir.mkdirs();
+            File outputFile = new File(audioDir,
                     "audio_" + System.currentTimeMillis() + ".m4a");
 
             // Mux audio track to output

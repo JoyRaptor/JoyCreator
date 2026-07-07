@@ -53,9 +53,12 @@ public final class LayerRowRenderer {
     /** Default cap on the visible height of the scrollable layer/audio-row region (rest scrolls). */
     private static final float DEFAULT_MAX_VISIBLE_ROWS_DP = 140f;
     /** G6 resizable timeline: floor/ceiling for the user-controlled band cap (dp). Floor ≈ one
-     * expanded row; ceiling is generous — the physical screen clamps the effective preview shrink. */
+     * expanded row. The ceiling is intentionally larger than any phone screen since G6.3: the
+     * REAL growth bound is dynamic — the grab bar caps the band at the space actually available
+     * (PreviewPipController.maxBandDpFor), and past the preview's minimum the preview promotes
+     * to a floating PiP so the band can absorb its slot (near-fullscreen timeline). */
     private static final float MIN_VISIBLE_ROWS_DP = 40f;
-    private static final float MAX_VISIBLE_ROWS_CAP_DP = 460f;
+    private static final float MAX_VISIBLE_ROWS_CAP_DP = 1000f;
     /** G6: the current layer-band viewport cap (dp), user-resizable via the preview/timeline grab bar. */
     private float maxVisibleRowsDp = DEFAULT_MAX_VISIBLE_ROWS_DP;
 
@@ -1324,3 +1327,4 @@ public final class LayerRowRenderer {
         return maxVisibleRowsDp;
     }
 }
+

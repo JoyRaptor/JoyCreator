@@ -6791,13 +6791,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.faditor_export_cancelled, Toast.LENGTH_SHORT).show();
         });
 
-        // Back button on export screen → cancel and return to editor
+        // Back button on export screen: while an export is RUNNING it minimizes to
+        // the background (the service exports an edit-immune snapshot, so returning
+        // to a live editor is safe); otherwise it just dismisses the overlay.
+        // Cancelling stays on the explicit Cancel button only.
         findViewById(R.id.export_btn_back).setOnClickListener(v -> {
             if (exportServiceBound && exportService != null && exportService.isExporting()) {
-                exportService.cancelExport();
+                minimizeExportToBackground();
+            } else {
+                hideExportProgress();
             }
-            hideExportProgress();
         });
+
+        // Tapping the thin progress stripe re-opens the minimized export overlay.
+        if (exportProgressStripe != null) {
+            exportProgressStripe.setOnClickListener(v -> reshowExportProgress());
+        }
 
         // Done button → navigate to Faditor Mini tab
         if (exportBtnDone != null) {
@@ -6887,6 +6896,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                         // Export is done — the running-indicator stripe no longer applies.
                         hideExportProgressStripe();
+
+                        // Minimized (user is editing): don't yank them back to the
+                        // overlay — a toast + the system notification announce it.
+                        if (exportProgressOverlay != null
+                                && exportProgressOverlay.getVisibility() != View.VISIBLE) {
+                            reacquirePreviewIfReleased();
+                            Toast.makeText(FaditorEditorActivity.this,
+                                    R.string.faditor_export_complete_summary,
+                                    Toast.LENGTH_LONG).show();
+                        }
 
                         com.fadcam.ui.RecordsFragment.requestRefresh();
                     });
@@ -8294,11 +8313,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
             cleanDesc.setTextSize(11);
             root.addView(cleanDesc);
 
+            // ── Resolution + Quality pickers (persisted on the project's ExportSettings;
+            //    defaults = Original/High = the legacy byte-identical export path) ──
+            final com.fadcam.ui.faditor.model.ExportSettings.Resolution[] resValues = {
+                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.ORIGINAL,
+                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.FHD_1080P,
+                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.HD_720P,
+                    com.fadcam.ui.faditor.model.ExportSettings.Resolution.SD_480P};
+            final String[] resLabels = {"Original", "1080p", "720p", "480p"};
+            final com.fadcam.ui.faditor.model.ExportSettings.Quality[] qualValues = {
+                    com.fadcam.ui.faditor.model.ExportSettings.Quality.HIGH,
+                    com.fadcam.ui.faditor.model.ExportSettings.Quality.MEDIUM,
+                    com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW};
+            final String[] qualLabels = {"High", "Medium", "Low"};
+
+            final android.widget.Spinner resSpinner =
+                    buildExportSettingSpinner(root, "Resolution", resLabels,
+                            java.util.Arrays.asList(resValues)
+                                    .indexOf(project.getExportSettings().getResolution()), pad);
+            final android.widget.Spinner qualSpinner =
+                    buildExportSettingSpinner(root, "Quality", qualLabels,
+                            java.util.Arrays.asList(qualValues)
+                                    .indexOf(project.getExportSettings().getQuality()), pad);
+
             new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.faditor_export_confirm_title)
                     .setView(root)
                     .setPositiveButton(R.string.faditor_export_confirm_action, (d, w) -> {
                         project.getExportSettings().setCleanAudio(cleanAudio.isChecked());
+                        project.getExportSettings().setResolution(
+                                resValues[Math.max(0, resSpinner.getSelectedItemPosition())]);
+                        project.getExportSettings().setQuality(
+                                qualValues[Math.max(0, qualSpinner.getSelectedItemPosition())]);
                         project.getExportSettings().setOutputFileName(
                                 sanitizeExportFileName(
                                         fileNameInput.getText().toString(),
@@ -8327,6 +8373,45 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *                 cleared it)
      * @return a sanitized, non-empty base name
      */
+    /**
+     * Add a labeled dropdown row to the export-confirmation dialog and return its
+     * Spinner. Kept programmatic to match the rest of the dialog's construction.
+     */
+    @NonNull
+    private android.widget.Spinner buildExportSettingSpinner(
+            @NonNull android.widget.LinearLayout root, @NonNull String label,
+            @NonNull String[] options, int initialIndex, int pad) {
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+        labelView.setTextColor(0xFF888888);
+        labelView.setTextSize(11);
+        android.widget.LinearLayout.LayoutParams labelLp =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        labelLp.topMargin = pad / 2;
+        labelView.setLayoutParams(labelLp);
+        root.addView(labelView);
+
+        android.widget.Spinner spinner = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
+                this, android.R.layout.simple_spinner_item, options) {
+            @NonNull
+            @Override
+            public View getView(int position, @Nullable View convertView,
+                                @NonNull android.view.ViewGroup parent) {
+                View v = super.getView(position, convertView, parent);
+                if (v instanceof TextView) ((TextView) v).setTextColor(0xFFFFFFFF);
+                return v;
+            }
+        };
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(Math.max(0, initialIndex));
+        root.addView(spinner);
+        return spinner;
+    }
+
     @NonNull
     private static String sanitizeExportFileName(@Nullable String rawInput, @NonNull String fallback) {
         if (rawInput == null) return fallback;
@@ -8349,7 +8434,51 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (undoManager != null) undoManager.releaseSnapshotMemory();
         if (editorTimeline != null) editorTimeline.releaseThumbnailMemory();
         if (playerManager != null) playerManager.releaseForExport();
+        previewReleasedForExport = true;
         System.gc();
+    }
+
+    /**
+     * True while the preview player has been released for an export and not yet
+     * reacquired. Guards {@link FaditorPlayerManager#reacquireAfterExport()} against
+     * double-rebuilds now that BOTH minimize-to-background and export completion can
+     * try to restore the preview.
+     */
+    private boolean previewReleasedForExport = false;
+
+    private void reacquirePreviewIfReleased() {
+        if (previewReleasedForExport && playerManager != null) {
+            playerManager.reacquireAfterExport();
+            previewReleasedForExport = false;
+        }
+    }
+
+    /**
+     * Minimize a RUNNING export: hide the full-screen overlay and return to a live,
+     * editable editor while the foreground service keeps exporting (the service owns
+     * an edit-immune snapshot of the project). The thin progress stripe stays visible;
+     * tapping it re-opens this overlay.
+     */
+    private void minimizeExportToBackground() {
+        if (exportProgressOverlay != null) {
+            exportProgressOverlay.animate().alpha(0f).setDuration(200).withEndAction(() ->
+                    exportProgressOverlay.setVisibility(View.GONE)).start();
+        }
+        reacquirePreviewIfReleased();
+        Toast.makeText(this,
+                "Exporting in background — edits won't affect this export",
+                Toast.LENGTH_LONG).show();
+    }
+
+    /** Re-open the export overlay from the minimized state, keeping live progress. */
+    private void reshowExportProgress() {
+        if (exportProgressOverlay == null
+                || exportProgressOverlay.getVisibility() == View.VISIBLE) {
+            return;
+        }
+        exportProgressOverlay.setVisibility(View.VISIBLE);
+        exportProgressOverlay.setAlpha(0f);
+        exportProgressOverlay.animate().alpha(1f).setDuration(200).start();
     }
 
     private void startExportViaService() {
@@ -8491,7 +8620,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }).start();
         }
         // Restore the preview player released for the export (see prepareMemoryForExport).
-        if (playerManager != null) playerManager.reacquireAfterExport();
+        reacquirePreviewIfReleased();
 
         hideExportProgressStripe();
     }
@@ -9181,6 +9310,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * cap (the band grows/shrinks inside the cap, changing the timeline's measured height, which reflows
      * the {@code layout_weight=1} preview above it). The chosen size PERSISTS per install.
      */
+    /** True while the user has a finger down on the G6 grab bar (read by PreviewPipController). */
+    private boolean grabBarDragging = false;
+    /** G6.3/G6.4: promotes the preview to a draggable PiP when its slot collapses. */
+    @Nullable private com.fadcam.ui.faditor.player.PreviewPipController previewPip;
+
     private void setupTimelineResizeGrabBar() {
         final View grabBar = findViewById(R.id.timeline_grab_bar);
         if (grabBar == null || editorTimeline == null) return;
@@ -9199,16 +9333,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_DOWN:
                         downRawY = e.getRawY();
                         baselineDp = editorTimeline.getLayerBandMaxHeightDp();
+                        grabBarDragging = true;
                         v.setPressed(true);
                         return true;
                     case MotionEvent.ACTION_MOVE: {
                         // Drag UP (rawY decreases) grows the timeline; DOWN shrinks it.
                         float deltaDp = (downRawY - e.getRawY()) / density;
-                        editorTimeline.setLayerBandMaxHeightDp(baselineDp + deltaDp);
+                        float targetDp = baselineDp + deltaDp;
+                        // G6.3: never grow the band past the space actually available —
+                        // the preview promotes to PiP as it collapses, but the tool row /
+                        // caption strip below must always stay on screen (contract §5).
+                        if (previewPip != null) {
+                            targetDp = Math.min(targetDp, previewPip.maxBandDpFor(
+                                    editorTimeline.getLayerBandMaxHeightDp()));
+                        }
+                        editorTimeline.setLayerBandMaxHeightDp(targetDp);
                         return true;
                     }
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
+                        grabBarDragging = false;
                         v.setPressed(false);
                         // G6.2 (contract §5): snap the released split to the nearest sensible detent
                         // (video-dominant / balanced / timeline-dominant) when close; free-drag
@@ -9226,6 +9370,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return false;
             }
         });
+
+        // G6.3/G6.4 (contract §5): PiP promotion of the preview when its slot collapses —
+        // via the grab bar's top extreme OR landscape rotation. Fully additive: with a
+        // comfortable preview slot the controller never engages.
+        try {
+            android.widget.LinearLayout editorRoot = findViewById(R.id.editor_root);
+            android.widget.FrameLayout container = findViewById(R.id.player_container);
+            if (editorRoot != null && container != null) {
+                previewPip = new com.fadcam.ui.faditor.player.PreviewPipController(
+                        editorRoot, container,
+                        new com.fadcam.ui.faditor.player.PreviewPipController.Host() {
+                            @Override public float canvasAspect() {
+                                try { return resolveCanvasAspect(); }
+                                catch (Exception e) { return 0f; }
+                            }
+                            @Override public float getBandDp() {
+                                return editorTimeline.getLayerBandMaxHeightDp();
+                            }
+                            @Override public void setBandDp(float dp) {
+                                editorTimeline.setLayerBandMaxHeightDp(dp);
+                            }
+                            @Override public boolean isGrabBarDragging() {
+                                return grabBarDragging;
+                            }
+                        });
+            }
+        } catch (Exception e) {
+            FLog.e(TAG, "PreviewPipController setup failed — inline preview only", e);
+        }
     }
 
     /**

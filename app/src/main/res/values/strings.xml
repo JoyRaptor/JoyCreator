@@ -392,6 +392,7 @@
     <string name="video_info_copy_subtitle">Copy video information</string>
     <string name="video_info_unknown">Unknown</string>
     <string name="video_info_no_location">No location data</string>
+    <string name="video_info_loading">Loading…</string>
     <string name="video_menu_mark_viewed">Mark as Viewed</string>
     <string name="video_menu_mark_unviewed">Mark as Unviewed</string>
     <string name="video_menu_upload_youtube">Upload to YouTube</string>

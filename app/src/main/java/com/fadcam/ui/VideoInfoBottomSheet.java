@@ -58,6 +58,16 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
     private long lastModified;
     private Typeface materialIconsTypeface;
 
+    // Metadata extraction (FFprobeKit session + MediaMetadataRetriever fallback) does file I/O
+    // and native decode work, so it must not run on the UI thread. Cache the result after the
+    // first extraction — the sheet only needs it twice (grid + copy-to-clipboard) and the
+    // underlying file never changes while the sheet is open.
+    private static final java.util.concurrent.ExecutorService METADATA_EXECUTOR =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    @Nullable
+    private volatile VideoMetadata cachedMetadata;
+
     @Override
     public android.app.Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         android.app.Dialog dialog = super.onCreateDialog(savedInstanceState);
@@ -166,53 +176,76 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         // Clear any existing content
         container.removeAllViews();
 
-        FLog.d(TAG, "Starting video metadata extraction for URI: " + videoUri);
-        FLog.d(TAG, "Video URI scheme: " + videoUri.getScheme());
-        FLog.d(TAG, "Video URI path: " + videoUri.getPath());
-
-        // Extract comprehensive video metadata
-        VideoMetadata metadata = extractVideoMetadata();
-
-        FLog.d(TAG, "Extracted metadata - Duration: " + metadata.duration +
-                ", Resolution: " + metadata.resolution +
-                ", FPS: " + metadata.frameRate +
-                ", Codec: " + metadata.codec +
-                ", Bitrate: " + metadata.bitrate +
-                ", Location: " + metadata.location);
-
-        // Add video information rows with icons
+        // File-system-only fields (fast, no decode) render immediately.
         addInfoRowWithIcon(container, "description", getString(R.string.video_info_file_name), getFileName());
         addInfoRowWithIcon(container, "storage", getString(R.string.video_info_file_size), getFormattedFileSize());
         addInfoRowWithIcon(container, "folder", getString(R.string.video_info_file_path), getFilePath());
         addInfoRowWithIcon(container, "schedule", getString(R.string.video_info_last_modified),
                 getFormattedLastModified());
-        addInfoRowWithIcon(container, "timer", getString(R.string.video_info_duration), metadata.duration);
-        addInfoRowWithIcon(container, "aspect_ratio", getString(R.string.video_info_resolution), metadata.resolution);
-        addInfoRowWithIcon(container, "speed", getString(R.string.video_info_fps), metadata.frameRate);
-        addInfoRowWithIcon(container, "video_settings", getString(R.string.video_info_codec), metadata.codec);
-        addInfoRowWithIcon(container, "data_usage", getString(R.string.video_info_bitrate), metadata.bitrate);
-        
-        // Location: add raw coordinates first, then async geocode
-        String locationText = metadata.location;
-        addInfoRowWithIcon(container, "location_on", getString(R.string.video_info_geotag), locationText);
-        
-        // Launch async reverse geocoding if we have raw coordinates
-        if (locationText != null && locationText.contains(",")) {
-            try {
-                String[] parts = locationText.split(",");
-                double lat = Double.parseDouble(parts[0].trim());
-                double lon = Double.parseDouble(parts[1].trim());
-                View lastRow = container.getChildAt(container.getChildCount() - 1);
-                // Skip the divider (if any) and get the actual row
-                View rowView = lastRow instanceof LinearLayout ? lastRow : container.getChildAt(container.getChildCount() - 2);
-                if (rowView != null) {
-                    TextView valueView = rowView.findViewById(R.id.info_value);
-                    if (valueView != null) {
-                        asyncGeocode(lat, lon, valueView, locationText);
-                    }
-                }
-            } catch (Exception e) { FLog.d(TAG, "Geocode parse error", e); }
+
+        // Placeholder rows for the metadata that needs FFprobeKit/MediaMetadataRetriever —
+        // filled in once extraction finishes off the UI thread (see getOrExtractMetadataAsync).
+        String loading = getString(R.string.video_info_loading);
+        TextView durationValue = addInfoRowWithIconGetValue(container, "timer", getString(R.string.video_info_duration), loading);
+        TextView resolutionValue = addInfoRowWithIconGetValue(container, "aspect_ratio", getString(R.string.video_info_resolution), loading);
+        TextView fpsValue = addInfoRowWithIconGetValue(container, "speed", getString(R.string.video_info_fps), loading);
+        TextView codecValue = addInfoRowWithIconGetValue(container, "video_settings", getString(R.string.video_info_codec), loading);
+        TextView bitrateValue = addInfoRowWithIconGetValue(container, "data_usage", getString(R.string.video_info_bitrate), loading);
+        TextView locationValue = addInfoRowWithIconGetValue(container, "location_on", getString(R.string.video_info_geotag), loading);
+
+        FLog.d(TAG, "Starting video metadata extraction (background) for URI: " + videoUri);
+        getOrExtractMetadataAsync(metadata -> {
+            if (!isAdded() || getContext() == null) return; // sheet dismissed before finishing
+
+            FLog.d(TAG, "Extracted metadata - Duration: " + metadata.duration +
+                    ", Resolution: " + metadata.resolution +
+                    ", FPS: " + metadata.frameRate +
+                    ", Codec: " + metadata.codec +
+                    ", Bitrate: " + metadata.bitrate +
+                    ", Location: " + metadata.location);
+
+            durationValue.setText(metadata.duration);
+            resolutionValue.setText(metadata.resolution);
+            fpsValue.setText(metadata.frameRate);
+            codecValue.setText(metadata.codec);
+            bitrateValue.setText(metadata.bitrate);
+
+            String locationText = metadata.location;
+            locationValue.setText(locationText);
+
+            // Launch async reverse geocoding if we have raw coordinates
+            if (locationText != null && locationText.contains(",")) {
+                try {
+                    String[] parts = locationText.split(",");
+                    double lat = Double.parseDouble(parts[0].trim());
+                    double lon = Double.parseDouble(parts[1].trim());
+                    asyncGeocode(lat, lon, locationValue, locationText);
+                } catch (Exception e) { FLog.d(TAG, "Geocode parse error", e); }
+            }
+        });
+    }
+
+    /** Simple callback so we don't need a full listener interface for one call site. */
+    private interface MetadataCallback {
+        void onReady(@NonNull VideoMetadata metadata);
+    }
+
+    /**
+     * Returns the cached metadata if already extracted (e.g. the grid already ran once this
+     * sheet lifecycle), otherwise extracts on {@link #METADATA_EXECUTOR} and posts the result
+     * back to the main thread. Never blocks the caller.
+     */
+    private void getOrExtractMetadataAsync(@NonNull MetadataCallback callback) {
+        VideoMetadata cached = cachedMetadata;
+        if (cached != null) {
+            callback.onReady(cached);
+            return;
         }
+        METADATA_EXECUTOR.execute(() -> {
+            VideoMetadata metadata = extractVideoMetadata();
+            cachedMetadata = metadata;
+            mainHandler.post(() -> callback.onReady(metadata));
+        });
     }
 
     /**
@@ -247,6 +280,44 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         }
 
         container.addView(rowView);
+    }
+
+    /**
+     * Same as {@link #addInfoRowWithIcon} but returns the value {@link TextView} so the caller
+     * can update it later (used for rows whose value isn't known yet at layout time because it
+     * depends on background metadata extraction).
+     */
+    private TextView addInfoRowWithIconGetValue(LinearLayout container, String iconLigature, String label, String value) {
+        if (container.getChildCount() > 0) {
+            View div = new View(getContext());
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
+            dlp.setMargins(dp(14), 0, dp(12), 0);
+            div.setLayoutParams(dlp);
+            div.setBackgroundColor(0xff404040);
+            container.addView(div);
+        }
+
+        View rowView = LayoutInflater.from(getContext()).inflate(R.layout.video_info_row_item, container, false);
+
+        TextView iconView = rowView.findViewById(R.id.info_icon);
+        TextView labelView = rowView.findViewById(R.id.info_label);
+        TextView valueView = rowView.findViewById(R.id.info_value);
+
+        if (iconView != null && materialIconsTypeface != null) {
+            iconView.setTypeface(materialIconsTypeface);
+            iconView.setText(iconLigature);
+        }
+
+        if (labelView != null) {
+            labelView.setText(label);
+        }
+        if (valueView != null) {
+            valueView.setText(value);
+        }
+
+        container.addView(rowView);
+        return valueView;
     }
 
     /**
@@ -588,18 +659,23 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
         if (getContext() == null)
             return;
 
-        VideoMetadata metadata = extractVideoMetadata();
-        String videoInfo = buildClipboardText(metadata);
+        // Reuses the cached extraction from setupVideoInfoGrid when available (the common case —
+        // the grid has already populated by the time a user finds/taps Copy); only re-extracts
+        // in the background if this is somehow called before the grid finished.
+        getOrExtractMetadataAsync(metadata -> {
+            if (getContext() == null) return;
+            String videoInfo = buildClipboardText(metadata);
 
-        ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard != null) {
-            ClipData clip = ClipData.newPlainText("Video Info", videoInfo);
-            clipboard.setPrimaryClip(clip);
-            Toast.makeText(getContext(), "Video info copied to clipboard", Toast.LENGTH_SHORT).show();
-        } else {
-            FLog.e(TAG, "ClipboardManager service is null");
-            Toast.makeText(getContext(), "Could not access clipboard", Toast.LENGTH_SHORT).show();
-        }
+            ClipboardManager clipboard = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null) {
+                ClipData clip = ClipData.newPlainText("Video Info", videoInfo);
+                clipboard.setPrimaryClip(clip);
+                Toast.makeText(getContext(), "Video info copied to clipboard", Toast.LENGTH_SHORT).show();
+            } else {
+                FLog.e(TAG, "ClipboardManager service is null");
+                Toast.makeText(getContext(), "Could not access clipboard", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /**

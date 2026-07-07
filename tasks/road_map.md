@@ -1,34 +1,98 @@
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
-## 🎯 2026-07-04 STRATEGIC STATE (supersedes everything below; handoff.md top block = tactical queue)
-**DONE (device-proven):** Layers MVP COMPLETE — schema v8→v10, gapless engine (seam freezes 0ms),
-multi-row timeline, item editing + cross-row drag, preview compositing, M-EXPORT-1 export parity
-(decoded-stream md5 gate), Phase R robustness (overlap rejection everywhere, unified 8dp snap,
-hide-refresh), Phase P track management (rename/move-z/delete + M11 ripple/gap, device-verified).
-Loops: L1 seamless + L2 TRUE ping-pong (unparked, HEVC bake, error containment) + L3 polish.
-Sprites/Avatar (JoyRaptor's lane): S2/S2b/S3/S4/S6 + A1/A2/A6+A3 landed. Rebrand pass 1 committed.
+## 🎯 2026-07-06 STRATEGIC STATE (supersedes the 07-04 block + everything below; handoff.md top block = tactical detail)
+**DONE (device-proven):** Layers MVP + schema v8→v10, gapless engine, multi-row timeline, cross-row drag,
+M-EXPORT-1/2 (export parity + blend modes, `fc3055a`), M-COMP-2 live PiP (preview+export parity,
+`0453db9`+`306aa27`), compositing family — masks/chroma-key/track-matte (`22f29ee`), Phase P/R track
+management, loops (L1/L2/L3), transcript dedup, Layers-UX Slices A–D (renderer consolidation, double-render
+dead, caption/visualizer Track citizens, caption-chooser autohide — `0d0c5a1`/`1f35695`/`41dd79e`/`93fe745`).
+Sprites: Build-1 S1–S7 + T8 per-lane fix. Avatar: A1 (rig+matrix editor), A2 core (tracking bus+FABRIK,
+synthetic source proven), A6 (pin-warp+dangle+mesh density), A3 (amplitude visemes). Rebrand pass 1.
+DeepSeek/opencode round 2: 8/8 tasks (PiP row gestures, export-dialog fix, W1 waveforms, 4 scroll-wrapped
+sheets, preview-pitch fix) — all committed, reviewed.
+
+**A full doc sweep (2026-07-06) confirmed the above and folded every remaining open item — old and new —
+into §BACKLOG below. Nothing from the 57 tasks/*.md files is untracked as of this pass.**
+
 **ACTIVE ROADMAP TO "COMPLETE" (strict order, ONE agent at a time):**
-1. ✅ Slice-3 gesture round LANDED (470f936, javac-verified — WATCHER WAS DEAD at build time; user must
-   restart watch-build.ps1 before installs). USER RE-TEST = acceptance gate (4-gesture list in the
-   2026-07-04 handoff entry). ⚠️ Device swap noticed: sandbox Note 9 detached; MAIN phone REAL_SERIAL
-   attached but ADB-UNAUTHORIZED — if user authorizes it, the never-run REAL-PROJECT session becomes
-   possible (read/verify only!).
-2. ✅ DeepSeek V4 batch (2026-07-05): tool icons, silence→Clean rename, chat selectable, messageLog ring
->    buffer, FLAG_KEEP_SCREEN_ON scoping, transcribe prompt gap, AI rename/describe tools, GLSL
->    CROSS_DISSOLVE shader, playhead tick optimization, pitch compensation toggle.
-3. ✅ Transcript dedup + stacking-source fix LANDED (dbd82fa; on-device duplicate-synthesis verify owed).
-4. v3 slice 2: unified gap-insertion model (dragux doc blueprint) + B10/B11 trim polish + KineMaster C-items.
-5. ✅ M-COMP-2 live PiP LANDED + DEVICE-VERIFIED (0453db9 + model 306aa27; probe #1 verdict: 3 simultaneous
-   1080p decoders OK on the Note 9). **→ ACTIVE: M-EXPORT-2** (probe #3 → timing/transform/opacity parity →
-   BlendModeGlEffect; spec = handoff 16:50 block). Then A6 pin-warp GL strip renderer (Fable-tier).
-6. Feedback stragglers: #5 transcribe-on-add (asset-browser gap ✅ fa086c7) + #6 tools drawer, #8 small-screen
-   pass (→ opencode ROUND-2 TASK 6). Split lane: opencode ROUND-2 queue = PiP row gestures, W1/W2 waveforms,
-   export-dialog estimate, preview-pitch — tasks/Opencode-work.md.
-7. GL wave features (masking/chroma/track-matte — FEEDBACK_20260702_layers_masking.md §C) after M-EXPORT-2.
-**GATES:** main-phone real-project session (NEVER YET RUN — needs REAL_SERIAL plugged); downgrade-guard
-drill; muted-track-caption user decision; preview perf memoization before 10-layer projects.
+1. **Layers/Timeline UX overhaul, remainder — FABLE/OPUS LANE.** Design locked in
+   `PLAN_GESTURE_CONTRACT_FINAL_20260706.md` + `PLAN_LAYERS_UX_EXECUTION.md`. Slices A–D done; **Slice E
+   (vertical re-layout) → Slice F (no-overlap all item types + move-between-layers, generalizes T8) →
+   Slices G1–G9** (gesture state machine, peek/sandwich object menu, keyframe diamonds+ribbon, preview
+   manipulation handles, attach/detach overlays, resizable+fullscreen timeline, coach-marks, marquee
+   multi-select, object linking). G1 and Slice E are high regression-risk (touch shared hit-test/gesture
+   code) — keep them on a strong model. Bootstrap prompt ready: `BOOTSTRAP_LAYERS_BUILD_20260706.md`.
+2. **Opencode/Sonnet-tier lane (parallel, see `tasks/LANES.md` for the lock protocol):** Tier-1 durability
+   pass (§BACKLOG below), rebrand-pass-1 remainder, avatar A4/A5, sprite fast-follows T3/T4, dead-code
+   cleanup of the old `drawLayers`/`selectedLayerKind` path (only after Slice F lands), audio old-vs-new
+   row consolidation, small never-built features (§BACKLOG). Queue lives in `tasks/Opencode-work.md`.
+3. Export work package (minimize-during-export + edit-safety + out-of-process + quality setting) —
+   **Fable lane** (touches `ExportManager`), not yet started, bundled as one phase.
+4. GL wave / timeline-fidelity items (T1 filmstrip sweep-cache; masking already shipped via the
+   compositing family, this is the remaining timeline-render polish).
+**GATES:** main-phone real-project session (NEVER YET RUN — needs `REAL_SERIAL` plugged, read/verify only);
+downgrade-guard drill; muted-track-caption user decision (open since M-EXPORT-1); bookmarks/playhead-
+time-chip — decide whether these fold into Slice G or drop, they're not covered by the current contract;
+de-politicize sweep (`DESIGN_JOY_CREATOR.md` binding rule — old activist branding removal, never confirmed
+done); rebrand asset set (icon/wordmark/notification glyph — `ASSETS_WISHLIST.md`, blocks a real ship,
+not a coding task).
 **RULES:** sequential agents only (no parallel edit fan-outs — burns usage + the shared watcher);
 Fable/Opus for gesture/export/playback, Sonnet for the rest; commit every green item; docs before risk.
+
+## 📋 2026-07-06 BACKLOG — full doc-sweep catalog (57 files read; nothing below is untracked elsewhere)
+Every item confirmed still open as of the sweep. Superseded/stale claims from older docs (mostly 2026-07-03
+dragux gesture items folded into the new G1–G9 contract) are NOT relisted here — see PLAN_LAYERS_UX_EXECUTION.md
+Slice G for that reconciliation. Lane = suggested owner; items with no lane are safe for opencode/Sonnet.
+
+**Durability/perf (`PLAN_QUICKWINS_20260702.md` Tier-1, mostly untouched — lane: opencode):**
+`faditor_audio` cache lives in getCacheDir (OS can wipe, borderline P0) → copy into project assets;
+AssetScanner MMR calls → small thread pool; MMR-on-UI-thread sites → executor + cache width/height after
+first read; Timeline fling `invalidate()` unthrottled during fling; `pcmToFloat` ~1.9MB alloc per 30s →
+pooled buffer; photo capture 6× `glReadPixels` fresh IntBuffers → PixelCopy/reused buffer; I-frame interval
+1s → 2s default (configurable); `docs/project-schema.md` says v5, code is v8-v10 → regenerate. (Done already:
+`transitionFrameCache` → LruCache `f97e4f5`; KEEP_SCREEN_ON scoping + playhead-tick gating `fa086c7`.)
+
+**Rebrand pass 1 remainder (lane: opencode):** armed-state icon tint convention (tools tint when armed, e.g.
+volume keyframes); delete dead Trim/Heal layout blocks + strings (needs care — ID references).
+
+**Small never-built features (lane: opencode, additive/low-risk):** speed preset chips alongside the slider;
+crop rule-of-thirds grid overlay + numeric ratio entry; canvas custom-resolution input; 9:16 safe-zone
+overlay toggle; low-bandwidth export preset (720p/H.264 baseline); save-as-preset standing pattern
+(implement per-tool as touched, not a big-bang).
+
+**Timeline fidelity remainder (`FEEDBACK_20260703_timeline_fidelity.md` — W1 waveforms shipped by opencode;
+lane: opencode unless it touches shared render paths):** T1 — accurate filmstrip via a background
+sequential-sweep MediaCodec pass + disk LRU cache (W2 zoomed-tier waveform was explicitly skipped by
+opencode round 2, still open too, same lane).
+
+**Open UX decisions, not build tasks (needs JoyRaptor's call, not an AI's):** bookmarks (droppable ruler
+markers) and playhead time-chip (mm:ss.mmm precision readout) — designed in dragux_v3 but NOT covered by
+the new G1–G9 contract; decide fold-in vs drop. Muted-track caption show/hide (open since M-EXPORT-1).
+
+**Flagged-not-fixed code smells (`todo.md` — lane: whoever's touching that file next, low priority):**
+`CompositeExportOverlay` clip-end math still derived from trimmed duration, not loop-aware; the
+`isSimpleTrim` single-clip+"original"-canvas path may still bypass the overlay entirely (needs a live code
+check, not just doc reading — may already be closed by the export-hardening rounds).
+
+**Assets, not code (`ASSETS_WISHLIST.md` — blocks a real rebrand ship):** adaptive app icon
+(foreground/background/monochrome), wordmark SVG, notification/status-bar glyph, splash branding (optional),
+companion character sheet (optional), watermark mark (optional), empty-state illustrations (optional).
+
+**Big never-started features (each has its own complete phase-by-phase spec already; not urgent, do not
+start without a fresh go-ahead):** export work package (Fable lane, §above); AI-generated slides (4 phases,
+`feature-ai-generated-slides-spec.md`); dual-stream recording (5 phases, `feature-dual-stream-recording-spec.md`
+— prerequisite doc `RECORDING_HANDOFF.md` already exists, written 2026-06-20); visualizer studio Phase 3/4
+(ffmpeg templates + live recording integration, `feature-visualizer-studio-spec.md`); B-roll matching
+apply-UI (Phase 2) + vision-tagging (Phase 3, explicitly out of scope for now); LUT filters + intensity
+slider (`PLAN_filters_color_text_transitions.md` §2); GL transition menu UI with pre-baked animated cards
+(§4.8); studio drawers redesign remainder — transitions-drawer pull-down-for-more-rows gesture, external
+`.glsl` params auto-parsing confirmation (`PLAN_studio_drawers_redesign.md`); waveform-visualizer-studio
+Phase 3 remainder (bar-width/gap sliders, template gallery, SAF import/export of custom styles).
+
+**Direction-only, below the active queue (`DESIGN_JOY_CREATOR.md` §7 — not a build order):** full-studio
+vision (Capture → Library → Studio → Remote fold); forensics-module repurpose (Story Board, auto-markers,
+verified-original badge, SyncQueue for future cross-device sync) — parked, lower priority.
+De-politicize sweep (binding rule — see §GATES above) belongs here too, it's a content audit not a feature.
 
 ## 🔄 2026-07-03 SYNC — corrections + previously-orphaned plans folded in
 **Read this section FIRST; it supersedes stale statuses below.** `tasks/handoff.md`'s top landing block is

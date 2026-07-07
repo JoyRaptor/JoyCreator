@@ -1,5 +1,41 @@
 # FadCam AI Handoff
 
+> **⚡ 2026-07-07 — OPENCODE/SONNET: 10-task road_map §BACKLOG queue — 8 DONE, 1 PARTIAL, 1
+> SKIPPED (all detail in Opencode-work.md's bottom PROGRESS LOG entry).** Commits: `ac23f30`
+> (AssetScanner MMR probes → 4-thread pool, `scan()` stays synchronous), `2758423`
+> (VideoInfoBottomSheet's FFprobe+MMR metadata extraction moved off `onViewCreated` to a
+> single-thread executor + cached per-sheet-instance — was the one genuine UI-thread-MMR offender
+> after surveying ~20 files; everything else already backgrounded or dead code), `aba8ee3`
+> (timeline fling `computeScroll()` now skips the seek+redraw when the rounded-px offset is
+> unchanged frame-to-frame, still ticks the scroller normally), `f10352a` (Whisper transcription's
+> `pcmToFloat` per-30s-chunk `float[]` pooled instead of freshly allocated — not in
+> VolumeAudioProcessor, checked first), `38c09da` (photo capture's 6x `glReadPixels` now share one
+> pooled `IntBuffer` instead of 6 fresh allocations — `GLWatermarkRenderer`), `c1563b8` (recording
+> I-frame interval 1s→2s in both encoder pipelines, no existing settings surface so stayed a
+> constant), `f76bd2e` (`docs/project-schema.md` regenerated for v7-v10, was stuck at v5/v6;
+> corrected a stale "unknown fields preserved" claim — saves do NOT round-trip genuinely
+> unrecognized keys, hand-written serializer not reflective Gson), `e63ba4c` (T1 filmstrip: disk
+> LRU cache layer landed — PARTIAL, the harder "sequential MediaCodec sweep instead of seek-per-
+> thumbnail" accuracy fix is NOT done, see notes), `96cba7f` (pure-deletion removal of the
+> confirmed-dead `drawLayers`/`hitTestLayer*`/`Drag.LAYER_*`/`activeLayerIndex`/`selectedLayerKind`
+> subsystem in `EditorTimelineView.java` — 506 lines removed, independently re-verified the
+> dead-code trace before deleting, not just trusted the prior session's punch list; turned out
+> larger than that list implied, also removed the onDown/onMove/onUp dispatch branches +
+> `doLayerDrag`/`layerSiblingFloor`/`layerSiblingCeil`/`sameLayerLane` + the long-press machinery).
+> **W2 (zoomed HD waveform tier) SKIPPED for the 3rd time** — investigated fresh (not copy-pasted):
+> the timeline's audio-clip waveform bars use a SEPARATE legacy pipeline
+> (`FaditorEditorActivity.generateWaveform` → `AudioClip.getWaveform() int[]`, extracted once,
+> capped ~60 bins/sec) from the newer `WaveformExtractor`/`WaveformData` (MediaCodec + disk cache,
+> span-limited) which is currently wired ONLY for placed visualizer overlays, not timeline audio
+> bars. A real W2 needs migrating the timeline bars onto the newer pipeline (retiring the legacy
+> one, not forking a third) — a schema-adjacent change (`AudioClip.waveform` is a persisted field)
+> that needs its own session, not a draw-path tweak. **HAND-TEST OWED (JoyRaptor, no drags needed):**
+> open any project in the Faditor editor, do a few normal timeline interactions (tap-select a
+> clip, drag-trim a clip edge, tap an audio clip, drag the playhead) — confirms task 10's
+> dead-code removal didn't regress anything live (build-verified + logcat-clean but NOT
+> hand-tested on the actual editor screen this session — animating home screen blocked
+> `uiautomator dump` mid-session, see Opencode-work.md task 10 entry for the device-lore detail).
+>
 > **🧰 2026-07-07 — OPENCODE/SONNET: 6-task road_map §BACKLOG queue — 4 landed, 1 blocked, 1
 > investigated-deferred.** All additive/low-risk, none touched a standing-locked file. **DONE:**
 > (1) Captions tool-row icon now tints green when caption-style keyframe mode is armed, matching

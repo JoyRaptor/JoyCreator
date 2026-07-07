@@ -563,3 +563,232 @@ line-number-dependent. Delete in this order to keep the file compiling at each s
 by the subagent but NOT in the original task list: `EditorTimelineView.setOverlays`/
 `setWaveformLayers`/`setCaptionSpans` public methods (lines ~1224/1232/1241) have zero callers
 anywhere either — same dead-code family, same removal batch.
+
+---
+### 2026-07-07 — AUTONOMOUS RUN (Sonnet/opencode lane): 10-task road_map §BACKLOG queue — 8 DONE, 1 PARTIAL, 1 SKIPPED
+
+Followed tasks/LANES.md protocol throughout (claimed ACTIVE with exact files before each edit,
+released to IDLE between tasks; both lanes IDLE / device free at session start, no conflicts hit).
+Never ran gradle — watcher-only, read build.log tail after every save. Device
+`SANDBOX_SERIAL` touched once for task 10's post-deletion smoke check (see below), released
+promptly. Never touched any standing-locked file.
+
+#### TASK 1: AssetScanner MMR calls -> small thread pool — DONE
+Build: `BUILD SUCCESSFUL in 11s`
+Commit: `ac23f30` — "perf(assets): parallelize AssetScanner MMR duration probes on a small pool"
+Evidence: `probeDuration()` moved off the scan-thread inline loop onto a 4-thread
+`ThreadPoolExecutor` (daemon threads, core-timeout, `AssetScanner-MMR-N` names);
+`probeDurationsInParallel()` fires all video/audio items' probes concurrently and waits on a
+`CountDownLatch` (30s cap) so `scan()` stays synchronous — `AssetBrowserPanel`'s caller/callback
+shape is byte-for-byte unchanged.
+Notes for next AI: pool is a static field (shared across AssetScanner instances, intentional —
+avoids spinning up 4 new threads per scan call).
+
+#### TASK 2: MMR-on-UI-thread sites -> executor + cache width/height — DONE
+Build: `BUILD SUCCESSFUL in 12s`
+Commit: `2758423` — "perf(ui): VideoInfoBottomSheet metadata extraction off the UI thread + cached"
+Evidence: manually swept all ~20 files referencing `MediaMetadataRetriever` (a subagent attempt
+at this produced no usable output — dead subagent run, worked it myself instead). Found ONE
+genuine UI-thread-synchronous offender: `VideoInfoBottomSheet.setupVideoInfoGrid()` ran a full
+FFprobeKit session + MMR fallback (duration/resolution/bitrate/multi-method location) inline in
+`onViewCreated`. Fixed: filesystem-only fields (name/size/path/modified) render immediately;
+FFprobe/MMR fields populate async via a single-thread executor with a "Loading…" placeholder
+(new string `video_info_loading`); result cached per-sheet-instance (`cachedMetadata` field) so
+Copy-to-clipboard reuses it instead of re-running the whole probe.
+Everything else already backgrounded or dead: `RecordsAdapter`'s progress-bar duration path has a
+DB-backed cache + executor already; `WatchRecordsFragment`/`WatchTrashFragment`/
+`FaditorMiniFragment` thumbnail loaders already use `executor.execute`+`Handler.post`;
+`GlTransitionFrameOverlay` already caches+reuses one retriever per URI (GL render thread, not
+UI); `VideoPlayerActivity.fetchCachedDuration` already backgrounded via `new Thread`.
+`RecordsAdapter#getVideoResolution` and `VideoIndexRepository#computeDuration` are DEAD CODE
+(zero callers found anywhere) — left alone, out of scope for a perf task.
+Notes for next AI: no width/height caching was needed anywhere else because nowhere else re-reads
+MMR metadata repeatedly on the same object — the one genuine offender didn't cache metadata
+across re-opens either (each `VideoInfoBottomSheet` instance is fresh per open), so the fix caches
+per-instance only, which is the correct scope (the underlying file can't change while the sheet
+is open, so this is not a missed opportunity).
+
+#### TASK 3: Timeline fling invalidate() — throttle during fling — DONE
+Build: `BUILD SUCCESSFUL in 14s`
+Commit: `aba8ee3` — "perf(timeline): throttle fling computeScroll to only seek+redraw on actual offset change"
+Evidence: `EditorTimelineView.computeScroll()`'s fling branch called `updatePlayheadFromX` (full
+seek+listener+redraw pipeline) on every `OverScroller.computeScrollOffset()` tick unconditionally.
+Added a rounded-px sentinel (`lastFlingScrollOffsetPx`) so unchanged frames (common near the tail
+of a fling as velocity decays) skip the seek+redraw but the scroller still gets
+`postInvalidateOnAnimation()` every tick so it keeps ticking toward `isFinished()` normally.
+Sentinel reset in `startPlayheadFling()` so frame 1 of a NEW fling always processes even if it
+rounds to the same px as the tail of a PREVIOUS fling. Purely additive — did not touch the
+touch/gesture state machine, per rule 4's conservatism for this file.
+Notes for next AI: this is orthogonal to task 10's dead-code removal (different call paths) —
+both landed cleanly in the same file across two separate commits without conflict.
+
+#### TASK 4: pcmToFloat ~1.9MB alloc per 30s -> pooled buffer — DONE
+Build: `BUILD SUCCESSFUL in 13s`
+Commit: `f10352a` — "perf(transcript): pool pcmToFloat's per-chunk float[] instead of fresh alloc"
+Evidence: found in `transcript/TranscriptionEngine.java` (NOT `VolumeAudioProcessor` — checked
+first, confirmed zero `pcmToFloat` references there). `pcmToFloat` is Whisper transcription's
+PCM->float conversion, called once per 30s chunk in `transcribeWhisper`'s read loop, previously
+allocating a fresh `float[samples]` every call. Now reuses a grow-only instance field
+(`pcmFloatPool`); `WhisperNative.fullTranscribe`'s JNI reads exactly `array.length` via
+`GetArrayLength` (confirmed in `whisper_jni.c`), so full-size chunks hand the pool straight to
+native, and only the FINAL (typically shorter) chunk needs a right-sized `Arrays.copyOf`.
+Notes for next AI: `TranscriptionEngine` is instantiated fresh per transcription job
+(`AIToolExecutor.java:319`), never a shared singleton, so an instance-field pool is safe (no
+cross-job buffer reuse racing).
+
+#### TASK 5: Photo capture 6x fresh glReadPixels IntBuffers -> reused buffer — DONE
+Build: `BUILD SUCCESSFUL in 12s`
+Commit: `38c09da` — "perf(photo): reuse glReadPixels IntBuffer across capturePhotoFrame's 6 reads"
+Evidence: `GLRecordingPipeline.capturePhotoFrame()` loops up to 6x calling
+`GLWatermarkRenderer.captureEncoderFrameBitmap()` (stale-frame-flush loop, comment confirms "6
+frames ensures the encoder's input-to-output latency is fully drained") — each call did a fresh
+`IntBuffer.allocate(width*height)`. Added pooled `encoderReadPixelsBuffer` field (grown only on
+dimension change, which never happens mid-capture) + the same treatment for the separate
+`capturePreviewFrameBitmap()`/`previewReadPixelsBuffer` (different lock/surface). No
+PixelCopy-eligible Surface/View target exists at this call site (raw EGL pbuffer read via
+`glReadPixels`, not a View or Surface handle) — task's own fallback (reused buffer) applies.
+Notes for next AI: the `dst int[]` (the actual Bitmap pixel array, separate from the IntBuffer)
+still allocates fresh each call — unavoidable, `Bitmap.createBitmap(int[],...)` requires its own
+backing array. Only the glReadPixels DESTINATION (the IntBuffer) was the redundant allocation;
+that's fixed.
+
+#### TASK 6: I-frame interval 1s -> 2s default — DONE
+Build: `BUILD SUCCESSFUL in 12s`
+Commit: `c1563b8` — "perf(recording): default I-frame interval 1s -> 2s in both encoder pipelines"
+Evidence: `VIDEO_IFRAME_INTERVAL` constant in BOTH `fadrec/encoding/ScreenRecordingPipeline.java`
+and `opengl/GLRecordingPipeline.java` (two separate recording pipelines, both recording-side —
+neither is `ExportManager`, so no standing lock touched) changed 1 -> 2. No existing
+settings/config surface for encoder GOP exists anywhere in the app, so per the task's own
+fallback instruction this stayed a plain constant change.
+Notes for next AI: if JoyRaptor ever wants this user-configurable, both constants would need to move
+into a shared settings-read path — currently two independent hardcoded constants (which was
+already true before this change, just at value 1).
+
+#### TASK 7: docs/project-schema.md v5 -> v10 — DONE
+Build: N/A (pure docs, no code touched)
+Commit: `f76bd2e` — "docs: regenerate project-schema.md for v7-v10 (was stuck at v5/v6)"
+Evidence: delegated the v7-v10 field/migration research to a subagent (grepped
+`ProjectStorage.java`'s serializer/deserializer, `FaditorProject`/`Timeline`/`Clip` full field
+lists) — cross-verified its key claim myself (dual-write schema stamping formula at
+`ProjectStorage.java:1450-1461`: `usesAvatarRigs?10:usesSprites?9:usesLayerFeatures?8:7`) before
+writing the doc, and independently confirmed the "unrecognized fields are NOT preserved on save"
+correction (hand-written `JsonSerializer`/`JsonDeserializer`, not reflective Gson — confirmed at
+`ProjectStorage.java:1832` `class ProjectDeserializer`). Rewrote every section: v7 waveform
+visualizers, v8 layers/tracks + PiP compositing (masks/chroma-key/track-matte), v9 sprite sheets +
+placed sprites, v10 avatar rigs; corrected the stale "Schema Version: 5" header; flagged
+`exportSettings.resolution`/`.quality` as persisted-but-not-read-by-ExportManager (found during
+task 5's investigation last session); listed which v8-v10 features have no EditScript op yet.
+Notes for next AI: `docs/project-schema.md` is now accurate as of this commit. If a future v11
+lands, update the "Schema Version Stamping" formula block too (it's hardcoded to the current
+4-tier ternary) — don't just add a history entry.
+
+#### TASK 8: T1 accurate filmstrip via sequential-sweep + disk LRU cache — PARTIAL
+Build: `BUILD SUCCESSFUL in 13s`
+Commit: `e63ba4c` — "perf(timeline): filmstrip thumbnail disk LRU cache (T1 partial scope)"
+Evidence: per the task's own "do a clean partial... log exactly what's done vs remaining" escape
+hatch, landed the DISK CACHE LAYER only (not the sequential-sweep re-architecture). Mirrors
+`WaveformExtractor`'s file-per-key disk-cache pattern: `loadThumbnailsForSegment` now tries a
+disk read (`readFilmstripDiskCache`, one `.webp` per thumbnail index under a per-key subdirectory
+hashed from source+trim+thumbSize+count) before falling back to the EXISTING
+`MediaMetadataRetriever.getFrameAtTime(OPTION_CLOSEST_SYNC)` extraction (unchanged, same accuracy
+as before — this commit changes PERSISTENCE, not extraction quality); writes to disk after a
+successful extraction; a ~24MB whole-cache LRU sweep (oldest-subdirectory-first by `lastModified`)
+runs after each write.
+What's NOT done (the harder, bigger half): the spec's actual accuracy fix — ONE background
+SEQUENTIAL MediaCodec decode sweep per source (grabbing a frame every N ms via a continuous
+decode, like `WaveformExtractor`'s MediaCodec drain loop) INSTEAD of today's per-thumbnail
+`OPTION_CLOSEST_SYNC` seeks. The seeks are individually frame-accurate but seek-heavy for
+long-GOP screen recordings (the ORIGINAL complaint — keyframe-snapped thumbs land far from their
+labeled time). This session's change makes repeat-scrub/reopen instant (no re-decode) but does
+NOT fix first-open accuracy/jank for a never-before-opened long screen recording.
+Notes for next AI: build a `FilmstripSweepExtractor` class pattern-matched off
+`WaveformExtractor.extract()`'s MediaCodec drain loop (video decoder instead of audio, grab+scale
+a frame at each N-ms boundary during the sequential decode instead of seeking) — write results
+into the SAME disk cache keys this commit established (`filmstripCacheDir`/`.webp` per index) so
+the caching this session lands is directly reusable, not throwaway. Progressive UX: today's
+keyframe-snapped thumbs (fast, already shipped) should keep showing immediately; swap in
+sweep-accurate ones as the background sweep completes per-segment.
+
+#### TASK 9: W2 zoomed-in HD waveform tier — SKIPPED (3rd time)
+Build: N/A (investigated, no code changed)
+Commit: none
+Evidence: traced the FULL current architecture before deciding to skip (not a reflexive skip).
+The TIMELINE's audio-clip waveform bars (`EditorTimelineView.drawAudioTrack`, W1-fixed 2026-07-06)
+read `AudioClip.getWaveform()` — a fixed `int[]` of 0-255 peaks extracted ONCE at import time by
+`FaditorEditorActivity.generateWaveform()` (line ~6283), which is a SEPARATE, OLDER pipeline from
+`waveform/WaveformExtractor.java` (the newer MediaCodec-based extractor with disk-cache, currently
+wired ONLY for placed `WaveformOverlayInstance` visualizers, not the timeline audio-clip bars).
+`generateWaveform` already caps at ~60 bins/sec (`Math.min(6000, durationSec*60f)`) — the SAME
+density W1 targeted — stored once, immutable after extraction. There is no zoom-threshold check
+anywhere in `drawAudioTrack`; when zoomed in far enough that `barCount > waveform.length`,
+multiple rendered bars silently repeat/interpolate the SAME source bucket — no new detail exists
+to reveal, because none was ever extracted at higher density.
+A genuine W2 fix requires: (a) a second, higher-density extraction pass (200-400 buckets/sec per
+the spec) for the CURRENTLY VISIBLE zoomed span of an audio clip — most naturally built by
+routing the timeline's audio-clip waveform through the NEWER `WaveformExtractor`/`WaveformData`
+pipeline (which already supports span-limited extraction + disk caching) instead of the legacy
+`generateWaveform`/`int[]` pipeline, since re-inventing a second tier on TOP of the legacy `int[]`
+model would fork the waveform architecture in two directions; (b) a render-time zoom-threshold
+switch in `drawAudioTrack` to pick which tier to sample; (c) `AudioClip` gaining either a second
+persisted field or an on-demand (non-persisted, re-extracted-on-zoom) HD `WaveformData` instead of
+today's single `int[] waveform` field — a real, if small, project-schema-adjacent decision, not a
+pure draw-path tweak. This is genuinely a multi-file, multi-layer change (model + extraction +
+render), not a "skip if ran long" cop-out — it was investigated fresh this session (not just
+copy-pasted from the prior two skip notes) and the conclusion is the same: it needs its own
+focused session with a design decision on which waveform pipeline becomes canonical for timeline
+audio bars.
+Notes for next AI: the CLEANEST path is probably "migrate the timeline audio-clip waveform bars
+from the legacy `generateWaveform`/`AudioClip.getWaveform() int[]` pipeline onto
+`WaveformExtractor`/`WaveformData` entirely" (retiring the legacy pipeline, not adding a THIRD one)
+— then W1's peak-preserving render logic in `drawAudioTrack` ports over almost unchanged (just
+reads `WaveformData.amplitudes` instead of the `int[]`), and W2's "extract a denser span on zoom"
+falls out naturally since `WaveformExtractor.extractAsync` already supports arbitrary
+`startMs`/`endMs`/bucket-density spans. This is a bigger lift than it sounds because
+`AudioClip.waveform` is a PERSISTED project-schema field (see docs/project-schema.md "Audio Clip
+Object") — swapping its type is a schema-adjacent migration, needs its own plan + a migration path
+for existing projects' persisted `int[]` waveforms.
+
+#### TASK 10: Dead-code removal (drawLayers/hitTestLayer*/activeLayerIndex/Drag.LAYER_*/selectedLayerKind) — DONE
+Build: `BUILD SUCCESSFUL in 14s`
+Commit: `96cba7f` — "refactor(timeline): remove dead legacy drawLayers/hitTestLayer* subsystem"
+Evidence: re-verified LANES.md fresh (both lanes IDLE) before starting, per the task's own
+"re-verify... execute LAST and only if high confidence" gate. Did NOT just trust the prior
+session's punch list — independently re-traced the root cause myself: grepped
+`EditorTimelineView`'s `overlays`/`waveformLayers`/`captionSpans` fields for their ONLY mutators
+(`setOverlays`/`setWaveformLayers`/`setCaptionSpans`), then grepped `FaditorEditorActivity` for
+ANY call to `editorTimeline.setOverlays(...)` etc. — ZERO hits, confirming the lists are
+permanently empty at runtime (rendering now happens entirely through `LayerRowRenderer`, per
+Slice C). That makes the ENTIRE touch/draw subsystem gated on those lists unreachable: found it
+was larger and more entangled than the prior session's punch list implied (it also spans the
+onDown/onMove/onUp touch DISPATCH chain, not just draw+hit-test — `layerSiblingFloor`/
+`layerSiblingCeil`/`sameLayerLane`/`doLayerDrag`/`displayEndMs`/`clampLayerTime`/the
+`layerLongPressRunnable` long-press machinery/4 unused `layer*Paint` fields were ALL part of the
+same dead closure and got removed too, verified each via grep before deleting). Removed 506 lines
+net (pure deletion, zero additions). The touch-dispatch chain still compiles clean — a live caller
+would have failed to compile, which is itself strong evidence the trace was correct.
+Device: grabbed the (free) DEVICE token, launched the app via `monkey -p com.fadcam.beta -c
+android.intent.category.LAUNCHER` (MainActivity isn't exported, so `am start` needs the temp-flip
+trick which I avoided for a routine smoke check), confirmed via screencap the app renders, checked
+logcat for FATAL/AndroidRuntime crashes — none. Full navigation into the Faditor editor screen
+(where the deleted touch-dispatch code actually lives) was NOT completed — the animating home
+screen blocked `uiautomator dump` ("could not get idle state", same screencap/screenrecord
+device-lore as documented in memory), and a second blind tap attempt didn't land on the right
+icon. Released the DEVICE token back to free immediately after.
+Notes for next AI / HAND-TEST OWED (JoyRaptor): open the sandbox project (or any project) in the
+Faditor editor and do a few normal timeline interactions — tap-select a clip, drag-trim a clip
+edge, tap an audio clip, drag the playhead — confirming nothing regressed. This is a LOW-RISK
+ask (the deleted code was provably unreachable) but the task's own protocol wants a real
+hand-test logged, not just "build succeeded," for anything touching this file's touch dispatch.
+
+---
+## SESSION SUMMARY (2026-07-07 autonomous 10-task run)
+Commits (chronological): `ac23f30` `2758423` `aba8ee3` `f10352a` `38c09da` `c1563b8` `f76bd2e`
+`e63ba4c` `96cba7f` (task 10) — 9 commits total (task 8 and 9 share no separate commit; task 8's
+commit is `e63ba4c`, task 9 has none since it was investigate-only).
+DONE (8): 1, 2, 3, 4, 5, 6, 7, 10. PARTIAL (1): 8 (disk cache landed, sequential-sweep deferred).
+SKIPPED (1): 9 (W2 — needs its own session, see notes above; this is the 3rd time it's been
+evaluated and deferred, always for the same structural reason: it needs a pipeline migration, not
+a draw-path tweak).
+Zero standing-locked files touched. Zero lane conflicts (other lane was IDLE the whole session).
+All builds green via the watcher (never invoked gradle directly). Git: 9 small, single-task
+commits, each `git add`-ing only the files touched for that task.

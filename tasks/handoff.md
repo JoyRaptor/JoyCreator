@@ -25,6 +25,16 @@
 > self-heal sanitizer. **G1 REMAINDER:** tap→preview manipulation handles is G4 (separate slice); the
 > §2/§3 peek/sandwich general menu (G2/G3) supersedes the interim `showLayerItemActionsDialog` when built.
 >
+> **📐 2026-07-07 — OPUS: G6.2 SNAP DETENTS for the resizable timeline (67259b1, DEVICE-PROVEN both ways).**
+> Extends shipped G6.1: on grab-bar release the band-height split snaps to the nearest of three detents —
+> video-dominant (40dp) / balanced (140dp) / timeline-dominant (460dp), matching `LayerRowRenderer`
+> MIN/DEFAULT/CAP — within a 32dp radius, with a CLOCK_TICK haptic; drops further out keep their free
+> position (contract §5 "free-drag between them"). ACTION_UP-only change; `setLayerBandMaxHeightDp`
+> self-clamps so detents can't drift out of range. DEVICE PROOF via ground-truth `timeline_band_max_dp`
+> pref reads (SM-N960U): a drag from 151.46 landing near balanced snapped to exactly 140.0; a drag to a
+> mid position kept a free 225.09 (no snap). **G6 REMAINDER:** G6.3 fullscreen extreme → draggable PiP
+> preview; G6.4 small-preview/landscape → PiP promotion (contract §5, both bigger).
+>
 > **✂️ 2026-07-07 — FABLE: crop aspect gaps filled (road_map "small features") — 4:5 + Custom ratio.**
 > The crop presets row (`CROP_ASPECT_PRESETS`/`applyCropAspectPreset`) had 1:1/4:3/3:4/16:9/9:16 but was
 > missing **4:5 (Instagram portrait)** — added — and had no **custom numeric ratio** (the road_map

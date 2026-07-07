@@ -7054,6 +7054,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
             objectMenuSheet.onPlayheadChanged(absoluteMs);
         }
+        // G3: the keyframe ribbon's diamond tracks the scrub too.
+        if (ribbonProp != null) refreshKeyframeRibbon();
 
         // Drive overlay time-ranges + keyframe animation from the playhead.
         if (overlayLayer != null && overlayLayer.getVisibility() == View.VISIBLE) {
@@ -12475,8 +12477,107 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                     android.view.Gravity.BOTTOM);
             root.addView(objectMenuSheet, lp);
+            // G3: the focused keyframeable property drives the top ribbon.
+            objectMenuSheet.setFocusListener(prop -> {
+                ribbonProp = prop;
+                refreshKeyframeRibbon();
+            });
         }
         return objectMenuSheet;
+    }
+
+    // ── G3: top keyframe ribbon — rides the preview's lower edge while a
+    //    keyframeable property is focused; the timeline stays fully clear ──
+
+    @Nullable private android.widget.LinearLayout keyframeRibbon;
+    @Nullable private ObjectMenuSheet.Prop ribbonProp;
+    @Nullable private TextView ribbonLabel, ribbonDiamond;
+
+    private void ensureKeyframeRibbon() {
+        if (keyframeRibbon != null) return;
+        float d = getResources().getDisplayMetrics().density;
+        keyframeRibbon = new android.widget.LinearLayout(this);
+        keyframeRibbon.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        keyframeRibbon.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.graphics.drawable.GradientDrawable bg =
+                new android.graphics.drawable.GradientDrawable();
+        bg.setColor(0xE61C1C1E);
+        bg.setCornerRadius(18 * d);
+        keyframeRibbon.setBackground(bg);
+        int padH = (int) (10 * d);
+        keyframeRibbon.setPadding(padH, (int) (2 * d), padH, (int) (2 * d));
+        keyframeRibbon.setElevation(10 * d);
+
+        ribbonLabel = new TextView(this);
+        ribbonLabel.setTextColor(0xFF999999);
+        ribbonLabel.setTextSize(12);
+        ribbonLabel.setPadding(0, 0, (int) (6 * d), 0);
+        keyframeRibbon.addView(ribbonLabel);
+
+        TextView prev = ribbonGlyph("◀");
+        prev.setOnClickListener(v -> {
+            if (ribbonProp != null) ribbonProp.prevKey();
+        });
+        keyframeRibbon.addView(prev);
+
+        ribbonDiamond = ribbonGlyph("◇");
+        ribbonDiamond.setTextSize(18);
+        ribbonDiamond.setOnClickListener(v -> {
+            if (ribbonProp == null) return;
+            // On a key → delete it; off a key → drop one (contract §3 add/del).
+            if (ribbonProp.onKeyAt(lastPlayheadAbsoluteMs)) ribbonProp.deleteKey();
+            else ribbonProp.dropKey();
+            refreshKeyframeRibbon();
+            if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+                objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+            }
+        });
+        keyframeRibbon.addView(ribbonDiamond);
+
+        TextView next = ribbonGlyph("▶");
+        next.setOnClickListener(v -> {
+            if (ribbonProp != null) ribbonProp.nextKey();
+        });
+        keyframeRibbon.addView(next);
+
+        android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.BOTTOM | android.view.Gravity.CENTER_HORIZONTAL);
+        // Clear of the caption-style strip that also rides the preview bottom.
+        lp.bottomMargin = (int) (58 * d);
+        playerContainer.addView(keyframeRibbon, lp);
+        keyframeRibbon.setVisibility(View.GONE);
+    }
+
+    @NonNull
+    private TextView ribbonGlyph(@NonNull String glyph) {
+        float d = getResources().getDisplayMetrics().density;
+        TextView v = new TextView(this);
+        v.setText(glyph);
+        v.setTextColor(0xFFCCCCCC);
+        v.setTextSize(15);
+        v.setGravity(android.view.Gravity.CENTER);
+        v.setPadding((int) (10 * d), (int) (6 * d), (int) (10 * d), (int) (6 * d));
+        android.util.TypedValue tv = new android.util.TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true);
+        v.setBackgroundResource(tv.resourceId);
+        return v;
+    }
+
+    /** Show/hide + repaint the ribbon from the focused property's key state. */
+    private void refreshKeyframeRibbon() {
+        if (ribbonProp == null) {
+            if (keyframeRibbon != null) keyframeRibbon.setVisibility(View.GONE);
+            return;
+        }
+        ensureKeyframeRibbon();
+        keyframeRibbon.setVisibility(View.VISIBLE);
+        ribbonLabel.setText(ribbonProp.label());
+        boolean on = ribbonProp.onKeyAt(lastPlayheadAbsoluteMs);
+        ribbonDiamond.setText(on ? "◆" : "◇");
+        ribbonDiamond.setTextColor(on ? 0xFF4CAF50 : 0xFFAAAAAA);
     }
 
     /**
@@ -12658,7 +12759,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             recordSpriteMenuUndo(s, before, "Add keyframe");
             refreshSpriteAfterMenuWrite();
         };
-        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey);
+        // G3: diamond swipe-nav + long-press-delete (sprite twins).
+        Runnable prevKey = () -> jumpToAdjacentKey(s.getKeyframes().get(key), s.getStartMs(), false);
+        Runnable nextKey = () -> jumpToAdjacentKey(s.getKeyframes().get(key), s.getStartMs(), true);
+        Runnable deleteKey = () -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = s.getKeyframes().get(key);
+            Long hit = keyUnderPlayheadLocalMs(tr, s.getStartMs());
+            if (hit == null) return;
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before =
+                    s.snapshotTransform();
+            s.getKeyframes().removeKey(key, hit);
+            recordSpriteMenuUndo(s, before, "Delete keyframe");
+            refreshSpriteAfterMenuWrite();
+        };
+        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey,
+                prevKey, nextKey, deleteKey);
     }
 
     private void refreshSpriteAfterMenuWrite() {
@@ -12741,7 +12856,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
         };
-        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey);
+        // G3: diamond swipe-nav + long-press-delete.
+        Runnable prevKey = () -> jumpToAdjacentKey(o.getKeyframes().get(key), o.getStartMs(), false);
+        Runnable nextKey = () -> jumpToAdjacentKey(o.getKeyframes().get(key), o.getStartMs(), true);
+        Runnable deleteKey = () -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = o.getKeyframes().get(key);
+            Long hit = keyUnderPlayheadLocalMs(tr, o.getStartMs());
+            if (hit == null) return;
+            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                    o.snapshotTransform();
+            o.getKeyframes().removeKey(key, hit);
+            recordOverlayMenuUndo(o, before, "Delete keyframe");
+            if (overlayLayer != null) {
+                overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                overlayLayer.rebuild();
+            }
+            syncTimelineOverlays();
+        };
+        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey,
+                prevKey, nextKey, deleteKey);
+    }
+
+    /** G3: seek the playhead to the nearest key strictly before/after it. */
+    private void jumpToAdjacentKey(@Nullable com.fadcam.ui.faditor.keyframe.KeyframeTrack tr,
+                                   long itemStartMs, boolean forward) {
+        if (tr == null || editorTimeline == null) return;
+        long local = Math.max(0, lastPlayheadAbsoluteMs - itemStartMs);
+        Long best = null;
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (forward ? k.timeMs > local + 66 : k.timeMs < local - 66) {
+                if (best == null || (forward ? k.timeMs < best : k.timeMs > best)) {
+                    best = k.timeMs;
+                }
+            }
+        }
+        if (best != null) editorTimeline.seekToTimelineMs(itemStartMs + best);
+    }
+
+    /** G3: the exact key time (item-local) sitting under the playhead, or null. */
+    @Nullable
+    private Long keyUnderPlayheadLocalMs(
+            @Nullable com.fadcam.ui.faditor.keyframe.KeyframeTrack tr, long itemStartMs) {
+        if (tr == null) return null;
+        long local = Math.max(0, lastPlayheadAbsoluteMs - itemStartMs);
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (Math.abs(k.timeMs - local) <= 66) return k.timeMs;
+        }
+        return null;
     }
 
     /** Is the playhead sitting on (within ~2 frames of) a key of this property? */

@@ -65,10 +65,15 @@ public final class ObjectMenuSheet extends LinearLayout {
         final Setter set;          // keyframe-aware write at the playhead
         final OnKeyQuery onKey;    // playhead sits on a key of this property?
         final Runnable dropKey;    // hollow-diamond tap → drop a key here
+        // G3: diamond swipe = jump playhead to prev/next key of this property;
+        // diamond long-press = delete the key under the playhead. Null = no-op.
+        @Nullable final Runnable prevKey, nextKey, deleteKey;
 
         public Prop(@NonNull String key, @NonNull String label, float min, float max,
                     @NonNull ValueFormat format, @NonNull Getter get, @NonNull Setter set,
-                    @NonNull OnKeyQuery onKey, @NonNull Runnable dropKey) {
+                    @NonNull OnKeyQuery onKey, @NonNull Runnable dropKey,
+                    @Nullable Runnable prevKey, @Nullable Runnable nextKey,
+                    @Nullable Runnable deleteKey) {
             this.key = key;
             this.label = label;
             this.min = min;
@@ -78,7 +83,23 @@ public final class ObjectMenuSheet extends LinearLayout {
             this.set = set;
             this.onKey = onKey;
             this.dropKey = dropKey;
+            this.prevKey = prevKey;
+            this.nextKey = nextKey;
+            this.deleteKey = deleteKey;
         }
+
+        public boolean onKeyAt(long playheadMs) { return onKey.onKeyAt(playheadMs); }
+        @NonNull public String label() { return label; }
+        public void dropKey() { dropKey.run(); }
+        public void prevKey() { if (prevKey != null) prevKey.run(); }
+        public void nextKey() { if (nextKey != null) nextKey.run(); }
+        public void deleteKey() { if (deleteKey != null) deleteKey.run(); }
+    }
+
+    /** G3: who has keyframe focus — drives the top ribbon over the preview. */
+    public interface FocusListener {
+        /** The focused keyframeable property changed; {@code null} = sheet gone. */
+        void onActivePropChanged(@Nullable Prop prop);
     }
 
     /** One row of the object-actions section (layer moves, remove, …). */
@@ -116,10 +137,28 @@ public final class ObjectMenuSheet extends LinearLayout {
     private final List<Row> rows = new ArrayList<>();
     @Nullable private GestureHooks hooks;
     @Nullable private Runnable onDismiss;
+    @Nullable private FocusListener focusListener;
     private String activeKey = "";
     private boolean expanded;
     private boolean showing;
     private long playheadMs;
+
+    public void setFocusListener(@Nullable FocusListener l) { focusListener = l; }
+
+    @Nullable
+    public Prop activeProp() {
+        if (!showing) return null;
+        for (Row r : rows) {
+            if (r.prop.key.equals(activeKey)) return r.prop;
+        }
+        return null;
+    }
+
+    private void setActiveKey(@NonNull String key) {
+        boolean changed = !key.equals(activeKey);
+        activeKey = key;
+        if (changed && focusListener != null) focusListener.onActivePropChanged(activeProp());
+    }
 
     public ObjectMenuSheet(@NonNull Context ctx) {
         super(ctx);
@@ -250,6 +289,8 @@ public final class ObjectMenuSheet extends LinearLayout {
         setVisibility(VISIBLE);
         applyState();
         refreshRows();
+        // Fresh Prop objects every show() — always re-announce the focus (G3 ribbon).
+        if (focusListener != null) focusListener.onActivePropChanged(activeProp());
     }
 
     public boolean isShowing() { return showing; }
@@ -260,6 +301,7 @@ public final class ObjectMenuSheet extends LinearLayout {
         if (!showing) return;
         showing = false;
         setVisibility(GONE);
+        if (focusListener != null) focusListener.onActivePropChanged(null);
         if (onDismiss != null) onDismiss.run();
     }
 
@@ -359,6 +401,70 @@ public final class ObjectMenuSheet extends LinearLayout {
 
     private int dp(int v) { return (int) (v * density + 0.5f); }
 
+    /**
+     * G3 (contract §2): the diamond owns its small hit area — tap = drop a key,
+     * horizontal swipe = jump playhead to prev (←) / next (→) key of this
+     * property, long-press = delete the key under the playhead. Zone discipline:
+     * the gesture never leaves the diamond, so it can't be confused with
+     * scrub/row-scroll (contract §6).
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private void wireDiamondGestures(@NonNull TextView diamond, @NonNull Prop prop) {
+        final float slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
+        final long lpTimeout = ViewConfiguration.getLongPressTimeout();
+        diamond.setOnTouchListener(new OnTouchListener() {
+            float downX, downY;
+            boolean moved, longPressed;
+            Runnable pendingLp;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = e.getRawX();
+                        downY = e.getRawY();
+                        moved = false;
+                        longPressed = false;
+                        setActiveKey(prop.key); // touching a diamond focuses its property
+                        pendingLp = () -> {
+                            longPressed = true;
+                            v.performHapticFeedback(
+                                    android.view.HapticFeedbackConstants.LONG_PRESS);
+                            prop.deleteKey();
+                            refreshRows();
+                        };
+                        v.postDelayed(pendingLp, lpTimeout);
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        if (!moved && (Math.abs(e.getRawX() - downX) > slop
+                                || Math.abs(e.getRawY() - downY) > slop)) {
+                            moved = true;
+                            if (pendingLp != null) v.removeCallbacks(pendingLp);
+                        }
+                        return true;
+                    case MotionEvent.ACTION_UP: {
+                        if (pendingLp != null) v.removeCallbacks(pendingLp);
+                        if (longPressed) return true;      // delete already fired
+                        float dx = e.getRawX() - downX;
+                        if (moved && Math.abs(dx) > slop * 2
+                                && Math.abs(dx) > Math.abs(e.getRawY() - downY)) {
+                            if (dx > 0) prop.nextKey(); else prop.prevKey();
+                        } else if (!moved) {
+                            prop.dropKey();                 // plain tap
+                        }
+                        refreshRows(); // arming/jumping re-anchors every diamond
+                        return true;
+                    }
+                    case MotionEvent.ACTION_CANCEL:
+                        if (pendingLp != null) v.removeCallbacks(pendingLp);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        });
+    }
+
     /** Label + slider + live value + keyframe diamond, one per {@link Prop}. */
     private final class Row {
         final Prop prop;
@@ -399,17 +505,14 @@ public final class ObjectMenuSheet extends LinearLayout {
             diamond.setGravity(Gravity.CENTER);
             diamond.setPadding(dp(8), 0, dp(2), 0);
             diamond.setBackgroundResource(selectableBg());
-            diamond.setOnClickListener(v -> {
-                prop.dropKey.run();
-                refreshRows(); // arming one property re-anchors every diamond
-            });
+            wireDiamondGestures(diamond, prop);
             view.addView(diamond);
 
             bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar sb, int progress, boolean fromUser) {
                     if (!fromUser) return;
-                    activeKey = prop.key; // last-touched row becomes the peek row
+                    setActiveKey(prop.key); // last-touched row becomes the peek row + focus
                     float v = prop.min + (prop.max - prop.min) * progress / (float) SLIDER_STEPS;
                     prop.set.write(v, playheadMs);
                     value.setText(prop.format.format(v));

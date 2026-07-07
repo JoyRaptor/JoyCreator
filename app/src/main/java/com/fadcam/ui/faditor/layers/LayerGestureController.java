@@ -124,6 +124,17 @@ public final class LayerGestureController {
          * …). A single tap NEVER fires this — it only selects.
          */
         default void onItemDoubleTapped(@NonNull TimedItem item) {}
+
+        /**
+         * The user HELD {@code item} (pickup armed — it lifted, with haptic) and then
+         * RELEASED it in place WITHOUT crossing the move slop (gesture contract §1:
+         * hold → release-in-place = open the GENERAL ADVANCED MENU / object options sheet,
+         * §2). Distinct from a MOVE (finger crossed the slop → commit) and from a CANCEL
+         * (interrupted stream → abort, no menu). Fires from {@link
+         * LayerGestureController#onRowBodyUp} on a committed release. The activity opens
+         * its per-type options menu (text/image → the layer-item actions dialog, …).
+         */
+        default void onItemMenuRequested(@NonNull Track track, @NonNull TimedItem item) {}
     }
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT }
@@ -1185,6 +1196,10 @@ public final class LayerGestureController {
         boolean droppedOnNewLayerZone = hoverNewLayerZone || hoverCrossBandNewLane;
         boolean wasTap = pendingBodyDown && !movedDuringGesture;
         boolean wasDeleteTap = wasTap && pendingDeleteBadge;
+        // G1 (gesture contract §1): a HOLD that lifted the item (pickup armed) then released
+        // WITHOUT crossing the move slop = "hold → release in place" → open the general
+        // advanced menu. Captured before the reset block below clears pickupArmed.
+        boolean holdReleaseInPlace = pickupArmed && !movedDuringGesture;
         // Captured BEFORE the reset block below wipes them (commit-time overlap guard
         // + open-endedness restoration).
         long commitDur = dragStartDisplayDurMs;
@@ -1293,6 +1308,13 @@ public final class LayerGestureController {
                 lastTapItemId = item.getId();
                 lastTapUpMs = now;
             }
+        } else if (holdReleaseInPlace && committed && item != null && fromTrack != null) {
+            // G1 (gesture contract §1): hold → release in place. The pickup already lifted
+            // the item (haptic); releasing without a move asks for its general advanced
+            // menu rather than committing a move or silently aborting.
+            rowGestureLog("hold-release-menu item=" + item.getId() + " row=" + fromTrack.getId());
+            callback.onItemMenuRequested(fromTrack, item);
+            lastTapItemId = null;
         }
         return true;
     }

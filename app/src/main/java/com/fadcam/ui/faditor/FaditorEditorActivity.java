@@ -9815,6 +9815,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // first tap stands, and double-tap will route here once those power-tools
                 // drawers land (gesture contract §2 general menu / per-type editors).
             }
+
+            @Override
+            public void onItemMenuRequested(@NonNull com.fadcam.ui.faditor.layers.Track track,
+                    @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                // G1 (gesture contract §1): hold → release-in-place opens the object's
+                // general advanced menu. For text/image overlays this is the existing
+                // layer-item actions dialog (new layer above/below, move to layer, remove)
+                // — the interim §2 general menu until the peek/sandwich sheet lands.
+                if (item.getTextOverlay() != null) {
+                    showLayerItemActionsDialog(item.getTextOverlay());
+                }
+                // Audio / PiP / sprite / visualizer: no general menu yet — the item stays
+                // lifted-then-dropped-in-place with no side effect (the pickup already gave
+                // haptic feedback), wired when the §2 general advanced menu is built.
+            }
         };
     }
 

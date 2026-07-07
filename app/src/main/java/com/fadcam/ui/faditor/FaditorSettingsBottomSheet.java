@@ -38,10 +38,22 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
 
     private static final String TAG = "FaditorSettingsBottomSheet";
 
+    /** Notified immediately when the safe-zone guide toggle changes, so the editor
+     *  can update the live preview overlay without waiting for a resume/reopen. */
+    public interface Callback {
+        void onSafeZoneOverlayToggled(boolean enabled);
+    }
+
+    @Nullable private Callback callback;
+
     /** Factory method. */
     @NonNull
     public static FaditorSettingsBottomSheet newInstance() {
         return new FaditorSettingsBottomSheet();
+    }
+
+    public void setCallback(@Nullable Callback callback) {
+        this.callback = callback;
     }
 
     // ── Theme & dark styling ─────────────────────────────────────────
@@ -130,6 +142,15 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                 getString(R.string.faditor_settings_ask_transcribe_desc),
                 prefs.isFaditorAskToTranscribeEnabled(),
                 (isChecked) -> prefs.setFaditorAskToTranscribeEnabled(isChecked));
+
+        addSwitchRow(content, dp,
+                getString(R.string.faditor_settings_safe_zone_title),
+                getString(R.string.faditor_settings_safe_zone_desc),
+                prefs.isFaditorSafeZoneOverlayEnabled(),
+                (isChecked) -> {
+                    prefs.setFaditorSafeZoneOverlayEnabled(isChecked);
+                    if (callback != null) callback.onSafeZoneOverlayToggled(isChecked);
+                });
 
         // NOTE (v2): the old "Tool order" manual/recent switch was removed. The
         // carousel now uses the divider model — pinned home row left of the

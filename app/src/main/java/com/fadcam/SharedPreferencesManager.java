@@ -835,6 +835,22 @@ public class SharedPreferencesManager {
             .apply();
     }
 
+    /** Returns whether the 9:16 safe-zone preview guide overlay is enabled. Default: false. */
+    public boolean isFaditorSafeZoneOverlayEnabled() {
+        return sharedPreferences.getBoolean(
+            Constants.PREF_FADITOR_SAFE_ZONE_OVERLAY_ENABLED,
+            false
+        );
+    }
+
+    /** Enable/disable the 9:16 safe-zone preview guide overlay (preview-only, never exported). */
+    public void setFaditorSafeZoneOverlayEnabled(boolean enabled) {
+        sharedPreferences
+            .edit()
+            .putBoolean(Constants.PREF_FADITOR_SAFE_ZONE_OVERLAY_ENABLED, enabled)
+            .apply();
+    }
+
     /** Returns whether home preview quick action icons stay visible while idle. Default: true. */
     public boolean isPreviewQuickActionsAlwaysVisible() {
         return sharedPreferences.getBoolean(

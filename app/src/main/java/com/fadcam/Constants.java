@@ -642,6 +642,10 @@ public abstract class Constants {
     // re-enabled from the editor's Settings sheet.
     public static final String PREF_FADITOR_ASK_TO_TRANSCRIBE =
         "pref_faditor_ask_to_transcribe";
+    // Faditor: preview-only 9:16 safe-zone guide overlay toggle (social-media safe
+    // margins). Purely a visual guide — never affects export. Default off.
+    public static final String PREF_FADITOR_SAFE_ZONE_OVERLAY_ENABLED =
+        "pref_faditor_safe_zone_overlay_enabled";
     // Faditor bottom-tools carousel customization (Stage 3).
     // JSON array of tool id strings = the user's manual drag order.
     public static final String PREF_FADITOR_TOOL_ORDER = "pref_faditor_tool_order";

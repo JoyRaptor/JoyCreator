@@ -632,6 +632,16 @@
             android:layout_height="match_parent"
             android:visibility="gone" />
 
+        <!-- 9:16 safe-zone guide (preview-only visual guide, never exported; toggled from
+             Settings). Non-interactive: never intercepts touches. -->
+        <com.fadcam.ui.faditor.player.SafeZoneOverlayView
+            android:id="@+id/safe_zone_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false"
+            android:visibility="gone" />
+
         <!-- Transcript reopen tab (caret on right edge, shown when panel closed) -->
         <TextView
             android:id="@+id/transcript_reopen_tab"

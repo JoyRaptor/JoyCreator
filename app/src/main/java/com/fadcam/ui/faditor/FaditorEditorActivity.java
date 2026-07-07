@@ -200,6 +200,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private String loadedSlideClipId;
     /** Backdrop drawing the canvas rect (black) + out-of-canvas hatch. */
     private com.fadcam.ui.faditor.player.CanvasFrameView canvasFrame;
+    /** Preview-only 9:16 safe-zone guide (road_map "small never-built features"); never exported. */
+    private com.fadcam.ui.faditor.player.SafeZoneOverlayView safeZoneOverlay;
     private FrameLayout playerContainer;
     private com.fadcam.ui.faditor.player.TransitionPreviewOverlayView transitionPreviewOverlay;
     private GlTransitionPreviewView glTransitionPreviewView;
@@ -1196,6 +1198,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         imagePreview = findViewById(R.id.image_preview);
         slidePreview = findViewById(R.id.slide_preview);
         canvasFrame = findViewById(R.id.canvas_frame);
+        safeZoneOverlay = findViewById(R.id.safe_zone_overlay);
         controlsSection = findViewById(R.id.controls_section);
         cropToolbar = findViewById(R.id.crop_toolbar);
         editorTimeline = findViewById(R.id.editor_timeline_view);
@@ -1910,9 +1913,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_filter).setOnClickListener(v -> openFilterSheet());
         findViewById(R.id.tool_sticker).setOnClickListener(v -> pickImageOverlay());
         findViewById(R.id.tool_silence).setOnClickListener(v -> toggleSilenceDetect());
-        findViewById(R.id.tool_settings).setOnClickListener(v ->
-                com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance()
-                        .show(getSupportFragmentManager(), "faditorSettings"));
+        findViewById(R.id.tool_settings).setOnClickListener(v -> {
+            com.fadcam.ui.faditor.FaditorSettingsBottomSheet sheet =
+                    com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance();
+            sheet.setCallback(this::setSafeZoneOverlayEnabled);
+            sheet.show(getSupportFragmentManager(), "faditorSettings");
+        });
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
         View toolCompact = findViewById(R.id.tool_compact);
         if (toolCompact != null) toolCompact.setOnClickListener(v -> compactLayers());
@@ -2049,6 +2055,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         initTimeline();
         applyCanvasFrame();
+        if (prefsManager != null) {
+            setSafeZoneOverlayEnabled(prefsManager.isFaditorSafeZoneOverlayEnabled());
+        }
         initToolbar();
         initExport();
         initBackHandler();
@@ -2076,6 +2085,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             loadClipForPlayback(initialClip);
         }
         applyCanvasFrame();
+        if (prefsManager != null) {
+            setSafeZoneOverlayEnabled(prefsManager.isFaditorSafeZoneOverlayEnabled());
+        }
         initToolbar();
         initExport();
         initBackHandler();
@@ -6008,6 +6020,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         sizeToCanvas(transitionPreviewOverlay, targetW, targetH);
         sizeToCanvas(glTransitionPreviewView, targetW, targetH);
         sizeToCanvas(waveformOverlayView, targetW, targetH);
+        // Safe-zone guide: sized to the same canvas rect so its margins read against
+        // the actual output frame, not the whole (possibly hatched) preview area.
+        sizeToCanvas(safeZoneOverlay, targetW, targetH);
+        if (safeZoneOverlay != null) {
+            safeZoneOverlay.setCanvasAspect(canvasAspect > 0 ? canvasAspect
+                    : (targetH > 0 ? (float) targetW / targetH : -1f));
+        }
     }
 
     private void sizeToCanvas(@Nullable View v, int w, int h) {
@@ -6015,6 +6034,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(w, h);
         lp.gravity = android.view.Gravity.CENTER;
         v.setLayoutParams(lp);
+    }
+
+    /**
+     * Enable/disable the preview-only 9:16 safe-zone guide (from the Settings sheet
+     * toggle). Purely a preview visual — the overlay only actually draws when the
+     * canvas aspect is ~9:16 (see {@link com.fadcam.ui.faditor.player.SafeZoneOverlayView}),
+     * but visibility itself is gated here so it costs nothing when off.
+     */
+    private void setSafeZoneOverlayEnabled(boolean enabled) {
+        if (safeZoneOverlay == null) return;
+        safeZoneOverlay.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        safeZoneOverlay.setGuideEnabled(enabled);
     }
 
     /**

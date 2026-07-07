@@ -1,8 +1,8 @@
 # FadCam AI Handoff
 
-> **🎓 2026-07-07 — OPUS "easy frontier" session: G7 COACH-MARKS + TRANSITIONS PULL-DOWN landed;
-> both export items DEFERRED (honest re-grade).** Two of four "easy"-graded frontier items were
-> genuinely safe/self-contained and shipped build-green + launch-smoke-clean on the sandbox:
+> **🎓 2026-07-07 — OPUS "easy frontier" session: G7 COACH-MARKS + TRANSITIONS PULL-DOWN landed,
+> JOYRAPTOR-VERIFIED ON DEVICE ("both work"); both export items DEFERRED (honest re-grade).** Two of four
+> "easy"-graded frontier items were genuinely safe/self-contained and shipped build-green + device-proven:
 > **G7 coach-marks (`954a63e`)** — first-ever timeline-item selection surfaces a one-time,
 > non-blocking banner teaching the invisible per-item gestures (double-tap=edit · hold=menu ·
 > drag=move); persisted in `faditor_ui`/`coachmark_item_gestures_shown`, auto-dismisses, hooks the
@@ -17,13 +17,9 @@
 > **export EDIT-SAFETY** — the project is handed to `ExportService` by REFERENCE (`setPendingProject`),
 > and the export overlay's Back button returns to a live editor, so edits during export mutate the
 > exporter's Timeline; the clean fix needs project snapshotting through the locked serializer. Both
-> belong in a dedicated Fable/export session. **OWED HAND-TESTS (JoyRaptor, sandbox — none scriptable, all
-> tap/gesture):** (a) open a project, tap-select a timeline item for the FIRST time on a fresh install
-> (or after clearing the `faditor_ui` pref) → the coach-mark banner appears top-center, "Got it"/tap/
-> ~7s dismisses it, and it never returns on subsequent selections; (b) open the Transitions drawer →
-> the GL cards are hidden, a "⌄ More effects" bar shows → tap it (or fling down on it) → GL row
-> reveals + label flips to "⌃ Fewer effects" → tap/fling-up collapses it again; basic transitions
-> still insert on tap as before.
+> belong in a dedicated Fable/export session. **HAND-TESTS: DONE — JoyRaptor confirmed "both work" on
+> device (2026-07-07):** (a) coach-mark banner appears on first timeline-item selection + dismisses +
+> stays gone; (b) Transitions drawer "⌄ More effects" bar reveals/collapses the GL row. No follow-ups owed.
 >
 > **⚡ 2026-07-07 — OPENCODE/SONNET: 10-task road_map §BACKLOG queue — 8 DONE, 1 PARTIAL, 1
 > SKIPPED (all detail in Opencode-work.md's bottom PROGRESS LOG entry).** Commits: `ac23f30`

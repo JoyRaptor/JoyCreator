@@ -10417,13 +10417,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
         overlayLayer.setSnapEnabled(overlaySoftSnapEnabled);
         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
-        // Reposition overlays whenever the preview area changes size.
+        // Reposition overlays whenever the preview area changes. On a SIZE change (rotation, or a
+        // preview/timeline split), RE-FLOW the whole preview — the canvas rect + every explicitly-
+        // sized preview view are pinned to the container size in applyCanvasFrame(), so without this
+        // they stay stuck at the old framing (the "preview went tiny to fit landscape and stayed tiny
+        // back in portrait" bug, JoyRaptor 2026-07-07). A position-only change just rebuilds the overlays.
         playerContainer.addOnLayoutChangeListener(
                 (v, l, t, r, b, ol, ot, or, ob) -> {
-                    if (l != ol || t != ot || r != or || b != ob) {
+                    boolean sizeChanged = (r - l) != (or - ol) || (b - t) != (ob - ot);
+                    if (sizeChanged) {
+                        reflowPreview();
+                    } else if (l != ol || t != ot || r != or || b != ob) {
                         overlayLayer.post(() -> overlayLayer.rebuild());
                     }
                 });
+    }
+
+    /**
+     * Re-flow the entire preview after the player container changes size (rotation, or a
+     * preview/timeline split change): recompute the canvas rect + every explicitly-sized preview
+     * view via {@link #applyCanvasFrame()}, then — once those have laid out — re-apply the
+     * crop/rotation transforms and reposition every overlay. Root fix for "the preview went tiny to
+     * fit landscape and stayed tiny back in portrait" (JoyRaptor 2026-07-07): applyCanvasFrame pins pixel
+     * sizes to the container, so a resize must recompute them or the old framing sticks.
+     */
+    private void reflowPreview() {
+        if (project == null) return;
+        applyCanvasFrame();
+        if (playerView == null) return;
+        // Defer transforms + rebuilds until the resized preview views have laid out, so
+        // updatePreviewTransforms() reads the NEW playerView dimensions (not the stale ones).
+        playerView.post(() -> {
+            updatePreviewTransforms();
+            if (overlayLayer != null) overlayLayer.rebuild();
+            if (spriteOverlayView != null) spriteOverlayView.invalidate();
+            if (waveformOverlayView != null) waveformOverlayView.invalidate();
+            if (captionOverlay != null) captionOverlay.invalidate();
+            if (audioCaptionOverlay != null) audioCaptionOverlay.invalidate();
+        });
     }
 
     private void toggleOverlaySoftSnap() {

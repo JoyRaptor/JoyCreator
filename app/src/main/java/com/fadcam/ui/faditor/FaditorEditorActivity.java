@@ -7056,6 +7056,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         // G3: the keyframe ribbon's diamond tracks the scrub too.
         if (ribbonProp != null) refreshKeyframeRibbon();
+        // G4: the manipulation-handles box follows keyframed transforms and
+        // hides outside the selected object's time range.
+        if (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget()) {
+            previewHandlesOverlay.setPlayheadMs(absoluteMs);
+        }
 
         // Drive overlay time-ranges + keyframe animation from the playhead.
         if (overlayLayer != null && overlayLayer.getVisibility() == View.VISIBLE) {
@@ -9868,6 +9873,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // lifted-then-dropped-in-place with no side effect (the pickup already gave
                 // haptic feedback), wired as their §2 Prop adapters come online.
             }
+
+            @Override
+            public void onItemSelectionChanged(
+                    @Nullable com.fadcam.ui.faditor.layers.Track track,
+                    @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
+                // G4 (gesture contract §1): tap-select spawns manipulation handles
+                // in the preview; deselect (or selecting a type without a handles
+                // target yet) hides them.
+                updatePreviewHandlesForSelection(item);
+            }
         };
     }
 
@@ -12578,6 +12593,258 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean on = ribbonProp.onKeyAt(lastPlayheadAbsoluteMs);
         ribbonDiamond.setText(on ? "◆" : "◇");
         ribbonDiamond.setTextColor(on ? 0xFF4CAF50 : 0xFFAAAAAA);
+    }
+
+    // ── G4: preview manipulation handles — tap-select a layer-row item and its
+    //    bounding box + scale corners + rotate stalk appear over the preview,
+    //    wired to the SAME keyframe-aware transform writes as the G2 menu ──
+
+    @Nullable private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay previewHandlesOverlay;
+
+    @NonNull
+    private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay ensurePreviewHandlesOverlay() {
+        if (previewHandlesOverlay == null) {
+            float d = getResources().getDisplayMetrics().density;
+            previewHandlesOverlay =
+                    new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay(this);
+            // Above the text/sprite/caption layers (XML, elevation 0), below the
+            // keyframe ribbon (10dp) so the ribbon stays tappable during a drag.
+            previewHandlesOverlay.setElevation(8 * d);
+            android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
+            playerContainer.addView(previewHandlesOverlay,
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        return previewHandlesOverlay;
+    }
+
+    /**
+     * G4 routing from {@code onItemSelectionChanged}: text/image + sprite get
+     * handle targets (their transform models + G2 write conventions exist);
+     * audio/PiP/visualizer/caption → handles hidden (their targets come online
+     * with their §2 Prop adapters, same staging as the G2 menu).
+     */
+    private void updatePreviewHandlesForSelection(
+            @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
+        if (item != null && item.getTextOverlay() != null) {
+            ensurePreviewHandlesOverlay().setTarget(textHandlesTarget(item.getTextOverlay()));
+        } else if (item != null && item.getSprite() != null) {
+            ensurePreviewHandlesOverlay().setTarget(spriteHandlesTarget(item.getSprite()));
+        } else if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setTarget(null);
+        }
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
+        }
+    }
+
+    /**
+     * Handles target for a text/image overlay. Box = the EXACT laid-out
+     * {@link com.fadcam.ui.faditor.overlay.TextOverlayLayer} child for this item
+     * (same view the user sees — no duplicated measure math; both layers are
+     * MATCH_PARENT siblings in player_container so coordinates line up). Writes
+     * mirror {@link #overlayMenuProp}'s setter: armed → record/update keys at
+     * the playhead, unarmed → static setters. ONE undo step per gesture via
+     * {@link #recordOverlayMenuUndo}.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target textHandlesTarget(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        return new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target() {
+            @Nullable com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before;
+
+            @Override
+            public boolean frame(long timeMs, @NonNull android.graphics.RectF outRect) {
+                if (project == null
+                        || !project.getTimeline().getTextOverlays().contains(o)
+                        || !o.isVisibleAt(timeMs) || overlayLayer == null) {
+                    return false;
+                }
+                for (int i = 0; i < overlayLayer.getChildCount(); i++) {
+                    View v = overlayLayer.getChildAt(i);
+                    if (v.getTag() == o) {
+                        android.widget.FrameLayout.LayoutParams lp =
+                                (android.widget.FrameLayout.LayoutParams) v.getLayoutParams();
+                        if (lp.width <= 0 || lp.height <= 0) return false; // pre-layout
+                        outRect.set(lp.leftMargin, lp.topMargin,
+                                lp.leftMargin + lp.width, lp.topMargin + lp.height);
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public float rotationDeg(long timeMs) { return o.animatedRotation(timeMs); }
+
+            @Override
+            public float centerX(long timeMs) { return o.animatedCenterX(timeMs); }
+
+            @Override
+            public float centerY(long timeMs) { return o.animatedCenterY(timeMs); }
+
+            @Override
+            public float sizeFraction(long timeMs) { return o.animatedSizeFraction(timeMs); }
+
+            @NonNull
+            @Override
+            public android.graphics.RectF videoRect() { return computeCanvasRect(); }
+
+            @Override
+            public void beginGesture() { before = o.snapshotTransform(); }
+
+            @Override
+            public void moveTo(float normCx, float normCy, long timeMs) {
+                if (o.isArmed()) {
+                    o.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.X, timeMs, normCx);
+                    o.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, timeMs, normCy);
+                } else {
+                    o.setCenter(normCx, normCy);
+                }
+                refreshTextAfterHandleWrite();
+            }
+
+            @Override
+            public void scaleTo(float sizeFraction, long timeMs) {
+                if (o.isArmed()) {
+                    o.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, timeMs, sizeFraction);
+                } else {
+                    o.setSizeFraction(sizeFraction);
+                }
+                refreshTextAfterHandleWrite();
+            }
+
+            @Override
+            public void rotateTo(float deg, long timeMs) {
+                if (o.isArmed()) {
+                    o.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, timeMs, deg);
+                } else {
+                    o.setRotationDeg(deg);
+                }
+                refreshTextAfterHandleWrite();
+            }
+
+            @Override
+            public void commit(@NonNull String what) {
+                if (before != null) recordOverlayMenuUndo(o, before, what + " overlay");
+                before = null;
+                syncTimelineOverlays();
+                if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+                    objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+                }
+            }
+        };
+    }
+
+    /** Light per-drag-frame refresh: reposition text children, no rebuild. */
+    private void refreshTextAfterHandleWrite() {
+        if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+    }
+
+    /**
+     * Handles target for a sprite. Box math mirrors SpriteOverlayView#drawSprite
+     * (height fraction × cell aspect); writes/undo mirror {@link #spriteMenuProp}.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target spriteHandlesTarget(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+        return new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target() {
+            @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before;
+
+            @Override
+            public boolean frame(long timeMs, @NonNull android.graphics.RectF outRect) {
+                if (project == null
+                        || !project.getTimeline().getSpriteOverlays().contains(s)
+                        || !s.isVisibleAt(timeMs)) {
+                    return false;
+                }
+                android.graphics.RectF r = computeCanvasRect();
+                if (r.width() <= 0 || r.height() <= 0) return false;
+                float cx = r.left + s.animatedCenterX(timeMs) * r.width();
+                float cy = r.top + s.animatedCenterY(timeMs) * r.height();
+                float h = s.animatedSizeFraction(timeMs) * r.height();
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer renderer =
+                        spriteRendererFor(s.getSheetId());
+                float aspect = renderer != null ? renderer.cellAspect() : 1f;
+                float w = h * (aspect > 0 ? aspect : 1f);
+                outRect.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
+                return true;
+            }
+
+            @Override
+            public float rotationDeg(long timeMs) { return s.animatedRotation(timeMs); }
+
+            @Override
+            public float centerX(long timeMs) { return s.animatedCenterX(timeMs); }
+
+            @Override
+            public float centerY(long timeMs) { return s.animatedCenterY(timeMs); }
+
+            @Override
+            public float sizeFraction(long timeMs) { return s.animatedSizeFraction(timeMs); }
+
+            @NonNull
+            @Override
+            public android.graphics.RectF videoRect() { return computeCanvasRect(); }
+
+            @Override
+            public void beginGesture() { before = s.snapshotTransform(); }
+
+            @Override
+            public void moveTo(float normCx, float normCy, long timeMs) {
+                if (s.isArmed()) {
+                    s.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.X, timeMs, normCx);
+                    s.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, timeMs, normCy);
+                } else {
+                    s.setCenter(normCx, normCy);
+                }
+                refreshSpriteAfterHandleWrite();
+            }
+
+            @Override
+            public void scaleTo(float sizeFraction, long timeMs) {
+                if (s.isArmed()) {
+                    s.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, timeMs, sizeFraction);
+                } else {
+                    s.setSizeFraction(sizeFraction);
+                }
+                refreshSpriteAfterHandleWrite();
+            }
+
+            @Override
+            public void rotateTo(float deg, long timeMs) {
+                if (s.isArmed()) {
+                    s.addPropertyKeyframeAt(
+                            com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, timeMs, deg);
+                } else {
+                    s.setRotationDeg(deg);
+                }
+                refreshSpriteAfterHandleWrite();
+            }
+
+            @Override
+            public void commit(@NonNull String what) {
+                if (before != null) recordSpriteMenuUndo(s, before, what + " sprite");
+                before = null;
+                syncTimelineOverlays();
+                if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+                    objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+                }
+            }
+        };
+    }
+
+    /** Light per-drag-frame refresh: re-evaluate sprite transforms + repaint. */
+    private void refreshSpriteAfterHandleWrite() {
+        if (spriteOverlayView != null) spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
     }
 
     /**

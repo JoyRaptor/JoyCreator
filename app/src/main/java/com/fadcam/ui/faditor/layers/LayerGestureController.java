@@ -135,6 +135,19 @@ public final class LayerGestureController {
          * its per-type options menu (text/image → the layer-item actions dialog, …).
          */
         default void onItemMenuRequested(@NonNull Track track, @NonNull TimedItem item) {}
+
+        /**
+         * The row-item SELECTION changed (gesture contract §1: tap = select — outline the
+         * row bar AND spawn manipulation handles in the PREVIEW, G4). Fires whenever
+         * {@code selectedItemId} actually transitions: a body-down on a different item
+         * ({@code item} non-null, with its {@code track}), a body-down on empty row space,
+         * or {@link LayerGestureController#clearSelection} ({@code item}/{@code track}
+         * null). NOT re-fired on a body-down on the already-selected item. The activity
+         * shows/hides the preview manipulation-handles overlay from here; badge/outline
+         * rendering is unaffected (the renderer keeps reading {@code selectedItemId}
+         * directly).
+         */
+        default void onItemSelectionChanged(@Nullable Track track, @Nullable TimedItem item) {}
     }
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT }
@@ -293,7 +306,11 @@ public final class LayerGestureController {
     @Nullable
     public String getSelectedItemId() { return selectedItemId; }
 
-    public void clearSelection() { selectedItemId = null; }
+    public void clearSelection() {
+        boolean had = selectedItemId != null;
+        selectedItemId = null;
+        if (had) callback.onItemSelectionChanged(null, null);
+    }
 
     /**
      * DOWN on a row body (already confirmed within the row region and not a header hit by
@@ -319,12 +336,14 @@ public final class LayerGestureController {
                                     @NonNull LayerRowRenderer.TimeToX timeToX) {
         LayerRowRenderer.ItemHit hit = rowRenderer.hitTestItem(x, y, topPx, totalMs, timeToX, selectedItemId);
         if (hit == null) {
+            boolean hadSelection = selectedItemId != null;
             selectedItemId = null;
             active = false;
             pendingBodyDown = false;
             pendingDeleteBadge = false;
             pickupArmed = false;
             lastTapItemId = null; // an empty-space touch breaks any pending double-tap pairing
+            if (hadSelection) callback.onItemSelectionChanged(null, null);
             return DownResult.MISS;
         }
         activeTrack = hit.track;
@@ -364,10 +383,12 @@ public final class LayerGestureController {
         // the follow-up events. active=true so isMoveDragActive()/onRowBodyUp() have a
         // consistent lifecycle, but activeKind stays MOVE only as the *potential* kind;
         // movedDuringGesture stays false until beginPickup().
+        boolean selectionChanged = !hit.item.getId().equals(selectedItemId);
         selectedItemId = hit.item.getId();
         active = true;
         pendingBodyDown = true;
         activeKind = GestureKind.MOVE;
+        if (selectionChanged) callback.onItemSelectionChanged(hit.track, hit.item);
         return DownResult.PENDING;
     }
 

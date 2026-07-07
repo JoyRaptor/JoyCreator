@@ -164,6 +164,15 @@ public class WaveformOverlayInstance {
     public int getBandCountOverride() { return bandCountOverride; }
     public void setBandCountOverride(int v) { this.bandCountOverride = Math.max(0, Math.min(256, v)); }
 
+    /** Visualizer-studio Phase 3: per-instance bar width/gap overrides (0 = use preset). */
+    private float barWidthOverrideDp = 0f;
+    private float barGapOverrideDp = 0f;
+
+    public float getBarWidthOverrideDp() { return barWidthOverrideDp; }
+    public void setBarWidthOverrideDp(float dp) { this.barWidthOverrideDp = Math.max(0f, Math.min(48f, dp)); }
+    public float getBarGapOverrideDp() { return barGapOverrideDp; }
+    public void setBarGapOverrideDp(float dp) { this.barGapOverrideDp = Math.max(0f, Math.min(24f, dp)); }
+
     @Nullable public String getColorOverride() { return colorOverride; }
     /** Setting a solid colour clears any gradient override (the two are mutually exclusive). */
     public void setColorOverride(@Nullable String hex) {
@@ -201,6 +210,13 @@ public class WaveformOverlayInstance {
             s = s.withColorOverride(colorOverride);
         }
         if (sensitivityOverride > 0f) s = s.withSensitivity(sensitivityOverride);
+        if (barWidthOverrideDp > 0f || barGapOverrideDp > 0f) {
+            // The with-* helpers above return copies; if none applied we must copy
+            // before mutating so the shared preset object is never written through.
+            if (s == base) s = base.copy();
+            if (barWidthOverrideDp > 0f) s.barWidthDp = barWidthOverrideDp;
+            if (barGapOverrideDp > 0f) s.barGapDp = barGapOverrideDp;
+        }
         return s;
     }
 

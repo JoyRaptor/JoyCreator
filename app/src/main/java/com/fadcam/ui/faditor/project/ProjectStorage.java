@@ -1641,6 +1641,8 @@ public class ProjectStorage {
                     if (wo.getFrequencyRangeLowHz() != 20) wj.addProperty("freqLowHz", wo.getFrequencyRangeLowHz());
                     if (wo.getFrequencyRangeHighHz() != 20000) wj.addProperty("freqHighHz", wo.getFrequencyRangeHighHz());
                     if (wo.getBandCountOverride() != 0) wj.addProperty("bandCount", wo.getBandCountOverride());
+                    if (wo.getBarWidthOverrideDp() > 0f) wj.addProperty("barWidthDp", wo.getBarWidthOverrideDp());
+                    if (wo.getBarGapOverrideDp() > 0f) wj.addProperty("barGapDp", wo.getBarGapOverrideDp());
                     if (wo.getColorOverride() != null) wj.addProperty("colorOverride", wo.getColorOverride());
                     if (wo.getSensitivityOverride() > 0f) wj.addProperty("sensitivity", wo.getSensitivityOverride());
                     if (wo.getGradientStartOverride() != null && wo.getGradientEndOverride() != null) {
@@ -2091,6 +2093,8 @@ public class ProjectStorage {
                         if (wj.has("freqLowHz")) wo.setFrequencyRangeLowHz(wj.get("freqLowHz").getAsInt());
                         if (wj.has("freqHighHz")) wo.setFrequencyRangeHighHz(wj.get("freqHighHz").getAsInt());
                         if (wj.has("bandCount")) wo.setBandCountOverride(wj.get("bandCount").getAsInt());
+                        if (wj.has("barWidthDp")) wo.setBarWidthOverrideDp(wj.get("barWidthDp").getAsFloat());
+                        if (wj.has("barGapDp")) wo.setBarGapOverrideDp(wj.get("barGapDp").getAsFloat());
                         if (wj.has("colorOverride")) wo.setColorOverride(wj.get("colorOverride").getAsString());
                         if (wj.has("sensitivity")) wo.setSensitivityOverride(wj.get("sensitivity").getAsFloat());
                         if (wj.has("gradStart") && wj.has("gradEnd")) {

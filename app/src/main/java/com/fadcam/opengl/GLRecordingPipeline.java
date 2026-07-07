@@ -38,7 +38,10 @@ import com.fadcam.media.FragmentedMp4MuxerWrapper;
 public class GLRecordingPipeline {
     private static final String TAG = "GLRecordingPipeline";
     private static final String VIDEO_MIME_TYPE = "video/avc";
-    private static final int VIDEO_IFRAME_INTERVAL = 1;
+    // 2s GOP (was 1s): fewer full I-frames for the same visual quality, lower average
+    // bitrate/CPU; still short enough for prompt seeking in the player/editor. No user-facing
+    // settings surface exists for encoder GOP today, so this stays a constant.
+    private static final int VIDEO_IFRAME_INTERVAL = 2;
     private static final int PREVIEW_RENDER_INTERVAL_MS = 33; // Safer 30fps instead of 60fps
     private static final int RENDER_RETRY_DELAY_MS = 33; // Match with preview render interval
 

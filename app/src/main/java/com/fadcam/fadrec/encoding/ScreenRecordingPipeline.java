@@ -54,7 +54,11 @@ public class ScreenRecordingPipeline {
 
     private static final String TAG = "ScreenRecPipeline";
     private static final String VIDEO_MIME_TYPE = "video/avc";
-    private static final int VIDEO_IFRAME_INTERVAL = 1;
+    // 2s GOP: halves the encoder's average keyframe rate vs the previous 1s default (fewer full
+    // I-frames = lower average bitrate/CPU for the same visual quality most of the time); 2s is
+    // still short enough for prompt seeking in the player/editor. No user-facing settings surface
+    // exists for encoder GOP today, so this stays a constant — bump here if that ever changes.
+    private static final int VIDEO_IFRAME_INTERVAL = 2;
     private static volatile boolean preferSoftwareAvcEncoder = false;
 
     public static boolean isPreferringSoftwareAvcEncoder() {

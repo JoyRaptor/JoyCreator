@@ -63,6 +63,9 @@ public class EditorTimelineView extends View {
     private static final float RULER_HEIGHT_DP = 22f;
     private static final float MINIMAP_HEIGHT_DP = 16f;
     private static final float TRACK_HEIGHT_DP = 56f;
+    /** Sprocket-rail thickness reserved OUTSIDE the film content (top + bottom of the master band),
+     *  so the perforations FRAME the thumbnails instead of covering them (JoyRaptor 2026-07-07). */
+    private static final float FILM_RAIL_DP = 7f;
     private static final float SEGMENT_GAP_DP = 4f;
     private static final float SEGMENT_CORNER_DP = 6f;
 
@@ -1570,7 +1573,7 @@ public class EditorTimelineView extends View {
             contentWidthPx = 0;
             return;
         }
-        float tTop = masterTopPx();
+        float tTop = masterContentTopPx();
         float x = edgePaddingPx;
 
         for (int i = 0; i < segments.size(); i++) {
@@ -1612,7 +1615,7 @@ public class EditorTimelineView extends View {
 
     @Override
     protected void onMeasure(int wSpec, int hSpec) {
-        float contentDp = MINIMAP_HEIGHT_DP + RULER_HEIGHT_DP + TRACK_HEIGHT_DP;
+        float contentDp = MINIMAP_HEIGHT_DP + RULER_HEIGHT_DP + TRACK_HEIGHT_DP + 2f * FILM_RAIL_DP;
         if (!audioClips.isEmpty()) {
             contentDp += AUDIO_TRACK_GAP_DP
                     + audioLaneCount * AUDIO_TRACK_HEIGHT_DP
@@ -2259,9 +2262,20 @@ public class EditorTimelineView extends View {
         return band > 0f ? rulerHeightPx + band + LAYER_TOP_GAP_DP * density : rulerHeightPx;
     }
 
-    /** Bottom Y (px) of the MASTER video track band. */
+    /** Sprocket-rail thickness (px) reserved OUTSIDE the film content at the top &amp; bottom of the
+     *  master band, so the perforations frame the thumbnails instead of covering them (JoyRaptor 2026-07-07). */
+    private float filmRailPx() {
+        return FILM_RAIL_DP * density;
+    }
+
+    /** Top Y (px) of the master FILM CONTENT (thumbnails) — below the top sprocket rail. */
+    private float masterContentTopPx() {
+        return masterTopPx() + filmRailPx();
+    }
+
+    /** Bottom Y (px) of the MASTER video track band, including the sprocket rail above &amp; below the film. */
     private float masterBotPx() {
-        return masterTopPx() + trackHeightPx;
+        return masterTopPx() + filmRailPx() + trackHeightPx + filmRailPx();
     }
 
     /** Reserved vertical space (px) for the master transcript row below the tape. */
@@ -3348,7 +3362,8 @@ public class EditorTimelineView extends View {
         // sprocket holes are content-locked and TRAVEL with the strip as it scrolls, and (b) the green
         // trim handles paint on TOP of the frame, not behind it (JoyRaptor 2026-07-06). Rails + holes are
         // culled to the visible content span so the cost is constant regardless of timeline length.
-        float railH = 7f * density;
+        // railH == filmRailPx() (the reserved OUTSIDE margin) so the rails frame the film, not cover it.
+        float railH = filmRailPx();
         float left = scrollOffsetPx;
         float right = scrollOffsetPx + w;
         filmPaint.setStyle(Paint.Style.FILL);

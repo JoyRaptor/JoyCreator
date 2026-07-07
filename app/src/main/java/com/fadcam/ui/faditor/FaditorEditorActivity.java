@@ -1755,7 +1755,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         project.getTimeline().getTextOverlays();
                 if (overlayIndex < 0 || overlayIndex >= os.size()) return;
                 final com.fadcam.ui.faditor.model.TextOverlayItem o = os.get(overlayIndex);
-                showLayerItemActionsDialog(o);
+                // G2: canvas long-press = the same general advanced menu as the
+                // timeline hold-release (one menu, contract §2).
+                showObjectMenuSheetForTextOverlay(o);
             }
 
             @Override
@@ -7048,6 +7050,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (opacityDrawerOpen) refreshOpacityDrawer();
         updateOpacityUI();
         refreshCaptionKeyframeDrawer();
+        // G2: the object-menu peek sheet tracks the scrub (values + diamonds).
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            objectMenuSheet.onPlayheadChanged(absoluteMs);
+        }
 
         // Drive overlay time-ranges + keyframe animation from the playhead.
         if (overlayLayer != null && overlayLayer.getVisibility() == View.VISIBLE) {
@@ -9847,16 +9853,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onItemMenuRequested(@NonNull com.fadcam.ui.faditor.layers.Track track,
                     @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
-                // G1 (gesture contract §1): hold → release-in-place opens the object's
-                // general advanced menu. For text/image overlays this is the existing
-                // layer-item actions dialog (new layer above/below, move to layer, remove)
-                // — the interim §2 general menu until the peek/sandwich sheet lands.
+                // G1→G2 (gesture contract §1/§2): hold → release-in-place opens the
+                // object's general advanced menu — now the G2 peek/expand bottom sheet:
+                // peek = active property row + diamond with the timeline still live;
+                // expand = full property/action menu; More… = the double-tap type editor.
                 if (item.getTextOverlay() != null) {
-                    showLayerItemActionsDialog(item.getTextOverlay());
+                    showObjectMenuSheetForTextOverlay(item.getTextOverlay());
                 }
                 // Audio / PiP / sprite / visualizer: no general menu yet — the item stays
                 // lifted-then-dropped-in-place with no side effect (the pickup already gave
-                // haptic feedback), wired when the §2 general advanced menu is built.
+                // haptic feedback), wired as their §2 Prop adapters come online.
             }
         };
     }
@@ -12450,56 +12456,175 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * new layer above/below (enabling the layer sandwich they want) or shift it to an
      * adjacent existing layer. Each action is ONE undo step. Delete stays available.
      */
-    private void showLayerItemActionsDialog(
+    // ── G2: general advanced menu — peek/expand bottom sheet (contract §2/§3) ──
+
+    /** Lazily created, lives in the root FrameLayout ABOVE editor_root so peek
+     *  mode overlays only the bottom strip while timeline + preview stay live. */
+    @Nullable private ObjectMenuSheet objectMenuSheet;
+
+    @NonNull
+    private ObjectMenuSheet ensureObjectMenuSheet() {
+        if (objectMenuSheet == null) {
+            objectMenuSheet = new ObjectMenuSheet(this);
+            android.view.ViewGroup root =
+                    (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
+            android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.Gravity.BOTTOM);
+            root.addView(objectMenuSheet, lp);
+        }
+        return objectMenuSheet;
+    }
+
+    /**
+     * G2 (gesture contract §2): the general advanced menu for a text/image
+     * overlay — general keyframeable property rows (position/scale/rotation/
+     * opacity, each with a G2-basic keyframe diamond), the object's layer
+     * actions, header delete, and "More…" into the same type editor double-tap
+     * opens. Supersedes the interim showLayerItemActionsDialog list dialog.
+     * One undo step per slider gesture / keyframe drop (TransformSnapshot).
+     */
+    private void showObjectMenuSheetForTextOverlay(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
+        final String K_X = com.fadcam.ui.faditor.keyframe.KeyframeSet.X;
+        final String K_Y = com.fadcam.ui.faditor.keyframe.KeyframeSet.Y;
+        final String K_SCALE = com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE;
+        final String K_ROT = com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION;
+        final String K_OP = com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY;
 
-        java.util.List<String> labels = new java.util.ArrayList<>();
-        java.util.List<Runnable> actions = new java.util.ArrayList<>();
+        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
 
-        labels.add("New layer above");           // TODO(strings)
-        actions.add(() -> moveOverlayItemToNewLayer(o, true));
-        labels.add("New layer below");           // TODO(strings)
-        actions.add(() -> moveOverlayItemToNewLayer(o, false));
+        // Contract §2 general order: Transform (position · scale · rotation),
+        // then Opacity. Peek still defaults to Opacity (the everyday row).
+        java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
+        props.add(overlayMenuProp(o, K_X, "Pos X", 0f, 1f, pct,         // TODO(strings)
+                ms -> o.animatedCenterX(ms)));
+        props.add(overlayMenuProp(o, K_Y, "Pos Y", 0f, 1f, pct,         // TODO(strings)
+                ms -> o.animatedCenterY(ms)));
+        props.add(overlayMenuProp(o, K_SCALE, "Scale", 0.02f, 0.6f, pct, // TODO(strings)
+                ms -> o.animatedSizeFraction(ms)));
+        props.add(overlayMenuProp(o, K_ROT, "Rotate", -180f, 180f, deg, // TODO(strings)
+                ms -> normDeg(o.animatedRotation(ms))));
+        props.add(overlayMenuProp(o, K_OP, "Opacity", 0f, 1f, pct,      // TODO(strings)
+                ms -> o.animatedOpacity(ms)));
 
+        java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
+        actions.add(new ObjectMenuSheet.Action("New layer above", false, // TODO(strings)
+                () -> moveOverlayItemToNewLayer(o, true)));
+        actions.add(new ObjectMenuSheet.Action("New layer below", false, // TODO(strings)
+                () -> moveOverlayItemToNewLayer(o, false)));
         // Adjacent-layer moves only make sense with >1 floating layer present.
         java.util.List<com.fadcam.ui.faditor.layers.Track> layers = timeline.getLayers();
         int rowIdx = overlayItemRowIndex(o, layers);
         if (layers.size() > 1 && rowIdx >= 0) {
             if (rowIdx > 0) { // not already the top row (row 0 = highest z)
-                labels.add("Move to layer ▲"); // up = ▲   TODO(strings)
-                actions.add(() -> moveOverlayItemToAdjacentLayer(o, true));
+                actions.add(new ObjectMenuSheet.Action("Move to layer ▲", false, // TODO(strings)
+                        () -> moveOverlayItemToAdjacentLayer(o, true)));
             }
             if (rowIdx < layers.size() - 1) {
-                labels.add("Move to layer ▼"); // down = ▼  TODO(strings)
-                actions.add(() -> moveOverlayItemToAdjacentLayer(o, false));
+                actions.add(new ObjectMenuSheet.Action("Move to layer ▼", false, // TODO(strings)
+                        () -> moveOverlayItemToAdjacentLayer(o, false)));
             }
         }
 
-        labels.add(o.isImage() ? "Remove image" : "Remove text"); // TODO(strings)
-        actions.add(() -> {
-            timeline.removeTextOverlay(o);
-            final String fromTrackId = o.getLayerId();
-            undoManager.recordAction(new EditActions.LambdaAction(
-                    o.isImage() ? "Delete image overlay" : "Delete text overlay",
-                    () -> { timeline.removeTextOverlay(o);
-                            if (fromTrackId != null) maybeRemoveEmptyLayerTrack(fromTrackId);
-                            refreshAfterOverlayLayerChange(); },
-                    () -> { timeline.addTextOverlay(o); refreshAfterOverlayLayerChange(); }));
-            if (fromTrackId != null) maybeRemoveEmptyLayerTrack(fromTrackId);
-            refreshAfterOverlayLayerChange();
-            scheduleAutoSave();
-            Toast.makeText(FaditorEditorActivity.this, "Removed", Toast.LENGTH_SHORT).show();
-        });
+        final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[] sliderBefore =
+                new com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[1];
+        ObjectMenuSheet.GestureHooks hooks = new ObjectMenuSheet.GestureHooks() {
+            @Override public void onSliderStart() { sliderBefore[0] = o.snapshotTransform(); }
+            @Override public void onSliderCommit(@NonNull String what) {
+                if (sliderBefore[0] != null) recordOverlayMenuUndo(o, sliderBefore[0], what);
+                sliderBefore[0] = null;
+            }
+        };
 
-        final Runnable[] acts = actions.toArray(new Runnable[0]);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
-                .setTitle(o.isImage() ? "Image layer" : "Text layer") // TODO(strings)
-                .setItems(labels.toArray(new CharSequence[0]),
-                        (d, which) -> { if (which >= 0 && which < acts.length) acts[which].run(); })
-                .setNegativeButton("Cancel", null) // TODO(strings)
-                .show();
+        String title = o.isImage() ? "Image"                            // TODO(strings)
+                : (o.getText().length() > 18 ? o.getText().substring(0, 18) + "…" : o.getText());
+        Integer swatch = o.isImage() ? null : o.getColorInt();
+        ensureObjectMenuSheet().show(title, swatch, props, actions,
+                () -> showTextOverlayEditor(o),
+                () -> deleteTextOverlayWithConfirmation(o),
+                hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    /** Normalize degrees into the slider's [-180, 180) window. */
+    private static float normDeg(float v) {
+        return ((v % 360f) + 540f) % 360f - 180f;
+    }
+
+    /** Build one §2 property row adapter: keyframe-aware write + diamond state. */
+    @NonNull
+    private ObjectMenuSheet.Prop overlayMenuProp(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull String key, @NonNull String label, float min, float max,
+            @NonNull ObjectMenuSheet.ValueFormat fmt, @NonNull ObjectMenuSheet.Getter get) {
+        ObjectMenuSheet.Setter set = (v, ms) -> {
+            if (o.isArmed()) {
+                // Armed = value changes record/update a keyframe at the playhead
+                // (AUTO mode, contract §2 [JOYRAPTOR-CAN-FLIP]) — mirrors the shipped
+                // opacity-slider behavior in buildOverlayAnimationControls.
+                o.addPropertyKeyframeAt(key, ms, v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.X.equals(key)) {
+                o.setCenter(v, o.getCenterY());
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.Y.equals(key)) {
+                o.setCenter(o.getCenterX(), v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE.equals(key)) {
+                o.setSizeFraction(v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(key)) {
+                o.setRotationDeg(v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY.equals(key)) {
+                o.setOpacity(v);
+            }
+            if (overlayLayer != null) {
+                overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                overlayLayer.rebuild();
+            }
+            syncTimelineOverlays();
+        };
+        ObjectMenuSheet.OnKeyQuery onKey = ms -> overlayPropOnKeyAt(o, key, ms);
+        Runnable dropKey = () -> {
+            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                    o.snapshotTransform();
+            if (o.isArmed()) {
+                o.addPropertyKeyframeAt(key, lastPlayheadAbsoluteMs,
+                        get.at(lastPlayheadAbsoluteMs));
+            } else {
+                // First key ARMS the overlay — record the whole current pose,
+                // same as the type editor's "Add keyframe" button.
+                o.addKeyframeAt(lastPlayheadAbsoluteMs);
+            }
+            recordOverlayMenuUndo(o, before, "Add keyframe");
+            if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            syncTimelineOverlays();
+        };
+        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey);
+    }
+
+    /** Is the playhead sitting on (within ~2 frames of) a key of this property? */
+    private boolean overlayPropOnKeyAt(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                       @NonNull String key, long playheadMs) {
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = o.getKeyframes().get(key);
+        if (tr == null) return false;
+        long local = Math.max(0, playheadMs - o.getStartMs());
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (Math.abs(k.timeMs - local) <= 66) return true;
+        }
+        return false;
+    }
+
+    /** One undo step per committed menu gesture (slider drag / diamond tap). */
+    private void recordOverlayMenuUndo(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before,
+            @NonNull String description) {
+        com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after =
+                o.snapshotTransform();
+        if (after.matches(before)) return;
+        undoManager.recordAction(new EditActions.OverlayTransformAction(o, before, after, description));
+        scheduleAutoSave();
     }
 
     /**

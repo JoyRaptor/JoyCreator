@@ -344,17 +344,42 @@ public class TextOverlayItem {
      * Add a keyframe with an explicit opacity value (for fade in/out animation).
      */
     public void addOpacityKeyframeAt(long timelineMs, float opacity) {
+        addPropertyKeyframeAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
+                timelineMs, opacity);
+    }
+
+    /**
+     * G2 (gesture contract §2): keyframe-aware single-property write — drop/update
+     * a keyframe for ONE property at the given timeline time with an explicit
+     * value, anchoring the shared X/Y/SCALE pose tracks at that time exactly like
+     * {@link #addOpacityKeyframeAt} always has (the timeline uses X as the
+     * canonical key-time list). Values are clamped to the same ranges as the
+     * static setters.
+     */
+    public void addPropertyKeyframeAt(@NonNull String property, long timelineMs, float value) {
         long t = localTime(timelineMs);
         com.fadcam.ui.faditor.keyframe.Easing ease =
                 com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
-        // Ensure X/Y/SCALE/ROTATION tracks exist so the keyframe time is
-        // consistent across all tracks (the timeline uses X as canonical).
+        // Ensure X/Y/SCALE tracks exist so the keyframe time is consistent
+        // across all tracks (the timeline uses X as canonical).
         keyframes.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X).put(t, centerX, ease);
         keyframes.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y).put(t, centerY, ease);
         keyframes.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE)
                 .put(t, sizeFraction, ease);
-        keyframes.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY)
-                .put(t, Math.max(0f, Math.min(1f, opacity)), ease);
+        float v = value;
+        switch (property) {
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.X:
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.Y:
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY:
+                v = Math.max(0f, Math.min(1f, value));
+                break;
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE:
+                v = Math.max(0.02f, Math.min(0.6f, value));
+                break;
+            default:
+                break; // rotation is unclamped (degrees)
+        }
+        keyframes.getOrCreate(property).put(t, v, ease);
     }
 
     /**

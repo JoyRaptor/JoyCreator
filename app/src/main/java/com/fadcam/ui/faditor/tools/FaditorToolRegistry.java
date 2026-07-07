@@ -112,6 +112,10 @@ public final class FaditorToolRegistry {
         add(t, "sprites", R.id.tool_sprites, R.id.tool_sprites_icon, R.id.tool_sprites_label,
                 ctx.getString(R.string.faditor_tool_sprites), "animation",
                 FaditorTool.BindMode.CLICK, false);
+        // Slice F: compact lanes — drop every overlay into the fewest no-overlap lanes.
+        add(t, "compact", R.id.tool_compact, R.id.tool_compact_icon, R.id.tool_compact_label,
+                "Compact", "compress",
+                FaditorTool.BindMode.CLICK, false);
         add(t, "settings", R.id.tool_settings, R.id.tool_settings_icon, R.id.tool_settings_label,
                 ctx.getString(R.string.faditor_tool_settings), "settings",
                 FaditorTool.BindMode.CLICK, false);

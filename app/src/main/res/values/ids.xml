@@ -102,4 +102,8 @@
     <item name="tool_sprites" type="id"/>
     <item name="tool_sprites_icon" type="id"/>
     <item name="tool_sprites_label" type="id"/>
+    <!-- Slice F: "Compact lanes" carousel tool (drops layers into the fewest no-overlap lanes). -->
+    <item name="tool_compact" type="id"/>
+    <item name="tool_compact_icon" type="id"/>
+    <item name="tool_compact_label" type="id"/>
 </resources>

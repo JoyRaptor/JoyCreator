@@ -69,6 +69,7 @@ import com.fadcam.ui.faditor.gltransitions.GlTransitionPreviewView;
 import com.fadcam.ui.faditor.player.FaditorPlayerManager;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.ui.faditor.timeline.EditorTimelineView;
+import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.undo.EditActions;
@@ -1899,6 +1900,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance()
                         .show(getSupportFragmentManager(), "faditorSettings"));
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
+        View toolCompact = findViewById(R.id.tool_compact);
+        if (toolCompact != null) toolCompact.setOnClickListener(v -> compactLayers());
         toolMove.setOnClickListener(v -> toggleMoveDrawer());
         initMoveDrawer();
         // (Sprites tool wired above; manager implementation below the tool handlers.)
@@ -10463,6 +10466,67 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (captionOverlay != null) captionOverlay.invalidate();
             if (audioCaptionOverlay != null) audioCaptionOverlay.invalidate();
         });
+    }
+
+    /**
+     * Slice F — "compact lanes" tool (JoyRaptor 2026-07-07): drop every overlay into the FEWEST no-overlap
+     * lanes, reclaiming the orphan-lane sprawl (incl. the T8 one-sprite-per-lane sprawl). Snapshots
+     * each item's lane id before/after so the whole thing folds into ONE undo step, then re-derives
+     * the timeline rows.
+     */
+    private void compactLayers() {
+        if (project == null) return;
+        Timeline tl = project.getTimeline();
+        java.util.Map<TextOverlayItem, String> textBefore = new java.util.HashMap<>();
+        for (TextOverlayItem o : tl.getTextOverlays()) textBefore.put(o, o.getLayerId());
+        java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> spriteBefore =
+                new java.util.HashMap<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
+            spriteBefore.put(s, s.getLayerId());
+        }
+
+        int changed = tl.compactOverlayLanes();
+        if (changed == 0) {
+            Toast.makeText(this, "Layers already compact", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.util.Map<TextOverlayItem, String> textAfter = new java.util.HashMap<>();
+        for (TextOverlayItem o : textBefore.keySet()) textAfter.put(o, o.getLayerId());
+        java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> spriteAfter =
+                new java.util.HashMap<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBefore.keySet()) {
+            spriteAfter.put(s, s.getLayerId());
+        }
+
+        undoManager.recordAction(new EditActions.LambdaAction("Compact layers",
+                () -> { applyLaneSnapshot(textBefore, spriteBefore); refreshAfterLaneChange(); },
+                () -> { applyLaneSnapshot(textAfter, spriteAfter); refreshAfterLaneChange(); }));
+
+        refreshAfterLaneChange();
+        Toast.makeText(this, "Compacted " + changed + " layer" + (changed == 1 ? "" : "s"),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    private void applyLaneSnapshot(
+            @NonNull java.util.Map<TextOverlayItem, String> text,
+            @NonNull java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> sprites) {
+        for (java.util.Map.Entry<TextOverlayItem, String> e : text.entrySet()) {
+            e.getKey().setLayerId(e.getValue());
+        }
+        for (java.util.Map.Entry<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> e
+                : sprites.entrySet()) {
+            e.getKey().setLayerId(e.getValue());
+        }
+    }
+
+    /** Re-derive the timeline rows after a lane-id change (compact / undo / redo) + persist it. */
+    private void refreshAfterLaneChange() {
+        syncTimelineOverlays();
+        if (editorTimeline != null) {
+            editorTimeline.requestLayout();
+            editorTimeline.invalidate();
+        }
+        scheduleAutoSave();
     }
 
     private void toggleOverlaySoftSnap() {

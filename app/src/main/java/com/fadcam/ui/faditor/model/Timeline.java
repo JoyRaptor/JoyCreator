@@ -686,6 +686,78 @@ public class Timeline {
         return (e == Long.MAX_VALUE || e <= o.getStartMs()) ? Long.MAX_VALUE : e;
     }
 
+    /**
+     * Slice F — "compact lanes" (JoyRaptor's CapCut orphan-lane pain): drop every overlay of a kind into
+     * the FEWEST no-overlap lanes. Unlike {@link #enforceNoOverlapTextLanes()} (which only SPLITS
+     * overlaps within one lane), this MERGES across lanes — gather all items of a type, greedily pack
+     * them in start order onto the first lane whose previous item has already ended, minting a new lane
+     * ONLY when a real time-overlap forces it. Lane 0 keeps the default bucket; extra lanes get a
+     * deterministic {@code "<prefix>-<firstItemId>"}. A MANUAL, undoable action (never run
+     * automatically). Also collapses the T8 one-sprite-per-lane sprawl. Returns how many items changed
+     * lane (0 = already minimal).
+     */
+    public int compactOverlayLanes() {
+        return compactTextLanes() + compactSpriteLanes();
+    }
+
+    private int compactTextLanes() {
+        if (textOverlays.size() < 2) return 0;
+        List<TextOverlayItem> sorted = new ArrayList<>(textOverlays);
+        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
+        List<Long> laneEnd = new ArrayList<>();
+        List<String> laneId = new ArrayList<>();
+        int changed = 0;
+        for (TextOverlayItem o : sorted) {
+            long s = o.getStartMs(), e = textEndForPacking(o);
+            int placed = -1;
+            for (int k = 0; k < laneEnd.size(); k++) {
+                if (laneEnd.get(k) <= s) { placed = k; break; }
+            }
+            if (placed < 0) {
+                placed = laneEnd.size();
+                laneEnd.add(e);
+                laneId.add(placed == 0 ? null : ("text-" + o.getId()));
+            } else {
+                laneEnd.set(placed, e);
+            }
+            String want = laneId.get(placed);
+            if (!laneIdEquals(o.getLayerId(), want)) { o.setLayerId(want); changed++; }
+        }
+        return changed;
+    }
+
+    private int compactSpriteLanes() {
+        if (spriteOverlays.size() < 2) return 0;
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sorted = new ArrayList<>(spriteOverlays);
+        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
+        List<Long> laneEnd = new ArrayList<>();
+        List<String> laneId = new ArrayList<>();
+        int changed = 0;
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : sorted) {
+            long s = o.getStartMs(), endMs = o.getEndMs();
+            long e = (endMs == Long.MAX_VALUE || endMs <= s) ? Long.MAX_VALUE : endMs;
+            int placed = -1;
+            for (int k = 0; k < laneEnd.size(); k++) {
+                if (laneEnd.get(k) <= s) { placed = k; break; }
+            }
+            if (placed < 0) {
+                placed = laneEnd.size();
+                laneEnd.add(e);
+                laneId.add(placed == 0 ? null : spriteLayerIdFor(o));
+            } else {
+                laneEnd.set(placed, e);
+            }
+            String want = laneId.get(placed);
+            if (!laneIdEquals(o.getLayerId(), want)) { o.setLayerId(want); changed++; }
+        }
+        return changed;
+    }
+
+    /** Null-safe layer-id compare (a null id == the default lane bucket). */
+    private static boolean laneIdEquals(String a, String b) {
+        return a == null ? b == null : a.equals(b);
+    }
+
     // ── Transition management ───────────────────────────────────────
 
     public void addTransition(@NonNull Transition transition) {

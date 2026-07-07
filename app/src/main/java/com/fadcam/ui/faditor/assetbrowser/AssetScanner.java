@@ -16,6 +16,14 @@ import com.fadcam.ui.faditor.model.Timeline;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Scans a SAF (Storage Access Framework) tree URI for media files and
@@ -43,6 +51,31 @@ public class AssetScanner {
     private static final String[] AUDIO_EXTS = {
             "mp3", "wav", "aac", "m4a", "ogg", "flac", "wma", "opus"
     };
+
+    /**
+     * Small fixed-size pool for MediaMetadataRetriever duration probes. Directory scans can
+     * contain dozens of video/audio files; probing them one-at-a-time on the scanner thread
+     * (the previous behavior) serializes what is mostly I/O + native decode wait, so a handful
+     * of worker threads lets probes overlap. Kept small (4) since each MMR instance holds a
+     * native codec/extractor resource. Daemon threads so the pool never blocks app shutdown.
+     */
+    private static final int DURATION_PROBE_THREADS = 4;
+    private static final ExecutorService DURATION_PROBE_POOL = new ThreadPoolExecutor(
+            DURATION_PROBE_THREADS, DURATION_PROBE_THREADS,
+            30L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(),
+            new ThreadFactory() {
+                private final AtomicInteger count = new AtomicInteger(1);
+                @Override
+                public Thread newThread(@NonNull Runnable r) {
+                    Thread t = new Thread(r, "AssetScanner-MMR-" + count.getAndIncrement());
+                    t.setDaemon(true);
+                    return t;
+                }
+            });
+    static {
+        ((ThreadPoolExecutor) DURATION_PROBE_POOL).allowCoreThreadTimeOut(true);
+    }
 
     @NonNull
     private final Context context;
@@ -80,7 +113,7 @@ public class AssetScanner {
                 }
             }
 
-            // Enumerate children
+            // Enumerate children (fast metadata only — no MMR probe here)
             for (DocumentFile child : treeDir.listFiles()) {
                 if (child.isFile()) {
                     AssetItem item = createAssetItem(child);
@@ -90,6 +123,11 @@ public class AssetScanner {
                     }
                 }
             }
+
+            // Probe durations for video/audio items in parallel on the small MMR pool instead
+            // of serially inline — this is the slow part of a scan (native retriever setup per
+            // file); overlapping them cuts wall time roughly by the pool width for large folders.
+            probeDurationsInParallel(items);
 
             // Sort: videos first, then images, then audio, then by name
             items.sort((a, b) -> {
@@ -128,13 +166,41 @@ public class AssetScanner {
 
         AssetItem item = new AssetItem(doc.getUri(), name, type, mime);
         item.sizeBytes = doc.length();
-
-        // Probe duration for video and audio
-        if (type == AssetItem.Type.VIDEO || type == AssetItem.Type.AUDIO) {
-            item.durationMs = probeDuration(doc.getUri());
-        }
+        // Duration (video/audio only) is probed afterward in parallel — see probeDurationsInParallel.
 
         return item;
+    }
+
+    /**
+     * Probes durations for all video/audio items using the shared MMR pool, waiting for all
+     * probes to finish before returning (keeps {@link #scan} synchronous — callers already run
+     * it off the UI thread and expect a fully-populated list back).
+     */
+    private void probeDurationsInParallel(@NonNull List<AssetItem> items) {
+        List<AssetItem> needsDuration = new ArrayList<>();
+        for (AssetItem item : items) {
+            if (item.type == AssetItem.Type.VIDEO || item.type == AssetItem.Type.AUDIO) {
+                needsDuration.add(item);
+            }
+        }
+        if (needsDuration.isEmpty()) return;
+
+        CountDownLatch latch = new CountDownLatch(needsDuration.size());
+        for (AssetItem item : needsDuration) {
+            DURATION_PROBE_POOL.execute(() -> {
+                try {
+                    item.durationMs = probeDuration(item.uri);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+        try {
+            // Generous cap so a stuck retriever on one file can't hang the whole scan forever.
+            latch.await(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @NonNull

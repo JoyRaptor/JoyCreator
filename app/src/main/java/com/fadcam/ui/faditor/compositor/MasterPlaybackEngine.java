@@ -342,6 +342,19 @@ public class MasterPlaybackEngine {
                 if (c.getSourceUri() == null) return false;
                 continue;
             }
+            // SPEED-FREEZE GUARD (device-bisected 2026-07-07, SM-N960U): a speed≠1 clip whose
+            // clipped window is SHORT wedges the whole gapless player — READY + isPlaying=true
+            // but the position clock never starts (audio-sink start/drain never satisfied for a
+            // sub-second Sonic-speedup window; 250ms@2x froze, 5101ms@2x played, 500ms@1x played).
+            // Until the sink-level bug is fixed, projects with short (or loop-repped, since reps
+            // can be arbitrarily short partials) speed clips keep the legacy path — today's
+            // behavior, seam re-prepares but playable. Long plain speed clips stay eligible
+            // (device-proven). Repro projects: "bisect A 2x clip" (freezes) vs "bisect B/C".
+            float speed = c.getSpeedMultiplier();
+            if (speed != 1.0f
+                    && (c.getTrimmedDurationMs() < 3000L || c.hasLoopExtension())) {
+                return false;
+            }
             int loopMode = c.getLoopMode();
             if (loopMode == Clip.LOOP_MODE_OFF || loopMode == Clip.LOOP_MODE_NORMAL) continue;
             if (loopMode == Clip.LOOP_MODE_PING_PONG) {

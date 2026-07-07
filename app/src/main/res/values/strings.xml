@@ -1325,6 +1325,9 @@
     <string name="faditor_coachmark_gestures_title">Editing an item</string>
     <string name="faditor_coachmark_gestures_body">Double-tap to edit  ·  Hold for its menu  ·  Drag to move</string>
     <string name="faditor_coachmark_got_it">Got it</string>
+    <!-- Transitions drawer: pull-down-for-more-rows affordance (reveals the GL-effects row). -->
+    <string name="faditor_transitions_more_effects">⌄  More effects</string>
+    <string name="faditor_transitions_fewer_effects">⌃  Fewer effects</string>
     <string name="faditor_clean_audio_label">Clean Audio v2</string>
     <string name="faditor_clean_audio_desc">Denoises, smooths dynamics, and uses two-pass loudness correction with true-peak limiting. Adds extra export time.</string>
     <string name="faditor_transcript">Transcript</string>

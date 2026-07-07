@@ -288,6 +288,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean transcriptPanelOpen = false;
     private boolean transitionPanelOpen = false;
     private View transitionPanel;
+    /** The collapsible GL-transitions row + its "More effects" affordance label (pull-down to reveal). */
+    @Nullable private View transitionGlRow;
+    @Nullable private TextView transitionGlToggleLabel;
+    private boolean transitionGlExpanded = false;
     private boolean visualizerDrawerOpen = false;
     private boolean captionDrawerOpen = false;
     private boolean captionDrawerChromeWired = false;
@@ -14772,7 +14776,63 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.HorizontalScrollView glScroll = new android.widget.HorizontalScrollView(this);
         glScroll.setHorizontalScrollBarEnabled(false);
         glScroll.addView(glRow);
-        panel.addView(glScroll, insertIdx);
+
+        // "Pull down for more rows" (studio-drawers §C, the last remaining TODO): the GL-effects
+        // row starts COLLAPSED so the basic transitions aren't buried; a discoverable affordance
+        // bar reveals it on tap or a downward fling (up-fling / re-tap collapses it).
+        View affordance = buildTransitionMoreAffordance(d);
+        panel.addView(affordance, insertIdx);
+        glScroll.setVisibility(View.GONE);
+        panel.addView(glScroll, insertIdx + 1);
+        transitionGlRow = glScroll;
+        transitionGlExpanded = false;
+    }
+
+    /** The tappable "⌄ More effects" bar that reveals/collapses the GL-transition row. */
+    private View buildTransitionMoreAffordance(float d) {
+        android.widget.LinearLayout bar = new android.widget.LinearLayout(this);
+        bar.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        bar.setGravity(android.view.Gravity.CENTER);
+        int vp = (int) (7 * d);
+        bar.setPadding(0, vp, 0, vp);
+
+        TextView label = new TextView(this);
+        label.setTextColor(0xFFAAAAAA);
+        label.setTextSize(12);
+        label.setText(R.string.faditor_transitions_more_effects);
+        bar.addView(label);
+        transitionGlToggleLabel = label;
+
+        final android.view.GestureDetector fling = new android.view.GestureDetector(this,
+                new android.view.GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onFling(android.view.MotionEvent e1, android.view.MotionEvent e2,
+                                           float vx, float vy) {
+                        if (Math.abs(vy) > Math.abs(vx) && Math.abs(vy) > 500) {
+                            setTransitionGlRowExpanded(vy > 0); // pull down = reveal, up = collapse
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+        bar.setOnTouchListener((v, ev) -> {
+            fling.onTouchEvent(ev);
+            return false; // still let the tap-to-toggle click through
+        });
+        bar.setOnClickListener(v -> setTransitionGlRowExpanded(!transitionGlExpanded));
+        return bar;
+    }
+
+    /** Reveal or collapse the GL-transition row and flip the affordance chevron/label. */
+    private void setTransitionGlRowExpanded(boolean expanded) {
+        if (transitionGlRow == null) return;
+        transitionGlExpanded = expanded;
+        transitionGlRow.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        if (transitionGlToggleLabel != null) {
+            transitionGlToggleLabel.setText(expanded
+                    ? R.string.faditor_transitions_fewer_effects
+                    : R.string.faditor_transitions_more_effects);
+        }
     }
 
     /** Build one GL-transition preview card (used for both catalog + user-supplied shaders). */

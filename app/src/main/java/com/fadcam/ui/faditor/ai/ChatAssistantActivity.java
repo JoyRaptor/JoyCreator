@@ -5,6 +5,7 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -30,6 +31,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.res.ResourcesCompat;
 
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
@@ -217,6 +219,28 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         ImageButton btnMic = findViewById(R.id.chat_mic);
         btnMic.setOnClickListener(v -> startVoiceInput());
+
+        // Mascot bounces in when the chat window lands. scaleX animates 0 -> -1 (not
+        // 0 -> 1) to preserve the inward-facing horizontal flip set in the layout.
+        View headerIcon = findViewById(R.id.chat_header_ai_icon);
+        if (headerIcon != null) {
+            headerIcon.setScaleX(0f);
+            headerIcon.setScaleY(0f);
+            headerIcon.animate()
+                    .scaleX(-1f)
+                    .scaleY(1f)
+                    .setStartDelay(120)
+                    .setDuration(500)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(2.2f))
+                    .start();
+        }
+    }
+
+    /** Resolve a theme color attribute (e.g. colorPrimary) so icon tints genuinely follow the theme. */
+    private int resolveThemeColor(int attrResId) {
+        android.util.TypedValue tv = new android.util.TypedValue();
+        getTheme().resolveAttribute(attrResId, tv, true);
+        return tv.data;
     }
 
     /** Show the status bar with a tool name. Auto-hides after 3s when idle. */
@@ -1028,25 +1052,76 @@ public class ChatAssistantActivity extends AppCompatActivity {
         hint.setPadding(0, pad, 0, 0);
         root.addView(hint);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("AI Assistant Settings")
+        // Custom title: mascot icon (flipped inward, facing right toward the label) + text.
+        int titlePad = (int) (16 * getResources().getDisplayMetrics().density);
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        titleRow.setPadding(titlePad, titlePad, titlePad, 0);
+
+        ImageView titleIcon = new ImageView(this);
+        int iconSize = dp(52);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(iconSize, iconSize);
+        iconLp.setMarginEnd(dp(8));
+        titleIcon.setLayoutParams(iconLp);
+        titleIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        titleIcon.setImageResource(R.drawable.ic_ai_assistant_robot);
+        titleIcon.setImageTintList(android.content.res.ColorStateList.valueOf(
+                resolveThemeColor(android.R.attr.colorPrimary)));
+        titleIcon.setScaleX(0f);
+        titleIcon.setScaleY(0f);
+        titleRow.addView(titleIcon);
+
+        TextView titleText = new TextView(this);
+        titleText.setText("AI Assistant Settings");
+        titleText.setTextColor(0xFFFFFFFF);
+        titleText.setTextSize(18);
+        titleText.setTypeface(null, Typeface.BOLD);
+        titleRow.addView(titleText);
+
+        androidx.appcompat.app.AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setCustomTitle(titleRow)
                 .setView(root)
-                .setPositiveButton("Save", (d, w) -> {
-                    String key = inputKey.getText().toString().trim();
-                    String mdl = inputModel.getText().toString().trim();
-                    if (mdl.isEmpty()) mdl = DEFAULT_MODEL;
-                    prefs.sharedPreferences.edit()
-                            .putString(PREF_API_KEY, key)
-                            .putString(PREF_MODEL, mdl)
-                            .apply();
-                    apiKey = key;
-                    model = mdl;
-                    updateModelLabel();
-                    addBotMessage("Settings updated. Model: " + model
-                            + (key.isEmpty() ? " (offline mode)" : " (connected)"));
-                })
+                .setPositiveButton("Save", null)
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+
+        dialog.setOnShowListener(d -> {
+            titleIcon.animate()
+                    .scaleX(-1f)
+                    .scaleY(1f)
+                    .setStartDelay(80)
+                    .setDuration(420)
+                    .setInterpolator(new android.view.animation.OvershootInterpolator(2.4f))
+                    .start();
+
+            // Override the positive button so we can pop the icon back out before dismissing.
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String key = inputKey.getText().toString().trim();
+                String mdl = inputModel.getText().toString().trim();
+                final String finalMdl = mdl.isEmpty() ? DEFAULT_MODEL : mdl;
+                prefs.sharedPreferences.edit()
+                        .putString(PREF_API_KEY, key)
+                        .putString(PREF_MODEL, finalMdl)
+                        .apply();
+                apiKey = key;
+                model = finalMdl;
+                updateModelLabel();
+                titleIcon.animate()
+                        .scaleX(0f)
+                        .scaleY(0f)
+                        .setDuration(180)
+                        .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                        .withEndAction(() -> {
+                            addBotMessage("Settings updated. Model: " + finalMdl
+                                    + (key.isEmpty() ? " (offline mode)" : " (connected)"));
+                            dialog.dismiss();
+                        })
+                        .start();
+            });
+        });
+
+        dialog.show();
     }
 
     // ── UI helpers ─────────────────────────────────────────────────
@@ -1094,27 +1169,32 @@ public class ChatAssistantActivity extends AppCompatActivity {
         tv.setTextIsSelectable(true);
         tv.setTextColor(isUser ? 0xFFFFFFFF : 0xFFDDDDDD);
         tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_bot);
-        tv.setPadding(dp(14), dp(10), dp(14), dp(10));
+        // Tail side (bottom for user, top for bot — see chat_bubble_user/bot.xml) gets extra
+        // padding so text clears the reserved tail-nub band baked into the background drawable.
+        if (isUser) {
+            tv.setPadding(dp(14), dp(10), dp(14), dp(17));
+        } else {
+            tv.setPadding(dp(14), dp(17), dp(14), dp(10));
+        }
         tv.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT));
         wrapper.addView(tv);
 
-        // Copy button at bottom-right corner
+        // Copy affordance: the real Material "content_copy" glyph (two overlapping rounded
+        // squares) rendered as a low-alpha watermark, not a solid button chip.
         TextView copyBtn = new TextView(this);
-        copyBtn.setText("Copy");
-        copyBtn.setTextColor(0xFFBBBBBB);
-        copyBtn.setTextSize(10);
-        copyBtn.setPadding(dp(8), dp(4), dp(8), dp(4));
-        GradientDrawable copyBg = new GradientDrawable();
-        copyBg.setCornerRadius(dp(6));
-        copyBg.setColor(0xFF333333);
-        copyBtn.setBackground(copyBg);
+        Typeface materialIcons = ResourcesCompat.getFont(this, R.font.materialicons);
+        copyBtn.setTypeface(materialIcons);
+        copyBtn.setText("content_copy");
+        copyBtn.setTextColor(0x66AAAAAA);
+        copyBtn.setTextSize(13);
+        copyBtn.setPadding(dp(6), dp(6), dp(6), dp(6));
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT);
         clp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-        clp.setMargins(0, 0, dp(4), dp(4));
+        clp.setMargins(0, 0, dp(2), isUser ? dp(9) : dp(2));
         copyBtn.setLayoutParams(clp);
         copyBtn.setTag(text);
         copyBtn.setOnClickListener(v -> {
@@ -1400,15 +1480,19 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void addTickerTick(boolean isUser) {
         if (tickerContainer == null) return;
         View tick = new View(this);
-        int tickSize = dp(6);
+        // Short rounded-end notch (a tiny "pill" line), not a dot.
+        int tickWidth = dp(4);
+        int tickHeight = dp(11);
         int margin = dp(2);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(tickSize, tickSize);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(tickWidth, tickHeight);
         lp.setMargins(0, margin, 0, margin);
         lp.gravity = android.view.Gravity.CENTER_HORIZONTAL;
         tick.setLayoutParams(lp);
         GradientDrawable shape = new GradientDrawable();
-        shape.setShape(GradientDrawable.OVAL);
-        shape.setColor(isUser ? 0xFF666666 : 0xFF4CAF50);
+        shape.setShape(GradientDrawable.RECTANGLE);
+        shape.setCornerRadius(tickWidth / 2f);
+        // Colors now match the bubble they represent: user bubble is green, bot bubble is gray.
+        shape.setColor(isUser ? 0xFF4CAF50 : 0xFF666666);
         tick.setBackground(shape);
         final int idx = messageViews.size() - 1;
         tick.setOnClickListener(v -> scrollToMessage(idx));

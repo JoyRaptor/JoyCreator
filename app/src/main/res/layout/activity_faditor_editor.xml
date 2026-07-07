@@ -73,15 +73,14 @@
             android:focusableInTouchMode="true" />
 
         <!-- AI Assistant button -->
-        <TextView
+        <ImageView
             android:id="@+id/btn_ai_assistant"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:gravity="center"
-            android:fontFamily="@font/materialicons"
-            android:text="smart_toy"
-            android:textColor="#FF4CAF50"
-            android:textSize="24sp"
+            android:padding="4dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_ai_assistant_robot"
+            app:tint="?attr/colorPrimary"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="AI Assistant" />
 

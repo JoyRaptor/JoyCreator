@@ -42,11 +42,56 @@ public final class LutManager {
 
     @Nullable
     public static ColorLut load(@NonNull Context context, @NonNull String id) {
+        return load(context, id, 1f);
+    }
+
+    /**
+     * Load a LUT with a blend strength. Intensity is PRE-BAKED into the LUT bitmap:
+     * every entry is mixed toward the identity LUT by {@code 1 - intensity}. Because
+     * a LUT is a per-color mapping and mix is linear (and the identity LUT
+     * interpolates exactly), mixing entries is mathematically identical to blending
+     * the LUT'd frame with the original frame — a true intensity slider with zero
+     * extra GPU work; the stock {@link SingleColorLut} still does the lookup.
+     */
+    @Nullable
+    public static ColorLut load(@NonNull Context context, @NonNull String id, float intensity) {
         try {
-            return SingleColorLut.createFromBitmap(loadBitmap(context, id));
+            Bitmap lut = loadBitmap(context, id);
+            if (lut == null) return null;
+            return SingleColorLut.createFromBitmap(applyIntensity(lut, intensity));
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    /**
+     * Blend a packed {@code N x N*N} LUT bitmap toward identity by {@code 1 - intensity}.
+     * Returns the input unchanged for full intensity or an unrecognized layout.
+     */
+    @NonNull
+    public static Bitmap applyIntensity(@NonNull Bitmap lut, float intensity) {
+        float t = Math.max(0f, Math.min(1f, intensity));
+        if (t >= 0.999f) return lut;
+        int n = lut.getWidth();
+        if (n < 2 || lut.getHeight() != n * n) return lut; // unknown layout — full strength
+        int[] pixels = new int[n * n * n];
+        lut.getPixels(pixels, 0, n, 0, 0, n, n * n);
+        int index = 0;
+        for (int r = 0; r < n; r++) {
+            int ir = r * 255 / (n - 1);
+            for (int g = 0; g < n; g++) {
+                int ig = g * 255 / (n - 1);
+                for (int b = 0; b < n; b++) {
+                    int ib = b * 255 / (n - 1);
+                    int c = pixels[index];
+                    pixels[index++] = Color.argb(255,
+                            Math.round(ir + (Color.red(c) - ir) * t),
+                            Math.round(ig + (Color.green(c) - ig) * t),
+                            Math.round(ib + (Color.blue(c) - ib) * t));
+                }
+            }
+        }
+        return Bitmap.createBitmap(pixels, n, n * n, Bitmap.Config.ARGB_8888);
     }
 
     @Nullable

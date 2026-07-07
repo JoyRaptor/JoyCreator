@@ -1419,6 +1419,9 @@ public class ProjectStorage {
         fx.addProperty("grain", stack.getGrain());
         fx.addProperty("lutEnabled", stack.isLutEnabled());
         if (stack.getLutId() != null) fx.addProperty("lutId", stack.getLutId());
+        if (stack.getLutIntensity() < 0.999f) {
+            fx.addProperty("lutIntensity", stack.getLutIntensity());
+        }
         clipJson.add("effectStack", fx);
     }
 
@@ -1436,6 +1439,7 @@ public class ProjectStorage {
         if (fx.has("grain")) stack.setGrain(fx.get("grain").getAsFloat());
         if (fx.has("lutEnabled")) stack.setLutEnabled(fx.get("lutEnabled").getAsBoolean());
         if (fx.has("lutId")) stack.setLutId(fx.get("lutId").getAsString());
+        if (fx.has("lutIntensity")) stack.setLutIntensity(fx.get("lutIntensity").getAsFloat());
     }
 
     /**

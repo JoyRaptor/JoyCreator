@@ -28,6 +28,8 @@ public class EffectStack {
     private float grain;
     private boolean lutEnabled;
     @Nullable private String lutId;
+    /** LUT blend strength 0..1 (1 = full LUT, 0 = original). Baked into the LUT bitmap. */
+    private float lutIntensity = 1f;
 
     public EffectStack() {}
 
@@ -44,6 +46,7 @@ public class EffectStack {
         this.grain = other.grain;
         this.lutEnabled = other.lutEnabled;
         this.lutId = other.lutId;
+        this.lutIntensity = other.lutIntensity;
     }
 
     /** Copy all values from another stack into this one (in place). */
@@ -60,6 +63,7 @@ public class EffectStack {
         this.grain = other.grain;
         this.lutEnabled = other.lutEnabled;
         this.lutId = other.lutId;
+        this.lutIntensity = other.lutIntensity;
     }
 
     public float getExposure() { return exposure; }
@@ -98,6 +102,9 @@ public class EffectStack {
     @Nullable public String getLutId() { return lutId; }
     public void setLutId(@Nullable String lutId) { this.lutId = lutId; }
 
+    public float getLutIntensity() { return lutIntensity; }
+    public void setLutIntensity(float lutIntensity) { this.lutIntensity = clamp(lutIntensity, 0f, 1f); }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -114,6 +121,7 @@ public class EffectStack {
                 && vignette == e.vignette
                 && grain == e.grain
                 && lutEnabled == e.lutEnabled
+                && lutIntensity == e.lutIntensity
                 && (lutId == null ? e.lutId == null : lutId.equals(e.lutId));
     }
 
@@ -131,6 +139,7 @@ public class EffectStack {
         r = 31 * r + Float.hashCode(grain);
         r = 31 * r + (lutEnabled ? 1 : 0);
         r = 31 * r + (lutId == null ? 0 : lutId.hashCode());
+        r = 31 * r + Float.hashCode(lutIntensity);
         return r;
     }
 
@@ -181,8 +190,8 @@ public class EffectStack {
                 throw new IllegalStateException("Failed to create color grade shader", e);
             }
         }
-        if (lutEnabled && lutId != null) {
-            ColorLut lut = LutManager.load(context, lutId);
+        if (lutEnabled && lutId != null && lutIntensity > 0.001f) {
+            ColorLut lut = LutManager.load(context, lutId, lutIntensity);
             if (lut != null) effects.add(lut);
         }
         if (hdr) {

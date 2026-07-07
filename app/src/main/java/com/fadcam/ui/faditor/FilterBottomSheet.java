@@ -60,6 +60,9 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
     private TextView[] valueTexts;
     private Spec[] specs;
     @Nullable private TextView lutValue;
+    @Nullable private LinearLayout lutIntensityRow;
+    @Nullable private Slider lutIntensitySlider;
+    @Nullable private TextView lutIntensityValue;
 
     /** Bind the target stack + callback before showing. */
     public void setTarget(@NonNull EffectStack stack, @NonNull Callback callback) {
@@ -249,6 +252,53 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         lutRow.setOnClickListener(v -> showLutChooser());
 
+        // ── LUT intensity slider (visible only while a LUT is active) ─
+        lutIntensityRow = new LinearLayout(requireContext());
+        lutIntensityRow.setOrientation(LinearLayout.VERTICAL);
+        root.addView(lutIntensityRow);
+
+        LinearLayout intLabelRow = new LinearLayout(requireContext());
+        intLabelRow.setOrientation(LinearLayout.HORIZONTAL);
+        intLabelRow.setGravity(Gravity.CENTER_VERTICAL);
+        intLabelRow.setPadding(0, (int) (6 * dp), 0, 0);
+        lutIntensityRow.addView(intLabelRow);
+
+        TextView intLabel = new TextView(requireContext());
+        intLabel.setText("Intensity");
+        intLabel.setTextColor(0xFFCCCCCC);
+        intLabel.setTextSize(14);
+        LinearLayout.LayoutParams intLabelLp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        intLabel.setLayoutParams(intLabelLp);
+        intLabelRow.addView(intLabel);
+
+        lutIntensityValue = new TextView(requireContext());
+        lutIntensityValue.setTextColor(0xFF888888);
+        lutIntensityValue.setTextSize(13);
+        lutIntensityValue.setTypeface(null, Typeface.BOLD);
+        lutIntensityValue.setText(format(stack.getLutIntensity()));
+        intLabelRow.addView(lutIntensityValue);
+
+        lutIntensitySlider = new Slider(new ContextThemeWrapper(requireContext(),
+                R.style.Widget_FadCam_BottomSheetSlider));
+        lutIntensitySlider.setValueFrom(0f);
+        lutIntensitySlider.setValueTo(1f);
+        lutIntensitySlider.setValue(clamp(stack.getLutIntensity(), 0f, 1f));
+        lutIntensitySlider.setTrackActiveTintList(
+                android.content.res.ColorStateList.valueOf(0xFF4DD0E1));
+        lutIntensitySlider.setThumbTintList(
+                android.content.res.ColorStateList.valueOf(0xFF4DD0E1));
+        lutIntensitySlider.setTrackInactiveTintList(
+                android.content.res.ColorStateList.valueOf(0xFF333333));
+        lutIntensityRow.addView(lutIntensitySlider);
+        lutIntensitySlider.addOnChangeListener((sl, v, fromUser) -> {
+            if (!fromUser || stack == null) return;
+            stack.setLutIntensity(v);
+            if (lutIntensityValue != null) lutIntensityValue.setText(format(v));
+            if (callback != null) callback.onEffectsChanged();
+        });
+        updateLutIntensityVisibility();
+
         // ── Reset row ────────────────────────────────────────────────
         LinearLayout resetRow = new LinearLayout(requireContext());
         resetRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -315,6 +365,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
                         stack.setLutId(presets.get(which - 1).id);
                     }
                     if (lutValue != null) lutValue.setText(currentLutName());
+                    updateLutIntensityVisibility();
                     if (callback != null) callback.onEffectsChanged();
                     dialog.dismiss();
                 })
@@ -395,8 +446,19 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         }
         stack.setLutEnabled(lutId != null);
         stack.setLutId(lutId);
+        stack.setLutIntensity(1f);
+        if (lutIntensitySlider != null) lutIntensitySlider.setValue(1f);
+        if (lutIntensityValue != null) lutIntensityValue.setText(format(1f));
         if (lutValue != null) lutValue.setText(currentLutName());
+        updateLutIntensityVisibility();
         if (callback != null) callback.onEffectsChanged();
+    }
+
+    /** The intensity slider only makes sense while a LUT is selected. */
+    private void updateLutIntensityVisibility() {
+        if (lutIntensityRow == null || stack == null) return;
+        boolean show = stack.isLutEnabled() && stack.getLutId() != null;
+        lutIntensityRow.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     @NonNull

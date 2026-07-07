@@ -749,6 +749,13 @@ public class EditorTimelineView extends View {
     private GestureDetector gestureDetector;
     private OverScroller flingScroller;
     private boolean flingJustFinished = false;  // Tracks when fling ends so we can reset userDragging
+    // Throttle guard for computeScroll's fling step: OverScroller.computeScrollOffset() can
+    // report the SAME (or sub-pixel-different but same-rounded-px) curX for consecutive frames
+    // near the end of a fling — re-running updatePlayheadFromX + postInvalidateOnAnimation in
+    // that case is pure waste (same seek, same draw). Math.MIN_VALUE sentinel forces the first
+    // fling frame of any run to always process (avoids a stale value from a previous fling
+    // suppressing frame 1 of a new one).
+    private float lastFlingScrollOffsetPx = Float.MIN_VALUE;
     /**
      * Velocity for the CUSTOM-path row-band scrub (user feedback 2026-07-03: main-timeline
      * swipes glide with inertia via GestureDetector's onFling; row-band scrubs stopped
@@ -4245,15 +4252,25 @@ public class EditorTimelineView extends View {
         // Handle fling animation
         if (flingScroller.computeScrollOffset()) {
             float newScrollOffset = flingScroller.getCurrX();
-            
-            // Calculate playhead position from scroll offset
-            float centerX = getWidth() / 2f;
-            float playheadX = centerX + newScrollOffset;
-            
-            // Update playhead position (will trigger seek and centerPlayhead)
-            updatePlayheadFromX(playheadX);
-            
-            // Continue animation
+
+            // Throttle: skip the seek+redraw when the scroller reports the same rounded pixel
+            // offset as last frame (happens repeatedly near the tail of a fling as velocity
+            // decays toward zero). Still keep the animation alive via postInvalidateOnAnimation
+            // so the scroller itself keeps ticking toward isFinished().
+            boolean offsetChanged = Math.round(newScrollOffset) != Math.round(lastFlingScrollOffsetPx);
+            if (offsetChanged) {
+                lastFlingScrollOffsetPx = newScrollOffset;
+
+                // Calculate playhead position from scroll offset
+                float centerX = getWidth() / 2f;
+                float playheadX = centerX + newScrollOffset;
+
+                // Update playhead position (will trigger seek and centerPlayhead)
+                updatePlayheadFromX(playheadX);
+            }
+
+            // Continue animation (scroller needs repeated computeScrollOffset() calls to
+            // finish regardless of whether this particular frame moved the playhead)
             postInvalidateOnAnimation();
         } else if (flingJustFinished) {
             // Fling completed — notify listener so userDragging gets reset
@@ -6146,6 +6163,9 @@ public class EditorTimelineView extends View {
     private void startPlayheadFling(float velocityX) {
         // Mark that a fling is starting so we can signal drag finished when it ends
         flingJustFinished = true;
+        // Reset the computeScroll() throttle sentinel so frame 1 of THIS fling always processes,
+        // even if it happens to round to the same px as the last frame of a PREVIOUS fling.
+        lastFlingScrollOffsetPx = Float.MIN_VALUE;
 
         // Calculate proper scroll bounds to keep playhead within timeline range
         float centerX = getWidth() / 2f;

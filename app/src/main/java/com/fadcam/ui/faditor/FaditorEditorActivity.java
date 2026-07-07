@@ -9859,8 +9859,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // expand = full property/action menu; More… = the double-tap type editor.
                 if (item.getTextOverlay() != null) {
                     showObjectMenuSheetForTextOverlay(item.getTextOverlay());
+                } else if (item.getSprite() != null) {
+                    showObjectMenuSheetForSprite(item.getSprite());
                 }
-                // Audio / PiP / sprite / visualizer: no general menu yet — the item stays
+                // Audio / PiP / visualizer: no general menu yet — the item stays
                 // lifted-then-dropped-in-place with no side effect (the pickup already gave
                 // haptic feedback), wired as their §2 Prop adapters come online.
             }
@@ -12553,6 +12555,145 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Normalize degrees into the slider's [-180, 180) window. */
     private static float normDeg(float v) {
         return ((v % 360f) + 540f) % 360f - 180f;
+    }
+
+    /**
+     * G2: the same general advanced menu for a SPRITE instance (SpriteOverlayItem
+     * mirrors TextOverlayItem's transform/keyframe shape deliberately). More… =
+     * the sprite palette (same as double-tap); delete = confirm + one undo step.
+     */
+    private void showObjectMenuSheetForSprite(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+        if (project == null) return;
+        final String K_ROT = com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION;
+        final String K_OP = com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY;
+
+        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+
+        java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
+        props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                "Pos X", 0f, 1f, pct, ms -> s.animatedCenterX(ms)));      // TODO(strings)
+        props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                "Pos Y", 0f, 1f, pct, ms -> s.animatedCenterY(ms)));      // TODO(strings)
+        props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                "Scale", 0.01f, 1f, pct, ms -> s.animatedSizeFraction(ms))); // TODO(strings)
+        props.add(spriteMenuProp(s, K_ROT, "Rotate", -180f, 180f, deg,    // TODO(strings)
+                ms -> normDeg(s.animatedRotation(ms))));
+        props.add(spriteMenuProp(s, K_OP, "Opacity", 0f, 1f, pct,         // TODO(strings)
+                ms -> s.animatedOpacity(ms)));
+
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot[] sliderBefore =
+                new com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot[1];
+        ObjectMenuSheet.GestureHooks hooks = new ObjectMenuSheet.GestureHooks() {
+            @Override public void onSliderStart() { sliderBefore[0] = s.snapshotTransform(); }
+            @Override public void onSliderCommit(@NonNull String what) {
+                if (sliderBefore[0] != null) recordSpriteMenuUndo(s, sliderBefore[0], what);
+                sliderBefore[0] = null;
+            }
+        };
+
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(s.getSheetId());
+        String title = sheet != null ? sheet.getName() : "Sprite";        // TODO(strings)
+        Runnable onDelete = () -> new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Remove sprite?")                                // TODO(strings)
+                .setNegativeButton("Cancel", null)                         // TODO(strings)
+                .setPositiveButton("Remove", (d, w) -> {                   // TODO(strings)
+                    project.getTimeline().removeSpriteOverlay(s);
+                    syncTimelineOverlays();
+                    refreshSpritePreviewData();
+                    undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
+                            () -> { project.getTimeline().removeSpriteOverlay(s);
+                                    syncTimelineOverlays(); refreshSpritePreviewData(); },
+                            () -> { project.getTimeline().addSpriteOverlay(s);
+                                    syncTimelineOverlays(); refreshSpritePreviewData(); }));
+                    scheduleAutoSave();
+                })
+                .show();
+        ensureObjectMenuSheet().show(title, null, props,
+                new java.util.ArrayList<>(), // sprites: one-per-lane (T8), no layer actions yet
+                this::openSpritePalette, onDelete, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    /** Sprite twin of {@link #overlayMenuProp}: keyframe-aware write + diamond. */
+    @NonNull
+    private ObjectMenuSheet.Prop spriteMenuProp(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s,
+            @NonNull String key, @NonNull String label, float min, float max,
+            @NonNull ObjectMenuSheet.ValueFormat fmt, @NonNull ObjectMenuSheet.Getter get) {
+        ObjectMenuSheet.Setter set = (v, ms) -> {
+            if (s.isArmed()) {
+                s.addPropertyKeyframeAt(key, ms, v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.X.equals(key)) {
+                s.setCenter(v, s.getCenterY());
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.Y.equals(key)) {
+                s.setCenter(s.getCenterX(), v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE.equals(key)) {
+                s.setSizeFraction(v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(key)) {
+                s.setRotationDeg(v);
+            } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY.equals(key)) {
+                s.setOpacity(v);
+            }
+            refreshSpriteAfterMenuWrite();
+        };
+        ObjectMenuSheet.OnKeyQuery onKey = ms -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = s.getKeyframes().get(key);
+            if (tr == null) return false;
+            long local = Math.max(0, ms - s.getStartMs());
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                if (Math.abs(k.timeMs - local) <= 66) return true;
+            }
+            return false;
+        };
+        Runnable dropKey = () -> {
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before =
+                    s.snapshotTransform();
+            if (s.isArmed()) {
+                s.addPropertyKeyframeAt(key, lastPlayheadAbsoluteMs,
+                        get.at(lastPlayheadAbsoluteMs));
+            } else {
+                s.addKeyframeAt(lastPlayheadAbsoluteMs);
+            }
+            recordSpriteMenuUndo(s, before, "Add keyframe");
+            refreshSpriteAfterMenuWrite();
+        };
+        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey);
+    }
+
+    private void refreshSpriteAfterMenuWrite() {
+        if (spriteOverlayView != null) {
+            spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
+            spriteOverlayView.invalidate();
+        }
+        syncTimelineOverlays();
+    }
+
+    /** Re-feed the sprite preview layer after add/remove (palette-delete parity). */
+    private void refreshSpritePreviewData() {
+        if (spriteOverlayView != null && project != null) {
+            spriteOverlayView.setData(
+                    com.fadcam.ui.faditor.compositor.LayerPreviewController
+                            .visibleSpriteItems(project.getTimeline()),
+                    spriteOverlayCallback());
+            spriteOverlayView.invalidate();
+        }
+    }
+
+    /** One undo step per committed sprite-menu gesture (mirrors onSpriteManipulated). */
+    private void recordSpriteMenuUndo(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s,
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before,
+            @NonNull String description) {
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot after =
+                s.snapshotTransform();
+        if (before.matches(after)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(description,
+                () -> { s.restoreTransform(after);
+                        if (spriteOverlayView != null) spriteOverlayView.invalidate(); },
+                () -> { s.restoreTransform(before);
+                        if (spriteOverlayView != null) spriteOverlayView.invalidate(); }));
+        scheduleAutoSave();
     }
 
     /** Build one §2 property row adapter: keyframe-aware write + diamond state. */

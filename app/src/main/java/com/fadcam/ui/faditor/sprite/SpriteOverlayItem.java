@@ -165,6 +165,33 @@ public class SpriteOverlayItem {
         keyframes.getOrCreate(KeyframeSet.OPACITY).put(t, opacity, ease);
     }
 
+    /**
+     * G2 (gesture contract §2): keyframe-aware single-property write — mirrors
+     * {@code TextOverlayItem.addPropertyKeyframeAt} exactly (anchor the shared
+     * X/Y/SCALE pose tracks at this time, then write the one property; values
+     * clamped like the static setters).
+     */
+    public void addPropertyKeyframeAt(@NonNull String property, long timelineMs, float value) {
+        long t = localTime(timelineMs);
+        com.fadcam.ui.faditor.keyframe.Easing ease =
+                com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+        keyframes.getOrCreate(KeyframeSet.X).put(t, centerX, ease);
+        keyframes.getOrCreate(KeyframeSet.Y).put(t, centerY, ease);
+        keyframes.getOrCreate(KeyframeSet.SCALE).put(t, sizeFraction, ease);
+        float v = value;
+        switch (property) {
+            case KeyframeSet.OPACITY:
+                v = Math.max(0f, Math.min(1f, value));
+                break;
+            case KeyframeSet.SCALE:
+                v = Math.max(0.01f, value);
+                break;
+            default:
+                break; // x/y/rotation are unclamped, like the static setters
+        }
+        keyframes.getOrCreate(property).put(t, v, ease);
+    }
+
     // ── Undo snapshot (one undo step per preview gesture, house rule) ─────
 
     /** Immutable static-transform + keyframe snapshot for gesture undo. */

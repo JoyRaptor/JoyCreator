@@ -8,9 +8,12 @@
 > not OS-cleared, matching the existing `getFilesDir()/images` precedent; new path has no "cache" so it's
 > also never mis-flagged stale). BUG DEMONSTRATED on device: `cache/faditor_audio` held 3 at-risk
 > `.m4a`s (incl. today's project audio); `files/faditor_audio` will now receive new extractions. Green
-> (BUILD SUCCESSFUL 14s). FOLLOW-UP (open): a load-path MIGRATION to rescue EXISTING projects' cache-path
-> audio (copy → files/ + rewrite the persisted AudioClip URIs) — the forward-fix only makes NEW
-> extractions durable; existing cache-path clips stay at-risk until re-extracted.
+> (BUILD SUCCESSFUL 14s). PLUS a load-path MIGRATION (`migrateAudioClipsToDurableStorage()`, guarded +
+> idempotent) that rescues EXISTING projects: on load, any AudioClip whose sourceUri still points at
+> `cache/faditor_audio` (and the file survives) is copied → `files/faditor_audio` and the URI rewritten,
+> then saved. DEVICE-PROVEN (project bdd51919): reopen copied all 3 at-risk `.m4a` → files/faditor_audio,
+> project.json went 4 `files/faditor_audio` refs / **0** `cache/faditor_audio` refs, the "Extract from
+> video" waveform still renders intact, no crash.
 >
 > **📐 2026-07-07 — FABLE: G6.1 RESIZABLE TIMELINE — grab bar between preview & timeline, DEVICE-VERIFIED
 > both directions + persistence (contract §5's headline space-win).** A thin grab bar (grip pill) now sits

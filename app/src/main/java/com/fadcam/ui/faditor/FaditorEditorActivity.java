@@ -990,6 +990,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "Slice F: separated " + movedVideo
                             + " overlapping PiP/video overlay(s) onto their own lanes");
                 }
+                // DURABILITY (road_map Tier-1): rescue any extracted-audio clips still pointing at the
+                // OS-cleanable cache dir by copying them into the durable files/ dir + rewriting the URI.
+                migrateAudioClipsToDurableStorage();
 
                 // Check if any clips have stale cache/remux paths and try to
                 // recover the original source before loading.
@@ -2246,6 +2249,52 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * "missing media" problems: the remuxed cache file was saved into the
      * project JSON instead of the original URI.
      */
+    /**
+     * DURABILITY (road_map Tier-1): rescue AudioClips whose PERSISTED sourceUri still points at the OLD
+     * cache dir ({@code getCacheDir()/faditor_audio}). Before the extract→getFilesDir fix, extracted audio
+     * lived in the OS-cleanable cache; those clips' URIs are persisted in project.json. For each such clip
+     * whose file STILL EXISTS, copy it into the durable {@code getFilesDir()/faditor_audio} and rewrite the
+     * URI so a later cache-clear can't break the track. Idempotent (a files/-based URI has no
+     * "cache/faditor_audio" segment → skipped), fully GUARDED (any per-clip failure leaves that clip's
+     * original URI untouched — never breaks loading), saves once if anything moved.
+     */
+    private void migrateAudioClipsToDurableStorage() {
+        if (project == null) return;
+        java.io.File durableDir = new java.io.File(getFilesDir(), "faditor_audio");
+        int moved = 0;
+        for (AudioClip ac : project.getTimeline().getAudioClips()) {
+            try {
+                Uri uri = ac.getSourceUri();
+                if (uri == null || !"file".equals(uri.getScheme())) continue;
+                String path = uri.getPath();
+                if (path == null || !path.contains("cache/faditor_audio")) continue;
+                java.io.File src = new java.io.File(path);
+                if (!src.exists()) continue; // cache already wiped — nothing left to rescue
+                if (!durableDir.exists()) durableDir.mkdirs();
+                java.io.File dst = new java.io.File(durableDir, src.getName());
+                if (!dst.exists() || dst.length() != src.length()) {
+                    try (java.io.FileInputStream in = new java.io.FileInputStream(src);
+                         java.io.FileOutputStream out = new java.io.FileOutputStream(dst)) {
+                        byte[] buf = new byte[64 * 1024];
+                        int n;
+                        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    }
+                }
+                if (dst.exists() && dst.length() > 0) {
+                    ac.setSourceUri(Uri.fromFile(dst));
+                    moved++;
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "Audio durability migration skipped one clip: " + e.getMessage());
+            }
+        }
+        if (moved > 0) {
+            FLog.i(TAG, "Durability: migrated " + moved
+                    + " extracted-audio clip(s) from cache to files/faditor_audio");
+            saveProjectNow();
+        }
+    }
+
     private void recoverStaleCachePaths() {
         if (project == null) return;
         Timeline tl = project.getTimeline();

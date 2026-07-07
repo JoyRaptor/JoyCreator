@@ -245,18 +245,31 @@ public class TranscriptionEngine {
         return total;
     }
 
+    // Reused across pcmToFloat() calls within one transcription run instead of allocating a
+    // fresh ~1.9MB float[] per 30s chunk (WHISPER_CHUNK_BYTES/2 samples worst case). Grown only
+    // if a caller ever asks for more samples than the current capacity; the WhisperNative JNI
+    // call reads exactly array.length samples (GetArrayLength), so for the common full-size
+    // chunks this field IS the array passed to native, and only the final (shorter) chunk needs
+    // a right-sized copy.
+    private float[] pcmFloatPool = new float[0];
+
     /** Convert {@code len} bytes of little-endian s16 PCM to normalised float [-1,1]. */
     @NonNull
     private float[] pcmToFloat(@NonNull byte[] buf, int len) {
         int samples = len / 2;
-        float[] out = new float[samples];
+        if (pcmFloatPool.length < samples) {
+            pcmFloatPool = new float[samples];
+        }
+        float[] pool = pcmFloatPool;
         for (int i = 0; i < samples; i++) {
             int lo = buf[2 * i] & 0xFF;
             int hi = buf[2 * i + 1];           // signed high byte
             short s = (short) ((hi << 8) | lo);
-            out[i] = s / 32768f;
+            pool[i] = s / 32768f;
         }
-        return out;
+        // WhisperNative.fullTranscribe reads the WHOLE array length (native GetArrayLength), so
+        // a shorter final chunk must be handed a right-sized view, not the oversized pool.
+        return samples == pool.length ? pool : java.util.Arrays.copyOf(pool, samples);
     }
 
     /** Pull the word segments from the last whisper run into the transcript. */

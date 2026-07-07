@@ -138,7 +138,7 @@ public class BRollBucket {
         return dir;
     }
 
-    /** Get a text listing of assets for the AI system prompt. */
+    /** Get a text listing of assets for the AI system prompt (with vision tags when cached). */
     @NonNull
     public String getAssetsSummary() {
         List<AssetEntry> assets = listAssets();
@@ -146,13 +146,75 @@ public class BRollBucket {
             return "No B-roll assets found. Place images/videos in "
                     + getDefaultAssetsDir().getAbsolutePath();
         }
+        org.json.JSONObject tagIndex = loadTagIndex();
         StringBuilder sb = new StringBuilder();
         sb.append("B-roll bucket (").append(assets.size()).append(" assets in ")
                 .append(getDefaultAssetsDir().getName()).append("/):\n");
         for (AssetEntry a : assets) {
             sb.append("  ").append(a.name)
                     .append(" (").append(a.isVideo ? "video" : "image")
-                    .append(", ").append(a.sizeBytes / 1024).append("KB)\n");
+                    .append(", ").append(a.sizeBytes / 1024).append("KB)");
+            String tags = tagsSummaryFor(tagIndex, a);
+            if (tags != null) sb.append(" — ").append(tags);
+            sb.append('\n');
+        }
+        return sb.toString();
+    }
+
+    // ── B-roll Phase 3: vision tag index (sidecar JSON in the bucket dir) ──
+
+    /** The persisted vision-tag sidecar: filename → {tags, description, sizeBytes, taggedAtMs}. */
+    @NonNull
+    public File getTagIndexFile() {
+        return new File(getDefaultAssetsDir(), ".broll_tags.json");
+    }
+
+    /** Load the tag index (empty object when missing/corrupt — tagging just starts fresh). */
+    @NonNull
+    public org.json.JSONObject loadTagIndex() {
+        try {
+            File f = getTagIndexFile();
+            if (f.exists()) {
+                byte[] raw = new byte[(int) Math.min(f.length(), 2_000_000L)];
+                try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+                    int n = in.read(raw);
+                    if (n > 0) {
+                        return new org.json.JSONObject(
+                                new String(raw, 0, n, java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "loadTagIndex failed — starting a fresh index", e);
+        }
+        return new org.json.JSONObject();
+    }
+
+    public void saveTagIndex(@NonNull org.json.JSONObject index) {
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(getTagIndexFile())) {
+            out.write(index.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            FLog.w(TAG, "saveTagIndex failed", e);
+        }
+    }
+
+    /**
+     * One-line "tags: …; desc" summary for an asset, or null when untagged / stale
+     * (file size changed since tagging = the file was replaced under the same name).
+     */
+    @Nullable
+    public String tagsSummaryFor(@NonNull org.json.JSONObject index, @NonNull AssetEntry a) {
+        org.json.JSONObject e = index.optJSONObject(a.name);
+        if (e == null) return null;
+        if (e.optLong("sizeBytes", -1) != a.sizeBytes) return null;
+        String tags = e.optString("tags", "");
+        String desc = e.optString("description", "");
+        if (tags.isEmpty() && desc.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        if (!tags.isEmpty()) sb.append("tags: ").append(tags);
+        if (!desc.isEmpty()) {
+            if (sb.length() > 0) sb.append("; ");
+            sb.append(desc);
         }
         return sb.toString();
     }

@@ -128,6 +128,7 @@ public class AIToolExecutor {
                 case "rename_clip": return toolRenameClip(args);
                 case "rename_asset": return toolRenameAsset(args);
                 case "describe_clip": return toolDescribeClip(args);
+                case "tag_broll_assets": return toolTagBrollAssets(args);
                 default: return "Error: unknown tool '" + toolName + "'";
             }
         } catch (Exception e) {
@@ -286,6 +287,14 @@ public class AIToolExecutor {
                 applies NOTHING. To apply after confirmation, emit apply_edit_script
                 with INSERT_BROLL_CUTAWAY per accepted suggestion.
                 args: {"clipId":"..."}
+
+            32. tag_broll_assets — Vision-tag the b-roll bucket: extracts a thumbnail
+                from each untagged image/video asset, sends it to the configured
+                multimodal model, and caches searchable tags + a one-line description.
+                Cached tags automatically improve list_broll and
+                suggest_broll_placements matching. Run this when b-roll suggestions
+                seem to be matching only on filenames.
+                args: {"maxAssets":10 (optional, cap per call), "force":false (retag all)}
 
             EditScript ops for the above (use with apply_edit_script):
               SPLIT_CLIP_AT_TIME {"type":"SPLIT_CLIP_AT_TIME","clipId":"...","atSourceMs":184500,
@@ -900,11 +909,17 @@ public class AIToolExecutor {
         BRollBucket bucket = new BRollBucket(context);
         java.util.List<BRollBucket.AssetEntry> assets = bucket.listAssets();
         java.util.Map<String, BRollBucket.AssetEntry> byName = new java.util.HashMap<>();
+        // Phase 3: cached vision tags ride along so the model matches on CONTENT,
+        // not just filenames (tag_broll_assets builds/refreshes the cache).
+        org.json.JSONObject tagIndex = bucket.loadTagIndex();
         StringBuilder catalog = new StringBuilder("AVAILABLE B-ROLL:\n");
         for (BRollBucket.AssetEntry a : assets) {
             if (a.isFont) continue;
             byName.put(a.name, a);
-            catalog.append("  ").append(a.name).append(" (").append(a.type).append(")\n");
+            catalog.append("  ").append(a.name).append(" (").append(a.type).append(")");
+            String tags = bucket.tagsSummaryFor(tagIndex, a);
+            if (tags != null) catalog.append(" — ").append(tags);
+            catalog.append('\n');
         }
         if (byName.isEmpty()) return "Error: no b-roll assets. " + bucket.getAssetsSummary();
 
@@ -967,6 +982,179 @@ public class AIToolExecutor {
         String model = prefs.sharedPreferences.getString("ai_model", "openrouter/auto");
         if (apiKey == null || apiKey.isEmpty()) return null;
         return new String[]{apiKey, model};
+    }
+
+    // ── B-roll Phase 3: vision tagging of the asset bucket ──────────
+
+    private static final String VISION_TAG_PROMPT = """
+        You are indexing b-roll footage for a video editor's search catalog.
+        Look at the supplied frame and output ONLY a JSON object, no commentary:
+        { "tags": ["5-12 short lowercase tags: subjects, setting, mood, colors, motion"],
+          "description": "one sentence a documentary editor would search by" }
+        """;
+
+    /**
+     * Vision-tag untagged bucket assets via the configured multimodal model; results are
+     * cached in the bucket's sidecar index ({@link BRollBucket#loadTagIndex()}) keyed by
+     * filename + size, and automatically enrich list_broll / suggest_broll_placements.
+     */
+    private String toolTagBrollAssets(@NonNull JSONObject args) {
+        boolean force = args.optBoolean("force", false);
+        int maxAssets = Math.max(1, Math.min(20, args.optInt("maxAssets", 10)));
+        String[] km = apiKeyModel();
+        if (km == null) return "Error: no AI API key configured (Settings → AI).";
+        BRollBucket bucket = new BRollBucket(context);
+        org.json.JSONObject index = bucket.loadTagIndex();
+        java.util.List<BRollBucket.AssetEntry> assets = bucket.listAssets();
+        int tagged = 0, failed = 0, cached = 0, attempted = 0;
+        StringBuilder report = new StringBuilder();
+        for (BRollBucket.AssetEntry a : assets) {
+            if (a.isFont) continue;
+            if (!force && bucket.tagsSummaryFor(index, a) != null) {
+                cached++;
+                continue;
+            }
+            if (attempted >= maxAssets) break;
+            attempted++;
+            notifyProgress("Tagging " + a.name, (attempted * 100) / maxAssets);
+            String b64 = assetThumbnailBase64(a);
+            if (b64 == null) {
+                failed++;
+                report.append("  ").append(a.name).append(": could not extract a frame\n");
+                continue;
+            }
+            String reply = callOpenRouterVision(km[0], km[1], VISION_TAG_PROMPT,
+                    "Filename: " + a.name + (a.isVideo ? " (a frame from a video)" : " (an image)"),
+                    b64);
+            if (reply == null) {
+                failed++;
+                report.append("  ").append(a.name)
+                        .append(": model call failed (is the configured model multimodal?)\n");
+                continue;
+            }
+            try {
+                JSONObject parsed = new JSONObject(SlideContract.stripFences(reply).trim());
+                JSONArray tagsArr = parsed.optJSONArray("tags");
+                StringBuilder tags = new StringBuilder();
+                if (tagsArr != null) {
+                    for (int i = 0; i < tagsArr.length(); i++) {
+                        String t = tagsArr.optString(i, "").trim();
+                        if (t.isEmpty()) continue;
+                        if (tags.length() > 0) tags.append(", ");
+                        tags.append(t);
+                    }
+                }
+                JSONObject entry = new JSONObject();
+                entry.put("tags", tags.toString());
+                entry.put("description", parsed.optString("description", ""));
+                entry.put("sizeBytes", a.sizeBytes);
+                entry.put("taggedAtMs", System.currentTimeMillis());
+                index.put(a.name, entry);
+                tagged++;
+                report.append("  ").append(a.name).append(" → ").append(tags).append('\n');
+            } catch (Exception e) {
+                failed++;
+                report.append("  ").append(a.name).append(": unparseable model reply\n");
+            }
+        }
+        bucket.saveTagIndex(index);
+        boolean more = attempted >= maxAssets;
+        return "B-roll vision tagging: " + tagged + " newly tagged, " + cached
+                + " already cached, " + failed + " failed.\n" + report
+                + (more ? "(Batch cap reached — call tag_broll_assets again for the rest.)" : "");
+    }
+
+    /**
+     * A small JPEG thumbnail of the asset as base64 (image decode or a video frame at
+     * ~1s), longest edge ≤512px. Null when nothing decodable.
+     */
+    @Nullable
+    private String assetThumbnailBase64(@NonNull BRollBucket.AssetEntry a) {
+        android.graphics.Bitmap bmp = null;
+        try {
+            android.net.Uri uri = android.net.Uri.parse(a.uri);
+            if (a.isVideo) {
+                android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
+                try {
+                    mmr.setDataSource(context, uri);
+                    bmp = mmr.getFrameAtTime(1_000_000L,
+                            android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                    if (bmp == null) bmp = mmr.getFrameAtTime();
+                } finally {
+                    try { mmr.release(); } catch (Exception ignored) {}
+                }
+            } else {
+                try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                    android.graphics.BitmapFactory.Options opts =
+                            new android.graphics.BitmapFactory.Options();
+                    opts.inSampleSize = 4; // bucket assets can be large; a rough decode is plenty
+                    bmp = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+                }
+            }
+            if (bmp == null) return null;
+            int longEdge = Math.max(bmp.getWidth(), bmp.getHeight());
+            if (longEdge > 512) {
+                float s = 512f / longEdge;
+                bmp = android.graphics.Bitmap.createScaledBitmap(bmp,
+                        Math.max(1, Math.round(bmp.getWidth() * s)),
+                        Math.max(1, Math.round(bmp.getHeight() * s)), true);
+            }
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, out);
+            return android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP);
+        } catch (Exception e) {
+            FLog.w(TAG, "assetThumbnailBase64 failed for " + a.name, e);
+            return null;
+        }
+    }
+
+    /** Chat-completions call with an image part (OpenRouter multimodal convention). */
+    @Nullable
+    private String callOpenRouterVision(@NonNull String apiKey, @NonNull String model,
+                                        @NonNull String system, @NonNull String userText,
+                                        @NonNull String base64Jpeg) {
+        try {
+            JSONArray content = new JSONArray();
+            content.put(new JSONObject().put("type", "text").put("text", userText));
+            content.put(new JSONObject().put("type", "image_url").put("image_url",
+                    new JSONObject().put("url", "data:image/jpeg;base64," + base64Jpeg)));
+            JSONArray messages = new JSONArray();
+            messages.put(new JSONObject().put("role", "system").put("content", system));
+            messages.put(new JSONObject().put("role", "user").put("content", content));
+            JSONObject body = new JSONObject();
+            body.put("model", model);
+            body.put("messages", messages);
+            body.put("max_tokens", 600);
+            body.put("temperature", 0.2);
+
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(90, TimeUnit.SECONDS)
+                    .writeTimeout(30, TimeUnit.SECONDS)
+                    .build();
+            Request request = new Request.Builder()
+                    .url("https://openrouter.ai/api/v1/chat/completions")
+                    .addHeader("Authorization", "Bearer " + apiKey)
+                    .addHeader("Content-Type", "application/json")
+                    .post(RequestBody.create(body.toString(),
+                            MediaType.parse("application/json")))
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                String respBody = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    FLog.e(TAG, "Vision tag API error " + response.code() + ": "
+                            + respBody.substring(0, Math.min(200, respBody.length())));
+                    return null;
+                }
+                JSONObject json = new JSONObject(respBody);
+                JSONArray choices = json.optJSONArray("choices");
+                if (choices == null || choices.length() == 0) return null;
+                return choices.getJSONObject(0).getJSONObject("message").getString("content");
+            }
+        } catch (Exception e) {
+            FLog.e(TAG, "callOpenRouterVision failed", e);
+            return null;
+        }
     }
 
     private String toolSplitClip(@NonNull JSONObject args) {

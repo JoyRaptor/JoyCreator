@@ -309,13 +309,21 @@ Commit: c5880be
 
 ### 2026-07-06 ~10:30 — SELF-REFILL LOOP BATCH-1: transitionFrameCache LruCache + AI-chat cluster (model-slug, vision-attach, project-folder stub) — DONE
 Build: `BUILD SUCCESSFUL in 14s` (watcher, compileDefaultDebugJavaWithJavac)
-Commits: `<pending>`
+Commits: `f97e4f5`
 Evidence:
 - FaditorEditorActivity.java: transitionFrameCache HashMap→LruCache with entryRemoved auto-recycle + evictAll(). Capacity 10 frames.
 - activity_chat_assistant.xml: model label TextView in top bar (below "AI Assistant", shows current model slug when API connected, gone in offline mode); image-attach ImageButton in input bar (before EditText).
 - ChatAssistantActivity.java: updateModelLabel() wired in onCreate + settings save; pickImage() + addImageMessage() + sendVisionMessage() for multimodal vision (base64 JPEG via OpenRouter API, displays thumbnail + caption inline); project-folder path added to system prompt context.
 - 3 findings logged: preview-refresh lag (diagnosed in DIAG_20260701, no cheap additive fix — real fix is Phase 5.3 GL compositor), purple drop-zone (draw path already correct per code review, COLOR_DROP_TARGET_RING consistent across all states), export-duration estimate (fixed in 1d7cf16).
-Notes for next AI: Purse-drop-zone finding closed as correct; if gesture-state visual issues persist they're in the gesture state machine (not draw path). Vision-attach requires API key + model that supports multimodal (OpenRouter models vary). Project-folder stub is light — just path in system prompt; full AI project-folder integration needs its own plan doc.
+Notes for next AI: Purple-drop-zone finding closed as correct; if gesture-state visual issues persist they're in the gesture state machine (not draw path). Vision-attach requires API key + model that supports multimodal (OpenRouter models vary). Project-folder stub is light — just path in system prompt; full AI project-folder integration needs its own plan doc.
+
+### 2026-07-06 ~10:45 — SELF-REFILL LOOP BATCH-1b: CaptionStyle Meme + Bright presets; project-title rename — DONE
+Build: `BUILD SUCCESSFUL in 24s` (watcher, compileDefaultDebugJavaWithJavac)
+Commits: `ea39eae` (caption styles), `72cdc7e` (project-title rename)
+Evidence:
+- CaptionStyle.java: added "meme" (white/yellow, black pill, bold POP) and "bright" (cyan/pink, no pill, bold BOUNCE) presets.
+- FaditorEditorActivity.java: tapping the editor title opens a MaterialAlertDialog with an EditText pre-filled with the current project name; on confirm → project.setName() + scheduleAutoSave() + updateEditorTitle().
+Notes for next AI: Project rename dialog uses LinearLayout + EditText programmatically (no layout XML dependency). The editText widget import needed to be added. Using final local variable to avoid lambda capture issues.
 
 ...
 ### 2026-07-05 ~22:00 — DEEPSEEK V4 BATCH: Sonnet-class quick wins from planner road map — ALL BUILD-VERIFIED

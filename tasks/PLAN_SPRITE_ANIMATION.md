@@ -1,3 +1,40 @@
+# 📊 BUILD-1 STATUS 2026-07-06 ~13:20 (Fable — DEVICE-VERIFIED this session, watcher live/green):
+#   • Picked up opencode (out of credits): finished the audio-overlap P0 + committed a52965b —
+#     addAudioClip(clip) auto-resolves; undo/redo/split-restore/deserialize routed to (clip,false)
+#     for exact placement. Watcher rebuilt green (18s).
+#   • SPRITE Build-1 is FUNCTIONALLY LIVE ON DEVICE (SM-N960U, project FadCam_20260621_145132):
+#     setup editor made named cells; palette panel WORKS (◄▶ transport, ◄k/k► keyframe-nav, instance
+#     selector [Sprite 1 | pangolin 2], ⚙ edit-sheet, trash); NAMED-cell carousel (0 dirt…5 ball);
+#     tap-cell → toast "Swap dropped at playhead" + undo ticks (S5 keyframe-drop ✅); timeline SPRITE
+#     lane renders amber bar "✦ 21" + frame diamonds (S5 lane visuals ✅ — the 07-05 "remain" note is
+#     STALE, landed same-day); Flip H/V + end:hold present. S1–S6 all effectively done.
+#   ✅ HAND-TEST PASSED (user 2026-07-06): sprite VISIBLY composites on video (pangolin enters ~13s).
+#     S4 preview + S6 export compositing CONFIRMED. centerY=0.5 default lands in the letterbox — a
+#     placement default worth revisiting (drop onto video content), NOT a bug.
+#   ✅ T8 FIXED + DEVICE-VERIFIED (Fable 2026-07-06 ~15:20): multi-sprite-per-lane bug closed.
+#     Timeline.spriteLayerIdFor(item)="sprite-"+item.id (DETERMINISTIC → idempotent, survives unsaved
+#     sessions) + Timeline.migrateSpriteLayers() (splits any lane holding 2+ sprites; keeps the first,
+#     moves the rest; run once in the saved-project load path). placeSpriteOnVideo() now stamps every
+#     NEW sprite with its own spriteLayerIdFor lane. NO LayerTrackDef needed — getLayers()'s leftover-
+#     bucket branch already surfaces each non-default layerId as its own buildSpriteTrack lane.
+#     DEVICE PROOF (SM-N960U, project bdd51919): load logged "moved 1 overlapping sprite(s)"; timeline
+#     now renders TWO "Sprite" rows (was one); project.json split s2→layerId sprite-81563c97…; a placed
+#     3rd sprite got its own sprite-9a97698f… lane (then removed to restore JoyRaptor's 2-sprite content).
+#     NOTE: migrated/leftover lanes render with the generic "Sprite" header name — per-lane naming
+#     lands with the LAYERS-UX renderer consolidation (FEEDBACK_20260706 #1). Commit: b55b1cd.
+#   ▶ NEXT — LAYERS-UX OVERHAUL BUILD. Gesture design pass is DONE (co-designed w/ JoyRaptor 2026-07-06).
+#     ★ START A NEW SESSION WITH: tasks/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
+#     Authoritative design = tasks/PLAN_GESTURE_CONTRACT_FINAL_20260706.md; always-green slice
+#     sequence = tasks/PLAN_LAYERS_UX_EXECUTION.md. Model: OPUS, high effort (Slice C + G1 = max).
+#     Order: Slice A (caption/viz Track kinds) → B→C (consolidate renderers, delete old drawLayers) →
+#     D (header hit zones + caption-chooser autohide) → E (vertical re-layout) → F (no-overlap all +
+#     move-between-layers + lane consolidation) → G1–G9 (gestures/menu/keyframes/handles/overlays/
+#     resizable-PiP/coach-marks/multi-select/linking). THEN sprite FF-A/FF-B, S7, S2b.
+#   REMAINING (genuine NEW build — multi-session): S7 relink UI; S2b polish (auto-detect grid, onion
+#     skin, bg-key UI, sw600dp two-pane, sidecar-export button, filmstrip); FF-A presets/dope-sheet UI;
+#     FF-B AI sprite tools (AIToolExecutor has 0 sprite refs today). Do them in that order.
+#
+# ── prior status (2026-07-05, kept as history) ──
 # 📊 BUILD-1 STATUS 2026-07-05 (JoyRaptor lane): S1 ✅ S2 ✅ S2b-core ✅(c924c9f) S3 ✅(ca496e7)
 # S4 ✅(7df95e9) S6 ✅(f270f48) — S5 lane visuals + S7 relink remain; ALL of today's work is
 # javac-verified but OWED watcher-green + on-device acceptance (watcher died 03:06, see handoff).

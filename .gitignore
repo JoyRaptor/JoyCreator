@@ -50,3 +50,6 @@ TASKS.md
 feedback.md
 build.log
 prebuild.log
+
+# JVM test harness compiled output
+tools/jvm-harness/out/

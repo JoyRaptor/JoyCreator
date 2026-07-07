@@ -687,6 +687,57 @@ public class Timeline {
     }
 
     /**
+     * Slice F — enforce the no-overlap invariant on PiP / video-overlay lanes ({@code overlayClips}),
+     * the last item type after text (F1) / sprite (T8) / audio. {@link #getLayers()} groups overlay
+     * clips by {@code layerId} into the default {@code "video"} lane + defs + leftover buckets; two PiPs
+     * sharing a lane could OVERLAP in time. For each lane holding overlapping clips this packs them into
+     * the FEWEST no-overlap sub-lanes: in start order, each clip lands on the first sub-lane whose
+     * previous clip has already ended, else a fresh sub-lane is minted. Sub-lane 0 keeps the original
+     * lane; overflow clips get a deterministic {@code "video-<id>"} lane, so the result is IDEMPOTENT
+     * (safe on every load / undo-redo restore — a lane with ≤1 clip, or clips that merely butt/gap, is
+     * untouched). ENFORCES the invariant only; it does NOT merge deliberately-separated lanes — that is
+     * the manual "compact lanes" action. Returns how many clips were moved to a fresh lane (0 = clean).
+     */
+    public int enforceNoOverlapVideoLanes() {
+        Map<String, List<Clip>> byLayer = new LinkedHashMap<>();
+        for (Clip oc : overlayClips) {
+            String id = oc.getLayerId() != null ? oc.getLayerId() : "video";
+            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(oc);
+        }
+        int moved = 0;
+        for (List<Clip> lane : byLayer.values()) {
+            if (lane.size() < 2) continue;
+            List<Clip> sorted = new ArrayList<>(lane);
+            sorted.sort((a, b) -> Long.compare(a.getOverlayStartMs(), b.getOverlayStartMs()));
+            List<Long> subLaneEnd = new ArrayList<>(); // last end (ms) per sub-lane
+            for (Clip oc : sorted) {
+                long s = oc.getOverlayStartMs();
+                long e = videoEndForPacking(oc);
+                int placed = -1;
+                for (int k = 0; k < subLaneEnd.size(); k++) {
+                    if (subLaneEnd.get(k) <= s) { placed = k; break; }
+                }
+                if (placed < 0) { placed = subLaneEnd.size(); subLaneEnd.add(e); }
+                else subLaneEnd.set(placed, e);
+                if (placed > 0) {
+                    // Overflow → its own deterministic lane (idempotent across loads).
+                    String want = "video-" + oc.getId();
+                    if (!want.equals(oc.getLayerId())) { oc.setLayerId(want); moved++; }
+                }
+                // placed == 0 keeps its original lane id (may be the default "video"/null bucket).
+            }
+        }
+        return moved;
+    }
+
+    /** Timeline end (ms) of a PiP/video overlay = its start + displayed (loop-aware) duration. Always
+     * bounded (a PiP has a finite window), so — unlike text — there is no Long.MAX_VALUE open-end case. */
+    private static long videoEndForPacking(@NonNull Clip oc) {
+        long dur = oc.hasLoopExtension() ? oc.getVisualDurationMs() : oc.getTrimmedDurationMs();
+        return oc.getOverlayStartMs() + Math.max(0, dur);
+    }
+
+    /**
      * Slice F — "compact lanes" (JoyRaptor's CapCut orphan-lane pain): drop every overlay of a kind into
      * the FEWEST no-overlap lanes. Unlike {@link #enforceNoOverlapTextLanes()} (which only SPLITS
      * overlaps within one lane), this MERGES across lanes — gather all items of a type, greedily pack

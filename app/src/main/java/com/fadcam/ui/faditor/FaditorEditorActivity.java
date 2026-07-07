@@ -982,6 +982,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "Slice F: separated " + movedText
                             + " overlapping text overlay(s) onto their own lanes");
                 }
+                // Slice F: same no-overlap invariant for PiP / video-overlay lanes (two PiPs could share
+                // a lane and overlap in time) — completes text/sprite/audio/PiP coverage. Model-level +
+                // idempotent; deterministic "video-<id>" lane ids persist on the next autosave.
+                int movedVideo = project.getTimeline().enforceNoOverlapVideoLanes();
+                if (movedVideo > 0) {
+                    FLog.i(TAG, "Slice F: separated " + movedVideo
+                            + " overlapping PiP/video overlay(s) onto their own lanes");
+                }
 
                 // Check if any clips have stale cache/remux paths and try to
                 // recover the original source before loading.

@@ -1,5 +1,21 @@
 # FadCam AI Handoff
 
+> **🧩 2026-07-07 — FABLE: SLICE F no-overlap invariant COMPLETE across ALL item types (PiP added).**
+> Added `Timeline.enforceNoOverlapVideoLanes()` — a direct mirror of the shipped/proven text packer
+> (F1) for PiP/video `overlayClips`: groups by `layerId`, packs each lane's overlapping clips into the
+> fewest no-overlap sub-lanes, overflow → deterministic `"video-<id>"` lane, IDEMPOTENT. PiP window =
+> `[overlayStartMs, overlayStartMs + (hasLoopExtension ? visualDuration : trimmedDuration)]` (always
+> bounded, unlike open-ended text). Wired into the saved-project load path in `FaditorEditorActivity`
+> alongside the sprite/text migrations (logs "separated N overlapping PiP/video overlay(s)"). Now
+> covered: TEXT ✓(F1) · IMAGE ✓(images are TextOverlayItems → same F1 packer) · SPRITE ✓(T8) · AUDIO ✓ ·
+> **PiP ✓(this)**. Green (BUILD SUCCESSFUL 17s). VERIFIED by a 14-case standalone JVM harness (overlap
+> split, butted/gap kept, 3-way stagger packs back, idempotent 2nd run, loop-aware end, single-item
+> no-op — ALL GREEN); device multi-PiP overlap not separately staged (needs a 2-PiP project — logic is
+> algorithm-identical to the device-proven text/sprite packers). Minor follow-up (non-blocking): a NEW
+> PiP still lands in the shared "video" lane (`setLayerId("video")`) — a same-session overlap separates
+> on next load; immediate on-add separation is a nicety, deferred to keep the sensitive PiP add-path
+> untouched. MOVE-between-lanes for PiP already resolves at drop (generic M10). Commit follows.
+>
 > **🎛️ 2026-07-07 — FABLE: G1 GROUNDWORK — held-item MOVE now reaches hidden lanes + honest drop-target
 > affordance (green, on device; drag-FEEL hand-test owed).** Two refinements to the existing pickup-move
 > machinery that JoyRaptor's 2026-07-07 hand-test surfaced, prep for the full G1 state machine:

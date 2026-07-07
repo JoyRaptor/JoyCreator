@@ -1,5 +1,25 @@
 # FadCam AI Handoff
 
+> **🏔️ 2026-07-07 ~13:25–14:05 — FABLE(5) "finish the frontier" swoop #1: ALL SIX remaining 🟡-tier
+> items LANDED build-green + committed; session was INTERRUPTED mid-device-verify-batch (~14:05), so
+> device coverage of these is UNKNOWN — the follow-on session re-smokes them.** The landings:
+> **(0ce35ea) export edit-safety + quality/resolution wired into the encoder** — `ExportService` now
+> receives a SNAPSHOT of the project (closes the Opus-flagged by-reference mutation hazard) and
+> `ExportManager` finally reads `ExportSettings.Resolution`/`.Quality` (encoder bitrate/size caps —
+> the previously-dead enums are live). **(a533aa0) LUT filters + intensity slider** — `LutManager`
+> pre-bakes intensity into the LUT bitmap (identity-lerp), `FilterBottomSheet` slider,
+> `EffectStack` + `ProjectStorage` persist it. **(a4baee5) G6.3/G6.4 PiP promotion +
+> minimize-during-export** — new `player/PreviewPipController` (fullscreen-extreme → draggable PiP
+> preview; small-preview/landscape promotion), export dialog got resolution/quality pickers, and
+> export survives backgrounding (foreground-service glue in `ExportService`). **(f4eca41) B-roll
+> Phase 3 vision tagging** — `AIToolExecutor` tags the asset bucket via vision API, `BRollBucket`
+> stores tags. **(dbf1628) G8 marquee multi-select** — three-state toggle, live drag box in
+> `EditorTimelineView` + `LayerRowRenderer`, batch delete; additive selection mode, existing gesture
+> branches untouched. **(ae07b21) visualizer studio Phase 3 remainder** — per-instance bar
+> width/gap overrides persisted on `WaveformOverlayInstance`. **VERIFY STATE: watcher green 14:05;
+> device verify batch started but interrupted — treat ALL SIX as build-green-only until the smoke
+> pass below reports.** Stray tree state cleaned (trailing-newline diff reverted).
+
 > **🎓 2026-07-07 — OPUS "easy frontier" session: G7 COACH-MARKS + TRANSITIONS PULL-DOWN landed,
 > JOYRAPTOR-VERIFIED ON DEVICE ("both work"); both export items DEFERRED (honest re-grade).** Two of four
 > "easy"-graded frontier items were genuinely safe/self-contained and shipped build-green + device-proven:

@@ -32,7 +32,8 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: free (Fable released 2026-07-07 ~10:30 after the G4 verify batch; auto-rotate RESTORED)
+DEVICE: Fable (2026-07-07 ~15:00 — swoop #2: re-smoke of the six swoop-#1 landings [prior verify
+  batch was interrupted ~14:05], then device-loops for the 🔴 hard queue, G5 first)
 (Fable owns it during hard interactive device-loops; opencode does code+compile-only
 and BATCHES its device-verify into windows when this reads `free` / Fable is IDLE.)
 
@@ -47,11 +48,15 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE (2026-07-07 ~10:30 — Fable-5 session wrapped. Landed: G3 committed 975ade2
-        [recovered pre-interruption work, temp slop reverted 80f→4f] + G4 preview manipulation
-        handles 5b53db4 [NEW overlay/PreviewHandlesOverlay + Callback.onItemSelectionChanged],
-        both DEVICE-PROVEN — see handoff.md top block. NEXT hard slice: G5 attach/detach.)
-files: (none — released; committed, code tree clean)
+status: ACTIVE (2026-07-07 ~15:00 — Fable-5 "finish the frontier" swoop #2. Swoop #1 landed all
+        six 🟡 items (0ce35ea/a533aa0/a4baee5/f4eca41/dbf1628/ae07b21, see handoff top block) but
+        was interrupted mid-device-verify. This session: (0) re-smoke those six on device;
+        then the 🔴 hard queue hardest-first: (1) G5 attach/detach; (2) G9 object linking;
+        (3) audio old-vs-new row consolidation; (4) GL transition real preview cards;
+        (5) out-of-process export; (6) dual-stream recording; (7) AI-generated slides.)
+files: ui/faditor/timeline/EditorTimelineView.java, ui/faditor/layers/*, ui/faditor/gesture/
+       LayerGestureController.java, ui/faditor/FaditorEditorActivity.java (gesture/timeline
+       sections) — will re-post here before touching export/recording files.
 prior-status: IDLE (2026-07-07 continuation session wrapped). Landed + committed this session:
   • 5b492e0 G1-groundwork: held-item MOVE reaches hidden lanes (M6 vertical edge-scroll) +
     honest drop-target affordance. Drag-FEEL hand-test owed (see handoff checklist).
@@ -180,6 +185,9 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (OUT OF CREDITS 2026-07-06 — stalled mid audio-overlap; Fable picked it up. Not active.)
-since: 2026-07-06 ~11:10
-files: (none — released)
+status: IDLE (2026-07-07 — Opus "easy frontier" session wrapped. Landed: G7 coach-marks (954a63e) +
+  transitions pull-down-for-more-rows (00d9e41), both build-green + launch-smoke-clean. DEFERRED both
+  export items (quality setting + edit-safety) — entangled with the locked/correctness-critical
+  ExportManager, see handoff.md. Owed hand-tests in that block.)
+files: (none — released; committed, code tree clean)
+since: 2026-07-07

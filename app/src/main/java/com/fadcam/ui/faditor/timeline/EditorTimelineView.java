@@ -216,20 +216,6 @@ public class EditorTimelineView extends View {
     private final List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> waveformLayers = new ArrayList<>();
     // Caption spans (timeline {startMs,endMs} per captioned clip) shown as their own layer rows.
     private final List<long[]> captionSpans = new ArrayList<>();
-    private final Paint layerBarPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint layerSelPaint = new Paint(Paint.ANTI_ALIAS_FLAG); // selected-layer highlight ring
-    private final Paint layerLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint layerKeyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private int activeLayerIndex = -1;
-    private long layerDragStartMs;
-    private long layerDragEndMs;
-    // A pending tap on a layer row ({kind,value} from hitTestLayerTap), dispatched on UP if not dragged.
-    private int[] pendingLayerTap;
-    // Selected layer row for the highlight ring (kind 0=overlay/1=viz/2=caption; value=index/clipIndex; -1=none).
-    private int selectedLayerKind = -1;
-    private int selectedLayerValue = -1;
-    private long layerDragInitialKeyLocalMs = -1;
-    private long layerDragOriginalKeyLocalMs = -1;
 
     // ── M6 multi-row Track UI (extract-on-touch: all logic in LayerRowRenderer) ──
     private com.fadcam.ui.faditor.layers.LayerRowRenderer layerRowRenderer;
@@ -501,9 +487,6 @@ public class EditorTimelineView extends View {
         RIGHT_HANDLE,
         AUDIO_LEFT_HANDLE,
         AUDIO_RIGHT_HANDLE,
-        LAYER_LEFT_HANDLE,
-        LAYER_RIGHT_HANDLE,
-        LAYER_KEYFRAME,
         TRANSITION_LEFT_HANDLE,
         TRANSITION_RIGHT_HANDLE
     }
@@ -616,20 +599,6 @@ public class EditorTimelineView extends View {
                 getParent().requestDisallowInterceptTouchEvent(true);
                 invalidate();
             }
-        }
-    };
-    // Long-press a layer row → delete/remove that layer object (tap=open, long-hold=delete).
-    private boolean layerLongPressFired = false;
-    private final Runnable layerLongPressRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (pendingLayerTap == null || activeDrag != Drag.NONE || listener == null) return;
-            layerLongPressFired = true;
-            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-            int[] lt = pendingLayerTap;
-            if (lt[0] == 0) listener.onOverlayLayerLongPressed(lt[1]);
-            else if (lt[0] == 1) listener.onVisualizerLayerLongPressed(lt[1]);
-            else listener.onCaptionLayerLongPressed(lt[1]);
         }
     };
     private final Runnable edgeScrollRunnable = new Runnable() {
@@ -1763,9 +1732,6 @@ public class EditorTimelineView extends View {
             drawAudioTrack(canvas);
         }
 
-        // Overlay/caption layer rows (time-ranges + keyframe diamonds)
-        drawLayers(canvas);
-
         // Transitions (fade/wipe/push bands between clips)
         drawTransitions(canvas);
 
@@ -1960,188 +1926,6 @@ public class EditorTimelineView extends View {
         return String.format(java.util.Locale.US, "%d:%02d.%03d", mm, ss, mmm);
     }
 
-    private final Path layerKeyPath = new Path();
-
-    /**
-     * Draw each overlay/caption as a coloured "layer" bar over its time-range,
-     * with white diamonds at its keyframes — so the user can SEE the animation
-     * instead of trusting it's there. Read-only for now (no dragging yet).
-     */
-    private void drawLayers(@NonNull Canvas canvas) {
-        if ((overlays.isEmpty() && waveformLayers.isEmpty() && captionSpans.isEmpty())
-                || totalEffectiveMs <= 0) return;
-        float rowH = LAYER_ROW_HEIGHT_DP * density;
-        float rowGap = LAYER_ROW_GAP_DP * density;
-        float top = getLayerTopPx();
-        float pxPerMs = dpPerSecondPx / 1000f;
-
-        layerLabelPaint.setTextSize(10f * density);
-        layerLabelPaint.setTypeface(Typeface.DEFAULT_BOLD);
-        layerLabelPaint.setColor(0xFFFFFFFF);
-        layerSelPaint.setStyle(Paint.Style.STROKE);
-        layerSelPaint.setStrokeWidth(2.5f * density);
-        layerSelPaint.setColor(0xFFFFFFFF); // selected-layer highlight ring
-
-        for (int i = 0; i < overlays.size(); i++) {
-            TextOverlayItem o = overlays.get(i);
-            float y0 = top + i * (rowH + rowGap);
-            float y1 = y0 + rowH;
-
-            long startMs = Math.max(0, o.getStartMs());
-            long endMs = (o.getEndMs() == Long.MAX_VALUE)
-                    ? totalEffectiveMs : Math.min(o.getEndMs(), totalEffectiveMs);
-            if (endMs <= startMs) endMs = totalEffectiveMs;
-
-            float x0 = timeToX(startMs);
-            float x1 = Math.max(x0 + 6f * density, timeToX(endMs));
-
-            // Image overlays purple, text overlays teal.
-            layerBarPaint.setColor(o.isImage() ? 0xDD7E57C2 : 0xDD26A69A);
-            canvas.drawRoundRect(x0, y0, x1, y1, 3f * density, 3f * density, layerBarPaint);
-            if (selectedLayerKind == 0 && selectedLayerValue == i) {
-                canvas.drawRoundRect(x0, y0, x1, y1, 3f * density, 3f * density, layerSelPaint);
-            }
-
-            // Label (clipped to the bar).
-            String label = o.isImage() ? "IMG" : o.getText();
-            if (label != null && !label.isEmpty()) {
-                canvas.save();
-                canvas.clipRect(x0, y0, x1, y1);
-                float ty = (y0 + y1) / 2f + layerLabelPaint.getTextSize() / 3f;
-                canvas.drawText(label, x0 + 5f * density, ty, layerLabelPaint);
-                canvas.restore();
-            }
-
-            // Keyframe diamonds (use the X track as the canonical set of times).
-            if (o.isArmed()) {
-                KeyframeTrack xt = o.getKeyframes().get(KeyframeSet.X);
-                if (xt != null && !xt.isEmpty()) {
-                    layerKeyPaint.setColor(0xFFFFFFFF);
-                    float cy = (y0 + y1) / 2f;
-                    float r = rowH * 0.30f;
-                    for (Keyframe k : xt.keyframes) {
-                        float kx = timeToX(startMs + k.timeMs);
-                        drawDiamond(canvas, kx, cy, r);
-                    }
-                }
-            }
-        }
-
-        // Visualizer (waveform) overlays continue the rows below the text/image overlays.
-        for (int i = 0; i < waveformLayers.size(); i++) {
-            com.fadcam.ui.faditor.model.WaveformOverlayInstance wv = waveformLayers.get(i);
-            float y0 = top + (overlays.size() + i) * (rowH + rowGap);
-            float y1 = y0 + rowH;
-
-            long startMs = Math.max(0, wv.getStartMs());
-            long endMs = (wv.getEndMs() <= 0 || wv.getEndMs() == Long.MAX_VALUE)
-                    ? totalEffectiveMs : Math.min(wv.getEndMs(), totalEffectiveMs);
-            if (endMs <= startMs) endMs = totalEffectiveMs;
-
-            float x0 = timeToX(startMs);
-            float x1 = Math.max(x0 + 6f * density, timeToX(endMs));
-
-            layerBarPaint.setColor(0xDF4DD0E1); // cyan = visualizer layer
-            canvas.drawRoundRect(x0, y0, x1, y1, 3f * density, 3f * density, layerBarPaint);
-            if (selectedLayerKind == 1 && selectedLayerValue == i) {
-                canvas.drawRoundRect(x0, y0, x1, y1, 3f * density, 3f * density, layerSelPaint);
-            }
-
-            canvas.save();
-            canvas.clipRect(x0, y0, x1, y1);
-            float ty = (y0 + y1) / 2f + layerLabelPaint.getTextSize() / 3f;
-            layerLabelPaint.setColor(0xFF06303A);
-            canvas.drawText("VIZ", x0 + 5f * density, ty, layerLabelPaint);
-            canvas.restore();
-            layerLabelPaint.setColor(0xFFFFFFFF);
-        }
-
-        // Captions all share ONE caption-track row below the overlay + visualizer rows.
-        int captionRowBase = overlays.size() + waveformLayers.size();
-        float capY0 = top + captionRowBase * (rowH + rowGap);
-        for (int i = 0; i < captionSpans.size(); i++) {
-            long[] span = captionSpans.get(i);
-            float y0 = capY0;
-            float y1 = y0 + rowH;
-
-            long startMs = Math.max(0, span[0]);
-            long endMs = (span[1] <= 0 || span[1] == Long.MAX_VALUE)
-                    ? totalEffectiveMs : Math.min(span[1], totalEffectiveMs);
-            if (endMs <= startMs) endMs = totalEffectiveMs;
-
-            float x0 = timeToX(startMs);
-            float x1 = Math.max(x0 + 6f * density, timeToX(endMs));
-
-            // Look up clip to check for caption style keyframes
-            int clipIdx = (int) span[2];
-            Clip clip = (clipIdx >= 0 && clipIdx < segments.size()) ? segments.get(clipIdx).clip : null;
-            boolean hasKfs = clip != null && clip.hasCaptionStyleKeyframes();
-
-            if (hasKfs) {
-                // Draw colored segments from each keyframe region
-                long segLeftMs = startMs;
-                String styleId = clip.captionStyleAtClipMs(0);
-                for (Clip.CaptionStyleKeyframe kf : clip.getCaptionStyleKeyframes()) {
-                    long segRightMs = Math.min(startMs + kf.timeMs, endMs);
-                    float sx0 = timeToX(segLeftMs);
-                    float sx1 = timeToX(segRightMs);
-                    if (sx1 > sx0) {
-                        int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId).activeColor;
-                        layerBarPaint.setColor(0xDF000000 | (c & 0x00FFFFFF));
-                        canvas.drawRect(sx0, y0, sx1, y1, layerBarPaint);
-                    }
-                    segLeftMs = segRightMs;
-                    styleId = kf.styleId;
-                }
-                // Tail after the final keyframe
-                if (segLeftMs < endMs) {
-                    float sx0 = timeToX(segLeftMs);
-                    int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId).activeColor;
-                    layerBarPaint.setColor(0xDF000000 | (c & 0x00FFFFFF));
-                    canvas.drawRect(sx0, y0, x1, y1, layerBarPaint);
-                }
-            } else {
-                layerBarPaint.setColor(0xDFFFC107); // amber = caption layer
-                canvas.drawRoundRect(x0, y0, x1, y1, 3f * density, 3f * density, layerBarPaint);
-            }
-
-            if (selectedLayerKind == 2 && selectedLayerValue == (int) span[2]) {
-                canvas.drawRoundRect(x0, y0, x1, y1, 3f * density, 3f * density, layerSelPaint);
-            }
-
-            canvas.save();
-            canvas.clipRect(x0, y0, x1, y1);
-            float ty = (y0 + y1) / 2f + layerLabelPaint.getTextSize() / 3f;
-            layerLabelPaint.setColor(0xFF3E2C00);
-            canvas.drawText("CC", x0 + 5f * density, ty, layerLabelPaint);
-            canvas.restore();
-            layerLabelPaint.setColor(0xFFFFFFFF);
-
-            // Keyframe diamonds
-            if (hasKfs) {
-                layerKeyPaint.setColor(0xFFFFFFFF);
-                float cy = (y0 + y1) / 2f;
-                float r = rowH * 0.30f;
-                for (Clip.CaptionStyleKeyframe kf : clip.getCaptionStyleKeyframes()) {
-                    float kx = timeToX(startMs + kf.timeMs);
-                    if (kx >= x0 && kx <= x1) {
-                        drawDiamond(canvas, kx, cy, r);
-                    }
-                }
-            }
-        }
-    }
-
-    private void drawDiamond(@NonNull Canvas canvas, float cx, float cy, float r) {
-        layerKeyPath.reset();
-        layerKeyPath.moveTo(cx, cy - r);
-        layerKeyPath.lineTo(cx + r, cy);
-        layerKeyPath.lineTo(cx, cy + r);
-        layerKeyPath.lineTo(cx - r, cy);
-        layerKeyPath.close();
-        canvas.drawPath(layerKeyPath, layerKeyPaint);
-    }
-
     /**
      * Draw transitions as colored diagonal bands at clip boundaries.
      * Fades = blue, wipes = orange, pushes = purple. Labeled with type.
@@ -2327,13 +2111,6 @@ public class EditorTimelineView extends View {
         return audioBandTopPx() + audioTrackTotalHeightPx();
     }
 
-    private float getLayerTopPx() {
-        return masterBotPx()
-                + (!audioClips.isEmpty() ? audioTrackGapPx + audioTrackTotalHeightPx() : 0f)
-                + transcriptReservePx()
-                + LAYER_TOP_GAP_DP * density;
-    }
-
     /**
      * Top Y (px) where the M6 Track-driven rows (the nameless layer substrate) begin.
      * Slice E (FEEDBACK #3): this band moved to the TOP — directly under the ruler /
@@ -2346,124 +2123,6 @@ public class EditorTimelineView extends View {
      */
     private float getM6RowsTopPx() {
         return rulerHeightPx;
-    }
-
-    private long displayEndMs(@NonNull TextOverlayItem overlay) {
-        long endMs = overlay.getEndMs() == Long.MAX_VALUE
-                ? totalEffectiveMs : Math.min(overlay.getEndMs(), totalEffectiveMs);
-        if (endMs <= overlay.getStartMs()) endMs = totalEffectiveMs;
-        return Math.max(0, endMs);
-    }
-
-    private long clampLayerTime(long timeMs) {
-        return Math.max(0, Math.min(timeMs, Math.max(0, totalEffectiveMs)));
-    }
-
-    private int hitTestLayerRow(float y) {
-        if (overlays.isEmpty() || totalEffectiveMs <= 0) return -1;
-        float rowH = LAYER_ROW_HEIGHT_DP * density;
-        float rowGap = LAYER_ROW_GAP_DP * density;
-        float top = getLayerTopPx();
-        for (int i = 0; i < overlays.size(); i++) {
-            float y0 = top + i * (rowH + rowGap);
-            float y1 = y0 + rowH;
-            if (y >= y0 - touchSlopPx / 3f && y <= y1 + touchSlopPx / 3f) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    /**
-     * Hit-test a TAP on any layer row (overlay / visualizer / caption). {@code x} is the
-     * scrolled (content) X. Returns {kind, value}: kind 0=overlay (value=overlayIndex),
-     * 1=visualizer (value=waveformIndex), 2=caption (value=clipIndex), or null if none.
-     */
-    private int[] hitTestLayerTap(float x, float y) {
-        if (totalEffectiveMs <= 0) return null;
-        float rowH = LAYER_ROW_HEIGHT_DP * density;
-        float rowGap = LAYER_ROW_GAP_DP * density;
-        float top = getLayerTopPx();
-        float slop = touchSlopPx / 3f;
-        // Text/image overlay rows.
-        for (int i = 0; i < overlays.size(); i++) {
-            float y0 = top + i * (rowH + rowGap);
-            if (y < y0 - slop || y > y0 + rowH + slop) continue;
-            TextOverlayItem o = overlays.get(i);
-            float x0 = timeToX(Math.max(0, o.getStartMs()));
-            float x1 = Math.max(x0 + 6f * density, timeToX(displayEndMs(o)));
-            if (x >= x0 - slop && x <= x1 + slop) return new int[]{0, i};
-        }
-        // Visualizer rows.
-        int base = overlays.size();
-        for (int i = 0; i < waveformLayers.size(); i++) {
-            float y0 = top + (base + i) * (rowH + rowGap);
-            if (y < y0 - slop || y > y0 + rowH + slop) continue;
-            com.fadcam.ui.faditor.model.WaveformOverlayInstance wv = waveformLayers.get(i);
-            long s = Math.max(0, wv.getStartMs());
-            long e = (wv.getEndMs() <= 0 || wv.getEndMs() == Long.MAX_VALUE)
-                    ? totalEffectiveMs : Math.min(wv.getEndMs(), totalEffectiveMs);
-            if (e <= s) e = totalEffectiveMs;
-            float x0 = timeToX(s), x1 = Math.max(x0 + 6f * density, timeToX(e));
-            if (x >= x0 - slop && x <= x1 + slop) return new int[]{1, i};
-        }
-        // Caption track row (one row; segments carry their clip index in span[2]).
-        if (!captionSpans.isEmpty()) {
-            int capRow = base + waveformLayers.size();
-            float y0 = top + capRow * (rowH + rowGap);
-            if (y >= y0 - slop && y <= y0 + rowH + slop) {
-                for (long[] sp : captionSpans) {
-                    long s = Math.max(0, sp[0]);
-                    long e = (sp[1] <= 0 || sp[1] == Long.MAX_VALUE)
-                            ? totalEffectiveMs : Math.min(sp[1], totalEffectiveMs);
-                    if (e <= s) e = totalEffectiveMs;
-                    float x0 = timeToX(s), x1 = Math.max(x0 + 6f * density, timeToX(e));
-                    if (x >= x0 && x <= x1) return new int[]{2, (int) sp[2]};
-                }
-            }
-        }
-        return null;
-    }
-
-    private Drag hitTestLayer(float x, float y) {
-        int row = hitTestLayerRow(y);
-        if (row < 0) return Drag.NONE;
-
-        TextOverlayItem overlay = overlays.get(row);
-        long startMs = Math.max(0, overlay.getStartMs());
-        long endMs = displayEndMs(overlay);
-        float x0 = timeToX(startMs);
-        float x1 = Math.max(x0 + 6f * density, timeToX(endMs));
-        float edgeSlop = Math.max(handleWidthPx, touchSlopPx * 0.65f);
-
-        if (Math.abs(x - x0) <= edgeSlop) {
-            activeLayerIndex = row;
-            return Drag.LAYER_LEFT_HANDLE;
-        }
-        if (Math.abs(x - x1) <= edgeSlop) {
-            activeLayerIndex = row;
-            return Drag.LAYER_RIGHT_HANDLE;
-        }
-
-        KeyframeTrack xt = overlay.getKeyframes().get(KeyframeSet.X);
-        if (xt != null && !xt.isEmpty()) {
-            float keySlop = Math.max(10f * density, touchSlopPx * 0.55f);
-            for (Keyframe keyframe : xt.keyframes) {
-                long timelineMs = startMs + keyframe.timeMs;
-                if (timelineMs < startMs || timelineMs > endMs) continue;
-                if (Math.abs(x - timeToX(timelineMs)) <= keySlop) {
-                    activeLayerIndex = row;
-                    layerDragInitialKeyLocalMs = keyframe.timeMs;
-                    layerDragOriginalKeyLocalMs = keyframe.timeMs;
-                    return Drag.LAYER_KEYFRAME;
-                }
-            }
-        }
-
-        if (x >= x0 && x <= x1) {
-            activeLayerIndex = row;
-        }
-        return Drag.NONE;
     }
 
     /**
@@ -4550,36 +4209,6 @@ public class EditorTimelineView extends View {
             return true;
         }
 
-        pendingLayerTap = null;
-        Drag layerHit = hitTestLayer(scrolledX, y);
-        if (layerHit != Drag.NONE && activeLayerIndex >= 0
-                && activeLayerIndex < overlays.size()) {
-            TextOverlayItem overlay = overlays.get(activeLayerIndex);
-            activeDrag = layerHit;
-            layerDragStartMs = Math.max(0, overlay.getStartMs());
-            layerDragEndMs = displayEndMs(overlay);
-            if (listener != null) listener.onOverlayDragStart(activeLayerIndex);
-            getParent().requestDisallowInterceptTouchEvent(true);
-            return true;
-        }
-        // A tap on any layer-row body (overlay / visualizer / caption) → dispatch on UP;
-        // a long-hold there → delete/remove that layer object.
-        int[] layerTap = hitTestLayerTap(scrolledX, y);
-        if (layerTap != null) {
-            pendingLayerTap = layerTap;
-            layerLongPressFired = false;
-            longPressHandler.removeCallbacks(layerLongPressRunnable);
-            longPressHandler.postDelayed(layerLongPressRunnable, AUDIO_LONG_PRESS_MS);
-            getParent().requestDisallowInterceptTouchEvent(true);
-            return true;
-        }
-        // Touch landed off any layer row → clear the layer-selection highlight.
-        if (selectedLayerKind != -1) {
-            selectedLayerKind = -1;
-            selectedLayerValue = -1;
-            invalidate();
-        }
-
         int transitionHit = hitTestTransition(scrolledX, y);
         if (transitionHit >= 0) {
             selectedTransitionIndex = transitionHit;
@@ -4863,11 +4492,6 @@ public class EditorTimelineView extends View {
                 longPressHandler.removeCallbacks(audioLongPressRunnable);
                 pendingAudioIndex = -1;
             }
-            // Cancel layer-row long-press (don't delete on a scroll).
-            if (!layerLongPressFired) {
-                longPressHandler.removeCallbacks(layerLongPressRunnable);
-                pendingLayerTap = null;
-            }
         }
 
         if (assetDragActive) {
@@ -4889,13 +4513,6 @@ public class EditorTimelineView extends View {
             lastTrimFingerScreenX = x;
             doAudioTrimDrag(scrolledX);
             startOrStopEdgeScroll(x);
-            return true;
-        }
-
-        if (activeDrag == Drag.LAYER_LEFT_HANDLE
-                || activeDrag == Drag.LAYER_RIGHT_HANDLE
-                || activeDrag == Drag.LAYER_KEYFRAME) {
-            doLayerDrag(scrolledX);
             return true;
         }
 
@@ -5071,32 +4688,6 @@ public class EditorTimelineView extends View {
         }
         pendingAudioIndex = -1;
 
-        // Layer-row tap (no drag): dispatch the appropriate callback. A long-press already
-        // fired its delete via the runnable, so just consume the UP here.
-        if (pendingLayerTap != null) {
-            longPressHandler.removeCallbacks(layerLongPressRunnable);
-            int[] lt = pendingLayerTap;
-            pendingLayerTap = null;
-            if (layerLongPressFired) {
-                layerLongPressFired = false;
-                getParent().requestDisallowInterceptTouchEvent(false);
-                return true;
-            }
-            if (isUp && Math.abs(x - downX) < touchSlopPx && listener != null) {
-                // Highlight the tapped layer row, and clear any video/audio selection.
-                selectedLayerKind = lt[0];
-                selectedLayerValue = lt[1];
-                selectedIndex = -1;
-                selectedAudioIndex = -1;
-                invalidate();
-                if (lt[0] == 0) listener.onOverlayLayerTapped(lt[1]);
-                else if (lt[0] == 1) listener.onVisualizerLayerTapped(lt[1]);
-                else listener.onCaptionLayerTapped(lt[1]);
-            }
-            getParent().requestDisallowInterceptTouchEvent(false);
-            return true;
-        }
-
         if (last == Drag.LEFT_HANDLE || last == Drag.RIGHT_HANDLE) {
             if (listener != null) {
                 if (loopChangedDuringDrag) {
@@ -5121,23 +4712,10 @@ public class EditorTimelineView extends View {
             if (listener != null) {
                 listener.onAudioTrimFinished(selectedAudioIndex, audioTrimDragInMs, audioTrimDragOutMs);
             }
-        } else if ((last == Drag.LAYER_LEFT_HANDLE || last == Drag.LAYER_RIGHT_HANDLE)
-                && activeLayerIndex >= 0 && activeLayerIndex < overlays.size()) {
-            TextOverlayItem overlay = overlays.get(activeLayerIndex);
-            if (listener != null) {
-                listener.onOverlayRangeFinished(activeLayerIndex,
-                        overlay.getStartMs(), overlay.getEndMs());
-            }
         } else if (last == Drag.TRANSITION_LEFT_HANDLE || last == Drag.TRANSITION_RIGHT_HANDLE) {
             if (listener != null) {
                 long newDur = transitionDurationFromDragX(transitionDragX);
                 listener.onTransitionDurationFinished(transitionDragIndex, newDur);
-            }
-        } else if (last == Drag.LAYER_KEYFRAME
-                && activeLayerIndex >= 0 && activeLayerIndex < overlays.size()) {
-            if (listener != null) {
-                listener.onOverlayKeyframeMoveFinished(activeLayerIndex,
-                        layerDragInitialKeyLocalMs, layerDragOriginalKeyLocalMs);
             }
         } else if (isUp && downSegIndex >= 0) {
             if (Math.abs(x - downX) < touchSlopPx) {
@@ -5175,9 +4753,6 @@ public class EditorTimelineView extends View {
         activeDrag = Drag.NONE;
         transitionDragIndex = -1;
         downSegIndex = -1;
-        activeLayerIndex = -1;
-        layerDragInitialKeyLocalMs = -1;
-        layerDragOriginalKeyLocalMs = -1;
         getParent().requestDisallowInterceptTouchEvent(false);
         return true;
     }
@@ -5535,87 +5110,6 @@ public class EditorTimelineView extends View {
         return Long.MIN_VALUE; // still colliding after 4 passes → snap-back
     }
 
-    /** Same-lane test for the legacy overlay lane's no-overlap clamps (null layerId groups as "text"). */
-    private boolean sameLayerLane(TextOverlayItem a, TextOverlayItem b) {
-        String ka = a.getLayerId() == null ? "text" : a.getLayerId();
-        String kb = b.getLayerId() == null ? "text" : b.getLayerId();
-        return ka.equals(kb);
-    }
-
-    /** Lowest legal start for a LEFT-handle trim: may not cross into a same-lane sibling. */
-    private long layerSiblingFloor(TextOverlayItem ov, long proposedStart, long endMs) {
-        long floor = proposedStart;
-        for (TextOverlayItem sib : overlays) {
-            if (sib == ov || !sameLayerLane(ov, sib)) continue;
-            long ss = Math.max(0, sib.getStartMs());
-            long se = sib.getEndMs() == Long.MAX_VALUE ? totalEffectiveMs : sib.getEndMs();
-            if (ss < endMs && se > proposedStart) floor = Math.max(floor, se);
-        }
-        // Pre-existing overlaps (created before this law) must not force an un-trim.
-        return Math.min(floor, Math.max(0, endMs - 250));
-    }
-
-    /** Highest legal end for a RIGHT-handle trim: may not cross into a same-lane sibling. */
-    private long layerSiblingCeil(TextOverlayItem ov, long startMs, long proposedEnd) {
-        long ceil = proposedEnd;
-        for (TextOverlayItem sib : overlays) {
-            if (sib == ov || !sameLayerLane(ov, sib)) continue;
-            long ss = Math.max(0, sib.getStartMs());
-            long se = sib.getEndMs() == Long.MAX_VALUE ? totalEffectiveMs : sib.getEndMs();
-            if (se > startMs && ss < proposedEnd) ceil = Math.min(ceil, ss);
-        }
-        return Math.max(ceil, startMs + 250);
-    }
-
-    private void doLayerDrag(float x) {
-        if (activeLayerIndex < 0 || activeLayerIndex >= overlays.size()
-                || totalEffectiveMs <= 0) {
-            return;
-        }
-
-        TextOverlayItem overlay = overlays.get(activeLayerIndex);
-        long t = clampLayerTime(xToTime(x));
-        long minGapMs = 250;
-
-        if (activeDrag == Drag.LAYER_LEFT_HANDLE) {
-            long endMs = layerDragEndMs;
-            long newStart = Math.min(t, Math.max(0, endMs - minGapMs));
-            // No-overlap law (dragux_v3 A8, 2026-07-04 user repro): the LEGACY overlay
-            // lane bypassed the row-system guards entirely — clamp the moving edge
-            // against same-layer siblings so a trim can never extend into one.
-            newStart = Math.max(newStart, layerSiblingFloor(overlay, newStart, endMs));
-            overlay.setTimeRange(newStart,
-                    overlay.getEndMs() == Long.MAX_VALUE ? Long.MAX_VALUE : endMs);
-            if (listener != null) {
-                listener.onOverlayRangeChanged(activeLayerIndex,
-                        overlay.getStartMs(), overlay.getEndMs(), true);
-            }
-        } else if (activeDrag == Drag.LAYER_RIGHT_HANDLE) {
-            long startMs = layerDragStartMs;
-            long newEnd = Math.max(t, startMs + minGapMs);
-            newEnd = Math.min(newEnd, Math.max(startMs + minGapMs, totalEffectiveMs));
-            newEnd = Math.min(newEnd, layerSiblingCeil(overlay, startMs, newEnd));
-            overlay.setTimeRange(startMs, newEnd >= totalEffectiveMs ? Long.MAX_VALUE : newEnd);
-            if (listener != null) {
-                listener.onOverlayRangeChanged(activeLayerIndex,
-                        overlay.getStartMs(), overlay.getEndMs(), false);
-            }
-        } else if (activeDrag == Drag.LAYER_KEYFRAME) {
-            long startMs = Math.max(0, overlay.getStartMs());
-            long endMs = displayEndMs(overlay);
-            long newLocal = Math.max(0, Math.min(t - startMs, Math.max(0, endMs - startMs)));
-            if (overlay.moveKeyframeLocalTime(layerDragOriginalKeyLocalMs, newLocal)) {
-                if (listener != null) {
-                    listener.onOverlayKeyframeMoved(activeLayerIndex,
-                            layerDragOriginalKeyLocalMs, newLocal);
-                }
-                layerDragOriginalKeyLocalMs = newLocal;
-            }
-        }
-
-        invalidate();
-    }
-    
     private void doTransitionTrimDrag(float x) {
         if (transitionDragIndex < 0 || transitionDragIndex >= transitions.size()) return;
         Transition t = transitions.get(transitionDragIndex);

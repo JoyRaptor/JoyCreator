@@ -319,11 +319,14 @@ public class MasterPlaybackEngine {
 
     /**
      * Whether the timeline is a single track the gapless playlist can serve: plain cuts, L1
-     * NORMAL-loop clips, and (L2) PING_PONG-loop clips whose baked-reversed file is already CACHED
-     * ({@code resolver.resolveReversed(clip) != null}). Requires ≥2 clips, all non-image video, and
-     * no transitions. A PING_PONG clip whose bake is missing/too-long makes the whole timeline
-     * ineligible (legacy forward-tail path handles it until the bake completes and a rebuild
-     * re-checks). STILL clips remain legacy (L3).
+     * NORMAL-loop clips, (L2) PING_PONG-loop clips whose baked-reversed file is already CACHED
+     * ({@code resolver.resolveReversed(clip) != null}), and IMAGE clips (played as native media3
+     * image windows via {@code MediaItem.Builder#setImageDurationMs} — the same pipeline export
+     * uses — so a freeze-frame/photo insert no longer punts the WHOLE project back to the legacy
+     * cold-re-prepare path; see road_map 🔴 P0 2026-07-07). Requires ≥2 clips and no transitions.
+     * A PING_PONG clip whose bake is missing/too-long makes the whole timeline ineligible (legacy
+     * forward-tail path handles it until the bake completes and a rebuild re-checks). STILL clips
+     * remain legacy (L3).
      */
     public static boolean isEligible(@Nullable Timeline timeline, @Nullable SourceResolver resolver) {
         if (timeline == null) return false;
@@ -332,7 +335,13 @@ public class MasterPlaybackEngine {
         if (timeline.getTransitions() != null && !timeline.getTransitions().isEmpty()) return false;
         for (int i = 0; i < count; i++) {
             Clip c = timeline.getClip(i);
-            if (c == null || c.isImageClip()) return false;
+            if (c == null) return false;
+            if (c.isImageClip()) {
+                // A still frame is loop-mode-agnostic (looping/reversing a still is the still),
+                // so ANY image clip is served as one image window of its full visual duration.
+                if (c.getSourceUri() == null) return false;
+                continue;
+            }
             int loopMode = c.getLoopMode();
             if (loopMode == Clip.LOOP_MODE_OFF || loopMode == Clip.LOOP_MODE_NORMAL) continue;
             if (loopMode == Clip.LOOP_MODE_PING_PONG) {
@@ -362,6 +371,13 @@ public class MasterPlaybackEngine {
         int count = timeline.getClipCount();
         for (int i = 0; i < count; i++) {
             Clip clip = timeline.getClip(i);
+            if (clip.isImageClip()) {
+                // Image clip: one native image window for the clip's whole visual duration
+                // (loop extensions on a still are just more of the same frame). The RAW source
+                // URI is used — the remux-to-seekable resolver is for fMP4 video only.
+                addImageWindow(i, clip, items);
+                continue;
+            }
             Uri seekable = resolver.resolveSeekable(clip);
             int loopMode = clip.getLoopMode();
             if (loopMode == Clip.LOOP_MODE_PING_PONG && clip.hasLoopExtension()) {
@@ -510,6 +526,28 @@ public class MasterPlaybackEngine {
         items.add(item);
         windows.add(new WindowInfo(clipIndex, clip.getId(), RepKind.MAIN,
                 visualStartMs, visualLenMs, clip.getSpeedMultiplier(), /* reverse = */ false));
+    }
+
+    /**
+     * Append the single window for an IMAGE clip: a media3 image {@link MediaItem}
+     * ({@code setImageDurationMs}) played by the default {@code ImageRenderer} and displayed by
+     * {@code PlayerView}'s image output — the SAME image pipeline {@code ExportManager}
+     * ({@code buildVideoMediaItem}) uses, so preview and export agree on image handling. The
+     * window spans the clip's whole VISUAL duration (trimmed + any loop extension: repeating or
+     * reversing a still frame is identical to showing it longer), at speed 1 (speed is meaningless
+     * for a still; the clip's duration IS the duration). No ClippingConfiguration — the image has
+     * no source timeline to clip.
+     */
+    private void addImageWindow(int clipIndex, @NonNull Clip clip, @NonNull List<MediaItem> items) {
+        long visualLenMs = Math.max(1L, clip.hasLoopExtension()
+                ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs());
+        MediaItem item = new MediaItem.Builder()
+                .setUri(clip.getSourceUri())
+                .setImageDurationMs(visualLenMs)
+                .build();
+        items.add(item);
+        windows.add(new WindowInfo(clipIndex, clip.getId(), RepKind.MAIN,
+                /* visualStartMs = */ 0L, visualLenMs, /* speed = */ 1f, /* reverse = */ false));
     }
 
     private void applyWindowSpeed(int window) {

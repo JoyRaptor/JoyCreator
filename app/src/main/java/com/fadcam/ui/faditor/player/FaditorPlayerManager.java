@@ -36,10 +36,11 @@ import com.fadcam.ui.faditor.compositor.MasterPlaybackEngine;
  * cold re-prepare / boundary freeze, no poll-based seekTo(0)). All position/seek/transport calls
  * are preserved as clip-local (CONTINUOUS across a looped clip's reps — see
  * {@link MasterPlaybackEngine#getCurrentPositionInWindow()}) so {@code FaditorEditorActivity}'s
- * polling loop is unchanged. STILL loop clips, transitions, images, and PING_PONG clips whose
- * reverse bake isn't ready yet fall back to the legacy single-clip path below (for the last, that
- * means a FORWARD-TAIL preview until the bake completes and a rebuild promotes it). See
- * {@code MasterPlaybackEngine} for details.</p>
+ * polling loop is unchanged. IMAGE clips play as native media3 image windows (P0 fix 2026-07-07 —
+ * a freeze-frame insert no longer disqualifies the whole project). STILL loop clips, transitions,
+ * and PING_PONG clips whose reverse bake isn't ready yet fall back to the legacy single-clip path
+ * below (for the last, that means a FORWARD-TAIL preview until the bake completes and a rebuild
+ * promotes it). See {@code MasterPlaybackEngine} for details.</p>
  */
 public class FaditorPlayerManager implements DefaultLifecycleObserver {
 

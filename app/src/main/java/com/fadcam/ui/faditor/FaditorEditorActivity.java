@@ -745,6 +745,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 hideMissingOverlay();
                 hideSlidePreview();
                 showImagePreview(clip.getSourceUri());
+                if (playerManager != null && playerManager.isGapless()) {
+                    // Gapless: point the engine at this image window so transport
+                    // (play from here / window-local seeks) lines up with the selection.
+                    playerManager.loadClip(clip);
+                }
             } else if (clip.isGeneratedSlide()) {
                 // AI slide: live WebView preview, no ExoPlayer load
                 hideMissingOverlay();
@@ -771,8 +776,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             editorTimeline.setPlayheadFraction(sourceFrac);
             
             long seekPositionMs = sourcePositionMs - clip.getInPointMs();
-            if (!clip.isImageClip()) {
-                // Only seek ExoPlayer for video clips
+            if (!clip.isImageClip()
+                    || (playerManager != null && playerManager.isGapless())) {
+                // Seek ExoPlayer for video clips, and for image clips too when the gapless
+                // engine serves them as playlist windows (window-local seek).
                 playerManager.seekTo(seekPositionMs);
             }
             updateCurrentTimeDisplay(seekPositionMs);
@@ -1368,6 +1375,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         hideSlidePreview();
                         showImagePreview(clip.getSourceUri());
                         stopImagePlayback();
+                        if (playerManager != null && playerManager.isGapless()) {
+                            // Match the video scrub path's pause-on-seek: without this the
+                            // gapless engine would keep playing under the image overlay.
+                            playerManager.pause();
+                        }
                     } else if (clip.isGeneratedSlide()) {
                         // AI slide: WebView preview is shown/seeked in the seek block below
                         hideMissingOverlay();
@@ -1446,6 +1458,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             hideSlidePreview();
                             showImagePreview(clip.getSourceUri());
                             stopImagePlayback();
+                            if (playerManager != null && playerManager.isGapless()) {
+                                // Gapless: land the engine inside this image window at the
+                                // scrubbed position so pressing play resumes from here.
+                                long playheadMs = editorTimeline.getPlayheadPositionMs();
+                                long segStartMs = editorTimeline
+                                        .getSegmentStartTimeMs(segmentAtPlayhead);
+                                playerManager.loadClip(clip);
+                                playerManager.seekTo(Math.max(0, playheadMs - segStartMs));
+                            }
                         } else if (clip.isGeneratedSlide()) {
                             hideImagePreview();
                             long playheadMs = editorTimeline.getPlayheadPositionMs();
@@ -3354,6 +3375,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Keep the player manager's tracked clip pointed at the new window (no player op — the
         // engine already crossed the cut) so currentClip-derived getters stay consistent.
         playerManager.syncGaplessCurrentClip(nextClip);
+        // Image windows are DISPLAYED by the proven Glide overlay (showImagePreview hides the
+        // PlayerView) while the engine's image window drives the clock underneath; crossing back
+        // into a video window must restore the player surface or the image would cover it.
+        if (nextClip.isImageClip()) {
+            hideMissingOverlay();
+            showImagePreview(nextClip.getSourceUri());
+        } else {
+            hideImagePreview();
+        }
         editorTimeline.setTimeline(timeline, selectedClipIndex);
         editorTimeline.setTrimFromClip(nextClip);
         updateVolumeUI(nextClip.getVolumeLevel(), nextClip.isAudioMuted());
@@ -3415,8 +3445,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 updatePlayPauseButton(false);
                 return;
             }
-            if (c.isImageClip()) {
-                // Image clip: toggle internal timer playback
+            if (c.isImageClip() && (playerManager == null || !playerManager.isGapless())) {
+                // Image clip, LEGACY path only: toggle internal timer playback. In gapless mode
+                // the engine plays the image as a native playlist window (P0 fix 2026-07-07), so
+                // transport falls through to the ExoPlayer branch below like any other clip.
                 if (imagePlaybackActive) {
                     // Pause: record current position
                     imagePlaybackStartOffsetMs = getImagePlaybackPositionMs();
@@ -3479,6 +3511,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             // relativePlayheadMs is in EFFECTIVE time (post-speed).
                             // seekTo expects SOURCE time (pre-speed) relative to trimStart.
                             relativePlayheadMs = (long)(relativePlayheadMs * playClip.getSpeedMultiplier());
+                        }
+                        if (playClip != null && playClip.isImageClip() && playerManager.isGapless()) {
+                            // Scrubs over an image never seek the engine (the Glide overlay is the
+                            // scrub display), so the engine's current window may still be a prior
+                            // clip — point it at this image window before the window-local seek.
+                            playerManager.loadClip(playClip);
                         }
                         playerManager.seekTo(relativePlayheadMs);
                         
@@ -7485,8 +7523,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Don't overwrite playhead while user is dragging
         if (userDragging) return;
 
-        // ── Image clip playback (internal timer) ─────────────────────
-        if (clip.isImageClip() && imagePlaybackActive) {
+        // ── Image clip playback (internal timer — LEGACY path only; in gapless mode the
+        // engine plays the image as a native playlist window and the ExoPlayer path below
+        // drives the playhead like any other clip) ─────────────────────
+        if (clip.isImageClip() && imagePlaybackActive && !playerManager.isGapless()) {
             long positionMs = getImagePlaybackPositionMs();
             long clipDuration = clip.getTrimmedDurationMs();
 
@@ -7530,8 +7570,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         // ── Video clip playback (ExoPlayer) ──────────────────────────
-        // Skip ExoPlayer polling for image clips (they don't have media loaded)
-        if (clip.isImageClip()) return;
+        // Skip ExoPlayer polling for image clips ONLY on the legacy path (no media loaded
+        // there). In gapless mode the image IS a playlist window — poll it like a video.
+        if (clip.isImageClip() && !playerManager.isGapless()) return;
 
         boolean isPlaying = playerManager.isPlaying();
         boolean isAtEnd = playerManager.isAtTrimEnd();

@@ -34,6 +34,7 @@ import com.fadcam.ui.faditor.keyframe.Keyframe;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.keyframe.KeyframeTrack;
 
+import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -437,6 +438,15 @@ public class EditorTimelineView extends View {
     // lazy per-frame loader in onDraw doesn't re-enqueue them every redraw.
     private final Set<String> thumbnailsFailed = new HashSet<>();
     private static final int MAX_THUMBNAILS_PER_SEGMENT = 30;
+    // Disk cache so a re-opened project (or a re-scrubbed-past segment whose in-memory bitmaps
+    // were evicted) doesn't re-decode frames it already extracted once. Mirrors
+    // WaveformExtractor's disk-cache pattern (per-key file(s) under getCacheDir(), version-gated).
+    // Partial scope of road_map §BACKLOG T1 (FEEDBACK_20260703_timeline_fidelity.md): this session
+    // lands the disk LRU cache layer; the full "one background sequential MediaCodec sweep"
+    // accurate-extraction architecture (replacing per-thumb OPTION_CLOSEST_SYNC seeks) is a
+    // separate, larger follow-up — see the note above extractVideoThumbnails.
+    private static final int FILMSTRIP_CACHE_VERSION = 1;
+    private static final long FILMSTRIP_CACHE_MAX_BYTES = 24L * 1024 * 1024; // ~24MB LRU cap
     private final ExecutorService thumbnailExecutor = Executors.newFixedThreadPool(2);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Path clipPath = new Path();
@@ -2932,23 +2942,40 @@ public class EditorTimelineView extends View {
         long inMs = sd.inPointMs;
         long outMs = sd.outPointMs;
         int finalCount = count;
+        // thumbSize/count affect what's actually extracted (a re-zoom changes tile density), so
+        // the disk key must include them — unlike the in-memory cacheKey which is just the
+        // source+trim window (zoom changes evict/reload from memory anyway via setTimeline).
+        String diskKey = key + "_" + thumbSize + "x" + finalCount;
+        File diskDir = filmstripCacheDir(diskKey);
 
         thumbnailExecutor.execute(() -> {
-            List<Bitmap> thumbs = new ArrayList<>();
-            try {
-                if (isImage) {
-                    extractImageThumbnails(uri, thumbs, thumbSize);
-                } else {
-                    extractVideoThumbnails(uri, inMs, outMs, thumbs, thumbSize, finalCount);
+            List<Bitmap> thumbs = readFilmstripDiskCache(diskDir, finalCount);
+            boolean fromDisk = thumbs != null;
+            if (thumbs == null) {
+                thumbs = new ArrayList<>();
+                try {
+                    if (isImage) {
+                        extractImageThumbnails(uri, thumbs, thumbSize);
+                    } else {
+                        extractVideoThumbnails(uri, inMs, outMs, thumbs, thumbSize, finalCount);
+                    }
+                } catch (Exception e) {
+                    FLog.w(TAG, "Failed to extract thumbnails for " + key, e);
                 }
-            } catch (Exception e) {
-                FLog.w(TAG, "Failed to extract thumbnails for " + key, e);
+                if (!thumbs.isEmpty()) {
+                    writeFilmstripDiskCache(diskDir, thumbs);
+                }
             }
+            List<Bitmap> finalThumbs = thumbs;
+            boolean finalFromDisk = fromDisk;
             mainHandler.post(() -> {
                 thumbnailsLoading.remove(key);
-                if (!thumbs.isEmpty()) {
-                    thumbnailsCache.put(key, thumbs);
+                if (!finalThumbs.isEmpty()) {
+                    thumbnailsCache.put(key, finalThumbs);
                     invalidate();
+                    if (finalFromDisk) {
+                        FLog.d(TAG, "Filmstrip disk cache hit for " + diskKey);
+                    }
                 } else {
                     // Hard failure (no decodable frames) — remember so the lazy
                     // loader doesn't re-enqueue this key on every redraw.
@@ -2956,6 +2983,125 @@ public class EditorTimelineView extends View {
                 }
             });
         });
+    }
+
+    // ── Filmstrip disk cache (LRU by total size, mirrors WaveformExtractor's file-per-key
+    //    pattern) ─────────────────────────────────────────────────────
+
+    @NonNull
+    private File filmstripCacheRoot() {
+        File dir = new File(getContext().getCacheDir(), "filmstrip");
+        if (!dir.exists()) dir.mkdirs();
+        return dir;
+    }
+
+    @NonNull
+    private File filmstripCacheDir(@NonNull String diskKey) {
+        String hashed = Integer.toHexString(diskKey.hashCode());
+        return new File(filmstripCacheRoot(), hashed);
+    }
+
+    /**
+     * Reads a previously-cached set of thumbnails for this exact key (source+trim+size+count).
+     * Returns null on any miss/version-mismatch/corruption (caller re-extracts).
+     */
+    @Nullable
+    private List<Bitmap> readFilmstripDiskCache(@NonNull File dir, int expectedCount) {
+        File versionFile = new File(dir, ".v");
+        if (!versionFile.exists()) return null;
+        try {
+            String v = new String(java.nio.file.Files.readAllBytes(versionFile.toPath()),
+                    java.nio.charset.StandardCharsets.US_ASCII).trim();
+            if (!String.valueOf(FILMSTRIP_CACHE_VERSION).equals(v)) return null;
+        } catch (Exception e) {
+            return null;
+        }
+        List<Bitmap> out = new ArrayList<>();
+        for (int i = 0; i < expectedCount; i++) {
+            File f = new File(dir, i + ".webp");
+            if (!f.exists()) {
+                // Partial/corrupt cache entry — bail and let the caller re-extract everything.
+                for (Bitmap b : out) if (!b.isRecycled()) b.recycle();
+                return null;
+            }
+            Bitmap bmp = BitmapFactory.decodeFile(f.getAbsolutePath());
+            if (bmp == null) {
+                for (Bitmap b : out) if (!b.isRecycled()) b.recycle();
+                return null;
+            }
+            out.add(bmp);
+        }
+        // Touch the dir's mtime so the LRU sweep treats a cache HIT as recently used.
+        //noinspection ResultOfMethodCallIgnored
+        dir.setLastModified(System.currentTimeMillis());
+        return out.isEmpty() ? null : out;
+    }
+
+    private void writeFilmstripDiskCache(@NonNull File dir, @NonNull List<Bitmap> thumbs) {
+        try {
+            if (!dir.exists()) dir.mkdirs();
+            for (int i = 0; i < thumbs.size(); i++) {
+                Bitmap b = thumbs.get(i);
+                if (b == null || b.isRecycled()) continue;
+                File f = new File(dir, i + ".webp");
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(f)) {
+                    Bitmap.CompressFormat fmt = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
+                            ? Bitmap.CompressFormat.WEBP_LOSSY : Bitmap.CompressFormat.WEBP;
+                    b.compress(fmt, 80, fos);
+                }
+            }
+            File versionFile = new File(dir, ".v");
+            java.nio.file.Files.write(versionFile.toPath(),
+                    String.valueOf(FILMSTRIP_CACHE_VERSION).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            evictFilmstripDiskCacheIfOverBudget();
+        } catch (Exception e) {
+            FLog.w(TAG, "Filmstrip disk cache write failed", e);
+        }
+    }
+
+    /**
+     * Simple whole-project-lifetime LRU: when the cache directory exceeds the byte budget,
+     * delete the least-recently-touched per-clip subdirectories until back under budget. Cheap
+     * enough to run inline after each write since it only walks one level of directories (a
+     * project realistically has tens, not thousands, of distinct filmstrip keys).
+     */
+    private void evictFilmstripDiskCacheIfOverBudget() {
+        File root = filmstripCacheRoot();
+        File[] dirs = root.listFiles(File::isDirectory);
+        if (dirs == null || dirs.length == 0) return;
+
+        long total = 0;
+        List<File> sorted = new ArrayList<>();
+        for (File d : dirs) {
+            total += dirSizeBytes(d);
+            sorted.add(d);
+        }
+        if (total <= FILMSTRIP_CACHE_MAX_BYTES) return;
+
+        sorted.sort((a, b) -> Long.compare(a.lastModified(), b.lastModified())); // oldest first
+        for (File d : sorted) {
+            if (total <= FILMSTRIP_CACHE_MAX_BYTES) break;
+            long freed = dirSizeBytes(d);
+            deleteRecursive(d);
+            total -= freed;
+        }
+    }
+
+    private static long dirSizeBytes(@NonNull File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) return 0;
+        long sum = 0;
+        for (File f : files) sum += f.length();
+        return sum;
+    }
+
+    private static void deleteRecursive(@NonNull File f) {
+        File[] children = f.listFiles();
+        if (children != null) {
+            for (File c : children) deleteRecursive(c);
+        }
+        //noinspection ResultOfMethodCallIgnored
+        f.delete();
     }
 
     /**

@@ -36,18 +36,27 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Foreground service that runs video export in the background so it survives
- * Activity destruction (app minimised or closed).
+ * Foreground service that runs video export OUT OF PROCESS (manifest
+ * {@code android:process=":export"}) so it survives not just Activity
+ * destruction but a full editor-process crash/kill — and, symmetrically, an
+ * exporter OOM/codec crash can never take the editor down. The exporter also
+ * gets its OWN heap, which is the real fix for big-project exports dying on
+ * memory pressure next to the preview player.
  *
- * <p>The Activity starts this service, passes the project via a static bridge,
- * and binds to observe real-time progress. If the Activity is destroyed, the
- * service continues exporting and updates the system notification.</p>
+ * <p>The Activity serializes an edit-immune project snapshot to a file and
+ * passes its path in the start intent ({@link #EXTRA_PROJECT_SNAPSHOT_PATH});
+ * progress/completion flow back as package-scoped global broadcasts (the
+ * pre-OOP LocalBroadcastManager and bound-Binder channels are in-process-only
+ * and are gone). Cancel = start intent with {@link #ACTION_CANCEL_EXPORT}.</p>
  */
 public class ExportService extends Service {
 
     private static final String TAG = "ExportService";
     private static final String CHANNEL_ID = "faditor_export_channel";
+    /** Ongoing foreground-progress notification. Its presence == an export is running
+     *  ({@link #isRunning}); completion/error re-post under {@link #NOTIFICATION_ID_DONE}. */
     private static final int NOTIFICATION_ID = 3001;
+    private static final int NOTIFICATION_ID_DONE = 3002;
 
     /** Action to start an export. */
     public static final String ACTION_START_EXPORT = "com.fadcam.EXPORT_START";
@@ -64,36 +73,32 @@ public class ExportService extends Service {
     public static final String EXTRA_OUTPUT_PATH = "output_path";
     public static final String EXTRA_PROGRESS = "progress";
     public static final String EXTRA_ERROR_MESSAGE = "error_message";
-
-    // ── Static bridge for passing project data ───────────────────────
-    @Nullable
-    private static FaditorProject pendingProject;
+    /** Path of the serialized project snapshot the Activity wrote for this export job. */
+    public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
 
     /**
-     * Set the project to export. Must be called before starting the service.
+     * Cross-process "is an export running?" truth: the ongoing foreground-progress
+     * notification (id {@link #NOTIFICATION_ID}) exists exactly while an export runs
+     * (completion/error re-post under a different id). Works from any process — the
+     * editor can't share memory with the {@code :export} process.
      */
-    public static void setPendingProject(@Nullable FaditorProject project) {
-        pendingProject = project;
-    }
-
-    // ── Listener for Activity binding ────────────────────────────────
-
-    /**
-     * Callback interface for UI updates. Called on the main thread.
-     */
-    public interface ExportServiceListener {
-        void onExportStarted(@NonNull String outputPath);
-        void onExportProgress(float progress);
-        void onExportCompleted(@NonNull String outputPath,
-                               @NonNull androidx.media3.transformer.ExportResult result);
-        void onExportError(@NonNull Exception error);
+    public static boolean isRunning(@NonNull Context context) {
+        try {
+            NotificationManager nm =
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return false;
+            for (android.service.notification.StatusBarNotification sbn
+                    : nm.getActiveNotifications()) {
+                if (sbn.getId() == NOTIFICATION_ID) return true;
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "isRunning notification check failed", e);
+        }
+        return false;
     }
 
     // ── Instance fields ──────────────────────────────────────────────
 
-    private final IBinder binder = new ExportBinder();
-    @Nullable
-    private ExportServiceListener serviceListener;
     @Nullable
     private ExportManager exportManager;
     @Nullable
@@ -104,20 +109,10 @@ public class ExportService extends Service {
     @Nullable
     private ExecutorService remuxExecutor;
 
-    // ── Binder ───────────────────────────────────────────────────────
-
-    public class ExportBinder extends Binder {
-        public ExportService getService() {
-            return ExportService.this;
-        }
-    }
-
-    public void setServiceListener(@Nullable ExportServiceListener listener) {
-        this.serviceListener = listener;
-    }
-
-    public boolean isExporting() {
-        return isExporting;
+    /** Package-scoped global broadcast — crosses the process boundary, never leaves the app. */
+    private void sendExportBroadcast(@NonNull Intent broadcast) {
+        broadcast.setPackage(getPackageName());
+        sendBroadcast(broadcast);
     }
 
     // ── Service lifecycle ────────────────────────────────────────────
@@ -145,7 +140,7 @@ public class ExportService extends Service {
         }
 
         if (ACTION_START_EXPORT.equals(action)) {
-            startExportInternal();
+            startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH));
         }
 
         return START_NOT_STICKY;
@@ -154,7 +149,9 @@ public class ExportService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return binder;
+        // No binding: the service runs in its own process and all state flows via
+        // package-scoped broadcasts + the foreground notification (see class doc).
+        return null;
     }
 
     @Override
@@ -172,35 +169,43 @@ public class ExportService extends Service {
 
     // ── Export execution ─────────────────────────────────────────────
 
-    private void startExportInternal() {
-        FaditorProject project = pendingProject;
-        pendingProject = null; // consume
+    private void startExportInternal(@Nullable String snapshotPath) {
+        // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
+        // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
+        // app-restart export already survives) and passed the path here. Reading it is the
+        // ONLY way project data enters this process — there is no live reference to mutate.
+        FaditorProject project = null;
+        if (snapshotPath != null) {
+            File snapshotFile = new File(snapshotPath);
+            try {
+                byte[] bytes = new byte[(int) snapshotFile.length()];
+                try (java.io.FileInputStream in = new java.io.FileInputStream(snapshotFile)) {
+                    int off = 0, n;
+                    while (off < bytes.length && (n = in.read(bytes, off, bytes.length - off)) > 0) {
+                        off += n;
+                    }
+                }
+                com.fadcam.ui.faditor.project.ProjectStorage storage =
+                        new com.fadcam.ui.faditor.project.ProjectStorage(this);
+                project = storage.fromJson(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            } catch (Exception e) {
+                FLog.e(TAG, "Failed to read export snapshot " + snapshotPath, e);
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                snapshotFile.delete();
+            }
+        }
 
         if (project == null) {
-            FLog.e(TAG, "No pending project — cannot export");
+            FLog.e(TAG, "No export snapshot (path=" + snapshotPath + ") — cannot export");
+            Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
+            broadcast.putExtra(EXTRA_ERROR_MESSAGE, "Export could not read the project snapshot");
+            sendExportBroadcast(broadcast);
             stopSelf();
             return;
         }
-
-        // EDIT-SAFETY: the activity hands us its LIVE project by reference, and the
-        // editor stays reachable while we run (notification tap, minimize-to-background),
-        // so any edit made mid-export would mutate the Timeline this export is reading.
-        // Deep-snapshot through the project serializer — the same round-trip every
-        // app-restart export already survives — so this export is immune to concurrent
-        // edits. On any snapshot failure, fall back to the live reference (old behavior).
-        try {
-            com.fadcam.ui.faditor.project.ProjectStorage storage =
-                    new com.fadcam.ui.faditor.project.ProjectStorage(this);
-            FaditorProject snapshot = storage.fromJson(storage.toJson(project));
-            if (snapshot != null) {
-                project = snapshot;
-                FLog.d(TAG, "Export project snapshotted — concurrent edits cannot affect this export");
-            } else {
-                FLog.w(TAG, "Export snapshot deserialize returned null — exporting live reference");
-            }
-        } catch (Exception e) {
-            FLog.w(TAG, "Export snapshot failed — exporting live reference", e);
-        }
+        FLog.d(TAG, "Export snapshot loaded from " + snapshotPath
+                + " — concurrent edits cannot affect this export");
 
         if (isExporting) {
             FLog.w(TAG, "Export already in progress");
@@ -220,31 +225,18 @@ public class ExportService extends Service {
             @Override
             public void onExportStarted(@NonNull String outputPath) {
                 FLog.d(TAG, "Export started → " + outputPath);
-                if (serviceListener != null) {
-                    serviceListener.onExportStarted(outputPath);
-                }
-                // Broadcast to UI (FaditorMiniFragment listens via LocalBroadcastManager)
                 Intent broadcast = new Intent(ACTION_EXPORT_STARTED);
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
-                FLog.d(TAG, "Broadcasting ACTION_EXPORT_STARTED");
-                androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(ExportService.this)
-                        .sendBroadcast(broadcast);
-                FLog.d(TAG, "ACTION_EXPORT_STARTED broadcast sent");
+                sendExportBroadcast(broadcast);
             }
 
             @Override
             public void onExportProgress(float progress) {
                 int percent = (int) (progress * 100);
                 updateNotification(percent);
-                if (serviceListener != null) {
-                    serviceListener.onExportProgress(progress);
-                }
-                // Broadcast to UI
                 Intent broadcast = new Intent(ACTION_EXPORT_PROGRESS);
                 broadcast.putExtra(EXTRA_PROGRESS, progress);
-                FLog.d(TAG, "Broadcasting ACTION_EXPORT_PROGRESS: " + percent + "%");
-                androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(ExportService.this)
-                        .sendBroadcast(broadcast);
+                sendExportBroadcast(broadcast);
             }
 
             @Override
@@ -252,19 +244,13 @@ public class ExportService extends Service {
                                           @NonNull androidx.media3.transformer.ExportResult result) {
                 FLog.d(TAG, "Export completed: " + outputPath);
                 isExporting = false;
+                // Remove the ongoing 3001 (it doubles as the isRunning() truth) and re-post
+                // the completion under its own id.
+                stopForeground(STOP_FOREGROUND_REMOVE);
                 showCompletionNotification();
-                if (serviceListener != null) {
-                    serviceListener.onExportCompleted(outputPath, result);
-                }
-                // Broadcast to UI
                 Intent broadcast = new Intent(ACTION_EXPORT_COMPLETED);
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
-                FLog.d(TAG, "Broadcasting ACTION_EXPORT_COMPLETED");
-                androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(ExportService.this)
-                        .sendBroadcast(broadcast);
-                FLog.d(TAG, "ACTION_EXPORT_COMPLETED broadcast sent");
-                
-                stopForeground(STOP_FOREGROUND_DETACH);
+                sendExportBroadcast(broadcast);
                 stopSelf();
             }
 
@@ -272,19 +258,11 @@ public class ExportService extends Service {
             public void onExportError(@NonNull Exception error) {
                 FLog.e(TAG, "Export failed", error);
                 isExporting = false;
+                stopForeground(STOP_FOREGROUND_REMOVE);
                 showErrorNotification(error.getMessage());
-                if (serviceListener != null) {
-                    serviceListener.onExportError(error);
-                }
-                // Broadcast to UI
                 Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                 broadcast.putExtra(EXTRA_ERROR_MESSAGE, error.getMessage());
-                FLog.d(TAG, "Broadcasting ACTION_EXPORT_ERROR: " + error.getMessage());
-                androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(ExportService.this)
-                        .sendBroadcast(broadcast);
-                FLog.d(TAG, "ACTION_EXPORT_ERROR broadcast sent");
-                
-                stopForeground(STOP_FOREGROUND_DETACH);
+                sendExportBroadcast(broadcast);
                 stopSelf();
             }
         });
@@ -434,13 +412,7 @@ public class ExportService extends Service {
             exportManager.cancel();
             isExporting = false;
             FLog.d(TAG, "Export cancelled via service");
-            
-            // Broadcast cancellation to UI
-            Intent broadcast = new Intent(ACTION_EXPORT_CANCELLED);
-            FLog.d(TAG, "Broadcasting ACTION_EXPORT_CANCELLED");
-            androidx.localbroadcastmanager.content.LocalBroadcastManager.getInstance(this)
-                    .sendBroadcast(broadcast);
-            FLog.d(TAG, "ACTION_EXPORT_CANCELLED broadcast sent");
+            sendExportBroadcast(new Intent(ACTION_EXPORT_CANCELLED));
         }
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
@@ -527,7 +499,7 @@ public class ExportService extends Service {
                 .build();
 
         if (notificationManager != null) {
-            notificationManager.notify(NOTIFICATION_ID, notification);
+            notificationManager.notify(NOTIFICATION_ID_DONE, notification);
         }
     }
 
@@ -542,7 +514,7 @@ public class ExportService extends Service {
                 .build();
 
         if (notificationManager != null) {
-            notificationManager.notify(NOTIFICATION_ID, notification);
+            notificationManager.notify(NOTIFICATION_ID_DONE, notification);
         }
     }
 

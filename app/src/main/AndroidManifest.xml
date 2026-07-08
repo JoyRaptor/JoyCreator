@@ -328,8 +328,11 @@
                 android:resource="@xml/fadrec_screenshot_accessibility_service" />
         </service>
 
-        <!-- Faditor export service for background video export -->
-        <service android:name=".ui.faditor.export.ExportService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <!-- Faditor export service — OUT OF PROCESS: the exporter gets its own heap and
+             survives an editor crash (and vice versa). Project handoff = snapshot file,
+             status = package-scoped broadcasts; do NOT reintroduce statics/binding. -->
+        <service android:name=".ui.faditor.export.ExportService" android:exported="false"
+            android:process=":export" android:foregroundServiceType="dataSync" />
 
         <!-- AI assistant service for transcription, silence detection, and edit jobs -->
         <service android:name=".ui.faditor.ai.AIJobService" android:exported="false" android:foregroundServiceType="dataSync" />

@@ -152,26 +152,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private volatile int rebuildGeneration = 0;
 
-    // ── Export service binding ────────────────────────────────────────
-    private ExportService exportService;
-    private boolean exportServiceBound = false;
-    private final android.content.ServiceConnection exportServiceConnection =
-            new android.content.ServiceConnection() {
+    // ── Export status (OOP) ──────────────────────────────────────────
+    // ExportService runs in its own :export process — no binding (a cross-process
+    // Binder cast would throw), no static bridge. Status arrives as package-scoped
+    // global broadcasts; this local timestamp bridges the tap→foreground-notification
+    // window so isExportRunning() can't double-start. Time-bounded (not a plain flag)
+    // so a silent :export-process death can never wedge future exports.
+    private static final long EXPORT_START_GRACE_MS = 30_000;
+    private volatile long exportStartedLocallyAtMs = 0;
+    private boolean exportEventsReceiverRegistered = false;
+    private final android.content.BroadcastReceiver exportEventsReceiver =
+            new android.content.BroadcastReceiver() {
                 @Override
-                public void onServiceConnected(android.content.ComponentName name,
-                                               android.os.IBinder service) {
-                    ExportService.ExportBinder binder = (ExportService.ExportBinder) service;
-                    exportService = binder.getService();
-                    exportServiceBound = true;
-                    exportService.setServiceListener(exportServiceListener);
-                    FLog.d(TAG, "ExportService bound");
-                }
-
-                @Override
-                public void onServiceDisconnected(android.content.ComponentName name) {
-                    exportService = null;
-                    exportServiceBound = false;
-                    FLog.d(TAG, "ExportService unbound");
+                public void onReceive(android.content.Context context,
+                        android.content.Intent intent) {
+                    String action = intent.getAction();
+                    if (action == null) return;
+                    switch (action) {
+                        case ExportService.ACTION_EXPORT_STARTED:
+                            exportUiOnStarted();
+                            break;
+                        case ExportService.ACTION_EXPORT_PROGRESS:
+                            exportUiOnProgress(intent.getFloatExtra(ExportService.EXTRA_PROGRESS, 0f));
+                            break;
+                        case ExportService.ACTION_EXPORT_COMPLETED:
+                            exportStartedLocallyAtMs = 0;
+                            exportUiOnCompleted(intent.getStringExtra(ExportService.EXTRA_OUTPUT_PATH));
+                            break;
+                        case ExportService.ACTION_EXPORT_ERROR:
+                            exportStartedLocallyAtMs = 0;
+                            exportUiOnError(intent.getStringExtra(ExportService.EXTRA_ERROR_MESSAGE));
+                            break;
+                        case ExportService.ACTION_EXPORT_CANCELLED:
+                            exportStartedLocallyAtMs = 0;
+                            break;
+                    }
                 }
             };
 
@@ -1133,13 +1148,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         spriteRendererCache.clear();
         saveProjectNow(true);
-        // Unbind from export service but do NOT cancel — let it continue in background
-        if (exportServiceBound) {
-            if (exportService != null) {
-                exportService.setServiceListener(null);
+        // Stop listening for export status but do NOT cancel — the :export process
+        // continues on its own and reports via the system notification.
+        if (exportEventsReceiverRegistered) {
+            try {
+                unregisterReceiver(exportEventsReceiver);
+            } catch (Exception e) {
+                FLog.w(TAG, "export receiver unregister failed", e);
             }
-            unbindService(exportServiceConnection);
-            exportServiceBound = false;
+            exportEventsReceiverRegistered = false;
         }
     }
 
@@ -6821,14 +6838,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void initExport() {
         exportManager = new ExportManager(this, prefsManager);
 
+        // Listen for export status from the :export process (package-scoped broadcasts).
+        if (!exportEventsReceiverRegistered) {
+            android.content.IntentFilter filter = new android.content.IntentFilter();
+            filter.addAction(ExportService.ACTION_EXPORT_STARTED);
+            filter.addAction(ExportService.ACTION_EXPORT_PROGRESS);
+            filter.addAction(ExportService.ACTION_EXPORT_COMPLETED);
+            filter.addAction(ExportService.ACTION_EXPORT_ERROR);
+            filter.addAction(ExportService.ACTION_EXPORT_CANCELLED);
+            androidx.core.content.ContextCompat.registerReceiver(this, exportEventsReceiver,
+                    filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
+            exportEventsReceiverRegistered = true;
+        }
+
         // Export button → show confirmation bottom sheet
         findViewById(R.id.btn_export).setOnClickListener(v -> showExportConfirmation());
 
-        // Cancel export button
+        // Cancel export button — a start-intent action reaches the :export process
+        // (no binding exists across processes).
         findViewById(R.id.btn_cancel_export).setOnClickListener(v -> {
-            if (exportServiceBound && exportService != null) {
-                exportService.cancelExport();
-            }
+            android.content.Intent cancelIntent =
+                    new android.content.Intent(this, ExportService.class);
+            cancelIntent.setAction(ExportService.ACTION_CANCEL_EXPORT);
+            startService(cancelIntent);
+            exportStartedLocallyAtMs = 0;
             hideExportProgress();
             Toast.makeText(this, R.string.faditor_export_cancelled, Toast.LENGTH_SHORT).show();
         });
@@ -6838,7 +6871,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // to a live editor is safe); otherwise it just dismisses the overlay.
         // Cancelling stays on the explicit Cancel button only.
         findViewById(R.id.export_btn_back).setOnClickListener(v -> {
-            if (exportServiceBound && exportService != null && exportService.isExporting()) {
+            if (isExportRunning()) {
                 minimizeExportToBackground();
             } else {
                 hideExportProgress();
@@ -6861,20 +6894,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Service listener for export progress/completion events.
-     * Updates the in-app overlay UI. If the Activity is destroyed, events
-     * are only reflected via the service's notification.
+     * Export progress/completion UI updates, driven by {@link #exportEventsReceiver}
+     * (package-scoped broadcasts from the out-of-process ExportService). If the
+     * Activity is destroyed, events are only reflected via the service's notification.
      */
-    private final ExportService.ExportServiceListener exportServiceListener =
-            new ExportService.ExportServiceListener() {
-                @Override
-                public void onExportStarted(@NonNull String outputPath) {
-                    exportStartTimeMs = System.currentTimeMillis();
-                    runOnUiThread(() -> showExportProgress());
-                }
+    private void exportUiOnStarted() {
+        exportStartTimeMs = System.currentTimeMillis();
+        runOnUiThread(() -> showExportProgress());
+    }
 
-                @Override
-                public void onExportProgress(float progress) {
+    private void exportUiOnProgress(float progress) {
                     runOnUiThread(() -> {
                         int percent = (int) (progress * 100);
 
@@ -6904,11 +6933,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             exportEtaText.setVisibility(View.VISIBLE);
                         }
                     });
-                }
+    }
 
-                @Override
-                public void onExportCompleted(@NonNull String outputPath,
-                                              @NonNull ExportResult result) {
+    private void exportUiOnCompleted(@Nullable String outputPath) {
                     runOnUiThread(() -> {
                         FLog.d(TAG, "Export saved to: " + outputPath);
 
@@ -6951,19 +6978,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                         com.fadcam.ui.RecordsFragment.requestRefresh();
                     });
-                }
+    }
 
-                @Override
-                public void onExportError(@NonNull Exception error) {
+    private void exportUiOnError(@Nullable String errorMessage) {
                     runOnUiThread(() -> {
                         hideExportProgress();
                         Toast.makeText(FaditorEditorActivity.this,
-                                getString(R.string.faditor_export_error, error.getMessage()),
+                                getString(R.string.faditor_export_error,
+                                        errorMessage != null ? errorMessage : "Unknown error"),
                                 Toast.LENGTH_LONG).show();
-                        FLog.e(TAG, "Export failed", error);
+                        FLog.e(TAG, "Export failed: " + errorMessage);
                     });
-                }
-            };
+    }
 
     /**
      * Format remaining time estimate into human-readable string.
@@ -8540,65 +8566,93 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
 
-        // Free editor memory + the preview codec so the in-process exporter has
-        // maximum headroom (big-project exports were dying on OOM / codec starvation).
-        prepareMemoryForExport();
-
-        // Pass project to the service via static bridge
-        ExportService.setPendingProject(project);
-
-        // Start and bind to service
-        android.content.Intent serviceIntent =
-                new android.content.Intent(this, ExportService.class);
-        serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
-        }
-
-        // Bind for real-time UI progress
-        bindService(new android.content.Intent(this, ExportService.class),
-                exportServiceConnection, BIND_AUTO_CREATE);
-
-        // Show export info on the overlay
-        showExportInfoOnScreen();
+        startOutOfProcessExport();
     }
 
     /** Actually start the actual export start (called after user confirms) */
     private void proceedWithExport() {
-        // Free editor memory + the preview codec so the in-process exporter has
-        // maximum headroom (big-project exports were dying on OOM / codec starvation).
+        startOutOfProcessExport();
+    }
+
+    /**
+     * Serialize the current project to a per-job snapshot file for the :export process
+     * (an edit-immune deep snapshot taken at export-tap time). Stale snapshots from
+     * jobs that never got consumed are swept here. Returns null on failure.
+     */
+    @Nullable
+    private String writeExportSnapshotFile() {
+        if (project == null) return null;
+        try {
+            com.fadcam.ui.faditor.project.ProjectStorage storage =
+                    new com.fadcam.ui.faditor.project.ProjectStorage(this);
+            String json = storage.toJson(project);
+            java.io.File dir = new java.io.File(getFilesDir(), "faditor");
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+            java.io.File[] stale = dir.listFiles(
+                    (d, name) -> name.startsWith("export_snapshot_") && name.endsWith(".json"));
+            if (stale != null) {
+                for (java.io.File f : stale) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+            }
+            java.io.File out = new java.io.File(dir,
+                    "export_snapshot_" + System.currentTimeMillis() + ".json");
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(out)) {
+                fos.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            return out.getAbsolutePath();
+        } catch (Exception e) {
+            FLog.e(TAG, "writeExportSnapshotFile failed", e);
+            return null;
+        }
+    }
+
+    /**
+     * Hand the export to the out-of-process ExportService: free editor memory + the
+     * preview codec first (the exporter has its own heap, but releasing the preview
+     * codec still matters — hardware codec instances are a device-global resource),
+     * snapshot the project to a file, and start the foreground service with its path.
+     */
+    private void startOutOfProcessExport() {
         prepareMemoryForExport();
 
-        // Pass project to the service via static bridge
-        ExportService.setPendingProject(project);
+        String snapshotPath = writeExportSnapshotFile();
+        if (snapshotPath == null) {
+            Toast.makeText(this,
+                    getString(R.string.faditor_export_error, "could not snapshot the project"),
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
 
-        // Start and bind to service
         android.content.Intent serviceIntent =
                 new android.content.Intent(this, ExportService.class);
         serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
+        serviceIntent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);
         } else {
             startService(serviceIntent);
         }
+        exportStartedLocallyAtMs = System.currentTimeMillis();
 
-        // Bind for real-time UI progress
-        bindService(new android.content.Intent(this, ExportService.class),
-                exportServiceConnection, BIND_AUTO_CREATE);
-
-        // Show export info on the overlay
+        // Show export info on the overlay (progress arrives via exportEventsReceiver).
         showExportInfoOnScreen();
     }
 
     /**
-     * Check if an export is currently running (via bound service or manager).
+     * Check if an export is currently running. The service lives in the :export
+     * process, so the truth is its ongoing foreground notification (plus a local
+     * flag bridging the tap→first-broadcast window).
      */
     private boolean isExportRunning() {
-        if (exportServiceBound && exportService != null && exportService.isExporting()) {
+        if (exportStartedLocallyAtMs > 0
+                && System.currentTimeMillis() - exportStartedLocallyAtMs < EXPORT_START_GRACE_MS) {
+            return true;
+        }
+        if (ExportService.isRunning(this)) {
             return true;
         }
         if (exportManager != null && exportManager.isExporting()) {
@@ -8673,7 +8727,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /**
      * Shows the thin striped progress line at the top of the editor and starts its
      * scrolling animation. Reuses the same export lifecycle as the fullscreen
-     * progress overlay (see {@link #exportServiceListener}) so the stripe stays in
+     * progress overlay (see {@link #exportEventsReceiver}) so the stripe stays in
      * sync with real export progress with no separate transport.
      */
     private void showExportProgressStripe() {

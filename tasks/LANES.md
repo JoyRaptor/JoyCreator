@@ -32,7 +32,8 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: Fable (2026-07-07 final-day push — P1 freeze repro loops on SM-N960U first, then hard queue)
+DEVICE: free (2026-07-08 — SM-N960U locked behind the secure Bouncer; needs JoyRaptor's unlock before any
+  device work. Two smoke checklists queued in handoff.md's top blocks.)
 (Fable owns it during hard interactive device-loops; opencode does code+compile-only
 and BATCHES its device-verify into windows when this reads `free` / Fable is IDLE.)
 
@@ -47,12 +48,12 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-07-07 FINAL FABLE DAY — hardest-first push. (1) P1 short-speed-clip gapless
-        clock freeze REAL FIX (media3 DefaultAudioSink/Sonic or engine-side); (2) audio old-vs-new
-        row consolidation; (3) G5 attach/detach; (4) G9 linking; (5) out-of-process export;
-        (6) re-smoke of the six swoop-#1 landings folds in around device loops.)
-files: compositor/MasterPlaybackEngine.java, media3-patched/* (audio sink), ui/faditor/
-       FaditorPlayerManager.java — will re-post before touching timeline/gesture/export files.
+status: IDLE (2026-07-08 — final-day push wrapped; tree committed + green. Landed: P1 media3-root
+        freeze fix (media3-patched c2f22f9 + f4d4ed1, DEVICE-PROVEN), out-of-process export
+        (3b5af9a, DEVICE-PROVEN incl. kill-survival), audio row consolidation (f31f16c,
+        build-green, SMOKE OWED), G5a visualizer attach/detach (5192186, build-green, VERIFY
+        OWED), G8 marquee smoke. Phone locked at end — smoke checklists in handoff.md top blocks.)
+files: (none — released)
 prior-status: IDLE (2026-07-07 continuation session wrapped). Landed + committed this session:
   • 5b492e0 G1-groundwork: held-item MOVE reaches hidden lanes (M6 vertical edge-scroll) +
     honest drop-target affordance. Drag-FEEL hand-test owed (see handoff checklist).

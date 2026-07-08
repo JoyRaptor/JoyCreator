@@ -15,6 +15,18 @@ sheets, preview-pitch fix) — all committed, reviewed.
 **A full doc sweep (2026-07-06) confirmed the above and folded every remaining open item — old and new —
 into §BACKLOG below. Nothing from the 57 tasks/*.md files is untracked as of this pass.**
 
+**🏁 FABLE FINAL-DAY RESULTS (2026-07-07 evening→late; all committed, tree green):** P1 gapless freeze
+FIXED AT THE ROOT (entry below) · **OUT-OF-PROCESS EXPORT SHIPPED + DEVICE-PROVEN** (`3b5af9a` — export
+runs in `:export`, survives an editor-process kill mid-export, valid full-length file from the orphaned
+process; export work package now COMPLETE) · **AUDIO ROW CONSOLIDATION BUILT** (`f31f16c` — the last
+dual render system retired, two-band renderer, ~15 legacy ops derive-mapped; SMOKE OWED, checklist in
+handoff) · **G5a VISUALIZER ATTACH/DETACH BUILT** (`5192186` — overlays time-ride their host clip via
+one resync write-point; link toggle in the Rolodex; DEVICE VERIFY OWED; caption-detach/piggyback-looks/
+host-checkboxes are the G5 fast-follows) · G8 marquee smoked on device (armed toggle, live box,
+edge-scroll) · export quality/resolution wiring re-smoked (480p/Low 776KB vs Original/High 9.9MB).
+**Phone locked (secure Bouncer) at session end — first unlocked session runs the two smoke checklists
+in handoff.md's top blocks, then the REAL_SERIAL re-verify of the P0/P1 fixes on JoyRaptor's real project.**
+
 **✅ P1 FIXED AT THE ROOT 2026-07-07 evening (Fable-5 final-day session; media3-patched `c2f22f9` +
 FadCam `f4d4ed1`, DEVICE-PROVEN on SM-N960U):** the short-speed-clip gapless clock freeze below was a
 CROSS-RENDERER DEADLOCK in media3, not an engine bug: a first window whose post-Sonic audio undershoots

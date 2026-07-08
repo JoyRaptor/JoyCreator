@@ -1308,8 +1308,24 @@ public class EditorTimelineView extends View {
 
     /**
      * Returns the currently selected audio clip index, or -1 if none.
+     *
+     * <p>Audio consolidation (2026-07-07): when audio rides the unified renderer rows,
+     * the selection authority is {@link com.fadcam.ui.faditor.layers.LayerGestureController}
+     * — derive the index by mapping its selected item id over {@code audioClips}
+     * ({@code TimedItem.ofAudioClip} reuses the AudioClip's id), so every activity op
+     * anchored on this method (volume sheet, mute, split, captions, delete,
+     * trim-to-selection, …) keeps working unchanged on the new rows.</p>
      */
     public int getSelectedAudioIndex() {
+        if (!audioLayerTracks.isEmpty()) {
+            String sel = layerGestureController != null
+                    ? layerGestureController.getSelectedItemId() : null;
+            if (sel == null) return -1;
+            for (int i = 0; i < audioClips.size(); i++) {
+                if (sel.equals(audioClips.get(i).getId())) return i;
+            }
+            return -1;
+        }
         return selectedAudioIndex;
     }
 
@@ -1609,7 +1625,13 @@ public class EditorTimelineView extends View {
     @Override
     protected void onMeasure(int wSpec, int hSpec) {
         float contentDp = MINIMAP_HEIGHT_DP + RULER_HEIGHT_DP + TRACK_HEIGHT_DP + 2f * FILM_RAIL_DP;
-        if (!audioClips.isEmpty()) {
+        if (!audioLayerTracks.isEmpty()) {
+            // Audio consolidation: audio renders as headered renderer rows in their own
+            // band below master — reserve the renderer's band height instead of the
+            // legacy lane stack.
+            contentDp += AUDIO_TRACK_GAP_DP
+                    + layerRowRenderer.measureAudioBandHeightPx(audioLayerTracks) / density;
+        } else if (!audioClips.isEmpty()) {
             contentDp += AUDIO_TRACK_GAP_DP
                     + audioLaneCount * AUDIO_TRACK_HEIGHT_DP
                     + (audioLaneCount - 1) * AUDIO_LANE_GAP_DP;
@@ -1628,8 +1650,9 @@ public class EditorTimelineView extends View {
         float totalDp = Math.max(BASE_TIMELINE_DP, contentDp);
         int defH = (int) (totalDp * density);
         // M6 hook: extra height for the Track-driven multi-row UI (zero for a plain
-        // single-track project — see LayerRowRenderer#isEmpty).
-        defH += (int) layerRowRenderer.measureExtraHeightPx(layerTracks, audioLayerTracks);
+        // single-track project — see LayerRowRenderer#isEmpty). Floating band only —
+        // the audio band's height is reserved in contentDp above.
+        defH += (int) layerRowRenderer.measureExtraHeightPx(layerTracks);
         // Slice E: the M6 layer band moved ABOVE the master track, with a divider gap
         // between the band and master (see masterTopPx). Reserve that gap here so the
         // AUDIO band at the very bottom is never clipped by the measured height.
@@ -1737,8 +1760,11 @@ public class EditorTimelineView extends View {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
         }
 
-        // Draw audio clips
-        if (!audioClips.isEmpty()) {
+        // Draw audio clips — LEGACY path only. When audio rides the unified renderer rows
+        // (audio consolidation: audioLayerTracks fed via setLayerTracks), the renderer's
+        // audio band below master IS the audio UI and drawing this too would double-render
+        // (the exact FEEDBACK #1 "two audio bars" bug the old suppression avoided).
+        if (!audioClips.isEmpty() && audioLayerTracks.isEmpty()) {
             drawAudioTrack(canvas);
         }
 
@@ -1755,7 +1781,8 @@ public class EditorTimelineView extends View {
         // "drop here to create a new layer" zone below the last row.
         // Stage 2 (PLAN §6): pass the gesture controller's selectedItemId through so
         // layout() can draw the selection stroke on the tapped/dragged item's body.
-        layerRowRenderer.layout(canvas, layerTracks, audioLayerTracks, getM6RowsTopPx(), w,
+        layerRowRenderer.layout(canvas, layerTracks, audioLayerTracks, getM6RowsTopPx(),
+                audioBandTopPx(), w,
                 scrollOffsetPx, totalEffectiveMs, this::timeToX,
                 layerGestureController != null && layerGestureController.isMoveDragActive(),
                 layerGestureController != null && layerGestureController.isHoveringNewLayerZone(),
@@ -2080,7 +2107,9 @@ public class EditorTimelineView extends View {
      * Zero for a plain single-track project (no rows → no band → master stays at top).
      */
     private float m6BandFootprintPx() {
-        return layerRowRenderer.measureExtraHeightPx(layerTracks, audioLayerTracks);
+        // Audio consolidation: only the FLOATING band sits above master; audio-track rows
+        // moved to their own band below master (see audioBandTopPx/audioBandHeightPx).
+        return layerRowRenderer.measureExtraHeightPx(layerTracks);
     }
 
     /**
@@ -2124,9 +2153,12 @@ public class EditorTimelineView extends View {
         return masterBotPx() + transcriptReservePx() + audioTrackGapPx;
     }
 
-    /** Bottom Y (px) of the AUDIO band. */
+    /** Bottom Y (px) of the AUDIO band. Renderer-derived when audio rides the unified
+     *  renderer rows (audio consolidation); legacy lane stack otherwise. */
     private float audioBandBotPx() {
-        return audioBandTopPx() + audioTrackTotalHeightPx();
+        return audioBandTopPx() + (audioLayerTracks.isEmpty()
+                ? audioTrackTotalHeightPx()
+                : layerRowRenderer.measureAudioBandHeightPx(audioLayerTracks));
     }
 
     /**
@@ -4678,8 +4710,11 @@ public class EditorTimelineView extends View {
         downSegIndex = hitTestSegment(scrolledX, y);
         FLog.d(TAG, "onDown: hit segment " + downSegIndex);
 
-        // Check audio trim handles (before audio body hit test)
-        if (selectedAudioIndex >= 0 && selectedAudioIndex < audioClipRects.size()) {
+        // Check audio trim handles (before audio body hit test) — LEGACY audio path only;
+        // with the unified renderer audio band (audio consolidation), audio touches route
+        // through handleM6RowTouch/LayerGestureController like every other row item.
+        if (audioLayerTracks.isEmpty()
+                && selectedAudioIndex >= 0 && selectedAudioIndex < audioClipRects.size()) {
             Drag ah = hitTestAudioHandle(scrolledX, y);
             if (ah != Drag.NONE) {
                 FLog.d(TAG, "onDown: hit audio handle " + ah);
@@ -4689,8 +4724,8 @@ public class EditorTimelineView extends View {
             }
         }
 
-        // Check if touch is on an audio clip (for select/drag)
-        if (downSegIndex < 0) {
+        // Check if touch is on an audio clip (for select/drag) — LEGACY audio path only.
+        if (downSegIndex < 0 && audioLayerTracks.isEmpty()) {
             int audioHit = hitTestAudioClip(scrolledX, y);
             if (audioHit >= 0) {
                 FLog.d(TAG, "onDown: hit audio clip " + audioHit);

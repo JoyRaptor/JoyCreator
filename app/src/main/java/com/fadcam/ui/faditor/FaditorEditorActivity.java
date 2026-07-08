@@ -9330,16 +9330,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     new java.util.ArrayList<>(tl.getLayers());
             layerBand.addAll(tl.getVisualizerTracks());
             layerBand.addAll(tl.getCaptionTracks());
-            // Audio consolidation (FEEDBACK #1 "two extract-from-video audio bars"): suppress the
-            // NEW headered audio rows. They were a half-functional DUPLICATE of the complete old
-            // audio system — every primary audio op (volume keyframes, split, per-clip mute,
-            // trim-to-selection, delete-selected, etc.) anchors on the OLD timeline audio selection
-            // (EditorTimelineView#getSelectedAudioIndex), which the new rows don't drive. Showing
-            // both gave two audio bars AND a second selection that couldn't run those ops. The old
-            // audio bars stay as the single, coherent audio UI. Full migration of audio into the
-            // unified LayerRowRenderer (re-anchoring those ~9 ops to the new selection) is a
-            // dedicated follow-up — see tasks/LANES.md.
-            editorTimeline.setLayerTracks(layerBand, java.util.Collections.emptyList());
+            // Audio consolidation (2026-07-07, replaces the FEEDBACK #1 suppression): audio
+            // rows now ride the unified LayerRowRenderer in their own band BELOW master
+            // (Slice-E order preserved), and the legacy audio bar path in EditorTimelineView
+            // is gated off whenever these tracks are non-empty — so there is exactly ONE
+            // audio UI. Every op anchored on getSelectedAudioIndex keeps working: that
+            // method now DERIVES the index from LayerGestureController's unified selection
+            // (TimedItem id == AudioClip id).
+            editorTimeline.setLayerTracks(layerBand, tl.getAudioTracks());
             // M-COMP-1: re-bind the preview overlay layers from the (possibly track-
             // hidden-filtered) Track model. TextOverlayLayer already got the filtered
             // list via overlayLayer.setData(...) at each of its own call sites; here we
@@ -10352,6 +10350,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // G7 (contract §6/§7): first-ever selection teaches the invisible
                 // per-item gestures (double-tap / hold / drag) once.
                 if (item != null) maybeShowGestureCoachMark();
+                // Audio consolidation: selecting/deselecting an audio ROW item replaces the
+                // legacy onAudioClipSelected side effect — keep the open transcript panel
+                // following the audio selection (getSelectedAudioIndex now derives from
+                // this same unified selection, so the panel reads the right clip).
+                if ((item == null || item.getAudioClip() != null)
+                        && transcriptPanel != null
+                        && transcriptPanel.getVisibility() == View.VISIBLE) {
+                    loadTranscriptPanelContent();
+                }
             }
         };
     }

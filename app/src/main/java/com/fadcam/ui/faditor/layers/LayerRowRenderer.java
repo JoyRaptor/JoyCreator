@@ -47,6 +47,8 @@ public final class LayerRowRenderer {
     private static final float ROW_HEIGHT_COLLAPSED_DP = 14f;
     private static final float ROW_GAP_DP = 3f;
     private static final float TOP_GAP_DP = 6f;
+    /** Small breathing gap above the first AUDIO-band row (below master). */
+    private static final float AUDIO_BAND_TOP_GAP_DP = 3f;
     private static final float ICON_SIZE_DP = 12f;
     private static final float ICON_GAP_DP = 4f;
     private static final float CARET_SIZE_DP = 6f;
@@ -138,6 +140,12 @@ public final class LayerRowRenderer {
      *  items whose right end runs past the screen edge (user feedback 2026-07-03). */
     private float lastHScrollOffsetPx = 0f;
     private float lastWidthPx = 0f;
+    /** Screen-y of the FLOATING band's top edge at the last {@link #layout} (band-1 anchor). */
+    private float lastTopPx = 0f;
+    /** Screen-y of the AUDIO band's top edge at the last {@link #layout} (band-2 anchor). */
+    private float lastAudioTopPx = 0f;
+    /** Height (px) of the AUDIO band laid out by the last {@link #layout} (0 = no audio). */
+    private float audioBandHeightPx = 0f;
 
     /** Viewport-left in content-x at the last layout (for panel-relative gestures). */
     public float getLastHScrollOffsetPx() { return lastHScrollOffsetPx; }
@@ -199,17 +207,31 @@ public final class LayerRowRenderer {
     }
 
     /**
-     * Total extra height (px) this renderer needs below the existing timeline content.
-     * Called from {@code EditorTimelineView#onMeasure}. Zero for a plain project.
+     * Extra height (px) of the FLOATING band (visual rows ABOVE master). Audio-track rows
+     * moved to their own band BELOW master (audio consolidation, 2026-07-07) and are measured
+     * by {@link #measureAudioBandHeightPx} — they no longer contribute here. Zero for a plain
+     * project. Called from {@code EditorTimelineView#onMeasure}.
      */
-    public float measureExtraHeightPx(@NonNull List<Track> layers, @NonNull List<Track> audioTracks) {
-        if (isEmpty(layers, audioTracks)) return 0f;
+    public float measureExtraHeightPx(@NonNull List<Track> layers) {
+        if (layers.isEmpty()) return 0f;
         float rowGap = ROW_GAP_DP * density;
         float total = 0f;
         for (Track t : layers) total += rowHeightPx(t) + rowGap;
-        for (Track t : audioTracks) total += rowHeightPx(t) + rowGap;
         float capped = Math.min(total, maxVisibleRowsDp * density);
         return TOP_GAP_DP * density + capped;
+    }
+
+    /**
+     * Height (px) of the AUDIO band (headered audio rows BELOW master). Unlike the floating
+     * band it is NOT viewport-capped and never scrolls — audio projects have a handful of
+     * lanes and the old legacy audio band grew the view the same way. Zero when no audio.
+     */
+    public float measureAudioBandHeightPx(@NonNull List<Track> audioTracks) {
+        if (audioTracks.isEmpty()) return 0f;
+        float rowGap = ROW_GAP_DP * density;
+        float total = AUDIO_BAND_TOP_GAP_DP * density;
+        for (Track t : audioTracks) total += rowHeightPx(t) + rowGap;
+        return total;
     }
 
     private float rowHeightPx(@NonNull Track t) {
@@ -237,10 +259,11 @@ public final class LayerRowRenderer {
      * @param totalMs        timeline total duration, for items with an unbounded end.
      */
     public void layout(@NonNull Canvas canvas, @NonNull List<Track> layers,
-                        @NonNull List<Track> audioTracks, float topPx, float widthPx,
-                        float hScrollOffsetPx, long totalMs, @NonNull TimeToX timeToX) {
-        layout(canvas, layers, audioTracks, topPx, widthPx, hScrollOffsetPx, totalMs, timeToX,
-                false, false, null);
+                        @NonNull List<Track> audioTracks, float topPx, float audioTopPx,
+                        float widthPx, float hScrollOffsetPx, long totalMs,
+                        @NonNull TimeToX timeToX) {
+        layout(canvas, layers, audioTracks, topPx, audioTopPx, widthPx, hScrollOffsetPx,
+                totalMs, timeToX, false, false, null);
     }
 
     /**
@@ -255,20 +278,25 @@ public final class LayerRowRenderer {
      *                       tracks for trim-handle exposure, now also driving the visual.
      */
     public void layout(@NonNull Canvas canvas, @NonNull List<Track> layers,
-                        @NonNull List<Track> audioTracks, float topPx, float widthPx,
-                        float hScrollOffsetPx, long totalMs, @NonNull TimeToX timeToX,
+                        @NonNull List<Track> audioTracks, float topPx, float audioTopPx,
+                        float widthPx, float hScrollOffsetPx, long totalMs,
+                        @NonNull TimeToX timeToX,
                         boolean dragActive, boolean dragOverNewLayerZone,
                         @Nullable String selectedItemId) {
         rows.clear();
         newLayerZoneRect.setEmpty();
         lastHScrollOffsetPx = hScrollOffsetPx;
         lastWidthPx = widthPx;
-        if (isEmpty(layers, audioTracks)) { contentHeightPx = 0f; return; }
+        lastTopPx = topPx;
+        lastAudioTopPx = audioTopPx;
+        if (isEmpty(layers, audioTracks)) { contentHeightPx = 0f; audioBandHeightPx = 0f; return; }
 
         float rowGap = ROW_GAP_DP * density;
+        // ── Band 1: FLOATING rows (visual — text/sticker/sprite/PiP/CC/viz) ABOVE master,
+        // in their own content space (0 = band top), scrollable within the capped viewport.
         float y = TOP_GAP_DP * density;
         for (Track t : layers) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, true);
-        for (Track t : audioTracks) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, false);
+        int floatingRowCount = rows.size();
         // Rows-only content height; the viewport caps at maxVisibleRowsDp and the
         // extra rows SCROLL beneath the pinned master (PLAN §6.1). Computed BEFORE the
         // drop-zone so the zone can pin to the VISIBLE viewport bottom rather than being
@@ -296,19 +324,44 @@ public final class LayerRowRenderer {
         canvas.save();
         canvas.clipRect(hScrollOffsetPx, topPx, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
         canvas.translate(0f, topPx - scrollOffsetPx);
-        for (RowLayout row : rows) {
-            drawRow(canvas, row, totalMs, timeToX, selectedItemId);
+        for (int i = 0; i < floatingRowCount; i++) {
+            drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
         }
         if (dragActive && !newLayerZoneRect.isEmpty()) {
             drawNewLayerZone(canvas, dragOverNewLayerZone);
         }
-        if (dragActive && crossBandInsertionArmed) {
+        if (dragActive && crossBandInsertionArmed && crossBandDraggedIsFloating) {
             drawCrossBandInsertionLine(canvas, hScrollOffsetPx, widthPx);
         }
-        if (dragActive && timeLockGuidesArmed) {
-            drawTimeLockGuides(canvas, timeToX);
+        if (dragActive && timeLockGuidesArmed && floatingRowCount > 0) {
+            drawTimeLockGuides(canvas, timeToX, 0, floatingRowCount);
         }
         canvas.restore();
+
+        // ── Band 2: AUDIO rows BELOW master (audio consolidation 2026-07-07 — replaces the
+        // legacy EditorTimelineView audio band). Own content space (0 = band top), NEVER
+        // scrolls (uncapped; the measured view height reserves the full band, exactly like
+        // the legacy audio lanes did). Same rows list, so id-based lookups, cross-band drag
+        // proxy/highlight and the gesture controller see one unified row world.
+        float ay = AUDIO_BAND_TOP_GAP_DP * density;
+        for (Track t : audioTracks) ay = addRow(t, ay, hScrollOffsetPx, widthPx, rowGap, false);
+        audioBandHeightPx = audioTracks.isEmpty() ? 0f : ay;
+        if (audioBandHeightPx > 0f) {
+            canvas.save();
+            canvas.clipRect(hScrollOffsetPx, audioTopPx,
+                    hScrollOffsetPx + widthPx, audioTopPx + audioBandHeightPx);
+            canvas.translate(0f, audioTopPx);
+            for (int i = floatingRowCount; i < rows.size(); i++) {
+                drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
+            }
+            if (dragActive && crossBandInsertionArmed && !crossBandDraggedIsFloating) {
+                drawCrossBandInsertionLine(canvas, hScrollOffsetPx, widthPx);
+            }
+            if (dragActive && timeLockGuidesArmed && rows.size() > floatingRowCount) {
+                drawTimeLockGuides(canvas, timeToX, floatingRowCount, rows.size());
+            }
+            canvas.restore();
+        }
     }
 
     // ── A9-lite time-lock guides (dragux_v3 A9, user spec): while a cross-row move is
@@ -325,10 +378,13 @@ public final class LayerRowRenderer {
         this.timeLockDurMs = durMs;
     }
 
-    private void drawTimeLockGuides(@NonNull Canvas canvas, @NonNull TimeToX timeToX) {
-        if (rows.isEmpty()) return;
-        float top = rows.get(0).bodyRect.top;
-        float bottom = rows.get(rows.size() - 1).bodyRect.bottom;
+    /** Draws the guides spanning rows [fromRow, toRow) — one band's rows, since the two
+     *  bands live in different content spaces (drawn inside each band's translate). */
+    private void drawTimeLockGuides(@NonNull Canvas canvas, @NonNull TimeToX timeToX,
+                                     int fromRow, int toRow) {
+        if (rows.isEmpty() || fromRow >= toRow) return;
+        float top = rows.get(fromRow).bodyRect.top;
+        float bottom = rows.get(toRow - 1).bodyRect.bottom;
         float x0 = timeToX.map(timeLockStartMs);
         float x1 = timeToX.map(timeLockStartMs + Math.max(0, timeLockDurMs));
         int prevColor = itemSelectionPaint.getColor();
@@ -370,29 +426,17 @@ public final class LayerRowRenderer {
 
     private void drawCrossBandInsertionLine(@NonNull Canvas canvas, float hScrollOffsetPx, float widthPx) {
         if (rows.isEmpty()) return;
-        float lineY = -1f;
-        if (crossBandDraggedIsFloating) {
-            // Visual item: new lane lands at the visual/audio band boundary (last visual
-            // row's bottom edge / first audio row's top edge — midpoint of the gap).
-            RowLayout prev = null;
-            for (RowLayout row : rows) {
-                if (!row.floatingBand) {
-                    lineY = prev != null ? (prev.bodyRect.bottom + row.headerRect.top) / 2f
-                            : row.headerRect.top - (ROW_GAP_DP * density) / 2f;
-                    break;
-                }
-                prev = row;
-            }
-            if (lineY < 0f && prev != null) {
-                // No audio rows at all: boundary = below the last visual row.
-                lineY = prev.bodyRect.bottom + (ROW_GAP_DP * density) / 2f;
-            }
-        } else {
-            // Audio item: new audio lanes append BELOW the last audio row.
-            RowLayout last = rows.get(rows.size() - 1);
-            lineY = last.bodyRect.bottom + (ROW_GAP_DP * density) / 2f;
+        // Split-band geometry (audio consolidation 2026-07-07): the two bands live in
+        // different content spaces, and this is called inside the DRAGGED item's own band
+        // pass — so the line lands below that band's LAST row: a new visual lane appends
+        // at the bottom of the floating band (above master), a new audio lane below the
+        // last audio row. Find the last row of the relevant band.
+        RowLayout last = null;
+        for (RowLayout row : rows) {
+            if (row.floatingBand == crossBandDraggedIsFloating) last = row;
         }
-        if (lineY < 0f) return;
+        if (last == null) return;
+        float lineY = last.bodyRect.bottom + (ROW_GAP_DP * density) / 2f;
         float left = hScrollOffsetPx + HEADER_WIDTH_DP * density;
         float right = hScrollOffsetPx + widthPx;
         stripPaint.setColor(COLOR_DROP_TARGET_RING); // fill paint; zone draw re-sets its color anyway
@@ -865,6 +909,11 @@ public final class LayerRowRenderer {
                 canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             }
         }
+        // AUDIO volume-automation envelope (audio consolidation 2026-07-07): keep the blue
+        // rubber-band + keyframe dots on the unified audio rows (legacy drawAudioTrack port).
+        if (item.getAudioClip() != null && !ghosted && item.getAudioClip().hasVolumeKeyframes()) {
+            drawVolumeEnvelope(canvas, item.getAudioClip(), x0, top, x1, bottom);
+        }
         // CAPTION per-keyframe style segments (layers-UX Slice B): overdraw the amber base bar
         // with each keyframe region's active-style colour, mirroring the old drawLayers caption
         // branch so keyframed captions keep their colour segments in the consolidated renderer.
@@ -966,6 +1015,59 @@ public final class LayerRowRenderer {
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
         }
+    }
+
+    /** Paints for the audio volume-automation envelope (ported legacy drawAudioTrack visual). */
+    private final Paint volEnvLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint volEnvDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private boolean volEnvPaintsInit;
+
+    /**
+     * Blue volume-automation envelope (rubber-band line, keyframe-to-keyframe) on an AUDIO
+     * item body — ported 1:1 from the legacy {@code EditorTimelineView#drawAudioTrack} so the
+     * unified audio rows keep the volume-keyframe visual (audio consolidation 2026-07-07).
+     * x = clip-local time across the item block; y maps gain 0..2 (bottom..top), 100% at mid.
+     */
+    private void drawVolumeEnvelope(@NonNull Canvas canvas,
+                                     @NonNull com.fadcam.ui.faditor.model.AudioClip ac,
+                                     float x0, float top, float x1, float bottom) {
+        if (!volEnvPaintsInit) {
+            volEnvPaintsInit = true;
+            volEnvLinePaint.setColor(0xFF40C4FF); // light blue
+            volEnvLinePaint.setStyle(Paint.Style.STROKE);
+            volEnvLinePaint.setStrokeWidth(1.6f * density);
+            volEnvLinePaint.setStrokeJoin(Paint.Join.ROUND);
+            volEnvDotPaint.setColor(0xFF40C4FF);
+            volEnvDotPaint.setStyle(Paint.Style.FILL);
+        }
+        java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> kfs =
+                ac.getVolumeKeyframes();
+        if (kfs.isEmpty()) return;
+        long dur = Math.max(1, ac.getTrimmedDurationMs());
+        float w = x1 - x0;
+        float h = bottom - top;
+        canvas.save();
+        canvas.clipRect(x0, top, x1, bottom);
+        float prevX = 0f, prevY = 0f;
+        for (int k = 0; k < kfs.size(); k++) {
+            com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf = kfs.get(k);
+            float fx = Math.max(0f, Math.min(1f, kf.timeMs / (float) dur));
+            float x = x0 + fx * w;
+            float gFrac = Math.max(0f, Math.min(1f, kf.volume / 2.0f));
+            float y = bottom - gFrac * h;
+            if (k == 0) {
+                canvas.drawLine(x0, y, x, y, volEnvLinePaint); // flat hold from clip start
+            } else {
+                canvas.drawLine(prevX, prevY, x, y, volEnvLinePaint);
+            }
+            if (k == kfs.size() - 1) {
+                canvas.drawLine(x, y, x1, y, volEnvLinePaint); // flat hold to clip end
+            }
+            canvas.drawCircle(x, y, 2.6f * density, volEnvDotPaint);
+            prevX = x;
+            prevY = y;
+        }
+        canvas.restore();
     }
 
     private void drawAudioWaveform(@NonNull Canvas canvas, @NonNull int[] waveform,
@@ -1137,10 +1239,12 @@ public final class LayerRowRenderer {
      */
     @Nullable
     public HeaderHit hitTestHeader(float x, float y, float topPx) {
-        float localY = y - topPx + scrollOffsetPx;
-        if (y < topPx || y > topPx + viewportHeightPx) return null;
+        if (!inAnyBand(y, topPx)) return null;
         for (RowLayout row : rows) {
-            if (localY < row.headerRect.top || localY > row.headerRect.bottom) continue;
+            float localY = bandLocalY(row, y, topPx);
+            // Positive-form check: bandLocalY returns NaN for out-of-band rows, and NaN
+            // fails EVERY comparison — the negated form would fall through as a hit.
+            if (!(localY >= row.headerRect.top && localY <= row.headerRect.bottom)) continue;
             // X-bounds guard: the headerRect spans the row's full height but only the
             // left HEADER_WIDTH_DP column is the header — the rest of the row (to its
             // right) is the item BODY. Without this check, a touch anywhere in the row
@@ -1162,15 +1266,44 @@ public final class LayerRowRenderer {
     /**
      * True if {@code (x,y)} falls within the row region at all (used by the god view to
      * decide whether to route the touch here vs. its own segment/audio hit-testing).
+     * Covers BOTH bands: the floating band at {@code topPx} and the audio band at its
+     * layout-time anchor (audio consolidation 2026-07-07).
      */
     public boolean isWithinRowRegion(float y, float topPx) {
-        return !rows.isEmpty() && y >= topPx && y <= topPx + viewportHeightPx;
+        return !rows.isEmpty() && inAnyBand(y, topPx);
+    }
+
+    /** Whether {@code y} (screen) falls inside the floating band's viewport OR the audio band. */
+    private boolean inAnyBand(float y, float topPx) {
+        boolean inFloating = viewportHeightPx > 0f && y >= topPx && y <= topPx + viewportHeightPx;
+        boolean inAudio = audioBandHeightPx > 0f && y >= lastAudioTopPx
+                && y <= lastAudioTopPx + audioBandHeightPx;
+        return inFloating || inAudio;
+    }
+
+    /**
+     * Screen-y → the given row's band-local content-y. The two bands live in different
+     * content spaces: floating rows scroll within the capped viewport at {@code topPx};
+     * audio rows sit unscrolled at the audio band anchor stored by the last layout().
+     * Returns {@code Float.NaN} when {@code y} is OUTSIDE the row's own band region —
+     * without that guard a touch in one band could numerically alias onto a row of the
+     * OTHER band (e.g. an audio-band touch mapping into a floating row scrolled past the
+     * band-1 viewport). NaN fails every subsequent rect comparison, so callers need no
+     * special-casing.
+     */
+    private float bandLocalY(@NonNull RowLayout row, float y, float topPx) {
+        if (row.floatingBand) {
+            if (y < topPx || y > topPx + viewportHeightPx) return Float.NaN;
+            return y - topPx + scrollOffsetPx;
+        }
+        if (y < lastAudioTopPx || y > lastAudioTopPx + audioBandHeightPx) return Float.NaN;
+        return y - lastAudioTopPx;
     }
 
     /** True if the row body under {@code y} belongs to a LOCKED track (taps must be ignored). */
     public boolean isRowLocked(float y, float topPx) {
-        float localY = y - topPx + scrollOffsetPx;
         for (RowLayout row : rows) {
+            float localY = bandLocalY(row, y, topPx);
             if (localY >= row.headerRect.top && localY <= row.headerRect.bottom) {
                 return row.track.isLocked();
             }
@@ -1191,8 +1324,8 @@ public final class LayerRowRenderer {
      */
     @Nullable
     public Track rowTrackAt(float y, float topPx) {
-        float localY = y - topPx + scrollOffsetPx;
         for (RowLayout row : rows) {
+            float localY = bandLocalY(row, y, topPx);
             if (localY >= row.headerRect.top && localY <= row.bodyRect.bottom) {
                 return row.track;
             }
@@ -1247,16 +1380,17 @@ public final class LayerRowRenderer {
     @Nullable
     public ItemHit hitTestItem(float x, float y, float topPx, long totalMs,
                                 @NonNull TimeToX timeToX, @Nullable String selectedItemId) {
-        float localY = y - topPx + scrollOffsetPx;
-        if (y < topPx || y > topPx + viewportHeightPx) return null;
+        if (!inAnyBand(y, topPx)) return null;
         float handleHalf = ITEM_HANDLE_HALF_WIDTH_DP * density;
         for (RowLayout row : rows) {
-            if (localY < row.bodyRect.top || localY > row.bodyRect.bottom) continue;
+            float localY = bandLocalY(row, y, topPx);
+            // Positive-form checks: NaN (out-of-band row) must fail, not fall through.
+            if (!(localY >= row.bodyRect.top && localY <= row.bodyRect.bottom)) continue;
             Track t = row.track;
             if (t.isCollapsed() || t.isLocked() || t.isHidden()) return null;
             float top = row.bodyRect.top + 3f * density;
             float bottom = row.bodyRect.bottom - 3f * density;
-            if (localY < top || localY > bottom) return null;
+            if (!(localY >= top && localY <= bottom)) return null;
             for (TimedItem item : t.getItems()) {
                 float x0 = timeToX.map(item.getTimelineStartMs());
                 long dur = item.getDisplayDurationMs(totalMs);
@@ -1312,6 +1446,11 @@ public final class LayerRowRenderer {
         List<ItemHit> out = new ArrayList<>();
         for (RowLayout row : rows) {
             Track t = row.track;
+            // Audio-band rows live in a DIFFERENT content space (band 2, below master) than
+            // the marquee rect (band-1 coords) — skip them so a marquee near the top of the
+            // floating band can't phantom-select audio items whose band-2 y happens to
+            // overlap numerically. Marquee coverage of the audio band is a follow-up.
+            if (!row.floatingBand) continue;
             if (t.isCollapsed() || t.isLocked() || t.isHidden()) continue;
             float top = row.bodyRect.top + 3f * density;
             float bottom = row.bodyRect.bottom - 3f * density;
@@ -1348,6 +1487,7 @@ public final class LayerRowRenderer {
         canvas.clipRect(lastHScrollOffsetPx, topPx,
                 lastHScrollOffsetPx + lastWidthPx, topPx + viewportHeightPx);
         for (RowLayout row : rows) {
+            if (!row.floatingBand) continue; // marquee = floating band only (see collectItemsInRect)
             Track t = row.track;
             float top = topPx + row.bodyRect.top + 3f * density - scrollOffsetPx;
             float bottom = topPx + row.bodyRect.bottom - 3f * density - scrollOffsetPx;
@@ -1399,6 +1539,8 @@ public final class LayerRowRenderer {
 
     public float getContentHeightPx() { return contentHeightPx; }
     public float getViewportHeightPx() { return viewportHeightPx; }
+    /** Height (px) of the audio band from the last layout (0 = no audio rows). */
+    public float getAudioBandHeightPx() { return audioBandHeightPx; }
 
     // ── G6 resizable timeline ───────────────────────────────────────
     /** Current layer-band viewport cap (dp), user-controlled via the preview/timeline grab bar. */

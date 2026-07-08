@@ -32,8 +32,7 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: Fable (2026-07-07 ~15:00 — swoop #2: re-smoke of the six swoop-#1 landings [prior verify
-  batch was interrupted ~14:05], then device-loops for the 🔴 hard queue, G5 first)
+DEVICE: Fable (2026-07-07 final-day push — P1 freeze repro loops on SM-N960U first, then hard queue)
 (Fable owns it during hard interactive device-loops; opencode does code+compile-only
 and BATCHES its device-verify into windows when this reads `free` / Fable is IDLE.)
 
@@ -48,15 +47,12 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-07-07 ~15:00 — Fable-5 "finish the frontier" swoop #2. Swoop #1 landed all
-        six 🟡 items (0ce35ea/a533aa0/a4baee5/f4eca41/dbf1628/ae07b21, see handoff top block) but
-        was interrupted mid-device-verify. This session: (0) re-smoke those six on device;
-        then the 🔴 hard queue hardest-first: (1) G5 attach/detach; (2) G9 object linking;
-        (3) audio old-vs-new row consolidation; (4) GL transition real preview cards;
-        (5) out-of-process export; (6) dual-stream recording; (7) AI-generated slides.)
-files: ui/faditor/timeline/EditorTimelineView.java, ui/faditor/layers/*, ui/faditor/gesture/
-       LayerGestureController.java, ui/faditor/FaditorEditorActivity.java (gesture/timeline
-       sections) — will re-post here before touching export/recording files.
+status: ACTIVE (2026-07-07 FINAL FABLE DAY — hardest-first push. (1) P1 short-speed-clip gapless
+        clock freeze REAL FIX (media3 DefaultAudioSink/Sonic or engine-side); (2) audio old-vs-new
+        row consolidation; (3) G5 attach/detach; (4) G9 linking; (5) out-of-process export;
+        (6) re-smoke of the six swoop-#1 landings folds in around device loops.)
+files: compositor/MasterPlaybackEngine.java, media3-patched/* (audio sink), ui/faditor/
+       FaditorPlayerManager.java — will re-post before touching timeline/gesture/export files.
 prior-status: IDLE (2026-07-07 continuation session wrapped). Landed + committed this session:
   • 5b492e0 G1-groundwork: held-item MOVE reaches hidden lanes (M6 vertical edge-scroll) +
     honest drop-target affordance. Drag-FEEL hand-test owed (see handoff checklist).

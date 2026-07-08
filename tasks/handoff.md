@@ -1,5 +1,32 @@
 # FadCam AI Handoff
 
+> **🎧 2026-07-07 ~20:45 — FABLE(5): AUDIO ROW CONSOLIDATION — SCOPED, NOT BUILT (deliberate; findings
+> below cut the next session's discovery to zero).** Verified live-code facts (not doc claims):
+> **(a) `LayerGestureController` ALREADY fully supports audio items** — `AUDIO_MIN_TRIM_GAP_MS`,
+> audio-only trim state (`dragStartTrimInMs/OutMs`), move via `AudioClip.setOffsetMs`, doc'd to mirror
+> `doAudioTrimDrag` semantics. **(b) The activity's gesture `Callback` ALREADY has complete audio
+> branches** (`FaditorEditorActivity` ~10162-10188: move-undo, `AudioTrimAction` undo, delete
+> confirmation via `deleteAudioClipWithConfirmation`, `prepareAudioPlayer()` resync). **(c)
+> `LayerRowRenderer` ALREADY draws audio items** (waveform `drawAudioWaveform` :971, aqua color, mute
+> icon, label, trim caps) — missing ONLY the volume-envelope rubber-band + keyframe dots (port from
+> `EditorTimelineView.drawAudioTrack` :3344-3374). **(d) The old `onAudioClipSelected` side effect is
+> tiny** — transcript-panel switch only (:1580-1591). **THE ACTUAL REMAINDER (why this needs its own
+> session): (1) BAND PLACEMENT** — `LayerRowRenderer.layout()` stacks `layers` then `audioTracks` into
+> ONE band at a single `topPx` (:257-271), so un-suppressing audio in `syncTimelineOverlays` (:9288,
+> flip `emptyList()` → `tl.getAudioTracks()`) puts audio rows ABOVE master — violating JoyRaptor's approved
+> Slice-E order (audio BELOW master). Needs a second band: either a 2nd renderer instance laid out at
+> `audioBandTopPx()` (cleanest; matches FEEDBACK #3's "dual-scroll band below master") + touch routing
+> + gesture-controller arbitration (controller binds ONE renderer), or renderer-native two-band
+> support. **(2) selection derive** — reimplement `EditorTimelineView.getSelectedAudioIndex()` to map
+> the unified `LayerGestureController.getSelectedItemId()` → index in `audioClips` (TimedItem id ==
+> AudioClip id, see `TimedItem.ofAudioClip`); then ALL ~15 activity ops (volume sheet/mute/split/
+> captions/delete/trim-to-selection, :3709-4267, :12113-12205) keep working UNCHANGED. **(3) retire the
+> old path** — gate `drawAudioTrack` (:1742), the audio hit-tests (:5086/:5203/:5422/:5696), and
+> collapse `audioBandTopPx()/audioTrackTotalHeightPx()` to 0, Slice-C style (keep the `setAudioClips`
+> FEED — the derive-map needs the list). **(4) regression list** — select, trim both edges, move,
+> volume sheet + keyframes, per-clip mute, split-at-playhead, delete, extract-audio waveform render,
+> transcript-panel switch. Estimated one focused session with JoyRaptor available for trim-feel.
+
 > **🎯 2026-07-07 ~18:00-19:20 — FABLE(5) FINAL-DAY SESSION: 🔴 P0 image-clip gapless gap FIXED +
 > DEVICE-PROVEN (`62b227f`), a NEW pre-existing engine freeze found/bisected/guarded (`f855e51`), the
 > gradle build blocker for agent shells root-caused + memoried, and opencode round-3 chat-UI work

@@ -15,7 +15,22 @@ sheets, preview-pitch fix) — all committed, reviewed.
 **A full doc sweep (2026-07-06) confirmed the above and folded every remaining open item — old and new —
 into §BACKLOG below. Nothing from the 57 tasks/*.md files is untracked as of this pass.**
 
-**✅ P0 FIXED 2026-07-07 (Fable, `62b227f` + guard `f855e51`, DEVICE-PROVEN on SM-N960U):** image clips
+**✅ P1 FIXED AT THE ROOT 2026-07-07 evening (Fable-5 final-day session; media3-patched `c2f22f9` +
+FadCam `f4d4ed1`, DEVICE-PROVEN on SM-N960U):** the short-speed-clip gapless clock freeze below was a
+CROSS-RENDERER DEADLOCK in media3, not an engine bug: a first window whose post-Sonic audio undershoots
+the AudioTrack start threshold (e.g. 250ms@2x → 10752 frames < the 15392-frame buffer on this device)
+never starts platform playout → the audio clock never advances → the clock-gated VIDEO renderer never
+finishes reading the period (probe-proven: renderer 0 wedged in hasReadingPeriodFinishedReading forever)
+→ the reading period can't advance → no more audio ever arrives. Fix = patched `DefaultAudioSink`
+stall-kick (detects playing + head-parked-at-0 + written<buffer + 400ms starvation from
+getCurrentPositionUs, forces playout via the simulated-position path, rebuilds the track when data
+resumes). **`settings.gradle.kts` now substitutes `media3-exoplayer` with the patched source build —
+LOAD-BEARING, the stock Maven artifact lacks the fix; never remove it.** The `f855e51` eligibility guard
+is REMOVED — short speed clips are gapless-eligible again. Device proof: bisect A (froze permanently)
+plays end-to-end on one tap with a single ~400ms recovery; bisect C + the image project: zero kicks,
+warm seams. Diagnosis trail (probe method, flinger evidence) in handoff.md's top block.
+
+**✅ P0 FIXED 2026-07-07 (Fable, `62b227f` + guard `f855e51`→removed `f4d4ed1`, DEVICE-PROVEN on SM-N960U):** image clips
 now play as native media3 image playlist windows (`MediaItem.setImageDurationMs` — the same pipeline
 export uses; media3 1.8 ImageRenderer + PlayerView image output), so a freeze-frame/photo insert no
 longer ejects the WHOLE project from the gapless engine. Activity keeps the proven Glide image overlay

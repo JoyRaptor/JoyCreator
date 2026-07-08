@@ -43,6 +43,9 @@ if (file(media3PatchedPath).exists()) {
             substitute(module("androidx.media3:media3-muxer")).using(project(":lib-muxer"))
             substitute(module("androidx.media3:media3-common")).using(project(":lib-common"))
             substitute(module("androidx.media3:media3-container")).using(project(":lib-container"))
+            // Gapless short-speed-clip clock-freeze fix lives in the patched DefaultAudioSink
+            // (P1 2026-07-07): the stock artifact would silently drop it.
+            substitute(module("androidx.media3:media3-exoplayer")).using(project(":lib-exoplayer"))
         }
     }
 } else {

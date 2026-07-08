@@ -1,5 +1,30 @@
 # FadCam AI Handoff
 
+> **🎛️ 2026-07-07 late — FABLE(5): AUDIO ROW CONSOLIDATION BUILT (`f31f16c`, build-green + installed
+> on SM-N960U; DEVICE SMOKE BLOCKED — phone locked with a secure Bouncer mid-session, needs JoyRaptor's
+> unlock).** Implemented exactly per the scoping block below: **(1) two-band renderer** —
+> `LayerRowRenderer.layout()` now takes an `audioTopPx` anchor and lays audio rows in their OWN
+> unscrolled band BELOW master (Slice-E order kept); band-aware hit-tests via `bandLocalY()`
+> (returns NaN out-of-band + positive-form comparisons so touches can't alias across bands);
+> cross-band insertion line + time-lock guides draw per band; marquee = floating band only
+> (documented follow-up). **(2) selection derive** — `getSelectedAudioIndex()` maps
+> `LayerGestureController.getSelectedItemId()` over `audioClips` when the new rows are fed, so all
+> legacy-anchored audio ops work unchanged; transcript-panel switch moved to
+> `onItemSelectionChanged`. **(3) legacy path retired** — `drawAudioTrack` + audio hit-tests gate
+> off when `audioLayerTracks` non-empty; `syncTimelineOverlays` now feeds `tl.getAudioTracks()`;
+> onMeasure/audioBandBotPx reserve the renderer band height. **(4) envelope ported** — blue
+> volume rubber-band + keyframe dots drawn on renderer audio item bodies (1:1 legacy port).
+> **SMOKE CHECKLIST (first unlocked session, sandbox project bdd51919 has 3 audio clips):**
+> (a) audio rows render BELOW master, aqua, with waveform + labels, NO legacy duplicate bar;
+> (b) tap audio item → selection ring + trim caps; (c) drag-trim both edges (controller path);
+> (d) drag-move (offsetMs); (e) volume sheet opens off the selection + keyframe drag draws the
+> blue envelope on the row; (f) per-clip mute; (g) split-at-playhead; (h) delete via badge →
+> confirmation; (i) extract-from-video → waveform renders on the new row; (j) transcript panel
+> switches when tapping an audio clip; (k) vertical drag in the audio band doesn't scroll weirdly;
+> (l) cross-band drag of a text item over the audio band shows the insertion line at the right
+> place. NOTE: Opus's earlier audio-track session left NO commits/stash — its work is gone;
+> nothing to recover (verified reflog + fsck).
+
 > **🎧 2026-07-07 ~20:45 — FABLE(5): AUDIO ROW CONSOLIDATION — SCOPED, NOT BUILT (deliberate; findings
 > below cut the next session's discovery to zero).** Verified live-code facts (not doc claims):
 > **(a) `LayerGestureController` ALREADY fully supports audio items** — `AUDIO_MIN_TRIM_GAP_MS`,

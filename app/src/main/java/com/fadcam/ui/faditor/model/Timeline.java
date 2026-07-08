@@ -1343,6 +1343,90 @@ public class Timeline {
         return t;
     }
 
+    // ── G5 attach/detach (gesture contract §4): visualizer ↔ master-clip tether ──────
+
+    /** On-timeline span length of a master clip (loop-extended → visual, else trimmed). */
+    private static long clipSpanMs(@NonNull Clip c) {
+        return c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
+    }
+
+    private int indexOfMasterClipId(@Nullable String clipId) {
+        if (clipId == null) return -1;
+        for (int i = 0; i < clips.size(); i++) {
+            if (clipId.equals(clips.get(i).getId())) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * Re-derive every ATTACHED visualizer's absolute {@code [startMs,endMs]} window from its
+     * host master clip's CURRENT on-timeline span — the whole of G5 time-riding in one write
+     * point. Call after any timeline mutation (the activity funnels through
+     * {@code syncTimelineOverlays()}) and before export builds its overlay slots. Detached
+     * instances are untouched. A host that no longer exists auto-detaches its rider in place
+     * (the window keeps its last absolute values — nothing jumps).
+     */
+    public void resyncAttachedVisualizers() {
+        for (WaveformOverlayInstance w : waveformOverlays) {
+            String hostId = w.getAttachedClipId();
+            if (hostId == null) continue;
+            int idx = indexOfMasterClipId(hostId);
+            if (idx < 0) {
+                w.setAttachedClipId(null); // host deleted → detach in place
+                continue;
+            }
+            long hostStart = segmentStartMs(idx);
+            long hostSpan = Math.max(1, clipSpanMs(clips.get(idx)));
+            long off = Math.min(w.getAttachOffsetMs(), hostSpan - 1);
+            long start = hostStart + off;
+            long end = w.getAttachDurationMs() == Long.MAX_VALUE
+                    ? hostStart + hostSpan
+                    : Math.min(start + w.getAttachDurationMs(), hostStart + hostSpan);
+            w.setTimeRange(start, end);
+        }
+    }
+
+    /**
+     * Attach {@code w} to the master clip under its current start (clamped into the timeline).
+     * Captures the host-relative offset/duration from the CURRENT absolute window, and — per the
+     * contract's Axis-1 semantics (attached ⇒ content comes from the host) — points the
+     * visualizer's audio source at the host clip. Returns the host clip, or null if the
+     * timeline has no clips (attach impossible; state unchanged).
+     */
+    @Nullable
+    public Clip attachVisualizerToHostUnderStart(@NonNull WaveformOverlayInstance w) {
+        if (clips.isEmpty()) return null;
+        int idx = clips.size() - 1;
+        for (int i = 0; i < clips.size(); i++) {
+            long s = segmentStartMs(i);
+            if (w.getStartMs() >= s && w.getStartMs() < s + clipSpanMs(clips.get(i))) {
+                idx = i;
+                break;
+            }
+        }
+        Clip host = clips.get(idx);
+        long hostStart = segmentStartMs(idx);
+        long hostSpan = Math.max(1, clipSpanMs(host));
+        long off = Math.max(0, Math.min(w.getStartMs() - hostStart, hostSpan - 1));
+        w.setAttachedClipId(host.getId());
+        w.setAttachOffsetMs(off);
+        w.setAttachDurationMs(w.getEndMs() == Long.MAX_VALUE
+                ? Long.MAX_VALUE : Math.max(1, w.getEndMs() - w.getStartMs()));
+        w.setAudioSourceRef(host.getId());
+        resyncAttachedVisualizers();
+        return host;
+    }
+
+    /**
+     * Detach {@code w}: its window keeps the last host-derived absolute values (nothing jumps);
+     * the audio source stays pointed at the former host (the explicit "pin to this source"
+     * behavior — a true full-mix source is a separate feature, see contract §4.1).
+     */
+    public void detachVisualizer(@NonNull WaveformOverlayInstance w) {
+        resyncAttachedVisualizers();
+        w.setAttachedClipId(null);
+    }
+
     // ── User-created layer-track definitions (M10) ─────────────────────
 
     /**

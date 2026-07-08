@@ -1649,6 +1649,14 @@ public class ProjectStorage {
                         wj.addProperty("gradStart", wo.getGradientStartOverride());
                         wj.addProperty("gradEnd", wo.getGradientEndOverride());
                     }
+                    // G5 attach/detach (tolerant, absent = detached — every pre-G5 project)
+                    if (wo.getAttachedClipId() != null) {
+                        wj.addProperty("attachedClipId", wo.getAttachedClipId());
+                        wj.addProperty("attachOffsetMs", wo.getAttachOffsetMs());
+                        if (wo.getAttachDurationMs() != Long.MAX_VALUE) {
+                            wj.addProperty("attachDurationMs", wo.getAttachDurationMs());
+                        }
+                    }
                     wfArray.add(wj);
                 }
                 timelineJson.add("waveformOverlays", wfArray);
@@ -2101,8 +2109,20 @@ public class ProjectStorage {
                             wo.setGradientOverride(wj.get("gradStart").getAsString(),
                                     wj.get("gradEnd").getAsString());
                         }
+                        // G5 attach/detach (tolerant, absent = detached)
+                        if (wj.has("attachedClipId")) {
+                            wo.setAttachedClipId(wj.get("attachedClipId").getAsString());
+                            if (wj.has("attachOffsetMs")) {
+                                wo.setAttachOffsetMs(wj.get("attachOffsetMs").getAsLong());
+                            }
+                            if (wj.has("attachDurationMs")) {
+                                wo.setAttachDurationMs(wj.get("attachDurationMs").getAsLong());
+                            }
+                        }
                         project.getTimeline().addWaveformOverlay(wo);
                     }
+                    // Attached windows re-derive from their hosts' CURRENT spans on load.
+                    project.getTimeline().resyncAttachedVisualizers();
                 }
             }
 

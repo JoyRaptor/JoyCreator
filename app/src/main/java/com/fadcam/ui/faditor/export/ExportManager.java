@@ -287,6 +287,10 @@ public class ExportManager {
             return;
         }
 
+        // G5: attached visualizers derive their windows from their host clips' current
+        // spans — resync before any overlay slot is built so export matches preview.
+        project.getTimeline().resyncAttachedVisualizers();
+
         String outputPath = generateOutputPath(project);
         isExporting = true;
 

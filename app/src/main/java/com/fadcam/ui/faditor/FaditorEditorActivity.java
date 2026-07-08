@@ -9314,6 +9314,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void syncTimelineOverlays() {
         if (editorTimeline != null && project != null) {
             Timeline tl = project.getTimeline();
+            // G5: attached visualizers re-derive their windows from their hosts' CURRENT
+            // spans. Every edit path funnels through this sync, so time-riding is one call.
+            tl.resyncAttachedVisualizers();
             // Layers-UX Slice C: the OLD read-only layer bars (EditorTimelineView#drawLayers —
             // text/image overlays, visualizers, captions) are RETIRED. Captions & visualizers
             // are now first-class headered Track rows in LayerRowRenderer (Slice A/B), so still
@@ -11690,8 +11693,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         left.setOrientation(LinearLayout.VERTICAL);
         left.setGravity(android.view.Gravity.CENTER);
         TextView justBtn = new TextView(this), modeBtn = new TextView(this), mirBtn = new TextView(this),
-                centerBtn = new TextView(this), rendBtn = new TextView(this);
-        for (TextView b : new TextView[]{justBtn, modeBtn, mirBtn, centerBtn, rendBtn}) {
+                centerBtn = new TextView(this), rendBtn = new TextView(this),
+                attachBtn = new TextView(this);
+        for (TextView b : new TextView[]{justBtn, modeBtn, mirBtn, centerBtn, rendBtn, attachBtn}) {
             if (iconFont != null) b.setTypeface(iconFont);
             b.setTextColor(0xFFEEEEEE);
             b.setGravity(android.view.Gravity.CENTER);
@@ -11699,7 +11703,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             b.setPadding(p, p, p, p);
         }
         justBtn.setTextSize(22); modeBtn.setTextSize(22); mirBtn.setTextSize(22);
-        centerBtn.setTextSize(18); rendBtn.setTextSize(18);
+        centerBtn.setTextSize(18); rendBtn.setTextSize(18); attachBtn.setTextSize(18);
         Runnable labels = () -> {
             int j = overlay.getJustify();
             justBtn.setText(j == 1 ? "vertical_align_center"
@@ -11712,6 +11716,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             centerBtn.setTextColor(cm >= 0 ? 0xFF4CAF50 : 0xFFEEEEEE);
             rendBtn.setText(overlay.getRenderMode() == 1 ? "radio_button_checked" : "equalizer");
             rendBtn.setTextColor(overlay.getRenderMode() == 1 ? 0xFF4CAF50 : 0xFFEEEEEE);
+            // G5: link = attached (time-rides its host clip), link_off = detached.
+            attachBtn.setText(overlay.isAttached() ? "link" : "link_off");
+            attachBtn.setTextColor(overlay.isAttached() ? 0xFF4CAF50 : 0xFFEEEEEE);
         };
         labels.run();
         Runnable live = () -> {
@@ -11723,8 +11730,64 @@ public class FaditorEditorActivity extends AppCompatActivity {
         mirBtn.setOnClickListener(v -> { overlay.toggleHorizontalMirror(); labels.run(); live.run(); });
         centerBtn.setOnClickListener(v -> { overlay.cycleCenterMode(); labels.run(); live.run(); });
         rendBtn.setOnClickListener(v -> { overlay.toggleRenderMode(); labels.run(); live.run(); });
+        // G5 attach/detach (contract §4): tether the visualizer to the master clip under its
+        // start so it TIME-RIDES that clip (trims/moves/reorders shift it along); detach keeps
+        // the current absolute window. ONE undo step restoring the full attachment + window +
+        // audio-source state either way.
+        attachBtn.setOnClickListener(v -> {
+            if (project == null) return;
+            final Timeline tl = project.getTimeline();
+            final com.fadcam.ui.faditor.model.WaveformOverlayInstance wo = overlay;
+            final String beforeId = wo.getAttachedClipId();
+            final long beforeOff = wo.getAttachOffsetMs(), beforeDur = wo.getAttachDurationMs();
+            final long beforeStart = wo.getStartMs(), beforeEnd = wo.getEndMs();
+            final String beforeSrc = wo.getAudioSourceRef();
+            String desc;
+            if (wo.isAttached()) {
+                tl.detachVisualizer(wo);
+                desc = "Detach visualizer";
+                Toast.makeText(this, "Visualizer detached — window frozen where it is",
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                Clip host = tl.attachVisualizerToHostUnderStart(wo);
+                if (host == null) {
+                    Toast.makeText(this, "No clip to attach to", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                int hostIdx = tl.getClips().indexOf(host) + 1;
+                desc = "Attach visualizer";
+                Toast.makeText(this, "Attached to clip " + hostIdx
+                        + " — rides its trims and moves", Toast.LENGTH_SHORT).show();
+            }
+            final String afterId = wo.getAttachedClipId();
+            final long afterOff = wo.getAttachOffsetMs(), afterDur = wo.getAttachDurationMs();
+            final long afterStart = wo.getStartMs(), afterEnd = wo.getEndMs();
+            final String afterSrc = wo.getAudioSourceRef();
+            undoManager.recordAction(new EditActions.LambdaAction(desc,
+                    () -> {
+                        wo.setAttachedClipId(afterId);
+                        wo.setAttachOffsetMs(afterOff);
+                        wo.setAttachDurationMs(afterDur);
+                        wo.setTimeRange(afterStart, afterEnd);
+                        wo.setAudioSourceRef(afterSrc);
+                        syncTimelineOverlays();
+                        if (waveformOverlayView != null) waveformOverlayView.invalidate();
+                    },
+                    () -> {
+                        wo.setAttachedClipId(beforeId);
+                        wo.setAttachOffsetMs(beforeOff);
+                        wo.setAttachDurationMs(beforeDur);
+                        wo.setTimeRange(beforeStart, beforeEnd);
+                        wo.setAudioSourceRef(beforeSrc);
+                        syncTimelineOverlays();
+                        if (waveformOverlayView != null) waveformOverlayView.invalidate();
+                    }));
+            syncTimelineOverlays();
+            labels.run();
+            live.run();
+        });
         left.addView(justBtn); left.addView(modeBtn); left.addView(mirBtn);
-        left.addView(centerBtn); left.addView(rendBtn);
+        left.addView(centerBtn); left.addView(rendBtn); left.addView(attachBtn);
         LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams((int) (52 * dp),
                 LinearLayout.LayoutParams.MATCH_PARENT);
         cols.addView(left, leftLp);

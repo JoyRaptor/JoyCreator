@@ -30,6 +30,21 @@ public class WaveformOverlayInstance {
     private long startMs = 0;
     private long endMs = Long.MAX_VALUE;
 
+    // ── G5 attach/detach (gesture contract §4, Axis 1) ─────────────────────────
+    // When attached, this visualizer TIME-RIDES its host master clip: [startMs,endMs]
+    // remain the storage-of-record every consumer reads, but they are RE-DERIVED from
+    // the host's CURRENT on-timeline span by Timeline#resyncAttachedVisualizers() (the
+    // single write point — runs after every edit/load and before export) using the
+    // host-relative fields below. Detached (attachedClipId == null) instances keep
+    // their absolute window untouched — exactly the pre-G5 behavior.
+    /** Id of the MASTER clip this visualizer is tethered to, or null = detached. */
+    @Nullable
+    private String attachedClipId;
+    /** Start offset (ms) within the host clip's on-timeline span. Attached only. */
+    private long attachOffsetMs = 0;
+    /** Window length (ms) while attached; {@link Long#MAX_VALUE} = ride to the host's end. */
+    private long attachDurationMs = Long.MAX_VALUE;
+
     // ── Orthogonal architecture overrides (decoupled from the gradient/look "style") ──
     // Each is quick-cycled by a toggle button so a user can keep a gradient they like and only change
     // the aspect that bothers them. -1 / default means "use the style's own default".
@@ -101,6 +116,14 @@ public class WaveformOverlayInstance {
         this.startMs = Math.max(0, startMs);
         this.endMs = Math.max(this.startMs + 1, endMs);
     }
+
+    @Nullable public String getAttachedClipId() { return attachedClipId; }
+    public void setAttachedClipId(@Nullable String clipId) { this.attachedClipId = clipId; }
+    public boolean isAttached() { return attachedClipId != null; }
+    public long getAttachOffsetMs() { return attachOffsetMs; }
+    public void setAttachOffsetMs(long v) { this.attachOffsetMs = Math.max(0, v); }
+    public long getAttachDurationMs() { return attachDurationMs; }
+    public void setAttachDurationMs(long v) { this.attachDurationMs = Math.max(1, v); }
 
     public float getCenterX() { return centerX; }
     public float getCenterY() { return centerY; }

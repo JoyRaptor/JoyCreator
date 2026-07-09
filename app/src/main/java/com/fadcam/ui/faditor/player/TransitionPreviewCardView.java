@@ -32,6 +32,13 @@ public class TransitionPreviewCardView extends View {
     @Nullable private Transition previewTransition; // GL shaders preview via a category-proxy animation
     private boolean hasOptions; // direction/params → show a "+" badge
     private float progress;
+
+    // For GL shaders: once a real baked sprite strip is ready we frame-cycle it instead of the proxy.
+    @Nullable private Bitmap glStrip;
+    @Nullable private String glStripId;
+    private final android.graphics.Rect stripSrc = new android.graphics.Rect();
+    private final RectF stripDst = new RectF();
+    private final Paint stripPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     @Nullable private ValueAnimator animator;
     private final float density;
     private final Paint badgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -53,7 +60,39 @@ public class TransitionPreviewCardView extends View {
         // Flexible transitions (direction-able wipes/pushes, GL effects) get a "+" badge so the user
         // knows there are extra options/helpers when they pick one.
         this.hasOptions = transition.isWipe() || transition.isPush() || transition.isGlShader();
+        maybeRequestGlStrip(transition);
         invalidate();
+    }
+
+    /**
+     * For GL shader cards: try to show the REAL baked effect (sprite strip) instead of the category
+     * proxy. If a strip is already baked we use it immediately; otherwise we ask the baker to produce
+     * one off the main thread and keep drawing the proxy until it swaps in. Failure never blocks: the
+     * proxy simply stays. See {@link com.fadcam.ui.faditor.gltransitions.GlTransitionCardBaker}.
+     */
+    private void maybeRequestGlStrip(@NonNull Transition t) {
+        String id = (t.type == Transition.Type.GL_SHADER) ? t.glTransitionId : null;
+        if (id == null) {
+            glStrip = null;
+            glStripId = null;
+            return;
+        }
+        if (id.equals(glStripId) && glStrip != null && !glStrip.isRecycled()) return;
+        glStrip = null;
+        glStripId = id;
+        Bitmap ready = com.fadcam.ui.faditor.gltransitions.GlTransitionCardBaker.peek(id);
+        if (ready != null) {
+            glStrip = ready;
+            return;
+        }
+        com.fadcam.ui.faditor.gltransitions.GlTransitionCardBaker.request(getContext(), id,
+                (readyId, strip) -> {
+                    // Card instances aren't recycled, but guard against a late callback for a stale id.
+                    if (readyId.equals(glStripId) && !strip.isRecycled()) {
+                        glStrip = strip;
+                        invalidate();
+                    }
+                });
     }
 
     @NonNull
@@ -167,6 +206,18 @@ public class TransitionPreviewCardView extends View {
         }
     }
 
+    /** Blit the sprite-strip frame nearest the current animation progress, stretched to the card. */
+    private void drawGlStripFrame(@NonNull Canvas canvas, int w, int h) {
+        int frames = com.fadcam.ui.faditor.gltransitions.GlTransitionCardBaker.FRAME_COUNT;
+        int fw = glStrip.getWidth() / frames;
+        int fh = glStrip.getHeight();
+        int idx = Math.round(Math.max(0f, Math.min(1f, progress)) * (frames - 1));
+        int left = idx * fw;
+        stripSrc.set(left, 0, left + fw, fh);
+        stripDst.set(0, 0, w, h);
+        canvas.drawBitmap(glStrip, stripSrc, stripDst, stripPaint);
+    }
+
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
@@ -178,8 +229,12 @@ public class TransitionPreviewCardView extends View {
         android.graphics.Path clip = new android.graphics.Path();
         clip.addRoundRect(new RectF(0, 0, w, h), r, r, android.graphics.Path.Direction.CW);
         canvas.clipPath(clip);
-        TransitionRenderer.compose(canvas, sampleA, sampleB,
-                previewTransition != null ? previewTransition : transition, progress, w, h);
+        if (glStrip != null && !glStrip.isRecycled()) {
+            drawGlStripFrame(canvas, w, h);
+        } else {
+            TransitionRenderer.compose(canvas, sampleA, sampleB,
+                    previewTransition != null ? previewTransition : transition, progress, w, h);
+        }
         canvas.restore();
 
         if (hasOptions) {

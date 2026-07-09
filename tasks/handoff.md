@@ -1,5 +1,43 @@
 # FadCam AI Handoff
 
+> **🧵 2026-07-09 crunch — OPUS (Fable thread, multi-agent: Opus main + Opus & Sonnet subagents).
+> THREE COMMITS, tree green, device-verified where it counts.**
+> **(1) `9b37f99` audio-band clipping fix — DEVICE-VERIFIED.** Found in the audio-consolidation smoke:
+> with several floating layer rows + master + the new audio band, the view's desired height exceeds
+> what the parent grants, `resolveSize()` clamps it, and the bottom-most band (AUDIO) silently ran
+> off-screen (2nd audio row half-clipped). Fix: the floating band is the only internally-scrolling
+> flexible band, so it now absorbs the measure deficit — `onMeasure` computes desired height with no
+> squeeze, and if granted less, hands the shortfall to `LayerRowRenderer.setViewportSqueezePx()`; the
+> floating viewport cap shrinks by that (never below one 40dp band), pulling master + audio up. Proof:
+> both audio rows fully visible even with the transitions drawer compressing the timeline.
+> **AUDIO CONSOLIDATION (`f31f16c`) also now DEVICE-SMOKED** here: two headered Audio rows render below
+> master in their own band, NO legacy duplicate bar, aqua waveforms — the FEEDBACK-#1 double-bar bug is
+> gone. (Full per-op smoke — trim/move/volume-kf/mute/split/delete — still worth a pass, but the render
+> + no-dup half is confirmed.)
+> **(2) `2593bdb` GL-transition card baker (Opus subagent) — P0 CRASH FIXED, feature crash-safe but
+> INERT.** The subagent's headless sprite-strip baker NATIVE-ABORTED the whole app on editor open:
+> `GLES20.glGetShaderInfoLog(int)` on Adreno/Samsung returns invalid Modified-UTF-8 bytes, and the
+> native `NewStringUTF` inside it aborts under CheckJNI — UNCATCHABLE by the Java try/catch the baker
+> wrapped bake() in, so a routine shader-compile failure crashed everything. Removed all
+> `glGet{Shader,Program}InfoLog(int)` calls (log our own source instead). DEVICE-VERIFIED: editor opens
+> clean, baker degrades to proxy, no crash. **KNOWN LIMITATION (in the class javadoc):** the fragment
+> shaders currently FAIL to compile in the headless pbuffer context on SM-N960U → every card keeps its
+> proxy (no visible change from shipped behavior, no regression). Kept not reverted since the wrapped
+> source is byte-identical to the working live `GlTransitionPreviewView`, so the fix is likely small +
+> context-level (leading suspect: pbuffer EGLConfig/precision vs GLSurfaceView default). **Next person:
+> first confirm on device whether the LIVE GL cards (transitions "More effects" row — I could not get it
+> to expand via tap or down-fling, itself worth a look) render the real effect or also fall back — that
+> says whether shaders compile at all on this GPU or only the baker's context is at fault. Do NOT
+> reintroduce the InfoLog(int) calls.**
+> **(3) `bca07d3` G9 link-engine design doc (Sonnet subagent).** `tasks/PLAN_G9_LINK_ENGINE.md`, 285
+> lines, lean-A: one shared link engine, G5 attach re-expressed as a preset over it. Grounded in the
+> shipped G5 code; slices G9a–G9f (G9a/b are UI-less plumbing, can start before G8; G9d needs G8
+> multi-select); 5 open questions for JoyRaptor (trim propagation, a new `stratified` field on
+> WaveformOverlayInstance, overlapping groups, toolbar tie-break, caption-attach scope).
+> **STILL OWED (device, JoyRaptor's unlock needed if it re-locks): G5a attach/detach verify** (attach a viz
+> via the Rolodex link icon, trim its host clip, confirm the VIZ row rides along + project.json shows
+> attachedClipId); the audio per-op smoke; and the real-phone REAL_SERIAL P0/P1 re-verify.
+
 > **🎛️ 2026-07-07 late — FABLE(5): AUDIO ROW CONSOLIDATION BUILT (`f31f16c`, build-green + installed
 > on SM-N960U; DEVICE SMOKE BLOCKED — phone locked with a secure Bouncer mid-session, needs JoyRaptor's
 > unlock).** Implemented exactly per the scoping block below: **(1) two-band renderer** —

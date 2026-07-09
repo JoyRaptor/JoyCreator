@@ -1624,6 +1624,9 @@ public class EditorTimelineView extends View {
 
     @Override
     protected void onMeasure(int wSpec, int hSpec) {
+        // Audio-band clipping fix: measure DESIRED height with no squeeze, then let the
+        // floating band absorb whatever the parent refuses (see end of this method).
+        layerRowRenderer.setViewportSqueezePx(0f);
         float contentDp = MINIMAP_HEIGHT_DP + RULER_HEIGHT_DP + TRACK_HEIGHT_DP + 2f * FILM_RAIL_DP;
         if (!audioLayerTracks.isEmpty()) {
             // Audio consolidation: audio renders as headered renderer rows in their own
@@ -1660,6 +1663,16 @@ public class EditorTimelineView extends View {
             defH += (int) (LAYER_TOP_GAP_DP * density);
         }
         int h = resolveSize(defH, hSpec);
+        // Audio-band clipping fix (2026-07-08, found in the audio-consolidation smoke):
+        // when the parent grants LESS than desired, every band used to keep its ideal
+        // geometry and the bottom-most band (AUDIO) silently clipped off-screen. The
+        // floating band is the only internally-scrolling, flexible band — hand it the
+        // deficit so master + audio pull up and stay fully visible. Draw-time geometry
+        // (measureExtraHeightPx → masterTopPx → audioBandTopPx) picks the squeeze up
+        // automatically.
+        if (h < defH && (!layerTracks.isEmpty() || !audioLayerTracks.isEmpty())) {
+            layerRowRenderer.setViewportSqueezePx(defH - h);
+        }
         int w = MeasureSpec.getSize(wSpec);
         setMeasuredDimension(w, h);
     }

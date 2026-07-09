@@ -217,8 +217,30 @@ public final class LayerRowRenderer {
         float rowGap = ROW_GAP_DP * density;
         float total = 0f;
         for (Track t : layers) total += rowHeightPx(t) + rowGap;
-        float capped = Math.min(total, maxVisibleRowsDp * density);
+        float capped = Math.min(total, effectiveViewportCapPx());
         return TOP_GAP_DP * density + capped;
+    }
+
+    // ── Audio-band clipping fix (2026-07-08) ──────────────────────────────────────
+    // When the view's measured height is clamped below its desired height (the parent
+    // can't grant everything: many floating rows + master + the audio band), the ONLY
+    // flexible, internally-scrolling band — the FLOATING band — absorbs the deficit,
+    // so the fixed-height master + audio bands below it stay fully on-screen instead
+    // of the bottom band silently clipping (found in the audio-consolidation smoke).
+    /** Extra squeeze (px) on the floating band's viewport cap. Set by onMeasure. */
+    private float viewportSqueezePx = 0f;
+
+    /** Set by {@code EditorTimelineView#onMeasure}: the height deficit the floating band
+     *  must absorb this pass (0 = the view got everything it asked for). */
+    public void setViewportSqueezePx(float px) {
+        this.viewportSqueezePx = Math.max(0f, px);
+    }
+
+    /** The floating band's viewport cap after absorbing any measure deficit — never
+     *  below one collapsed band (40dp, the video-dominant G6.2 detent) so the band
+     *  stays visible and scrollable. */
+    private float effectiveViewportCapPx() {
+        return Math.max(40f * density, maxVisibleRowsDp * density - viewportSqueezePx);
     }
 
     /**
@@ -313,7 +335,7 @@ public final class LayerRowRenderer {
         // Storing it in content-space also keeps isWithinNewLayerZone()'s hit-test (same
         // localY transform) correct with no extra math.
         contentHeightPx = dragActive ? rowsContentHeightPx + zoneH + rowGap : rowsContentHeightPx;
-        viewportHeightPx = Math.min(contentHeightPx, maxVisibleRowsDp * density);
+        viewportHeightPx = Math.min(contentHeightPx, effectiveViewportCapPx());
         scrollOffsetPx = clampScroll(scrollOffsetPx);
         if (dragActive) {
             float zoneBottomContent = scrollOffsetPx + viewportHeightPx;

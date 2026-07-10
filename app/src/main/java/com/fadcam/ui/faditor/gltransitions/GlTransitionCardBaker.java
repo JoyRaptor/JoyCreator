@@ -42,25 +42,22 @@ import java.util.concurrent.Executors;
  * cost. Any single shader that fails to compile/link is skipped silently — the card keeps showing its
  * existing proxy animation, never crashing and never blocking the drawer.</p>
  *
- * <p><b>DEVICE STATUS (2026-07-09, SM-N960U / Adreno):</b> crash-safe and gracefully inert. The
- * fragment shaders currently FAIL to compile in this headless pbuffer context (logcat:
- * "shader compile failed (type=35632 ...)"), so every card falls back to its proxy animation —
- * i.e. no visible change from today's shipped behavior yet. The wrapped source is byte-identical to
- * what the live {@code GlTransitionPreviewView} feeds, so the difference is context-level, not source
- * — the leading suspect is the pbuffer {@link EGLConfig} / precision handling vs GLSurfaceView's
- * default config. Whoever finishes this: confirm on device whether the LIVE GL cards (behind the
- * transitions "More effects" row) actually render the real effect or also fall back — that tells you
- * whether the shaders compile at all on this GPU or only the baker's context is at fault. Do NOT
- * reintroduce {@code GLES20.glGetShaderInfoLog(int)} / {@code glGetProgramInfoLog(int)}: on this
- * driver their bytes are invalid Modified UTF-8 and the native {@code NewStringUTF} ABORTS the whole
- * process under CheckJNI (uncatchable by any Java try/catch — that was the original crash).</p>
+ * <p><b>DEVICE STATUS (2026-07-10, SM-N960U / Adreno): WORKING.</b> 36+ of ~37 shaders bake and the
+ * cards demo the real effects (the earlier "feature inert" read was an artifact of testing exactly
+ * one shader — powerKaleido — which fails to compile at mediump on this driver; v2 retries such
+ * failures at highp). Two hard-won driver rules for this file: (1) do NOT reintroduce
+ * {@code GLES20.glGetShaderInfoLog(int)} / {@code glGetProgramInfoLog(int)} — on this driver their
+ * bytes are invalid Modified UTF-8 and the native {@code NewStringUTF} ABORTS the whole process
+ * under CheckJNI, uncatchable by any Java try/catch (that was the original P0 crash); (2) textures
+ * must be uploaded GL-native (see {@link #flipVertically}) or asymmetric-UV shaders bake
+ * upside-down while symmetric ones look fine.</p>
  */
 public final class GlTransitionCardBaker {
 
     private static final String TAG = "GlTransitionCardBaker";
 
     /** Bump when the bake recipe (frame count, size, sample images, shader wrapping) changes. */
-    private static final int VERSION = 1;
+    private static final int VERSION = 2; // v2: upload-flip textures + highp retry
     /** Number of progress steps rendered per strip (progress 0..1 inclusive). */
     public static final int FRAME_COUNT = 14;
     private static final int FRAME_W = 160;
@@ -131,6 +128,7 @@ public final class GlTransitionCardBaker {
                 if (PENDING.decrementAndGet() == 0) teardownEgl();
             }
             if (strip != null) {
+                FLog.d(TAG, "strip ready for " + id);
                 STRIPS.put(id, strip);
                 final Bitmap ready = strip;
                 if (listener != null) MAIN.post(() -> listener.onStripReady(id, ready));
@@ -188,7 +186,18 @@ public final class GlTransitionCardBaker {
         }
 
         int program = buildProgram(fragment);
-        if (program <= 0) return null;
+        if (program <= 0) {
+            // Precision retry: a few shaders (e.g. powerKaleido's heavy trig) fail to compile at
+            // mediump on Adreno (fp16). ES2 guarantees fragment highp only optionally, but this
+            // GPU family supports it — one retry costs nothing and rescues those shaders.
+            String highp = fragment.replaceFirst(
+                    "precision mediump float;", "precision highp float;");
+            if (!highp.equals(fragment)) {
+                program = buildProgram(highp);
+                if (program > 0) FLog.d(TAG, "compiled at highp after mediump failure: " + id);
+            }
+            if (program <= 0) return null;
+        }
 
         int fromTex = uploadTexture(sampleFrom);
         int toTex = uploadTexture(sampleTo);
@@ -408,10 +417,10 @@ public final class GlTransitionCardBaker {
 
     private static void ensureSamples(@NonNull Context context) {
         if (sampleFrom == null || sampleFrom.isRecycled()) {
-            sampleFrom = decodeSample(context, "transition_frame_a", true);
+            sampleFrom = flipVertically(decodeSample(context, "transition_frame_a", true));
         }
         if (sampleTo == null || sampleTo.isRecycled()) {
-            sampleTo = decodeSample(context, "transition_frame_b", false);
+            sampleTo = flipVertically(decodeSample(context, "transition_frame_b", false));
         }
     }
 
@@ -428,6 +437,20 @@ public final class GlTransitionCardBaker {
             }
         } catch (Throwable ignored) { }
         return syntheticSample(first);
+    }
+
+    /**
+     * Textures must be uploaded in GL-native orientation (row 0 = image BOTTOM): the readback
+     * flip alone only fixes shaders whose UV sampling is vertically symmetric — asymmetric
+     * shaders (zooms anchored off-center, burns, curls) rendered upside-down without this
+     * (found on-device: Zoom Punch/Burn Soft inverted while Defocus looked fine).
+     */
+    private static Bitmap flipVertically(@NonNull Bitmap src) {
+        Matrix m = new Matrix();
+        m.setScale(1f, -1f);
+        Bitmap flipped = Bitmap.createBitmap(src, 0, 0, src.getWidth(), src.getHeight(), m, true);
+        if (flipped != src && !src.isRecycled()) src.recycle();
+        return flipped;
     }
 
     private static Bitmap syntheticSample(boolean first) {

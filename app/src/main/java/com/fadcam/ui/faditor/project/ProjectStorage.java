@@ -1656,10 +1656,41 @@ public class ProjectStorage {
                         if (wo.getAttachDurationMs() != Long.MAX_VALUE) {
                             wj.addProperty("attachDurationMs", wo.getAttachDurationMs());
                         }
+                        if (wo.isStratified()) wj.addProperty("stratified", true);
                     }
                     wfArray.add(wj);
                 }
                 timelineJson.add("waveformOverlays", wfArray);
+            }
+
+            // G9 link groups (tolerant: absent = unlinked, every pre-G9 project). PERSISTED
+            // ad-hoc groups only — the transient G5-preset groups live in a separate Timeline
+            // list this writer never touches (PLAN_G9_LINK_ENGINE.md §4.1).
+            if (!src.getTimeline().getLinkGroups().isEmpty()) {
+                JsonArray lgArray = new JsonArray();
+                for (com.fadcam.ui.faditor.layers.LinkGroup g : src.getTimeline().getLinkGroups()) {
+                    JsonObject gj = new JsonObject();
+                    gj.addProperty("id", g.id);
+                    JsonArray props = new JsonArray();
+                    for (com.fadcam.ui.faditor.layers.LinkedProperty p : g.properties) {
+                        props.add(p.name());
+                    }
+                    gj.add("properties", props);
+                    JsonArray members = new JsonArray();
+                    for (com.fadcam.ui.faditor.layers.LinkMember m : g.members) {
+                        JsonObject mj = new JsonObject();
+                        mj.addProperty("kind", m.kind);
+                        mj.addProperty("id", m.id);
+                        if (m.isHost) mj.addProperty("host", true);
+                        if (m.hostOffsetMs != com.fadcam.ui.faditor.layers.LinkMember.UNSET) {
+                            mj.addProperty("hostOffsetMs", m.hostOffsetMs);
+                        }
+                        members.add(mj);
+                    }
+                    gj.add("members", members);
+                    lgArray.add(gj);
+                }
+                timelineJson.add("linkGroups", lgArray);
             }
 
             // Serialize placed sprite overlays (schema v9, PLAN_SPRITE_ANIMATION S1).
@@ -2118,12 +2149,63 @@ public class ProjectStorage {
                             if (wj.has("attachDurationMs")) {
                                 wo.setAttachDurationMs(wj.get("attachDurationMs").getAsLong());
                             }
+                            if (wj.has("stratified")) {
+                                wo.setStratified(wj.get("stratified").getAsBoolean());
+                            }
                         }
                         project.getTimeline().addWaveformOverlay(wo);
                     }
                     // Attached windows re-derive from their hosts' CURRENT spans on load.
                     project.getTimeline().resyncAttachedVisualizers();
                 }
+
+                // G9 link groups (tolerant: absent = unlinked). Members that don't resolve to a
+                // live payload are dropped; a group left <2 dissolves — logged in prune, never a
+                // hard failure (PLAN_G9_LINK_ENGINE.md §2).
+                if (tl.has("linkGroups")) {
+                    JsonArray lgArr = tl.getAsJsonArray("linkGroups");
+                    for (int i = 0; i < lgArr.size(); i++) {
+                        try {
+                            JsonObject gj = lgArr.get(i).getAsJsonObject();
+                            String gid = gj.has("id") ? gj.get("id").getAsString()
+                                    : java.util.UUID.randomUUID().toString();
+                            com.fadcam.ui.faditor.layers.LinkGroup g =
+                                    new com.fadcam.ui.faditor.layers.LinkGroup(gid);
+                            if (gj.has("properties")) {
+                                for (com.google.gson.JsonElement pe : gj.getAsJsonArray("properties")) {
+                                    try {
+                                        g.properties.add(com.fadcam.ui.faditor.layers
+                                                .LinkedProperty.valueOf(pe.getAsString()));
+                                    } catch (IllegalArgumentException ignored) {
+                                        // Unknown future axis — drop it, keep the group.
+                                    }
+                                }
+                            }
+                            if (gj.has("members")) {
+                                for (com.google.gson.JsonElement me : gj.getAsJsonArray("members")) {
+                                    JsonObject mj = me.getAsJsonObject();
+                                    if (!mj.has("kind") || !mj.has("id")) continue;
+                                    com.fadcam.ui.faditor.layers.LinkMember m =
+                                            new com.fadcam.ui.faditor.layers.LinkMember(
+                                                    mj.get("kind").getAsString(),
+                                                    mj.get("id").getAsString(),
+                                                    mj.has("host") && mj.get("host").getAsBoolean());
+                                    if (mj.has("hostOffsetMs")) {
+                                        m.hostOffsetMs = mj.get("hostOffsetMs").getAsLong();
+                                    }
+                                    g.members.add(m);
+                                }
+                            }
+                            if (g.members.size() >= 2) project.getTimeline().addLinkGroup(g);
+                        } catch (Exception e) {
+                            android.util.Log.w("ProjectStorage",
+                                    "dropping unreadable linkGroup[" + i + "]: " + e.getMessage());
+                        }
+                    }
+                }
+                // One write-point pass + rebuild the transient G5-preset view (plan §3/§4.1).
+                project.getTimeline().resyncLinkGroups();
+                project.getTimeline().synthesizeG5PresetLinkGroups();
             }
 
             // Restore sprite-sheet definitions (schema v9, project level). Tolerant:

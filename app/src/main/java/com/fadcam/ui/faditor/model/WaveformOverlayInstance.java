@@ -44,6 +44,15 @@ public class WaveformOverlayInstance {
     private long attachOffsetMs = 0;
     /** Window length (ms) while attached; {@link Long#MAX_VALUE} = ride to the host's end. */
     private long attachDurationMs = Long.MAX_VALUE;
+    /**
+     * Contract §4 Axis-2 (visual tether, meaningful only while attached): false = PIGGYBACK
+     * (default — rides the host in time AND inherits host looks, e.g. fades), true = STRATIFIED
+     * (rides in time only, floats above host compositing). Added ahead of its own toggle UI so
+     * G9's preset link groups have a real field to discriminate on (PLAN_G9_LINK_ENGINE.md §4.3;
+     * flagged to JoyRaptor as open question §8.2). Looks-inheritance itself is the G5 compositing
+     * fast-follow — this field only STORES the choice.
+     */
+    private boolean stratified = false;
 
     // ── Orthogonal architecture overrides (decoupled from the gradient/look "style") ──
     // Each is quick-cycled by a toggle button so a user can keep a gradient they like and only change
@@ -124,6 +133,8 @@ public class WaveformOverlayInstance {
     public void setAttachOffsetMs(long v) { this.attachOffsetMs = Math.max(0, v); }
     public long getAttachDurationMs() { return attachDurationMs; }
     public void setAttachDurationMs(long v) { this.attachDurationMs = Math.max(1, v); }
+    public boolean isStratified() { return stratified; }
+    public void setStratified(boolean v) { this.stratified = v; }
 
     public float getCenterX() { return centerX; }
     public float getCenterY() { return centerY; }

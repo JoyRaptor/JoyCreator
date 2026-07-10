@@ -1427,6 +1427,240 @@ public class Timeline {
         w.setAttachedClipId(null);
     }
 
+    // ── G9 object linking (gesture contract §5.6, PLAN_G9_LINK_ENGINE.md) ────────────
+
+    /** Persisted ad-hoc link groups (tolerant storage: absent = unlinked, every pre-G9 project). */
+    private final List<com.fadcam.ui.faditor.layers.LinkGroup> linkGroups = new ArrayList<>();
+    /** TRANSIENT G5-preset groups synthesized per attached visualizer post-load (§4.1) —
+     *  a separate list so the JSON writer never sees them; rebuilt by
+     *  {@link #synthesizeG5PresetLinkGroups()}. Ground truth stays the attach fields. */
+    private final transient List<com.fadcam.ui.faditor.layers.LinkGroup> syntheticPresetGroups =
+            new ArrayList<>();
+
+    /** The PERSISTED ad-hoc groups only (what ProjectStorage serializes). */
+    @NonNull
+    public List<com.fadcam.ui.faditor.layers.LinkGroup> getLinkGroups() {
+        return linkGroups;
+    }
+
+    /** Persisted + synthesized-preset groups — the view UI/link-badges should consume. */
+    @NonNull
+    public List<com.fadcam.ui.faditor.layers.LinkGroup> getAllLinkGroupsView() {
+        List<com.fadcam.ui.faditor.layers.LinkGroup> all = new ArrayList<>(linkGroups);
+        all.addAll(syntheticPresetGroups);
+        return all;
+    }
+
+    public void addLinkGroup(@NonNull com.fadcam.ui.faditor.layers.LinkGroup group) {
+        linkGroups.add(group);
+    }
+
+    @Nullable
+    public com.fadcam.ui.faditor.layers.LinkGroup removeLinkGroup(@NonNull String groupId) {
+        for (int i = 0; i < linkGroups.size(); i++) {
+            if (linkGroups.get(i).id.equals(groupId)) return linkGroups.remove(i);
+        }
+        return null;
+    }
+
+    /** Every group (persisted or preset) containing {@code itemId} — drives badges/dialogs. */
+    @NonNull
+    public List<com.fadcam.ui.faditor.layers.LinkGroup> getLinkGroupsForItem(@NonNull String itemId) {
+        List<com.fadcam.ui.faditor.layers.LinkGroup> hits = new ArrayList<>();
+        for (com.fadcam.ui.faditor.layers.LinkGroup g : getAllLinkGroupsView()) {
+            if (g.findMember(itemId) != null) hits.add(g);
+        }
+        return hits;
+    }
+
+    /** True iff a payload with this (kind, id) is live on the timeline right now. */
+    private boolean linkPayloadExists(@NonNull String kind, @NonNull String id) {
+        return resolveLinkStartMs(kind, id) != Long.MIN_VALUE;
+    }
+
+    /**
+     * Absolute timeline start (ms) of a linkable payload, or {@link Long#MIN_VALUE} when the
+     * (kind, id) doesn't resolve to a live object. Master clips resolve via
+     * {@link #segmentStartMs(int)} — the same authority captions/G5 use.
+     */
+    public long resolveLinkStartMs(@NonNull String kind, @NonNull String id) {
+        switch (kind) {
+            case "clip": {
+                int idx = indexOfMasterClipId(id);
+                if (idx >= 0) return segmentStartMs(idx);
+                for (Clip oc : overlayClips) {
+                    if (id.equals(oc.getId())) return oc.getOverlayStartMs();
+                }
+                return Long.MIN_VALUE;
+            }
+            case "textOverlay":
+                for (TextOverlayItem t : textOverlays) {
+                    if (id.equals(t.getId())) return t.getStartMs();
+                }
+                return Long.MIN_VALUE;
+            case "audioClip":
+                for (AudioClip a : audioClips) {
+                    if (id.equals(a.getId())) return a.getOffsetMs();
+                }
+                return Long.MIN_VALUE;
+            case "sprite":
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+                    if (id.equals(s.getId())) return s.getStartMs();
+                }
+                return Long.MIN_VALUE;
+            case "waveform":
+                for (WaveformOverlayInstance w : waveformOverlays) {
+                    if (id.equals(w.getId())) return w.getStartMs();
+                }
+                return Long.MIN_VALUE;
+            default:
+                return Long.MIN_VALUE;
+        }
+    }
+
+    /**
+     * Move a linkable RIDER payload's absolute start to {@code startMs}, preserving its duration
+     * (v1 TIME-links are MOVE-only — trim never propagates, plan §3 lean (b)). Master clips are
+     * never riders (their position is the cumulative tape) — silently ignored.
+     */
+    private void applyLinkStartMs(@NonNull String kind, @NonNull String id, long startMs) {
+        long start = Math.max(0, startMs);
+        switch (kind) {
+            case "clip":
+                for (Clip oc : overlayClips) {
+                    if (id.equals(oc.getId())) { oc.setOverlayStartMs(start); return; }
+                }
+                return;
+            case "textOverlay":
+                for (TextOverlayItem t : textOverlays) {
+                    if (id.equals(t.getId())) {
+                        long end = t.getEndMs();
+                        t.setTimeRange(start, end == Long.MAX_VALUE
+                                ? Long.MAX_VALUE : start + Math.max(1, end - t.getStartMs()));
+                        return;
+                    }
+                }
+                return;
+            case "audioClip":
+                for (AudioClip a : audioClips) {
+                    if (id.equals(a.getId())) { a.setOffsetMs(start); return; }
+                }
+                return;
+            case "sprite":
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+                    if (id.equals(s.getId())) {
+                        long end = s.getEndMs();
+                        s.setTimeRange(start, end == Long.MAX_VALUE
+                                ? Long.MAX_VALUE : start + Math.max(1, end - s.getStartMs()));
+                        return;
+                    }
+                }
+                return;
+            case "waveform":
+                for (WaveformOverlayInstance w : waveformOverlays) {
+                    if (id.equals(w.getId())) {
+                        long end = w.getEndMs();
+                        w.setTimeRange(start, end == Long.MAX_VALUE
+                                ? Long.MAX_VALUE : start + Math.max(1, end - w.getStartMs()));
+                        return;
+                    }
+                }
+                //noinspection UnnecessaryReturnStatement
+                return;
+        }
+    }
+
+    /**
+     * Drop dead members from every persisted group and dissolve groups left with fewer than two
+     * — the same conservative lazy-prune philosophy the track-flag map uses. Never a hard failure.
+     */
+    public void pruneLinkGroups() {
+        java.util.Iterator<com.fadcam.ui.faditor.layers.LinkGroup> it = linkGroups.iterator();
+        while (it.hasNext()) {
+            com.fadcam.ui.faditor.layers.LinkGroup g = it.next();
+            g.members.removeIf(m -> !linkPayloadExists(m.kind, m.id));
+            if (g.members.size() < 2) it.remove();
+        }
+    }
+
+    /**
+     * G9's one write-point, same call contract as {@link #resyncAttachedVisualizers()} (run after
+     * every mutation via syncTimelineOverlays, at load, and before export):
+     * <ul>
+     *   <li>prunes dead membership;</li>
+     *   <li>HOST/RIDER groups with TIME linked: re-derives each rider's absolute start from the
+     *       host's CURRENT start + the rider's captured {@code hostOffsetMs} (pull — the exact
+     *       G5 resync pattern generalized onto {@link com.fadcam.ui.faditor.layers.LinkMember});</li>
+     *   <li>PEER groups: membership-validation no-op — peer propagation is push-based inside the
+     *       gesture (plan §3), so there is nothing to pull here;</li>
+     *   <li>PRESET groups are transient views over G5's own fields — their math stays in
+     *       {@link #resyncAttachedVisualizers()}, which callers already run alongside this.</li>
+     * </ul>
+     */
+    public void resyncLinkGroups() {
+        pruneLinkGroups();
+        for (com.fadcam.ui.faditor.layers.LinkGroup g : linkGroups) {
+            if (!g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.TIME)) continue;
+            com.fadcam.ui.faditor.layers.LinkMember host = g.getHost();
+            if (host == null) continue; // peer group — push-based, nothing to pull
+            long hostStart = resolveLinkStartMs(host.kind, host.id);
+            if (hostStart == Long.MIN_VALUE) continue; // prune handles it next pass
+            for (com.fadcam.ui.faditor.layers.LinkMember m : g.members) {
+                if (m.isHost || m.hostOffsetMs == com.fadcam.ui.faditor.layers.LinkMember.UNSET) {
+                    continue;
+                }
+                applyLinkStartMs(m.kind, m.id, hostStart + m.hostOffsetMs);
+            }
+        }
+    }
+
+    /**
+     * Capture each rider's CURRENT offset behind the host — call once at link-creation time
+     * (G9d) so subsequent resyncs re-derive from these. No-op for peer groups.
+     */
+    public void captureLinkHostOffsets(@NonNull com.fadcam.ui.faditor.layers.LinkGroup g) {
+        com.fadcam.ui.faditor.layers.LinkMember host = g.getHost();
+        if (host == null) return;
+        long hostStart = resolveLinkStartMs(host.kind, host.id);
+        if (hostStart == Long.MIN_VALUE) return;
+        for (com.fadcam.ui.faditor.layers.LinkMember m : g.members) {
+            if (m.isHost) continue;
+            long s = resolveLinkStartMs(m.kind, m.id);
+            if (s != Long.MIN_VALUE) m.hostOffsetMs = s - hostStart;
+        }
+    }
+
+    /**
+     * Rebuild the TRANSIENT G5-preset link groups — one PIGGYBACK/STRATIFIED host/rider group per
+     * attached visualizer (plan §4.1) so the link UI surfaces G5 tethers through the same
+     * machinery as ad-hoc groups. Deterministic ids ("g5:" + instance id) keep badges stable
+     * across rebuilds. Never persisted; ground truth remains the attach fields, and unlinking a
+     * preset group must route through {@link #detachVisualizer} (plan §5.3), not member removal.
+     */
+    public void synthesizeG5PresetLinkGroups() {
+        syntheticPresetGroups.clear();
+        for (WaveformOverlayInstance w : waveformOverlays) {
+            if (w.getAttachedClipId() == null) continue;
+            com.fadcam.ui.faditor.layers.LinkGroup g =
+                    new com.fadcam.ui.faditor.layers.LinkGroup("g5:" + w.getId());
+            g.presetKind = w.isStratified()
+                    ? com.fadcam.ui.faditor.layers.LinkGroup.PRESET_STRATIFIED
+                    : com.fadcam.ui.faditor.layers.LinkGroup.PRESET_PIGGYBACK;
+            g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.TIME);
+            if (!w.isStratified()) {
+                g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.OPACITY);
+            }
+            g.members.add(new com.fadcam.ui.faditor.layers.LinkMember(
+                    "clip", w.getAttachedClipId(), /* isHost= */ true));
+            com.fadcam.ui.faditor.layers.LinkMember rider =
+                    new com.fadcam.ui.faditor.layers.LinkMember(
+                            "waveform", w.getId(), /* isHost= */ false);
+            rider.hostOffsetMs = w.getAttachOffsetMs();
+            g.members.add(rider);
+            syntheticPresetGroups.add(g);
+        }
+    }
+
     // ── User-created layer-track definitions (M10) ─────────────────────
 
     /**

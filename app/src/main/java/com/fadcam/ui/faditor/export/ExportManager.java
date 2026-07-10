@@ -290,6 +290,8 @@ public class ExportManager {
         // G5: attached visualizers derive their windows from their host clips' current
         // spans — resync before any overlay slot is built so export matches preview.
         project.getTimeline().resyncAttachedVisualizers();
+        // G9: host/rider link groups re-derive rider times too (same one-write-point rule).
+        project.getTimeline().resyncLinkGroups();
 
         String outputPath = generateOutputPath(project);
         isExporting = true;

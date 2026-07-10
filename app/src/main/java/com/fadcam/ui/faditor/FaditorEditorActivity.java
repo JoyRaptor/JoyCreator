@@ -9317,6 +9317,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // G5: attached visualizers re-derive their windows from their hosts' CURRENT
             // spans. Every edit path funnels through this sync, so time-riding is one call.
             tl.resyncAttachedVisualizers();
+            // G9: host/rider link groups re-derive rider times the same way (one write-point).
+            tl.resyncLinkGroups();
             // Layers-UX Slice C: the OLD read-only layer bars (EditorTimelineView#drawLayers —
             // text/image overlays, visualizers, captions) are RETIRED. Captions & visualizers
             // are now first-class headered Track rows in LayerRowRenderer (Slice A/B), so still

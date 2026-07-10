@@ -1,5 +1,24 @@
 # FadCam AI Handoff
 
+> **🌊 2026-07-10 late — FABLE(5) continuation: findings FIXED (`4ff1707`, device-verified before
+> the phone dropped) + W2 HD WAVEFORM ZOOM BUILT (`0433439`, build-green, DEVICE VERIFY OWED —
+> phone went offline mid-session; adb shows no devices; watcher fails only at installDefaultDebug).**
+> **W2 design (as built):** timeline audio bars now pull zoom-TIERED data (200/400 buckets-per-sec at
+> ≥50/≥150 px-per-sec, else legacy) from the shared `WaveformExtractor` via new
+> `waveform/TimelineWaveformCache` — span-limited to the clip's source window quantized to 10s (trim
+> drags reuse cache), amplitude-only (FFT skipped via new `withSpectrum=false`), extractor cache key
+> SUFFIX for non-default density (old visualizer entries untouched, no version bump), in-memory LRU
+> 48 entries, failed-source blacklist. Renderer: `HdWaveformProvider` hook + `drawHdAudioWaveform`
+> (peak-per-bar max-of-range, VISIBLE-span-only iteration via canvas clip bounds, 1dp bars).
+> `AudioClip.waveform` int[800] persisted field UNTOUCHED — loads/saves/generates as before, serves
+> as instant placeholder + below-tier renderer. **FIRST ERRAND WHEN THE PHONE IS BACK: (1) the
+> watcher will auto-install on its next build — then zoom into a long audio clip → letter-level
+> onsets resolve, zoomed-out unchanged, scroll smooth (extraction is once-per-tier, swap-in via
+> invalidate); (2) the STILL-OWED smoke: i (extract-from-video) / k (audio-band vertical drag) /
+> l (cross-band insertion line), G5a attach/detach, GL "More effects" row; (3) P0/P1 on REAL_SERIAL
+> (JoyRaptor's USB toggle).** Sandbox bdd51919 was left PRISTINE by the findings-fix session (verify-then
+> -restore, per its LANES note). G9 still gated on JoyRaptor's 5 answers (PLAN_G9_LINK_ENGINE.md).
+
 > **🎚️ 2026-07-10 — FABLE(5): AUDIO-ONLY EXPORT SHIPPED + DEVICE-PROVEN (`bafe177`); AUDIO #3
 > per-op smoke MOSTLY GREEN with 2 real findings; sandbox restored pristine.**
 > **(1) AUDIO-ONLY EXPORT (`bafe177`) — the full user path works on SM-N960U:** dialog checkbox

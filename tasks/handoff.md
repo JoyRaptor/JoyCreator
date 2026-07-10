@@ -1,5 +1,44 @@
 # FadCam AI Handoff
 
+> **🎚️ 2026-07-10 — FABLE(5): AUDIO-ONLY EXPORT SHIPPED + DEVICE-PROVEN (`bafe177`); AUDIO #3
+> per-op smoke MOSTLY GREEN with 2 real findings; sandbox restored pristine.**
+> **(1) AUDIO-ONLY EXPORT (`bafe177`) — the full user path works on SM-N960U:** dialog checkbox
+> ("Export audio only (.m4a)", greys Resolution/Quality) → EXTRA_AUDIO_ONLY through the same OOP
+> ExportService/snapshot/notification infra → `exportAudioOnly` (engine `d32cb02`). Pulled the .m4a:
+> single AAC 48k stereo track, duration 13.739s vs 13.692s timeline; ffmpeg RMS proves music mixed at
+> offsets over image silence (−31dB vs −65dB floor), 4-pt fade envelope applied (fade-in +25dB ramp,
+> fade-out −11dB), muted/image spans silent, master-clip audio present, 2x-speed clip contributes its
+> compressed duration. Two engine fixes rode along (audio path + SAF mime `audio/mp4` for .m4a).
+> Test project `aeb0517e-1111…` ("AudioExportVerify") left on the sandbox phone as a repro asset.
+> **🔴 PRE-EXISTING ENGINE BUG (filed as background-task chip): a transition whose durationMs ≥ the
+> FOLLOWING clip's duration stalls BOTH export paths** (watchdog "no output sample in 10000ms" →
+> "Muxer error"). Repro: set the AudioExportVerify project's seam-2 transition back to 600ms (clip 3
+> is 427ms). The audio path now survives the zero-length-item flavor (skip guard in `bafe177`), but
+> the video path stalls even with that clip skipped — root cause is deeper in the transition-item
+> construction. Fix in buildComposition + clamp transition duration at authoring time.
+> **(2) AUDIO #3 PER-OP SMOKE (sandbox `bdd51919`, current build) — PASS: (a) rows render below
+> master aqua+waveform+labels, no legacy dup bar; (b) tap-select ring + delete badge; (c) drag-trim
+> BOTH edges (undo steps recorded, values persist); (d) drag-MOVE via hold-drag (`input draganddrop`,
+> offset 10406→8806; plain swipe on body = scroll, as designed); (e) volume TOP-DRAWER opens off the
+> audio selection showing ITS volume, keyframe mode + slider drag persists a volumeKeyframe; (f)
+> per-clip mute round-trips; (g) split-at-playhead → clean source-continuous halves; (j) transcript
+> panel switches to the tapped audio clip (untranscribed clip → speech-model chooser). NOT RUN (adb
+> budget): (i) extract-from-video (existing extractions DO render waveforms), (k) audio-band vertical
+> drag, (l) cross-band insertion line — hand-test with JoyRaptor.**
+> **🟡 FINDING 1 — audio item's `layerId` is DROPPED somewhere in the undo/move/split path** (was
+> `94e713bf`, both split halves = null) → items visually RE-LANED from audio row 3 to row 1 after a
+> later refresh. Repro: trim → undo ×2 → hold-drag move → split, then delete/undo a master clip and
+> watch the audio band. Suspect: AudioClip copy/undo-snapshot round-trip losing layerId.
+> **🟡 FINDING 2 — with an AUDIO item selected, the toolbar Delete tool deleted the selected MASTER
+> clip** ("Clip removed — gap left in place"), not the audio item (delete-badge tap on the audio item
+> itself did nothing via adb, possibly hit-zone). One of the ~15 legacy-anchored ops NOT deriving the
+> audio selection. (Undone on the spot; sandbox then restored from the pristine 12:41 pull —
+> project.json byte-identical, undo_history.json cleared since it contained my smoke states.)
+> **NOT REACHED: G5a attach/detach verify, GL "More effects" row check, P0/P1 real-phone re-verify
+> (REAL_SERIAL not connected — needs JoyRaptor's USB toggle), W2 HD-waveform zoom, G9 UI (needs JoyRaptor's 5
+> answers in PLAN_G9_LINK_ENGINE.md). Also: export-complete UI copy says "Your video has been
+> saved…" for .m4a exports — one-string polish, strings.xml was opencode's lane this session.**
+
 > **🧵 2026-07-09 crunch — OPUS (Fable thread, multi-agent: Opus main + Opus & Sonnet subagents).
 > THREE COMMITS, tree green, device-verified where it counts.**
 > **(1) `9b37f99` audio-band clipping fix — DEVICE-VERIFIED.** Found in the audio-consolidation smoke:

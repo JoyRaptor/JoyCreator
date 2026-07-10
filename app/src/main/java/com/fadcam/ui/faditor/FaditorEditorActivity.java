@@ -8407,6 +8407,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             java.util.Arrays.asList(qualValues)
                                     .indexOf(project.getExportSettings().getQuality()), pad);
 
+            // ── Audio-only export (mux the composed audio mix to .m4a, no video).
+            //    Not persisted on ExportSettings: an audio pull is a one-off act,
+            //    defaulting back to video export next time is the safe behavior. ──
+            final android.widget.CheckBox audioOnlyBox = new android.widget.CheckBox(this);
+            audioOnlyBox.setText("Export audio only (.m4a)");
+            audioOnlyBox.setTextColor(0xFFFFFFFF);
+            android.widget.LinearLayout.LayoutParams aoLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            aoLp.topMargin = pad / 2;
+            audioOnlyBox.setLayoutParams(aoLp);
+            root.addView(audioOnlyBox);
+
+            TextView audioOnlyDesc = new TextView(this);
+            audioOnlyDesc.setText(
+                    "Mixes clip audio + music into one audio file — no video track");
+            audioOnlyDesc.setTextColor(0xFF888888);
+            audioOnlyDesc.setTextSize(11);
+            root.addView(audioOnlyDesc);
+
+            // Resolution/Quality only shape the video encode — grey them out while
+            // audio-only is checked so the dialog doesn't promise a video setting.
+            audioOnlyBox.setOnCheckedChangeListener((b, checked) -> {
+                resSpinner.setEnabled(!checked);
+                qualSpinner.setEnabled(!checked);
+                resSpinner.setAlpha(checked ? 0.4f : 1f);
+                qualSpinner.setAlpha(checked ? 0.4f : 1f);
+            });
+
             new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.faditor_export_confirm_title)
                     .setView(root)
@@ -8421,7 +8451,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                         fileNameInput.getText().toString(),
                                         defaultExportBaseName));
                         scheduleAutoSave();
-                        startExportViaService();
+                        startExportViaService(audioOnlyBox.isChecked());
                     })
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
@@ -8553,6 +8583,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void startExportViaService() {
+        startExportViaService(false);
+    }
+
+    private void startExportViaService(boolean audioOnly) {
         if (isExportRunning()) {
             Toast.makeText(this, R.string.faditor_export_in_progress, Toast.LENGTH_SHORT).show();
             return;
@@ -8566,12 +8600,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
 
-        startOutOfProcessExport();
+        startOutOfProcessExport(audioOnly);
     }
 
     /** Actually start the actual export start (called after user confirms) */
     private void proceedWithExport() {
-        startOutOfProcessExport();
+        startOutOfProcessExport(false);
     }
 
     /**
@@ -8615,7 +8649,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * codec still matters — hardware codec instances are a device-global resource),
      * snapshot the project to a file, and start the foreground service with its path.
      */
-    private void startOutOfProcessExport() {
+    private void startOutOfProcessExport(boolean audioOnly) {
         prepareMemoryForExport();
 
         String snapshotPath = writeExportSnapshotFile();
@@ -8630,6 +8664,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new android.content.Intent(this, ExportService.class);
         serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
         serviceIntent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
+        serviceIntent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);

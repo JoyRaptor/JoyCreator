@@ -593,6 +593,12 @@ public class ExportManager {
             float speed = clip.getSpeedMultiplier();
             if (clip.isImageClip()) {
                 addSilence(master, silenceUri, Math.max(1L, clipOutMs - clipInMs));
+            } else if (clipInMs >= Math.min(clipOutMs, clip.getSourceDurationMs())) {
+                // The seam transition's head-trim consumed the ENTIRE clip (transition
+                // overlap >= clip duration). Emitting a zero-length clipped item produces
+                // no samples and stalls the AudioGraph until the muxer watchdog aborts
+                // ("no output sample written in the last 10000 ms") — skip it; the
+                // previous clip's full tail already covers this span.
             } else {
                 long endMs = Math.min(clipOutMs, clip.getSourceDurationMs());
                 long srcDurMs = Math.max(1L, endMs - clipInMs);
@@ -2348,8 +2354,13 @@ public class ExportManager {
             }
 
             String name = safExportFileName != null ? safExportFileName : tempFile.getName();
-            DocumentFile docFile = pickedDir.createFile(
-                    "video/" + Constants.RECORDING_FILE_EXTENSION, name);
+            // Audio-only exports (.m4a) must be created under an audio mime — a video/*
+            // mime makes some SAF providers append ".mp4" to the display name and lists
+            // the file as a video. Video exports keep the exact mime used before.
+            String mime = name.toLowerCase(Locale.US).endsWith(".m4a")
+                    ? "audio/mp4"
+                    : "video/" + Constants.RECORDING_FILE_EXTENSION;
+            DocumentFile docFile = pickedDir.createFile(mime, name);
             if (docFile == null) {
                 FLog.e(TAG, "SAF copy: failed to create DocumentFile: " + name);
                 return null;

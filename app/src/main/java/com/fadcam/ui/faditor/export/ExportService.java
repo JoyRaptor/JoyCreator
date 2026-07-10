@@ -75,6 +75,8 @@ public class ExportService extends Service {
     public static final String EXTRA_ERROR_MESSAGE = "error_message";
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
     public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
+    /** Boolean: export only the composed audio mix to an {@code .m4a} (no video track). */
+    public static final String EXTRA_AUDIO_ONLY = "audio_only";
 
     /**
      * Cross-process "is an export running?" truth: the ongoing foreground-progress
@@ -140,7 +142,8 @@ public class ExportService extends Service {
         }
 
         if (ACTION_START_EXPORT.equals(action)) {
-            startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH));
+            startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH),
+                    intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false));
         }
 
         return START_NOT_STICKY;
@@ -169,7 +172,7 @@ public class ExportService extends Service {
 
     // ── Export execution ─────────────────────────────────────────────
 
-    private void startExportInternal(@Nullable String snapshotPath) {
+    private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
         // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
         // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
         // app-restart export already survives) and passed the path here. Reading it is the
@@ -282,7 +285,11 @@ public class ExportService extends Service {
         final List<Clip> needsReverse = collectClipsNeedingReverse(exportProject);
         if (needsRemux.isEmpty() && needsReverse.isEmpty()) {
             // Common case: nothing to warm — behave exactly as before.
-            exportManager.export(exportProject);
+            if (audioOnly) {
+                exportManager.exportAudioOnly(exportProject);
+            } else {
+                exportManager.export(exportProject);
+            }
             return;
         }
 
@@ -324,7 +331,11 @@ public class ExportService extends Service {
             // runs its Transformer on the main thread, as today).
             new Handler(Looper.getMainLooper()).post(() -> {
                 if (exportManager != null) {
-                    exportManager.export(exportProject);
+                    if (audioOnly) {
+                        exportManager.exportAudioOnly(exportProject);
+                    } else {
+                        exportManager.export(exportProject);
+                    }
                 }
             });
         });

@@ -452,6 +452,246 @@ public class ExportManager {
         }
     }
 
+    // ── Audio-only export (isolated additive path — the video export above is untouched) ──
+
+    /**
+     * Export ONLY the composed audio mix to an {@code .m4a} file (no video track). Every
+     * timeline clip contributes its audio via {@code setRemoveVideo(true)} (mirroring its
+     * speed / volume / mute); image, muted, and loop-extension segments contribute silence
+     * of their duration so the audio stays time-aligned with the normal video export; the
+     * separate {@link AudioClip} track is mixed in as a second sequence.
+     *
+     * <p><b>v1 limitations (device/ffmpeg verification owed):</b> loop-extension segments
+     * export as silence (timing preserved, looped audio not repeated); a transition overlap
+     * is treated as a continuation of the outgoing clip's audio (no audio crossfade).</p>
+     */
+    public void exportAudioOnly(@NonNull FaditorProject project) {
+        if (isExporting) {
+            FLog.w(TAG, "Export already in progress");
+            return;
+        }
+        if (project.getTimeline().isEmpty()) {
+            if (listener != null) {
+                listener.onExportError(new IllegalStateException("Timeline is empty"));
+            }
+            return;
+        }
+
+        // Match export(): re-derive attached-visualizer + link-group rider times first.
+        project.getTimeline().resyncAttachedVisualizers();
+        project.getTimeline().resyncLinkGroups();
+
+        String outputPath = generateOutputPath(project, "m4a");
+        isExporting = true;
+
+        try {
+            Transformer.Builder builder = new Transformer.Builder(context)
+                    .setAudioMimeType(MimeTypes.AUDIO_AAC);
+
+            builder.addListener(new Transformer.Listener() {
+                @Override
+                public void onCompleted(@NonNull Composition composition,
+                                        @NonNull ExportResult result) {
+                    stopProgressPolling();
+                    isExporting = false;
+                    String finalPath = outputPath;
+                    if (pendingSafCopy) {
+                        String safResult = copyTempToSaf(outputPath);
+                        if (safResult != null) {
+                            finalPath = safResult;
+                        } else {
+                            FLog.e(TAG, "SAF copy failed, file remains at: " + outputPath);
+                        }
+                        pendingSafCopy = false;
+                        safExportFileName = null;
+                    }
+                    FLog.d(TAG, "Audio-only export completed: " + finalPath);
+                    if (listener != null) {
+                        listener.onExportCompleted(finalPath, result);
+                    }
+                }
+
+                @Override
+                public void onError(@NonNull Composition composition,
+                                    @NonNull ExportResult result,
+                                    @NonNull ExportException exception) {
+                    stopProgressPolling();
+                    isExporting = false;
+                    pendingSafCopy = false;
+                    safExportFileName = null;
+                    File tempFile = new File(outputPath);
+                    if (tempFile.getParentFile() != null
+                            && tempFile.getParentFile().getName().equals("faditor_export")) {
+                        tempFile.delete();
+                    }
+                    FLog.e(TAG, "Audio-only export failed", exception);
+                    writeExportErrorLog(project, exception, outputPath);
+                    if (listener != null) {
+                        listener.onExportError(exception);
+                    }
+                }
+            });
+
+            transformer = builder.build();
+
+            Composition composition;
+            try {
+                composition = buildAudioOnlyComposition(project);
+            } finally {
+                releasePerThreadRetriever();
+            }
+
+            transformer.start(composition, outputPath);
+            startProgressPolling();
+
+            FLog.d(TAG, "Audio-only export started → " + outputPath);
+            if (listener != null) {
+                listener.onExportStarted(outputPath);
+            }
+        } catch (Exception e) {
+            isExporting = false;
+            FLog.e(TAG, "Failed to start audio-only export", e);
+            writeExportErrorLog(project, e, outputPath);
+            if (listener != null) {
+                listener.onExportError(e);
+            }
+        }
+    }
+
+    /**
+     * Build an audio-only {@link Composition}: one sequence of the master clips' audio
+     * (image / muted / loop segments → silence, preserving timing) plus the {@link AudioClip}
+     * track (via {@link #buildAudioSequence}), mixed. Reuses the existing per-clip audio
+     * treatment (Sonic speed, volume envelope/static, mute) without touching the video path.
+     */
+    @NonNull
+    private Composition buildAudioOnlyComposition(@NonNull FaditorProject project) {
+        Timeline timeline = project.getTimeline();
+        File silenceFile = getOrCreateSilenceFile();
+        Uri silenceUri = silenceFile != null ? Uri.fromFile(silenceFile) : null;
+
+        List<EditedMediaItem> master = new ArrayList<>();
+        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
+            Clip clip = timeline.getClip(ci);
+            long clipInMs = clip.getInPointMs();
+            long clipOutMs = clip.getOutPointMs();
+
+            // Mirror buildComposition's HEAD-overlap trim: a clip that is the SECOND in a
+            // transition has its head covered by the previous clip's transition tail, so its
+            // audio starts later. We keep each clip's FULL tail (the transition is a
+            // video-only crossfade), so total audio length still matches the video export.
+            Transition prevTrans = ci > 0 ? findTransitionAtSeam(timeline, ci - 1) : null;
+            if (prevTrans != null) {
+                long overlapSourceMs = Math.round(prevTrans.durationMs * clip.getSpeedMultiplier());
+                clipInMs = Math.min(clipOutMs, clipInMs + overlapSourceMs);
+            }
+
+            if (clip.hasLoopExtension() && !clip.isImageClip() && clip.getLoopBeforeMs() > 0) {
+                addSilence(master, silenceUri, clip.getLoopBeforeMs());
+            }
+
+            float speed = clip.getSpeedMultiplier();
+            if (clip.isImageClip()) {
+                addSilence(master, silenceUri, Math.max(1L, clipOutMs - clipInMs));
+            } else {
+                long endMs = Math.min(clipOutMs, clip.getSourceDurationMs());
+                long srcDurMs = Math.max(1L, endMs - clipInMs);
+                long timelineDurMs = Math.max(1L, (long) (srcDurMs / Math.max(0.1f, speed)));
+                if (clip.isAudioMuted()) {
+                    addSilence(master, silenceUri, timelineDurMs);
+                } else {
+                    MediaItem mediaItem = new MediaItem.Builder()
+                            .setUri(resolveSeekableSourceUri(clip))
+                            .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                                    .setStartPositionMs(clipInMs)
+                                    .setEndPositionMs(endMs)
+                                    .build())
+                            .build();
+                    EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
+                            .setRemoveVideo(true)
+                            .setDurationUs(timelineDurMs * 1000);
+                    List<AudioProcessor> aps = new ArrayList<>();
+                    if (speed != 1.0f) {
+                        SonicAudioProcessor sap = new SonicAudioProcessor();
+                        sap.setSpeed(speed);
+                        if (clip.isPitchCompensationEnabled()) sap.setPitch(1.0f);
+                        aps.add(sap);
+                    }
+                    if (clip.hasVolumeKeyframes()) {
+                        List<Clip.VolumeKeyframe> kfs = clip.getVolumeKeyframes();
+                        long[] times = new long[kfs.size()];
+                        float[] vols = new float[kfs.size()];
+                        for (int i = 0; i < kfs.size(); i++) {
+                            times[i] = kfs.get(i).timeMs;
+                            vols[i] = kfs.get(i).volume;
+                        }
+                        VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                        vp.setVolumeEnvelope(times, vols);
+                        aps.add(vp);
+                    } else if (Math.abs(clip.getVolumeLevel() - 1.0f) >= 0.01f) {
+                        VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                        vp.setVolume(clip.getVolumeLevel());
+                        aps.add(vp);
+                    }
+                    if (!aps.isEmpty()) {
+                        eb.setEffects(new Effects(aps, Collections.emptyList()));
+                    }
+                    master.add(eb.build());
+                }
+            }
+
+            if (clip.hasLoopExtension() && !clip.isImageClip() && clip.getLoopAfterMs() > 0) {
+                addSilence(master, silenceUri, clip.getLoopAfterMs());
+            }
+        }
+
+        List<EditedMediaItemSequence> sequences = new ArrayList<>();
+        if (!master.isEmpty()) {
+            sequences.add(new EditedMediaItemSequence.Builder(master).build());
+        }
+        if (timeline.hasAudioClips()) {
+            EditedMediaItemSequence audioSequence = buildAudioSequence(timeline);
+            if (audioSequence != null) {
+                sequences.add(audioSequence);
+            }
+        }
+        if (sequences.isEmpty()) {
+            // Nothing audible at all — emit a short silence so the Transformer has valid input.
+            List<EditedMediaItem> tiny = new ArrayList<>();
+            addSilence(tiny, silenceUri, 500L);
+            if (tiny.isEmpty()) {
+                throw new IllegalStateException(
+                        "Audio-only export: no audio present and no silence source available");
+            }
+            sequences.add(new EditedMediaItemSequence.Builder(tiny).build());
+        }
+        return new Composition.Builder(sequences).build();
+    }
+
+    /** Append chunked silence totalling {@code durationMs} to {@code items} (no-op if there
+     *  is no silence source or the duration is non-positive). Chunks at {@link #SILENCE_FILE_MS}
+     *  so gaps longer than the silence file are covered by multiple items. */
+    private void addSilence(@NonNull List<EditedMediaItem> items, @Nullable Uri silenceUri,
+                            long durationMs) {
+        if (silenceUri == null || durationMs <= 0) return;
+        long remaining = durationMs;
+        while (remaining > 0) {
+            long chunk = Math.min(remaining, SILENCE_FILE_MS);
+            MediaItem mediaItem = new MediaItem.Builder()
+                    .setUri(silenceUri)
+                    .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(0)
+                            .setEndPositionMs(chunk)
+                            .build())
+                    .build();
+            items.add(new EditedMediaItem.Builder(mediaItem)
+                    .setRemoveVideo(true)
+                    .setDurationUs(chunk * 1000)
+                    .build());
+            remaining -= chunk;
+        }
+    }
+
     /**
      * Persist a detailed, timestamped export-failure report to
      * {@code <externalFiles>/faditor_export_errors/}. Export failures previously
@@ -2000,6 +2240,12 @@ public class ExportManager {
      */
     @NonNull
     private String generateOutputPath(@NonNull FaditorProject project) {
+        return generateOutputPath(project, Constants.RECORDING_FILE_EXTENSION);
+    }
+
+    /** As {@link #generateOutputPath(FaditorProject)} but with an explicit file extension
+     *  (e.g. {@code "m4a"} for audio-only export). Behaviour is otherwise identical. */
+    private String generateOutputPath(@NonNull FaditorProject project, @NonNull String extension) {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
                 .format(new Date());
         String defaultBaseName = "Faditor_" + timestamp;
@@ -2012,7 +2258,7 @@ public class ExportManager {
                 ? customBaseName
                 : defaultBaseName;
 
-        String fileName = baseName + "." + Constants.RECORDING_FILE_EXTENSION;
+        String fileName = baseName + "." + extension;
 
         String storageMode = prefsManager.getStorageMode();
 

@@ -414,8 +414,57 @@ public class EditorTimelineView extends View {
         layerTracks.addAll(layers);
         audioLayerTracks.clear();
         audioLayerTracks.addAll(audioTracks);
+        // Stale-selection guard: ops that replace item identity (split → two new ids,
+        // delete, undo/redo swapping objects) re-feed through here. If the controller's
+        // selected id no longer exists in EITHER band, clear it — otherwise every
+        // selection-derived toolbar op (delete/split/volume…) silently falls through to
+        // its legacy master-clip target while the user believes an item is selected.
+        if (layerGestureController != null
+                && layerGestureController.getSelectedItemId() != null
+                && !layerItemIdExists(layerGestureController.getSelectedItemId())) {
+            layerGestureController.clearSelection();
+        }
         requestLayout();
         invalidate();
+    }
+
+    /** True if a fed row item with this id exists in either band (floating layers + audio). */
+    private boolean layerItemIdExists(@NonNull String id) {
+        for (List<com.fadcam.ui.faditor.layers.Track> band
+                : java.util.Arrays.asList(layerTracks, audioLayerTracks)) {
+            for (com.fadcam.ui.faditor.layers.Track t : band) {
+                for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
+                    if (id.equals(item.getId())) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Programmatically select a row item by id (both bands searched). Used after ops
+     * that replace the selected item's identity (audio split keeps the left half
+     * selected, mirroring the master-split behavior). No-op if the id isn't fed yet —
+     * callers must sync the overlay rows first.
+     */
+    public void selectLayerItemById(@Nullable String id) {
+        if (layerGestureController == null) return;
+        if (id == null) {
+            layerGestureController.clearSelection();
+            return;
+        }
+        for (List<com.fadcam.ui.faditor.layers.Track> band
+                : java.util.Arrays.asList(layerTracks, audioLayerTracks)) {
+            for (com.fadcam.ui.faditor.layers.Track t : band) {
+                for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
+                    if (id.equals(item.getId())) {
+                        layerGestureController.setSelectedItem(t, item);
+                        invalidate();
+                        return;
+                    }
+                }
+            }
+        }
     }
 
     // ── State ────────────────────────────────────────────────────────

@@ -151,6 +151,9 @@ public class AudioClip {
         this.volumeLevel = other.volumeLevel;
         this.muted = other.muted;
         this.label = other.label;
+        // Layer-track membership must survive cloning (split creates both halves via
+        // this constructor): dropping it re-lanes the copy onto the default AUDIO row.
+        this.layerId = other.layerId;
         // Waveform data is shared (immutable int array after extraction)
         this.waveform = other.waveform;
         for (VolumeKeyframe kf : other.volumeKeyframes) {

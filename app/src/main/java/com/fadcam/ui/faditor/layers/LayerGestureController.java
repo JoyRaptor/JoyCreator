@@ -313,6 +313,20 @@ public final class LayerGestureController {
     }
 
     /**
+     * Programmatic selection, for ops that REPLACE the selected item's identity outside
+     * a touch gesture (split creates two new ids; undo/redo swaps objects). Without this,
+     * {@code selectedItemId} keeps pointing at the removed id and every selection-derived
+     * op (delete/split/volume…) silently falls back to its legacy master-clip target.
+     * Fires {@link Callback#onItemSelectionChanged} exactly like a tap-select would.
+     */
+    public void setSelectedItem(@Nullable Track track, @Nullable TimedItem item) {
+        String newId = item == null ? null : item.getId();
+        boolean changed = !java.util.Objects.equals(newId, selectedItemId);
+        selectedItemId = newId;
+        if (changed) callback.onItemSelectionChanged(track, item);
+    }
+
+    /**
      * DOWN on a row body (already confirmed within the row region and not a header hit by
      * the caller). See {@link DownResult}:
      * <ul>

@@ -18511,6 +18511,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         timeline.addAudioClip(right, false);
 
         editorTimeline.setAudioClips(timeline.getAudioClips());
+        // Re-feed the audio rows NOW (the original id is gone), then keep the LEFT half
+        // selected — mirrors the master-split behavior of selectSegment(sameIndex).
+        // Without this the controller's selection points at the removed original and
+        // every selection-derived toolbar op falls back to the master clip.
+        syncTimelineOverlays();
+        editorTimeline.selectLayerItemById(left.getId());
         prepareAudioPlayer();
         scheduleAutoSave();
         Toast.makeText(this, R.string.faditor_split_success, Toast.LENGTH_SHORT).show();

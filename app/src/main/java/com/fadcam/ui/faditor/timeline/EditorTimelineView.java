@@ -220,6 +220,8 @@ public class EditorTimelineView extends View {
 
     // ── M6 multi-row Track UI (extract-on-touch: all logic in LayerRowRenderer) ──
     private com.fadcam.ui.faditor.layers.LayerRowRenderer layerRowRenderer;
+    /** W2: zoom-tiered HD waveform data source for the audio rows (see TimelineWaveformCache). */
+    private com.fadcam.ui.faditor.waveform.TimelineWaveformCache timelineWaveformCache;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
     private final List<com.fadcam.ui.faditor.layers.Track> audioLayerTracks = new ArrayList<>();
     private OnTrackHeaderActionListener trackHeaderActionListener;
@@ -1067,6 +1069,12 @@ public class EditorTimelineView extends View {
         audioCornerPx = AUDIO_CORNER_DP * density;
         audioWaveBarGapPx = AUDIO_WAVEFORM_BAR_GAP_DP * density;
         layerRowRenderer = new com.fadcam.ui.faditor.layers.LayerRowRenderer(density);
+        // W2 HD zoom tier: zoom-tiered span-limited waveform data for the audio rows,
+        // extracted via the shared WaveformExtractor pipeline. The renderer pulls per
+        // item; a landed extraction just invalidates this view to swap the bars in.
+        timelineWaveformCache = new com.fadcam.ui.faditor.waveform.TimelineWaveformCache(
+                getContext(), this::postInvalidateOnAnimation);
+        layerRowRenderer.setHdWaveformProvider(timelineWaveformCache::get);
         layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
                 layerRowRenderer, NOOP_GESTURE_CALLBACK);
 
@@ -6214,6 +6222,10 @@ public class EditorTimelineView extends View {
         thumbnailExecutor.shutdownNow();
         thumbnailsLoading.clear();
         thumbnailsFailed.clear();
+        // W2: stop any in-flight timeline waveform extraction with the view.
+        if (timelineWaveformCache != null) {
+            timelineWaveformCache.shutdown();
+        }
         // Trim-edge preview teardown
         trimPreviewExecutor.shutdownNow();
         mainHandler.removeCallbacks(trimPreviewExtractRunnable);

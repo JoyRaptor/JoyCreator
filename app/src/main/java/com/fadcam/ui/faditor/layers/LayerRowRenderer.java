@@ -915,13 +915,28 @@ public final class LayerRowRenderer {
         }
         itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : (lifted ? brighten(baseColor) : baseColor));
         int[] waveform = (item.getAudioClip() != null) ? item.getAudioClip().getWaveform() : null;
-        if (waveform != null) {
+        // W2 HD zoom tier: when zoomed in far enough and the span-limited high-density
+        // extraction has landed, draw from it instead of the legacy fixed-800 samples —
+        // same aqua bars, but word/onset-level detail resolves. Falls back to the legacy
+        // int[] (instant, persisted) until the extraction is ready.
+        com.fadcam.ui.faditor.model.WaveformData hdWave = null;
+        if (item.getAudioClip() != null && hdWaveformProvider != null) {
+            long clipDurMs = Math.max(1, item.getAudioClip().getTrimmedDurationMs());
+            float pxPerSec = (x1 - x0) / (clipDurMs / 1000f);
+            hdWave = hdWaveformProvider.get(item.getAudioClip(), pxPerSec);
+        }
+        if (hdWave != null || waveform != null) {
             if (lifted) {
                 float grow = 1.5f * density;
                 canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
                         3f * density, 3f * density, itemPaint);
             }
-            drawAudioWaveform(canvas, waveform, x0, top, x1, bottom, baseColor, ghosted);
+            if (hdWave != null) {
+                drawHdAudioWaveform(canvas, hdWave, item.getAudioClip(), x0, top, x1, bottom,
+                        ghosted);
+            } else {
+                drawAudioWaveform(canvas, waveform, x0, top, x1, bottom, baseColor, ghosted);
+            }
         } else {
             if (lifted) {
                 float grow = 1.5f * density;
@@ -1090,6 +1105,70 @@ public final class LayerRowRenderer {
             prevY = y;
         }
         canvas.restore();
+    }
+
+    /**
+     * W2: source of zoom-tiered waveform data for audio items. Implemented by
+     * {@code TimelineWaveformCache} — returns {@code null} when the legacy bars should
+     * draw (zoomed out / not extracted yet), kicking the extraction as a side effect.
+     */
+    public interface HdWaveformProvider {
+        @Nullable
+        com.fadcam.ui.faditor.model.WaveformData get(
+                @NonNull com.fadcam.ui.faditor.model.AudioClip clip, float pxPerSec);
+    }
+
+    @Nullable
+    private HdWaveformProvider hdWaveformProvider;
+
+    public void setHdWaveformProvider(@Nullable HdWaveformProvider provider) {
+        this.hdWaveformProvider = provider;
+    }
+
+    /** Scratch rect for visible-span clipping in {@link #drawHdAudioWaveform}. */
+    private final android.graphics.Rect hdClipBounds = new android.graphics.Rect();
+
+    /**
+     * HD variant of {@link #drawAudioWaveform}: draws peak-preserving bars from
+     * {@link com.fadcam.ui.faditor.model.WaveformData} (200–400 buckets/sec, indexed by
+     * absolute SOURCE time via {@code bucketAt}), iterating only the VISIBLE pixel span so
+     * a long zoomed-in clip costs what's on screen, not its full length. Each bar takes the
+     * MAX of the buckets it covers (max-of-range, not point-sample — same W1 rule that
+     * keeps transients visible when zoomed out).
+     */
+    private void drawHdAudioWaveform(@NonNull Canvas canvas,
+                                      @NonNull com.fadcam.ui.faditor.model.WaveformData hd,
+                                      @NonNull com.fadcam.ui.faditor.model.AudioClip ac,
+                                      float x0, float top, float x1, float bottom,
+                                      boolean ghosted) {
+        float w = x1 - x0;
+        if (w <= 0) return;
+        float centerY = (top + bottom) / 2f;
+        float halfH = Math.max(1f, (bottom - top) / 2f - 2f * density);
+        barPaint.setColor(ghosted ? 0x404CAF50 : 0xCC35F6BF);
+        canvas.getClipBounds(hdClipBounds);
+        float vx0 = Math.max(x0, hdClipBounds.left);
+        float vx1 = Math.min(x1, hdClipBounds.right);
+        if (vx1 <= vx0) return;
+        // 1dp bars with a hairline gap: enough columns for letter-level onsets at high
+        // zoom without degenerating into a solid fill.
+        float barW = Math.max(1f, 1f * density);
+        float stride = barW + Math.max(0.5f, 0.5f * density);
+        long inMs = ac.getInPointMs();
+        long durMs = Math.max(1, ac.getTrimmedDurationMs());
+        for (float bx = vx0; bx < vx1; bx += stride) {
+            long t0 = inMs + (long) ((bx - x0) / w * durMs);
+            long t1 = inMs + (long) ((bx + stride - x0) / w * durMs);
+            int i0 = hd.bucketAt(t0);
+            int i1 = Math.max(i0, hd.bucketAt(Math.max(t0, t1 - 1)));
+            float amp = 0f;
+            for (int i = i0; i <= i1; i++) {
+                if (hd.amplitudes[i] > amp) amp = hd.amplitudes[i];
+            }
+            amp = (float) Math.pow(amp, 0.7);
+            float barH = Math.max(1f, amp * halfH);
+            canvas.drawRect(bx, centerY - barH, bx + barW, centerY + barH, barPaint);
+        }
     }
 
     private void drawAudioWaveform(@NonNull Canvas canvas, @NonNull int[] waveform,

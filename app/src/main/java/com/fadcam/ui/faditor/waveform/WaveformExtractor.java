@@ -37,9 +37,11 @@ import java.util.concurrent.Executors;
 public class WaveformExtractor {
 
     private static final String TAG = "WaveformExtractor";
-    private static final int BUCKETS_PER_SEC = 60;   // visual time resolution
+    private static final int BUCKETS_PER_SEC = 60;   // visual time resolution (default tier)
     private static final int FFT_SIZE = 1024;        // power of two
     private static final int CACHE_VERSION = 3; // bumped: span-limited extraction (startOffset + bucketMs)
+    /** Empty spectrum row used when a caller only needs amplitudes (timeline bars, W2). */
+    private static final float[] NO_SPECTRUM = new float[0];
 
     /** endMs sentinel meaning "to the end of the source". */
     public static final long FULL_END = Long.MAX_VALUE;
@@ -76,15 +78,28 @@ public class WaveformExtractor {
      */
     public void extractAsync(@NonNull Uri uri, int bands, long startMs, long endMs,
                              @NonNull Callback callback) {
+        extractAsync(uri, bands, startMs, endMs, BUCKETS_PER_SEC, true, callback);
+    }
+
+    /**
+     * Density-parameterized variant (W2 timeline HD zoom): {@code bucketsPerSec} sets the time
+     * resolution (default tier is {@value #BUCKETS_PER_SEC}); {@code withSpectrum=false} skips the
+     * per-bucket FFT entirely (amplitude-only — the timeline bars never read the spectrum, and at
+     * 200–400 buckets/sec the FFT would dominate the decode cost). Non-default requests cache under
+     * their own key, so existing visualizer cache entries stay valid.
+     */
+    public void extractAsync(@NonNull Uri uri, int bands, long startMs, long endMs,
+                             int bucketsPerSec, boolean withSpectrum, @NonNull Callback callback) {
         executor.execute(() -> {
             try {
-                WaveformData cached = readCache(uri, bands, startMs, endMs);
+                WaveformData cached = readCache(uri, bands, startMs, endMs, bucketsPerSec, withSpectrum);
                 if (cached != null) {
                     callback.onReady(cached);
                     return;
                 }
-                WaveformData data = extract(uri, bands, startMs, endMs, callback::onProgress);
-                writeCache(uri, bands, startMs, endMs, data);
+                WaveformData data = extract(uri, bands, startMs, endMs, bucketsPerSec, withSpectrum,
+                        callback::onProgress);
+                writeCache(uri, bands, startMs, endMs, bucketsPerSec, withSpectrum, data);
                 callback.onReady(data);
             } catch (Exception e) {
                 FLog.e(TAG, "Waveform extraction failed", e);
@@ -117,7 +132,16 @@ public class WaveformExtractor {
     @NonNull
     public WaveformData extract(@NonNull Uri uri, int bands, long startMs, long endMs,
                                 @Nullable ProgressListener progress) throws Exception {
+        return extract(uri, bands, startMs, endMs, BUCKETS_PER_SEC, true, progress);
+    }
+
+    /** As above with explicit bucket density and optional FFT skip (see the async variant). */
+    @NonNull
+    public WaveformData extract(@NonNull Uri uri, int bands, long startMs, long endMs,
+                                int bucketsPerSec, boolean withSpectrum,
+                                @Nullable ProgressListener progress) throws Exception {
         bands = Math.max(1, bands);
+        bucketsPerSec = Math.max(1, bucketsPerSec);
         long startUs = Math.max(0, startMs) * 1000L;
         long endUs = endMs >= FULL_END / 2 ? FULL_END : Math.max(startMs + 1, endMs) * 1000L;
         MediaExtractor extractor = new MediaExtractor();
@@ -142,7 +166,7 @@ public class WaveformExtractor {
             codec.configure(fmt, null, null, 0);
             codec.start();
 
-            int bucketSamples = Math.max(1, Math.round(sampleRate / (float) BUCKETS_PER_SEC));
+            int bucketSamples = Math.max(1, Math.round(sampleRate / (float) bucketsPerSec));
             long bucketMs = Math.max(1, bucketSamples * 1000L / Math.max(1, sampleRate));
             List<Float> ampList = new ArrayList<>();
             List<float[]> specList = new ArrayList<>();
@@ -200,7 +224,9 @@ public class WaveformExtractor {
                             if (av > bucketPeak) bucketPeak = av;
                             if (bucketFill >= bucketSamples) {
                                 ampList.add(bucketPeak);
-                                specList.add(computeBands(bucketBuf, bucketFill, re, im, bands));
+                                specList.add(withSpectrum
+                                        ? computeBands(bucketBuf, bucketFill, re, im, bands)
+                                        : NO_SPECTRUM);
                                 bucketFill = 0;
                                 bucketPeak = 0f;
                             }
@@ -228,7 +254,9 @@ public class WaveformExtractor {
             }
             if (bucketFill > 0) {
                 ampList.add(bucketPeak);
-                specList.add(computeBands(bucketBuf, bucketFill, re, im, bands));
+                specList.add(withSpectrum
+                        ? computeBands(bucketBuf, bucketFill, re, im, bands)
+                        : NO_SPECTRUM);
             }
 
             long startOffsetMs = firstSampleUs >= 0 ? firstSampleUs / 1000 : Math.max(0, startMs);
@@ -330,18 +358,25 @@ public class WaveformExtractor {
     // ── Disk cache ───────────────────────────────────────────────────
 
     @NonNull
-    private File cacheFile(@NonNull Uri uri, int bands, long startMs, long endMs) {
+    private File cacheFile(@NonNull Uri uri, int bands, long startMs, long endMs,
+                           int bucketsPerSec, boolean withSpectrum) {
         File dir = new File(context.getCacheDir(), "waveform");
         if (!dir.exists()) dir.mkdirs();
         String span = (startMs <= 0 && endMs >= FULL_END / 2)
                 ? "full" : (Math.max(0, startMs) + "-" + endMs);
         String key = Integer.toHexString(uri.toString().hashCode()) + "_" + bands + "_" + span;
+        // Non-default density / amplitude-only requests get their own key SUFFIX so every
+        // pre-existing default-tier cache entry keeps resolving (no version bump needed).
+        if (bucketsPerSec != BUCKETS_PER_SEC || !withSpectrum) {
+            key += "_bps" + bucketsPerSec + (withSpectrum ? "" : "_amp");
+        }
         return new File(dir, key + ".bin");
     }
 
     @Nullable
-    private WaveformData readCache(@NonNull Uri uri, int bands, long startMs, long endMs) {
-        File f = cacheFile(uri, bands, startMs, endMs);
+    private WaveformData readCache(@NonNull Uri uri, int bands, long startMs, long endMs,
+                                   int bucketsPerSec, boolean withSpectrum) {
+        File f = cacheFile(uri, bands, startMs, endMs, bucketsPerSec, withSpectrum);
         if (!f.exists()) return null;
         try (DataInputStream in = new DataInputStream(new FileInputStream(f))) {
             if (in.readInt() != CACHE_VERSION) return null;
@@ -364,8 +399,8 @@ public class WaveformExtractor {
     }
 
     private void writeCache(@NonNull Uri uri, int bands, long startMs, long endMs,
-                            @NonNull WaveformData data) {
-        File f = cacheFile(uri, bands, startMs, endMs);
+                            int bucketsPerSec, boolean withSpectrum, @NonNull WaveformData data) {
+        File f = cacheFile(uri, bands, startMs, endMs, bucketsPerSec, withSpectrum);
         try (DataOutputStream out = new DataOutputStream(new FileOutputStream(f))) {
             out.writeInt(CACHE_VERSION);
             out.writeLong(data.durationMs);

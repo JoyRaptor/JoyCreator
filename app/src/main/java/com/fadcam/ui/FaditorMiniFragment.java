@@ -207,6 +207,16 @@ public class FaditorMiniFragment extends BaseFragment {
             selectButton.setOnClickListener(v -> showVideoSourceChooser());
         }
 
+        // Avatar Studio, standalone (library-backed — no project needed): avatars
+        // serve both the screen recorder and the editor, so the studio's front
+        // door lives on this main surface next to the editor branding.
+        View btnAvatarStudio = view.findViewById(R.id.btn_avatar_studio);
+        if (btnAvatarStudio != null) {
+            btnAvatarStudio.setOnClickListener(v -> startActivity(new android.content.Intent(
+                    requireContext(),
+                    com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class)));
+        }
+
         // Info icon → opens Faditor info bottom sheet
         View btnInfo = view.findViewById(R.id.btn_info);
         if (btnInfo != null) {

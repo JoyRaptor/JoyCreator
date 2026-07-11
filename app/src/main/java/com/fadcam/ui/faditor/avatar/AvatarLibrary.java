@@ -91,15 +91,21 @@ public final class AvatarLibrary {
     public static File save(@NonNull Context ctx, @NonNull AvatarRig rig,
                             @NonNull List<SpriteSheet> sheets) {
         File dir = new File(libraryDir(ctx), entryDirName(rig));
+        // Build in a temp dir, then swap. CRITICAL for standalone-studio re-saves:
+        // a loaded library entry's sheet uris point INTO the existing bundle, so
+        // deleting it first would destroy the very bytes we're about to copy
+        // (data loss on every save-over). Temp-then-rename keeps the old bundle
+        // intact until the new one is complete.
+        File tmp = new File(libraryDir(ctx), entryDirName(rig) + ".tmp");
         try {
-            deleteRecursive(dir);
-            File sheetsDir = new File(dir, SHEETS_DIR);
+            deleteRecursive(tmp);
+            File sheetsDir = new File(tmp, SHEETS_DIR);
             if (!sheetsDir.mkdirs()) return null;
 
             JsonArray sheetArr = new JsonArray();
             for (SpriteSheet sheet : sheets) {
                 String rel = SHEETS_DIR + "/" + sheet.getId() + ".png";
-                copyUriToFile(ctx, sheet.getSheetUri(), new File(dir, rel));
+                copyUriToFile(ctx, sheet.getSheetUri(), new File(tmp, rel));
                 // Rewrite the embedded def's uri WITHOUT mutating the live sheet.
                 JsonObject sj = sheet.toJson();
                 sj.addProperty("sheetUri", rel);
@@ -110,12 +116,14 @@ public final class AvatarLibrary {
             manifest.addProperty("libSchemaVersion", LIB_SCHEMA_VERSION);
             manifest.add("rig", rig.toJson());
             manifest.add("sheets", sheetArr);
-            try (OutputStream os = new FileOutputStream(new File(dir, MANIFEST))) {
+            try (OutputStream os = new FileOutputStream(new File(tmp, MANIFEST))) {
                 os.write(manifest.toString().getBytes(StandardCharsets.UTF_8));
             }
+            deleteRecursive(dir);
+            if (!tmp.renameTo(dir)) return null;
             return dir;
         } catch (Exception e) {
-            deleteRecursive(dir);
+            deleteRecursive(tmp);
             return null;
         }
     }

@@ -39,6 +39,20 @@
                 android:gravity="start|center_vertical"
                 android:textAlignment="viewStart" />
 
+            <!-- Avatar Studio (standalone, library-backed) — avatars serve both
+                 the screen recorder and the editor, so the entry lives on the
+                 main surface next to the editor branding. -->
+            <ImageView
+                android:id="@+id/btn_avatar_studio"
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:layout_marginEnd="14dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Avatar Studio"
+                android:padding="1dp"
+                android:src="@drawable/ic_person_24"
+                android:tint="@android:color/white" />
+
             <ImageView
                 android:id="@+id/btn_info"
                 android:layout_width="24dp"

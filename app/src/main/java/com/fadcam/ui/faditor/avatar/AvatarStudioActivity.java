@@ -2,9 +2,11 @@ package com.fadcam.ui.faditor.avatar;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -12,10 +14,13 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -52,10 +57,24 @@ public class AvatarStudioActivity extends AppCompatActivity {
     public static final String EXTRA_PROJECT_ID = "avatar_studio_project_id";
     /** Absent/null = create a NEW rig. */
     public static final String EXTRA_RIG_ID = "avatar_studio_rig_id";
+    /** Standalone deep-link: open this library bundle dir (name under
+     *  files/avatar_library). Only read when EXTRA_PROJECT_ID is absent. */
+    public static final String EXTRA_LIBRARY_DIR = "avatar_studio_library_dir";
 
     private ProjectStorage storage;
     private FaditorProject project;
     private AvatarRig rig;
+
+    // ── Standalone (library-backed) mode — JoyRaptor 2026-07-11: Avatar Studio is
+    // reachable from the main menu with NO project; it then edits cross-project
+    // AvatarLibrary bundles directly (list → open → edit → save-over). Every
+    // project touchpoint routes through sheetList()/lookupSheet()/save() so
+    // project mode stays behaviorally unchanged.
+    private boolean libraryMode;
+    @Nullable private AvatarLibrary.Entry libraryEntry;
+    /** New-avatar flow: system image picker → seed bundle. Registered in
+     *  onCreate unconditionally (ActivityResult contract requirement). */
+    private ActivityResultLauncher<String[]> newAvatarImagePicker;
     private boolean isNewRig = false;
     private AvatarRig.PoseDomain domain;
 
@@ -91,8 +110,30 @@ public class AvatarStudioActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         storage = new ProjectStorage(this);
+        newAvatarImagePicker = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(), this::onNewAvatarImage);
+
         String projectId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
-        project = projectId != null ? storage.load(projectId) : null;
+        if (projectId == null) {
+            // Standalone: main-menu launch. Deep-linked entry or the chooser.
+            libraryMode = true;
+            String dirName = getIntent().getStringExtra(EXTRA_LIBRARY_DIR);
+            if (dirName != null) {
+                AvatarLibrary.Entry e = AvatarLibrary.load(
+                        new java.io.File(AvatarLibrary.libraryDir(this), dirName));
+                if (e == null) {
+                    Toast.makeText(this, "Library avatar missing", Toast.LENGTH_LONG).show();
+                    finish();
+                    return;
+                }
+                openLibraryEntry(e);
+            } else {
+                showLibraryChooser();
+            }
+            return;
+        }
+
+        project = storage.load(projectId);
         if (project == null) {
             Toast.makeText(this, R.string.avatar_studio_no_project, Toast.LENGTH_LONG).show();
             finish();
@@ -104,6 +145,11 @@ public class AvatarStudioActivity extends AppCompatActivity {
             isNewRig = true;
             rig = AvatarRig.create(getString(R.string.avatar_studio_default_name));
         }
+        initEditor();
+    }
+
+    /** Shared editor bring-up once {@link #rig} is bound (either mode). */
+    private void initEditor() {
         // Scaffold edits the first domain; a fresh rig gets the canonical head grid.
         if (rig.getDomains().isEmpty()) {
             AvatarRig.PoseDomain head = new AvatarRig.PoseDomain("head");
@@ -124,6 +170,79 @@ public class AvatarStudioActivity extends AppCompatActivity {
         // buildUi's syncPoseControls ran before selectedPartId was assigned, so
         // the per-part Mesh density label was stale ("24"); refresh now.
         syncPoseControls();
+    }
+
+    // ── Standalone library mode ──────────────────────────────────────────
+
+    private void openLibraryEntry(@NonNull AvatarLibrary.Entry e) {
+        libraryEntry = e;
+        rig = e.rig;
+        initEditor();
+    }
+
+    /** Bare launch: pick a library avatar or seed a new one from an image. */
+    private void showLibraryChooser() {
+        java.util.List<AvatarLibrary.Entry> entries = AvatarLibrary.list(this);
+        String[] items = new String[entries.size() + 1];
+        for (int i = 0; i < entries.size(); i++) items[i] = entries.get(i).rig.getName();
+        items[entries.size()] = "+ New avatar from image…";
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Avatar Studio — library")
+                .setItems(items, (d, which) -> {
+                    if (which == entries.size()) {
+                        newAvatarImagePicker.launch(new String[]{"image/*"});
+                    } else {
+                        openLibraryEntry(entries.get(which));
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, (d, w) -> finish())
+                .setOnCancelListener(d -> finish())
+                .show();
+    }
+
+    /**
+     * New-avatar seed: the picked image becomes a 1-cell sheet + a one-part rig,
+     * saved to the library IMMEDIATELY (bytes are copied out of the content uri
+     * while we still hold the grant — no persistable permission needed), then
+     * re-loaded so the editor works on stable bundle-file uris.
+     */
+    private void onNewAvatarImage(@Nullable Uri uri) {
+        if (uri == null) { // picker dismissed
+            if (rig == null) finish(); // nothing open behind the chooser
+            return;
+        }
+        SpriteSheet sheet = SpriteSheet.create("sheet", uri.toString());
+        AvatarRig newRig = AvatarRig.create(getString(R.string.avatar_studio_default_name));
+        AvatarRig.Part part = new AvatarRig.Part("body", sheet.getId());
+        newRig.getParts().add(part);
+        java.io.File dir = AvatarLibrary.save(this, newRig,
+                java.util.Collections.singletonList(sheet));
+        AvatarLibrary.Entry e = dir != null ? AvatarLibrary.load(dir) : null;
+        if (e == null) {
+            Toast.makeText(this, "Couldn't create the avatar bundle", Toast.LENGTH_LONG).show();
+            if (rig == null) finish();
+            return;
+        }
+        openLibraryEntry(e);
+    }
+
+    /** The sheets this editor session can reference (mode seam). */
+    private java.util.List<SpriteSheet> sheetList() {
+        return libraryMode
+                ? (libraryEntry != null ? libraryEntry.sheets : java.util.Collections.emptyList())
+                : project.getSpriteSheets();
+    }
+
+    /** Sheet lookup across both modes (mode seam). */
+    @Nullable
+    private SpriteSheet lookupSheet(@NonNull String sheetId) {
+        if (!libraryMode) return project.spriteSheetById(sheetId);
+        if (libraryEntry != null) {
+            for (SpriteSheet s : libraryEntry.sheets) {
+                if (s.getId().equals(sheetId)) return s;
+            }
+        }
+        return null;
     }
 
     // ── Resolve pipeline (the ONLY caller of the resolver here) ───────────
@@ -365,7 +484,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
     // ── Part management ────────────────────────────────────────────────────
 
     private void addPartFlow() {
-        java.util.List<SpriteSheet> sheets = project.getSpriteSheets();
+        java.util.List<SpriteSheet> sheets = sheetList();
         if (sheets.isEmpty()) {
             Toast.makeText(this, R.string.avatar_studio_no_sheets, Toast.LENGTH_LONG).show();
             return;
@@ -656,6 +775,19 @@ public class AvatarStudioActivity extends AppCompatActivity {
     private void save() {
         String name = nameField.getText().toString().trim();
         rig.setName(name.isEmpty() ? getString(R.string.avatar_studio_default_name) : name);
+        if (libraryMode) {
+            // Standalone: save-over the bundle (AvatarLibrary.save is temp-then-
+            // rename, so re-saving from the bundle's own sheets is safe). The
+            // in-memory sheets keep their current uris this session; the fresh
+            // bundle is what the next open reads.
+            AvatarLibrary.Entry e = libraryEntry;
+            java.io.File out = e != null
+                    ? AvatarLibrary.save(this, rig, e.sheets) : null;
+            Toast.makeText(this, out != null
+                    ? getString(R.string.avatar_studio_saved)
+                    : getString(R.string.avatar_studio_save_failed), Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (isNewRig && project.avatarRigById(rig.getId()) == null) {
             project.getAvatarRigs().add(rig);
             isNewRig = false;
@@ -672,6 +804,10 @@ public class AvatarStudioActivity extends AppCompatActivity {
      * references (dedup'd; missing sheets skipped — the bundle stays loadable).
      */
     private void saveToLibrary() {
+        if (libraryMode) { // standalone Save IS the library save
+            save();
+            return;
+        }
         save();
         java.util.List<SpriteSheet> sheets = new java.util.ArrayList<>();
         for (AvatarRig.Part p : rig.getParts()) {
@@ -686,7 +822,8 @@ public class AvatarStudioActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        save(); // autosave semantics, S2 precedent
+        // rig == null: standalone chooser still open, nothing to save yet.
+        if (rig != null && nameField != null) save(); // autosave semantics, S2 precedent
         super.onBackPressed();
     }
 
@@ -702,7 +839,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
     @Nullable
     private SpriteSheetRenderer rendererFor(@NonNull String sheetId) {
         if (renderers.containsKey(sheetId)) return renderers.get(sheetId);
-        SpriteSheet sheet = project.spriteSheetById(sheetId);
+        SpriteSheet sheet = lookupSheet(sheetId);
         SpriteSheetRenderer r = sheet != null ? SpriteSheetRenderer.load(this, sheet) : null;
         renderers.put(sheetId, r); // null cached too = MISSING affordance, no retry storm
         return r;
@@ -739,6 +876,8 @@ public class AvatarStudioActivity extends AppCompatActivity {
         // library bundle so the recorder's avatar selector can find it.
         TextView libBtn = chip("Library ⇪");
         libBtn.setOnClickListener(v -> saveToLibrary());
+        // Standalone mode edits the library directly — Save IS the library save.
+        if (libraryMode) libBtn.setVisibility(View.GONE);
         top.addView(back);
         top.addView(nameField, nameLp);
         top.addView(saveBtn);
@@ -748,7 +887,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         // Puppet canvas
         preview = new PuppetPreviewView(this);
         preview.bind(rig, this::rendererFor);
-        preview.setSheetLookup(id -> project.spriteSheetById(id));
+        preview.setSheetLookup(this::lookupSheet);
         preview.setListener((dxNorm, dyNorm) -> editArmedPose(pose -> {
             pose.x += dxNorm;
             pose.y += dyNorm;

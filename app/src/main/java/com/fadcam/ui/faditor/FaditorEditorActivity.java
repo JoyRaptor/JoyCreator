@@ -16010,12 +16010,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void openAvatarStudioManager() {
         java.util.List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs = project.getAvatarRigs();
-        String[] items = new String[rigs.size() + 1];
+        // A4 editor slice: library avatars are INSERTABLE as timeline objects
+        // (architecture contract: avatar = standalone droppable object). The
+        // insert entries live in this same dialog — one avatar surface.
+        final java.util.List<com.fadcam.ui.faditor.avatar.AvatarLibrary.Entry> lib =
+                com.fadcam.ui.faditor.avatar.AvatarLibrary.list(this);
+        String[] items = new String[rigs.size() + 1 + lib.size()];
         for (int i = 0; i < rigs.size(); i++) items[i] = rigs.get(i).getName();
         items[rigs.size()] = getString(R.string.avatar_studio_new);
+        for (int i = 0; i < lib.size(); i++) {
+            items[rigs.size() + 1 + i] = "⇓ Insert \"" + lib.get(i).rig.getName() + "\"";
+        }
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.avatar_studio_title)
                 .setItems(items, (d, which) -> {
+                    if (which > rigs.size()) {
+                        insertAvatarFromLibrary(lib.get(which - rigs.size() - 1));
+                        return;
+                    }
                     android.content.Intent it = new android.content.Intent(this,
                             com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class);
                     it.putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity
@@ -16027,6 +16039,78 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     startActivity(it);
                 })
                 .show();
+    }
+
+    /**
+     * A4 editor slice (THIN, per architecture contract): import a library
+     * avatar into this project and place it at the playhead. The placed item
+     * is a 1-cell sprite sheet holding the rig's NEUTRAL pose baked by
+     * {@link com.fadcam.ui.faditor.avatar.AvatarNeutralBaker} — it rides the
+     * complete sprite pipeline (preview/export/lanes/undo) with zero new
+     * compositor surface. The rig + its REAL sheets also import (idempotent by
+     * id) so the later bake-to-keyframes slice can upgrade the placed item to
+     * a live puppet; the baked asset's name carries the rig linkage.
+     */
+    private void insertAvatarFromLibrary(
+            @NonNull com.fadcam.ui.faditor.avatar.AvatarLibrary.Entry entry) {
+        java.io.File assetsDir = new java.io.File(
+                projectStorage.projectDir(project.getId()), "assets");
+        if (!assetsDir.exists() && !assetsDir.mkdirs()) {
+            Toast.makeText(this, "Couldn't create project assets", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // 1) Neutral-pose bake → 1-cell sheet asset.
+        String assetName = com.fadcam.ui.faditor.avatar.AvatarNeutralBaker
+                .neutralAssetName(entry.rig);
+        java.io.File baked = new java.io.File(assetsDir, assetName);
+        if (!com.fadcam.ui.faditor.avatar.AvatarNeutralBaker.bakeNeutralPng(
+                this, entry.rig, entry.sheets, baked, 1024)) {
+            Toast.makeText(this, "Avatar bake failed", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // 2) Register (or refresh) the baked sheet — stable id from the rig so
+        // re-inserting the same avatar reuses one sheet def.
+        String bakedSheetId = "avatar-neutral-" + entry.rig.getId();
+        com.fadcam.ui.faditor.sprite.SpriteSheet bakedSheet =
+                project.spriteSheetById(bakedSheetId);
+        if (bakedSheet == null) {
+            bakedSheet = new com.fadcam.ui.faditor.sprite.SpriteSheet(bakedSheetId,
+                    "Avatar: " + entry.rig.getName(),
+                    android.net.Uri.fromFile(baked).toString());
+            bakedSheet.setGrid(1, 1); // whole PNG is the one cell (default is 3x3)
+            project.getSpriteSheets().add(bakedSheet);
+        } else {
+            bakedSheet.setSheetUri(android.net.Uri.fromFile(baked).toString());
+        }
+        // 3) Import the rig + its real sheets (idempotent by id) for the
+        // live-render/bake upgrade path.
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : entry.sheets) {
+            if (project.spriteSheetById(s.getId()) != null) continue;
+            try {
+                java.io.File dest = new java.io.File(assetsDir, "sheet-" + s.getId() + ".png");
+                try (java.io.InputStream in = getContentResolver()
+                        .openInputStream(android.net.Uri.parse(s.getSheetUri()));
+                     java.io.FileOutputStream out = new java.io.FileOutputStream(dest)) {
+                    byte[] buf = new byte[64 * 1024];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                }
+                com.fadcam.ui.faditor.sprite.SpriteSheet copy =
+                        com.fadcam.ui.faditor.sprite.SpriteSheet.fromJson(s.toJson());
+                copy.setSheetUri(android.net.Uri.fromFile(dest).toString());
+                project.getSpriteSheets().add(copy);
+            } catch (Exception e) {
+                // Missing source sheet: the neutral bake still placed fine; the
+                // upgrade path will surface the MISSING affordance honestly.
+            }
+        }
+        com.fadcam.ui.faditor.avatar.AvatarRig existing =
+                project.avatarRigById(entry.rig.getId());
+        if (existing != null) project.getAvatarRigs().remove(existing);
+        project.getAvatarRigs().add(entry.rig);
+        // 4) Place at the playhead via the proven sprite path (lane, undo,
+        // autosave, toast all included).
+        placeSpriteOnVideo(bakedSheet);
     }
 
     /** Opens the panel; reuses an existing transcript, picks a model, or transcribes. */

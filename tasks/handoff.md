@@ -1,5 +1,25 @@
 # FadCam AI Handoff
 
+> **🗄️ 2026-07-11 midday — FABLE(model=fable): CLIP-AUDIO DRAWER v2 SHIPPED + DEVICE-PROVEN
+> (`5179647`, on the REAL phone SM-N986U — it replaced the sandbox on USB and is authorized).**
+> JoyRaptor's design, full live-follow in v1: **double-tap a master clip → its embedded audio slides
+> down as a quad-band-tape shelf below the strip; double-tap closes.** Drawer is PINNED to its
+> clip (geometry derives per-frame from segRects → scroll/trim/reorder followed live with zero
+> bookkeeping — device-proven by trimming 5.2s→3.3s with the drawer open). Cuts cut video+audio
+> together by construction. Transcript words RIDE the drawer (slide to its inside bottom; visual
+> verify owed on a transcribed clip). Also landed: opencode's filmstrip T1 sweep (`78a6c6b`).
+> **Two render bugs found by ground-truthing (pulled the band cache bin + ffprobe'd the source):
+> a SILENT audio track normalized to its own zero peak → full-height slab (fixed: <1e-5 RMS →
+> flat baseline) and peak-sparks spammed flat plateaus (fixed: prominence required).** Real
+> speech now renders syllable-lobed profiles exactly like the HTML prototype.
+> **OWED:** real-finger 320ms double-tap feel (adb can't inject it — routing logcat-proven via a
+> temp-widened window, since restored); transcript-relocation visual; split-with-drawer-open;
+> AV4 settings-sheet wire-up (sheet exists, unwired) + first-import eager/lazy popup; extend the
+> drawer to overlay/PiP videos (same DrawerState, layer-hop animation). Two throwaway projects
+> left on the real phone (dino 5s + greater_phase2) — safe to delete. **WATCHER LORE: it was DOWN
+> overnight (died with the sandbox unplug) — every poll of build.log MUST check mtime freshness
+> vs wall-clock; a stale "BUILD SUCCESSFUL" tail reads exactly like a green build.**
+
 > **✅ 2026-07-11 — FABLE(5) verify-and-land session (phone back online, SM-N960U sandbox
 > bdd51919). Landed the pending in-flight work as 5 commits and cleared the ENTIRE device-verify
 > backlog — all PASS. Sandbox restored pristine (md5 `e81a6df8…`), DEVICE token released.**

@@ -120,6 +120,19 @@ public class ExportManager {
     private static final long SILENCE_FILE_MS = 600_000L; // 10 minutes
 
     /**
+     * Minimum TIMELINE length (ms) an exported video segment must have to be worth
+     * emitting. Anything shorter is guaranteed to be under one output-frame interval
+     * (≈40ms == one frame at 25fps), so Media3 clips it to a zero/near-zero-duration
+     * {@link EditedMediaItem} that produces NO output sample. A no-sample item stalls
+     * the muxer until its watchdog aborts the whole export with
+     * "Muxer error … Abort: no output sample written in the last 10000 milliseconds".
+     * Such micro-segments only arise at transition seams where a transition is as long
+     * as (or longer than) the clip it straddles — never in the normal case (transition
+     * shorter than both clips), so this guard is a no-op for ordinary timelines.
+     */
+    private static final long MIN_EXPORT_SEGMENT_MS = 40L;
+
+    /**
      * Thread-local MediaMetadataRetriever cache used during composition building.
      *
      * <p>{@link MediaMetadataRetriever} is <strong>not thread-safe</strong>: a single instance
@@ -861,18 +874,35 @@ public class ExportManager {
             long clipInMs = clip.getInPointMs();
             long clipOutMs = clip.getOutPointMs();
 
-            // If this clip is the SECOND clip in a transition, its head is overlapped
+            // If this clip is the SECOND clip in a transition, its head is overlapped.
+            // Use the SEAM-clamped transition length (effectiveTransitionMs) so the
+            // transition can never claim more of this (the incoming) clip than it has.
             if (hasHeadTransition) {
-                long overlapSourceMs = Math.round(prevTrans.durationMs * clip.getSpeedMultiplier());
+                long headTransMs = effectiveTransitionMs(timeline, prevTrans, ci - 1);
+                long overlapSourceMs = Math.round(headTransMs * clip.getSpeedMultiplier());
                 clipInMs = Math.min(clipOutMs, clipInMs + overlapSourceMs);
             }
 
-            // If this clip is the FIRST clip in a transition, its tail is overlapped
+            // If this clip is the FIRST clip in a transition, its tail is overlapped.
+            // Same seam-clamp so the transition can never exceed this (the outgoing) clip.
             long mainOutMs = clipOutMs;
             if (hasTailTransition) {
-                long overlapSourceMs = Math.round(trans.durationMs * clip.getSpeedMultiplier());
+                long tailTransMs = effectiveTransitionMs(timeline, trans, ci);
+                long overlapSourceMs = Math.round(tailTransMs * clip.getSpeedMultiplier());
                 mainOutMs = Math.max(clipInMs, clipOutMs - overlapSourceMs);
             }
+
+            // A transition as long as (or longer than) the clip it straddles trims the
+            // clip's un-transitioned body down to zero / a sub-frame sliver. Emitting
+            // such a micro EditedMediaItem produces NO output sample and stalls the muxer
+            // until its 10s watchdog aborts the whole export. Detect it and skip the main
+            // item cleanly (below). Only clips actually touched by a transition can hit
+            // this, so an ordinary standalone short clip keeps its exact prior behaviour.
+            float clipSpeed = Math.max(0.1f, clip.getSpeedMultiplier());
+            boolean touchesTransition = hasHeadTransition || hasTailTransition;
+            long mainBodyTimelineMs = (long) ((mainOutMs - clipInMs) / clipSpeed);
+            boolean mainBodyDegenerate = touchesTransition
+                    && mainBodyTimelineMs < MIN_EXPORT_SEGMENT_MS;
 
             // ── Loop/ping-pong extensions BEFORE the main clip ──
             if (clip.hasLoopExtension() && !clip.isImageClip()) {
@@ -895,13 +925,21 @@ public class ExportManager {
             }
 
             // ── Build the main clip item (the part NOT in the transition) ──
-            if (mainOutMs > clipInMs) {
+            if (mainOutMs > clipInMs && !mainBodyDegenerate) {
                 long mainDurationMs = clipInMs >= clipOutMs ? 0 : (mainOutMs - clipInMs);
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
                         waveformSlots);
                 items.add(mainItem);
                 timelineCursorMs += mainItem.durationUs / 1000;
+            } else if (mainOutMs > clipInMs) {
+                // Degenerate body consumed by its transition overlap — skip it (do NOT
+                // advance the cursor: it contributes ~0 to the timeline) so we never feed
+                // the muxer a zero-sample item. The straddling transition item(s) already
+                // cover this span.
+                FLog.w(TAG, "buildComposition: skipping degenerate main item for clip " + ci
+                        + " (body " + mainBodyTimelineMs + "ms < " + MIN_EXPORT_SEGMENT_MS
+                        + "ms after transition trim) to avoid a no-output-sample muxer stall");
             }
 
             // ── Build the transition item (if there's a tail transition) ──
@@ -909,7 +947,8 @@ public class ExportManager {
                 Clip nextClip = timeline.getClip(ci + 1);
                 long transInMs = mainOutMs;
                 long transOutMs = clipOutMs;
-                if (transOutMs > transInMs) {
+                long transTimelineMs = (long) ((transOutMs - transInMs) / clipSpeed);
+                if (transOutMs > transInMs && transTimelineMs >= MIN_EXPORT_SEGMENT_MS) {
                     // Transition item uses the first clip's source (clipped to overlap) with GL effect
                     EditedMediaItem transItem = buildTransitionItem(project, clip, transInMs, transOutMs,
                             nextClip, trans, timelineCursorMs, outW, outH, canvasDims, waveformSlots);
@@ -917,6 +956,13 @@ public class ExportManager {
                         items.add(transItem);
                         timelineCursorMs += transItem.durationUs / 1000;
                     }
+                } else if (transOutMs > transInMs) {
+                    // Sub-frame transition overlap (the outgoing clip was almost entirely
+                    // consumed by its own head transition) — skip it rather than hand the
+                    // muxer a zero-sample item. Cursor is not advanced.
+                    FLog.w(TAG, "buildComposition: skipping degenerate transition item at seam "
+                            + ci + " (" + transTimelineMs + "ms < " + MIN_EXPORT_SEGMENT_MS
+                            + "ms) to avoid a no-output-sample muxer stall");
                 }
             }
 
@@ -972,6 +1018,34 @@ public class ExportManager {
             if (t.clipIndex == seam) return t;
         }
         return null;
+    }
+
+    /**
+     * Effective TIMELINE-ms length of the transition at {@code seam}, defensively clamped
+     * so it can never exceed EITHER clip it straddles (the outgoing clip at {@code seam}
+     * and the incoming clip at {@code seam + 1}). A transition longer than the clip it
+     * hands off to would trim that clip's head — or the previous clip's tail — down to
+     * (near) nothing, yielding a degenerate {@link EditedMediaItem} that emits no output
+     * sample and stalls the muxer ("no output sample written in the last 10000 ms").
+     *
+     * <p>The clamp is a pure no-op for the normal case (transition shorter than both
+     * clips), so byte-for-byte output is preserved there; only the pathological seam
+     * where the transition meets or exceeds a clip is capped. Both the outgoing clip's
+     * TAIL-trim iteration and the incoming clip's HEAD-trim iteration call this with the
+     * SAME {@code seam}, so both derive their overlap from an identical clamped value and
+     * stay in lock-step (no cursor desync).
+     */
+    private static long effectiveTransitionMs(@NonNull Timeline timeline,
+                                              @NonNull Transition trans, int seam) {
+        long d = Math.max(0L, trans.durationMs);
+        if (seam >= 0 && seam < timeline.getClipCount()) {
+            d = Math.min(d, Math.max(0L, timeline.getClip(seam).getTrimmedDurationMs()));
+        }
+        int next = seam + 1;
+        if (next >= 0 && next < timeline.getClipCount()) {
+            d = Math.min(d, Math.max(0L, timeline.getClip(next).getTrimmedDurationMs()));
+        }
+        return d;
     }
 
     @Nullable

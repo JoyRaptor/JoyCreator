@@ -319,6 +319,21 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         controls.addView(keyBtn, keyLp);
         syncKeyChip();
 
+        // S2b: bg-key tolerance slider (percent, 0-50 in 2% steps) — live re-decode
+        // when a key is already set so the preview always matches the export pixels.
+        LinearLayout tolBox = stepperShell(controls, "Tol");
+        TextView tolMinus = stepBtn("−");
+        TextView tolValue = stepValue();
+        TextView tolPlus = stepBtn("+");
+        Runnable tolSync = () -> tolValue.setText(Math.round(sheet.getKeyTolerance() * 100) + "%");
+        stepperSyncs.add(tolSync);
+        tolMinus.setOnClickListener(v -> adjustTolerance(-0.02f, tolSync));
+        tolPlus.setOnClickListener(v -> adjustTolerance(0.02f, tolSync));
+        tolBox.addView(tolMinus);
+        tolBox.addView(tolValue);
+        tolBox.addView(tolPlus);
+        tolSync.run();
+
         // S2b: standalone sidecar export/import (<image>.sprite.json — the sharing format).
         TextView importScBtn = chip(getString(R.string.sprite_editor_import_sidecar));
         importScBtn.setOnClickListener(v -> sidecarImportLauncher.launch(new String[]{"application/json"}));
@@ -506,11 +521,23 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
     }
 
+    /** Tolerance only affects anything once a key color is set; still adjustable
+     *  beforehand so the eyedropper pick applies the pre-set value immediately. */
+    private void adjustTolerance(float delta, @NonNull Runnable sync) {
+        float next = Math.max(0f, Math.min(0.5f, sheet.getKeyTolerance() + delta));
+        sheet.setBgKey(sheet.getBgKeyColor(), next);
+        sync.run();
+        if (sheet.getBgKeyColor() != 0) reloadRenderer();
+    }
+
     private void applyBgKey(int argb) {
-        // Opaque key color; 8% tolerance is a sane default for flat-color bgs.
-        sheet.setBgKey(0xFF000000 | (argb & 0x00FFFFFF), 0.08f);
+        // Opaque key color; keep whatever tolerance the slider already holds (8%
+        // default for flat-color bgs when the user hasn't touched the slider yet).
+        float tol = sheet.getKeyTolerance() > 0f ? sheet.getKeyTolerance() : 0.08f;
+        sheet.setBgKey(0xFF000000 | (argb & 0x00FFFFFF), tol);
         reloadRenderer(); // one-time color→alpha at decode (preview==export pixels)
         syncKeyChip();
+        syncControls();
     }
 
     private void syncKeyChip() {
@@ -538,7 +565,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             try (FileOutputStream fos = new FileOutputStream(out)) {
                 fos.write(sheet.toJson().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
             }
-            Toast.makeText(this, R.string.sprite_editor_sidecar_saved, Toast.LENGTH_SHORT).show();
+            // S2b: the plan asks for the written path in the toast — sidecar_saved
+            // stays the a11y-friendly base string, path appended as a literal.
+            Toast.makeText(this, getString(R.string.sprite_editor_sidecar_saved) + ": " + out.getPath(),
+                    Toast.LENGTH_LONG).show();
         } catch (Exception e) {
             Toast.makeText(this, R.string.sprite_editor_sidecar_failed, Toast.LENGTH_LONG).show();
         }
@@ -599,6 +629,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 if (!playing || sheet == null) return;
                 cursor = nextEnabled(cursor + 1);
                 invalidate();
+                // S2b filmstrip polish: mirror the playing cell on the main grid so
+                // the run cycle is visible at full size, not just in the tiny preview.
+                if (activity != null) activity.gridView.setPlayingCell(cursor);
                 postDelayed(this, (long) (1000f / Math.max(0.5f, sheet.getFps())));
             }
         };
@@ -626,7 +659,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         void setPlaying(boolean p) {
             playing = p;
             removeCallbacks(tick);
-            if (p) post(tick);
+            if (p) {
+                post(tick);
+            } else if (activity != null) {
+                activity.gridView.setPlayingCell(-1);
+            }
         }
 
         private int nextEnabled(int from) {
@@ -657,13 +694,14 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (renderer == null || sheet == null) return;
             dest.set(2, 2, getWidth() - 2, getHeight() - 2);
             int showCell = Math.min(cursor, sheet.cellCount() - 1);
-            // Onion skin: draw the previous enabled cell ghosted under the current cell.
+            // S2b onion skin: ghost the previous AND next enabled cell (by index) at
+            // ~30% alpha under/over the selected cell — the classic run-cycle flow check.
             if (activity != null && activity.onionMode && showCell >= 0) {
+                onionPaint.setAlpha(77); // ~30%
                 int prev = previousEnabled(showCell);
-                if (prev >= 0 && prev != showCell) {
-                    onionPaint.setAlpha(90);
-                    renderer.drawCell(canvas, prev, dest, onionPaint);
-                }
+                if (prev >= 0 && prev != showCell) renderer.drawCell(canvas, prev, dest, onionPaint);
+                int next = nextEnabled(showCell + 1);
+                if (next != showCell && next != prev) renderer.drawCell(canvas, next, dest, onionPaint);
             }
             renderer.drawCell(canvas, showCell, dest, null);
         }

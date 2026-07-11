@@ -42,6 +42,8 @@ public class SpriteGridEditorView extends View {
     private boolean matrixInitialized = false;
 
     private int selectedCell = -1;
+    /** S2b: cell currently shown by the play-preview filmstrip (-1 = not playing). */
+    private int playingCell = -1;
     private boolean pivotMode = false;
     private boolean draggingPivot = false;
     private boolean colorPickMode = false;
@@ -51,6 +53,7 @@ public class SpriteGridEditorView extends View {
     private final Paint numPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadePaint = new Paint();
     private final Paint selPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint playPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pivotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float density = getResources().getDisplayMetrics().density;
 
@@ -72,6 +75,9 @@ public class SpriteGridEditorView extends View {
         selPaint.setStyle(Paint.Style.STROKE);
         selPaint.setStrokeWidth(3f * density);
         selPaint.setColor(0xFFFFD54F);
+        playPaint.setStyle(Paint.Style.STROKE);
+        playPaint.setStrokeWidth(3f * density);
+        playPaint.setColor(0xFF00E5FF);
         pivotPaint.setStyle(Paint.Style.STROKE);
         pivotPaint.setStrokeWidth(2f * density);
         pivotPaint.setColor(0xFFFF6E9C);
@@ -99,6 +105,9 @@ public class SpriteGridEditorView extends View {
 
     public void setSelectedCell(int index) { selectedCell = index; invalidate(); }
     public int getSelectedCell() { return selectedCell; }
+
+    /** S2b: highlight the filmstrip's currently-playing cell (-1 clears it). */
+    public void setPlayingCell(int index) { playingCell = index; invalidate(); }
 
     /** Toggle pivot-editing: drags inside the selected cell move the pivot. */
     public void setPivotMode(boolean on) { pivotMode = on; invalidate(); }
@@ -140,6 +149,7 @@ public class SpriteGridEditorView extends View {
             if (meta != null && !meta.enabled) canvas.drawRect(rf, shadePaint);
             canvas.drawRect(rf, gridPaint);
             if (i == selectedCell) canvas.drawRect(rf, selPaint);
+            if (i == playingCell && i != selectedCell) canvas.drawRect(rf, playPaint);
         }
         canvas.restore();
 

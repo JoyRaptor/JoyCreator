@@ -666,6 +666,24 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * A4: export to the cross-project avatar library. Saves the project first so
+     * the bundle captures the current name/rig, then bundles every sheet a part
+     * references (dedup'd; missing sheets skipped — the bundle stays loadable).
+     */
+    private void saveToLibrary() {
+        save();
+        java.util.List<SpriteSheet> sheets = new java.util.ArrayList<>();
+        for (AvatarRig.Part p : rig.getParts()) {
+            SpriteSheet s = project.spriteSheetById(p.sheetId);
+            if (s != null && !sheets.contains(s)) sheets.add(s);
+        }
+        java.io.File out = AvatarLibrary.save(this, rig, sheets);
+        Toast.makeText(this, out != null
+                ? "Saved to avatar library: " + rig.getName()
+                : "Library save failed", Toast.LENGTH_SHORT).show();
+    }
+
     @Override
     public void onBackPressed() {
         save(); // autosave semantics, S2 precedent
@@ -717,9 +735,14 @@ public class AvatarStudioActivity extends AppCompatActivity {
         nameLp.leftMargin = nameLp.rightMargin = (int) (8 * d);
         TextView saveBtn = chip(getString(R.string.avatar_studio_save));
         saveBtn.setOnClickListener(v -> save());
+        // A4: publish this rig (+ the sheets its parts use) as a self-contained
+        // library bundle so the recorder's avatar selector can find it.
+        TextView libBtn = chip("Library ⇪");
+        libBtn.setOnClickListener(v -> saveToLibrary());
         top.addView(back);
         top.addView(nameField, nameLp);
         top.addView(saveBtn);
+        top.addView(libBtn);
         root.addView(top);
 
         // Puppet canvas

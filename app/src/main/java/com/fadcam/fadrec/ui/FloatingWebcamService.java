@@ -354,6 +354,11 @@ public class FloatingWebcamService extends Service {
             }
             scheduleHideControls();
         });
+        overlayView.findViewById(R.id.btnWebcamAvatar).setOnClickListener(v -> {
+            cycleAvatar();
+            scheduleHideControls();
+        });
+        updateAvatarButton();
         overlayView.findViewById(R.id.btnWebcamRotate).setOnClickListener(v -> {
             userRotation = (userRotation + 90) % 360;
             getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -393,6 +398,54 @@ public class FloatingWebcamService extends Service {
         } else {
             lens.setVisibility(View.GONE);
         }
+    }
+
+    /**
+     * A4 avatar selector (JoyRaptor spec 2026-07-11: sits between the webcam cluster
+     * and Rotate): tap cycles webcam → each library avatar → webcam. Selection
+     * persists in prefs; the puppet actually RENDERING into this bubble (camera
+     * feeding only the tracker) is the next A4 slice — the selector is honest
+     * about that in its toast until then. Cycle-not-dialog because this UI is a
+     * service overlay (no activity to host a Material dialog).
+     */
+    private void cycleAvatar() {
+        java.util.List<com.fadcam.ui.faditor.avatar.AvatarLibrary.Entry> entries =
+                com.fadcam.ui.faditor.avatar.AvatarLibrary.list(this);
+        if (entries.isEmpty()) {
+            android.widget.Toast.makeText(this,
+                    "No saved avatars — Avatar Studio → Library ⇪ to add one",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        android.content.SharedPreferences prefs =
+                getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String cur = prefs.getString("avatarEntryDir", null);
+        int idx = -1; // -1 = webcam (no avatar)
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).dir.getName().equals(cur)) { idx = i; break; }
+        }
+        int next = idx + 1;
+        if (next >= entries.size()) {
+            prefs.edit().remove("avatarEntryDir").apply();
+            android.widget.Toast.makeText(this, "Avatar off — webcam shows",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        } else {
+            com.fadcam.ui.faditor.avatar.AvatarLibrary.Entry e = entries.get(next);
+            prefs.edit().putString("avatarEntryDir", e.dir.getName()).apply();
+            android.widget.Toast.makeText(this,
+                    "Avatar: " + e.rig.getName() + " (rendering lands next build)",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }
+        updateAvatarButton();
+    }
+
+    /** Green tint while an avatar is selected — same state cue as the mirrors. */
+    private void updateAvatarButton() {
+        android.widget.TextView b = overlayView.findViewById(R.id.btnWebcamAvatar);
+        if (b == null) return;
+        boolean on = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString("avatarEntryDir", null) != null;
+        b.setTextColor(on ? 0xFF4CAF50 : 0xFFFFFFFF);
     }
 
     /** Tints the mirror toggles green when active so their state is obvious. */

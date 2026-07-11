@@ -1,5 +1,18 @@
 ﻿# PLAN AV5 — Tape-Waveform Performance + Dead-Code Removal
 
+> **🔴 NOW USER-VISIBLE (JoyRaptor, 2026-07-11): playback and scrolling are CHOPPY with the tape
+> live — "not silky smooth like before." This plan is no longer speculative; it is the top
+> perf item on the roadmap.** Cause (as Part A predicted): `TapeWaveformRenderer.draw()` runs
+> full vector work — path building, per-band `LinearGradient` allocation, two-pass glow
+> strokes, spark scan, `columns()` frame scans — on EVERY 60fps `onDraw` for every visible
+> audio item, and now ALSO for every open clip-audio drawer (`5179647`). Fix order:
+> **A3 tile caching first** (bake each tape into bitmap tiles keyed by clip+zoom+style-epoch;
+> blit while panning/playing; only the playhead layer redraws — this alone should restore
+> silky scroll), then **A1 envelope mipmaps** + **A2 Uint8 quantization**. The clip-audio
+> drawer's shelf body must use the same tile cache (its rect is the clip's segRect × 40dp).
+> Quick interim lever if needed before A3 lands: skip fxGlow's double-stroke + sparks while
+> `isPlaying || isScrolling` (degrade gracefully under motion, full fidelity at rest).
+
 Scope: quad-band "tape" audio waveform (commits AV1 `2120720`, AV2 `8501b1d`).
 Target device: Note-8-class phone (SM-N960U, Adreno 540, 4 GB). Plan only — no code
 in this doc. All paths are repo-root-relative under `app/src/main/java/com/fadcam/ui/faditor/`.

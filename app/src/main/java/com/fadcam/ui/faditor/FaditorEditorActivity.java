@@ -9346,9 +9346,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * overlay views repositioned as the preview lays out.
      */
     /** Push the current overlays to the timeline so their layer bars show. */
+    /** AV3 one-time seed: guards {@link #applyDefaultAudioCollapseOnce} so it runs once per open. */
+    private boolean audioCollapseDefaultsApplied = false;
+
+    /**
+     * AV3 discovery default: the FIRST audio track loads expanded (full quad-band tape), the rest
+     * as thin collapsed bars the user taps to expand. Applied ONCE, only to audio tracks that have
+     * no persisted {@link com.fadcam.ui.faditor.layers.TrackFlags} yet — so a saved project's
+     * explicit collapse states and any later user toggle always win (and flag-pruning can't cause a
+     * re-collapse loop, since collapsed=true is non-default and survives pruning).
+     */
+    private void applyDefaultAudioCollapseOnce(@NonNull Timeline tl) {
+        if (audioCollapseDefaultsApplied) return;
+        java.util.List<com.fadcam.ui.faditor.layers.Track> audio = tl.getAudioTracks();
+        if (audio.isEmpty()) return; // nothing to seed yet — try again next sync
+        audioCollapseDefaultsApplied = true;
+        for (int i = 1; i < audio.size(); i++) {
+            String id = audio.get(i).getId();
+            if (tl.getTrackFlags(id) == null) {
+                tl.getOrCreateTrackFlags(id).collapsed = true;
+            }
+        }
+        tl.pruneDefaultTrackFlags();
+    }
+
     private void syncTimelineOverlays() {
         if (editorTimeline != null && project != null) {
             Timeline tl = project.getTimeline();
+            applyDefaultAudioCollapseOnce(tl);
             // G5: attached visualizers re-derive their windows from their hosts' CURRENT
             // spans. Every edit path funnels through this sync, so time-riding is one call.
             tl.resyncAttachedVisualizers();

@@ -243,6 +243,8 @@ public class EditorTimelineView extends View {
      * is resolved (flips to {@link #m6RowDragActive} or {@link #m6RowScrubPassthroughActive}).
      */
     private boolean m6RowPendingAxisDecision = false;
+    /** AV3: a collapsed (thin) AUDIO row whose body was tapped — a pure tap expands it. */
+    private com.fadcam.ui.faditor.layers.Track pendingCollapsedAudioTrack;
     private float m6RowPendingDownX = 0f, m6RowPendingLastX = 0f, m6RowPendingDownY = 0f;
     /**
      * True once a row-band touch has been resolved as a horizontal scrub (dominant-axis
@@ -4670,6 +4672,14 @@ public class EditorTimelineView extends View {
         // movement to tell a vertical row-scroll from a horizontal scrub; still consume
         // the DOWN itself (matches every other surface's contract — a DOWN with no armed
         // gesture yet always returns true).
+        // AV3 discovery: if this MISS landed on a COLLAPSED (thin) AUDIO row, remember it —
+        // a pure tap (slop never exceeded) expands it into the tall quad-band tape below.
+        // A drag still scrubs/row-scrolls (this is only consumed in the tap-resolution branch).
+        {
+            com.fadcam.ui.faditor.layers.Track rt = layerRowRenderer.rowTrackAt(y, topPx);
+            pendingCollapsedAudioTrack = (rt != null && rt.isCollapsed() && !rt.isLocked()
+                    && rt.getKind() == com.fadcam.ui.faditor.layers.TrackKind.AUDIO) ? rt : null;
+        }
         m6RowPendingAxisDecision = true;
         m6RowPendingDownX = scrolledX;
         m6RowPendingLastX = scrolledX;
@@ -5145,6 +5155,14 @@ public class EditorTimelineView extends View {
             // body). Nothing to select, nothing to scrub; just consume like the M6
             // header-hit "NONE zone" case does.
             m6RowPendingAxisDecision = false;
+            // AV3: a pure tap on a collapsed (thin) AUDIO bar expands it — the discovery
+            // affordance for the quad-band tape. Routes through the SAME caret toggle path
+            // (undo step + flag persistence) so it behaves exactly like tapping the caret.
+            if (pendingCollapsedAudioTrack != null && trackHeaderActionListener != null) {
+                trackHeaderActionListener.onTrackHeaderAction(pendingCollapsedAudioTrack,
+                        com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.CARET);
+                pendingCollapsedAudioTrack = null;
+            }
             // Release the parent-intercept claim taken on the pending DOWN (the armed
             // branches above already do this; the tap-only path forgot to).
             getParent().requestDisallowInterceptTouchEvent(false);

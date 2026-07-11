@@ -45,6 +45,9 @@ public final class LayerRowRenderer {
     private static final float HEADER_WIDTH_DP = 92f;
     private static final float ROW_HEIGHT_EXPANDED_DP = 34f;
     private static final float ROW_HEIGHT_COLLAPSED_DP = 14f;
+    /** AV3: expanded AUDIO rows are taller so the two-lane quad-band tape (and the volume
+     *  keyframe rubber-band drawn over it) have room. Floating layer rows keep 34dp. */
+    private static final float ROW_HEIGHT_AUDIO_EXPANDED_DP = 76f;
     private static final float ROW_GAP_DP = 3f;
     private static final float TOP_GAP_DP = 6f;
     /** Small breathing gap above the first AUDIO-band row (below master). */
@@ -257,7 +260,9 @@ public final class LayerRowRenderer {
     }
 
     private float rowHeightPx(@NonNull Track t) {
-        return (t.isCollapsed() ? ROW_HEIGHT_COLLAPSED_DP : ROW_HEIGHT_EXPANDED_DP) * density;
+        if (t.isCollapsed()) return ROW_HEIGHT_COLLAPSED_DP * density;
+        if (t.getKind() == TrackKind.AUDIO) return ROW_HEIGHT_AUDIO_EXPANDED_DP * density;
+        return ROW_HEIGHT_EXPANDED_DP * density;
     }
 
     /**
@@ -950,6 +955,11 @@ public final class LayerRowRenderer {
             canvas.clipRect(x0, top, x1, bottom);
             tapeRenderer.draw(canvas, tapeRect, tape.raw, tape.shaped, tapeStyle, inMs, durMs);
             canvas.restore();
+            // AV3: captions live INSIDE the audio track, along the bottom — only on an
+            // expanded (tall) row, for a caption-enabled audio clip.
+            if (item.getAudioClip().isCaptionsEnabled() && (bottom - top) > 40f * density) {
+                drawAudioCaptionRibbon(canvas, x0, top, x1, bottom, item.getAudioClip());
+            }
         } else if (hdWave != null || waveform != null) {
             if (lifted) {
                 float grow = 1.5f * density;
@@ -1220,6 +1230,35 @@ public final class LayerRowRenderer {
             float barH = Math.max(1f, amp * halfH);
             canvas.drawRect(bx, centerY - barH, bx + barW, centerY + barH, barPaint);
         }
+    }
+
+    /**
+     * AV3: draw a caption ribbon along the INSIDE bottom of an expanded audio track — a thin
+     * bar tinted by the clip's caption style with a "CC" tag, so a caption-enabled audio clip
+     * shows its captions live inside its own track (the user's "captions on the inside along
+     * the bottom"). Full per-word caption text is a later enrichment; this is the affordance.
+     */
+    private void drawAudioCaptionRibbon(@NonNull Canvas canvas, float x0, float top, float x1,
+                                         float bottom,
+                                         @NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
+        float h = 13f * density;
+        float ribbonTop = bottom - h - 2f * density;
+        if (ribbonTop < top) return;
+        int styleColor;
+        try {
+            styleColor = com.fadcam.ui.faditor.transcript.CaptionStyle
+                    .byId(ac.getCaptionStyleId()).activeColor;
+        } catch (Exception e) {
+            styleColor = 0xFFFFC107;
+        }
+        itemPaint.setColor(0xCC000000 | (styleColor & 0x00FFFFFF));
+        canvas.drawRoundRect(x0 + 2f * density, ribbonTop, x1 - 2f * density, bottom - 2f * density,
+                2f * density, 2f * density, itemPaint);
+        canvas.save();
+        canvas.clipRect(x0 + 2f * density, ribbonTop, x1 - 2f * density, bottom - 2f * density);
+        itemLabelPaint.setColor(0xFFFFFFFF);
+        canvas.drawText("CC", x0 + 6f * density, bottom - 5f * density, itemLabelPaint);
+        canvas.restore();
     }
 
     private void drawAudioWaveform(@NonNull Canvas canvas, @NonNull int[] waveform,

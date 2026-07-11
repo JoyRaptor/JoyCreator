@@ -12,6 +12,25 @@
 > drawer's shelf body must use the same tile cache (its rect is the clip's segRect × 40dp).
 > Quick interim lever if needed before A3 lands: skip fxGlow's double-stroke + sparks while
 > `isPlaying || isScrolling` (degrade gracefully under motion, full fidelity at rest).
+>
+> **FX cost audit (JoyRaptor asked, 2026-07-11): sparks ≈ 5%** (compare-scan + plain white circles,
+> no shadow in the Android port) — not worth cutting. **Glow ≈ 20–25%** (it double-strokes every
+> band edge: 8 path strokes instead of 4). **The dominant costs are invisible: `columns()`
+> per-pixel frame scans, per-band per-frame `LinearGradient` allocations, and the band fill
+> paths** — which is why A3 tiles remain the fix, not FX toggles.
+>
+> **A3 amendment — LIVE settings customization (JoyRaptor requirement): band settings must reshape
+> the tape in REAL TIME under the user's finger.** Design that keeps tiles compatible:
+> 1. **Two draw modes**: slider-drag → direct vector mode on visible tapes (real-time; the
+>    timeline is at rest during a settings drag, where vector mode is already smooth). Slider
+>    release / ~150ms debounce → background rebake → swap back to blit mode.
+> 2. **Bake per band-LANE tiles in a neutral color**: band COLOR changes become a blit-time
+>    ColorFilter tint (zero rebake) and lane ▲/▼ flips draw the tile mirrored (zero rebake).
+> 3. Contrast / smooth / normalize / band on-off → `reshapeAll()` from cached raw RMS (ms) +
+>    fast rebake of visible tiles only.
+> 4. Crossovers / presence → background re-extract (seconds); keep drawing the old tape until
+>    the new data lands (the AV4 sheet's `onStyleChanged(crossoversChanged)` already splits
+>    these paths).
 
 Scope: quad-band "tape" audio waveform (commits AV1 `2120720`, AV2 `8501b1d`).
 Target device: Note-8-class phone (SM-N960U, Adreno 540, 4 GB). Plan only — no code

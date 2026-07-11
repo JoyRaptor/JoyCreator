@@ -1,6 +1,8 @@
 package com.fadcam.ui.faditor.avatar;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -17,6 +19,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.fadcam.R;
 import com.fadcam.ui.faditor.ai.AIChatState;
@@ -78,6 +82,8 @@ public class AvatarStudioActivity extends AppCompatActivity {
     /** A2: mounted while the synthetic tracking demo is live, else null. */
     @Nullable private TrackingDriverBus trackingBus;
     private TextView trackChip;
+    /** D4: runtime CAMERA request code for the MediaPipe face-tracking swap. */
+    private static final int RC_FACE_CAMERA = 4021;
 
     private float density() { return getResources().getDisplayMetrics().density; }
 
@@ -172,12 +178,36 @@ public class AvatarStudioActivity extends AppCompatActivity {
             if (part.restPins.size() >= 2) ikParts.add(part.id);
         }
         trackingBus = new TrackingDriverBus();
-        trackingBus.start(new SyntheticTrackingSource(ikParts), 20260706L);
+        // D4 source swap: real MediaPipe face tracking when the camera is granted
+        // AND the model asset is present; otherwise the synthetic source (the
+        // permanent fallback the whole pipeline was proven on).
+        boolean camGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean modelPresent = MediaPipeTrackingSource.isModelPresent(this);
+        boolean face = camGranted && modelPresent;
+        if (!camGranted) {
+            // Ask now; this session falls back to synthetic, next tap uses the camera.
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA}, RC_FACE_CAMERA);
+            Toast.makeText(this, "Grant camera, then tap Track again for face tracking",
+                    Toast.LENGTH_SHORT).show();
+        } else if (!modelPresent) {
+            Toast.makeText(this, "Face model missing — using synthetic tracking",
+                    Toast.LENGTH_SHORT).show();
+        }
+        TrackingSource source = face
+                ? new MediaPipeTrackingSource(this, () -> {
+                    if (trackingBus != null) trackingBus.requestReset();
+                })
+                : new SyntheticTrackingSource(ikParts);
+        trackingBus.start(source, 20260706L);
         trackChip.setBackgroundColor(0xFF1B4A3B);
         yawSlider.setEnabled(false);
         pitchSlider.setEnabled(false);
         preview.postOnAnimation(trackTick);
-        hintLine.setText("Tracking (synthetic): driver bus is puppeting the rig");
+        hintLine.setText(face
+                ? "Tracking (face): move your head — the rig follows"
+                : "Tracking (synthetic): driver bus is puppeting the rig");
         hintLine.setTextColor(0xFF64FFDA);
     }
 

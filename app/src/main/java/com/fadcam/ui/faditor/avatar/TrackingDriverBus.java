@@ -30,6 +30,8 @@ public class TrackingDriverBus {
     @Nullable private volatile Object mountToken;
     @Nullable private volatile Map<String, Float> latest;
     private volatile double latestTSeconds = Double.NaN;
+    /** A2: a re-acquiring tracker asks the pipeline to SNAP before its next frame. */
+    private volatile boolean resetRequested;
 
     /**
      * Mount and start a source. Any previous mount stops first (one source,
@@ -41,8 +43,16 @@ public class TrackingDriverBus {
         final Object token = new Object();
         mountToken = token;
         source = newSource;
+        resetRequested = false;
         newSource.start(frame -> {
             if (mountToken != token) return; // stale source — never republish
+            // A2: after a tracking-loss gap the source flags a reset so One-Euro +
+            // viseme SNAP to the re-acquired truth (LifeSignals keeps its schedule).
+            // Consumed on the source thread, right before this frame is processed.
+            if (resetRequested) {
+                resetRequested = false;
+                pipeline.reset();
+            }
             Map<String, Float> params = pipeline.process(frame);
             latestTSeconds = frame.tSeconds;
             latest = Collections.unmodifiableMap(params);
@@ -62,6 +72,17 @@ public class TrackingDriverBus {
 
     public boolean isActive() {
         return mountToken != null;
+    }
+
+    /**
+     * A2: a re-acquiring tracker (MediaPipe face lost then found after &gt;~1s)
+     * asks the mounted pipeline to SNAP rather than glide into the new pose —
+     * resets One-Euro smoothing + the amplitude viseme, keeps LifeSignals
+     * breathing. Idempotent; consumed once, on the source thread. No-op when no
+     * source is mounted (the flag is cleared on the next {@link #start}).
+     */
+    public void requestReset() {
+        resetRequested = true;
     }
 
     /** Newest smoothed param snapshot (immutable), or null before any frame. */

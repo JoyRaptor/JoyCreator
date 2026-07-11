@@ -322,6 +322,12 @@ dependencies {
     // editing + on-screen captions. Model is downloaded on first use, not bundled.
     implementation("com.alphacephei:vosk-android:0.3.47")
 
+    // MediaPipe Tasks Vision — FaceLandmarker for the Avatar Studio face tracker
+    // (PLAN_AVATAR_STUDIO A2 / Fable-day spec D4). USER-GATED dep; the face
+    // model ships as assets/mediapipe/face_landmarker.task. Drives the same
+    // TrackingFrame contract the synthetic source proved on device.
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+
     annotationProcessor(libs.compiler)
     annotationProcessor(libs.room.compiler)
 

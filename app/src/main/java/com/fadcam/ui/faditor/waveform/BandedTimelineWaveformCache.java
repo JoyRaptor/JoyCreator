@@ -75,13 +75,24 @@ public class BandedTimelineWaveformCache {
     public Shaped get(@NonNull AudioClip clip) {
         Uri uri = clip.getSourceUri();
         if (uri == null) return null;
-        String k = key(clip);
+        return get(uri, clip.getInPointMs(), clip.getOutPointMs(), clip.getSourceDurationMs());
+    }
+
+    /**
+     * Source-span variant (clip-audio drawer): the drawer shows a MASTER {@code Clip}'s own
+     * embedded audio, which is not an {@link AudioClip} — key directly off the source + span.
+     * Spans quantize to the same {@link #SPAN_QUANTUM_MS} grid, so a master clip and an
+     * "extract from video" AudioClip over the same source share one extraction.
+     */
+    @Nullable
+    public Shaped get(@NonNull Uri uri, long inMs, long outMs, long srcDurMs) {
+        String k = key(uri, inMs, outMs, srcDurMs);
         Shaped s = ready.get(k);
         if (s != null) return s;
         if (inFlight.contains(k) || failed.contains(k)) return null;
 
-        long start = quantStart(clip);
-        long end = quantEnd(clip);
+        long start = quantStart(inMs);
+        long end = quantEnd(inMs, outMs, srcDurMs);
         inFlight.add(k);
         extractor.extractAsync(uri, start, end, style.lowHz, style.presHz, style.highHz,
                 style.presenceOn, new BandWaveformExtractor.Callback() {
@@ -125,20 +136,19 @@ public class BandedTimelineWaveformCache {
         failed.clear();
     }
 
-    private static long quantStart(@NonNull AudioClip clip) {
-        return (Math.max(0, clip.getInPointMs()) / SPAN_QUANTUM_MS) * SPAN_QUANTUM_MS;
+    private static long quantStart(long inMs) {
+        return (Math.max(0, inMs) / SPAN_QUANTUM_MS) * SPAN_QUANTUM_MS;
     }
 
-    private static long quantEnd(@NonNull AudioClip clip) {
-        long end = ((clip.getOutPointMs() + SPAN_QUANTUM_MS - 1) / SPAN_QUANTUM_MS) * SPAN_QUANTUM_MS;
-        long srcDur = clip.getSourceDurationMs();
-        if (srcDur > 0) end = Math.min(end, srcDur);
-        return Math.max(end, quantStart(clip) + 1);
+    private static long quantEnd(long inMs, long outMs, long srcDurMs) {
+        long end = ((outMs + SPAN_QUANTUM_MS - 1) / SPAN_QUANTUM_MS) * SPAN_QUANTUM_MS;
+        if (srcDurMs > 0) end = Math.min(end, srcDurMs);
+        return Math.max(end, quantStart(inMs) + 1);
     }
 
     @NonNull
-    private String key(@NonNull AudioClip clip) {
-        return clip.getSourceUri() + "|" + quantStart(clip) + "-" + quantEnd(clip)
+    private String key(@NonNull Uri uri, long inMs, long outMs, long srcDurMs) {
+        return uri + "|" + quantStart(inMs) + "-" + quantEnd(inMs, outMs, srcDurMs)
                 + "|" + style.lowHz + "-" + style.presHz + "-" + style.highHz
                 + (style.presenceOn ? "p" : "");
     }

@@ -157,10 +157,14 @@ public class TapeWaveformRenderer {
                 float v = col[x];
                 if (v < 0.3f) continue;
                 boolean isMax = true;
+                boolean prominent = false; // at least one strictly-lower neighbor
                 for (int k = -6; k <= 6; k++) {
                     if (col[x + k] > v) { isMax = false; break; }
+                    if (col[x + k] < v) prominent = true;
                 }
-                if (isMax) {
+                // Plateau guard: a flat run (e.g. limited/maxed music, or silence) is not a
+                // transient — without this every plateau pixel "won" and drew a dotted line.
+                if (isMax && prominent) {
                     canvas.drawCircle(x0 + x, baseY + dir * v * laneH, r, spark);
                     x += 6;
                 }

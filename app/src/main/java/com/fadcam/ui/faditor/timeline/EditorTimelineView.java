@@ -225,6 +225,31 @@ public class EditorTimelineView extends View {
     /** AV2: quad-band tape waveform — shared style + shaped-data cache for the audio rows. */
     private com.fadcam.ui.faditor.waveform.TapeWaveformStyle tapeStyle;
     private com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache tapeWaveformCache;
+
+    // ── Clip-audio drawer (v2 live-follow, JoyRaptor 2026-07-11) ────────────────────
+    // Double-tap a MASTER clip → its embedded audio slides down as a quad-band-tape
+    // "shelf" below the strip; double-tap again slides it back under. The drawer is
+    // PINNED to its clip: geometry derives per-frame from the clip's current segRect,
+    // so scroll / trim / reorder / speed changes are followed live with no extra
+    // bookkeeping. Cutting splits video+audio together by construction (the drawer
+    // just displays the clip's own audio). State is session-level UI state.
+    /** Drawer height — matches the original (legacy) audio track height in the app. */
+    private static final float CLIP_AUDIO_DRAWER_HEIGHT_DP = 40f;
+    private static final long CLIP_DRAWER_ANIM_MS = 220;
+    /** Max UP-to-UP ms for two master-segment taps to read as a double-tap (mirrors
+     *  LayerGestureController.DOUBLE_TAP_WINDOW_MS). */
+    private static final long MASTER_DOUBLE_TAP_WINDOW_MS = 320;
+    /** clipId → animated open fraction 0..1 (present only while open or animating). */
+    private final java.util.Map<String, Float> clipAudioDrawerFraction = new java.util.HashMap<>();
+    /** clipId → its running slide animator (cancelled + replaced on re-toggle). */
+    private final java.util.Map<String, android.animation.ValueAnimator> clipAudioDrawerAnims =
+            new java.util.HashMap<>();
+    /** clipIds whose drawer TARGET state is open. */
+    private final java.util.Set<String> clipAudioDrawerOpen = new java.util.HashSet<>();
+    /** Lazy tape renderer for drawer bodies (the row renderer owns its own instance). */
+    private com.fadcam.ui.faditor.waveform.TapeWaveformRenderer clipDrawerTapeRenderer;
+    private long lastMasterTapUpMs;
+    private String lastMasterTapClipId;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
     private final List<com.fadcam.ui.faditor.layers.Track> audioLayerTracks = new ArrayList<>();
     private OnTrackHeaderActionListener trackHeaderActionListener;
@@ -1713,6 +1738,9 @@ public class EditorTimelineView extends View {
         if (!segmentTranscripts.isEmpty()) {
             contentDp += 17f;
         }
+        // Clip-audio drawer band: measured at its CURRENT animated height so the view
+        // grows/shrinks smoothly with the slide (the animator requestLayout()s per frame).
+        contentDp += clipAudioDrawerBandPx() / density;
         // Captions share ONE track row (sequential clips don't overlap), like a real caption track.
         int layerRows = overlays.size() + waveformLayers.size() + (captionSpans.isEmpty() ? 0 : 1);
         if (layerRows > 0) {
@@ -1819,6 +1847,12 @@ public class EditorTimelineView extends View {
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimGhosts(canvas, selectedIndex);
         }
+
+        // Clip-audio drawers: open shelves under their master clips (content space — they
+        // scroll/trim/reorder WITH their clip since geometry derives from segRects). Drawn
+        // BEFORE the segment loop so a drawer-open clip's transcript (which slides down to
+        // the drawer's inside bottom, painted by drawSegment) lands ON TOP of the shelf.
+        drawClipAudioDrawers(canvas);
 
         // Cull segments outside the visible viewport. onDraw runs on every frame
         // of a continuous trim/scroll drag; drawing (and lazily loading thumbnails
@@ -2231,9 +2265,24 @@ public class EditorTimelineView extends View {
         return segmentTranscripts.isEmpty() ? 0f : 17f * density;
     }
 
-    /** Top Y (px) of the AUDIO band (directly below master + its transcript reserve). */
+    /**
+     * Current height (px) of the clip-audio drawer BAND — the shared slot below the
+     * transcript reserve that open drawers slide into. All open drawers share one band
+     * (their clips are disjoint in x), so the band height is the MAX open fraction × the
+     * drawer height. 0 when every drawer is closed → the whole feature costs nothing.
+     */
+    private float clipAudioDrawerBandPx() {
+        if (clipAudioDrawerFraction.isEmpty()) return 0f;
+        float max = 0f;
+        for (Float f : clipAudioDrawerFraction.values()) {
+            if (f != null && f > max) max = f;
+        }
+        return max * CLIP_AUDIO_DRAWER_HEIGHT_DP * density;
+    }
+
+    /** Top Y (px) of the AUDIO band (below master + transcript reserve + any open clip-audio drawer). */
     private float audioBandTopPx() {
-        return masterBotPx() + transcriptReservePx() + audioTrackGapPx;
+        return masterBotPx() + transcriptReservePx() + clipAudioDrawerBandPx() + audioTrackGapPx;
     }
 
     /** Bottom Y (px) of the AUDIO band. Renderer-derived when audio rides the unified
@@ -2242,6 +2291,169 @@ public class EditorTimelineView extends View {
         return audioBandTopPx() + (audioLayerTracks.isEmpty()
                 ? audioTrackTotalHeightPx()
                 : layerRowRenderer.measureAudioBandHeightPx(audioLayerTracks));
+    }
+
+    // ── Clip-audio drawer: toggle + draw ─────────────────────────────────────
+
+    /**
+     * Open/close the clip's audio drawer with the slide animation. The animator drives the
+     * clip's fraction 0↔1; every frame re-measures (the band below reflows) + redraws. On a
+     * fully-closed end the entry is dropped so {@link #clipAudioDrawerBandPx} returns to 0.
+     */
+    private void toggleClipAudioDrawer(@NonNull String clipId) {
+        boolean opening = !clipAudioDrawerOpen.contains(clipId);
+        if (opening) clipAudioDrawerOpen.add(clipId); else clipAudioDrawerOpen.remove(clipId);
+
+        android.animation.ValueAnimator old = clipAudioDrawerAnims.remove(clipId);
+        if (old != null) old.cancel();
+
+        Float cur = clipAudioDrawerFraction.get(clipId);
+        float from = cur != null ? cur : (opening ? 0f : 1f);
+        float to = opening ? 1f : 0f;
+        android.animation.ValueAnimator va = android.animation.ValueAnimator.ofFloat(from, to);
+        va.setDuration((long) (CLIP_DRAWER_ANIM_MS * Math.abs(to - from)));
+        va.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        va.addUpdateListener(a -> {
+            clipAudioDrawerFraction.put(clipId, (Float) a.getAnimatedValue());
+            // Rects (legacy audio lane, content bounds) derive band tops at compute time —
+            // refresh them per frame so everything below reflows with the slide even when
+            // the parent grants a fixed height (onSizeChanged won't fire then).
+            computeRects();
+            requestLayout();
+            invalidate();
+        });
+        va.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                clipAudioDrawerAnims.remove(clipId);
+                if (!clipAudioDrawerOpen.contains(clipId)) {
+                    clipAudioDrawerFraction.remove(clipId);
+                }
+                requestLayout();
+                invalidate();
+            }
+        });
+        clipAudioDrawerAnims.put(clipId, va);
+        va.start();
+        performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK);
+    }
+
+    /** The segment index currently holding this clipId, or -1 (clip deleted/reordered away). */
+    private int segmentIndexForClipId(@NonNull String clipId) {
+        for (int i = 0; i < segments.size(); i++) {
+            if (clipId.equals(segments.get(i).clipId)) return i;
+        }
+        return -1;
+    }
+
+    /** Paints for the drawer body + the master clip's volume rubber-band inside it. */
+    private final Paint drawerBodyPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint drawerEnvLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint drawerEnvDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private boolean drawerPaintsInit;
+
+    /**
+     * Draw every open (or animating) clip-audio drawer. Content-space (inside the scroll
+     * translate). LIVE-FOLLOW: each drawer's x-range is re-derived from its clip's CURRENT
+     * segRect this frame, so scroll/trim/reorder/speed changes are followed with zero extra
+     * state; a deleted clip's entry is pruned here. The slide is a clip-rect reveal: the
+     * body translates up by the un-opened remainder, so it visually emerges from (and
+     * retracts back under) the strip above like a shelf.
+     */
+    private void drawClipAudioDrawers(@NonNull Canvas canvas) {
+        if (clipAudioDrawerFraction.isEmpty()) return;
+        if (!drawerPaintsInit) {
+            drawerPaintsInit = true;
+            drawerBodyPaint.setStyle(Paint.Style.FILL);
+            drawerBodyPaint.setColor(0xFF0A0D11); // prototype tape background
+            drawerEnvLinePaint.setColor(0xFF40C4FF);
+            drawerEnvLinePaint.setStyle(Paint.Style.STROKE);
+            drawerEnvLinePaint.setStrokeWidth(1.6f * density);
+            drawerEnvDotPaint.setColor(0xFF40C4FF);
+            drawerEnvDotPaint.setStyle(Paint.Style.FILL);
+        }
+        if (clipDrawerTapeRenderer == null) {
+            clipDrawerTapeRenderer =
+                    new com.fadcam.ui.faditor.waveform.TapeWaveformRenderer(density);
+        }
+        float bandTop = masterBotPx() + transcriptReservePx();
+        float H = CLIP_AUDIO_DRAWER_HEIGHT_DP * density;
+
+        java.util.Iterator<java.util.Map.Entry<String, Float>> it =
+                clipAudioDrawerFraction.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<String, Float> e = it.next();
+            int segIdx = segmentIndexForClipId(e.getKey());
+            if (segIdx < 0 || segIdx >= segRects.size()) {
+                // Clip no longer exists (deleted / replaced id on split-right-half) — prune.
+                android.animation.ValueAnimator anim = clipAudioDrawerAnims.remove(e.getKey());
+                if (anim != null) anim.cancel();
+                clipAudioDrawerOpen.remove(e.getKey());
+                it.remove();
+                continue;
+            }
+            float f = e.getValue() != null ? e.getValue() : 0f;
+            float visibleH = f * H;
+            if (visibleH < 1f) continue;
+            RectF seg = segRects.get(segIdx);
+            SegmentData sd = segments.get(segIdx);
+
+            canvas.save();
+            canvas.clipRect(seg.left, bandTop, seg.right, bandTop + visibleH);
+            canvas.translate(0f, visibleH - H); // slide: emerge from under the strip
+            float r = 3f * density;
+            canvas.drawRoundRect(seg.left, bandTop, seg.right, bandTop + H, r, r,
+                    drawerBodyPaint);
+
+            com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped tape =
+                    (tapeWaveformCache != null && sd.sourceUri != null && !sd.isImageClip)
+                            ? tapeWaveformCache.get(sd.sourceUri, sd.inPointMs, sd.outPointMs,
+                                    sd.sourceDurationMs)
+                            : null;
+            if (tape != null) {
+                RectF body = new RectF(seg.left, bandTop, seg.right, bandTop + H);
+                clipDrawerTapeRenderer.draw(canvas, body, tape.raw, tape.shaped, tapeStyle,
+                        sd.inPointMs, Math.max(1, sd.trimmedMs));
+            } else {
+                // Lazy extraction in flight (or failed) — dim placeholder on the dark body.
+                transcriptTextPaint.setTextSize(9f * density);
+                transcriptTextPaint.setColor(0x66FFFFFF);
+                canvas.drawText("analyzing audio…", seg.left + 6f * density,
+                        bandTop + H / 2f + 3f * density, transcriptTextPaint);
+                transcriptTextPaint.setColor(0x99FFFFFF);
+            }
+
+            // The clip's volume rubber-band (keyframes) rides ON TOP of the tape — same
+            // visual as the audio rows' envelope, mapped clip-local over the trimmed span.
+            if (sd.clip != null && sd.clip.hasVolumeKeyframes()) {
+                java.util.List<Clip.VolumeKeyframe> kfs = sd.clip.getVolumeKeyframes();
+                long dur = Math.max(1, sd.trimmedMs);
+                float w = seg.width();
+                canvas.save();
+                canvas.clipRect(seg.left, bandTop, seg.right, bandTop + H);
+                float prevX = 0f, prevY = 0f;
+                for (int k = 0; k < kfs.size(); k++) {
+                    Clip.VolumeKeyframe kf = kfs.get(k);
+                    float fx = Math.max(0f, Math.min(1f, kf.timeMs / (float) dur));
+                    float x = seg.left + fx * w;
+                    float gFrac = Math.max(0f, Math.min(1f, kf.volume / 2.0f));
+                    float y = (bandTop + H) - gFrac * H;
+                    if (k == 0) {
+                        canvas.drawLine(seg.left, y, x, y, drawerEnvLinePaint);
+                    } else {
+                        canvas.drawLine(prevX, prevY, x, y, drawerEnvLinePaint);
+                    }
+                    if (k == kfs.size() - 1) {
+                        canvas.drawLine(x, y, seg.right, y, drawerEnvLinePaint);
+                    }
+                    canvas.drawCircle(x, y, 2.6f * density, drawerEnvDotPaint);
+                    prevX = x;
+                    prevY = y;
+                }
+                canvas.restore();
+            }
+            canvas.restore();
+        }
     }
 
     /**
@@ -2804,6 +3016,22 @@ public class EditorTimelineView extends View {
         com.fadcam.ui.faditor.transcript.Transcript tr = segmentTranscripts.get(sd.clipId);
         if (tr == null || tr.words.isEmpty()) return;
 
+        // Clip-audio drawer: while this clip's drawer is open (or sliding), its transcript
+        // RIDES the drawer — sliding down from its under-strip row to sit along the INSIDE
+        // BOTTOM of the audio shelf, and back up as the drawer closes. Other clips'
+        // transcripts stay in the normal row. Word x-positions are unchanged (same rect
+        // left/right + pxPerMs), so words track their timestamps identically in both homes.
+        float yShift = 0f;
+        {
+            Float f = clipAudioDrawerFraction.get(sd.clipId);
+            if (f != null && f > 0f) {
+                float drawerBot = masterBotPx() + transcriptReservePx()
+                        + f * CLIP_AUDIO_DRAWER_HEIGHT_DP * density;
+                float normalBot = rect.bottom + TRANSCRIPT_BELOW_GAP_DP * density + 14f * density;
+                yShift = Math.max(0f, drawerBot - 2f * density - normalBot);
+            }
+        }
+
         float fontSize = 9f * density;
         transcriptTextPaint.setTextSize(fontSize);
         transcriptTextPaint.setTypeface(Typeface.DEFAULT);
@@ -2816,11 +3044,11 @@ public class EditorTimelineView extends View {
         transcriptHighlightPaint.setShadowLayer(2f * density, 0, 0, 0xFF000000);
 
         float pxPerMs = rect.width() / (float) sd.trimmedMs;
-        float textY = rect.bottom + (TRANSCRIPT_BELOW_GAP_DP + 9f) * density;
+        float textY = rect.bottom + (TRANSCRIPT_BELOW_GAP_DP + 9f) * density + yShift;
 
         // Clip to the segment's horizontal extent so words don't overflow
         canvas.save();
-        float transcriptTop = rect.bottom + TRANSCRIPT_BELOW_GAP_DP * density;
+        float transcriptTop = rect.bottom + TRANSCRIPT_BELOW_GAP_DP * density + yShift;
         float transcriptBot = transcriptTop + 14f * density;
         clipPath.reset();
         clipPath.addRect(rect.left, transcriptTop, rect.right, transcriptBot,
@@ -5310,14 +5538,43 @@ public class EditorTimelineView extends View {
             if (Math.abs(x - downX) < touchSlopPx) {
                 // Tapping a yellow silence candidate converts it to a cut.
                 if (showSilence && tryTapSilenceCandidate(downSegIndex, downX)) {
-                    // consumed — don't change selection
+                    // consumed — don't change selection (and never pairs into a double-tap)
+                    lastMasterTapClipId = null;
                 } else {
+                    // Clip-audio drawer (v2): two quick taps on the SAME master segment =
+                    // toggle its audio drawer (gesture contract §1's double-tap slot for
+                    // master clips). Detected BEFORE the selection toggle so the second
+                    // tap doesn't deselect what the first tap selected.
+                    SegmentData tappedSd = downSegIndex < segments.size()
+                            ? segments.get(downSegIndex) : null;
+                    long tapNow = android.os.SystemClock.uptimeMillis();
+                    boolean isDoubleTap = tappedSd != null && tappedSd.clipId != null
+                            && tappedSd.clipId.equals(lastMasterTapClipId)
+                            && tapNow - lastMasterTapUpMs <= MASTER_DOUBLE_TAP_WINDOW_MS;
+                    lastMasterTapClipId = tappedSd != null ? tappedSd.clipId : null;
+                    lastMasterTapUpMs = tapNow;
+
                     // Move the playhead to the tap so play resumes EXACTLY here
                     // (previously a tap only selected, leaving the playhead — and
                     // thus playback — at the old position).
                     seekToTimelineMs(xToTime(downX + scrollOffsetPx));
-                    // Toggle selection: deselect if same segment, select if different
-                    if (downSegIndex == selectedIndex) {
+
+                    if (isDoubleTap && !tappedSd.isImageClip) {
+                        lastMasterTapClipId = null; // consume the pair (no triple-chains)
+                        toggleClipAudioDrawer(tappedSd.clipId);
+                        // Keep the first tap's selection: ensure the clip stays selected
+                        // instead of the same-segment tap-toggle deselecting it.
+                        if (selectedIndex != downSegIndex) {
+                            selectedIndex = downSegIndex;
+                            if (selectedAudioIndex >= 0) {
+                                selectedAudioIndex = -1;
+                                if (listener != null) listener.onAudioClipSelected(-1);
+                            }
+                            if (listener != null) listener.onSegmentSelected(downSegIndex);
+                        }
+                        invalidate();
+                    } else if (downSegIndex == selectedIndex) {
+                        // Toggle selection: deselect if same segment, select if different
                         selectedIndex = -1;
                         invalidate();
                         if (listener != null) listener.onSegmentSelected(-1);

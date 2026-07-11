@@ -65,10 +65,24 @@ public final class BandEnvelopeShaper {
                 continue;
             }
             float ref = perBandNormalize ? peaks[b] : globalPeak;
+            // TRUE SILENCE: a band with no real signal must draw a FLAT BASELINE, not a
+            // full-height slab. Without this, normalize-by-own-peak turns digital silence
+            // (peak≈1e-9) into dB≈0 → v≈1 everywhere — the "solid gradient" bug on a
+            // silent-audio-track source (found on a muxed-silence AI clip, 2026-07-11).
+            if (ref < TRUE_SILENCE_RMS) {
+                out[b] = new float[e.length]; // all zeros
+                continue;
+            }
             out[b] = shapeBand(e, ref, TUNE[b], dt, smoothMul, contrastMul);
         }
         return out;
     }
+
+    /**
+     * RMS below this is treated as no signal at all (≈ −100 dBFS; true digital silence is
+     * exactly 0, real recordings' noise floors sit orders of magnitude above this).
+     */
+    private static final float TRUE_SILENCE_RMS = 1e-5f;
 
     @NonNull
     private static float[] shapeBand(@NonNull float[] e, float ref, @NonNull float[] tune,

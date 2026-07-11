@@ -222,6 +222,9 @@ public class EditorTimelineView extends View {
     private com.fadcam.ui.faditor.layers.LayerRowRenderer layerRowRenderer;
     /** W2: zoom-tiered HD waveform data source for the audio rows (see TimelineWaveformCache). */
     private com.fadcam.ui.faditor.waveform.TimelineWaveformCache timelineWaveformCache;
+    /** AV2: quad-band tape waveform — shared style + shaped-data cache for the audio rows. */
+    private com.fadcam.ui.faditor.waveform.TapeWaveformStyle tapeStyle;
+    private com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache tapeWaveformCache;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
     private final List<com.fadcam.ui.faditor.layers.Track> audioLayerTracks = new ArrayList<>();
     private OnTrackHeaderActionListener trackHeaderActionListener;
@@ -1075,6 +1078,12 @@ public class EditorTimelineView extends View {
         timelineWaveformCache = new com.fadcam.ui.faditor.waveform.TimelineWaveformCache(
                 getContext(), this::postInvalidateOnAnimation);
         layerRowRenderer.setHdWaveformProvider(timelineWaveformCache::get);
+        // AV2: quad-band tape waveform. Style holds the (currently default) look; the cache
+        // lazily extracts + shapes per audio clip and invalidates when a tape is ready.
+        tapeStyle = new com.fadcam.ui.faditor.waveform.TapeWaveformStyle();
+        tapeWaveformCache = new com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache(
+                getContext(), tapeStyle, this::postInvalidateOnAnimation);
+        layerRowRenderer.setTapeSource(tapeWaveformCache::get, tapeStyle);
         layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
                 layerRowRenderer, NOOP_GESTURE_CALLBACK);
 
@@ -6225,6 +6234,10 @@ public class EditorTimelineView extends View {
         // W2: stop any in-flight timeline waveform extraction with the view.
         if (timelineWaveformCache != null) {
             timelineWaveformCache.shutdown();
+        }
+        // AV2: stop any in-flight band-tape extraction with the view.
+        if (tapeWaveformCache != null) {
+            tapeWaveformCache.shutdown();
         }
         // Trim-edge preview teardown
         trimPreviewExecutor.shutdownNow();

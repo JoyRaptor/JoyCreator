@@ -915,17 +915,42 @@ public final class LayerRowRenderer {
         }
         itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : (lifted ? brighten(baseColor) : baseColor));
         int[] waveform = (item.getAudioClip() != null) ? item.getAudioClip().getWaveform() : null;
+        // AV2 quad-band tape: the richest audio representation, drawn in a dark contained body.
+        // Falls through to the W2/legacy bars while its lazy extraction is still in flight.
+        com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped tape = null;
+        if (item.getAudioClip() != null && tapeProvider != null && tapeStyle != null
+                && tapeRenderer != null && !ghosted) {
+            tape = tapeProvider.get(item.getAudioClip());
+        }
         // W2 HD zoom tier: when zoomed in far enough and the span-limited high-density
         // extraction has landed, draw from it instead of the legacy fixed-800 samples —
         // same aqua bars, but word/onset-level detail resolves. Falls back to the legacy
         // int[] (instant, persisted) until the extraction is ready.
         com.fadcam.ui.faditor.model.WaveformData hdWave = null;
-        if (item.getAudioClip() != null && hdWaveformProvider != null) {
+        if (tape == null && item.getAudioClip() != null && hdWaveformProvider != null) {
             long clipDurMs = Math.max(1, item.getAudioClip().getTrimmedDurationMs());
             float pxPerSec = (x1 - x0) / (clipDurMs / 1000f);
             hdWave = hdWaveformProvider.get(item.getAudioClip(), pxPerSec);
         }
-        if (hdWave != null || waveform != null) {
+        if (tape != null) {
+            if (lifted) {
+                float grow = 1.5f * density;
+                canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
+                        3f * density, 3f * density, itemPaint);
+            }
+            // Dark contained body (prototype background), then the tape bands on top.
+            int prevBody = itemPaint.getColor();
+            itemPaint.setColor(0xFF0A0D11);
+            canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
+            itemPaint.setColor(prevBody);
+            tapeRect.set(x0, top, x1, bottom);
+            long inMs = item.getAudioClip().getInPointMs();
+            long durMs = Math.max(1, item.getAudioClip().getTrimmedDurationMs());
+            canvas.save();
+            canvas.clipRect(x0, top, x1, bottom);
+            tapeRenderer.draw(canvas, tapeRect, tape.raw, tape.shaped, tapeStyle, inMs, durMs);
+            canvas.restore();
+        } else if (hdWave != null || waveform != null) {
             if (lifted) {
                 float grow = 1.5f * density;
                 canvas.drawRoundRect(x0 - grow, top - grow, x1 + grow, bottom + grow,
@@ -1123,6 +1148,32 @@ public final class LayerRowRenderer {
 
     public void setHdWaveformProvider(@Nullable HdWaveformProvider provider) {
         this.hdWaveformProvider = provider;
+    }
+
+    // ── Quad-band tape waveform (AV2) — takes precedence over the W2/legacy bars ──
+
+    /** Source of shaped quad-band tape data; {@code null} while lazily extracting. */
+    public interface TapeProvider {
+        @Nullable
+        com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped get(
+                @NonNull com.fadcam.ui.faditor.model.AudioClip clip);
+    }
+
+    @Nullable
+    private TapeProvider tapeProvider;
+    @Nullable
+    private com.fadcam.ui.faditor.waveform.TapeWaveformStyle tapeStyle;
+    @Nullable
+    private com.fadcam.ui.faditor.waveform.TapeWaveformRenderer tapeRenderer;
+    private final RectF tapeRect = new RectF();
+
+    public void setTapeSource(@Nullable TapeProvider provider,
+                              @Nullable com.fadcam.ui.faditor.waveform.TapeWaveformStyle style) {
+        this.tapeProvider = provider;
+        this.tapeStyle = style;
+        if (provider != null && tapeRenderer == null) {
+            tapeRenderer = new com.fadcam.ui.faditor.waveform.TapeWaveformRenderer(density);
+        }
     }
 
     /** Scratch rect for visible-span clipping in {@link #drawHdAudioWaveform}. */

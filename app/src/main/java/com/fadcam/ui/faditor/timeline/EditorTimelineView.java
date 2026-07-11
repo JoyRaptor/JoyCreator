@@ -501,7 +501,9 @@ public class EditorTimelineView extends View {
     // lands the disk LRU cache layer; the full "one background sequential MediaCodec sweep"
     // accurate-extraction architecture (replacing per-thumb OPTION_CLOSEST_SYNC seeks) is a
     // separate, larger follow-up — see the note above extractVideoThumbnails.
-    private static final int FILMSTRIP_CACHE_VERSION = 1;
+    // v2: filmstrip frames now come from an accurate forward MediaCodec sweep instead of
+    // OPTION_CLOSEST_SYNC keyframe snapping — bump so old keyframe-snapped strips invalidate.
+    private static final int FILMSTRIP_CACHE_VERSION = 2;
     private static final long FILMSTRIP_CACHE_MAX_BYTES = 24L * 1024 * 1024; // ~24MB LRU cap
     private final ExecutorService thumbnailExecutor = Executors.newFixedThreadPool(2);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -3262,18 +3264,55 @@ public class EditorTimelineView extends View {
     }
 
     /**
-     * Extracts evenly-spaced video frames using MediaMetadataRetriever.
+     * Extracts evenly-spaced video frames for the filmstrip.
+     *
+     * <p>Road_map T1: the accurate path is ONE sequential {@link FilmstripSweepExtractor} decode
+     * sweep per source — it decodes forward and grabs the first frame at/after each target
+     * timestamp, so filmstrip tiles stop keyframe-snapping (no more wrong/duplicated frames on
+     * long-GOP screen recordings). On any codec failure it falls back to the old
+     * {@code MediaMetadataRetriever} keyframe-snap path so a segment is never left blank that the
+     * old code would have filled.
      */
     private void extractVideoThumbnails(@NonNull Uri uri, long inMs, long outMs,
                                         @NonNull List<Bitmap> out, int thumbSize, int count) {
+        long rangeMs = Math.max(1, outMs - inMs);
+        long[] targetsUs = new long[count];
+        for (int i = 0; i < count; i++) {
+            long timeMs = inMs + (rangeMs * i) / count;
+            targetsUs[i] = timeMs * 1000L;
+        }
+
+        // Accurate sequential sweep first.
+        try {
+            List<Bitmap> swept = FilmstripSweepExtractor.sweep(getContext(), uri, targetsUs, thumbSize);
+            if (swept != null && swept.size() == count) {
+                out.addAll(swept);
+                return;
+            }
+            if (swept != null) {
+                for (Bitmap b : swept) if (b != null && !b.isRecycled()) b.recycle();
+            }
+        } catch (Throwable t) {
+            // Defensive: sweep is written to return null rather than throw, but never let a
+            // decoder quirk crash the extraction thread — fall through to the MMR path.
+            FLog.w(TAG, "Filmstrip sweep threw; falling back to MMR", t);
+        }
+
+        // Fallback: original per-thumbnail keyframe-snapped extraction (unchanged behaviour).
+        extractVideoThumbnailsMmr(uri, targetsUs, out, thumbSize);
+    }
+
+    /**
+     * Legacy per-thumbnail extraction via {@link MediaMetadataRetriever} with
+     * {@code OPTION_CLOSEST_SYNC} (keyframe-snapped). Used only as a fallback when the accurate
+     * sweep fails for a source.
+     */
+    private void extractVideoThumbnailsMmr(@NonNull Uri uri, @NonNull long[] targetsUs,
+                                           @NonNull List<Bitmap> out, int thumbSize) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         try {
             retriever.setDataSource(getContext(), uri);
-            long rangeMs = Math.max(1, outMs - inMs);
-
-            for (int i = 0; i < count; i++) {
-                long timeMs = inMs + (rangeMs * i) / count;
-                long timeUs = timeMs * 1000L;
+            for (long timeUs : targetsUs) {
                 Bitmap frame = retriever.getFrameAtTime(timeUs,
                         MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
                 if (frame != null) {
@@ -3295,7 +3334,7 @@ public class EditorTimelineView extends View {
      * Center-crops a bitmap to a square and scales to targetSize.
      */
     @NonNull
-    private static Bitmap centerCropSquare(@NonNull Bitmap src, int targetSize) {
+    static Bitmap centerCropSquare(@NonNull Bitmap src, int targetSize) {
         int w = src.getWidth();
         int h = src.getHeight();
         int side = Math.min(w, h);

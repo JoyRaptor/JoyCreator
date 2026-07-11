@@ -166,7 +166,26 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       (DiscreteState keyed domainId/partId), swapped-on-source-change, tolerant fromJson, pin
       renormalization over pin-carriers — all proven by a JVM harness (7 cases green). OWED: on-device
       launch verify once the build watcher returns; user feel-test of the blend.
-- [ ] A2 tracking driver (BLOCKED on watcher for the MediaPipe gradle dep)  - [ ] A3 visemes  - [ ] A4 recorder integration
+- [x] A2 tracking driver: bus/pipeline/One-Euro/life landed earlier; D4 MediaPipe
+      FaceLandmarker source landed bdb9be8. Axis-tuning knobs MIRROR_YAW/SIGN_PITCH await
+      device verify.
+- [ ] A3 visemes (amplitude tier EXISTS in TrackingParamPipeline; spectral/TarsosDSP tier open)
+- [x] **A4 COMPLETE 2026-07-11 (c0c4020 + 7b4edb3 + 16a712f, device verify owed)**:
+      (1) puppet RENDERS into the webcam bubble — camera single-owner honored (Camera2
+      preview never opens in avatar mode; the tracker owns the front cam and webcam pixels
+      never render), PuppetPreviewView cleanRender + vsync pull loop, live webcam↔avatar
+      cycling, minimize/restore lifecycle; (2) CLEAR STAGE mode (user request): transparent
+      card → only the character floats over the screen for manual hand-puppeteering into
+      the recording; (3) Avatar Studio STANDALONE (library-backed, main-menu person icon,
+      new-avatar-from-image seed; AvatarLibrary.save made temp-then-rename — save-over was
+      a data-loss landmine); (4) editor avatar item: insert-from-library → neutral-pose
+      bake (AvatarNeutralBaker, offscreen PuppetPreviewView = preview==bake) → 1-cell
+      sprite sheet → the complete sprite pipeline. AvatarParamTrack (bake foundation,
+      ParamTrackTest 25/25) landed for the next slice.
+- [ ] A4-NEXT bake-to-keyframes: record a face-tracked performance onto a placed avatar
+      item (AvatarParamTrack exists), live puppet render in editor preview+export
+      (replaces the neutral PNG when a track exists — locked-file surgery: compositor +
+      ExportManager). Then point-at-video (VIDEO-mode FaceLandmarker over a clip → track).
 - [ ] A5 AI rigging
 - [~] A6 limbs — **PIN-WARP CORE LANDED 2026-07-06 (5e3a94d)**: PinWarpStrip math (JVM harness
       PinWarpTest 16/16 — identity/translation/90° bend/guards/degenerates), Part.restPins

@@ -49,7 +49,44 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-07-11 ~15:15 — EXECUTION MISSION, JoyRaptor full go-ahead: MediaPipe UNGATED,
+status: IDLE (2026-07-11 ~19:45 — JOY CREATOR finish push, A4 PRODUCT LOOP COMPLETE, all
+        committed, tree green (subagents were user-stopped early; Fable did all three inline):
+        • c0c4020 A4 HEART: puppet RENDERS into the webcam bubble (camera single-owner:
+          Camera2 preview never opens in avatar mode, MediaPipeTrackingSource owns the front
+          cam, feeds ONLY the tracker; PuppetPreviewView cleanRender in the card, vsync pull
+          loop) + CLEAR STAGE toggle (transparent card — only the puppet floats over the
+          screen, JoyRaptor's manual-puppeteering request) + AvatarParamTrack bake foundation
+          (ParamTrackTest 25/25 GREEN, new harness in tools/jvm-harness).
+        • 7b4edb3 Avatar Studio STANDALONE mode (library-backed, no project; chooser +
+          new-avatar-from-image) + main-menu entry (person icon, Faditor tab header).
+          FIXED data-loss landmine: AvatarLibrary.save now temp-then-rename (was: delete
+          bundle then copy sheets FROM the deleted bundle on save-over).
+        • 16a712f editor avatar item: '⇓ Insert' entries in the avatar dialog → neutral-pose
+          bake (AvatarNeutralBaker, offscreen PuppetPreviewView) → 1-cell sprite sheet →
+          placeSpriteOnVideo (full sprite pipeline, zero new compositor surface). Rig+sheets
+          import idempotently; avatar-<rigId8>-neutral.png carries the rig linkage.
+        NEXT (ordered): #4 bake-to-keyframes (record face-tracked performance on a placed
+        avatar item, live puppet render preview+export — heavy, locked-file surgery, wants a
+        fresh session) → #5 point-at-video → #6 A5 AI rigging. DEVICE VERIFY OWED on ALL of
+        today (batch checklist in the session task list #7): studio 🎯 track axes, Library ⇪,
+        bubble face-button → puppet renders, clear-stage toggle, main-menu studio entry,
+        standalone chooser + new-from-image, editor insert-from-library.)
+files: (none — released. opencode's grade-presets files still live-untouched.)
+since: 2026-07-11 ~19:45
+prior: IDLE (2026-07-11 ~15:45 mission chunk 1 WRAPPED, all committed, tree green:
+        bdb9be8 D4 MediaPipe face tracking (Opus sub, reviewed) — DEVICE VERIFY OWED,
+        checklist in the D4 commit + PLAN_AVATAR_STUDIO; tuning knobs MIRROR_YAW/SIGN_PITCH.
+        693a943 sprite S2b gap-close (Sonnet sub, reviewed) — most of S2b pre-existed, docs were stale.
+        4860b8f AvatarLibrary cross-project bundles (Fable) — A4 foundation.
+        6decf21 A4 slice 2 (Fable): studio "Library ⇪" publish chip + recorder avatar
+        selector ("face" btn before Rotate on the webcam bubble, cycles library entries,
+        persists avatarEntryDir, green tint). HONEST STUB: puppet does NOT render into the
+        bubble yet — that's the next A4 slice (renderer replaces preview surface, camera
+        feeds only the tracker, read avatarEntryDir from PREFS floating_webcam_prefs).
+        NEXT (ordered): studio save-to-library btn → recorder avatar picker (A4) → editor avatar
+        item → bake-to-keyframes → point-at-video → A5. Then FF-A/FF-B sprites, Slice E/F.)
+files: (none — released. opencode's grade-presets files still live-untouched.)
+prior-claim: ACTIVE (2026-07-11 ~15:15 — EXECUTION MISSION, JoyRaptor full go-ahead: MediaPipe UNGATED,
         avatar product loop (library→A4→bake→point-at-video→A5), sprite FF-A/FF-B + S2b,
         Slice E/F. JoyRaptor permits TWO Fable-directed subagents (one Opus, one Sonnet) this
         mission — scoped exception to the one-subagent rule, to save Fable credits.

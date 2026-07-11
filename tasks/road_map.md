@@ -101,18 +101,29 @@ the surrounding footage. Separate concern from the P0 above; check opportunistic
    code) — keep them on a strong model. Bootstrap prompt ready: `BOOTSTRAP_LAYERS_BUILD_20260706.md`.
 2. **Opencode/Sonnet-tier lane (parallel, see `tasks/LANES.md` for the lock protocol):** ~~rebrand-pass-1
    remainder~~ DONE (see §BACKLOG); avatar A4 (recorder integration)/A5 (AI rigging) — still open, but both
-   are JoyRaptor's-lane/high-novelty, not a solo-Sonnet pick; "sprite fast-follows T3/T4" — **orphaned reference,
-   verified 2026-07-07**: no doc (`PLAN_SPRITE_ANIMATION.md`, `PLAN_AVATAR_STUDIO.md`, `Opencode-work.md`,
-   the ObsidianBrain source doc) defines a T3/T4 — likely shorthand from a conversation that never made it
-   into a doc; needs JoyRaptor to clarify what these actually refer to before anyone can pick them up; ~~dead-code
+   are JoyRaptor's-lane/high-novelty, not a solo-Sonnet pick; "sprite fast-follows T3/T4" — **DE-ORPHANED 2026-07-11 (Fable, from the original conversation):**
+   these were task labels from the 2026-07-06 handoff session's internal list. T3 = sprite S7
+   missing-sheet relink (since DONE per the S1–S7 line above); T4 = sprite **S2b setup-editor polish**
+   (auto-detect grid gutter-scan, onion skin, bg-key UI, sw600dp two-pane, sidecar .sprite.json export
+   button, filmstrip polish — list in `PLAN_SPRITE_ANIMATION.md` S2 status block). T6/T7 in that same
+   list = FF-A (presets + dope-sheet UI) and FF-B (AI sprite tools) — both still open; ~~dead-code
    cleanup of the old `drawLayers`/`selectedLayerKind` path~~ DONE (`96cba7f`, verified zero remaining
-   references); audio old-vs-new row consolidation — still open, genuinely hard (flagged multi-session
-   backbone, ~9 call sites, Fable/Opus territory); small never-built features — see §BACKLOG, mostly closed
-   as of the 2026-07-07 sweep. Queue lives in `tasks/Opencode-work.md`.
-3. Export work package (minimize-during-export + edit-safety + out-of-process + quality setting) —
-   **Fable lane** (touches `ExportManager`), not yet started, bundled as one phase.
-4. GL wave / timeline-fidelity items (T1 filmstrip sweep-cache; masking already shipped via the
-   compositing family, this is the remaining timeline-render polish).
+   references); ~~audio old-vs-new row consolidation~~ DONE (`f31f16c` two-band renderer + `9b37f99`
+   clipping fix; per-op smoke PASS per handoff.md 2026-07-11); small never-built features — see §BACKLOG, mostly closed
+   as of the 2026-07-07 sweep. Queue lives in `tasks/Opencode-work.md`. **G1–G8 all shipped** (hashes:
+   `c17ec31`/`64566be` G1, `7e934f5` G2, `975ade2` G3, `5b53db4` G4, `5192186` G5a, `bf7b63e`/`67259b1`/
+   `a4baee5` G6.x, `954a63e` G7, `dbf1628` G8); **G9 groundwork** landed `cc68b3b` + design doc `bca07d3` —
+   G5 fast-follows and G9 UI (needs JoyRaptor's 5 answers, `PLAN_G9_LINK_ENGINE.md`) remain open.
+3. ~~Export work package (minimize-during-export + edit-safety + out-of-process + quality setting)~~
+   SHIPPED: edit-safety+quality (`0ce35ea`), minimize-during-export (`a4baee5`), out-of-process export
+   (`3b5af9a`, device-proven — survives editor-process kill mid-export), audio-only export engine+UI
+   (`d32cb02` + `bafe177`, device-verified .m4a on SM-N960U). Package COMPLETE. Note: `313e7fa` fixed a
+   related export-stall bug (transition ≥ straddled clip duration) — build-green, **device verify still
+   owed**.
+4. GL wave / timeline-fidelity items — T1 filmstrip: disk-cache half landed (`e63ba4c`), sweep half
+   IN PROGRESS this session (Opus agent); masking already shipped via the compositing family, this is
+   the remaining timeline-render polish. W2 zoomed-tier waveform separately SHIPPED (`0433439`,
+   device-verified per handoff 2026-07-11) — see §BACKLOG entry below.
 **GATES:** ~~main-phone real-project session (NEVER YET RUN)~~ **RUN 2026-07-07** — device authorized,
 current build installed, real project (`27221664…`, schemaVersion 7 on disk, pre-Layers-model) opened
 successfully; schema migration completed with no crash (new Layers-model fields present in-memory/on
@@ -164,8 +175,10 @@ big-bang — no single task to point at).
 
 **Timeline fidelity remainder (`FEEDBACK_20260703_timeline_fidelity.md` — W1 waveforms shipped by opencode;
 lane: opencode unless it touches shared render paths):** T1 — accurate filmstrip via a background
-sequential-sweep MediaCodec pass + disk LRU cache (W2 zoomed-tier waveform was explicitly skipped by
-opencode round 2, still open too, same lane).
+sequential-sweep MediaCodec pass + disk LRU cache: disk-cache half landed (`e63ba4c`, "T1 partial scope"),
+sweep half IN PROGRESS this session (Opus agent). ~~W2 zoomed-tier waveform~~ DONE (`0433439`, HD zoom
+tier for audio-row waveforms, device-verified per handoff.md 2026-07-11 device-verify batch — was
+explicitly skipped by opencode round 2, later picked up and shipped).
 
 **Open UX decisions, not build tasks (needs JoyRaptor's call, not an AI's):** bookmarks (droppable ruler
 markers) and playhead time-chip (mm:ss.mmm precision readout) — designed in dragux_v3 but NOT covered by
@@ -189,9 +202,13 @@ start without a fresh go-ahead):** export work package (Fable lane, §above); AI
 (ffmpeg templates + live recording integration, `feature-visualizer-studio-spec.md`); B-roll matching
 apply-UI (Phase 2) + vision-tagging (Phase 3, explicitly out of scope for now); LUT filters + intensity
 slider (`PLAN_filters_color_text_transitions.md` §2); GL transition menu UI with pre-baked animated cards
-(§4.8); studio drawers redesign remainder — transitions-drawer pull-down-for-more-rows gesture, external
-`.glsl` params auto-parsing confirmation (`PLAN_studio_drawers_redesign.md`); waveform-visualizer-studio
-Phase 3 remainder (bar-width/gap sliders, template gallery, SAF import/export of custom styles).
+(§4.8); studio drawers redesign remainder — ~~transitions-drawer pull-down-for-more-rows gesture~~ DONE
+(`00d9e41`, device-verified by JoyRaptor); external `.glsl` params auto-parsing confirmation still open
+(`PLAN_studio_drawers_redesign.md`); ~~waveform-visualizer-studio Phase 3 remainder (bar-width/gap
+sliders, template gallery, SAF import/export of custom styles)~~ DONE (`ae07b21` — template gallery and
+SAF import/export were already live per that commit's own audit, bar-width/gap was the real gap and it
+shipped); only remaining piece is surfacing SAF Export/Import buttons in the real editor drawer
+(currently debug-host-only, `d59b7b6`).
 
 **Direction-only, below the active queue (`DESIGN_JOY_CREATOR.md` §7 — not a build order):** full-studio
 vision (Capture → Library → Studio → Remote fold); forensics-module repurpose (Story Board, auto-markers,
@@ -435,16 +452,19 @@ These clear blockers for everything else. Do FIRST, in order.
 ## Phase 3 — Visual Polish & Transitions
 
 ### 3.1 GL transition REAL preview cards [Track I]
-**Status:** ❌ NOT STARTED  |  **Depends on:** nothing
-- Currently show category-proxy animations
-- Build `GlTransitionShaderLoader`, `GlTransitionShaderProgram`, `GLTransitionCatalog`
-- Render actual GLSL shaders in each card via shared GLSurfaceView or pre-baked sprites
-- 26 shaders already in `assets/gl_transitions/`
-- Java side NOT built at all
-- **Files:** New files in `gltransitions/`, `TransitionPreviewCardView.java`
+**Status:** ✅ DONE + DEVICE-VERIFIED (2026-07-10) — was stale, corrected in 2026-07-11 truth sweep
+| **Depends on:** nothing
+- Java side FULLY BUILT: `GlTransitionShaderLoader`, `GLTransitionCatalog`, headless card baker
+  (`2593bdb`) + fix (`347cde1`, upload-flip + highp retry, cache VERSION 2)
+- Device-verified on SM-N960U: 35+ of ~37 shaders bake and demo their real GLSL effect (upright,
+  correct orientation); `powerKaleido` fails GLSL compile at both precisions on this driver and stays
+  on its category-proxy card BY DESIGN (documented driver limitation, not a gap)
+- **Files:** `gltransitions/GLTransitionCatalog.java`, `gltransitions/GlTransitionShaderLoader.java`,
+  `player/TransitionPreviewCardView.java`
 
 ### 3.2 Transitions pull-down-for-more-rows gesture [Track F]
-**Status:** ❌ NOT STARTED  |  **Depends on:** 3.1
+**Status:** ✅ DONE + DEVICE-VERIFIED (`00d9e41`, verified by JoyRaptor per handoff `c6117a2`/`08433d4`) —
+was stale, corrected in 2026-07-11 truth sweep  |  **Depends on:** 3.1
 - Pull down on transition drawer to reveal 2nd/3rd row of cards
 - **Files:** `FaditorEditorActivity.java`
 
@@ -527,6 +547,10 @@ These clear blockers for everything else. Do FIRST, in order.
 
 ## Phase 5 — THE KEYSTONE: Layers (Multi-Track)
 
+**HISTORICAL — superseded.** This phase is long since shipped; see the 🎯 2026-07-06 STRATEGIC STATE
+block and 🔄 2026-07-03 SYNC §STATUS CORRECTIONS near the top of this file for the real (DONE) status.
+Left below for historical trace only — do not read the per-item statuses as current.
+
 **Estimated: 3-5 sessions. Do NOT start until Phases 0-1 are solid.**
 
 ### 5.1 Schema v6 + Track model [Track H]
@@ -584,10 +608,13 @@ These clear blockers for everything else. Do FIRST, in order.
 - **Files:** `AIToolExecutor.java`, new vision integration
 
 ### 6.3 Visualizer Studio Phase 3 — full designer [Track E]
-**Status:** 🔶 Partial (colour override + sensitivity shipped)  |  **Depends on:** nothing
-- Bar-width/gap sliders
-- Template gallery
-- SAF import/export of custom styles
+**Status:** ✅ DONE (`ae07b21`) — was stale, corrected in 2026-07-11 truth sweep. Per `ae07b21`'s own
+commit body: template gallery was already live (Rolodex style/gradient carousels) and SAF import/export
+already existed in `WaveformStyleIO` — the only genuinely-missing piece was bar-width/gap sliders,
+which that commit shipped (preview+export share the same `applyOverrides`, zero export-path changes).
+**One real gap remains:** SAF import/export is only wired into the debug host (`d59b7b6`) — surfacing
+Export/Import buttons in the real `FaditorEditorActivity` drawer is still an owed follow-up.
+|  **Depends on:** nothing
 - **Files:** `WaveformStyleIO.java`, visualizer drawer
 
 ---
@@ -649,14 +676,14 @@ These clear blockers for everything else. Do FIRST, in order.
 | **Phase 0-1 status** | ✅ ALL DONE | | | |
 | 2.1 Narrative reorder UI | P1 | ~1 session | Low | — |
 | 2.2 B-roll matching UI | P1 | ~1 session | Low | — |
-| 3.1 GL real preview cards | P2 | ~2 sessions | Medium | — |
+| 3.1 GL real preview cards | ✅ DONE | ~2 sessions | Medium | — |
 | 3.3 Visualizer tap-dismiss | P2 | ~0.5 session | Low | — |
 | 3.4 Visualizer auto-snap | P2 | ~0.5 session | Low | — |
 | 3.5 Captions Rolodex | P2 | ~1 session | Low | — |
 | 4.1–4.5 Asset Browser v2 | P2 | ~2 sessions | Medium | — |
 | 5.1–5.5 Layers | P0 (keystone) | 3-5 sessions | **High** | Phase 0-1 |
 | 6.1 AI-Generated slides | P2 | 2-4 sessions | High | — |
-| 6.3 Visualizer Studio full | P2 | ~1 session | Low | — |
+| 6.3 Visualizer Studio full | ✅ DONE (SAF drawer-surfacing owed) | ~1 session | Low | — |
 | 7.1 Webcam rotate verify | P1 | ~0.5 session | Low | — |
 | 7.2 Dual-stream recording | P2 | 2-4 sessions | High | 7.1 |
 | 8.1 Audio ducking | P2 | ~1 session | Medium | — |

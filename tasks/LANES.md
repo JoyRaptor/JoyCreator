@@ -32,8 +32,9 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: Fable (2026-07-08 crunch — device unlocked by JoyRaptor; running the audio-consolidation +
-  G5a smoke checklists, then fixing the audio-band clipping bug found during smoke.)
+DEVICE: free (Fable released 2026-07-11 ~01:10 after full verify batch: AV3 layout, W2 zoom,
+  smoke i/k/l, G5a attach+detach, GL More-effects — ALL PASS. Sandbox bdd51919 restored pristine
+  (md5 e81a6df8…), undo_history cleared. See handoff 2026-07-11 block.)
 (Fable owns it during hard interactive device-loops; opencode does code+compile-only
 and BATCHES its device-verify into windows when this reads `free` / Fable is IDLE.)
 
@@ -48,7 +49,36 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-07-09 crunch, Opus. Landed + committed this session:
+status: ACTIVE (2026-07-11 ~15:15 — EXECUTION MISSION, JoyRaptor full go-ahead: MediaPipe UNGATED,
+        avatar product loop (library→A4→bake→point-at-video→A5), sprite FF-A/FF-B + S2b,
+        Slice E/F. JoyRaptor permits TWO Fable-directed subagents (one Opus, one Sonnet) this
+        mission — scoped exception to the one-subagent rule, to save Fable credits.
+        Opus sub → D4 MediaPipe TrackingSource adapter (avatar/* NEW files + app/build.gradle).
+        Sonnet sub → sprite S2b setup-editor polish (sprite/* only).
+        Fable → avatar library/sidecar groundwork + review/commit + docs.
+        NO DEVICE connected this session — all work is build-green + hand-test checklists.
+        opencode's uncommitted grade-presets files (FilterBottomSheet/strings/GradePresetStore)
+        remain UNTOUCHED.)
+files: avatar/* (new files; AvatarRig lock respected — additive only), app/build.gradle,
+        sprite/SpriteSheetEditorActivity.java, sprite/SpriteGridEditorView.java,
+        sprite/SpriteGridDetector.java, sprite/SpriteSheetRenderer.java, tasks/*
+since: 2026-07-11 ~15:15
+prior: (2026-07-11 autonomous push wrapped mid-flight; filmstrip T1 landed 78a6c6b. opencode's
+        uncommitted grade-presets files (FilterBottomSheet/strings/GradePresetStore) are LIVE —
+        nobody touches them.)
+prior: IDLE (2026-07-11 continuation wrapped. This session committed + verified:
+        • 4ff1707 audio layerId-clone + stale-selection fixes (both AUDIO#3 findings) — DEVICE-VERIFIED
+        • 313e7fa export transition≥clip muxer-stall fix — build-green, DEVICE VERIFY OWED (see below)
+        • fdad81f AV3 audio-row expand/collapse layout — DEVICE-VERIFIED
+        • e7a863c AV4-groundwork (TapeWaveformStyle prefs + settings sheet, UNWIRED)
+        • acaeace AV5 perf/cleanup PLAN doc
+        Full device verify batch ALL PASS: AV3, W2 zoom, smoke i/k/l, G5a attach+detach, GL cards.
+        NEXT: AV4 wire-up (settings sheet under toolbar Settings + first-import eager/lazy popup),
+        then AV5 perf (tile-cache the tape draw) + dead-code removal. Also OWED device verify:
+        313e7fa export fix (repro = AudioExportVerify aeb0517e seam-2 → 600ms, export both paths).)
+files: (none — released; all committed)
+since: 2026-07-11
+prior-status: ACTIVE (2026-07-09 crunch, Opus. Landed + committed this session:
         • 9b37f99 audio-band clipping fix — DEVICE-VERIFIED (both audio rows fully visible even
           under a compressed view; was: bottom band clipped off-screen when view height-constrained).
         • 2593bdb GL-transition card baker (Opus subagent) — P0 NATIVE-ABORT CRASH FIXED
@@ -186,9 +216,6 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-07-07 — Opus "easy frontier" session wrapped. Landed: G7 coach-marks (954a63e) +
-  transitions pull-down-for-more-rows (00d9e41), both build-green + launch-smoke-clean. DEFERRED both
-  export items (quality setting + edit-safety) — entangled with the locked/correctness-critical
-  ExportManager, see handoff.md. Owed hand-tests in that block.)
-files: (none — released; committed, code tree clean)
-since: 2026-07-07
+status: ACTIVE (2026-07-10 — grade presets feature)
+files: FilterBottomSheet.java, effects/GradePresetStore.java, res/values/strings.xml
+since: 2026-07-10

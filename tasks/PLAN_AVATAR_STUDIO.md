@@ -1,4 +1,18 @@
 # PLAN — Avatar Studio (Character-Animator-class puppets, offline, on-device)
+
+> **🟢 2026-07-11 — JOYRAPTOR FULL GO-AHEAD (supersedes all gates):** MediaPipe dependency UNGATED —
+> D4 (FaceLandmarker TrackingSource) is being built NOW by a Fable-directed Opus subagent per the
+> delegation spec §D4. The whole product loop is approved for execution: real face tracking → avatar
+> LIBRARY (save once, pick anywhere) → A4 recorder integration → bake-to-keyframes in the editor →
+> point-at-a-video (offline video → tracked → baked) → A5 AI rigging. JoyRaptor also permits two
+> Fable-directed subagents (one Opus, one Sonnet) on this mission.
+> **LIBRARY CONTRACT LANDED (this session):** `avatar/AvatarLibrary.java` — a library entry is a
+> SELF-CONTAINED BUNDLE dir `files/avatar_library/<name>-<id8>.avatar/` = `avatar.json`
+> (libSchemaVersion + rig JSON + embedded sheet defs with RELATIVE sheetUris) + `sheets/<sheetId>.png`
+> bytes. Rationale: a rig without its sheets is useless cross-project; same movable-bundle philosophy
+> as `project://`. Consumers to build next: Studio "Save to library" button (wait until the D4 agent's
+> AvatarStudioActivity edits land to avoid collisions), recorder avatar picker (A4), editor
+> avatar-item insert + import-into-project glue (copy sheets into project assets, re-register).
 > ⛏️ GLM-5.1 MINING RESULTS (2026-07-04, orchestrator-vetted — JoyRaptor: fold these in; full analysis below §MINED).
 > Fable architectural plan 2026-07-03 (user's vision: webcam-driven sprite avatars replacing the webcam
 > bubble in screen recordings). Companion external research from another AI incoming — merge its findings

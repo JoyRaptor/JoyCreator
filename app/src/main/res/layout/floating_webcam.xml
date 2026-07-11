@@ -106,6 +106,21 @@
                 android:textColor="@android:color/white"
                 android:fontFamily="@font/materialicons" />
 
+            <!-- A4 "clear stage": transparent card so ONLY the puppet floats over
+                 the screen (manual hand-puppeteering into the recording).
+                 Shown in avatar mode only. -->
+            <TextView
+                android:id="@+id/btnWebcamAvatarBg"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_marginStart="6dp"
+                android:gravity="center"
+                android:text="opacity"
+                android:textSize="19sp"
+                android:textColor="@android:color/white"
+                android:fontFamily="@font/materialicons"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/btnWebcamRotate"
                 android:layout_width="34dp"

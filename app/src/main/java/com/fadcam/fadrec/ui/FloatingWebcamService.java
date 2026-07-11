@@ -37,8 +37,18 @@ import androidx.core.app.NotificationCompat;
 
 import com.fadcam.FLog;
 import com.fadcam.R;
+import com.fadcam.ui.faditor.avatar.AvatarLibrary;
+import com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource;
+import com.fadcam.ui.faditor.avatar.PuppetPoseResolver;
+import com.fadcam.ui.faditor.avatar.PuppetPreviewView;
+import com.fadcam.ui.faditor.avatar.TrackingDriverBus;
+import com.fadcam.ui.faditor.sprite.SpriteSheet;
+import com.fadcam.ui.faditor.sprite.SpriteSheetRenderer;
 
+import java.io.File;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Floating webcam overlay for FadRec screen recording.
@@ -94,6 +104,33 @@ public class FloatingWebcamService extends Service {
     private boolean userMirrorV = false;
     private static final long HANDLE_HIDE_DELAY_MS = 1500;
     private static final long CONTROLS_HIDE_DELAY_MS = 5000;
+
+    // ── A4 avatar mode (PLAN_AVATAR_STUDIO): the puppet REPLACES the camera
+    // image in this bubble; the camera feeds ONLY the face tracker (privacy —
+    // webcam pixels are never rendered). Since this whole window is captured
+    // by the screen recording, the puppet lands in the recording for free —
+    // the encoder pipeline stays untouched.
+    @Nullable private PuppetPreviewView puppetView;
+    @Nullable private TrackingDriverBus trackingBus;
+    @Nullable private AvatarLibrary.Entry avatarEntry;
+    private final Map<String, SpriteSheetRenderer> avatarRenderers = new HashMap<>();
+    /** Resolver hysteresis state — service-held so discrete swaps debounce across frames. */
+    private final PuppetPoseResolver.DiscreteState avatarDiscrete =
+            new PuppetPoseResolver.DiscreteState();
+    /** vsync-paced pull loop: bus snapshot → resolver → puppet (plan decoupling rule). */
+    private final Runnable avatarTick = new Runnable() {
+        @Override public void run() {
+            PuppetPreviewView pv = puppetView;
+            TrackingDriverBus bus = trackingBus;
+            if (pv == null || bus == null || avatarEntry == null) return;
+            Map<String, Float> p = bus.latest();
+            if (p != null) {
+                pv.setResolved(PuppetPoseResolver.resolve(avatarEntry.rig, p, avatarDiscrete));
+                pv.setTrackedPinTargets(TrackingDriverBus.extractPinTargets(p));
+            }
+            pv.postOnAnimation(this);
+        }
+    };
     // Very slow, subtle fade-out (4× the 160ms baseline) so the handle doesn't draw the eye as it leaves.
     private final Runnable hideHandleRunnable = () -> fadeView(resizeHandle, false, 640);
     private final Runnable hideControlsRunnable = () -> fadeView(webcamControls, false, 700);
@@ -193,7 +230,9 @@ public class FloatingWebcamService extends Service {
         previewView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(@NonNull SurfaceTexture surface, int w, int h) {
-                openCamera();
+                // A4 camera single-owner: in avatar mode the tracker owns the
+                // (front) camera — the Camera2 preview must never also open.
+                if (avatarEntry == null) openCamera();
             }
 
             @Override
@@ -209,6 +248,10 @@ public class FloatingWebcamService extends Service {
             @Override
             public void onSurfaceTextureUpdated(@NonNull SurfaceTexture surface) { }
         });
+
+        // A4: a persisted avatar selection takes effect from the first frame —
+        // the Camera2 preview never opens at all in avatar mode.
+        applyAvatarSelection();
     }
 
     private void setupTouchHandling() {
@@ -358,6 +401,15 @@ public class FloatingWebcamService extends Service {
             cycleAvatar();
             scheduleHideControls();
         });
+        // A4 "clear stage": only the puppet floats over the screen — no card, no
+        // frame — for manual hand-puppeteering straight into the recording.
+        overlayView.findViewById(R.id.btnWebcamAvatarBg).setOnClickListener(v -> {
+            SharedPreferences p = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            p.edit().putBoolean("avatarBgClear", !p.getBoolean("avatarBgClear", false)).apply();
+            applyAvatarStage();
+            updateAvatarButton();
+            scheduleHideControls();
+        });
         updateAvatarButton();
         overlayView.findViewById(R.id.btnWebcamRotate).setOnClickListener(v -> {
             userRotation = (userRotation + 90) % 360;
@@ -403,14 +455,12 @@ public class FloatingWebcamService extends Service {
     /**
      * A4 avatar selector (JoyRaptor spec 2026-07-11: sits between the webcam cluster
      * and Rotate): tap cycles webcam → each library avatar → webcam. Selection
-     * persists in prefs; the puppet actually RENDERING into this bubble (camera
-     * feeding only the tracker) is the next A4 slice — the selector is honest
-     * about that in its toast until then. Cycle-not-dialog because this UI is a
-     * service overlay (no activity to host a Material dialog).
+     * persists in prefs and switches the bubble LIVE: the puppet replaces the
+     * camera image while the camera feeds only the face tracker. Cycle-not-dialog
+     * because this UI is a service overlay (no activity to host a Material dialog).
      */
     private void cycleAvatar() {
-        java.util.List<com.fadcam.ui.faditor.avatar.AvatarLibrary.Entry> entries =
-                com.fadcam.ui.faditor.avatar.AvatarLibrary.list(this);
+        java.util.List<AvatarLibrary.Entry> entries = AvatarLibrary.list(this);
         if (entries.isEmpty()) {
             android.widget.Toast.makeText(this,
                     "No saved avatars — Avatar Studio → Library ⇪ to add one",
@@ -430,22 +480,157 @@ public class FloatingWebcamService extends Service {
             android.widget.Toast.makeText(this, "Avatar off — webcam shows",
                     android.widget.Toast.LENGTH_SHORT).show();
         } else {
-            com.fadcam.ui.faditor.avatar.AvatarLibrary.Entry e = entries.get(next);
+            AvatarLibrary.Entry e = entries.get(next);
             prefs.edit().putString("avatarEntryDir", e.dir.getName()).apply();
-            android.widget.Toast.makeText(this,
-                    "Avatar: " + e.rig.getName() + " (rendering lands next build)",
+            android.widget.Toast.makeText(this, "Avatar: " + e.rig.getName(),
                     android.widget.Toast.LENGTH_SHORT).show();
         }
+        applyAvatarSelection();
         updateAvatarButton();
     }
 
-    /** Green tint while an avatar is selected — same state cue as the mirrors. */
+    /** Green tint while an avatar is selected — same state cue as the mirrors.
+     *  Also reveals the clear-stage toggle only when it means something. */
     private void updateAvatarButton() {
         android.widget.TextView b = overlayView.findViewById(R.id.btnWebcamAvatar);
         if (b == null) return;
-        boolean on = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getString("avatarEntryDir", null) != null;
+        SharedPreferences prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        boolean on = prefs.getString("avatarEntryDir", null) != null;
         b.setTextColor(on ? 0xFF4CAF50 : 0xFFFFFFFF);
+        android.widget.TextView bg = overlayView.findViewById(R.id.btnWebcamAvatarBg);
+        if (bg != null) {
+            bg.setVisibility(on ? View.VISIBLE : View.GONE);
+            bg.setTextColor(on && prefs.getBoolean("avatarBgClear", false)
+                    ? 0xFF4CAF50 : 0xFFFFFFFF);
+        }
+    }
+
+    // ── A4 avatar mode machinery ─────────────────────────────────────────
+
+    /** Re-read the persisted selection and swing the bubble into the right
+     *  mode. Safe to call any time (service start, cycle taps, restores). */
+    private void applyAvatarSelection() {
+        String dirName = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString("avatarEntryDir", null);
+        if (dirName == null) {
+            exitAvatarMode();
+            return;
+        }
+        AvatarLibrary.Entry entry =
+                AvatarLibrary.load(new File(AvatarLibrary.libraryDir(this), dirName));
+        if (entry == null) {
+            // Stale selection (entry deleted since) — honest fallback to webcam.
+            getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .edit().remove("avatarEntryDir").apply();
+            android.widget.Toast.makeText(this, "Saved avatar missing — webcam shows",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            exitAvatarMode();
+            return;
+        }
+        enterAvatarMode(entry);
+    }
+
+    /** Puppet replaces the camera image; camera feeds ONLY the tracker. */
+    private void enterAvatarMode(@NonNull AvatarLibrary.Entry entry) {
+        // Camera single-owner: the Camera2 preview closes BEFORE the tracker's
+        // CameraX front feed mounts. The webcam pixels never render again in
+        // this mode (previewView GONE) — the privacy feature, not a detail.
+        closeCamera();
+        previewView.setVisibility(View.GONE);
+        releaseAvatarResources(); // avatar→avatar switch: unbind the old entry
+        avatarEntry = entry;
+        if (puppetView == null) {
+            puppetView = new PuppetPreviewView(this);
+            puppetView.setCleanRender(true); // no studio crosshair in a recording
+            puppetView.setBackgroundColor(0x00000000);
+            ((android.view.ViewGroup) webcamCard).addView(puppetView, 1,
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        puppetView.setVisibility(View.VISIBLE);
+        puppetView.bind(entry.rig, this::avatarRendererFor);
+        puppetView.setSheetLookup(id -> sheetById(entry, id));
+        // Show the puppet immediately at neutral — tracking takes a beat to warm
+        // up (and if the camera/model is unavailable, neutral is the honest pose).
+        puppetView.setResolved(PuppetPoseResolver.resolve(
+                entry.rig, new HashMap<>(), avatarDiscrete));
+        applyAvatarStage();
+        if (!isMinimized) startAvatarTracking();
+    }
+
+    /** Back to plain webcam (or to nothing, when minimized). */
+    private void exitAvatarMode() {
+        boolean wasOn = avatarEntry != null;
+        releaseAvatarResources();
+        if (puppetView != null) puppetView.setVisibility(View.GONE);
+        applyAvatarStage(); // card back to opaque black
+        if (wasOn && !isMinimized) {
+            previewView.setVisibility(View.VISIBLE);
+            if (previewView.isAvailable()) {
+                openCamera();
+            } // else onSurfaceTextureAvailable opens it when the surface returns
+        }
+    }
+
+    /** Mount the face tracker (it owns the front camera entirely). */
+    private void startAvatarTracking() {
+        if (trackingBus != null) return;
+        trackingBus = new TrackingDriverBus();
+        trackingBus.start(new MediaPipeTrackingSource(this, () -> {
+            TrackingDriverBus b = trackingBus;
+            if (b != null) b.requestReset();
+        }), 20260711L);
+        if (puppetView != null) puppetView.postOnAnimation(avatarTick);
+    }
+
+    private void stopAvatarTracking() {
+        if (trackingBus != null) {
+            trackingBus.stop();
+            trackingBus = null;
+        }
+        if (puppetView != null) puppetView.removeCallbacks(avatarTick);
+    }
+
+    /** Tracking off + entry unbound + sheet bitmaps recycled. Keeps the view. */
+    private void releaseAvatarResources() {
+        stopAvatarTracking();
+        avatarEntry = null;
+        for (SpriteSheetRenderer r : avatarRenderers.values()) {
+            if (r != null) r.recycle();
+        }
+        avatarRenderers.clear();
+    }
+
+    /** Clear stage: transparent card = only the puppet's pixels float over the
+     *  screen. Everything else keeps its auto-hide behavior, so recordings show
+     *  just the character. */
+    private void applyAvatarStage() {
+        boolean clear = avatarEntry != null && getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getBoolean("avatarBgClear", false);
+        if (webcamCard instanceof androidx.cardview.widget.CardView) {
+            ((androidx.cardview.widget.CardView) webcamCard)
+                    .setCardBackgroundColor(clear ? 0x00000000 : 0xFF000000);
+        }
+    }
+
+    @Nullable
+    private SpriteSheet sheetById(@NonNull AvatarLibrary.Entry entry, @NonNull String sheetId) {
+        for (SpriteSheet s : entry.sheets) {
+            if (s.getId().equals(sheetId)) return s;
+        }
+        return null;
+    }
+
+    /** Lazy per-sheet renderer cache over the bundle's file:// sheets. */
+    @Nullable
+    private SpriteSheetRenderer avatarRendererFor(@NonNull String sheetId) {
+        if (avatarRenderers.containsKey(sheetId)) return avatarRenderers.get(sheetId);
+        AvatarLibrary.Entry e = avatarEntry;
+        SpriteSheet sheet = e != null ? sheetById(e, sheetId) : null;
+        SpriteSheetRenderer r = sheet != null ? SpriteSheetRenderer.load(this, sheet) : null;
+        avatarRenderers.put(sheetId, r); // null cached too — MISSING affordance, no retry storm
+        return r;
     }
 
     /** Tints the mirror toggles green when active so their state is obvious. */
@@ -567,6 +752,7 @@ public class FloatingWebcamService extends Service {
         mainHandler.removeCallbacks(hideControlsRunnable);
         if (minimize) {
             closeCamera();
+            stopAvatarTracking(); // A4: release the tracker's camera too (battery + single-owner)
             webcamCard.setVisibility(View.GONE);
             // Outgoing card is instant (the window resizes too, so fading it would clip); the
             // incoming view fades in for a soft swap.
@@ -581,7 +767,9 @@ public class FloatingWebcamService extends Service {
             int width = p.getInt("width", dp(160));
             layoutParams.width = width;
             layoutParams.height = p.getInt("height", (int) (width / ASPECT));
-            if (previewView.isAvailable()) {
+            if (avatarEntry != null) {
+                startAvatarTracking(); // A4: selection survived the minimize
+            } else if (previewView.isAvailable()) {
                 openCamera();
             }
         }
@@ -742,6 +930,7 @@ public class FloatingWebcamService extends Service {
         isRunning = false;
         mainHandler.removeCallbacks(hideHandleRunnable);
         mainHandler.removeCallbacks(hideControlsRunnable);
+        releaseAvatarResources(); // A4: tracker camera + sheet bitmaps
         closeCamera();
         if (cameraThread != null) {
             cameraThread.quitSafely();

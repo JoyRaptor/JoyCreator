@@ -162,6 +162,15 @@ public class PuppetPreviewView extends View {
 
     public void setListener(@Nullable Listener l) { this.listener = l; }
 
+    /** A4: production render mode — no studio scaffolding (crosshair). Callers
+     *  wanting full cleanliness also set a transparent background themselves. */
+    private boolean cleanRender = false;
+
+    public void setCleanRender(boolean clean) {
+        this.cleanRender = clean;
+        invalidate();
+    }
+
     public void bind(@Nullable AvatarRig rig,
                      @Nullable java.util.function.Function<String, SpriteSheetRenderer> rendererLookup) {
         this.rig = rig;
@@ -369,9 +378,12 @@ public class PuppetPreviewView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         int w = getWidth(), h = getHeight();
-        // center crosshair so "neutral" has a visible home
-        canvas.drawLine(w / 2f, 0, w / 2f, h, bgGrid);
-        canvas.drawLine(0, h / 2f, w, h / 2f, bgGrid);
+        // center crosshair so "neutral" has a visible home (suppressed for
+        // production surfaces: the recorder bubble + offscreen bakes)
+        if (!cleanRender) {
+            canvas.drawLine(w / 2f, 0, w / 2f, h, bgGrid);
+            canvas.drawLine(0, h / 2f, w, h / 2f, bgGrid);
+        }
         if (rig == null || resolved == null) return;
 
         // A6 dangle preamble: step every dangle chain exactly once this frame.

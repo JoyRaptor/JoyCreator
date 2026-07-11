@@ -152,8 +152,10 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             this.targetFps = FPS_NORMAL;
 
             if (!buildLandmarker()) {
+                // Host-neutral wording: the studio falls back to synthetic, the
+                // recorder bubble just shows a non-tracking (neutral) puppet.
                 Toast.makeText(appContext,
-                        "Face model failed to load — staying on synthetic",
+                        "Face model failed to load — avatar won't track",
                         Toast.LENGTH_LONG).show();
                 stopInternal();
                 return;

@@ -1,5 +1,51 @@
 # FadCam AI Handoff
 
+> **✅ 2026-07-11 — FABLE(5) verify-and-land session (phone back online, SM-N960U sandbox
+> bdd51919). Landed the pending in-flight work as 5 commits and cleared the ENTIRE device-verify
+> backlog — all PASS. Sandbox restored pristine (md5 `e81a6df8…`), DEVICE token released.**
+> **COMMITS THIS SESSION:**
+> • `313e7fa` **export transition≥clip muxer-stall FIX** (the filed engine bug). A transition as
+>   long as/longer than the clip it straddles trims that clip's body to a sub-frame sliver → Media3
+>   emits NO output sample → muxer watchdog aborts ("no output sample in 10000ms"). Fix: (1) new
+>   `effectiveTransitionMs()` seam-clamps every head/tail overlap to what the straddled clip has;
+>   (2) `mainBodyDegenerate` guard (<40ms timeline, transition-touched clips only) skips the micro
+>   EditedMediaItem. Ordinary timelines untouched. **DEVICE VERIFY STILL OWED** — repro: AudioExportVerify
+>   (`aeb0517e`) seam-2 transition → 600ms (clip 3 is 427ms), export BOTH paths, expect no stall.
+> • `fdad81f` **AV3 audio-row expand/collapse layout — DEVICE-VERIFIED.** 1st audio track expanded
+>   (76dp tall quad-band tape), rest thin collapsed bars; tap a thin bar → expands via the caret path
+>   (undo step recorded, verified). Caption-enabled audio clips get a CC ribbon inside the expanded row.
+> • `e7a863c` **AV4-groundwork (UNWIRED):** `TapeWaveformStyle` SharedPreferences round-trip
+>   (`wave_viz_*` keys) + `analyzeEager` flag + `WaveformVisualizerSettingsSheet` (complete, referenced
+>   by nothing — wiring under toolbar Settings + a first-import eager/lazy popup is the remaining AV4).
+> • `acaeace` **AV5 plan doc** (`tasks/PLAN_AV5_PERF_AND_CLEANUP.md`): tile-cache the per-frame tape
+>   draw (currently `tapeRenderer.draw` runs for every visible audio item every onDraw) + dead-code removal.
+> • (`4ff1707` from the prior block — the two AUDIO#3 findings — was already committed + device-verified.)
+> **DEVICE-VERIFY BATCH — ALL PASS on bdd51919:**
+> • **W2 HD zoom (`0433439`):** zoomed-in audio bars pull the high-density span-limited extraction and
+>   resolve letter/onset-level detail; zoomed-out unchanged; smooth scroll. PASS.
+> • **Smoke (i)** extract-from-video → the Audio tool extracted a new clip that renders its waveform on a
+>   new audio row (persisted `waveform` int[] present). PASS. **(k)** vertical drag in the audio band
+>   scrolls the band, doesn't mis-scrub. PASS. **(l)** hold-drag a floating item over the audio band shows
+>   the cross-band drop affordance (drops onto a new visual lane above the band, band-correct). PASS.
+> • **G5a attach/detach:** open a VIZ item's Rolodex → link icon attaches ("Attached to clip 1 — rides its
+>   trims and moves", icon turns green, `attachedClipId` persists in project.json); tap again detaches
+>   ("Visualizer detached — window frozen where it is", icon → link_off). Round-trips clean. PASS. (Ride
+>   math is `Timeline.resyncAttachedVisualizers`, runs on every syncTimelineOverlays — sound; a clean
+>   visual ride demo needs a DOWNSTREAM host since clip-0's start is pinned at 0.)
+> • **GL "More effects" / transition cards — KEY DIAGNOSTIC RESOLVED.** The 5 transition preview cards
+>   (Crossfade/Fade Black/Fade White/Wipe/Radial) **DO render LIVE GL correctly on this GPU** — captured
+>   mid-animation they each show their DISTINCT effect (Fade Black→black, Fade White→white, Wipe's split
+>   line moving between two demo images, Crossfade blending). So GL transition shaders compile+run fine in
+>   the live GLSurfaceView on the SM-N960U. **⇒ the `2593bdb` baker's headless shader-compile failure is
+>   CONTEXT-LEVEL (pbuffer EGLConfig/precision vs GLSurfaceView default), NOT a GPU-wide problem** — the
+>   leading suspect in the 2593bdb javadoc stands; fix = match the pbuffer context config to the working
+>   live one. Also: **"⌄ More effects" is a non-clickable hint TextView** (`clickable="false"`), which is
+>   why earlier sessions "couldn't expand" it — there is nothing to expand; the card strip is a plain
+>   HorizontalScrollView.
+> **STILL OWED (needs JoyRaptor):** the `313e7fa` export fix device verify (above); P0/P1 on real phone
+> REAL_SERIAL (USB-debug toggle); G9 UI (5 answers in PLAN_G9_LINK_ENGINE.md); the .m4a export-complete
+> copy string ("Your video…"). NEXT build work: AV4 wire-up, then AV5 perf + dead-code.
+
 > **🌊 2026-07-10 late — FABLE(5) continuation: findings FIXED (`4ff1707`, device-verified before
 > the phone dropped) + W2 HD WAVEFORM ZOOM BUILT (`0433439`, build-green, DEVICE VERIFY OWED —
 > phone went offline mid-session; adb shows no devices; watcher fails only at installDefaultDebug).**

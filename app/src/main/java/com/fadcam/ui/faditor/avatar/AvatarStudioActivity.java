@@ -2,6 +2,7 @@ package com.fadcam.ui.faditor.avatar;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -103,6 +104,11 @@ public class AvatarStudioActivity extends AppCompatActivity {
     private TextView trackChip;
     /** D4: runtime CAMERA request code for the MediaPipe face-tracking swap. */
     private static final int RC_FACE_CAMERA = 4021;
+    /** A3 v2: runtime RECORD_AUDIO request code for the spectral viseme mic. */
+    private static final int RC_VISEME_MIC = 4022;
+    /** A3 v2: owned by whichever tracking source is currently mounted (wrapped
+     *  via {@link MicAugmentedSource}) — stopped alongside {@link #stopTracking()}. */
+    @Nullable private MicVisemeSource micViseme;
 
     private float density() { return getResources().getDisplayMetrics().density; }
 
@@ -319,6 +325,23 @@ public class AvatarStudioActivity extends AppCompatActivity {
                     if (trackingBus != null) trackingBus.requestReset();
                 })
                 : new SyntheticTrackingSource(ikParts);
+
+        // A3 v2: fold the spectral viseme mic in behind whichever visual
+        // source won above — audio is orthogonal to face/synthetic, so it
+        // wraps rather than competes for the bus's one-source slot.
+        boolean micGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED;
+        if (!micGranted) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, RC_VISEME_MIC);
+            // No toast here — the CAMERA request above already explains the
+            // "tap Track again" flow, and MicVisemeSource itself stays silent
+            // (amplitude/life tiers work fine without spectral visemes).
+        } else {
+            micViseme = new MicVisemeSource();
+            source = new MicAugmentedSource(source, micViseme, this);
+        }
+
         trackingBus.start(source, 20260706L);
         trackChip.setBackgroundColor(0xFF1B4A3B);
         yawSlider.setEnabled(false);
@@ -334,6 +357,10 @@ public class AvatarStudioActivity extends AppCompatActivity {
         if (trackingBus == null) return;
         trackingBus.stop();
         trackingBus = null;
+        if (micViseme != null) {
+            micViseme.stop();
+            micViseme = null;
+        }
         preview.removeCallbacks(trackTick);
         preview.setTrackedPinTargets(null);
         trackChip.setBackgroundColor(0xFF26262E);
@@ -1079,5 +1106,45 @@ public class AvatarStudioActivity extends AppCompatActivity {
         t.setBackgroundColor(0xFF26262E);
         t.setPadding((int) (12 * d), (int) (8 * d), (int) (12 * d), (int) (8 * d));
         return t;
+    }
+
+    /**
+     * A3 v2: {@link TrackingSource} decorator that folds a {@link MicVisemeSource}
+     * in behind whichever visual source is mounted (face or synthetic) — audio
+     * is orthogonal to the bus's one-visual-source slot, so this WRAPS rather
+     * than replaces. Owns the mic's start/stop lifecycle (mirrors
+     * {@link MediaPipeTrackingSource}'s own start/stop shape); every delegate
+     * frame is re-emitted with the mic's LATEST (audioDb, visemeClassIndex)
+     * snapshot stamped on — the mic runs at its own (much higher) audio rate,
+     * the visual tracker's cadence just samples it, same "tracker pushes,
+     * something else pulls the newest snapshot" shape as the bus itself.
+     */
+    private static final class MicAugmentedSource implements TrackingSource {
+        @NonNull private final TrackingSource delegate;
+        @NonNull private final MicVisemeSource mic;
+        @NonNull private final Context context;
+
+        MicAugmentedSource(@NonNull TrackingSource delegate, @NonNull MicVisemeSource mic,
+                            @NonNull Context context) {
+            this.delegate = delegate;
+            this.mic = mic;
+            this.context = context.getApplicationContext();
+        }
+
+        @Override
+        public void start(@NonNull FrameListener listener) {
+            mic.start(context);
+            delegate.start(frame -> {
+                float db = mic.isActive() ? mic.currentAudioDb() : frame.audioDb;
+                int viseme = mic.isActive() ? mic.currentVisemeClassIndex() : frame.visemeClassIndex;
+                listener.onFrame(new TrackingFrame(frame.tSeconds, frame.params, db, viseme));
+            });
+        }
+
+        @Override
+        public void stop() {
+            delegate.stop();
+            mic.stop();
+        }
     }
 }

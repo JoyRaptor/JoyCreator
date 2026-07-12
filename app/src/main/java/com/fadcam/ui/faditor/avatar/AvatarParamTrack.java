@@ -38,6 +38,11 @@ public final class AvatarParamTrack {
 
     public static final int SCHEMA_VERSION = 1;
 
+    /** Params that are DISCRETE CLASS INDICES, not continuous values — replay
+     *  steps them (hold-until-next-sample) instead of lerping. */
+    private static final java.util.Set<String> STEP_PARAMS =
+            java.util.Collections.singleton(SpectralVisemeAnalyzer.PARAM_VISEME);
+
     /** Parallel, timesMs strictly ascending. */
     private final List<Long> timesMs = new ArrayList<>();
     private final List<Map<String, Float>> samples = new ArrayList<>();
@@ -97,7 +102,12 @@ public final class AvatarParamTrack {
         Map<String, Float> out = new HashMap<>();
         for (Map.Entry<String, Float> e : a.entrySet()) {
             Float bv = b.get(e.getKey());
-            out.put(e.getKey(), bv == null ? e.getValue()
+            // Discrete class params STEP (hold the earlier side) instead of
+            // lerping — interpolating a viseme class index between takes would
+            // pass through transient WRONG classes (2→5 visits 3 and 4), and
+            // mouth visemes are hard snaps by doctrine.
+            out.put(e.getKey(), bv == null || STEP_PARAMS.contains(e.getKey())
+                    ? e.getValue()
                     : e.getValue() + (bv - e.getValue()) * f);
         }
         for (Map.Entry<String, Float> e : b.entrySet()) {

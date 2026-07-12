@@ -92,7 +92,33 @@ public final class PuppetPoseResolver {
         for (AvatarRig.PoseDomain domain : rig.getDomains()) {
             resolveDomain(rig, domain, params, state, out);
         }
+        applyVisemeMap(rig, params, out);
         return out;
+    }
+
+    /**
+     * A3 v2 (spectral visemes): direct visemeClass → mouth cellIndex lookup via the
+     * rig's {@code visemeMap}, independent of pose-domain grids. HARD-snaps by design
+     * (plan: "mouth visemes stay HARD snaps — crisp reads better for lips"), so it
+     * deliberately does NOT raise {@code swapped} — that flag exists to start the
+     * pin-snap crossfade window, which lips must never get. Runs after the domains so
+     * a mapped viseme outranks any grid-resolved mouth cell. No-op for every rig with
+     * an empty visemeMap (all shipped rigs today).
+     */
+    private static void applyVisemeMap(@NonNull AvatarRig rig,
+                                       @NonNull Map<String, Float> params,
+                                       @NonNull Map<String, PartState> out) {
+        Map<String, Integer> visemeMap = rig.getVisemeMap();
+        if (visemeMap.isEmpty()) return;
+        Float visemeIdx = params.get(SpectralVisemeAnalyzer.PARAM_VISEME);
+        if (visemeIdx == null) return;
+        int idx = Math.round(visemeIdx);
+        if (idx < 0 || idx >= SpectralVisemeAnalyzer.CLASS_NAMES.length) return;
+        Integer cell = visemeMap.get(SpectralVisemeAnalyzer.CLASS_NAMES[idx]);
+        if (cell == null) return;
+        PartState mouth = out.get("mouth"); // canonical biped part id
+        if (mouth == null) return;
+        mouth.cellIndex = cell;
     }
 
     private static void resolveDomain(@NonNull AvatarRig rig,

@@ -19,6 +19,14 @@ import java.util.Map;
  *       frame carries a mic level, {@link AudioLevelViseme} drives it. The
  *       viseme's own attack/release envelope IS its smoothing — it must not
  *       pass through One-Euro too (double-filtering adds lag).</li>
+ *   <li>A3 v2 SPECTRAL TIER: when {@link TrackingFrame#visemeClassIndex} is
+ *       not {@link TrackingFrame#NO_VISEME}, emit it as the {@code viseme}
+ *       driver param (the {@link SpectralVisemeAnalyzer}'s own hysteresis IS
+ *       its smoothing — same never-One-Euro-a-threshold-signal rule as
+ *       jawOpen). This COEXISTS with, never replaces, the amplitude tier:
+ *       jawOpen keeps driving mouth OPENING from dB exactly as above; the
+ *       spectral class additionally drives mouth SHAPE. A rig with no
+ *       "viseme"-driven pose domain simply ignores the extra param.</li>
  *   <li>{@link LifeSignals} MERGE, after smoothing: life params are
  *       deterministic micro-motion, and One-Euro would delay the blink
  *       envelopes it deliberately shapes (the smoother's own "never smooth a
@@ -61,6 +69,10 @@ public class TrackingParamPipeline {
         if (!out.containsKey(AudioLevelViseme.PARAM_JAW_OPEN)
                 && !Float.isNaN(frame.audioDb)) {
             out.put(AudioLevelViseme.PARAM_JAW_OPEN, viseme.update(frame.tSeconds, db));
+        }
+
+        if (frame.visemeClassIndex != TrackingFrame.NO_VISEME) {
+            out.put(SpectralVisemeAnalyzer.PARAM_VISEME, (float) frame.visemeClassIndex);
         }
 
         out.putAll(life.update(frame.tSeconds, db));

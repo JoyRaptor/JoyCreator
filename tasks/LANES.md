@@ -55,7 +55,15 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE (2026-07-11 ~20:50 — BAKE-TO-KEYFRAMES COMPLETE + DEVICE-VERIFIED, all committed,
+status: IDLE (2026-07-11 ~21:05 — point-at-video PREP landed: ae9dc61 extracts static
+        putHeadPose + resultToParams(FaceLandmarkerResult) in MediaPipeTrackingSource, so
+        the VIDEO-mode sweep maps frames through the SAME code as live tracking (one axis
+        knob, one param vocabulary). No behavior change; build-green. The sweep itself is
+        the next session's first task: VIDEO-mode FaceLandmarker over a clip's frames →
+        resultToParams → track.add(frameMs, params) → item.setAvatarTrack.)
+files: (none — released)
+since: 2026-07-11 ~21:05
+prior: IDLE (2026-07-11 ~20:50 — BAKE-TO-KEYFRAMES COMPLETE + DEVICE-VERIFIED, all committed,
         tree green. Four always-green commits:
         • 41908c5 storage: avatarRigId + AvatarParamTrack ride the placed sprite item
           (additive/tolerant-read in ProjectStorage; insert stamps the linkage).

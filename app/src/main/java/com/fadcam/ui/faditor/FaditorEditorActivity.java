@@ -12679,6 +12679,47 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onPresetStamp(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                    @NonNull com.fadcam.ui.faditor.sprite.SpritePresetStamper.Kind kind) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                        project.spriteSheetById(item.getSheetId());
+                if (sheet == null) {
+                    Toast.makeText(FaditorEditorActivity.this,
+                            "Sheet missing — can't stamp preset", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                // Anchor at the item-LOCAL playhead; HOLD_CURRENT wants the cell
+                // showing right now (NO_CELL/-1 → stamper falls back to cell 0).
+                final long localMs = Math.max(0, item.toLocalMs(lastPlayheadAbsoluteMs));
+                int currentCell = com.fadcam.ui.faditor.sprite.SpriteFrameResolver
+                        .resolveCellAt(sheet, item, lastPlayheadAbsoluteMs);
+                java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> generated =
+                        com.fadcam.ui.faditor.sprite.SpritePresetStamper.generate(
+                                kind, sheet, localMs, currentCell);
+                if (generated.isEmpty()) {
+                    Toast.makeText(FaditorEditorActivity.this,
+                            "No enabled cells to stamp", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                // Whole-track before/after swap, ONE undo step — mirrors the
+                // avatar-take swap in stopPerformanceRecording.
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
+                        new java.util.ArrayList<>(generated);
+                restoreFrameKeys(item, after);
+                undoManager.recordAction(new EditActions.LambdaAction("Sprite preset",
+                        () -> { restoreFrameKeys(item, after); },
+                        () -> { restoreFrameKeys(item, before); }));
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                p.setPlayheadMs(lastPlayheadAbsoluteMs);
+                Toast.makeText(FaditorEditorActivity.this,
+                        "Preset stamped", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
             public com.fadcam.ui.faditor.sprite.SpriteSheet lookupSheet(@NonNull String sheetId) {
                 return project.spriteSheetById(sheetId);
             }

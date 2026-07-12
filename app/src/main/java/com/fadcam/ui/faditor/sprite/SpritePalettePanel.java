@@ -72,6 +72,13 @@ public class SpritePalettePanel extends FrameLayout {
         /** Avatar item (point-at-video): sweep the clip under the item through
          *  VIDEO-mode face tracking into its performance track. */
         default void onSweepFromVideo(@NonNull SpriteOverlayItem item) {}
+
+        /** Plain-sprite dope-sheet preset (fast-follow A): stamp a WHOLE
+         *  {@link FrameTrack} — cycle-all / ping-pong / hold-current — anchored
+         *  at the playhead, swapped in ONE undo step (whole-track before/after).
+         *  Generation is delegated to {@link SpritePresetStamper}. */
+        default void onPresetStamp(@NonNull SpriteOverlayItem item,
+                                   @NonNull SpritePresetStamper.Kind kind) {}
     }
 
     private static final int DETENT_MICRO = 0;
@@ -340,6 +347,22 @@ public class SpritePalettePanel extends FrameLayout {
                 TextView sweep = chip("🎬 From video");
                 sweep.setOnClickListener(v -> callback.onSweepFromVideo(selected));
                 toggles.addView(sweep, chipLp());
+            } else {
+                // Plain sprite: dope-sheet preset chips. Each stamps a whole
+                // FrameTrack at the playhead in one undo step (fast-follow A).
+                // Inline literals on purpose — strings.xml is another agent's file.
+                TextView cyc = chip("Cycle");
+                cyc.setOnClickListener(v -> callback.onPresetStamp(
+                        selected, SpritePresetStamper.Kind.CYCLE_ALL));
+                TextView pp = chip("Ping-pong");
+                pp.setOnClickListener(v -> callback.onPresetStamp(
+                        selected, SpritePresetStamper.Kind.PINGPONG));
+                TextView hold = chip("Hold");
+                hold.setOnClickListener(v -> callback.onPresetStamp(
+                        selected, SpritePresetStamper.Kind.HOLD_CURRENT));
+                toggles.addView(cyc, chipLp());
+                toggles.addView(pp, chipLp());
+                toggles.addView(hold, chipLp());
             }
             contentArea.addView(toggles);
         }

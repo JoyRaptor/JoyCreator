@@ -49,6 +49,18 @@ public class SpriteOverlayItem {
     /** Discrete which-cell-when track (item-local times). Never null. */
     @NonNull private final FrameTrack frameTrack = new FrameTrack();
 
+    // ── Avatar performance (bake-to-keyframes, PLAN_AVATAR_STUDIO §MINED) ──
+    // Both additive + tolerant-read: a plain sprite carries neither; an
+    // inserted avatar carries the rig linkage; a RECORDED performance adds the
+    // track and upgrades rendering from the static neutral PNG to a live
+    // puppet replayed through PuppetPoseResolver (webcam never re-runs).
+
+    /** Rig this item puppets ({@code FaditorProject.avatarRigs} id), or null. */
+    @Nullable private String avatarRigId;
+
+    /** Recorded performance (item-local ms), or null when none recorded yet. */
+    @Nullable private com.fadcam.ui.faditor.avatar.AvatarParamTrack avatarTrack;
+
     /** Eased whole-unit transform animation (x/y/scale/rotation/opacity), item-local times. */
     @NonNull private final KeyframeSet keyframes = new KeyframeSet();
 
@@ -104,6 +116,22 @@ public class SpriteOverlayItem {
 
     @NonNull public FrameTrack getFrameTrack() { return frameTrack; }
     @NonNull public KeyframeSet getKeyframes() { return keyframes; }
+
+    @Nullable public String getAvatarRigId() { return avatarRigId; }
+    public void setAvatarRigId(@Nullable String rigId) { this.avatarRigId = rigId; }
+
+    @Nullable public com.fadcam.ui.faditor.avatar.AvatarParamTrack getAvatarTrack() {
+        return avatarTrack;
+    }
+
+    public void setAvatarTrack(@Nullable com.fadcam.ui.faditor.avatar.AvatarParamTrack t) {
+        this.avatarTrack = t;
+    }
+
+    /** True when this item should render as a LIVE puppet (rig + recorded track). */
+    public boolean hasAvatarPerformance() {
+        return avatarRigId != null && avatarTrack != null && !avatarTrack.isEmpty();
+    }
 
     /**
      * True when {@code timelineMs} falls inside this item's visible range.

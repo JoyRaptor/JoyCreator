@@ -15974,8 +15974,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * from time 0 of the item (a single-cell "hold" — S5's lane + the S3 palette
      * add real frame animation on top). One undo step; persists via autosave.
      */
-    private void placeSpriteOnVideo(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
-        if (project == null) return;
+    @Nullable
+    private com.fadcam.ui.faditor.sprite.SpriteOverlayItem placeSpriteOnVideo(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        if (project == null) return null;
         final com.fadcam.ui.faditor.sprite.SpriteOverlayItem item =
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem.create(sheet.getId());
         // T8: every placed sprite gets its OWN lane (unique layerId) so two sprites never
@@ -15991,6 +15993,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> { project.getTimeline().removeSpriteOverlay(item); syncTimelineOverlays(); }));
         scheduleAutoSave();
         Toast.makeText(this, R.string.sprite_placed, Toast.LENGTH_SHORT).show();
+        return item;
     }
 
     /** Lowest-index ENABLED cell (cells with no meta default to enabled). */
@@ -16109,8 +16112,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (existing != null) project.getAvatarRigs().remove(existing);
         project.getAvatarRigs().add(entry.rig);
         // 4) Place at the playhead via the proven sprite path (lane, undo,
-        // autosave, toast all included).
-        placeSpriteOnVideo(bakedSheet);
+        // autosave, toast all included). The explicit avatarRigId linkage is
+        // what the bake-to-keyframes upgrade keys on (the asset-name
+        // convention is a human-readable mirror, not the machine contract).
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem placed =
+                placeSpriteOnVideo(bakedSheet);
+        if (placed != null) {
+            placed.setAvatarRigId(entry.rig.getId());
+            scheduleAutoSave();
+        }
     }
 
     /** Opens the panel; reuses an existing transcript, picks a model, or transcribes. */

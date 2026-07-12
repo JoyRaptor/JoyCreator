@@ -1715,6 +1715,14 @@ public class ProjectStorage {
                     if (so.getEndMs() != Long.MAX_VALUE) sj.addProperty("endMs", so.getEndMs());
                     if (so.getLayerId() != null) sj.addProperty("layerId", so.getLayerId());
                     if (!"hold".equals(so.getEndBehavior())) sj.addProperty("endBehavior", so.getEndBehavior());
+                    // Avatar performance (bake-to-keyframes): additive, sparse.
+                    // The track self-serializes (schemaVersion + tolerant read).
+                    if (so.getAvatarRigId() != null) {
+                        sj.addProperty("avatarRigId", so.getAvatarRigId());
+                    }
+                    if (so.getAvatarTrack() != null && !so.getAvatarTrack().isEmpty()) {
+                        sj.add("avatarTrack", so.getAvatarTrack().toJson());
+                    }
                     if (!so.getFrameTrack().isEmpty()) {
                         JsonArray ftArr = new JsonArray();
                         for (com.fadcam.ui.faditor.sprite.FrameTrack.Key k
@@ -2265,6 +2273,15 @@ public class ProjectStorage {
                             so.setTimeRange(sStart, sEnd);
                             if (sj.has("layerId")) so.setLayerId(sj.get("layerId").getAsString());
                             if (sj.has("endBehavior")) so.setEndBehavior(sj.get("endBehavior").getAsString());
+                            if (sj.has("avatarRigId")) {
+                                so.setAvatarRigId(sj.get("avatarRigId").getAsString());
+                            }
+                            if (sj.has("avatarTrack") && sj.get("avatarTrack").isJsonObject()) {
+                                com.fadcam.ui.faditor.avatar.AvatarParamTrack t =
+                                        com.fadcam.ui.faditor.avatar.AvatarParamTrack
+                                                .fromJson(sj.getAsJsonObject("avatarTrack"));
+                                if (!t.isEmpty()) so.setAvatarTrack(t);
+                            }
                             if (sj.has("frameTrack")) {
                                 JsonArray ftArr = sj.getAsJsonArray("frameTrack");
                                 for (int k = 0; k < ftArr.size(); k++) {

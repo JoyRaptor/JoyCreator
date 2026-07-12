@@ -32,7 +32,12 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: free (Fable released 2026-07-11 ~20:50 after the avatar verify batch — results in
+DEVICE: free (Fable released 2026-07-11 ~22:05 after the point-at-video no-face smoke on
+  SM-N960U — PASS: 🎬 From video chip on the control2 avatar item → progress dialog →
+  completion toast with the take KEPT (cat clip, no human face; ✦21 samples + undo count 0
+  unchanged), and a second run cancelled mid-sweep dismissed cleanly. Zero crashes. Device
+  left at HOME; control2 state note for JoyRaptor unchanged below. Face-bearing verify owed.)
+prior: free (Fable released 2026-07-11 ~20:50 after the avatar verify batch — results in
   the FABLE lane block below. NOTE for JoyRaptor: P0 control2 project cebc19e0 was used as the
   avatar test bed and now carries (a) a stray "Enter text" overlay from a mis-tap, (b) an
   inserted "A6 Warp Smoke" avatar item WITH an injected 2s yaw-sweep performance (good for
@@ -55,7 +60,27 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE (2026-07-11 ~21:05 — point-at-video PREP landed: ae9dc61 extracts static
+status: IDLE (2026-07-11 ~22:05 — POINT-AT-VIDEO CODE-COMPLETE + NO-FACE DEVICE-SMOKED,
+        all committed, tree green. Two always-green commits:
+        • db1c1fb sweep core: VideoFaceSweeper (fresh VIDEO-mode FaceLandmarker, sync
+          detectForVideo, MMR ~12.5fps/OPTION_CLOSEST/~320px, one retriever per clip,
+          cancel + progress, no-face adds NOTHING) + SweepTimeMapper (pure timeline→clip
+          walk mirroring Timeline.segmentStartMs; the clip-local→source hop is the EXISTING
+          Clip.mapToSourceMs — loop reps included, not re-derived). Every frame maps through
+          MediaPipeTrackingSource.resultToParams — one param vocabulary/axis knob with live.
+          Harness SweepTimeMapperTest 19/19 GREEN.
+        • c6ef7cf UI: "🎬 From video" chip next to 🎯 Record (inline literals), activity
+          handler gated on model-present (NO synthetic fallback), progress dialog + cancel,
+          item-delete cancels, whole-take swap = ONE undo step, empty keeps prior take.
+          Replay/export ride AvatarItemPuppet untouched → no A/B proof owed.
+        DEVICE SMOKE (SM-N960U): no-face sweep completes + take kept + cancel clean, zero
+        crashes (see DEVICE token note). OWED to JoyRaptor: face-bearing clip verify (Task 2d)
+        incl. video-vs-front-cam MIRROR_YAW feel; rest of the owed device batch per
+        BOOTSTRAP_POINTAT_20260712 Task 2. NEXT: A5 AI rigging (design pass first —
+        don't start at a session tail). opencode's grade-presets files UNTOUCHED.)
+files: (none — released)
+since: 2026-07-11 ~22:05
+prior: IDLE (2026-07-11 ~21:05 — point-at-video PREP landed: ae9dc61 extracts static
         putHeadPose + resultToParams(FaceLandmarkerResult) in MediaPipeTrackingSource, so
         the VIDEO-mode sweep maps frames through the SAME code as live tracking (one axis
         knob, one param vocabulary). No behavior change; build-green. The sweep itself is

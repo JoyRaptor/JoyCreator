@@ -202,8 +202,21 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       in the exported mp4 at the same timestamps — preview==export, webcam never re-runs.
       OWED: real-face record + axis feel (needs JoyRaptor's face); bubble face-button/clear-stage
       re-verify blocked on the "Display over other apps" permission (user must grant).
-- [ ] A4-NEXT point-at-video: VIDEO-mode FaceLandmarker over a clip → AvatarParamTrack on
-      an avatar item (extract putHeadPose math from MediaPipeTrackingSource — don't copy).
+- [x] **A4-NEXT POINT-AT-VIDEO CODE-COMPLETE + NO-FACE DEVICE-SMOKED 2026-07-11 (db1c1fb +
+      c6ef7cf)**: "🎬 From video" chip on avatar items in the sprite palette → VideoFaceSweeper
+      sweeps [item.startMs, min(item.endMs, video-track end)] through a FRESH VIDEO-mode
+      FaceLandmarker (sync detectForVideo, monotonic stamps), frames via one
+      MediaMetadataRetriever per clip at ~12.5fps/OPTION_CLOSEST downscaled to ~320px. Every
+      frame maps through MediaPipeTrackingSource.resultToParams (ae9dc61 statics — one param
+      vocabulary, one axis knob with live). Time authority: SweepTimeMapper (pure walk,
+      mirrors Timeline.segmentStartMs; harness SweepTimeMapperTest 19/19) → Clip.mapToSourceMs
+      (existing thumbnail/seek/export single authority, loop reps included). No-face frames add
+      NOTHING (hold-don't-fade). Result = whole-take swap, ONE undo step, empty keeps prior
+      take (stopPerformanceRecording's shape); replay/export ride AvatarItemPuppet untouched
+      (no compositor/export change → no A/B proof owed). DEVICE SMOKE (SM-N960U, control2
+      cat clip = no human face): chip → progress dialog → completion toast, take kept,
+      undo count 0; mid-sweep Cancel → clean dismiss; zero crashes. OWED: face-bearing
+      clip verify (Task 2d, needs JoyRaptor) — includes the video-vs-front-cam MIRROR_YAW check.
 - [ ] A5 AI rigging
 - [~] A6 limbs — **PIN-WARP CORE LANDED 2026-07-06 (5e3a94d)**: PinWarpStrip math (JVM harness
       PinWarpTest 16/16 — identity/translation/90° bend/guards/degenerates), Part.restPins

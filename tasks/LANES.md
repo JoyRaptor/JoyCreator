@@ -32,7 +32,30 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: free (Fable released 2026-07-11 ~22:05 after the point-at-video no-face smoke on
+DEVICE: free (Fable released 2026-07-12 ~05:15, usage-capped session end. BATCH RESULTS:
+  ✓ REPLAY-IK/bake replay: injected 2s yaw sweep drives the puppet in live playback —
+    continuous motion + discrete cell swap (yellow→red at extreme) + pin-warp bend all
+    caught on screenshots. control2 (cebc19e0) RESTORED byte-exact (md5 a522728a…),
+    CAMERA re-granted.
+  ✓ Standalone Avatar Studio: person icon on Faditor tab → library chooser (A6 Warp
+    Smoke listed = Library ⇪ round-trip proven) → opens library-backed, warp renders
+    from bundle sheets. "+ New avatar from image…" UNTESTED (needs picker flow).
+  ✗ 313e7fa export fix FAILED device verify → muxer stall REPRODUCED (AudioExportVerify
+    seam-2 @600ms; error log 20260712_050701). ROOT CAUSE FOUND + FIXED (148c155
+    audio-coverage guard, build-green): residual window past source AUDIO end = zero
+    audio samples = AudioGraph stall. DEVICE RE-VERIFY OWED: aeb0517e is LEFT AT the
+    600ms repro state — just re-run the export; expect completion now.
+  Partial: 🎯 Record synthetic take STARTS (toast proven) but the stop-tap keep-swap
+    didn't persist (disk unchanged; likely stop-on-onPause discard when I exited) —
+    needs one hand-run: record ~3s, tap Stop, check ✦ badge grows, undo.
+  Blocked on JoyRaptor: bubble face-button + clear-stage (needs "Display over other apps"
+    grant), real-face axis checks (MIRROR_YAW/SIGN_PITCH), new-from-image picker.)
+prior: free (Fable 2026-07-12: replay-IK verify DEFERRED to the end-of-mission batch —
+  the watcher reinstalls the APK on every subagent save, killing any interactive session
+  mid-take. Batch item: pm revoke CAMERA → synthetic 🎯 Record on the control2 avatar item
+  → replay must show the FABRIK pin-target orbit (tests the AvatarItemPuppet fix) → undo
+  take → pm grant CAMERA.)
+prior: free (Fable released 2026-07-11 ~22:05 after the point-at-video no-face smoke on
   SM-N960U — PASS: 🎬 From video chip on the control2 avatar item → progress dialog →
   completion toast with the take KEPT (cat clip, no human face; ✦21 samples + undo count 0
   unchanged), and a second run cancelled mid-sweep dismissed cleanly. Zero crashes. Device
@@ -60,7 +83,25 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE (2026-07-11 ~22:05 — POINT-AT-VIDEO CODE-COMPLETE + NO-FACE DEVICE-SMOKED,
+status: ACTIVE (2026-07-12 — FINISH-THE-ROADMAP mission, JoyRaptor go-ahead, two Fable-directed
+        subagents (Opus+Sonnet, waves). Wave 1: Opus → A5 AI rigging + FF-B AI sprite tools
+        (ai/*, new avatar template file, sprite AI glue); Sonnet → A3 spectral visemes
+        (avatar/TrackingParamPipeline + new analyzer, dependency-free FFT). Fable → A6
+        pin-authoring UI + FABRIK→posed-pins hookup (standing-locked avatar files), review +
+        commit. Later waves: S7 relink, FF-A dope-sheet, S2b polish, AV4 wire-up, AV5 perf,
+        dead-code cleanup. opencode's grade-presets files UNTOUCHED (inline literals only).)
+files: avatar/* (locked ones Fable-only), ai/*, sprite/*, FaditorEditorActivity.java,
+        tools/jvm-harness/*, tasks/* — EXCEPT FilterBottomSheet.java,
+        effects/GradePresetStore.java, res/values/strings.xml (opencode)
+since: 2026-07-12
+WAVE (2026-07-12 ~05:00, Fable-directed): Opus sub → FF-A wiring (SpritePresetStamper →
+        dope-sheet preset chips; FaditorEditorActivity + sprite/*) then G5 fast-follows.
+        Sonnet sub → perf quickwins in NON-editor files only (AssetScanner, audio extract
+        pcmToFloat, photo glReadPixels, I-frame default, docs/project-schema.md regen);
+        any FaditorEditorActivity site is DEFERRED to the report, not edited.
+        Fable → holds DEVICE token, tolerant smokes continue between watcher reinstalls;
+        take-critical replay-IK item DONE (see token block).
+prior: IDLE (2026-07-11 ~22:05 — POINT-AT-VIDEO CODE-COMPLETE + NO-FACE DEVICE-SMOKED,
         all committed, tree green. Two always-green commits:
         • db1c1fb sweep core: VideoFaceSweeper (fresh VIDEO-mode FaceLandmarker, sync
           detectForVideo, MMR ~12.5fps/OPTION_CLOSEST/~320px, one retriever per clip,

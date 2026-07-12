@@ -325,6 +325,26 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         }
         lastEmitSeconds = tSeconds;
 
+        Map<String, Float> params = resultToParams(result);
+        if (params == null) return; // raced away between the guards — treat as loss
+
+        l.onFrame(new TrackingFrame(tSeconds, params, Float.NaN));
+    }
+
+    /**
+     * Full FaceLandmarker result → plain driver params (head pose from the
+     * transformation matrix + blendshape pass-through with the rig's
+     * blinkL/blinkR renames). Null when the result carries no face/matrix.
+     * STATIC + shared (extract, don't copy): the live stream above and the
+     * point-at-video VIDEO-mode sweep both map frames through here, so the
+     * two paths can never disagree on param names or axis conventions.
+     */
+    @Nullable
+    static Map<String, Float> resultToParams(@NonNull FaceLandmarkerResult result) {
+        List<float[]> matrices = result.facialTransformationMatrixes().orElse(null);
+        if (result.faceLandmarks().isEmpty() || matrices == null || matrices.isEmpty()) {
+            return null;
+        }
         Map<String, Float> params = new java.util.HashMap<>();
         putHeadPose(params, matrices.get(0));
 
@@ -340,8 +360,7 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
                 }
             }
         }
-
-        l.onFrame(new TrackingFrame(tSeconds, params, Float.NaN));
+        return params;
     }
 
     /**
@@ -350,8 +369,14 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
      * Sign convention targets right/up positive to match the studio yaw/pitch
      * sliders; the front-camera mirror axis is the one likely device-tuning knob
      * (flip {@link #MIRROR_YAW} if a right head-turn reads negative on-device).
+     *
+     * <p>STATIC + shared on purpose (bake doctrine: extract, don't copy): the
+     * point-at-video sweep (VIDEO-mode FaceLandmarker over a clip → an
+     * AvatarParamTrack) maps its per-frame matrices through this exact method,
+     * so live tracking and offline sweeps can never drift apart on axis
+     * conventions — one tuning knob serves both.</p>
      */
-    private void putHeadPose(@NonNull Map<String, Float> params, @NonNull float[] m) {
+    static void putHeadPose(@NonNull Map<String, Float> params, @NonNull float[] m) {
         if (m.length < 16) return;
         // Row-major 3x3 rotation block: rIJ = m[I*4 + J].
         float r00 = m[0], r10 = m[4], r20 = m[8];

@@ -129,6 +129,9 @@ public class AIToolExecutor {
                 case "rename_asset": return toolRenameAsset(args);
                 case "describe_clip": return toolDescribeClip(args);
                 case "tag_broll_assets": return toolTagBrollAssets(args);
+                case "describe_sprite_sheet": return toolDescribeSpriteSheet(args);
+                case "author_avatar_rig": return toolAuthorAvatarRig(args);
+                case "apply_avatar_rig": return toolApplyAvatarRig(args);
                 default: return "Error: unknown tool '" + toolName + "'";
             }
         } catch (Exception e) {
@@ -303,6 +306,38 @@ public class AIToolExecutor {
                 (clip ids omitted from newOrder are DELETED)
               INSERT_BROLL_CUTAWAY {"type":"INSERT_BROLL_CUTAWAY","atMs":64000,
                 "durationMs":3500,"assetUri":"content://.../clip.mp4"}
+
+            33b. describe_sprite_sheet — Read-only. Inspect a sprite sheet: image
+                dimensions, its grid (cols/rows/margins/spacing — the sheet's stored
+                grid, or an auto-detected suggestion for a raw image), and per-cell
+                bounding boxes + occupancy (fraction of non-transparent pixels) + any
+                existing cell names. Use before author_sprite_animation or
+                author_avatar_rig to understand what art is on the sheet. Deterministic,
+                no network. Omit both args to list the project's sheets.
+                args: {"sheetId":"..."}  OR  {"imageUri":"file://…|content://…"}
+
+            35. author_avatar_rig — Propose an AVATAR PUPPET RIG (Avatar Studio) for the
+                user to confirm. Emit rig JSON against the BUILT-IN BIPED TEMPLATE:
+                canonical part ids head/body/armL/armR/handL/handR/mouth (body is the
+                root; head/armL/armR parent to body; handL/handR parent to their arm;
+                mouth parents to head), each part referencing a project sheetId (call
+                describe_sprite_sheet / get_project_state to get sheet ids). Domains:
+                a 3×3 head grid (driverX yaw, driverY pitch) and 1-D 5-cell limb strips
+                (driverX angle). Leave pose-cell EXTREMES unauthored — the human arms
+                them in Avatar Studio (AI does structure, human does taste). The tool
+                VALIDATES (unknown part names, missing sheets, malformed domains → it
+                returns the reasons for you to fix and re-emit) then shows the user a
+                confirm card. WAIT for them to Apply; on a chat go-ahead call
+                apply_avatar_rig with the same rig. Rig JSON shape:
+                {"name":"Dino","parts":[{"id":"body","sheetId":"<id>","anchorX":0.5,
+                "anchorY":0.85},{"id":"head","sheetId":"<id>","parentId":"body",
+                "anchorX":0.5,"anchorY":0.9}, …],"domains":[{"id":"head","driverX":"yaw",
+                "driverY":"pitch","cols":3,"rows":3},{"id":"armL","driverX":"angle",
+                "cols":5,"rows":1}]}
+                args: {"rig":{ …rig JSON object… }}
+            36. apply_avatar_rig — Apply a CONFIRMED avatar rig: registers it in the
+                project. Only call AFTER the user confirms (or use the Apply card).
+                args: {"rig":{ …the same rig JSON… }}
 
             To call a tool, respond with ONLY a JSON object:
             {"tool":"generate_transcript","args":{"clipId":"abc123","engine":"vosk"}}
@@ -1155,6 +1190,266 @@ public class AIToolExecutor {
             FLog.e(TAG, "callOpenRouterVision failed", e);
             return null;
         }
+    }
+
+    // ── Sprite / avatar AI authoring (FF-B + A5) ─────────────────────
+
+    /**
+     * FF-B describe_sprite_sheet: a deterministic, no-network structured read of a
+     * sprite sheet (project sheet by id, or a raw image by uri) for the model —
+     * dimensions, grid, and per-cell bounding boxes + alpha occupancy + names. Grid
+     * geometry is the single authority ({@link com.fadcam.ui.faditor.sprite.SpriteSheetRenderer#cellRectSource});
+     * a raw image gets an auto-detected grid ({@link com.fadcam.ui.faditor.sprite.SpriteGridDetector}).
+     */
+    private String toolDescribeSpriteSheet(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        String imageUri = args.optString("imageUri", "");
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = null;
+        String decodeUri;
+        if (!sheetId.isEmpty()) {
+            sheet = proj.spriteSheetById(sheetId);
+            if (sheet == null) {
+                return "Error: no sprite sheet with id '" + sheetId + "'. "
+                        + availableSheetsLine(proj);
+            }
+            decodeUri = sheet.getSheetUri();
+        } else if (!imageUri.isEmpty()) {
+            decodeUri = imageUri;
+        } else {
+            // No target — list the project's sheets so the model can pick one.
+            return availableSheetsLine(proj);
+        }
+
+        try {
+            android.net.Uri uri = android.net.Uri.parse(decodeUri);
+            // Bounds decode → true source dimensions.
+            android.graphics.BitmapFactory.Options bounds =
+                    new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+            }
+            int trueW = bounds.outWidth, trueH = bounds.outHeight;
+            if (trueW <= 0 || trueH <= 0) return "Error: could not decode image at " + decodeUri;
+
+            int maxEdge = 1024;
+            int sample = 1;
+            while (Math.max(trueW, trueH) / (sample * 2) >= maxEdge) sample *= 2;
+            android.graphics.BitmapFactory.Options opts =
+                    new android.graphics.BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            opts.inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888;
+            android.graphics.Bitmap bmp;
+            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                bmp = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+            }
+            if (bmp == null) return "Error: could not decode image at " + decodeUri;
+
+            boolean detected = false;
+            if (sheet == null) {
+                // Raw image: auto-detect a grid (in decoded space) → scale to source.
+                sheet = com.fadcam.ui.faditor.sprite.SpriteSheet.create("scan", decodeUri);
+                com.fadcam.ui.faditor.sprite.SpriteGridDetector.Result r =
+                        com.fadcam.ui.faditor.sprite.SpriteGridDetector.detect(bmp, 0);
+                if (r != null) {
+                    sheet.setGrid(r.cols, r.rows);
+                    sheet.setMargins(r.marginX * sample, r.marginY * sample);
+                    sheet.setSpacing(r.spacingX * sample, r.spacingY * sample);
+                    detected = true;
+                } else {
+                    sheet.setGrid(1, 1); // no confident grid → whole image is one cell
+                }
+            }
+
+            JSONObject out = new JSONObject();
+            out.put("source", sheetId.isEmpty() ? "image" : ("sheet:" + sheetId));
+            out.put("imageWidth", trueW);
+            out.put("imageHeight", trueH);
+            JSONObject grid = new JSONObject();
+            grid.put("cols", sheet.getCols());
+            grid.put("rows", sheet.getRows());
+            grid.put("marginX", sheet.getMarginX());
+            grid.put("marginY", sheet.getMarginY());
+            grid.put("spacingX", sheet.getSpacingX());
+            grid.put("spacingY", sheet.getSpacingY());
+            grid.put("detected", detected);
+            out.put("grid", grid);
+
+            int cellCount = sheet.cellCount();
+            if (cellCount > 256) {
+                out.put("note", "grid has " + cellCount
+                        + " cells — per-cell detail omitted (over 256).");
+            } else {
+                JSONArray cells = new JSONArray();
+                int bw = bmp.getWidth(), bh = bmp.getHeight();
+                for (int i = 0; i < cellCount; i++) {
+                    android.graphics.Rect src =
+                            com.fadcam.ui.faditor.sprite.SpriteSheetRenderer
+                                    .cellRectSource(sheet, i, trueW, trueH);
+                    JSONObject cj = new JSONObject();
+                    cj.put("index", i);
+                    com.fadcam.ui.faditor.sprite.SpriteSheet.Cell named = sheet.cellAt(i);
+                    if (named != null && !named.name.isEmpty()) cj.put("name", named.name);
+                    cj.put("x", src.left);
+                    cj.put("y", src.top);
+                    cj.put("w", src.width());
+                    cj.put("h", src.height());
+                    cj.put("occupancy", Math.round(
+                            cellOccupancy(bmp, src, sample, bw, bh) * 100f) / 100f);
+                    cells.put(cj);
+                }
+                out.put("cells", cells);
+            }
+            bmp.recycle();
+            return "Sprite sheet description:\n" + out.toString();
+        } catch (Exception e) {
+            FLog.e(TAG, "describe_sprite_sheet failed", e);
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /** Fraction (0..1) of non-transparent pixels in {@code srcRect}, scanned on the
+     *  decoded (downsampled) bitmap with a bounded, deterministic sample step. */
+    private static float cellOccupancy(@NonNull android.graphics.Bitmap bmp,
+                                       @NonNull android.graphics.Rect srcRect,
+                                       int sample, int bw, int bh) {
+        int l = Math.max(0, srcRect.left / sample);
+        int t = Math.max(0, srcRect.top / sample);
+        int r = Math.min(bw, srcRect.right / sample);
+        int b = Math.min(bh, srcRect.bottom / sample);
+        if (r <= l || b <= t) return 0f;
+        int cw = r - l, ch = b - t;
+        int step = Math.max(1, (int) Math.sqrt((cw * (long) ch) / 4096.0)); // ≤ ~4096 samples
+        long total = 0, opaque = 0;
+        for (int y = t; y < b; y += step) {
+            for (int x = l; x < r; x += step) {
+                total++;
+                if (android.graphics.Color.alpha(bmp.getPixel(x, y)) > 24) opaque++;
+            }
+        }
+        return total == 0 ? 0f : (float) opaque / total;
+    }
+
+    @NonNull
+    private static String availableSheetsLine(@NonNull FaditorProject proj) {
+        java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = proj.getSpriteSheets();
+        if (sheets.isEmpty()) return "This project has no sprite sheets yet.";
+        StringBuilder sb = new StringBuilder("Project sprite sheets: ");
+        for (int i = 0; i < sheets.size(); i++) {
+            com.fadcam.ui.faditor.sprite.SpriteSheet s = sheets.get(i);
+            if (i > 0) sb.append(", ");
+            sb.append('"').append(s.getName()).append("\" (id ").append(s.getId())
+                    .append(", ").append(s.getCols()).append('×').append(s.getRows()).append(')');
+        }
+        return sb.toString();
+    }
+
+    /** The 'rig' arg may arrive as a nested JSON object or a JSON string. */
+    @Nullable
+    private static String extractRigJson(@NonNull JSONObject args) {
+        Object r = args.opt("rig");
+        if (r instanceof JSONObject) return r.toString();
+        if (r instanceof String) {
+            String s = ((String) r).trim();
+            return s.isEmpty() ? null : s;
+        }
+        return null;
+    }
+
+    /**
+     * A5 author_avatar_rig (PROPOSE): validate model-emitted rig JSON against the biped
+     * template and, if clean, hand the user a confirm card. Reject-with-reasons on any
+     * problem so the model can fix and re-emit — never crash, never auto-insert.
+     */
+    private String toolAuthorAvatarRig(@NonNull JSONObject args) {
+        String rigJsonStr = extractRigJson(args);
+        if (rigJsonStr == null)
+            return "Error: 'rig' (the rig JSON) is required. Emit it against the biped template "
+                    + "(parts head/body/armL/armR/handL/handR/mouth, each with a project sheetId).";
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+
+        com.google.gson.JsonObject rj;
+        try {
+            rj = com.google.gson.JsonParser.parseString(rigJsonStr).getAsJsonObject();
+        } catch (Exception e) {
+            return "Error: rig is not valid JSON: " + e.getMessage();
+        }
+        com.fadcam.ui.faditor.avatar.AvatarRig rig =
+                com.fadcam.ui.faditor.avatar.AvatarRig.fromJson(rj);
+
+        java.util.Set<String> sheetIds = new java.util.HashSet<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : proj.getSpriteSheets())
+            sheetIds.add(s.getId());
+        java.util.List<String> reasons =
+                com.fadcam.ui.faditor.avatar.AvatarRigValidator.validate(rig, sheetIds);
+        if (!reasons.isEmpty()) {
+            StringBuilder sb = new StringBuilder("Rig validation failed — fix and re-emit:\n");
+            for (String r : reasons) sb.append("  • ").append(r).append('\n');
+            sb.append(availableSheetsLine(proj));
+            return sb.toString();
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("rig", new JSONObject(rig.toJson().toString()));
+            payload.put("name", rig.getName());
+            payload.put("partCount", rig.getParts().size());
+            payload.put("domainCount", rig.getDomains().size());
+            return "@@PROPOSAL:avatar_rig@@" + payload + "\n"
+                    + "AVATAR RIG PROPOSAL \"" + rig.getName() + "\" ("
+                    + rig.getParts().size() + " parts, " + rig.getDomains().size()
+                    + " pose domains — extremes unauthored, ready to tune in Avatar Studio).\n"
+                    + "A confirmation card is shown to the user — WAIT for them to tap Apply. "
+                    + "If they instead tell you to apply in chat, call apply_avatar_rig with "
+                    + "{\"rig\":<this rig JSON>}.";
+        } catch (Exception e) {
+            return "Error building proposal: " + e.getMessage();
+        }
+    }
+
+    /**
+     * A5 apply_avatar_rig (CONFIRM): register a validated rig in the project as one
+     * undoable step (the editor reloads on signalModified, exactly like the narrative /
+     * b-roll apply tools). Idempotent by rig id — re-applying replaces the same rig.
+     */
+    private String toolApplyAvatarRig(@NonNull JSONObject args) {
+        String rigJsonStr = extractRigJson(args);
+        if (rigJsonStr == null) return "Error: 'rig' (the rig JSON) is required.";
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+
+        com.google.gson.JsonObject rj;
+        try {
+            rj = com.google.gson.JsonParser.parseString(rigJsonStr).getAsJsonObject();
+        } catch (Exception e) {
+            return "Error: rig is not valid JSON: " + e.getMessage();
+        }
+        com.fadcam.ui.faditor.avatar.AvatarRig rig =
+                com.fadcam.ui.faditor.avatar.AvatarRig.fromJson(rj);
+
+        java.util.Set<String> sheetIds = new java.util.HashSet<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : proj.getSpriteSheets())
+            sheetIds.add(s.getId());
+        java.util.List<String> reasons =
+                com.fadcam.ui.faditor.avatar.AvatarRigValidator.validate(rig, sheetIds);
+        if (!reasons.isEmpty()) {
+            StringBuilder sb = new StringBuilder("Refusing to apply an invalid rig:\n");
+            for (String r : reasons) sb.append("  • ").append(r).append('\n');
+            return sb.toString();
+        }
+
+        com.fadcam.ui.faditor.avatar.AvatarRig existing = proj.avatarRigById(rig.getId());
+        if (existing != null) proj.getAvatarRigs().remove(existing);
+        proj.getAvatarRigs().add(rig);
+        storage.save(proj);
+        AIChatState.signalModified(projectId);
+        return "Created avatar rig \"" + rig.getName() + "\" (" + rig.getParts().size()
+                + " parts, " + rig.getDomains().size() + " pose domains). Open Avatar Studio "
+                + "to arm the pose extremes and fine-tune pivots.";
     }
 
     private String toolSplitClip(@NonNull JSONObject args) {

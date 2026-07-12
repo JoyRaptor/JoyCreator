@@ -1235,6 +1235,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             JSONObject payload = new JSONObject(jsonStr);
             if ("narrative".equals(type)) { buildNarrativeCard(payload); return true; }
             if ("broll".equals(type)) { buildBrollCard(payload); return true; }
+            if ("avatar_rig".equals(type)) { buildAvatarRigCard(payload); return true; }
         } catch (Exception ignored) { }
         return false;
     }
@@ -1350,6 +1351,54 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 applyProposal("apply_broll_proposal", args);
             } catch (Exception e) {
                 addBotMessage("Could not build cutaways: " + e.getMessage());
+            }
+        });
+        messagesContainer.addView(card);
+        scrollToBottom();
+    }
+
+    /**
+     * A5 AI rigging: confirm card for a proposed avatar rig ({@code author_avatar_rig}).
+     * Apply registers the rig via {@code apply_avatar_rig}; the user then arms the pose
+     * extremes in Avatar Studio (AI does structure, human does taste).
+     */
+    private void buildAvatarRigCard(@NonNull JSONObject payload) throws Exception {
+        final JSONObject rig = payload.getJSONObject("rig");
+        String name = payload.optString("name", rig.optString("name", "Avatar"));
+        int partCount = payload.optInt("partCount", rig.optJSONArray("parts") != null
+                ? rig.optJSONArray("parts").length() : 0);
+        int domainCount = payload.optInt("domainCount", rig.optJSONArray("domains") != null
+                ? rig.optJSONArray("domains").length() : 0);
+
+        LinearLayout card = newCardContainer();
+        addCardTitle(card, "🎭 Avatar rig");
+        addCardSubtitle(card, "Create \"" + name + "\" — " + partCount + " parts, "
+                + domainCount + " pose domains. Apply, then tune the extremes in Avatar Studio.");
+
+        JSONArray parts = rig.optJSONArray("parts");
+        if (parts != null) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < parts.length(); i++) {
+                JSONObject p = parts.optJSONObject(i);
+                if (p == null) continue;
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(p.optString("id", "?"));
+            }
+            TextView t = new TextView(this);
+            t.setText(sb.toString());
+            t.setTextColor(0xFFAAAAAA);
+            t.setTextSize(12);
+            t.setPadding(0, 0, 0, dp(4));
+            card.addView(t);
+        }
+
+        addCardButtons(card, v -> {
+            try {
+                JSONObject args = new JSONObject();
+                args.put("rig", rig);
+                applyProposal("apply_avatar_rig", args);
+            } catch (Exception e) {
+                addBotMessage("Could not build rig: " + e.getMessage());
             }
         });
         messagesContainer.addView(card);

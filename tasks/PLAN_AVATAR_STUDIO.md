@@ -225,9 +225,18 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       SAME verts = swap over identical geometry). NOTE §Pin-warp's "renderer implication" is
       CORRECTED: Canvas.drawBitmapMesh does sparse warps natively (hardware-accelerated, same
       Canvas stack as every compositing surface — one vertex authority for preview AND export);
-      no GL renderer needed at puppet scale, revisit only if profiling disagrees. REMAINING:
-      pin authoring UI (place/drag rest pins in the studio — design pass first), FABRIK→posed-
-      pins tracking hookup (A2), dangle physics.
+      no GL renderer needed at puppet scale, revisit only if profiling disagrees.
+      **STATUS CORRECTION 2026-07-12 (code audit):** the old REMAINING list was stale — ALL
+      THREE items exist in the tree: pin authoring UI (AvatarStudioActivity pinMode: add
+      sorted-by-y / drag with monotonic clamp / delete-last, rest chain + armed-cell pins,
+      count-change reseeds every cell pose), FABRIK→posed-pins hookup (TrackingFrame
+      pinTarget.* params → TrackingDriverBus.extractPinTargets → PuppetPreviewView
+      .trackedPins solves via FabrikSolver in part-local space; SyntheticTrackingSource
+      emits per-part orbits; studio + FloatingWebcamService both feed it), and dangle
+      physics (DangleSim wired in PuppetPreviewView, media-clock deterministic). GAP FOUND
+      + FIXED 2026-07-12: AvatarItemPuppet REPLAY never fed baked pinTarget.* params to the
+      view — a take recorded with IK limbs replayed rigid (live ≠ replay). Now extracts pin
+      targets from the sampled track exactly as the live surfaces do. A6 = COMPLETE.
       **DEVICE SMOKE PASSED 2026-07-06 ~23:00 (Note 9):** injected "a6-smoke-rig" (3-pin arm,
       3-cell yaw strip, cell swap at the right extreme) into the bdd51919 sandbox → Avatar
       Studio opened it, yaw slider drove the blend, and frame extraction proved: warp bends

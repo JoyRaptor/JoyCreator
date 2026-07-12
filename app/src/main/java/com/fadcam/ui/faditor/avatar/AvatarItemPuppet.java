@@ -83,8 +83,12 @@ public final class AvatarItemPuppet {
         }
         lastLocalMs = itemLocalMs;
         view.setMediaClockMs(itemLocalMs);
-        view.setResolved(PuppetPoseResolver.resolve(
-                rig, track.sampleAt(itemLocalMs), discrete));
+        java.util.Map<String, Float> params = track.sampleAt(itemLocalMs);
+        // Baked pinTarget.* params drive replay FABRIK exactly as live tracking
+        // does (the studio/bubble feed the same extract) — without this a take
+        // recorded with IK limbs replays rigid, live ≠ replay.
+        view.setTrackedPinTargets(TrackingDriverBus.extractPinTargets(params));
+        view.setResolved(PuppetPoseResolver.resolve(rig, params, discrete));
 
         int save;
         if (alpha >= 0.999f) {

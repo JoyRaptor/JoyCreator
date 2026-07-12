@@ -2224,7 +2224,8 @@ public class ExportManager {
                         clipWaveformSlots,
                         project.getTimeline().getAudioClips(),
                         exportSpriteItems,
-                        project.getSpriteSheets());
+                        project.getSpriteSheets(),
+                        project.getAvatarRigs());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

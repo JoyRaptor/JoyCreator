@@ -12825,6 +12825,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public com.fadcam.ui.faditor.avatar.AvatarRig lookupAvatarRig(
+                    @NonNull String rigId) {
+                return project != null ? project.avatarRigById(rigId) : null;
+            }
+
+            @Override
             public void onSpriteChanged() {
                 scheduleAutoSave();
             }

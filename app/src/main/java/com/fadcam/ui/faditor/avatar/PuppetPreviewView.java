@@ -171,6 +171,36 @@ public class PuppetPreviewView extends View {
         invalidate();
     }
 
+    // ── Replay media clock (bake-to-keyframes doctrine) ───────────────────
+    // Live surfaces run on the wall clock (uptimeMillis/nanoTime). A REPLAY
+    // consumer (AvatarItemPuppet: editor preview + export) sets the item's
+    // media time before each resolve so crossfade windows and dangle dt are
+    // functions of MEDIA time — the same frame renders the same pixels in
+    // preview and export, and re-exports are deterministic.
+
+    @Nullable private Long mediaClockMs;
+    @Nullable private Long lastMediaClockMs; // dangle dt base under the media clock
+
+    public void setMediaClockMs(@Nullable Long ms) {
+        this.mediaClockMs = ms;
+    }
+
+    /** Current time for crossfade bookkeeping: media clock when set, else wall. */
+    private long clockNowMs() {
+        return mediaClockMs != null ? mediaClockMs
+                : android.os.SystemClock.uptimeMillis();
+    }
+
+    /** Replay rewind (scrub back / new export pass): drop time-derived state so
+     *  a replay from any earlier point is deterministic. Keeps decoded bitmaps. */
+    public void resetReplayState() {
+        swapAtMs.clear();
+        lastCell.clear();
+        dangleSims.clear();
+        lastMediaClockMs = null;
+        lastFrameNanos = 0;
+    }
+
     public void bind(@Nullable AvatarRig rig,
                      @Nullable java.util.function.Function<String, SpriteSheetRenderer> rendererLookup) {
         this.rig = rig;
@@ -191,7 +221,7 @@ public class PuppetPreviewView extends View {
         // A6 pin-snap crossfade bookkeeping: catch the swapped edge BEFORE the
         // draw pass consumes the new cell, remembering which cell fades out.
         if (r != null) {
-            long now = android.os.SystemClock.uptimeMillis();
+            long now = clockNowMs();
             for (Map.Entry<String, PuppetPoseResolver.PartState> e : r.entrySet()) {
                 PuppetPoseResolver.PartState ps = e.getValue();
                 Integer prev = lastCell.get(e.getKey());
@@ -387,9 +417,18 @@ public class PuppetPreviewView extends View {
         if (rig == null || resolved == null) return;
 
         // A6 dangle preamble: step every dangle chain exactly once this frame.
-        long now = System.nanoTime();
-        float dt = lastFrameNanos > 0 ? (now - lastFrameNanos) / 1e9f : 1f / 60f;
-        lastFrameNanos = now;
+        // dt comes from the media clock during replay (deterministic), else wall.
+        float dt;
+        if (mediaClockMs != null) {
+            dt = lastMediaClockMs != null
+                    ? Math.max(0f, (mediaClockMs - lastMediaClockMs) / 1000f)
+                    : 1f / 60f;
+            lastMediaClockMs = mediaClockMs;
+        } else {
+            long now = System.nanoTime();
+            dt = lastFrameNanos > 0 ? (now - lastFrameNanos) / 1e9f : 1f / 60f;
+            lastFrameNanos = now;
+        }
         frameDanglePins.clear();
         boolean anyDangle = false;
         for (AvatarRig.Part part : rig.getParts()) {
@@ -571,11 +610,13 @@ public class PuppetPreviewView extends View {
         canvas.restore();
     }
 
-    /** Fading weight of a crossfade window, 0 when absent/expired. */
+    /** Fading weight of a crossfade window, 0 when absent/expired. Negative age
+     *  (media clock stepped back without a resetReplayState) counts as expired —
+     *  never over-brighten. */
     private float crossfadeAlpha(@Nullable long[] swap) {
         if (swap == null) return 0f;
-        long age = android.os.SystemClock.uptimeMillis() - swap[0];
-        if (age >= CROSSFADE_MS) return 0f;
+        long age = clockNowMs() - swap[0];
+        if (age < 0 || age >= CROSSFADE_MS) return 0f;
         return 1f - age / (float) CROSSFADE_MS;
     }
 

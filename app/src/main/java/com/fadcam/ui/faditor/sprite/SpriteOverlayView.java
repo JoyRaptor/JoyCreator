@@ -46,6 +46,11 @@ public class SpriteOverlayView extends View {
         /** A drag/pinch gesture finished; record ONE undo step from the snapshot. */
         default void onSpriteManipulated(@NonNull SpriteOverlayItem item,
                                          @NonNull SpriteOverlayItem.TransformSnapshot before) { }
+        /** Rig for a placed avatar item's replay render (null = unknown id). */
+        @Nullable
+        default com.fadcam.ui.faditor.avatar.AvatarRig lookupAvatarRig(@NonNull String rigId) {
+            return null;
+        }
     }
 
     private static final float SNAP_THRESHOLD = 0.045f; // TextOverlayLayer parity
@@ -92,11 +97,48 @@ public class SpriteOverlayView extends View {
 
     public void setSnapEnabled(boolean enabled) { this.snapEnabled = enabled; }
 
+    // ── Avatar replay (bake-to-keyframes): one puppet per performing item ──
+    // Keyed by item id; a null value caches "no rig" so a broken linkage
+    // doesn't retry every frame. Pruned in setData, released on detach.
+    private final java.util.Map<String, com.fadcam.ui.faditor.avatar.AvatarItemPuppet>
+            puppets = new java.util.HashMap<>();
+
     public void setData(@NonNull List<SpriteOverlayItem> items, @NonNull Callback cb) {
         this.items.clear();
         this.items.addAll(items);
         this.callback = cb;
+        java.util.Set<String> live = new java.util.HashSet<>();
+        for (SpriteOverlayItem o : items) live.add(o.getId());
+        java.util.Iterator<java.util.Map.Entry<String,
+                com.fadcam.ui.faditor.avatar.AvatarItemPuppet>> it =
+                puppets.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<String, com.fadcam.ui.faditor.avatar.AvatarItemPuppet> e =
+                    it.next();
+            if (!live.contains(e.getKey())) {
+                if (e.getValue() != null) e.getValue().release();
+                it.remove();
+            }
+        }
         invalidate();
+    }
+
+    /** Lazy per-item replay puppet; null when the item isn't performing or the
+     *  rig can't be found (fall back to the static sprite path). */
+    @Nullable
+    private com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppetFor(
+            @NonNull SpriteOverlayItem o) {
+        if (callback == null || !o.hasAvatarPerformance()) return null;
+        if (puppets.containsKey(o.getId())) return puppets.get(o.getId());
+        com.fadcam.ui.faditor.avatar.AvatarItemPuppet p =
+                com.fadcam.ui.faditor.avatar.AvatarItemPuppet.forItem(
+                        getContext(), o,
+                        o.getAvatarRigId() != null
+                                ? callback.lookupAvatarRig(o.getAvatarRigId()) : null,
+                        id -> callback.lookupRenderer(id),
+                        id -> callback.lookupSheet(id));
+        puppets.put(o.getId(), p);
+        return p;
     }
 
     /** Drive time-ranges, frame resolution, and keyframed transforms. */
@@ -143,7 +185,14 @@ public class SpriteOverlayView extends View {
         if (o.isFlipH() || o.isFlipV()) {
             canvas.scale(o.isFlipH() ? -1f : 1f, o.isFlipV() ? -1f : 1f, cx, cy);
         }
-        if (renderer != null && sheet != null) {
+        com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet = puppetFor(o);
+        if (puppet != null && o.getAvatarTrack() != null) {
+            // Live puppet replay (bake-to-keyframes): resolver-driven, replaces
+            // the static neutral cell. Rotate/flip above apply; workRect is the
+            // same box the neutral PNG occupied, so geometry is unchanged.
+            puppet.draw(canvas, workRect, o.getAvatarTrack(),
+                    Math.max(0, o.toLocalMs(currentTimeMs)), alpha);
+        } else if (renderer != null && sheet != null) {
             int cell = SpriteFrameResolver.resolveCellAt(sheet, o, currentTimeMs);
             if (cell != SpriteFrameResolver.NO_CELL) {
                 drawPaint.setAlpha(Math.round(alpha * 255));
@@ -274,5 +323,22 @@ public class SpriteOverlayView extends View {
 
     private float clamp(float v) {
         return Math.max(0f, Math.min(1f, v));
+    }
+
+    /** Drop an item's cached replay puppet (e.g. after a re-record replaced
+     *  its track) so the next draw rebuilds with fresh replay state. */
+    public void resetAvatarPuppet(@NonNull String itemId) {
+        com.fadcam.ui.faditor.avatar.AvatarItemPuppet p = puppets.remove(itemId);
+        if (p != null) p.release();
+        invalidate();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        for (com.fadcam.ui.faditor.avatar.AvatarItemPuppet p : puppets.values()) {
+            if (p != null) p.release();
+        }
+        puppets.clear();
     }
 }

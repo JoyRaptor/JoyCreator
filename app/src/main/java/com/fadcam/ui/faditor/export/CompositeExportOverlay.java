@@ -117,6 +117,14 @@ public class CompositeExportOverlay extends BitmapOverlay {
             spriteRenderers = new java.util.HashMap<>();
     private final Paint spritePaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
 
+    // Bake-to-keyframes: rigs for avatar items' replay render. Puppets build
+    // lazily per performing item (null cached = broken linkage, no per-frame
+    // retry) and release() recycles them. Export frames arrive in time order,
+    // which is exactly the DiscreteState stepping the replay doctrine wants.
+    private final List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs;
+    private final java.util.Map<String, com.fadcam.ui.faditor.avatar.AvatarItemPuppet>
+            avatarPuppets = new java.util.HashMap<>();
+
     // (PiP drawing moved OUT to BlendModeGlEffect/PipFrameOverlay — the
     // z-unification fix: all PiPs composite in the effect chain in z-order;
     // this overlay keeps only sprites/text/captions/waveforms, which sit
@@ -130,7 +138,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<WaveformSlot> waveformSlots,
                                    @NonNull List<AudioClip> audioClips,
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> allSpriteItems,
-                                   @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets) {
+                                   @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets,
+                                   @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs) {
         this.context = context.getApplicationContext();
         this.clipTimelineStartMs = clipTimelineStartMs;
         this.clip = clip;
@@ -140,6 +149,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.textOverlays = filterTextOverlays(allTextOverlays);
         this.spriteItems = filterSpriteItems(allSpriteItems);
         this.spriteSheets = spriteSheets;
+        this.avatarRigs = avatarRigs;
         this.waveformSlots = waveformSlots;
         this.waveRenderer = new WaveformStyleRenderer();
 
@@ -227,6 +237,24 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (s.getId().equals(sheetId)) return s;
         }
         return null;
+    }
+
+    /** Lazy replay puppet per performing avatar item (mirrors the preview's
+     *  SpriteOverlayView cache; null cached = missing rig, no per-frame retry). */
+    @Nullable
+    private com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppetFor(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem o) {
+        if (!o.hasAvatarPerformance()) return null;
+        if (avatarPuppets.containsKey(o.getId())) return avatarPuppets.get(o.getId());
+        com.fadcam.ui.faditor.avatar.AvatarRig rig = null;
+        for (com.fadcam.ui.faditor.avatar.AvatarRig r : avatarRigs) {
+            if (r.getId().equals(o.getAvatarRigId())) { rig = r; break; }
+        }
+        com.fadcam.ui.faditor.avatar.AvatarItemPuppet p =
+                com.fadcam.ui.faditor.avatar.AvatarItemPuppet.forItem(
+                        context, o, rig, this::spriteRendererFor, this::sheetById);
+        avatarPuppets.put(o.getId(), p);
+        return p;
     }
 
     private List<TextOverlayItem> filterTextOverlays(List<TextOverlayItem> all) {
@@ -337,9 +365,13 @@ public class CompositeExportOverlay extends BitmapOverlay {
                         sheet != null ? spriteRendererFor(o.getSheetId()) : null;
                 if (sheet == null || r == null) continue; // missing art: preview shows
                                                           // the placeholder; export omits
+                com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet = puppetFor(o);
                 int cell = com.fadcam.ui.faditor.sprite.SpriteFrameResolver
                         .resolveCellAt(sheet, o, timelineMs);
-                if (cell == com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL) continue;
+                if (puppet == null
+                        && cell == com.fadcam.ui.faditor.sprite.SpriteFrameResolver.NO_CELL) {
+                    continue;
+                }
                 float cx = o.animatedCenterX(timelineMs) * outW;
                 float cy = o.animatedCenterY(timelineMs) * outH;
                 float h = o.animatedSizeFraction(timelineMs) * outH;
@@ -353,7 +385,15 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 }
                 android.graphics.RectF dest = new android.graphics.RectF(
                         cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
-                r.drawCell(canvas, cell, dest, spritePaint);
+                if (puppet != null && o.getAvatarTrack() != null) {
+                    // Bake-to-keyframes replay: live puppet in the SAME dest box
+                    // the neutral cell occupied (preview parity by construction —
+                    // SpriteOverlayView takes the identical branch).
+                    puppet.draw(canvas, dest, o.getAvatarTrack(),
+                            Math.max(0, o.toLocalMs(timelineMs)), opacity);
+                } else {
+                    r.drawCell(canvas, cell, dest, spritePaint);
+                }
                 canvas.restore();
                 drawnSprite++;
             }
@@ -582,6 +622,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 + " (clip " + clip.getId() + " in=" + clip.getInPointMs()
                 + " out=" + clip.getOutPointMs()
                 + " speed=" + clip.getSpeedMultiplier() + ")");
+        for (com.fadcam.ui.faditor.avatar.AvatarItemPuppet p : avatarPuppets.values()) {
+            if (p != null) p.release();
+        }
+        avatarPuppets.clear();
         for (com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r : spriteRenderers.values()) {
             if (r != null) r.recycle();
         }

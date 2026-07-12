@@ -68,6 +68,10 @@ public class SpritePalettePanel extends FrameLayout {
         default boolean isRecordingPerformance(@NonNull SpriteOverlayItem item) {
             return false;
         }
+
+        /** Avatar item (point-at-video): sweep the clip under the item through
+         *  VIDEO-mode face tracking into its performance track. */
+        default void onSweepFromVideo(@NonNull SpriteOverlayItem item) {}
     }
 
     private static final int DETENT_MICRO = 0;
@@ -332,6 +336,10 @@ public class SpritePalettePanel extends FrameLayout {
                 else if (selected.hasAvatarPerformance()) perf.setBackgroundColor(0xFF1B4A3B);
                 perf.setOnClickListener(v -> callback.onRecordPerformance(selected));
                 toggles.addView(perf, chipLp());
+                // Point-at-video: bake a performance from the clip under the item.
+                TextView sweep = chip("🎬 From video");
+                sweep.setOnClickListener(v -> callback.onSweepFromVideo(selected));
+                toggles.addView(sweep, chipLp());
             }
             contentArea.addView(toggles);
         }

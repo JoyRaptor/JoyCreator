@@ -12695,6 +12695,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onDeleteInstance(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
                 if (item == perfRecordItem) stopPerformanceRecording();
+                if (item == perfSweepItem && perfSweeper != null) perfSweeper.cancel();
                 project.getTimeline().removeSpriteOverlay(item);
                 syncTimelineOverlays();
                 undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
@@ -12741,6 +12742,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public boolean isRecordingPerformance(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
                 return perfRecordBus != null && item == perfRecordItem;
+            }
+
+            @Override
+            public void onSweepFromVideo(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                sweepPerformanceFromVideo(item);
             }
 
             @Override
@@ -12941,6 +12948,141 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     "Performance recorded (%.1fs)", after.durationMs() / 1000f),
                     Toast.LENGTH_SHORT).show();
         }
+        if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
+            spritePalettePanel.rebuild();
+        }
+    }
+
+    // ── Point-at-video (PLAN_AVATAR_STUDIO A4-NEXT): sweep the master clips
+    //    under an avatar item through VIDEO-mode FaceLandmarker into its
+    //    AvatarParamTrack. Same undo shape as a recorded take (one step swaps
+    //    whole takes); replay/export ride AvatarItemPuppet untouched. ────────
+
+    @Nullable private com.fadcam.ui.faditor.avatar.VideoFaceSweeper perfSweeper;
+    @Nullable private com.fadcam.ui.faditor.sprite.SpriteOverlayItem perfSweepItem;
+
+    private void sweepPerformanceFromVideo(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (perfRecordBus != null) {
+            Toast.makeText(this, "Stop the live recording first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (perfSweeper != null) {
+            Toast.makeText(this, "A sweep is already running", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (project == null || project.avatarRigById(item.getAvatarRigId()) == null) {
+            Toast.makeText(this, "This item's avatar rig is missing from the project",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Unlike 🎯 Record there is no synthetic fallback — sweeping a video
+        // without the face model would only ever bake an empty track.
+        if (!com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.isModelPresent(this)) {
+            Toast.makeText(this, "Face model missing — can't sweep video",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        long videoEndMs = project.getTimeline().getVideoTrackDurationMs();
+        long startMs = Math.max(0, item.getStartMs());
+        long endMs = Math.min(item.getEndMs(), videoEndMs);
+        if (endMs <= startMs) {
+            Toast.makeText(this, "No video under this item to sweep",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (playerManager != null && playerManager.isPlaying()) playerManager.pause();
+
+        // Progress dialog (inline strings — strings.xml is another agent's file).
+        android.widget.ProgressBar bar = new android.widget.ProgressBar(
+                this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        int padPx = (int) (24 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+        wrap.setPadding(padPx, padPx, padPx, 0);
+        wrap.addView(bar);
+        androidx.appcompat.app.AlertDialog dialog =
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Tracking face in video…")
+                        .setView(wrap)
+                        .setCancelable(false)
+                        .setNegativeButton("Cancel", (d, w) -> {
+                            if (perfSweeper != null) perfSweeper.cancel();
+                        })
+                        .create();
+        dialog.show();
+
+        final com.fadcam.ui.faditor.avatar.VideoFaceSweeper sweeper =
+                new com.fadcam.ui.faditor.avatar.VideoFaceSweeper(this);
+        perfSweeper = sweeper;
+        perfSweepItem = item;
+        sweeper.sweep(project.getTimeline().getClips(), startMs, endMs,
+                new com.fadcam.ui.faditor.avatar.VideoFaceSweeper.Listener() {
+                    @Override
+                    public void onProgress(int done, int total) {
+                        if (total > 0) bar.setProgress((int) (done * 100L / total));
+                    }
+
+                    @Override
+                    public void onComplete(
+                            @NonNull com.fadcam.ui.faditor.avatar.AvatarParamTrack track) {
+                        finishSweep(dialog);
+                        applySweptTake(item, track);
+                    }
+
+                    @Override
+                    public void onCancelled() {
+                        finishSweep(dialog);
+                        Toast.makeText(FaditorEditorActivity.this,
+                                "Sweep cancelled — kept the previous take",
+                                Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onError(@NonNull String message) {
+                        finishSweep(dialog);
+                        Toast.makeText(FaditorEditorActivity.this, message,
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    private void finishSweep(@NonNull androidx.appcompat.app.AlertDialog dialog) {
+        perfSweeper = null;
+        perfSweepItem = null;
+        if (dialog.isShowing()) dialog.dismiss();
+    }
+
+    /** Swept take lands exactly like a recorded one: whole-take swap, one undo
+     *  step, empty result keeps the prior take (stopPerformanceRecording's shape). */
+    private void applySweptTake(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+            @NonNull com.fadcam.ui.faditor.avatar.AvatarParamTrack after) {
+        if (after.isEmpty()) {
+            Toast.makeText(this, "No face found in the video — kept the previous take",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        final com.fadcam.ui.faditor.avatar.AvatarParamTrack before = item.getAvatarTrack();
+        item.setAvatarTrack(after);
+        if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
+        undoManager.recordAction(new EditActions.LambdaAction("Sweep performance",
+                () -> {
+                    item.setAvatarTrack(after);
+                    if (spriteOverlayView != null) {
+                        spriteOverlayView.resetAvatarPuppet(item.getId());
+                    }
+                },
+                () -> {
+                    item.setAvatarTrack(before);
+                    if (spriteOverlayView != null) {
+                        spriteOverlayView.resetAvatarPuppet(item.getId());
+                    }
+                }));
+        scheduleAutoSave();
+        Toast.makeText(this, String.format(java.util.Locale.US,
+                "Performance baked from video (%.1fs, %d samples)",
+                after.durationMs() / 1000f, after.size()), Toast.LENGTH_SHORT).show();
         if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
             spritePalettePanel.rebuild();
         }

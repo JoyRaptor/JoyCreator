@@ -59,6 +59,15 @@ public class SpritePalettePanel extends FrameLayout {
         default void onNudgeKey(@NonNull SpriteOverlayItem item, int direction) {}
         /** Delete the key at (or near) the playhead. */
         default void onDeleteKeyAtPlayhead(@NonNull SpriteOverlayItem item) {}
+
+        /** Avatar item (bake-to-keyframes): start/stop recording a face-tracked
+         *  performance onto the item. Chip shows only when a rig is linked. */
+        default void onRecordPerformance(@NonNull SpriteOverlayItem item) {}
+
+        /** True while {@code item} is the one being recorded (chip state). */
+        default boolean isRecordingPerformance(@NonNull SpriteOverlayItem item) {
+            return false;
+        }
     }
 
     private static final int DETENT_MICRO = 0;
@@ -314,6 +323,16 @@ public class SpritePalettePanel extends FrameLayout {
             toggles.addView(fh, chipLp());
             toggles.addView(fv, chipLp());
             toggles.addView(eb, chipLp());
+            // Avatar item: record-performance chip (bake-to-keyframes). Inline
+            // literals on purpose — strings.xml is another agent's live file.
+            if (selected.getAvatarRigId() != null) {
+                boolean rec = callback.isRecordingPerformance(selected);
+                TextView perf = chip(rec ? "⏺ Stop" : "🎯 Record");
+                if (rec) perf.setBackgroundColor(0xFF5C1B1B);
+                else if (selected.hasAvatarPerformance()) perf.setBackgroundColor(0xFF1B4A3B);
+                perf.setOnClickListener(v -> callback.onRecordPerformance(selected));
+                toggles.addView(perf, chipLp());
+            }
             contentArea.addView(toggles);
         }
     }

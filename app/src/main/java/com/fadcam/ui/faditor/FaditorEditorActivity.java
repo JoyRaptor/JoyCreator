@@ -1120,6 +1120,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         playheadHandler.removeCallbacks(playheadUpdater);
+        // Camera single-owner: a rolling performance take must not outlive the
+        // visible editor (the studio's onPause stopTracking rule).
+        stopPerformanceRecording();
         hideTransitionPreview();
         // M-COMP-2: park the overlay decoder while backgrounded.
         if (overlayVideoLayer != null) overlayVideoLayer.pausePlayback();
@@ -12691,6 +12694,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onDeleteInstance(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                if (item == perfRecordItem) stopPerformanceRecording();
                 project.getTimeline().removeSpriteOverlay(item);
                 syncTimelineOverlays();
                 undoManager.recordAction(new EditActions.LambdaAction("Delete sprite",
@@ -12724,6 +12728,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onPanelCollapsed() {
                 spritePalettePanel = null;
+            }
+
+            @Override
+            public void onRecordPerformance(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                togglePerformanceRecording(item);
+                p.rebuild();
+            }
+
+            @Override
+            public boolean isRecordingPerformance(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                return perfRecordBus != null && item == perfRecordItem;
             }
 
             @Override
@@ -12789,6 +12806,144 @@ public class FaditorEditorActivity extends AppCompatActivity {
         p.setPlayheadMs(lastPlayheadAbsoluteMs);
         ViewGroup root = findViewById(android.R.id.content);
         root.addView(p);
+    }
+
+    // ── Avatar performance recording (bake-to-keyframes, PLAN_AVATAR_STUDIO
+    //    §MINED): mount the tracking bus (camera single-owner — the studio's
+    //    startTracking pattern verbatim), roll playback, and sample the bus's
+    //    RESOLVED driver params once per frame at the item-LOCAL playhead time
+    //    into an AvatarParamTrack. Export replays that track through the
+    //    resolver — the webcam never re-runs (AvatarItemPuppet). ────────────
+
+    @Nullable private com.fadcam.ui.faditor.avatar.TrackingDriverBus perfRecordBus;
+    @Nullable private com.fadcam.ui.faditor.sprite.SpriteOverlayItem perfRecordItem;
+    @Nullable private com.fadcam.ui.faditor.avatar.AvatarParamTrack perfRecordTrack;
+    @Nullable private com.fadcam.ui.faditor.avatar.AvatarParamTrack perfRecordBefore;
+    private static final int RC_PERF_CAMERA = 4022;
+
+    /** Per-frame sampler: bus snapshot → track at item-local playhead ms. The
+     *  item's live track IS the growing one, so the replay renderer shows the
+     *  puppet following the user's face while the take rolls. */
+    private final Runnable perfRecordTick = new Runnable() {
+        @Override public void run() {
+            if (perfRecordBus == null || perfRecordItem == null || perfRecordTrack == null) {
+                return;
+            }
+            // Playhead ran past the item's end: the take is over.
+            if (perfRecordItem.getEndMs() != Long.MAX_VALUE
+                    && lastPlayheadAbsoluteMs > perfRecordItem.getEndMs()) {
+                stopPerformanceRecording();
+                return;
+            }
+            java.util.Map<String, Float> p = perfRecordBus.latest();
+            long localMs = perfRecordItem.toLocalMs(lastPlayheadAbsoluteMs);
+            if (p != null && localMs >= 0) {
+                perfRecordTrack.add(localMs, p);
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+            }
+            if (spriteOverlayView != null) spriteOverlayView.postOnAnimation(this);
+        }
+    };
+
+    private void togglePerformanceRecording(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (perfRecordBus != null) {
+            stopPerformanceRecording();
+            return;
+        }
+        com.fadcam.ui.faditor.avatar.AvatarRig rig =
+                project != null ? project.avatarRigById(item.getAvatarRigId()) : null;
+        if (rig == null) {
+            Toast.makeText(this, "This item's avatar rig is missing from the project",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Camera + model gating — the studio's D4 source swap verbatim:
+        // real face tracking when possible, synthetic fallback so the whole
+        // path stays exercisable without a camera grant.
+        boolean camGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                this, android.Manifest.permission.CAMERA)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        boolean modelPresent = com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource
+                .isModelPresent(this);
+        boolean face = camGranted && modelPresent;
+        if (!camGranted) {
+            androidx.core.app.ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.CAMERA}, RC_PERF_CAMERA);
+            Toast.makeText(this, "Grant camera, then tap 🎯 again for face tracking",
+                    Toast.LENGTH_SHORT).show();
+        } else if (!modelPresent) {
+            Toast.makeText(this, "Face model missing — recording synthetic tracking",
+                    Toast.LENGTH_SHORT).show();
+        }
+        java.util.List<String> ikParts = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.avatar.AvatarRig.Part part : rig.getParts()) {
+            if (part.restPins.size() >= 2) ikParts.add(part.id);
+        }
+        com.fadcam.ui.faditor.avatar.TrackingSource source = face
+                ? new com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource(this, () -> {
+                    if (perfRecordBus != null) perfRecordBus.requestReset();
+                })
+                : new com.fadcam.ui.faditor.avatar.SyntheticTrackingSource(ikParts);
+        perfRecordItem = item;
+        perfRecordBefore = item.getAvatarTrack();
+        perfRecordTrack = new com.fadcam.ui.faditor.avatar.AvatarParamTrack();
+        item.setAvatarTrack(perfRecordTrack); // live feedback via the replay renderer
+        if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
+        perfRecordBus = new com.fadcam.ui.faditor.avatar.TrackingDriverBus();
+        perfRecordBus.start(source, 20260711L);
+        // Roll playback so the performance lines up with the video under it.
+        if (playerManager != null && !playerManager.isPlaying()) playerManager.play();
+        if (spriteOverlayView != null) spriteOverlayView.postOnAnimation(perfRecordTick);
+        Toast.makeText(this, face
+                ? "Recording performance — tap ⏺ Stop to finish"
+                : "Recording (synthetic) — tap ⏺ Stop to finish",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** Finish the take: unmount the camera, keep the recording if it captured
+     *  anything (one undo step swaps whole takes), else restore the old one. */
+    private void stopPerformanceRecording() {
+        if (perfRecordBus == null) return;
+        perfRecordBus.stop();
+        perfRecordBus = null;
+        if (spriteOverlayView != null) spriteOverlayView.removeCallbacks(perfRecordTick);
+        if (playerManager != null && playerManager.isPlaying()) playerManager.pause();
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem item = perfRecordItem;
+        final com.fadcam.ui.faditor.avatar.AvatarParamTrack before = perfRecordBefore;
+        final com.fadcam.ui.faditor.avatar.AvatarParamTrack after = perfRecordTrack;
+        perfRecordItem = null;
+        perfRecordTrack = null;
+        perfRecordBefore = null;
+        if (item == null) return;
+        if (after == null || after.isEmpty()) {
+            item.setAvatarTrack(before); // nothing captured — keep the prior take
+            if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
+            Toast.makeText(this, "No tracking captured — kept the previous take",
+                    Toast.LENGTH_SHORT).show();
+        } else {
+            undoManager.recordAction(new EditActions.LambdaAction("Record performance",
+                    () -> {
+                        item.setAvatarTrack(after);
+                        if (spriteOverlayView != null) {
+                            spriteOverlayView.resetAvatarPuppet(item.getId());
+                        }
+                    },
+                    () -> {
+                        item.setAvatarTrack(before);
+                        if (spriteOverlayView != null) {
+                            spriteOverlayView.resetAvatarPuppet(item.getId());
+                        }
+                    }));
+            scheduleAutoSave();
+            if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
+            Toast.makeText(this, String.format(java.util.Locale.US,
+                    "Performance recorded (%.1fs)", after.durationMs() / 1000f),
+                    Toast.LENGTH_SHORT).show();
+        }
+        if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
+            spritePalettePanel.rebuild();
+        }
     }
 
     /** Replace an item's frame keys with a snapshot (sprite-swap undo/redo). */

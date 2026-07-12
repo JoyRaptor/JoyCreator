@@ -32,7 +32,13 @@ how they avoid clobbering each other. Protocol — no exceptions:
    then set it back to `free`. Never drive the device while the other agent holds it.
 
 ## DEVICE TOKEN
-DEVICE: free (Fable released 2026-07-11 ~01:10 after full verify batch: AV3 layout, W2 zoom,
+DEVICE: free (Fable released 2026-07-11 ~20:50 after the avatar verify batch — results in
+  the FABLE lane block below. NOTE for JoyRaptor: P0 control2 project cebc19e0 was used as the
+  avatar test bed and now carries (a) a stray "Enter text" overlay from a mis-tap, (b) an
+  inserted "A6 Warp Smoke" avatar item WITH an injected 2s yaw-sweep performance (good for
+  feel-testing replay), (c) real art pushed into its assets for the previously-missing
+  "Sprite" sheet. project.json.bak from Jul 7 still on-device if pristine matters.)
+prior: free (Fable released 2026-07-11 ~01:10 after full verify batch: AV3 layout, W2 zoom,
   smoke i/k/l, G5a attach+detach, GL More-effects — ALL PASS. Sandbox bdd51919 restored pristine
   (md5 e81a6df8…), undo_history cleared. See handoff 2026-07-11 block.)
 (Fable owns it during hard interactive device-loops; opencode does code+compile-only
@@ -49,7 +55,36 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE (2026-07-11 ~19:45 — JOY CREATOR finish push, A4 PRODUCT LOOP COMPLETE, all
+status: IDLE (2026-07-11 ~20:50 — BAKE-TO-KEYFRAMES COMPLETE + DEVICE-VERIFIED, all committed,
+        tree green. Four always-green commits:
+        • 41908c5 storage: avatarRigId + AvatarParamTrack ride the placed sprite item
+          (additive/tolerant-read in ProjectStorage; insert stamps the linkage).
+        • 4b10fb1 replay render: AvatarItemPuppet (offscreen PuppetPreviewView, fresh
+          DiscreteState, rewind reset, MEDIA-clock crossfade/dangle determinism) wired into
+          SpriteOverlayView preview AND CompositeExportOverlay export (rigs via ExportManager).
+        • 685e056 record: 🎯 Record chip on avatar items in the sprite palette — studio
+          tracking-mount pattern, rolls playback, samples bus at item-local playhead ms,
+          stop on tap/item-end/delete/onPause, one-undo-step whole-take swap.
+        • 9158cb1 harness: ReplayMappingTest 19/19 GREEN (time mapping + render gate).
+        DEVICE VERIFY (SM-N960U, build 20:13:07) — PASS: standalone studio entry (person
+        icon → library chooser), studio opens A6 Warp Smoke + pin-warp renders real art,
+        🎯 Track mounts REAL MediaPipe face source (camera+model present; no face on desk →
+        correct freeze/loss hold), Library ⇪ publishes a complete bundle (avatar.json +
+        sheet bytes), editor ⇓ Insert bakes avatar-a6-smoke-neutral.png + places item with
+        avatarRigId persisted, 🎯 Record chip mounts camera + rolls + empty-take restore
+        toast, REPLAY: injected 2s yaw-sweep track renders live puppet in preview at
+        distinct poses per time (incl. a discrete cell swap), EXPORT: same poses at the
+        same times in the exported mp4 (t=0.5 absent before item start / t=2.0 S-bend
+        green-tip / t=2.6 chevron) = preview==export proven, webcam never ran at export.
+        NOT RUN (blocked/needs-JoyRaptor): axis-inversion feel (needs a real face in front of
+        the camera), recorder bubble face-button + clear-stage (blocked on ungran­ted
+        "Display over other apps" — system permission, user must grant), record-with-face.
+        NEXT: point-at-video (VIDEO-mode FaceLandmarker sweep → track; extract putHeadPose,
+        don't copy) → A5 AI rigging. opencode's grade-presets files UNTOUCHED.)
+files: (none — released)
+since: 2026-07-11 ~20:50
+prior-claim: ACTIVE (2026-07-11 ~20:15 — BAKE-TO-KEYFRAMES session per BOOTSTRAP_BAKE_20260711.)
+prior: IDLE (2026-07-11 ~19:45 — JOY CREATOR finish push, A4 PRODUCT LOOP COMPLETE, all
         committed, tree green (subagents were user-stopped early; Fable did all three inline):
         • c0c4020 A4 HEART: puppet RENDERS into the webcam bubble (camera single-owner:
           Camera2 preview never opens in avatar mode, MediaPipeTrackingSource owns the front

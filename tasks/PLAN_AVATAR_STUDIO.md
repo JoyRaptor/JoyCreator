@@ -182,10 +182,28 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       bake (AvatarNeutralBaker, offscreen PuppetPreviewView = preview==bake) → 1-cell
       sprite sheet → the complete sprite pipeline. AvatarParamTrack (bake foundation,
       ParamTrackTest 25/25) landed for the next slice.
-- [ ] A4-NEXT bake-to-keyframes: record a face-tracked performance onto a placed avatar
-      item (AvatarParamTrack exists), live puppet render in editor preview+export
-      (replaces the neutral PNG when a track exists — locked-file surgery: compositor +
-      ExportManager). Then point-at-video (VIDEO-mode FaceLandmarker over a clip → track).
+- [x] **BAKE-TO-KEYFRAMES COMPLETE 2026-07-11 (41908c5 + 4b10fb1 + 685e056 + 9158cb1,
+      device-verified same night)**: (1) STORAGE — placed sprite item carries avatarRigId +
+      AvatarParamTrack (additive, tolerant-read; insert stamps the linkage; the asset-name
+      convention is now just a human-readable mirror). (2) REPLAY RENDER — AvatarItemPuppet:
+      one shared replay renderer (offscreen PuppetPreviewView à la AvatarNeutralBaker, fresh
+      caller-owned DiscreteState stepped in time order, recreated on rewind together with the
+      view's new resetReplayState; PuppetPreviewView grew a replay MEDIA clock so pin-snap
+      crossfade + dangle dt are media-time functions under replay — live surfaces unchanged)
+      consumed by BOTH SpriteOverlayView (preview) and CompositeExportOverlay (export; rigs
+      passed by ExportManager) in the same dest box the neutral PNG occupied. (3) RECORD —
+      🎯 Record chip on avatar items in the sprite palette; studio's tracking-mount pattern
+      verbatim (camera single-owner, synthetic fallback), rolls playback, samples bus.latest()
+      per frame at item-LOCAL playhead ms; stop on tap/item-end/delete/onPause; empty take
+      restores the prior one; real take = ONE undo step. (4) ReplayMappingTest 19/19.
+      DEVICE-VERIFIED (SM-N960U): library ⇪ bundle, ⇓ Insert (rigId persists), record chip
+      mounts real MediaPipe + empty-take restore, and an injected 2s yaw-sweep track replays
+      as a LIVE PUPPET with distinct poses per time (discrete swap included) in preview AND
+      in the exported mp4 at the same timestamps — preview==export, webcam never re-runs.
+      OWED: real-face record + axis feel (needs JoyRaptor's face); bubble face-button/clear-stage
+      re-verify blocked on the "Display over other apps" permission (user must grant).
+- [ ] A4-NEXT point-at-video: VIDEO-mode FaceLandmarker over a clip → AvatarParamTrack on
+      an avatar item (extract putHeadPose math from MediaPipeTrackingSource — don't copy).
 - [ ] A5 AI rigging
 - [~] A6 limbs — **PIN-WARP CORE LANDED 2026-07-06 (5e3a94d)**: PinWarpStrip math (JVM harness
       PinWarpTest 16/16 — identity/translation/90° bend/guards/degenerates), Part.restPins

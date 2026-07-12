@@ -133,6 +133,26 @@ public class ExportManager {
     private static final long MIN_EXPORT_SEGMENT_MS = 40L;
 
     /**
+     * Slop (ms) when deciding whether a clipped window still overlaps the source's AUDIO
+     * track. Audio streams routinely end a few ms before the video track; a window that
+     * starts within this margin of the audio end is treated as past-audio.
+     */
+    private static final long AUDIO_COVERAGE_EPS_MS = 5L;
+
+    /**
+     * Per-source cache: uri → audio-track duration ms. {@code 0} = source has NO audio
+     * track; {@link Long#MAX_VALUE} = duration unknown/unreadable (assume covered — never
+     * strip audio on a guess). Filled lazily during composition builds via a one-shot
+     * MediaExtractor probe (device-verify 2026-07-12 found the class of muxer stall the
+     * 313e7fa seam-clamp missed: a transition-trimmed residual window that starts PAST the
+     * end of the source's audio track produces ZERO audio samples, and the AudioGraph
+     * stalls the whole export until the 10s watchdog aborts — AudioExportVerify clip[4],
+     * window 4811..4884 of a source whose audio ends earlier).
+     */
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> sourceAudioDurMs =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
      * Thread-local MediaMetadataRetriever cache used during composition building.
      *
      * <p>{@link MediaMetadataRetriever} is <strong>not thread-safe</strong>: a single instance
@@ -1035,6 +1055,42 @@ public class ExportManager {
      * SAME {@code seam}, so both derive their overlap from an identical clamped value and
      * stay in lock-step (no cursor desync).
      */
+    /**
+     * Audio-track duration (ms) of a source, probed once per export via MediaExtractor
+     * and cached in {@link #sourceAudioDurMs}. Returns {@code 0} when the source has no
+     * audio track at all (any window is "past audio"); {@link Long#MAX_VALUE} when the
+     * track exists but reports no duration, or the source is unreadable — never strip
+     * audio on a guess.
+     */
+    private long audioDurationMsOf(@NonNull Uri uri) {
+        String key = uri.toString();
+        Long cached = sourceAudioDurMs.get(key);
+        if (cached != null) return cached;
+        long result;
+        android.media.MediaExtractor extractor = new android.media.MediaExtractor();
+        try {
+            extractor.setDataSource(context, uri, null);
+            boolean hasAudio = false;
+            long bestMs = -1;
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                android.media.MediaFormat f = extractor.getTrackFormat(i);
+                String mime = f.getString(android.media.MediaFormat.KEY_MIME);
+                if (mime == null || !mime.startsWith("audio/")) continue;
+                hasAudio = true;
+                if (f.containsKey(android.media.MediaFormat.KEY_DURATION)) {
+                    bestMs = Math.max(bestMs, f.getLong(android.media.MediaFormat.KEY_DURATION) / 1000);
+                }
+            }
+            result = !hasAudio ? 0L : (bestMs > 0 ? bestMs : Long.MAX_VALUE);
+        } catch (Exception e) {
+            result = Long.MAX_VALUE;
+        } finally {
+            extractor.release();
+        }
+        sourceAudioDurMs.put(key, result);
+        return result;
+    }
+
     private static long effectiveTransitionMs(@NonNull Timeline timeline,
                                               @NonNull Transition trans, int seam) {
         long d = Math.max(0L, trans.durationMs);
@@ -1162,7 +1218,18 @@ public class ExportManager {
 
         EditedMediaItem.Builder editedBuilder = new EditedMediaItem.Builder(mediaItem);
         if (clip.isImageClip()) editedBuilder.setFrameRate(30);
-        if (clip.isAudioMuted() || clip.isImageClip()) editedBuilder.setRemoveAudio(true);
+        boolean dropAudio = clip.isAudioMuted() || clip.isImageClip();
+        // A clipped window that starts past the end of the source's AUDIO track yields
+        // zero audio samples → AudioGraph stall → watchdog "no output sample" abort.
+        // Make such items video-only instead (arises at transition-trimmed tails and
+        // deep end-trims; the visual output is identical, the audio there never existed).
+        if (!dropAudio && clipInMs >= audioDurationMsOf(resolveSeekableSourceUri(clip))
+                - AUDIO_COVERAGE_EPS_MS) {
+            dropAudio = true;
+            FLog.w(TAG, "buildClipItem: window " + clipInMs + "ms+ is past the source's"
+                    + " audio end — emitting video-only item (prevents muxer stall)");
+        }
+        if (dropAudio) editedBuilder.setRemoveAudio(true);
 
         // Explicit timeline duration so callers can advance the composition cursor
         // without relying on EditedMediaItem.durationUs (unset for video items).
@@ -1173,7 +1240,7 @@ public class ExportManager {
         List<AudioProcessor> audioProcessors = new ArrayList<>();
         float volume = clip.getVolumeLevel();
 
-        if (!clip.isAudioMuted()) {
+        if (!dropAudio) {
             if (speed != 1.0f) {
                 SonicAudioProcessor sonicProcessor = new SonicAudioProcessor();
                 sonicProcessor.setSpeed(speed);
@@ -1286,7 +1353,12 @@ public class ExportManager {
         // (e.g. one relying on the music track) had its sound briefly return during
         // the ~600ms transition overlap. Match buildClipItem's behaviour.
         List<AudioProcessor> aps = new ArrayList<>();
-        if (clip.isImageClip() || clip.isAudioMuted()) {
+        if (clip.isImageClip() || clip.isAudioMuted()
+                // Past-audio-end window (same stall class as buildClipItem): a transition
+                // riding the very tail of a source whose audio track ends early would
+                // emit zero audio samples and wedge the AudioGraph.
+                || transInMs >= audioDurationMsOf(resolveSeekableSourceUri(clip))
+                        - AUDIO_COVERAGE_EPS_MS) {
             eb.setRemoveAudio(true);
         } else {
             if (speed != 1.0f) {

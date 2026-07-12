@@ -953,7 +953,14 @@ public final class LayerRowRenderer {
             long durMs = Math.max(1, item.getAudioClip().getTrimmedDurationMs());
             canvas.save();
             canvas.clipRect(x0, top, x1, bottom);
-            tapeRenderer.draw(canvas, tapeRect, tape.raw, tape.shaped, tapeStyle, inMs, durMs);
+            // A3: blit cached bitmap tiles (bakes on demand) instead of full vector draw every
+            // frame; falls back to direct vector draw if the tile cache is absent.
+            if (tapeTileCache != null) {
+                tapeTileCache.draw(canvas, tapeRect, tape.raw, tape.tape, tape.serial, tapeStyle,
+                        inMs, durMs, item.getAudioClip().getId());
+            } else {
+                tapeRenderer.draw(canvas, tapeRect, tape.raw, tape.tape, tapeStyle, inMs, durMs);
+            }
             canvas.restore();
             // AV3: captions live INSIDE the audio track, along the bottom — only on an
             // expanded (tall) row, for a caption-enabled audio clip.
@@ -1177,6 +1184,9 @@ public final class LayerRowRenderer {
     private com.fadcam.ui.faditor.waveform.TapeWaveformStyle tapeStyle;
     @Nullable
     private com.fadcam.ui.faditor.waveform.TapeWaveformRenderer tapeRenderer;
+    /** A3: bakes/blit-caches the tape so pan/play frames are one drawBitmap per item. */
+    @Nullable
+    private com.fadcam.ui.faditor.waveform.TapeTileCache tapeTileCache;
     private final RectF tapeRect = new RectF();
 
     public void setTapeSource(@Nullable TapeProvider provider,
@@ -1185,7 +1195,14 @@ public final class LayerRowRenderer {
         this.tapeStyle = style;
         if (provider != null && tapeRenderer == null) {
             tapeRenderer = new com.fadcam.ui.faditor.waveform.TapeWaveformRenderer(density);
+            tapeTileCache = new com.fadcam.ui.faditor.waveform.TapeTileCache(density);
         }
+    }
+
+    /** JoyRaptor's live-customization hook: {@code true} while a settings slider is dragged so the
+     *  visible tapes reshape in real time via direct vector draw; {@code false} on release. */
+    public void setTapeDirectVectorMode(boolean on) {
+        if (tapeTileCache != null) tapeTileCache.setDirectVectorMode(on);
     }
 
     /** Scratch rect for visible-span clipping in {@link #drawHdAudioWaveform}. */

@@ -36,13 +36,25 @@ public class BandedTimelineWaveformCache {
     private static final long SPAN_QUANTUM_MS = 10_000L;
     private static final int MAX_ENTRIES = 32;
 
-    /** Shaped result the renderer draws: raw (for frame timing) + parallel 0..1 profiles. */
+    /** Monotonic id source: every new {@link Shaped} instance gets a fresh serial. */
+    private static long serialSeq = 0L;
+
+    /**
+     * Shaped result the renderer draws: raw (for frame timing) + the quantized mip pyramid
+     * (A1/A2). Each instance carries a unique {@link #serial} — because a re-extract
+     * ({@code onReady}) and a {@code reshapeAll()} are the ONLY ways shaped data ever changes,
+     * and both replace the {@code Shaped} object, the serial is a complete invalidation token
+     * for the tile cache (a new serial ⇒ stale tiles are unreachable).
+     */
     public static final class Shaped {
         @NonNull public final BandedWaveformData raw;
-        @NonNull public final float[][] shaped;
-        Shaped(@NonNull BandedWaveformData raw, @NonNull float[][] shaped) {
+        @NonNull public final ShapedTape tape;
+        /** Unique per instance; changes iff the shaped data changed. */
+        public final long serial;
+        Shaped(@NonNull BandedWaveformData raw, @NonNull ShapedTape tape) {
             this.raw = raw;
-            this.shaped = shaped;
+            this.tape = tape;
+            this.serial = ++serialSeq;
         }
     }
 
@@ -100,9 +112,9 @@ public class BandedTimelineWaveformCache {
                     public void onReady(@NonNull BandedWaveformData data) {
                         main.post(() -> {
                             inFlight.remove(k);
-                            float[][] shaped = BandEnvelopeShaper.shape(data, style.smooth,
+                            ShapedTape tape = BandEnvelopeShaper.shapeToTape(data, style.smooth,
                                     style.contrast, style.perBandNormalize);
-                            ready.put(k, new Shaped(data, shaped));
+                            ready.put(k, new Shaped(data, tape));
                             listener.onWaveformReady();
                         });
                     }
@@ -123,7 +135,7 @@ public class BandedTimelineWaveformCache {
     public void reshapeAll() {
         for (Map.Entry<String, Shaped> e : ready.entrySet()) {
             BandedWaveformData raw = e.getValue().raw;
-            e.setValue(new Shaped(raw, BandEnvelopeShaper.shape(raw, style.smooth,
+            e.setValue(new Shaped(raw, BandEnvelopeShaper.shapeToTape(raw, style.smooth,
                     style.contrast, style.perBandNormalize)));
         }
         listener.onWaveformReady();

@@ -120,6 +120,17 @@ public final class BandEnvelopeShaper {
         return shape(data, DEFAULT_SMOOTH, DEFAULT_CONTRAST, perBandNormalize);
     }
 
+    /**
+     * A1 + A2: shape, then build the quantized max-pool mip pyramid the renderer reads from.
+     * The pyramid halves the CPU of {@code columns()} when zoomed out and stores the shaped
+     * product as unsigned bytes (~4x memory cut). Raw RMS is untouched.
+     */
+    @NonNull
+    public static ShapedTape shapeToTape(@NonNull BandedWaveformData data, float smoothMul,
+                                         float contrastMul, boolean perBandNormalize) {
+        return ShapedTape.build(shape(data, smoothMul, contrastMul, perBandNormalize));
+    }
+
     /** Null-safe frame lookup helper for a shaped band (clamped). */
     public static float at(@Nullable float[] band, int frame) {
         if (band == null || band.length == 0) return 0f;

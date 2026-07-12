@@ -246,8 +246,8 @@ public class EditorTimelineView extends View {
             new java.util.HashMap<>();
     /** clipIds whose drawer TARGET state is open. */
     private final java.util.Set<String> clipAudioDrawerOpen = new java.util.HashSet<>();
-    /** Lazy tape renderer for drawer bodies (the row renderer owns its own instance). */
-    private com.fadcam.ui.faditor.waveform.TapeWaveformRenderer clipDrawerTapeRenderer;
+    /** A3 tile cache for drawer bodies (the row renderer owns its own instance). */
+    private com.fadcam.ui.faditor.waveform.TapeTileCache clipDrawerTapeCache;
     private long lastMasterTapUpMs;
     private String lastMasterTapClipId;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
@@ -2364,9 +2364,9 @@ public class EditorTimelineView extends View {
             drawerEnvDotPaint.setColor(0xFF40C4FF);
             drawerEnvDotPaint.setStyle(Paint.Style.FILL);
         }
-        if (clipDrawerTapeRenderer == null) {
-            clipDrawerTapeRenderer =
-                    new com.fadcam.ui.faditor.waveform.TapeWaveformRenderer(density);
+        if (clipDrawerTapeCache == null) {
+            clipDrawerTapeCache =
+                    new com.fadcam.ui.faditor.waveform.TapeTileCache(density);
         }
         float bandTop = masterBotPx() + transcriptReservePx();
         float H = CLIP_AUDIO_DRAWER_HEIGHT_DP * density;
@@ -2404,8 +2404,9 @@ public class EditorTimelineView extends View {
                             : null;
             if (tape != null) {
                 RectF body = new RectF(seg.left, bandTop, seg.right, bandTop + H);
-                clipDrawerTapeRenderer.draw(canvas, body, tape.raw, tape.shaped, tapeStyle,
-                        sd.inPointMs, Math.max(1, sd.trimmedMs));
+                String drawerKey = sd.sourceUri + "|" + sd.inPointMs + "-" + sd.outPointMs;
+                clipDrawerTapeCache.draw(canvas, body, tape.raw, tape.tape, tape.serial, tapeStyle,
+                        sd.inPointMs, Math.max(1, sd.trimmedMs), drawerKey);
             } else {
                 // Lazy extraction in flight (or failed) — dim placeholder on the dark body.
                 transcriptTextPaint.setTextSize(9f * density);

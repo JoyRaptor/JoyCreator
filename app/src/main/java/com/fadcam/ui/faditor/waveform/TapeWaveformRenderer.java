@@ -45,12 +45,12 @@ public class TapeWaveformRenderer {
 
     /**
      * @param raw       band data (for {@code frameAt} timing); {@code shaped} runs parallel to it.
-     * @param shaped    0..1 profiles from {@link BandEnvelopeShaper} ({@code shaped[band][frame]}).
+     * @param shaped    quantized mip pyramid from {@link BandEnvelopeShaper#shapeToTape} (A1/A2).
      * @param clipInMs  source in-point of the item (== rect left edge in source time).
      * @param clipDurMs source duration mapped across the rect width.
      */
     public void draw(@NonNull Canvas canvas, @NonNull RectF rect,
-                     @NonNull BandedWaveformData raw, @NonNull float[][] shaped,
+                     @NonNull BandedWaveformData raw, @NonNull ShapedTape shaped,
                      @NonNull TapeWaveformStyle style, long clipInMs, long clipDurMs) {
         final int W = Math.max(1, (int) rect.width());
         final float pad = 2f * density;
@@ -58,10 +58,10 @@ public class TapeWaveformRenderer {
         final float topH = Math.max(1f, baseY - rect.top - pad);
         final float botH = Math.max(1f, rect.bottom - baseY - pad);
 
-        // Build per-band columns (only for visible bands).
+        // Build per-band columns (only for visible, computed bands).
         for (int b = 0; b < BandedWaveformData.BAND_COUNT; b++) {
-            colScratch[b] = style.bandVisible(b)
-                    ? columns(shaped[b], raw, W, rect.left, clipInMs, clipDurMs, colScratch[b])
+            colScratch[b] = (style.bandVisible(b) && shaped.hasBand(b))
+                    ? columns(shaped, b, raw, W, rect.left, clipInMs, clipDurMs, colScratch[b])
                     : null;
         }
 
@@ -195,25 +195,38 @@ public class TapeWaveformRenderer {
      * Per-pixel column values across the rect: max-in-bucket when many frames fall under a pixel
      * (zoomed out — preserves transients), linear-interpolated when a frame spans many pixels
      * (zoomed in), then a light 3-tap smooth. Reuses {@code scratch} when it already fits.
+     *
+     * <p>A1: when zoomed out the per-pixel bucket max reads from the mip pyramid — level
+     * {@code floor(log2(framesPerPx))} — so the inner scan collapses from ~{@code framesPerPx}
+     * reads to ~1. At {@code framesPerPx < 2} this reads level 0 (identical to the old scan).
+     * A2: every byte read masks {@code & 0xFF} and divides by 255.</p>
      */
     @NonNull
-    private static float[] columns(@NonNull float[] shapedBand, @NonNull BandedWaveformData raw,
+    private static float[] columns(@NonNull ShapedTape tape, int band, @NonNull BandedWaveformData raw,
                                    int W, float rectLeft, long clipInMs, long clipDurMs,
                                    float[] scratch) {
         float[] v = (scratch != null && scratch.length >= W + 1) ? scratch : new float[W + 1];
         float framesPerPx = clipDurMs > 0
                 ? (clipDurMs / 1000f * raw.envRate) / W : 0f;
         if (framesPerPx >= 1f) {
+            final int L = tape.levelFor(band, framesPerPx);
+            final byte[] lvl = tape.level(band, L);
+            final int lvlLen = lvl.length;
             for (int x = 0; x <= W; x++) {
                 long t0 = clipInMs + (long) ((float) x / W * clipDurMs);
                 long t1 = clipInMs + (long) ((float) (x + 1) / W * clipDurMs);
                 int f0 = raw.frameAt(t0);
                 int f1 = Math.max(f0 + 1, raw.frameAt(Math.max(t0, t1 - 1)) + 1);
-                float m = 0f;
-                for (int f = f0; f < f1 && f < shapedBand.length; f++) {
-                    if (shapedBand[f] > m) m = shapedBand[f];
+                // Level-0 frame range [f0,f1) maps to level-L index range [f0>>L, ((f1-1)>>L)+1).
+                int i0 = f0 >> L;
+                int i1 = ((f1 - 1) >> L) + 1;
+                if (i1 > lvlLen) i1 = lvlLen;
+                int m = 0;
+                for (int i = i0; i < i1; i++) {
+                    int s = lvl[i] & 0xFF;
+                    if (s > m) m = s;
                 }
-                v[x] = m;
+                v[x] = m / 255f;
             }
             // Pixel-space 3-tap: kills residual hair when zoomed way out.
             float prev = v[0];
@@ -226,21 +239,22 @@ public class TapeWaveformRenderer {
             }
             return v;
         }
+        final byte[] lvl0 = tape.level(band, 0);
         for (int x = 0; x <= W; x++) {
             long t = clipInMs + (long) ((float) x / W * clipDurMs);
             float ff = (t - raw.startOffsetMs) * raw.envRate / 1000f;
             int f0 = (int) Math.floor(ff);
             float fr = ff - f0;
-            float a = sample(shapedBand, f0);
-            float c = sample(shapedBand, f0 + 1);
+            float a = sample(lvl0, f0);
+            float c = sample(lvl0, f0 + 1);
             v[x] = a + (c - a) * fr;
         }
         return v;
     }
 
-    private static float sample(@NonNull float[] band, int i) {
+    private static float sample(@NonNull byte[] band, int i) {
         if (band.length == 0) return 0f;
-        return band[Math.max(0, Math.min(i, band.length - 1))];
+        return (band[Math.max(0, Math.min(i, band.length - 1))] & 0xFF) / 255f;
     }
 
     // ── color helpers (no allocation) ──

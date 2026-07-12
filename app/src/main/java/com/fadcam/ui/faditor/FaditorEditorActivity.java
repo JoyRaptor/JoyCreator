@@ -195,6 +195,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> videoPickerLauncher;
     private ActivityResultLauncher<Intent> overlayImagePickerLauncher;
     private ActivityResultLauncher<Intent> audioPickerLauncher;
+    /** S7: inline sprite-SHEET relink picker (system file picker, no separate
+     *  activity) — mirrors the clip relink pattern (relinkPendingIndex + a
+     *  dedicated launcher), keyed by sheet id instead of timeline index. */
+    private ActivityResultLauncher<Intent> spriteRelinkPickerLauncher;
+    @Nullable private String spriteRelinkPendingSheetId;
 
     // ── Views ────────────────────────────────────────────────────────
     private PlayerView playerView;
@@ -16133,16 +16138,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * write-back rides the ChatAssistant pattern: our onPause autosave runs when the
      * editor activity opens; it saves + signalModified; we reload on resume.
      */
+    /** S7: true when the sheet's source image can't be decoded (dead/moved URI). */
+    private boolean isSpriteSheetMissing(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        return spriteRendererFor(sheet.getId()) == null;
+    }
+
     private void openSpriteSheetManager() {
         java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = project.getSpriteSheets();
-        String[] items = new String[sheets.size() + 2];
-        for (int i = 0; i < sheets.size(); i++) items[i] = sheets.get(i).getName();
-        items[sheets.size()] = getString(R.string.sprite_sheet_picker_new);
-        items[sheets.size() + 1] = getString(R.string.sprite_sheet_picker_avatars);
+        final int newIdx = sheets.size();
+        final int avatarsIdx = sheets.size() + 1;
+        final String[] items = new String[sheets.size() + 2];
+        final boolean[] missing = new boolean[sheets.size()];
+        for (int i = 0; i < sheets.size(); i++) {
+            com.fadcam.ui.faditor.sprite.SpriteSheet s = sheets.get(i);
+            missing[i] = isSpriteSheetMissing(s);
+            // S7 discoverability: visible "missing" state right in the manager list
+            // (inline literal — strings.xml is another agent's live file per protocol).
+            items[i] = missing[i] ? (s.getName() + "  ⚠ missing") : s.getName();
+        }
+        items[newIdx] = getString(R.string.sprite_sheet_picker_new);
+        items[avatarsIdx] = getString(R.string.sprite_sheet_picker_avatars);
+
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
+                this, android.R.layout.simple_list_item_1, items) {
+            @NonNull @Override
+            public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+                View v = super.getView(position, convertView, parent);
+                if (v instanceof TextView && position < missing.length && missing[position]) {
+                    ((TextView) v).setTextColor(0xFFFF5252); // red tint for missing sheets
+                }
+                return v;
+            }
+        };
+
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.sprite_sheet_picker_title)
-                .setItems(items, (d, which) -> {
-                    if (which == sheets.size() + 1) {
+                .setAdapter(adapter, (d, which) -> {
+                    if (which == avatarsIdx) {
                         openAvatarStudioManager();
                         return;
                     }
@@ -16157,10 +16189,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Existing sheet tapped: edit, place an instance, or relink dead art (S7). */
     private void showSpriteSheetActions(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        boolean missing = isSpriteSheetMissing(sheet);
+        String relinkLabel = getString(R.string.sprite_sheet_action_relink)
+                + (missing ? "  ⚠" : ""); // inline literal, see class-level protocol note
         String[] actions = {
                 getString(R.string.sprite_sheet_action_edit),
                 getString(R.string.sprite_sheet_action_place),
-                getString(R.string.sprite_sheet_action_relink)};
+                relinkLabel};
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(sheet.getName())
                 .setItems(actions, (d, which) -> {
@@ -16169,18 +16204,87 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     } else if (which == 1) {
                         placeSpriteOnVideo(sheet);
                     } else {
-                        android.content.Intent it = new android.content.Intent(this,
-                                com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity.class);
-                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
-                                .EXTRA_PROJECT_ID, project.getId());
-                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
-                                .EXTRA_SHEET_ID, sheet.getId());
-                        it.putExtra(com.fadcam.ui.faditor.sprite.SpriteSheetEditorActivity
-                                .EXTRA_RELINK, true);
-                        startActivity(it);
+                        startSpriteRelink(sheet);
                     }
                 })
                 .show();
+    }
+
+    /**
+     * S7 relink UI: system file picker (ACTION_OPEN_DOCUMENT, image/*,
+     * persistable URI permission — same import contract as {@code
+     * SpriteSheetEditorActivity#importSheetImage}) to replace ONE sheet's
+     * source image in place. Grid/cells/pivot/presets are untouched — only
+     * {@code sheetUri} changes, so every placed {@link
+     * com.fadcam.ui.faditor.sprite.SpriteOverlayItem} referencing this sheet
+     * keeps working (same object/id, no re-point needed).
+     */
+    private void startSpriteRelink(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        spriteRelinkPendingSheetId = sheet.getId();
+        spriteRelinkPickerLauncher.launch(openDocumentIntent("image/*"));
+    }
+
+    /**
+     * Apply a picked relink image: copy into the project bundle (mirrors
+     * {@code SpriteSheetEditorActivity#importSheetImage}'s assets/ convention
+     * so the stored URI stays project-relative on save), update the sheet's
+     * {@code sheetUri} IN PLACE, invalidate the decode cache (identity-keyed —
+     * mutating the same object won't auto-invalidate it), refresh preview +
+     * palette, ONE undoable step, autosave.
+     */
+    private void applySpriteRelink(@NonNull String sheetId, @NonNull Uri pickedUri) {
+        if (project == null) return;
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(sheetId);
+        if (sheet == null) return;
+        try {
+            getContentResolver().takePersistableUriPermission(
+                    pickedUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException e) {
+            FLog.w(TAG, "Could not take persistable URI permission for sprite relink", e);
+        }
+        final String oldUri = sheet.getSheetUri();
+        final String newUri;
+        try {
+            java.io.File assetsDir = new java.io.File(
+                    projectStorage.projectDir(project.getId()), "assets");
+            if (!assetsDir.exists()) assetsDir.mkdirs();
+            java.io.File dest = new java.io.File(assetsDir,
+                    "sheet-relink-" + java.util.UUID.randomUUID() + ".png");
+            try (java.io.InputStream in = getContentResolver().openInputStream(pickedUri);
+                 java.io.FileOutputStream out = new java.io.FileOutputStream(dest)) {
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while (in != null && (n = in.read(buf)) > 0) out.write(buf, 0, n);
+            }
+            newUri = Uri.fromFile(dest).toString();
+        } catch (Exception e) {
+            Toast.makeText(this, R.string.sprite_editor_import_failed, Toast.LENGTH_LONG).show();
+            return;
+        }
+        applySpriteRelinkUri(sheetId, newUri);
+        undoManager.recordAction(new EditActions.LambdaAction("Relink sprite sheet",
+                () -> applySpriteRelinkUri(sheetId, newUri),
+                () -> applySpriteRelinkUri(sheetId, oldUri)));
+        scheduleAutoSave();
+        Toast.makeText(this, sheet.getName() + ": relinked", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Redo/undo body: point the sheet (same object/id) at a URI and refresh
+     *  every cached/rendered consumer. Never re-creates the SpriteSheet. */
+    private void applySpriteRelinkUri(@NonNull String sheetId, @NonNull String uri) {
+        if (project == null) return;
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(sheetId);
+        if (sheet == null) return;
+        sheet.setSheetUri(uri);
+        // Identity-keyed cache: mutating the SAME object doesn't invalidate it.
+        android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> cached =
+                spriteRendererCache.remove(sheetId);
+        if (cached != null && cached.second != null) cached.second.recycle();
+        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+        if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
+            spritePalettePanel.rebuild();
+        }
     }
 
     private void launchSpriteSheetEditor(@Nullable String sheetId) {
@@ -17607,6 +17711,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 handleRelinkPick(idx, uri);
                             }
                         }
+                    }
+                });
+
+        spriteRelinkPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    String sheetId = spriteRelinkPendingSheetId;
+                    spriteRelinkPendingSheetId = null;
+                    if (sheetId == null) return;
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Uri uri = result.getData().getData();
+                        if (uri != null) applySpriteRelink(sheetId, uri);
                     }
                 });
     }

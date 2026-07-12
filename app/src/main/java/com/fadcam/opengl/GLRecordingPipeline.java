@@ -39,9 +39,12 @@ public class GLRecordingPipeline {
     private static final String TAG = "GLRecordingPipeline";
     private static final String VIDEO_MIME_TYPE = "video/avc";
     // 2s GOP (was 1s): fewer full I-frames for the same visual quality, lower average
-    // bitrate/CPU; still short enough for prompt seeking in the player/editor. No user-facing
-    // settings surface exists for encoder GOP today, so this stays a constant.
-    private static final int VIDEO_IFRAME_INTERVAL = 2;
+    // bitrate/CPU; still short enough for prompt seeking in the player/editor. Overridable via
+    // the "iframe_interval_s" SharedPreferences int (no settings UI wired to it yet — this is
+    // an escape hatch for support/debugging without a rebuild), default 2s. See
+    // #resolveIFrameInterval().
+    private static final int VIDEO_IFRAME_INTERVAL_DEFAULT = 2;
+    private static final String PREF_KEY_IFRAME_INTERVAL_S = "iframe_interval_s";
     private static final int PREVIEW_RENDER_INTERVAL_MS = 33; // Safer 30fps instead of 60fps
     private static final int RENDER_RETRY_DELAY_MS = 33; // Match with preview render interval
 
@@ -1144,6 +1147,21 @@ public class GLRecordingPipeline {
     }
 
     /**
+     * Resolves the encoder GOP length in seconds: {@link #PREF_KEY_IFRAME_INTERVAL_S} if the
+     * user/support has set an override in SharedPreferences, else {@link #VIDEO_IFRAME_INTERVAL_DEFAULT}.
+     * Clamped to a sane range so a bad override can't produce a degenerate GOP.
+     */
+    private int resolveIFrameInterval() {
+        try {
+            int v = context.getSharedPreferences(com.fadcam.Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                    .getInt(PREF_KEY_IFRAME_INTERVAL_S, VIDEO_IFRAME_INTERVAL_DEFAULT);
+            return Math.max(1, Math.min(10, v));
+        } catch (Exception e) {
+            return VIDEO_IFRAME_INTERVAL_DEFAULT;
+        }
+    }
+
+    /**
      * Configures basic encoder settings for maximum device compatibility.
      * Only applies essential settings that all devices should support.
      */
@@ -1152,7 +1170,7 @@ public class GLRecordingPipeline {
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         format.setInteger(MediaFormat.KEY_BIT_RATE, videoBitrate);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, videoFramerate);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, VIDEO_IFRAME_INTERVAL);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, resolveIFrameInterval());
 
         // ESSENTIAL: Bitrate mode — CBR for streaming (hard bandwidth cap), VBR for local recording (quality)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
@@ -1203,7 +1221,7 @@ public class GLRecordingPipeline {
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         format.setInteger(MediaFormat.KEY_BIT_RATE, videoBitrate);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, videoFramerate);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, VIDEO_IFRAME_INTERVAL);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, resolveIFrameInterval());
 
         // ESSENTIAL: For constant framerate recording, especially on Samsung devices
         try {

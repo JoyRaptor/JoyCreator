@@ -56,9 +56,11 @@ public class ScreenRecordingPipeline {
     private static final String VIDEO_MIME_TYPE = "video/avc";
     // 2s GOP: halves the encoder's average keyframe rate vs the previous 1s default (fewer full
     // I-frames = lower average bitrate/CPU for the same visual quality most of the time); 2s is
-    // still short enough for prompt seeking in the player/editor. No user-facing settings surface
-    // exists for encoder GOP today, so this stays a constant — bump here if that ever changes.
-    private static final int VIDEO_IFRAME_INTERVAL = 2;
+    // still short enough for prompt seeking in the player/editor. Overridable via the
+    // "iframe_interval_s" SharedPreferences int (escape hatch for support/debugging without a
+    // rebuild — no settings UI wired to it), default 2s. See #resolveIFrameInterval().
+    private static final int VIDEO_IFRAME_INTERVAL_DEFAULT = 2;
+    private static final String PREF_KEY_IFRAME_INTERVAL_S = "iframe_interval_s";
     private static volatile boolean preferSoftwareAvcEncoder = false;
 
     public static boolean isPreferringSoftwareAvcEncoder() {
@@ -483,6 +485,21 @@ public class ScreenRecordingPipeline {
     }
     
     /**
+     * Resolves the encoder GOP length in seconds: {@link #PREF_KEY_IFRAME_INTERVAL_S} if the
+     * user/support has set an override in SharedPreferences, else {@link #VIDEO_IFRAME_INTERVAL_DEFAULT}.
+     * Clamped to a sane range so a bad override can't produce a degenerate GOP.
+     */
+    private int resolveIFrameInterval() {
+        try {
+            int v = context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+                    .getInt(PREF_KEY_IFRAME_INTERVAL_S, VIDEO_IFRAME_INTERVAL_DEFAULT);
+            return Math.max(1, Math.min(10, v));
+        } catch (Exception e) {
+            return VIDEO_IFRAME_INTERVAL_DEFAULT;
+        }
+    }
+
+    /**
      * Configure video encoder with proper settings
      */
     private void configureVideoEncoder(MediaCodec encoder, boolean isSoftware, int width, int height) throws IOException {
@@ -497,7 +514,7 @@ public class ScreenRecordingPipeline {
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         format.setInteger(MediaFormat.KEY_BIT_RATE, effectiveBitrate);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, videoFramerate);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, VIDEO_IFRAME_INTERVAL);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, resolveIFrameInterval());
 
         // Baseline profile for maximum compatibility
         format.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline);

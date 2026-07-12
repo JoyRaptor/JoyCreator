@@ -16,6 +16,7 @@ import com.fadcam.ui.faditor.model.Timeline;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -59,7 +60,16 @@ public class AssetScanner {
      * of worker threads lets probes overlap. Kept small (4) since each MMR instance holds a
      * native codec/extractor resource. Daemon threads so the pool never blocks app shutdown.
      */
-    private static final int DURATION_PROBE_THREADS = 4;
+    private static final int DURATION_PROBE_THREADS = 3;
+
+    /**
+     * Cache of previously-probed durations, keyed by "uri#size" so a changed/replaced file
+     * (different size) is re-probed. Static + process-lifetime: the asset browser is opened
+     * repeatedly while editing a project, and re-opening the same folder should not re-run
+     * MediaMetadataRetriever against files we already probed. Unbounded growth is not a
+     * practical concern here (asset folders are user-curated, at most low hundreds of files).
+     */
+    private static final ConcurrentHashMap<String, Long> DURATION_CACHE = new ConcurrentHashMap<>();
     private static final ExecutorService DURATION_PROBE_POOL = new ThreadPoolExecutor(
             DURATION_PROBE_THREADS, DURATION_PROBE_THREADS,
             30L, TimeUnit.SECONDS,
@@ -179,7 +189,12 @@ public class AssetScanner {
     private void probeDurationsInParallel(@NonNull List<AssetItem> items) {
         List<AssetItem> needsDuration = new ArrayList<>();
         for (AssetItem item : items) {
-            if (item.type == AssetItem.Type.VIDEO || item.type == AssetItem.Type.AUDIO) {
+            if (item.type != AssetItem.Type.VIDEO && item.type != AssetItem.Type.AUDIO) continue;
+            Long cached = DURATION_CACHE.get(cacheKey(item));
+            if (cached != null) {
+                // Already probed this exact (uri, size) pair in a prior scan — skip MMR entirely.
+                item.durationMs = cached;
+            } else {
                 needsDuration.add(item);
             }
         }
@@ -189,7 +204,11 @@ public class AssetScanner {
         for (AssetItem item : needsDuration) {
             DURATION_PROBE_POOL.execute(() -> {
                 try {
-                    item.durationMs = probeDuration(item.uri);
+                    long duration = probeDuration(item.uri);
+                    item.durationMs = duration;
+                    if (duration > 0) {
+                        DURATION_CACHE.put(cacheKey(item), duration);
+                    }
                 } finally {
                     latch.countDown();
                 }
@@ -201,6 +220,12 @@ public class AssetScanner {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /** Cache key that changes if the underlying file is replaced with a different-sized one. */
+    @NonNull
+    private static String cacheKey(@NonNull AssetItem item) {
+        return item.uri.toString() + "#" + item.sizeBytes;
     }
 
     @NonNull

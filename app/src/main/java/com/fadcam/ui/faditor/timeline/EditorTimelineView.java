@@ -1057,14 +1057,6 @@ public class EditorTimelineView extends View {
         void onTransitionDurationChanged(int index, long durationMs);
         void onTransitionDurationFinished(int index, long durationMs);
         void onTransitionDeleted(int index);
-        // Tapping a read-only layer row (turns the layer view into navigation/editing).
-        default void onOverlayLayerTapped(int overlayIndex) {}
-        default void onVisualizerLayerTapped(int waveformIndex) {}
-        default void onCaptionLayerTapped(int clipIndex) {}
-        // Long-pressing a layer row → delete/remove that layer object.
-        default void onOverlayLayerLongPressed(int overlayIndex) {}
-        default void onVisualizerLayerLongPressed(int waveformIndex) {}
-        default void onCaptionLayerLongPressed(int clipIndex) {}
         /** Loop extension trim finished — called when drag extends past source bounds. */
         default void onLoopTrimFinished(int segmentIndex, long oldBefore, long oldAfter, long newBefore, long newAfter) {}
     }

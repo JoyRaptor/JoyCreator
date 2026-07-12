@@ -1741,83 +1741,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 deleteTransition(index);
             }
 
-            @Override
-            public void onVisualizerLayerTapped(int waveformIndex) {
-                // Tap the VIZ layer row → open that visualizer's Rolodex drawer.
-                java.util.List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> ws =
-                        project.getTimeline().getWaveformOverlays();
-                if (waveformIndex >= 0 && waveformIndex < ws.size()) {
-                    showVisualizerStylePicker(ws.get(waveformIndex));
-                }
-            }
-
-            @Override
-            public void onOverlayLayerTapped(int overlayIndex) {
-                // Tap a TEXT/IMAGE layer row → jump the playhead to that overlay's start so it's visible.
-                java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> os =
-                        project.getTimeline().getTextOverlays();
-                if (overlayIndex >= 0 && overlayIndex < os.size()) {
-                    editorTimeline.seekToTimelineMs(Math.max(0, os.get(overlayIndex).getStartMs()));
-                }
-            }
-
-            @Override
-            public void onCaptionLayerTapped(int clipIndex) {
-                // Tap a CC caption segment → select that clip + jump to it so its captions/props show.
-                if (clipIndex >= 0 && clipIndex < project.getTimeline().getClipCount()) {
-                    editorTimeline.seekToTimelineMs(editorTimeline.getSegmentStartTimeMs(clipIndex));
-                    selectSegment(clipIndex);
-                }
-            }
-
-            @Override
-            public void onVisualizerLayerLongPressed(int waveformIndex) {
-                java.util.List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> ws =
-                        project.getTimeline().getWaveformOverlays();
-                if (waveformIndex < 0 || waveformIndex >= ws.size()) return;
-                com.fadcam.ui.faditor.model.WaveformOverlayInstance wv = ws.get(waveformIndex);
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(
-                        FaditorEditorActivity.this)
-                        .setTitle("Remove visualizer?")
-                        .setMessage("This removes the visualizer overlay from the timeline.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Remove", (d, w) -> {
-                            project.getTimeline().removeWaveformOverlay(wv);
-                            undoManager.recordAction(new EditActions.LambdaAction("Remove visualizer",
-                                    () -> project.getTimeline().removeWaveformOverlay(wv),
-                                    () -> project.getTimeline().addWaveformOverlay(wv)));
-                            if (waveformOverlayView != null) {
-                                waveformOverlayView.setOverlays(project.getTimeline().getWaveformOverlays());
-                                waveformOverlayView.invalidate();
-                            }
-                            syncTimelineOverlays();
-                            editorTimeline.invalidate();
-                            scheduleAutoSave();
-                            Toast.makeText(FaditorEditorActivity.this, "Visualizer removed",
-                                    Toast.LENGTH_SHORT).show();
-                        })
-                        .show();
-            }
-
-            @Override
-            public void onOverlayLayerLongPressed(int overlayIndex) {
-                java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> os =
-                        project.getTimeline().getTextOverlays();
-                if (overlayIndex < 0 || overlayIndex >= os.size()) return;
-                final com.fadcam.ui.faditor.model.TextOverlayItem o = os.get(overlayIndex);
-                // G2: canvas long-press = the same general advanced menu as the
-                // timeline hold-release (one menu, contract §2).
-                showObjectMenuSheetForTextOverlay(o);
-            }
-
-            @Override
-            public void onCaptionLayerLongPressed(int clipIndex) {
-                // Long-press a CC segment → select the clip + open caption keyframe drawer.
-                if (clipIndex < 0 || clipIndex >= project.getTimeline().getClipCount()) return;
-                editorTimeline.seekToTimelineMs(editorTimeline.getSegmentStartTimeMs(clipIndex));
-                selectSegment(clipIndex);
-                openCaptionKeyframeDrawer();
-            }
         });
         btnPlayPause = findViewById(R.id.btn_play_pause);
         timeCurrent = findViewById(R.id.time_current);
@@ -10346,8 +10269,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
                 if (item.getTextOverlay() != null) {
                     // Reuse the EXACT existing text/image-overlay delete confirmation
-                    // (see onOverlayLayerLongPressed above) so the affordance and undo
-                    // step are identical regardless of which surface triggered it.
+                    // so the affordance and undo step are identical regardless of
+                    // which surface triggered it.
                     deleteTextOverlayWithConfirmation(item.getTextOverlay());
                 } else if (item.getAudioClip() != null) {
                     deleteAudioClipWithConfirmation(item.getAudioClip());
@@ -10623,9 +10546,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /**
      * Delete confirmation for a text/image overlay triggered from a ROW gesture (M7).
-     * Mirrors {@code onOverlayLayerLongPressed} exactly (same dialog copy, same
-     * {@code LambdaAction} undo pattern) so the two entry points are indistinguishable
-     * to the user and to undo history.
+     * Same dialog copy and {@code LambdaAction} undo pattern as the retired
+     * long-press-on-old-bar path, so every entry point is indistinguishable to the
+     * user and to undo history.
      */
     private void deleteTextOverlayWithConfirmation(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         if (project == null) return;
@@ -10702,7 +10625,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /**
      * Layers-UX Slice C: delete a visualizer via the new selection delete-badge, preserving the
-     * EXACT removal + undo the retired long-press-on-old-bar path used ({@code onVisualizerLayerLongPressed}).
+     * EXACT removal + undo the retired long-press-on-old-bar path used.
      */
     private void deleteVisualizerWithConfirmation(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wv) {

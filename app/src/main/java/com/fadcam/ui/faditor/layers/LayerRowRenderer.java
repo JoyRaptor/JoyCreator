@@ -1082,7 +1082,9 @@ public final class LayerRowRenderer {
             // the user reported where purple was expected).
             drawDragStateOutline(canvas, x0, top, x1, bottom, baseColor);
         } else if (selectedItemId != null && selectedItemId.equals(item.getId())) {
-            drawItemSelection(canvas, x0, top, x1, bottom, baseColor);
+            // Captions are clip-owned (no delete semantics) — no trash badge.
+            drawItemSelection(canvas, x0, top, x1, bottom, baseColor,
+                    item.getCaptionSpan() == null);
         }
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
@@ -1292,7 +1294,7 @@ public final class LayerRowRenderer {
      * generic selected-anything indicator.
      */
     private void drawItemSelection(@NonNull Canvas canvas, float x0, float top, float x1, float bottom,
-                                     int baseColor) {
+                                     int baseColor, boolean deletable) {
         itemSelectionPaint.setColor(brighten(baseColor));
         float ins = (SELECTION_STROKE_DP * density) / 2f;
         canvas.drawRoundRect(x0 + ins, top + ins, x1 - ins, bottom - ins,
@@ -1315,7 +1317,7 @@ public final class LayerRowRenderer {
         // (long-press is now pick-up-for-move). Skipped on items too narrow to host it
         // without swallowing the trim caps — geometry shared with hitTestItem via
         // deleteBadgeCx so glyph and hot zone can never drift apart.
-        float cx = deleteBadgeCx(x0, x1);
+        float cx = deletable ? deleteBadgeCx(x0, x1) : Float.NaN;
         if (!Float.isNaN(cx)) {
             float cy = (top + bottom) / 2f;
             float r = DELETE_BADGE_RADIUS_DP * density;
@@ -1601,7 +1603,10 @@ public final class LayerRowRenderer {
                     // delete dialog). Trim owns [x1-handleHalf, x1+handleHalf]; the badge
                     // gets the slop circle left of it (and the full circle when pinned
                     // mid-item on long clips, where no handle overlaps).
-                    float cx = deleteBadgeCx(x0, x1);
+                    // Captions never host the badge (clip-owned, no delete semantics)
+                    // — keep the hot zone in lockstep with drawItemSelection.
+                    float cx = item.getCaptionSpan() == null
+                            ? deleteBadgeCx(x0, x1) : Float.NaN;
                     if (!Float.isNaN(cx)) {
                         float cy = (top + bottom) / 2f;
                         float slopR = DELETE_BADGE_RADIUS_DP * density * 2.0f;

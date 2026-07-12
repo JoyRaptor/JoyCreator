@@ -47,7 +47,7 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
  * / {@code EditActions.LambdaAction} the second call records — the SAME undo classes
  * M6-era code already uses, not new parallel ones. Delete reports via
  * {@link Callback#onItemDeleteRequested} so the activity can reuse its existing
- * confirmation-dialog pattern ({@code onOverlayLayerLongPressed}/{@code deleteSelectedAudioClip}).</p>
+ * confirmation-dialog pattern ({@code deleteTextOverlayWithConfirmation}/{@code deleteSelectedAudioClip}).</p>
  */
 public final class LayerGestureController {
 

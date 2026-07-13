@@ -23,7 +23,11 @@ actually left." Marked ✅ = landed on this branch (git-log-verified); everythin
 **🚢 REAL SHIP-BLOCKERS (not code — these gate a public release):**
 1. **Rebrand asset set** — adaptive icon (fg/bg/mono), wordmark SVG, notification glyph
    (`ASSETS_WISHLIST.md`). Art task, not code.
-2. **De-politicize content sweep** — `DESIGN_JOY_CREATOR.md` binding rule; never confirmed done.
+2. **De-politicize content sweep** — `DESIGN_JOY_CREATOR.md §4`. AUDITED 2026-07-12 (full punch-list in
+   `DEPOLITICIZE_INVENTORY_20260712.md`): NO advocacy text remains (footers already neutralized); what's
+   left is (A) a small safe sweep — the `fadseclab_flag.png` timer accent (default ON) + 6 easter-egg
+   lines — gated on ONE flag design-choice, and (B) a large brand-naming + forensics-module reskin gated
+   on 4 JoyRaptor-decisions. Not a blind mass-edit — needs the scope calls first.
 3. **Schema downgrade-guard drill** — only forward migration exercised on a real project.
 
 **📱 OWED DEVICE VERIFIES (code done; needs a phone / JoyRaptor):** `148c155` export re-verify (solo-doable,
@@ -34,10 +38,13 @@ split-with-open / real-finger double-tap feel · P0/P1 gapless re-verify on real
 
 **🔧 SMALL BUILD REMAINDER (solo lane, no JoyRaptor):** AV4 wire-up (settings sheet exists UNWIRED — surface
 under toolbar Settings + first-import eager/lazy popup) · clip-audio drawer → overlay/PiP videos ·
-low-bandwidth 720p/H.264-baseline export preset (needs an ExportManager encoder-profile hook — Fable
-lane; opencode is blocked on it) · SAF style export/import buttons in the real editor drawer (debug-host
-only, `d59b7b6`) · `.m4a` export-complete copy still says "Your video…" + ~34 TODO(strings) markers
-(mostly in the FaditorEditorActivity god-class).
+low-bandwidth export: the one-tap 720p+Low CHIP ✅ landed (`b36a36f`); the true H.264-**baseline-profile**
+part still needs an ExportManager encoder-profile hook (Fable lane) · ~~SAF style export/import buttons in
+the real editor drawer~~ ✅ DONE (`b36a36f`, hand-test owed) · `.m4a` export-complete copy still says
+"Your video…" + ~34 TODO(strings) markers (mostly in the FaditorEditorActivity god-class).
+**Also landed 2026-07-12 from the capped in-flight tree:** ✅ `8c306e5` G5(b) piggyback-looks (attached
+visualizer fades with host opacity on export — A/B proof owed) · ✅ `8332370` user color-grade presets
+(opencode) · ✅ `b36a36f` (the two editor items above). Tree now clean.
 
 **🗳️ JOYRAPTOR-DECISIONS (not code):** bookmarks (ruler markers) + playhead time-chip (designed in dragux_v3,
 NOT in the G1–G9 contract — fold-in vs drop) · muted-track caption show/hide (open since M-EXPORT-1) ·

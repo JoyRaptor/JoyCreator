@@ -79,6 +79,14 @@ public class CompositeExportOverlay extends BitmapOverlay {
         @NonNull public final WaveformStyle style;
         public final int posX, posY, slotW, slotH;
         public final float density;
+        /** G5(b) piggyback-looks: an ATTACHED rider's host clip (null = detached or
+         *  host gone → full opacity) + the host's absolute timeline start, so the
+         *  draw loop can mirror the host's opacity envelope onto the visualizer.
+         *  Mutable post-construction: the slot builder fills them when it has the
+         *  timeline in hand. */
+        @Nullable public com.fadcam.ui.faditor.model.Clip hostClip;
+        public long hostStartMs;
+
         public WaveformSlot(@NonNull WaveformOverlayInstance instance, @NonNull WaveformData data,
                             @NonNull WaveformStyle style, int outW, int outH, float density) {
             this.instance = instance;
@@ -116,6 +124,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private final java.util.Map<String, com.fadcam.ui.faditor.sprite.SpriteSheetRenderer>
             spriteRenderers = new java.util.HashMap<>();
     private final Paint spritePaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+    /** G5(b): reused per-frame paint for host-opacity fades on attached visualizers. */
+    private final Paint hostOpacityPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
 
     // Bake-to-keyframes: rigs for avatar items' replay render. Puppets build
     // lazily per performing item (null cached = broken linkage, no per-frame
@@ -561,11 +571,27 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 }
                 continue;
             }
+            // G5(b) piggyback-looks: an attached rider fades WITH its host clip's
+            // opacity envelope (clip-local time, same convention as
+            // OpacityExportShaderProgram). Detached / hostless slots draw at full.
+            Paint wfPaint = null;
+            if (ws.hostClip != null) {
+                float hostOpacity = Math.max(0f, Math.min(1f,
+                        ws.hostClip.opacityAtClipMs(timelineMs - ws.hostStartMs)));
+                if (hostOpacity <= 0.004f) {
+                    wfBmp.recycle();
+                    continue; // host fully faded — rider vanishes with it
+                }
+                if (hostOpacity < 0.999f) {
+                    hostOpacityPaint.setAlpha(Math.round(hostOpacity * 255f));
+                    wfPaint = hostOpacityPaint;
+                }
+            }
             drawnWaveform++;
             canvas.save();
             canvas.rotate(ws.instance.getRotationDeg(),
                     ws.posX + ws.slotW / 2f, ws.posY + ws.slotH / 2f);
-            canvas.drawBitmap(wfBmp, ws.posX, ws.posY, null);
+            canvas.drawBitmap(wfBmp, ws.posX, ws.posY, wfPaint);
             canvas.restore();
             wfBmp.recycle();
         }

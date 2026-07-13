@@ -1761,8 +1761,18 @@ public class ExportManager {
                     ? new WaveformStyle() : builtinStyles.get(0);
 
             WaveformStyle effective = woi.applyOverrides(base);
-            slots.add(new CompositeExportOverlay.WaveformSlot(
-                    woi, data, effective, outW, outH, 1f));
+            CompositeExportOverlay.WaveformSlot slot = new CompositeExportOverlay.WaveformSlot(
+                    woi, data, effective, outW, outH, 1f);
+            // G5(b) piggyback-looks: an ATTACHED rider mirrors its host clip's
+            // opacity envelope at draw time. Fill the host linkage here (the one
+            // place both the timeline and the slot are in hand); a missing host
+            // leaves the slot at full opacity — never hide over a stale id.
+            long[] hostWin = timeline.masterClipWindowMs(woi.getAttachedClipId());
+            if (hostWin != null) {
+                slot.hostClip = timeline.masterClipById(woi.getAttachedClipId());
+                slot.hostStartMs = hostWin[0];
+            }
+            slots.add(slot);
             FLog.d(TAG, "buildWaveformSlots: added slot for waveform " + woi.getId()
                     + " (style=" + woi.getStyleId() + ", clipId=" + woi.getAudioSourceRef()
                     + " uri=" + wfUri + ")");

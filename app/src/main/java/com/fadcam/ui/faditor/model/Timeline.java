@@ -1366,6 +1366,28 @@ public class Timeline {
      * instances are untouched. A host that no longer exists auto-detaches its rider in place
      * (the window keeps its last absolute values — nothing jumps).
      */
+    /**
+     * G5(b) piggyback-looks: the master clip with {@code clipId} and its absolute
+     * timeline start, for consumers that mirror a HOST clip's look (opacity) onto an
+     * attached rider. Returns null when the id is absent (rider treats host opacity
+     * as 1 — never hides content over a stale id).
+     */
+    @Nullable
+    public long[] masterClipWindowMs(@Nullable String clipId) {
+        if (clipId == null) return null;
+        int idx = indexOfMasterClipId(clipId);
+        if (idx < 0) return null;
+        return new long[]{segmentStartMs(idx), Math.max(1, clipSpanMs(clips.get(idx)))};
+    }
+
+    /** The master clip with {@code clipId}, or null. */
+    @Nullable
+    public Clip masterClipById(@Nullable String clipId) {
+        if (clipId == null) return null;
+        int idx = indexOfMasterClipId(clipId);
+        return idx < 0 ? null : clips.get(idx);
+    }
+
     public void resyncAttachedVisualizers() {
         for (WaveformOverlayInstance w : waveformOverlays) {
             String hostId = w.getAttachedClipId();

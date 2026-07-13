@@ -1,5 +1,32 @@
 # FadCam AI Handoff
 
+> **🧭 2026-07-12 — OPUS 4.8 truth-sweep + land-the-remainder session (sandbox UNPLUGGED all session →
+> compile-verify only; every device check is queued, not run). 11 commits.**
+> **(1) ROADMAP TRUTH-SWEEP (`5dd4dc6`):** the road_map top block was ~6 days stale (HEAD was far ahead).
+> Added a 2026-07-12 block marking the whole avatar loop (A1–A6 + bake + point-at-video + A5), sprites
+> (S1–S7 + FF-A/B), AV1–AV5, T1 filmstrip, clip-audio drawer, G1–G9, and the export fixes COMPLETE, and
+> restated the real remainder as ship-blockers vs owed-verifies vs additive-backlog.
+> **(2) LANDED THE CAPPED IN-FLIGHT TREE** (a subagent confirmed 4 complete, compile+package-verified
+> features): `8c306e5` G5(b) piggyback-looks (attached viz fades with host opacity on export — **A/B
+> proof owed**), `8332370` grade presets (opencode), `b36a36f` visualizer SAF import/export in the real
+> drawer + one-tap Low-bandwidth (720p+Low) export chip. Tree cleaned.
+> **(3) AV4 WIRE-UP (`cbf3dd5`, Fable subagent):** the built-but-unwired tape-waveform settings sheet is
+> now reachable (editor Settings → "Waveform visualizer"), persists via TapeWaveformStyle prefs, and a
+> one-time eager/lazy chooser fires only from the two real user-initiated audio-add sites (extract /
+> import — NOT project load). Eager kick wired. Device-verify owed.
+> **(4) `.m4a` COMPLETE-COPY (`da96248`):** audio-only exports now say "Your audio…" not "Your video…"
+> (ExportService threads audioOnly → notification + broadcast EXTRA_AUDIO_ONLY; activity picks the new
+> string at both UI sites).
+> **(5) TWO DURABLE DOCS:** `DEVICE_VERIFY_QUEUE_20260712.md` (every owed on-device check in one ordered
+> turnkey list, solo-doable vs needs-JoyRaptor — item A1 = the `148c155` export re-verify, `aeb0517e` is AT
+> the repro) and `DEPOLITICIZE_INVENTORY_20260712.md` (§4 audit: NO advocacy text remains, footers already
+> neutralized; what's left = a small flag-accent+6-easter-egg sweep gated on ONE design choice, plus a
+> large FadSec-brand/forensics reskin gated on 4 JoyRaptor-decisions — NOT a blind mass-edit).
+> **NEXT:** plug the sandbox in → clear the solo half of the device-verify queue (export re-verify, the
+> G5(b) A/B proof, F1–F4 + AV4 hand-tests). JoyRaptor decisions: the 4 de-politicize scope calls; bookmarks/
+> time-chip fold-in-vs-drop. Remaining solo build: clip-audio drawer → overlay/PiP, H.264-baseline
+> encoder-profile hook, TODO(strings) polish. Big never-started features are post-v1 (see roadmap §🌱).
+
 > **🗄️ 2026-07-11 midday — FABLE(model=fable): CLIP-AUDIO DRAWER v2 SHIPPED + DEVICE-PROVEN
 > (`5179647`, on the REAL phone SM-N986U — it replaced the sandbox on USB and is authorized).**
 > JoyRaptor's design, full live-follow in v1: **double-tap a master clip → its embedded audio slides

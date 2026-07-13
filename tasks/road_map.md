@@ -42,6 +42,8 @@ low-bandwidth export: the one-tap 720p+Low CHIP ✅ landed (`b36a36f`); the true
 part still needs an ExportManager encoder-profile hook (Fable lane) · ~~SAF style export/import buttons in
 the real editor drawer~~ ✅ DONE (`b36a36f`, hand-test owed) · `.m4a` export-complete copy still says
 "Your video…" + ~34 TODO(strings) markers (mostly in the FaditorEditorActivity god-class).
+**Also completed this session (2026-07-12):** ✅ AV4 wire-up (`cbf3dd5`, device-verify owed) · ✅ the
+`.m4a` export-complete copy now says "audio" (`da96248`). Both close items listed as open just above.
 **Also landed 2026-07-12 from the capped in-flight tree:** ✅ `8c306e5` G5(b) piggyback-looks (attached
 visualizer fades with host opacity on export — A/B proof owed) · ✅ `8332370` user color-grade presets
 (opencode) · ✅ `b36a36f` (the two editor items above). Tree now clean.

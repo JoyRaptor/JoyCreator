@@ -200,6 +200,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *  dedicated launcher), keyed by sheet id instead of timeline index. */
     private ActivityResultLauncher<Intent> spriteRelinkPickerLauncher;
     @Nullable private String spriteRelinkPendingSheetId;
+    /** Visualizer Rolodex: SAF export/import of the effective {@code WaveformStyle} JSON
+     *  (mirrors WaveformDebugActivity's debug-host machinery, surfaced in the real drawer). */
+    private ActivityResultLauncher<String> visualizerStyleExportLauncher;
+    private ActivityResultLauncher<String[]> visualizerStyleImportLauncher;
+    @Nullable private com.fadcam.ui.faditor.model.WaveformStyle pendingVisualizerExportStyle;
+    @Nullable private com.fadcam.ui.faditor.model.WaveformOverlayInstance pendingVisualizerImportOverlay;
 
     // ── Views ────────────────────────────────────────────────────────
     private PlayerView playerView;
@@ -960,6 +966,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // User cancelled — clear relink mode
                         relinkPendingIndex = -1;
                     }
+                });
+
+        // Register visualizer-style SAF export/import (must be before RESUMED).
+        visualizerStyleExportLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("application/json"),
+                uri -> {
+                    com.fadcam.ui.faditor.model.WaveformStyle s = pendingVisualizerExportStyle;
+                    pendingVisualizerExportStyle = null;
+                    if (uri == null || s == null) return;
+                    try (java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
+                        boolean ok = out != null && com.fadcam.ui.faditor.waveform.WaveformStyleIO.write(out, s);
+                        Toast.makeText(this, ok ? "Exported " + s.displayName : "Export failed",
+                                Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Export failed", Toast.LENGTH_SHORT).show();
+                    }
+                });
+
+        visualizerStyleImportLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(),
+                uri -> {
+                    com.fadcam.ui.faditor.model.WaveformOverlayInstance target = pendingVisualizerImportOverlay;
+                    pendingVisualizerImportOverlay = null;
+                    if (uri == null || target == null) return;
+                    com.fadcam.ui.faditor.model.WaveformStyle imported = null;
+                    try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                        if (in != null) imported = com.fadcam.ui.faditor.waveform.WaveformStyleIO.read(in);
+                    } catch (Exception ignored) { }
+                    if (imported == null || imported.type == null) {
+                        Toast.makeText(this, "Import failed: invalid style JSON", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    onVisualizerStyleImported(target, imported);
                 });
 
         // ── True fullscreen: hide status bar and nav bar ────────────
@@ -8329,6 +8368,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW};
             final String[] qualLabels = {"High", "Medium", "Low"};
 
+            // ── One-tap "Low bandwidth" preset chip: 720p + Low quality in one tap
+            //    (cosmetic — just drives the two spinners below, no encoder changes). ──
+            final TextView lowBandwidthChip = new TextView(this);
+            lowBandwidthChip.setText("Low bandwidth");
+            lowBandwidthChip.setTextColor(0xFFFFFFFF);
+            lowBandwidthChip.setTextSize(12);
+            lowBandwidthChip.setBackgroundResource(R.drawable.settings_home_row_bg);
+            int chipPadH = (int) (12 * getResources().getDisplayMetrics().density);
+            int chipPadV = (int) (6 * getResources().getDisplayMetrics().density);
+            lowBandwidthChip.setPadding(chipPadH, chipPadV, chipPadH, chipPadV);
+            android.widget.LinearLayout.LayoutParams chipLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            chipLp.topMargin = pad / 2;
+            lowBandwidthChip.setLayoutParams(chipLp);
+            root.addView(lowBandwidthChip);
+
             final android.widget.Spinner resSpinner =
                     buildExportSettingSpinner(root, "Resolution", resLabels,
                             java.util.Arrays.asList(resValues)
@@ -8337,6 +8394,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     buildExportSettingSpinner(root, "Quality", qualLabels,
                             java.util.Arrays.asList(qualValues)
                                     .indexOf(project.getExportSettings().getQuality()), pad);
+
+            lowBandwidthChip.setOnClickListener(v -> {
+                int resIdx = java.util.Arrays.asList(resValues)
+                        .indexOf(com.fadcam.ui.faditor.model.ExportSettings.Resolution.HD_720P);
+                int qualIdx = java.util.Arrays.asList(qualValues)
+                        .indexOf(com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW);
+                if (resIdx >= 0) resSpinner.setSelection(resIdx);
+                if (qualIdx >= 0) qualSpinner.setSelection(qualIdx);
+            });
 
             // ── Audio-only export (mux the composed audio mix to .m4a, no video).
             //    Not persisted on ExportSettings: an audio pull is a one-off act,
@@ -11461,6 +11527,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
         saveBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
         saveBtn.setOnClickListener(v -> saveCurrentVisualizerStyle(overlay));
         topRow.addView(saveBtn);
+
+        // Export/Import: SAF round-trip of the style JSON to anywhere (vs. Save's pinned-folder
+        // shortcut) — same machinery as WaveformDebugActivity, surfaced here in the real drawer.
+        TextView exportBtn = new TextView(this);
+        exportBtn.setText("⇩");
+        exportBtn.setTextSize(18);
+        exportBtn.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (6 * dp));
+        exportBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
+        LinearLayout.LayoutParams exportLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        exportLp.setMarginStart((int) (6 * dp));
+        exportBtn.setLayoutParams(exportLp);
+        exportBtn.setOnClickListener(v -> exportCurrentVisualizerStyle(overlay));
+        topRow.addView(exportBtn);
+
+        TextView importBtn = new TextView(this);
+        importBtn.setText("⇧");
+        importBtn.setTextSize(18);
+        importBtn.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (6 * dp));
+        importBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
+        LinearLayout.LayoutParams importLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        importLp.setMarginStart((int) (6 * dp));
+        importBtn.setLayoutParams(importLp);
+        importBtn.setOnClickListener(v -> {
+            pendingVisualizerImportOverlay = overlay;
+            visualizerStyleImportLauncher.launch(new String[]{"application/json", "text/plain", "*/*"});
+        });
+        topRow.addView(importBtn);
         root.addView(topRow);
 
         // ── Frequency range + bar count row (compact, below sensitivity) ──
@@ -12410,6 +12505,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 this, android.net.Uri.parse(pinned), effective);
         Toast.makeText(this, fileName != null ? "Saved " + fileName + " to your folder"
                 : "Save failed", Toast.LENGTH_SHORT).show();
+    }
+
+    /** SAF export: writes the overlay's EFFECTIVE style (preset + per-instance overrides applied,
+     *  same computation as {@link #saveCurrentVisualizerStyle}) to a user-chosen file anywhere,
+     *  as opposed to Save's pinned-project-folder shortcut. */
+    private void exportCurrentVisualizerStyle(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
+        java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> builtins =
+                com.fadcam.ui.faditor.waveform.WaveformStyleIO.loadBuiltins(this);
+        com.fadcam.ui.faditor.model.WaveformStyle base = null;
+        for (com.fadcam.ui.faditor.model.WaveformStyle s : builtins) {
+            if (s.id.equals(overlay.getStyleId())) { base = s; break; }
+        }
+        if (base == null && !builtins.isEmpty()) base = builtins.get(0);
+        if (base == null) return;
+        com.fadcam.ui.faditor.model.WaveformStyle effective = overlay.applyOverrides(base).copy();
+        pendingVisualizerExportStyle = effective;
+        String fileName = (effective.id == null || effective.id.isEmpty() ? "visualizer" : effective.id)
+                + com.fadcam.ui.faditor.waveform.WaveformStyleIO.USER_STYLE_SUFFIX;
+        visualizerStyleExportLauncher.launch(fileName);
+    }
+
+    /** SAF import: applies an imported {@link com.fadcam.ui.faditor.model.WaveformStyle} JSON
+     *  live to {@code target} (the overlay open in the Rolodex) — same effect as picking a
+     *  carousel style. Session-only (not persisted); use 💾 Save afterward to pin it. */
+    private void onVisualizerStyleImported(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance target,
+            @NonNull com.fadcam.ui.faditor.model.WaveformStyle imported) {
+        target.setStyleId(imported.id);
+        if (waveformOverlayView != null) {
+            waveformOverlayView.putStyle(imported);
+            waveformOverlayView.invalidate();
+        }
+        scheduleAutoSave();
+        Toast.makeText(this, "Imported " + imported.displayName, Toast.LENGTH_SHORT).show();
     }
 
     /** Synthetic waveform data for rendering style-preview thumbnails (a representative audio shape). */

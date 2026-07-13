@@ -46,6 +46,12 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
 
     @Nullable private Callback callback;
 
+    /** AV4: tapped when the "Waveform visualizer" row is clicked — the host opens the
+     *  {@link com.fadcam.ui.faditor.waveform.WaveformVisualizerSettingsSheet}. Kept as a
+     *  separate setter (not a Callback method) so the existing method-reference wiring of
+     *  {@link Callback} stays intact. */
+    @Nullable private Runnable onOpenWaveformVisualizer;
+
     /** Factory method. */
     @NonNull
     public static FaditorSettingsBottomSheet newInstance() {
@@ -54,6 +60,11 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
 
     public void setCallback(@Nullable Callback callback) {
         this.callback = callback;
+    }
+
+    /** AV4: set the action run when the "Waveform visualizer" row is tapped. */
+    public void setOnOpenWaveformVisualizer(@Nullable Runnable action) {
+        this.onOpenWaveformVisualizer = action;
     }
 
     // ── Theme & dark styling ─────────────────────────────────────────
@@ -152,6 +163,17 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                     if (callback != null) callback.onSafeZoneOverlayToggled(isChecked);
                 });
 
+        // AV4: opens the quad-band tape "Waveform visualizer" settings sheet (crossovers,
+        // per-band colors/lanes, shaping, FX, and eager/lazy analysis timing). Inline literals
+        // because strings.xml is owned by another lane.
+        addButtonRow(content, dp,
+                "Waveform visualizer",
+                "Customize the audio waveform look and when clips are analyzed.",
+                () -> {
+                    if (onOpenWaveformVisualizer != null) onOpenWaveformVisualizer.run();
+                    dismiss();
+                });
+
         // NOTE (v2): the old "Tool order" manual/recent switch was removed. The
         // carousel now uses the divider model — pinned home row left of the
         // divider (manual order), usage-sorted right of it — controlled directly
@@ -225,6 +247,71 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         toggle.setLayoutParams(switchLp);
         toggle.setOnCheckedChangeListener((buttonView, isChecked) -> onToggle.onToggle(isChecked));
         row.addView(toggle);
+
+        parent.addView(row);
+    }
+
+    /**
+     * AV4: a titled settings row that acts as a button — title + description on the left, a
+     * trailing chevron, whole row tappable. Mirrors {@link #addSwitchRow}'s themed card so the
+     * sheet stays visually consistent.
+     */
+    private void addButtonRow(@NonNull LinearLayout parent,
+                              float dp,
+                              @NonNull String title,
+                              @NonNull String description,
+                              @NonNull Runnable onClick) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setBackgroundResource(R.drawable.settings_group_card_bg);
+        int pad = (int) (14 * dp);
+        row.setPadding(pad, pad, pad, pad);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowLp.bottomMargin = (int) (10 * dp);
+        row.setLayoutParams(rowLp);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> onClick.run());
+
+        LinearLayout textCol = new LinearLayout(requireContext());
+        textCol.setOrientation(LinearLayout.VERTICAL);
+        textCol.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView titleTv = new TextView(requireContext());
+        titleTv.setText(title);
+        titleTv.setTextColor(0xFFFFFFFF);
+        titleTv.setTextSize(15);
+        titleTv.setTypeface(null, Typeface.BOLD);
+        textCol.addView(titleTv);
+
+        TextView descTv = new TextView(requireContext());
+        descTv.setText(description);
+        descTv.setTextColor(0xFF999999);
+        descTv.setTextSize(12);
+        descTv.setLineSpacing(0, 1.3f);
+        LinearLayout.LayoutParams descLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        descLp.topMargin = (int) (4 * dp);
+        descTv.setLayoutParams(descLp);
+        textCol.addView(descTv);
+
+        row.addView(textCol);
+
+        TextView chevron = new TextView(requireContext());
+        chevron.setText("›");
+        chevron.setTextColor(0xFF999999);
+        chevron.setTextSize(22);
+        LinearLayout.LayoutParams chLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        chLp.setMarginStart((int) (12 * dp));
+        chevron.setLayoutParams(chLp);
+        row.addView(chevron);
 
         parent.addView(row);
     }

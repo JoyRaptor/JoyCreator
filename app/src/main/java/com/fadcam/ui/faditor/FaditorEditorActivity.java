@@ -1929,6 +1929,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.FaditorSettingsBottomSheet sheet =
                     com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance();
             sheet.setCallback(this::setSafeZoneOverlayEnabled);
+            sheet.setOnOpenWaveformVisualizer(this::openWaveformVisualizerSheet);
             sheet.show(getSupportFragmentManager(), "faditorSettings");
         });
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
@@ -6166,6 +6167,76 @@ public class FaditorEditorActivity extends AppCompatActivity {
         } catch (Exception e) { return 0; }
     }
 
+    // ── AV4: Waveform visualizer settings + analysis timing ────────────
+
+    /** SharedPreferences flag: the one-time "analyze eagerly or lazily?" chooser has been shown. */
+    private static final String PREF_WAVE_VIZ_ASKED = "wave_viz_analyze_asked";
+
+    /**
+     * AV4: open the "Waveform visualizer" settings sheet, bound to the timeline's LIVE
+     * {@link com.fadcam.ui.faditor.waveform.TapeWaveformStyle} so every control edits (and the
+     * sheet persists) the same instance the renderer draws from. The sheet's listener routes back
+     * into the timeline: crossover changes re-extract, cheap knobs re-shape/redraw.
+     */
+    private void openWaveformVisualizerSheet() {
+        if (editorTimeline == null) return;
+        com.fadcam.ui.faditor.waveform.TapeWaveformStyle style = editorTimeline.getTapeStyle();
+        com.fadcam.ui.faditor.waveform.WaveformVisualizerSettingsSheet sheet =
+                com.fadcam.ui.faditor.waveform.WaveformVisualizerSettingsSheet.newInstance(style);
+        sheet.setListener(crossoversChanged -> {
+            if (editorTimeline != null) editorTimeline.onTapeStyleChanged(crossoversChanged);
+        });
+        sheet.show(getSupportFragmentManager(), "waveformVisualizer");
+    }
+
+    /**
+     * AV4: one-time chooser shown the FIRST time the user imports/extracts audio, asking whether
+     * quad-band tape waveforms should be analyzed eagerly (at import) or lazily (when a clip is
+     * first opened). The choice is persisted into {@link
+     * com.fadcam.ui.faditor.waveform.TapeWaveformStyle#analyzeEager} via {@code saveTo}, plus an
+     * "already asked" flag so it never reappears. If a saved preference already exists (the user
+     * has visited the Waveform visualizer settings, which always writes the key), it is silent.
+     *
+     * <p>Trigger choice: the two genuine user-initiated audio-add funnels (extract-audio-from-clip
+     * and import-audio-file). Deliberately NOT {@code setAudioClips}, which also fires on project
+     * load/restore — showing the dialog there would be intrusive and ill-defined.</p>
+     */
+    private void maybeAskWaveformAnalysisTiming() {
+        if (editorTimeline == null || isFinishing()) return;
+        final android.content.SharedPreferences p =
+                android.preference.PreferenceManager.getDefaultSharedPreferences(this);
+        // Never re-ask: either we've asked before, or a saved analyzeEager preference exists
+        // (the settings sheet's saveTo always writes wave_viz_analyzeEager).
+        if (p.getBoolean(PREF_WAVE_VIZ_ASKED, false)
+                || p.contains("wave_viz_analyzeEager")) {
+            return;
+        }
+        final com.fadcam.ui.faditor.waveform.TapeWaveformStyle style = editorTimeline.getTapeStyle();
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Analyze audio waveforms")
+                .setMessage("When should the detailed audio waveform be analyzed?\n\n"
+                        + "• Eagerly — right when you add audio (uses more work up front)\n"
+                        + "• Lazily — only when a clip is first opened")
+                .setCancelable(false)
+                .setPositiveButton("Eagerly", (d, w) -> applyWaveformAnalysisChoice(style, p, true))
+                .setNegativeButton("Lazily", (d, w) -> applyWaveformAnalysisChoice(style, p, false))
+                .show();
+    }
+
+    /** Persist the eager/lazy choice + asked flag, and (eager) prime the tape cache now. */
+    private void applyWaveformAnalysisChoice(
+            @NonNull com.fadcam.ui.faditor.waveform.TapeWaveformStyle style,
+            @NonNull android.content.SharedPreferences p, boolean eager) {
+        style.analyzeEager = eager;
+        style.saveTo(p);
+        p.edit().putBoolean(PREF_WAVE_VIZ_ASKED, true).apply();
+        // Eager: prime the tape cache over the current clips immediately (no clear — keep any
+        // already-analyzed data; primeEagerTapeAnalysis is idempotent).
+        if (eager && editorTimeline != null) {
+            editorTimeline.primeEagerTapeAnalysis();
+        }
+    }
+
     // ── Audio ─────────────────────────────────────────────────────────
 
     /**
@@ -6269,6 +6340,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                     project.getTimeline().addAudioClip(audioClip);
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+                    // AV4: first-ever audio add → offer eager/lazy waveform analysis (once).
+                    maybeAskWaveformAnalysisTiming();
 
                     // Record undo action for adding audio clip
                     undoManager.recordAction(new EditActions.AddAudioClipAction(
@@ -17929,6 +18002,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ac.setOffsetMs(playheadMs);
         project.getTimeline().addAudioClip(ac);
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        // AV4: first-ever audio add → offer eager/lazy waveform analysis (once).
+        maybeAskWaveformAnalysisTiming();
 
         // Waveform in the background.
         new com.fadcam.ui.faditor.util.AudioExtractor(this).generateWaveform(audioUri,

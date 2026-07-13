@@ -1102,6 +1102,10 @@ public class EditorTimelineView extends View {
         // AV2: quad-band tape waveform. Style holds the (currently default) look; the cache
         // lazily extracts + shapes per audio clip and invalidates when a tape is ready.
         tapeStyle = new com.fadcam.ui.faditor.waveform.TapeWaveformStyle();
+        // AV4: reflect the user's persisted "Waveform visualizer" settings (crossovers, colors,
+        // lanes, FX, and the eager/lazy analysis choice) so the tape matches Settings on open.
+        tapeStyle.loadFrom(
+                android.preference.PreferenceManager.getDefaultSharedPreferences(getContext()));
         tapeWaveformCache = new com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache(
                 getContext(), tapeStyle, this::postInvalidateOnAnimation);
         layerRowRenderer.setTapeSource(tapeWaveformCache::get, tapeStyle);
@@ -1391,6 +1395,48 @@ public class EditorTimelineView extends View {
         computeRects();
         requestLayout();
         invalidate();
+        // AV4 eager analysis: when the user chose "analyze at import", prime the quad-band tape
+        // cache for every audio clip now instead of waiting for it to first scroll into view.
+        primeEagerTapeAnalysis();
+    }
+
+    /**
+     * AV4: if the user chose eager analysis, kick the quad-band tape extraction for every current
+     * audio clip up front (idempotent: {@code get} is in-flight / ready / failed guarded, so
+     * re-calling is safe). No-op in lazy mode — the renderer's analyze-on-first-draw is unchanged.
+     */
+    public void primeEagerTapeAnalysis() {
+        if (tapeStyle == null || !tapeStyle.analyzeEager || tapeWaveformCache == null) return;
+        for (AudioClip ac : audioClips) {
+            if (ac != null) tapeWaveformCache.get(ac);
+        }
+    }
+
+    /**
+     * AV4: the live global {@link com.fadcam.ui.faditor.waveform.TapeWaveformStyle} shared by
+     * every audio row — handed to the "Waveform visualizer" settings sheet so its controls edit
+     * (and persist) the same instance the renderer draws from.
+     */
+    @NonNull
+    public com.fadcam.ui.faditor.waveform.TapeWaveformStyle getTapeStyle() {
+        return tapeStyle;
+    }
+
+    /**
+     * AV4: react after the "Waveform visualizer" settings sheet mutated {@link #getTapeStyle()}.
+     * A crossover/presence change alters the extracted band data → drop the cache so it re-extracts
+     * (and re-prime immediately when eager); every other knob (contrast/smooth/normalize/colors/
+     * lanes/FX) only re-shapes/redraws from the same cached raw data.
+     */
+    public void onTapeStyleChanged(boolean crossoversChanged) {
+        if (tapeWaveformCache == null) return;
+        if (crossoversChanged) {
+            tapeWaveformCache.clear();
+            primeEagerTapeAnalysis();
+            invalidate();
+        } else {
+            tapeWaveformCache.reshapeAll();
+        }
     }
 
     /**

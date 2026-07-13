@@ -1,6 +1,63 @@
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
-## 🎯 2026-07-06 STRATEGIC STATE (supersedes the 07-04 block + everything below; handoff.md top block = tactical detail)
+## 🎯 2026-07-12 TRUTH SWEEP (supersedes the 07-06 block below; HEAD `cbba5f2`)
+The 07-06 block understates reality by ~6 days of shipping (39 commits landed 2026-07-11 alone).
+**The editor is functionally complete + export-proven.** This block is the authoritative "what's
+actually left." Marked ✅ = landed on this branch (git-log-verified); everything else is honestly open.
+
+**✅ NEWLY COMPLETE since the 07-06 block (git-verified, most device-verified):**
+- **Avatar Studio — FULL LOOP DONE.** A1 rig+matrix editor, A2 FaceLandmarker tracking (`bdb9be8`),
+  A3 spectral 6-class visemes (`930db2c`), A4 recorder/library/standalone/editor-item (`c0c4020`/
+  `7b4edb3`/`16a712f`/`4860b8f`), A5 AI rigging + FF-B describe_sprite_sheet (`f206b1e`), A6 pin-warp
+  (closed `ba2ca35`), **bake-to-keyframes** (`41908c5`/`4b10fb1`/`685e056`, device-verified), and
+  **point-at-video** (`db1c1fb`/`c6ef7cf`, no-face smoked). Only real-face axis-feel verify remains.
+- **Sprites — FULL.** S1–S7 + S2b polish (`693a943`) + S7 relink (`a40e649`) + FF-A dope-sheet
+  (`5a57919`) + FF-B (above). 
+- **Audio waveforms — AV1–AV5 DONE** incl. the perf tile-cache/mip-pyramid (`5460b1c`), plus W2 HD
+  zoom (`0433439`), and the **clip-audio drawer v2** (`5179647`, device-proven on the real SM-N986U).
+- **Timeline fidelity — T1 accurate filmstrip** via sequential MediaCodec sweep (`78a6c6b`).
+- **Gestures G1–G9** all shipped; **export fixes** `313e7fa` (transition≥clip stall) + `148c155`
+  (audio-coverage guard) — the latter's device re-verify is OWED (aeb0517e left at the 600ms repro).
+- Quickwins/perf: asset-scan cache + configurable GOP (`fa241cf`); AV4 dead-code cleanup (`6fc3ba3`).
+
+**🚢 REAL SHIP-BLOCKERS (not code — these gate a public release):**
+1. **Rebrand asset set** — adaptive icon (fg/bg/mono), wordmark SVG, notification glyph
+   (`ASSETS_WISHLIST.md`). Art task, not code.
+2. **De-politicize content sweep** — `DESIGN_JOY_CREATOR.md` binding rule; never confirmed done.
+3. **Schema downgrade-guard drill** — only forward migration exercised on a real project.
+
+**📱 OWED DEVICE VERIFIES (code done; needs a phone / JoyRaptor):** `148c155` export re-verify (solo-doable,
+sandbox aeb0517e is AT the repro) · 🎯 Record stop-swap persistence hand-run · real-face avatar axis
+(MIRROR_YAW/SIGN_PITCH) + record→replay→export · bubble face-button/clear-stage (blocked on "Display
+over other apps" grant) · new-avatar-from-image picker · clip-audio drawer transcript-relocation /
+split-with-open / real-finger double-tap feel · P0/P1 gapless re-verify on real project 27221664.
+
+**🔧 SMALL BUILD REMAINDER (solo lane, no JoyRaptor):** AV4 wire-up (settings sheet exists UNWIRED — surface
+under toolbar Settings + first-import eager/lazy popup) · clip-audio drawer → overlay/PiP videos ·
+low-bandwidth 720p/H.264-baseline export preset (needs an ExportManager encoder-profile hook — Fable
+lane; opencode is blocked on it) · SAF style export/import buttons in the real editor drawer (debug-host
+only, `d59b7b6`) · `.m4a` export-complete copy still says "Your video…" + ~34 TODO(strings) markers
+(mostly in the FaditorEditorActivity god-class).
+
+**🗳️ JOYRAPTOR-DECISIONS (not code):** bookmarks (ruler markers) + playhead time-chip (designed in dragux_v3,
+NOT in the G1–G9 contract — fold-in vs drop) · muted-track caption show/hide (open since M-EXPORT-1) ·
+whether `schemaVersion` should bump on save (stays 7; likely cosmetic).
+
+**🌱 BIG NEVER-STARTED (each has a full spec; ADDITIVE — a post-v1 roadmap, not a ship gate; do not start
+without a fresh go-ahead):** AI-generated animated slides (`feature-ai-generated-slides-spec.md`) ·
+dual-stream recording (`feature-dual-stream-recording-spec.md`, `RECORDING_HANDOFF.md`) · B-roll apply-UI
+Phase 2 + vision tagging Phase 3 · LUT filters + intensity slider · **audio ducking** (duckAmount stored
+but NEVER applied — UI hidden until built) · transcript windowing (`PLAN_transcript_windowing.md`) ·
+Consolidate/relink missing-media manifest screen (Phase 4.5) · avatar alpha-traced contour mesh + vector
+draw tools (parked candidates).
+
+**✔️ DOCUMENTED-AND-ACCEPTED LIMITATIONS (not bugs):** PING_PONG reverse is a horizontal mirror (Media3
+has no true reverse) · `powerKaleido` transition fails GLSL compile on Adreno → stays on its proxy card
+BY DESIGN.
+
+---
+
+## 🎯 2026-07-06 STRATEGIC STATE (HISTORICAL — see the 07-12 TRUTH SWEEP above for current status)
 **DONE (device-proven):** Layers MVP + schema v8→v10, gapless engine ⚠️ **(see 🔴 P0 critical gap below —
 gapless engine does NOT cover projects with image clips)**, multi-row timeline, cross-row drag,
 M-EXPORT-1/2 (export parity + blend modes, `fc3055a`), M-COMP-2 live PiP (preview+export parity,

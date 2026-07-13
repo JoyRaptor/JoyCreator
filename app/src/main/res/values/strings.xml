@@ -1224,6 +1224,10 @@
     <string name="faditor_filter_lut_none">None</string>
     <string name="faditor_filter_reset">Reset all</string>
     <string name="faditor_filter_copy_all">Copy look to all clips</string>
+    <string name="faditor_filter_preset_save">Save as preset…</string>
+    <string name="faditor_filter_preset_name_hint">Preset name</string>
+    <string name="faditor_filter_preset_delete">Delete preset \"%s\"?</string>
+    <string name="faditor_filter_preset_applied">Preset \"%s\" applied</string>
     <string name="faditor_tool_filter">Filter</string>
     <string name="faditor_tool_move">Move</string>
     <string name="faditor_move_drawer_title">Move Clip</string>

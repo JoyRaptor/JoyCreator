@@ -3,11 +3,13 @@ package com.fadcam.ui.faditor;
 import android.app.Dialog;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ContextThemeWrapper;
+import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -18,6 +20,7 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.R;
 import com.fadcam.ui.faditor.effects.EffectStack;
+import com.fadcam.ui.faditor.effects.GradePresetStore;
 import com.fadcam.ui.faditor.effects.LutManager;
 import com.fadcam.ui.faditor.effects.LutPreset;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -63,6 +66,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
     @Nullable private LinearLayout lutIntensityRow;
     @Nullable private Slider lutIntensitySlider;
     @Nullable private TextView lutIntensityValue;
+    @Nullable private LinearLayout savedPresetsRow;
 
     /** Bind the target stack + callback before showing. */
     public void setTarget(@NonNull EffectStack stack, @NonNull Callback callback) {
@@ -167,6 +171,26 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         valueTexts = new TextView[specs.length];
 
         buildPresetRow(root, dp);
+
+        // ── "Save as preset…" row ───────────────────────────────────
+        LinearLayout saveRow = new LinearLayout(requireContext());
+        saveRow.setOrientation(LinearLayout.HORIZONTAL);
+        saveRow.setGravity(Gravity.CENTER_VERTICAL);
+        saveRow.setBackgroundResource(R.drawable.settings_home_row_bg);
+        saveRow.setPadding((int) (16 * dp), (int) (14 * dp), (int) (16 * dp), (int) (14 * dp));
+        LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        saveLp.topMargin = (int) (8 * dp);
+        saveRow.setLayoutParams(saveLp);
+        root.addView(saveRow);
+
+        TextView saveLabel = new TextView(requireContext());
+        saveLabel.setText(R.string.faditor_filter_preset_save);
+        saveLabel.setTextColor(0xFF4DD0E1);
+        saveLabel.setTextSize(15);
+        saveLabel.setTypeface(null, Typeface.BOLD);
+        saveRow.addView(saveLabel);
+        saveRow.setOnClickListener(v -> showSavePresetDialog());
 
         for (int i = 0; i < specs.length; i++) {
             final Spec spec = specs[i];
@@ -373,11 +397,48 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
                 .show();
     }
 
+    private void showSavePresetDialog() {
+        if (stack == null) return;
+        float dp = getResources().getDisplayMetrics().density;
+        EditText input = new EditText(requireContext());
+        input.setHint(R.string.faditor_filter_preset_name_hint);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        int pad = (int) (20 * dp);
+        input.setPadding(pad, (int) (8 * dp), pad, 0);
+
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.faditor_filter_preset_save)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    String name = input.getText().toString().trim();
+                    if (name.isEmpty()) return;
+                    GradePresetStore.save(requireContext(), name, stack);
+                    rebuildSavedPresetChips(dp);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     private void resetAll() {
         if (stack == null) return;
         float[] defs = new float[specs.length];
         for (int i = 0; i < specs.length; i++) defs[i] = specs[i].def;
         applyValues(defs, null);
+    }
+
+    /** Sync every slider + value label to the current stack state (after loading a preset). */
+    private void refreshSlidersFromStack() {
+        if (stack == null || specs == null) return;
+        for (int i = 0; i < specs.length; i++) {
+            float v = specs[i].g.get(stack);
+            if (sliders[i] != null) sliders[i].setValue(clamp(v, specs[i].min, specs[i].max));
+            if (valueTexts[i] != null) valueTexts[i].setText(format(v));
+        }
+        if (lutIntensitySlider != null) lutIntensitySlider.setValue(
+                clamp(stack.getLutIntensity(), 0f, 1f));
+        if (lutIntensityValue != null) lutIntensityValue.setText(format(stack.getLutIntensity()));
+        if (lutValue != null) lutValue.setText(currentLutName());
+        updateLutIntensityVisibility();
     }
 
     /** Horizontal row of one-tap look presets above the manual sliders. */
@@ -407,6 +468,76 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         hsLp.bottomMargin = (int) (6 * dp);
         hs.setLayoutParams(hsLp);
         root.addView(hs);
+
+        // ── saved user presets ───────────────────────────────────────
+        savedPresetsRow = new LinearLayout(requireContext());
+        savedPresetsRow.setOrientation(LinearLayout.VERTICAL);
+        root.addView(savedPresetsRow);
+        rebuildSavedPresetChips(dp);
+    }
+
+    private void rebuildSavedPresetChips(float dp) {
+        if (savedPresetsRow == null) return;
+        savedPresetsRow.removeAllViews();
+        List<String> names = GradePresetStore.listNames(requireContext());
+        if (names.isEmpty()) return;
+
+        // Divider above saved presets
+        TextView header = new TextView(requireContext());
+        header.setText(R.string.faditor_filter_preset_save);
+        header.setTextColor(0xFF888888);
+        header.setTextSize(12);
+        header.setPadding(0, (int) (2 * dp), 0, (int) (4 * dp));
+        savedPresetsRow.addView(header);
+
+        HorizontalScrollView hs = new HorizontalScrollView(requireContext());
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout chipRow = new LinearLayout(requireContext());
+        chipRow.setOrientation(LinearLayout.HORIZONTAL);
+        hs.addView(chipRow);
+        for (String name : names) {
+            TextView chip = new TextView(requireContext());
+            chip.setText(name);
+            chip.setTextColor(0xFF4DD0E1);
+            chip.setTextSize(13);
+            chip.setPadding((int) (14 * dp), (int) (8 * dp), (int) (14 * dp), (int) (8 * dp));
+            chip.setBackgroundResource(R.drawable.settings_home_row_bg);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMarginEnd((int) (8 * dp));
+            chip.setLayoutParams(lp);
+            chip.setOnClickListener(v -> applySavedPreset(name));
+            chip.setOnLongClickListener(v -> { confirmDeletePreset(name, dp); return true; });
+            chipRow.addView(chip);
+        }
+        LinearLayout.LayoutParams hsLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hsLp.bottomMargin = (int) (4 * dp);
+        hs.setLayoutParams(hsLp);
+        savedPresetsRow.addView(hs);
+    }
+
+    private void applySavedPreset(@NonNull String name) {
+        if (stack == null) return;
+        GradePresetStore.load(requireContext(), name, stack);
+        refreshSlidersFromStack();
+        if (callback != null) callback.onEffectsChanged();
+        com.google.android.material.snackbar.Snackbar.make(
+                requireView(),
+                getString(R.string.faditor_filter_preset_applied, name),
+                com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show();
+    }
+
+    private void confirmDeletePreset(@NonNull String name, float dp) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(String.format(
+                        getString(R.string.faditor_filter_preset_delete), name))
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    GradePresetStore.delete(requireContext(), name);
+                    rebuildSavedPresetChips(dp);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /** Curated looks. Values order: exposure,contrast,saturation,temperature,tint,highlights,shadows,fade,vignette,grain. */

@@ -177,7 +177,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             break;
                         case ExportService.ACTION_EXPORT_COMPLETED:
                             exportStartedLocallyAtMs = 0;
-                            exportUiOnCompleted(intent.getStringExtra(ExportService.EXTRA_OUTPUT_PATH));
+                            exportUiOnCompleted(intent.getStringExtra(ExportService.EXTRA_OUTPUT_PATH),
+                                    intent.getBooleanExtra(ExportService.EXTRA_AUDIO_ONLY, false));
                             break;
                         case ExportService.ACTION_EXPORT_ERROR:
                             exportStartedLocallyAtMs = 0;
@@ -6978,14 +6979,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     });
     }
 
-    private void exportUiOnCompleted(@Nullable String outputPath) {
+    private void exportUiOnCompleted(@Nullable String outputPath, boolean audioOnly) {
+                    final int completeSummaryRes = audioOnly
+                            ? R.string.faditor_export_complete_summary_audio
+                            : R.string.faditor_export_complete_summary;
                     runOnUiThread(() -> {
                         FLog.d(TAG, "Export saved to: " + outputPath);
 
                         if (exportProgressPercent != null) exportProgressPercent.setText("100%");
                         if (exportProgressBar != null) exportProgressBar.setProgress(100);
                         if (exportProgressText != null) {
-                            exportProgressText.setText(R.string.faditor_export_complete_summary);
+                            exportProgressText.setText(completeSummaryRes);
                             exportProgressText.setTextColor(0xFFFFFFFF);
                         }
                         if (exportStatusIcon != null) exportStatusIcon.setText("check_circle");
@@ -7015,7 +7019,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 && exportProgressOverlay.getVisibility() != View.VISIBLE) {
                             reacquirePreviewIfReleased();
                             Toast.makeText(FaditorEditorActivity.this,
-                                    R.string.faditor_export_complete_summary,
+                                    completeSummaryRes,
                                     Toast.LENGTH_LONG).show();
                         }
 

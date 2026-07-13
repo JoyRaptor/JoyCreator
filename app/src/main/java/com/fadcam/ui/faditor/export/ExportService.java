@@ -250,9 +250,10 @@ public class ExportService extends Service {
                 // Remove the ongoing 3001 (it doubles as the isRunning() truth) and re-post
                 // the completion under its own id.
                 stopForeground(STOP_FOREGROUND_REMOVE);
-                showCompletionNotification();
+                showCompletionNotification(audioOnly);
                 Intent broadcast = new Intent(ACTION_EXPORT_COMPLETED);
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
+                broadcast.putExtra(EXTRA_AUDIO_ONLY, audioOnly);
                 sendExportBroadcast(broadcast);
                 stopSelf();
             }
@@ -493,7 +494,7 @@ public class ExportService extends Service {
         }
     }
 
-    private void showCompletionNotification() {
+    private void showCompletionNotification(boolean audioOnly) {
         // Tap to open editor
         Intent openIntent = new Intent(this, FaditorEditorActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -503,7 +504,9 @@ public class ExportService extends Service {
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_export_video)
                 .setContentTitle(getString(R.string.faditor_export_complete_title))
-                .setContentText(getString(R.string.faditor_export_complete_summary))
+                .setContentText(getString(audioOnly
+                        ? R.string.faditor_export_complete_summary_audio
+                        : R.string.faditor_export_complete_summary))
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .setContentIntent(openPi)

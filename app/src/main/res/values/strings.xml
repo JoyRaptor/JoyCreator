@@ -1411,6 +1411,7 @@
     <string name="faditor_export_eta">Estimated time: %s</string>
     <string name="faditor_export_complete_title">Export Complete</string>
     <string name="faditor_export_complete_summary">Your video has been saved to the Records Tab.</string>
+    <string name="faditor_export_complete_summary_audio">Your audio has been saved to the Records Tab.</string>
 
     <!-- L2: shown once when a ping-pong loop's segment is too long to bake a true reverse -->
     <string name="faditor_reverse_long_loop_later">Reverse for long loops is coming later — this loop plays its tail forward for now.</string>

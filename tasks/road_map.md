@@ -39,7 +39,12 @@ split-with-open / real-finger double-tap feel · P0/P1 gapless re-verify on real
 **🔧 SMALL BUILD REMAINDER (solo lane, no JoyRaptor):** AV4 wire-up (settings sheet exists UNWIRED — surface
 under toolbar Settings + first-import eager/lazy popup) · clip-audio drawer → overlay/PiP videos ·
 low-bandwidth export: the one-tap 720p+Low CHIP ✅ landed (`b36a36f`); the true H.264-**baseline-profile**
-part still needs an ExportManager encoder-profile hook (Fable lane) · ~~SAF style export/import buttons in
+part is **mis-scoped as "an ExportManager hook"** — SCOPED 2026-07-14 (see
+`H264_BASELINE_PROFILE_FINDING_20260714.md`): Media3 hardcodes AVCProfileHigh for H264 on API≥29 and
+IGNORES the requested profile, so it needs a small principled patch to the load-bearing media3 fork
+(`DefaultEncoderFactory.adjustMediaFormatForH264EncoderSettings` — guard the unconditional KEY_PROFILE
+overwrite) + a `Quality.LOW`→Baseline request in ExportManager, then codec-profile device verify. Full
+context (rebuilds the media3 fork). · ~~SAF style export/import buttons in
 the real editor drawer~~ ✅ DONE (`b36a36f`, hand-test owed) · `.m4a` export-complete copy still says
 "Your video…" + ~34 TODO(strings) markers (mostly in the FaditorEditorActivity god-class).
 **Also completed this session (2026-07-12):** ✅ AV4 wire-up (`cbf3dd5`, device-verify owed) · ✅ the

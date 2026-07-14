@@ -1,5 +1,22 @@
 # DEVICE-VERIFY QUEUE — turnkey checklist (2026-07-12)
 
+> **▶ IN PROGRESS (2026-07-14 ~01:54, sandbox SANDBOX_SERIAL REPLUGGED, current build installed via
+> `adb install -r` arm64 APK):**
+> - Item A1 export re-verify: **STARTED** a VIDEO export of AudioExportVerify (`aeb0517e`, confirmed at
+>   the repro state: 600ms GL_SHADER transition after clip[3]=427ms) at 01:54:18. Settings 480p/Low.
+>   Export runs as an on-device background service — the RESULT (complete vs muxer stall) is knowable
+>   from logcat + the Records folder even without me. RESUME STEP 1: check whether it completed —
+>   `adb -s SANDBOX_SERIAL shell run-as com.fadcam.beta ls -lt files` or the Records tab; grep logcat
+>   for "Export saved"/"no output sample". If it produced a valid ~14s Faditor_*.mp4 with no stall → A1 PASS.
+>   Then repeat with "Export audio only (.m4a)" checked for the audio path.
+> - Already CONFIRMED live in the export dialog: F4 "Low bandwidth" chip + "Export audio only (.m4a)"
+>   checkbox both present (item A3 partial). AV3 layout live (first audio row expanded, rest thin).
+> - `aeb0517e` pre-state backed up to scratchpad `aeb_pre.json` — restore if the export mutated it (it
+>   should not; export is read-only on the project).
+> - REMAINING Section A: A1 audio-path, A2 G5(b) A/B proof, A3 finish (SAF round-trip), A4 grade presets,
+>   A5 AV4 settings+chooser, A6 record stop-swap, A7 clip-audio drawer feels. Section B needs JoyRaptor.
+
+
 The sandbox (SM-N960U, adb `SANDBOX_SERIAL`) was UNPLUGGED as of this writing, so a large batch
 of code-complete work is compile-verified only. This is the single ordered list of everything owed on
 device — plug the sandbox in and work top-to-bottom. Items needing JoyRaptor/a real face/a grant are tagged.

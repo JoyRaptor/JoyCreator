@@ -46,7 +46,12 @@ IGNORES the requested profile, so it needs a small principled patch to the load-
 overwrite) + a `Quality.LOW`→Baseline request in ExportManager, then codec-profile device verify. Full
 context (rebuilds the media3 fork). · ~~SAF style export/import buttons in
 the real editor drawer~~ ✅ DONE (`b36a36f`, hand-test owed) · `.m4a` export-complete copy still says
-"Your video…" + ~34 TODO(strings) markers (mostly in the FaditorEditorActivity god-class).
+"Your video…" [fixed `da96248`] + ~34 TODO(strings) markers (mostly in the FaditorEditorActivity
+god-class). **NOTE (2026-07-14):** the TODO(strings) extraction is **intentionally FROZEN** — the code
+comment at FaditorEditorActivity.java:9917 says "hardcoded per the rebrand-freeze standing rule." Do NOT
+extract these into strings.xml until the rebrand naming + de-politicize sweep (ship-blockers #1/#2, both
+JoyRaptor-gated) land — a strings.xml refactor now would collide with those pending brand-string changes and
+force rework. Freeze-gated, not free-to-do.
 **Also completed this session (2026-07-12):** ✅ AV4 wire-up (`cbf3dd5`, device-verify owed) · ✅ the
 `.m4a` export-complete copy now says "audio" (`da96248`). Both close items listed as open just above.
 **Also landed 2026-07-12 from the capped in-flight tree:** ✅ `8c306e5` G5(b) piggyback-looks (attached

@@ -22,7 +22,14 @@
 >   across sheet close/reopen; restored default OFF). First-import eager/lazy chooser still owed.
 > - **A4 grade presets: ✅ PASS** (adjust→save named preset→chip→persists→apply snaps grade back→long-press
 >   delete). cebc19e0 restored (grade undone, preset deleted). Cross-clip-apply not separately shown.
-> - NEXT: A1 audio-only (.m4a) export path, then A2 G5(b) A/B frame-diff proof.
+> - A1 audio-only (.m4a): ✅ PASS (66.88kB output, da96248 copy verified). A1 fully closed.
+> - A7 clip-audio drawer: ⏸ deferred (320ms double-tap is real-finger-only; adb can't land it).
+> - A6 record stop-swap: ⚠️ Record entry point NOT in the selected-avatar toolbar — needs discovery
+>   (likely standalone Studio). Badge to beat: ✦ 21. cebc19e0 unmutated.
+> - A2 G5(b): ⏳ scouted — viz IS attached on aeb0517e but host has NO opacity fade; needs a fresh
+>   throwaway project + opacity-fade setup + dual export. Best done with full context next session.
+> - **Session net: A1(both)+A4+A5 PASS + da96248 bonus. Remaining solo items all need fresh
+>   context (A2), real-finger (A6/A7), or file-picker (A3a SAF round-trip — untouched).**
 
 
 The sandbox (SM-N960U, adb `SANDBOX_SERIAL`) was UNPLUGGED as of this writing, so a large batch
@@ -43,11 +50,19 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
    BONUS — `da96248` verified on-device: the Export-Complete overlay reads **"Your audio has been saved
    to the Records Tab."** (the audio-specific R.string.faditor_export_complete_summary_audio, not the
    old "Your video…"). A1 fully closed.
-2. **`8c306e5` G5(b) piggyback-looks (A/B FRAME-DIFF PROOF).** Export-compositing change: an attached
-   visualizer must now FADE with its host clip's opacity envelope; a DETACHED one must not. Use the
-   absolute-geometry A/B diff method (see the ab-export-frame-diff-proof memory — symmetric proofs miss
-   it). Attach a viz to a clip that has an opacity keyframe fade, export, confirm the viz dims with the
-   host; detach, export, confirm it stays full-opacity.
+2. **`8c306e5` G5(b) piggyback-looks (A/B FRAME-DIFF PROOF).** ⏳ **SCOUTED, needs fresh full context
+   (2026-07-14).** Precondition check on aeb0517e (AudioExportVerify): the visualizer IS attached
+   (`attachedClipId: 92bec151-379c-42f4-abcd-35e69d19022a`, `attachOffsetMs: 1000`) BUT the host clip
+   92bec151 has **NO opacity keyframes** (project.json only has captionStyleKeyframes + volumeKeyframes;
+   no opacity/alpha/fade envelope anywhere). So the proof can't run as-is — the host needs an opacity
+   keyframe FADE added first. Recommended for next session: use a FRESH throwaway project (don't mutate
+   aeb0517e — it must stay at its 600ms export-repro state), add a clip, attach a viz, add an opacity
+   fade to the host, then run the dual export. This is a multi-step UI-setup + dual-export + frame-diff
+   task — do it with full context, not a continuation tail.
+   Export-compositing change under test: an attached visualizer must FADE with its host clip's opacity
+   envelope; a DETACHED one must not. Use the absolute-geometry A/B diff method (see the
+   ab-export-frame-diff-proof memory — symmetric proofs miss it). Attach a viz to a clip that has an
+   opacity keyframe fade, export, confirm the viz dims with the host; detach, export, confirm full-opacity.
 3. **`b36a36f` editor items (hand-test).** (a) Visualizer drawer ⇩/⇧ round-trips a style through a
    `.json` file (SAF). (b) Export dialog "Low bandwidth" chip sets the resolution to 720p + quality Low.
 4. **`8332370` grade presets.** ✅ **PASS (2026-07-14 ~02:30, cebc19e0).** Filter sheet → dragged Contrast
@@ -64,13 +79,25 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
    (saveTo→loadFrom round-trips the ANALYSIS pref). Restored default OFF ("Analyzed when a clip is first
    opened.") so the global analyzeEager pref is unchanged. STILL OWED (needs a fresh import to observe):
    the first-import eager/lazy chooser-ONCE behavior + eager-vs-lazy analysis timing per the choice.
-6. **🎯 Record stop-swap persistence (avatar).** On `cebc19e0`, select the "A6 Warp Smoke" avatar item →
-   🎯 Record → record ~3s (synthetic tracking is fine) → tap Stop → the ✦ key-count badge should GROW
-   (take kept) and it should be ONE undo step. (Last attempt the stop-swap didn't persist — likely a
-   stop-on-onPause discard when the session exited; needs a clean in-app run.)
-7. **Clip-audio drawer feels (`5179647`).** Double-tap a master clip → audio tape shelf slides out;
-   with a TRANSCRIBED clip, confirm the transcript words relocate to the drawer's inside bottom; split
-   the clip with the drawer open (should stay coherent); real-finger 320ms double-tap open/close feel.
+6. **🎯 Record stop-swap persistence (avatar).** ⚠️ **ENTRY POINT NOT FOUND from the timeline
+   (2026-07-14).** On cebc19e0 selected the "A6 Warp Smoke" avatar item (the ✦ 21-keyframe orange bar on
+   the Sprite track). The selected-item toolbar is Move/Transitions/Captions/Visualizer/Crop/Transcript/
+   Filter/Settings — **NO 🎯 Record / Studio / Track button** (it's treated as a generic sprite). A
+   double-tap on the puppet in the preview did nothing. So the in-editor Record entry for an avatar item
+   is either (a) under one of those toolbar buttons (Settings?), (b) only in the standalone Avatar Studio
+   (person-icon on the Faditor tab → open this avatar → Record), or (c) a gesture I didn't find. NEXT
+   SESSION: find the entry first (check standalone Studio path), THEN do the record→stop→badge-grows
+   (✦ 21→>21)→one-undo-step run. Note: adb can do the button taps + wait, but avatar-Studio gestures may
+   need real-finger. Current badge count to beat: **✦ 21**. cebc19e0 left unmutated (undo 2/redo 0).
+   (Last attempt the stop-swap didn't persist — likely a stop-on-onPause discard when the session exited.)
+7. **Clip-audio drawer feels (`5179647`).** ⏸ **DEFERRED to real-finger (2026-07-14).** Attempted on
+   AudioExportVerify (aeb0517e): an adb double-tap (two `input tap` on the 9.8s master clip) only
+   selected the clip + scrubbed the playhead — the audio tape shelf did NOT slide out. This is expected:
+   the drawer is a 320ms double-tap gesture and adb tap-injection can't reliably land inside that
+   double-tap window (see device-input-injection-limits memory). No mutation (undo stayed 1). This item
+   is a "feels" test by design — leave for JoyRaptor's finger. Double-tap a master clip → audio tape shelf
+   slides out; with a TRANSCRIBED clip, confirm the transcript words relocate to the drawer's inside
+   bottom; split the clip with the drawer open (should stay coherent); real-finger 320ms open/close feel.
 
 ## B. Needs JoyRaptor / a real face / a system grant
 8. **Real-face avatar axis** — Studio 🎯 Track with a real face: head-right must read POSITIVE yaw; if

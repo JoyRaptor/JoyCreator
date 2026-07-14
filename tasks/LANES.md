@@ -83,7 +83,17 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-07-12 — FINISH-THE-ROADMAP mission, JoyRaptor go-ahead, two Fable-directed
+status: ACTIVE (2026-07-14 — Opus-4.8 autonomous device-verify run, device SANDBOX_SERIAL REPLUGGED,
+        holds DEVICE token. This session's PASSES (see DEVICE_VERIFY_QUEUE_20260712.md): A1 export
+        re-verify BOTH paths (video @ aeb0517e repro + audio-only .m4a @ cebc19e0, 66.88kB output) —
+        confirms 313e7fa+148c155; bonus da96248 audio-copy verified on-device; A5 AV4 waveform settings
+        (opens populated, ANALYSIS toggle persists across sheet reopen, default restored); A4 grade
+        presets (save→named chip→persist→apply→long-press-delete, cebc19e0 restored). NEXT (device):
+        A2 G5b piggyback-looks A/B frame-diff proof; A6 record stop-swap; A7 clip-audio drawer feels;
+        A3a SAF style round-trip; AV4 first-import eager/lazy chooser. NEXT (JoyRaptor): 4 de-politicize
+        scope calls; bookmarks/time-chip. NEXT (solo build): clip-audio drawer→PiP, H.264-baseline
+        encoder hook, TODO(strings). opencode's lane files were committed as 8332370, not modified.)
+prior-status: ACTIVE (2026-07-12 — FINISH-THE-ROADMAP mission, JoyRaptor go-ahead, two Fable-directed
         subagents (Opus+Sonnet, waves). Wave 1: Opus → A5 AI rigging + FF-B AI sprite tools
         (ai/*, new avatar template file, sprite AI glue); Sonnet → A3 spectral visemes
         (avatar/TrackingParamPipeline + new analyzer, dependency-free FFT). Fable → A6

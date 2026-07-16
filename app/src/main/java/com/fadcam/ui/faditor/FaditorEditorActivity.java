@@ -1097,8 +1097,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // (temp+rename), build the seekable copy in the background: this
                         // session keeps the raw file; the next open picks up the copy.
                         if (remuxer.needsRemux(sourceFile)) {
-                            FLog.i(TAG, "Saved project on fragmented source — background remux");
-                            remuxer.remuxAsync(sourceFile, null);
+                            // DELAYED 2min (round 3): kicking a 2.4GB ffmpeg copy at open
+                            // starved the player/analysis/thumbnails all reading the same
+                            // file — playback errored into the rank-1 cap. Let the initial
+                            // load settle first; the copy still lands for the next open.
+                            final File remuxSrc = sourceFile;
+                            new android.os.Handler(android.os.Looper.getMainLooper())
+                                    .postDelayed(() -> {
+                                        FLog.i(TAG, "Saved project on fragmented source — "
+                                                + "background remux (deferred)");
+                                        remuxer.remuxAsync(remuxSrc, null);
+                                    }, 120_000L);
                         }
                     }
                 }
@@ -3031,10 +3040,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if ((n - (MAX_UNPOISONED_RECOVERY_REBUILDS + 1)) % 5 == 0) {
                     // TODO(strings): hardcoded per the rebrand-freeze standing rule.
                     android.widget.Toast.makeText(this,
-                            "A clip's media failed to load — playback stopped. "
-                                    + "Its source file may be corrupt.",
+                            "Playback paused — this clip's media isn't reading right now. "
+                                    + "Retrying shortly…",
                             android.widget.Toast.LENGTH_LONG).show();
                 }
+                // COOLDOWN, not a permanent kill (round 3, 2026-07-16): source errors can be
+                // TRANSIENT decoder/IO starvation (background remux + analysis + thumbnails all
+                // reading the same 2.4GB file at open), not corruption. A sticky cap turned one
+                // busy minute into "play never works again this session". Clear the streak
+                // after 45s so the next play attempt gets fresh rebuild allowance.
+                editorTimeline.postDelayed(() -> unpoisonedRecoveryFailures.remove(key), 45_000L);
                 return;
             }
             FLog.w(TAG, "RANK-1 recovery: source failure with no poisonable URI (clip "

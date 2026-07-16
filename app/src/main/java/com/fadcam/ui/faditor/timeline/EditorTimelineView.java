@@ -1002,6 +1002,8 @@ public class EditorTimelineView extends View {
         final Uri sourceUri;
         final boolean isImageClip;
         final String cacheKey;
+        /** Source-only key for the filmstrip thumbnail caches (trim-independent). */
+        final String thumbKey;
         long inPointMs;
         long outPointMs;
         long trimmedMs;
@@ -1037,6 +1039,11 @@ public class EditorTimelineView extends View {
             this.clipId = clip.getId();
             // Content-based key: same media + same trim = same thumbnails
             this.cacheKey = sourceUri.hashCode() + "_" + inPointMs + "_" + outPointMs;
+            // TRIM-INDEPENDENT thumbnail key (2026-07-16): thumbs extract across the FULL
+            // source once and any trim window maps onto them at draw time — so a cut/trim
+            // keeps its frames instantly instead of blanking the tape and re-decoding the
+            // whole QHD source (which also tanked playback fps mid-edit).
+            this.thumbKey = sourceUri.hashCode() + "_src";
         }
     }
 
@@ -1270,7 +1277,7 @@ public class EditorTimelineView extends View {
             SegmentData sd = new SegmentData(i, timeline.getClip(i));
             segments.add(sd);
             totalEffectiveMs += sd.effectiveMs;
-            activeKeys.add(sd.cacheKey);
+            activeKeys.add(sd.thumbKey);
         }
         // Evict cache entries no longer referenced
         Set<String> toEvict = new HashSet<>(thumbnailsCache.keySet());
@@ -2984,9 +2991,9 @@ public class EditorTimelineView extends View {
         SegmentData sd = segments.get(i);
 
         // Draw thumbnails if available, otherwise draw solid color
-        List<Bitmap> thumbs = thumbnailsCache.get(sd.cacheKey);
+        List<Bitmap> thumbs = thumbnailsCache.get(sd.thumbKey);
         if (thumbs != null && !thumbs.isEmpty()) {
-            drawThumbnailsForSegment(canvas, r, thumbs, sel);
+            drawThumbnailsForSegment(canvas, r, thumbs, sel, sd);
         } else {
             segmentPaint.setColor(sel ? COLOR_SEGMENT_SEL : COLOR_SEGMENT);
             canvas.drawRoundRect(r, segmentCornerPx, segmentCornerPx, segmentPaint);
@@ -3371,7 +3378,8 @@ public class EditorTimelineView extends View {
     }
 
     private void drawThumbnailsForSegment(Canvas canvas, RectF rect,
-                                          List<Bitmap> thumbs, boolean selected) {
+                                          List<Bitmap> thumbs, boolean selected,
+                                          SegmentData sd) {
         if (thumbs.isEmpty()) return;
 
         // Clip canvas to rounded rect so thumbnails don't bleed outside corners
@@ -3390,10 +3398,16 @@ public class EditorTimelineView extends View {
         float tileWidth = rect.height();  // Square tiles matching track height
         float x = rect.left;
 
+        // Thumbs cover the FULL source; map this tile's position through the clip's
+        // trim window into source time, then into the full-source thumb list — so any
+        // trim/split reuses the same extraction with position-correct frames.
+        float srcDur = Math.max(1f, sd.sourceDurationMs);
         while (x < rect.right) {
             float centerFrac = (x + tileWidth * 0.5f - rect.left) / rect.width();
+            float srcFrac = sd.isImageClip ? centerFrac
+                    : (sd.inPointMs + centerFrac * sd.trimmedMs) / srcDur;
             int idx = Math.min(thumbs.size() - 1,
-                    Math.max(0, (int) (centerFrac * thumbs.size())));
+                    Math.max(0, (int) (srcFrac * thumbs.size())));
             Bitmap thumb = thumbs.get(idx);
             if (thumb != null && !thumb.isRecycled()) {
                 float drawRight = Math.min(x + tileWidth, rect.right);
@@ -3445,7 +3459,7 @@ public class EditorTimelineView extends View {
         if (index >= segRects.size()) return;
 
         SegmentData sd = segments.get(index);
-        String key = sd.cacheKey;
+        String key = sd.thumbKey;
 
         // Already loaded, currently loading, or known-failed
         if (thumbnailsCache.containsKey(key) && !thumbnailsCache.get(key).isEmpty()) return;
@@ -3454,17 +3468,16 @@ public class EditorTimelineView extends View {
 
         thumbnailsLoading.add(key);
 
-        // Calculate how many thumbnails we need based on segment width
-        RectF rect = segRects.get(index);
-        float tileWidth = trackHeightPx;  // Square tiles
-        int count = Math.max(1, (int) Math.ceil(rect.width() / tileWidth));
-        count = Math.min(count, MAX_THUMBNAILS_PER_SEGMENT);
+        // Trim-independent extraction (2026-07-16): videos always sample the FULL source
+        // with the max budget — one extraction per source file, ever; every trim/split
+        // window maps onto it at draw time. Images keep their single-frame path.
+        int count = sd.isImageClip ? 1 : MAX_THUMBNAILS_PER_SEGMENT;
 
         int thumbSize = Math.max(1, (int) trackHeightPx);
         Uri uri = sd.sourceUri;
         boolean isImage = sd.isImageClip;
-        long inMs = sd.inPointMs;
-        long outMs = sd.outPointMs;
+        long inMs = 0;
+        long outMs = Math.max(1, sd.sourceDurationMs);
         int finalCount = count;
         // thumbSize/count affect what's actually extracted (a re-zoom changes tile density), so
         // the disk key must include them — unlike the in-memory cacheKey which is just the
@@ -4418,7 +4431,7 @@ public class EditorTimelineView extends View {
      */
     private void drawReorderBlockThumbnail(@NonNull Canvas canvas, RectF rect, int segIdx) {
         if (segIdx < 0 || segIdx >= segments.size()) return;
-        List<Bitmap> thumbs = thumbnailsCache.get(segments.get(segIdx).cacheKey);
+        List<Bitmap> thumbs = thumbnailsCache.get(segments.get(segIdx).thumbKey);
         if (thumbs == null || thumbs.isEmpty()) {
             // Thumbnails load lazily (only for clips visible in the main timeline).
             // Reorder blocks can reference clips that were never on-screen, so

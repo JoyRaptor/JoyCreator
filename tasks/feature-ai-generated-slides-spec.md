@@ -320,3 +320,14 @@ Listen for readiness in `GeneratedSlideView` / `SlideRenderActivity` via `WebChr
 </script>
 </body></html>
 ```
+
+---
+
+## Addendum (JoyRaptor, 2026-07-16): API-less "copy a prompt" path
+Not everyone hooks up an API key, and some models (e.g. Claude) aren't reachable via OpenRouter.
+Add a **"Copy slide prompt"** button to the slide-add flow: it copies a prompt that teaches ANY
+external chatbot the slide contract (single self-contained HTML file, fixed duration, animation
+purely a function of time — the same contract Section 2's renderer consumes). The user pastes the
+AI's HTML back via a **paste/import entry point** that feeds the exact same HTML→MP4 render
+pipeline the in-app AI path uses. Two additions, no architectural change. The prompt text should
+embed the contract version so future renderer changes can detect stale prompts.

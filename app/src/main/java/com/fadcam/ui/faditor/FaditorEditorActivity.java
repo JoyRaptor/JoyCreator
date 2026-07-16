@@ -13357,6 +13357,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** S4: sprite preview callback — mirrors {@link #overlayLayerCallback()}. */
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView.Callback spriteOverlayCallback() {
         return new com.fadcam.ui.faditor.sprite.SpriteOverlayView.Callback() {
+            @Override
+            public void onSpriteDoubleTapped(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                // JoyRaptor 2026-07-16: double-tap a sprite/avatar in the preview → its
+                // advanced object menu (same sheet the timeline item opens).
+                showObjectMenuSheetForSprite(item);
+            }
+
             @NonNull
             @Override
             public android.graphics.RectF getVideoContentRect() {
@@ -15752,6 +15760,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
 
                     @Override
+                    public void onDoubleTapped() {
+                        // JoyRaptor 2026-07-16: double-tap the caption → its advanced UI
+                        // (style bar + the Caption Keyframes drawer).
+                        activeCaptionIsAudio = false;
+                        if (captionStyleBar != null) {
+                            captionStyleBar.setVisibility(View.VISIBLE);
+                        }
+                        openCaptionKeyframeDrawer();
+                    }
+
+                    @Override
                     public void onLongPressed() {
                         // Long-press a caption → hide captions for THIS clip (tap=props,
                         // long-hold=delete, the interaction the user likes on the visualizer).
@@ -15806,6 +15825,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (captionStyleBar != null) {
                             captionStyleBar.setVisibility(View.VISIBLE);
                         }
+                    }
+                    @Override
+                    public void onDoubleTapped() {
+                        activeCaptionIsAudio = true;
+                        if (captionStyleBar != null) {
+                            captionStyleBar.setVisibility(View.VISIBLE);
+                        }
+                        openCaptionKeyframeDrawer();
                     }
                     @Override
                     public void onLongPressed() {
@@ -17259,7 +17286,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             lp.rightMargin = pad / 2;
             chip.setLayoutParams(lp);
             chip.setOnClickListener(view -> switchTranscriptVersion(idx));
-            chip.setOnLongClickListener(view -> { confirmDeleteVersion(idx); return true; });
+            chip.setOnLongClickListener(view -> { showTranscriptVersionMenu(idx); return true; });
             transcriptVersionBar.addView(chip);
         }
         // "+ New" chip to add another pass via the model picker.
@@ -17314,6 +17341,101 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         refreshTranscriptVersionBar();
         scheduleAutoSave();
+    }
+
+    /**
+     * Long-press menu on a transcript version chip (JoyRaptor 2026-07-16): copy the transcript
+     * out in three flavors, import timestamped text back in, or delete the version.
+     * TODO(strings): hardcoded per the rebrand-freeze standing rule.
+     */
+    private void showTranscriptVersionMenu(int index) {
+        boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
+                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
+        java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> versions =
+                preferAudio
+                        ? project.getTimeline().getAudioClips()
+                                .get(editorTimeline.getSelectedAudioIndex()).getTranscripts()
+                        : (getSelectedClip() != null ? getSelectedClip().getTranscripts() : null);
+        if (versions == null || index < 0 || index >= versions.size()) return;
+        final com.fadcam.ui.faditor.transcript.Transcript tr = versions.get(index).transcript;
+
+        String[] items = {
+                "Copy text",
+                "Copy with [mm:ss] stamps  —  simple, readable",
+                "Copy as SRT  —  subtitle standard, works everywhere",
+                "Import timestamped text…",
+                "Delete version…"
+        };
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(versions.get(index).label)
+                .setItems(items, (d, which) -> {
+                    switch (which) {
+                        case 0: copyToClipboard(
+                                com.fadcam.ui.faditor.transcript.TranscriptIO.toPlainText(tr)); break;
+                        case 1: copyToClipboard(
+                                com.fadcam.ui.faditor.transcript.TranscriptIO.toStampedText(tr)); break;
+                        case 2: copyToClipboard(
+                                com.fadcam.ui.faditor.transcript.TranscriptIO.toSrt(tr)); break;
+                        case 3: promptImportTimestampedText(); break;
+                        case 4: confirmDeleteVersion(index); break;
+                    }
+                })
+                .show();
+    }
+
+    private void copyToClipboard(@NonNull String text) {
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("transcript", text));
+        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
+    }
+
+    /** Paste SRT / WebVTT / [mm:ss]-stamped text → new transcript version on the selection. */
+    private void promptImportTimestampedText() {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("Paste SRT, WebVTT, or [mm:ss] stamped lines");
+        input.setMinLines(6);
+        input.setGravity(android.view.Gravity.TOP);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Import timestamped text")
+                .setView(input)
+                .setNegativeButton(R.string.faditor_cancel, null)
+                .setPositiveButton("Import", (d, w) -> {
+                    com.fadcam.ui.faditor.transcript.Transcript parsed =
+                            com.fadcam.ui.faditor.transcript.TranscriptIO.parse(
+                                    input.getText().toString());
+                    if (parsed == null) {
+                        Toast.makeText(this,
+                                "No timestamps found — expected SRT, VTT, or [mm:ss] lines",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    com.fadcam.ui.faditor.transcript.NamedTranscript named =
+                            new com.fadcam.ui.faditor.transcript.NamedTranscript(
+                                    java.util.UUID.randomUUID().toString(),
+                                    "Imported", "import", parsed);
+                    boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
+                            && editorTimeline.getSelectedAudioIndex()
+                                    < project.getTimeline().getAudioClips().size());
+                    if (preferAudio) {
+                        project.getTimeline().getAudioClips()
+                                .get(editorTimeline.getSelectedAudioIndex()).addTranscript(named);
+                    } else if (getSelectedClip() != null) {
+                        getSelectedClip().addTranscript(named);
+                    } else {
+                        return;
+                    }
+                    currentTranscript = parsed;
+                    if (transcriptView != null) {
+                        transcriptView.setTranscript(parsed);
+                        transcriptView.setVisibility(View.VISIBLE);
+                    }
+                    refreshTranscriptVersionBar();
+                    saveProjectNow();
+                    Toast.makeText(this, "Imported " + parsed.words.size() + " words",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .show();
     }
 
     private void confirmDeleteVersion(int index) {

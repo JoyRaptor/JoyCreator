@@ -31,9 +31,14 @@ public class CaptionOverlayView extends View {
         void onMoved();
         /** Tapped the caption (no drag) — open its properties (style bar). */
         default void onTapped() {}
+        /** Double-tapped the caption — open its advanced menu (JoyRaptor 2026-07-16). */
+        default void onDoubleTapped() {}
         /** Long-pressed the caption — hide captions for this clip. */
         default void onLongPressed() {}
     }
+
+    /** Double-tap pairing state. */
+    private long lastTapUpMs;
 
     @Nullable private Transcript transcript;
     @NonNull private CaptionStyle style = CaptionStyle.presets().get(0);
@@ -320,7 +325,14 @@ public class CaptionOverlayView extends View {
                     } else if (movedBeyondSlop) {
                         callback.onMoved();        // drag → reposition
                     } else {
-                        callback.onTapped();       // tap → open properties
+                        long now = android.os.SystemClock.uptimeMillis();
+                        if (now - lastTapUpMs <= 320) {
+                            lastTapUpMs = 0;       // consume the pair
+                            callback.onDoubleTapped(); // double-tap → advanced menu
+                        } else {
+                            lastTapUpMs = now;
+                            callback.onTapped();   // tap → open properties
+                        }
                     }
                 }
                 dragging = false;

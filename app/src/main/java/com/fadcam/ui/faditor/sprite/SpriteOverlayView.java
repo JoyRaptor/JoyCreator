@@ -43,6 +43,9 @@ public class SpriteOverlayView extends View {
         @Nullable SpriteSheetRenderer lookupRenderer(@NonNull String sheetId);
         /** A sprite's transform changed — persist it. */
         void onSpriteChanged();
+
+        /** Double-tap on a sprite/avatar → open its advanced object menu (JoyRaptor 2026-07-16). */
+        default void onSpriteDoubleTapped(@NonNull SpriteOverlayItem item) { }
         /** A drag/pinch gesture finished; record ONE undo step from the snapshot. */
         default void onSpriteManipulated(@NonNull SpriteOverlayItem item,
                                          @NonNull SpriteOverlayItem.TransformSnapshot before) { }
@@ -71,6 +74,9 @@ public class SpriteOverlayView extends View {
     private float downRawX, downRawY, startCenterX, startCenterY;
     private boolean moved;
     @Nullable private SpriteOverlayItem.TransformSnapshot beforeGesture;
+    /** Double-tap pairing state (advanced object menu). */
+    @Nullable private SpriteOverlayItem lastTapItem;
+    private long lastTapUpMs;
 
     public SpriteOverlayView(Context ctx) { this(ctx, null); }
 
@@ -253,6 +259,18 @@ public class SpriteOverlayView extends View {
             case MotionEvent.ACTION_CANCEL: {
                 SpriteOverlayItem o = manipulating;
                 manipulating = null;
+                // Double-tap (no drag) → advanced object menu (JoyRaptor 2026-07-16).
+                if (o != null && !moved && e.getActionMasked() == MotionEvent.ACTION_UP) {
+                    long now = android.os.SystemClock.uptimeMillis();
+                    if (o == lastTapItem && now - lastTapUpMs <= 320) {
+                        lastTapItem = null;
+                        beforeGesture = null;
+                        callback.onSpriteDoubleTapped(o);
+                        return true;
+                    }
+                    lastTapItem = o;
+                    lastTapUpMs = now;
+                }
                 if (o != null && moved && e.getActionMasked() == MotionEvent.ACTION_UP) {
                     if (o.isArmed()) {
                         long t = snapEnabled ? snapTimeMs(currentTimeMs) : currentTimeMs;

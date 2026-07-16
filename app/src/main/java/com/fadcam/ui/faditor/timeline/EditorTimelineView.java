@@ -56,7 +56,9 @@ public class EditorTimelineView extends View {
 
     // ── Scale & layout constants (dp) ────────────────────────────────
     private static final float BASE_DP_PER_SECOND = 50f;
-    private static final float MIN_ZOOM = 0.5f;
+    /** 0.5→0.07 (JoyRaptor 2026-07-16): lets a phone see ~2-minute stretches. Draw cost is
+     *  viewport-bounded (tiles/mips/culled words), so deep zoom-out stays cheap. */
+    private static final float MIN_ZOOM = 0.07f;
     private static final float MAX_ZOOM = 8f;
     private static final float MIN_SEGMENT_DP = 80f;
     private static final float EDGE_PADDING_DP = 20f;
@@ -2762,7 +2764,15 @@ public class EditorTimelineView extends View {
         long minorInterval;
         long mediumInterval;
         
-        if (labelInterval >= 5000) {
+        if (labelInterval >= 60000) {
+            // Very wide zoom (1m+ labels): coarse tiers so a 45-min project doesn't
+            // draw thousands of second-ticks per frame.
+            minorInterval = 10000;     // 10s detail ticks
+            mediumInterval = 30000;    // 30s medium ticks
+        } else if (labelInterval >= 30000) {
+            minorInterval = 5000;      // 5s detail ticks
+            mediumInterval = 10000;    // 10s medium ticks
+        } else if (labelInterval >= 5000) {
             // Three-tier system for large intervals (5s+)
             minorInterval = 200;       // 0.2s detail ticks
             mediumInterval = 1000;     // 1s medium ticks
@@ -2814,7 +2824,8 @@ public class EditorTimelineView extends View {
     /** Calculate label interval dynamically based on zoom level to prevent overlap */
     private long calculateDynamicLabelInterval(float minLabelGapPx) {
         // Available intervals in ascending order
-        long[] intervals = {100, 200, 500, 1000, 2000, 5000, 10000, 30000, 60000};
+        long[] intervals = {100, 200, 500, 1000, 2000, 5000, 10000, 30000, 60000,
+                120000, 300000};
         
         // Find smallest interval that gives enough pixel spacing
         for (long interval : intervals) {
@@ -3227,6 +3238,15 @@ public class EditorTimelineView extends View {
 
         boolean isCurrentClip = (segIndex == transcriptClipIndex);
 
+        // Word→mark crossfade (JoyRaptor 2026-07-16): below reading density the words fade
+        // into thin white marks — one per word — so GAPS in dialogue stay visually
+        // scannable at wide zooms (an empty stretch = no marks). Full words ≥35dp/s,
+        // pure marks ≤22dp/s, blend between.
+        float dps = dpPerSecondPx / density;
+        float wordsAlpha = Math.max(0f, Math.min(1f, (dps - 22f) / 13f));
+        int markAlpha = (int) ((1f - wordsAlpha) * 0xB4);
+        float markW = 1.5f * density, markH = 4.5f * density;
+
         // VIEWPORT CULL (2026-07-16 perf regression fix): words are always-visible now
         // (no drawer gate), and a transcribed 45-min lecture holds THOUSANDS of words —
         // issuing drawText for all of them every frame dropped playback to ~5fps. Only
@@ -3250,14 +3270,28 @@ public class EditorTimelineView extends View {
                     && currentPlayheadSourceMs >= word.startMs
                     && currentPlayheadSourceMs <= word.endMs;
 
+            if (markAlpha > 0) {
+                // Thin per-word mark (dimmer for struck words) — the gap-scanning view.
+                transcriptTextPaint.setColor((word.struck ? markAlpha / 3 : markAlpha) << 24
+                        | 0x00FFFFFF);
+                canvas.drawRect(wordX, textY - markH, wordX + markW, textY,
+                        transcriptTextPaint);
+                transcriptTextPaint.setColor(0xFFFFFFFF);
+            }
+            if (wordsAlpha <= 0f) continue;
+            int wA = (int) (wordsAlpha * 0xFF);
             if (isActive) {
+                transcriptHighlightPaint.setAlpha(wA);
                 canvas.drawText(text, wordX, textY, transcriptHighlightPaint);
+                transcriptHighlightPaint.setAlpha(0xFF);
             } else if (word.struck) {
-                transcriptTextPaint.setColor(0x44FFFFFF);
+                transcriptTextPaint.setColor(((0x44 * wA / 0xFF) << 24) | 0x00FFFFFF);
                 canvas.drawText(text, wordX, textY, transcriptTextPaint);
                 transcriptTextPaint.setColor(0xFFFFFFFF);
             } else {
+                transcriptTextPaint.setAlpha(wA);
                 canvas.drawText(text, wordX, textY, transcriptTextPaint);
+                transcriptTextPaint.setAlpha(0xFF);
             }
         }
         canvas.restore();

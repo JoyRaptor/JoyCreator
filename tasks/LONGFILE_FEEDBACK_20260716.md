@@ -119,3 +119,12 @@ notes it shouldn't be REQUIRED for one long file + 3 cuts, and she's right once 
 gone; treat proxy as the robustness layer, not the fps fix; ③ ANR/memory (1.7GB trace pull);
 ④ minimap loading-progress meters (spec above); ⑤ visualizer crash repro on sandbox (current build
 installed there); ⑥ preview double-tap → object menu for avatar/captions (still owed from 07-16 am).
+
+## Autonomous block (2026-07-16 pm, sandbox)
+- Visualizer crash (JoyRaptor 07-14): **NOT reproducible on current build** (long-press + toolbar tap both
+  exercised on cebc19e0 with live logcat — no FATAL). Fixed incidentally by this week's work; the 07-14
+  crash buffers are gone. CLOSING unless it recurs. ⚠️ Found instead: **long-press on a preview
+  visualizer = INSTANT DELETE** (toast only, no confirm) and the Visualizer toolbar button = instant
+  add. Per gesture-contract §4.5 hold should open the object menu (delete inside). Recommend routing
+  long-press → object menu; JoyRaptor to confirm. A3a (SAF style round-trip) is UNBLOCKED — the drawer
+  didn't crash; still needs the actual ⇩/⇧ file-picker test.

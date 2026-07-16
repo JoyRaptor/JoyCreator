@@ -44,17 +44,26 @@
 >   dropdown both crash the app on 29e37138. NEW instability. Sandbox was unplugged before logs could
 >   be pulled — **need the sandbox re-plugged to pull the crash buffer** (logcat -b crash persists a
 >   while; also check tombstones). A3a (SAF round-trip) is BLOCKED behind this crash.
-> - **🔥 FIXED: RANK-1 infinite rebuild storm (REAL phone, "first lecture on phone" project)** — root
->   cause of JoyRaptor's "hangs with a glitched loading screen / choppy": clip fe33537f (35:14→45:57 of
->   The_woman_and_the_5.mp4, 2.37GB fMP4) throws ERROR_CODE_PARSING_CONTAINER_MALFORMED (recording's
->   FINAL fragments truncated — died mid-write; clips 0/1 over the same file parse fine). The rank-1
->   recovery hook had nothing to poison for a FORWARD-leg failure and rebuilt the identical playlist
->   → identical error → ~18 rebuilds/sec on the main thread, forever. FIX: per-clip unpoisoned-failure
->   cap (3) in onReverseWindowFailed — past cap it STOPS, logs, and toasts "clip's media failed to
->   load… may be corrupt" once. The FILE is genuinely damaged — JoyRaptor should trim clip 2's range to
->   end before ~34:34 or re-import; FUTURE item: forward-leg remux-salvage (run FMp4Remuxer over a
->   malformed forward source and swap it in, as the poison-equivalent for forward failures — the
->   remuxer already detects+handles fMP4 at export).
+> - **🔥 FIXED ×2: the "first lecture on phone" glitch (REAL phone) — TWO stacked bugs.**
+>   ⚠️ CORRECTION: my first diagnosis ("recording's tail is truncated, file damaged") was WRONG —
+>   JoyRaptor disproved it (FadCam's own player plays the file to the very end; transcription read it
+>   all; a NEW project with the file was 100% blank). The raw file is fine. Real root cause:
+>   **(bug 1, the regression)** the editor routes every fMP4 source through the remux-to-seekable
+>   cache (`FragmentedMp4Remuxer`, cache/remuxed/). At 07:31 on 07-16 a remux of the 2.37GB file was
+>   started and KILLED mid-write, leaving a full-size ftyp+free+mdat husk with **NO moov atom
+>   anywhere** (byte-verified). `hasRemuxedVersion()` only checked exists+mtime+size≥90% — the husk
+>   passed, permanently poisoning the entry: every project resolving that source (incl. new ones) got
+>   the husk → ParserException "Loading finished before preparation is complete"
+>   (ERROR_CODE_PARSING_CONTAINER_MALFORMED). Before 07:31 no copy existed → raw file used → "used to
+>   edit fine". FIX (FragmentedMp4Remuxer): (a) `hasLeadingMoov()` structural check in
+>   hasRemuxedVersion — deletes moov-less husks, self-heals poisoned caches in the wild; (b) both
+>   remux paths write to a `.part.mp4` temp and atomically rename onto the final name only after
+>   validation — an app-kill can never poison the cache again. JoyRaptor's husk manually deleted on-device
+>   (raw-file fallback works immediately).
+>   **(bug 2, the melt)** the rank-1 recovery hook had nothing to poison for a FORWARD-leg failure
+>   and rebuilt the identical playlist → identical error → ~18 rebuilds/sec on the main thread
+>   forever (glitched loading screen). FIX: per-clip unpoisoned-failure cap (3) → stop + one toast.
+>   Both fixes complement: cap breaks any future storm; validation removes this storm's trigger.
 > - Real phone (REAL_SERIAL) is on an OLD build — install the current APK on it once this build
 >   lands so the loop-breaker + walkthrough fixes reach the real device.
 

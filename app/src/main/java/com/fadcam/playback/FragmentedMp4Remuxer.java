@@ -110,6 +110,55 @@ public class FragmentedMp4Remuxer {
         String hash = String.valueOf(Math.abs(originalFile.getAbsolutePath().hashCode() % 10000));
         return new File(cacheDir, baseName + "-remuxed-" + hash + ".mp4");
     }
+
+    /**
+     * Temp path the remux writes to. Atomically renamed onto {@link #getRemuxedFile} only after
+     * the output validates, so an app-kill mid-remux can never leave a husk at the final path
+     * (2026-07-16: a killed 2.4GB remux left a full-size moov-less file that passed the size
+     * check and poisoned the cache entry — every editor open then failed while the raw file
+     * played fine). Keeps the .mp4 suffix so ffmpeg still infers the container from it.
+     */
+    private File getRemuxTempFile(File originalFile) {
+        File finalFile = getRemuxedFile(originalFile);
+        return new File(finalFile.getParentFile(),
+                finalFile.getName().replace(".mp4", ".part.mp4"));
+    }
+
+    /**
+     * Cheap structural check: walks the top-level boxes and requires a {@code moov} BEFORE any
+     * {@code mdat}. Our remux always writes +faststart, so valid output has moov up front; a
+     * remux that died mid-write is ftyp(+free)+mdat with no moov anywhere and fails this in a
+     * couple of 8-byte reads.
+     */
+    private static boolean hasLeadingMoov(File f) {
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(f, "r")) {
+            long off = 0;
+            long len = raf.length();
+            byte[] hdr = new byte[16];
+            for (int i = 0; i < 16 && off + 8 <= len; i++) {
+                raf.seek(off);
+                raf.readFully(hdr, 0, 8);
+                long size = ((hdr[0] & 0xFFL) << 24) | ((hdr[1] & 0xFFL) << 16)
+                        | ((hdr[2] & 0xFFL) << 8) | (hdr[3] & 0xFFL);
+                String type = new String(hdr, 4, 4, java.nio.charset.StandardCharsets.US_ASCII);
+                if ("moov".equals(type)) return true;
+                if ("mdat".equals(type)) return false; // faststart puts moov before mdat
+                if (size == 1) { // 64-bit largesize in the next 8 bytes
+                    raf.readFully(hdr, 8, 8);
+                    size = 0;
+                    for (int b = 8; b < 16; b++) size = (size << 8) | (hdr[b] & 0xFFL);
+                } else if (size == 0) {
+                    return false; // box runs to EOF and isn't moov
+                }
+                if (size < 8) return false; // malformed header
+                off += size;
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "hasLeadingMoov: validation read failed for " + f.getName(), e);
+            return false;
+        }
+        return false;
+    }
     
     /**
      * Checks if a remuxed version of the file already exists.
@@ -136,7 +185,18 @@ public class FragmentedMp4Remuxer {
             remuxed.delete();
             return false;
         }
-        
+
+        // Structural check (2026-07-16): an interrupted remux used to leave a FULL-SIZE
+        // moov-less husk that passed the size check and permanently poisoned this entry —
+        // the editor then failed every open ("Loading finished before preparation is
+        // complete") while the raw file played fine. Self-heals old poisoned caches.
+        if (!hasLeadingMoov(remuxed)) {
+            FLog.w(TAG, "Remuxed file has no leading moov (interrupted remux?) — deleting "
+                    + remuxed.getName());
+            remuxed.delete();
+            return false;
+        }
+
         return true;
     }
     
@@ -157,15 +217,22 @@ public class FragmentedMp4Remuxer {
         }
         
         FLog.i(TAG, "Remuxing: " + inputFile.getName() + " -> " + outputFile.getName());
-        
+
+        // Kill-safe: ffmpeg writes to a temp path; the final name only ever appears via an
+        // atomic rename AFTER the output validates. An app-kill mid-remux leaves only a
+        // .part.mp4 (ignored by getRemuxedFile, cleaned up on the next attempt).
+        File tempFile = getRemuxTempFile(inputFile);
         String inputPath = inputFile.getAbsolutePath();
-        String outputPath = outputFile.getAbsolutePath();
-        
-        // Delete any existing output file
+        String outputPath = tempFile.getAbsolutePath();
+
+        // Delete any existing output/temp files
         if (outputFile.exists()) {
             outputFile.delete();
         }
-        
+        if (tempFile.exists()) {
+            tempFile.delete();
+        }
+
         // FFmpeg command to remux with faststart
         // -i input: input file
         // -c copy: copy streams without re-encoding (fast)
@@ -175,30 +242,33 @@ public class FragmentedMp4Remuxer {
             "-i \"%s\" -c copy -movflags +faststart -y \"%s\"",
             inputPath, outputPath
         );
-        
+
         FLog.d(TAG, "FFmpeg command: " + ffmpegCmd);
-        
+
         try {
             FFmpegSession session = FFmpegKit.execute(ffmpegCmd);
-            
-            if (ReturnCode.isSuccess(session.getReturnCode())) {
-                FLog.i(TAG, "Remux successful: " + outputFile.getName() + 
+
+            if (ReturnCode.isSuccess(session.getReturnCode())
+                    && hasLeadingMoov(tempFile)
+                    && tempFile.renameTo(outputFile)) {
+                FLog.i(TAG, "Remux successful: " + outputFile.getName() +
                            " (" + outputFile.length() / 1024 + " KB)");
                 return outputFile;
             } else {
-                FLog.e(TAG, "Remux failed with code: " + session.getReturnCode());
+                FLog.e(TAG, "Remux failed with code: " + session.getReturnCode()
+                        + " (or output failed validation/rename)");
                 FLog.e(TAG, "FFmpeg output: " + session.getOutput());
-                
+
                 // Clean up failed output
-                if (outputFile.exists()) {
-                    outputFile.delete();
+                if (tempFile.exists()) {
+                    tempFile.delete();
                 }
                 return null;
             }
         } catch (Exception e) {
             FLog.e(TAG, "Remux exception", e);
-            if (outputFile.exists()) {
-                outputFile.delete();
+            if (tempFile.exists()) {
+                tempFile.delete();
             }
             return null;
         }
@@ -223,34 +293,42 @@ public class FragmentedMp4Remuxer {
         }
         
         FLog.i(TAG, "Async remuxing: " + inputFile.getName());
-        
+
+        // Kill-safe temp-then-rename, same as remuxSync (see there for the 2026-07-16 husk story).
+        File tempFile = getRemuxTempFile(inputFile);
         String inputPath = inputFile.getAbsolutePath();
-        String outputPath = outputFile.getAbsolutePath();
-        
-        // Delete any existing output file
+        String outputPath = tempFile.getAbsolutePath();
+
+        // Delete any existing output/temp files
         if (outputFile.exists()) {
             outputFile.delete();
         }
-        
+        if (tempFile.exists()) {
+            tempFile.delete();
+        }
+
         String ffmpegCmd = String.format(
             "-i \"%s\" -c copy -movflags +faststart -y \"%s\"",
             inputPath, outputPath
         );
-        
+
         FFmpegKit.executeAsync(ffmpegCmd, session -> {
-            boolean success = ReturnCode.isSuccess(session.getReturnCode());
-            
+            boolean success = ReturnCode.isSuccess(session.getReturnCode())
+                    && hasLeadingMoov(tempFile)
+                    && tempFile.renameTo(outputFile);
+
             if (success) {
                 FLog.i(TAG, "Async remux successful: " + outputFile.getName());
             } else {
-                FLog.e(TAG, "Async remux failed: " + session.getReturnCode());
-                if (outputFile.exists()) {
-                    outputFile.delete();
+                FLog.e(TAG, "Async remux failed: " + session.getReturnCode()
+                        + " (or output failed validation/rename)");
+                if (tempFile.exists()) {
+                    tempFile.delete();
                 }
             }
-            
+
             if (callback != null) {
-                callback.onRemuxComplete(success, success ? outputPath : null);
+                callback.onRemuxComplete(success, success ? outputFile.getAbsolutePath() : null);
             }
         }, log -> {
             // Log callback - could parse for progress

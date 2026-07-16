@@ -152,7 +152,9 @@ public class TapeWaveformRenderer {
         // Peak sparks: dots on local maxima (transient onsets / cut cues).
         if (style.fxSparks) {
             spark.setColor(0xFFFFFFFF);
-            float r = 1.6f * density;
+            // 1.6→0.7dp (JoyRaptor 2026-07-16): the dots were "quite large relative to the tape…
+            // a little bit obnoxious" — about a third the size reads as accents, not markers.
+            float r = 0.7f * density;
             for (int x = 6; x < W - 6; x++) {
                 float v = col[x];
                 if (v < 0.3f) continue;
@@ -254,6 +256,11 @@ public class TapeWaveformRenderer {
 
     private static float sample(@NonNull byte[] band, int i) {
         if (band.length == 0) return 0f;
+        // Past the real data (beyond a 2-bin rounding tolerance) return SILENCE instead of
+        // clamping to the last bin — clamping stretched the final value into flat horizontal
+        // "stripes" across the whole un-analyzed remainder of a partially-extracted long clip
+        // (JoyRaptor, 45-min lecture, 2026-07-16). Rounding at the strip's last pixel still clamps.
+        if (i >= band.length + 2) return 0f;
         return (band[Math.max(0, Math.min(i, band.length - 1))] & 0xFF) / 255f;
     }
 

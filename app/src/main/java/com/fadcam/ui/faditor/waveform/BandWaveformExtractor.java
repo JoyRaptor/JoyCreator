@@ -87,7 +87,13 @@ public class BandWaveformExtractor {
                 }
                 BandedWaveformData data = extract(uri, startMs, endMs, lowHz, presHz, highHz,
                         presenceOn, callback::onProgress);
-                writeCache(uri, startMs, endMs, lowHz, presHz, highHz, presenceOn, data);
+                if (data.complete) {
+                    writeCache(uri, startMs, endMs, lowHz, presHz, highHz, presenceOn, data);
+                } else {
+                    // Show what we have, but never persist a partial extraction — a cached
+                    // prefix renders as flat stripes forever (2026-07-16). Next open re-tries.
+                    FLog.w(TAG, "Band waveform extraction incomplete — displayed but NOT cached");
+                }
                 callback.onReady(data);
             } catch (Exception e) {
                 FLog.e(TAG, "Band waveform extraction failed", e);
@@ -144,6 +150,7 @@ public class BandWaveformExtractor {
 
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             boolean inputDone = false, outputDone = false;
+            boolean endedEarly = false;
             float lastReported = 0f;
             int drainStalls = 0;
             while (!outputDone) {
@@ -210,6 +217,7 @@ public class BandWaveformExtractor {
                     if (++drainStalls > 200) {
                         FLog.w(TAG, "Band decode: no EOS after input end; stopping at "
                                 + envLists[0].size() + " frames");
+                        endedEarly = true;
                         break;
                     }
                 }
@@ -230,8 +238,16 @@ public class BandWaveformExtractor {
             long startOffsetMs = firstSampleUs >= 0 ? firstSampleUs / 1000 : Math.max(0, startMs);
             long durationMs = durationUs > 0 ? durationUs / 1000
                     : (long) (envLists[0].size() / envRate * 1000);
+            // Completeness sanity: even without the explicit early-break, envelopes covering
+            // meaningfully less than the requested span (< 95%) mean the decode fell short.
+            boolean coversSpan = true;
+            if (progSpanUs > 0) {
+                float coveredUs = envLists[0].size() / envRate * 1_000_000f;
+                coversSpan = coveredUs >= progSpanUs * 0.95f;
+            }
             return new BandedWaveformData(rms, envRate, durationMs, startOffsetMs,
-                    new int[]{lowHz, presHz, highHz}, presenceOn);
+                    new int[]{lowHz, presHz, highHz}, presenceOn,
+                    !endedEarly && coversSpan);
         } finally {
             if (codec != null) {
                 try { codec.stop(); } catch (Exception ignored) { }

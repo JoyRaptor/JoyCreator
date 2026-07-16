@@ -259,6 +259,9 @@ public class EditorTimelineView extends View {
      *  double-tap must be detected by "same screen spot, quick succession", not by the second
      *  tap resolving to the same (now-shifted) segment. */
     private float lastMasterTapScreenX;
+    /** Audio-band double-tap pairing state (opens the waveform customization sheet). */
+    private long lastAudioTapUpMs = 0;
+    private int lastAudioTapIndex = -1;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
     private final List<com.fadcam.ui.faditor.layers.Track> audioLayerTracks = new ArrayList<>();
     private OnTrackHeaderActionListener trackHeaderActionListener;
@@ -527,7 +530,10 @@ public class EditorTimelineView extends View {
     // Keys whose extraction hard-failed (no decodable frames). Tracked so the
     // lazy per-frame loader in onDraw doesn't re-enqueue them every redraw.
     private final Set<String> thumbnailsFailed = new HashSet<>();
-    private static final int MAX_THUMBNAILS_PER_SEGMENT = 30;
+    /** 30→60 (2026-07-16): on a 45-min clip 30 thumbs = one frame per 90s. 60 halves that
+     *  while staying ~5-10MB per segment; the proportional tile mapping in
+     *  drawThumbnailsForSegment covers any remaining gap by repeating thumbs at deep zoom. */
+    private static final int MAX_THUMBNAILS_PER_SEGMENT = 60;
     // Disk cache so a re-opened project (or a re-scrubbed-past segment whose in-memory bitmaps
     // were evicted) doesn't re-decode frames it already extracted once. Mirrors
     // WaveformExtractor's disk-cache pattern (per-key file(s) under getCacheDir(), version-gated).
@@ -1050,6 +1056,9 @@ public class EditorTimelineView extends View {
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
         default void onReorderLinkRequested(int segmentIndex) {}
         void onAudioClipSelected(int audioIndex);
+
+        /** Double-tap on an audio-band clip → open the waveform customization sheet. */
+        default void onAudioBandDoubleTapped() {}
         void onAudioTrimChanged(int audioIndex, long inPointMs, long outPointMs, boolean isLeft);
         void onAudioTrimFinished(int audioIndex, long inPointMs, long outPointMs);
         /**
@@ -1287,9 +1296,13 @@ public class EditorTimelineView extends View {
         if (getWidth() > 0) {
             centerPlayhead();
         }
-        
+
         requestLayout();
         invalidate();
+        // Kick the clip-audio tape analysis for every master clip in the background NOW —
+        // by the time anyone double-taps a drawer open the tape is (being) built, instead of
+        // starting a minutes-long analysis at first open (JoyRaptor 2026-07-16, 45-min lecture).
+        primeBackgroundTapeAnalysis();
     }
 
     /**
@@ -1418,6 +1431,27 @@ public class EditorTimelineView extends View {
         if (tapeStyle == null || !tapeStyle.analyzeEager || tapeWaveformCache == null) return;
         for (AudioClip ac : audioClips) {
             if (ac != null) tapeWaveformCache.get(ac);
+        }
+    }
+
+    /**
+     * Background tape analysis for the MASTER clips' audio (the clip-audio drawer tapes),
+     * kicked at {@link #setTimeline} — always, regardless of the AV4 eager/lazy pref (JoyRaptor
+     * decided 2026-07-16: a first drawer-open must not start a minutes-long analysis; on a
+     * 45-min clip that read as a blank, broken drawer). Idempotent: the cache's get() is
+     * in-flight/ready/failed guarded, and extraction runs on the cache's single worker thread.
+     */
+    private void primeBackgroundTapeAnalysis() {
+        if (tapeWaveformCache == null) return;
+        for (SegmentData sd : segments) {
+            if (sd != null && sd.sourceUri != null && !sd.isImageClip
+                    && sd.sourceDurationMs > 0) {
+                // FULL-source span (not the trim window): with the cache's superset reuse,
+                // ONE extraction per unique file serves every trim window this clip will
+                // ever have — trims and splits never re-run a minutes-long analysis.
+                tapeWaveformCache.get(sd.sourceUri, 0, sd.sourceDurationMs,
+                        sd.sourceDurationMs);
+            }
         }
     }
 
@@ -2429,6 +2463,7 @@ public class EditorTimelineView extends View {
      * retracts back under) the strip above like a shelf.
      */
     private void drawClipAudioDrawers(@NonNull Canvas canvas) {
+        drawerAnalysisAnimating = false;
         if (clipAudioDrawerFraction.isEmpty()) return;
         if (!drawerPaintsInit) {
             drawerPaintsInit = true;
@@ -2488,12 +2523,22 @@ public class EditorTimelineView extends View {
                 clipDrawerTapeCache.draw(canvas, body, tape.raw, tape.tape, tape.serial, tapeStyle,
                         sd.inPointMs, Math.max(1, sd.trimmedMs), drawerKey);
             } else {
-                // Lazy extraction in flight (or failed) — dim placeholder on the dark body.
+                // Extraction in flight (or failed) — "analyzing audio…" label + a slow sheen
+                // sweep so the user can SEE work happening (JoyRaptor 2026-07-16: on a 45-min clip
+                // the blank drawer read as broken). The label PINS to the viewport's left edge
+                // while the tape's start is scrolled off-screen (trash-can-style), so it's
+                // visible wherever the user is over the clip.
+                float labelX = Math.max(seg.left, 0f) + 6f * density;
+                labelX = Math.min(labelX, Math.max(seg.left, seg.right - 90f * density));
                 transcriptTextPaint.setTextSize(9f * density);
-                transcriptTextPaint.setColor(0x66FFFFFF);
-                canvas.drawText("analyzing audio…", seg.left + 6f * density,
+                int pulseA = (int) (0x66 + 0x2E
+                        * Math.sin(android.os.SystemClock.uptimeMillis() / 320.0));
+                transcriptTextPaint.setColor((pulseA << 24) | 0x00FFFFFF);
+                canvas.drawText("analyzing audio…", labelX,
                         bandTop + H / 2f + 3f * density, transcriptTextPaint);
                 transcriptTextPaint.setColor(0x99FFFFFF);
+                drawAnalyzingSheen(canvas, seg.left, bandTop, seg.right, bandTop + H);
+                drawerAnalysisAnimating = true;
             }
 
             // The clip's volume rubber-band (keyframes) rides ON TOP of the tape — same
@@ -2529,6 +2574,40 @@ public class EditorTimelineView extends View {
             }
             canvas.restore();
         }
+        // Keep the sheen/pulse moving while any visible drawer is still analyzing —
+        // throttled repaint, stops itself the frame analysis completes.
+        if (drawerAnalysisAnimating) {
+            postInvalidateDelayed(48);
+        }
+    }
+
+    /** True during a draw pass iff some open drawer showed the analyzing placeholder. */
+    private boolean drawerAnalysisAnimating = false;
+    private final Paint drawerSheenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Matrix drawerSheenMatrix = new android.graphics.Matrix();
+
+    /**
+     * Subtle bright band sweeping left→right across the analyzing tape body (~1.4s period) —
+     * the "something is actually happening" signal JoyRaptor asked for (2026-07-16).
+     */
+    private void drawAnalyzingSheen(Canvas canvas, float left, float top,
+                                    float right, float bottom) {
+        if (right - left < 1f) return;
+        if (drawerSheenPaint.getShader() == null) {
+            drawerSheenPaint.setShader(new android.graphics.LinearGradient(
+                    0f, 0f, 1f, 0f,
+                    new int[]{0x00FFFFFF, 0x24FFFFFF, 0x00FFFFFF},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+        }
+        float period = 1400f;
+        float phase = (android.os.SystemClock.uptimeMillis() % (long) period) / period;
+        float bandW = Math.max(48f * density, (right - left) * 0.18f);
+        float x = left - bandW + (right - left + 2f * bandW) * phase;
+        drawerSheenMatrix.reset();
+        drawerSheenMatrix.setScale(bandW, 1f);
+        drawerSheenMatrix.postTranslate(x, 0f);
+        drawerSheenPaint.getShader().setLocalMatrix(drawerSheenMatrix);
+        canvas.drawRect(left, top, right, bottom, drawerSheenPaint);
     }
 
     /**
@@ -3283,27 +3362,27 @@ public class EditorTimelineView extends View {
         clipPath.addRoundRect(rect, segmentCornerPx, segmentCornerPx, Path.Direction.CW);
         canvas.clipPath(clipPath);
 
-        // Tile thumbnails across the segment
+        // Tile thumbnails across the segment, mapping each tile to the thumb at ITS
+        // time-fraction of the clip (extraction samples thumbs evenly across in→out, so
+        // thumb[i] ≈ fraction i/N of the duration). The old sequential mapping ran out of
+        // thumbs after MAX_THUMBNAILS_PER_SEGMENT tiles and stretched the LAST frame over
+        // the whole remaining strip (JoyRaptor counted exactly 30 frames then a smear on the
+        // 45-min lecture, 2026-07-16). Proportional mapping keeps every tile representative
+        // of its position at any zoom — thumbs repeat at deep zoom instead of vanishing.
         float tileWidth = rect.height();  // Square tiles matching track height
         float x = rect.left;
-        int thumbIdx = 0;
 
         while (x < rect.right) {
-            Bitmap thumb = thumbs.get(Math.min(thumbIdx, thumbs.size() - 1));
+            float centerFrac = (x + tileWidth * 0.5f - rect.left) / rect.width();
+            int idx = Math.min(thumbs.size() - 1,
+                    Math.max(0, (int) (centerFrac * thumbs.size())));
+            Bitmap thumb = thumbs.get(idx);
             if (thumb != null && !thumb.isRecycled()) {
                 float drawRight = Math.min(x + tileWidth, rect.right);
                 RectF dest = new RectF(x, rect.top, drawRight, rect.bottom);
                 canvas.drawBitmap(thumb, null, dest, null);
             }
             x += tileWidth;
-            thumbIdx++;
-            if (thumbIdx >= thumbs.size() && x < rect.right) {
-                Bitmap last = thumbs.get(thumbs.size() - 1);
-                if (last != null && !last.isRecycled()) {
-                    canvas.drawBitmap(last, null, new RectF(x, rect.top, rect.right, rect.bottom), null);
-                }
-                break;
-            }
         }
 
         // Darken overlay for selected segment (green tint)
@@ -5558,6 +5637,20 @@ public class EditorTimelineView extends View {
         if (isUp && pendingAudioIndex >= 0 && !audioLongPressTriggered) {
             float tapDist = Math.abs(x - downX);
             if (tapDist < touchSlopPx) {
+                // Double-tap on the audio band → waveform customization sheet (JoyRaptor
+                // 2026-07-16: "you can see what it's doing to the band as you edit").
+                // Audio taps never seek, so no tap-deferral is needed here.
+                long tapNow = android.os.SystemClock.uptimeMillis();
+                if (pendingAudioIndex == lastAudioTapIndex
+                        && tapNow - lastAudioTapUpMs <= MASTER_DOUBLE_TAP_WINDOW_MS) {
+                    lastAudioTapIndex = -1; // consume the pair
+                    pendingAudioIndex = -1;
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    if (listener != null) listener.onAudioBandDoubleTapped();
+                    return true;
+                }
+                lastAudioTapIndex = pendingAudioIndex;
+                lastAudioTapUpMs = tapNow;
                 if (pendingAudioIndex == selectedAudioIndex) {
                     selectedAudioIndex = -1; // Deselect
                 } else {

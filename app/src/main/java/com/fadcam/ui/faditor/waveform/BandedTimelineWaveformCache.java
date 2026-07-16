@@ -12,6 +12,7 @@ import com.fadcam.FLog;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.BandedWaveformData;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -74,6 +75,15 @@ public class BandedTimelineWaveformCache {
             };
     private final Set<String> inFlight = new HashSet<>();
     private final Set<String> failed = new HashSet<>();
+    /**
+     * Quantized span behind each ready/in-flight key: two side maps
+     * (key → quantized span, key → uri). Enables SUPERSET REUSE (2026-07-16): the raw data maps absolute source time
+     * (startOffsetMs + envRate), so an extraction covering [A,B] serves ANY window inside it —
+     * a full-source background prime then serves every trim window, and trimming a clip never
+     * re-runs a minutes-long extraction that a covering entry already answers.
+     */
+    private final Map<String, long[]> spanByKey = new HashMap<>();
+    private final Map<String, Uri> uriByKey = new HashMap<>();
 
     public BandedTimelineWaveformCache(@NonNull Context context, @NonNull TapeWaveformStyle style,
                                        @NonNull InvalidateListener listener) {
@@ -105,7 +115,29 @@ public class BandedTimelineWaveformCache {
 
         long start = quantStart(inMs);
         long end = quantEnd(inMs, outMs, srcDurMs);
+
+        // SUPERSET REUSE: a ready entry over the same source that COVERS [start,end] answers
+        // this window directly (raw data is absolute-source-time mapped). Alias it under this
+        // key so the next lookup is an exact hit.
+        for (Map.Entry<String, long[]> e : spanByKey.entrySet()) {
+            long[] span = e.getValue();
+            if (span[0] <= start && span[1] >= end && uri.equals(uriByKey.get(e.getKey()))) {
+                Shaped covering = ready.get(e.getKey());
+                if (covering != null) {
+                    ready.put(k, covering);
+                    spanByKey.put(k, span);
+                    uriByKey.put(k, uri);
+                    return covering;
+                }
+                // A covering extraction is IN FLIGHT — don't start a duplicate; the
+                // listener invalidates on its completion and the alias forms then.
+                if (inFlight.contains(e.getKey())) return null;
+            }
+        }
+
         inFlight.add(k);
+        spanByKey.put(k, new long[]{start, end});
+        uriByKey.put(k, uri);
         extractor.extractAsync(uri, start, end, style.lowHz, style.presHz, style.highHz,
                 style.presenceOn, new BandWaveformExtractor.Callback() {
                     @Override
@@ -124,6 +156,8 @@ public class BandedTimelineWaveformCache {
                         main.post(() -> {
                             inFlight.remove(k);
                             failed.add(k);
+                            spanByKey.remove(k);
+                            uriByKey.remove(k);
                             FLog.w(TAG, "Band tape extraction failed: " + message);
                         });
                     }
@@ -146,6 +180,8 @@ public class BandedTimelineWaveformCache {
         ready.clear();
         inFlight.clear();
         failed.clear();
+        spanByKey.clear();
+        uriByKey.clear();
     }
 
     private static long quantStart(long inMs) {

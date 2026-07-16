@@ -1091,6 +1091,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     } else {
                         // Always prefer file:// URI for reliable seeking
                         playUri = Uri.fromFile(sourceFile);
+                        // Saved projects never kicked a remux, so a fragmented source played
+                        // RAW forever (sticky seeks / slow prepare on long recordings — JoyRaptor's
+                        // 45-min lecture, 2026-07-16). Now that remux writes are kill-safe
+                        // (temp+rename), build the seekable copy in the background: this
+                        // session keeps the raw file; the next open picks up the copy.
+                        if (remuxer.needsRemux(sourceFile)) {
+                            FLog.i(TAG, "Saved project on fragmented source — background remux");
+                            remuxer.remuxAsync(sourceFile, null);
+                        }
                     }
                 }
                 continueLoadFromSavedProject(playUri);
@@ -1662,6 +1671,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (transcriptPanel != null && transcriptPanel.getVisibility() == View.VISIBLE) {
                     loadTranscriptPanelContent();
                 }
+            }
+
+            @Override
+            public void onAudioBandDoubleTapped() {
+                // JoyRaptor 2026-07-16: double-tap the audio band → waveform customization sheet,
+                // so the band is visible live while its settings are edited.
+                openWaveformVisualizerSheet();
             }
 
             @Override

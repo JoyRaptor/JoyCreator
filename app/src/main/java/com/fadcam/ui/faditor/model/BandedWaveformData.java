@@ -42,14 +42,29 @@ public class BandedWaveformData {
     /** Whether the presence band was computed (false → {@code rms[2]} is null, voice spans to high). */
     public final boolean presenceOn;
 
+    /**
+     * False when the decode ended early (decoder stall / abort), so the envelopes cover only a
+     * prefix of the requested span. Incomplete data may be DISPLAYED, but must never be
+     * disk-cached — a partial result persisted as complete poisons the entry (rendered as flat
+     * "stripes" over the un-analyzed remainder of a long clip, found 2026-07-16).
+     */
+    public final boolean complete;
+
     public BandedWaveformData(@NonNull float[][] rms, float envRate, long durationMs,
                               long startOffsetMs, @NonNull int[] crossoversHz, boolean presenceOn) {
+        this(rms, envRate, durationMs, startOffsetMs, crossoversHz, presenceOn, true);
+    }
+
+    public BandedWaveformData(@NonNull float[][] rms, float envRate, long durationMs,
+                              long startOffsetMs, @NonNull int[] crossoversHz, boolean presenceOn,
+                              boolean complete) {
         this.rms = rms;
         this.envRate = Math.max(1f, envRate);
         this.durationMs = Math.max(1, durationMs);
         this.startOffsetMs = Math.max(0, startOffsetMs);
         this.crossoversHz = crossoversHz;
         this.presenceOn = presenceOn;
+        this.complete = complete;
     }
 
     /** Frame count of the first non-null band (0 if none). */

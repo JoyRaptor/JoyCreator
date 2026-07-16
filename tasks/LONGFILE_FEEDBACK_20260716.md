@@ -128,3 +128,20 @@ installed there); ⑥ preview double-tap → object menu for avatar/captions (st
   add. Per gesture-contract §4.5 hold should open the object menu (delete inside). Recommend routing
   long-press → object menu; JoyRaptor to confirm. A3a (SAF style round-trip) is UNBLOCKED — the drawer
   didn't crash; still needs the actual ⇩/⇧ file-picker test.
+
+## Evening autonomous block — LANDED (all installed on REAL_SERIAL by 19:00)
+- ✅ 2-min zoom-out (MIN_ZOOM 0.07) + word→thin-white-mark crossfade (gap scanning) + 2m/5m ruler tiers (7c21c37)
+- ✅ trim-independent thumbnails — cuts/trims keep frames, no re-decode (579323d)
+- ✅ transcript version-chip menu: copy plain / [mm:ss] / SRT + import SRT/VTT/[mm:ss] (2295d95, TranscriptIO)
+- ✅ preview double-tap → object menu (sprite/avatar) and style-bar+keyframes drawer (captions) (2295d95)
+- ✅ minimap loading meters (dark-unloaded + pulse + thin blue audio-progress bar) + "Opening project…"
+  overlay until first STATE_READY (4075369)
+- ✅ slides spec addendum: API-less copy-a-prompt path (in feature-ai-generated-slides-spec.md)
+
+## Still open (next session)
+- Transcript SEARCH hits should highlight on the words tape (JoyRaptor 2026-07-16 pm).
+- Gap-detection LIVE PREVIEW: show gap candidates on the tape as the settings sliders move (JoyRaptor finds
+  the current abstract settings untrustworthy without feedback; pairs with the word-marks view).
+- Slides build (spec ready, incl. prompt-button addendum) — dedicated session.
+- Visualizer long-press instant-delete → object menu? (JoyRaptor decision.)
+- ANR trace pull (likely moot after the word-culling + thumbnail fixes — verify on next long open).

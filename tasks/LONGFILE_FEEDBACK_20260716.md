@@ -57,3 +57,26 @@ JoyRaptor: "work autonomously on getting the performance dialed in… work out a
   extraction) on 1440×3088 sources, or transcript/caption view allocation for ~7k words. Note the
   loading-overlay half of #1 (honest progress UI on open) is also still owed.
 - DEVICE-VERIFY owed on all of the above (JoyRaptor re-test on the lecture project + a fresh drawer open).
+
+## Round 2 (JoyRaptor re-test, 2026-07-16 ~10:4x)
+- ✅ pulsing label: good.
+- 🔧 sheen reads as a homogeneous FLASH: the band width scales with SEGMENT width (18%), so on a
+  45-min clip it's enormous and crosses the viewport in a blink. Fix: clamp band to viewport-scale
+  (~120dp), sweep the VISIBLE region, slow the period.
+- 🔧 label does NOT pin (coordinate space bug — seg.left is content-space under scroll translate?).
+- 🔥 tape shows ~2/3 analyzed then flatlines WITH NO indicator and the label vanishes: OLD poisoned
+  disk-cache entries (written before c579b58 as "complete") still load as complete → displayed,
+  no re-extract, no analyzing state. Fix: coverage-validate disk cache on READ (span <95% covered →
+  discard + re-extract), mirroring hasLeadingMoov self-heal.
+- 🔥 clip 3 (tail of the lecture): filmstrip eventually appeared but PREVIEW WINDOW BLACK + play does
+  nothing. Suspect chain: session-sticky rank-1 cap (3 unpoisoned failures → permanent silent stop,
+  only one toast ever) + IO contention from the new 2.4GB background remux at open. Consider: retry
+  allowance after a cooldown, re-toast on replay attempt into a capped clip, defer background remux
+  until playback idles.
+- 🆕 MINIMAP LOADING-PROGRESS spec (JoyRaptor design): minimap bars double as per-clip load meters —
+  unloaded region = darker shade of the bar's color (dark gray unselected / dark green selected),
+  loaded region = full color, with a subtle diagonal-lines animation on the loading boundary; plus a
+  temporary THIN BLUE BAR along the bar bottom showing AUDIO analysis progress for that clip. Point:
+  "running slow because it's doing stuff, not because it's broken."
+- 📚 Research request: what do CapCut/mobile editors do for long-file previews (proxy media?
+  windowed thumbs?) — hyper-optimizations common in film software + mobile.

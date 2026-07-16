@@ -102,3 +102,20 @@ the 1.7GB memory blowup (3 concurrent decoders at 540p instead of QHD), and slow
 - waveform disk cache: coverage-validated on READ (<95% span → delete + re-extract) — self-heals the
   pre-fix poisoned entries behind the "2/3 then flatline with no indicator"
 - rank-1 capped clips re-toast every 5th failed attempt (was one toast ever → "play does nothing")
+
+## Round 3 (2026-07-16, playback at 4-5fps — THE regression found)
+Live inspection while slow: app CPU ~idle, app PSS ~717MB (reasonable), but phone at 10.3/10.6GB
+with 2.3GB swap (background apps; not our leak this time). The real cause of 4-5fps:
+- **🔥 FOUND: transcript words draw storm.** The 07-14 "words always visible" change removed the
+  drawer-only gate on drawSegmentTranscript — a transcribed 45-min lecture = THOUSANDS of drawText
+  calls PER FRAME during playback. This is why "it used to scrub a 55-min file fine": words used to
+  draw only with a drawer open. FIX: viewport culling (time-ordered early-break past the right edge).
+- Partial-tape fixes: incomplete analyses now EVICT from the memory cache after 60s (self-retries;
+  was frozen at 70% all session) and the extractor stall-bail went 2s→15s so long decodes finish.
+- Prior round-3 fixes: rank-1 cap → 45s cooldown + honest toast; background remux deferred 2min.
+NEXT SESSION (fresh context, this doc is the brief): ① verify playback fps on the lecture project
+after word-culling (expect near-back-to-normal); ② proxy-media architecture (research above) — JoyRaptor
+notes it shouldn't be REQUIRED for one long file + 3 cuts, and she's right once the word storm is
+gone; treat proxy as the robustness layer, not the fps fix; ③ ANR/memory (1.7GB trace pull);
+④ minimap loading-progress meters (spec above); ⑤ visualizer crash repro on sandbox (current build
+installed there); ⑥ preview double-tap → object menu for avatar/captions (still owed from 07-16 am).

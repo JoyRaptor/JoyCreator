@@ -146,8 +146,23 @@ public class BandedTimelineWaveformCache {
                             inFlight.remove(k);
                             ShapedTape tape = BandEnvelopeShaper.shapeToTape(data, style.smooth,
                                     style.contrast, style.perBandNormalize);
-                            ready.put(k, new Shaped(data, tape));
+                            Shaped shaped = new Shaped(data, tape);
+                            ready.put(k, shaped);
                             listener.onWaveformReady();
+                            if (!data.complete) {
+                                // Partial decode (stall under load): show what we have NOW,
+                                // but evict after a cooldown so a later draw re-kicks the
+                                // extraction — otherwise a 70%-covered tape sat frozen for
+                                // the whole session (JoyRaptor 2026-07-16 round 3).
+                                main.postDelayed(() -> {
+                                    if (ready.get(k) == shaped) {
+                                        ready.remove(k);
+                                        spanByKey.remove(k);
+                                        uriByKey.remove(k);
+                                        listener.onWaveformReady();
+                                    }
+                                }, 60_000L);
+                            }
                         });
                     }
 

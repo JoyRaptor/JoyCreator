@@ -214,7 +214,10 @@ public class BandWaveformExtractor {
                         channels = of.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
                     }
                 } else if (inputDone) {
-                    if (++drainStalls > 200) {
+                    // 200→1500 (~15s at the 10ms dequeue timeout): under editor load a long
+                    // decode legitimately stalls >2s; bailing early is what left tapes 70%
+                    // covered. Background thread — patience is free here.
+                    if (++drainStalls > 1500) {
                         FLog.w(TAG, "Band decode: no EOS after input end; stopping at "
                                 + envLists[0].size() + " frames");
                         endedEarly = true;

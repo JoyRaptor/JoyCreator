@@ -3220,12 +3220,22 @@ public class EditorTimelineView extends View {
 
         boolean isCurrentClip = (segIndex == transcriptClipIndex);
 
+        // VIEWPORT CULL (2026-07-16 perf regression fix): words are always-visible now
+        // (no drawer gate), and a transcribed 45-min lecture holds THOUSANDS of words —
+        // issuing drawText for all of them every frame dropped playback to ~5fps. Only
+        // words inside the visible window (canvas is scroll-translated ⇒ viewport =
+        // [scrollOffsetPx, scrollOffsetPx + width]) actually draw.
+        float cullL = scrollOffsetPx - 80f * density;
+        float cullR = scrollOffsetPx + getWidth() + 20f * density;
+
         for (int w = 0; w < tr.words.size(); w++) {
             com.fadcam.ui.faditor.transcript.TranscriptWord word = tr.words.get(w);
             // Only draw words within the clip's trim range
             if (word.startMs < sd.inPointMs || word.endMs > sd.outPointMs) continue;
 
             float wordX = rect.left + (word.startMs - sd.inPointMs) * pxPerMs;
+            if (wordX > cullR) break;      // words are time-ordered — nothing further is visible
+            if (wordX < cullL) continue;
             String text = word.text;
 
             // Struck words are dimmed

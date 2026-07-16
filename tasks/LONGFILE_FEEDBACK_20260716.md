@@ -36,6 +36,24 @@ JoyRaptor: "work autonomously on getting the performance dialed in… work out a
 8. **Spark dots ½–⅓ current size** — the white spark dots are "quite large relative to the tape…
    a little bit obnoxious."
 
-## Status
-- Captured 2026-07-16. Fable working the list autonomously top-down (P0 first), compile-verifying via
-  the watcher, device-verifying on REAL_SERIAL where possible.
+## Status (updated 2026-07-16, commit c579b58 — BUILT + INSTALLED on REAL_SERIAL)
+- ✅ #2 filmstrip: proportional tile→thumb mapping + cap 30→60. No more blank/stretched tail.
+- ✅ #3 stripes: incomplete extractions displayed but never cached; renderer silences past real data.
+- ✅ #4 background analysis: kicks at setTimeline for every master clip, FULL-source spans + new
+  superset-reuse in the cache (one job per file serves every trim window forever).
+- ✅ #5 pinned "analyzing audio…" label (viewport-left, trash-can style) + pulse.
+- ✅ #6 sheen sweep over the analyzing tape (self-stopping throttled repaint).
+- ✅ #7 audio-band double-tap → waveform customization sheet (onAudioBandDoubleTapped).
+- ✅ #8 spark dots 1.6→0.7dp.
+- ➕ bonus: saved projects on fragmented sources now kick a background remux (kill-safe) — raw file
+  this session, seekable copy from the next open (fixes the never-remuxed saved-project seeking).
+- ⏳ #1 ANR: EVIDENCE CAPTURED, root-cause owed. ApplicationExitInfo for the 09:29 ANR shows the
+  process at **1.7GB PSS / 1.8GB RSS** — main-thread stall almost certainly memory-pressure GC
+  thrash. OS trace saved at /data/system/procexitstore/anr_2026-07-16-09-29-03-350.gz (app can read
+  it via ActivityManager.getHistoricalProcessExitReasons().getTraceInputStream() — root not needed).
+  FilmstripSweepExtractor audited: NOT the leak (one full-res frame at a time, recycled). NEXT
+  SESSION: pull the trace via a small debug hook or Debug.dumpHprofData on open of the lecture
+  project; suspects = codec surface/graphics heaps ×3 concurrent decoders (playback + sweep + band
+  extraction) on 1440×3088 sources, or transcript/caption view allocation for ~7k words. Note the
+  loading-overlay half of #1 (honest progress UI on open) is also still owed.
+- DEVICE-VERIFY owed on all of the above (JoyRaptor re-test on the lecture project + a fresh drawer open).

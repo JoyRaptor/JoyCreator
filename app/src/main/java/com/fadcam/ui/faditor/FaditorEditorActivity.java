@@ -365,6 +365,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private long exportStartTimeMs;
     private View remuxProgressOverlay;
     private TextView remuxProgressText;
+    /** True while the open-time "Opening project…" overlay waits for the first STATE_READY. */
+    private boolean openingOverlayPending = false;
     private com.fadcam.ui.faditor.crop.CropOverlayView cropOverlay;
     private android.widget.ImageView imagePreview;
 
@@ -1111,6 +1113,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                     }
                 }
+                // Honest loading indicator while a (possibly long) source parses — the
+                // overlay drops on the player's first STATE_READY. Long fMP4 recordings
+                // used to look like a frozen black screen here (JoyRaptor 2026-07-16).
+                openingOverlayPending = true;
+                showRemuxProgress();
+                if (remuxProgressText != null) remuxProgressText.setText(
+                        "Opening project…"); // TODO(strings): rebrand-freeze rule
                 continueLoadFromSavedProject(playUri);
                 FLog.d(TAG, "Editor opened saved project: " + projectId);
                 return;
@@ -3393,6 +3402,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (playbackState == Player.STATE_READY && durationCorrectionPending) {
                     durationCorrectionPending = false;
                     correctDurationFromPlayer();
+                }
+                // Honest open-time indicator (JoyRaptor 2026-07-16): the "Opening project…"
+                // overlay stays up until the player can actually show a frame — long
+                // sources legitimately take a while to parse and this is the signal.
+                if (playbackState == Player.STATE_READY && openingOverlayPending) {
+                    openingOverlayPending = false;
+                    hideRemuxProgress();
                 }
             }
         });

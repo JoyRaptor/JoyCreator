@@ -84,6 +84,8 @@ public class BandedTimelineWaveformCache {
      */
     private final Map<String, long[]> spanByKey = new HashMap<>();
     private final Map<String, Uri> uriByKey = new HashMap<>();
+    /** Live extraction progress (0..1) per in-flight key — feeds the minimap meters. */
+    private final Map<String, Float> progressByKey = new HashMap<>();
 
     public BandedTimelineWaveformCache(@NonNull Context context, @NonNull TapeWaveformStyle style,
                                        @NonNull InvalidateListener listener) {
@@ -141,8 +143,18 @@ public class BandedTimelineWaveformCache {
         extractor.extractAsync(uri, start, end, style.lowHz, style.presHz, style.highHz,
                 style.presenceOn, new BandWaveformExtractor.Callback() {
                     @Override
+                    public void onProgress(float fraction) {
+                        // Extractor throttles to ~2% steps; surface for the minimap meters.
+                        main.post(() -> {
+                            progressByKey.put(k, fraction);
+                            listener.onWaveformReady();
+                        });
+                    }
+
+                    @Override
                     public void onReady(@NonNull BandedWaveformData data) {
                         main.post(() -> {
+                            progressByKey.remove(k);
                             inFlight.remove(k);
                             ShapedTape tape = BandEnvelopeShaper.shapeToTape(data, style.smooth,
                                     style.contrast, style.perBandNormalize);
@@ -169,6 +181,7 @@ public class BandedTimelineWaveformCache {
                     @Override
                     public void onError(@NonNull String message) {
                         main.post(() -> {
+                            progressByKey.remove(k);
                             inFlight.remove(k);
                             failed.add(k);
                             spanByKey.remove(k);
@@ -178,6 +191,28 @@ public class BandedTimelineWaveformCache {
                     }
                 });
         return null;
+    }
+
+    /**
+     * Analysis progress for a span: 1 when ready (exact or covering entry), the live
+     * extraction fraction while in flight, 0 when not started. Feeds the minimap meters.
+     */
+    public float progressFor(@NonNull Uri uri, long inMs, long outMs, long srcDurMs) {
+        String k = key(uri, inMs, outMs, srcDurMs);
+        if (ready.containsKey(k)) return 1f;
+        Float p = progressByKey.get(k);
+        if (p != null) return p;
+        long start = quantStart(inMs);
+        long end = quantEnd(inMs, outMs, srcDurMs);
+        for (Map.Entry<String, long[]> e : spanByKey.entrySet()) {
+            long[] span = e.getValue();
+            if (span[0] <= start && span[1] >= end && uri.equals(uriByKey.get(e.getKey()))) {
+                if (ready.containsKey(e.getKey())) return 1f;
+                Float cp = progressByKey.get(e.getKey());
+                if (cp != null) return cp;
+            }
+        }
+        return 0f;
     }
 
     /** Re-shape every cached entry from its raw data (AV4: called when a cheap knob changes). */
@@ -197,6 +232,7 @@ public class BandedTimelineWaveformCache {
         failed.clear();
         spanByKey.clear();
         uriByKey.clear();
+        progressByKey.clear();
     }
 
     private static long quantStart(long inMs) {

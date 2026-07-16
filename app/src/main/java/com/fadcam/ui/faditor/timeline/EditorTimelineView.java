@@ -2011,6 +2011,9 @@ public class EditorTimelineView extends View {
 
         // Minimap strip on top (screen coords, not scrolled)
         drawMinimap(canvas, w);
+        // Keep the minimap loading meters animating while anything is mid-load —
+        // throttled repaint that stops itself once every meter reads complete.
+        if (minimapMetersAnimating) postInvalidateDelayed(120);
 
         if (assetDragActive) {
             drawAssetDragPreview(canvas, w);
@@ -2646,7 +2649,20 @@ public class EditorTimelineView extends View {
      * highlighted viewport showing which part of the project is on screen.
      * Tap or drag anywhere on it to jump/scrub.
      */
+    /** True during a draw pass iff some minimap meter is mid-load (drives the pulse). */
+    private boolean minimapMetersAnimating = false;
+
+    /** Linear blend a→b by t (0..1), per ARGB channel. */
+    private static int blendColors(int a, int b, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        int aa = (a >>> 24), ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int ba = (b >>> 24), br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        return ((int) (aa + (ba - aa) * t) << 24) | ((int) (ar + (br - ar) * t) << 16)
+                | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
+    }
+
     private void drawMinimap(Canvas canvas, int viewW) {
+        minimapMetersAnimating = false;
         if (totalEffectiveMs <= 0 || segments.isEmpty()) return;
         float margin = 8f * density;
         float top = 3f * density;
@@ -2662,9 +2678,39 @@ public class EditorTimelineView extends View {
             float x0 = margin + (cumul / (float) totalEffectiveMs) * stripW;
             cumul += sd.effectiveMs;
             float x1 = margin + (cumul / (float) totalEffectiveMs) * stripW;
-            minimapBlockPaint.setColor(i == selectedIndex ? 0xFF4CAF50 : 0xFF5A5A5A);
+            // LOADING METERS (JoyRaptor spec, 2026-07-16): a block whose thumbnails aren't in
+            // yet draws in a DARKER shade of its own color (dark green selected / dark
+            // gray unselected) with a soft pulse while extraction runs, snapping to full
+            // color when loaded — "running slow because it's doing stuff, not broken."
+            boolean thumbsReady = sd.isImageClip
+                    ? thumbnailsCache.containsKey(sd.thumbKey)
+                    : (thumbnailsCache.containsKey(sd.thumbKey)
+                            && !thumbnailsCache.get(sd.thumbKey).isEmpty());
+            boolean thumbsLoading = thumbnailsLoading.contains(sd.thumbKey);
+            int full = i == selectedIndex ? 0xFF4CAF50 : 0xFF5A5A5A;
+            int darkC = i == selectedIndex ? 0xFF23531F : 0xFF3A3A3A;
+            int color = thumbsReady ? full : darkC;
+            if (!thumbsReady && thumbsLoading) {
+                float pulse = 0.5f + 0.5f * (float) Math.sin(
+                        android.os.SystemClock.uptimeMillis() / 260.0);
+                color = blendColors(darkC, full, pulse * 0.45f);
+                minimapMetersAnimating = true;
+            }
+            minimapBlockPaint.setColor(color);
             canvas.drawRoundRect(x0, top, Math.max(x0 + 1, x1 - gap), bot,
                     2f * density, 2f * density, minimapBlockPaint);
+            // Thin blue AUDIO-analysis progress bar along the block bottom; gone at 100%.
+            if (tapeWaveformCache != null && !sd.isImageClip && sd.sourceUri != null
+                    && sd.sourceDurationMs > 0) {
+                float ap = tapeWaveformCache.progressFor(sd.sourceUri, 0,
+                        sd.sourceDurationMs, sd.sourceDurationMs);
+                if (ap < 1f) {
+                    minimapBlockPaint.setColor(0xFF40C4FF);
+                    float bw = Math.max(0f, (Math.max(x0 + 1, x1 - gap) - x0) * ap);
+                    canvas.drawRect(x0, bot - 2f * density, x0 + bw, bot, minimapBlockPaint);
+                    minimapMetersAnimating = true;
+                }
+            }
 
             // Show silence candidates as yellow dots and cut spans as dark
             // lines inside the minimap block, so the user can see where

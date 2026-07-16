@@ -80,3 +80,25 @@ JoyRaptor: "work autonomously on getting the performance dialed in… work out a
   "running slow because it's doing stuff, not because it's broken."
 - 📚 Research request: what do CapCut/mobile editors do for long-file previews (proxy media?
   windowed thumbs?) — hyper-optimizations common in film software + mobile.
+
+## Research: how CapCut & mobile editors keep long files fast (2026-07-16)
+Industry standard = **PROXY MEDIA**: the editor transcodes each imported source to a low-res proxy
+(CapCut "Proxy Mode"; ~540/720p H.264) and ALL preview playback/scrubbing/thumbnails run against the
+proxy; the original swaps back in only at export. Plus: lower preview resolution decoupled from
+export, hardware-accelerated decode, and compound/grouped clips to keep the timeline light.
+**Recommendation for FadCam:** extend the existing (now kill-safe) remux pipeline into a true proxy
+pass — background-transcode fMP4 sources to a seekable ~540p proxy (ffmpeg-kit is already in-app);
+MasterPlaybackEngine + filmstrip + everything preview-side resolves the proxy, ExportManager keeps
+the original. This directly addresses: black/late previews on 1440×3088 sources, choppy scrubbing,
+the 1.7GB memory blowup (3 concurrent decoders at 540p instead of QHD), and slow filmstrip sweeps
+(decode the proxy, not the 2.4GB original). Sources:
+- https://www.capcut.com/resource/pc-professional-video-editor
+- https://moviemaker.minitool.com/news/capcut-lagging.html
+- https://filmora.wondershare.com/advanced-video-editing/capcut-timeline.html
+
+## Round-2 fixes landed (this session)
+- sheen: fixed-width band (≤120dp) sweeping the VISIBLE window, 2.4s period (was segment-scaled flash)
+- label pin: viewport-left is scrollOffsetPx in content space (canvas is scroll-translated) — now pins
+- waveform disk cache: coverage-validated on READ (<95% span → delete + re-extract) — self-heals the
+  pre-fix poisoned entries behind the "2/3 then flatline with no indicator"
+- rank-1 capped clips re-toast every 5th failed attempt (was one toast ever → "play does nothing")

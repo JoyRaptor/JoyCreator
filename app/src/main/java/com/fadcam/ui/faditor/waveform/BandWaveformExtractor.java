@@ -314,6 +314,23 @@ public class BandWaveformExtractor {
                 for (int i = 0; i < len; i++) band[i] = in.readFloat();
                 rms[b] = band;
             }
+            // Coverage self-heal (round 2, 2026-07-16): entries written BEFORE the
+            // incomplete-extraction guard may hold only a prefix of the span. If the
+            // envelopes cover <95% of the requested range, discard so it re-extracts —
+            // otherwise the tape flatlines forever with no analyzing indicator.
+            int frames = 0;
+            for (float[] band : rms) { if (band != null) { frames = band.length; break; } }
+            long spanMs = (endMs >= FULL_END / 2 ? Math.max(1, durationMs) : endMs) - startMs;
+            if (spanMs > 0 && envRate > 0) {
+                float coveredMs = frames / envRate * 1000f;
+                if (coveredMs < spanMs * 0.95f) {
+                    FLog.w(TAG, "Band cache covers " + (int) coveredMs + "/" + spanMs
+                            + "ms — stale partial entry, deleting for re-extract");
+                    try { in.close(); } catch (Exception ignored) { }
+                    f.delete();
+                    return null;
+                }
+            }
             return new BandedWaveformData(rms, envRate, durationMs, startOffsetMs,
                     new int[]{low, pres, high}, pOn);
         } catch (Exception e) {

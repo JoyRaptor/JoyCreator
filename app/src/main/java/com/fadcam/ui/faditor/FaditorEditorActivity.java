@@ -3026,7 +3026,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 FLog.e(TAG, "RANK-1 recovery: clip " + key + " failed " + n
                         + "x with no poisonable URI — STOPPING the rebuild loop"
                         + " (malformed/corrupt source?)");
-                if (n == MAX_UNPOISONED_RECOVERY_REBUILDS + 1) {
+                // Toast on the first capped failure and every 5th after (round 2: play into
+                // a dead clip minutes later gave no feedback at all — "play does nothing").
+                if ((n - (MAX_UNPOISONED_RECOVERY_REBUILDS + 1)) % 5 == 0) {
                     // TODO(strings): hardcoded per the rebrand-freeze standing rule.
                     android.widget.Toast.makeText(this,
                             "A clip's media failed to load — playback stopped. "

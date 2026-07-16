@@ -2528,7 +2528,9 @@ public class EditorTimelineView extends View {
                 // the blank drawer read as broken). The label PINS to the viewport's left edge
                 // while the tape's start is scrolled off-screen (trash-can-style), so it's
                 // visible wherever the user is over the clip.
-                float labelX = Math.max(seg.left, 0f) + 6f * density;
+                // Canvas is translated by -scrollOffsetPx, so the viewport's left edge in
+                // this (content) space is scrollOffsetPx — NOT 0 (round-2 pin fix).
+                float labelX = Math.max(seg.left, scrollOffsetPx) + 6f * density;
                 labelX = Math.min(labelX, Math.max(seg.left, seg.right - 90f * density));
                 transcriptTextPaint.setTextSize(9f * density);
                 int pulseA = (int) (0x66 + 0x2E
@@ -2592,22 +2594,28 @@ public class EditorTimelineView extends View {
      */
     private void drawAnalyzingSheen(Canvas canvas, float left, float top,
                                     float right, float bottom) {
-        if (right - left < 1f) return;
+        // Round-2 fix: sweep the VISIBLE window with a FIXED-width band. Sizing the band
+        // to the segment (18% of a 45-min strip) made a wall of light cross the viewport
+        // in a blink — read as a flash, not a sheen. Content space is scrolled by
+        // scrollOffsetPx, so the viewport is [scrollOffsetPx, scrollOffsetPx + width].
+        float visL = Math.max(left, scrollOffsetPx);
+        float visR = Math.min(right, scrollOffsetPx + getWidth());
+        if (visR - visL < 1f) return;
         if (drawerSheenPaint.getShader() == null) {
             drawerSheenPaint.setShader(new android.graphics.LinearGradient(
                     0f, 0f, 1f, 0f,
                     new int[]{0x00FFFFFF, 0x24FFFFFF, 0x00FFFFFF},
                     null, android.graphics.Shader.TileMode.CLAMP));
         }
-        float period = 1400f;
+        float period = 2400f; // slow, calm pass
         float phase = (android.os.SystemClock.uptimeMillis() % (long) period) / period;
-        float bandW = Math.max(48f * density, (right - left) * 0.18f);
-        float x = left - bandW + (right - left + 2f * bandW) * phase;
+        float bandW = Math.min(120f * density, (visR - visL) * 0.35f);
+        float x = visL - bandW + (visR - visL + 2f * bandW) * phase;
         drawerSheenMatrix.reset();
         drawerSheenMatrix.setScale(bandW, 1f);
         drawerSheenMatrix.postTranslate(x, 0f);
         drawerSheenPaint.getShader().setLocalMatrix(drawerSheenMatrix);
-        canvas.drawRect(left, top, right, bottom, drawerSheenPaint);
+        canvas.drawRect(visL, top, visR, bottom, drawerSheenPaint);
     }
 
     /**

@@ -145,6 +145,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final java.util.Set<Uri> poisonedReversedUris =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     /**
+     * RANK-1 loop breaker (2026-07-16): consecutive recovery rebuilds per clip where there was
+     * NOTHING to poison (forward-source parse failures — corrupt file). Each such rebuild is
+     * byte-identical to the last, so past {@link #MAX_UNPOISONED_RECOVERY_REBUILDS} we stop
+     * instead of storming the main thread. Main-thread only (the recovery hook's thread).
+     */
+    private final java.util.Map<String, Integer> unpoisonedRecoveryFailures =
+            new java.util.HashMap<>();
+    private static final int MAX_UNPOISONED_RECOVERY_REBUILDS = 3;
+    /**
      * RANK-1c rebuild-race guard: monotonically increasing token bumped on EVERY user-initiated
      * gapless rebuild (trim/loop edit, mode change, poison recovery). {@link #kickReverseBakeIfNeeded}
      * captures this at kick time; the bake-complete auto-promote rebuild is DISCARDED if the token
@@ -2980,11 +2989,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (toPoison != null) {
             poisonedReversedUris.add(toPoison);
+            // A poison actually changes the next playlist, so this clip's unpoisoned-failure
+            // streak (if any) is stale — the rebuild below is now meaningfully different.
+            unpoisonedRecoveryFailures.remove(clipId != null ? clipId : "?");
             FLog.w(TAG, "RANK-1 recovery: POISONED reversed URI " + toPoison
                     + " (clip " + clipId + ") — degrading this clip to forward reps");
         } else {
-            FLog.w(TAG, "RANK-1 recovery: reverse-leg failure with no poisonable URI (clip "
-                    + clipId + ") — rebuilding anyway");
+            // LOOP BREAKER (2026-07-16, found live on the real 45-min project): a FORWARD
+            // source that fails to parse (ERROR_CODE_PARSING_CONTAINER_MALFORMED — corrupt /
+            // truncated file) also lands here, with nothing to poison. Rebuilding "anyway"
+            // recreates the identical playlist → identical error → infinite rebuild storm at
+            // ~18Hz on the main thread (black preview, glitched loading, choppy everything).
+            // Cap the identical-rebuild attempts per clip; past the cap, stop and tell the
+            // user instead of melting the UI thread. Sticky for the session — a malformed
+            // file does not heal by retrying.
+            String key = clipId != null ? clipId : "?";
+            int n = 1 + unpoisonedRecoveryFailures.getOrDefault(key, 0);
+            unpoisonedRecoveryFailures.put(key, n);
+            if (n > MAX_UNPOISONED_RECOVERY_REBUILDS) {
+                FLog.e(TAG, "RANK-1 recovery: clip " + key + " failed " + n
+                        + "x with no poisonable URI — STOPPING the rebuild loop"
+                        + " (malformed/corrupt source?)");
+                if (n == MAX_UNPOISONED_RECOVERY_REBUILDS + 1) {
+                    // TODO(strings): hardcoded per the rebrand-freeze standing rule.
+                    android.widget.Toast.makeText(this,
+                            "A clip's media failed to load — playback stopped. "
+                                    + "Its source file may be corrupt.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
+            FLog.w(TAG, "RANK-1 recovery: source failure with no poisonable URI (clip "
+                    + clipId + ", attempt " + n + "/" + MAX_UNPOISONED_RECOVERY_REBUILDS
+                    + ") — rebuilding");
         }
         if (playerManager == null) return;
         // A recovery rebuild is a user-visible timeline change → bump the generation so any in-flight
@@ -12430,9 +12467,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (captionStyleBar != null) captionStyleBar.setVisibility(View.VISIBLE);
                 if (!styleId.equals(beforeStyle) || !beforeEnabled) {
                     undoManager.recordAction(new EditActions.LambdaAction("Caption style",
-                            () -> { ac.setCaptionStyleId(styleId); ac.setCaptionsEnabled(true); },
-                            () -> { ac.setCaptionStyleId(beforeStyle); ac.setCaptionsEnabled(beforeEnabled); }));
+                            () -> { ac.setCaptionStyleId(styleId); ac.setCaptionsEnabled(true);
+                                    editorTimeline.invalidate(); },
+                            () -> { ac.setCaptionStyleId(beforeStyle); ac.setCaptionsEnabled(beforeEnabled);
+                                    editorTimeline.invalidate(); }));
                 }
+                // The CC tape tints by style — repaint NOW, not on the next scrub (JoyRaptor 2026-07-14).
+                editorTimeline.invalidate();
                 scheduleAutoSave();
             }
         } else {
@@ -12447,9 +12488,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (captionStyleBar != null) captionStyleBar.setVisibility(View.VISIBLE);
                 if (!styleId.equals(beforeStyle) || !beforeEnabled) {
                     undoManager.recordAction(new EditActions.LambdaAction("Caption style",
-                            () -> { cc.setCaptionStyleId(styleId); cc.setCaptionsEnabled(true); },
-                            () -> { cc.setCaptionStyleId(beforeStyle); cc.setCaptionsEnabled(beforeEnabled); }));
+                            () -> { cc.setCaptionStyleId(styleId); cc.setCaptionsEnabled(true);
+                                    editorTimeline.invalidate(); },
+                            () -> { cc.setCaptionStyleId(beforeStyle); cc.setCaptionsEnabled(beforeEnabled);
+                                    editorTimeline.invalidate(); }));
                 }
+                // The CC tape tints by style — repaint NOW, not on the next scrub (JoyRaptor 2026-07-14).
+                editorTimeline.invalidate();
                 scheduleAutoSave();
             }
         }

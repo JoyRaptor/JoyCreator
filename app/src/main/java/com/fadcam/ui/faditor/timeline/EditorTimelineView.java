@@ -234,7 +234,11 @@ public class EditorTimelineView extends View {
     // bookkeeping. Cutting splits video+audio together by construction (the drawer
     // just displays the clip's own audio). State is session-level UI state.
     /** Drawer height — matches the original (legacy) audio track height in the app. */
-    private static final float CLIP_AUDIO_DRAWER_HEIGHT_DP = 40f;
+    /** 40→45dp (JoyRaptor 2026-07-14): ~12% taller so the tape keeps its old height while a black
+     *  word band (below) is carved out — words sit under the waveform, not on its centerline. */
+    private static final float CLIP_AUDIO_DRAWER_HEIGHT_DP = 45f;
+    /** Bottom slice of the drawer left as dark padding for the transcript words. */
+    private static final float CLIP_DRAWER_WORD_BAND_DP = 12f;
     private static final long CLIP_DRAWER_ANIM_MS = 220;
     /** Max UP-to-UP ms for two master-segment taps to read as a double-tap (mirrors
      *  LayerGestureController.DOUBLE_TAP_WINDOW_MS). */
@@ -250,6 +254,11 @@ public class EditorTimelineView extends View {
     private com.fadcam.ui.faditor.waveform.TapeTileCache clipDrawerTapeCache;
     private long lastMasterTapUpMs;
     private String lastMasterTapClipId;
+    /** Screen-space X of the last master-segment tap (JoyRaptor 2026-07-14): the first tap's seek
+     *  auto-centers the strip, sliding a SHORT clip out from under a stationary finger — so the
+     *  double-tap must be detected by "same screen spot, quick succession", not by the second
+     *  tap resolving to the same (now-shifted) segment. */
+    private float lastMasterTapScreenX;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
     private final List<com.fadcam.ui.faditor.layers.Track> audioLayerTracks = new ArrayList<>();
     private OnTrackHeaderActionListener trackHeaderActionListener;
@@ -2298,9 +2307,14 @@ public class EditorTimelineView extends View {
         return masterTopPx() + filmRailPx() + trackHeightPx + filmRailPx();
     }
 
-    /** Reserved vertical space (px) for the master transcript row below the tape. */
+    /** Reserved vertical space (px) for the master transcript row below the tape.
+     *  ZERO since 2026-07-14 (JoyRaptor): transcript words now live ONLY inside the open
+     *  clip-audio drawer (bottom-aligned white); when the drawer is collapsed the words
+     *  are already on the video preview as captions — so the old under-strip words row
+     *  ("the gray middle bar") is reclaimed. Method kept so the band geometry reads
+     *  the same at every call site. */
     private float transcriptReservePx() {
-        return segmentTranscripts.isEmpty() ? 0f : 17f * density;
+        return 0f;
     }
 
     /**
@@ -2376,6 +2390,22 @@ public class EditorTimelineView extends View {
         performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK);
     }
 
+    /**
+     * Layer-wide audio-drawer toggle (JoyRaptor 2026-07-14): a double-tap on any master clip
+     * expands/collapses the audio shelf for EVERY (non-image) clip on the strip, driven by the
+     * tapped clip's target state — a per-clip shelf wasted the row for the other clips' audio.
+     * Idempotent per clip: only clips not already at the target state animate.
+     */
+    private void toggleLayerAudioDrawers(@NonNull String tappedClipId) {
+        boolean opening = !clipAudioDrawerOpen.contains(tappedClipId);
+        for (SegmentData sd : segments) {
+            if (sd.clipId == null || sd.isImageClip) continue;
+            if (clipAudioDrawerOpen.contains(sd.clipId) != opening) {
+                toggleClipAudioDrawer(sd.clipId);
+            }
+        }
+    }
+
     /** The segment index currently holding this clipId, or -1 (clip deleted/reordered away). */
     private int segmentIndexForClipId(@NonNull String clipId) {
         for (int i = 0; i < segments.size(); i++) {
@@ -2449,7 +2479,11 @@ public class EditorTimelineView extends View {
                                     sd.sourceDurationMs)
                             : null;
             if (tape != null) {
-                RectF body = new RectF(seg.left, bandTop, seg.right, bandTop + H);
+                // Tape stops CLIP_DRAWER_WORD_BAND_DP short of the drawer bottom — the dark
+                // body shows through as a black word band so the transcript words sit BELOW
+                // the waveform instead of on its centerline (JoyRaptor 2026-07-14).
+                RectF body = new RectF(seg.left, bandTop, seg.right,
+                        bandTop + H - CLIP_DRAWER_WORD_BAND_DP * density);
                 String drawerKey = sd.sourceUri + "|" + sd.inPointMs + "-" + sd.outPointMs;
                 clipDrawerTapeCache.draw(canvas, body, tape.raw, tape.tape, tape.serial, tapeStyle,
                         sd.inPointMs, Math.max(1, sd.trimmedMs), drawerKey);
@@ -2468,15 +2502,17 @@ public class EditorTimelineView extends View {
                 java.util.List<Clip.VolumeKeyframe> kfs = sd.clip.getVolumeKeyframes();
                 long dur = Math.max(1, sd.trimmedMs);
                 float w = seg.width();
+                // Envelope maps over the TAPE region only (above the black word band).
+                float tapeH = H - CLIP_DRAWER_WORD_BAND_DP * density;
                 canvas.save();
-                canvas.clipRect(seg.left, bandTop, seg.right, bandTop + H);
+                canvas.clipRect(seg.left, bandTop, seg.right, bandTop + tapeH);
                 float prevX = 0f, prevY = 0f;
                 for (int k = 0; k < kfs.size(); k++) {
                     Clip.VolumeKeyframe kf = kfs.get(k);
                     float fx = Math.max(0f, Math.min(1f, kf.timeMs / (float) dur));
                     float x = seg.left + fx * w;
                     float gFrac = Math.max(0f, Math.min(1f, kf.volume / 2.0f));
-                    float y = (bandTop + H) - gFrac * H;
+                    float y = (bandTop + tapeH) - gFrac * tapeH;
                     if (k == 0) {
                         canvas.drawLine(seg.left, y, x, y, drawerEnvLinePaint);
                     } else {
@@ -3055,26 +3091,20 @@ public class EditorTimelineView extends View {
         com.fadcam.ui.faditor.transcript.Transcript tr = segmentTranscripts.get(sd.clipId);
         if (tr == null || tr.words.isEmpty()) return;
 
-        // Clip-audio drawer: while this clip's drawer is open (or sliding), its transcript
-        // RIDES the drawer — sliding down from its under-strip row to sit along the INSIDE
-        // BOTTOM of the audio shelf, and back up as the drawer closes. Other clips'
-        // transcripts stay in the normal row. Word x-positions are unchanged (same rect
-        // left/right + pxPerMs), so words track their timestamps identically in both homes.
-        float yShift = 0f;
-        {
-            Float f = clipAudioDrawerFraction.get(sd.clipId);
-            if (f != null && f > 0f) {
-                float drawerBot = masterBotPx() + transcriptReservePx()
-                        + f * CLIP_AUDIO_DRAWER_HEIGHT_DP * density;
-                float normalBot = rect.bottom + TRANSCRIPT_BELOW_GAP_DP * density + 14f * density;
-                yShift = Math.max(0f, drawerBot - 2f * density - normalBot);
-            }
-        }
+        // Transcript words are ALWAYS visible in the timeline (JoyRaptor 2026-07-14), with two
+        // bottom-aligned homes and a slide between them driven by the drawer fraction:
+        //  - collapsed: along the INSIDE BOTTOM of the video's preview tape (the segment
+        //    filmstrip itself — the old under-strip gray row is gone);
+        //  - open: along the INSIDE BOTTOM of the audio drawer, in its black word band,
+        //    below the tape waveform.
+        // Full WHITE for readability; descenders sit ~1px above the bottom edge.
+        Float drawerFracObj = clipAudioDrawerFraction.get(sd.clipId);
+        float drawerFrac = drawerFracObj != null ? Math.max(0f, Math.min(1f, drawerFracObj)) : 0f;
 
         float fontSize = 9f * density;
         transcriptTextPaint.setTextSize(fontSize);
         transcriptTextPaint.setTypeface(Typeface.DEFAULT);
-        transcriptTextPaint.setColor(0x99FFFFFF);
+        transcriptTextPaint.setColor(0xFFFFFFFF);
         transcriptTextPaint.setShadowLayer(1.5f * density, 0, 0, 0xFF000000);
 
         transcriptHighlightPaint.setTextSize(fontSize);
@@ -3083,12 +3113,19 @@ public class EditorTimelineView extends View {
         transcriptHighlightPaint.setShadowLayer(2f * density, 0, 0, 0xFF000000);
 
         float pxPerMs = rect.width() / (float) sd.trimmedMs;
-        float textY = rect.bottom + (TRANSCRIPT_BELOW_GAP_DP + 9f) * density + yShift;
+        // Baseline so that descenders (y, g, p) end ~1px above the bottom edge of the home.
+        float descent = transcriptTextPaint.getFontMetrics().descent;
+        float segBaseY = rect.bottom - 1f * density - descent;
+        float drawerBot = masterBotPx()
+                + drawerFrac * CLIP_AUDIO_DRAWER_HEIGHT_DP * density;
+        float drawerBaseY = drawerBot - 1f * density - descent;
+        // Slide between the two homes with the drawer animation.
+        float textY = segBaseY + (drawerBaseY - segBaseY) * drawerFrac;
 
         // Clip to the segment's horizontal extent so words don't overflow
         canvas.save();
-        float transcriptTop = rect.bottom + TRANSCRIPT_BELOW_GAP_DP * density + yShift;
-        float transcriptBot = transcriptTop + 14f * density;
+        float transcriptTop = textY - fontSize;
+        float transcriptBot = textY + descent + 1f * density;
         clipPath.reset();
         clipPath.addRect(rect.left, transcriptTop, rect.right, transcriptBot,
                 Path.Direction.CW);
@@ -3114,7 +3151,7 @@ public class EditorTimelineView extends View {
             } else if (word.struck) {
                 transcriptTextPaint.setColor(0x44FFFFFF);
                 canvas.drawText(text, wordX, textY, transcriptTextPaint);
-                transcriptTextPaint.setColor(0x99FFFFFF);
+                transcriptTextPaint.setColor(0xFFFFFFFF);
             } else {
                 canvas.drawText(text, wordX, textY, transcriptTextPaint);
             }
@@ -5587,29 +5624,51 @@ public class EditorTimelineView extends View {
                     SegmentData tappedSd = downSegIndex < segments.size()
                             ? segments.get(downSegIndex) : null;
                     long tapNow = android.os.SystemClock.uptimeMillis();
-                    boolean isDoubleTap = tappedSd != null && tappedSd.clipId != null
-                            && tappedSd.clipId.equals(lastMasterTapClipId)
-                            && tapNow - lastMasterTapUpMs <= MASTER_DOUBLE_TAP_WINDOW_MS;
+                    // Double-tap = same SCREEN spot in quick succession, resolved against the
+                    // FIRST tap's clip (JoyRaptor 2026-07-14). The first tap's seek auto-centers the
+                    // strip, so on short clips the second tap resolves to a DIFFERENT (shifted)
+                    // segment even though the finger never moved — the old same-segment check
+                    // made those clips un-double-tappable.
+                    boolean isDoubleTap = lastMasterTapClipId != null
+                            && tapNow - lastMasterTapUpMs <= MASTER_DOUBLE_TAP_WINDOW_MS
+                            && Math.abs(downX - lastMasterTapScreenX) <= touchSlopPx * 2f;
+                    String doubleTapClipId = isDoubleTap ? lastMasterTapClipId : null;
+                    int doubleTapSegIndex = -1;
+                    if (isDoubleTap) {
+                        for (int i = 0; i < segments.size(); i++) {
+                            SegmentData s = segments.get(i);
+                            if (doubleTapClipId.equals(s.clipId) && !s.isImageClip) {
+                                doubleTapSegIndex = i;
+                                break;
+                            }
+                        }
+                        if (doubleTapSegIndex < 0) isDoubleTap = false; // clip gone / image clip
+                    }
                     lastMasterTapClipId = tappedSd != null ? tappedSd.clipId : null;
                     lastMasterTapUpMs = tapNow;
+                    lastMasterTapScreenX = downX;
 
-                    // Move the playhead to the tap so play resumes EXACTLY here
-                    // (previously a tap only selected, leaving the playhead — and
-                    // thus playback — at the old position).
-                    seekToTimelineMs(xToTime(downX + scrollOffsetPx));
+                    if (!isDoubleTap) {
+                        // Move the playhead to the tap so play resumes EXACTLY here
+                        // (previously a tap only selected, leaving the playhead — and
+                        // thus playback — at the old position). Skipped on the second tap
+                        // of a double-tap: the first tap already sought, and re-seeking at
+                        // the post-center screen X would jump onto a neighbouring clip.
+                        seekToTimelineMs(xToTime(downX + scrollOffsetPx));
+                    }
 
-                    if (isDoubleTap && !tappedSd.isImageClip) {
+                    if (isDoubleTap) {
                         lastMasterTapClipId = null; // consume the pair (no triple-chains)
-                        toggleClipAudioDrawer(tappedSd.clipId);
+                        toggleLayerAudioDrawers(doubleTapClipId);
                         // Keep the first tap's selection: ensure the clip stays selected
                         // instead of the same-segment tap-toggle deselecting it.
-                        if (selectedIndex != downSegIndex) {
-                            selectedIndex = downSegIndex;
+                        if (selectedIndex != doubleTapSegIndex) {
+                            selectedIndex = doubleTapSegIndex;
                             if (selectedAudioIndex >= 0) {
                                 selectedAudioIndex = -1;
                                 if (listener != null) listener.onAudioClipSelected(-1);
                             }
-                            if (listener != null) listener.onSegmentSelected(downSegIndex);
+                            if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
                         }
                         invalidate();
                     } else if (downSegIndex == selectedIndex) {

@@ -30,6 +30,33 @@
 >   throwaway project + opacity-fade setup + dual export. Best done with full context next session.
 > - **Session net: A1(both)+A4+A5 PASS + da96248 bonus. Remaining solo items all need fresh
 >   context (A2), real-finger (A6/A7), or file-picker (A3a SAF round-trip — untouched).**
+>
+> **▶ 2026-07-16 JoyRaptor real-finger walkthrough (live, both phones):**
+> - **A7 drawer: gesture PASS** + 4 follow-ups (see item 7) — all 4 CODED + JoyRaptor-verified on device
+>   except the round-2 refinements (words-in-filmstrip home, 1px descenders, 45dp drawer + black word
+>   band, CC instant invalidate) which are in the build now. Layer-wide shelf: "perfect". CC fix: good.
+> - **A6: CLOSED/re-scoped** — no in-editor record exists (see item 6). Stop-swap check folds into
+>   point-at-video (item 11).
+> - **🐛 NEW: preview double-tap dead** — double-tapping the AVATAR in the preview does nothing;
+>   double-tapping CAPTIONS in the preview does nothing. Both should open the item's advanced
+>   dropdown (object menu). → build item.
+> - **🐛 NEW: visualizer crash (SANDBOX)** — long-press on the visualizer AND tapping the visualizer
+>   dropdown both crash the app on 29e37138. NEW instability. Sandbox was unplugged before logs could
+>   be pulled — **need the sandbox re-plugged to pull the crash buffer** (logcat -b crash persists a
+>   while; also check tombstones). A3a (SAF round-trip) is BLOCKED behind this crash.
+> - **🔥 FIXED: RANK-1 infinite rebuild storm (REAL phone, "first lecture on phone" project)** — root
+>   cause of JoyRaptor's "hangs with a glitched loading screen / choppy": clip fe33537f (35:14→45:57 of
+>   The_woman_and_the_5.mp4, 2.37GB fMP4) throws ERROR_CODE_PARSING_CONTAINER_MALFORMED (recording's
+>   FINAL fragments truncated — died mid-write; clips 0/1 over the same file parse fine). The rank-1
+>   recovery hook had nothing to poison for a FORWARD-leg failure and rebuilt the identical playlist
+>   → identical error → ~18 rebuilds/sec on the main thread, forever. FIX: per-clip unpoisoned-failure
+>   cap (3) in onReverseWindowFailed — past cap it STOPS, logs, and toasts "clip's media failed to
+>   load… may be corrupt" once. The FILE is genuinely damaged — JoyRaptor should trim clip 2's range to
+>   end before ~34:34 or re-import; FUTURE item: forward-leg remux-salvage (run FMp4Remuxer over a
+>   malformed forward source and swap it in, as the poison-equivalent for forward failures — the
+>   remuxer already detects+handles fMP4 at export).
+> - Real phone (REAL_SERIAL) is on an OLD build — install the current APK on it once this build
+>   lands so the loop-breaker + walkthrough fixes reach the real device.
 
 
 The sandbox (SM-N960U, adb `SANDBOX_SERIAL`) was UNPLUGGED as of this writing, so a large batch
@@ -79,7 +106,16 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
    (saveTo→loadFrom round-trips the ANALYSIS pref). Restored default OFF ("Analyzed when a clip is first
    opened.") so the global analyzeEager pref is unchanged. STILL OWED (needs a fresh import to observe):
    the first-import eager/lazy chooser-ONCE behavior + eager-vs-lazy analysis timing per the choice.
-6. **🎯 Record stop-swap persistence (avatar).** ⚠️ **ENTRY POINT NOT FOUND from the timeline
+6-CLOSED. **🎯 Record stop-swap — RE-SCOPED by JoyRaptor (2026-07-16): there IS no in-editor record.**
+   Recording happens in the screenrecorder branch of FadCam; the editor imports files. The queue item
+   was written on a wrong premise. JoyRaptor's actual vision for avatars in the editor: **point the avatar
+   at a recording in the project and have it read the face information the way captions read
+   transcripts, then hide the source layer** — i.e., the EXISTING point-at-video flow is the intended
+   UX (a direct record-into-editor is a possible future feature, not owed now). The stop-swap
+   persistence concern transfers to the point-at-video sweep: after a sweep, the ✦ keyframes must
+   persist as ONE undo step. Fold that check into item 11 (point-at-video on a face-bearing clip).
+   ~~Original item below for history:~~
+   **(historical) 🎯 Record stop-swap persistence (avatar).** ⚠️ ENTRY POINT NOT FOUND from the timeline
    (2026-07-14).** On cebc19e0 selected the "A6 Warp Smoke" avatar item (the ✦ 21-keyframe orange bar on
    the Sprite track). The selected-item toolbar is Move/Transitions/Captions/Visualizer/Crop/Transcript/
    Filter/Settings — **NO 🎯 Record / Studio / Track button** (it's treated as a generic sprite). A
@@ -90,14 +126,25 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
    (✦ 21→>21)→one-undo-step run. Note: adb can do the button taps + wait, but avatar-Studio gestures may
    need real-finger. Current badge count to beat: **✦ 21**. cebc19e0 left unmutated (undo 2/redo 0).
    (Last attempt the stop-swap didn't persist — likely a stop-on-onPause discard when the session exited.)
-7. **Clip-audio drawer feels (`5179647`).** ⏸ **DEFERRED to real-finger (2026-07-14).** Attempted on
-   AudioExportVerify (aeb0517e): an adb double-tap (two `input tap` on the 9.8s master clip) only
-   selected the clip + scrubbed the playhead — the audio tape shelf did NOT slide out. This is expected:
-   the drawer is a 320ms double-tap gesture and adb tap-injection can't reliably land inside that
-   double-tap window (see device-input-injection-limits memory). No mutation (undo stayed 1). This item
-   is a "feels" test by design — leave for JoyRaptor's finger. Double-tap a master clip → audio tape shelf
-   slides out; with a TRANSCRIBED clip, confirm the transcript words relocate to the drawer's inside
-   bottom; split the clip with the drawer open (should stay coherent); real-finger 320ms open/close feel.
+7. **Clip-audio drawer feels (`5179647`).** ✅ **GESTURE PASS, JoyRaptor real-finger 2026-07-14 ~03:2x** —
+   "double snap feels pretty good," drawer opens. **4 follow-ups from JoyRaptor's hands-on:**
+   (a) **BUG — tap-disambiguation race:** single tap centers the playhead, so on short clips the clip
+   shifts under the finger between the two taps → second tap lands on a different clip and no drawer
+   opens. Fix: defer the single-tap playhead-centering until the double-tap window expires (or JoyRaptor
+   floated inverting: double-tap = center playhead). → Fable fixing (defer-single-tap approach).
+   (b) **DESIGN — drawer scope:** double-tap should expand/collapse the audio shelf for ALL clips in
+   that layer (one layer-wide shelf state), not just the tapped clip — the per-clip shelf wastes the
+   space for the other clips' audio. → JoyRaptor explicitly proposed; implement.
+   (c) **DESIGN — transcript-word readability + dead gray strip:** words inside the tape (multi-color on
+   high-contrast black) are harder to read than the old bottom-aligned subtle-green; the gray middle
+   strip the words used to occupy is now unused. Either drop the gray strip, or keep words out of the
+   tape (middle lane / on-video) — ONE design language; main layer differs from other layers only by
+   magnetic snapping. → needs a small design call, then implement.
+   (d) **BUG — CC tape color ignores animation style when UNKEYFRAMED:** switching caption style
+   (Bounce→green, Zoom→blue, …) updates the word animations live but NOT the CC tape color; WITH
+   keyframes the color updates correctly. Likely a missed invalidate on the unkeyframed style-change
+   path. → Fable fixing.
+   Still owed from the original checklist: split-with-drawer-open coherence check.
 
 ## B. Needs JoyRaptor / a real face / a system grant
 8. **Real-face avatar axis** — Studio 🎯 Track with a real face: head-right must read POSITIVE yaw; if

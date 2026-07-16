@@ -1025,6 +1025,14 @@ public final class LayerRowRenderer {
                     canvas.drawRect(sx0, top, x1, bottom, itemPaint);
                 }
                 canvas.restore();
+            } else {
+                // UNKEYFRAMED captions (JoyRaptor 2026-07-14): the tape must still reflect the
+                // clip's single active style (Bounce→green, Zoom→blue, …), not stay on the
+                // amber base — before this, only keyframed segments got their style colour.
+                int c = com.fadcam.ui.faditor.transcript.CaptionStyle
+                        .byId(clip.getCaptionStyleId()).activeColor;
+                itemPaint.setColor(0xDD000000 | (c & 0x00FFFFFF));
+                canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             }
         }
         String label = labelFor(item);

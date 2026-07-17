@@ -8214,12 +8214,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (transition.isGlShader()) {
             transitionPreviewOverlay.setVisibility(View.GONE);
             if (playerView != null) playerView.setAlpha(1f);
+            // currentPos is already the trim-relative SOURCE position inside A —
+            // during the transition window it runs [startPosition..clipDuration],
+            // i.e. A's TAIL. The old formula subtracted startPosition again, which
+            // remapped the window onto A's HEAD (JoyRaptor: "a sample from the
+            // beginning of A, not the end").
             long sourceMs = previous.getInPointMs()
                     + Math.max(0L, Math.min(previous.getOutPointMs() - previous.getInPointMs(),
-                    currentPos - transitionPlaybackStartPositionMs));
-            Bitmap from = decodeTransitionFrame(previous, sourceMs, previewWidth(), previewHeight());
+                    currentPos));
+            Bitmap from = decodeTransitionFrame(previous, sourceMs,
+                    previewWidth(), previewHeight(), true);
             Bitmap to = decodeTransitionFrame(next, transitionNextSourceMs(transition, next, progress),
-                    previewWidth(), previewHeight());
+                    previewWidth(), previewHeight(), true);
             if (from != null && to != null && glTransitionPreviewView != null) {
                 glTransitionPreviewView.render(from, to, transition, progress);
             } else {
@@ -8355,13 +8361,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Nullable
     private Bitmap decodeTransitionFrame(@NonNull Clip clip, long sourceMs, int outW, int outH) {
+        return decodeTransitionFrame(clip, sourceMs, outW, outH, false);
+    }
+
+    /**
+     * @param letterbox when true (the GL shader path), the frame is composed
+     *                  fit-centered onto a black {@code outW}×{@code outH} canvas —
+     *                  the GL quad fills the whole view, so an un-letterboxed 9:16
+     *                  frame would stretch to a 16:9 canvas for the duration of the
+     *                  transition (JoyRaptor 2026-07-17).
+     */
+    @Nullable
+    private Bitmap decodeTransitionFrame(@NonNull Clip clip, long sourceMs, int outW, int outH,
+                                         boolean letterbox) {
         if (clip.isImageClip()) {
-            return decodeImageFrame(clip.getSourceUri(), outW, outH);
+            Bitmap img = decodeImageFrame(clip.getSourceUri(), outW, outH);
+            return (img != null && letterbox) ? letterboxCached(img, outW, outH,
+                    clip.getSourceUri().toString()) : img;
         }
         try {
             Uri playbackUri = resolvePlaybackUri(clip.getSourceUri());
             String uriString = playbackUri.toString();
-            String key = uriString + "@" + outW + "x" + outH;
+            // Time-bucketed key (50ms): the old time-less key froze BOTH clips on
+            // their first decoded frame for the whole transition ("A is just a
+            // single sample frame"). Buckets keep repeated scrub ticks at the same
+            // position cache-hitting while letting playback frames advance.
+            String key = uriString + "@" + outW + "x" + outH
+                    + "@t" + (sourceMs / 50L) + (letterbox ? "@lb" : "");
             Bitmap cached = cachedTransitionFrame(key);
             if (cached != null) return cached;
             if (transitionFrameFailed.contains(key)) return null;
@@ -8384,7 +8410,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 frame = transitionRetriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             }
             if (frame == null) return null;
-            Bitmap scaled = scalePreservingAspect(frame, outW, outH);
+            Bitmap scaled = letterbox
+                    ? composeLetterbox(frame, outW, outH)
+                    : scalePreservingAspect(frame, outW, outH);
             if (scaled != frame) frame.recycle();
             transitionFrameCache.put(key, scaled);
             return scaled;
@@ -8414,6 +8442,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FLog.w(TAG, "Failed to decode image transition preview frame", e);
             return null;
         }
+    }
+
+    /** Compose {@code src} fit-centered on a black {@code outW}×{@code outH} canvas. */
+    @NonNull
+    private Bitmap composeLetterbox(@NonNull Bitmap src, int outW, int outH) {
+        Bitmap out = Bitmap.createBitmap(Math.max(1, outW), Math.max(1, outH),
+                Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas c = new android.graphics.Canvas(out);
+        c.drawColor(Color.BLACK);
+        float scale = Math.min(outW / (float) Math.max(1, src.getWidth()),
+                outH / (float) Math.max(1, src.getHeight()));
+        float w = src.getWidth() * scale, h = src.getHeight() * scale;
+        android.graphics.RectF dst = new android.graphics.RectF(
+                (outW - w) / 2f, (outH - h) / 2f, (outW + w) / 2f, (outH + h) / 2f);
+        c.drawBitmap(src, null, dst, new android.graphics.Paint(
+                android.graphics.Paint.FILTER_BITMAP_FLAG));
+        return out;
+    }
+
+    /** Letterbox-compose an already-cached image frame, cached under its own key. */
+    @Nullable
+    private Bitmap letterboxCached(@NonNull Bitmap img, int outW, int outH, @NonNull String uriKey) {
+        String key = uriKey + "@" + outW + "x" + outH + "@lb";
+        Bitmap cached = cachedTransitionFrame(key);
+        if (cached != null) return cached;
+        Bitmap composed = composeLetterbox(img, outW, outH);
+        transitionFrameCache.put(key, composed);
+        return composed;
     }
 
     /**
@@ -17011,7 +17067,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Quick-pick a transition's duration from common presets. */
     private void showTransitionDurationPicker(@NonNull Transition transition, int index) {
-        final long[] presets = {250L, 500L, 750L, 1000L, 1500L, 2000L};
+        final long[] presets = {100L, 250L, 500L, 750L, 1000L, 1500L, 2000L, 3000L, 5000L, 8000L, 10000L};
         CharSequence[] labels = new CharSequence[presets.length];
         int checked = -1;
         for (int i = 0; i < presets.length; i++) {

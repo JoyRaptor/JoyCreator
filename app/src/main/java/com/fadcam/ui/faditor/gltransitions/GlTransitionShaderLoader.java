@@ -207,8 +207,12 @@ public final class GlTransitionShaderLoader {
                 + "uniform float ratio;\n"
                 + "/* EXTRA_PARAM_UNIFORMS_GO_HERE */"
                 + "varying vec2 vTexSamplingCoord;\n"
-                + "vec4 getFromColor(vec2 uv) { return texture2D(uFromTex, uv); }\n"
-                + "vec4 getToColor(vec2 uv) { return texture2D(uToTex, uv); }\n"
+                // Preview textures upload Android-bitmap top-row-first, so texture V=0 is
+                // the image TOP while GLTransitions uv assumes V=0 at the BOTTOM. Flip V
+                // at sampling or every frame renders inverted for the transition's
+                // duration (and spin-style shaders make it read as mirrored).
+                + "vec4 getFromColor(vec2 uv) { return texture2D(uFromTex, vec2(uv.x, 1.0 - uv.y)); }\n"
+                + "vec4 getToColor(vec2 uv) { return texture2D(uToTex, vec2(uv.x, 1.0 - uv.y)); }\n"
                 + "/* TRANSITION_BODY_GOES_HERE */"
                 + "void main() {\n"
                 + "  gl_FragColor = transition(vTexSamplingCoord);\n"

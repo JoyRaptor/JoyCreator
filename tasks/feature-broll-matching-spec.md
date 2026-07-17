@@ -1,6 +1,9 @@
 # Feature Spec: Content-Aware B-Roll Matching (for Claude Code)
 
-**Status:** Phase 0 + Phase 1 implemented (2026-06-19, autonomous pass) — pending device build/verify.
+**Status (2026-07-17):** COMPLETE — Phases 0–3 all implemented: `INSERT_BROLL_CUTAWAY` (Phase 0),
+`suggest_broll_placements` (Phase 1), confirm→apply via the `@@PROPOSAL:broll@@` chat card +
+`apply_broll_proposal` (Phase 2, see narrative spec §7b), and vision tagging via
+`tag_broll_assets`/sidecar cache (Phase 3, `f4eca41`). Remaining: device visual-verify with an AI key.
 - **Phase 0 DONE:** `INSERT_BROLL_CUTAWAY` in `EditScriptApplier` performs Decision 3's four steps
   atomically (split×2 via the shared `splitClip` helper, replace span video with muted b-roll,
   add original span audio to `audioClips` at `offsetMs=atMs`). Guardrails enforced in the validator

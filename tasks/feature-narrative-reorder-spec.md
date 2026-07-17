@@ -1,6 +1,10 @@
 # Feature Spec: AI Narrative Reordering (for Claude Code)
 
-**Status:** Phase 0 + Phase 1 implemented (2026-06-19, autonomous pass) — pending device build/verify.
+**Status (2026-07-17):** COMPLETE — Phases 0–2 + visual KEEP/DROP card + atomic structural apply
+(see §7b), and Decision-5 boundary→silence snapping now implemented in `apply_narrative_proposal`
+(`AIToolExecutor.snapBoundaryToSilence`: nearest gap within 300ms → cut at its midpoint,
+monotonicity-guarded). Remaining: optional timeline proposal-marker band (§7b item 3, non-blocking)
+and the visual-verify with an AI key.
 - **Phase 0 DONE:** `SPLIT_CLIP_AT_TIME` + `REORDER_CLIPS` added to `EditScript`/`EditScriptApplier`.
   Split partitions `removedSpans` + transcript words by time (Decision 2); children get controllable
   ids via new `Clip(Clip, String)` ctor. `REORDER_CLIPS` drops omitted clips and drops transitions

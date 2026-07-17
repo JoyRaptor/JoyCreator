@@ -769,6 +769,32 @@ public class AIToolExecutor {
      * it) and applies it atomically via {@link EditScriptApplier} (which validates structural scripts
      * by simulation). Clips other than the target are preserved in their original positions.
      */
+    /**
+     * Decision 5 (narrative spec): snap a proposed chunk boundary to the middle
+     * of the nearest detected silence gap within 300ms — cutting mid-silence is
+     * the cleanest possible cut. Returns the original boundary when no gap is
+     * near or the gap's midpoint would leave the clip trim.
+     */
+    private static long snapBoundaryToSilence(long boundary,
+                                              @Nullable java.util.List<long[]> gaps,
+                                              long inPoint, long outPoint) {
+        if (gaps == null || gaps.isEmpty()) return boundary;
+        long best = boundary;
+        long bestDist = 301;
+        for (long[] g : gaps) {
+            long nearest = Math.max(g[0], Math.min(g[1], boundary));
+            long dist = Math.abs(nearest - boundary);
+            if (dist < bestDist) {
+                long mid = (g[0] + g[1]) / 2;
+                if (mid > inPoint + 100 && mid < outPoint - 100) {
+                    best = mid;
+                    bestDist = dist;
+                }
+            }
+        }
+        return best;
+    }
+
     private String toolApplyNarrativeProposal(@NonNull JSONObject args) {
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
@@ -820,8 +846,16 @@ public class AIToolExecutor {
         try {
             JSONArray ops = new JSONArray();
             String restId = clipId;
+            java.util.List<long[]> silenceGaps = clip.getSilenceCandidates();
+            long prevBoundary = inPoint;
             for (int i = 0; i < n - 1; i++) {
                 long boundary = spans.get(idxOrder.get(i))[1]; // this chunk's end == next chunk's start
+                // Decision 5: word-timestamp boundaries are rarely clean cut points —
+                // snap to the middle of the nearest detected silence gap within 300ms
+                // (skipping any snap that would break boundary monotonicity).
+                long snapped = snapBoundaryToSilence(boundary, silenceGaps, inPoint, outPoint);
+                if (snapped > prevBoundary + 100) boundary = snapped;
+                prevBoundary = boundary;
                 if (boundary <= inPoint + 100 || boundary >= outPoint - 100) {
                     return "Error: chunk boundary " + boundary + " is not strictly inside the clip "
                             + "trim [" + inPoint + "," + outPoint + "]. Re-run analyze_narrative_structure.";

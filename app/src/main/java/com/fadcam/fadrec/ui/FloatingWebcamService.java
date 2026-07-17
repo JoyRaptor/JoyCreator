@@ -72,6 +72,26 @@ public class FloatingWebcamService extends Service {
     /** True while the service is alive; lets the floating menu show overlay state. */
     public static volatile boolean isRunning = false;
 
+    /**
+     * Live instance, for the dual-stream recording feature: ScreenRecordingService
+     * hands us a MediaCodec input surface to add as a SECOND camera target so the
+     * raw webcam feed is encoded to its own file. Null when the overlay isn't up.
+     */
+    private static volatile FloatingWebcamService instance;
+
+    /** Encoder input surface added as a second capture target (dual-stream); null = off. */
+    private Surface recordingSurface;
+
+    /** Notifies a running dual-stream recording that the overlay is closing. */
+    public interface OverlayLifecycleListener {
+        void onOverlayClosed();
+    }
+    private static volatile OverlayLifecycleListener overlayListener;
+
+    public static void setOverlayLifecycleListener(@Nullable OverlayLifecycleListener l) {
+        overlayListener = l;
+    }
+
     // Aspect ratio of the preview window (w:h). Portrait-ish card like phone selfie cams.
     private static final float ASPECT = 3f / 4f;
     private static final int MIN_WIDTH_DP = 90;
@@ -145,6 +165,7 @@ public class FloatingWebcamService extends Service {
     public void onCreate() {
         super.onCreate();
         isRunning = true;
+        instance = this;
         startInForeground();
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -794,6 +815,83 @@ public class FloatingWebcamService extends Service {
         return (int) (value * getResources().getDisplayMetrics().density);
     }
 
+    // -------------------- Dual-stream recording bridge --------------------
+
+    /** @return true when the overlay is up AND showing the live camera (not an avatar). */
+    public static boolean isPlainWebcamActive() {
+        FloatingWebcamService i = instance;
+        return i != null && i.avatarEntry == null;
+    }
+
+    /** The camera's currently-chosen preview size, or null if unavailable. */
+    @Nullable
+    public static Size getActivePreviewSize() {
+        FloatingWebcamService i = instance;
+        return i != null ? i.previewSize : null;
+    }
+
+    /** The active camera's sensor orientation (degrees), or 90 as a default. */
+    public static int getActiveSensorOrientation() {
+        FloatingWebcamService i = instance;
+        return i != null ? i.sensorOrientation : 90;
+    }
+
+    /**
+     * Adds {@code encoderSurface} as a second target on the camera session so the
+     * raw feed is encoded to the dual-stream file. Rebuilds the capture session
+     * (a brief preview blip at recording-start is acceptable). Returns false if
+     * the overlay is in avatar mode (no camera pixels) or not ready.
+     */
+    public static boolean attachRecordingSurface(Surface encoderSurface) {
+        FloatingWebcamService i = instance;
+        if (i == null || encoderSurface == null) {
+            return false;
+        }
+        return i.attachRecordingSurfaceInternal(encoderSurface);
+    }
+
+    /** Removes the encoder target and rebuilds the plain preview session. */
+    public static void detachRecordingSurface() {
+        FloatingWebcamService i = instance;
+        if (i != null) {
+            i.detachRecordingSurfaceInternal();
+        }
+    }
+
+    private boolean attachRecordingSurfaceInternal(Surface s) {
+        if (avatarEntry != null) {
+            FLog.w(TAG, "attachRecordingSurface: avatar mode active, no raw camera feed");
+            return false;
+        }
+        recordingSurface = s;
+        if (cameraHandler != null) {
+            cameraHandler.post(this::restartCaptureSession);
+        }
+        return true;
+    }
+
+    private void detachRecordingSurfaceInternal() {
+        recordingSurface = null;
+        if (cameraHandler != null) {
+            cameraHandler.post(this::restartCaptureSession);
+        }
+    }
+
+    /** Rebuilds the capture session (keeps the camera open) to add/remove the encoder target. */
+    private void restartCaptureSession() {
+        if (cameraDevice == null || previewView == null || !previewView.isAvailable()) {
+            return;
+        }
+        if (captureSession != null) {
+            try {
+                captureSession.close();
+            } catch (Exception ignore) {
+            }
+            captureSession = null;
+        }
+        startPreview();
+    }
+
     // -------------------- Camera --------------------
 
     private void openCamera() {
@@ -865,11 +963,24 @@ public class FloatingWebcamService extends Service {
             mainHandler.post(this::configureTransform);
             Surface surface = new Surface(texture);
 
-            CaptureRequest.Builder builder =
-                    cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            builder.addTarget(surface);
+            // Dual-stream: when ScreenRecordingService has attached an encoder input
+            // surface, add it as a SECOND target so the raw feed is encoded to its own
+            // file (2 streams on one session — guaranteed headroom per the spec).
+            Surface rec = recordingSurface;
+            java.util.List<Surface> targets = new java.util.ArrayList<>();
+            targets.add(surface);
+            if (rec != null && rec.isValid()) {
+                targets.add(rec);
+            }
 
-            cameraDevice.createCaptureSession(Collections.singletonList(surface),
+            CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(
+                    rec != null ? CameraDevice.TEMPLATE_RECORD : CameraDevice.TEMPLATE_PREVIEW);
+            builder.addTarget(surface);
+            if (rec != null && rec.isValid()) {
+                builder.addTarget(rec);
+            }
+
+            cameraDevice.createCaptureSession(targets,
                     new CameraCaptureSession.StateCallback() {
                         @Override
                         public void onConfigured(@NonNull CameraCaptureSession session) {
@@ -928,6 +1039,18 @@ public class FloatingWebcamService extends Service {
     public void onDestroy() {
         super.onDestroy();
         isRunning = false;
+        instance = null;
+        recordingSurface = null;
+        // Dual-stream: if a recording is teeing into us, tell it to finalize the
+        // webcam file now (a shorter-but-valid pair beats a corrupt file).
+        OverlayLifecycleListener l = overlayListener;
+        if (l != null) {
+            try {
+                l.onOverlayClosed();
+            } catch (Exception e) {
+                FLog.w(TAG, "overlay-closed listener failed", e);
+            }
+        }
         mainHandler.removeCallbacks(hideHandleRunnable);
         mainHandler.removeCallbacks(hideControlsRunnable);
         releaseAvatarResources(); // A4: tracker camera + sheet bitmaps

@@ -41,7 +41,10 @@ import com.fadcam.MainActivity;
 import com.fadcam.R;
 import com.fadcam.SharedPreferencesManager;
 import com.fadcam.fadrec.ScreenRecordingState;
+import com.fadcam.fadrec.encoding.DualEncoderCapabilityChecker;
 import com.fadcam.fadrec.encoding.ScreenRecordingPipeline;
+import com.fadcam.fadrec.encoding.WebcamEncoderPipeline;
+import com.fadcam.fadrec.ui.FloatingWebcamService;
 import com.fadcam.opengl.WatermarkInfoProvider;
 import com.fadcam.utils.RecordingStoragePaths;
 
@@ -77,6 +80,15 @@ public class ScreenRecordingService extends Service {
     // Segment rollover PFD management (deferred close for SAF auto-splitting)
     private android.os.ParcelFileDescriptor previousSegmentPfd;
     private android.os.ParcelFileDescriptor currentSegmentPfd;
+
+    // Dual-stream recording: raw webcam captured to its own <screenfile>_webcam.mp4
+    // (spec Phases 1-3). Guarded so overlay-close vs recording-stop can't double-stop.
+    private WebcamEncoderPipeline webcamPipeline;
+    private android.os.ParcelFileDescriptor webcamPfd;
+    private File webcamOutputFile;
+    private android.net.Uri webcamOutputUri;
+    private final Object webcamLock = new Object();
+    private FloatingWebcamService.OverlayLifecycleListener webcamOverlayListener;
     
     // State management
     private ScreenRecordingState recordingState = ScreenRecordingState.NONE;
@@ -683,6 +695,10 @@ public class ScreenRecordingService extends Service {
             // NOW start recording pipeline with correct internal state
             recordingPipeline.startRecording();
             recordingStartTime = SystemClock.elapsedRealtime();
+
+            // Dual-stream: if enabled + capable + the webcam overlay is showing a live
+            // camera, start a second encoder for the raw webcam feed sharing the same clock.
+            startDualStreamWebcamIfEnabled(enableAudio);
             
             // Reset pause tracking for new recording
             pauseStartTime = 0;
@@ -824,6 +840,9 @@ public class ScreenRecordingService extends Service {
      */
     private void cleanupPipeline() {
         releasePreviewOnlyVirtualDisplay();
+        // Safety net: finalize the webcam pipeline if a failure path reached cleanup
+        // without going through stopScreenRecording (no-op if already stopped).
+        stopDualStreamWebcam();
         if (recordingPipeline != null) {
             try {
                 recordingPipeline.release();
@@ -863,6 +882,178 @@ public class ScreenRecordingService extends Service {
         }
     }
 
+    // ── Dual-stream raw-webcam recording (spec Phases 1-3) ──
+
+    /**
+     * Starts the raw-webcam encoder when: the opt-in pref is on, the device can
+     * sustain two hardware encoders, and {@link FloatingWebcamService} is up and
+     * showing a live camera (not an avatar). Otherwise records screen-only as today.
+     * Never throws — any failure downgrades to a plain screen recording.
+     *
+     * @param enableAudio whether the screen session records audio (the webcam file
+     *                    duplicates the same audio via the PCM tee — Decision 4).
+     */
+    private void startDualStreamWebcamIfEnabled(boolean enableAudio) {
+        try {
+            boolean prefOn = sharedPreferencesManager.sharedPreferences.getBoolean(
+                    DualEncoderCapabilityChecker.PREF_DUAL_STREAM_WEBCAM, false);
+            if (!prefOn) {
+                return;
+            }
+            if (!DualEncoderCapabilityChecker.supportsDualHardwareEncode()) {
+                FLog.i(TAG, "Dual-stream pref on but device can't sustain two encoders — screen-only");
+                return;
+            }
+            if (!FloatingWebcamService.isPlainWebcamActive()) {
+                FLog.i(TAG, "Dual-stream: webcam overlay not showing a live camera — screen-only");
+                return;
+            }
+            android.util.Size camSize = FloatingWebcamService.getActivePreviewSize();
+            if (camSize == null || camSize.getWidth() <= 0 || camSize.getHeight() <= 0) {
+                FLog.w(TAG, "Dual-stream: webcam preview size unavailable — screen-only");
+                return;
+            }
+
+            // Create the sibling output (<screenfile>_webcam.mp4). Bail to screen-only on failure.
+            WebcamEncoderPipeline.Builder builder = new WebcamEncoderPipeline.Builder()
+                    .setSize(camSize.getWidth(), camSize.getHeight())
+                    .setVideoConfig(sharedPreferencesManager.getScreenRecordingFrameRate(),
+                            calculateBitrate(camSize.getWidth(), camSize.getHeight(),
+                                    sharedPreferencesManager.getScreenRecordingFrameRate()))
+                    .setEnableAudio(enableAudio, Constants.DEFAULT_AUDIO_SAMPLING_RATE)
+                    .setOrientationHint(FloatingWebcamService.getActiveSensorOrientation())
+                    .setRecordingClock(recordingPipeline.getRecordingClock());
+
+            if (!configureWebcamOutput(builder)) {
+                FLog.w(TAG, "Dual-stream: could not create webcam output file — screen-only");
+                return;
+            }
+
+            WebcamEncoderPipeline pipeline = builder.build();
+            Surface encoderSurface = pipeline.getInputSurface();
+
+            if (!FloatingWebcamService.attachRecordingSurface(encoderSurface)) {
+                FLog.w(TAG, "Dual-stream: webcam service refused encoder surface — screen-only");
+                pipeline.release();
+                closeWebcamPfd();
+                return;
+            }
+
+            pipeline.startRecording();
+
+            // Tee the screen mic PCM into the webcam audio encoder (Decision 4).
+            if (enableAudio) {
+                final WebcamEncoderPipeline tapTarget = pipeline;
+                recordingPipeline.setAudioTap(tapTarget::queueAudioData);
+            }
+
+            // Finalize cleanly if the user closes the overlay mid-recording.
+            webcamOverlayListener = () -> backgroundHandler.post(this::stopDualStreamWebcam);
+            FloatingWebcamService.setOverlayLifecycleListener(webcamOverlayListener);
+
+            synchronized (webcamLock) {
+                webcamPipeline = pipeline;
+            }
+            FLog.i(TAG, "Dual-stream webcam recording started: " + camSize.getWidth()
+                    + "x" + camSize.getHeight());
+        } catch (Exception e) {
+            FLog.e(TAG, "Dual-stream webcam start failed — continuing screen-only", e);
+            stopDualStreamWebcam();
+        }
+    }
+
+    /**
+     * Points the webcam pipeline builder at a sibling output file next to the
+     * screen recording. Internal storage: {@code <base>_webcam.mp4}. SAF: a
+     * sibling DocumentFile in the same directory. Returns false on failure.
+     */
+    private boolean configureWebcamOutput(WebcamEncoderPipeline.Builder builder) {
+        try {
+            if (outputFile != null) {
+                String base = outputFile.getAbsolutePath();
+                String webcamPath = base.substring(0, base.lastIndexOf('.')) + "_webcam.mp4";
+                webcamOutputFile = new File(webcamPath);
+                builder.setOutputFile(webcamPath);
+                return true;
+            }
+            // SAF mode: create a sibling <base>_webcam.mp4 in the Screen category dir.
+            String customUriString = sharedPreferencesManager.getCustomStorageUri();
+            androidx.documentfile.provider.DocumentFile dir =
+                    com.fadcam.utils.RecordingStoragePaths.getSafCategoryDir(
+                            this, customUriString,
+                            com.fadcam.utils.RecordingStoragePaths.Category.SCREEN, true);
+            if (dir == null) {
+                return false;
+            }
+            String screenName = safRecordingUri != null
+                    ? new java.io.File(safRecordingUri.getPath()).getName()
+                    : (Constants.RECORDING_FILE_PREFIX_FADREC + "webcam");
+            int dot = screenName.lastIndexOf('.');
+            String webcamName = (dot > 0 ? screenName.substring(0, dot) : screenName)
+                    + "_webcam." + Constants.RECORDING_FILE_EXTENSION;
+            androidx.documentfile.provider.DocumentFile f =
+                    dir.createFile("video/" + Constants.RECORDING_FILE_EXTENSION, webcamName);
+            if (f == null) {
+                return false;
+            }
+            webcamOutputUri = f.getUri();
+            webcamPfd = getContentResolver().openFileDescriptor(webcamOutputUri, "w");
+            if (webcamPfd == null) {
+                return false;
+            }
+            builder.setOutputFileDescriptor(webcamPfd.getFileDescriptor());
+            return true;
+        } catch (Exception e) {
+            FLog.e(TAG, "Failed to configure webcam output", e);
+            return false;
+        }
+    }
+
+    /** Stops + finalizes the webcam pipeline and detaches from the overlay. Idempotent. */
+    private void stopDualStreamWebcam() {
+        WebcamEncoderPipeline pipeline;
+        synchronized (webcamLock) {
+            pipeline = webcamPipeline;
+            webcamPipeline = null;
+        }
+        if (pipeline == null) {
+            // Still clear any dangling listener/pfd if the pipeline never fully started.
+            FloatingWebcamService.setOverlayLifecycleListener(null);
+            webcamOverlayListener = null;
+            closeWebcamPfd();
+            return;
+        }
+        try {
+            if (recordingPipeline != null) {
+                recordingPipeline.setAudioTap(null);
+            }
+        } catch (Exception ignore) {
+        }
+        try {
+            FloatingWebcamService.detachRecordingSurface();
+        } catch (Exception ignore) {
+        }
+        FloatingWebcamService.setOverlayLifecycleListener(null);
+        webcamOverlayListener = null;
+        try {
+            pipeline.stopRecording();
+        } catch (Exception e) {
+            FLog.w(TAG, "Error stopping webcam pipeline", e);
+        }
+        closeWebcamPfd();
+        FLog.i(TAG, "Dual-stream webcam recording finalized");
+    }
+
+    private void closeWebcamPfd() {
+        if (webcamPfd != null) {
+            try {
+                webcamPfd.close();
+            } catch (Exception ignore) {
+            }
+            webcamPfd = null;
+        }
+    }
+
     /**
      * Handles stop recording request.
      */
@@ -886,6 +1077,10 @@ public class ScreenRecordingService extends Service {
         FLog.d(TAG, "stopScreenRecording: Finalizing recording");
         
         try {
+            // Finalize the raw-webcam file first so its final drain still sees a
+            // live audio tap / shared clock before the screen pipeline tears down.
+            stopDualStreamWebcam();
+
             // Stop recording pipeline
             if (recordingPipeline != null) {
                 try {

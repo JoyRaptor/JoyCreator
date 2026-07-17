@@ -44,8 +44,16 @@ public class SpriteOverlayView extends View {
         /** A sprite's transform changed — persist it. */
         void onSpriteChanged();
 
-        /** Double-tap on a sprite/avatar → open its advanced object menu (JoyRaptor 2026-07-16). */
+        /**
+         * Double-tap on a sprite/avatar → its TYPE editor (gesture grammar,
+         * JoyRaptor 2026-07-17: tap = select, double-tap = type editor, hold =
+         * general drawer — the 2026-07-16 drawer routing moved to onSpriteHeld).
+         */
         default void onSpriteDoubleTapped(@NonNull SpriteOverlayItem item) { }
+        /** Single tap (no drag) — select the sprite (timeline row + handles). */
+        default void onSpriteTapped(@NonNull SpriteOverlayItem item) { }
+        /** Hold (~long-press, no movement) — open the general properties drawer. */
+        default void onSpriteHeld(@NonNull SpriteOverlayItem item) { }
         /** A drag/pinch gesture finished; record ONE undo step from the snapshot. */
         default void onSpriteManipulated(@NonNull SpriteOverlayItem item,
                                          @NonNull SpriteOverlayItem.TransformSnapshot before) { }
@@ -74,9 +82,21 @@ public class SpriteOverlayView extends View {
     private float downRawX, downRawY, startCenterX, startCenterY;
     private boolean moved;
     @Nullable private SpriteOverlayItem.TransformSnapshot beforeGesture;
-    /** Double-tap pairing state (advanced object menu). */
+    /** Double-tap pairing state (type-editor express lane). */
     @Nullable private SpriteOverlayItem lastTapItem;
     private long lastTapUpMs;
+    /** Hold (long-press → general drawer) state. */
+    private boolean heldFired;
+    private final Runnable holdRunnable = () -> {
+        SpriteOverlayItem o = manipulating;
+        if (o == null || callback == null) return;
+        heldFired = true;
+        manipulating = null;
+        beforeGesture = null;
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        invalidate();
+        callback.onSpriteHeld(o);
+    };
 
     public SpriteOverlayView(Context ctx) { this(ctx, null); }
 
@@ -232,12 +252,24 @@ public class SpriteOverlayView extends View {
                 startCenterX = hit.getCenterX();
                 startCenterY = hit.getCenterY();
                 moved = false;
+                heldFired = false;
+                postDelayed(holdRunnable,
+                        android.view.ViewConfiguration.getLongPressTimeout());
                 getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
             }
+            case MotionEvent.ACTION_POINTER_DOWN: {
+                removeCallbacks(holdRunnable); // pinch incoming — not a hold
+                return manipulating != null;
+            }
             case MotionEvent.ACTION_MOVE: {
+                if (heldFired) return true;
                 if (manipulating == null) return false;
-                if (scaleDetector.isInProgress()) { moved = true; return true; }
+                if (scaleDetector.isInProgress()) {
+                    moved = true;
+                    removeCallbacks(holdRunnable);
+                    return true;
+                }
                 RectF r = callback.getVideoContentRect();
                 if (r.width() <= 0 || r.height() <= 0) return true;
                 float dx = (e.getRawX() - downRawX) / r.width();
@@ -245,6 +277,7 @@ public class SpriteOverlayView extends View {
                 if (Math.abs(e.getRawX() - downRawX) > 8
                         || Math.abs(e.getRawY() - downRawY) > 8) {
                     moved = true;
+                    removeCallbacks(holdRunnable);
                 }
                 float nx = startCenterX + dx, ny = startCenterY + dy;
                 if (snapEnabled) {
@@ -257,9 +290,14 @@ public class SpriteOverlayView extends View {
             }
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL: {
+                removeCallbacks(holdRunnable);
+                if (heldFired) { // drawer already opened; swallow the UP
+                    heldFired = false;
+                    return true;
+                }
                 SpriteOverlayItem o = manipulating;
                 manipulating = null;
-                // Double-tap (no drag) → advanced object menu (JoyRaptor 2026-07-16).
+                // Tap = select; double-tap (no drag) = type editor (grammar 2026-07-17).
                 if (o != null && !moved && e.getActionMasked() == MotionEvent.ACTION_UP) {
                     long now = android.os.SystemClock.uptimeMillis();
                     if (o == lastTapItem && now - lastTapUpMs <= 320) {
@@ -270,6 +308,7 @@ public class SpriteOverlayView extends View {
                     }
                     lastTapItem = o;
                     lastTapUpMs = now;
+                    callback.onSpriteTapped(o);
                 }
                 if (o != null && moved && e.getActionMasked() == MotionEvent.ACTION_UP) {
                     if (o.isArmed()) {

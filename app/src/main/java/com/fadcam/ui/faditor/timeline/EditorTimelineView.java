@@ -522,6 +522,16 @@ public class EditorTimelineView extends View {
         }
     }
 
+    /**
+     * Scroll the floating layer band so the row hosting {@code itemId} is visible
+     * (preview-tap reveals the object's layer, JoyRaptor 2026-07-17). Safe no-op when the
+     * renderer hasn't laid out yet or the item lives in an always-visible band.
+     */
+    public void revealLayerRowForItem(@Nullable String itemId) {
+        if (itemId == null || layerRowRenderer == null) return;
+        if (layerRowRenderer.revealRowForItem(itemId)) invalidate();
+    }
+
     // ── State ────────────────────────────────────────────────────────
     private final List<SegmentData> segments = new ArrayList<>();
     private final List<RectF> segRects = new ArrayList<>();

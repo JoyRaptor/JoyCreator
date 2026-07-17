@@ -2022,6 +2022,32 @@ public final class LayerRowRenderer {
         return out;
     }
 
+    /**
+     * Scroll the FLOATING band so the row hosting {@code itemId} is fully visible
+     * (preview-tap → reveal-the-layer, JoyRaptor 2026-07-17). Audio-band rows are fixed
+     * below master and always visible — no-op for those. Uses the row geometry of
+     * the last {@link #layout} pass (content-space). Returns true if the scroll moved.
+     */
+    public boolean revealRowForItem(@NonNull String itemId) {
+        for (RowLayout row : rows) {
+            if (!row.floatingBand) continue;
+            boolean hosts = false;
+            for (TimedItem item : row.track.getItems()) {
+                if (itemId.equals(item.getId())) { hosts = true; break; }
+            }
+            if (!hosts) continue;
+            float pad = ROW_GAP_DP * density;
+            float before = scrollOffsetPx;
+            if (row.bodyRect.top < scrollOffsetPx) {
+                scrollOffsetPx = clampScroll(row.bodyRect.top - pad);
+            } else if (row.bodyRect.bottom > scrollOffsetPx + viewportHeightPx) {
+                scrollOffsetPx = clampScroll(row.bodyRect.bottom - viewportHeightPx + pad);
+            }
+            return scrollOffsetPx != before;
+        }
+        return false;
+    }
+
     /** Scroll the row region by {@code dy} px (clamped); returns true if it consumed the scroll. */
     public boolean scrollBy(float dy) {
         float before = scrollOffsetPx;

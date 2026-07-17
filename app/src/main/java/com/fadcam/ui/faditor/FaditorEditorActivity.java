@@ -10803,6 +10803,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // Layers-UX Slice C: visualizer delete now rides the selection badge
                     // (the old long-press-on-bar path is retired with drawLayers).
                     deleteVisualizerWithConfirmation(item.getWaveform());
+                } else if (item.getSprite() != null) {
+                    // The drawer trash is gone (JoyRaptor 2026-07-17) — the badge is now
+                    // the ONE sprite delete affordance, so it needs its own branch.
+                    deleteSpriteWithConfirmation(item.getSprite());
                 }
             }
 
@@ -10864,6 +10868,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // G7 (contract §6/§7): first-ever selection teaches the invisible
                 // per-item gestures (double-tap / hold / drag) once.
                 if (item != null) maybeShowGestureCoachMark();
+                // C6 (JoyRaptor 2026-07-17): ONE open drawer, owned by the selection.
+                // Selecting a different object RETARGETS the sheet when the new
+                // type has drawer adapters, closes it otherwise — no more "sprite
+                // menu over the image editor" stacking.
+                if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+                    if (item != null && item.getTextOverlay() != null) {
+                        showObjectMenuSheetForTextOverlay(item.getTextOverlay());
+                    } else if (item != null && item.getSprite() != null) {
+                        showObjectMenuSheetForSprite(item.getSprite());
+                    } else {
+                        objectMenuSheet.hide();
+                    }
+                }
+                // Selecting from the preview (or anywhere) also scrolls the layer
+                // band so the selected object's row is on-screen (JoyRaptor 2026-07-17).
+                if (item != null && editorTimeline != null) {
+                    editorTimeline.revealLayerRowForItem(item.getId());
+                }
                 // Audio consolidation: selecting/deselecting an audio ROW item replaces the
                 // legacy onAudioClipSelected side effect — keep the open transcript panel
                 // following the audio selection (getSelectedAudioIndex now derives from
@@ -13526,7 +13548,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onEditRequested(
                     @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+                // Double-tap = type editor (grammar 2026-07-17). For images the
+                // type editor IS the general drawer — showTextOverlayEditor
+                // delegates image items there (the modal dialog is retired).
                 showTextOverlayEditor(item);
+            }
+
+            @Override
+            public void onOverlaySelected(
+                    @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+                // Tap = select: route through the unified row selection so handles,
+                // drawer retargeting and the row reveal all fire from ONE place.
+                if (editorTimeline != null) {
+                    editorTimeline.selectLayerItemById(item.getId());
+                    editorTimeline.revealLayerRowForItem(item.getId());
+                }
+            }
+
+            @Override
+            public void onOverlayHeld(
+                    @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+                // Hold = general properties drawer (grammar 2026-07-17).
+                if (editorTimeline != null) {
+                    editorTimeline.selectLayerItemById(item.getId());
+                    editorTimeline.revealLayerRowForItem(item.getId());
+                }
+                showObjectMenuSheetForTextOverlay(item);
             }
 
             @Override
@@ -14068,8 +14115,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onSpriteDoubleTapped(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
-                // JoyRaptor 2026-07-16: double-tap a sprite/avatar in the preview → its
-                // advanced object menu (same sheet the timeline item opens).
+                // Grammar 2026-07-17: double-tap = TYPE editor (what JoyRaptor expects
+                // when tapping a sprite) — same route as the timeline G1 double-tap.
+                openSpritePalette();
+            }
+
+            @Override
+            public void onSpriteTapped(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                // Tap = select via the unified row selection (+ reveal its row).
+                if (editorTimeline != null) {
+                    editorTimeline.selectLayerItemById(item.getId());
+                    editorTimeline.revealLayerRowForItem(item.getId());
+                }
+            }
+
+            @Override
+            public void onSpriteHeld(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                // Hold = general properties drawer (the 2026-07-16 double-tap route).
+                if (editorTimeline != null) {
+                    editorTimeline.selectLayerItemById(item.getId());
+                    editorTimeline.revealLayerRowForItem(item.getId());
+                }
                 showObjectMenuSheetForSprite(item);
             }
 
@@ -14966,13 +15034,58 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
+        // Peek-visible range chips (C2): Start/End here must work WHILE scrubbing —
+        // exactly what the retired modal dialog made impossible.
+        java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
+        rangeChips.add(new ObjectMenuSheet.Action("⇤ Start here", false,   // TODO(strings)
+                () -> setOverlayRangeEdgeAtPlayhead(o, true)));
+        rangeChips.add(new ObjectMenuSheet.Action("End here ⇥", false,    // TODO(strings)
+                () -> setOverlayRangeEdgeAtPlayhead(o, false)));
+
         String title = o.isImage() ? "Image"                            // TODO(strings)
                 : (o.getText().length() > 18 ? o.getText().substring(0, 18) + "…" : o.getText());
         Integer swatch = o.isImage() ? null : o.getColorInt();
+        // Images: the drawer IS their type editor — no "More…" target left.
+        Runnable onMore = o.isImage() ? null : () -> showTextOverlayEditor(o);
         ensureObjectMenuSheet().show(title, swatch, props, actions,
-                () -> showTextOverlayEditor(o),
-                () -> deleteTextOverlayWithConfirmation(o),
-                hooks, lastPlayheadAbsoluteMs, null);
+                onMore, rangeChips, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    /**
+     * "Start here" / "End here" off the drawer's peek chips: clip the overlay's
+     * visible range to the playhead (same validation as the old dialog buttons,
+     * now with ONE undo step — the dialog version recorded none).
+     */
+    private void setOverlayRangeEdgeAtPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, boolean startEdge) {
+        final long ph = lastPlayheadAbsoluteMs;
+        if (startEdge) {
+            if (o.getEndMs() != Long.MAX_VALUE && ph >= o.getEndMs()) {
+                Toast.makeText(this, R.string.faditor_kf_range_invalid, Toast.LENGTH_SHORT).show();
+                return;
+            }
+        } else {
+            if (ph <= o.getStartMs()) {
+                Toast.makeText(this, R.string.faditor_kf_range_invalid, Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        final long beforeStart = o.getStartMs(), beforeEnd = o.getEndMs();
+        final long afterStart = startEdge ? ph : beforeStart;
+        final long afterEnd = startEdge ? beforeEnd : ph;
+        o.setTimeRange(afterStart, afterEnd);
+        undoManager.recordAction(new EditActions.LambdaAction(
+                startEdge ? "Overlay start" : "Overlay end",              // TODO(strings)
+                () -> { o.setTimeRange(afterStart, afterEnd); refreshOverlayAfterRangeEdit(); },
+                () -> { o.setTimeRange(beforeStart, beforeEnd); refreshOverlayAfterRangeEdit(); }));
+        refreshOverlayAfterRangeEdit();
+        Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
+    }
+
+    private void refreshOverlayAfterRangeEdit() {
+        if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+        syncTimelineOverlays();
+        scheduleAutoSave();
     }
 
     /** Normalize degrees into the slider's [-180, 180) window. */
@@ -15018,7 +15131,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(s.getSheetId());
         String title = sheet != null ? sheet.getName() : "Sprite";        // TODO(strings)
-        Runnable onDelete = () -> new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        // Delete lives on the timeline selection badge only (JoyRaptor 2026-07-17 —
+        // the drawer trash was confusing next to ×, and duplicated the badge).
+        ensureObjectMenuSheet().show(title, null, props,
+                new java.util.ArrayList<>(), // sprites: one-per-lane (T8), no layer actions yet
+                this::openSpritePalette, null, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    /**
+     * Sprite delete confirmation — one undo step. Was the drawer trash's inline
+     * dialog; now fired from the timeline selection badge (the single delete
+     * affordance, JoyRaptor 2026-07-17).
+     */
+    private void deleteSpriteWithConfirmation(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+        if (project == null) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Remove sprite?")                                // TODO(strings)
                 .setNegativeButton("Cancel", null)                         // TODO(strings)
                 .setPositiveButton("Remove", (d, w) -> {                   // TODO(strings)
@@ -15033,9 +15161,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     scheduleAutoSave();
                 })
                 .show();
-        ensureObjectMenuSheet().show(title, null, props,
-                new java.util.ArrayList<>(), // sprites: one-per-lane (T8), no layer actions yet
-                this::openSpritePalette, onDelete, hooks, lastPlayheadAbsoluteMs, null);
     }
 
     /** Sprite twin of {@link #overlayMenuProp}: keyframe-aware write + diamond. */
@@ -15339,35 +15464,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 
-    /** Simple dialog to edit an overlay's text and colour, or delete it. */
+    /** Type editor: text/colour dialog for TEXT overlays. IMAGE overlays have no
+     *  content of their own — their type editor IS the general drawer, so they
+     *  delegate there (D1, JoyRaptor 2026-07-17: the modal image dialog is retired —
+     *  it dimmed the preview and blocked scrubbing, killing "End here"). */
     private void showTextOverlayEditor(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
-        // Image overlays have nothing to type — offer animation + delete only.
         if (item.isImage()) {
-            int ipad = (int) (16 * getResources().getDisplayMetrics().density);
-            android.widget.LinearLayout iroot = new android.widget.LinearLayout(this);
-            iroot.setOrientation(android.widget.LinearLayout.VERTICAL);
-            iroot.setPadding(ipad, ipad, ipad, 0);
-            TextView desc = new TextView(this);
-            desc.setText(R.string.faditor_image_overlay_desc);
-            desc.setTextColor(0xFFBBBBBB);
-            iroot.addView(desc);
-            iroot.addView(buildOverlayAnimationControls(item));
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.faditor_image_overlay_title)
-                    .setView(iroot)
-                    .setNeutralButton(R.string.faditor_text_delete, (d, w) -> {
-                        project.getTimeline().removeTextOverlay(item);
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
-                                overlayLayerCallback());
-                        syncTimelineOverlays();
-                        undoManager.recordAction(new EditActions.LambdaAction("Delete image overlay",
-                                () -> project.getTimeline().removeTextOverlay(item),
-                                () -> project.getTimeline().addTextOverlay(item)));
-                        scheduleAutoSave();
-                    })
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show();
+            showObjectMenuSheetForTextOverlay(item);
             return;
         }
 

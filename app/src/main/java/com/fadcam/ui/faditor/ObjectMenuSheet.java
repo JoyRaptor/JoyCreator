@@ -127,10 +127,12 @@ public final class ObjectMenuSheet extends LinearLayout {
     private final LinearLayout headerRow;
     private final TextView titleView;
     private final View swatchView;
-    private final TextView deleteBtn;
     private final ScrollView scroll;
-    private final LinearLayout content;      // rows + actions + more, inside scroll
+    private final LinearLayout content;      // rows + range chips + actions + more, inside scroll
     private final LinearLayout propsBox;
+    /** Compact chip row (Start here / End here …) visible in PEEK too — range edits are
+     *  exactly the actions that need a live, scrubbable timeline (JoyRaptor 2026-07-17 C2). */
+    private final LinearLayout rangeBox;
     private final LinearLayout actionsBox;
     private final TextView moreBtn;
 
@@ -197,8 +199,8 @@ public final class ObjectMenuSheet extends LinearLayout {
         titleView.setSingleLine(true);
         titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         headerRow.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        deleteBtn = glyphButton("🗑", DESTRUCTIVE); // 🗑
-        headerRow.addView(deleteBtn);
+        // No trash here: the timeline selection badge is the ONE delete affordance
+        // (JoyRaptor 2026-07-17) — × stays on the right.
         TextView closeBtn = glyphButton("✕", TXT_DIM);
         closeBtn.setOnClickListener(v -> hide());
         headerRow.addView(closeBtn);
@@ -209,6 +211,10 @@ public final class ObjectMenuSheet extends LinearLayout {
         propsBox = new LinearLayout(ctx);
         propsBox.setOrientation(VERTICAL);
         content.addView(propsBox);
+        rangeBox = new LinearLayout(ctx);
+        rangeBox.setOrientation(HORIZONTAL);
+        rangeBox.setPadding(0, dp(6), 0, dp(2));
+        content.addView(rangeBox);
         actionsBox = new LinearLayout(ctx);
         actionsBox.setOrientation(VERTICAL);
         content.addView(actionsBox);
@@ -239,10 +245,14 @@ public final class ObjectMenuSheet extends LinearLayout {
 
     // ── public API ───────────────────────────────────────────────────
 
-    /** (Re)populate and show, starting in PEEK. */
+    /**
+     * (Re)populate and show, starting in PEEK. {@code rangeChips} (nullable) are
+     * compact peek-visible chips — Start/End-here style actions that only make
+     * sense with the timeline live under the sheet.
+     */
     public void show(@NonNull String title, @Nullable Integer swatchColor,
                      @NonNull List<Prop> props, @NonNull List<Action> actions,
-                     @Nullable Runnable onMore, @Nullable Runnable onDelete,
+                     @Nullable Runnable onMore, @Nullable List<Action> rangeChips,
                      @NonNull GestureHooks hooks, long playheadMs,
                      @Nullable Runnable onDismiss) {
         this.hooks = hooks;
@@ -255,8 +265,6 @@ public final class ObjectMenuSheet extends LinearLayout {
         } else {
             swatchView.setVisibility(GONE);
         }
-        deleteBtn.setVisibility(onDelete != null ? VISIBLE : GONE);
-        deleteBtn.setOnClickListener(onDelete == null ? null : v -> { hide(); onDelete.run(); });
         moreBtn.setVisibility(onMore != null ? VISIBLE : GONE);
         moreBtn.setOnClickListener(onMore == null ? null : v -> onMore.run());
 
@@ -266,6 +274,28 @@ public final class ObjectMenuSheet extends LinearLayout {
             Row row = new Row(p);
             rows.add(row);
             propsBox.addView(row.view);
+        }
+        rangeBox.removeAllViews();
+        if (rangeChips != null) {
+            for (Action a : rangeChips) {
+                TextView chip = new TextView(getContext());
+                chip.setText(a.label);
+                chip.setTextColor(a.destructive ? DESTRUCTIVE : TXT);
+                chip.setTextSize(12);
+                chip.setSingleLine(true);
+                chip.setPadding(dp(10), dp(6), dp(10), dp(6));
+                GradientDrawable chipBg = new GradientDrawable();
+                chipBg.setColor(0xFF2A2A2E);
+                chipBg.setCornerRadius(dp(14));
+                chipBg.setStroke(dp(1), 0xFF3A3A3E);
+                chip.setBackground(chipBg);
+                chip.setOnClickListener(v -> a.run.run());
+                LayoutParams clp = new LayoutParams(
+                        LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+                clp.rightMargin = dp(8);
+                chip.setLayoutParams(clp);
+                rangeBox.addView(chip);
+            }
         }
         actionsBox.removeAllViews();
         for (Action a : actions) {
@@ -315,6 +345,8 @@ public final class ObjectMenuSheet extends LinearLayout {
 
     private void applyState() {
         headerRow.setVisibility(expanded ? VISIBLE : GONE);
+        // Range chips stay in PEEK — they're the scrub-while-open actions (C2).
+        rangeBox.setVisibility(rangeBox.getChildCount() > 0 ? VISIBLE : GONE);
         actionsBox.setVisibility(expanded ? VISIBLE : GONE);
         moreBtn.setVisibility(expanded && moreBtn.hasOnClickListeners() ? VISIBLE : GONE);
         for (Row row : rows) {

@@ -33,8 +33,16 @@ public class TextOverlayLayer extends FrameLayout {
         @NonNull RectF getVideoContentRect();
         /** An overlay's position/size/text changed — persist it. */
         void onOverlayChanged();
-        /** User tapped an overlay — open the editor for it. */
+        /**
+         * User DOUBLE-TAPPED an overlay — open its type editor (program-wide
+         * gesture grammar, JoyRaptor 2026-07-17: tap = select, double-tap = type
+         * editor, hold = general drawer).
+         */
         void onEditRequested(@NonNull TextOverlayItem item);
+        /** Single tap (no drag) — select the overlay (timeline row + handles). */
+        default void onOverlaySelected(@NonNull TextOverlayItem item) { }
+        /** Hold (~long-press, no movement) — open the general properties drawer. */
+        default void onOverlayHeld(@NonNull TextOverlayItem item) { }
         /**
          * A drag/pinch gesture on {@code item} finished, mutating its transform
          * (and possibly adding a keyframe). {@code before} is the snapshot taken
@@ -51,6 +59,9 @@ public class TextOverlayLayer extends FrameLayout {
     private long currentTimeMs = 0;
     /** Overlay being actively dragged/scaled — shown at its static transform. */
     @Nullable private TextOverlayItem manipulating;
+    /** Double-tap pairing state (type-editor express lane, layer-level). */
+    @Nullable private TextOverlayItem lastTapOverlay;
+    private long lastTapUpMs;
     private boolean snapEnabled = true;
     private static final float SNAP_THRESHOLD = 0.045f;
     private static final long TIME_SNAP_MS = 250L;
@@ -239,7 +250,21 @@ public class TextOverlayLayer extends FrameLayout {
         tv.setOnTouchListener(new OnTouchListener() {
             float downRawX, downRawY, startCenterX, startCenterY;
             boolean moved;
+            /** The hold (long-press) fired — this gesture is fully consumed. */
+            boolean heldFired;
             @Nullable TextOverlayItem.TransformSnapshot beforeGesture;
+            final Runnable holdRunnable = () -> {
+                // Hold with no movement = general properties drawer (gesture
+                // grammar 2026-07-17). The overlay hasn't moved, so just end
+                // the manipulation cleanly and hand off.
+                heldFired = true;
+                manipulating = null;
+                tv.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                position(tv, o);
+                if (callback != null) callback.onOverlayHeld(o);
+            };
+
+            void cancelHold() { tv.removeCallbacks(holdRunnable); }
 
             @Override
             public boolean onTouch(View v, MotionEvent e) {
@@ -251,11 +276,21 @@ public class TextOverlayLayer extends FrameLayout {
                         startCenterX = o.getCenterX();
                         startCenterY = o.getCenterY();
                         moved = false;
+                        heldFired = false;
                         manipulating = o;
                         beforeGesture = o.snapshotTransform();
+                        tv.postDelayed(holdRunnable,
+                                android.view.ViewConfiguration.getLongPressTimeout());
+                        return true;
+                    case MotionEvent.ACTION_POINTER_DOWN:
+                        cancelHold(); // pinch incoming — not a hold
                         return true;
                     case MotionEvent.ACTION_MOVE:
-                        if (scaleDetector.isInProgress() || callback == null) return true;
+                        if (heldFired) return true;
+                        if (scaleDetector.isInProgress() || callback == null) {
+                            cancelHold();
+                            return true;
+                        }
                         RectF r = callback.getVideoContentRect();
                         if (r.width() <= 0 || r.height() <= 0) return true;
                         float dx = (e.getRawX() - downRawX) / r.width();
@@ -263,6 +298,7 @@ public class TextOverlayLayer extends FrameLayout {
                         if (Math.abs(e.getRawX() - downRawX) > 8
                                 || Math.abs(e.getRawY() - downRawY) > 8) {
                             moved = true;
+                            cancelHold();
                         }
                         if (snapEnabled) {
                             float snappedX = snapX(startCenterX + dx);
@@ -273,11 +309,30 @@ public class TextOverlayLayer extends FrameLayout {
                         }
                         position(tv, o);
                         return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        cancelHold();
+                        manipulating = null;
+                        beforeGesture = null;
+                        position(tv, o);
+                        return true;
                     case MotionEvent.ACTION_UP:
+                        cancelHold();
+                        if (heldFired) { // drawer already opened; swallow the UP
+                            beforeGesture = null;
+                            return true;
+                        }
                         manipulating = null;
                         if (callback != null) {
                             if (!moved) {
-                                callback.onEditRequested(o);
+                                long now = android.os.SystemClock.uptimeMillis();
+                                if (o == lastTapOverlay && now - lastTapUpMs <= 320) {
+                                    lastTapOverlay = null;
+                                    callback.onEditRequested(o); // double-tap = type editor
+                                } else {
+                                    lastTapOverlay = o;
+                                    lastTapUpMs = now;
+                                    callback.onOverlaySelected(o); // tap = select
+                                }
                             } else {
                                 // Auto-keyframe: once an overlay is armed (has a
                                 // keyframe), moving it at the playhead records a

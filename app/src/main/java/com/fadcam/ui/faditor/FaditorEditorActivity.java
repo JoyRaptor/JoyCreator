@@ -10851,10 +10851,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     showObjectMenuSheetForTextOverlay(item.getTextOverlay());
                 } else if (item.getSprite() != null) {
                     showObjectMenuSheetForSprite(item.getSprite());
+                } else if (item.getAudioClip() != null) {
+                    showObjectMenuSheetForAudioClip(item.getAudioClip());
+                } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                    showObjectMenuSheetForPipClip(item.getClip());
+                } else if (item.getWaveform() != null) {
+                    showObjectMenuSheetForVisualizer(item.getWaveform());
                 }
-                // Audio / PiP / visualizer: no general menu yet — the item stays
-                // lifted-then-dropped-in-place with no side effect (the pickup already gave
-                // haptic feedback), wired as their §2 Prop adapters come online.
+                // Any other type (a master-track clip, caption span) has no §2 general
+                // menu — the item stays lifted-then-dropped-in-place, no side effect.
             }
 
             @Override
@@ -10877,6 +10882,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         showObjectMenuSheetForTextOverlay(item.getTextOverlay());
                     } else if (item != null && item.getSprite() != null) {
                         showObjectMenuSheetForSprite(item.getSprite());
+                    } else if (item != null && item.getAudioClip() != null) {
+                        showObjectMenuSheetForAudioClip(item.getAudioClip());
+                    } else if (item != null && item.getClip() != null
+                            && item.getClip().isOverlayClip()) {
+                        showObjectMenuSheetForPipClip(item.getClip());
+                    } else if (item != null && item.getWaveform() != null) {
+                        showObjectMenuSheetForVisualizer(item.getWaveform());
                     } else {
                         objectMenuSheet.hide();
                     }
@@ -14586,9 +14598,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                     android.view.Gravity.BOTTOM);
             root.addView(objectMenuSheet, lp);
-            // G3: the focused keyframeable property drives the top ribbon.
+            // G3: the focused keyframeable property drives the top ribbon. §2
+            // STATIC props (visualizer / audio placement) have no keyframes, so
+            // they must NOT raise a keyframe ribbon over the preview — gate here.
             objectMenuSheet.setFocusListener(prop -> {
-                ribbonProp = prop;
+                ribbonProp = (prop != null && prop.keyframeable) ? prop : null;
                 refreshKeyframeRibbon();
             });
         }
@@ -15419,6 +15433,591 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> { s.restoreTransform(before);
                         if (spriteOverlayView != null) spriteOverlayView.invalidate(); }));
         scheduleAutoSave();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // §2 ObjectMenuSheet adapters for AUDIO / PiP / VISUALIZER (spec: the
+    // hold-drawer's general menu, previously text/sprite only). Three backends:
+    //   • Audio  — its OWN volume envelope (VolumeKeyframe, clip-local ms,
+    //     linear only), NOT a KeyframeSet; one "Volume" prop, no ease picker.
+    //   • PiP    — an overlay Clip whose getOverlayTransform() IS a KeyframeSet
+    //     with ABSOLUTE-ms keys (preview + export sample valueAt at absolute ms).
+    //   • Viz    — static transform only (no KeyframeSet) → Prop.staticProp, no
+    //     diamond; the rich per-type editor stays behind More…/showVisualizerDrawer.
+    // C6 retarget starts working for all three the moment they dispatch here.
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ── AUDIO (volume envelope) ──────────────────────────────────────────
+
+    /**
+     * §2 general menu for an AUDIO clip. Audio animates ONLY its volume, via the
+     * {@link com.fadcam.ui.faditor.model.AudioClip} envelope (clip-local ms; the
+     * SAME semantics as the band's blue rubber-band and {@link #applyDraggedVolume}).
+     * No pan (the export mixer can't honor it). No More…/range chips — audio trim
+     * lives on the band.
+     */
+    private void showObjectMenuSheetForAudioClip(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
+        if (project == null) return;
+        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
+        props.add(audioVolumeProp(ac, pct));
+
+        java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
+        actions.add(new ObjectMenuSheet.Action("Clear volume envelope", true, // TODO(strings)
+                () -> clearAudioVolumeEnvelope(ac)));
+
+        final AudioVolumeState[] sliderBefore = new AudioVolumeState[1];
+        ObjectMenuSheet.GestureHooks hooks = new ObjectMenuSheet.GestureHooks() {
+            @Override public void onSliderStart() { sliderBefore[0] = snapshotAudioVolume(ac); }
+            @Override public void onSliderCommit(@NonNull String what) {
+                if (sliderBefore[0] != null) {
+                    recordAudioVolumeUndo(ac, sliderBefore[0].level, sliderBefore[0].kfs, what);
+                }
+                sliderBefore[0] = null;
+            }
+        };
+
+        String title = (ac.getLabel() != null && !ac.getLabel().isEmpty())
+                ? ac.getLabel() : "Audio"; // TODO(strings)
+        ensureObjectMenuSheet().show(title, null, props, actions,
+                null, null, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    /** The single "Volume" adapter — diamond mapped to the VolumeKeyframe envelope. */
+    @NonNull
+    private ObjectMenuSheet.Prop audioVolumeProp(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac,
+            @NonNull ObjectMenuSheet.ValueFormat fmt) {
+        ObjectMenuSheet.Getter get = ms -> ac.gainAtClipMs(ms - ac.getOffsetMs());
+        ObjectMenuSheet.Setter set = (v, ms) -> {
+            if (ac.hasVolumeKeyframes()) {
+                ac.addOrUpdateVolumeKeyframe(ms - ac.getOffsetMs(), v);
+            } else {
+                ac.setVolumeLevel(v);
+                if (v > 0f) ac.setMuted(false);
+            }
+            applyAudioLivePlayerGain(ac);
+            if (editorTimeline != null) editorTimeline.invalidate();
+        };
+        ObjectMenuSheet.OnKeyQuery onKey = ms -> volumeKeyUnderPlayhead(ac, ms) != null;
+        Runnable dropKey = () -> {
+            AudioVolumeState before = snapshotAudioVolume(ac);
+            long local = lastPlayheadAbsoluteMs - ac.getOffsetMs();
+            ac.addOrUpdateVolumeKeyframe(local, ac.gainAtClipMs(local));
+            recordAudioVolumeUndo(ac, before.level, before.kfs, "Add keyframe"); // TODO(strings)
+            applyAudioLivePlayerGain(ac);
+            if (editorTimeline != null) editorTimeline.invalidate();
+        };
+        Runnable prevKey = () -> jumpToAdjacentVolumeKey(ac, false);
+        Runnable nextKey = () -> jumpToAdjacentVolumeKey(ac, true);
+        Runnable deleteKey = () -> {
+            Long hit = volumeKeyUnderPlayhead(ac, lastPlayheadAbsoluteMs);
+            if (hit == null) return;
+            AudioVolumeState before = snapshotAudioVolume(ac);
+            removeVolumeKeyframeAt(ac, hit);
+            recordAudioVolumeUndo(ac, before.level, before.kfs, "Delete keyframe"); // TODO(strings)
+            applyAudioLivePlayerGain(ac);
+            if (editorTimeline != null) editorTimeline.invalidate();
+        };
+        ObjectMenuSheet.ArmedQuery armed = ac::hasVolumeKeyframes;
+        // The envelope interpolates linearly — no per-segment easing (picker shows nothing).
+        return new ObjectMenuSheet.Prop("audio_volume", "Volume", 0f, 2f, fmt, // TODO(strings)
+                get, set, onKey, dropKey, prevKey, nextKey, deleteKey, armed, null, null);
+    }
+
+    /** Clip-local time of a VolumeKeyframe under (±66ms of) the playhead, or null. */
+    @Nullable
+    private Long volumeKeyUnderPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, long absMs) {
+        long local = absMs - ac.getOffsetMs();
+        for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) {
+            if (Math.abs(kf.timeMs - local) <= 66) return kf.timeMs;
+        }
+        return null;
+    }
+
+    /** Remove the envelope keyframe at an exact clip-local ms (getVolumeKeyframes is live). */
+    private void removeVolumeKeyframeAt(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, long localMs) {
+        java.util.Iterator<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> it =
+                ac.getVolumeKeyframes().iterator();
+        while (it.hasNext()) {
+            if (it.next().timeMs == localMs) { it.remove(); return; }
+        }
+    }
+
+    /** G3 chevrons: seek to the nearest envelope key strictly before/after the playhead. */
+    private void jumpToAdjacentVolumeKey(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, boolean forward) {
+        if (editorTimeline == null) return;
+        long local = lastPlayheadAbsoluteMs - ac.getOffsetMs();
+        Long best = null;
+        for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) {
+            if (forward ? kf.timeMs > local + 66 : kf.timeMs < local - 66) {
+                if (best == null || (forward ? kf.timeMs < best : kf.timeMs > best)) best = kf.timeMs;
+            }
+        }
+        if (best != null) editorTimeline.seekToTimelineMs(ac.getOffsetMs() + best);
+    }
+
+    /** Push the effective gain at the playhead to the live audio player (if ready). */
+    private void applyAudioLivePlayerGain(@NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
+        int idx = project.getTimeline().getAudioClips().indexOf(ac);
+        if (idx < 0 || idx >= audioPlayers.size() || idx >= audioPlayersReady.size()
+                || !audioPlayersReady.get(idx)) return;
+        float g = ac.isMuted() ? 0f : ac.gainAtClipMs(lastPlayheadAbsoluteMs - ac.getOffsetMs());
+        audioPlayers.get(idx).setVolume(g, g);
+    }
+
+    /** Snapshot of an audio clip's volume state for one-undo-step bracketing. */
+    private static final class AudioVolumeState {
+        final float level;
+        final java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> kfs;
+        AudioVolumeState(float level,
+                @NonNull java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> kfs) {
+            this.level = level;
+            this.kfs = kfs;
+        }
+    }
+
+    private AudioVolumeState snapshotAudioVolume(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
+        return new AudioVolumeState(ac.getVolumeLevel(), copyVolumeKeyframes(ac));
+    }
+
+    @NonNull
+    private java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> copyVolumeKeyframes(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
+        java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> out =
+                new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) {
+            out.add(new com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe(kf.timeMs, kf.volume));
+        }
+        return out;
+    }
+
+    /** One undo step per committed audio-menu gesture (mirrors recordOverlayMenuUndo). */
+    private void recordAudioVolumeUndo(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, float beforeLevel,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> beforeKfs,
+            @NonNull String description) {
+        float afterLevel = ac.getVolumeLevel();
+        java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> afterKfs =
+                copyVolumeKeyframes(ac);
+        if (afterLevel == beforeLevel && sameVolumeKeyframes(beforeKfs, afterKfs)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(description,
+                () -> applyAudioVolumeState(ac, afterLevel, afterKfs),
+                () -> applyAudioVolumeState(ac, beforeLevel, beforeKfs)));
+        scheduleAutoSave();
+    }
+
+    private void applyAudioVolumeState(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, float level,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> kfs) {
+        ac.setVolumeLevel(level);
+        ac.setVolumeKeyframes(kfs); // setter re-copies + sorts + clamps
+        applyAudioLivePlayerGain(ac);
+        if (editorTimeline != null) editorTimeline.invalidate();
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+        }
+    }
+
+    private boolean sameVolumeKeyframes(
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> a,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            if (a.get(i).timeMs != b.get(i).timeMs || a.get(i).volume != b.get(i).volume) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void clearAudioVolumeEnvelope(@NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
+        if (!ac.hasVolumeKeyframes()) return;
+        AudioVolumeState before = snapshotAudioVolume(ac);
+        ac.clearVolumeKeyframes();
+        recordAudioVolumeUndo(ac, before.level, before.kfs, "Clear volume envelope"); // TODO(strings)
+        applyAudioLivePlayerGain(ac);
+        if (editorTimeline != null) editorTimeline.invalidate();
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+        }
+    }
+
+    // ── PiP (overlay video clip transform) ───────────────────────────────
+
+    /** PiP overlay-clip transform property keys (the shared KeyframeSet primitives). */
+    private static final String[] PIP_KEYS = {
+            com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+            com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+            com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+            com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
+            com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY};
+
+    /**
+     * §2 general menu for a PiP overlay {@link Clip}. Its {@code getOverlayTransform()}
+     * KeyframeSet holds ABSOLUTE-timeline-ms keys — preview ({@code OverlayVideoPreviewView})
+     * and export ({@code PipFrameOverlay}) both sample {@code valueAt} at absolute ms — so
+     * the diamond helpers run with itemStart=0. Undo reuses {@link #restoreOverlayTransform}.
+     */
+    private void showObjectMenuSheetForPipClip(@NonNull Clip c) {
+        if (project == null) return;
+        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+        java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
+        props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                "Pos X", 0f, 1f, pct));      // TODO(strings)
+        props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                "Pos Y", 0f, 1f, pct));      // TODO(strings)
+        props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                "Scale", 0.05f, 1.5f, pct)); // TODO(strings)
+        props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
+                "Rotate", -180f, 180f, deg)); // TODO(strings)
+        props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
+                "Opacity", 0f, 1f, pct));    // TODO(strings)
+
+        java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
+        actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
+                () -> clearAllPipKeyframes(c)));
+
+        final com.fadcam.ui.faditor.keyframe.KeyframeSet[] sliderBefore =
+                new com.fadcam.ui.faditor.keyframe.KeyframeSet[1];
+        ObjectMenuSheet.GestureHooks hooks = new ObjectMenuSheet.GestureHooks() {
+            @Override public void onSliderStart() { sliderBefore[0] = pipKfCopy(c); }
+            @Override public void onSliderCommit(@NonNull String what) {
+                if (sliderBefore[0] != null) recordPipMenuUndo(c, sliderBefore[0], what);
+                sliderBefore[0] = null;
+            }
+        };
+        ensureObjectMenuSheet().show("Video overlay", null, props, actions, // TODO(strings)
+                null, null, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    @NonNull
+    private ObjectMenuSheet.Prop pipMenuProp(
+            @NonNull Clip c, @NonNull String key, @NonNull String label,
+            float min, float max, @NonNull ObjectMenuSheet.ValueFormat fmt) {
+        ObjectMenuSheet.Getter get = ms -> pipValueAt(c, key, ms);
+        ObjectMenuSheet.Setter set = (v, ms) -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeSet kf = ensurePipKf(c);
+            if (pipArmed(c)) {
+                long t = snapPipKeyTime(kf.get(key), ms);
+                kf.getOrCreate(key).put(t, v, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+            } else {
+                // Static write: collapse to a single t=0 key (OverlayVideoPreviewView.putStatic parity).
+                com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = kf.getOrCreate(key);
+                tr.keyframes.clear();
+                tr.put(0L, v, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+            }
+            refreshPipAfterMenuWrite();
+        };
+        ObjectMenuSheet.OnKeyQuery onKey = ms -> keyUnderPlayheadLocalMs(pipTrack(c, key), 0) != null;
+        Runnable dropKey = () -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeSet before = pipKfCopy(c);
+            com.fadcam.ui.faditor.keyframe.KeyframeSet kf = ensurePipKf(c);
+            long ph = lastPlayheadAbsoluteMs;
+            if (pipArmed(c)) {
+                long t = snapPipKeyTime(kf.get(key), ph);
+                kf.getOrCreate(key).put(t, pipValueAt(c, key, ph),
+                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+            } else {
+                // First diamond ARMS the whole pose — key EVERY prop at the playhead.
+                for (String k2 : PIP_KEYS) {
+                    kf.getOrCreate(k2).put(ph, pipValueAt(c, k2, ph),
+                            com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                }
+            }
+            recordPipMenuUndo(c, before, "Add keyframe"); // TODO(strings)
+            refreshPipAfterMenuWrite();
+        };
+        Runnable prevKey = () -> jumpToAdjacentKey(pipTrack(c, key), 0, false);
+        Runnable nextKey = () -> jumpToAdjacentKey(pipTrack(c, key), 0, true);
+        Runnable deleteKey = () -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+            if (kf == null) return;
+            Long hit = keyUnderPlayheadLocalMs(kf.get(key), 0);
+            if (hit == null) return;
+            com.fadcam.ui.faditor.keyframe.KeyframeSet before = kf.copy();
+            kf.removeKey(key, hit);
+            recordPipMenuUndo(c, before, "Delete keyframe"); // TODO(strings)
+            refreshPipAfterMenuWrite();
+        };
+        ObjectMenuSheet.ArmedQuery armed = () -> pipArmed(c);
+        ObjectMenuSheet.EaseGet easeGet = ms -> segmentEasingAt(pipTrack(c, key), 0, ms);
+        ObjectMenuSheet.EaseSet easeSet = (e, ms) -> setSegmentEasingForPip(c, key, ms, e);
+        return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey,
+                prevKey, nextKey, deleteKey, armed, easeGet, easeSet);
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.keyframe.KeyframeTrack pipTrack(
+            @NonNull Clip c, @NonNull String key) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+        return kf == null ? null : kf.get(key);
+    }
+
+    /** Animated value of a PiP prop at an absolute ms, with the preview's per-key defaults. */
+    private float pipValueAt(@NonNull Clip c, @NonNull String key, long absMs) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+        float def = pipDefaultFor(key);
+        float v = kf == null ? def : kf.valueAt(key, absMs, def);
+        return com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(key) ? normDeg(v) : v;
+    }
+
+    private static float pipDefaultFor(@NonNull String key) {
+        switch (key) {
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.X:
+                return com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X;
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.Y:
+                return com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y;
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE:
+                return com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_SCALE;
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY:
+                return 1f;
+            default:
+                return 0f; // ROTATION
+        }
+    }
+
+    /** Armed = any transform track has ≥2 keys, or any key past t=0 (single t=0 = static). */
+    private boolean pipArmed(@NonNull Clip c) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+        if (kf == null) return false;
+        for (String k : PIP_KEYS) {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = kf.get(k);
+            if (tr == null) continue;
+            if (tr.keyframes.size() >= 2) return true;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe key : tr.keyframes) {
+                if (key.timeMs > 0) return true;
+            }
+        }
+        return false;
+    }
+
+    @NonNull
+    private com.fadcam.ui.faditor.keyframe.KeyframeSet ensurePipKf(@NonNull Clip c) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+        if (kf == null) {
+            kf = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+            c.setOverlayTransform(kf);
+        }
+        return kf;
+    }
+
+    @NonNull
+    private com.fadcam.ui.faditor.keyframe.KeyframeSet pipKfCopy(@NonNull Clip c) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+        return kf == null ? new com.fadcam.ui.faditor.keyframe.KeyframeSet() : kf.copy();
+    }
+
+    /** KeyframeTrack.put matches EXACT ms — snap a write to an existing near key first. */
+    private long snapPipKeyTime(
+            @Nullable com.fadcam.ui.faditor.keyframe.KeyframeTrack tr, long absMs) {
+        if (tr == null) return absMs;
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (Math.abs(k.timeMs - absMs) <= 66) return k.timeMs;
+        }
+        return absMs;
+    }
+
+    /** D2a PiP twin of {@link #setSegmentEasingForOverlay} (absolute-ms keys). */
+    private void setSegmentEasingForPip(@NonNull Clip c, @NonNull String key, long playheadMs,
+            @NonNull com.fadcam.ui.faditor.keyframe.Easing e) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+        if (kf == null) return;
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = kf.get(key);
+        if (tr == null || tr.keyframes.isEmpty()) return;
+        com.fadcam.ui.faditor.keyframe.Keyframe owner = null;
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (k.timeMs <= playheadMs) owner = k; else break;
+        }
+        if (owner == null) return;
+        com.fadcam.ui.faditor.keyframe.KeyframeSet before = kf.copy();
+        owner.easing = e;
+        recordPipMenuUndo(c, before, "Ease curve"); // TODO(strings)
+        refreshPipAfterMenuWrite();
+    }
+
+    /** Pose-preserving "Clear all keyframes": collapse every track to one t=0 key. */
+    private void clearAllPipKeyframes(@NonNull Clip c) {
+        if (!pipArmed(c)) return;
+        com.fadcam.ui.faditor.keyframe.KeyframeSet before = pipKfCopy(c);
+        long ph = lastPlayheadAbsoluteMs;
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = ensurePipKf(c);
+        for (String k : PIP_KEYS) {
+            float cur = pipValueAt(c, k, ph);
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = kf.getOrCreate(k);
+            tr.keyframes.clear();
+            tr.put(0L, cur, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+        }
+        recordPipMenuUndo(c, before, "Clear all keyframes"); // TODO(strings)
+        refreshPipAfterMenuWrite();
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+        }
+    }
+
+    private void recordPipMenuUndo(@NonNull Clip c,
+            @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet before,
+            @NonNull String description) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet after = pipKfCopy(c);
+        if (pipKfEquals(before, after)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(description,
+                () -> restoreOverlayTransform(c, after),
+                () -> restoreOverlayTransform(c, before)));
+        scheduleAutoSave();
+    }
+
+    private boolean pipKfEquals(@NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet a,
+            @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet b) {
+        for (String k : PIP_KEYS) {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack ta = a.get(k), tb = b.get(k);
+            int na = ta == null ? 0 : ta.keyframes.size();
+            int nb = tb == null ? 0 : tb.keyframes.size();
+            if (na != nb) return false;
+            for (int i = 0; i < na; i++) {
+                com.fadcam.ui.faditor.keyframe.Keyframe ka = ta.keyframes.get(i);
+                com.fadcam.ui.faditor.keyframe.Keyframe kb = tb.keyframes.get(i);
+                if (ka.timeMs != kb.timeMs || ka.value != kb.value || ka.easing != kb.easing) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private void refreshPipAfterMenuWrite() {
+        if (overlayVideoLayer != null) {
+            overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
+                    playerManager != null && playerManager.isPlaying());
+        }
+        syncTimelineOverlays();
+    }
+
+    // ── VISUALIZER (static transform) ────────────────────────────────────
+
+    /**
+     * §2 general menu for a VISUALIZER {@link com.fadcam.ui.faditor.model.WaveformOverlayInstance}.
+     * It has NO KeyframeSet, so every transform prop is {@link ObjectMenuSheet.Prop#staticProp}
+     * (plain slider, no diamond). More… opens the rich per-type editor; range chips reuse the
+     * overlay's Start/End-here pattern.
+     */
+    private void showObjectMenuSheetForVisualizer(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
+        if (project == null) return;
+        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+        java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_x", "Pos X", 0f, 1f, pct, // TODO(strings)
+                ms -> wf.getCenterX(),
+                (v, ms) -> { wf.setCenter(v, wf.getCenterY()); refreshVizAfterMenuWrite(); }));
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_y", "Pos Y", 0f, 1f, pct, // TODO(strings)
+                ms -> wf.getCenterY(),
+                (v, ms) -> { wf.setCenter(wf.getCenterX(), v); refreshVizAfterMenuWrite(); }));
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_w", "Width", 0.1f, 1f, pct, // TODO(strings)
+                ms -> wf.getWidthFraction(),
+                (v, ms) -> { wf.setSize(v, wf.getHeightFraction()); refreshVizAfterMenuWrite(); }));
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_h", "Height", 0.05f, 1f, pct, // TODO(strings)
+                ms -> wf.getHeightFraction(),
+                (v, ms) -> { wf.setSize(wf.getWidthFraction(), v); refreshVizAfterMenuWrite(); }));
+        props.add(ObjectMenuSheet.Prop.staticProp("viz_rot", "Rotate", -180f, 180f, deg, // TODO(strings)
+                ms -> normDeg(wf.getRotationDeg()),
+                (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }));
+
+        java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
+        rangeChips.add(new ObjectMenuSheet.Action("⇤ Start here", false, // TODO(strings)
+                () -> setVisualizerRangeEdgeAtPlayhead(wf, true)));
+        rangeChips.add(new ObjectMenuSheet.Action("End here ⇥", false, // TODO(strings)
+                () -> setVisualizerRangeEdgeAtPlayhead(wf, false)));
+
+        final VizTransformState[] sliderBefore = new VizTransformState[1];
+        ObjectMenuSheet.GestureHooks hooks = new ObjectMenuSheet.GestureHooks() {
+            @Override public void onSliderStart() { sliderBefore[0] = snapshotViz(wf); }
+            @Override public void onSliderCommit(@NonNull String what) {
+                if (sliderBefore[0] != null) recordVizMenuUndo(wf, sliderBefore[0], what);
+                sliderBefore[0] = null;
+            }
+        };
+        ensureObjectMenuSheet().show("Visualizer", null, props, // TODO(strings)
+                new java.util.ArrayList<>(), () -> showVisualizerDrawer(true),
+                rangeChips, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    /** Snapshot of a visualizer's static transform for one-undo-step bracketing. */
+    private static final class VizTransformState {
+        final float cx, cy, w, h, rot;
+        VizTransformState(float cx, float cy, float w, float h, float rot) {
+            this.cx = cx; this.cy = cy; this.w = w; this.h = h; this.rot = rot;
+        }
+    }
+
+    private VizTransformState snapshotViz(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
+        return new VizTransformState(wf.getCenterX(), wf.getCenterY(),
+                wf.getWidthFraction(), wf.getHeightFraction(), wf.getRotationDeg());
+    }
+
+    private void applyVizTransform(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf,
+            @NonNull VizTransformState s) {
+        wf.setCenter(s.cx, s.cy);
+        wf.setSize(s.w, s.h);
+        wf.setRotationDeg(s.rot);
+        refreshVizAfterMenuWrite();
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+        }
+    }
+
+    private void recordVizMenuUndo(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf,
+            @NonNull VizTransformState before, @NonNull String description) {
+        VizTransformState after = snapshotViz(wf);
+        if (vizStateEquals(before, after)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(description,
+                () -> applyVizTransform(wf, after),
+                () -> applyVizTransform(wf, before)));
+        scheduleAutoSave();
+    }
+
+    private boolean vizStateEquals(@NonNull VizTransformState a, @NonNull VizTransformState b) {
+        return a.cx == b.cx && a.cy == b.cy && a.w == b.w && a.h == b.h && a.rot == b.rot;
+    }
+
+    private void refreshVizAfterMenuWrite() {
+        if (waveformOverlayView != null) waveformOverlayView.invalidate();
+        syncTimelineOverlays();
+    }
+
+    /** Visualizer twin of {@link #setOverlayRangeEdgeAtPlayhead} (one undo step + toast). */
+    private void setVisualizerRangeEdgeAtPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf, boolean startEdge) {
+        final long ph = lastPlayheadAbsoluteMs;
+        if (startEdge) {
+            if (wf.getEndMs() != Long.MAX_VALUE && ph >= wf.getEndMs()) {
+                Toast.makeText(this, R.string.faditor_kf_range_invalid, Toast.LENGTH_SHORT).show();
+                return;
+            }
+        } else {
+            if (ph <= wf.getStartMs()) {
+                Toast.makeText(this, R.string.faditor_kf_range_invalid, Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        final long beforeStart = wf.getStartMs(), beforeEnd = wf.getEndMs();
+        final long afterStart = startEdge ? ph : beforeStart;
+        final long afterEnd = startEdge ? beforeEnd : ph;
+        wf.setTimeRange(afterStart, afterEnd);
+        undoManager.recordAction(new EditActions.LambdaAction(
+                startEdge ? "Visualizer start" : "Visualizer end", // TODO(strings)
+                () -> { wf.setTimeRange(afterStart, afterEnd); refreshVizAfterMenuWrite(); },
+                () -> { wf.setTimeRange(beforeStart, beforeEnd); refreshVizAfterMenuWrite(); }));
+        refreshVizAfterMenuWrite();
+        Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
     }
 
     /** Build one §2 property row adapter: keyframe-aware write + diamond state. */

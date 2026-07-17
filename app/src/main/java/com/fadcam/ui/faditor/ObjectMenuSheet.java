@@ -62,7 +62,17 @@ public final class ObjectMenuSheet extends LinearLayout {
     public interface EaseGet { @Nullable Easing segmentEasing(long playheadMs); }
     public interface EaseSet { void setSegmentEasing(@NonNull Easing e, long playheadMs); }
 
-    /** One keyframeable general-menu property (contract §2's diamond rows). */
+    /**
+     * One general-menu property row (contract §2's diamond rows).
+     *
+     * <p>§2 Prop adapters come in two kinds: KEYFRAMEABLE (transform/opacity/
+     * volume — the everyday case, with a slider + a keyframe diamond + ease
+     * picker) and STATIC ({@link #staticProp}) — a plain slider with NO diamond,
+     * for properties the model cannot animate (visualizer placement, audio has
+     * only its own envelope). Static props drive the same slider chrome but skip
+     * the diamond/arming-hint/ribbon so nothing promises "tap ♦" where no key
+     * can exist.</p>
+     */
     public static final class Prop {
         final String key;          // KeyframeSet property key, unique per sheet
         final String label;
@@ -72,6 +82,8 @@ public final class ObjectMenuSheet extends LinearLayout {
         final Setter set;          // keyframe-aware write at the playhead
         final OnKeyQuery onKey;    // playhead sits on a key of this property?
         final Runnable dropKey;    // hollow-diamond tap → drop a key here
+        /** §2: false = STATIC (no keyframe diamond / arming hint / ribbon). */
+        final boolean keyframeable;
         // G3: diamond swipe = jump playhead to prev/next key of this property;
         // diamond tap on-key = delete the key under the playhead. Null = no-op.
         @Nullable final Runnable prevKey, nextKey, deleteKey;
@@ -87,6 +99,18 @@ public final class ObjectMenuSheet extends LinearLayout {
                     @Nullable Runnable deleteKey,
                     @Nullable ArmedQuery armed,
                     @Nullable EaseGet easeGet, @Nullable EaseSet easeSet) {
+            this(key, label, min, max, format, get, set, onKey, dropKey,
+                    prevKey, nextKey, deleteKey, armed, easeGet, easeSet, true);
+        }
+
+        private Prop(@NonNull String key, @NonNull String label, float min, float max,
+                     @NonNull ValueFormat format, @NonNull Getter get, @NonNull Setter set,
+                     @NonNull OnKeyQuery onKey, @NonNull Runnable dropKey,
+                     @Nullable Runnable prevKey, @Nullable Runnable nextKey,
+                     @Nullable Runnable deleteKey,
+                     @Nullable ArmedQuery armed,
+                     @Nullable EaseGet easeGet, @Nullable EaseSet easeSet,
+                     boolean keyframeable) {
             this.key = key;
             this.label = label;
             this.min = min;
@@ -102,6 +126,21 @@ public final class ObjectMenuSheet extends LinearLayout {
             this.armed = armed;
             this.easeGet = easeGet;
             this.easeSet = easeSet;
+            this.keyframeable = keyframeable;
+        }
+
+        /**
+         * §2 STATIC property: a plain slider with no keyframe machinery — for
+         * models with no {@code KeyframeSet} (visualizer transform, audio pan-less
+         * placement). The diamond is dropped, {@link #onKeyAt} is always false and
+         * {@link #dropKey} is a no-op, and the row shows no arming hint / ribbon.
+         */
+        @NonNull
+        public static Prop staticProp(@NonNull String key, @NonNull String label,
+                                      float min, float max, @NonNull ValueFormat format,
+                                      @NonNull Getter get, @NonNull Setter set) {
+            return new Prop(key, label, min, max, format, get, set,
+                    ms -> false, () -> {}, null, null, null, null, null, null, false);
         }
 
         public boolean onKeyAt(long playheadMs) { return onKey.onKeyAt(playheadMs); }
@@ -466,7 +505,9 @@ public final class ObjectMenuSheet extends LinearLayout {
         final SeekBar bar;
         final TextView value;
         final TextView hint;
-        final KeyframeDiamondControl diamond;
+        // §2: null for STATIC props (visualizer / audio placement) — no keyframes,
+        // so no diamond to bind.
+        @Nullable final KeyframeDiamondControl diamond;
         boolean touching;
 
         Row(@NonNull Prop p) {
@@ -499,12 +540,18 @@ public final class ObjectMenuSheet extends LinearLayout {
             value.setWidth(dp(44));
             controls.addView(value);
 
-            diamond = new KeyframeDiamondControl(getContext());
-            diamond.bind(prop, this);
-            LayoutParams dlp = new LayoutParams(
-                    LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-            dlp.leftMargin = dp(4);
-            controls.addView(diamond, dlp);
+            // §2 STATIC props have no keyframes → no diamond (the "tap ♦" hint it
+            // implies would point at a control that doesn't exist here).
+            if (prop.keyframeable) {
+                diamond = new KeyframeDiamondControl(getContext());
+                diamond.bind(prop, this);
+                LayoutParams dlp = new LayoutParams(
+                        LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+                dlp.leftMargin = dp(4);
+                controls.addView(diamond, dlp);
+            } else {
+                diamond = null;
+            }
 
             // C7: appears under the row on the first un-armed drag, then fades.
             hint = new TextView(getContext());
@@ -523,7 +570,7 @@ public final class ObjectMenuSheet extends LinearLayout {
                     float v = prop.min + (prop.max - prop.min) * progress / (float) SLIDER_STEPS;
                     prop.set.write(v, playheadMs);
                     value.setText(prop.format.format(v));
-                    diamond.refresh(playheadMs);
+                    if (diamond != null) diamond.refresh(playheadMs);
                 }
 
                 @Override
@@ -549,7 +596,8 @@ public final class ObjectMenuSheet extends LinearLayout {
         /** C7: first un-armed slider drag this showing → inline honesty hint + pulse.
          *  NO auto-keying — un-armed drags stay static; this is feedback only. */
         private void maybeFlashArmingHint() {
-            if (hintShownThisShowing || prop.armed()) return;
+            // Static props can't be armed — the "tap ♦" hint would be a lie.
+            if (!prop.keyframeable || hintShownThisShowing || prop.armed()) return;
             hintShownThisShowing = true;
             hint.setText("Static — tap ♦ to animate"); // TODO(strings)
             hint.setAlpha(1f);
@@ -567,7 +615,7 @@ public final class ObjectMenuSheet extends LinearLayout {
                 bar.setProgress(Math.max(0, Math.min(SLIDER_STEPS, progress)));
                 value.setText(prop.format.format(v));
             }
-            diamond.refresh(playheadMs);
+            if (diamond != null) diamond.refresh(playheadMs);
         }
     }
 }

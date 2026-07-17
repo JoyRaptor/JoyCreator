@@ -51,4 +51,9 @@ left edge — "similar to the trash-can behavior, except on the other side of th
 - Suggested order: (1) badges [small, pure gutter change], (2) image-item thumbnail + §3 pinning,
   (3) sprite keyframe poses, (4) video-item strip previews [heaviest — extraction cost/caching].
 
-**Status:** captured 2026-07-14; NOT built. Fable queue after the walkthrough fixes land.
+**Status (2026-07-17):** §1 BADGES BUILT — `LayerRowRenderer.drawKindBadge` replaces the gutter
+name text with canvas-drawn kind glyphs (filmstrip+sprockets video, T-box text, mountain-frame
+image, stickman-ring sprite, CC box captions, bars visualizer, mirrored-bars audio). Device
+visual-verify owed. NOT yet done: the §4.5 eye/lock→per-object migration (needs per-object
+visibility controls to exist first or users lose function — left in place deliberately), §2 item
+preview images, §3 pinned-thumbnail scroll. Suggested next slice: image-item thumbnail + §3 pinning.

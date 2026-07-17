@@ -538,12 +538,14 @@ public final class LayerRowRenderer {
         // Caret (collapse toggle) — right-pointing when collapsed, down when expanded.
         drawCaret(canvas, row.caretRect, collapsed);
 
-        // Track name, clipped to the space between the caret and the icon cluster.
+        // Kind BADGE instead of a track name (LANE_BADGES spec §1, JoyRaptor 2026-07-14:
+        // layers are substrate, not named entities — a small glyph for the kind of
+        // content on the row, clipped to the caret↔icon-cluster gap like the old name).
         canvas.save();
         canvas.clipRect(row.caretRect.right + 4f * density, row.headerRect.top,
                 row.hideRect.left - 2f * density, row.headerRect.bottom);
-        float ty = row.headerRect.centerY() + namePaint.getTextSize() / 3f;
-        canvas.drawText(t.getName(), row.caretRect.right + 4f * density, ty, namePaint);
+        drawKindBadge(canvas, row.caretRect.right + 6f * density,
+                row.headerRect.centerY(), t.getKind());
         canvas.restore();
 
         drawEyeIcon(canvas, row.hideRect, !t.isHidden());
@@ -1426,6 +1428,105 @@ public final class LayerRowRenderer {
             default:
                 return COLOR_ITEM_VIDEO;
         }
+    }
+
+    /**
+     * Draw the row's kind badge (LANE_BADGES spec §1) at {@code (leftX, cy)} —
+     * small canvas-drawn glyphs matching the gutter icon style: filmstrip with
+     * sprocket holes (video), T-in-a-box (text), mountain-in-a-frame (image),
+     * stickman-in-a-ring (sprite), CC box (captions), bars (visualizer/audio).
+     */
+    private void drawKindBadge(@NonNull Canvas canvas, float leftX, float cy,
+                               @NonNull TrackKind kind) {
+        float s = 12f * density;          // badge box size
+        float l = leftX, t = cy - s / 2f, r = leftX + s * 1.25f, b = cy + s / 2f;
+        int color = 0xFFB9BdC4;
+        Paint.Style prevStyle = iconPaint.getStyle();
+        float prevStroke = iconPaint.getStrokeWidth();
+        int prevColor = iconPaint.getColor();
+        iconPaint.setColor(color);
+        iconPaint.setStrokeWidth(1.3f * density);
+
+        switch (kind) {
+            case TEXT:
+            case CAPTION: {
+                iconPaint.setStyle(Paint.Style.STROKE);
+                canvas.drawRoundRect(l, t, r, b, 2f * density, 2f * density, iconPaint);
+                iconPaint.setStyle(Paint.Style.FILL);
+                float ts = namePaint.getTextSize();
+                namePaint.setTextSize(s * (kind == TrackKind.CAPTION ? 0.62f : 0.8f));
+                int pc = namePaint.getColor();
+                namePaint.setColor(color);
+                String glyph = kind == TrackKind.CAPTION ? "CC" : "T";
+                float tw = namePaint.measureText(glyph);
+                canvas.drawText(glyph, (l + r) / 2f - tw / 2f,
+                        cy + namePaint.getTextSize() * 0.36f, namePaint);
+                namePaint.setTextSize(ts);
+                namePaint.setColor(pc);
+                break;
+            }
+            case STICKER: { // image: mountain in a frame + sun
+                iconPaint.setStyle(Paint.Style.STROKE);
+                canvas.drawRoundRect(l, t, r, b, 1.5f * density, 1.5f * density, iconPaint);
+                android.graphics.Path mtn = new android.graphics.Path();
+                mtn.moveTo(l + s * 0.12f, b - s * 0.15f);
+                mtn.lineTo(l + s * 0.45f, t + s * 0.35f);
+                mtn.lineTo(l + s * 0.72f, b - s * 0.15f);
+                canvas.drawPath(mtn, iconPaint);
+                iconPaint.setStyle(Paint.Style.FILL);
+                canvas.drawCircle(r - s * 0.3f, t + s * 0.3f, s * 0.1f, iconPaint);
+                break;
+            }
+            case SPRITE: { // stickman in a ring
+                iconPaint.setStyle(Paint.Style.STROKE);
+                float rad = s * 0.55f;
+                float cx = l + rad;
+                canvas.drawCircle(cx, cy, rad, iconPaint);
+                canvas.drawCircle(cx, cy - rad * 0.45f, rad * 0.18f, iconPaint); // head
+                canvas.drawLine(cx, cy - rad * 0.25f, cx, cy + rad * 0.25f, iconPaint); // body
+                canvas.drawLine(cx - rad * 0.35f, cy - rad * 0.05f,
+                        cx + rad * 0.35f, cy - rad * 0.05f, iconPaint);          // arms
+                canvas.drawLine(cx, cy + rad * 0.25f, cx - rad * 0.3f, cy + rad * 0.6f, iconPaint);
+                canvas.drawLine(cx, cy + rad * 0.25f, cx + rad * 0.3f, cy + rad * 0.6f, iconPaint);
+                break;
+            }
+            case VISUALIZER: { // rising bars
+                iconPaint.setStyle(Paint.Style.FILL);
+                float bw = s * 0.18f;
+                float[] hs = {0.35f, 0.7f, 0.5f, 0.95f};
+                for (int i = 0; i < hs.length; i++) {
+                    float bx = l + i * (bw + 1.5f * density);
+                    canvas.drawRect(bx, b - s * hs[i], bx + bw, b, iconPaint);
+                }
+                break;
+            }
+            case AUDIO: { // mirrored waveform around a center line
+                iconPaint.setStyle(Paint.Style.FILL);
+                float bw = s * 0.16f;
+                float[] hs = {0.25f, 0.5f, 0.35f, 0.45f, 0.2f};
+                for (int i = 0; i < hs.length; i++) {
+                    float bx = l + i * (bw + 1.2f * density);
+                    canvas.drawRect(bx, cy - s * hs[i] / 1.4f, bx + bw,
+                            cy + s * hs[i] / 1.4f, iconPaint);
+                }
+                break;
+            }
+            default: { // VIDEO / MASTER / PiP: filmstrip with sprocket holes
+                iconPaint.setStyle(Paint.Style.STROKE);
+                canvas.drawRoundRect(l, t, r, b, 1.5f * density, 1.5f * density, iconPaint);
+                iconPaint.setStyle(Paint.Style.FILL);
+                float hole = s * 0.14f;
+                for (int i = 0; i < 3; i++) {
+                    float hx = l + s * 0.18f + i * s * 0.4f;
+                    canvas.drawRect(hx, t + hole * 0.6f, hx + hole, t + hole * 1.6f, iconPaint);
+                    canvas.drawRect(hx, b - hole * 1.6f, hx + hole, b - hole * 0.6f, iconPaint);
+                }
+                break;
+            }
+        }
+        iconPaint.setStyle(prevStyle);
+        iconPaint.setStrokeWidth(prevStroke);
+        iconPaint.setColor(prevColor);
     }
 
     @Nullable

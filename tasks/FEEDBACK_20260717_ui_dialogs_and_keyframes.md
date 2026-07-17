@@ -222,11 +222,21 @@ already property-focused.)
    - DEVICE-VERIFY OWED (JoyRaptor, real fingers — adb can't fake double-tap feel): tap/double/hold on
      image + text + sprite in preview; scrub with drawer open → End-here extends an image; drawer
      retarget on cross-object taps; row auto-reveal; sprite badge delete.
-2. **Slice 2 gap-insertion** (dragux_v3, BINDING, blueprinted + C5 riders) — kills the purple box.
-   NEXT.
+2. **Slice 2 gap-insertion — ✅ BUILT 2026-07-17 (`32d19bb`, compile-green).** Pinned purple zone
+   + cross-band arm text KILLED; every floating-band gap (+above-top/+below-bottom) is an
+   insertion target drawn as one accent line; release creates the track AT that index with z
+   renumbered in ONE undo step (old zIndexes snapshotted for fold-in undo). C5 riders in: sticky
+   hover (2x exit zone), gap entry disarms the bookend excursion, content-coordinate hit-testing.
+   C8 stragglers (A1 edge auto-pan, outline color audit) NOT included — still open.
+   DEVICE-VERIFY OWED: pick up an item, hover each gap incl. above-top/below-bottom, drop → new
+   layer at that position; undo restores in one step with old ordering.
 3. **Keyframe visibility batch:** `<♦️>` widget (D2) + C7 arming honesty + C4 display-parity on
    rows (consolidated diamonds, time-drag, opacity-only rubber-band).
-4. Ease picker presets (D2a) — after the widget exists.
+   - D2a CURVE MATH ✅ 2026-07-17: `Easing.java` grew EASE_IN_EXPO/EASE_OUT_EXPO/ANTICIPATE/
+     OVERSHOOT/SPRING_SOFT/SPRING/SPRING_BOUNCY/BOUNCE/STAIRS_4. Endpoint contract JVM-verified
+     (exact 0/1 via guards; springs use ω=odd·π/2 so cos≡0 at t=1 — no residual ramp needed;
+     BOUNCE never crosses 1; SPRING_BOUNCY max 1.34 > SPRING_SOFT max 1.036).
+4. Ease picker presets (D2a UI) — after the widget exists.
 5. Then back to the device-verify queue (dual-stream checklist etc.).
 
 ## STILL-OPEN SPEC DEBT (audit 2026-07-17, so we stop re-inventing)

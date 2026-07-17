@@ -183,7 +183,17 @@ content-addressed cache — same rule as remuxed media paths, never the truth.
 | `authoredDurationMs` | long | Duration the slide's GSAP timeline was authored for. |
 | `width` / `height` | int | Pixel dimensions the HTML was authored/hashed against. |
 | `styleHint` | string\|null | Style direction given to the AI; kept for "regenerate". |
-| `sourceModel` | string\|null | OpenRouter model id that authored the slide (null = built-in template). |
+| `sourceModel` | string\|null | OpenRouter model id that authored the slide (null = built-in template; `external-paste`/`external-file` = imported via the API-less copy-a-prompt path). |
+
+Slides can also be authored WITHOUT an API key: the editor's Add-asset → "AI
+slide" flow copies a contract-teaching prompt (embedding a
+`faditor-slide-contract v<N>` marker, currently v1 — see
+`SlideContract.CONTRACT_VERSION`) for any external chatbot, and the paste/file
+import validates the returned HTML against the same contract and emits the
+same `ADD_GENERATED_SLIDE` operation. Rendering happens in the editor process
+(`SlideRenderer`) — opportunistically in the background and always as an
+export pre-pass — because the `:export` process cannot host the WebView
+capture.
 
 ## Transcript Version Object (inside `transcripts` array)
 

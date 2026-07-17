@@ -1,5 +1,36 @@
 # FadCam AI Handoff
 
+> **🎬 2026-07-16 evening — FABLE(5): AI-GENERATED SLIDES LANDED (spec + addendum), capture pipeline
+> DEVICE-PROVEN behind a locked keyguard. 3 commits (`ee75ade`, `b58d92c`, `642fb06`) + docs.**
+> **State discovered at session start:** the whole June `slides/` package (Phases 0–3: capture/encode/
+> cache/contract/generate_slide/live-scrub-preview, schema v5 `generatedSource`) existed but **nothing
+> ever invoked the render pipeline** — no caller of SlideCaptureEngine/SlideEncoder anywhere, so a slide
+> clip's content-addressed MP4 never materialized and export/playback had no file.
+> **(1) `ee75ade` render pre-pass:** new `slides/SlideRenderer` = the spec's ensureGeneratedSlidesRendered,
+> but living in the EDITOR process, not ExportManager — the `:export` process can't host the WebView
+> capture (WebView single-process data-dir rule + in-process latch). Runs at export kickoff
+> (`startOutOfProcessExport` → render off-main → `doStartOutOfProcessExport`) and opportunistically on
+> project load (`checkMissingMedia` tail) so play-through/thumbnails work pre-export. Generated slides
+> exempt from the missing-media relink gate (their MP4 is regenerable cache, not source).
+> **(2) `b58d92c` addendum (JoyRaptor 2026-07-16):** Add-asset → "AI slide (animated)" → SlideImportBottomSheet:
+> Copy slide prompt (`SlideContract.buildExternalPrompt`, embeds + asks the model to echo a
+> `faditor-slide-contract v1` marker; `CONTRACT_VERSION`), Paste slide HTML, Import .html. Import
+> validates against the same contract, parses authored duration from `Faditor.register(...)`, emits the
+> SAME ADD_GENERATED_SLIDE EditScript as the in-app tool, records undo, background-renders. Newer-than-app
+> contract markers are rejected with an update hint. All strings hardcoded + TODO(strings).
+> **(3) `642fb06` — first-ever device run found the June pipeline captured BLANK WHITE frames** (Chromium
+> pauses rendering while the host activity is stopped; the sandbox sat behind a PIN Bouncer): fixed with
+> setShowWhenLocked/turnScreenOn + webView.onResume/resumeTimers + `postVisualStateCallback` per-frame
+> sync (raced 250ms fallback) + scrollbars off. Also: **this ffmpeg-kit build has NO libopenh264** — the
+> mpeg4 fallback is the effective slide encoder (fine; Media3 re-encodes the intermediate). Proof, locked:
+> 1080×1920@30 → 87 frames → 472KB MP4, ffprobe + visual mid-frame all correct; adb entry now takes
+> `--es encode_mp4` (completes Phase 0's real done-when).
+> **OWED (sandbox was PIN-locked all session — UI half queued):** S1–S6 in DEVICE_VERIFY_QUEUE's new top
+> block (on-load render, scrub, play-through, trim+transition, export-with-slide, addendum UI). Ready-made
+> asset: `cebc19e0` "P0 control2 plain" has an unrendered fallback slide "Chapter One" at clip index 1.
+> **Phase 4 (overlay/transparent slides) not started** — spec Section 8 deferrals (reorder, b-roll)
+> untouched per instructions. Spec status block updated in feature-ai-generated-slides-spec.md.
+
 > **🧭 2026-07-12 — OPUS 4.8 truth-sweep + land-the-remainder session (sandbox UNPLUGGED all session →
 > compile-verify only; every device check is queued, not run). 11 commits.**
 > **(1) ROADMAP TRUTH-SWEEP (`5dd4dc6`):** the road_map top block was ~6 days stale (HEAD was far ahead).

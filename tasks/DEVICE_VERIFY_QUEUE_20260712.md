@@ -1,6 +1,27 @@
 # DEVICE-VERIFY QUEUE — turnkey checklist (2026-07-12)
 
-> **▶ IN PROGRESS (2026-07-14 ~01:54, sandbox SANDBOX_SERIAL REPLUGGED, current build installed via
+> **▶ NEW 2026-07-16 evening (Fable slides session) — AI-slide UI checks, sandbox was PIN-locked
+> (Bouncer, `deviceLocked=1`) so only headless halves ran. Ready-made asset: project `cebc19e0`
+> ("P0 control2 plain") has a fallback slide "Chapter One" inserted at clip index 1 via
+> ApplyEditsActivity; its MP4 is NOT yet rendered — perfect for watching the on-load background
+> render happen.** Already PROVEN headless (locked): capture+encode pipeline end-to-end (see
+> feature-ai-generated-slides-spec.md Phase 0 status). OWED, needs an unlocked phone, all in
+> project cebc19e0:
+> - **S1 background render on load:** open the project → logcat `SlideRenderer: Rendering slide`,
+>   then `SlideEncoder: Encoded slide MP4 (mpeg4)`; `slide_cache/<hash>.mp4` appears under the
+>   project dir. Timeline thumbnail for clip 1 populates after.
+> - **S2 scrub:** drag the playhead across the slide clip → live WebView preview tracks position
+>   (text fades in ~0.6s, holds, fades out at the end).
+> - **S3 play-through:** press play upstream of the slide → crosses into the slide (plays the
+>   rendered MP4), then back to video.
+> - **S4 trim + transition survive:** drag-trim the slide's right edge shorter; add a transition at
+>   its seam; both persist in project.json and preview correctly.
+> - **S5 export:** export the project → exported file contains the slide at the right position and
+>   duration (frozen final frame if trimmed longer than authored — by design).
+> - **S6 addendum UI:** Add asset → "AI slide (animated)" → Copy slide prompt (clipboard gets the
+>   contract prompt); Paste slide HTML with any conforming HTML on the clipboard → clip inserts,
+>   background-renders; Import .html file via the picker.
+> - Slide render now works even LOCKED (setShowWhenLocked) — so S1 can also be re-checked locked.
 > `adb install -r` arm64 APK):**
 > - Item A1 export re-verify VIDEO PATH: **✅ PASS.** Exported AudioExportVerify (`aeb0517e`, confirmed at
 >   the repro state: 600ms GL_SHADER transition after clip[3]=427ms) 480p/Low. Started 01:54:18,

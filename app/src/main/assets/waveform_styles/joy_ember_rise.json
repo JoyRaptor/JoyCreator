@@ -1,0 +1,17 @@
+{
+  "id": "joy_ember_rise",
+  "displayName": "Ember Rise",
+  "type": "spectrum_bars",
+  "color": "#FF6D00",
+  "barWidthDp": 3,
+  "barGapDp": 2,
+  "cornerRadiusDp": 2,
+  "bandCount": 48,
+  "sensitivity": 1.2,
+  "useSpectrum": true,
+  "layers": [
+    { "emitter": "bars", "color": "#FF6D00", "gradientStart": "#DD2C00", "gradientEnd": "#FFD180", "softness": 0.25, "barWidthDp": 3, "barGapDp": 2 },
+    { "emitter": "particles", "color": "#FFAB40", "blend": "add", "softness": 0.5, "particleCount": 5, "particleSpeed": 1.4, "barWidthDp": 3 },
+    { "emitter": "line", "color": "#FFE0B2", "blend": "add", "opacity": 0.55, "trailCount": 4, "barWidthDp": 2 }
+  ]
+}

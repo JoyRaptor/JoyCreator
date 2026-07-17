@@ -70,6 +70,22 @@ public class VizLayer {
     public float opacity = 1f;
     /** {@link #BLEND_NORMAL} or {@link #BLEND_ADD}. */
     public String blend = BLEND_NORMAL;
+    /**
+     * Edge softness 0..1 (P3). 0 = hard edge (legacy, no mask filter); >0 blurs the layer's solid
+     * pass with a NORMAL {@code BlurMaskFilter} — the spec's "soft edged things".
+     */
+    public float softness = 0f;
+    /**
+     * Motion-trail echo passes 0..6 (P3). Each trail k redraws the emitter with the band energies
+     * sampled at t − k·Δ and decaying alpha — stateless per spec §3, so scrub/export agree.
+     */
+    public int trailCount = 0;
+
+    // ── Particle params (P3, EMITTER_PARTICLES only) ─────────────────────────
+    /** Particles per band 1..8 (total per layer is budget-clamped by the renderer). */
+    public int particleCount = 4;
+    /** Travel-speed multiplier 0.1..4 (1 = default drift rate). */
+    public float particleSpeed = 1f;
 
     // ── GeometryMapper params ────────────────────────────────────────────────
     /** Fraction 0..1 of the strip/arc actually used (1 = full, matches legacy). */
@@ -109,6 +125,10 @@ public class VizLayer {
         l.shadowRadiusDp = shadowRadiusDp;
         l.opacity = opacity;
         l.blend = blend;
+        l.softness = softness;
+        l.trailCount = trailCount;
+        l.particleCount = particleCount;
+        l.particleSpeed = particleSpeed;
         l.spread = spread;
         l.phaseDeg = phaseDeg;
         l.mirror = mirror;
@@ -136,6 +156,10 @@ public class VizLayer {
         if (shadowRadiusDp != 4f) j.addProperty("shadowRadiusDp", shadowRadiusDp);
         if (opacity != 1f) j.addProperty("opacity", opacity);
         if (blend != null && !BLEND_NORMAL.equals(blend)) j.addProperty("blend", blend);
+        if (softness != 0f) j.addProperty("softness", softness);
+        if (trailCount != 0) j.addProperty("trailCount", trailCount);
+        if (particleCount != 4) j.addProperty("particleCount", particleCount);
+        if (particleSpeed != 1f) j.addProperty("particleSpeed", particleSpeed);
         if (spread != 1f) j.addProperty("spread", spread);
         if (phaseDeg != 0f) j.addProperty("phaseDeg", phaseDeg);
         if (mirror) j.addProperty("mirror", true);
@@ -164,6 +188,10 @@ public class VizLayer {
             l.shadowRadiusDp = optFloat(j, "shadowRadiusDp", 4f);
             l.opacity = clamp(optFloat(j, "opacity", 1f), 0f, 1f);
             l.blend = optString(j, "blend", BLEND_NORMAL);
+            l.softness = clamp(optFloat(j, "softness", 0f), 0f, 1f);
+            l.trailCount = (int) clamp(optFloat(j, "trailCount", 0f), 0f, 6f);
+            l.particleCount = (int) clamp(optFloat(j, "particleCount", 4f), 1f, 8f);
+            l.particleSpeed = clamp(optFloat(j, "particleSpeed", 1f), 0.1f, 4f);
             l.spread = clamp(optFloat(j, "spread", 1f), 0f, 1f);
             l.phaseDeg = optFloat(j, "phaseDeg", 0f);
             l.mirror = j.has("mirror") && j.get("mirror").getAsBoolean();

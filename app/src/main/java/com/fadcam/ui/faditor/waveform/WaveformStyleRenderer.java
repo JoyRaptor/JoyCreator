@@ -42,6 +42,18 @@ public class WaveformStyleRenderer {
     private static final int PEAK_TAPS = 8;      // K
     private static final long PEAK_STEP_MS = 66; // Δ between look-back taps
 
+    // P3 particles (spec §3): fixed life + a birth-time lattice. A particle's birth time is
+    // quantized to the absolute STEP grid, so its birth energy is ONE stable tap of the shared
+    // banded cache for its whole life — no sim state, scrub/export exact.
+    private static final long PARTICLE_LIFE_MS = 1400;
+    private static final long PARTICLE_STEP_MS = 175; // LIFE / 8 birth-energy lattice
+    /** Bands × particleCount is clamped to this per layer (spec perf note). */
+    private static final int PARTICLE_BUDGET = 512;
+    /** Δ between trail echo passes (t − k·Δ per spec §3). */
+    private static final long TRAIL_STEP_MS = 66;
+    /** Softness blur radius at softness = 1, in dp. */
+    private static final float SOFT_MAX_DP = 8f;
+
     // Reused across frames so preview rendering allocates nothing per frame (the previous
     // per-frame Bitmap allocation caused GC churn and the choppy/hanging playback).
     private Bitmap reuse;
@@ -59,6 +71,13 @@ public class WaveformStyleRenderer {
     @Nullable private BlurMaskFilter shadowFilter;
     private float lastShadowRadiusDp = -1f;
     private float lastShadowDensity = -1f;
+
+    // Softness blur filters, cached per quantized pixel radius. Unlike glow/shadow this is a small
+    // map, not one slot: several layers in a stack routinely carry DIFFERENT softness values, and a
+    // single slot would reallocate a native filter per layer per frame. Cleared on density change;
+    // bounded (softness has ≤ SOFT_MAX_DP·density distinct quantized radii).
+    private final java.util.HashMap<Integer, BlurMaskFilter> softFilters = new java.util.HashMap<>();
+    private float lastSoftDensity = -1f;
 
     /** Export path: a fresh, independent bitmap (the export pipeline keeps each frame). */
     @NonNull
@@ -170,6 +189,22 @@ public class WaveformStyleRenderer {
         return glowFilter;
     }
 
+    /** Cached softness blur filter (P3) — see {@link #softFilters} for why this one is a map. */
+    @NonNull
+    private BlurMaskFilter ensureSoftFilter(float softness, float density) {
+        if (density != lastSoftDensity) {
+            softFilters.clear();
+            lastSoftDensity = density;
+        }
+        int px = Math.max(1, Math.round(softness * SOFT_MAX_DP * density));
+        BlurMaskFilter f = softFilters.get(px);
+        if (f == null) {
+            f = new BlurMaskFilter(px, BlurMaskFilter.Blur.NORMAL);
+            softFilters.put(px, f);
+        }
+        return f;
+    }
+
     /** Cached {@link BlurMaskFilter} for the drop-shadow pass (separate slot from the glow filter). */
     @NonNull
     private BlurMaskFilter ensureShadowFilter(float shadowRadiusDp, float density) {
@@ -197,28 +232,65 @@ public class WaveformStyleRenderer {
         boolean radial = renderMode == 1;
 
         // AudioMapper: band energies are computed ONCE per render call and SHARED across every
-        // layer (spec §2 + perf note) — never recomputed per layer.
-        float[] energies = sampleHeights(data, style, atMs, spectrum, hMirror, centerMode,
+        // layer (spec §2 + perf note) — never recomputed per layer. The TapSampler memoizes
+        // sampleHeights at arbitrary instants so peaks/trails/particles re-reading past taps all
+        // share arrays; it is a LOCAL (spec §3 — no per-frame state) and its arrays are read-only.
+        TapSampler sampler = new TapSampler(data, style, spectrum, hMirror, centerMode,
                 freqLowHz, freqHighHz, bandCountOverride);
+        float[] energies = sampler.at(atMs);
 
         java.util.List<VizLayer> layers = style.layers;
         if (layers == null) {
             // Legacy auto-wrap: a transient one-layer stack that reproduces EXACTLY the old draw.
-            drawLayer(canvas, legacyLayer(style, radial), energies, null, w, h, density, justify,
-                    radial, radialRingSize);
+            drawLayer(canvas, legacyLayer(style, radial), energies, null, sampler, atMs, w, h,
+                    density, justify, radial, radialRingSize);
         } else {
             // PEAKS caps need the shared energies at several PAST instants. Compute the reduced
-            // peak-hold array ONCE per render call (shared across every peaks layer) as a LOCAL —
-            // never a field, so the renderer stays a pure function of time (spec §3). Only pay for
-            // the extra taps when some layer actually draws peaks.
-            float[] peaks = hasPeaksLayer(layers)
-                    ? computePeaks(data, style, energies, atMs, spectrum, hMirror, centerMode,
-                            freqLowHz, freqHighHz, bandCountOverride)
-                    : null;
+            // peak-hold array ONCE per render call (shared across every peaks layer) as a LOCAL.
+            // Only pay for the extra taps when some layer actually draws peaks.
+            float[] peaks = hasPeaksLayer(layers) ? computePeaks(sampler, energies, atMs) : null;
             for (VizLayer layer : layers) {
-                drawLayer(canvas, layer, energies, peaks, w, h, density, justify, radial,
-                        radialRingSize);
+                drawLayer(canvas, layer, energies, peaks, sampler, atMs, w, h, density, justify,
+                        radial, radialRingSize);
             }
+        }
+    }
+
+    /**
+     * Per-render-call memo over {@link #sampleHeights} at arbitrary instants (P3). Every consumer of
+     * a given tap time (peaks look-back, trail echoes, particle birth energies — across ALL layers)
+     * shares one array. Lives only for one drawFrame call; cached arrays must never be mutated.
+     */
+    private final class TapSampler {
+        private final WaveformData data;
+        private final WaveformStyle style;
+        private final boolean spectrum, hMirror;
+        private final int centerMode, freqLowHz, freqHighHz, bandCountOverride;
+        private final java.util.HashMap<Long, float[]> memo = new java.util.HashMap<>();
+
+        TapSampler(@NonNull WaveformData data, @NonNull WaveformStyle style, boolean spectrum,
+                   boolean hMirror, int centerMode, int freqLowHz, int freqHighHz,
+                   int bandCountOverride) {
+            this.data = data;
+            this.style = style;
+            this.spectrum = spectrum;
+            this.hMirror = hMirror;
+            this.centerMode = centerMode;
+            this.freqLowHz = freqLowHz;
+            this.freqHighHz = freqHighHz;
+            this.bandCountOverride = bandCountOverride;
+        }
+
+        /** Band energies at {@code tMs} — identical arithmetic to the direct sampleHeights call. */
+        @NonNull
+        float[] at(long tMs) {
+            float[] v = memo.get(tMs);
+            if (v == null) {
+                v = sampleHeights(data, style, tMs, spectrum, hMirror, centerMode,
+                        freqLowHz, freqHighHz, bandCountOverride);
+                memo.put(tMs, v);
+            }
+            return v;
         }
     }
 
@@ -233,21 +305,15 @@ public class WaveformStyleRenderer {
     /**
      * Falling peak-hold levels, deterministic (spec §3 — no per-frame state). Per band:
      * {@code peak_i = max over k in 0..K-1 of energies_i(atMs − k·STEP) · (1 − k/K)}, so a recent
-     * loud transient leaves a cap that decays as the taps age. Every tap is a fresh, stateless
-     * {@link #sampleHeights} call at a shifted time (k=0 reuses the already-computed {@code energies},
-     * saving one call); the K arrays live only for this method's duration.
+     * loud transient leaves a cap that decays as the taps age. Every tap is a stateless sampler
+     * read at a shifted time (k=0 reuses the already-computed {@code energies}, saving one call).
      */
     @NonNull
-    private float[] computePeaks(@NonNull WaveformData data, @NonNull WaveformStyle style,
-                                 @NonNull float[] energies, long atMs, boolean spectrum,
-                                 boolean hMirror, int centerMode,
-                                 int freqLowHz, int freqHighHz, int bandCountOverride) {
+    private float[] computePeaks(@NonNull TapSampler sampler, @NonNull float[] energies, long atMs) {
         float[] peak = energies.clone(); // k = 0, envelope (1 − 0/K) = 1
         for (int k = 1; k < PEAK_TAPS; k++) {
             float env = 1f - k / (float) PEAK_TAPS;
-            long tapMs = Math.max(0L, atMs - (long) k * PEAK_STEP_MS);
-            float[] tap = sampleHeights(data, style, tapMs, spectrum, hMirror, centerMode,
-                    freqLowHz, freqHighHz, bandCountOverride);
+            float[] tap = sampler.at(Math.max(0L, atMs - (long) k * PEAK_STEP_MS));
             int n = Math.min(peak.length, tap.length);
             for (int i = 0; i < n; i++) {
                 float v = tap[i] * env;
@@ -279,12 +345,12 @@ public class WaveformStyleRenderer {
         return l;
     }
 
-    /** Emitters the renderer draws after P2; only particles remains a later phase (skipped). */
+    /** Emitters the renderer draws — the full spec set as of P3. */
     private static boolean isDrawable(@Nullable String emitter) {
         return VizLayer.EMITTER_BARS.equals(emitter) || VizLayer.EMITTER_LINE.equals(emitter)
                 || VizLayer.EMITTER_FILLED.equals(emitter) || VizLayer.EMITTER_DOTS.equals(emitter)
                 || VizLayer.EMITTER_SQUARES.equals(emitter) || VizLayer.EMITTER_PEAKS.equals(emitter)
-                || VizLayer.EMITTER_RING.equals(emitter);
+                || VizLayer.EMITTER_RING.equals(emitter) || VizLayer.EMITTER_PARTICLES.equals(emitter);
     }
 
     /**
@@ -294,7 +360,8 @@ public class WaveformStyleRenderer {
      * in the exact same order as before — so the pixel-parity guarantee holds.
      */
     private void drawLayer(@NonNull Canvas canvas, @NonNull VizLayer layer, @NonNull float[] energies,
-                           @Nullable float[] peaks, int w, int h, float density, int justify,
+                           @Nullable float[] peaks, @NonNull TapSampler sampler, long atMs,
+                           int w, int h, float density, int justify,
                            boolean radial, float radialRingSize) {
         if (!isDrawable(layer.emitter)) return;
         // RING is a radial-only accent; nothing to draw (or configure) for it in the linear strip.
@@ -302,6 +369,11 @@ public class WaveformStyleRenderer {
 
         int primary = parseColor(layer.color, 0xFF00E676);
         configureLayerPaint(barPaint, layer, primary, h);
+        // P3 softness — a NORMAL blur on the layer's own passes (spec §2 "soft edged things").
+        // 0 = no mask filter, the legacy hard edge. Glow/shadow copies set their own filters after.
+        if (layer.softness > 0f) {
+            barPaint.setMaskFilter(ensureSoftFilter(layer.softness, density));
+        }
         applyOpacity(barPaint, layer.opacity);
         applyBlend(barPaint, layer.blend);
 
@@ -325,15 +397,28 @@ public class WaveformStyleRenderer {
         }
 
         GeometryMapper m = new GeometryMapper(radial, w, h, density, justify, radialRingSize, layer);
-        // Order per layer: shadow (translated) → glow → solid.
+        // Order per layer: shadow (translated) → trails (oldest first) → glow → solid.
         if (hasShadow) {
             canvas.save();
             canvas.translate(layer.shadowDx * density, layer.shadowDy * density);
-            emit(canvas, energies, peaks, m, layer, shadowPaint, radial);
+            emit(canvas, energies, peaks, m, layer, shadowPaint, radial, sampler, atMs);
             canvas.restore();
         }
-        if (hasGlow) emit(canvas, energies, peaks, m, layer, glowPaint, radial);
-        emit(canvas, energies, peaks, m, layer, barPaint, radial);
+        // P3 trails: echo pass k redraws the emitter with the energies of t − k·Δ and decaying
+        // alpha — stateless per spec §3 (each echo is just the closed-form frame of a past instant),
+        // so preview, scrub and export produce the identical smear.
+        if (layer.trailCount > 0) {
+            Paint trailPaint = new Paint(barPaint);
+            int baseAlpha = barPaint.getAlpha();
+            for (int k = layer.trailCount; k >= 1; k--) {
+                float decay = 1f - k / (float) (layer.trailCount + 1);
+                trailPaint.setAlpha(Math.round(baseAlpha * decay * 0.6f));
+                long tk = Math.max(0L, atMs - k * TRAIL_STEP_MS);
+                emit(canvas, sampler.at(tk), null, m, layer, trailPaint, radial, sampler, tk);
+            }
+        }
+        if (hasGlow) emit(canvas, energies, peaks, m, layer, glowPaint, radial, sampler, atMs);
+        emit(canvas, energies, peaks, m, layer, barPaint, radial, sampler, atMs);
     }
 
     /**
@@ -343,7 +428,7 @@ public class WaveformStyleRenderer {
      */
     private void emit(@NonNull Canvas canvas, @NonNull float[] energies, @Nullable float[] peaks,
                       @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint,
-                      boolean radial) {
+                      boolean radial, @NonNull TapSampler sampler, long tMs) {
         if (radial) {
             switch (layer.emitter) {
                 case VizLayer.EMITTER_DOTS:    drawRadialDots(canvas, energies, m, layer, paint); break;
@@ -351,6 +436,8 @@ public class WaveformStyleRenderer {
                 case VizLayer.EMITTER_PEAKS:
                     drawRadialPeaks(canvas, peaks != null ? peaks : energies, m, layer, paint); break;
                 case VizLayer.EMITTER_RING:    drawRing(canvas, energies, m, layer, paint); break;
+                case VizLayer.EMITTER_PARTICLES:
+                    drawParticles(canvas, m, layer, paint, sampler, tMs, energies.length, true); break;
                 default: // bars (and legacy line/filled auto-wrapped to bars when radial)
                     drawRadialBars(canvas, energies, m, layer, paint); break;
             }
@@ -363,6 +450,8 @@ public class WaveformStyleRenderer {
             case VizLayer.EMITTER_SQUARES: drawSquares(canvas, energies, m, layer, paint); break;
             case VizLayer.EMITTER_PEAKS:
                 drawPeaks(canvas, peaks != null ? peaks : energies, m, layer, paint); break;
+            case VizLayer.EMITTER_PARTICLES:
+                drawParticles(canvas, m, layer, paint, sampler, tMs, energies.length, false); break;
             // RING is radial-only; already returned above for the linear path.
             default:                       drawBars(canvas, energies, m, layer, paint); break;
         }
@@ -796,6 +885,79 @@ public class WaveformStyleRenderer {
         stroke.setStyle(Paint.Style.STROKE);
         stroke.setStrokeWidth(Math.max(1f, layer.barWidthDp * m.density));
         canvas.drawCircle(m.cx, m.cy, radius, stroke);
+    }
+
+    /**
+     * PARTICLES (P3, spec §3) — a pure function of time; NO sim state anywhere. Each band b owns
+     * {@code particleCount} slots; slot i's spawn phase is a fixed hash of (b, i), so births form a
+     * deterministic lattice: age = (t + phase·LIFE) mod LIFE, birth = t − age. The birth time,
+     * quantized to the absolute STEP grid, indexes the SAME banded energy cache the bars read (via
+     * the sampler memo) — that one birth energy fixes the particle's size, speed and brightness for
+     * its whole life. Preview, scrub and export evaluate the identical closed form at any t.
+     * A silent band at birth spawns nothing, so particles visibly follow the music.
+     */
+    private void drawParticles(@NonNull Canvas canvas, @NonNull GeometryMapper m,
+                               @NonNull VizLayer layer, @NonNull Paint paint,
+                               @NonNull TapSampler sampler, long tMs, int n, boolean radial) {
+        if (n == 0) return;
+        int count = Math.max(1, Math.min(layer.particleCount, PARTICLE_BUDGET / n));
+        float maxR = layer.barWidthDp * m.density;
+        int baseAlpha = paint.getAlpha();
+        boolean center = m.justify == 1;
+        float maxUp = center ? m.h / 2f : m.h;
+        float slot = m.usedWidth() / n;
+        for (int b = 0; b < n; b++) {
+            for (int i = 0; i < count; i++) {
+                long phaseMs = (long) (hash01(b, i, 1) * PARTICLE_LIFE_MS);
+                long age = (tMs + phaseMs) % PARTICLE_LIFE_MS; // tMs ≥ 0 on every call path
+                long birthQ = Math.max(0L, tMs - age) / PARTICLE_STEP_MS * PARTICLE_STEP_MS;
+                float e0 = sampler.at(birthQ)[b];
+                if (e0 < 0.10f) continue; // silence at birth spawns nothing
+                float aFrac = age / (float) PARTICLE_LIFE_MS;
+                float env = Math.min(1f, age / 150f) * (1f - aFrac); // fast fade-in, linear fade-out
+                float alpha = env * (0.35f + 0.65f * Math.min(1f, e0 * layer.gain));
+                if (alpha <= 0.02f) continue;
+                float risePx = (age / 1000f) * layer.particleSpeed * (30f + 90f * e0) * m.density;
+                float r = Math.max(0.5f, maxR * (0.35f + 0.65f * e0) * (1f - 0.5f * aFrac));
+                paint.setAlpha(Math.round(baseAlpha * alpha));
+                if (radial) {
+                    // Drift outward along the band's ray from the ring tip at birth energy.
+                    float jDeg = (hash01(b, i, 2) - 0.5f) * m.slotAngle(n);
+                    float dist = m.ringR + e0 * layer.gain * m.maxExtent + risePx;
+                    canvas.save();
+                    canvas.rotate(m.angle(b, n) + jDeg, m.cx, m.cy);
+                    canvas.drawCircle(m.cx, m.cy + dist, r, paint);
+                    canvas.restore();
+                } else {
+                    // Drift away from the baseline from the band's tip at birth energy.
+                    int db = m.place(b, n);
+                    float x = m.originX() + (db + 0.5f) * slot
+                            + (hash01(b, i, 2) - 0.5f) * slot * 0.8f;
+                    float tip = e0 * layer.gain * maxUp;
+                    float y;
+                    if (center) {
+                        float dir = hash01(b, i, 3) < 0.5f ? -1f : 1f;
+                        y = m.h / 2f + dir * (tip + risePx);
+                    } else if (m.justify == 2) {
+                        y = tip + risePx;
+                    } else {
+                        y = m.h - tip - risePx;
+                    }
+                    if (y < -r || y > m.h + r) continue;
+                    canvas.drawCircle(x, y, r, paint);
+                }
+            }
+        }
+        paint.setAlpha(baseAlpha); // restore — the paint is shared across the layer's passes
+    }
+
+    /** Deterministic per-(band, slot, salt) hash → [0,1). Integer mix only — identical everywhere. */
+    private static float hash01(int b, int i, int salt) {
+        int h = b * 73856093 ^ i * 19349663 ^ salt * 83492791;
+        h ^= h >>> 13;
+        h *= 0x5bd1e995;
+        h ^= h >>> 15;
+        return (h >>> 8 & 0xFFFF) / 65536f;
     }
 
     private void buildLinePath(@NonNull float[] heights, @NonNull GeometryMapper m,

@@ -7,8 +7,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.model.VizLayer;
 import com.fadcam.ui.faditor.model.WaveformStyle;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -50,7 +55,7 @@ public class WaveformStyleIO {
                 if (name == null || !name.toLowerCase().endsWith(USER_STYLE_SUFFIX)) continue;
                 try (InputStream in = context.getContentResolver().openInputStream(f.getUri())) {
                     if (in == null) continue;
-                    WaveformStyle s = GSON.fromJson(readUtf8(in), WaveformStyle.class);
+                    WaveformStyle s = fromJsonWithLayers(readUtf8(in));
                     if (s != null && s.type != null && s.id != null) out.add(s);
                 } catch (Exception ignored) { }
             }
@@ -80,7 +85,7 @@ public class WaveformStyleIO {
             if (file == null) return null;
             try (OutputStream out = context.getContentResolver().openOutputStream(file.getUri())) {
                 if (out == null) return null;
-                out.write(PRETTY.toJson(style).getBytes(StandardCharsets.UTF_8));
+                out.write(toJsonWithLayers(style, PRETTY).getBytes(StandardCharsets.UTF_8));
                 out.flush();
             }
             return fileName;
@@ -119,7 +124,7 @@ public class WaveformStyleIO {
     @Nullable
     private static WaveformStyle readAsset(@NonNull AssetManager am, @NonNull String path) {
         try (InputStream in = am.open(path)) {
-            return GSON.fromJson(readUtf8(in), WaveformStyle.class);
+            return fromJsonWithLayers(readUtf8(in));
         } catch (Exception e) {
             FLog.w(TAG, "Failed reading waveform style: " + path, e);
             return null;
@@ -129,14 +134,14 @@ public class WaveformStyleIO {
     /** Serialize a style to JSON. */
     @NonNull
     public static String toJson(@NonNull WaveformStyle style) {
-        return GSON.toJson(style);
+        return toJsonWithLayers(style, GSON);
     }
 
     /** Parse a style from JSON text (SAF import); null on failure. */
     @Nullable
     public static WaveformStyle fromJson(@NonNull String json) {
         try {
-            return GSON.fromJson(json, WaveformStyle.class);
+            return fromJsonWithLayers(json);
         } catch (Exception e) {
             FLog.w(TAG, "Failed parsing waveform style json", e);
             return null;
@@ -147,11 +152,60 @@ public class WaveformStyleIO {
     @Nullable
     public static WaveformStyle read(@NonNull InputStream in) {
         try {
-            return GSON.fromJson(readUtf8(in), WaveformStyle.class);
+            return fromJsonWithLayers(readUtf8(in));
         } catch (Exception e) {
             FLog.w(TAG, "Failed reading waveform style stream", e);
             return null;
         }
+    }
+
+    // ── Joy Viz Engine layer stack (SPEC_VIZ_ENGINE §4) ──────────────────────
+    // The {@code layers} field on WaveformStyle is transient (Gson never touches it), so a legacy
+    // style with {@code layers == null} serializes BYTE-FOR-BYTE as before. When a stack is present
+    // we splice a self-serialized "layers" array in, and on read we parse it back tolerantly —
+    // unknown emitter strings are skipped so a bad/forward design never crashes a load.
+
+    /** Serialize with the given Gson (compact or pretty), splicing in the layer stack when present. */
+    @NonNull
+    private static String toJsonWithLayers(@NonNull WaveformStyle style, @NonNull Gson gson) {
+        String base = gson.toJson(style);
+        if (style.layers == null) return base; // legacy → untouched, byte-identical
+        try {
+            JsonObject obj = JsonParser.parseString(base).getAsJsonObject();
+            JsonArray arr = new JsonArray();
+            for (VizLayer l : style.layers) arr.add(l.toJson());
+            obj.add("layers", arr);
+            return gson.toJson(obj);
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "Failed serializing waveform style layers; wrote base style only", e);
+            return base;
+        }
+    }
+
+    /** Parse a style, then tolerantly hydrate its {@code layers} stack (null when absent/empty). */
+    @Nullable
+    private static WaveformStyle fromJsonWithLayers(@NonNull String json) {
+        WaveformStyle s = GSON.fromJson(json, WaveformStyle.class);
+        if (s == null) return null;
+        try {
+            JsonElement root = JsonParser.parseString(json);
+            if (root.isJsonObject() && root.getAsJsonObject().has("layers")) {
+                JsonElement le = root.getAsJsonObject().get("layers");
+                if (le.isJsonArray()) {
+                    List<VizLayer> layers = new ArrayList<>();
+                    for (JsonElement e : le.getAsJsonArray()) {
+                        if (!e.isJsonObject()) continue;
+                        VizLayer l = VizLayer.fromJson(e.getAsJsonObject());
+                        if (VizLayer.isKnownEmitter(l.emitter)) layers.add(l); // skip unknown
+                    }
+                    s.layers = layers.isEmpty() ? null : layers; // null (not empty) = legacy
+                }
+            }
+        } catch (RuntimeException e) {
+            // A malformed layers array must never take the style (or the load) down.
+            FLog.w(TAG, "Failed parsing waveform style layers; kept base style", e);
+        }
+        return s;
     }
 
     /** Write a style as JSON to an opened stream (SAF export). */

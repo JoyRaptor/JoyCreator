@@ -8,12 +8,14 @@ import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.graphics.Shader;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.ui.faditor.model.VizLayer;
 import com.fadcam.ui.faditor.model.WaveformData;
 import com.fadcam.ui.faditor.model.WaveformStyle;
 
@@ -161,44 +163,127 @@ public class WaveformStyleRenderer {
                            int centerMode, int renderMode, float radialRingSize,
                            int freqLowHz, int freqHighHz, int bandCountOverride) {
         if (data.bucketCount() == 0) return;
-        int primary = parseColor(style.color, 0xFF00E676);
-        configurePaint(barPaint, style, primary, h);
 
-        boolean hasGlow = style.glowRadiusDp > 0f && style.glowColor != null;
-        if (hasGlow) {
-            glowPaint.set(barPaint);
-            glowPaint.setColor(parseColor(style.glowColor, primary));
-            glowPaint.setShader(null);
-            glowPaint.setMaskFilter(ensureGlowFilter(style.glowRadiusDp, density));
-        }
-
-        // Resolve the orthogonal architecture: data source, vertical justify, and shape — overrides
-        // win, else fall back to what the style's type implies.
+        // Resolve the orthogonal architecture: data source + vertical justify (shape is per-layer).
         boolean spectrum = dataModeOverride == 1 || (dataModeOverride < 0 && style.drawsSpectrum());
         int justify = justifyOverride >= 0 ? justifyOverride : defaultJustify(style);
-        String shape = shapeOf(style.type);
+        boolean radial = renderMode == 1;
 
-        float[] heights = sampleHeights(data, style, atMs, spectrum, hMirror, centerMode,
+        // AudioMapper: band energies are computed ONCE per render call and SHARED across every
+        // layer (spec §2 + perf note) — never recomputed per layer.
+        float[] energies = sampleHeights(data, style, atMs, spectrum, hMirror, centerMode,
                 freqLowHz, freqHighHz, bandCountOverride);
-        if (renderMode == 1) {
-            if (hasGlow) drawRadialBars(canvas, heights, w, h, style, glowPaint, density, radialRingSize);
-            drawRadialBars(canvas, heights, w, h, style, barPaint, density, radialRingSize);
+
+        java.util.List<VizLayer> layers = style.layers;
+        if (layers == null) {
+            // Legacy auto-wrap: a transient one-layer stack that reproduces EXACTLY the old draw.
+            drawLayer(canvas, legacyLayer(style, radial), energies, w, h, density, justify,
+                    radial, radialRingSize);
+        } else {
+            for (VizLayer layer : layers) {
+                drawLayer(canvas, layer, energies, w, h, density, justify, radial, radialRingSize);
+            }
+        }
+    }
+
+    /**
+     * Build the transient single {@link VizLayer} that reproduces a legacy {@link WaveformStyle}'s
+     * draw EXACTLY: the same emitter selection (radial ALWAYS drew bars regardless of the style's
+     * type — the old renderMode==1 branch ran before the shape switch), the same paint fields, and
+     * defaults for opacity(1)/blend(normal)/spread(1)/phase(0)/mirror(false)/gain(1) so the
+     * GeometryMapper and PaintStage collapse to identity.
+     */
+    @NonNull
+    private static VizLayer legacyLayer(@NonNull WaveformStyle style, boolean radial) {
+        VizLayer l = new VizLayer();
+        l.emitter = radial ? VizLayer.EMITTER_BARS : shapeOf(style.type);
+        l.color = style.color;
+        l.gradientStart = style.gradientStart;
+        l.gradientEnd = style.gradientEnd;
+        l.glowColor = style.glowColor;
+        l.glowRadiusDp = style.glowRadiusDp;
+        l.barWidthDp = style.barWidthDp;
+        l.barGapDp = style.barGapDp;
+        l.cornerRadiusDp = style.cornerRadiusDp;
+        return l;
+    }
+
+    /** Emitters the renderer draws in P1; peaks/squares/ring/particles are later phases (skipped). */
+    private static boolean isDrawable(@Nullable String emitter) {
+        return VizLayer.EMITTER_BARS.equals(emitter) || VizLayer.EMITTER_LINE.equals(emitter)
+                || VizLayer.EMITTER_FILLED.equals(emitter) || VizLayer.EMITTER_DOTS.equals(emitter);
+    }
+
+    /**
+     * PaintStage + Emitter dispatch for one layer, drawn through a {@link GeometryMapper}. Preserves
+     * the legacy two-pass order (glow underneath, solid on top) per shape.
+     */
+    private void drawLayer(@NonNull Canvas canvas, @NonNull VizLayer layer, @NonNull float[] energies,
+                           int w, int h, float density, int justify,
+                           boolean radial, float radialRingSize) {
+        if (!isDrawable(layer.emitter)) return;
+
+        int primary = parseColor(layer.color, 0xFF00E676);
+        configureLayerPaint(barPaint, layer, primary, h);
+        applyOpacity(barPaint, layer.opacity);
+        applyBlend(barPaint, layer.blend);
+
+        boolean hasGlow = layer.glowRadiusDp > 0f && layer.glowColor != null;
+        if (hasGlow) {
+            glowPaint.set(barPaint); // inherits antialias/style/shader/alpha/xfermode
+            glowPaint.setColor(parseColor(layer.glowColor, primary));
+            glowPaint.setShader(null);
+            glowPaint.setMaskFilter(ensureGlowFilter(layer.glowRadiusDp, density));
+            applyOpacity(glowPaint, layer.opacity); // setColor reset the alpha channel — re-apply
+        }
+
+        GeometryMapper m = new GeometryMapper(radial, w, h, density, justify, radialRingSize, layer);
+        if (radial) {
+            if (VizLayer.EMITTER_DOTS.equals(layer.emitter)) {
+                if (hasGlow) drawRadialDots(canvas, energies, m, layer, glowPaint);
+                drawRadialDots(canvas, energies, m, layer, barPaint);
+            } else {
+                // bars (and legacy line/filled auto-wrapped to bars when radial) → radial bars
+                if (hasGlow) drawRadialBars(canvas, energies, m, layer, glowPaint);
+                drawRadialBars(canvas, energies, m, layer, barPaint);
+            }
             return;
         }
-        switch (shape) {
-            case "line":
-                if (hasGlow) drawLine(canvas, heights, w, h, style, glowPaint, density);
-                drawLine(canvas, heights, w, h, style, barPaint, density);
+        switch (layer.emitter) {
+            case VizLayer.EMITTER_LINE:
+                if (hasGlow) drawLine(canvas, energies, m, layer, glowPaint);
+                drawLine(canvas, energies, m, layer, barPaint);
                 break;
-            case "filled":
-                if (hasGlow) drawFilled(canvas, heights, w, h, glowPaint);
-                drawFilled(canvas, heights, w, h, barPaint);
+            case VizLayer.EMITTER_FILLED:
+                if (hasGlow) drawFilled(canvas, energies, m, layer, glowPaint);
+                drawFilled(canvas, energies, m, layer, barPaint);
                 break;
-            default:
-                if (hasGlow) drawBars(canvas, heights, w, h, style, glowPaint, density, justify);
-                drawBars(canvas, heights, w, h, style, barPaint, density, justify);
+            case VizLayer.EMITTER_DOTS:
+                if (hasGlow) drawDots(canvas, energies, m, layer, glowPaint);
+                drawDots(canvas, energies, m, layer, barPaint);
+                break;
+            default: // bars
+                if (hasGlow) drawBars(canvas, energies, m, layer, glowPaint);
+                drawBars(canvas, energies, m, layer, barPaint);
                 break;
         }
+    }
+
+    /** Multiply the paint's alpha by {@code opacity}; a no-op at 1 so legacy stays byte-identical. */
+    private static void applyOpacity(@NonNull Paint paint, float opacity) {
+        if (opacity < 1f) {
+            int a = Math.round(Color.alpha(paint.getColor()) * clamp01(opacity));
+            paint.setAlpha(Math.max(0, Math.min(255, a)));
+        }
+    }
+
+    // PorterDuff.ADD = neon additive stacking. Allocated once (deterministic, no per-frame state).
+    private static final PorterDuffXfermode ADD_XFERMODE =
+            new PorterDuffXfermode(PorterDuff.Mode.ADD);
+
+    /** ADD = additive blend; anything else clears the xfermode (NORMAL, the legacy default). */
+    private static void applyBlend(@NonNull Paint paint, @Nullable String blend) {
+        paint.setXfermode(VizLayer.BLEND_ADD.equals(blend) ? ADD_XFERMODE : null);
     }
 
     /** Vertical anchoring a style implies by default: center for the *_mirror types, else bottom. */
@@ -224,10 +309,12 @@ public class WaveformStyleRenderer {
             heights[i] = 0.10f + 0.06f * (float) Math.abs(Math.sin(i * 0.6));
         }
         int justify = defaultJustify(style);
+        VizLayer pl = legacyLayer(style, false);
+        GeometryMapper m = new GeometryMapper(false, w, h, density, justify, 0.35f, pl);
         if (progress < 0f) {
             configurePaint(barPaint, style, primary, h);
             barPaint.setAlpha(70);
-            drawBars(canvas, heights, w, h, style, barPaint, density, justify);
+            drawBars(canvas, heights, m, pl, barPaint);
             return;
         }
         // Lit bars left of the progress point, faint bars to the right.
@@ -239,10 +326,10 @@ public class WaveformStyleRenderer {
         }
         configurePaint(barPaint, style, primary, h);
         barPaint.setAlpha(55);
-        drawBars(canvas, dim, w, h, style, barPaint, density, justify);
+        drawBars(canvas, dim, m, pl, barPaint);
         configurePaint(barPaint, style, primary, h);
         barPaint.setAlpha(200);
-        drawBars(canvas, lit, w, h, style, barPaint, density, justify);
+        drawBars(canvas, lit, m, pl, barPaint);
     }
 
     private void configurePaint(@NonNull Paint paint, @NonNull WaveformStyle style,
@@ -255,6 +342,27 @@ public class WaveformStyleRenderer {
             paint.setShader(new LinearGradient(0, 0, 0, h,
                     parseColor(style.gradientStart, primary),
                     parseColor(style.gradientEnd, primary), Shader.TileMode.CLAMP));
+        } else {
+            paint.setShader(null);
+        }
+    }
+
+    /**
+     * PaintStage colour setup for a {@link VizLayer}. Structurally identical to
+     * {@link #configurePaint} (same reset → antialias → color → FILL → gradient/null-shader order)
+     * but reads the layer's own colour fields, so the legacy auto-wrap (fields copied verbatim from
+     * the style) produces a byte-identical Paint.
+     */
+    private void configureLayerPaint(@NonNull Paint paint, @NonNull VizLayer layer,
+                                     int primary, int h) {
+        paint.reset();
+        paint.setAntiAlias(true);
+        paint.setColor(primary);
+        paint.setStyle(Paint.Style.FILL);
+        if (layer.gradientStart != null && layer.gradientEnd != null) {
+            paint.setShader(new LinearGradient(0, 0, 0, h,
+                    parseColor(layer.gradientStart, primary),
+                    parseColor(layer.gradientEnd, primary), Shader.TileMode.CLAMP));
         } else {
             paint.setShader(null);
         }
@@ -328,90 +436,203 @@ public class WaveformStyleRenderer {
         return (float) Math.pow(clamp01(v), GAMMA);
     }
 
-    /** justify: 0=bottom (grow up), 1=center (mirror up+down), 2=top (grow down). */
-    private void drawBars(@NonNull Canvas canvas, @NonNull float[] heights, int w, int h,
-                          @NonNull WaveformStyle style, @NonNull Paint paint, float density,
-                          int justify) {
+    // ── Emitters ──────────────────────────────────────────────────────────────
+    // Each emitter draws through the GeometryMapper (which owns spread/phase/mirror + LINEAR vs
+    // RADIAL). At the mapper's legacy defaults (spread 1, phase 0, mirror false) and layer gain 1
+    // the arithmetic collapses to the EXACT pre-refactor math — that is the pixel-parity guarantee.
+
+    /** LINEAR bars. justify: 0=bottom (grow up), 1=center (mirror up+down), 2=top (grow down). */
+    private void drawBars(@NonNull Canvas canvas, @NonNull float[] heights,
+                          @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
         int n = heights.length;
-        float slot = w / (float) n;
-        float gap = style.barGapDp * density;
+        if (n == 0) return;
+        float usedW = m.usedWidth();
+        float originX = m.originX();
+        float slot = usedW / (float) n;
+        float gap = layer.barGapDp * m.density;
         float barW = Math.max(1f, slot - gap);
-        float corner = style.cornerRadiusDp * density;
-        boolean center = justify == 1;
-        float baseline = center ? h / 2f : (justify == 2 ? 0f : h);
-        float maxUp = center ? h / 2f : h;
+        float corner = layer.cornerRadiusDp * m.density;
+        boolean center = m.justify == 1;
+        float baseline = center ? m.h / 2f : (m.justify == 2 ? 0f : m.h);
+        float maxUp = center ? m.h / 2f : m.h;
         for (int i = 0; i < n; i++) {
-            float left = i * slot + (slot - barW) / 2f;
-            float barH = heights[i] * maxUp;
+            int di = m.place(i, n);
+            float left = originX + di * slot + (slot - barW) / 2f;
+            float barH = heights[i] * layer.gain * maxUp;
             RectF r;
             if (center) {
                 r = new RectF(left, baseline - barH, left + barW, baseline + barH);
-            } else if (justify == 2) {
+            } else if (m.justify == 2) {
                 r = new RectF(left, 0f, left + barW, barH);
             } else {
-                r = new RectF(left, h - barH, left + barW, h);
+                r = new RectF(left, m.h - barH, left + barW, m.h);
             }
             canvas.drawRoundRect(r, corner, corner, paint);
         }
     }
 
-    private void drawRadialBars(@NonNull Canvas canvas, @NonNull float[] heights, int w, int h,
-                                @NonNull WaveformStyle style, @NonNull Paint paint, float density,
-                                float ringSize) {
-        float cx = w / 2f;
-        float cy = h / 2f;
-        float maxR = Math.min(cx, cy);
-        float ringR = maxR * Math.max(0.05f, Math.min(0.95f, ringSize));
-        float maxExtent = maxR - ringR;
+    /** RADIAL bars — bars shoot outward from the centre ring (spec §2 "radial for free"). */
+    private void drawRadialBars(@NonNull Canvas canvas, @NonNull float[] heights,
+                                @NonNull GeometryMapper m, @NonNull VizLayer layer,
+                                @NonNull Paint paint) {
         int n = heights.length;
         if (n == 0) return;
-        float slotAngle = 360f / n;
-        float circumference = 2f * (float) Math.PI * ringR;
-        float gap = style.barGapDp * density;
-        float barW = Math.max(1f, circumference / n - gap);
-        float corner = style.cornerRadiusDp * density;
+        float gap = layer.barGapDp * m.density;
+        float barW = Math.max(1f, m.circumference / n - gap);
+        float corner = layer.cornerRadiusDp * m.density;
         for (int i = 0; i < n; i++) {
-            float barLen = heights[i] * maxExtent;
+            float barLen = heights[i] * layer.gain * m.maxExtent;
             if (barLen < 0.5f) continue;
             canvas.save();
-            canvas.rotate(i * slotAngle, cx, cy);
-            float left = cx - barW / 2f;
-            float top = cy + ringR;
-            float right = cx + barW / 2f;
+            canvas.rotate(m.angle(i, n), m.cx, m.cy);
+            float left = m.cx - barW / 2f;
+            float top = m.cy + m.ringR;
+            float right = m.cx + barW / 2f;
             float bottom = top + barLen;
             canvas.drawRoundRect(left, top, right, bottom, corner, corner, paint);
             canvas.restore();
         }
     }
 
-    private void drawLine(@NonNull Canvas canvas, @NonNull float[] heights, int w, int h,
-                          @NonNull WaveformStyle style, @NonNull Paint paint, float density) {
+    private void drawLine(@NonNull Canvas canvas, @NonNull float[] heights,
+                          @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
         Paint stroke = new Paint(paint);
         stroke.setStyle(Paint.Style.STROKE);
-        stroke.setStrokeWidth(Math.max(1f, style.barWidthDp * density));
+        stroke.setStrokeWidth(Math.max(1f, layer.barWidthDp * m.density));
         stroke.setStrokeJoin(Paint.Join.ROUND);
         stroke.setStrokeCap(Paint.Cap.ROUND);
-        buildLinePath(heights, w, h);
+        buildLinePath(heights, m, layer);
         canvas.drawPath(path, stroke);
     }
 
-    private void drawFilled(@NonNull Canvas canvas, @NonNull float[] heights, int w, int h,
-                            @NonNull Paint paint) {
-        buildLinePath(heights, w, h);
-        path.lineTo(w, h);
-        path.lineTo(0, h);
+    private void drawFilled(@NonNull Canvas canvas, @NonNull float[] heights,
+                            @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
+        buildLinePath(heights, m, layer);
+        path.lineTo(m.w, m.h);
+        path.lineTo(0, m.h);
         path.close();
         canvas.drawPath(path, paint);
     }
 
-    private void buildLinePath(@NonNull float[] heights, int w, int h) {
+    /**
+     * DOTS (new in P1) — one circle per band, radius ∝ energy·barWidth, positioned at the band's
+     * tip. New emitter, so no legacy parity constraint; it's the proof the pipeline generalizes.
+     */
+    private void drawDots(@NonNull Canvas canvas, @NonNull float[] heights,
+                          @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
+        int n = heights.length;
+        if (n == 0) return;
+        float usedW = m.usedWidth();
+        float originX = m.originX();
+        float slot = usedW / (float) n;
+        float maxR = layer.barWidthDp * m.density;
+        boolean center = m.justify == 1;
+        float maxUp = center ? m.h / 2f : m.h;
+        for (int i = 0; i < n; i++) {
+            int di = m.place(i, n);
+            float e = heights[i] * layer.gain;
+            float r = Math.max(0.5f, e * maxR);
+            float dx = originX + (di + 0.5f) * slot;
+            float dy;
+            if (center) {
+                dy = m.h / 2f;
+            } else if (m.justify == 2) {
+                dy = e * maxUp;
+            } else {
+                dy = m.h - e * maxUp;
+            }
+            canvas.drawCircle(dx, dy, r, paint);
+        }
+    }
+
+    /** RADIAL dots — a pulsing ring of circles at the bar tips (dots gets radial for free too). */
+    private void drawRadialDots(@NonNull Canvas canvas, @NonNull float[] heights,
+                                @NonNull GeometryMapper m, @NonNull VizLayer layer,
+                                @NonNull Paint paint) {
+        int n = heights.length;
+        if (n == 0) return;
+        float maxR = layer.barWidthDp * m.density;
+        for (int i = 0; i < n; i++) {
+            float e = heights[i] * layer.gain;
+            float r = Math.max(0.5f, e * maxR);
+            float barLen = e * m.maxExtent;
+            canvas.save();
+            canvas.rotate(m.angle(i, n), m.cx, m.cy);
+            canvas.drawCircle(m.cx, m.cy + m.ringR + barLen, r, paint);
+            canvas.restore();
+        }
+    }
+
+    private void buildLinePath(@NonNull float[] heights, @NonNull GeometryMapper m,
+                               @NonNull VizLayer layer) {
         path.reset();
         int n = heights.length;
+        float usedW = m.usedWidth();
+        float originX = m.originX();
         for (int i = 0; i < n; i++) {
-            float x = n <= 1 ? 0 : (i / (float) (n - 1)) * w;
-            float y = h - heights[i] * h;
+            int di = m.place(i, n);
+            float x = n <= 1 ? originX : originX + (di / (float) (n - 1)) * usedW;
+            float y = m.h - heights[i] * layer.gain * m.h;
             if (i == 0) path.moveTo(x, y);
             else path.lineTo(x, y);
+        }
+    }
+
+    /**
+     * GeometryMapper (spec §2): places band index {@code i} of {@code n} into canvas space,
+     * applying the layer's spread (fraction of strip/arc used), phase (offset) and mirror (reversed
+     * placement order), for both LINEAR (x = band strip) and RADIAL (θ = band ring) geometry. At the
+     * legacy defaults (spread 1, phase 0, mirror false) every helper collapses to the exact legacy
+     * math — {@code originX()==0}, {@code usedWidth()==w}, {@code angle(i,n)==i*360/n} — so an
+     * auto-wrapped legacy layer draws pixel-identically. Pure value object: no per-frame state.
+     */
+    private static final class GeometryMapper {
+        final boolean radial;
+        final int w, h;
+        final float density;
+        final int justify;
+        final float spread, phaseDeg;
+        final boolean mirror;
+        // Radial ring precompute — matches drawRadialBars' old local math exactly.
+        final float cx, cy, ringR, maxExtent, circumference;
+
+        GeometryMapper(boolean radial, int w, int h, float density, int justify,
+                       float radialRingSize, @NonNull VizLayer layer) {
+            this.radial = radial;
+            this.w = w;
+            this.h = h;
+            this.density = density;
+            this.justify = justify;
+            this.spread = layer.spread;
+            this.phaseDeg = layer.phaseDeg;
+            this.mirror = layer.mirror;
+            this.cx = w / 2f;
+            this.cy = h / 2f;
+            float maxR = Math.min(cx, cy);
+            this.ringR = maxR * Math.max(0.05f, Math.min(0.95f, radialRingSize));
+            this.maxExtent = maxR - ringR;
+            this.circumference = 2f * (float) Math.PI * ringR;
+        }
+
+        /** Draw-position index for band {@code i} (mirror reverses the placement order only). */
+        int place(int i, int n) {
+            return mirror ? (n - 1 - i) : i;
+        }
+
+        // LINEAR — width actually used and its left origin (phase shifts the whole strip).
+        float usedWidth() {
+            return w * spread;
+        }
+        float originX() {
+            return (w - usedWidth()) / 2f + (phaseDeg / 360f) * usedWidth();
+        }
+
+        // RADIAL — per-band rotation about the centre (phase adds a rotation offset).
+        float slotAngle(int n) {
+            return n <= 0 ? 0f : (360f * spread) / n;
+        }
+        float angle(int i, int n) {
+            return phaseDeg + place(i, n) * slotAngle(n);
         }
     }
 

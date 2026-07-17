@@ -46,6 +46,15 @@ public class WaveformStyle {
     /** When true (or type == spectrum_bars), draw from the FFT spectrum instead of amplitude. */
     public boolean useSpectrum = false;
 
+    /**
+     * Joy Viz Engine (SPEC_VIZ_ENGINE §4): an ordered stack of {@link VizLayer}s. {@code null}
+     * (NOT empty) = legacy single-shape — the renderer auto-wraps the fields above into a
+     * transient one-layer stack, and the legacy JSON stays byte-for-byte untouched (this field is
+     * {@code transient} so Gson never emits it; {@link com.fadcam.ui.faditor.waveform.WaveformStyleIO}
+     * serializes the stack by hand when present).
+     */
+    @Nullable public transient java.util.List<VizLayer> layers;
+
     public boolean drawsSpectrum() {
         return useSpectrum || TYPE_SPECTRUM_BARS.equals(type) || TYPE_SPECTRUM_MIRROR.equals(type);
     }
@@ -68,6 +77,10 @@ public class WaveformStyle {
         s.bandCount = bandCount;
         s.sensitivity = sensitivity;
         s.useSpectrum = useSpectrum;
+        if (layers != null) {
+            s.layers = new java.util.ArrayList<>(layers.size());
+            for (VizLayer l : layers) s.layers.add(l.copy());
+        }
         return s;
     }
 

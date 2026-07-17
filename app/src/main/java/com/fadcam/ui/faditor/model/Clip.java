@@ -158,6 +158,19 @@ public class Clip {
     private String overlayBlendMode = "NORMAL";
 
     /**
+     * Dual-stream link (feature-dual-stream-recording-spec §3): when a screen +
+     * webcam pair is recorded together, both resulting clips carry each other's
+     * {@code id} here. Trim/split/delete mirror onto the linked partner at the
+     * same clip-relative position by default; an explicit unlink clears it on
+     * both. Null (the default) = an ordinary, unlinked clip. A fresh-id copy of a
+     * clip is deliberately NOT linked (a duplicate/split-child is independent
+     * until the operation re-links it); {@link #relinked} keeps the link since it
+     * preserves the id.
+     */
+    @Nullable
+    private String linkedClipId;
+
+    /**
      * Per-item compositing spec — vector masks / chroma key / track matte
      * (FEEDBACK_20260702 §C, one additive family). Null (the default) = none;
      * pre-existing serialization stays byte-identical.
@@ -539,6 +552,8 @@ public class Clip {
         c.overlayTransform = overlayTransform != null ? overlayTransform.copy() : null;
         c.overlayBlendMode = overlayBlendMode;
         c.compositing = compositing != null ? compositing.copy() : null;
+        // Relink preserves the clip id, so its dual-stream partner link stays valid.
+        c.linkedClipId = linkedClipId;
         return c;
     }
 
@@ -931,6 +946,22 @@ public class Clip {
 
     public void setOverlayBlendMode(@Nullable String overlayBlendMode) {
         this.overlayBlendMode = overlayBlendMode == null ? "NORMAL" : overlayBlendMode;
+    }
+
+    /** @see #linkedClipId */
+    @Nullable
+    public String getLinkedClipId() {
+        return linkedClipId;
+    }
+
+    /** @see #linkedClipId — pass null to unlink. */
+    public void setLinkedClipId(@Nullable String linkedClipId) {
+        this.linkedClipId = linkedClipId;
+    }
+
+    /** True when this clip was recorded as a synced dual-stream pair with another. */
+    public boolean isLinked() {
+        return linkedClipId != null;
     }
 
     public boolean isCaptionsEnabled() {

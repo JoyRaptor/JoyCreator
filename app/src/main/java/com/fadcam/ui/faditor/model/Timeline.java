@@ -1360,6 +1360,40 @@ public class Timeline {
         return -1;
     }
 
+    // ── Dual-stream linked pairs (feature-dual-stream-recording-spec §3/§6) ──
+
+    /** Look up a master clip by id, or null if it isn't on the timeline. */
+    @Nullable
+    public Clip findClipById(@NonNull String id) {
+        for (Clip c : clips) {
+            if (id.equals(c.getId())) return c;
+        }
+        return null;
+    }
+
+    /**
+     * The dual-stream partner of {@code clip} (the master clip whose id equals
+     * {@code clip.getLinkedClipId()}), or null when unlinked / the partner is gone.
+     */
+    @Nullable
+    public Clip findLinkedClip(@NonNull Clip clip) {
+        String partnerId = clip.getLinkedClipId();
+        return partnerId == null ? null : findClipById(partnerId);
+    }
+
+    /** Link two clips as a synced pair — symmetric, so either can find the other. */
+    public static void linkClips(@NonNull Clip a, @NonNull Clip b) {
+        a.setLinkedClipId(b.getId());
+        b.setLinkedClipId(a.getId());
+    }
+
+    /** Break {@code clip}'s link on BOTH sides (idempotent; safe if the partner is gone). */
+    public void unlinkClip(@NonNull Clip clip) {
+        Clip partner = findLinkedClip(clip);
+        clip.setLinkedClipId(null);
+        if (partner != null) partner.setLinkedClipId(null);
+    }
+
     /**
      * Re-derive every ATTACHED visualizer's absolute {@code [startMs,endMs]} window from its
      * host master clip's CURRENT on-timeline span — the whole of G5 time-riding in one write

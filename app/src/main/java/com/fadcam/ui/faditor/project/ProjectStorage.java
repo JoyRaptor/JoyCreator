@@ -1199,6 +1199,11 @@ public class ProjectStorage {
                 clipJson.add("overlayTransform", tracksJson);
             }
         }
+        // Dual-stream pair link (spec §3) — applies to master clips too, so it lives
+        // outside the overlay block. Omitted when null so unlinked clips stay byte-identical.
+        if (clip.getLinkedClipId() != null) {
+            clipJson.addProperty("linkedClipId", clip.getLinkedClipId());
+        }
         return clipJson;
     }
 
@@ -1415,6 +1420,10 @@ public class ProjectStorage {
                 }
                 if (!ks.isEmpty()) clip.setOverlayTransform(ks);
             }
+        }
+        // Dual-stream pair link (spec §3) — master or overlay clip; absent = unlinked.
+        if (clipObj.has("linkedClipId") && !clipObj.get("linkedClipId").isJsonNull()) {
+            clip.setLinkedClipId(clipObj.get("linkedClipId").getAsString());
         }
         return clip;
     }

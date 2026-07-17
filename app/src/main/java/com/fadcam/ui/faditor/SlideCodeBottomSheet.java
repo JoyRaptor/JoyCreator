@@ -70,6 +70,18 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
                 behavior.setSkipCollapsed(true);
             }
         });
+        // The editor activity runs fullscreen-immersive; make sure this sheet's
+        // window can actually take the IME — otherwise tapping the code box
+        // never raises the keyboard.
+        android.view.Window w = dialog.getWindow();
+        if (w != null) {
+            w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    | android.view.WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+            w.setSoftInputMode(android.view.WindowManager.LayoutParams
+                    .SOFT_INPUT_ADJUST_RESIZE
+                    | android.view.WindowManager.LayoutParams
+                    .SOFT_INPUT_STATE_HIDDEN);
+        }
         return dialog;
     }
 
@@ -116,6 +128,17 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         codeBox.setHorizontallyScrolling(true);
         codeBox.setVerticalScrollBarEnabled(true);
+        codeBox.setFocusableInTouchMode(true);
+        codeBox.setOnClickListener(v -> {
+            codeBox.requestFocus();
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) requireContext()
+                            .getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showSoftInput(codeBox,
+                        android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            }
+        });
         codeBox.setText(initialHtml != null ? initialHtml : "");
         LinearLayout.LayoutParams codeLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (int) (340 * dp));

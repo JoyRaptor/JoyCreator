@@ -55,15 +55,24 @@ public class Transition {
 
     @Nullable public java.util.Map<String, Float> paramOverrides;
 
+    /**
+     * Duration clamp: 50ms (a few frames) to 10s. The old 2s ceiling here silently
+     * clobbered longer durations on every load round-trip — the "handles snap back"
+     * bug (JoyRaptor 2026-07-16). Keep in sync with Timeline.setTransitionDuration.
+     */
+    public static long clampDurationMs(long durationMs) {
+        return Math.max(50, Math.min(10_000, durationMs));
+    }
+
     public Transition(@NonNull Type type, long durationMs, int clipIndex) {
         this.type = type;
-        this.durationMs = Math.max(100, Math.min(2000, durationMs));
+        this.durationMs = clampDurationMs(durationMs);
         this.clipIndex = clipIndex;
     }
 
     public Transition(@NonNull Type type, long durationMs, int clipIndex, float fuzziness) {
         this.type = type;
-        this.durationMs = Math.max(100, Math.min(2000, durationMs));
+        this.durationMs = clampDurationMs(durationMs);
         this.clipIndex = clipIndex;
         this.fuzziness = Math.max(0f, Math.min(1f, fuzziness));
     }

@@ -6475,8 +6475,8 @@ public class EditorTimelineView extends View {
         int seam = Math.max(1, Math.min(t.clipIndex, segments.size() - 1));
         long leftDur = seam > 0 ? segments.get(seam - 1).effectiveMs : 0;
         long rightDur = seam < segments.size() ? segments.get(seam).effectiveMs : segments.get(seam - 1).effectiveMs;
-        long maxSpan = Math.max(100, Math.min(leftDur, rightDur));
-        return Math.max(100, Math.min(2000, Math.min(maxSpan, newDuration)));
+        long maxSpan = Math.max(50, Math.min(leftDur, rightDur));
+        return Math.max(50, Math.min(10_000, Math.min(maxSpan, newDuration)));
     }
 
     private Drag hitTestTransitionHandle(int transitionIndex, float x, float y) {

@@ -17579,6 +17579,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Copy text",
                 "Copy with [mm:ss] stamps  —  simple, readable",
                 "Copy as SRT  —  subtitle standard, works everywhere",
+                "Copy word-level timing  —  exact per-word spans, as the app sees it",
                 "Import timestamped text…",
                 "Delete version…"
         };
@@ -17592,8 +17593,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 com.fadcam.ui.faditor.transcript.TranscriptIO.toStampedText(tr)); break;
                         case 2: copyToClipboard(
                                 com.fadcam.ui.faditor.transcript.TranscriptIO.toSrt(tr)); break;
-                        case 3: promptImportTimestampedText(); break;
-                        case 4: confirmDeleteVersion(index); break;
+                        case 3: copyToClipboard(
+                                com.fadcam.ui.faditor.transcript.TranscriptIO.toWordLevelText(tr)); break;
+                        case 4: promptImportTimestampedText(); break;
+                        case 5: confirmDeleteVersion(index); break;
                     }
                 })
                 .show();

@@ -838,12 +838,14 @@ public class Timeline {
         if (index < 0 || index >= transitions.size()) return;
         Transition t = transitions.get(index);
         t.type = type;
-        t.durationMs = Math.max(100, Math.min(2000, durationMs));
+        t.durationMs = Transition.clampDurationMs(durationMs);
     }
 
     public boolean setTransitionDuration(int index, long durationMs) {
         if (index < 0 || index >= transitions.size()) return false;
-        transitions.get(index).durationMs = Math.max(100, Math.min(2000, durationMs));
+        // Export already seam-clamps a transition longer than its straddled clips
+        // (effectiveTransitionMs), so the generous ceiling is safe.
+        transitions.get(index).durationMs = Transition.clampDurationMs(durationMs);
         return true;
     }
 

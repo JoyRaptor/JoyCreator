@@ -55,6 +55,35 @@ public final class TranscriptIO {
         return sb.toString().trim();
     }
 
+    /**
+     * Every word with its exact span — the app's own word-level view (what drives
+     * the caption animations), one {@code [mm:ss.mmm-mm:ss.mmm] word} per line.
+     * Round-trips losslessly through {@link #parse} (no interpolation on import).
+     * Struck words are skipped like the other flavors.
+     */
+    @NonNull
+    public static String toWordLevelText(@NonNull Transcript t) {
+        StringBuilder sb = new StringBuilder();
+        for (TranscriptWord w : t.words) {
+            if (w.struck) continue;
+            sb.append('[').append(wordTime(w.startMs)).append('-')
+                    .append(wordTime(w.endMs)).append("] ")
+                    .append(w.text).append('\n');
+        }
+        return sb.toString().trim();
+    }
+
+    /** {@code h:mm:ss.mmm} above an hour, else {@code mm:ss.mmm}. */
+    private static String wordTime(long ms) {
+        long h = ms / 3600000;
+        if (h > 0) {
+            return String.format(Locale.US, "%d:%02d:%02d.%03d",
+                    h, (ms / 60000) % 60, (ms / 1000) % 60, ms % 1000);
+        }
+        return String.format(Locale.US, "%02d:%02d.%03d",
+                ms / 60000, (ms / 1000) % 60, ms % 1000);
+    }
+
     /** Standard SRT blocks — the interoperable subtitle format. */
     @NonNull
     public static String toSrt(@NonNull Transcript t) {
@@ -114,12 +143,21 @@ public final class TranscriptIO {
     private static final Pattern BRACKET = Pattern.compile(
             "^\\s*\\[(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})(?:[.,](\\d{1,3}))?\\]\\s*(.+)$");
 
+    /** Word-level line: {@code [mm:ss.mmm-mm:ss.mmm] word} (hours optional). */
+    private static final Pattern WORD_SPAN = Pattern.compile(
+            "^\\s*\\[(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})\\.(\\d{1,3})\\s*-\\s*"
+                    + "(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})\\.(\\d{1,3})\\]\\s*(\\S.*?)\\s*$");
+
     /**
      * Parses SRT / WebVTT / {@code [mm:ss]}-stamped text into a Transcript with word timing
-     * interpolated within each block. Returns null if no timed blocks were found.
+     * interpolated within each block — or, when the text is the word-level
+     * {@code [start-end] word} flavor, reads the exact spans with no interpolation.
+     * Returns null if no timed blocks were found.
      */
     @Nullable
     public static Transcript parse(@NonNull String raw) {
+        Transcript wordLevel = parseWordLevel(raw);
+        if (wordLevel != null) return wordLevel;
         List<long[]> spans = new ArrayList<>();   // {startMs, endMs}
         List<String> texts = new ArrayList<>();
 
@@ -188,6 +226,36 @@ public final class TranscriptIO {
             }
         }
         return t.words.isEmpty() ? null : t;
+    }
+
+    /**
+     * Exact word-level import: every matching line contributes its span verbatim.
+     * The whole text is treated as word-level when a majority of its non-empty
+     * lines match (so a stray header line doesn't break it), else null.
+     */
+    @Nullable
+    private static Transcript parseWordLevel(@NonNull String raw) {
+        Transcript t = new Transcript();
+        int nonEmpty = 0;
+        for (String line : raw.replace("\r", "").split("\n")) {
+            if (line.trim().isEmpty()) continue;
+            nonEmpty++;
+            Matcher m = WORD_SPAN.matcher(line);
+            if (!m.matches()) continue;
+            long s = spanMs(m.group(1), m.group(2), m.group(3), m.group(4));
+            long e = spanMs(m.group(5), m.group(6), m.group(7), m.group(8));
+            // A "word" line may carry a short phrase; keep it as one timed token
+            // per line, exactly as exported.
+            t.words.add(new TranscriptWord(m.group(9), s, Math.max(s + 1, e)));
+        }
+        if (t.words.isEmpty() || t.words.size() * 2 < nonEmpty) return null;
+        return t;
+    }
+
+    private static long spanMs(@Nullable String h, String m, String s, String frac) {
+        long hours = h != null ? Long.parseLong(h) : 0;
+        long msPart = Long.parseLong((frac + "000").substring(0, 3));
+        return ((hours * 60 + Long.parseLong(m)) * 60 + Long.parseLong(s)) * 1000 + msPart;
     }
 
     private static void flushBlock(List<long[]> spans, List<String> texts,

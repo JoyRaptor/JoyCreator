@@ -102,9 +102,17 @@ sliders. Implementation rules: every `apply()` MUST hit exactly 0 at t=0 and 1 a
 a residual-ramp normalization); **preset thumbnails are RENDERED FROM `Easing.apply()` itself**
 (sample into a Path) so the preview can never lie about the math, with a small animated demo dot
 on the focused preset (KineMaster-style). Picker surface obeys D4: a compact popover anchored at
-the diamond (4-col icon grid), NOT another sheet — the live preview is the object itself moving in
-the preview window. The picker edits the segment the playhead is IN (on-a-key = its outgoing
-segment); current curve highlighted.
+the diamond (grid of icon tiles), NOT another sheet — the live preview is the object itself moving
+in the preview window. The picker edits the segment the playhead is IN (on-a-key = its outgoing
+segment).
+
+**Picker visual reference (JoyRaptor 2026-07-17, KineMaster "Graphs" screenshot):** grid of
+rounded-square tiles, each a thin monochrome curve thumbnail on a dark tile — axes hinted as two
+faint baseline strokes, curve brighter. First tile = **⊘ "linear/none"** (no easing). KineMaster's
+second tile is a custom-graph editor — we deliberately DON'T ship that (the `Easing` enum contract
+keeps project files simple/AI-authorable; revisit only if the presets prove insufficient).
+**Selected tile = GREEN highlight, not KineMaster's red** (JoyRaptor): stroke + faint fill tint of the
+drawer's existing accent `0xFF4CAF50`, rounded-rect ring exactly like the screenshot's treatment.
 - Kill the "◆ Add keyframe" mega-button + "Clear" button in `buildOverlayAnimationControls` once the
   drawer takes over image overlays.
 

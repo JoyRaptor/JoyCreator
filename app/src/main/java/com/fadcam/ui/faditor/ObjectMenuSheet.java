@@ -16,6 +16,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.ui.faditor.keyframe.Easing;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +56,11 @@ public final class ObjectMenuSheet extends LinearLayout {
     public interface Setter { void write(float value, long playheadMs); }
     public interface OnKeyQuery { boolean onKeyAt(long playheadMs); }
     public interface ValueFormat { @NonNull String format(float value); }
+    /** C7: is this property armed (has any keyframe)? Drives the "static" hint. */
+    public interface ArmedQuery { boolean armed(); }
+    /** D2a: easing of the segment the playhead is IN (null = no editable segment). */
+    public interface EaseGet { @Nullable Easing segmentEasing(long playheadMs); }
+    public interface EaseSet { void setSegmentEasing(@NonNull Easing e, long playheadMs); }
 
     /** One keyframeable general-menu property (contract §2's diamond rows). */
     public static final class Prop {
@@ -66,14 +73,20 @@ public final class ObjectMenuSheet extends LinearLayout {
         final OnKeyQuery onKey;    // playhead sits on a key of this property?
         final Runnable dropKey;    // hollow-diamond tap → drop a key here
         // G3: diamond swipe = jump playhead to prev/next key of this property;
-        // diamond long-press = delete the key under the playhead. Null = no-op.
+        // diamond tap on-key = delete the key under the playhead. Null = no-op.
         @Nullable final Runnable prevKey, nextKey, deleteKey;
+        // C7 arming honesty + D2a ease picker (nullable so pre-§2 adapters compile).
+        @Nullable final ArmedQuery armed;
+        @Nullable final EaseGet easeGet;
+        @Nullable final EaseSet easeSet;
 
         public Prop(@NonNull String key, @NonNull String label, float min, float max,
                     @NonNull ValueFormat format, @NonNull Getter get, @NonNull Setter set,
                     @NonNull OnKeyQuery onKey, @NonNull Runnable dropKey,
                     @Nullable Runnable prevKey, @Nullable Runnable nextKey,
-                    @Nullable Runnable deleteKey) {
+                    @Nullable Runnable deleteKey,
+                    @Nullable ArmedQuery armed,
+                    @Nullable EaseGet easeGet, @Nullable EaseSet easeSet) {
             this.key = key;
             this.label = label;
             this.min = min;
@@ -86,6 +99,9 @@ public final class ObjectMenuSheet extends LinearLayout {
             this.prevKey = prevKey;
             this.nextKey = nextKey;
             this.deleteKey = deleteKey;
+            this.armed = armed;
+            this.easeGet = easeGet;
+            this.easeSet = easeSet;
         }
 
         public boolean onKeyAt(long playheadMs) { return onKey.onKeyAt(playheadMs); }
@@ -94,6 +110,13 @@ public final class ObjectMenuSheet extends LinearLayout {
         public void prevKey() { if (prevKey != null) prevKey.run(); }
         public void nextKey() { if (nextKey != null) nextKey.run(); }
         public void deleteKey() { if (deleteKey != null) deleteKey.run(); }
+        public boolean armed() { return armed != null && armed.armed(); }
+        @Nullable public Easing segmentEasing(long playheadMs) {
+            return easeGet == null ? null : easeGet.segmentEasing(playheadMs);
+        }
+        public void setSegmentEasing(@NonNull Easing e, long playheadMs) {
+            if (easeSet != null) easeSet.setSegmentEasing(e, playheadMs);
+        }
     }
 
     /** G3: who has keyframe focus — drives the top ribbon over the preview. */
@@ -144,6 +167,8 @@ public final class ObjectMenuSheet extends LinearLayout {
     private boolean expanded;
     private boolean showing;
     private long playheadMs;
+    /** C7: at most one "static — tap ♦ to animate" hint per show(). */
+    private boolean hintShownThisShowing;
 
     public void setFocusListener(@Nullable FocusListener l) { focusListener = l; }
 
@@ -316,6 +341,7 @@ public final class ObjectMenuSheet extends LinearLayout {
         }
         expanded = false;
         showing = true;
+        hintShownThisShowing = false;
         setVisibility(VISIBLE);
         applyState();
         refreshRows();
@@ -433,85 +459,26 @@ public final class ObjectMenuSheet extends LinearLayout {
 
     private int dp(int v) { return (int) (v * density + 0.5f); }
 
-    /**
-     * G3 (contract §2): the diamond owns its small hit area — tap = drop a key,
-     * horizontal swipe = jump playhead to prev (←) / next (→) key of this
-     * property, long-press = delete the key under the playhead. Zone discipline:
-     * the gesture never leaves the diamond, so it can't be confused with
-     * scrub/row-scroll (contract §6).
-     */
-    @SuppressLint("ClickableViewAccessibility")
-    private void wireDiamondGestures(@NonNull TextView diamond, @NonNull Prop prop) {
-        final float slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
-        final long lpTimeout = ViewConfiguration.getLongPressTimeout();
-        diamond.setOnTouchListener(new OnTouchListener() {
-            float downX, downY;
-            boolean moved, longPressed;
-            Runnable pendingLp;
-
-            @Override
-            public boolean onTouch(View v, MotionEvent e) {
-                switch (e.getActionMasked()) {
-                    case MotionEvent.ACTION_DOWN:
-                        downX = e.getRawX();
-                        downY = e.getRawY();
-                        moved = false;
-                        longPressed = false;
-                        setActiveKey(prop.key); // touching a diamond focuses its property
-                        pendingLp = () -> {
-                            longPressed = true;
-                            v.performHapticFeedback(
-                                    android.view.HapticFeedbackConstants.LONG_PRESS);
-                            prop.deleteKey();
-                            refreshRows();
-                        };
-                        v.postDelayed(pendingLp, lpTimeout);
-                        return true;
-                    case MotionEvent.ACTION_MOVE:
-                        if (!moved && (Math.abs(e.getRawX() - downX) > slop
-                                || Math.abs(e.getRawY() - downY) > slop)) {
-                            moved = true;
-                            if (pendingLp != null) v.removeCallbacks(pendingLp);
-                        }
-                        return true;
-                    case MotionEvent.ACTION_UP: {
-                        if (pendingLp != null) v.removeCallbacks(pendingLp);
-                        if (longPressed) return true;      // delete already fired
-                        float dx = e.getRawX() - downX;
-                        if (moved && Math.abs(dx) > slop * 2
-                                && Math.abs(dx) > Math.abs(e.getRawY() - downY)) {
-                            if (dx > 0) prop.nextKey(); else prop.prevKey();
-                        } else if (!moved) {
-                            prop.dropKey();                 // plain tap
-                        }
-                        refreshRows(); // arming/jumping re-anchors every diamond
-                        return true;
-                    }
-                    case MotionEvent.ACTION_CANCEL:
-                        if (pendingLp != null) v.removeCallbacks(pendingLp);
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-        });
-    }
-
-    /** Label + slider + live value + keyframe diamond, one per {@link Prop}. */
-    private final class Row {
+    /** Label (+ inline arming hint) + slider + live value + {@code ‹♦›} control. */
+    private final class Row implements KeyframeDiamondControl.Host {
         final Prop prop;
-        final LinearLayout view;
+        final LinearLayout view;      // vertical: controls row + hint line
         final SeekBar bar;
         final TextView value;
-        final TextView diamond;
+        final TextView hint;
+        final KeyframeDiamondControl diamond;
         boolean touching;
 
         Row(@NonNull Prop p) {
             this.prop = p;
             view = new LinearLayout(getContext());
-            view.setOrientation(HORIZONTAL);
-            view.setGravity(Gravity.CENTER_VERTICAL);
+            view.setOrientation(VERTICAL);
             view.setPadding(0, dp(2), 0, dp(2));
+
+            LinearLayout controls = new LinearLayout(getContext());
+            controls.setOrientation(HORIZONTAL);
+            controls.setGravity(Gravity.CENTER_VERTICAL);
+            view.addView(controls);
 
             TextView label = new TextView(getContext());
             label.setText(p.label);
@@ -519,36 +486,44 @@ public final class ObjectMenuSheet extends LinearLayout {
             label.setTextSize(12);
             label.setSingleLine(true);
             label.setWidth(dp(64));
-            view.addView(label);
+            controls.addView(label);
 
             bar = new SeekBar(getContext());
             bar.setMax(SLIDER_STEPS);
-            view.addView(bar, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+            controls.addView(bar, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
             value = new TextView(getContext());
             value.setTextColor(TXT);
             value.setTextSize(12);
             value.setGravity(Gravity.END);
             value.setWidth(dp(44));
-            view.addView(value);
+            controls.addView(value);
 
-            diamond = new TextView(getContext());
-            diamond.setTextSize(16);
-            diamond.setGravity(Gravity.CENTER);
-            diamond.setPadding(dp(8), 0, dp(2), 0);
-            diamond.setBackgroundResource(selectableBg());
-            wireDiamondGestures(diamond, prop);
-            view.addView(diamond);
+            diamond = new KeyframeDiamondControl(getContext());
+            diamond.bind(prop, this);
+            LayoutParams dlp = new LayoutParams(
+                    LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            dlp.leftMargin = dp(4);
+            controls.addView(diamond, dlp);
+
+            // C7: appears under the row on the first un-armed drag, then fades.
+            hint = new TextView(getContext());
+            hint.setTextColor(TXT_DIM);
+            hint.setTextSize(11);
+            hint.setPadding(0, dp(1), 0, 0);
+            hint.setVisibility(GONE);
+            view.addView(hint);
 
             bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar sb, int progress, boolean fromUser) {
                     if (!fromUser) return;
                     setActiveKey(prop.key); // last-touched row becomes the peek row + focus
+                    maybeFlashArmingHint();
                     float v = prop.min + (prop.max - prop.min) * progress / (float) SLIDER_STEPS;
                     prop.set.write(v, playheadMs);
                     value.setText(prop.format.format(v));
-                    refreshDiamond();
+                    diamond.refresh(playheadMs);
                 }
 
                 @Override
@@ -566,6 +541,25 @@ public final class ObjectMenuSheet extends LinearLayout {
             });
         }
 
+        // ── KeyframeDiamondControl.Host ──
+        @Override public long playheadMs() { return playheadMs; }
+        @Override public void onFocus() { setActiveKey(prop.key); }
+        @Override public void onAction() { refreshRows(); }
+
+        /** C7: first un-armed slider drag this showing → inline honesty hint + pulse.
+         *  NO auto-keying — un-armed drags stay static; this is feedback only. */
+        private void maybeFlashArmingHint() {
+            if (hintShownThisShowing || prop.armed()) return;
+            hintShownThisShowing = true;
+            hint.setText("Static — tap ♦ to animate"); // TODO(strings)
+            hint.setAlpha(1f);
+            hint.setVisibility(VISIBLE);
+            hint.animate().cancel();
+            hint.postDelayed(() -> hint.animate().alpha(0f).setDuration(400)
+                    .withEndAction(() -> hint.setVisibility(GONE)).start(), 2500);
+            diamond.pulse();
+        }
+
         void refresh() {
             if (!touching) {
                 float v = prop.get.at(playheadMs);
@@ -573,13 +567,7 @@ public final class ObjectMenuSheet extends LinearLayout {
                 bar.setProgress(Math.max(0, Math.min(SLIDER_STEPS, progress)));
                 value.setText(prop.format.format(v));
             }
-            refreshDiamond();
-        }
-
-        void refreshDiamond() {
-            boolean on = prop.onKey.onKeyAt(playheadMs);
-            diamond.setText(on ? "◆" : "◇");
-            diamond.setTextColor(on ? ACCENT : TXT_DIM);
+            diamond.refresh(playheadMs);
         }
     }
 }

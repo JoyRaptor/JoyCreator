@@ -14605,6 +14605,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
             }
         });
+        // D2a: long-press the ribbon diamond = ease picker for the focused prop
+        // (same popover the drawer's ‹♦› opens, anchored here instead).
+        ribbonDiamond.setOnLongClickListener(v -> {
+            if (ribbonProp == null) return false;
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            com.fadcam.ui.faditor.keyframe.Easing cur =
+                    ribbonProp.segmentEasing(lastPlayheadAbsoluteMs);
+            EasePickerPopover.show(v, cur != null, cur, e -> {
+                ribbonProp.setSegmentEasing(e, lastPlayheadAbsoluteMs);
+                refreshKeyframeRibbon();
+                if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+                    objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+                }
+            });
+            return true;
+        });
         keyframeRibbon.addView(ribbonDiamond);
 
         TextView next = ribbonGlyph("▶");
@@ -15058,6 +15074,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         () -> moveOverlayItemToAdjacentLayer(o, false)));
             }
         }
+        // "Clear all keyframes" moved off the old animation panel into the drawer
+        // (D2a) — one undo step, no confirm (the × diamond removes single keys).
+        actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
+                () -> clearAllOverlayKeyframes(o)));
 
         final com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[] sliderBefore =
                 new com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot[1];
@@ -15168,8 +15188,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String title = sheet != null ? sheet.getName() : "Sprite";        // TODO(strings)
         // Delete lives on the timeline selection badge only (JoyRaptor 2026-07-17 —
         // the drawer trash was confusing next to ×, and duplicated the badge).
-        ensureObjectMenuSheet().show(title, null, props,
-                new java.util.ArrayList<>(), // sprites: one-per-lane (T8), no layer actions yet
+        // Sprites are one-per-lane (T8) so no layer-move actions — just the
+        // drawer's "Clear all keyframes" (D2a).
+        java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
+        actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
+                () -> clearAllSpriteKeyframes(s)));
+        ensureObjectMenuSheet().show(title, null, props, actions,
                 this::openSpritePalette, null, hooks, lastPlayheadAbsoluteMs, null);
     }
 
@@ -15196,6 +15220,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     scheduleAutoSave();
                 })
                 .show();
+    }
+
+    /** D2a: drop every keyframe on an overlay in one undo step (drawer action). */
+    private void clearAllOverlayKeyframes(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (!o.isArmed()) return;
+        com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                o.snapshotTransform();
+        o.clearKeyframes();
+        recordOverlayMenuUndo(o, before, "Clear all keyframes"); // TODO(strings)
+        if (overlayLayer != null) {
+            overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            overlayLayer.rebuild();
+        }
+        syncTimelineOverlays();
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+        }
+    }
+
+    /** Sprite twin of {@link #clearAllOverlayKeyframes} (no clearKeyframes() on
+     *  SpriteOverlayItem — remove each track's keys through the KeyframeSet). */
+    private void clearAllSpriteKeyframes(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+        if (!s.isArmed()) return;
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before =
+                s.snapshotTransform();
+        for (String p : new String[]{
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY}) {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = s.getKeyframes().get(p);
+            while (tr != null && !tr.keyframes.isEmpty()) {
+                s.getKeyframes().removeKey(p, tr.keyframes.get(0).timeMs);
+            }
+        }
+        recordSpriteMenuUndo(s, before, "Clear all keyframes"); // TODO(strings)
+        refreshSpriteAfterMenuWrite();
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
+        }
     }
 
     /** Sprite twin of {@link #overlayMenuProp}: keyframe-aware write + diamond. */
@@ -15254,8 +15321,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
             recordSpriteMenuUndo(s, before, "Delete keyframe");
             refreshSpriteAfterMenuWrite();
         };
+        ObjectMenuSheet.ArmedQuery armed = s::isArmed;
+        ObjectMenuSheet.EaseGet easeGet =
+                ms -> segmentEasingAt(s.getKeyframes().get(key), s.getStartMs(), ms);
+        ObjectMenuSheet.EaseSet easeSet =
+                (e, ms) -> setSegmentEasingForSprite(s, key, ms, e);
         return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey,
-                prevKey, nextKey, deleteKey);
+                prevKey, nextKey, deleteKey, armed, easeGet, easeSet);
+    }
+
+    /** D2a sprite twin of {@link #setSegmentEasingForOverlay}. */
+    private void setSegmentEasingForSprite(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s,
+            @NonNull String key, long playheadMs,
+            @NonNull com.fadcam.ui.faditor.keyframe.Easing e) {
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = s.getKeyframes().get(key);
+        if (tr == null || tr.keyframes.isEmpty()) return;
+        long local = Math.max(0, playheadMs - s.getStartMs());
+        com.fadcam.ui.faditor.keyframe.Keyframe owner = null;
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (k.timeMs <= local) owner = k; else break;
+        }
+        if (owner == null) return;
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before =
+                s.snapshotTransform();
+        owner.easing = e;
+        recordSpriteMenuUndo(s, before, "Ease curve"); // TODO(strings)
+        refreshSpriteAfterMenuWrite();
     }
 
     private void refreshSpriteAfterMenuWrite() {
@@ -15355,8 +15447,55 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             syncTimelineOverlays();
         };
+        // C7 arming query + D2a segment-ease accessors (the picker edits the key
+        // at-or-before the playhead — that key owns its outgoing segment).
+        ObjectMenuSheet.ArmedQuery armed = o::isArmed;
+        ObjectMenuSheet.EaseGet easeGet =
+                ms -> segmentEasingAt(o.getKeyframes().get(key), o.getStartMs(), ms);
+        ObjectMenuSheet.EaseSet easeSet =
+                (e, ms) -> setSegmentEasingForOverlay(o, key, ms, e);
         return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey,
-                prevKey, nextKey, deleteKey);
+                prevKey, nextKey, deleteKey, armed, easeGet, easeSet);
+    }
+
+    /** D2a: easing of the segment the playhead is in — the key at-or-before the
+     *  playhead owns it. Null when the track is empty or the playhead is before
+     *  the first key (no editable segment). */
+    @Nullable
+    private com.fadcam.ui.faditor.keyframe.Easing segmentEasingAt(
+            @Nullable com.fadcam.ui.faditor.keyframe.KeyframeTrack tr,
+            long itemStartMs, long playheadMs) {
+        if (tr == null || tr.keyframes.isEmpty()) return null;
+        long local = Math.max(0, playheadMs - itemStartMs);
+        com.fadcam.ui.faditor.keyframe.Keyframe owner = null;
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (k.timeMs <= local) owner = k; else break; // keyframes are sorted
+        }
+        return owner == null ? null : owner.easing;
+    }
+
+    /** D2a: set the outgoing easing of the segment-owning key (one undo step). */
+    private void setSegmentEasingForOverlay(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull String key, long playheadMs,
+            @NonNull com.fadcam.ui.faditor.keyframe.Easing e) {
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = o.getKeyframes().get(key);
+        if (tr == null || tr.keyframes.isEmpty()) return;
+        long local = Math.max(0, playheadMs - o.getStartMs());
+        com.fadcam.ui.faditor.keyframe.Keyframe owner = null;
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (k.timeMs <= local) owner = k; else break;
+        }
+        if (owner == null) return;
+        com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                o.snapshotTransform();
+        owner.easing = e;
+        recordOverlayMenuUndo(o, before, "Ease curve"); // TODO(strings)
+        if (overlayLayer != null) {
+            overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            overlayLayer.rebuild();
+        }
+        syncTimelineOverlays();
     }
 
     /** G3: seek the playhead to the nearest key strictly before/after it. */
@@ -15845,37 +15984,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         });
 
-        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
-        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-
-        android.widget.Button addKf = new android.widget.Button(this);
-        addKf.setText(R.string.faditor_kf_add);
-        addKf.setAllCaps(false);
-        addKf.setOnClickListener(v -> {
-            item.addKeyframeAt(lastPlayheadAbsoluteMs);
-            if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
-            syncTimelineOverlays();
-            refreshStatus.run();
-            scheduleAutoSave();
-            Toast.makeText(this, R.string.faditor_kf_added, Toast.LENGTH_SHORT).show();
-        });
-        row.addView(addKf);
-
-        android.widget.Button clearKf = new android.widget.Button(this);
-        clearKf.setText(R.string.faditor_kf_clear);
-        clearKf.setAllCaps(false);
-        clearKf.setOnClickListener(v -> {
-            item.clearKeyframes();
-            // Also reset the visible range so an accidental "Start/End here"
-            // can't leave the overlay hidden — fully back to static + always-on.
-            item.setTimeRange(0, Long.MAX_VALUE);
-            if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
-            syncTimelineOverlays();
-            refreshStatus.run();
-            scheduleAutoSave();
-        });
-        row.addView(clearKf);
-        box.addView(row);
+        // The "◆ Add keyframe" mega-button + "Clear" button are gone (D2a): the
+        // drawer's ‹♦› control drops/removes single keys and "Clear all keyframes"
+        // is a drawer action now. Opacity slider + range controls stay here.
 
         // Time-range controls: clip the overlay's appearance to the playhead.
         android.widget.LinearLayout rangeRow = new android.widget.LinearLayout(this);

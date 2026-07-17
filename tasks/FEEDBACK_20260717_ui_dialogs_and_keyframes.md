@@ -230,13 +230,32 @@ already property-focused.)
    C8 stragglers (A1 edge auto-pan, outline color audit) NOT included — still open.
    DEVICE-VERIFY OWED: pick up an item, hover each gap incl. above-top/below-bottom, drop → new
    layer at that position; undo restores in one step with old ordering.
-3. **Keyframe visibility batch:** `<♦️>` widget (D2) + C7 arming honesty + C4 display-parity on
-   rows (consolidated diamonds, time-drag, opacity-only rubber-band).
-   - D2a CURVE MATH ✅ 2026-07-17: `Easing.java` grew EASE_IN_EXPO/EASE_OUT_EXPO/ANTICIPATE/
-     OVERSHOOT/SPRING_SOFT/SPRING/SPRING_BOUNCY/BOUNCE/STAIRS_4. Endpoint contract JVM-verified
-     (exact 0/1 via guards; springs use ω=odd·π/2 so cos≡0 at t=1 — no residual ramp needed;
-     BOUNCE never crosses 1; SPRING_BOUNCY max 1.34 > SPRING_SOFT max 1.036).
-4. Ease picker presets (D2a UI) — after the widget exists.
+3. **Keyframe visibility batch — `<♦>` widget + C7 ✅ BUILT 2026-07-17 (compile-green); C4 row
+   parity still open.**
+   - D2a CURVE MATH ✅: `Easing.java` grew EASE_IN_EXPO/EASE_OUT_EXPO/ANTICIPATE/OVERSHOOT/
+     SPRING_SOFT/SPRING/SPRING_BOUNCY/BOUNCE/STAIRS_4. Endpoint contract JVM-verified (exact 0/1
+     via guards; springs use ω=odd·π/2 so cos≡0 at t=1 — no residual ramp needed; BOUNCE never
+     crosses 1; SPRING_BOUNCY max 1.34 > SPRING_SOFT max 1.036).
+   - D2 WIDGET ✅: new `KeyframeDiamondControl` (`‹♦›`) — chevrons = prev/next key; custom-drawn
+     diamond (hollow off-key; solid green with carved × on-key); tap = drop / remove-THIS-key;
+     long-press = ease picker; swipe-nav kept as bonus. Drawer rows use it (old TextView diamond
+     + wireDiamondGestures gone). Prop grew armed/easeGet/easeSet adapters (both factories).
+   - C7 ✅: first un-armed slider drag per showing → inline "Static — tap ♦ to animate" row hint
+     (2.5s fade) + diamond pulse. NO auto-keying.
+   - Old text-dialog "◆ Add keyframe" + "Clear" buttons REMOVED (D2a rider); "Clear all
+     keyframes" is now a destructive drawer action for overlays AND sprites (one undo step;
+     deliberately does NOT reset the time range like the old Clear did — range has its own chips).
+   - C4 row display-parity — NEXT: consolidated keyframe diamonds on overlay/sprite rows,
+     horizontal diamond drag = move key in time, opacity-only rubber-band + scrim over §2 thumbs.
+4. **Ease picker (D2a UI) — ✅ BUILT 2026-07-17.** `EasePickerPopover`: anchored at the diamond
+   (above if room), 4-col grid of 14 rounded tiles, thumbnails sampled FROM `Easing.apply()`
+   (over-range fitted so dips/overshoots show; faint 0/1 baselines), first tile ⊘=linear, NO
+   custom-graph tile, selected = GREEN ring+tint 0xFF4CAF50 (JoyRaptor). Picker edits the segment the
+   playhead is in (key at-or-before owns it); empty track → "Drop keyframes first" hint. Also
+   wired to long-press on the preview keyframe ribbon's diamond.
+   DEVICE-VERIFY OWED (JoyRaptor): ‹♦› row control feel (tap add/remove, chevron jumps, long-press
+   picker), hint honesty flash, ease a 2-key move with SPRING_BOUNCY and scrub it, ribbon
+   long-press picker, "Clear all keyframes" undo.
 5. Then back to the device-verify queue (dual-stream checklist etc.).
 
 ## STILL-OPEN SPEC DEBT (audit 2026-07-17, so we stop re-inventing)

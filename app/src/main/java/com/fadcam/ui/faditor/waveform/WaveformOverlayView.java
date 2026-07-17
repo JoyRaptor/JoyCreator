@@ -46,6 +46,14 @@ public class WaveformOverlayView extends View {
         void onWaveformDeleted(@NonNull WaveformOverlayInstance overlay);
         /** Re-tapping an already-selected visualizer — open the style chooser. */
         default void onWaveformTapped(@NonNull WaveformOverlayInstance overlay) {}
+        /**
+         * Hold on a visualizer — open its object menu (gesture contract §4.5;
+         * delete lives inside it). Default falls back to the legacy instant
+         * delete so other hosts keep working unchanged.
+         */
+        default void onWaveformLongPressed(@NonNull WaveformOverlayInstance overlay) {
+            onWaveformDeleted(overlay);
+        }
     }
 
     private final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -271,9 +279,8 @@ public class WaveformOverlayView extends View {
         cancelPendingLongPress();
         longPressRunnable = () -> {
             if (!movedSinceDown && selected == target && changeListener != null) {
-                changeListener.onWaveformDeleted(target);
-                selected = null;
-                invalidate();
+                performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                changeListener.onWaveformLongPressed(target);
             }
         };
         handler.postDelayed(longPressRunnable, 500);

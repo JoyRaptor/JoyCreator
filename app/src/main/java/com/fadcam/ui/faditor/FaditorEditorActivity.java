@@ -9622,6 +9622,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
                         showVisualizerStylePicker(overlay);
                     }
+
+                    @Override
+                    public void onWaveformLongPressed(
+                            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
+                        // Gesture contract §4.5: hold opens the object menu; delete
+                        // lives inside it (was an instant, confirm-less delete).
+                        // TODO(strings)
+                        String[] items = {"Customize style…", "Delete visualizer"};
+                        new com.google.android.material.dialog.MaterialAlertDialogBuilder(
+                                FaditorEditorActivity.this)
+                                .setTitle("Visualizer")
+                                .setItems(items, (d, which) -> {
+                                    if (which == 0) {
+                                        showVisualizerStylePicker(overlay);
+                                    } else {
+                                        onWaveformDeleted(overlay);
+                                    }
+                                })
+                                .show();
+                    }
                 });
         if (!overlays.isEmpty()) {
             waveformOverlayView.bringToFront(); // sit above other layers so it receives touches
@@ -15728,6 +15748,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 showSoftKeyboard(searchInput);
             } else {
                 transcriptView.clearSearch();
+                pushSearchHitsToTimeline();
                 hideSoftKeyboard(searchInput);
             }
         });
@@ -15738,6 +15759,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 int total = transcriptView.search(s.toString());
                 searchCount.setText(total == 0 ? "0/0"
                         : transcriptView.getSearchCurrentOneBased() + "/" + total);
+                pushSearchHitsToTimeline();
             }
         });
         findViewById(R.id.transcript_search_prev).setOnClickListener(v -> {
@@ -15751,9 +15773,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.transcript_search_close).setOnClickListener(v -> {
             searchInput.setText("");
             transcriptView.clearSearch();
+            pushSearchHitsToTimeline();
             searchBar.setVisibility(View.GONE);
             hideSoftKeyboard(searchInput);
         });
+        // (helper below mirrors panel search hits onto the timeline words tape)
 
         transcriptView.setListener(new com.fadcam.ui.faditor.transcript.TranscriptPanelView.Listener() {
             @Override
@@ -18020,6 +18044,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Mirror the transcript panel's search hits onto the timeline words tape
+     * (JoyRaptor 2026-07-16): the same word indices highlight amber on the selected
+     * clip's tape (or as taller amber marks at wide zoom).
+     */
+    private void pushSearchHitsToTimeline() {
+        if (editorTimeline == null || transcriptView == null) return;
+        Clip c = getSelectedClip();
+        java.util.Set<Integer> hits = transcriptView.getSearchMatchSet();
+        editorTimeline.setTranscriptSearchMatches(
+                (c != null && !hits.isEmpty()) ? c.getId() : null,
+                new java.util.HashSet<>(hits));
+    }
+
     private void copyToClipboard(@NonNull String text) {
         android.content.ClipboardManager cm =
                 (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
@@ -18263,6 +18301,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         seek.setMax(100);
         seek.setProgress(50);
         root.addView(seek);
+        android.widget.TextView preview = attachSilenceLivePreview(root, seek);
 
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_silence_detect_title)
@@ -18272,6 +18311,77 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setPositiveButton(R.string.faditor_silence_detect_btn, (d, w) ->
                         runSilenceDetect(seek.getProgress() / 100f))
                 .show();
+        previewSilenceCandidates(0.5f, preview);
+    }
+
+    // ── Gap-detection live preview (JoyRaptor 2026-07-16: settings feel untrustworthy
+    //    without seeing what they'd do — candidates update on the tape as the
+    //    slider moves) ────────────────────────────────────────────────────────
+
+    private int silencePreviewGen = 0;
+
+    /** Add a status line under the slider and wire slider-release → live preview. */
+    @NonNull
+    private android.widget.TextView attachSilenceLivePreview(
+            @NonNull android.widget.LinearLayout root, @NonNull android.widget.SeekBar seek) {
+        final android.widget.TextView preview = new android.widget.TextView(this);
+        preview.setTextColor(0xFFFFC107);
+        preview.setTextSize(12);
+        preview.setPadding(0, (int) (6 * getResources().getDisplayMetrics().density), 0, 0);
+        preview.setText("Release the slider to preview gaps on the timeline"); // TODO(strings)
+        root.addView(preview);
+        seek.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar sb, int p, boolean u) { }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar sb) { }
+            @Override public void onStopTrackingTouch(android.widget.SeekBar sb) {
+                previewSilenceCandidates(sb.getProgress() / 100f, preview);
+            }
+        });
+        return preview;
+    }
+
+    /**
+     * Run detection for preview only: paints the yellow candidates on the tape
+     * and reports the would-be trim in the dialog, without cutting anything.
+     * Generation-guarded so a slow scan can't clobber a newer slider position.
+     */
+    private void previewSilenceCandidates(float sensitivity,
+                                          @NonNull android.widget.TextView status) {
+        final Clip clip = getSelectedClip();
+        if (clip == null) return;
+        final int gen = ++silencePreviewGen;
+        status.setText("Scanning…"); // TODO(strings)
+        if (silenceDetector == null) silenceDetector = new SilenceDetector(this);
+        final long inMs = clip.getInPointMs();
+        final long outMs = clip.getOutPointMs();
+        silenceDetector.detect(clip.getSourceUri(), inMs, outMs, sensitivity,
+                new SilenceDetector.Callback() {
+                    @Override
+                    public void onResult(@NonNull List<long[]> keepRanges,
+                                         int gapsRemoved, long msSaved) {
+                        if (gen != silencePreviewGen || isFinishing()) return;
+                        List<long[]> silent = new ArrayList<>();
+                        long cursor = inMs;
+                        for (long[] k : keepRanges) {
+                            if (k[0] > cursor) silent.add(new long[]{cursor, k[0]});
+                            cursor = Math.max(cursor, k[1]);
+                        }
+                        if (cursor < outMs) silent.add(new long[]{cursor, outMs});
+                        clip.setSilenceCandidates(silent);
+                        editorTimeline.setShowSilence(true);
+                        editorTimeline.invalidate();
+                        // TODO(strings)
+                        status.setText(silent.isEmpty()
+                                ? "No gaps at this sensitivity"
+                                : silent.size() + " gaps — " + (msSaved / 1000) + "s would be trimmed");
+                    }
+
+                    @Override
+                    public void onError(@NonNull Exception e) {
+                        if (gen != silencePreviewGen || isFinishing()) return;
+                        status.setText("Couldn't scan the audio"); // TODO(strings)
+                    }
+                });
     }
 
     private void runSilenceDetect(float sensitivity) {
@@ -18405,6 +18515,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         seek.setMax(100);
         seek.setProgress(50);
         root.addView(seek);
+        android.widget.TextView preview = attachSilenceLivePreview(root, seek);
 
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_silence_title)
@@ -18414,6 +18525,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setPositiveButton(R.string.faditor_silence_title, (d, w) ->
                         runSilenceRemoval(seek.getProgress() / 100f))
                 .show();
+        previewSilenceCandidates(0.5f, preview);
     }
 
     private void removeDetectedGaps() {

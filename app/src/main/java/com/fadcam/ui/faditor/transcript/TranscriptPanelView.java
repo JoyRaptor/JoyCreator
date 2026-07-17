@@ -201,6 +201,12 @@ public class TranscriptPanelView extends View {
         return searchCurrent + 1;
     }
 
+    /** Live view of the matched word indices (for mirroring hits on the timeline tape). */
+    @NonNull
+    public java.util.Set<Integer> getSearchMatchSet() {
+        return searchMatchSet;
+    }
+
     public int getSearchTotal() {
         return searchMatches.size();
     }

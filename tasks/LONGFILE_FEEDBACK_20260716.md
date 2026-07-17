@@ -138,10 +138,16 @@ installed there); ⑥ preview double-tap → object menu for avatar/captions (st
   overlay until first STATE_READY (4075369)
 - ✅ slides spec addendum: API-less copy-a-prompt path (in feature-ai-generated-slides-spec.md)
 
-## Still open (next session)
-- Transcript SEARCH hits should highlight on the words tape (JoyRaptor 2026-07-16 pm).
-- Gap-detection LIVE PREVIEW: show gap candidates on the tape as the settings sliders move (JoyRaptor finds
-  the current abstract settings untrustworthy without feedback; pairs with the word-marks view).
-- Slides build (spec ready, incl. prompt-button addendum) — dedicated session.
-- Visualizer long-press instant-delete → object menu? (JoyRaptor decision.)
-- ANR trace pull (likely moot after the word-culling + thumbnail fixes — verify on next long open).
+## Still open (updated 2026-07-17)
+- ✅ Transcript SEARCH hits highlight on the words tape (amber bold words; taller amber
+  marks at wide zoom; live with typing, clears with the search bar).
+- ✅ Gap-detection LIVE PREVIEW: both silence dialogs (detect + auto-cut) now preview on
+  slider release — yellow candidates paint on the tape, status line reports "N gaps — Xs
+  would be trimmed" (generation-guarded against slow scans).
+- ✅ Slides build — ALL phases + addendum shipped (see feature-ai-generated-slides-spec.md).
+- ✅ Visualizer long-press → object menu (Customize style… / Delete visualizer) with
+  haptic; instant-delete removed per gesture contract §4.5. (Second host at ~11072 keeps
+  the legacy default-interface fallback.)
+- ⏳ ANR trace pull (likely moot after the word-culling + thumbnail fixes — verify on next
+  long open of the lecture project on the main phone).
+- DEVICE-VERIFY owed on the three ✅ builds above (this session was build+compile only).

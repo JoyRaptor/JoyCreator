@@ -3261,6 +3261,19 @@ public class EditorTimelineView extends View {
      * source timestamps. Words scroll with the timeline. The word at the
      * playhead is highlighted in green.
      */
+    // ── Transcript search highlight (JoyRaptor 2026-07-16: hits show on the words tape) ──
+    @Nullable private String searchClipId;
+    @Nullable private java.util.Set<Integer> searchWordIndices;
+
+    /** Word indices matching the transcript panel's search, for one clip. Null/empty clears. */
+    public void setTranscriptSearchMatches(@Nullable String clipId,
+                                           @Nullable java.util.Set<Integer> wordIndices) {
+        this.searchClipId = clipId;
+        this.searchWordIndices =
+                (wordIndices == null || wordIndices.isEmpty()) ? null : wordIndices;
+        invalidate();
+    }
+
     private void drawSegmentTranscript(Canvas canvas, RectF rect, SegmentData sd, int segIndex) {
         if (sd.clipId == null) return;
         com.fadcam.ui.faditor.transcript.Transcript tr = segmentTranscripts.get(sd.clipId);
@@ -3339,13 +3352,24 @@ public class EditorTimelineView extends View {
             boolean isActive = isCurrentClip
                     && currentPlayheadSourceMs >= word.startMs
                     && currentPlayheadSourceMs <= word.endMs;
+            boolean isSearchHit = searchWordIndices != null
+                    && sd.clipId.equals(searchClipId)
+                    && searchWordIndices.contains(w);
 
             if (markAlpha > 0) {
-                // Thin per-word mark (dimmer for struck words) — the gap-scanning view.
-                transcriptTextPaint.setColor((word.struck ? markAlpha / 3 : markAlpha) << 24
-                        | 0x00FFFFFF);
-                canvas.drawRect(wordX, textY - markH, wordX + markW, textY,
-                        transcriptTextPaint);
+                if (isSearchHit) {
+                    // Search hits stay findable even in pure-marks zoom: amber,
+                    // taller, full-strength.
+                    transcriptTextPaint.setColor(0xFFFFC107);
+                    canvas.drawRect(wordX, textY - markH * 1.6f, wordX + markW * 1.6f, textY,
+                            transcriptTextPaint);
+                } else {
+                    // Thin per-word mark (dimmer for struck words) — the gap-scanning view.
+                    transcriptTextPaint.setColor((word.struck ? markAlpha / 3 : markAlpha) << 24
+                            | 0x00FFFFFF);
+                    canvas.drawRect(wordX, textY - markH, wordX + markW, textY,
+                            transcriptTextPaint);
+                }
                 transcriptTextPaint.setColor(0xFFFFFFFF);
             }
             if (wordsAlpha <= 0f) continue;
@@ -3353,6 +3377,13 @@ public class EditorTimelineView extends View {
             if (isActive) {
                 transcriptHighlightPaint.setAlpha(wA);
                 canvas.drawText(text, wordX, textY, transcriptHighlightPaint);
+                transcriptHighlightPaint.setAlpha(0xFF);
+            } else if (isSearchHit) {
+                // Amber bold — matches the panel's search highlight semantics.
+                transcriptHighlightPaint.setColor(0xFFFFC107);
+                transcriptHighlightPaint.setAlpha(wA);
+                canvas.drawText(text, wordX, textY, transcriptHighlightPaint);
+                transcriptHighlightPaint.setColor(0xFF4CAF50);
                 transcriptHighlightPaint.setAlpha(0xFF);
             } else if (word.struck) {
                 transcriptTextPaint.setColor(((0x44 * wA / 0xFF) << 24) | 0x00FFFFFF);

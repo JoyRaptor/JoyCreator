@@ -17,6 +17,17 @@ public final class SlideContract {
 
     private SlideContract() { }
 
+    /**
+     * Version of the slide contract (runtime API + validation rules). Embedded in
+     * the copyable external prompt and echoed back by the authored HTML as an
+     * HTML comment, so a future renderer can detect slides authored against a
+     * stale prompt.
+     */
+    public static final int CONTRACT_VERSION = 1;
+
+    /** Marker comment the external prompt asks the model to include verbatim. */
+    public static final String CONTRACT_MARKER = "faditor-slide-contract v";
+
     /** Default fullscreen background. */
     public static final String DEFAULT_BG = "#0b0e14";
 
@@ -92,6 +103,116 @@ public final class SlideContract {
 
     public static final String MODE_FULLSCREEN = "fullscreen";
     public static final String MODE_OVERLAY = "overlay";
+
+    /**
+     * The API-less path: a prompt the user copies into ANY external chatbot
+     * (including ones with no API access). It teaches the same contract the
+     * renderer consumes — single self-contained HTML, fixed duration, animation
+     * purely a function of time — and asks the model to echo the contract-version
+     * marker so a future import can detect stale prompts. The user pastes the
+     * resulting HTML back through the import entry, which feeds the exact same
+     * HTML→MP4 pipeline as the in-app AI path.
+     */
+    @NonNull
+    public static String buildExternalPrompt(int width, int height, long durationHintMs) {
+        return "I'm using a mobile video editor (Faditor) that can turn one self-contained\n"
+                + "HTML file into a short animated video clip (\"slide\") — a chapter card,\n"
+                + "stylized title, that kind of thing. Please author that HTML file for me.\n"
+                + "The editor rasterizes it into real video frames, so follow these rules\n"
+                + "exactly.\n\n"
+                + "OUTPUT FORMAT\n"
+                + "- Return ONE complete HTML file, nothing else. A single code block is\n"
+                + "  fine, but no explanation mixed into the HTML.\n"
+                + "- Include this exact comment on the line right after <!doctype html>:\n"
+                + "  <!-- " + CONTRACT_MARKER + CONTRACT_VERSION + " -->\n"
+                + "- Reference exactly these two local scripts, in this order, nothing else\n"
+                + "  external (the editor provides both files at render time — do NOT\n"
+                + "  inline or substitute them, and don't worry that they won't load in a\n"
+                + "  desktop browser preview):\n"
+                + "  <script src=\"gsap.min.js\"></script>\n"
+                + "  <script src=\"faditor_runtime.js\"></script>\n"
+                + "- No other external resource of any kind: no CDNs, no Google Fonts links,\n"
+                + "  no remote images, no fetch/XMLHttpRequest/WebSocket. The renderer may be\n"
+                + "  fully offline.\n\n"
+                + "CANVAS\n"
+                + "- The stage is a div with id=\"stage\" sized exactly " + width + "x" + height + "\n"
+                + "  pixels. Fill it edge-to-edge. Use fixed pixel values, not vw/vh.\n"
+                + "- Design a complete background — the slide fully replaces the video frame\n"
+                + "  for its duration.\n\n"
+                + "TIMING — THE MOST IMPORTANT RULE\n"
+                + "- Build exactly one GSAP timeline (gsap is provided by gsap.min.js).\n"
+                + "  Never use setInterval, setTimeout, requestAnimationFrame,\n"
+                + "  infinite/auto-running CSS animations, or Date.now() to drive visual\n"
+                + "  state. The editor owns time: it calls Faditor.seek(ms) with arbitrary,\n"
+                + "  possibly out-of-order timestamps. Your animation must look correct at\n"
+                + "  any single timestamp, not just when played start-to-finish.\n"
+                + "- When your timeline is fully built, call exactly once:\n"
+                + "  Faditor.register(timeline, durationMs);\n"
+                + "  (Faditor is provided by faditor_runtime.js.) durationMs is your own\n"
+                + "  authored length as a plain integer literal — aim for roughly\n"
+                + "  " + durationHintMs + "ms, exact precision not required.\n"
+                + "- The editor may hold your final frame longer than your authored\n"
+                + "  duration, or cut you off early. Design an ending that looks fine\n"
+                + "  frozen.\n\n"
+                + "CONTENT\n"
+                + "- Fonts: system-safe only (-apple-system, system-ui, Arial, Georgia,\n"
+                + "  monospace). Do not @import or link any other font.\n"
+                + "- I'll describe what the slide should say and how it should look in my\n"
+                + "  next message. If I haven't yet, ask me.\n\n"
+                + "SKELETON TO FOLLOW\n"
+                + "<!doctype html>\n"
+                + "<!-- " + CONTRACT_MARKER + CONTRACT_VERSION + " -->\n"
+                + "<html><head><meta charset=\"utf-8\">\n"
+                + "<style>\n"
+                + "  html,body{margin:0;padding:0;background:" + DEFAULT_BG + ";}\n"
+                + "  #stage{width:" + width + "px;height:" + height + "px;position:relative;overflow:hidden;}\n"
+                + "  /* your CSS here */\n"
+                + "</style></head>\n"
+                + "<body>\n"
+                + "<div id=\"stage\">\n"
+                + "  <!-- your markup here -->\n"
+                + "</div>\n"
+                + "<script src=\"gsap.min.js\"></script>\n"
+                + "<script src=\"faditor_runtime.js\"></script>\n"
+                + "<script>\n"
+                + "  const tl = gsap.timeline({ paused: true });\n"
+                + "  // tl.from(...).to(...) etc.\n"
+                + "  Faditor.register(tl, /* durationMs */ " + durationHintMs + ");\n"
+                + "</script>\n"
+                + "</body></html>";
+    }
+
+    /**
+     * Contract version echoed in the HTML's marker comment, or -1 when absent
+     * (in-app-authored slides and pre-marker prompts don't carry one).
+     */
+    public static int extractContractVersion(@NonNull String html) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile(java.util.regex.Pattern.quote(CONTRACT_MARKER) + "(\\d+)")
+                .matcher(html);
+        if (m.find()) {
+            try {
+                return Integer.parseInt(m.group(1));
+            } catch (NumberFormatException ignored) { }
+        }
+        return -1;
+    }
+
+    /**
+     * The authored duration from the HTML's {@code Faditor.register(tl, N)} call,
+     * or {@code fallbackMs} when it can't be parsed (non-literal expression).
+     */
+    public static long extractAuthoredDurationMs(@NonNull String html, long fallbackMs) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("Faditor\\.register\\s*\\(\\s*[^,]+,\\s*(?:/\\*[^*]*\\*/\\s*)?(\\d+)")
+                .matcher(html);
+        if (m.find()) {
+            try {
+                return Long.parseLong(m.group(1));
+            } catch (NumberFormatException ignored) { }
+        }
+        return fallbackMs;
+    }
 
     /**
      * Validates a model reply against the contract.

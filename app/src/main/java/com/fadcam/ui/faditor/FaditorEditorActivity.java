@@ -221,6 +221,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *  (mirrors WaveformDebugActivity's debug-host machinery, surfaced in the real drawer). */
     private ActivityResultLauncher<String> visualizerStyleExportLauncher;
     private ActivityResultLauncher<String[]> visualizerStyleImportLauncher;
+    private ActivityResultLauncher<String[]> slideHtmlImportLauncher;
     @Nullable private com.fadcam.ui.faditor.model.WaveformStyle pendingVisualizerExportStyle;
     @Nullable private com.fadcam.ui.faditor.model.WaveformOverlayInstance pendingVisualizerImportOverlay;
 
@@ -1018,6 +1019,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return;
                     }
                     onVisualizerStyleImported(target, imported);
+                });
+
+        slideHtmlImportLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(),
+                uri -> {
+                    if (uri == null) return;
+                    String html = null;
+                    try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                        if (in != null) {
+                            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+                            byte[] buf = new byte[8192];
+                            int n;
+                            while ((n = in.read(buf)) != -1) bos.write(buf, 0, n);
+                            html = new String(bos.toByteArray(),
+                                    java.nio.charset.StandardCharsets.UTF_8);
+                        }
+                    } catch (Exception e) {
+                        FLog.w(TAG, "Slide HTML file read failed", e);
+                    }
+                    if (html == null || html.trim().isEmpty()) {
+                        // TODO(strings)
+                        Toast.makeText(this, "Could not read that file", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    importSlideHtml(html, "external-file");
                 });
 
         // ── True fullscreen: hide status bar and nav bar ────────────
@@ -19029,8 +19055,166 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 imageAsNewLayerPending = true;
                 overlayImagePickerLauncher.launch(openDocumentIntent("image/*"));
             }
+
+            @Override
+            public void onGeneratedSlideSelected() {
+                showSlideImportSheet();
+            }
         });
         sheet.show(getSupportFragmentManager(), "addAsset");
+    }
+
+    // ── AI slide: copy-a-prompt / paste-HTML import (API-less path) ──────
+
+    /** The copy-prompt / paste / file-import chooser for AI-authored slides. */
+    private void showSlideImportSheet() {
+        SlideImportBottomSheet sheet = SlideImportBottomSheet.newInstance();
+        sheet.setCallback(new SlideImportBottomSheet.Callback() {
+            @Override
+            public void onCopyPrompt() {
+                copySlidePromptToClipboard();
+            }
+
+            @Override
+            public void onPasteHtml() {
+                importSlideHtmlFromClipboard();
+            }
+
+            @Override
+            public void onImportFile() {
+                slideHtmlImportLauncher.launch(
+                        new String[]{"text/html", "text/plain", "application/octet-stream", "*/*"});
+            }
+        });
+        sheet.show(getSupportFragmentManager(), "slideImport");
+    }
+
+    /**
+     * Copy the external-chatbot slide prompt (contract-versioned, sized to this
+     * project's canvas) so the user can have ANY chatbot author a slide, no API
+     * key needed.
+     */
+    private void copySlidePromptToClipboard() {
+        int[] dims = com.fadcam.ui.faditor.slides.SlideFiles.dimensionsFor(project);
+        String prompt = com.fadcam.ui.faditor.slides.SlideContract
+                .buildExternalPrompt(dims[0], dims[1], 3000);
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm == null) return;
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("Faditor slide prompt", prompt));
+        // TODO(strings)
+        Toast.makeText(this, "Prompt copied — send it to any AI chatbot, then paste "
+                + "back the HTML it writes", Toast.LENGTH_LONG).show();
+    }
+
+    private void importSlideHtmlFromClipboard() {
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        CharSequence text = null;
+        if (cm != null && cm.hasPrimaryClip()
+                && cm.getPrimaryClip() != null && cm.getPrimaryClip().getItemCount() > 0) {
+            text = cm.getPrimaryClip().getItemAt(0).coerceToText(this);
+        }
+        if (text == null || text.toString().trim().isEmpty()) {
+            // TODO(strings)
+            Toast.makeText(this, "Clipboard is empty — copy the chatbot's HTML first",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        importSlideHtml(text.toString(), "external-paste");
+    }
+
+    /**
+     * Import externally-authored slide HTML: validate it against the slide
+     * contract, then feed it through the exact same ADD_GENERATED_SLIDE
+     * EditScript path the in-app {@code generate_slide} tool uses. The render
+     * itself happens in the background (and again at export if needed).
+     */
+    private void importSlideHtml(@NonNull String raw, @NonNull String sourceLabel) {
+        String html = com.fadcam.ui.faditor.slides.SlideContract.stripFences(raw);
+        String reason = com.fadcam.ui.faditor.slides.SlideContract.validate(html);
+        if (reason != null) {
+            // TODO(strings)
+            Toast.makeText(this, "That doesn't look like a Faditor slide: " + reason,
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        int contractVersion = com.fadcam.ui.faditor.slides.SlideContract
+                .extractContractVersion(html);
+        if (contractVersion > com.fadcam.ui.faditor.slides.SlideContract.CONTRACT_VERSION) {
+            // TODO(strings)
+            Toast.makeText(this, "This slide needs a newer app version (slide contract v"
+                    + contractVersion + ")", Toast.LENGTH_LONG).show();
+            return;
+        }
+        long durationMs = com.fadcam.ui.faditor.slides.SlideContract
+                .extractAuthoredDurationMs(html, 3000);
+        durationMs = Math.max(800, Math.min(20000, durationMs));
+
+        try {
+            java.io.File projectDir = projectStorage.projectDir(project.getId());
+            int[] dims = com.fadcam.ui.faditor.slides.SlideFiles.dimensionsFor(project);
+            String clipId = java.util.UUID.randomUUID().toString();
+            java.io.File htmlFile = com.fadcam.ui.faditor.slides.SlideFiles
+                    .writeHtml(projectDir, clipId, html);
+            String hash = com.fadcam.ui.faditor.slides.SlideFiles
+                    .contentHash(html, dims[0], dims[1], durationMs);
+            int insertIndex = Math.max(0, Math.min(selectedClipIndex + 1,
+                    project.getTimeline().getClipCount()));
+
+            org.json.JSONObject opObj = new org.json.JSONObject();
+            opObj.put("type", "ADD_GENERATED_SLIDE");
+            opObj.put("mode", com.fadcam.ui.faditor.slides.SlideContract.MODE_FULLSCREEN);
+            opObj.put("title_or_text", "Imported slide");
+            opObj.put("durationMsHint", durationMs);
+            opObj.put("clipId", clipId);
+            opObj.put("htmlUri", Uri.fromFile(htmlFile).toString());
+            opObj.put("contentHash", hash);
+            opObj.put("sourceModel", sourceLabel);
+            opObj.put("insertAtClipIndex", insertIndex);
+            org.json.JSONObject scriptObj = new org.json.JSONObject();
+            scriptObj.put("version", 1);
+            scriptObj.put("description", "Import external slide HTML");
+            scriptObj.put("operations", new org.json.JSONArray().put(opObj));
+
+            com.fadcam.ui.faditor.ai.EditScript script =
+                    com.fadcam.ui.faditor.ai.EditScript.fromJson(scriptObj.toString());
+            com.fadcam.ui.faditor.ai.EditScriptApplier applier =
+                    new com.fadcam.ui.faditor.ai.EditScriptApplier();
+            applier.setContext(this);
+            com.fadcam.ui.faditor.ai.EditScriptApplier.Result result =
+                    applier.apply(project, script);
+            if (!result.success) {
+                // TODO(strings)
+                Toast.makeText(this, "Slide import failed: " + result.error,
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            Timeline timeline = project.getTimeline();
+            Clip slideClip = timeline.getClip(insertIndex);
+            undoManager.recordAction(new EditActions.AddClipAction(
+                    timeline, slideClip, insertIndex));
+            selectSegment(insertIndex);
+            editorTimeline.setTransitions(timeline.getTransitions());
+            editorTimeline.scrollToSegment(insertIndex);
+            syncTimelineOverlays();
+            editorTimeline.invalidate();
+            refreshTotalTimeDisplay();
+            saveProjectNow();
+            renderSlidesInBackground();
+
+            // TODO(strings)
+            Toast.makeText(this, "Animated slide added — preparing video in background",
+                    Toast.LENGTH_SHORT).show();
+            FLog.d(TAG, "Imported external slide at index " + insertIndex
+                    + " duration=" + durationMs + "ms source=" + sourceLabel
+                    + " contractV=" + contractVersion);
+        } catch (Exception e) {
+            FLog.e(TAG, "Slide import failed", e);
+            // TODO(strings)
+            Toast.makeText(this, "Slide import failed", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**

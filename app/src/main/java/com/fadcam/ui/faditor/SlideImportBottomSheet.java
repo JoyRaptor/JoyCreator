@@ -20,63 +20,32 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 /**
- * Material bottom sheet for choosing an asset type to add (image or video).
- * Follows the same design pattern as FlipPickerBottomSheet / CropPickerBottomSheet.
+ * Bottom sheet for the API-less AI-slide flow: copy a contract-teaching prompt
+ * to hand any external chatbot, then bring the HTML it writes back in via paste
+ * or file import. Both entries feed the same HTML→MP4 render pipeline as the
+ * in-app {@code generate_slide} tool. Styled after {@link AddAssetBottomSheet}.
  */
-public class AddAssetBottomSheet extends BottomSheetDialogFragment {
+public class SlideImportBottomSheet extends BottomSheetDialogFragment {
 
-    /** Callback when user picks an asset type. */
+    /** Callback for the three slide-import actions. */
     public interface Callback {
-        /**
-         * Called when the user selects image or video.
-         *
-         * @param isImage true for image, false for video
-         */
-        void onAssetTypeSelected(boolean isImage);
+        /** Copy the external-chatbot slide prompt to the clipboard. */
+        void onCopyPrompt();
 
-        /** Called when the user selects audio. */
-        void onAudioSelected();
+        /** Import slide HTML from the clipboard. */
+        void onPasteHtml();
 
-        /**
-         * Called when the user picks "Add image as new layer" — imports a still
-         * image onto a brand-new floating layer track above the master (the
-         * reliable, button-driven cross-layer path). Default no-op so existing
-         * callers compile unchanged.
-         */
-        default void onImageAsNewLayerSelected() { }
-
-        /**
-         * Called when the user picks "Video overlay (PiP)" — a floating video
-         * layer over the master track (M-COMP-2). Default no-op so existing
-         * callers compile unchanged.
-         */
-        default void onOverlayVideoSelected() { }
-
-        /**
-         * Called when the user picks "AI slide" — the copy-a-prompt / paste-HTML
-         * flow for AI-authored animated slides. Default no-op so existing
-         * callers compile unchanged.
-         */
-        default void onGeneratedSlideSelected() { }
+        /** Import slide HTML from a picked file. */
+        void onImportFile();
     }
 
     @Nullable
     private Callback callback;
 
-    /**
-     * Create a new AddAssetBottomSheet instance.
-     *
-     * @return a new instance
-     */
-    public static AddAssetBottomSheet newInstance() {
-        return new AddAssetBottomSheet();
+    public static SlideImportBottomSheet newInstance() {
+        return new SlideImportBottomSheet();
     }
 
-    /**
-     * Set the callback for asset type selection.
-     *
-     * @param callback the callback to notify
-     */
     public void setCallback(@Nullable Callback callback) {
         this.callback = callback;
     }
@@ -112,55 +81,39 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(0, (int) (12 * dp), 0, (int) (24 * dp));
 
-        // Title
+        // TODO(strings)
         TextView title = new TextView(requireContext());
-        title.setText(R.string.faditor_add_asset_title);
+        title.setText("AI slide");
         title.setTextColor(0xFFFFFFFF);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding((int) (20 * dp), (int) (12 * dp),
-                (int) (20 * dp), (int) (16 * dp));
+                (int) (20 * dp), (int) (4 * dp));
         root.addView(title);
 
-        // Image row
-        root.addView(createOptionRow(
-                getString(R.string.faditor_add_asset_image),
-                "image", materialIcons, dp,
-                () -> { if (callback != null) callback.onAssetTypeSelected(true); }));
-
-        // Image-as-new-layer row (reliable cross-layer path — closes the
-        // "can't add an image to a new layer" blocker). TODO(strings).
-        root.addView(createOptionRow(
-                "Image as new layer",
-                "layers", materialIcons, dp,
-                () -> { if (callback != null) callback.onImageAsNewLayerSelected(); }));
-
-        // Video row
-        root.addView(createOptionRow(
-                getString(R.string.faditor_add_asset_video),
-                "videocam", materialIcons, dp,
-                () -> { if (callback != null) callback.onAssetTypeSelected(false); }));
-
-        // Overlay video (PiP) row — feature-flagged with M-COMP-2.
-        if (com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.LIVE_PIP) {
-            root.addView(createOptionRow(
-                    getString(R.string.faditor_add_asset_pip),
-                    "picture_in_picture", materialIcons, dp,
-                    () -> { if (callback != null) callback.onOverlayVideoSelected(); }));
-        }
-
-        // Audio row
-        root.addView(createOptionRow(
-                getString(R.string.faditor_add_asset_audio),
-                "music_note", materialIcons, dp,
-                () -> { if (callback != null) callback.onAudioSelected(); }));
-
-        // AI slide row — copy-a-prompt / paste-HTML animated slide flow.
         // TODO(strings)
-        root.addView(createOptionRow(
-                "AI slide (animated)",
-                "auto_awesome", materialIcons, dp,
-                () -> { if (callback != null) callback.onGeneratedSlideSelected(); }));
+        TextView subtitle = new TextView(requireContext());
+        subtitle.setText("Have any AI chatbot design an animated slide: copy the "
+                + "prompt, send it, then paste back the HTML it writes.");
+        subtitle.setTextColor(0xFF999999);
+        subtitle.setTextSize(13);
+        subtitle.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (14 * dp));
+        root.addView(subtitle);
+
+        // TODO(strings)
+        root.addView(createOptionRow("Copy slide prompt", "content_copy",
+                materialIcons, dp,
+                () -> { if (callback != null) callback.onCopyPrompt(); }));
+
+        // TODO(strings)
+        root.addView(createOptionRow("Paste slide HTML", "content_paste",
+                materialIcons, dp,
+                () -> { if (callback != null) callback.onPasteHtml(); }));
+
+        // TODO(strings)
+        root.addView(createOptionRow("Import .html file", "upload_file",
+                materialIcons, dp,
+                () -> { if (callback != null) callback.onImportFile(); }));
 
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);
@@ -168,16 +121,6 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         return scroll;
     }
 
-    /**
-     * Creates an option row matching the existing Faditor bottom sheet style.
-     *
-     * @param label         row label text
-     * @param icon          Material Icon ligature name
-     * @param materialIcons Material Icons typeface
-     * @param dp            density factor
-     * @param isImage       true for image option, false for video
-     * @return the constructed row View
-     */
     private View createOptionRow(String label, String icon,
                                  @Nullable Typeface materialIcons, float dp,
                                  @NonNull Runnable onClick) {
@@ -195,7 +138,6 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         rowLp.setMargins((int) (12 * dp), (int) (2 * dp), (int) (12 * dp), (int) (2 * dp));
         row.setLayoutParams(rowLp);
 
-        // Icon
         TextView iconView = new TextView(requireContext());
         iconView.setTypeface(materialIcons);
         iconView.setText(icon);
@@ -208,7 +150,6 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         iconView.setGravity(Gravity.CENTER);
         row.addView(iconView);
 
-        // Label
         TextView labelView = new TextView(requireContext());
         labelView.setText(label);
         labelView.setTextSize(15);
@@ -218,7 +159,6 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         labelView.setLayoutParams(labelLp);
         row.addView(labelView);
 
-        // Arrow
         TextView arrow = new TextView(requireContext());
         arrow.setTypeface(materialIcons);
         arrow.setText("chevron_right");

@@ -168,21 +168,84 @@ public final class LayerRowRenderer {
         RowLayout(Track t, boolean floatingBand) { track = t; this.floatingBand = floatingBand; }
     }
 
-    /** Height (px) of the "drop here to create a new layer" zone drawn below the last row during a drag (M10). */
-    private static final float NEW_LAYER_ZONE_DP = 30f;
-    private static final int COLOR_NEW_LAYER_ZONE = 0x448C3DFA;
-    private static final int COLOR_NEW_LAYER_ZONE_ARMED = 0xAA8C3DFA;
     /**
      * The ONE cross-row / new-layer affordance color (dragux_v3 slice-3 #2, user
      * hand-test 2026-07-04: the old white ring "should be the established PURPLE
      * cross-row affordance"). Drives the cross-row drag-target highlight ring, the
-     * new-layer drop-zone outline, and the cross-band insertion line — every
-     * "landing on another row / linkage context" cue reads as one purple family.
-     * Same-row moves keep the item's own color; snap-home stays gray (home ghost).
+     * gap insertion line, and the cross-band insertion line — every "landing on
+     * another row / linkage context" cue reads as one purple family. Same-row
+     * moves keep the item's own color; snap-home stays gray (home ghost).
      */
     private static final int COLOR_DROP_TARGET_RING = 0xFF8C3DFA;
-    private final RectF newLayerZoneRect = new RectF();
     private final Paint dropTargetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    // ── Slice 2 (dragux_v3, BINDING 2026-07-04, built 2026-07-17): the GAP is the
+    // new-layer target. While an item is picked up, every gap between adjacent
+    // floating rows PLUS above the topmost PLUS below the bottommost is an
+    // insertion target; hovering one draws ONE accent line in that gap and
+    // releasing creates the track AT that index. This replaces the three bolted-on
+    // affordances (pinned bottom zone, cross-band arm text, nothing-between-rows).
+    /** Armed gap index: 0..floatingRowCount (i = above row i; count = below last). -1 = none. */
+    private int hoverGapIndex = -1;
+    /** Entry half-height (px basis dp) of a gap hit-zone; the CURRENTLY-armed gap uses
+     *  2x on the way out (sticky hover, spec-correction C5 — no flicker at boundaries). */
+    private static final float GAP_HIT_HALF_DP = 8f;
+    /** Floating-row count at the last {@link #layout} — gap indices are only valid against it. */
+    private int floatingRowCountAtLayout = 0;
+
+    public void setHoverGapIndex(int gapIndex) { this.hoverGapIndex = gapIndex; }
+
+    /**
+     * Gap hit-test in screen-y (floating band only). {@code currentGap} is the
+     * already-armed index (or -1) — it gets a 2x exit zone so the armed line is
+     * sticky. Returns the armed gap index, or -1.
+     */
+    public int gapIndexAt(float y, float topPx, int currentGap) {
+        int n = floatingRowCountAtLayout;
+        if (n <= 0) return -1;
+        float localY = y - topPx + scrollOffsetPx;
+        // Outside the band viewport entirely → no gap (master/audio areas keep
+        // their own affordances; C5 scope: floating band first).
+        if (localY < -GAP_HIT_HALF_DP * density
+                || localY > contentHeightPx + GAP_HIT_HALF_DP * density) {
+            return -1;
+        }
+        float enter = GAP_HIT_HALF_DP * density;
+        int best = -1;
+        float bestD = Float.MAX_VALUE;
+        for (int i = 0; i <= n; i++) {
+            float d = Math.abs(localY - gapBoundaryY(i));
+            float half = (i == currentGap) ? enter * 2f : enter;
+            if (d <= half && d < bestD) {
+                bestD = d;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** Content-space y of gap boundary {@code gapIndex} (see {@link #hoverGapIndex} doc). */
+    private float gapBoundaryY(int gapIndex) {
+        float halfGap = (ROW_GAP_DP * density) / 2f;
+        if (gapIndex <= 0) return rows.get(0).bodyRect.top - halfGap;
+        if (gapIndex >= floatingRowCountAtLayout) {
+            return rows.get(floatingRowCountAtLayout - 1).bodyRect.bottom + halfGap;
+        }
+        return (rows.get(gapIndex - 1).bodyRect.bottom + rows.get(gapIndex).bodyRect.top) / 2f;
+    }
+
+    /** The Slice 2 insertion line: one accent line in the armed gap, no text. */
+    private void drawGapInsertionLine(@NonNull Canvas canvas, float hScrollOffsetPx, float widthPx) {
+        int n = floatingRowCountAtLayout;
+        if (n <= 0 || hoverGapIndex < 0 || hoverGapIndex > n) return;
+        float lineY = gapBoundaryY(hoverGapIndex);
+        float left = hScrollOffsetPx + HEADER_WIDTH_DP * density;
+        float right = hScrollOffsetPx + widthPx;
+        stripPaint.setColor(COLOR_DROP_TARGET_RING);
+        float half = 1.25f * density;
+        canvas.drawRoundRect(left, lineY - half, right - 4f * density, lineY + half,
+                half, half, stripPaint);
+    }
 
     public LayerRowRenderer(float density) {
         this.density = density;
@@ -290,13 +353,13 @@ public final class LayerRowRenderer {
                         float widthPx, float hScrollOffsetPx, long totalMs,
                         @NonNull TimeToX timeToX) {
         layout(canvas, layers, audioTracks, topPx, audioTopPx, widthPx, hScrollOffsetPx,
-                totalMs, timeToX, false, false, null);
+                totalMs, timeToX, false, null);
     }
 
     /**
-     * M10 overload: {@code dragActive} draws the "drop here to create a new layer" zone
-     * below the last row (PLAN Part 7 row M10 scope 2); {@code dragOverNewLayerZone}
-     * highlights it as armed (finger currently over it) vs merely visible.
+     * Drag overload: {@code dragActive} enables the Slice 2 gap-insertion line (the
+     * armed gap set via {@link #setHoverGapIndex}) — the pinned "+ Drop here for new
+     * layer" zone is RETIRED (dragux_v3 Slice 2, BINDING).
      *
      * @param selectedItemId Stage 2 (PLAN §6): id of the currently-selected row item, or
      *                       {@code null} for no selection. Draws a selection stroke on
@@ -308,15 +371,16 @@ public final class LayerRowRenderer {
                         @NonNull List<Track> audioTracks, float topPx, float audioTopPx,
                         float widthPx, float hScrollOffsetPx, long totalMs,
                         @NonNull TimeToX timeToX,
-                        boolean dragActive, boolean dragOverNewLayerZone,
+                        boolean dragActive,
                         @Nullable String selectedItemId) {
         rows.clear();
-        newLayerZoneRect.setEmpty();
         lastHScrollOffsetPx = hScrollOffsetPx;
         lastWidthPx = widthPx;
         lastTopPx = topPx;
         lastAudioTopPx = audioTopPx;
-        if (isEmpty(layers, audioTracks)) { contentHeightPx = 0f; audioBandHeightPx = 0f; return; }
+        if (isEmpty(layers, audioTracks)) {
+            contentHeightPx = 0f; audioBandHeightPx = 0f; floatingRowCountAtLayout = 0; return;
+        }
 
         float rowGap = ROW_GAP_DP * density;
         // ── Band 1: FLOATING rows (visual — text/sticker/sprite/PiP/CC/viz) ABOVE master,
@@ -324,38 +388,21 @@ public final class LayerRowRenderer {
         float y = TOP_GAP_DP * density;
         for (Track t : layers) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, true);
         int floatingRowCount = rows.size();
-        // Rows-only content height; the viewport caps at maxVisibleRowsDp and the
-        // extra rows SCROLL beneath the pinned master (PLAN §6.1). Computed BEFORE the
-        // drop-zone so the zone can pin to the VISIBLE viewport bottom rather than being
-        // appended past it (the off-screen bug: it used to sit at content-y `y` after the
-        // last row, which on a tall band is well below the physical screen).
-        float rowsContentHeightPx = y;
-        float zoneH = NEW_LAYER_ZONE_DP * density;
-        // While a pick-up move is active, RESERVE zone height at the bottom so the last
-        // row can scroll clear of the pinned zone (nothing is permanently hidden), then
-        // pin the zone to the bottom of the on-screen viewport in CONTENT coordinates
-        // (viewport bottom in content-space = scrollOffsetPx + viewportHeightPx). After
-        // the canvas.translate(0, topPx - scrollOffsetPx) below, that lands the zone flush
-        // at the bottom edge of the visible band — always reachable, never off-screen.
-        // Storing it in content-space also keeps isWithinNewLayerZone()'s hit-test (same
-        // localY transform) correct with no extra math.
-        contentHeightPx = dragActive ? rowsContentHeightPx + zoneH + rowGap : rowsContentHeightPx;
+        floatingRowCountAtLayout = floatingRowCount;
+        // Rows-only content height; the viewport caps at maxVisibleRowsDp and the extra
+        // rows SCROLL beneath the pinned master (PLAN §6.1). Slice 2: no zone height is
+        // reserved anymore — the gaps themselves are the new-layer targets.
+        contentHeightPx = y;
         viewportHeightPx = Math.min(contentHeightPx, effectiveViewportCapPx());
         scrollOffsetPx = clampScroll(scrollOffsetPx);
-        if (dragActive) {
-            float zoneBottomContent = scrollOffsetPx + viewportHeightPx;
-            float zoneTopContent = zoneBottomContent - zoneH;
-            newLayerZoneRect.set(hScrollOffsetPx + HEADER_WIDTH_DP * density, zoneTopContent,
-                    hScrollOffsetPx + widthPx, zoneBottomContent);
-        }
         canvas.save();
         canvas.clipRect(hScrollOffsetPx, topPx, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
         canvas.translate(0f, topPx - scrollOffsetPx);
         for (int i = 0; i < floatingRowCount; i++) {
             drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
         }
-        if (dragActive && !newLayerZoneRect.isEmpty()) {
-            drawNewLayerZone(canvas, dragOverNewLayerZone);
+        if (dragActive && hoverGapIndex >= 0) {
+            drawGapInsertionLine(canvas, hScrollOffsetPx, widthPx);
         }
         if (dragActive && crossBandInsertionArmed && crossBandDraggedIsFloating) {
             drawCrossBandInsertionLine(canvas, hScrollOffsetPx, widthPx);
@@ -466,30 +513,11 @@ public final class LayerRowRenderer {
         float lineY = last.bodyRect.bottom + (ROW_GAP_DP * density) / 2f;
         float left = hScrollOffsetPx + HEADER_WIDTH_DP * density;
         float right = hScrollOffsetPx + widthPx;
-        stripPaint.setColor(COLOR_DROP_TARGET_RING); // fill paint; zone draw re-sets its color anyway
+        stripPaint.setColor(COLOR_DROP_TARGET_RING);
         float half = 1.25f * density;
         canvas.drawRoundRect(left, lineY - half, right - 4f * density, lineY + half,
                 half, half, stripPaint);
-        // Small caret label so it reads as "the new lane appears HERE on release".
-        itemLabelPaint.setColor(COLOR_DROP_TARGET_RING);
-        canvas.drawText("▸ new layer here", left + 6f * density,
-                lineY - 4f * density, itemLabelPaint);
-        itemLabelPaint.setColor(0xFFFFFFFF);
-    }
-
-    private void drawNewLayerZone(@NonNull Canvas canvas, boolean armed) {
-        stripPaint.setColor(armed ? COLOR_NEW_LAYER_ZONE_ARMED : COLOR_NEW_LAYER_ZONE);
-        canvas.drawRoundRect(newLayerZoneRect, 4f * density, 4f * density, stripPaint);
-        // Always outline the zone (brighter when armed) so it reads as a drop TARGET, not
-        // just a tinted strip — the plan's "subtle affordance so the user knows the zone
-        // is a drop target." The pinned position makes it a stable, always-visible target.
-        dropTargetPaint.setColor(armed ? COLOR_DROP_TARGET_RING : (COLOR_DROP_TARGET_RING & 0x66FFFFFF));
-        canvas.drawRoundRect(newLayerZoneRect, 4f * density, 4f * density, dropTargetPaint);
-        dropTargetPaint.setColor(COLOR_DROP_TARGET_RING); // restore default for the row highlight ring
-        String label = armed ? "+ Release to create layer" : "+ Drop here for new layer";
-        float ty = newLayerZoneRect.centerY() + itemLabelPaint.getTextSize() / 3f;
-        itemLabelPaint.setColor(0xFFFFFFFF);
-        canvas.drawText(label, newLayerZoneRect.left + 10f * density, ty, itemLabelPaint);
+        // Slice 2: text label KILLED — one insertion-line vocabulary, no words.
     }
 
     /**
@@ -1810,8 +1838,8 @@ public final class LayerRowRenderer {
     /**
      * The track whose ROW (header or body, expanded or collapsed) contains content-space
      * {@code y}, or {@code null} if {@code y} is outside every row (e.g. in the gap
-     * between rows, or in the new-layer zone — use {@link #isWithinNewLayerZone} for
-     * that). Used by {@link LayerGestureController} to find the cross-row drag target
+     * between rows — gap targets are {@link #gapIndexAt}'s job, Slice 2). Used by
+     * {@link LayerGestureController} to find the cross-row drag target
      * as the finger moves, independent of lock/hidden state (the caller decides whether
      * a locked/hidden row is a valid drop target — PLAN Part 7 M10 scope 5: "no drags
      * in or out" of locked/hidden rows).
@@ -1839,18 +1867,6 @@ public final class LayerRowRenderer {
             if (row.track.getId().equals(track.getId())) return row.floatingBand;
         }
         return true;
-    }
-
-    /**
-     * True if content-space {@code y} falls within the "drop here to create a new
-     * layer" zone drawn by {@link #layout} when {@code dragActive} was true (only
-     * meaningful right after such a call — the zone rect is empty otherwise, so this
-     * always returns false when no drag is active).
-     */
-    public boolean isWithinNewLayerZone(float y, float topPx) {
-        if (newLayerZoneRect.isEmpty()) return false;
-        float localY = y - topPx + scrollOffsetPx;
-        return localY >= newLayerZoneRect.top && localY <= newLayerZoneRect.bottom;
     }
 
     /** Half-width (px) of an item's edge trim-handle hit-zone, shared with the item-hit-test. */

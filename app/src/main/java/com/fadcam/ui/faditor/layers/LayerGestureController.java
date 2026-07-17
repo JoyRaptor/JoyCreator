@@ -103,16 +103,20 @@ public final class LayerGestureController {
         void onItemMovedToTrack(@NonNull TimedItem item, @NonNull Track fromTrack, @NonNull Track toTrack);
 
         /**
-         * A MOVE gesture on {@code item} ended with the finger over the "new layer"
-         * drop zone below the last row (PLAN Part 7 row M10 scope 2, drop-to-new-layer).
-         * Fires BEFORE {@link #onGestureFinished} for the same reason as
+         * A MOVE gesture on {@code item} ended armed on a NEW-LAYER target: a gap
+         * between floating rows (Slice 2 gap-insertion — {@code insertionIndex} =
+         * gap index, 0 = above the top row, rowCount = below the bottom row) or the
+         * cross-band arm ({@code insertionIndex} = {@link Integer#MAX_VALUE} =
+         * append at the band's bottom, the pre-Slice-2 semantics). Fires BEFORE
+         * {@link #onGestureFinished} for the same reason as
          * {@link #onItemMovedToTrack} above. The activity creates a new persistent
-         * track (matching {@code fromTrack}'s band/kind — see
-         * {@code LayerRowRenderer#isFloatingBandRow}), reassigns the item's
-         * {@code layerId} to it immediately, and stages the undo/redo halves for
-         * {@code onGestureFinished} to fold into one action.
+         * track (matching {@code fromTrack}'s band/kind) AT that visual position
+         * (z renumber), reassigns the item's {@code layerId} to it immediately, and
+         * stages the undo/redo halves for {@code onGestureFinished} to fold into
+         * one action.
          */
-        void onItemDroppedOnNewLayer(@NonNull TimedItem item, @NonNull Track fromTrack);
+        void onItemDroppedOnNewLayer(@NonNull TimedItem item, @NonNull Track fromTrack,
+                                     int insertionIndex);
 
         /**
          * The user DOUBLE-TAPPED {@code item} — two quick taps on the SAME item within the
@@ -222,8 +226,9 @@ public final class LayerGestureController {
     // ── M10: cross-row drag-target tracking (MOVE gestures only) ───────────────
     /** Row the active MOVE gesture is currently hovering, or null (own row / no valid target). */
     @Nullable private Track hoverTargetTrack;
-    /** True once the finger has moved over the "new layer" drop zone during this MOVE. */
-    private boolean hoverNewLayerZone;
+    /** Slice 2: armed gap index (0..floatingRowCount) while hovering a between-rows
+     *  new-layer target; -1 = none. Replaces the retired pinned-zone boolean. */
+    private int hoverGapIndex = -1;
     /** topPx/y of the last onRowBodyMove call, needed by onRowBodyUp's zone re-check. */
     private float lastMoveY, lastMoveTopPx;
 
@@ -375,7 +380,8 @@ public final class LayerGestureController {
         // badge with a blocking dialog — the contract says swipe must always scrub.
         pendingDeleteBadge = hit.zone == LayerRowRenderer.ItemZone.DELETE;
         hoverTargetTrack = null;
-        hoverNewLayerZone = false;
+        hoverGapIndex = -1;
+        rowRenderer.setHoverGapIndex(-1);
         lastLoggedHoverRow = null;
         rowRenderer.setDragTargetTrackId(null);
         rowRenderer.setProxyRowTrackId(null);
@@ -686,24 +692,33 @@ public final class LayerGestureController {
         lastMoveTopPx = topPx;
         boolean sourceIsFloatingBand = rowRenderer.isFloatingBandRow(activeTrack);
 
-        if (rowRenderer.isWithinNewLayerZone(y, topPx)) {
-            hoverNewLayerZone = true;
+        // Slice 2 (dragux_v3, BINDING): the GAP is the new-layer target. Checked FIRST
+        // so line-in-gap and row-highlight are mutually exclusive by construction.
+        // Floating-band items only (C5 scope); the currently-armed gap gets a 2x exit
+        // zone inside gapIndexAt (sticky hover — no flicker at the boundary).
+        int gap = sourceIsFloatingBand ? rowRenderer.gapIndexAt(y, topPx, hoverGapIndex) : -1;
+        if (gap >= 0) {
+            hoverGapIndex = gap;
             hoverCrossBandNewLane = false;
             hoveringHomeRow = false;
             lastRejectedRowId = null;
             hoverTargetTrack = null;
+            // C5 rider: entering a gap DISARMS the bookend excursion — the view must
+            // never run two competing animated scrolls.
             clearBookend();
             rowRenderer.setDragTargetTrackId(null);
-            // SPLIT-ELEMENT FIX: over the new-layer zone the proxy stays on its HOME row
-            // (the insertion line shows where the new lane appears; the moving object
-            // itself remains the ONE coherent body on its origin row — no wrong-row leak).
+            // SPLIT-ELEMENT FIX: over a gap the proxy stays on its HOME row (the
+            // insertion line shows where the new lane appears; the moving object
+            // itself remains the ONE coherent body on its origin row).
             rowRenderer.setProxyRowTrackId(null);
             rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
+            rowRenderer.setHoverGapIndex(gap);
             rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_NEW_LAYER);
-            logHoverTarget("new-layer-zone");
+            logHoverTarget("gap:" + gap);
             return;
         }
-        hoverNewLayerZone = false;
+        hoverGapIndex = -1;
+        rowRenderer.setHoverGapIndex(-1);
 
         Track candidate = rowRenderer.rowTrackAt(y, topPx);
         // Home-snap eligibility: only while hovering the item's OWN row (putting it
@@ -787,7 +802,7 @@ public final class LayerGestureController {
             String proxyRow = hoverTargetTrack != null ? hoverTargetTrack.getId()
                     : (activeTrack != null ? activeTrack.getId() + "(home)" : "?");
             rowGestureLog("hover " + tag + " drawnRow=" + proxyRow
-                    + " newLayerZone=" + hoverNewLayerZone);
+                    + " gapIndex=" + hoverGapIndex);
         }
     }
 
@@ -1228,7 +1243,10 @@ public final class LayerGestureController {
         // the activity (fromTrack's kind), so a visual item dropped "on the audio" lands
         // on a new visual lane above the audio band, exactly what the insertion line
         // promised.
-        boolean droppedOnNewLayerZone = hoverNewLayerZone || hoverCrossBandNewLane;
+        boolean droppedOnNewLayerZone = hoverGapIndex >= 0 || hoverCrossBandNewLane;
+        // Slice 2: gap drops carry their insertion index; the cross-band arm keeps its
+        // pre-Slice-2 append-at-bottom semantics (MAX_VALUE = append).
+        int commitInsertionIndex = hoverGapIndex >= 0 ? hoverGapIndex : Integer.MAX_VALUE;
         boolean wasTap = pendingBodyDown && !movedDuringGesture;
         boolean wasDeleteTap = wasTap && pendingDeleteBadge;
         // G1 (gesture contract §1): a HOLD that lifted the item (pickup armed) then released
@@ -1250,7 +1268,7 @@ public final class LayerGestureController {
         pendingBodyDown = false;
         pickupArmed = false;
         hoverTargetTrack = null;
-        hoverNewLayerZone = false;
+        hoverGapIndex = -1;
         hoverCrossBandNewLane = false;
         lastRejectedRowId = null;
         bookendJointMs = Long.MIN_VALUE;
@@ -1267,6 +1285,7 @@ public final class LayerGestureController {
         rowRenderer.setHomeGhost(null, 0, 0);
         rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
+        rowRenderer.setHoverGapIndex(-1);
         rowRenderer.setTimeLockGuides(false, 0, 0);
         rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_NONE);
         if (wasMoved && item != null) {
@@ -1319,7 +1338,7 @@ public final class LayerGestureController {
             // M10: report the track-change FIRST (see method doc) so the activity can
             // fold it into the ONE undo action onGestureFinished below builds.
             if (droppedOnNewLayerZone && fromTrack != null) {
-                callback.onItemDroppedOnNewLayer(item, fromTrack);
+                callback.onItemDroppedOnNewLayer(item, fromTrack, commitInsertionIndex);
             } else if (toTrack != null && fromTrack != null) {
                 callback.onItemMovedToTrack(item, fromTrack, toTrack);
             }
@@ -1475,8 +1494,6 @@ public final class LayerGestureController {
         return active && pickupArmed && activeKind == GestureKind.MOVE;
     }
 
-    /** True if the active MOVE gesture is currently hovering the new-layer drop zone. */
-    public boolean isHoveringNewLayerZone() { return hoverNewLayerZone; }
 
     /** Guard: a payload may only be dropped on a track whose kind accepts it. */
     private static boolean payloadCompatible(@NonNull TimedItem item, @NonNull Track candidate) {

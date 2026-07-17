@@ -10819,8 +10819,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onItemDroppedOnNewLayer(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
-                    @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {
-                pendingLayerTrackUndo = stageCreateLayerAndMoveItem(item, fromTrack);
+                    @NonNull com.fadcam.ui.faditor.layers.Track fromTrack, int insertionIndex) {
+                pendingLayerTrackUndo = stageCreateLayerAndMoveItem(item, fromTrack, insertionIndex);
             }
 
             @Override
@@ -11023,7 +11023,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @Nullable
     private PendingLayerTrackUndo stageCreateLayerAndMoveItem(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
-                                         @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {
+                                         @NonNull com.fadcam.ui.faditor.layers.Track fromTrack,
+                                         int insertionIndex) {
         if (project == null || editorTimeline == null) return null;
         final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
         final AudioClip audioPayload = item.getAudioClip();
@@ -11041,6 +11042,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String fromTrackId = fromTrack.getId();
         final String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
 
+        // Slice 2 (gap-insertion): land the new FLOATING lane at the visual position the
+        // user dropped into. Row order = getLayers() DESC by persisted zIndex, so we
+        // renumber the whole floating band in one pass (N..1 top-to-bottom) with the new
+        // track spliced in at insertionIndex (MAX_VALUE = append at bottom — the
+        // cross-band arm's pre-Slice-2 semantics). Old zIndexes are snapshotted so the
+        // undo half restores the exact prior ordering. Audio lanes keep append semantics.
+        final java.util.LinkedHashMap<String, Integer> zBefore = new java.util.LinkedHashMap<>();
+        final java.util.LinkedHashMap<String, Integer> zAfter = new java.util.LinkedHashMap<>();
+        if (floatingBand) {
+            java.util.List<String> order = new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.layers.Track t : timeline.getLayers()) {
+                if (!t.getId().equals(newTrackId)) order.add(t.getId());
+            }
+            int at = Math.max(0, Math.min(insertionIndex, order.size()));
+            order.add(at, newTrackId);
+            for (String id : order) {
+                if (!id.equals(newTrackId)) {
+                    zBefore.put(id, timeline.getOrCreateTrackFlags(id).zIndex);
+                }
+            }
+            int z = order.size();
+            for (String id : order) zAfter.put(id, z--);
+            for (java.util.Map.Entry<String, Integer> e : zAfter.entrySet()) {
+                timeline.getOrCreateTrackFlags(e.getKey()).zIndex = e.getValue();
+            }
+        }
+
         if (textPayload != null) textPayload.setLayerId(newTrackId);
         else audioPayload.setLayerId(newTrackId);
         syncTimelineOverlays();
@@ -11048,6 +11076,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return new PendingLayerTrackUndo("New layer",
                 () -> {
                     if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
+                    for (java.util.Map.Entry<String, Integer> e : zAfter.entrySet()) {
+                        timeline.getOrCreateTrackFlags(e.getKey()).zIndex = e.getValue();
+                    }
                     if (textPayload != null) textPayload.setLayerId(newTrackId);
                     else audioPayload.setLayerId(newTrackId);
                     syncTimelineOverlays();
@@ -11056,7 +11087,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> {
                     if (textPayload != null) textPayload.setLayerId(fromStored);
                     else audioPayload.setLayerId(fromStored);
+                    for (java.util.Map.Entry<String, Integer> e : zBefore.entrySet()) {
+                        timeline.getOrCreateTrackFlags(e.getKey()).zIndex = e.getValue();
+                    }
                     timeline.removeLayerTrackDef(newTrackId);
+                    timeline.setTrackFlags(newTrackId, null);
                     syncTimelineOverlays();
                 });
     }

@@ -403,7 +403,7 @@ public class EditorTimelineView extends View {
                 @NonNull com.fadcam.ui.faditor.layers.Track toTrack) {}
         @Override public void onItemDroppedOnNewLayer(
                 @NonNull com.fadcam.ui.faditor.layers.TimedItem item,
-                @NonNull com.fadcam.ui.faditor.layers.Track fromTrack) {}
+                @NonNull com.fadcam.ui.faditor.layers.Track fromTrack, int insertionIndex) {}
     };
 
     /** Callback for a tap on a track row-header icon (M6; glue lives in FaditorEditorActivity). */
@@ -2056,7 +2056,6 @@ public class EditorTimelineView extends View {
                 audioBandTopPx(), w,
                 scrollOffsetPx, totalEffectiveMs, this::timeToX,
                 layerGestureController != null && layerGestureController.isMoveDragActive(),
-                layerGestureController != null && layerGestureController.isHoveringNewLayerZone(),
                 layerGestureController != null ? layerGestureController.getSelectedItemId() : null);
 
         // G8: marquee multi-selection highlights + the live selection box — content-x

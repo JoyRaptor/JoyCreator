@@ -1,0 +1,16 @@
+{
+  "id": "joy_velvet_pulse",
+  "displayName": "Velvet Pulse",
+  "type": "spectrum_bars",
+  "color": "#F50057",
+  "barWidthDp": 5,
+  "barGapDp": 3,
+  "cornerRadiusDp": 4,
+  "bandCount": 44,
+  "sensitivity": 1.1,
+  "useSpectrum": true,
+  "layers": [
+    { "emitter": "bars", "gradientAxis": "amplitude", "gradientStops": [ { "pos": 0.0, "color": "#880E4F" }, { "pos": 0.6, "color": "#C51162" }, { "pos": 1.0, "color": "#FF80AB" } ], "blend": "add", "opacity": 0.55, "softness": 0.4, "attackMs": 260, "releaseMs": 380, "barWidthDp": 5, "barGapDp": 3, "cornerRadiusDp": 4 },
+    { "emitter": "dots", "color": "#FF4081", "blend": "add", "opacity": 0.5, "softness": 0.6, "attackMs": 200, "releaseMs": 320, "barWidthDp": 6 }
+  ]
+}

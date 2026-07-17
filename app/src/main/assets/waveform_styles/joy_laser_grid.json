@@ -1,0 +1,16 @@
+{
+  "id": "joy_laser_grid",
+  "displayName": "Laser Grid",
+  "type": "spectrum_bars",
+  "color": "#00E5FF",
+  "barWidthDp": 4,
+  "barGapDp": 3,
+  "cornerRadiusDp": 0,
+  "bandCount": 40,
+  "sensitivity": 1.25,
+  "useSpectrum": true,
+  "layers": [
+    { "emitter": "squares", "gradientAxis": "band", "gradientStops": [ { "pos": 0.0, "color": "#00E5FF" }, { "pos": 0.5, "color": "#00B0FF" }, { "pos": 1.0, "color": "#D500F9" } ], "blend": "add", "barWidthDp": 4, "cornerRadiusDp": 0 },
+    { "emitter": "line", "color": "#18FFFF", "blend": "add", "opacity": 0.6, "trailCount": 5, "barWidthDp": 2 }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "joy_aurora_veil",
+  "displayName": "Aurora Veil",
+  "type": "spectrum_bars",
+  "color": "#1DE9B6",
+  "barWidthDp": 3,
+  "barGapDp": 1,
+  "cornerRadiusDp": 2,
+  "bandCount": 56,
+  "sensitivity": 1.15,
+  "useSpectrum": true,
+  "layers": [
+    { "emitter": "filled", "gradientAxis": "band", "gradientStops": [ { "pos": 0.0, "color": "#1DE9B6" }, { "pos": 0.5, "color": "#7C4DFF" }, { "pos": 1.0, "color": "#FF4081" } ], "opacity": 0.7, "softness": 0.45, "releaseMs": 420 },
+    { "emitter": "particles", "color": "#B388FF", "blend": "add", "softness": 0.55, "particleCount": 4, "particleSpeed": 0.9, "barWidthDp": 3, "releaseMs": 300 }
+  ]
+}

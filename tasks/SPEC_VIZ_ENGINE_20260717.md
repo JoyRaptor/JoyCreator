@@ -114,7 +114,25 @@ particle count budget ≤ ~64/band-window at xxhdpi.
   (soft bars + ADD particles + trailed line). Legacy parity: softness=0/trails=0/no-particles
   defaults collapse to the P2 arithmetic exactly; legacy rows in WaveformDebugActivity confirmed
   unchanged on-device alongside Ember Rise.
-- **REMAINING:** P4 multi-stop gradients +
-  response UI + perf; **Layers UI** (drawer "Layers" section — add/dup/delete/reorder + per-layer
-  props; FaditorEditorActivity + WaveformVisualizerSettingsSheet lane); instance color/sensitivity
-  overrides → layer 0 (flagged in P1 report); filled-emitter spread<1 close path.
+- **P4 ⏳ (pending review / device verify, 2026-07-17):** engine-side polish landed (UI still TODO).
+  (1) **Multi-stop gradients** — `VizLayer.GradStop{pos,color}` list + `gradientAxis`
+  amplitude|band; tolerant read (drop malformed, sort by pos, ≥2 else null). configureLayerPaint
+  now takes (w,h,radial): amplitude = LinearGradient(0,0,0,h) (legacy direction), band-linear =
+  (0,0,w,0), band-radial = SweepGradient(cx,cy). stops==null collapses to the exact 2-stop/solid
+  path. (2) **Response attack/release** — `attackMs`/`releaseMs` 0..1000 (0/0 = off, same reference
+  returned → legacy identical). `applyResponse` builds a PER-LAYER array via shared-TapSampler taps
+  at t−k·50ms: attack = trailing moving average (A taps), release = peak-hold-with-envelope over the
+  attack-smoothed taps (K taps), both capped at 6. Fed to shadow/glow/solid emits; shared peaks array
+  still reads raw (documented — threading per-layer response through the once-per-frame peaks defeats
+  the shared optimization). (3) **Perf** — 8-layer draw budget (MAX_DRAWN_LAYERS); drawBars reuses a
+  single `barRect` field (no per-bar alloc). No time-keyed/cross-frame caches (determinism preserved).
+  (4) **Flagged debt** — instance color/gradient override now also writes layer 0 (color +
+  gradientStart/End, gradientStops nulled) so layered rendering shows it; sensitivity already flows
+  through shared sampleHeights (comment added); filled-emitter close path now closes at
+  originX+usedWidth / originX (spread/phase-aware; identical at spread=1/phase=0). (5) **4 presets** —
+  joy_aurora_veil (soft filled band-axis teal→purple→pink + release + particles), joy_laser_grid
+  (hard squares + trailed line, band-axis, ADD), joy_galaxy_ring (ring + band-gradient bars + mirror
+  particles, for radial mode), joy_velvet_pulse (soft attack+release bars + dots, low-opacity ADD).
+  Compile-green (compileDefaultDebugJavaWithJavac). Legacy parity by construction (every new field
+  defaults to identity). STILL TODO: **Layers UI** (drawer section — add/dup/delete/reorder + per-layer
+  props; FaditorEditorActivity + WaveformVisualizerSettingsSheet lane); response/gradient authoring UI.

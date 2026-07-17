@@ -96,6 +96,16 @@ public class WaveformStyle {
         s.gradientStart = null;
         s.gradientEnd = null;
         s.glowColor = hex;
+        // Layered rendering (SPEC_VIZ_ENGINE §4) ignores the top-level style.color; push the override
+        // onto layer 0 so the chosen colour actually shows. Clear that layer's gradient/multi-stop so
+        // the solid colour wins (copy() already deep-copied the stack, so the preset is untouched).
+        if (s.layers != null && !s.layers.isEmpty()) {
+            VizLayer l0 = s.layers.get(0);
+            l0.color = hex;
+            l0.gradientStart = null;
+            l0.gradientEnd = null;
+            l0.gradientStops = null;
+        }
         return s;
     }
 
@@ -109,10 +119,23 @@ public class WaveformStyle {
         s.color = start;
         s.glowColor = null;
         s.glowRadiusDp = 0f;
+        // Same as withColorOverride: layered rendering ignores the top-level fields, so mirror the
+        // gradient onto layer 0 (its amplitude-axis 2-stop). A multi-stop on layer 0 is superseded.
+        if (s.layers != null && !s.layers.isEmpty()) {
+            VizLayer l0 = s.layers.get(0);
+            l0.gradientStart = start;
+            l0.gradientEnd = end;
+            l0.gradientStops = null;
+            l0.color = start;
+        }
         return s;
     }
 
-    /** Returns a copy with the visual gain overridden, or {@code this} when {@code gain} is &lt;= 0. */
+    /**
+     * Returns a copy with the visual gain overridden, or {@code this} when {@code gain} is &lt;= 0.
+     * No per-layer handling needed: {@code sensitivity} is read once in the renderer's shared
+     * {@code sampleHeights}, so it already scales the band energies every layer draws from.
+     */
     @NonNull
     public WaveformStyle withSensitivity(float gain) {
         if (gain <= 0f) return this;

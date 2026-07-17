@@ -11,6 +11,7 @@ import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.graphics.Shader;
+import android.graphics.SweepGradient;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -35,6 +36,16 @@ public class WaveformStyleRenderer {
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+    // Reused across every bar of every frame so drawBars allocates no RectF per bar (P4 perf pass;
+    // the renderer is single-threaded per instance, same precedent as barPaint/path being fields).
+    private final RectF barRect = new RectF();
+
+    /** Max layers drawn per instance (spec §5 P4 perf budget); extras beyond this are ignored. */
+    private static final int MAX_DRAWN_LAYERS = 8;
+
+    // Response attack/release smoothing (P4, spec §2). Stateless taps on the shared TapSampler.
+    private static final long RESPONSE_STEP_MS = 50; // Δ between response look-back taps
+    private static final int RESPONSE_MAX_TAPS = 6;  // cap on A (attack) and K (release) taps
 
     // Peak-hold caps look back over a short window of the shared energies. The K-tap arrays are
     // computed once per render call as LOCALS (spec §3 — no per-frame state); these are just the
@@ -249,9 +260,12 @@ public class WaveformStyleRenderer {
             // peak-hold array ONCE per render call (shared across every peaks layer) as a LOCAL.
             // Only pay for the extra taps when some layer actually draws peaks.
             float[] peaks = hasPeaksLayer(layers) ? computePeaks(sampler, energies, atMs) : null;
-            for (VizLayer layer : layers) {
-                drawLayer(canvas, layer, energies, peaks, sampler, atMs, w, h, density, justify,
-                        radial, radialRingSize);
+            // Layer draw budget (spec §5 P4 perf note): draw the first MAX_DRAWN_LAYERS, ignore the
+            // rest — a runaway stack can't tank the export frame rate.
+            int drawn = Math.min(layers.size(), MAX_DRAWN_LAYERS);
+            for (int li = 0; li < drawn; li++) {
+                drawLayer(canvas, layers.get(li), energies, peaks, sampler, atMs, w, h, density,
+                        justify, radial, radialRingSize);
             }
         }
     }
@@ -324,6 +338,63 @@ public class WaveformStyleRenderer {
     }
 
     /**
+     * Attack/release response smoothing for ONE layer (P4, spec §2 "Audio Response Rate"), stateless.
+     * Returns {@code energies} UNCHANGED (same reference) when both are off, so a legacy/default layer
+     * is byte-identical. Otherwise builds a fresh per-layer array (the shared {@code energies} is never
+     * mutated):
+     * <ul>
+     *   <li><b>Attack</b> (slow rise): the taps feeding release are each a trailing moving average of
+     *       {@code A} samples at t − a·STEP — a delayed rise. {@code A = min(6, ceil(attackMs/STEP))}.</li>
+     *   <li><b>Release</b> (slow decay): {@code e[i] = max over k in 0..K-1} of the attack-averaged tap
+     *       at t − k·STEP times the envelope {@code (1 − k·STEP/releaseMs)} — same peak-hold-with-
+     *       envelope pattern as {@link #computePeaks}. {@code K = min(6, ceil(releaseMs/STEP))}.</li>
+     * </ul>
+     * Every tap comes from the shared {@link TapSampler}, so preview/scrub/export agree.
+     */
+    @NonNull
+    private float[] applyResponse(@NonNull TapSampler sampler, long atMs, @NonNull VizLayer layer,
+                                  @NonNull float[] energies) {
+        boolean attack = layer.attackMs > 0f;
+        boolean release = layer.releaseMs > 0f;
+        if (!attack && !release) return energies; // off → identity, same reference (legacy parity)
+
+        int n = energies.length;
+        int A = attack ? Math.min(RESPONSE_MAX_TAPS,
+                (int) Math.ceil(layer.attackMs / (float) RESPONSE_STEP_MS)) : 1;
+        int K = release ? Math.min(RESPONSE_MAX_TAPS,
+                (int) Math.ceil(layer.releaseMs / (float) RESPONSE_STEP_MS)) : 1;
+
+        float[] out = new float[n];
+        for (int k = 0; k < K; k++) {
+            long tk = Math.max(0L, atMs - (long) k * RESPONSE_STEP_MS);
+            float[] att = attackAveraged(sampler, tk, A, n); // attack-smoothed tap (A==1 = raw tap)
+            float env = release ? Math.max(0f, 1f - k * RESPONSE_STEP_MS / layer.releaseMs) : 1f;
+            for (int i = 0; i < n; i++) {
+                float v = att[i] * env;
+                if (k == 0 || v > out[i]) out[i] = v; // k=0 seeds, later taps peak-hold the max
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Trailing moving average of {@code A} taps ending at {@code atMs} (attack smoothing). {@code A<=1}
+     * returns the sampler's own cached array (read-only — never mutated). Otherwise a fresh mean array.
+     */
+    @NonNull
+    private float[] attackAveraged(@NonNull TapSampler sampler, long atMs, int A, int n) {
+        if (A <= 1) return sampler.at(atMs);
+        float[] sum = new float[n];
+        for (int a = 0; a < A; a++) {
+            float[] tap = sampler.at(Math.max(0L, atMs - (long) a * RESPONSE_STEP_MS));
+            int m = Math.min(n, tap.length);
+            for (int i = 0; i < m; i++) sum[i] += tap[i];
+        }
+        for (int i = 0; i < n; i++) sum[i] /= A;
+        return sum;
+    }
+
+    /**
      * Build the transient single {@link VizLayer} that reproduces a legacy {@link WaveformStyle}'s
      * draw EXACTLY: the same emitter selection (radial ALWAYS drew bars regardless of the style's
      * type — the old renderMode==1 branch ran before the shape switch), the same paint fields, and
@@ -368,7 +439,13 @@ public class WaveformStyleRenderer {
         if (VizLayer.EMITTER_RING.equals(layer.emitter) && !radial) return;
 
         int primary = parseColor(layer.color, 0xFF00E676);
-        configureLayerPaint(barPaint, layer, primary, h);
+        configureLayerPaint(barPaint, layer, primary, w, h, radial);
+        // P4 AudioMapper response: attack/release smoothing produces a PER-LAYER local energy array
+        // (the shared one is never mutated). Off (0/0) returns the same reference → legacy identical.
+        // NOTE: the shared peak-hold array (peaks) still reads RAW energies — threading a per-layer
+        // response through the once-per-frame shared peaks compute would defeat that optimization, so
+        // a peaks-emitter layer's caps are unaffected by attack/release (only its bars/dots/etc are).
+        float[] le = applyResponse(sampler, atMs, layer, energies);
         // P3 softness — a NORMAL blur on the layer's own passes (spec §2 "soft edged things").
         // 0 = no mask filter, the legacy hard edge. Glow/shadow copies set their own filters after.
         if (layer.softness > 0f) {
@@ -401,7 +478,7 @@ public class WaveformStyleRenderer {
         if (hasShadow) {
             canvas.save();
             canvas.translate(layer.shadowDx * density, layer.shadowDy * density);
-            emit(canvas, energies, peaks, m, layer, shadowPaint, radial, sampler, atMs);
+            emit(canvas, le, peaks, m, layer, shadowPaint, radial, sampler, atMs);
             canvas.restore();
         }
         // P3 trails: echo pass k redraws the emitter with the energies of t − k·Δ and decaying
@@ -417,8 +494,8 @@ public class WaveformStyleRenderer {
                 emit(canvas, sampler.at(tk), null, m, layer, trailPaint, radial, sampler, tk);
             }
         }
-        if (hasGlow) emit(canvas, energies, peaks, m, layer, glowPaint, radial, sampler, atMs);
-        emit(canvas, energies, peaks, m, layer, barPaint, radial, sampler, atMs);
+        if (hasGlow) emit(canvas, le, peaks, m, layer, glowPaint, radial, sampler, atMs);
+        emit(canvas, le, peaks, m, layer, barPaint, radial, sampler, atMs);
     }
 
     /**
@@ -542,12 +619,33 @@ public class WaveformStyleRenderer {
      * the style) produces a byte-identical Paint.
      */
     private void configureLayerPaint(@NonNull Paint paint, @NonNull VizLayer layer,
-                                     int primary, int h) {
+                                     int primary, int w, int h, boolean radial) {
         paint.reset();
         paint.setAntiAlias(true);
         paint.setColor(primary);
         paint.setStyle(Paint.Style.FILL);
-        if (layer.gradientStart != null && layer.gradientEnd != null) {
+        java.util.List<VizLayer.GradStop> stops = layer.gradientStops;
+        if (stops != null && stops.size() >= 2) {
+            // P4 multi-stop gradient (spec §2 PaintStage). Axis:
+            //  • amplitude → vertical (0,0)→(0,h) — SAME direction as the legacy 2-stop path below.
+            //  • band linear → horizontal (0,0)→(w,0) along the strip.
+            //  • band radial → SweepGradient around the ring centre (cx,cy).
+            int[] colors = new int[stops.size()];
+            float[] positions = new float[stops.size()];
+            for (int i = 0; i < stops.size(); i++) {
+                colors[i] = parseColor(stops.get(i).color, primary);
+                positions[i] = stops.get(i).pos;
+            }
+            Shader shader;
+            if (VizLayer.GRAD_AXIS_BAND.equals(layer.gradientAxis)) {
+                shader = radial
+                        ? new SweepGradient(w / 2f, h / 2f, colors, positions)
+                        : new LinearGradient(0, 0, w, 0, colors, positions, Shader.TileMode.CLAMP);
+            } else {
+                shader = new LinearGradient(0, 0, 0, h, colors, positions, Shader.TileMode.CLAMP);
+            }
+            paint.setShader(shader);
+        } else if (layer.gradientStart != null && layer.gradientEnd != null) {
             paint.setShader(new LinearGradient(0, 0, 0, h,
                     parseColor(layer.gradientStart, primary),
                     parseColor(layer.gradientEnd, primary), Shader.TileMode.CLAMP));
@@ -647,15 +745,15 @@ public class WaveformStyleRenderer {
             int di = m.place(i, n);
             float left = originX + di * slot + (slot - barW) / 2f;
             float barH = heights[i] * layer.gain * maxUp;
-            RectF r;
+            // Reuse the shared barRect field (P4 perf) — no per-bar allocation.
             if (center) {
-                r = new RectF(left, baseline - barH, left + barW, baseline + barH);
+                barRect.set(left, baseline - barH, left + barW, baseline + barH);
             } else if (m.justify == 2) {
-                r = new RectF(left, 0f, left + barW, barH);
+                barRect.set(left, 0f, left + barW, barH);
             } else {
-                r = new RectF(left, m.h - barH, left + barW, m.h);
+                barRect.set(left, m.h - barH, left + barW, m.h);
             }
-            canvas.drawRoundRect(r, corner, corner, paint);
+            canvas.drawRoundRect(barRect, corner, corner, paint);
         }
     }
 
@@ -696,8 +794,14 @@ public class WaveformStyleRenderer {
     private void drawFilled(@NonNull Canvas canvas, @NonNull float[] heights,
                             @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
         buildLinePath(heights, m, layer);
-        path.lineTo(m.w, m.h);
-        path.lineTo(0, m.h);
+        // Close along the baseline of the strip ACTUALLY used (spread/phase aware), not the full
+        // canvas width — otherwise a spread<1 or phase≠0 wave fills a slanted wedge to (w,h)/(0,h).
+        // At spread=1/phase=0 originX==0 and usedWidth()==w, so this is numerically identical to the
+        // old lineTo(w,h)→lineTo(0,h) — legacy parity preserved.
+        float originX = m.originX();
+        float usedW = m.usedWidth();
+        path.lineTo(originX + usedW, m.h);
+        path.lineTo(originX, m.h);
         path.close();
         canvas.drawPath(path, paint);
     }

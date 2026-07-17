@@ -990,6 +990,9 @@ public final class LayerRowRenderer {
                 canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             }
         }
+        // §2 item preview images (video filmstrip / image thumb / sprite cells) over the
+        // plain body — cache-served, viewport-culled, no decode/alloc on this draw path.
+        drawItemPreviews(canvas, item, x0, x1, top, bottom, timeToX);
         // AUDIO volume-automation envelope (audio consolidation 2026-07-07): keep the blue
         // rubber-band + keyframe dots on the unified audio rows (legacy drawAudioTrack port).
         if (item.getAudioClip() != null && !ghosted && item.getAudioClip().hasVolumeKeyframes()) {
@@ -1213,6 +1216,178 @@ public final class LayerRowRenderer {
      *  visible tapes reshape in real time via direct vector draw; {@code false} on release. */
     public void setTapeDirectVectorMode(boolean on) {
         if (tapeTileCache != null) tapeTileCache.setDirectVectorMode(on);
+    }
+
+    // ── §2 item preview images (LANE_BADGES_AND_PREVIEWS_SPEC §2) ──────────────────
+    // Videos/images/sprites already "read" via their content; these providers surface it
+    // ON the row item. Same contract as the tape/HD-waveform providers above: this class
+    // stays pure-draw (paints + geometry), while EditorTimelineView OWNS every decode/
+    // extraction, the async load, the LRU cache and the invalidate. A provider returns the
+    // cached bitmap(s) or {@code null} while it loads — so the draw path never decodes,
+    // never allocates a bitmap, and never blocks a scrub frame (the 4-5fps regression rule).
+
+    /** §2 image items: one decoded, size-bounded thumbnail for the overlay's image uri,
+     *  or {@code null} while it decodes (the call kicks the async decode + invalidate). */
+    public interface ImagePreviewProvider {
+        @Nullable android.graphics.Bitmap get(@NonNull String imageUri, int targetHpx);
+    }
+
+    /** §2 sprite items: a decode-once loaded sheet renderer + per-key cell resolution. The
+     *  renderer draws the cell (it owns the canvas/geometry); the provider owns sheet
+     *  lookup + the STEP/HOLD frame resolve so sheet data stays in EditorTimelineView. */
+    public interface SpriteCellProvider {
+        /** Loaded (decode-once) renderer for {@code sheetId}, or {@code null} while loading. */
+        @Nullable com.fadcam.ui.faditor.sprite.SpriteSheetRenderer renderer(@NonNull String sheetId);
+        /** Resolved cell index for a frame-track key (direct cell OR preset), or -1. */
+        int cellForKey(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                       @NonNull FrameTrack.Key key);
+    }
+
+    /** §2 video items (overlay/PiP clips): the master T1 filmstrip thumbnails for the clip's
+     *  source, reused from EditorTimelineView's own extraction + LRU cache (NOT a new
+     *  extractor). {@code null}/empty while extracting. */
+    public interface VideoFilmstripProvider {
+        @Nullable java.util.List<android.graphics.Bitmap> get(
+                @NonNull com.fadcam.ui.faditor.model.Clip clip, int targetHpx);
+    }
+
+    @Nullable private ImagePreviewProvider imagePreviewProvider;
+    @Nullable private SpriteCellProvider spriteCellProvider;
+    @Nullable private VideoFilmstripProvider videoFilmstripProvider;
+
+    public void setImagePreviewProvider(@Nullable ImagePreviewProvider p) { this.imagePreviewProvider = p; }
+    public void setSpriteCellProvider(@Nullable SpriteCellProvider p) { this.spriteCellProvider = p; }
+    public void setVideoFilmstripProvider(@Nullable VideoFilmstripProvider p) { this.videoFilmstripProvider = p; }
+
+    /** FILTER_BITMAP so scaled thumbs/cells stay smooth; no per-frame allocation. */
+    private final Paint previewPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
+    /** Reused dest rect for every preview blit — the draw path allocates nothing. */
+    private final RectF previewDst = new RectF();
+
+    /**
+     * §2: draw the item's preview image(s) over its (already-drawn) plain body — a video
+     * filmstrip across the body, one image thumbnail at the start (§3-pinned), or a sprite
+     * sheet cell at each frame-track keyframe. All bitmaps are cache-served; a cache MISS
+     * simply draws nothing this frame (the body colour shows through) and the provider's
+     * async load will invalidate. Everything is culled to the visible viewport so a
+     * 45-min project pays for on-screen pixels only.
+     */
+    private void drawItemPreviews(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                   float x0, float x1, float top, float bottom,
+                                   @NonNull TimeToX timeToX) {
+        float h = bottom - top;
+        if (h < 6f * density || x1 - x0 < 3f * density) return; // too thin to be legible
+        com.fadcam.ui.faditor.model.Clip clip = item.getClip();
+        // VIDEO items: filmstrip across the whole body (JoyRaptor: "see where the video is at
+        // any given time"). Image-backed clips fall to the single-thumb path below.
+        if (clip != null && !clip.isImageClip() && videoFilmstripProvider != null) {
+            java.util.List<android.graphics.Bitmap> strip = videoFilmstripProvider.get(clip, (int) h);
+            if (strip != null && !strip.isEmpty()) {
+                drawFilmstrip(canvas, strip, x0, x1, top, bottom);
+            }
+            return;
+        }
+        // IMAGE items: one thumbnail at the start, pinned to the left edge on scroll (§3).
+        if (item.getTextOverlay() != null && item.getTextOverlay().isImage()
+                && item.getTextOverlay().getImageUri() != null && imagePreviewProvider != null) {
+            android.graphics.Bitmap bmp =
+                    imagePreviewProvider.get(item.getTextOverlay().getImageUri(), (int) h);
+            if (bmp != null) drawPinnedThumb(canvas, bmp, x0, x1, top, bottom);
+            return;
+        }
+        // SPRITE items: the pose/cell at each keyframe, drawn at that keyframe's x.
+        if (item.getSprite() != null && spriteCellProvider != null) {
+            drawSpriteKeyframeCells(canvas, item, x0, x1, top, bottom, timeToX);
+        }
+    }
+
+    /**
+     * §2 video: tile cached thumbnails across the body, each tile mapped to the thumb at
+     * ITS time-fraction (thumbs are sampled evenly across the clip). Culled to the on-
+     * screen slice of the body so a long clip costs what's visible, not its full length
+     * (the same VIEWPORT-CULL rule the master filmstrip + drawSegmentTranscript use).
+     */
+    private void drawFilmstrip(@NonNull Canvas canvas,
+                               @NonNull java.util.List<android.graphics.Bitmap> thumbs,
+                               float x0, float x1, float top, float bottom) {
+        android.graphics.Bitmap first = thumbs.get(0);
+        if (first == null || first.isRecycled()) return;
+        float h = bottom - top;
+        float tileW = Math.max(8f * density, h * (first.getWidth() / (float) first.getHeight()));
+        float span = x1 - x0;
+        if (span <= 0f) return;
+        // On-screen slice only.
+        float vx0 = Math.max(x0, lastHScrollOffsetPx);
+        float vx1 = Math.min(x1, lastHScrollOffsetPx + lastWidthPx);
+        if (vx1 <= vx0) return;
+        canvas.save();
+        canvas.clipRect(x0, top, x1, bottom);
+        float startTx = x0 + (float) Math.floor((vx0 - x0) / tileW) * tileW;
+        for (float tx = startTx; tx < vx1; tx += tileW) {
+            float frac = Math.max(0f, Math.min(0.99999f, (tx - x0 + tileW / 2f) / span));
+            int idx = Math.min(thumbs.size() - 1, (int) (frac * thumbs.size()));
+            android.graphics.Bitmap b = thumbs.get(idx);
+            if (b == null || b.isRecycled()) continue;
+            previewDst.set(tx, top, Math.min(tx + tileW, x1), bottom);
+            canvas.drawBitmap(b, null, previewDst, previewPaint);
+        }
+        canvas.restore();
+    }
+
+    /**
+     * §2 image + §3 pinned-scroll: draw one thumbnail (kept at its own aspect) at the item
+     * start; when the start scrolls off-screen left while the item still spans the viewport
+     * the thumb RIDES the left viewport edge (mirror of the trash-can's right-edge pin —
+     * see {@link #deleteBadgeCx}). The pin sits just right of the pinned badge gutter so it
+     * never covers the badges. Badges stay put; only the thumb slides.
+     */
+    private void drawPinnedThumb(@NonNull Canvas canvas, @NonNull android.graphics.Bitmap bmp,
+                                 float x0, float x1, float top, float bottom) {
+        if (bmp.isRecycled()) return;
+        float h = bottom - top;
+        float w = Math.max(2f * density, h * (bmp.getWidth() / (float) bmp.getHeight()));
+        w = Math.min(w, x1 - x0);
+        // viewport-left in content-x = scroll offset; keep the thumb clear of the pinned
+        // header/badge column so it reads as "riding the left edge just past the badges".
+        float viewLeft = lastHScrollOffsetPx + HEADER_WIDTH_DP * density;
+        // clamp(viewLeft, x0, x1-w): natural at x0 when not scrolled; pinned+sliding while
+        // x0 < viewLeft < x1-w; parks at the item's right end as it finally scrolls away.
+        float thumbX = Math.max(x0, Math.min(viewLeft, x1 - w));
+        canvas.save();
+        canvas.clipRect(x0, top, x1, bottom);
+        previewDst.set(thumbX, top, thumbX + w, bottom);
+        canvas.drawBitmap(bmp, null, previewDst, previewPaint);
+        canvas.restore();
+    }
+
+    /**
+     * §2 sprite: draw the sheet cell at each frame-track keyframe, at that keyframe's
+     * item-local x — an "updated preview wherever there is a keyframe". The frame-swap
+     * diamonds (drawn later in {@link #drawItemBody}) mark the exact key; the cell shows
+     * the pose it swaps to. Culled to the item/viewport; the sheet bitmap is decoded once
+     * by the provider, never here.
+     */
+    private void drawSpriteKeyframeCells(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                         float x0, float x1, float top, float bottom,
+                                         @NonNull TimeToX timeToX) {
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = item.getSprite();
+        com.fadcam.ui.faditor.sprite.SpriteSheetRenderer sr =
+                spriteCellProvider.renderer(sprite.getSheetId());
+        if (sr == null) return;
+        float h = bottom - top;
+        float w = Math.max(2f * density, h * Math.max(0.05f, sr.cellAspect()));
+        float viewLeft = lastHScrollOffsetPx, viewRight = lastHScrollOffsetPx + lastWidthPx;
+        canvas.save();
+        canvas.clipRect(x0, top, x1, bottom);
+        for (FrameTrack.Key k : sprite.getFrameTrack().keys()) {
+            float dx = timeToX.map(item.getTimelineStartMs() + k.timeMs);
+            if (dx + w < Math.max(x0, viewLeft) || dx > Math.min(x1, viewRight)) continue; // cull
+            int cell = spriteCellProvider.cellForKey(sprite, k);
+            if (cell < 0) continue;
+            previewDst.set(dx, top, Math.min(dx + w, x1), bottom);
+            sr.drawCell(canvas, cell, previewDst, previewPaint);
+        }
+        canvas.restore();
     }
 
     /** Scratch rect for visible-span clipping in {@link #drawHdAudioWaveform}. */

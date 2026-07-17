@@ -9839,6 +9839,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // method now DERIVES the index from LayerGestureController's unified selection
             // (TimedItem id == AudioClip id).
             editorTimeline.setLayerTracks(layerBand, tl.getAudioTracks());
+            // LANE_BADGES §2: feed sprite sheets so the sprite-item cell previews can decode
+            // + resolve them (renderer stays pure-draw; EditorTimelineView owns the decode).
+            if (project != null) editorTimeline.setSpriteSheets(project.getSpriteSheets());
             // M-COMP-1: re-bind the preview overlay layers from the (possibly track-
             // hidden-filtered) Track model. TextOverlayLayer already got the filtered
             // list via overlayLayer.setData(...) at each of its own call sites; here we

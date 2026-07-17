@@ -54,6 +54,32 @@ left edge — "similar to the trash-can behavior, except on the other side of th
 **Status (2026-07-17):** §1 BADGES BUILT — `LayerRowRenderer.drawKindBadge` replaces the gutter
 name text with canvas-drawn kind glyphs (filmstrip+sprockets video, T-box text, mountain-frame
 image, stickman-ring sprite, CC box captions, bars visualizer, mirrored-bars audio). Device
-visual-verify owed. NOT yet done: the §4.5 eye/lock→per-object migration (needs per-object
-visibility controls to exist first or users lose function — left in place deliberately), §2 item
-preview images, §3 pinned-thumbnail scroll. Suggested next slice: image-item thumbnail + §3 pinning.
+visual-verify owed.
+
+**§2 + §3 BUILT (2026-07-17):** item preview images + pinned-thumbnail scroll.
+- Architecture: `LayerRowRenderer` stays PURE-DRAW. Three provider interfaces
+  (`ImagePreviewProvider`, `SpriteCellProvider`, `VideoFilmstripProvider`) mirror the existing
+  tape/HD-waveform provider pattern; `EditorTimelineView` OWNS all decode/extraction + async
+  load + LRU cache + invalidate. Nothing decodes/allocates on the draw path; every preview is
+  culled to the visible viewport (45-min-project / scrub-fps rule).
+- **§2 image items** (`TextOverlayItem.isImage()`): one down-sampled thumbnail decoded once
+  (`decodeBoundedImage`, LRU cap 48) drawn at the item start. Subject to §3 pinning.
+- **§2 sprite items**: the sheet cell at each `FrameTrack` keyframe, drawn at that key's x via
+  `SpriteSheetRenderer.drawCell` (decode-once sheet renderer cached by sheet id; cell resolved
+  via the canonical `SpriteFrameResolver` for preset keys, direct index for cell keys). Sprite
+  sheets fed to the view via new `EditorTimelineView.setSpriteSheets(...)`, wired in
+  `FaditorEditorActivity` next to `setLayerTracks`.
+- **§2 video items** (overlay/PiP clips): filmstrip thumbnails tiled across the body, REUSING
+  the master T1 pipeline (`extractVideoThumbnails` + `thumbnailsCache` + the filmstrip disk
+  cache) via the shared `hash+"_src"` source key — an overlay sharing a source with a master
+  segment reuses those thumbs for free. No new extractor built.
+- **§3 pinned thumbnail scroll** (`drawPinnedThumb`): draw-time x-clamp
+  `thumbX = clamp(viewportLeft, itemLeft, itemRight-thumbW)` where viewportLeft = the pinned
+  badge-gutter's right edge in content-x (`lastHScrollOffsetPx + HEADER_WIDTH`). Mirror of the
+  trash-can's right-edge pin (`deleteBadgeCx`). Badges stay put; only the image thumb slides.
+  Video filmstrips already cover the left edge (viewport-culled tiling) so they need no pin.
+
+NOT yet done: the §4.5 eye/lock→per-object migration (needs per-object visibility controls to
+exist first or users lose function — left in place deliberately). Device visual-verify of §2/§3
+owed (queued separately). Sprite-cell previews assume direct/preset keys resolve via the shared
+resolver; avatar-rig sprite performances render their first-frame cell only.

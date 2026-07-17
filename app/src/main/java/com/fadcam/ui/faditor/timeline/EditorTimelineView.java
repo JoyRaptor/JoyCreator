@@ -554,6 +554,24 @@ public class EditorTimelineView extends View {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Path clipPath = new Path();
 
+    // ── §2 item preview images (LANE_BADGES spec) — decode/extract state owned HERE so the
+    //    renderer stays pure-draw. All served from these caches; misses kick an async load
+    //    and invalidate. ──────────────────────────────────────────────────────────────────
+    /** Project sprite sheets, fed via {@link #setSpriteSheets} (for the sprite-cell preview). */
+    private final List<com.fadcam.ui.faditor.sprite.SpriteSheet> previewSpriteSheets =
+            new ArrayList<>();
+    /** Decode-once loaded sheet renderers, keyed by sheet id (sprite-cell previews). */
+    private final Map<String, com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> spriteRendererCache =
+            new HashMap<>();
+    private final Set<String> spriteRendererLoading = new HashSet<>();
+    private final Set<String> spriteRendererFailed = new HashSet<>();
+    /** Decoded, size-bounded image-item thumbnails, keyed by image uri (LRU-trimmed). */
+    private final Map<String, Bitmap> imagePreviewCache = new HashMap<>();
+    private final Set<String> imagePreviewLoading = new HashSet<>();
+    private final Set<String> imagePreviewFailed = new HashSet<>();
+    /** Soft cap on distinct image-item thumbnails held in memory (each is row-height tall). */
+    private static final int IMAGE_PREVIEW_CACHE_MAX = 48;
+
     // ── Frame-accurate trim-edge preview ──────────────────────────────
     // While dragging a trim handle, show the EXACT in/out frame (OPTION_CLOSEST,
     // not keyframe-snapped) in a floating bubble at the handle, so the user can
@@ -1152,6 +1170,13 @@ public class EditorTimelineView extends View {
         tapeWaveformCache = new com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache(
                 getContext(), tapeStyle, this::postInvalidateOnAnimation);
         layerRowRenderer.setTapeSource(tapeWaveformCache::get, tapeStyle);
+        // §2 item preview images (LANE_BADGES spec): the renderer stays pure-draw; THIS view
+        // owns every decode/extraction + async load + LRU cache + invalidate (see the
+        // image/sprite/video preview helpers below). Video previews REUSE the master T1
+        // filmstrip pipeline (extractVideoThumbnails + thumbnailsCache), not a new extractor.
+        layerRowRenderer.setImagePreviewProvider(this::imagePreviewFor);
+        layerRowRenderer.setSpriteCellProvider(spriteCellProvider);
+        layerRowRenderer.setVideoFilmstripProvider(this::filmstripForOverlayClip);
         layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
                 layerRowRenderer, NOOP_GESTURE_CALLBACK);
 
@@ -3655,6 +3680,184 @@ public class EditorTimelineView extends View {
                 }
             });
         });
+    }
+
+    // ── §2 item preview images: providers backing LayerRowRenderer (spec §2). All three
+    //    keep decode/extraction OFF the draw path: a cache hit returns instantly, a miss
+    //    kicks an async load and invalidates when it lands. ──────────────────────────────
+
+    /**
+     * Feed the project's sprite sheets so the sprite-cell preview (§2) can resolve + decode
+     * them. Called by the editor alongside {@link #setLayerTracks}. Evicts any loaded
+     * renderer whose sheet is no longer present so a deleted/replaced sheet's bitmap frees.
+     */
+    public void setSpriteSheets(@NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets) {
+        previewSpriteSheets.clear();
+        previewSpriteSheets.addAll(sheets);
+        Set<String> live = new HashSet<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : sheets) live.add(s.getId());
+        java.util.Iterator<Map.Entry<String, com.fadcam.ui.faditor.sprite.SpriteSheetRenderer>> it =
+                spriteRendererCache.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> e = it.next();
+            if (!live.contains(e.getKey())) { e.getValue().recycle(); it.remove(); }
+        }
+        spriteRendererFailed.retainAll(live);
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.sprite.SpriteSheet previewSheetById(@NonNull String sheetId) {
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet s : previewSpriteSheets) {
+            if (s.getId().equals(sheetId)) return s;
+        }
+        return null;
+    }
+
+    /** §2 sprite-cell provider: decode-once sheet renderer + STEP/HOLD cell resolution. */
+    private final com.fadcam.ui.faditor.layers.LayerRowRenderer.SpriteCellProvider spriteCellProvider =
+            new com.fadcam.ui.faditor.layers.LayerRowRenderer.SpriteCellProvider() {
+        @Override
+        @Nullable
+        public com.fadcam.ui.faditor.sprite.SpriteSheetRenderer renderer(@NonNull String sheetId) {
+            com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r = spriteRendererCache.get(sheetId);
+            if (r != null) return r;
+            if (spriteRendererLoading.contains(sheetId) || spriteRendererFailed.contains(sheetId)) {
+                return null;
+            }
+            final com.fadcam.ui.faditor.sprite.SpriteSheet sheet = previewSheetById(sheetId);
+            if (sheet == null) { spriteRendererFailed.add(sheetId); return null; }
+            spriteRendererLoading.add(sheetId);
+            thumbnailExecutor.execute(() -> {
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer loaded = null;
+                try {
+                    loaded = com.fadcam.ui.faditor.sprite.SpriteSheetRenderer.load(getContext(), sheet);
+                } catch (Exception e) {
+                    FLog.w(TAG, "Sprite sheet preview load failed for " + sheetId, e);
+                }
+                final com.fadcam.ui.faditor.sprite.SpriteSheetRenderer f = loaded;
+                mainHandler.post(() -> {
+                    spriteRendererLoading.remove(sheetId);
+                    if (f != null) { spriteRendererCache.put(sheetId, f); invalidate(); }
+                    else spriteRendererFailed.add(sheetId);
+                });
+            });
+            return null;
+        }
+
+        @Override
+        public int cellForKey(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                              @NonNull com.fadcam.ui.faditor.sprite.FrameTrack.Key key) {
+            // Direct-cell keys resolve trivially; preset keys resolve through the ONE
+            // canonical cell resolver at the key's item-local time (phase 0 of the preset).
+            if (key.cellIndex >= 0) return key.cellIndex;
+            com.fadcam.ui.faditor.sprite.SpriteSheet sheet = previewSheetById(item.getSheetId());
+            if (sheet == null) return -1;
+            return com.fadcam.ui.faditor.sprite.SpriteFrameResolver.resolveCellAt(
+                    sheet, item, item.getStartMs() + key.timeMs);
+        }
+    };
+
+    /**
+     * §2 image-item thumbnail provider: returns a decoded, row-height-bounded bitmap for the
+     * image uri, or {@code null} while it decodes off-thread. Simple whole-lifetime LRU: an
+     * editor project has tens of image overlays, not thousands.
+     */
+    @Nullable
+    private Bitmap imagePreviewFor(@NonNull String imageUri, int targetHpx) {
+        Bitmap cached = imagePreviewCache.get(imageUri);
+        if (cached != null && !cached.isRecycled()) return cached;
+        if (imagePreviewLoading.contains(imageUri) || imagePreviewFailed.contains(imageUri)) {
+            return null;
+        }
+        imagePreviewLoading.add(imageUri);
+        final int h = Math.max(1, targetHpx);
+        thumbnailExecutor.execute(() -> {
+            Bitmap bmp = null;
+            try {
+                bmp = decodeBoundedImage(Uri.parse(imageUri), h);
+            } catch (Exception e) {
+                FLog.w(TAG, "Image-item preview decode failed", e);
+            }
+            final Bitmap f = bmp;
+            mainHandler.post(() -> {
+                imagePreviewLoading.remove(imageUri);
+                if (f != null) {
+                    if (imagePreviewCache.size() >= IMAGE_PREVIEW_CACHE_MAX) {
+                        java.util.Iterator<Map.Entry<String, Bitmap>> it =
+                                imagePreviewCache.entrySet().iterator();
+                        if (it.hasNext()) { Bitmap old = it.next().getValue(); it.remove();
+                            if (old != null && !old.isRecycled()) old.recycle(); }
+                    }
+                    imagePreviewCache.put(imageUri, f);
+                    invalidate();
+                } else {
+                    imagePreviewFailed.add(imageUri);
+                }
+            });
+        });
+        return null;
+    }
+
+    /** Decode {@code uri} down-sampled so its height is ~{@code targetHpx} (memory-frugal). */
+    @Nullable
+    private Bitmap decodeBoundedImage(@NonNull Uri uri, int targetHpx) throws Exception {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        try (java.io.InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+            BitmapFactory.decodeStream(in, null, bounds);
+        }
+        if (bounds.outHeight <= 0 || bounds.outWidth <= 0) return null;
+        int sample = 1;
+        while (bounds.outHeight / (sample * 2) >= targetHpx && sample < 32) sample *= 2;
+        BitmapFactory.Options opts = new BitmapFactory.Options();
+        opts.inSampleSize = sample;
+        opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        try (java.io.InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+            return BitmapFactory.decodeStream(in, null, opts);
+        }
+    }
+
+    /**
+     * §2 video-item filmstrip provider: cached thumbnails for an overlay/PiP clip's source,
+     * REUSING the master T1 pipeline — same {@link #thumbnailsCache}, same source key
+     * ({@code hash+"_src"}, so an overlay sharing a source with a master segment reuses those
+     * thumbs for free), same {@link #extractVideoThumbnails} extractor + disk cache. Returns
+     * {@code null} while extracting.
+     */
+    @Nullable
+    private List<Bitmap> filmstripForOverlayClip(@NonNull com.fadcam.ui.faditor.model.Clip clip,
+                                                 int targetHpx) {
+        if (clip.isImageClip()) return null; // image clips take the single-thumb path
+        String key = clip.getSourceUri().hashCode() + "_src";
+        List<Bitmap> cached = thumbnailsCache.get(key);
+        if (cached != null && !cached.isEmpty()) return cached;
+        if (thumbnailsLoading.contains(key) || thumbnailsFailed.contains(key)) return null;
+        thumbnailsLoading.add(key);
+        final Uri uri = clip.getSourceUri();
+        final long outMs = Math.max(1, clip.getSourceDurationMs());
+        final int thumbSize = Math.max(1, targetHpx);
+        final int count = MAX_THUMBNAILS_PER_SEGMENT;
+        final String diskKey = key + "_" + thumbSize + "x" + count;
+        final File diskDir = filmstripCacheDir(diskKey);
+        thumbnailExecutor.execute(() -> {
+            List<Bitmap> thumbs = readFilmstripDiskCache(diskDir, count);
+            if (thumbs == null) {
+                thumbs = new ArrayList<>();
+                try {
+                    extractVideoThumbnails(uri, 0, outMs, thumbs, thumbSize, count);
+                } catch (Exception e) {
+                    FLog.w(TAG, "Overlay filmstrip extract failed for " + key, e);
+                }
+                if (!thumbs.isEmpty()) writeFilmstripDiskCache(diskDir, thumbs);
+            }
+            final List<Bitmap> finalThumbs = thumbs;
+            mainHandler.post(() -> {
+                thumbnailsLoading.remove(key);
+                if (!finalThumbs.isEmpty()) { thumbnailsCache.put(key, finalThumbs); invalidate(); }
+                else thumbnailsFailed.add(key);
+            });
+        });
+        return null;
     }
 
     // ── Filmstrip disk cache (LRU by total size, mirrors WaveformExtractor's file-per-key

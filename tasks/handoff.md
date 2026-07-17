@@ -1,5 +1,21 @@
 # FadCam AI Handoff
 
+> **🌀 2026-07-17 late — FABLE(5): GL transition preview 4-bug fix (`ab4fc42`), DEVICE-VERIFIED on
+> sandbox 29e37138 (installed there; main phone has the previous build).** JoyRaptor's "3 levels of
+> disjointedness": (1) A sampled from its HEAD — seam preview double-subtracted the window offset
+> (currentPos is already trim-relative); (2) BOTH clips frozen on their first frame — transition
+> frame cache key had NO time component (now 50ms-bucketed); (3) frames inverted for the transition's
+> duration — preview textures upload top-row-first vs GLTransitions' bottom-origin uv (preview shader
+> template now V-flips at sampling; spin shaders made it read as horizontal mirror); (4) 9:16-on-16:9
+> stretched fullscreen — GL quad fills the view, frames now letterbox-composed before upload. ALSO:
+> duration quick-pick presets 100ms–10s; PROVED the yesterday clamp fix on device (pushed 5000ms
+> RADIAL into cebc19e0 → survives load round-trip; mid-transition screenshot upright+letterboxed).
+> **REMAINING transition UX debt:** on short clips the resize drag is legitimately clamped to
+> min(neighbor clip duration) but SILENTLY — the chip label even shows the clamped span while the
+> model holds the full value ("1.6s" label vs 5000ms stored). Surface the limit (toast/label) next.
+> Export-side GL transitions untouched this pass — JoyRaptor should A/B an export with a GL transition;
+> the export overlay (GlTransitionFrameOverlay) has its own orientation/scale conventions.
+
 > **🎨 2026-07-17 — FABLE(5): JoyRaptor-feedback batch + spec sweep. 7 commits (`46523ed`…`4b6533e`),
 > ALL compile-green; FULL build installed on main phone REAL_SERIAL at session end.**
 > **(1) LANDED THE PRIOR SESSION'S IN-FLIGHT TREE (`46523ed`, 1397 lines, was uncommitted):** slides

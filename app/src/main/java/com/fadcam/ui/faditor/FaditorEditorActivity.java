@@ -130,6 +130,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Off-main executor for baking reversed segments (drawer path). */
     @Nullable
     private java.util.concurrent.ExecutorService reverseBakeExecutor;
+
+    /**
+     * Serial executor for slide HTML→MP4 renders ({@link com.fadcam.ui.faditor.slides.SlideRenderer}).
+     * Single-threaded on purpose: each render hosts one headless SlideRenderActivity,
+     * and renders must never overlap. Lazy — most projects have no slides.
+     */
+    private java.util.concurrent.ExecutorService slideRenderExecutor;
     /** Source-URI+in+out keys whose reverse bake is in flight, so we don't double-launch. */
     private final java.util.Set<String> reverseBakeInFlight =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
@@ -2429,6 +2436,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int count = 0;
         Timeline tl = project.getTimeline();
         for (int i = 0; i < tl.getClipCount(); i++) {
+            // A generated slide's MP4 is a regenerable render cache, not source
+            // media — an unrendered slide is never "missing" (the export pre-pass
+            // materializes it from the authored HTML).
+            if (tl.getClip(i).isGeneratedSlide()) continue;
             if (!isSourceAccessible(tl.getClip(i).getSourceUri())) count++;
         }
         for (AudioClip ac : tl.getAudioClips()) {
@@ -2534,11 +2545,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Set<Integer> missing = new HashSet<>();
         Timeline tl = project.getTimeline();
         for (int i = 0; i < tl.getClipCount(); i++) {
+            if (tl.getClip(i).isGeneratedSlide()) continue;
             if (!isSourceResolvable(tl.getClip(i).getSourceUri())) {
                 missing.add(i);
             }
         }
         editorTimeline.setMissingSegments(missing);
+
+        // Materialize any un-rendered slide MP4s in the background so slide
+        // play-through and thumbnails work without waiting for an export.
+        renderSlidesInBackground();
     }
 
     /** Bridge: a file picker returned a file for the pending relink entry. */
@@ -8810,6 +8826,88 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * snapshot the project to a file, and start the foreground service with its path.
      */
     private void startOutOfProcessExport(boolean audioOnly) {
+        // ensureGeneratedSlidesRendered pre-pass: slides render HERE, in the editor
+        // process — the :export process can't host the WebView capture. The rendered
+        // MP4 lands at the content-addressed cache path the slide clip's sourceUri
+        // already points to, so the exporter just reads a normal file.
+        java.util.List<Clip> pendingSlides;
+        java.io.File slideProjectDir;
+        try {
+            slideProjectDir = projectStorage.projectDir(project.getId());
+            pendingSlides = com.fadcam.ui.faditor.slides.SlideRenderer
+                    .collectUnrendered(slideProjectDir, project);
+        } catch (Exception e) {
+            FLog.w(TAG, "Slide render pre-pass collect failed", e);
+            pendingSlides = java.util.Collections.emptyList();
+            slideProjectDir = null;
+        }
+        if (pendingSlides.isEmpty()) {
+            doStartOutOfProcessExport(audioOnly);
+            return;
+        }
+
+        // TODO(strings)
+        Toast.makeText(this, "Preparing " + pendingSlides.size() + " animated slide(s)…",
+                Toast.LENGTH_SHORT).show();
+        exportStartedLocallyAtMs = System.currentTimeMillis();
+        final java.io.File pd = slideProjectDir;
+        final java.util.List<Clip> pending = pendingSlides;
+        slideRenderExecutor().execute(() -> {
+            String err = com.fadcam.ui.faditor.slides.SlideRenderer.renderAll(this, pd, pending);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (err != null) {
+                    exportStartedLocallyAtMs = 0;
+                    // TODO(strings)
+                    Toast.makeText(this, "Could not render slide: " + err,
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                resolvableCache.clear();
+                doStartOutOfProcessExport(audioOnly);
+            });
+        });
+    }
+
+    @NonNull
+    private java.util.concurrent.ExecutorService slideRenderExecutor() {
+        if (slideRenderExecutor == null) {
+            slideRenderExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        }
+        return slideRenderExecutor;
+    }
+
+    /**
+     * Fire-and-forget: materialize any missing slide MP4s so slide play-through and
+     * timeline thumbnails work without waiting for an export. Failures only log —
+     * the export pre-pass re-runs the render and is the path that surfaces errors.
+     */
+    private void renderSlidesInBackground() {
+        if (project == null) return;
+        try {
+            final java.io.File projectDir = projectStorage.projectDir(project.getId());
+            final java.util.List<Clip> pending = com.fadcam.ui.faditor.slides.SlideRenderer
+                    .collectUnrendered(projectDir, project);
+            if (pending.isEmpty()) return;
+            slideRenderExecutor().execute(() -> {
+                String err = com.fadcam.ui.faditor.slides.SlideRenderer
+                        .renderAll(this, projectDir, pending);
+                if (err != null) {
+                    FLog.w(TAG, "Background slide render: " + err);
+                    return;
+                }
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    resolvableCache.clear();
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                });
+            });
+        } catch (Exception e) {
+            FLog.w(TAG, "renderSlidesInBackground failed", e);
+        }
+    }
+
+    private void doStartOutOfProcessExport(boolean audioOnly) {
         prepareMemoryForExport();
 
         String snapshotPath = writeExportSnapshotFile();

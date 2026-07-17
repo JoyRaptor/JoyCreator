@@ -2,9 +2,27 @@
 
 **Status (2026-07-17):** Phase 0 DONE (`2970737`). **Phases 1–3 DONE** (compile-green on the
 file-watcher; NOT yet device-verified — see the verification checklist at the end of this block).
-Phase 4 (editor import + `linkedClipId`) NOT started (owned by the editor lane). Read the
-architecture reality map below BEFORE touching Phase 1 — Section 2's Camera2 guess does NOT match
-the codebase.
+**Phase 4 FOUNDATION landed** (`6bf5066`, 2026-07-17, compile-green): `Clip.linkedClipId`
+schema + getter/setter/isLinked + ProjectStorage write/tolerant-read (omit-when-null, so old
+projects stay byte-identical) + copy semantics (fresh-id `Clip(other)` does NOT inherit the link;
+`relinked()` keeps it since it preserves the id) + `Timeline.findClipById/findLinkedClip/
+linkClips(static, symmetric)/unlinkClip(both-sides, idempotent)`. This is the dormant, safe base.
+**Phase 4 REMAINING (needs the sandbox + a UI decision — do NOT build blind):**
+  (a) **Link creation** — the importer has no non-SAF pair path today (`onVideoAssetPicked` imports
+      one SAF-picked file; siblings aren't visible through a content URI). The asset browser
+      (`assetbrowser/AssetScanner` — DocumentFile.listFiles over a tree) CAN see a `X_webcam.mp4`
+      sibling of `X.mp4`, so pair-detection belongs there: surface a dual-stream pair as ONE
+      browser item that adds BOTH clips and calls `Timeline.linkClips`. Decide with JoyRaptor whether
+      to also offer a manual "Link/Unlink selected clips" action as the reachable-now entry point.
+  (b) **Mirrored delete/trim/split + unlink** — editor lane. Anchors: delete = `deleteSelectedSegment`
+      (~21477, uses `EditActions.DeleteClipAction`); trim = `onTrimChanged` (~1373,
+      setInPointMs/setOutPointMs); split = `Timeline.splitAt` (308). Each must mirror onto
+      `findLinkedClip(...)` at the same CLIP-RELATIVE position, be ONE undo step for the pair,
+      and RE-LINK split children (A-left↔B-left, A-right↔B-right). These touch the destructive
+      paths, so device-verify on a real recorded pair before shipping (per ab-export-frame-diff
+      discipline — don't trust code-reasoning on compositing/timeline edits).
+Read the architecture reality map below BEFORE touching Phase 1 — Section 2's Camera2 guess does
+NOT match the codebase.
 
 ### What was built (Phases 1–3)
 

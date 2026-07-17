@@ -281,7 +281,16 @@ already property-focused.)
 - dragux_v3 **Slice 2** gap-insertion (BINDING, unbuilt) — item 2 above.
 - dragux_v3 **A14** teal-lane retirement + row keyframe-visual parity (unbuilt) — item 3 above.
 - LANE_BADGES **§4.5** eye/lock → per-object migration (deliberately deferred; needs per-object controls).
-- ObjectMenuSheet §2 Prop adapters for **audio / PiP / visualizer** (drawer exists, types unwired).
+- ObjectMenuSheet §2 Prop adapters for **audio / PiP / visualizer** — ✅ BUILT 2026-07-17
+  (`3fed299`, compile-green + installed on SM-N986U). Static-prop support added to the sheet
+  (Prop.keyframeable + staticProp → no diamond/ribbon for non-animatable props). Audio = one
+  Volume prop on its own VolumeKeyframe envelope (no ease); PiP = full transform keyframes on
+  the overlay Clip's getOverlayTransform() (absolute-ms keys, whole-pose arming, ease picker,
+  pose-preserving clear); Viz = static pos/size/rotate + Start/End-here chips, More…→viz drawer.
+  Both dispatch sites (hold + C6 retarget) wired for all three. DEVICE-VERIFY OWED (JoyRaptor): hold
+  an audio/PiP/viz item→drawer; audio volume diamond drop/scrub + envelope undo; PiP arm→animate
+  a move, ease with a spring, scrub it, clear-all; viz sliders have NO diamond and raise NO
+  ribbon; viz Start/End-here; C6 retarget across all three types.
 - Marquee multi-select limited to floating band (audio band documented follow-up).
 - **Dual-stream Phase 4** (editor `linkedClipId` mirrored edits) — editor lane, not started.
 - **Visualizer-studio Phase 4** (live-recording viz, perf-gated) — not started.

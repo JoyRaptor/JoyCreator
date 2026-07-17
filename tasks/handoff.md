@@ -1,5 +1,32 @@
 ﻿# FadCam AI Handoff
 
+> **♦ 2026-07-17 evening — OPUS 4.8 (started as Fable 5, user switched to Opus mid-session):
+> two spec-debt lanes landed, both compile-green + one installed.**
+> **(1) `3fed299` ObjectMenuSheet §2 adapters for audio / PiP / visualizer** (STILL-OPEN debt
+> item, now ✅). Sheet gained `Prop.keyframeable` + `staticProp()` (Sub-lane A built by an Opus
+> subagent that then stalled mid-stream on an API error — I finished B/C/D + wiring by hand).
+> Audio = one Volume prop on its OWN VolumeKeyframe envelope (no ease picker; diamond mapped to
+> the envelope; live player gain + band redraw). PiP = full transform keyframes on the overlay
+> Clip's `getOverlayTransform()` (ABSOLUTE-ms keys → diamond helpers run itemStart=0; putStatic
+> parity when unarmed; whole-pose arming on first diamond; ease picker; pose-preserving clear;
+> undo via `restoreOverlayTransform`). Viz = static pos/size/rotate (no diamond) + Start/End-here
+> chips + More…→viz drawer. Both dispatch sites wired (hold + C6 retarget). Installed on SM-N986U.
+> **(2) `6bf5066` Dual-stream Phase 4 FOUNDATION** — `Clip.linkedClipId` schema + ProjectStorage
+> round-trip + `Timeline.findClipById/findLinkedClip/linkClips/unlinkClip`. Safe + dormant. The
+> REACHABLE parts (link-creation UI + mirrored delete/trim/split) are deliberately UNBUILT — they
+> need the sandbox device + a UI decision (see the dual-stream spec's updated Status block).
+> **DEVICE-VERIFY OWED (JoyRaptor, sandbox):** hold an audio/PiP/viz item→drawer + all three prop
+> families; PiP arm→animate→ease→scrub→clear; viz sliders have NO diamond/ribbon; C6 retarget
+> across types; save/reload a linked pair → link survives. **DEVICE NOTE:** this session the
+> sandbox Note 9 (29e37138) was DETACHED; only the main phone REAL_SERIAL (SM-N986U, work-profile
+> user 150) was online — `run-as`/`pm list` are BLOCKED there, so the export A/B proof (Lane 3)
+> and any project.json injection need the Note 9 back. **Lane 3 prep:** wrote
+> `tasks/LANE3_gl_transition_ab_hypothesis.md` — code analysis found the export transition fits
+> the INCOMING clip via `GlTransitionFrameOverlay.fitRect` into the OUTGOING clip's source-size
+> quad, not the canvas → mixed-aspect clips mis-scale mid-transition; recipe to prove/fix is in
+> that file (needs sandbox export). **NEXT LANES:** dual-stream P4 reachable ops; Lane 3 A/B;
+> visualizer-studio Phase 4. WARNING unchanged: NEVER `gradlew --rerun-tasks`.
+
 > **♦ 2026-07-17 afternoon — FABLE(5) orchestrating OPUS subagents: the ENTIRE 0717 UI queue is
 > BUILT + the fresh build is INSTALLED on the sandbox (29e37138 re-authorized; APK 13:12).**
 > 4 commits, all compile-green, each reviewed line-by-line before commit:

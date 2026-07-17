@@ -294,6 +294,42 @@ out instead of showing a sharp dark rectangle.
 
 ---
 
+## 11a. DUAL-STREAM RAW-WEBCAM RECORDING (Phases 1–3, 2026-07-17)
+
+Implements `tasks/feature-dual-stream-recording-spec.md` Phases 1–3 — a second, independent
+encoder writing the RAW webcam feed to `<screenfile>_webcam.mp4`, frame-synced to the screen
+recording. Compile-green on the file-watcher; device verification is queued (see the spec's
+Status block for the exact adb/ffprobe steps).
+
+- **`fadrec/encoding/RecordingClock.java` (new)** — single pause/rebase source of truth
+  (spec Decision 3). Extracted from `ScreenRecordingPipeline`'s old private timestamp fields
+  (§6 above). SHARED pause state (`paused`, `totalPausedTimeNanos`) + per-encoder baselines via
+  `RecordingClock.Stream` (`newStream()`), so both files start at PTS 0 yet subtract the SAME
+  pause duration → identical effective duration & segment boundaries. The `primary` stream is a
+  byte-for-byte reproduction of the old `getSynchronizedVideo/AudioTimestamp()`, so plain screen
+  recording (dual OFF) is unchanged.
+- **`ScreenRecordingPipeline`** now drives/reads the clock instead of owning pause fields; added
+  `getRecordingClock()` and `setAudioTap(AudioTap)` (the PCM tee point, in `queueAudioData` ~1007).
+- **`fadrec/encoding/WebcamEncoderPipeline.java` (new)** — video/avc MediaCodec fed by a Surface
+  + AAC fed by teed PCM + `FragmentedMp4MuxerWrapper`; mirrors ScreenRecordingPipeline's shape.
+  All PTS via a `RecordingClock.Stream`. **No segment rollover in v1** (writes one file).
+- **`fadrec/ui/FloatingWebcamService`** — adds the encoder surface as a SECOND camera target
+  (`startPreview()` builds a 2-surface session; `restartCaptureSession()` rebuilds to add/remove
+  it). Static bridge: `attachRecordingSurface`/`detachRecordingSurface`/`isPlainWebcamActive`/
+  `getActivePreviewSize`/`getActiveSensorOrientation`/`setOverlayLifecycleListener`. **Avatar mode
+  excluded** (no Camera2 preview → no raw pixels). A capture-session rebuild causes a brief
+  preview blip at record-start — accepted, not a blocker.
+- **`fadrec/services/ScreenRecordingService`** — `startDualStreamWebcamIfEnabled()` gates on pref
+  `fadrec_dual_stream_webcam` + `DualEncoderCapabilityChecker.supportsDualHardwareEncode()` +
+  `FloatingWebcamService.isPlainWebcamActive()`. Shares the screen pipeline's clock, sizes the
+  webcam encoder to the camera preview size (must match a supported camera output size — no
+  16-rounding), tees PCM via `setAudioTap`. Pause/resume need NO extra wiring (screen drives the
+  shared clock, webcam observes). Finalized on stop / overlay-close / cleanup; any failure
+  downgrades to screen-only.
+
+**Phase 4 (editor import + `linkedClipId`) is NOT done** — owned by the editor lane. The two files
+land on disk as ordinary recordings; the `_webcam.mp4` suffix is the pairing hint.
+
 ## 12. NOTES / GOTCHAS
 
 - Fragmented MP4 output is the reason Faditor export remuxes FadRec recordings (cross-ref `HANDOFF.md`

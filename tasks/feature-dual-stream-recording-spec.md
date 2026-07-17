@@ -1,9 +1,79 @@
 # Feature Spec: Synchronized Dual-Stream Recording — Screen + Raw Webcam (for Claude Code)
 
-**Status (2026-07-17):** Phase 0 DONE (`2970737` — `DualEncoderCapabilityChecker` +
-capability-gated "Record webcam as separate file" row in ScreenRecordingSettingsFragment,
-pref `fadrec_dual_stream_webcam`). Phases 1–4 not started. Read the architecture reality
-map below BEFORE Phase 1 — Section 2's Camera2 guess does NOT match the codebase.
+**Status (2026-07-17):** Phase 0 DONE (`2970737`). **Phases 1–3 DONE** (compile-green on the
+file-watcher; NOT yet device-verified — see the verification checklist at the end of this block).
+Phase 4 (editor import + `linkedClipId`) NOT started (owned by the editor lane). Read the
+architecture reality map below BEFORE touching Phase 1 — Section 2's Camera2 guess does NOT match
+the codebase.
+
+### What was built (Phases 1–3)
+
+- **`fadrec/encoding/RecordingClock.java` (new, commit `c3b77fa`)** — the single pause/rebase
+  source of truth (Decision 3). Extracted the pause/timestamp math that lived privately in
+  `ScreenRecordingPipeline` (`recordingStartTimeNanos` / `firstVideoTimestampNanos` /
+  `totalPausedTimeNanos` / `pauseStartTimeNanos` / `isPaused`). Shared **pause state**
+  (`paused` + `totalPausedTimeNanos`) lives on the clock; each encoder gets its OWN
+  first-frame baseline via `RecordingClock.Stream` (`newStream()`), so both files start at
+  PTS 0 but subtract the SAME pause duration. The `primary` stream reproduces the old
+  `getSynchronizedVideo/AudioTimestamp()` byte-for-byte, so a plain screen recording (dual
+  OFF) is a no-op refactor. `ScreenRecordingPipeline` was refactored to drive/read the clock;
+  it also gained `getRecordingClock()` and a `setAudioTap(AudioTap)` PCM hook.
+
+- **`fadrec/encoding/WebcamEncoderPipeline.java` (new, commit `23b194b`)** — the raw-webcam
+  encoder: `video/avc` MediaCodec fed by a Surface + AAC MediaCodec fed by the teed PCM +
+  `FragmentedMp4MuxerWrapper`, mirroring `ScreenRecordingPipeline`'s encoder/muxer shape. All
+  PTS route through a `RecordingClock.Stream`. Output `<screenfile>_webcam.mp4`.
+  **v1 skips segment rollover for the webcam file** (writes one continuous file even if the
+  screen file auto-splits) — noted in the class javadoc.
+
+- **`fadrec/ui/FloatingWebcamService.java` (commit `23b194b`)** — static bridge
+  (`attachRecordingSurface` / `detachRecordingSurface` / `isPlainWebcamActive` /
+  `getActivePreviewSize` / `getActiveSensorOrientation` / `setOverlayLifecycleListener`).
+  Adds the encoder input surface as a **second target** on the existing camera session
+  (`TEMPLATE_RECORD` when a recording surface is attached; session is rebuilt — a brief
+  preview blip at record-start is accepted, NOT a blocker). **Avatar mode is excluded** (the
+  puppet path never opens a Camera2 preview, so there are no raw camera pixels to encode —
+  dual-stream falls back to screen-only there). Overlay close fires the lifecycle listener so
+  the recording service finalizes the webcam file (a shorter-but-valid pair beats a corrupt one).
+
+- **`fadrec/services/ScreenRecordingService.java` (commit `23b194b`)** — owns the orchestration.
+  On start, `startDualStreamWebcamIfEnabled()` gates on: pref `fadrec_dual_stream_webcam` ON
+  **AND** `DualEncoderCapabilityChecker.supportsDualHardwareEncode()` **AND**
+  `FloatingWebcamService.isPlainWebcamActive()`. It builds `WebcamEncoderPipeline` sharing
+  `recordingPipeline.getRecordingClock()`, sizes the encoder to the camera's chosen preview
+  size (must match a supported camera output size — no 16-rounding), attaches the surface,
+  starts the pipeline, and tees mic PCM via `setAudioTap` (Decision 4). Pause/resume need NO
+  extra wiring — the screen pipeline drives the shared clock, the webcam pipeline observes it.
+  Sibling output: internal `<base>_webcam.mp4`, or a SAF sibling DocumentFile. Any failure
+  downgrades cleanly to screen-only. Finalized on recording stop, overlay close, or cleanup.
+
+### Deferred / limitations
+- Segment rollover NOT implemented for the webcam file (v1).
+- Dual-stream unavailable in **avatar/puppet mode** (no raw camera surface).
+- User-facing strings are `// TODO(strings)` — failures are logged, not surfaced in UI.
+- Phase 4 importer `linkedClipId` linkage is untouched (editor lane owns it). The two files
+  currently land on disk as ordinary recordings; the `_webcam.mp4` suffix is the pairing hint.
+
+### DEVICE VERIFICATION (queued for a human-attended session — NOT run here)
+Prereqs: a device where `DualEncoderCapabilityChecker.supportsDualHardwareEncode()` is true;
+enable the "Record webcam as separate file" toggle; open the floating webcam overlay showing a
+LIVE camera (not an avatar); then screen-record.
+1. **Two files, matching length (Phase 1):** continuous ~60s recording. Pull both:
+   `adb pull /sdcard/Android/data/com.fadcam/files/FadCam/Screen/<name>.mp4` and `..._webcam.mp4`.
+   Compare duration + frame count:
+   `ffprobe -v error -select_streams v:0 -show_entries stream=nb_read_frames,duration -count_frames -of csv <file>`
+   Durations should match within a frame; frame counts within a couple of frames.
+2. **Pause stress (Phase 2):** record with ~5 quick pause/resume cycles. Both files' total
+   durations must match, AND the effective segment boundaries must line up (scrub both — the
+   content at each pause seam should be at the same timestamp). Compare programmatically via
+   the ffprobe duration above; they must agree.
+3. **Audio (Phase 3):** confirm both files carry synced audio independently:
+   `ffprobe -v error -show_streams <file>` shows an aac stream in each; play each alone and
+   confirm audio matches the video and is in sync.
+4. **Overlay-close mid-recording:** close the webcam overlay while recording — the `_webcam.mp4`
+   must be a valid, playable (shorter) file; the screen recording keeps going.
+5. **Fallback:** with the overlay in avatar mode, or on a device that fails the capability
+   check, recording must proceed screen-only with no `_webcam.mp4` and no crash.
 
 ## Architecture reality map (2026-07-17, verified against RECORDING_HANDOFF.md + source)
 

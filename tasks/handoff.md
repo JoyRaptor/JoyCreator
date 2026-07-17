@@ -1,5 +1,23 @@
 # FadCam AI Handoff
 
+> **🎛️ 2026-07-17 morning — FABLE(5) with JoyRaptor live: UI-spec critique + DRAWER BATCH built
+> (`f8daae1`, compile-green 13s; INSTALL BLOCKED — sandbox 29e37138 went adb `unauthorized`
+> mid-session, JoyRaptor must accept the USB prompt / cycle USB debugging; watcher installs next build).**
+> **READ FIRST: `tasks/FEEDBACK_20260717_ui_dialogs_and_keyframes.md`** — ground-truth answers
+> (dual-stream toggle IS visible on the Note 9, probed live: 16 concurrent HW AVC encoders; it
+> lives in FadRec → Screen Recording card → "Record webcam as separate file", NOT the helper
+> panel), spec corrections C1–C9, JoyRaptor's decisions (double-tap = TYPE editor everywhere; hold =
+> general drawer; drawer trash gone, × right; D2a practical ease-curve set incl. 3 spring damping
+> levels + stairs). **BUILT:** unified preview grammar (tap=select→one selection pipeline w/ row
+> auto-reveal, double-tap=type editor, hold=drawer) on TextOverlayLayer + SpriteOverlayView; modal
+> image dialog RETIRED (images → drawer); peek range chips (Start/End-here usable WHILE scrubbing,
+> now with undo); drawer retargets on cross-object selection; sprite delete moved to the badge
+> (drawer trash was silently its only delete). **NEXT (in order, per the spec's execution block):**
+> (2) dragux_v3 SLICE 2 gap-insertion + C5 riders + C8 stragglers — START OF A FRESH WINDOW per the
+> blueprint's own rule; (3) <♦️> widget + C7 arming honesty + C4 row keyframe display-parity;
+> (4) D2a ease picker. **DEVICE-VERIFY OWED (JoyRaptor, real fingers):** the whole gesture grammar,
+> End-here-while-scrubbing, drawer retarget, row reveal, sprite badge delete.**
+
 > **🤝 2026-07-17 night — FABLE(5) orchestrating OPUS/SONNET subagents: three spec lanes landed
 > in parallel, all compile-green on the watcher; NONE device-verified yet.**
 > **(1) DUAL-STREAM RECORDING Phases 0–3 (`2970737` me, `c3b77fa`+`23b194b`+`a43e25a` Opus agent):**

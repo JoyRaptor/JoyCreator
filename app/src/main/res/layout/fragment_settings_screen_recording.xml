@@ -274,6 +274,52 @@
 
                 <View style="@style/SettingsDivider" />
 
+                <!-- Dual-stream: also record the raw webcam as its own synced file.
+                     Row + divider are GONE unless the device supports two concurrent
+                     hardware encoders (DualEncoderCapabilityChecker). Hardcoded text:
+                     TODO(strings). -->
+                <LinearLayout
+                    android:id="@+id/row_dual_stream"
+                    android:visibility="gone"
+                    style="@style/SettingsGroupRow">
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:layout_marginEnd="16dp"
+                        android:src="@drawable/ic_camera"
+                        android:tint="@android:color/darker_gray"/>
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Record webcam as separate file"
+                            android:textColor="?attr/colorHeading"
+                            android:textStyle="bold"
+                            android:textSize="15sp"/>
+                        <TextView
+                            android:id="@+id/value_dual_stream"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/setting_off"
+                            android:textColor="@android:color/darker_gray"
+                            android:textSize="13sp"/>
+                    </LinearLayout>
+                    <ImageView
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:src="@drawable/ic_arrow_right"
+                        android:tint="@android:color/darker_gray"/>
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/divider_dual_stream"
+                    android:visibility="gone"
+                    style="@style/SettingsDivider" />
+
                 <!-- Auto-pause recording while floating menu is open -->
                 <LinearLayout
                     android:id="@+id/row_menu_auto_pause"

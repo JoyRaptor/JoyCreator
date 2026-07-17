@@ -61,6 +61,34 @@ public class ScreenRecordingSettingsFragment extends Fragment {
     private TextView valueAudioSource;
     private TextView valueSplitting;
 
+    /**
+     * Dual-stream recording opt-in (spec Phase 0): the row exists only on devices
+     * whose hardware AVC encoder supports two concurrent instances — hidden, not
+     * disabled, everywhere else (spec Decision 5). Tap toggles the pref; the
+     * recording pipeline consumes it from Phase 1 on. TODO(strings)
+     */
+    private void setupDualStreamRow(@NonNull View view) {
+        View row = view.findViewById(R.id.row_dual_stream);
+        View divider = view.findViewById(R.id.divider_dual_stream);
+        TextView value = view.findViewById(R.id.value_dual_stream);
+        if (row == null || value == null) return;
+        boolean supported =
+                com.fadcam.fadrec.encoding.DualEncoderCapabilityChecker.supportsDualHardwareEncode();
+        row.setVisibility(supported ? View.VISIBLE : View.GONE);
+        if (divider != null) divider.setVisibility(supported ? View.VISIBLE : View.GONE);
+        if (!supported) return;
+        final String key =
+                com.fadcam.fadrec.encoding.DualEncoderCapabilityChecker.PREF_DUAL_STREAM_WEBCAM;
+        Runnable refresh = () -> value.setText(
+                prefs.sharedPreferences.getBoolean(key, false) ? "On" : "Off");
+        refresh.run();
+        row.setOnClickListener(v -> {
+            boolean now = !prefs.sharedPreferences.getBoolean(key, false);
+            prefs.sharedPreferences.edit().putBoolean(key, now).apply();
+            refresh.run();
+        });
+    }
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -87,6 +115,8 @@ public class ScreenRecordingSettingsFragment extends Fragment {
                 }
             });
         }
+
+        setupDualStreamRow(view);
 
         bindRowHandlers(view);
         refreshValues();

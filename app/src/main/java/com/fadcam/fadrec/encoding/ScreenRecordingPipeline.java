@@ -181,19 +181,27 @@ public class ScreenRecordingPipeline {
     
     // State management
     private boolean isRecording = false;
-    private boolean isPaused = false;
     private boolean isStopped = false;
     private boolean muxerStarted = false;
     private volatile boolean audioMuted = false;
-    
-    // Timestamp management
-    private final Object timestampLock = new Object();
-    private long recordingStartTimeNanos = -1;
-    private long firstVideoTimestampNanos = -1;
-    private long firstAudioTimestampNanos = -1;
-    private long totalPausedTimeNanos = 0;
-    private long pauseStartTimeNanos = -1;
-    
+
+    // Timestamp management — the pause/rebase math now lives in RecordingClock
+    // (spec Decision 3). This pipeline OWNS/drives the clock (start/pause/resume)
+    // and reads PTS from its primary stream. For a plain screen recording the
+    // clock is a private instance and behavior is byte-identical to the pre-
+    // refactor code; for dual-stream the service injects a shared clock so the
+    // webcam pipeline rides the same pause timeline.
+    private final RecordingClock recordingClock;
+
+    // Optional PCM tap (Decision 4 audio duplication): the raw mic buffer is
+    // handed to this listener AFTER it is queued to the screen audio encoder, so
+    // the webcam pipeline can encode the same audio into its own file.
+    public interface AudioTap {
+        /** @param pcm buffer positioned/limited to the readable PCM; @param size bytes. */
+        void onPcm(ByteBuffer pcm, int size);
+    }
+    private volatile AudioTap audioTap;
+
     /**
      * Builder for ScreenRecordingPipeline
      */
@@ -212,6 +220,7 @@ public class ScreenRecordingPipeline {
         private MediaProjection mediaProjection;
         private long maxFileSizeBytes = Long.MAX_VALUE;
         private SegmentCallback segmentCallback;
+        private RecordingClock recordingClock;
 
         public Builder(Context context) {
             this.context = context.getApplicationContext();
@@ -274,7 +283,16 @@ public class ScreenRecordingPipeline {
             this.segmentCallback = callback;
             return this;
         }
-        
+
+        /**
+         * Injects the shared {@link RecordingClock} (dual-stream). When omitted the
+         * pipeline creates its own private clock and behaves exactly as before.
+         */
+        public Builder setRecordingClock(RecordingClock clock) {
+            this.recordingClock = clock;
+            return this;
+        }
+
         public ScreenRecordingPipeline build() throws IOException {
             if (screenWidth <= 0 || screenHeight <= 0) {
                 throw new IllegalArgumentException("Screen dimensions must be positive");
@@ -319,7 +337,10 @@ public class ScreenRecordingPipeline {
         this.segmentCallback = builder.segmentCallback;
         this.currentOutputFilePath = builder.outputFilePath;
         this.currentOutputFd = builder.outputFd;
-        
+        this.recordingClock = builder.recordingClock != null
+                ? builder.recordingClock
+                : new RecordingClock();
+
         initialize();
     }
     
@@ -791,13 +812,9 @@ public class ScreenRecordingPipeline {
         createVirtualDisplay();
         refreshPreviewVirtualDisplay();
         
-        // Start timestamp tracking
-        synchronized (timestampLock) {
-            recordingStartTimeNanos = System.nanoTime();
-            firstVideoTimestampNanos = -1;
-            firstAudioTimestampNanos = -1;
-        }
-        
+        // Start timestamp tracking — drives the shared clock's primary stream.
+        recordingClock.start();
+
         isRecording = true;
         isStopped = false;
         
@@ -928,9 +945,9 @@ public class ScreenRecordingPipeline {
                     bufferInfo.size = 0;
                 }
 
-                if (bufferInfo.size > 0 && muxerStarted && !isPaused) {
+                if (bufferInfo.size > 0 && muxerStarted && !recordingClock.isPaused()) {
                     // Normalize timestamp
-                    long presentationTimeUs = getSynchronizedVideoTimestamp(bufferInfo.presentationTimeUs);
+                    long presentationTimeUs = recordingClock.videoPtsUs(bufferInfo.presentationTimeUs);
                     bufferInfo.presentationTimeUs = presentationTimeUs;
 
                     outputBuffer.position(bufferInfo.offset);
@@ -971,7 +988,7 @@ public class ScreenRecordingPipeline {
             ByteBuffer audioBuffer = ByteBuffer.allocateDirect(16384);
             
             while (isRecording && !isStopped) {
-                if (isPaused) {
+                if (recordingClock.isPaused()) {
                     try {
                         Thread.sleep(10);
                     } catch (InterruptedException e) {
@@ -1010,10 +1027,33 @@ public class ScreenRecordingPipeline {
             ByteBuffer inputBuffer = audioEncoder.getInputBuffer(inputBufferIndex);
             inputBuffer.clear();
             inputBuffer.put(audioData);
-            
-            long presentationTimeUs = getSynchronizedAudioTimestamp();
+
+            long presentationTimeUs = recordingClock.audioPtsUs();
             audioEncoder.queueInputBuffer(inputBufferIndex, 0, size, presentationTimeUs, 0);
         }
+
+        // Decision 4: tee the SAME PCM to the webcam pipeline. Reset the buffer's
+        // position (the put() above advanced it) so the tap reads from the start.
+        AudioTap tap = audioTap;
+        if (tap != null) {
+            audioData.position(0);
+            audioData.limit(size);
+            try {
+                tap.onPcm(audioData, size);
+            } catch (Exception e) {
+                FLog.w(TAG, "Audio tap failed", e);
+            }
+        }
+    }
+
+    /** Registers a PCM tap for audio duplication (Decision 4). Null clears it. */
+    public void setAudioTap(@Nullable AudioTap tap) {
+        this.audioTap = tap;
+    }
+
+    /** @return the clock this pipeline drives, for sharing with the webcam pipeline. */
+    public RecordingClock getRecordingClock() {
+        return recordingClock;
     }
     
     /**
@@ -1067,8 +1107,8 @@ public class ScreenRecordingPipeline {
                     bufferInfo.size = 0;
                 }
                 
-                if (bufferInfo.size > 0 && muxerStarted && !isPaused) {
-                    long presentationTimeUs = getSynchronizedAudioTimestamp();
+                if (bufferInfo.size > 0 && muxerStarted && !recordingClock.isPaused()) {
+                    long presentationTimeUs = recordingClock.audioPtsUs();
                     bufferInfo.presentationTimeUs = presentationTimeUs;
                     
                     outputBuffer.position(bufferInfo.offset);
@@ -1234,34 +1274,21 @@ public class ScreenRecordingPipeline {
      * Pause recording
      */
     public void pauseRecording() {
-        if (!isRecording || isPaused) {
+        if (!isRecording || recordingClock.isPaused()) {
             return;
         }
-        
-        synchronized (timestampLock) {
-            pauseStartTimeNanos = System.nanoTime();
-        }
-        
-        isPaused = true;
+        recordingClock.pause();
         // FLog.d(TAG, "Recording paused");
     }
-    
+
     /**
      * Resume recording
      */
     public void resumeRecording() {
-        if (!isRecording || !isPaused) {
+        if (!isRecording || !recordingClock.isPaused()) {
             return;
         }
-        
-        synchronized (timestampLock) {
-            if (pauseStartTimeNanos > 0) {
-                totalPausedTimeNanos += (System.nanoTime() - pauseStartTimeNanos);
-                pauseStartTimeNanos = -1;
-            }
-        }
-        
-        isPaused = false;
+        recordingClock.resume();
         FLog.d(TAG, "Recording resumed");
     }
 
@@ -1393,36 +1420,4 @@ public class ScreenRecordingPipeline {
         }
     }
     
-    /**
-     * Get synchronized audio timestamp
-     */
-    private long getSynchronizedAudioTimestamp() {
-        synchronized (timestampLock) {
-            if (recordingStartTimeNanos == -1) {
-                recordingStartTimeNanos = System.nanoTime();
-                return 0;
-            }
-            
-            long elapsedNanos = System.nanoTime() - recordingStartTimeNanos - totalPausedTimeNanos;
-            return elapsedNanos / 1000L; // Convert to microseconds
-        }
-    }
-    
-    /**
-     * Get synchronized video timestamp
-     */
-    private long getSynchronizedVideoTimestamp(long codecTimestampUs) {
-        synchronized (timestampLock) {
-            if (firstVideoTimestampNanos == -1) {
-                firstVideoTimestampNanos = codecTimestampUs * 1000L;
-                if (recordingStartTimeNanos == -1) {
-                    recordingStartTimeNanos = System.nanoTime();
-                }
-                return 0;
-            }
-            
-            long videoOffsetNanos = (codecTimestampUs * 1000L) - firstVideoTimestampNanos;
-            return videoOffsetNanos / 1000L - (totalPausedTimeNanos / 1000L);
-        }
-    }
 }

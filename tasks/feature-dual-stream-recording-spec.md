@@ -1,6 +1,45 @@
 # Feature Spec: Synchronized Dual-Stream Recording — Screen + Raw Webcam (for Claude Code)
 
-**Status:** Ready to implement
+**Status (2026-07-17):** Phase 0 DONE (`2970737` — `DualEncoderCapabilityChecker` +
+capability-gated "Record webcam as separate file" row in ScreenRecordingSettingsFragment,
+pref `fadrec_dual_stream_webcam`). Phases 1–4 not started. Read the architecture reality
+map below BEFORE Phase 1 — Section 2's Camera2 guess does NOT match the codebase.
+
+## Architecture reality map (2026-07-17, verified against RECORDING_HANDOFF.md + source)
+
+The spec assumed the webcam rides the main Camera2 capture session. In reality, for SCREEN
+recording (the target mode) the webcam is `fadrec/ui/FloatingWebcamService.java` — a separate
+overlay Service with its OWN Camera2 session feeding ONE surface (a `TextureView` preview that
+MediaProjection happens to capture). Consequences:
+
+- **The "third stream" is actually a SECOND surface on the FloatingWebcamService session** —
+  add a `MediaCodec` encoder input surface alongside the TextureView surface in its
+  `createCaptureSession` call. 2 streams total on that session: guaranteed headroom, no
+  restructuring needed (spec §0 item 3: answered).
+- **The screen side needs no capture changes** — `fadrec/encoding/ScreenRecordingPipeline`
+  already encodes the projection. What it needs is to EXPOSE its pause/resume + timestamp
+  state through the shared `RecordingClock` instead of owning it privately. Its audio loop
+  (`startAudioRecordingLoop`/`queueAudioData` ~946/986) is where the PCM tee for Decision 4
+  lives.
+- **The new webcam pipeline** (`fadrec/encoding/WebcamEncoderPipeline`, new) mirrors
+  ScreenRecordingPipeline's encoder+muxer shape: `MediaCodec` (video/avc, from the surface) +
+  AAC audio track fed by the teed PCM + `FragmentedMp4MuxerWrapper` (same muxer wrapper —
+  keeps the output consistent with all other FadCam recordings, including the fMP4 remux
+  behavior Faditor already handles). Output file: `<screenfile>_webcam.mp4` next to the
+  screen file (spec §3 naming convention).
+- **RecordingClock** (new, `fadrec/encoding/`): extract the pause/rebase math documented in
+  RECORDING_HANDOFF §6 (pauseStartTimeNanos / totalPauseDurationNanos / currentPauseOffsetUs,
+  returns -1-while-paused semantics) into one object owned by ScreenRecordingService; both
+  pipelines query it for every video/audio PTS. Do NOT let WebcamEncoderPipeline track pause
+  itself (Decision 3).
+- **Lifecycle coupling:** ScreenRecordingService starts/stops the webcam encoder only when
+  the pref is on AND FloatingWebcamService.isRunning. If the user closes the webcam overlay
+  mid-recording, finalize the webcam file cleanly at that point (a shorter-but-valid pair
+  beats a corrupt file); if the overlay was never up, record screen-only as today.
+- **Phase 4 linkage:** recordings import into Faditor via the picker paths
+  (VideoSourceBottomSheet / onVideoAssetPicked in FaditorEditorActivity). `linkedClipId`
+  assignment + mirrored trim/split/delete live in the editor lane — build AFTER 1–3 and
+  coordinate with whoever owns the editor god-files at the time.
 **Depends on:** `tasks/HANDOFF.md`. **This spec touches FadCam's recording pipeline, which `HANDOFF.md` doesn't currently document** (it's editor-focused). Read Section 0 below before anything else.
 
 ---

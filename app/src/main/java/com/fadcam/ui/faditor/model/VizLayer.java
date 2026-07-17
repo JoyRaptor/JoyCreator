@@ -56,6 +56,16 @@ public class VizLayer {
     @Nullable public String glowColor;
     public float glowRadiusDp = 0f;
 
+    /**
+     * Optional drop shadow (PaintStage). {@code null} shadowColor = off. Rendered by the renderer as
+     * a blurred FIRST pass (translated by dx/dy), NOT via {@code Paint.setShadowLayer} which is
+     * unreliable on a hardware canvas for arbitrary shapes.
+     */
+    @Nullable public String shadowColor;
+    public float shadowDx = 0f;
+    public float shadowDy = 2f;
+    public float shadowRadiusDp = 4f;
+
     /** Layer opacity 0..1 (1 = fully opaque, matches legacy). */
     public float opacity = 1f;
     /** {@link #BLEND_NORMAL} or {@link #BLEND_ADD}. */
@@ -93,6 +103,10 @@ public class VizLayer {
         l.gradientEnd = gradientEnd;
         l.glowColor = glowColor;
         l.glowRadiusDp = glowRadiusDp;
+        l.shadowColor = shadowColor;
+        l.shadowDx = shadowDx;
+        l.shadowDy = shadowDy;
+        l.shadowRadiusDp = shadowRadiusDp;
         l.opacity = opacity;
         l.blend = blend;
         l.spread = spread;
@@ -116,6 +130,10 @@ public class VizLayer {
         if (gradientEnd != null) j.addProperty("gradientEnd", gradientEnd);
         if (glowColor != null) j.addProperty("glowColor", glowColor);
         if (glowRadiusDp != 0f) j.addProperty("glowRadiusDp", glowRadiusDp);
+        if (shadowColor != null) j.addProperty("shadowColor", shadowColor);
+        if (shadowDx != 0f) j.addProperty("shadowDx", shadowDx);
+        if (shadowDy != 2f) j.addProperty("shadowDy", shadowDy);
+        if (shadowRadiusDp != 4f) j.addProperty("shadowRadiusDp", shadowRadiusDp);
         if (opacity != 1f) j.addProperty("opacity", opacity);
         if (blend != null && !BLEND_NORMAL.equals(blend)) j.addProperty("blend", blend);
         if (spread != 1f) j.addProperty("spread", spread);
@@ -139,6 +157,11 @@ public class VizLayer {
             l.gradientEnd = j.has("gradientEnd") ? j.get("gradientEnd").getAsString() : null;
             l.glowColor = j.has("glowColor") ? j.get("glowColor").getAsString() : null;
             l.glowRadiusDp = optFloat(j, "glowRadiusDp", 0f);
+            l.shadowColor = j.has("shadowColor") && !j.get("shadowColor").isJsonNull()
+                    ? j.get("shadowColor").getAsString() : null;
+            l.shadowDx = optFloat(j, "shadowDx", 0f);
+            l.shadowDy = optFloat(j, "shadowDy", 2f);
+            l.shadowRadiusDp = optFloat(j, "shadowRadiusDp", 4f);
             l.opacity = clamp(optFloat(j, "opacity", 1f), 0f, 1f);
             l.blend = optString(j, "blend", BLEND_NORMAL);
             l.spread = clamp(optFloat(j, "spread", 1f), 0f, 1f);

@@ -33,7 +33,14 @@ public class WaveformStyleRenderer {
 
     private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+
+    // Peak-hold caps look back over a short window of the shared energies. The K-tap arrays are
+    // computed once per render call as LOCALS (spec §3 — no per-frame state); these are just the
+    // fixed constants of that window, not state that persists between frames.
+    private static final int PEAK_TAPS = 8;      // K
+    private static final long PEAK_STEP_MS = 66; // Δ between look-back taps
 
     // Reused across frames so preview rendering allocates nothing per frame (the previous
     // per-frame Bitmap allocation caused GC churn and the choppy/hanging playback).
@@ -46,6 +53,12 @@ public class WaveformStyleRenderer {
     @Nullable private BlurMaskFilter glowFilter;
     private float lastGlowRadiusDp = -1f;
     private float lastGlowDensity = -1f;
+
+    // Same one-slot cache for the drop-shadow blur (kept separate so it doesn't thrash the glow
+    // filter when a layer uses both). Deterministic: depends only on radius + density.
+    @Nullable private BlurMaskFilter shadowFilter;
+    private float lastShadowRadiusDp = -1f;
+    private float lastShadowDensity = -1f;
 
     /** Export path: a fresh, independent bitmap (the export pipeline keeps each frame). */
     @NonNull
@@ -157,6 +170,20 @@ public class WaveformStyleRenderer {
         return glowFilter;
     }
 
+    /** Cached {@link BlurMaskFilter} for the drop-shadow pass (separate slot from the glow filter). */
+    @NonNull
+    private BlurMaskFilter ensureShadowFilter(float shadowRadiusDp, float density) {
+        if (shadowFilter == null
+                || shadowRadiusDp != lastShadowRadiusDp
+                || density != lastShadowDensity) {
+            shadowFilter = new BlurMaskFilter(
+                    Math.max(0.5f, shadowRadiusDp * density), BlurMaskFilter.Blur.NORMAL);
+            lastShadowRadiusDp = shadowRadiusDp;
+            lastShadowDensity = density;
+        }
+        return shadowFilter;
+    }
+
     private void drawFrame(@NonNull Canvas canvas, @NonNull WaveformData data,
                            @NonNull WaveformStyle style, int w, int h, long atMs, float density,
                            int justifyOverride, int dataModeOverride, boolean hMirror,
@@ -177,13 +204,57 @@ public class WaveformStyleRenderer {
         java.util.List<VizLayer> layers = style.layers;
         if (layers == null) {
             // Legacy auto-wrap: a transient one-layer stack that reproduces EXACTLY the old draw.
-            drawLayer(canvas, legacyLayer(style, radial), energies, w, h, density, justify,
+            drawLayer(canvas, legacyLayer(style, radial), energies, null, w, h, density, justify,
                     radial, radialRingSize);
         } else {
+            // PEAKS caps need the shared energies at several PAST instants. Compute the reduced
+            // peak-hold array ONCE per render call (shared across every peaks layer) as a LOCAL —
+            // never a field, so the renderer stays a pure function of time (spec §3). Only pay for
+            // the extra taps when some layer actually draws peaks.
+            float[] peaks = hasPeaksLayer(layers)
+                    ? computePeaks(data, style, energies, atMs, spectrum, hMirror, centerMode,
+                            freqLowHz, freqHighHz, bandCountOverride)
+                    : null;
             for (VizLayer layer : layers) {
-                drawLayer(canvas, layer, energies, w, h, density, justify, radial, radialRingSize);
+                drawLayer(canvas, layer, energies, peaks, w, h, density, justify, radial,
+                        radialRingSize);
             }
         }
+    }
+
+    /** True when any layer in the stack draws the PEAKS emitter (gates the extra look-back taps). */
+    private static boolean hasPeaksLayer(@NonNull java.util.List<VizLayer> layers) {
+        for (VizLayer l : layers) {
+            if (VizLayer.EMITTER_PEAKS.equals(l.emitter)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Falling peak-hold levels, deterministic (spec §3 — no per-frame state). Per band:
+     * {@code peak_i = max over k in 0..K-1 of energies_i(atMs − k·STEP) · (1 − k/K)}, so a recent
+     * loud transient leaves a cap that decays as the taps age. Every tap is a fresh, stateless
+     * {@link #sampleHeights} call at a shifted time (k=0 reuses the already-computed {@code energies},
+     * saving one call); the K arrays live only for this method's duration.
+     */
+    @NonNull
+    private float[] computePeaks(@NonNull WaveformData data, @NonNull WaveformStyle style,
+                                 @NonNull float[] energies, long atMs, boolean spectrum,
+                                 boolean hMirror, int centerMode,
+                                 int freqLowHz, int freqHighHz, int bandCountOverride) {
+        float[] peak = energies.clone(); // k = 0, envelope (1 − 0/K) = 1
+        for (int k = 1; k < PEAK_TAPS; k++) {
+            float env = 1f - k / (float) PEAK_TAPS;
+            long tapMs = Math.max(0L, atMs - (long) k * PEAK_STEP_MS);
+            float[] tap = sampleHeights(data, style, tapMs, spectrum, hMirror, centerMode,
+                    freqLowHz, freqHighHz, bandCountOverride);
+            int n = Math.min(peak.length, tap.length);
+            for (int i = 0; i < n; i++) {
+                float v = tap[i] * env;
+                if (v > peak[i]) peak[i] = v;
+            }
+        }
+        return peak;
     }
 
     /**
@@ -208,20 +279,26 @@ public class WaveformStyleRenderer {
         return l;
     }
 
-    /** Emitters the renderer draws in P1; peaks/squares/ring/particles are later phases (skipped). */
+    /** Emitters the renderer draws after P2; only particles remains a later phase (skipped). */
     private static boolean isDrawable(@Nullable String emitter) {
         return VizLayer.EMITTER_BARS.equals(emitter) || VizLayer.EMITTER_LINE.equals(emitter)
-                || VizLayer.EMITTER_FILLED.equals(emitter) || VizLayer.EMITTER_DOTS.equals(emitter);
+                || VizLayer.EMITTER_FILLED.equals(emitter) || VizLayer.EMITTER_DOTS.equals(emitter)
+                || VizLayer.EMITTER_SQUARES.equals(emitter) || VizLayer.EMITTER_PEAKS.equals(emitter)
+                || VizLayer.EMITTER_RING.equals(emitter);
     }
 
     /**
-     * PaintStage + Emitter dispatch for one layer, drawn through a {@link GeometryMapper}. Preserves
-     * the legacy two-pass order (glow underneath, solid on top) per shape.
+     * PaintStage + Emitter dispatch for one layer, drawn through a {@link GeometryMapper}. Draws up
+     * to three passes per layer in the spec order: SHADOW (blurred, translated) → GLOW → SOLID. A
+     * legacy auto-wrapped layer has no shadow and (unless the style had glow) a single solid pass,
+     * in the exact same order as before — so the pixel-parity guarantee holds.
      */
     private void drawLayer(@NonNull Canvas canvas, @NonNull VizLayer layer, @NonNull float[] energies,
-                           int w, int h, float density, int justify,
+                           @Nullable float[] peaks, int w, int h, float density, int justify,
                            boolean radial, float radialRingSize) {
         if (!isDrawable(layer.emitter)) return;
+        // RING is a radial-only accent; nothing to draw (or configure) for it in the linear strip.
+        if (VizLayer.EMITTER_RING.equals(layer.emitter) && !radial) return;
 
         int primary = parseColor(layer.color, 0xFF00E676);
         configureLayerPaint(barPaint, layer, primary, h);
@@ -237,35 +314,57 @@ public class WaveformStyleRenderer {
             applyOpacity(glowPaint, layer.opacity); // setColor reset the alpha channel — re-apply
         }
 
+        boolean hasShadow = layer.shadowColor != null;
+        if (hasShadow) {
+            shadowPaint.set(barPaint); // inherits antialias/style/shader
+            shadowPaint.setColor(parseColor(layer.shadowColor, 0xFF000000));
+            shadowPaint.setShader(null);
+            shadowPaint.setXfermode(null); // a shadow blends NORMAL beneath the layer, never ADD
+            shadowPaint.setMaskFilter(ensureShadowFilter(layer.shadowRadiusDp, density));
+            applyOpacity(shadowPaint, layer.opacity); // setColor reset the alpha channel — re-apply
+        }
+
         GeometryMapper m = new GeometryMapper(radial, w, h, density, justify, radialRingSize, layer);
+        // Order per layer: shadow (translated) → glow → solid.
+        if (hasShadow) {
+            canvas.save();
+            canvas.translate(layer.shadowDx * density, layer.shadowDy * density);
+            emit(canvas, energies, peaks, m, layer, shadowPaint, radial);
+            canvas.restore();
+        }
+        if (hasGlow) emit(canvas, energies, peaks, m, layer, glowPaint, radial);
+        emit(canvas, energies, peaks, m, layer, barPaint, radial);
+    }
+
+    /**
+     * One emitter pass with the given paint. Kept identical to the pre-P2 per-shape dispatch for the
+     * existing emitters (bars/line/filled/dots, and radial's line/filled → radial-bars fallback), so
+     * legacy renders unchanged; adds the P2 emitters (squares/peaks/ring).
+     */
+    private void emit(@NonNull Canvas canvas, @NonNull float[] energies, @Nullable float[] peaks,
+                      @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint,
+                      boolean radial) {
         if (radial) {
-            if (VizLayer.EMITTER_DOTS.equals(layer.emitter)) {
-                if (hasGlow) drawRadialDots(canvas, energies, m, layer, glowPaint);
-                drawRadialDots(canvas, energies, m, layer, barPaint);
-            } else {
-                // bars (and legacy line/filled auto-wrapped to bars when radial) → radial bars
-                if (hasGlow) drawRadialBars(canvas, energies, m, layer, glowPaint);
-                drawRadialBars(canvas, energies, m, layer, barPaint);
+            switch (layer.emitter) {
+                case VizLayer.EMITTER_DOTS:    drawRadialDots(canvas, energies, m, layer, paint); break;
+                case VizLayer.EMITTER_SQUARES: drawRadialSquares(canvas, energies, m, layer, paint); break;
+                case VizLayer.EMITTER_PEAKS:
+                    drawRadialPeaks(canvas, peaks != null ? peaks : energies, m, layer, paint); break;
+                case VizLayer.EMITTER_RING:    drawRing(canvas, energies, m, layer, paint); break;
+                default: // bars (and legacy line/filled auto-wrapped to bars when radial)
+                    drawRadialBars(canvas, energies, m, layer, paint); break;
             }
             return;
         }
         switch (layer.emitter) {
-            case VizLayer.EMITTER_LINE:
-                if (hasGlow) drawLine(canvas, energies, m, layer, glowPaint);
-                drawLine(canvas, energies, m, layer, barPaint);
-                break;
-            case VizLayer.EMITTER_FILLED:
-                if (hasGlow) drawFilled(canvas, energies, m, layer, glowPaint);
-                drawFilled(canvas, energies, m, layer, barPaint);
-                break;
-            case VizLayer.EMITTER_DOTS:
-                if (hasGlow) drawDots(canvas, energies, m, layer, glowPaint);
-                drawDots(canvas, energies, m, layer, barPaint);
-                break;
-            default: // bars
-                if (hasGlow) drawBars(canvas, energies, m, layer, glowPaint);
-                drawBars(canvas, energies, m, layer, barPaint);
-                break;
+            case VizLayer.EMITTER_LINE:    drawLine(canvas, energies, m, layer, paint); break;
+            case VizLayer.EMITTER_FILLED:  drawFilled(canvas, energies, m, layer, paint); break;
+            case VizLayer.EMITTER_DOTS:    drawDots(canvas, energies, m, layer, paint); break;
+            case VizLayer.EMITTER_SQUARES: drawSquares(canvas, energies, m, layer, paint); break;
+            case VizLayer.EMITTER_PEAKS:
+                drawPeaks(canvas, peaks != null ? peaks : energies, m, layer, paint); break;
+            // RING is radial-only; already returned above for the linear path.
+            default:                       drawBars(canvas, energies, m, layer, paint); break;
         }
     }
 
@@ -561,6 +660,142 @@ public class WaveformStyleRenderer {
             canvas.drawCircle(m.cx, m.cy + m.ringR + barLen, r, paint);
             canvas.restore();
         }
+    }
+
+    /**
+     * SQUARES (P2) — a rounded square per band, centred on the band tip like {@link #drawDots}. Side
+     * = energy·barWidthDp·density·2, clamped to the slot so neighbours never overlap. New emitter, no
+     * legacy-parity constraint.
+     */
+    private void drawSquares(@NonNull Canvas canvas, @NonNull float[] heights,
+                             @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
+        int n = heights.length;
+        if (n == 0) return;
+        float usedW = m.usedWidth();
+        float originX = m.originX();
+        float slot = usedW / (float) n;
+        float maxSide = layer.barWidthDp * m.density * 2f;
+        float corner = layer.cornerRadiusDp * m.density;
+        boolean center = m.justify == 1;
+        float maxUp = center ? m.h / 2f : m.h;
+        for (int i = 0; i < n; i++) {
+            int di = m.place(i, n);
+            float e = heights[i] * layer.gain;
+            float side = Math.min(slot, Math.max(1f, e * maxSide));
+            float cx = originX + (di + 0.5f) * slot;
+            float cy;
+            if (center) {
+                cy = m.h / 2f;
+            } else if (m.justify == 2) {
+                cy = e * maxUp;
+            } else {
+                cy = m.h - e * maxUp;
+            }
+            canvas.drawRoundRect(cx - side / 2f, cy - side / 2f, cx + side / 2f, cy + side / 2f,
+                    corner, corner, paint);
+        }
+    }
+
+    /** RADIAL squares — the square emitter around the ring (squares gets radial for free too). */
+    private void drawRadialSquares(@NonNull Canvas canvas, @NonNull float[] heights,
+                                   @NonNull GeometryMapper m, @NonNull VizLayer layer,
+                                   @NonNull Paint paint) {
+        int n = heights.length;
+        if (n == 0) return;
+        float maxSide = layer.barWidthDp * m.density * 2f;
+        float slot = m.circumference / n;
+        float corner = layer.cornerRadiusDp * m.density;
+        for (int i = 0; i < n; i++) {
+            float e = heights[i] * layer.gain;
+            float side = Math.min(slot, Math.max(1f, e * maxSide));
+            float barLen = e * m.maxExtent;
+            canvas.save();
+            canvas.rotate(m.angle(i, n), m.cx, m.cy);
+            float cy = m.cy + m.ringR + barLen;
+            canvas.drawRoundRect(m.cx - side / 2f, cy - side / 2f, m.cx + side / 2f, cy + side / 2f,
+                    corner, corner, paint);
+            canvas.restore();
+        }
+    }
+
+    /**
+     * PEAKS (P2) — a thin peak-hold cap per band at the falling peak level ({@code peaks}, computed
+     * once per render in {@link #computePeaks}). Draws ONLY the cap (peaks stacks over a bars layer),
+     * matching the bar slot geometry so the cap sits centred over its bar.
+     */
+    private void drawPeaks(@NonNull Canvas canvas, @NonNull float[] peaks,
+                           @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
+        int n = peaks.length;
+        if (n == 0) return;
+        float usedW = m.usedWidth();
+        float originX = m.originX();
+        float slot = usedW / (float) n;
+        float gap = layer.barGapDp * m.density;
+        float barW = Math.max(1f, slot - gap);
+        float corner = layer.cornerRadiusDp * m.density;
+        float thick = Math.max(2f * m.density, barW / 2f);
+        boolean center = m.justify == 1;
+        float baseline = center ? m.h / 2f : (m.justify == 2 ? 0f : m.h);
+        float maxUp = center ? m.h / 2f : m.h;
+        for (int i = 0; i < n; i++) {
+            int di = m.place(i, n);
+            float left = originX + di * slot + (slot - barW) / 2f;
+            float peakH = peaks[i] * layer.gain * maxUp;
+            if (center) {
+                cap(canvas, left, baseline - peakH, barW, thick, corner, paint);
+                cap(canvas, left, baseline + peakH, barW, thick, corner, paint);
+            } else if (m.justify == 2) {
+                cap(canvas, left, peakH, barW, thick, corner, paint);
+            } else {
+                cap(canvas, left, m.h - peakH, barW, thick, corner, paint);
+            }
+        }
+    }
+
+    /** Draw a single peak cap: a rounded rect of {@code barW}×{@code thick} centred vertically on cy. */
+    private static void cap(@NonNull Canvas canvas, float left, float cy, float barW, float thick,
+                            float corner, @NonNull Paint paint) {
+        canvas.drawRoundRect(left, cy - thick / 2f, left + barW, cy + thick / 2f, corner, corner, paint);
+    }
+
+    /** RADIAL peaks — the cap laid perpendicular to the ray at {@code ringR + peakLen}. */
+    private void drawRadialPeaks(@NonNull Canvas canvas, @NonNull float[] peaks,
+                                 @NonNull GeometryMapper m, @NonNull VizLayer layer,
+                                 @NonNull Paint paint) {
+        int n = peaks.length;
+        if (n == 0) return;
+        float gap = layer.barGapDp * m.density;
+        float barW = Math.max(1f, m.circumference / n - gap);
+        float corner = layer.cornerRadiusDp * m.density;
+        float thick = Math.max(2f * m.density, barW / 2f);
+        for (int i = 0; i < n; i++) {
+            float peakLen = peaks[i] * layer.gain * m.maxExtent;
+            canvas.save();
+            canvas.rotate(m.angle(i, n), m.cx, m.cy);
+            float cy = m.cy + m.ringR + peakLen; // radial distance; the cap spans ±barW/2 across the ray
+            canvas.drawRoundRect(m.cx - barW / 2f, cy - thick / 2f, m.cx + barW / 2f, cy + thick / 2f,
+                    corner, corner, paint);
+            canvas.restore();
+        }
+    }
+
+    /**
+     * RING (P2, radial-only) — a stroked circle that pulses with the music. Radius = {@code ringR +
+     * rms·maxExtent} where {@code rms} is the mean of the band energies (gain-scaled); stroke width =
+     * barWidthDp·density. The linear path never reaches here (skipped in {@link #drawLayer}).
+     */
+    private void drawRing(@NonNull Canvas canvas, @NonNull float[] energies,
+                          @NonNull GeometryMapper m, @NonNull VizLayer layer, @NonNull Paint paint) {
+        int n = energies.length;
+        if (n == 0) return;
+        float sum = 0f;
+        for (int i = 0; i < n; i++) sum += energies[i];
+        float rms = (sum / n) * layer.gain; // mean band energy (spec §2 "pulses with RMS")
+        float radius = m.ringR + rms * m.maxExtent;
+        Paint stroke = new Paint(paint); // inherit colour/alpha/xfermode/maskfilter, switch to STROKE
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setStrokeWidth(Math.max(1f, layer.barWidthDp * m.density));
+        canvas.drawCircle(m.cx, m.cy, radius, stroke);
     }
 
     private void buildLinePath(@NonNull float[] heights, @NonNull GeometryMapper m,

@@ -1,0 +1,19 @@
+{
+  "id": "joy_pulse_ring",
+  "displayName": "Pulse Ring",
+  "type": "spectrum_bars",
+  "color": "#00E5FF",
+  "barWidthDp": 3,
+  "barGapDp": 2,
+  "cornerRadiusDp": 2,
+  "glowColor": "#CC00E5FF",
+  "glowRadiusDp": 6,
+  "bandCount": 64,
+  "sensitivity": 1.2,
+  "useSpectrum": true,
+  "layers": [
+    { "emitter": "bars", "color": "#00E5FF", "glowColor": "#00E5FF", "glowRadiusDp": 6, "barWidthDp": 3, "barGapDp": 2 },
+    { "emitter": "ring", "color": "#FFFFFF", "blend": "add", "barWidthDp": 2 },
+    { "emitter": "dots", "color": "#FF2DAA", "blend": "add", "mirror": true, "barWidthDp": 4 }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "joy_neon_stack",
+  "displayName": "Neon Stack",
+  "type": "spectrum_bars",
+  "color": "#FF2DAA",
+  "barWidthDp": 4,
+  "barGapDp": 2,
+  "cornerRadiusDp": 2,
+  "glowColor": "#CCFF2DAA",
+  "glowRadiusDp": 6,
+  "bandCount": 56,
+  "sensitivity": 1.1,
+  "useSpectrum": true,
+  "layers": [
+    { "emitter": "filled", "color": "#2A0F4A", "opacity": 0.6 },
+    { "emitter": "bars", "color": "#FF2DAA", "blend": "add", "glowColor": "#FF2DAA", "glowRadiusDp": 6, "barWidthDp": 4, "barGapDp": 2 },
+    { "emitter": "peaks", "color": "#FFFFFF", "blend": "add", "barWidthDp": 4, "barGapDp": 2, "cornerRadiusDp": 1 }
+  ]
+}

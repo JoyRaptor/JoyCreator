@@ -1,0 +1,18 @@
+{
+  "id": "joy_soft_glow",
+  "displayName": "Soft Glow",
+  "type": "bars",
+  "color": "#FF6EC7",
+  "barWidthDp": 4,
+  "barGapDp": 2,
+  "cornerRadiusDp": 3,
+  "glowColor": "#CCFF6EC7",
+  "glowRadiusDp": 10,
+  "bandCount": 52,
+  "sensitivity": 1.2,
+  "useSpectrum": false,
+  "layers": [
+    { "emitter": "bars", "color": "#FF6EC7", "glowColor": "#FF6EC7", "glowRadiusDp": 10, "barWidthDp": 4, "barGapDp": 2 },
+    { "emitter": "bars", "color": "#7A3CFF", "blend": "add", "glowColor": "#7A3CFF", "glowRadiusDp": 14, "opacity": 0.5, "spread": 0.85, "mirror": true, "barWidthDp": 4, "barGapDp": 2 }
+  ]
+}

@@ -57,6 +57,13 @@ public class SlideRenderActivity extends Activity {
     public static final String EXTRA_DURATION_MS = "duration_ms";
     /** When true (or no html_path given), renders the bundled sample slide. */
     public static final String EXTRA_USE_SAMPLE = "use_sample";
+    /**
+     * Optional (ADB/Phase-0 testing): also encode the captured frames to an MP4 at
+     * this path, completing the spec's capture-pipeline proof (frames → MP4) in
+     * one headless invocation. The in-app pre-pass encodes via SlideRenderer
+     * instead and never sets this.
+     */
+    public static final String EXTRA_ENCODE_MP4 = "encode_mp4";
 
     /** Base URL so relative <script src="gsap.min.js"> resolves against assets. */
     private static final String ASSET_BASE = "file:///android_asset/faditor/";
@@ -76,10 +83,23 @@ public class SlideRenderActivity extends Activity {
     private int currentFrame;
     private boolean started;
     private boolean finishedReported;
+    private boolean awaitingPaint;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Chromium pauses rendering while the hosting activity is stopped — behind
+        // a locked keyguard webView.draw() yields blank frames even though the
+        // page's JS ran. Let the (invisible, 1px) render window sit above the
+        // keyguard so background renders and export pre-passes work on a locked
+        // device.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        }
         makeWindowInvisible();
 
         requestId = getIntent().getStringExtra(EXTRA_REQUEST_ID);
@@ -172,6 +192,10 @@ public class SlideRenderActivity extends Activity {
         // Hardware-accelerated WebViews don't reliably hand pixels to draw().
         webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
         webView.setBackgroundColor(Color.TRANSPARENT);
+        // A slide overflowing its stage by a pixel must not paint scrollbars
+        // into captured video frames.
+        webView.setVerticalScrollBarEnabled(false);
+        webView.setHorizontalScrollBarEnabled(false);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -200,6 +224,11 @@ public class SlideRenderActivity extends Activity {
         setContentView(root,
                 new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Belt-and-braces against Chromium's visibility gating: explicitly resume
+        // the renderer even if the activity never reaches a normal resumed state.
+        webView.onResume();
+        webView.resumeTimers();
 
         webView.loadDataWithBaseURL(ASSET_BASE, html, "text/html", "utf-8", null);
 
@@ -231,9 +260,34 @@ public class SlideRenderActivity extends Activity {
         if (ms > durationMs) ms = durationMs;
         final long seekMs = ms;
         webView.evaluateJavascript("Faditor.seek(" + seekMs + ");", value -> {
-            // Don't trust the eval callback alone for paint. Post twice so the
-            // WebView has actually drawn the new state before we read pixels.
-            handler.post(() -> handler.post(this::captureCurrentFrameAndAdvance));
+            // The eval callback fires when the JS ran, not when the new state has
+            // been DRAWN. postVisualStateCallback is the WebView API for exactly
+            // that ("the DOM state you set is now visible"); invalidate first so
+            // the software layer repaints. A 250ms delayed advance races it as a
+            // safety net (a gated renderer might never deliver the callback);
+            // whichever fires first wins, the other is a no-op. All on the main
+            // thread, so no synchronization needed.
+            handler.post(() -> {
+                webView.invalidate();
+                awaitingPaint = true;
+                Runnable advance = () -> {
+                    if (!awaitingPaint) return;
+                    awaitingPaint = false;
+                    captureCurrentFrameAndAdvance();
+                };
+                try {
+                    webView.postVisualStateCallback(currentFrame,
+                            new android.webkit.WebView.VisualStateCallback() {
+                                @Override
+                                public void onComplete(long requestId) {
+                                    handler.post(advance);
+                                }
+                            });
+                } catch (Throwable t) {
+                    // Renderer gone/unattached — the delayed advance still runs.
+                }
+                handler.postDelayed(advance, 250);
+            });
         });
     }
 
@@ -263,6 +317,21 @@ public class SlideRenderActivity extends Activity {
         if (finishedReported) return;
         finishedReported = true;
         FLog.i(TAG, "Captured " + frameCount + " frames to " + outDir);
+        String encodePath = getIntent().getStringExtra(EXTRA_ENCODE_MP4);
+        if (encodePath != null && !encodePath.isEmpty()) {
+            // FFmpeg blocks for seconds — keep it off the main thread.
+            final int encFps = fps;
+            new Thread(() -> {
+                boolean ok = new SlideEncoder().encodePngSequenceToMp4(
+                        outDir, new File(encodePath), encFps);
+                FLog.i(TAG, "Debug encode " + (ok ? "OK" : "FAILED") + ": " + encodePath);
+                handler.post(() -> {
+                    SlideCaptureEngine.publishResult(requestId, true, null, frameCount);
+                    cleanupAndFinish();
+                });
+            }, "slide-debug-encode").start();
+            return;
+        }
         SlideCaptureEngine.publishResult(requestId, true, null, frameCount);
         cleanupAndFinish();
     }

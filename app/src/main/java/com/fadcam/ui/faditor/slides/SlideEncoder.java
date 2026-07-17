@@ -27,12 +27,14 @@ public class SlideEncoder {
      * H.264 has no alpha, so a fullscreen slide is expected to render an opaque
      * background; transparent regions are flattened to black.
      *
-     * <p>The bundled {@code ffmpeg-kit-full} variant is non-GPL and therefore has
-     * no {@code libx264} (that encoder is GPL-only). It ships OpenH264 instead, so
-     * we encode with {@code libopenh264} and fall back to the always-present
-     * {@code mpeg4} encoder if that is somehow unavailable. The slide MP4 is only
-     * an intermediate that Media3 re-encodes during composition, so either codec
-     * just needs to be decodable.</p>
+     * <p>The bundled {@code ffmpeg-kit} variant is non-GPL and therefore has no
+     * {@code libx264} (that encoder is GPL-only). Some ffmpeg-kit builds ship
+     * OpenH264, so {@code libopenh264} is tried first — but the build bundled
+     * here does NOT have it ("Unknown encoder", verified on-device 2026-07-16),
+     * so the always-present {@code mpeg4} fallback is the effective path. The
+     * failed first attempt exits fast (~no cost). The slide MP4 is only an
+     * intermediate that Media3 decodes and re-encodes during composition, so the
+     * codec just needs to be decodable by MediaCodec — MPEG-4 Part 2 is.</p>
      *
      * @return true on success.
      */

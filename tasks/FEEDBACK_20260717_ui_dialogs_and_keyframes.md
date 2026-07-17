@@ -245,8 +245,19 @@ already property-focused.)
    - Old text-dialog "◆ Add keyframe" + "Clear" buttons REMOVED (D2a rider); "Clear all
      keyframes" is now a destructive drawer action for overlays AND sprites (one undo step;
      deliberately does NOT reset the time range like the old Clear did — range has its own chips).
-   - C4 row display-parity — NEXT: consolidated keyframe diamonds on overlay/sprite rows,
-     horizontal diamond drag = move key in time, opacity-only rubber-band + scrim over §2 thumbs.
+   - C4 row display-parity ✅ BUILT 2026-07-17 (compile-green): (1) consolidated property-key
+     diamonds on overlay/sprite blocks — union of all tracks' key times in 66ms buckets, GREEN
+     (0xE64CAF50) just below the row midline so sprite frame-swap diamonds (white, center) stay
+     distinct; (2) horizontal diamond drag = move the whole bucket in time — SELECTED item only
+     (plain drags on unselected items keep move semantics), routed as an ARMED_TRIM-style
+     gesture in LayerGestureController (never sets pickupArmed → can't fight pickup/scrub/
+     excursion), per-track neighbor clamps + one uniform delta (disjoint windows → hold still),
+     ONE undo step via snapshot pair callbacks, CANCEL restores; (3) opacity-only rubber-band
+     (≥2 OPACITY keys, white line + dots, 0..1 bottom→top) over a 0x59 black scrim so it reads
+     on §2 thumbnails — distinct from the audio band's blue volume envelope.
+     DEVICE-VERIFY OWED (JoyRaptor): green diamonds appear when keyframing a text/sprite; drag one
+     along the row and scrub the motion; verify neighbor clamp + single undo; opacity fade
+     envelope legible over an image filmstrip.
 4. **Ease picker (D2a UI) — ✅ BUILT 2026-07-17.** `EasePickerPopover`: anchored at the diamond
    (above if room), 4-col grid of 14 rounded tiles, thumbnails sampled FROM `Easing.apply()`
    (over-range fitted so dips/overshoots show; faint 0/1 baselines), first tile ⊘=linear, NO

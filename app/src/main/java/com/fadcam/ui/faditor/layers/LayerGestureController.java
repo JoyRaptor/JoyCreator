@@ -152,6 +152,23 @@ public final class LayerGestureController {
          * directly).
          */
         default void onItemSelectionChanged(@Nullable Track track, @Nullable TimedItem item) {}
+
+        /**
+         * C4 §2: a keyframe TIME-SHIFT drag on {@code item}'s consolidated row diamond is
+         * about to begin (the item is the current selection; the finger landed on a
+         * diamond). The activity snapshots the item's transform/keyframe state here for the
+         * ONE undo step committed on finger-up — mirrors the drawer sliders'
+         * {@code onSliderStart}. Never fires for non-overlay/non-sprite payloads.
+         */
+        default void onItemKeyframeShiftBegin(@NonNull TimedItem item) {}
+
+        /**
+         * C4 §2: the keyframe time-shift drag on {@code item} ended on finger-up — the
+         * activity records ONE undo step against the snapshot taken in
+         * {@link #onItemKeyframeShiftBegin} (a no-op when nothing actually moved, e.g. a tap
+         * or a fully-clamped drag). Always paired with a prior begin.
+         */
+        default void onItemKeyframeShiftCommitted(@NonNull TimedItem item) {}
     }
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT }
@@ -258,6 +275,34 @@ public final class LayerGestureController {
      *  badge — a tap-resolution (UP within slop, committed) fires the delete
      *  confirmation; any other resolution (scrub/pickup/scroll/cancel) ignores it. */
     private boolean pendingDeleteBadge = false;
+
+    // ── C4 §2: keyframe time-shift drag (selected item's consolidated row diamond) ──
+    /** True while a consolidated-diamond drag is moving keys in time. Routed like a TRIM
+     *  (ARMED on DOWN, drag → onRowBodyMove, commit → onRowBodyUp) but handled by its own
+     *  branches; never sets pickupArmed so it can't fight pickup/scrub/excursion. */
+    private boolean kfShiftActive = false;
+    private TimedItem kfShiftItem;
+    /** Content-x at DOWN; the finger→local-time reference is resolved lazily on first move. */
+    private float kfShiftDownX;
+    private long kfShiftStartFingerLocalMs = Long.MIN_VALUE;
+    private boolean kfShiftMoved = false;
+    private final java.util.List<KfMovingKey> kfShiftKeys = new java.util.ArrayList<>();
+
+    /** One property key caught in the dragged bucket, with its per-track legal delta window. */
+    private static final class KfMovingKey {
+        final com.fadcam.ui.faditor.keyframe.KeyframeTrack track;
+        final long origTime;
+        final float value;
+        final com.fadcam.ui.faditor.keyframe.Easing easing;
+        final long deltaMin, deltaMax; // item-local, from the REMAINING (non-moving) neighbors
+        long curTime;
+        KfMovingKey(@NonNull com.fadcam.ui.faditor.keyframe.KeyframeTrack track, long origTime,
+                    float value, @NonNull com.fadcam.ui.faditor.keyframe.Easing easing,
+                    long deltaMin, long deltaMax) {
+            this.track = track; this.origTime = origTime; this.value = value; this.easing = easing;
+            this.deltaMin = deltaMin; this.deltaMax = deltaMax; this.curTime = origTime;
+        }
+    }
 
     // ── FOLLOW-UP 1 (user spec 2026-07-03): occupied-row bookend snap ─────────────
     /**
@@ -397,6 +442,16 @@ public final class LayerGestureController {
             return DownResult.ARMED_TRIM;
         }
 
+        // C4 §2: a horizontal drag starting on a consolidated keyframe diamond of the
+        // ALREADY-SELECTED item MOVES that key in time — the ONE edit the drawer can't do
+        // well. Only for the CURRENT selection (checked before selectedItemId is reassigned
+        // below), so a first touch on an unselected item keeps plain select/pickup/scrub.
+        // Routes like a trim (ARMED_TRIM → view drives onRowBodyMove/onRowBodyUp here); the
+        // diamond-only hit means it never competes with body pickup/scrub.
+        if (hit.item.getId().equals(selectedItemId) && tryArmKeyframeShift(hit, x, timeToX)) {
+            return DownResult.ARMED_TRIM;
+        }
+
         // Body hit: SELECT immediately (tap-select feel; also exposes trim handles), but
         // DO NOT arm a move and DO NOT start a delete long-press. Whether this becomes a
         // tap, a scrub, a row-scroll, or a pick-up-for-move is the caller's decision from
@@ -489,6 +544,112 @@ public final class LayerGestureController {
     }
 
     /**
+     * C4 §2: try to arm a keyframe time-shift on a BODY down that landed near a consolidated
+     * diamond. Collects every property key inside the ~66ms bucket (the consolidated diamond
+     * IS the union) and precomputes each key's legal delta window from its REMAINING
+     * neighbors (strictly between them; never below 0 item-local). Returns false (leaving the
+     * normal select/pickup path) unless a real bucket was grabbed.
+     */
+    private boolean tryArmKeyframeShift(@NonNull LayerRowRenderer.ItemHit hit, float x,
+                                        @NonNull LayerRowRenderer.TimeToX timeToX) {
+        if (hit.zone != LayerRowRenderer.ItemZone.BODY) return false;
+        com.fadcam.ui.faditor.keyframe.KeyframeSet set = LayerRowRenderer.keyframeSetOf(hit.item);
+        if (set == null) return false;
+        Long bucket = rowRenderer.hitTestKeyframeDiamond(hit.item, x, timeToX);
+        if (bucket == null) return false;
+        kfShiftKeys.clear();
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t : set.tracks()) {
+            com.fadcam.ui.faditor.keyframe.Keyframe moving = null;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
+                if (Math.abs(k.timeMs - bucket) <= LayerRowRenderer.KF_CONSOLIDATE_TOLERANCE_MS) {
+                    moving = k; break;
+                }
+            }
+            if (moving == null) continue;
+            long prev = Long.MIN_VALUE, next = Long.MAX_VALUE;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
+                if (k == moving) continue;
+                if (k.timeMs < moving.timeMs && k.timeMs > prev) prev = k.timeMs;
+                if (k.timeMs > moving.timeMs && k.timeMs < next) next = k.timeMs;
+            }
+            long lo = (prev == Long.MIN_VALUE) ? 0L : prev + 1;               // ≥0, strictly > prev
+            long dMin = lo - moving.timeMs;
+            long dMax = (next == Long.MAX_VALUE) ? Long.MAX_VALUE : (next - 1) - moving.timeMs; // strictly < next
+            kfShiftKeys.add(new KfMovingKey(t, moving.timeMs, moving.value, moving.easing, dMin, dMax));
+        }
+        if (kfShiftKeys.isEmpty()) return false;
+        kfShiftActive = true;
+        kfShiftItem = hit.item;
+        kfShiftDownX = x;
+        kfShiftStartFingerLocalMs = Long.MIN_VALUE;
+        kfShiftMoved = false;
+        // Consistent lifecycle so onRowBodyUp is reached; the kfShift branches own it.
+        active = true;
+        activeItem = hit.item;
+        activeTrack = hit.track;
+        callback.onItemKeyframeShiftBegin(hit.item);
+        return true;
+    }
+
+    /** C4 §2 drag: shift the whole bucket by ONE clamped delta (keeps the union coherent). */
+    private void doKeyframeShiftMove(float x, @NonNull XToTime xToTime) {
+        if (kfShiftItem == null) return;
+        long itemStart = kfShiftItem.getTimelineStartMs();
+        if (kfShiftStartFingerLocalMs == Long.MIN_VALUE) {
+            kfShiftStartFingerLocalMs = xToTime.map(kfShiftDownX) - itemStart;
+        }
+        long reqDelta = (xToTime.map(x) - itemStart) - kfShiftStartFingerLocalMs;
+        // Tightest window across all moving keys — no key crosses its neighbors or goes < 0.
+        long dMin = Long.MIN_VALUE, dMax = Long.MAX_VALUE;
+        for (KfMovingKey mk : kfShiftKeys) {
+            if (mk.deltaMin > dMin) dMin = mk.deltaMin;
+            if (mk.deltaMax < dMax) dMax = mk.deltaMax;
+        }
+        // Disjoint per-track windows inside one bucket (pathological ~66ms overlap of
+        // differently-neighbored tracks) → no legal shared delta; hold still.
+        long delta = dMin > dMax ? 0L : Math.max(dMin, Math.min(dMax, reqDelta));
+        boolean any = false;
+        for (KfMovingKey mk : kfShiftKeys) {
+            long nt = mk.origTime + delta;
+            if (nt != mk.curTime) {
+                mk.track.removeAt(mk.curTime);
+                mk.track.put(nt, mk.value, mk.easing);
+                mk.curTime = nt;
+                any = true;
+            }
+        }
+        if (any) {
+            kfShiftMoved = true;
+            callback.onGestureLive(kfShiftItem);
+        }
+    }
+
+    /** C4 §2 finish: on a real UP commit ONE undo step; on CANCEL restore the original times. */
+    private boolean finishKeyframeShift(boolean committed) {
+        TimedItem item = kfShiftItem;
+        if (!committed && kfShiftMoved) {
+            for (KfMovingKey mk : kfShiftKeys) {
+                if (mk.curTime != mk.origTime) {
+                    mk.track.removeAt(mk.curTime);
+                    mk.track.put(mk.origTime, mk.value, mk.easing);
+                    mk.curTime = mk.origTime;
+                }
+            }
+        }
+        kfShiftActive = false;
+        kfShiftItem = null;
+        kfShiftKeys.clear();
+        kfShiftStartFingerLocalMs = Long.MIN_VALUE;
+        kfShiftMoved = false;
+        active = false;
+        activeItem = null;
+        activeTrack = null;
+        // Always report so the activity records (no-op when unchanged) and clears its snapshot.
+        if (item != null) callback.onItemKeyframeShiftCommitted(item);
+        return true;
+    }
+
+    /**
      * MOVE (drag while ACTION_MOVE). Suppresses the pending long-press once the finger
      * has moved (mirrors {@code EditorTimelineView#onMove}'s touch-slop cancellation).
      *
@@ -497,6 +658,7 @@ public final class LayerGestureController {
      *              PLAN Part 7 row M10 scope 1). Ignored for TRIM (no cross-row concept).
      */
     public void onRowBodyMove(float x, float y, float topPx, long totalMs, @NonNull XToTime xToTime) {
+        if (kfShiftActive) { doKeyframeShiftMove(x, xToTime); return; }
         if (!active || activeItem == null) return;
         // Redesign gate (PLAN TARGET CONTRACT): a MOVE only happens AFTER a pick-up
         // (long-press). Before pickup the caller keeps a body touch in its own pending
@@ -1219,6 +1381,7 @@ public final class LayerGestureController {
      * one physical drag (PLAN M10 acceptance (d): "each completed drag = ONE undo step").</p>
      */
     public boolean onRowBodyUp(boolean committed) {
+        if (kfShiftActive) return finishKeyframeShift(committed);
         if (!active) return false;
         // A real committed change only happened if we actually moved (trim, or a
         // picked-up move). A body touch that lifted before pickup (pendingBodyDown still

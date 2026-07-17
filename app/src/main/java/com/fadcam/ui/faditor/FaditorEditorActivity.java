@@ -10896,8 +10896,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     loadTranscriptPanelContent();
                 }
             }
+
+            @Override
+            public void onItemKeyframeShiftBegin(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                // C4 §2: snapshot BEFORE the row-diamond time-shift (mirrors the drawer
+                // sliders' onSliderStart) — the transform snapshots deep-copy the KeyframeSet,
+                // so the committed undo captures the moved key times.
+                kfShiftOverlayBefore = null;
+                kfShiftSpriteBefore = null;
+                if (item.getTextOverlay() != null) {
+                    kfShiftOverlayBefore = item.getTextOverlay().snapshotTransform();
+                } else if (item.getSprite() != null) {
+                    kfShiftSpriteBefore = item.getSprite().snapshotTransform();
+                }
+            }
+
+            @Override
+            public void onItemKeyframeShiftCommitted(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                // C4 §2: ONE undo step for the whole drag (recordXxxMenuUndo no-ops when the
+                // before/after snapshots match, so a tap or fully-clamped drag records nothing).
+                if (item.getTextOverlay() != null && kfShiftOverlayBefore != null) {
+                    recordOverlayMenuUndo(item.getTextOverlay(), kfShiftOverlayBefore, "Move keyframe"); // TODO(strings)
+                } else if (item.getSprite() != null && kfShiftSpriteBefore != null) {
+                    recordSpriteMenuUndo(item.getSprite(), kfShiftSpriteBefore, "Move keyframe"); // TODO(strings)
+                }
+                kfShiftOverlayBefore = null;
+                kfShiftSpriteBefore = null;
+                if (overlayLayer != null) {
+                    overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                    overlayLayer.rebuild();
+                }
+                syncTimelineOverlays();
+            }
         };
     }
+
+    /** C4 §2: before-snapshots for the row keyframe time-shift, captured on begin, consumed on commit. */
+    @Nullable private com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot kfShiftOverlayBefore;
+    @Nullable private com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot kfShiftSpriteBefore;
 
     /**
      * M10: the track-mutation half of a completed cross-row drag, staged by

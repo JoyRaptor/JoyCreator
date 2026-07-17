@@ -10,8 +10,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.sprite.FrameTrack;
+import com.fadcam.ui.faditor.keyframe.Keyframe;
+import com.fadcam.ui.faditor.keyframe.KeyframeSet;
+import com.fadcam.ui.faditor.keyframe.KeyframeTrack;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -89,6 +93,18 @@ public final class LayerRowRenderer {
     private final Path spriteDiamondPath = new Path();
     /** Paint for sprite frame-swap diamonds. */
     private final Paint spriteDiamondPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /** C4 §1: consolidated property-keyframe diamonds (drawer accent green). */
+    private final Paint kfDiamondPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** C4 §3: opacity-only rubber-band envelope + its dark scrim. */
+    private final Paint kfEnvLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint kfEnvDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint kfScrimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private boolean kfEnvPaintsInit;
+
+    /** Bucket tolerance for consolidating property key times into ONE row diamond — matches
+     *  the drawer's on-key tolerance so an X and a Y key from the same gesture read as one. */
+    static final long KF_CONSOLIDATE_TOLERANCE_MS = 66L;
 
     /** Which header icon zone a touch landed on. */
     public enum HitZone { CARET, HIDE, LOCK, MUTE, NONE }
@@ -1026,6 +1042,9 @@ public final class LayerRowRenderer {
         if (item.getAudioClip() != null && !ghosted && item.getAudioClip().hasVolumeKeyframes()) {
             drawVolumeEnvelope(canvas, item.getAudioClip(), x0, top, x1, bottom);
         }
+        // C4 §3: opacity-only rubber-band for overlay/sprite item blocks — over a subtle
+        // scrim so it stays legible on top of the §2 preview thumbnails/filmstrips.
+        drawItemOpacityEnvelope(canvas, item, x0, top, x1, bottom, timeToX, ghosted);
         // CAPTION per-keyframe style segments (layers-UX Slice B): overdraw the amber base bar
         // with each keyframe region's active-style colour, mirroring the old drawLayers caption
         // branch so keyframed captions keep their colour segments in the consolidated renderer.
@@ -1095,6 +1114,9 @@ public final class LayerRowRenderer {
                 canvas.drawPath(spriteDiamondPath, spriteDiamondPaint);
             }
         }
+        // C4 §1: consolidated property-keyframe diamonds (green, below the row midline) —
+        // drawn AFTER the white frame-swap diamonds so both stay distinct on a sprite row.
+        drawItemKeyframeDiamonds(canvas, item, x0, x1, top, bottom, centerY, timeToX, ghosted);
         // Caption style keyframe diamonds (layers-UX Slice B) — mirrors the sprite block above so
         // caption style keys stay visible in the consolidated renderer.
         if (item.getCaptionSpan() != null) {
@@ -1186,6 +1208,147 @@ public final class LayerRowRenderer {
                 canvas.drawLine(x, y, x1, y, volEnvLinePaint); // flat hold to clip end
             }
             canvas.drawCircle(x, y, 2.6f * density, volEnvDotPaint);
+            prevX = x;
+            prevY = y;
+        }
+        canvas.restore();
+    }
+
+    // ── C4: general keyframe visuals for overlay/sprite item blocks ──────────────
+
+    /**
+     * The general-property {@link KeyframeSet} of an overlay ({@link
+     * com.fadcam.ui.faditor.model.TextOverlayItem}, covers image too) or a sprite item;
+     * {@code null} for every other payload (they have no X/Y/SCALE/ROTATION/OPACITY track).
+     */
+    @Nullable
+    static KeyframeSet keyframeSetOf(@NonNull TimedItem item) {
+        if (item.getTextOverlay() != null) return item.getTextOverlay().getKeyframes();
+        if (item.getSprite() != null) return item.getSprite().getKeyframes();
+        return null;
+    }
+
+    /**
+     * Item-LOCAL union of key times across ALL property tracks, merged into
+     * {@link #KF_CONSOLIDATE_TOLERANCE_MS} buckets — each bucket is ONE consolidated
+     * diamond (a solid diamond = ANY property keyed at that time). Bucket time = the
+     * earliest key in the bucket. Empty when the item carries no general keyframes.
+     */
+    @NonNull
+    static List<Long> consolidatedKeyTimesLocal(@NonNull TimedItem item) {
+        KeyframeSet set = keyframeSetOf(item);
+        if (set == null) return Collections.emptyList();
+        List<Long> times = new ArrayList<>();
+        for (KeyframeTrack t : set.tracks()) {
+            for (Keyframe k : t.keyframes) times.add(k.timeMs);
+        }
+        if (times.isEmpty()) return Collections.emptyList();
+        Collections.sort(times);
+        List<Long> buckets = new ArrayList<>();
+        long cur = times.get(0);
+        buckets.add(cur);
+        for (int i = 1; i < times.size(); i++) {
+            if (times.get(i) - cur > KF_CONSOLIDATE_TOLERANCE_MS) {
+                cur = times.get(i);
+                buckets.add(cur);
+            }
+        }
+        return buckets;
+    }
+
+    /**
+     * C4 §2 hit-test: item-LOCAL bucket time of the consolidated diamond within a generous
+     * ~12dp zone of content-x {@code x}, or {@code null}. Drives the selected-item keyframe
+     * time-shift drag in {@link LayerGestureController}.
+     */
+    @Nullable
+    Long hitTestKeyframeDiamond(@NonNull TimedItem item, float x, @NonNull TimeToX timeToX) {
+        List<Long> buckets = consolidatedKeyTimesLocal(item);
+        if (buckets.isEmpty()) return null;
+        long start = item.getTimelineStartMs();
+        float best = 12f * density;
+        Long hit = null;
+        for (long b : buckets) {
+            float dx = Math.abs(timeToX.map(start + b) - x);
+            if (dx <= best) { best = dx; hit = b; }
+        }
+        return hit;
+    }
+
+    /**
+     * C4 §1: draw the consolidated property-keyframe diamonds — drawer accent GREEN (dimmed
+     * when ghosted) so they read differently from the WHITE frame-swap diamonds, and offset
+     * just BELOW the row midline so a sprite showing both stays legible at 34dp.
+     */
+    private void drawItemKeyframeDiamonds(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                          float x0, float x1, float top, float bottom,
+                                          float centerY, @NonNull TimeToX timeToX,
+                                          boolean ghosted) {
+        List<Long> buckets = consolidatedKeyTimesLocal(item);
+        if (buckets.isEmpty()) return;
+        float cy = Math.min(bottom - 4f * density, centerY + 5f * density);
+        float r = 3.5f * density;
+        kfDiamondPaint.setColor(ghosted ? 0x664CAF50 : 0xE64CAF50);
+        long start = item.getTimelineStartMs();
+        for (long b : buckets) {
+            float dx = timeToX.map(start + b);
+            if (dx < x0 + 3f || dx > x1 - 3f) continue;
+            spriteDiamondPath.rewind();
+            spriteDiamondPath.moveTo(dx, cy - r);
+            spriteDiamondPath.lineTo(dx + r, cy);
+            spriteDiamondPath.lineTo(dx, cy + r);
+            spriteDiamondPath.lineTo(dx - r, cy);
+            spriteDiamondPath.close();
+            canvas.drawPath(spriteDiamondPath, kfDiamondPaint);
+        }
+    }
+
+    /**
+     * C4 §3: opacity-only rubber-band for an overlay/sprite item block (KeyframeSet.OPACITY;
+     * value 0..1 maps bottom→top), only when that track has ≥2 keys. Drawn OVER a subtle
+     * dark scrim so the white-ish line stays legible over the §2 preview thumbnails — a
+     * distinct visual from the audio band's blue volume envelope.
+     */
+    private void drawItemOpacityEnvelope(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                         float x0, float top, float x1, float bottom,
+                                         @NonNull TimeToX timeToX, boolean ghosted) {
+        if (ghosted) return;
+        KeyframeSet set = keyframeSetOf(item);
+        if (set == null) return;
+        KeyframeTrack op = set.get(KeyframeSet.OPACITY);
+        if (op == null || op.keyframes.size() < 2) return;
+        if (!kfEnvPaintsInit) {
+            kfEnvPaintsInit = true;
+            kfEnvLinePaint.setColor(0xCCFFFFFF);
+            kfEnvLinePaint.setStyle(Paint.Style.STROKE);
+            kfEnvLinePaint.setStrokeWidth(1.6f * density);
+            kfEnvLinePaint.setStrokeJoin(Paint.Join.ROUND);
+            kfEnvDotPaint.setColor(0xCCFFFFFF);
+            kfEnvDotPaint.setStyle(Paint.Style.FILL);
+            kfScrimPaint.setStyle(Paint.Style.FILL);
+        }
+        long start = item.getTimelineStartMs();
+        float h = bottom - top;
+        canvas.save();
+        canvas.clipRect(x0, top, x1, bottom);
+        kfScrimPaint.setColor(0x59000000);
+        canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, kfScrimPaint);
+        List<Keyframe> ks = op.keyframes;
+        float prevX = 0f, prevY = 0f;
+        for (int k = 0; k < ks.size(); k++) {
+            Keyframe kf = ks.get(k);
+            float x = timeToX.map(start + kf.timeMs);
+            float v = Math.max(0f, Math.min(1f, kf.value));
+            float y = bottom - v * h;
+            if (k == 0) {
+                canvas.drawLine(x0, y, x, y, kfEnvLinePaint); // flat hold from block start
+            } else {
+                canvas.drawLine(prevX, prevY, x, y, kfEnvLinePaint);
+            }
+            if (k == ks.size() - 1) {
+                canvas.drawLine(x, y, x1, y, kfEnvLinePaint); // flat hold to block end
+            }
+            canvas.drawCircle(x, y, 2.4f * density, kfEnvDotPaint);
             prevX = x;
             prevY = y;
         }

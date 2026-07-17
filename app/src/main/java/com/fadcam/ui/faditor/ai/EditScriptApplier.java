@@ -482,8 +482,13 @@ public class EditScriptApplier {
     private String validateAddGeneratedSlide(@NonNull EditScript.EditOp op) {
         String mode = getParamString(op, "mode");
         if (mode == null) mode = SlideContract.MODE_FULLSCREEN;
-        if (!SlideContract.MODE_FULLSCREEN.equals(mode)) {
-            return "only fullscreen slides are supported in this build";
+        if (!SlideContract.MODE_FULLSCREEN.equals(mode)
+                && !SlideContract.MODE_OVERLAY.equals(mode)) {
+            return "mode must be fullscreen or overlay";
+        }
+        if (SlideContract.MODE_OVERLAY.equals(mode)
+                && getParamLong(op, "startMs", -1) < 0) {
+            return "overlay slides need startMs";
         }
         String text = slideText(op);
         if (text == null || text.trim().isEmpty()) return "title_or_text is required";
@@ -513,6 +518,12 @@ public class EditScriptApplier {
         if (clipId == null) clipId = UUID.randomUUID().toString();
         String htmlUriParam = getParamString(op, "htmlUri");
         String hashParam = getParamString(op, "contentHash");
+
+        if (SlideContract.MODE_OVERLAY.equals(mode)) {
+            applyAddGeneratedOverlay(project, op, clipId, text, durationMs,
+                    htmlUriParam, hashParam, styleHint, sourceModel);
+            return;
+        }
 
         Clip clip = buildSlideClip(project, clipId, mode, text, durationMs,
                 htmlUriParam, hashParam, styleHint, sourceModel);
@@ -564,6 +575,53 @@ public class EditScriptApplier {
     }
 
     /**
+     * Overlay-mode ADD_GENERATED_SLIDE (spec Phase 4): provisions the HTML and
+     * adds a transparent TextOverlay spanning startMs..startMs+duration whose
+     * generatedSource points at the PNG-sequence render path. The sequence
+     * itself is produced lazily (background render / export pre-pass).
+     */
+    private void applyAddGeneratedOverlay(@NonNull FaditorProject project,
+                                          @NonNull EditScript.EditOp op,
+                                          @NonNull String id, @NonNull String text,
+                                          long durationMs, @Nullable String htmlUriParam,
+                                          @Nullable String hashParam,
+                                          @Nullable String styleHint,
+                                          @Nullable String sourceModel) {
+        if (context == null) return;
+        try {
+            File projectDir = new ProjectStorage(context).projectDir(project.getId());
+            int[] dims = SlideFiles.dimensionsFor(project);
+            int w = dims[0], h = dims[1];
+
+            String html;
+            File htmlFile;
+            if (htmlUriParam != null && !htmlUriParam.isEmpty()) {
+                htmlFile = fileFromUri(htmlUriParam);
+                html = readFileUtf8(htmlFile);
+            } else {
+                html = SlideContract.buildFallbackHtml(w, h,
+                        SlideContract.MODE_OVERLAY, text, durationMs);
+                htmlFile = SlideFiles.writeHtml(projectDir, id, html);
+            }
+            String hash = (hashParam != null && !hashParam.isEmpty())
+                    ? hashParam : SlideFiles.contentHash(html, w, h, durationMs);
+
+            long startMs = getParamLong(op, "startMs", 0);
+            com.fadcam.ui.faditor.model.TextOverlayItem item =
+                    new com.fadcam.ui.faditor.model.TextOverlayItem(id, "", 0xFFFFFFFF,
+                            0.5f, 0.5f, 0.3f, 0f);
+            item.setTimeRange(startMs, startMs + durationMs);
+            GeneratedSource gs = new GeneratedSource(SlideContract.MODE_OVERLAY,
+                    Uri.fromFile(htmlFile).toString(), hash, durationMs, w, h);
+            gs.styleHint = styleHint;
+            gs.sourceModel = sourceModel;
+            item.setGeneratedSource(gs);
+            project.getTimeline().addTextOverlay(item);
+            lastGeneratedClipId = item.getId();
+        } catch (Exception ignored) { }
+    }
+
+    /**
      * Provisions the slide HTML (writing the built-in fallback when no htmlUri is
      * supplied), computes the content hash, and returns a Clip whose source points
      * at the deterministic, content-addressed render path under the project's
@@ -594,10 +652,13 @@ public class EditScriptApplier {
                     ? hashParam : SlideFiles.contentHash(html, w, h, durationMs);
 
             SlideCache cache = new SlideCache(projectDir);
-            File renderMp4 = cache.mp4For(hash);
+            File renderMp4 = cache.mp4ForState(hash,
+                    com.fadcam.ui.faditor.slides.SlideRenderer
+                            .initialRenderStateHash(hash, durationMs));
             Uri sourceUri = Uri.fromFile(renderMp4);
 
-            Clip clip = new Clip(clipId, sourceUri, 0, durationMs, durationMs,
+            Clip clip = new Clip(clipId, sourceUri, 0, durationMs,
+                    com.fadcam.ui.faditor.slides.SlideRenderer.SLIDE_MAX_DURATION_MS,
                     1.0f, false, 1.0f, 0, false, false, "none", 0f, 0f, 1f, 1f);
 
             GeneratedSource gs = new GeneratedSource(mode,

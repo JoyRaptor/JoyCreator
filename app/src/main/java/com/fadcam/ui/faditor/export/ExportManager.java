@@ -1095,13 +1095,39 @@ public class ExportManager {
                                               @NonNull Transition trans, int seam) {
         long d = Math.max(0L, trans.durationMs);
         if (seam >= 0 && seam < timeline.getClipCount()) {
-            d = Math.min(d, Math.max(0L, timeline.getClip(seam).getTrimmedDurationMs()));
+            d = Math.min(d, transitionBudgetOnClip(timeline, trans, seam, /* clipIsOutgoing = */ true));
         }
         int next = seam + 1;
         if (next >= 0 && next < timeline.getClipCount()) {
-            d = Math.min(d, Math.max(0L, timeline.getClip(next).getTrimmedDurationMs()));
+            d = Math.min(d, transitionBudgetOnClip(timeline, trans, next, /* clipIsOutgoing = */ false));
         }
         return d;
+    }
+
+    /**
+     * How much of the clip at {@code clipIndex} the transition {@code trans} may claim.
+     * Normally the whole trimmed clip (the single-transition clamp). But when the SAME
+     * clip is straddled by transitions on BOTH of its seams (e.g. a short slide with a
+     * crossfade in and a radial out), the two would jointly overspend the clip and the
+     * later one used to be degenerate-skipped in export while the preview drew both.
+     * In that case each transition gets a share of the clip proportional to its
+     * authored duration — both iterations (outgoing tail-trim and incoming head-trim)
+     * compute from the same static timeline data, so they stay in lock-step.
+     */
+    private static long transitionBudgetOnClip(@NonNull Timeline timeline,
+                                               @NonNull Transition trans,
+                                               int clipIndex, boolean clipIsOutgoing) {
+        long clipLen = Math.max(0L, timeline.getClip(clipIndex).getTrimmedDurationMs());
+        // The transition on the clip's OTHER seam, if any: for a clip acting as the
+        // outgoing side of `trans` (trans sits at seam == clipIndex), the other seam is
+        // clipIndex - 1; for the incoming side (trans at seam == clipIndex - 1), it's
+        // clipIndex.
+        Transition other = findTransitionAtSeam(timeline, clipIsOutgoing ? clipIndex - 1 : clipIndex);
+        if (other == null) return clipLen;
+        long mine = Math.max(0L, trans.durationMs);
+        long theirs = Math.max(0L, other.durationMs);
+        if (mine + theirs <= clipLen || mine + theirs == 0) return clipLen;
+        return Math.max(0L, (clipLen * mine) / (mine + theirs));
     }
 
     @Nullable

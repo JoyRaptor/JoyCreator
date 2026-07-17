@@ -104,6 +104,27 @@ public class TextOverlayLayer extends FrameLayout {
 
     private View createOverlayView(@NonNull TextOverlayItem o) {
         View view;
+        if (o.isGeneratedSlide()) {
+            // AI-authored transparent overlay slide (spec Phase 4): a live,
+            // scrubbable WebView fed by the playhead, same as fullscreen slides.
+            com.fadcam.ui.faditor.slides.GeneratedSlideView gsv =
+                    new com.fadcam.ui.faditor.slides.GeneratedSlideView(getContext());
+            com.fadcam.ui.faditor.model.GeneratedSource gs = o.getGeneratedSource();
+            if (gs != null && gs.htmlUri != null) {
+                String p = android.net.Uri.parse(gs.htmlUri).getPath();
+                if (p != null) {
+                    java.io.File f = new java.io.File(p);
+                    if (f.isFile()) gsv.loadSlide(f);
+                }
+            }
+            view = gsv;
+            view.setLayoutParams(new LayoutParams(
+                    LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            attachGestures(view, o);
+            final View fv = view;
+            fv.post(() -> position(fv, o));
+            return view;
+        }
         if (o.isImage()) {
             ImageView iv = new ImageView(getContext());
             iv.setScaleType(ImageView.ScaleType.FIT_XY);
@@ -152,6 +173,22 @@ public class TextOverlayLayer extends FrameLayout {
         boolean live = o == manipulating;
         view.setAlpha(live ? 1f
                 : Math.max(0f, Math.min(1f, o.animatedOpacity(currentTimeMs))));
+
+        if (o.isGeneratedSlide()
+                && view instanceof com.fadcam.ui.faditor.slides.GeneratedSlideView) {
+            // Full-canvas placement — the HTML owns its own layout — and a
+            // playhead-driven seek with the same stretch mapping export bakes.
+            LayoutParams glp = (LayoutParams) view.getLayoutParams();
+            glp.width = Math.max(1, Math.round(r.width()));
+            glp.height = Math.max(1, Math.round(r.height()));
+            glp.leftMargin = Math.round(r.left);
+            glp.topMargin = Math.round(r.top);
+            view.setLayoutParams(glp);
+            ((com.fadcam.ui.faditor.slides.GeneratedSlideView) view).seekTo(
+                    com.fadcam.ui.faditor.slides.SlideRenderer
+                            .mapOverlayToAnimMs(o, currentTimeMs));
+            return;
+        }
 
         float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
         int w, h;

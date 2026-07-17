@@ -1342,6 +1342,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         cropOverlay = findViewById(R.id.crop_overlay);
         imagePreview = findViewById(R.id.image_preview);
         slidePreview = findViewById(R.id.slide_preview);
+        if (slidePreview != null) {
+            // JoyRaptor 2026-07-16: double-tap the slide in the preview → its code
+            // editor (view / tweak / paste-replace the HTML, then re-render).
+            slidePreview.setOnDoubleTapListener(this::showSlideCodeSheetForCurrentSlide);
+        }
         canvasFrame = findViewById(R.id.canvas_frame);
         safeZoneOverlay = findViewById(R.id.safe_zone_overlay);
         controlsSection = findViewById(R.id.controls_section);
@@ -1436,9 +1441,55 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // longer matches (cache miss), so a PING_PONG clip drops to forward-tail until a
                 // fresh bake for the new range lands and rebuilds the playlist. Kick that re-bake.
                 kickReverseBakeIfNeeded(clip);
+                // Slide stretch (JoyRaptor 2026-07-16): a slide's trim window IS its
+                // animation window, so the baked MP4 is now stale — re-render.
+                if (clip.isGeneratedSlide()) {
+                    loadedSlideClipId = null;
+                    renderSlidesInBackground();
+                }
                 updateCurrentTimeDisplay(0);
                 refreshTotalTimeDisplay();
                 saveProjectNow();
+            }
+
+            @Override
+            public void onSlideDoubleTapped(int segmentIndex) {
+                Timeline tl = project.getTimeline();
+                if (segmentIndex >= 0 && segmentIndex < tl.getClipCount()) {
+                    showSlideCodeSheet(tl.getClip(segmentIndex));
+                }
+            }
+
+            @Override
+            public void onSlideFreezeChanged(int segmentIndex, long freezeStartMs,
+                    long freezeEndMs) {
+                Clip clip = getSelectedClip();
+                if (clip == null || !clip.isGeneratedSlide()) return;
+                com.fadcam.ui.faditor.model.GeneratedSource gs = clip.getGeneratedSource();
+                if (gs == null) return;
+                final long beforeStart = gs.freezeStartMs;
+                final long beforeEnd = gs.freezeEndMs;
+                if (beforeStart == freezeStartMs && beforeEnd == freezeEndMs) return;
+                final long afterStart = freezeStartMs;
+                final long afterEnd = freezeEndMs;
+                gs.freezeStartMs = afterStart;
+                gs.freezeEndMs = afterEnd;
+                // TODO(strings)
+                undoManager.recordAction(new EditActions.LambdaAction("Slide freeze zones",
+                        () -> {
+                            gs.freezeStartMs = afterStart;
+                            gs.freezeEndMs = afterEnd;
+                            renderSlidesInBackground();
+                        },
+                        () -> {
+                            gs.freezeStartMs = beforeStart;
+                            gs.freezeEndMs = beforeEnd;
+                            renderSlidesInBackground();
+                        }));
+                loadedSlideClipId = null;
+                editorTimeline.invalidate();
+                saveProjectNow();
+                renderSlidesInBackground();
             }
 
             @Override
@@ -7635,7 +7686,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Keep editable overlays (and their touch targets) above the slide.
             if (overlayLayer != null) overlayLayer.bringToFront();
         }
-        slidePreview.seekTo(localMs);
+        // Stretch/freeze mapping (JoyRaptor 2026-07-16): clip-local time → authored
+        // animation time, mirroring exactly what the baked render does.
+        long sourceMs = clip.getInPointMs() + Math.max(0, localMs);
+        slidePreview.seekTo(
+                com.fadcam.ui.faditor.slides.SlideRenderer.mapSourceToAnimMs(clip, sourceMs));
     }
 
     /** Hide the slide preview overlay and restore the video player. */
@@ -8857,29 +8912,40 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // MP4 lands at the content-addressed cache path the slide clip's sourceUri
         // already points to, so the exporter just reads a normal file.
         java.util.List<Clip> pendingSlides;
+        java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> pendingOverlaySlides;
         java.io.File slideProjectDir;
         try {
             slideProjectDir = projectStorage.projectDir(project.getId());
             pendingSlides = com.fadcam.ui.faditor.slides.SlideRenderer
                     .collectUnrendered(slideProjectDir, project);
+            pendingOverlaySlides = com.fadcam.ui.faditor.slides.SlideRenderer
+                    .collectUnrenderedOverlays(slideProjectDir, project);
         } catch (Exception e) {
             FLog.w(TAG, "Slide render pre-pass collect failed", e);
             pendingSlides = java.util.Collections.emptyList();
+            pendingOverlaySlides = java.util.Collections.emptyList();
             slideProjectDir = null;
         }
-        if (pendingSlides.isEmpty()) {
+        if (pendingSlides.isEmpty() && pendingOverlaySlides.isEmpty()) {
             doStartOutOfProcessExport(audioOnly);
             return;
         }
 
         // TODO(strings)
-        Toast.makeText(this, "Preparing " + pendingSlides.size() + " animated slide(s)…",
-                Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Preparing "
+                + (pendingSlides.size() + pendingOverlaySlides.size())
+                + " animated slide(s)…", Toast.LENGTH_SHORT).show();
         exportStartedLocallyAtMs = System.currentTimeMillis();
         final java.io.File pd = slideProjectDir;
         final java.util.List<Clip> pending = pendingSlides;
+        final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> pendingOv =
+                pendingOverlaySlides;
         slideRenderExecutor().execute(() -> {
-            String err = com.fadcam.ui.faditor.slides.SlideRenderer.renderAll(this, pd, pending);
+            String clipErr = com.fadcam.ui.faditor.slides.SlideRenderer
+                    .renderAll(this, pd, pending);
+            final String err = clipErr != null ? clipErr
+                    : com.fadcam.ui.faditor.slides.SlideRenderer
+                            .renderAllOverlays(this, pd, pendingOv);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 if (err != null) {
@@ -8914,18 +8980,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final java.io.File projectDir = projectStorage.projectDir(project.getId());
             final java.util.List<Clip> pending = com.fadcam.ui.faditor.slides.SlideRenderer
                     .collectUnrendered(projectDir, project);
-            if (pending.isEmpty()) return;
+            final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> pendingOverlays =
+                    com.fadcam.ui.faditor.slides.SlideRenderer
+                            .collectUnrenderedOverlays(projectDir, project);
+            if (pending.isEmpty() && pendingOverlays.isEmpty()) return;
             slideRenderExecutor().execute(() -> {
                 String err = com.fadcam.ui.faditor.slides.SlideRenderer
                         .renderAll(this, projectDir, pending);
+                if (err == null) {
+                    err = com.fadcam.ui.faditor.slides.SlideRenderer
+                            .renderAllOverlays(this, projectDir, pendingOverlays);
+                }
                 if (err != null) {
                     FLog.w(TAG, "Background slide render: " + err);
                     return;
                 }
+                com.fadcam.ui.faditor.slides.SlideRenderer.pruneCache(projectDir, project);
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     resolvableCache.clear();
                     if (editorTimeline != null) editorTimeline.invalidate();
+                    // Persist the renderStateHash stamps the render just wrote.
+                    scheduleAutoSave();
                 });
             });
         } catch (Exception e) {
@@ -19214,6 +19290,152 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FLog.e(TAG, "Slide import failed", e);
             // TODO(strings)
             Toast.makeText(this, "Slide import failed", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Double-tap on the live slide preview → the slide's code editor (JoyRaptor
+     * 2026-07-16): view the HTML, tweak it, or select-all and paste a whole
+     * different slide. Apply re-validates against the contract and re-renders.
+     */
+    private void showSlideCodeSheetForCurrentSlide() {
+        showSlideCodeSheet(findClipById(loadedSlideClipId));
+    }
+
+    private void showSlideCodeSheet(@Nullable Clip clipArg) {
+        final Clip clip = clipArg;
+        if (clip == null || !clip.isGeneratedSlide()) return;
+        com.fadcam.ui.faditor.model.GeneratedSource gs = clip.getGeneratedSource();
+        java.io.File htmlFile = slideHtmlFile(gs != null ? gs.htmlUri : null);
+        String html = htmlFile != null
+                ? com.fadcam.ui.faditor.slides.SlideHtmlReader.read(htmlFile) : null;
+        if (html == null) {
+            // TODO(strings)
+            Toast.makeText(this, "Slide code not found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        SlideCodeBottomSheet sheet = SlideCodeBottomSheet.newInstance();
+        sheet.setInitialHtml(html);
+        final String before = html;
+        sheet.setCallback(newHtml -> applySlideCodeEdit(clip, before, newHtml));
+        sheet.show(getSupportFragmentManager(), "slideCode");
+    }
+
+    /**
+     * Replace a slide clip's HTML in place: validate, rewrite the authored
+     * file, swap in a fresh clip with the same id pointing at the new
+     * content-addressed render path, and re-render in the background. One
+     * undo step restores the previous HTML and clip.
+     */
+    private void applySlideCodeEdit(@NonNull Clip oldClip, @NonNull String oldHtml,
+                                    @NonNull String rawNewHtml) {
+        String html = com.fadcam.ui.faditor.slides.SlideContract.stripFences(rawNewHtml);
+        if (html.trim().equals(oldHtml.trim())) return;
+        String reason = com.fadcam.ui.faditor.slides.SlideContract.validate(html);
+        if (reason != null) {
+            // TODO(strings)
+            Toast.makeText(this, "That doesn't look like a Faditor slide: " + reason,
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        int contractVersion = com.fadcam.ui.faditor.slides.SlideContract
+                .extractContractVersion(html);
+        if (contractVersion > com.fadcam.ui.faditor.slides.SlideContract.CONTRACT_VERSION) {
+            // TODO(strings)
+            Toast.makeText(this, "This slide needs a newer app version (slide contract v"
+                    + contractVersion + ")", Toast.LENGTH_LONG).show();
+            return;
+        }
+        long durationMs = com.fadcam.ui.faditor.slides.SlideContract
+                .extractAuthoredDurationMs(html, 3000);
+        durationMs = Math.max(800, Math.min(20000, durationMs));
+
+        final Timeline timeline = project.getTimeline();
+        int index = -1;
+        for (int i = 0; i < timeline.getClipCount(); i++) {
+            if (timeline.getClip(i).getId().equals(oldClip.getId())) { index = i; break; }
+        }
+        if (index < 0) return;
+        final int clipIndex = index;
+
+        try {
+            java.io.File projectDir = projectStorage.projectDir(project.getId());
+            int[] dims = com.fadcam.ui.faditor.slides.SlideFiles.dimensionsFor(project);
+            com.fadcam.ui.faditor.slides.SlideFiles.writeHtml(
+                    projectDir, oldClip.getId(), html);
+            String hash = com.fadcam.ui.faditor.slides.SlideFiles
+                    .contentHash(html, dims[0], dims[1], durationMs);
+            java.io.File renderMp4 = new com.fadcam.ui.faditor.slides.SlideCache(projectDir)
+                    .mp4ForState(hash, com.fadcam.ui.faditor.slides.SlideRenderer
+                            .initialRenderStateHash(hash, durationMs));
+            java.io.File htmlFile = new java.io.File(
+                    com.fadcam.ui.faditor.slides.SlideFiles.slidesDir(projectDir),
+                    oldClip.getId() + ".html");
+
+            Clip fresh = new Clip(oldClip.getId(), Uri.fromFile(renderMp4),
+                    0, durationMs,
+                    com.fadcam.ui.faditor.slides.SlideRenderer.SLIDE_MAX_DURATION_MS,
+                    1.0f, false, 1.0f, 0, false, false, "none", 0f, 0f, 1f, 1f);
+            com.fadcam.ui.faditor.model.GeneratedSource oldGs = oldClip.getGeneratedSource();
+            com.fadcam.ui.faditor.model.GeneratedSource gs =
+                    new com.fadcam.ui.faditor.model.GeneratedSource(
+                            oldGs != null ? oldGs.mode
+                                    : com.fadcam.ui.faditor.slides.SlideContract.MODE_FULLSCREEN,
+                            Uri.fromFile(htmlFile).toString(), hash, durationMs,
+                            dims[0], dims[1]);
+            gs.renderCacheUri = Uri.fromFile(renderMp4).toString();
+            gs.styleHint = oldGs != null ? oldGs.styleHint : null;
+            gs.sourceModel = "user-edit";
+            fresh.setGeneratedSource(gs);
+
+            timeline.removeClip(clipIndex);
+            timeline.addClip(clipIndex, fresh);
+
+            final String finalHtml = html;
+            final java.io.File finalProjectDir = projectDir;
+            // TODO(strings)
+            undoManager.recordAction(new EditActions.LambdaAction("Edit slide code",
+                    () -> {
+                        try {
+                            com.fadcam.ui.faditor.slides.SlideFiles.writeHtml(
+                                    finalProjectDir, oldClip.getId(), finalHtml);
+                        } catch (Exception ignored) { }
+                        timeline.removeClip(clipIndex);
+                        timeline.addClip(clipIndex, fresh);
+                        loadedSlideClipId = null;
+                        editorTimeline.invalidate();
+                        renderSlidesInBackground();
+                    },
+                    () -> {
+                        try {
+                            com.fadcam.ui.faditor.slides.SlideFiles.writeHtml(
+                                    finalProjectDir, oldClip.getId(), oldHtml);
+                        } catch (Exception ignored) { }
+                        timeline.removeClip(clipIndex);
+                        timeline.addClip(clipIndex, oldClip);
+                        loadedSlideClipId = null;
+                        editorTimeline.invalidate();
+                        renderSlidesInBackground();
+                    }));
+
+            loadedSlideClipId = null;
+            hideSlidePreview();
+            selectSegment(clipIndex);
+            syncTimelineOverlays();
+            editorTimeline.invalidate();
+            refreshTotalTimeDisplay();
+            saveProjectNow();
+            renderSlidesInBackground();
+            showSlidePreview(fresh, 0);
+            // TODO(strings)
+            Toast.makeText(this, "Slide updated — re-rendering in background",
+                    Toast.LENGTH_SHORT).show();
+            FLog.d(TAG, "Slide code edited: clip=" + oldClip.getId()
+                    + " newDuration=" + durationMs + "ms hash=" + hash.substring(0, 12));
+        } catch (Exception e) {
+            FLog.e(TAG, "Slide code edit failed", e);
+            // TODO(strings)
+            Toast.makeText(this, "Couldn't apply the slide edit", Toast.LENGTH_SHORT).show();
         }
     }
 

@@ -94,4 +94,34 @@ public final class SlideFiles {
         }
         return file;
     }
+
+    /** Runtime scripts every slide references relatively. */
+    private static final String[] RUNTIME_ASSETS = {"gsap.min.js", "faditor_runtime.js"};
+
+    /**
+     * Copy the vendored runtime scripts from app assets into {@code dir} (the
+     * folder holding a slide's HTML) so the HTML can be loaded via
+     * {@code file://} with its OWN directory as base — which is what lets
+     * relative {@code <img src="...">} refs resolve to files the user drops
+     * next to the HTML. Cheap and idempotent: skips files whose size matches.
+     */
+    public static void ensureRuntimeIn(@NonNull android.content.Context context,
+                                       @NonNull File dir) {
+        if (!dir.exists() && !dir.mkdirs()) return;
+        for (String name : RUNTIME_ASSETS) {
+            File out = new File(dir, name);
+            try (java.io.InputStream is = context.getAssets().open("faditor/" + name)) {
+                long assetLen = is.available();
+                if (out.isFile() && out.length() == assetLen && assetLen > 0) continue;
+                try (FileOutputStream fos = new FileOutputStream(out)) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
+                }
+            } catch (Exception ignored) {
+                // Preview/render falls back to broken script refs only if assets
+                // are unreadable, which would break far more than slides.
+            }
+        }
+    }
 }

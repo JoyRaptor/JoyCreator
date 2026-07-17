@@ -31,6 +31,8 @@ public class GeneratedSlideView extends WebView {
 
     private boolean ready;
     @Nullable private Runnable onReadyListener;
+    @Nullable private Runnable onDoubleTapListener;
+    @Nullable private android.view.GestureDetector gestureDetector;
     private long pendingSeekMs = -1;
 
     public GeneratedSlideView(@NonNull Context context) {
@@ -75,12 +77,40 @@ public class GeneratedSlideView extends WebView {
         this.onReadyListener = listener;
     }
 
-    /** Load a slide's authored HTML file. Relative script srcs resolve to assets. */
+    /** Double-tap on the slide preview = the slide's advanced menu (code editor). */
+    public void setOnDoubleTapListener(@Nullable Runnable listener) {
+        this.onDoubleTapListener = listener;
+        if (listener != null && gestureDetector == null) {
+            gestureDetector = new android.view.GestureDetector(getContext(),
+                    new android.view.GestureDetector.SimpleOnGestureListener() {
+                        @Override
+                        public boolean onDoubleTap(@NonNull android.view.MotionEvent e) {
+                            if (onDoubleTapListener != null) {
+                                onDoubleTapListener.run();
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(android.view.MotionEvent event) {
+        if (gestureDetector != null) gestureDetector.onTouchEvent(event);
+        return super.onTouchEvent(event);
+    }
+
+    /**
+     * Load a slide's authored HTML file from its OWN directory, so relative
+     * refs (the runtime scripts, and any images the user drops next to the
+     * HTML) resolve there. The runtime scripts are copied in first.
+     */
     public void loadSlide(@NonNull File htmlFile) {
         ready = false;
-        String html = SlideHtmlReader.read(htmlFile);
-        if (html == null) return;
-        loadDataWithBaseURL(ASSET_BASE, html, "text/html", "utf-8", null);
+        File dir = htmlFile.getParentFile();
+        if (dir != null) SlideFiles.ensureRuntimeIn(getContext(), dir);
+        loadUrl(android.net.Uri.fromFile(htmlFile).toString());
     }
 
     /** Seek the slide's GSAP timeline to the given local time (ms). */

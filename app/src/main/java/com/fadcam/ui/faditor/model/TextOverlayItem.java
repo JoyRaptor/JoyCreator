@@ -255,6 +255,22 @@ public class TextOverlayItem {
     /** True if this overlay is an image/PNG rather than text. */
     public boolean isImage() { return imageUri != null; }
 
+    // ── AI-authored animated overlay slide (spec Phase 4) ───────────────
+
+    /** Recipe for an AI-authored transparent overlay slide, or null. */
+    @Nullable
+    private GeneratedSource generatedSource;
+
+    @Nullable
+    public GeneratedSource getGeneratedSource() { return generatedSource; }
+
+    public void setGeneratedSource(@Nullable GeneratedSource gs) {
+        this.generatedSource = gs;
+    }
+
+    /** True if this overlay renders from an AI-authored PNG frame sequence. */
+    public boolean isGeneratedSlide() { return generatedSource != null; }
+
     // ── Layer-track membership (M10) ────────────────────────────────────
 
     /** Stable id of the layer track this item belongs to, or {@code null} for the default TEXT track. */

@@ -231,6 +231,12 @@ public class AIToolExecutor {
                        "style_hint":"bold cinematic, dark background, gold accents",
                        "duration_ms_hint":3000,
                        "placement":{"insertAtClipIndex":0}}
+                mode "overlay" composites the slide TRANSPARENTLY over the video
+                (animated lower-third); it needs placement.startMs instead of
+                insertAtClipIndex:
+                args: {"mode":"overlay", "title_or_text":"Dr. Jane Smith",
+                       "style_hint":"lower-third, slide in from left",
+                       "duration_ms_hint":4000, "placement":{"startMs":12000}}
 
             28. analyze_narrative_structure — Read-only. Propose a reordered/trimmed
                 sequence for one long recording: segment the transcript into chunks,
@@ -527,8 +533,9 @@ public class AIToolExecutor {
 
     private String toolGenerateSlide(@NonNull JSONObject args) {
         String mode = args.optString("mode", SlideContract.MODE_FULLSCREEN);
-        if (!SlideContract.MODE_FULLSCREEN.equals(mode)) {
-            mode = SlideContract.MODE_FULLSCREEN; // overlay mode lands in Phase 4
+        if (!SlideContract.MODE_FULLSCREEN.equals(mode)
+                && !SlideContract.MODE_OVERLAY.equals(mode)) {
+            mode = SlideContract.MODE_FULLSCREEN;
         }
         String text = args.optString("title_or_text", args.optString("text", "")).trim();
         if (text.isEmpty()) return "Error: 'title_or_text' is required";
@@ -537,9 +544,13 @@ public class AIToolExecutor {
                 args.optLong("duration_ms_hint", 3000)));
 
         int insertIndex = -1;
+        long startMs = 0;
         JSONObject placement = args.optJSONObject("placement");
         if (placement != null && placement.has("insertAtClipIndex")) {
             insertIndex = placement.optInt("insertAtClipIndex", -1);
+        }
+        if (placement != null && placement.has("startMs")) {
+            startMs = Math.max(0, placement.optLong("startMs", 0));
         }
 
         FaditorProject proj = storage.load(projectId);
@@ -570,6 +581,7 @@ public class AIToolExecutor {
             opObj.put("contentHash", hash);
             if (usedModel != null) opObj.put("sourceModel", usedModel);
             if (insertIndex >= 0) opObj.put("insertAtClipIndex", insertIndex);
+            if (SlideContract.MODE_OVERLAY.equals(mode)) opObj.put("startMs", startMs);
 
             JSONObject scriptObj = new JSONObject();
             scriptObj.put("version", 1);

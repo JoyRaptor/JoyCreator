@@ -28,8 +28,14 @@ public class SlideCaptureEngine {
 
     private static final String TAG = "SlideCaptureEngine";
 
-    /** Hard cap so a hung WebView can never wedge an export forever. */
-    private static final long TIMEOUT_MS = 60_000L;
+    /**
+     * Per-frame worst case for the timeout budget: the 250ms paint-fallback
+     * race plus JS/PNG-write overhead. A hung WebView still can't wedge an
+     * export forever — the cap just scales with how many frames were asked for
+     * (a stretched 30s slide is 900 frames ≈ 6 minutes of legitimate work).
+     */
+    private static final long PER_FRAME_BUDGET_MS = 600L;
+    private static final long MIN_TIMEOUT_MS = 60_000L;
 
     private static final ConcurrentHashMap<String, Pending> PENDING =
             new ConcurrentHashMap<>();
@@ -69,7 +75,8 @@ public class SlideCaptureEngine {
 
     /**
      * Render a slide HTML file to a PNG sequence in {@code outDir}, blocking
-     * until done or timeout.
+     * until done or timeout. Convenience overload with no stretch/freeze
+     * mapping: the capture window equals the authored duration.
      *
      * @param htmlPath absolute path to the authored HTML, or null to render the
      *                 bundled sample slide (Phase 0).
@@ -77,6 +84,21 @@ public class SlideCaptureEngine {
     @NonNull
     public Result capturePngSequence(@NonNull Context context, @Nullable String htmlPath,
                                      int width, int height, int fps, long durationMs,
+                                     @NonNull File outDir) {
+        return capturePngSequence(context, htmlPath, width, height, fps, durationMs,
+                durationMs, 0, durationMs, outDir);
+    }
+
+    /**
+     * Render with the stretch/freeze time mapping baked in: frames cover
+     * {@code 0..totalMs} of clip source time, the animation plays (stretched)
+     * across {@code animStartMs..animEndMs}, and the first/last authored frames
+     * hold outside that window.
+     */
+    @NonNull
+    public Result capturePngSequence(@NonNull Context context, @Nullable String htmlPath,
+                                     int width, int height, int fps, long durationMs,
+                                     long totalMs, long animStartMs, long animEndMs,
                                      @NonNull File outDir) {
         // Clear any stale frames so a short re-render can't leave old tail frames.
         clearDir(outDir);
@@ -98,6 +120,9 @@ public class SlideCaptureEngine {
             intent.putExtra(SlideRenderActivity.EXTRA_HEIGHT, height);
             intent.putExtra(SlideRenderActivity.EXTRA_FPS, fps);
             intent.putExtra(SlideRenderActivity.EXTRA_DURATION_MS, durationMs);
+            intent.putExtra(SlideRenderActivity.EXTRA_TOTAL_MS, totalMs);
+            intent.putExtra(SlideRenderActivity.EXTRA_ANIM_START_MS, animStartMs);
+            intent.putExtra(SlideRenderActivity.EXTRA_ANIM_END_MS, animEndMs);
             if (htmlPath != null && !htmlPath.isEmpty()) {
                 intent.putExtra(SlideRenderActivity.EXTRA_HTML_PATH, htmlPath);
             } else {
@@ -105,7 +130,9 @@ public class SlideCaptureEngine {
             }
             context.startActivity(intent);
 
-            boolean completed = pending.latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            long frames = Math.max(1, Math.round((totalMs / 1000.0) * fps));
+            long timeoutMs = Math.max(MIN_TIMEOUT_MS, frames * PER_FRAME_BUDGET_MS);
+            boolean completed = pending.latch.await(timeoutMs, TimeUnit.MILLISECONDS);
             if (!completed) {
                 return new Result(false, "Capture timed out", 0, outDir);
             }

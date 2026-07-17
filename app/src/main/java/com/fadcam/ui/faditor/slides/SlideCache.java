@@ -40,6 +40,48 @@ public class SlideCache {
         return new File(cacheDir, contentHash + ".mp4");
     }
 
+    /**
+     * Path for a fullscreen slide render baked for one specific trim/freeze
+     * state. Distinct from {@link #mp4For}: two clips sharing the same authored
+     * HTML (a split slide) must not clobber each other's stretch-mapped bakes,
+     * so the state participates in the file identity.
+     */
+    @NonNull
+    public File mp4ForState(@NonNull String contentHash, @NonNull String renderStateHash) {
+        return new File(cacheDir, contentHash + "_" + shortHash(renderStateHash) + ".mp4");
+    }
+
+    /**
+     * Delete cached slide MP4s that are in none of the given keep set — called
+     * after a render pass with every live clip's current file, so stale
+     * stretch-bakes don't pile up while shared-content siblings stay safe.
+     */
+    public void pruneMp4sExcept(@NonNull java.util.Set<String> keepNames) {
+        File[] files = cacheDir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isFile() && f.getName().endsWith(".mp4")
+                    && !keepNames.contains(f.getName())) {
+                //noinspection ResultOfMethodCallIgnored
+                f.delete();
+            }
+        }
+    }
+
+    /** Stable 12-hex digest of an arbitrary state string, for file naming. */
+    @NonNull
+    public static String shortHash(@NonNull String s) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] d = md.digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(12);
+            for (int i = 0; i < 6; i++) sb.append(String.format("%02x", d[i]));
+            return sb.toString();
+        } catch (Exception e) {
+            return Integer.toHexString(s.hashCode());
+        }
+    }
+
     /** Directory (which may not yet exist) for an overlay slide's PNG frames. */
     @NonNull
     public File frameDirFor(@NonNull String contentHash) {

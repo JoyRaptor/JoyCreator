@@ -1,6 +1,42 @@
 # Feature Spec: AI-Generated Animated Slides (for Claude Code)
 
-**Status:** Implemented through Phase 3 + addendum (Phase 4 overlay mode not started)
+**Status:** ALL PHASES IMPLEMENTED (0–4 + addendum + 2026-07-16-late additions), device-verified
+
+## 2026-07-16 late-session additions (JoyRaptor live feedback, all landed + device-proven)
+
+- **Slide time-stretch (trim = remap).** A slide's trim bars stretch/squeeze the authored
+  animation to exactly fill the clip window (trim ceiling `SLIDE_MAX_DURATION_MS` = 30s), instead
+  of cutting frames like video. The stretch/freeze mapping is BAKED into the rendered MP4
+  (`SlideRenderer.mapSourceToAnimMs`; render covers source 0..outPoint), so playback, export and
+  transitions need no special handling. Renders are keyed per trim-state
+  (`SlideCache.mp4ForState`, `GeneratedSource.renderStateHash`) — two clips sharing one authored
+  HTML (a split slide) bake to distinct files (first device run clobbered them — fixed).
+  `Clip.repointGeneratedSlideSource` re-aims the clip after each bake; stale bakes pruned.
+  NOTE: split slide pieces each play the WHOLE animation squeezed into their own window.
+- **Inner freeze-zone handles (slides only).** Selected slide shows two inner markers (▶/◀):
+  drag in from the trim bars to hold the first frame / last frame for a zone, animated middle
+  stretches between (`GeneratedSource.freezeStartMs/freezeEndMs`). Live in
+  EditorTimelineView (`FREEZE_*_HANDLE` drags → `onSlideFreezeChanged` → re-render).
+- **Code editor.** Double-tap a slide (timeline clip or the live preview) → `SlideCodeBottomSheet`:
+  view/edit the HTML, Copy all / Paste & replace / Apply → contract-validate → rewrite →
+  re-render in place (same clip id, one undo step). Timeline double-tap on slides no longer
+  opens the (useless, silent) audio shelf.
+- **True-duration seek rescale** (`faditor_runtime.js`): models sometimes register a durationMs
+  shorter than the timeline they built — end froze early / scrub never reached the last state.
+  Seeks now rescale onto `tl.totalDuration()`. Renderer rev bump (`r2`) re-bakes existing slides.
+- **Capture timeout scales with frame count** (`SlideCaptureEngine.PER_FRAME_BUDGET_MS`) — the
+  old flat 60s cap made every stretched-slide render time out (the "Preparing 1 slide…" hang).
+- **Relative images**: slide HTML now loads via `file://` from its own slides/ dir (runtime JS
+  copied alongside, `SlideFiles.ensureRuntimeIn`), so `<img src="pic.jpg">` next to the HTML
+  resolves; data-URI images/fonts and inline SVG explicitly allowed + taught in the external
+  prompt. Validation now allows nested GSAP timelines (exactly one `Faditor.register`).
+- **Double-transition clamp fix (ExportManager):** two transitions straddling one short clip
+  (crossfade in + radial out on a 609ms slide sliver) jointly overspent it — the later one was
+  degenerate-skipped in export while preview drew both (JoyRaptor's "radial in preview, not in
+  export"). `transitionBudgetOnClip` now splits the clip proportionally; device-verified
+  (`resolved=Radial durationMs=304` in the 23:16 export).
+- **Slides skipped by tape audio analysis** (silent by construction; the 30s trim ceiling made
+  the analysis span uncoverable → infinite "analyzing audio" churn).
 
 ## Phase status (2026-07-16 session)
 
@@ -9,7 +45,18 @@
 - [x] **Phase 2 — Live preview.** `GeneratedSlideView` wired into scrubbing (`showSlidePreview`/`hideSlidePreview`); play-through uses the rendered MP4 via the normal player path.
 - [x] **Phase 3 — Real AI authoring.** `generate_slide` in AIToolExecutor (OpenRouter call, validate→retry-once→built-in fallback per §5.2).
 - [x] **Addendum — API-less "copy a prompt" path** (this session). `SlideContract.CONTRACT_VERSION`/`buildExternalPrompt()` (embeds `faditor-slide-contract v1` marker, asks the model to echo it); AddAssetBottomSheet → "AI slide (animated)" → `SlideImportBottomSheet` (Copy slide prompt / Paste slide HTML / Import .html file); `FaditorEditorActivity.importSlideHtml()` validates against the same contract, parses the authored duration from `Faditor.register(...)`, and emits the same `ADD_GENERATED_SLIDE` EditScript the in-app tool uses, then background-renders.
-- [ ] **Phase 4 — Overlay / transparent mode.** Not started (generate_slide forces fullscreen; TextOverlay has no `generatedSource` yet).
+- [x] **Phase 4 — Overlay / transparent mode.** DONE + DEVICE-PROVEN 2026-07-16 ~23:15.
+  `TextOverlayItem.generatedSource` (persisted), PNG-sequence render
+  (`SlideRenderer.renderOverlayOne` → `slide_cache/<hash>_<state>/frame%04d.png`), export
+  compositing (`CompositeExportOverlay.generatedOverlayFrame` — full-canvas draw with opacity,
+  per-overlay frame reuse), live preview (a `GeneratedSlideView` WebView per overlay inside
+  `TextOverlayLayer`, playhead-driven with the same stretch mapping), `ADD_GENERATED_SLIDE`
+  overlay branch (`applyAddGeneratedOverlay`, needs `startMs`), `generate_slide` overlay mode
+  un-forced (placement.startMs). Proof: fallback lower-third applied via ApplyEditsActivity to
+  cebc19e0 at 500–3500ms → PNG seq baked → visible over the video in live preview AND in the
+  exported MP4 frames at 1.5s/2.4s (transparency intact). Overlay stretch = animation fills the
+  overlay's whole start..end range; no freeze handles for overlays (v1). Import UI (paste/file)
+  still creates fullscreen slides only — overlay creation is via AI tool / EditScript for now.
 **Owner of this spec:** written by Claude (chat) at the user's request, to be executed by Claude Code
 **Depends on:** `tasks/HANDOFF.md`, `docs/project-schema.md` (schema v3 as of this writing)
 

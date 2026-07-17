@@ -145,6 +145,9 @@ public class EditorTimelineView extends View {
     private final Paint dragGhostPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trimOverlayPaint    = new Paint();
     private final Paint trimRecoverPaint    = new Paint();
+    // Slide freeze-zone markers + frozen-zone tint (JoyRaptor 2026-07-16)
+    private final Paint freezeMarkerPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint freezeZonePaint     = new Paint();
 
     // Audio track paints
     private final Paint audioTrackBgPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -598,9 +601,13 @@ public class EditorTimelineView extends View {
         AUDIO_LEFT_HANDLE,
         AUDIO_RIGHT_HANDLE,
         TRANSITION_LEFT_HANDLE,
-        TRANSITION_RIGHT_HANDLE
+        TRANSITION_RIGHT_HANDLE,
+        FREEZE_LEFT_HANDLE,
+        FREEZE_RIGHT_HANDLE
     }
     private Drag activeDrag = Drag.NONE;
+    /** Finger x (scrolled space) while dragging a slide freeze-zone handle. */
+    private float freezeDragX;
     private float downX, downY;
     private long downTime;
     private int downSegIndex = -1;
@@ -1056,6 +1063,15 @@ public class EditorTimelineView extends View {
         void onSilenceCandidateTapped(int segmentIndex, long startMs, long endMs);
         void onTrimChanged(int segmentIndex, float startFraction, float endFraction, boolean isLeft);
         void onTrimFinished(int segmentIndex, float startFraction, float endFraction);
+        /**
+         * Slide freeze-zone handle drag finished (JoyRaptor 2026-07-16): the inner
+         * handles set how long the slide holds its first/last frame inside the
+         * trim window. Values are clip-window-relative ms, already clamped.
+         */
+        default void onSlideFreezeChanged(int segmentIndex,
+                long freezeStartMs, long freezeEndMs) {}
+        /** Double-tap on a generated-slide clip → its code editor sheet. */
+        default void onSlideDoubleTapped(int segmentIndex) {}
         /** Called when playhead is seeked. isDragging=true means user is actively dragging,
          *  so don't load new clips yet; isDragging=false means this is a discrete seek or drag end. */
         void onPlayheadSeeked(int segmentIndex, float fractionInSegment, boolean isDragging);
@@ -1167,6 +1183,8 @@ public class EditorTimelineView extends View {
         dragGhostPaint.setColor(COLOR_DRAG_GHOST);
         dragGhostPaint.setStyle(Paint.Style.FILL);
         trimOverlayPaint.setColor(0x80000000);
+        freezeMarkerPaint.setColor(0xFFFFFFFF);
+        freezeZonePaint.setColor(0x3300E5FF);
         trimOverlayPaint.setStyle(Paint.Style.FILL);
         trimRecoverPaint.setColor(0x404CAF50);
         trimRecoverPaint.setStyle(Paint.Style.FILL);
@@ -1453,6 +1471,10 @@ public class EditorTimelineView extends View {
     private void primeBackgroundTapeAnalysis() {
         if (tapeWaveformCache == null) return;
         for (SegmentData sd : segments) {
+            // Generated slides are silent by construction and their trim ceiling
+            // (30s) exceeds the baked MP4's audio — an extraction span that can
+            // never complete. Skip them entirely (the drawer shows a flat tape).
+            if (sd != null && sd.clip != null && sd.clip.isGeneratedSlide()) continue;
             if (sd != null && sd.sourceUri != null && !sd.isImageClip
                     && sd.sourceDurationMs > 0) {
                 // FULL-source span (not the trim window): with the cache's superset reuse,
@@ -1965,6 +1987,7 @@ public class EditorTimelineView extends View {
 
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
+            drawSlideFreezeHandles(canvas, segRects.get(selectedIndex));
         }
 
         // Draw audio clips — LEGACY path only. When audio rides the unified renderer rows
@@ -2521,7 +2544,8 @@ public class EditorTimelineView extends View {
                     drawerBodyPaint);
 
             com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped tape =
-                    (tapeWaveformCache != null && sd.sourceUri != null && !sd.isImageClip)
+                    (tapeWaveformCache != null && sd.sourceUri != null && !sd.isImageClip
+                            && (sd.clip == null || !sd.clip.isGeneratedSlide()))
                             ? tapeWaveformCache.get(sd.sourceUri, sd.inPointMs, sd.outPointMs,
                                     sd.sourceDurationMs)
                             : null;
@@ -5301,6 +5325,21 @@ public class EditorTimelineView extends View {
             return true;
         }
 
+        // Slide freeze-zone markers: checked BEFORE the outer trim handles with
+        // a deliberately tight zone — at freeze 0 the marker sits just inside
+        // the green bar, and the tight zone lets it be grabbed at all while the
+        // bar's generous slop still owns true edge grabs.
+        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+            Drag fh = hitTestFreezeHandle(scrolledX, y);
+            if (fh != Drag.NONE) {
+                FLog.d(TAG, "onDown: hit freeze handle " + fh);
+                activeDrag = fh;
+                freezeDragX = scrolledX;
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+        }
+
         // Check trim handles first
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             Drag h = hitTestHandle(scrolledX, y);
@@ -5583,6 +5622,11 @@ public class EditorTimelineView extends View {
             return true;
         }
 
+        if (activeDrag == Drag.FREEZE_LEFT_HANDLE || activeDrag == Drag.FREEZE_RIGHT_HANDLE) {
+            doFreezeDrag(scrolledX);
+            return true;
+        }
+
         // Audio trim handle drag
         if (activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
             lastTrimFingerScreenX = x;
@@ -5804,6 +5848,8 @@ public class EditorTimelineView extends View {
                 }
             }
             loopChangedDuringDrag = false;
+        } else if (last == Drag.FREEZE_LEFT_HANDLE || last == Drag.FREEZE_RIGHT_HANDLE) {
+            finishFreezeDrag();
         } else if (last == Drag.AUDIO_LEFT_HANDLE || last == Drag.AUDIO_RIGHT_HANDLE) {
             // Audio trim finished — data was already applied during drag
             if (listener != null) {
@@ -5863,6 +5909,23 @@ public class EditorTimelineView extends View {
 
                     if (isDoubleTap) {
                         lastMasterTapClipId = null; // consume the pair (no triple-chains)
+                        SegmentData dtSd = segments.get(doubleTapSegIndex);
+                        if (dtSd.clip != null && dtSd.clip.isGeneratedSlide()) {
+                            // Slides are silent by construction — the audio shelf is
+                            // useless there. Double-tap opens the slide's code editor
+                            // instead (JoyRaptor 2026-07-16).
+                            if (selectedIndex != doubleTapSegIndex) {
+                                selectedIndex = doubleTapSegIndex;
+                                if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
+                            }
+                            if (listener != null) listener.onSlideDoubleTapped(doubleTapSegIndex);
+                            invalidate();
+                            getParent().requestDisallowInterceptTouchEvent(false);
+                            activeDrag = Drag.NONE;
+                            transitionDragIndex = -1;
+                            downSegIndex = -1;
+                            return true;
+                        }
                         toggleLayerAudioDrawers(doubleTapClipId);
                         // Keep the first tap's selection: ensure the clip stays selected
                         // instead of the same-segment tap-toggle deselecting it.
@@ -5924,6 +5987,133 @@ public class EditorTimelineView extends View {
             return Drag.RIGHT_HANDLE;
         }
         return Drag.NONE;
+    }
+
+    // ── Slide freeze-zone handles (JoyRaptor 2026-07-16) ─────────────────
+
+    /** The selected segment's clip when it is a generated slide, else null. */
+    @Nullable
+    private Clip selectedSlideClip() {
+        if (selectedIndex < 0 || selectedIndex >= segments.size()) return null;
+        Clip c = segments.get(selectedIndex).clip;
+        return c != null && c.isGeneratedSlide() ? c : null;
+    }
+
+    /** Visual x of the freeze-start marker: inset just inside the left trim bar. */
+    private float freezeLeftX(@NonNull RectF seg, @NonNull Clip clip) {
+        long trimmed = Math.max(1, clip.getTrimmedDurationMs());
+        long fs = clip.getGeneratedSource() != null
+                ? Math.max(0, clip.getGeneratedSource().freezeStartMs) : 0;
+        return seg.left + handleWidthPx + (seg.width() * fs / trimmed);
+    }
+
+    /** Visual x of the freeze-end marker: inset just inside the right trim bar. */
+    private float freezeRightX(@NonNull RectF seg, @NonNull Clip clip) {
+        long trimmed = Math.max(1, clip.getTrimmedDurationMs());
+        long fe = clip.getGeneratedSource() != null
+                ? Math.max(0, clip.getGeneratedSource().freezeEndMs) : 0;
+        return seg.right - handleWidthPx - (seg.width() * fe / trimmed);
+    }
+
+    /**
+     * Hit-test the slide freeze-zone markers. Deliberately TIGHT (no touch
+     * slop) so the generous outer trim-handle zones keep winning at the edges;
+     * the markers move inward and out of conflict as soon as a zone is set.
+     */
+    private Drag hitTestFreezeHandle(float x, float y) {
+        Clip slide = selectedSlideClip();
+        if (slide == null || selectedIndex >= segRects.size()) return Drag.NONE;
+        RectF seg = segRects.get(selectedIndex);
+        if (y < seg.top || y > seg.bottom) return Drag.NONE;
+        float zone = handleWidthPx * 0.9f;
+        if (Math.abs(x - freezeLeftX(seg, slide)) <= zone) return Drag.FREEZE_LEFT_HANDLE;
+        if (Math.abs(x - freezeRightX(seg, slide)) <= zone) return Drag.FREEZE_RIGHT_HANDLE;
+        return Drag.NONE;
+    }
+
+    /** Live freeze-zone drag: clamp the marker inside the clip window. */
+    private void doFreezeDrag(float x) {
+        Clip slide = selectedSlideClip();
+        if (slide == null || selectedIndex >= segRects.size()) return;
+        RectF seg = segRects.get(selectedIndex);
+        float min, max;
+        if (activeDrag == Drag.FREEZE_LEFT_HANDLE) {
+            min = seg.left + handleWidthPx;
+            max = (activeDragOtherFreezeX(seg, slide)) - handleWidthPx;
+        } else {
+            min = (activeDragOtherFreezeX(seg, slide)) + handleWidthPx;
+            max = seg.right - handleWidthPx;
+        }
+        freezeDragX = Math.max(min, Math.min(x, Math.max(min, max)));
+        invalidate();
+    }
+
+    private float activeDragOtherFreezeX(@NonNull RectF seg, @NonNull Clip slide) {
+        return activeDrag == Drag.FREEZE_LEFT_HANDLE
+                ? freezeRightX(seg, slide) : freezeLeftX(seg, slide);
+    }
+
+    /** Commit the freeze drag: px → clip-window ms, then notify the listener. */
+    private void finishFreezeDrag() {
+        Clip slide = selectedSlideClip();
+        if (slide == null || selectedIndex >= segRects.size() || listener == null) return;
+        RectF seg = segRects.get(selectedIndex);
+        long trimmed = Math.max(1, slide.getTrimmedDurationMs());
+        com.fadcam.ui.faditor.model.GeneratedSource gs = slide.getGeneratedSource();
+        long fs = gs != null ? Math.max(0, gs.freezeStartMs) : 0;
+        long fe = gs != null ? Math.max(0, gs.freezeEndMs) : 0;
+        if (activeDrag == Drag.FREEZE_LEFT_HANDLE) {
+            fs = Math.round((freezeDragX - seg.left - handleWidthPx) * trimmed / seg.width());
+        } else {
+            fe = Math.round((seg.right - handleWidthPx - freezeDragX) * trimmed / seg.width());
+        }
+        fs = Math.max(0, Math.min(fs, trimmed));
+        fe = Math.max(0, Math.min(fe, trimmed - fs));
+        listener.onSlideFreezeChanged(selectedIndex, fs, fe);
+        invalidate();
+    }
+
+    /**
+     * Freeze markers + zone tint for a selected slide clip: a ▶ marker where
+     * the animation starts, a ◀ where it ends, and a subtle tint over the
+     * frozen zones so the three-zone structure reads at a glance.
+     */
+    private void drawSlideFreezeHandles(Canvas canvas, RectF seg) {
+        Clip slide = selectedSlideClip();
+        if (slide == null) return;
+        float lx = activeDrag == Drag.FREEZE_LEFT_HANDLE
+                ? freezeDragX : freezeLeftX(seg, slide);
+        float rx = activeDrag == Drag.FREEZE_RIGHT_HANDLE
+                ? freezeDragX : freezeRightX(seg, slide);
+        // Frozen-zone tint (between the trim bar and the marker).
+        if (lx > seg.left + handleWidthPx + 1f) {
+            canvas.drawRect(seg.left + handleWidthPx, seg.top, lx, seg.bottom,
+                    freezeZonePaint);
+        }
+        if (rx < seg.right - handleWidthPx - 1f) {
+            canvas.drawRect(rx, seg.top, seg.right - handleWidthPx, seg.bottom,
+                    freezeZonePaint);
+        }
+        drawFreezeMarker(canvas, lx, seg, true);
+        drawFreezeMarker(canvas, rx, seg, false);
+    }
+
+    private void drawFreezeMarker(Canvas canvas, float x, RectF seg, boolean pointsRight) {
+        float cy = seg.centerY();
+        float h = handleNotchHeightPx * 1.2f;
+        float w = handleWidthPx * 0.8f;
+        android.graphics.Path p = new android.graphics.Path();
+        if (pointsRight) {
+            p.moveTo(x - w / 2f, cy - h / 2f);
+            p.lineTo(x - w / 2f, cy + h / 2f);
+            p.lineTo(x + w / 2f, cy);
+        } else {
+            p.moveTo(x + w / 2f, cy - h / 2f);
+            p.lineTo(x + w / 2f, cy + h / 2f);
+            p.lineTo(x - w / 2f, cy);
+        }
+        p.close();
+        canvas.drawPath(p, freezeMarkerPaint);
     }
 
     /**

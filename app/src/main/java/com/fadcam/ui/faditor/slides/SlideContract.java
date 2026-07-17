@@ -133,30 +133,42 @@ public final class SlideContract {
                 + "  <script src=\"faditor_runtime.js\"></script>\n"
                 + "- No other external resource of any kind: no CDNs, no Google Fonts links,\n"
                 + "  no remote images, no fetch/XMLHttpRequest/WebSocket. The renderer may be\n"
-                + "  fully offline.\n\n"
+                + "  fully offline.\n"
+                + "- EMBEDDED assets are fine and encouraged: inline <svg> (the best way to\n"
+                + "  draw diagrams, maps, scenes — GSAP animates SVG shapes/paths/groups\n"
+                + "  directly), images as base64 data: URIs, and @font-face fonts as data:\n"
+                + "  URIs. Everything must live inside this one file.\n\n"
                 + "CANVAS\n"
                 + "- The stage is a div with id=\"stage\" sized exactly " + width + "x" + height + "\n"
                 + "  pixels. Fill it edge-to-edge. Use fixed pixel values, not vw/vh.\n"
                 + "- Design a complete background — the slide fully replaces the video frame\n"
                 + "  for its duration.\n\n"
                 + "TIMING — THE MOST IMPORTANT RULE\n"
-                + "- Build exactly one GSAP timeline (gsap is provided by gsap.min.js).\n"
-                + "  Never use setInterval, setTimeout, requestAnimationFrame,\n"
+                + "- Drive ALL visual state from GSAP timelines (gsap is provided by\n"
+                + "  gsap.min.js). Never use setInterval, setTimeout, requestAnimationFrame,\n"
                 + "  infinite/auto-running CSS animations, or Date.now() to drive visual\n"
                 + "  state. The editor owns time: it calls Faditor.seek(ms) with arbitrary,\n"
                 + "  possibly out-of-order timestamps. Your animation must look correct at\n"
                 + "  any single timestamp, not just when played start-to-finish.\n"
-                + "- When your timeline is fully built, call exactly once:\n"
-                + "  Faditor.register(timeline, durationMs);\n"
+                + "- Nested/child timelines are fine (master.add(childTl, atSeconds)) for\n"
+                + "  complex choreography. You can place tweens at absolute times\n"
+                + "  (tl.to(target, {...}, 2.5)) — useful to sync text reveals to a\n"
+                + "  narration transcript if I give you one with timestamps.\n"
+                + "- When your MASTER timeline is fully built, call exactly once:\n"
+                + "  Faditor.register(masterTimeline, durationMs);\n"
                 + "  (Faditor is provided by faditor_runtime.js.) durationMs is your own\n"
                 + "  authored length as a plain integer literal — aim for roughly\n"
                 + "  " + durationHintMs + "ms, exact precision not required.\n"
                 + "- The editor may hold your final frame longer than your authored\n"
-                + "  duration, or cut you off early. Design an ending that looks fine\n"
-                + "  frozen.\n\n"
+                + "  duration, stretch the whole animation over a longer clip, or cut it\n"
+                + "  off early. Design a start and an ending that look fine frozen.\n\n"
                 + "CONTENT\n"
-                + "- Fonts: system-safe only (-apple-system, system-ui, Arial, Georgia,\n"
-                + "  monospace). Do not @import or link any other font.\n"
+                + "- Fonts: system-safe (-apple-system, system-ui, Arial, Georgia,\n"
+                + "  monospace) or an embedded data:-URI @font-face. No linked/remote fonts.\n"
+                + "- NO interactivity: no buttons, hover states, or click handlers — the\n"
+                + "  result is rasterized into plain video frames.\n"
+                + "- ONE scene per file. If I ask for a multi-slide deck, produce one\n"
+                + "  complete HTML file per slide, each with its own Faditor.register call.\n"
                 + "- I'll describe what the slide should say and how it should look in my\n"
                 + "  next message. If I haven't yet, ask me.\n\n"
                 + "SKELETON TO FOLLOW\n"
@@ -221,11 +233,15 @@ public final class SlideContract {
      */
     @Nullable
     public static String validate(@NonNull String html) {
-        if (!html.contains("Faditor.register(")) {
-            return "missing Faditor.register(...) call";
+        if (countOccurrences(html, "Faditor.register(") != 1) {
+            return html.contains("Faditor.register(")
+                    ? "must call Faditor.register(...) exactly once"
+                    : "missing Faditor.register(...) call";
         }
-        if (countOccurrences(html, "gsap.timeline(") != 1) {
-            return "must contain exactly one gsap.timeline(...)";
+        // Complex slides legitimately nest child timelines inside a master
+        // (tl.add(childTl)) — require at least one, register exactly one.
+        if (countOccurrences(html, "gsap.timeline(") < 1) {
+            return "must contain at least one gsap.timeline(...)";
         }
         String[] banned = {"fetch(", "XMLHttpRequest", "setInterval(", "setTimeout(",
                 "requestAnimationFrame(", "Date.now(", "<script src=\"http",

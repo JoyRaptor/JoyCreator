@@ -65,6 +65,51 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private Bitmap bitmap;
     private Canvas canvas;
 
+    /** Per-overlay decoded PNG frame reuse: overlayId → (frameIndex, bitmap). */
+    private final java.util.Map<String, android.util.Pair<Integer, Bitmap>>
+            generatedOverlayFrames = new java.util.HashMap<>();
+
+    /**
+     * Decoded frame of an AI-authored overlay slide at a timeline position.
+     * The sequence was baked with the stretch mapping applied, so the index is
+     * a straight overlay-local time lookup. Caches the last decoded frame per
+     * overlay — consecutive export frames usually hit the same PNG or its
+     * neighbor.
+     */
+    @Nullable
+    private Bitmap generatedOverlayFrame(@NonNull TextOverlayItem o, long timelineMs) {
+        com.fadcam.ui.faditor.model.GeneratedSource gs = o.getGeneratedSource();
+        if (gs == null || gs.renderSequenceDir == null) return null;
+        String dirPath = android.net.Uri.parse(gs.renderSequenceDir).getPath();
+        if (dirPath == null) return null;
+        long local = Math.max(0, timelineMs - o.getStartMs());
+        int idx = (int) Math.round((local / 1000.0)
+                * com.fadcam.ui.faditor.slides.SlideRenderer.RENDER_FPS);
+        java.io.File f;
+        while (idx >= 0) {
+            f = new java.io.File(dirPath, String.format(java.util.Locale.US,
+                    "frame%04d.png", idx));
+            if (f.isFile()) break;
+            idx--; // clamp onto the last existing frame (held final state)
+        }
+        if (idx < 0) return null;
+        android.util.Pair<Integer, Bitmap> cached = generatedOverlayFrames.get(o.getId());
+        if (cached != null && cached.first == idx && cached.second != null
+                && !cached.second.isRecycled()) {
+            return cached.second;
+        }
+        Bitmap bmp = android.graphics.BitmapFactory.decodeFile(
+                new java.io.File(dirPath, String.format(java.util.Locale.US,
+                        "frame%04d.png", idx)).getAbsolutePath());
+        if (cached != null && cached.second != null && !cached.second.isRecycled()) {
+            cached.second.recycle();
+        }
+        if (bmp != null) {
+            generatedOverlayFrames.put(o.getId(), new android.util.Pair<>(idx, bmp));
+        }
+        return bmp;
+    }
+
     // BitmapOverlay keeps the most recently returned bitmap to detect generation
     // id changes and re-upload the texture. We hold the two previous returned
     // bitmaps in a small ring and recycle the oldest one at the start of each
@@ -429,6 +474,22 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (!o.isVisibleAt(timelineMs)) continue;
             float opacity = o.animatedOpacity(timelineMs);
             if (opacity <= 0.001f) continue;
+            if (o.isGeneratedSlide()) {
+                // AI-authored transparent overlay slide (spec Phase 4): composite
+                // the pre-rendered PNG frame for this timeline position across the
+                // full canvas — the HTML owns its own layout inside the frame.
+                Bitmap frame = generatedOverlayFrame(o, timelineMs);
+                if (frame != null && !frame.isRecycled()) {
+                    Paint gp = new Paint(Paint.FILTER_BITMAP_FLAG);
+                    gp.setAlpha(Math.round(opacity * 255));
+                    android.graphics.Rect src =
+                            new android.graphics.Rect(0, 0, frame.getWidth(), frame.getHeight());
+                    android.graphics.Rect dst = new android.graphics.Rect(0, 0, outW, outH);
+                    canvas.drawBitmap(frame, src, dst, gp);
+                    drawnText++;
+                }
+                continue;
+            }
             float cx = o.animatedCenterX(timelineMs) * outW;
             float cy = o.animatedCenterY(timelineMs) * outH;
             float sizeFrac = o.animatedSizeFraction(timelineMs);

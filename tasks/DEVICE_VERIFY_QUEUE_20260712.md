@@ -1,5 +1,15 @@
 # DEVICE-VERIFY QUEUE — turnkey checklist (2026-07-12)
 
+> **▶ 2026-07-16 late (sandbox unlocked) — S1–S6 ALL RUN. S1 ✅ (open cebc19e0 → SlideRenderer log →
+> mpeg4 MP4 in slide_cache, 413KB), S2 ✅ (title full-opacity mid-hold, dimmed at fade-out, restores
+> scrubbing back), S3 ✅ (play crosses video→slide→video on the rendered MP4), S4 trim ✅ (3s→2.2s,
+> ripple + undo correct). S5/S6 run by JOYRAPTOR live: S6 ✅ FULL PASS — copied prompt → external AI →
+> pasted complex HTML → scrubbed → exported. S5 ✅ slide renders in export BUT 🐛 **transition at the
+> slide seam (radial) shows in preview and NOT in export** → new fix item. Also from JoyRaptor's hands-on:
+> slide trim should STRETCH the animation (speed-remap) not cut frames; wants inner freeze-zone
+> handles (frozen start/animated middle/frozen end); wants double-tap slide → code view/edit sheet.
+> All queued as build items in the Fable session.**
+
 > **▶ NEW 2026-07-16 evening (Fable slides session) — AI-slide UI checks, sandbox was PIN-locked
 > (Bouncer, `deviceLocked=1`) so only headless halves ran. Ready-made asset: project `cebc19e0`
 > ("P0 control2 plain") has a fallback slide "Chapter One" inserted at clip index 1 via

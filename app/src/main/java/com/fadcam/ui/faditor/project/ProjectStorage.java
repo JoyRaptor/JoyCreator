@@ -865,6 +865,9 @@ public class ProjectStorage {
         g.addProperty("height", gs.height);
         if (gs.styleHint != null) g.addProperty("styleHint", gs.styleHint);
         if (gs.sourceModel != null) g.addProperty("sourceModel", gs.sourceModel);
+        if (gs.freezeStartMs != 0) g.addProperty("freezeStartMs", gs.freezeStartMs);
+        if (gs.freezeEndMs != 0) g.addProperty("freezeEndMs", gs.freezeEndMs);
+        if (gs.renderStateHash != null) g.addProperty("renderStateHash", gs.renderStateHash);
         parentJson.add("generatedSource", g);
     }
 
@@ -885,6 +888,9 @@ public class ProjectStorage {
         if (g.has("height")) gs.height = g.get("height").getAsInt();
         if (g.has("styleHint")) gs.styleHint = g.get("styleHint").getAsString();
         if (g.has("sourceModel")) gs.sourceModel = g.get("sourceModel").getAsString();
+        if (g.has("freezeStartMs")) gs.freezeStartMs = g.get("freezeStartMs").getAsLong();
+        if (g.has("freezeEndMs")) gs.freezeEndMs = g.get("freezeEndMs").getAsLong();
+        if (g.has("renderStateHash")) gs.renderStateHash = g.get("renderStateHash").getAsString();
         return gs;
     }
 
@@ -1366,6 +1372,16 @@ public class ProjectStorage {
         if (clipObj.has("generatedSource")) {
             clip.setGeneratedSource(deserializeGeneratedSource(
                     clipObj.getAsJsonObject("generatedSource")));
+            // Slides are freely stretchable (the animation time-remaps to the
+            // clip window), so their trim ceiling is a constant, not the
+            // authored length. Widen legacy slides saved before stretch landed.
+            if (clip.getGeneratedSource() != null
+                    && !clip.getGeneratedSource().isOverlay()
+                    && clip.getSourceDurationMs()
+                            < com.fadcam.ui.faditor.slides.SlideRenderer.SLIDE_MAX_DURATION_MS) {
+                clip.setSourceDurationMs(
+                        com.fadcam.ui.faditor.slides.SlideRenderer.SLIDE_MAX_DURATION_MS);
+            }
         }
         // Per-item compositing spec — restored for masters AND overlays (the
         // serializer writes it at clip level, outside the layerId block).
@@ -1610,6 +1626,7 @@ public class ProjectStorage {
                     }
                     oJson.add("keyframes", tracksJson);
                 }
+                serializeGeneratedSource(oJson, o.getGeneratedSource());
                 overlaysArray.add(oJson);
             }
             timelineJson.add("textOverlays", overlaysArray);
@@ -2097,6 +2114,10 @@ public class ProjectStorage {
                                                     kj.get("e").getAsString()));
                                 }
                             }
+                        }
+                        if (oObj.has("generatedSource")) {
+                            o.setGeneratedSource(deserializeGeneratedSource(
+                                    oObj.getAsJsonObject("generatedSource")));
                         }
                         project.getTimeline().addTextOverlay(o);
                     }

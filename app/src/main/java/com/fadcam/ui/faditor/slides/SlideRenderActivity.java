@@ -55,6 +55,12 @@ public class SlideRenderActivity extends Activity {
     public static final String EXTRA_HEIGHT = "height";
     public static final String EXTRA_FPS = "fps";
     public static final String EXTRA_DURATION_MS = "duration_ms";
+    /** Total capture window (clip source time). Defaults to duration_ms. */
+    public static final String EXTRA_TOTAL_MS = "total_ms";
+    /** Source-time ms where the (stretched) animation starts. Default 0. */
+    public static final String EXTRA_ANIM_START_MS = "anim_start_ms";
+    /** Source-time ms where the animation ends. Default duration_ms. */
+    public static final String EXTRA_ANIM_END_MS = "anim_end_ms";
     /** When true (or no html_path given), renders the bundled sample slide. */
     public static final String EXTRA_USE_SAMPLE = "use_sample";
     /**
@@ -78,6 +84,9 @@ public class SlideRenderActivity extends Activity {
     private int height;
     private int fps;
     private long durationMs;
+    private long totalMs;
+    private long animStartMs;
+    private long animEndMs;
 
     private int frameCount;
     private int currentFrame;
@@ -107,6 +116,9 @@ public class SlideRenderActivity extends Activity {
         height = Math.max(2, getIntent().getIntExtra(EXTRA_HEIGHT, 1920));
         fps = Math.max(1, getIntent().getIntExtra(EXTRA_FPS, 30));
         durationMs = Math.max(100, getIntent().getLongExtra(EXTRA_DURATION_MS, 2900));
+        totalMs = Math.max(100, getIntent().getLongExtra(EXTRA_TOTAL_MS, durationMs));
+        animStartMs = Math.max(0, getIntent().getLongExtra(EXTRA_ANIM_START_MS, 0));
+        animEndMs = getIntent().getLongExtra(EXTRA_ANIM_END_MS, totalMs);
 
         String outPath = getIntent().getStringExtra(EXTRA_OUT_DIR);
         if (outPath == null || outPath.isEmpty()) {
@@ -119,16 +131,32 @@ public class SlideRenderActivity extends Activity {
             return;
         }
 
-        String html = loadHtml();
-        if (html == null) {
-            failAndFinish("No HTML to render");
-            return;
+        // Authored slides load via file:// from their own directory so relative
+        // image refs resolve; the bundled sample keeps the asset-base data load.
+        boolean useSample = getIntent().getBooleanExtra(EXTRA_USE_SAMPLE, false);
+        String htmlPath = getIntent().getStringExtra(EXTRA_HTML_PATH);
+        File htmlFile = (!useSample && htmlPath != null && !htmlPath.isEmpty())
+                ? new File(htmlPath) : null;
+        String html = null;
+        if (htmlFile != null) {
+            if (!htmlFile.isFile()) {
+                failAndFinish("html_path not found: " + htmlPath);
+                return;
+            }
+            File dir = htmlFile.getParentFile();
+            if (dir != null) SlideFiles.ensureRuntimeIn(this, dir);
+        } else {
+            html = loadHtml();
+            if (html == null) {
+                failAndFinish("No HTML to render");
+                return;
+            }
         }
 
-        // Total number of frames including the final frame at durationMs.
-        frameCount = (int) Math.max(1, Math.round((durationMs / 1000.0) * fps));
+        // Total number of frames including the final frame at totalMs.
+        frameCount = (int) Math.max(1, Math.round((totalMs / 1000.0) * fps));
 
-        setupWebView(html);
+        setupWebView(html, htmlFile);
     }
 
     /**
@@ -187,7 +215,7 @@ public class SlideRenderActivity extends Activity {
     }
 
     @SuppressWarnings({"SetJavaScriptEnabled"})
-    private void setupWebView(@NonNull String html) {
+    private void setupWebView(@Nullable String html, @Nullable File htmlFile) {
         webView = new WebView(this);
         // Hardware-accelerated WebViews don't reliably hand pixels to draw().
         webView.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
@@ -230,7 +258,11 @@ public class SlideRenderActivity extends Activity {
         webView.onResume();
         webView.resumeTimers();
 
-        webView.loadDataWithBaseURL(ASSET_BASE, html, "text/html", "utf-8", null);
+        if (htmlFile != null) {
+            webView.loadUrl(android.net.Uri.fromFile(htmlFile).toString());
+        } else {
+            webView.loadDataWithBaseURL(ASSET_BASE, html, "text/html", "utf-8", null);
+        }
 
         // Safety: if the page never signals ready, bail after a timeout.
         handler.postDelayed(() -> {
@@ -257,8 +289,21 @@ public class SlideRenderActivity extends Activity {
             return;
         }
         long ms = Math.round((currentFrame * 1000.0) / fps);
-        if (ms > durationMs) ms = durationMs;
-        final long seekMs = ms;
+        if (ms > totalMs) ms = totalMs;
+        // Stretch/freeze mapping (JoyRaptor 2026-07-16): hold the first authored
+        // frame until animStartMs, stretch the authored timeline linearly
+        // across animStart..animEnd, hold the last frame after.
+        final long seekMs;
+        if (animEndMs <= animStartMs) {
+            seekMs = ms < animEndMs ? 0 : durationMs;
+        } else if (ms <= animStartMs) {
+            seekMs = 0;
+        } else if (ms >= animEndMs) {
+            seekMs = durationMs;
+        } else {
+            seekMs = Math.round((double) durationMs * (ms - animStartMs)
+                    / (animEndMs - animStartMs));
+        }
         webView.evaluateJavascript("Faditor.seek(" + seekMs + ");", value -> {
             // The eval callback fires when the JS ran, not when the new state has
             // been DRAWN. postVisualStateCallback is the WebView API for exactly

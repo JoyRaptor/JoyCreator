@@ -62,6 +62,30 @@ public class GeneratedSource {
     @Nullable
     public String sourceModel;
 
+    /**
+     * Frozen-start zone (JoyRaptor 2026-07-16): the animation holds its FIRST frame
+     * for this many ms after the clip's in-point before it starts playing.
+     * Together with {@link #freezeEndMs} this defines the animated window; the
+     * animation is time-stretched to exactly fill it (see
+     * {@code SlideRenderer.mapSourceToAnimMs}). Default 0 = no frozen start.
+     */
+    public long freezeStartMs;
+
+    /**
+     * Frozen-end zone: the animation reaches its LAST frame this many ms before
+     * the clip's out-point and holds it. Default 0 = no frozen end.
+     */
+    public long freezeEndMs;
+
+    /**
+     * Trim-state stamp of the currently cached render ({@code contentHash} +
+     * in/out points + freeze zones at render time). When it no longer matches
+     * the clip's live state the MP4 is stale and gets re-rendered — the same
+     * "cache is never source of truth" rule as {@link #renderCacheUri}.
+     */
+    @Nullable
+    public String renderStateHash;
+
     public GeneratedSource() { }
 
     public GeneratedSource(@NonNull String mode, @NonNull String htmlUri,
@@ -94,6 +118,9 @@ public class GeneratedSource {
         g.height = height;
         g.styleHint = styleHint;
         g.sourceModel = sourceModel;
+        g.freezeStartMs = freezeStartMs;
+        g.freezeEndMs = freezeEndMs;
+        g.renderStateHash = renderStateHash;
         return g;
     }
 }

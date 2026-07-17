@@ -24,7 +24,7 @@ public class Clip {
     private final String id;
 
     @NonNull
-    private final Uri sourceUri;
+    private Uri sourceUri;
 
     /** Start position within the source video (milliseconds). */
     private long inPointMs;
@@ -552,6 +552,17 @@ public class Clip {
     @NonNull
     public Uri getSourceUri() {
         return sourceUri;
+    }
+
+    /**
+     * Repoint a generated slide's source at a freshly baked render file.
+     * Slides are the ONE case where a clip's source legitimately moves: the
+     * render is a per-trim-state cache artifact, not user media. No-ops for
+     * ordinary clips so nothing else can ever silently rewrite a source.
+     */
+    public void repointGeneratedSlideSource(@NonNull Uri uri) {
+        if (generatedSource == null) return;
+        this.sourceUri = uri;
     }
 
     public long getInPointMs() {

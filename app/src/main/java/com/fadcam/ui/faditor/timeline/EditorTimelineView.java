@@ -214,6 +214,12 @@ public class EditorTimelineView extends View {
     private long transitionDragStartDurationMs = 0;
     private float transitionDragStartX = 0f;
     private float transitionDragX = 0f;
+    // Set by transitionDurationFromDragX() on every call: whether the requested duration
+    // exceeded the neighbor-clip seam limit (maxSpan) and had to be clamped down, and what
+    // that limit was. The activity reads these right after onTransitionDurationFinished's
+    // duration is computed to decide whether to surface a "limited by clip length" toast.
+    private boolean lastTransitionDragWasSpanClamped = false;
+    private long lastTransitionDragMaxSpanMs = 0;
 
     // Overlay/caption "layer" rows shown below the tracks (read-only view of
     // each overlay's time-range + keyframes so the user can SEE them).
@@ -2270,6 +2276,20 @@ public class EditorTimelineView extends View {
                 color = 0x994CAF50;
                 label = "dissolve";
             }
+            // Chip-label honesty: the chip's drawable width is capped to the neighbor-clip seam
+            // (maxSpan below, same clamp as getTransitionRect), but the MODEL can still hold a
+            // longer durationMs (a shorter clip elsewhere un-clamps it later). Showing only the
+            // clamped span silently hid the real stored value from JoyRaptor ("handles snap to whatever
+            // they prefer"). When clamped, append "(of Xs)" so the stored value stays visible.
+            // TODO(strings): externalize " (of %ss)" once the strings pass lands.
+            int seamForLabel = Math.max(0, Math.min(t.clipIndex, segments.size() - 2));
+            long leftDurForLabel = segments.get(seamForLabel).effectiveMs;
+            long rightDurForLabel = segments.get(seamForLabel + 1).effectiveMs;
+            long maxSpanForLabel = Math.max(1, Math.min(leftDurForLabel, rightDurForLabel));
+            if (t.durationMs > maxSpanForLabel) {
+                label = label + " " + formatTransitionDurationShort(maxSpanForLabel)
+                        + " (of " + formatTransitionDurationShort(t.durationMs) + ")";
+            }
 
             // Transition zone stripes: blue at 50% to match the blue selection
             // outline (type is still conveyed by the label).
@@ -2335,6 +2355,11 @@ public class EditorTimelineView extends View {
                 segRects.get(segRects.size() - 1).right - w));
         return new RectF(x, segRects.get(Math.min(seam, segRects.size() - 1)).top,
                 x + w, segRects.get(Math.min(seam, segRects.size() - 1)).bottom);
+    }
+
+    /** Short "1.6s" style formatting for the chip-label clamp indicator. */
+    private String formatTransitionDurationShort(long ms) {
+        return String.format(java.util.Locale.US, "%.1fs", ms / 1000f);
     }
 
     private long getSeamTimeMs(int seam) {
@@ -6710,7 +6735,22 @@ public class EditorTimelineView extends View {
         long leftDur = seam > 0 ? segments.get(seam - 1).effectiveMs : 0;
         long rightDur = seam < segments.size() ? segments.get(seam).effectiveMs : segments.get(seam - 1).effectiveMs;
         long maxSpan = Math.max(50, Math.min(leftDur, rightDur));
-        return Math.max(50, Math.min(10_000, Math.min(maxSpan, newDuration)));
+        long modelClamped = Math.max(50, Math.min(10_000, newDuration));
+        lastTransitionDragMaxSpanMs = maxSpan;
+        lastTransitionDragWasSpanClamped = modelClamped > maxSpan;
+        return Math.min(maxSpan, modelClamped);
+    }
+
+    /** Whether the most recent {@link #transitionDurationFromDragX} call was limited by the
+     *  neighbor-clip seam (maxSpan), not the 50ms-10s model clamp. Read this right after
+     *  onTransitionDurationFinished fires to decide whether to toast the user. */
+    public boolean wasLastTransitionDragSpanClamped() {
+        return lastTransitionDragWasSpanClamped;
+    }
+
+    /** The neighbor-clip seam limit (ms) that applied to the most recent transition drag. */
+    public long getLastTransitionDragMaxSpanMs() {
+        return lastTransitionDragMaxSpanMs;
     }
 
     private Drag hitTestTransitionHandle(int transitionIndex, float x, float y) {

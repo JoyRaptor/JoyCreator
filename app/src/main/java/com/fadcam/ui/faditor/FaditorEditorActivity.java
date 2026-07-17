@@ -1906,6 +1906,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 project.getTimeline().setTransitionDuration(index, durationMs);
                 saveProjectNow();
                 updateTransitionInspector(index);
+                // Surface the neighbor-clip seam limit: the drag view silently clamps durationMs to
+                // min(leftClip, rightClip) at this seam (EditorTimelineView.transitionDurationFromDragX's
+                // maxSpan), so a drag asking for more than the seam allows lands short with no feedback.
+                // JoyRaptor reported this as "the handles snap to whatever they prefer, I have no control."
+                // TODO(strings): externalize this toast text.
+                if (editorTimeline != null && editorTimeline.wasLastTransitionDragSpanClamped()) {
+                    String msg = "Limited to " + String.format(java.util.Locale.US, "%.1fs", durationMs / 1000f)
+                            + " — the clips at this seam aren't long enough for more";
+                    Toast.makeText(FaditorEditorActivity.this, msg, Toast.LENGTH_SHORT).show();
+                }
             }
 
             @Override

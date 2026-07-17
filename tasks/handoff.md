@@ -1,5 +1,40 @@
 # FadCam AI Handoff
 
+> **🎨 2026-07-17 — FABLE(5): JoyRaptor-feedback batch + spec sweep. 7 commits (`46523ed`…`4b6533e`),
+> ALL compile-green; FULL build installed on main phone REAL_SERIAL at session end.**
+> **(1) LANDED THE PRIOR SESSION'S IN-FLIGHT TREE (`46523ed`, 1397 lines, was uncommitted):** slides
+> Phase 4 overlay mode + time-stretch trims + freeze handles + SlideCodeBottomSheet + runtime r2 +
+> double-transition clamp fix — all device-proven per the spec doc; icons/PSD left uncommitted (not ours).
+> **(2) QUICK FIXES (`da555f1`):** (a) SlideCodeBottomSheet keyboard — sheet window wasn't IME-focusable
+> over the immersive editor (clearFlags + ADJUST_RESIZE + explicit showSoftInput); (b) transcript
+> version-chip menu gained "Copy word-level timing" (`[mm:ss.mmm-mm:ss.mmm] word` per line, exact spans,
+> round-trips through import with NO interpolation — TranscriptIO.parseWordLevel runs first); (c) the
+> transition "handles snap back" bug: the 100..2000ms clamp lived in FOUR places and the Transition
+> CONSTRUCTOR clobbered longer durations on every load round-trip — all sites now share
+> `Transition.clampDurationMs` (50ms..10s; export still seam-clamps via effectiveTransitionMs).
+> **(3) CAPTIONS OVERHAUL (`0ac1fa2`, JoyRaptor's pro-tool spec):** CaptionStyle grew font/outline/shadow
+> (+JSON); both renderers honor them identically; new `CaptionStyleStore` (app-wide named customs
+> `custom_*` listed in the bottom ticker + per-clip drafts `customdraft_<clipId>` so tweaking one clip
+> never restyles another; :export inits the store in CompositeExportOverlay). Drawer rebuilt: style row
+> gone, 3-line position toggle + size on one row, collapsed font carousel, Pop/Zoom/Bounce, Text/
+> Highlight swatches, Box/Outline toggle+color, Shadow, palette picker, save-floppy→named style in the
+> ticker, trash, export/import styles as text.
+> **(4) LONGFILE ROUND-4 (`75f0a49`):** transcript SEARCH hits mirror on the words tape (amber bold /
+> taller amber marks at wide zoom); BOTH silence dialogs live-preview candidates on slider release
+> ("N gaps — Xs would be trimmed", generation-guarded); visualizer long-press → object menu
+> (Customize/Delete) replacing the confirm-less instant delete.
+> **(5) SPEC SWEEP (`034c7c2`, `4b6533e`):** narrative-reorder = COMPLETE (added the last TODO,
+> Decision-5 boundary→silence snapping in apply_narrative_proposal); b-roll spec audit = COMPLETE
+> (header was stale, all 4 phases landed); LANE_BADGES §1 built (`drawKindBadge` gutter glyphs replace
+> name labels; §4.5 eye/lock→per-object migration deliberately deferred — needs per-object controls
+> first; §2 previews + §3 pinning queued).
+> **DEVICE-VERIFY OWED (JoyRaptor, on the just-installed build):** code-editor keyboard; word-level copy
+> round-trip; transitions now stretch 50ms..10s and SURVIVE REOPEN; whole captions drawer (tweak→save→
+> ticker chip→export caption with custom style); search hits on tape; gap live preview; viz hold menu;
+> lane badges look. **REMAINING BUILD QUEUE (session-sized):** dual-stream recording spec (5 phases,
+> never started, recording pipeline); visualizer-studio Phase 4 (live-recording viz, perf-gated);
+> LANE_BADGES §2 item previews + §3 pinned thumbs; narrative/b-roll visual-verify with an AI key.**
+
 > **🎬 2026-07-16 evening — FABLE(5): AI-GENERATED SLIDES LANDED (spec + addendum), capture pipeline
 > DEVICE-PROVEN behind a locked keyguard. 3 commits (`ee75ade`, `b58d92c`, `642fb06`) + docs.**
 > **State discovered at session start:** the whole June `slides/` package (Phases 0–3: capture/encode/

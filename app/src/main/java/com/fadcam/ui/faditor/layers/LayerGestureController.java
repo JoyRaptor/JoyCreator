@@ -1657,6 +1657,16 @@ public final class LayerGestureController {
         return active && pickupArmed && activeKind == GestureKind.MOVE;
     }
 
+    /**
+     * True while the move-drag is hovering a between-rows GAP (Slice 2 gap-insertion
+     * target). A1 arbitration (dragux_v3 C8): a gap hover means the finger is between
+     * rows and the intent is VERTICAL (open a new lane here) — so horizontal edge
+     * auto-pan must NOT run (it already disarms the bookend excursion via clearBookend).
+     */
+    public boolean isHoverGapActive() {
+        return hoverGapIndex >= 0;
+    }
+
 
     /** Guard: a payload may only be dropped on a track whose kind accepts it. */
     private static boolean payloadCompatible(@NonNull TimedItem item, @NonNull Track candidate) {

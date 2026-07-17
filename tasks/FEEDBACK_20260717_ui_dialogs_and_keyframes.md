@@ -227,7 +227,15 @@ already property-focused.)
    insertion target drawn as one accent line; release creates the track AT that index with z
    renumbered in ONE undo step (old zIndexes snapshotted for fold-in undo). C5 riders in: sticky
    hover (2x exit zone), gap entry disarms the bookend excursion, content-coordinate hit-testing.
-   C8 stragglers (A1 edge auto-pan, outline color audit) NOT included — still open.
+   C8 stragglers ✅ CLOSED 2026-07-17 (audit finding: A1 edge auto-pan + the DRAG_OUTLINE state
+   machine were ALREADY in 470f936 and survived Slice 2 — C8's "not in code" was the stale-build
+   artifact). Two real gaps fixed: (1) gap-insertion hover now suppresses horizontal edge-pan
+   (isHoverGapActive gate, both the 60fps runnable and the arm site — vertical intent, no
+   competing scroll; M6 vertical reveal stays live); (2) same-row outline was
+   blendToWhite(itemColor) which read ≈cross-row PURPLE on text/sticker items — now neutral
+   WHITE constant; purple 0xFF8C3DFA stays single-sourced for the cross-row/new-layer family,
+   snap-home stays gray. DEVICE-VERIFY: drag an item to the screen edge (sustained pan), into a
+   gap at the edge (pan stops), same-row vs cross-row outline colors on a text item.
    DEVICE-VERIFY OWED: pick up an item, hover each gap incl. above-top/below-bottom, drop → new
    layer at that position; undo restores in one step with old ordering.
 3. **Keyframe visibility batch — `<♦>` widget + C7 ✅ BUILT 2026-07-17 (compile-green); C4 row

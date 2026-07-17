@@ -190,10 +190,21 @@ public final class LayerRowRenderer {
      * cross-row affordance"). Drives the cross-row drag-target highlight ring, the
      * gap insertion line, and the cross-band insertion line — every "landing on
      * another row / linkage context" cue reads as one purple family. Same-row
-     * moves keep the item's own color; snap-home stays gray (home ghost).
+     * moves read neutral WHITE ({@link #COLOR_SAME_ROW_OUTLINE}); snap-home stays
+     * gray (home ghost).
      */
     private static final int COLOR_DROP_TARGET_RING = 0xFF8C3DFA;
     private final Paint dropTargetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /**
+     * Same-row (time-only) move outline (dragux_v3 slice-3 #2 audit, C8): NEUTRAL WHITE,
+     * item-color-INDEPENDENT. The old item-color-blended-toward-white read purple for
+     * TEXT/STICKER items (base 0xFF8C3DFA blended 22% toward white ≈ 0xFFA567FB) — nearly
+     * identical to {@link #COLOR_DROP_TARGET_RING} cross-row purple, so same-row and
+     * cross-row shared a color for those types (the ambiguity the audit bans). White is
+     * the one unambiguous same-row cue for EVERY item kind; purple = cross-row family only.
+     */
+    private static final int COLOR_SAME_ROW_OUTLINE = 0xFFFFFFFF;
 
     // ── Slice 2 (dragux_v3, BINDING 2026-07-04, built 2026-07-17): the GAP is the
     // new-layer target. While an item is picked up, every gap between adjacent
@@ -683,8 +694,9 @@ public final class LayerRowRenderer {
     // lifted, THIS outline replaces it entirely. ──
     /** No pickup in progress — no drag outline. */
     public static final int DRAG_OUTLINE_NONE = 0;
-    /** Landing on the item's OWN row: outline = the item's own color family (slightly
-     *  brightened, never blended near white). */
+    /** Landing on the item's OWN row (time-only move): outline = neutral WHITE
+     *  ({@link #COLOR_SAME_ROW_OUTLINE}), item-color-independent so it never collides
+     *  with the cross-row purple for TEXT/STICKER items. */
     public static final int DRAG_OUTLINE_SAME_ROW = 1;
     /** Landing on ANOTHER row: the established PURPLE cross-row/linkage affordance. */
     public static final int DRAG_OUTLINE_CROSS_ROW = 2;
@@ -705,7 +717,7 @@ public final class LayerRowRenderer {
         switch (dragOutlineState) {
             case DRAG_OUTLINE_CROSS_ROW: color = COLOR_DROP_TARGET_RING; break;
             case DRAG_OUTLINE_NEW_LAYER: color = brighten(COLOR_DROP_TARGET_RING); dashed = true; break;
-            case DRAG_OUTLINE_SAME_ROW: color = blendToWhite(baseColor | 0xFF000000, 0.22f); break;
+            case DRAG_OUTLINE_SAME_ROW: color = COLOR_SAME_ROW_OUTLINE; break;
             default: return;
         }
         int prevColor = itemSelectionPaint.getColor();

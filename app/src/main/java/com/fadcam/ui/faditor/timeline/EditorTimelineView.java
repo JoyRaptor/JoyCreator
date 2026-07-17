@@ -789,13 +789,17 @@ public class EditorTimelineView extends View {
                 isEdgeScrolling = false;
                 return;
             }
+            // A1 arbitration (C8): a gap-insertion hover suppresses horizontal edge-pan
+            // even when the finger is held still in the edge zone (intent is vertical —
+            // open a new lane). Vertical M6 row-reveal below stays live.
+            boolean gapHover = layerGestureController.isHoverGapActive();
             float fx = lastItemDragScreenX;
             float fy = lastItemDragScreenY;
             int vw = getWidth();
             float hDelta = 0f;
-            if (fx < edgeScrollZonePx) {
+            if (!gapHover && fx < edgeScrollZonePx) {
                 hDelta = -edgeScrollMaxSpeedPx * (1f - fx / edgeScrollZonePx);
-            } else if (fx > vw - edgeScrollZonePx) {
+            } else if (!gapHover && fx > vw - edgeScrollZonePx) {
                 hDelta = edgeScrollMaxSpeedPx * (1f - (vw - fx) / edgeScrollZonePx);
             }
             // VERTICAL M6 auto-scroll (JoyRaptor 2026-07-07 hand-test): a held item near the top/bottom of
@@ -5760,7 +5764,11 @@ public class EditorTimelineView extends View {
             if (layerGestureController.isMoveDragActive()) {
                 lastItemDragScreenX = x;
                 lastItemDragScreenY = y;
-                inEdgeZone = x < edgeScrollZonePx || x > getWidth() - edgeScrollZonePx;
+                // A1 arbitration (C8): a gap-insertion hover (finger between rows, vertical
+                // intent) suppresses horizontal edge-pan — the gap entry already disarmed
+                // the excursion, so no scroll competes with the new-lane placement.
+                inEdgeZone = !layerGestureController.isHoverGapActive()
+                        && (x < edgeScrollZonePx || x > getWidth() - edgeScrollZonePx);
                 if (inEdgeZone) {
                     cancelPendingExcursionEnter();
                     abandonExcursionInPlace();

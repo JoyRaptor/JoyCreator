@@ -196,6 +196,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets,
                                    @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs) {
         this.context = context.getApplicationContext();
+        // Custom caption styles resolve through the store; the :export process is
+        // fresh per export, so init here before any CaptionStyle.byId call.
+        com.fadcam.ui.faditor.transcript.CaptionStyleStore.ensureInit(this.context);
         this.clipTimelineStartMs = clipTimelineStartMs;
         this.clip = clip;
         this.outW = Math.max(1, outW);

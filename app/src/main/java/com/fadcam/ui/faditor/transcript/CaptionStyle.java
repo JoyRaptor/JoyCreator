@@ -1,13 +1,21 @@
 package com.fadcam.ui.faditor.transcript;
 
+import android.graphics.Typeface;
+
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
 
 /**
  * A visual preset for animated on-screen captions (TikTok-style). Defines the
- * colours, optional background pill, and how the currently-spoken word animates.
+ * colours, optional background pill, font, outline/shadow, and how the
+ * currently-spoken word animates.
+ *
+ * <p>Beyond the built-in {@link #presets()}, users can save their own styles
+ * (JoyRaptor 2026-07-16 captions overhaul) — those live in {@link CaptionStyleStore}
+ * and resolve through the same {@link #byId} lookup.</p>
  */
 public class CaptionStyle {
 
@@ -21,13 +29,20 @@ public class CaptionStyle {
     }
 
     @NonNull public final String id;
-    @NonNull public final String label;
-    public final int baseColor;     // words not currently spoken
-    public final int activeColor;   // the word being spoken
-    public final boolean pill;      // draw a rounded background behind the phrase
-    public final int pillColor;
-    public final boolean bold;
-    @NonNull public final Anim anim;
+    @NonNull public String label;
+    public int baseColor;     // words not currently spoken
+    public int activeColor;   // the word being spoken
+    public boolean pill;      // draw a rounded background behind the phrase
+    public int pillColor;
+    public boolean bold;
+    @NonNull public Anim anim;
+    /** Font key — same vocabulary as text overlays ("default", "serif", "mono", …). */
+    @NonNull public String fontKey = "default";
+    /** Stroke outline around every word. */
+    public boolean outline = false;
+    public int outlineColor = 0xFF000000;
+    /** Soft drop shadow (the classic caption look — on for all built-ins). */
+    public boolean shadow = true;
 
     public CaptionStyle(@NonNull String id, @NonNull String label, int baseColor,
                         int activeColor, boolean pill, int pillColor, boolean bold,
@@ -40,6 +55,104 @@ public class CaptionStyle {
         this.pillColor = pillColor;
         this.bold = bold;
         this.anim = anim;
+    }
+
+    /** Deep copy under a different id (for cloning presets into custom styles). */
+    @NonNull
+    public CaptionStyle copyAs(@NonNull String newId, @NonNull String newLabel) {
+        CaptionStyle c = new CaptionStyle(newId, newLabel, baseColor, activeColor,
+                pill, pillColor, bold, anim);
+        c.fontKey = fontKey;
+        c.outline = outline;
+        c.outlineColor = outlineColor;
+        c.shadow = shadow;
+        return c;
+    }
+
+    /** True for user-saved (or working-draft) styles, false for built-ins. */
+    public boolean isCustom() {
+        return id.startsWith("custom");
+    }
+
+    /**
+     * The typeface this style renders with. Mirrors the text-overlay font
+     * vocabulary so the caption font selector can reuse the same keys.
+     */
+    @NonNull
+    public Typeface typeface() {
+        Typeface base;
+        switch (fontKey) {
+            case "serif":   base = Typeface.SERIF; break;
+            case "mono":    base = Typeface.MONOSPACE; break;
+            case "condensed": base = Typeface.create("sans-serif-condensed", Typeface.NORMAL); break;
+            case "rounded": base = Typeface.create("sans-serif-medium", Typeface.NORMAL); break;
+            case "light":   base = Typeface.create("sans-serif-light", Typeface.NORMAL); break;
+            case "default":
+            default:        base = Typeface.SANS_SERIF; break;
+        }
+        return bold ? Typeface.create(base, Typeface.BOLD) : base;
+    }
+
+    /** Font keys offered by the caption font selector, with display labels. */
+    @NonNull
+    public static String[][] fontChoices() {
+        return new String[][]{
+                {"default", "Standard"},
+                {"serif", "Serif"},
+                {"mono", "Mono"},
+                {"condensed", "Condensed"},
+                {"rounded", "Rounded"},
+                {"light", "Light"},
+        };
+    }
+
+    // ── JSON (custom-style store + export/import as text) ──────────────
+
+    @NonNull
+    public org.json.JSONObject toJson() {
+        org.json.JSONObject o = new org.json.JSONObject();
+        try {
+            o.put("v", 1);
+            o.put("id", id);
+            o.put("label", label);
+            o.put("base", baseColor);
+            o.put("active", activeColor);
+            o.put("pill", pill);
+            o.put("pillColor", pillColor);
+            o.put("bold", bold);
+            o.put("anim", anim.name());
+            o.put("font", fontKey);
+            o.put("outline", outline);
+            o.put("outlineColor", outlineColor);
+            o.put("shadow", shadow);
+        } catch (org.json.JSONException ignored) { }
+        return o;
+    }
+
+    @Nullable
+    public static CaptionStyle fromJson(@NonNull org.json.JSONObject o) {
+        try {
+            String id = o.optString("id", "");
+            String label = o.optString("label", "Custom");
+            if (id.isEmpty()) return null;
+            Anim anim;
+            try {
+                anim = Anim.valueOf(o.optString("anim", "POP"));
+            } catch (IllegalArgumentException e) {
+                anim = Anim.POP;
+            }
+            CaptionStyle s = new CaptionStyle(id, label,
+                    o.optInt("base", 0xFFFFFFFF), o.optInt("active", 0xFFFFEB3B),
+                    o.optBoolean("pill", false), o.optInt("pillColor", 0xCC000000),
+                    o.optBoolean("bold", true), anim);
+            s.fontKey = o.optString("font", "default");
+            s.outline = o.optBoolean("outline", false);
+            s.outlineColor = o.optInt("outlineColor", 0xFF000000);
+            s.shadow = o.optBoolean("shadow", true);
+            return s;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** The built-in visual style presets shown in the picker. */
@@ -69,12 +182,19 @@ public class CaptionStyle {
                 false, 0, false, Anim.POP);
     }
 
+    /**
+     * Resolve a style id: built-ins first, then the user's saved custom styles
+     * (when {@link CaptionStyleStore} has been initialised in this process),
+     * else the first preset.
+     */
     @NonNull
     public static CaptionStyle byId(@NonNull String id) {
         if ("hidden".equals(id)) return hidden();
         for (CaptionStyle s : presets()) {
             if (s.id.equals(id)) return s;
         }
+        CaptionStyle custom = CaptionStyleStore.find(id);
+        if (custom != null) return custom;
         return presets().get(0);
     }
 }

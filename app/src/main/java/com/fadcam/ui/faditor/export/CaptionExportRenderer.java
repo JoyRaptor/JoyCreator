@@ -138,8 +138,12 @@ public class CaptionExportRenderer {
 
         float fontPx = sizeFraction * r.height();
         textPaint.setTextSize(fontPx);
-        textPaint.setTypeface(style.bold ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
-        textPaint.setShadowLayer(fontPx * 0.12f, 0, fontPx * 0.05f, 0xDD000000);
+        textPaint.setTypeface(style.typeface());
+        if (style.shadow) {
+            textPaint.setShadowLayer(fontPx * 0.12f, 0, fontPx * 0.05f, 0xDD000000);
+        } else {
+            textPaint.clearShadowLayer();
+        }
         float space = textPaint.measureText(" ");
 
         float maxW = r.width() * 0.9f;
@@ -209,8 +213,7 @@ public class CaptionExportRenderer {
     private void drawWord(String word, float x, float baseY, float ww,
                           boolean active, float emphasisValue, float fontPx) {
         if (!active) {
-            textPaint.setColor(style.baseColor);
-            canvas.drawText(word, x, baseY, textPaint);
+            paintWord(word, x, baseY, style.baseColor, fontPx);
             return;
         }
         float a = emphasisValue;
@@ -228,9 +231,21 @@ public class CaptionExportRenderer {
         canvas.save();
         canvas.translate(0, dy);
         canvas.scale(scale, scale, wordCx, wordCy);
-        textPaint.setColor(style.activeColor);
-        canvas.drawText(word, x, baseY, textPaint);
+        paintWord(word, x, baseY, style.activeColor, fontPx);
         canvas.restore();
+    }
+
+    /** Fill pass plus optional stroke-outline pass — mirrors CaptionOverlayView. */
+    private void paintWord(String word, float x, float baseY, int fillColor, float fontPx) {
+        if (style.outline) {
+            textPaint.setStyle(Paint.Style.STROKE);
+            textPaint.setStrokeWidth(Math.max(1f, fontPx * 0.08f));
+            textPaint.setColor(style.outlineColor);
+            canvas.drawText(word, x, baseY, textPaint);
+            textPaint.setStyle(Paint.Style.FILL);
+        }
+        textPaint.setColor(fillColor);
+        canvas.drawText(word, x, baseY, textPaint);
     }
 
     private static float lerp(float from, float to, float t) {

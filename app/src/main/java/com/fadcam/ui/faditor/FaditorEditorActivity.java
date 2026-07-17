@@ -12544,6 +12544,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         captionDrawerOpen = show;
     }
 
+    /**
+     * The caption style drawer (JoyRaptor 2026-07-16 overhaul): the redundant style
+     * chips are gone (the bottom ticker has them); in their place, granular
+     * controls — position toggle, size, font, animation, colors, box / outline /
+     * shadow — that live-edit a per-clip working style, plus save / trash /
+     * export / import so a creator's personal styles ride the bottom ticker.
+     * TODO(strings) throughout, per the rebrand freeze.
+     */
     private void buildCaptionDrawerContent() {
         FrameLayout content = findViewById(R.id.caption_drawer_content);
         if (content == null) return;
@@ -12556,121 +12564,516 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, 0, pad, pad);
         root.setBackgroundColor(0xFF1A1A1A);
-        content.addView(root);
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.addView(root);
+        content.addView(scroll);
 
-        // Style chips row
-        TextView styleLabel = new TextView(this);
-        styleLabel.setText("Style");
-        styleLabel.setTextColor(0xFFAAAAAA);
-        styleLabel.setTextSize(12);
-        styleLabel.setPadding(0, pad, 0, (int)(4*d));
-        root.addView(styleLabel);
+        com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
 
-        HorizontalScrollView chipScroll = new HorizontalScrollView(this);
-        chipScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout chipRow = new LinearLayout(this);
-        chipRow.setOrientation(LinearLayout.HORIZONTAL);
-        chipScroll.addView(chipRow);
+        // ── Row: position toggle + size slider ─────────────────────────
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+        topRow.setPadding(0, pad, 0, 0);
+        root.addView(topRow);
 
-        for (com.fadcam.ui.faditor.transcript.CaptionStyle s : com.fadcam.ui.faditor.transcript.CaptionStyle.presets()) {
-            TextView chip = new TextView(this);
-            chip.setText(s.label);
-            chip.setTextColor(s.activeColor);
-            chip.setTypeface(Typeface.DEFAULT_BOLD);
-            chip.setTextSize(13);
-            int cp = (int)(10*d);
-            chip.setPadding(cp, cp/2, cp, cp/2);
-            chip.setBackgroundResource(R.drawable.floating_button_item_bg);
-            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            clp.rightMargin = (int)(6*d);
-            chip.setLayoutParams(clp);
-            chip.setOnClickListener(v -> {
-                applyCaptionStyle(s.id);
-                for (int i = 0; i < chipRow.getChildCount(); i++) {
-                    chipRow.getChildAt(i).setAlpha(i == chipRow.indexOfChild(v) ? 1f : 0.5f);
-                }
-            });
-            chipRow.addView(chip);
-        }
-        for (int i = 0; i < chipRow.getChildCount(); i++) chipRow.getChildAt(i).setAlpha(0.5f);
-        root.addView(chipScroll);
-
-        // Position presets
-        root.addView(makeDivider(d));
-        TextView posLabel = new TextView(this);
-        posLabel.setText("Position");
-        posLabel.setTextColor(0xFFAAAAAA);
-        posLabel.setTextSize(12);
-        posLabel.setPadding(0, pad, 0, (int)(4*d));
-        root.addView(posLabel);
-
-        LinearLayout posRow = new LinearLayout(this);
-        posRow.setOrientation(LinearLayout.HORIZONTAL);
-        posRow.setGravity(Gravity.CENTER);
-
-        String[][] positions = {{"Top", "0.5", "0.15"}, {"Middle", "0.5", "0.5"}, {"Bottom", "0.5", "0.85"}};
-        for (String[] p : positions) {
-            TextView btn = new TextView(this);
-            btn.setText(p[0]);
-            btn.setTextColor(Color.WHITE);
-            btn.setTextSize(12);
-            btn.setGravity(Gravity.CENTER);
-            btn.setPadding((int)(16*d), (int)(8*d), (int)(16*d), (int)(8*d));
-            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            blp.leftMargin = (int)(2*d);
-            blp.rightMargin = (int)(2*d);
-            btn.setLayoutParams(blp);
-            btn.setBackgroundColor(0xFF333333);
-            btn.setOnClickListener(v -> {
-                applyCaptionPosition(Float.parseFloat(p[1]), Float.parseFloat(p[2]));
-                for (int i = 0; i < posRow.getChildCount(); i++) {
-                    posRow.getChildAt(i).setBackgroundColor(i == posRow.indexOfChild(v) ? 0xFF4CAF50 : 0xFF333333);
-                }
-            });
-            posRow.addView(btn);
-        }
-        root.addView(posRow);
-
-        // Size slider
-        root.addView(makeDivider(d));
-        TextView sizeLabel = new TextView(this);
-        sizeLabel.setText("Text Size");
-        sizeLabel.setTextColor(0xFFAAAAAA);
-        sizeLabel.setTextSize(12);
-        sizeLabel.setPadding(0, pad, 0, (int)(4*d));
-        root.addView(sizeLabel);
-
-        LinearLayout sizeRow = new LinearLayout(this);
-        sizeRow.setOrientation(LinearLayout.HORIZONTAL);
-        sizeRow.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(sizeRow);
+        topRow.addView(makeCaptionPositionToggle(d));
 
         Slider sizeSlider = new Slider(new ContextThemeWrapper(this, R.style.Widget_FadCam_BottomSheetSlider));
         sizeSlider.setValueFrom(0.02f);
         sizeSlider.setValueTo(0.20f);
         sizeSlider.setStepSize(0.005f);
-        sizeSlider.setValue(getCurrentCaptionSize());
+        sizeSlider.setValue(Math.max(0.02f, Math.min(0.20f, getCurrentCaptionSize())));
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        slp.leftMargin = (int)(10*d);
         sizeSlider.setLayoutParams(slp);
         sizeSlider.setTrackActiveTintList(ColorStateList.valueOf(0xFF4CAF50));
         sizeSlider.setThumbTintList(ColorStateList.valueOf(0xFF4CAF50));
         sizeSlider.setTrackInactiveTintList(ColorStateList.valueOf(0xFF333333));
-        sizeRow.addView(sizeSlider);
+        topRow.addView(sizeSlider);
 
         TextView sizeVal = new TextView(this);
         sizeVal.setTextSize(12);
         sizeVal.setTextColor(0xFF4CAF50);
-        sizeVal.setPadding((int)(8*d), 0, 0, 0);
-        sizeRow.addView(sizeVal);
-
+        sizeVal.setPadding((int)(6*d), 0, 0, 0);
+        sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
+        topRow.addView(sizeVal);
         sizeSlider.addOnChangeListener((sl, value, fromUser) -> {
             if (!fromUser) return;
             sizeVal.setText(Math.round(value * 100) + "%");
             applyCaptionSize(value);
         });
-        sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
+
+        // ── Row: font selector (collapsed chip → expandable carousel) ──
+        root.addView(makeDivider(d));
+        LinearLayout fontRow = new LinearLayout(this);
+        fontRow.setOrientation(LinearLayout.HORIZONTAL);
+        fontRow.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(fontRow);
+
+        TextView fontLabel = new TextView(this);
+        fontLabel.setText("Font"); // TODO(strings)
+        fontLabel.setTextColor(0xFFAAAAAA);
+        fontLabel.setTextSize(12);
+        fontRow.addView(fontLabel);
+
+        TextView fontChip = new TextView(this);
+        styleDrawerChip(fontChip, d);
+        fontChip.setTypeface(cur.typeface());
+        fontChip.setText(fontDisplayName(cur.fontKey));
+        fontRow.addView(fontChip);
+
+        HorizontalScrollView fontScroll = new HorizontalScrollView(this);
+        fontScroll.setHorizontalScrollBarEnabled(false);
+        fontScroll.setVisibility(View.GONE);
+        LinearLayout fontChips = new LinearLayout(this);
+        fontChips.setOrientation(LinearLayout.HORIZONTAL);
+        fontScroll.addView(fontChips);
+        root.addView(fontScroll);
+        for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
+            final String key = choice[0];
+            TextView fc = new TextView(this);
+            styleDrawerChip(fc, d);
+            com.fadcam.ui.faditor.transcript.CaptionStyle probe =
+                    com.fadcam.ui.faditor.transcript.CaptionStyle.presets().get(0)
+                            .copyAs("probe", choice[1]);
+            probe.fontKey = key;
+            fc.setTypeface(probe.typeface());
+            fc.setText(choice[1]);
+            fc.setOnClickListener(v -> {
+                tweakCaptionStyle(s -> s.fontKey = key);
+                com.fadcam.ui.faditor.transcript.CaptionStyle now = currentCaptionStyle();
+                fontChip.setTypeface(now.typeface());
+                fontChip.setText(fontDisplayName(now.fontKey));
+                fontScroll.setVisibility(View.GONE);
+            });
+            fontChips.addView(fc);
+        }
+        fontChip.setOnClickListener(v -> fontScroll.setVisibility(
+                fontScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+
+        // ── Row: highlight animation (Pop / Zoom / Bounce) ─────────────
+        root.addView(makeDivider(d));
+        LinearLayout animRow = new LinearLayout(this);
+        animRow.setOrientation(LinearLayout.HORIZONTAL);
+        animRow.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(animRow);
+        TextView animLabel = new TextView(this);
+        animLabel.setText("Animation"); // TODO(strings)
+        animLabel.setTextColor(0xFFAAAAAA);
+        animLabel.setTextSize(12);
+        animRow.addView(animLabel);
+        com.fadcam.ui.faditor.transcript.CaptionStyle.Anim[] anims =
+                com.fadcam.ui.faditor.transcript.CaptionStyle.Anim.values();
+        String[] animNames = {"Pop", "Zoom", "Bounce"}; // TODO(strings)
+        for (int a = 0; a < anims.length; a++) {
+            final com.fadcam.ui.faditor.transcript.CaptionStyle.Anim anim = anims[a];
+            TextView ab = new TextView(this);
+            styleDrawerChip(ab, d);
+            ab.setText(animNames[a]);
+            ab.setAlpha(cur.anim == anim ? 1f : 0.45f);
+            final LinearLayout rowRef = animRow;
+            ab.setOnClickListener(v -> {
+                tweakCaptionStyle(s -> s.anim = anim);
+                for (int i = 1; i < rowRef.getChildCount(); i++) {
+                    rowRef.getChildAt(i).setAlpha(rowRef.getChildAt(i) == v ? 1f : 0.45f);
+                }
+            });
+            animRow.addView(ab);
+        }
+
+        // ── Rows: colors + box / outline / shadow ──────────────────────
+        root.addView(makeDivider(d));
+        LinearLayout colorRow1 = new LinearLayout(this);
+        colorRow1.setOrientation(LinearLayout.HORIZONTAL);
+        colorRow1.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(colorRow1);
+        addColorControl(colorRow1, d, "Text", () -> currentCaptionStyle().baseColor,
+                c -> tweakCaptionStyle(s -> s.baseColor = c));
+        addColorControl(colorRow1, d, "Highlight", () -> currentCaptionStyle().activeColor,
+                c -> tweakCaptionStyle(s -> s.activeColor = c));
+
+        LinearLayout colorRow2 = new LinearLayout(this);
+        colorRow2.setOrientation(LinearLayout.HORIZONTAL);
+        colorRow2.setGravity(Gravity.CENTER_VERTICAL);
+        colorRow2.setPadding(0, (int)(6*d), 0, 0);
+        root.addView(colorRow2);
+        addToggleColorControl(colorRow2, d, "Box", () -> currentCaptionStyle().pill,
+                on -> tweakCaptionStyle(s -> {
+                    s.pill = on;
+                    if (on && s.pillColor == 0) s.pillColor = 0xCC000000;
+                }),
+                () -> currentCaptionStyle().pillColor,
+                c -> tweakCaptionStyle(s -> { s.pillColor = c; s.pill = true; }));
+        addToggleColorControl(colorRow2, d, "Outline", () -> currentCaptionStyle().outline,
+                on -> tweakCaptionStyle(s -> s.outline = on),
+                () -> currentCaptionStyle().outlineColor,
+                c -> tweakCaptionStyle(s -> { s.outlineColor = c; s.outline = true; }));
+        addToggleControl(colorRow2, d, "Shadow", () -> currentCaptionStyle().shadow,
+                on -> tweakCaptionStyle(s -> s.shadow = on));
+
+        // ── Row: save / trash / export / import ────────────────────────
+        root.addView(makeDivider(d));
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        root.addView(actions);
+        addCaptionActionIcon(actions, d, "save", "Save as my style", v -> promptSaveCaptionStyle());
+        addCaptionActionIcon(actions, d, "delete", "Delete this custom style", v -> confirmDeleteCaptionStyle());
+        addCaptionActionIcon(actions, d, "ios_share", "Copy style as text", v -> exportCaptionStyleToClipboard());
+        addCaptionActionIcon(actions, d, "download", "Import style from text", v -> promptImportCaptionStyle());
+    }
+
+    // ── Caption style drawer helpers (JoyRaptor 2026-07-16 overhaul) ─────────
+
+    /** Common look for the drawer's tappable chips. */
+    private void styleDrawerChip(@NonNull TextView chip, float d) {
+        chip.setTextColor(0xFFEEEEEE);
+        chip.setTextSize(13);
+        int cp = (int)(10*d);
+        chip.setPadding(cp, cp/2, cp, cp/2);
+        chip.setBackgroundResource(R.drawable.floating_button_item_bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = (int)(8*d);
+        chip.setLayoutParams(lp);
+    }
+
+    @NonNull
+    private String fontDisplayName(@NonNull String key) {
+        for (String[] c : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
+            if (c[0].equals(key)) return c[1];
+        }
+        return "Standard"; // TODO(strings)
+    }
+
+    /**
+     * Single position button: three stacked lines, the active one green.
+     * Tap cycles Top → Middle → Bottom (replaces the old three-button row).
+     */
+    @NonNull
+    private View makeCaptionPositionToggle(float d) {
+        final float[] ys = {0.15f, 0.5f, 0.85f};
+        View v = new View(this) {
+            @Override
+            protected void onDraw(android.graphics.Canvas canvas) {
+                super.onDraw(canvas);
+                android.graphics.Paint p = new android.graphics.Paint(
+                        android.graphics.Paint.ANTI_ALIAS_FLAG);
+                p.setStrokeWidth(3 * d);
+                p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+                float w = getWidth(), h = getHeight();
+                float inset = 10 * d;
+                int active = nearestCaptionPositionIndex(ys);
+                float[] lineYs = {h * 0.28f, h * 0.5f, h * 0.72f};
+                for (int i = 0; i < 3; i++) {
+                    p.setColor(i == active ? 0xFF4CAF50 : 0xFF666666);
+                    canvas.drawLine(inset, lineYs[i], w - inset, lineYs[i], p);
+                }
+            }
+        };
+        int wPx = (int)(52*d), hPx = (int)(40*d);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(wPx, hPx);
+        v.setLayoutParams(lp);
+        v.setBackgroundResource(R.drawable.floating_button_item_bg);
+        v.setContentDescription("Caption position"); // TODO(strings)
+        v.setOnClickListener(view -> {
+            int next = (nearestCaptionPositionIndex(ys) + 1) % 3;
+            applyCaptionPosition(0.5f, ys[next]);
+            view.invalidate();
+        });
+        return v;
+    }
+
+    private int nearestCaptionPositionIndex(float[] ys) {
+        float cy = 0.85f;
+        boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
+                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
+        if (preferAudio) {
+            AudioClip ac = project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
+            cy = ac.getCaptionCenterY();
+        } else if (getSelectedClip() != null) {
+            cy = getSelectedClip().getCaptionCenterY();
+        }
+        int best = 2;
+        float bestD = Float.MAX_VALUE;
+        for (int i = 0; i < ys.length; i++) {
+            float dd = Math.abs(ys[i] - cy);
+            if (dd < bestD) { bestD = dd; best = i; }
+        }
+        return best;
+    }
+
+    /** Label + color swatch that opens the palette picker. */
+    private void addColorControl(@NonNull LinearLayout row, float d, @NonNull String label,
+                                 @NonNull java.util.function.Supplier<Integer> get,
+                                 @NonNull java.util.function.IntConsumer set) {
+        TextView tl = new TextView(this);
+        tl.setText(label);
+        tl.setTextColor(0xFFAAAAAA);
+        tl.setTextSize(12);
+        tl.setPadding((int)(4*d), 0, 0, 0);
+        row.addView(tl);
+        View swatch = new View(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int)(26*d), (int)(26*d));
+        lp.leftMargin = (int)(6*d);
+        lp.rightMargin = (int)(14*d);
+        swatch.setLayoutParams(lp);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(6*d);
+        bg.setColor(get.get());
+        bg.setStroke((int)(1*d), 0xFF555555);
+        swatch.setBackground(bg);
+        swatch.setOnClickListener(v -> showCaptionColorPicker(label, get.get(), c -> {
+            set.accept(c);
+            bg.setColor(c);
+        }));
+        row.addView(swatch);
+    }
+
+    /** Toggle pill + color swatch pair (Box / Outline). */
+    private void addToggleColorControl(@NonNull LinearLayout row, float d, @NonNull String label,
+                                       @NonNull java.util.function.Supplier<Boolean> getOn,
+                                       @NonNull java.util.function.Consumer<Boolean> setOn,
+                                       @NonNull java.util.function.Supplier<Integer> getColor,
+                                       @NonNull java.util.function.IntConsumer setColor) {
+        TextView toggle = new TextView(this);
+        styleDrawerChip(toggle, d);
+        toggle.setText(label);
+        toggle.setAlpha(getOn.get() ? 1f : 0.45f);
+        toggle.setOnClickListener(v -> {
+            boolean now = !getOn.get();
+            setOn.accept(now);
+            toggle.setAlpha(now ? 1f : 0.45f);
+        });
+        row.addView(toggle);
+        View swatch = new View(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams((int)(22*d), (int)(22*d));
+        lp.leftMargin = (int)(4*d);
+        lp.rightMargin = (int)(8*d);
+        swatch.setLayoutParams(lp);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(5*d);
+        bg.setColor(getColor.get());
+        bg.setStroke((int)(1*d), 0xFF555555);
+        swatch.setBackground(bg);
+        swatch.setOnClickListener(v -> showCaptionColorPicker(label, getColor.get(), c -> {
+            setColor.accept(c);
+            bg.setColor(c);
+            toggle.setAlpha(1f);
+        }));
+        row.addView(swatch);
+    }
+
+    /** Plain on/off toggle pill (Shadow). */
+    private void addToggleControl(@NonNull LinearLayout row, float d, @NonNull String label,
+                                  @NonNull java.util.function.Supplier<Boolean> getOn,
+                                  @NonNull java.util.function.Consumer<Boolean> setOn) {
+        TextView toggle = new TextView(this);
+        styleDrawerChip(toggle, d);
+        toggle.setText(label);
+        toggle.setAlpha(getOn.get() ? 1f : 0.45f);
+        toggle.setOnClickListener(v -> {
+            boolean now = !getOn.get();
+            setOn.accept(now);
+            toggle.setAlpha(now ? 1f : 0.45f);
+        });
+        row.addView(toggle);
+    }
+
+    private void addCaptionActionIcon(@NonNull LinearLayout row, float d,
+                                      @NonNull String icon, @NonNull String cd,
+                                      @NonNull View.OnClickListener onClick) {
+        TextView btn = new TextView(this);
+        btn.setText(icon);
+        btn.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
+        btn.setTextColor(0xFFBBBBBB);
+        btn.setTextSize(20);
+        btn.setGravity(Gravity.CENTER);
+        int p = (int)(10*d);
+        btn.setPadding(p, p/2, p, p/2);
+        btn.setBackgroundResource(R.drawable.floating_button_item_bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = (int)(8*d);
+        btn.setLayoutParams(lp);
+        btn.setContentDescription(cd);
+        btn.setOnClickListener(onClick);
+        row.addView(btn);
+    }
+
+    /** Simple palette grid picker for caption colors. TODO(strings) */
+    private void showCaptionColorPicker(@NonNull String title, int current,
+                                        @NonNull java.util.function.IntConsumer onPicked) {
+        int[] palette = {
+                0xFFFFFFFF, 0xFF000000, 0xFFFFEB3B, 0xFFFFC107, 0xFFFF9800, 0xFFFF5252,
+                0xFFE91E63, 0xFFFF4081, 0xFFBA68C8, 0xFF7C4DFF, 0xFF448AFF, 0xFF4DD0E1,
+                0xFF69F0AE, 0xFF9CCC65, 0xFFF5F5F0, 0xFFBDBDBD, 0xFF616161, 0xCC000000,
+                0x99000000, 0xB3FFFFFF,
+        };
+        float d = getResources().getDisplayMetrics().density;
+        android.widget.GridLayout grid = new android.widget.GridLayout(this);
+        grid.setColumnCount(6);
+        int pad = (int)(16*d);
+        grid.setPadding(pad, pad, pad, pad);
+        final androidx.appcompat.app.AlertDialog dialog =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle(title + " color")
+                        .setView(grid)
+                        .setNegativeButton(R.string.faditor_cancel, null)
+                        .create();
+        for (int c : palette) {
+            View swatch = new View(this);
+            android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
+            lp.width = (int)(40*d);
+            lp.height = (int)(40*d);
+            lp.setMargins((int)(4*d), (int)(4*d), (int)(4*d), (int)(4*d));
+            swatch.setLayoutParams(lp);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setCornerRadius(8*d);
+            bg.setColor(c);
+            bg.setStroke((int)(c == current ? 3*d : 1*d), c == current ? 0xFF4CAF50 : 0xFF555555);
+            swatch.setBackground(bg);
+            final int color = c;
+            swatch.setOnClickListener(v -> {
+                onPicked.accept(color);
+                dialog.dismiss();
+            });
+            grid.addView(swatch);
+        }
+        dialog.show();
+    }
+
+    /** The style currently applied to the selection (clip or audio). */
+    @NonNull
+    private com.fadcam.ui.faditor.transcript.CaptionStyle currentCaptionStyle() {
+        String id = "pop";
+        boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
+                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
+        if (preferAudio) {
+            id = project.getTimeline().getAudioClips()
+                    .get(editorTimeline.getSelectedAudioIndex()).getCaptionStyleId();
+        } else if (getSelectedClip() != null) {
+            id = getSelectedClip().getCaptionStyleId();
+        }
+        return com.fadcam.ui.faditor.transcript.CaptionStyle.byId(id);
+    }
+
+    /**
+     * Apply one granular edit: materialise a per-clip working style (so tweaking
+     * this clip never restyles another), mutate it, persist it in the store, and
+     * re-apply it to the selection through the normal style path.
+     */
+    private void tweakCaptionStyle(@NonNull java.util.function.Consumer<
+            com.fadcam.ui.faditor.transcript.CaptionStyle> mutation) {
+        boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
+                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
+        String targetId;
+        if (preferAudio) {
+            targetId = project.getTimeline().getAudioClips()
+                    .get(editorTimeline.getSelectedAudioIndex()).getId();
+        } else if (getSelectedClip() != null) {
+            targetId = getSelectedClip().getId();
+        } else {
+            return;
+        }
+        String draftId = "customdraft_" + targetId;
+        com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+        com.fadcam.ui.faditor.transcript.CaptionStyle working =
+                cur.id.equals(draftId) ? cur : cur.copyAs(draftId, cur.label);
+        mutation.accept(working);
+        com.fadcam.ui.faditor.transcript.CaptionStyleStore.put(working);
+        applyCaptionStyle(draftId);
+    }
+
+    /** Floppy: name the working style and pin it to the bottom ticker. TODO(strings) */
+    private void promptSaveCaptionStyle() {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("Style name");
+        input.setSingleLine(true);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Save caption style")
+                .setView(input)
+                .setNegativeButton(R.string.faditor_cancel, null)
+                .setPositiveButton("Save", (dlg, w) -> {
+                    String name = input.getText().toString().trim();
+                    if (name.isEmpty()) name = "My style";
+                    String id = "custom_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+                    com.fadcam.ui.faditor.transcript.CaptionStyle named =
+                            currentCaptionStyle().copyAs(id, name);
+                    com.fadcam.ui.faditor.transcript.CaptionStyleStore.put(named);
+                    applyCaptionStyle(id);
+                    rebuildCaptionStyleChips();
+                    Toast.makeText(this, "\"" + name + "\" added to your styles", Toast.LENGTH_SHORT).show();
+                })
+                .show();
+    }
+
+    /** Trash: delete the current custom style (built-ins can't be deleted). TODO(strings) */
+    private void confirmDeleteCaptionStyle() {
+        com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+        if (!cur.isCustom()) {
+            Toast.makeText(this, "Built-in styles can't be deleted", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final String id = cur.id;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Delete \"" + cur.label + "\"?")
+                .setMessage("Clips using it fall back to Pop.")
+                .setNegativeButton(R.string.faditor_cancel, null)
+                .setPositiveButton("Delete", (dlg, w) -> {
+                    com.fadcam.ui.faditor.transcript.CaptionStyleStore.delete(id);
+                    applyCaptionStyle("pop");
+                    rebuildCaptionStyleChips();
+                    buildCaptionDrawerContent();
+                })
+                .show();
+    }
+
+    /** Copy the current style as shareable text. TODO(strings) */
+    private void exportCaptionStyleToClipboard() {
+        com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+        android.content.ClipboardManager cm =
+                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm == null) return;
+        cm.setPrimaryClip(android.content.ClipData.newPlainText(
+                "Faditor caption style", cur.toJson().toString()));
+        Toast.makeText(this, "Style copied — paste it into Import on any device",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /** Paste a style exported as text; it joins the bottom ticker. TODO(strings) */
+    private void promptImportCaptionStyle() {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("Paste a copied caption style");
+        input.setMinLines(3);
+        input.setGravity(android.view.Gravity.TOP);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Import caption style")
+                .setView(input)
+                .setNegativeButton(R.string.faditor_cancel, null)
+                .setPositiveButton("Import", (dlg, w) -> {
+                    com.fadcam.ui.faditor.transcript.CaptionStyle parsed = null;
+                    try {
+                        parsed = com.fadcam.ui.faditor.transcript.CaptionStyle.fromJson(
+                                new org.json.JSONObject(input.getText().toString().trim()));
+                    } catch (Exception ignored) { }
+                    if (parsed == null) {
+                        Toast.makeText(this, "That doesn't look like a caption style",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String id = "custom_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+                    com.fadcam.ui.faditor.transcript.CaptionStyle named =
+                            parsed.copyAs(id, parsed.label);
+                    com.fadcam.ui.faditor.transcript.CaptionStyleStore.put(named);
+                    applyCaptionStyle(id);
+                    rebuildCaptionStyleChips();
+                    Toast.makeText(this, "\"" + named.label + "\" added to your styles",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .show();
     }
 
     private View makeDivider(float d) {
@@ -15495,22 +15898,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void setupCaptions() {
         captionsActive = true;
+        com.fadcam.ui.faditor.transcript.CaptionStyleStore.ensureInit(this);
         captionOverlay = findViewById(R.id.caption_overlay);
         audioCaptionOverlay = findViewById(R.id.audio_caption_overlay);
         captionStyleBar = findViewById(R.id.caption_style_bar);
         wireCaptionKfArmShortcut();
+        rebuildCaptionStyleChips();
+    }
+
+    /**
+     * (Re)build the bottom style ticker: built-in presets, then the user's saved
+     * custom styles (JoyRaptor 2026-07-16 — "your own personal style at the ready"),
+     * then the per-clip Hidden pill. Re-run after save/delete/import.
+     */
+    private void rebuildCaptionStyleChips() {
         android.widget.LinearLayout row = findViewById(R.id.caption_style_row);
         if (captionOverlay == null || row == null) return;
+        row.removeAllViews();
         captionStyleChips.clear();
         highlightedCaptionStyleId = null;
 
+        java.util.List<com.fadcam.ui.faditor.transcript.CaptionStyle> styles =
+                new java.util.ArrayList<>(com.fadcam.ui.faditor.transcript.CaptionStyle.presets());
+        styles.addAll(com.fadcam.ui.faditor.transcript.CaptionStyleStore.listed());
+
         int pad = (int) (10 * getResources().getDisplayMetrics().density);
-        for (com.fadcam.ui.faditor.transcript.CaptionStyle s
-                : com.fadcam.ui.faditor.transcript.CaptionStyle.presets()) {
+        for (com.fadcam.ui.faditor.transcript.CaptionStyle s : styles) {
             TextView chip = new TextView(this);
             chip.setText(s.label);
             chip.setTextColor(s.activeColor);
-            chip.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            // Custom chips preview their own font; built-ins keep the classic bold.
+            chip.setTypeface(s.isCustom() ? s.typeface() : android.graphics.Typeface.DEFAULT_BOLD);
             chip.setTextSize(14);
             chip.setPadding(pad, pad / 2, pad, pad / 2);
             chip.setBackgroundResource(R.drawable.floating_button_item_bg);

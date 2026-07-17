@@ -1,5 +1,27 @@
 # FadCam AI Handoff
 
+> **🤝 2026-07-17 night — FABLE(5) orchestrating OPUS/SONNET subagents: three spec lanes landed
+> in parallel, all compile-green on the watcher; NONE device-verified yet.**
+> **(1) DUAL-STREAM RECORDING Phases 0–3 (`2970737` me, `c3b77fa`+`23b194b`+`a43e25a` Opus agent):**
+> Phase 0 capability gate + hidden-unless-supported settings toggle (pref `fadrec_dual_stream_webcam`);
+> I wrote the "architecture reality map" into the spec (the webcam is FloatingWebcamService's OWN
+> session — the new encoder surface is its SECOND stream; screen side only needed its pause/PTS state
+> extracted); agent built `RecordingClock` (shared pause, per-stream PTS baselines, byte-identical
+> no-op for plain recordings), `WebcamEncoderPipeline` (`<name>_webcam.mp4`, teed PCM audio), the
+> FloatingWebcamService second-surface bridge, and ScreenRecordingService orchestration with clean
+> screen-only downgrade. Deferred: webcam-file rollover, avatar mode, Phase 4 `linkedClipId` editor
+> linkage. **The spec's Status block contains the full adb/ffprobe device-verify checklist.**
+> **(2) LANE_BADGES §2+§3 (`1693565`, Opus agent):** item preview images (image start-thumb, sprite
+> cell at every frame key, video filmstrips REUSING the master T1 cache) + pinned-thumbnail scroll,
+> all provider-injected so LayerRowRenderer stays pure-draw, viewport-culled. §4.5 eye/lock→per-object
+> migration still deliberately deferred.
+> **(3) Transition clamp feedback (`5619b89`, Sonnet agent):** span-clamped resize drags now toast the
+> seam limit, and the chip label shows "1.6s (of 5.0s)" when stored duration exceeds drawable span.
+> **DEVICE-VERIFY QUEUE:** dual-stream checklist (spec Status block); lane §1-§3 visuals; clamp toast;
+> plus everything from the earlier 2026-07-17 blocks. **REMAINING BUILD:** dual-stream Phase 4 (editor
+> linked clips — editor lane); visualizer-studio Phase 4 (live-recording viz, perf-gated); export-side
+> GL transition A/B.**
+
 > **🌀 2026-07-17 late — FABLE(5): GL transition preview 4-bug fix (`ab4fc42`), DEVICE-VERIFIED on
 > sandbox 29e37138 (installed there; main phone has the previous build).** JoyRaptor's "3 levels of
 > disjointedness": (1) A sampled from its HEAD — seam preview double-subtracted the window offset

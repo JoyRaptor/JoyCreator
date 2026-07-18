@@ -1713,6 +1713,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 selectSegment(toIndex);
                 syncTimelineOverlays();
                 editorTimeline.invalidate();
+                // GAPLESS: playlist order is stale — rebuild and home to the moved clip. No-op legacy.
+                Clip movedClip = toIndex >= 0 && toIndex < tl.getClipCount()
+                        ? tl.getClip(toIndex) : null;
+                resyncGaplessAfterStructuralEdit(movedClip != null ? movedClip.getId() : null, 0L, false);
                 saveProjectNow();
             }
 
@@ -3640,6 +3644,133 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Resync the ACTIVE player to the timeline after a STRUCTURAL edit — anything that changes
+     * clip COUNT, ORDER, or IDENTITY (split, delete, gap-delete, reorder, silence-cut, insert,
+     * slide replace) or gapless ELIGIBILITY (add/remove a transition).
+     *
+     * <p>The gapless {@code MasterPlaybackEngine} plays a ClippingConfiguration playlist that is a
+     * SNAPSHOT of the timeline taken at prepare time. Mutating the {@code Timeline} model alone
+     * leaves it playing the pre-edit cut — video runs straight through deleted/split seams while
+     * the tape (reading the new model) diverges, and on the next play() a stale window index seeks
+     * the audio back to window 0 (the 2026-07-18 seam bug). Trim-handle and loop edits already
+     * rebuild via {@code updateTrimBounds}; undo/redo via {@code refreshEditorAfterUndoRedo}; but
+     * the FORWARD structural paths hand-rolled legacy-only player calls and skipped it. This is the
+     * one call they all funnel through.</p>
+     *
+     * <p>No-op on the legacy single-clip path (its callers seek/re-prepare the single player
+     * directly — unchanged). For an eligibility flip (transition added → project ineligible), pass
+     * a null home id; {@link FaditorPlayerManager#rebuildGaplessResumingAt} re-checks eligibility
+     * and tears the engine down to the legacy path, which renders the transition.</p>
+     *
+     * @param homeClipId  id of a clip that EXISTS post-edit to home the playhead on, or null.
+     * @param clipLocalMs 0-based visual position within {@code homeClipId}.
+     * @param playAfter   resume playback after the rebuild (false = park paused).
+     */
+    private void resyncGaplessAfterStructuralEdit(@Nullable String homeClipId, long clipLocalMs,
+                                                  boolean playAfter) {
+        if (playerManager == null || !playerManager.isGapless()) return;
+        // A structural edit is a user-visible timeline change → bump the generation so any
+        // in-flight reverse-bake auto-promote kicked before this edit discards itself (RANK-1c),
+        // mirroring the loop/trim rebuild paths.
+        rebuildGeneration++;
+        playerManager.rebuildGaplessResumingAt(homeClipId, clipLocalMs, playAfter);
+        if (!playerManager.isGapless()) {
+            // The edit flipped gapless ELIGIBILITY off (e.g. a transition was added) and the
+            // rebuild tore the engine down — but teardown alone leaves NO player prepared, i.e. a
+            // dead preview until the user happens to reselect a segment. Hand the selected clip to
+            // the legacy single-clip path explicitly.
+            Clip sel = getSelectedClip();
+            if (sel != null) loadClipForPlayback(sel);
+            // The crop-zoom transform (scale/translate/clipBounds on the PlayerView) was computed
+            // against the ENGINE's render geometry; recompute for the legacy player NOW instead of
+            // waiting on its first onVideoSizeChanged — the stale transform is exactly the
+            // "reframed on canvas" jank JoyRaptor hit on the 2026-07-18 GL-transition test.
+            updatePreviewTransforms();
+        }
+    }
+
+    /**
+     * Player resync for a TRANSITION add/remove/undo/redo — the eligibility-FLIPPING edits.
+     * Unlike {@link #resyncGaplessAfterStructuralEdit} (which no-ops on legacy sessions), this
+     * must work in BOTH directions: an add tears gapless down to the legacy path (which renders
+     * transitions), and a remove/undo RE-PROMOTES to gapless if the project is eligible again —
+     * without this, removing a transition stranded the session on the legacy single-clip player
+     * with whatever transform state it had (the leftover jank of the 2026-07-18 report).
+     */
+    private void resyncPlayerForTransitionChange() {
+        if (playerManager == null) return;
+        if (playerManager.isGapless()) {
+            Clip sel = getSelectedClip();
+            resyncGaplessAfterStructuralEdit(sel != null ? sel.getId() : null, 0L, false);
+        } else {
+            rebuildGeneration++;
+            // Re-promotes when eligible again; harmless no-op when not (raw un-remuxed sessions).
+            playerManager.rebuildGaplessTimeline();
+            if (playerManager.isGapless()) {
+                updatePreviewTransforms();
+            }
+        }
+    }
+
+    /**
+     * Add {@code transition} at its seam (replacing {@code replaced}, the seam's previous
+     * transition, if any), RECORD IT ON THE UNDO STACK, and resync the player. Until 2026-07-18
+     * neither insert path recorded an undo action, so "undo" after adding a transition silently
+     * unwound the user's PREVIOUS edit while the transition stayed — the "undo did not undo it"
+     * half of JoyRaptor's GL-transition report. The refresh inside the lambdas is needed because
+     * {@code refreshEditorAfterUndoRedo} does not re-feed transitions to the timeline view, and
+     * the player resync must run in BOTH directions (add ⇒ legacy fallback, undo ⇒ re-promote).
+     */
+    private void addTransitionUndoable(@NonNull Transition transition,
+                                       @Nullable Transition replaced) {
+        final Timeline timeline = project.getTimeline();
+        timeline.addTransition(transition);
+        undoManager.recordAction(new EditActions.LambdaAction("Add transition", // TODO(strings)
+                () -> { // redo
+                    if (replaced != null) removeTransitionObject(timeline, replaced);
+                    removeTransitionObject(timeline, transition); // no dupes on redo-after-undo
+                    timeline.addTransition(transition);
+                    refreshTransitionUiAfterUndoRedo();
+                    resyncPlayerForTransitionChange();
+                },
+                () -> { // undo
+                    removeTransitionObject(timeline, transition);
+                    if (replaced != null) timeline.addTransition(replaced);
+                    refreshTransitionUiAfterUndoRedo();
+                    resyncPlayerForTransitionChange();
+                }));
+        resyncPlayerForTransitionChange();
+    }
+
+    /** Remove by object identity — indices shift as other transitions come and go. */
+    private static void removeTransitionObject(@NonNull Timeline timeline,
+                                               @NonNull Transition t) {
+        int idx = timeline.getTransitions().indexOf(t);
+        if (idx >= 0) timeline.removeTransition(idx);
+    }
+
+    /** The transition-display refresh that undo/redo lambdas need ({@code
+     *  refreshEditorAfterUndoRedo} covers everything EXCEPT the transition markers). */
+    private void refreshTransitionUiAfterUndoRedo() {
+        if (editorTimeline != null) {
+            editorTimeline.setTransitions(project.getTimeline().getTransitions());
+            editorTimeline.setSelectedTransitionIndex(-1);
+            editorTimeline.invalidate();
+        }
+        updateTransitionSelection();
+        hideTransitionInspector();
+    }
+
+    /** The seam's current transition, or null. */
+    @Nullable
+    private Transition transitionAtSeam(int seam) {
+        for (Transition t : project.getTimeline().getTransitions()) {
+            if (t.clipIndex == seam) return t;
+        }
+        return null;
+    }
+
     private void initTimeline() {
         Clip clip = getSelectedClip();
         editorTimeline.setTrimFromClip(clip);
@@ -5189,6 +5320,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         syncTimelineOverlays();
         editorTimeline.invalidate();
         refreshMoveDrawer();
+        // GAPLESS: playlist order is stale — rebuild and home to the moved clip. No-op legacy.
+        Clip movedClip = to >= 0 && to < tl.getClipCount() ? tl.getClip(to) : null;
+        resyncGaplessAfterStructuralEdit(movedClip != null ? movedClip.getId() : null, 0L, false);
         saveProjectNow();
     }
 
@@ -8444,8 +8578,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                          boolean letterbox) {
         if (clip.isImageClip()) {
             Bitmap img = decodeImageFrame(clip.getSourceUri(), outW, outH);
-            return (img != null && letterbox) ? letterboxCached(img, outW, outH,
-                    clip.getSourceUri().toString()) : img;
+            if (img == null) return null;
+            Bitmap cropped = cropToClipBounds(img, clip);
+            // (cropped == img when the clip has no crop; the shared decodeImageFrame cache entry
+            // must never be recycled, so only the crop-derived copy is transient.)
+            return letterbox ? letterboxCached(cropped, outW, outH,
+                    clip.getSourceUri().toString() + cropKey(clip)) : cropped;
         }
         try {
             Uri playbackUri = resolvePlaybackUri(clip.getSourceUri());
@@ -8454,8 +8592,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // their first decoded frame for the whole transition ("A is just a
             // single sample frame"). Buckets keep repeated scrub ticks at the same
             // position cache-hitting while letting playback frames advance.
+            // The crop is part of the key: clips SPLIT FROM THE SAME SOURCE share a
+            // uri but can carry different crops (JoyRaptor's lecture project).
             String key = uriString + "@" + outW + "x" + outH
-                    + "@t" + (sourceMs / 50L) + (letterbox ? "@lb" : "");
+                    + "@t" + (sourceMs / 50L) + (letterbox ? "@lb" : "") + cropKey(clip);
             Bitmap cached = cachedTransitionFrame(key);
             if (cached != null) return cached;
             if (transitionFrameFailed.contains(key)) return null;
@@ -8478,10 +8618,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 frame = transitionRetriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
             }
             if (frame == null) return null;
+            // Crop BEFORE letterbox/scale so the transition legs match the player's
+            // crop-zoomed framing — a raw decode here made the clip POP to the uncropped
+            // frame (black bars around it) for the transition's duration (JoyRaptor 2026-07-18).
+            Bitmap cropped = cropToClipBounds(frame, clip);
+            if (cropped != frame) frame.recycle();
             Bitmap scaled = letterbox
-                    ? composeLetterbox(frame, outW, outH)
-                    : scalePreservingAspect(frame, outW, outH);
-            if (scaled != frame) frame.recycle();
+                    ? composeLetterbox(cropped, outW, outH)
+                    : scalePreservingAspect(cropped, outW, outH);
+            if (scaled != cropped) cropped.recycle();
             transitionFrameCache.put(key, scaled);
             return scaled;
         } catch (Exception e) {
@@ -8489,6 +8634,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FLog.w(TAG, "Failed to decode transition preview frame", e);
             return null;
         }
+    }
+
+    /**
+     * Crop {@code frame} to {@code clip}'s custom crop bounds; returns {@code frame} unchanged
+     * when the clip has no effective crop. The live preview crop-zooms via the PlayerView
+     * transform, which transition frames bypass entirely — this is the decode-side equivalent.
+     * (Rotation/flip are not applied here; none of the transition paths applied them before
+     * either, and crop is the visually glaring miss.)
+     */
+    @NonNull
+    private Bitmap cropToClipBounds(@NonNull Bitmap frame, @NonNull Clip clip) {
+        if (!"custom".equals(clip.getCropPreset())) return frame;
+        float l = clip.getCropLeft(), t = clip.getCropTop();
+        float r = clip.getCropRight(), b = clip.getCropBottom();
+        float cw = r - l, ch = b - t;
+        if (cw <= 0.01f || ch <= 0.01f || (cw >= 0.99f && ch >= 0.99f)) return frame;
+        int w = frame.getWidth(), h = frame.getHeight();
+        int x = Math.max(0, Math.min(w - 1, Math.round(l * w)));
+        int y = Math.max(0, Math.min(h - 1, Math.round(t * h)));
+        int pw = Math.min(w - x, Math.round(cw * w));
+        int ph = Math.min(h - y, Math.round(ch * h));
+        if (pw <= 0 || ph <= 0) return frame;
+        try {
+            return Bitmap.createBitmap(frame, x, y, pw, ph);
+        } catch (Exception e) {
+            return frame; // out-of-memory etc. — uncropped beats no frame
+        }
+    }
+
+    /** Cache-key fragment for {@code clip}'s crop ("" when uncropped). */
+    @NonNull
+    private static String cropKey(@NonNull Clip clip) {
+        if (!"custom".equals(clip.getCropPreset())) return "";
+        return "@c" + Math.round(clip.getCropLeft() * 1000f)
+                + "," + Math.round(clip.getCropTop() * 1000f)
+                + "," + Math.round(clip.getCropRight() * 1000f)
+                + "," + Math.round(clip.getCropBottom() * 1000f);
     }
 
     @Nullable
@@ -10668,6 +10850,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         syncTimelineOverlays();
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();
+        // GAPLESS: the clip→spacer swap is a structural change; rebuild and home to the spacer
+        // (image window) so the engine stops playing the removed clip's stale window. No-op legacy.
+        resyncGaplessAfterStructuralEdit(spacer.getId(), 0L, false);
         saveProjectNow();
         Toast.makeText(this, "Clip removed — gap left in place", Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
@@ -18306,12 +18491,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         seam = Math.max(0, Math.min(seam, timeline.getClipCount() - 2));
+        Transition replaced = transitionAtSeam(seam);
         timeline.removeTransitionAtSeam(seam);
         Transition transition = new Transition(type, 600, seam);
         if (type == Transition.Type.GL_SHADER) {
             transition.glTransitionId = glId != null ? glId : "CrossZoom";
         }
-        timeline.addTransition(transition);
+        // Records the undo action and resyncs the player (a transition flips the project
+        // gapless-INELIGIBLE — the engine can't render it and would play straight through the
+        // seam, so the resync tears down to the legacy path, which renders transitions).
+        addTransitionUndoable(transition, replaced);
         editorTimeline.setTransitions(timeline.getTransitions());
         editorTimeline.setSelectedTransitionIndex(timeline.getTransitions().size() - 1);
         updateTransitionSelection();
@@ -18381,12 +18570,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.faditor_transition_need_two_clips, Toast.LENGTH_SHORT).show();
             return;
         }
+        Transition replaced = transitionAtSeam(seam);
         timeline.removeTransitionAtSeam(seam);
         Transition transition = new Transition(type, 600, seam);
         if (type == Transition.Type.GL_SHADER) {
             transition.glTransitionId = glId != null ? glId : "CrossZoom";
         }
-        timeline.addTransition(transition);
+        // Undo record + player resync (transition ⇒ gapless-ineligible ⇒ legacy fallback).
+        addTransitionUndoable(transition, replaced);
         editorTimeline.setTransitions(timeline.getTransitions());
         editorTimeline.setSelectedTransitionIndex(timeline.getTransitions().size() - 1);
         updateTransitionSelection();
@@ -18614,13 +18805,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void deleteTransition(int index) {
         if (project == null || index < 0 || index >= project.getTimeline().getTransitions().size()) return;
-        project.getTimeline().removeTransition(index);
+        final Timeline timeline = project.getTimeline();
+        final Transition removed = timeline.getTransitions().get(index);
+        timeline.removeTransition(index);
+        // Undoable (was not until 2026-07-18), and the resync RE-PROMOTES the session to the
+        // gapless engine if removing this transition made the project eligible again — without
+        // it the session stayed stranded on the legacy single-clip player.
+        undoManager.recordAction(new EditActions.LambdaAction("Remove transition", // TODO(strings)
+                () -> { // redo
+                    removeTransitionObject(timeline, removed);
+                    refreshTransitionUiAfterUndoRedo();
+                    resyncPlayerForTransitionChange();
+                },
+                () -> { // undo
+                    timeline.addTransition(removed);
+                    refreshTransitionUiAfterUndoRedo();
+                    resyncPlayerForTransitionChange();
+                }));
         if (editorTimeline != null) {
-            editorTimeline.setTransitions(project.getTimeline().getTransitions());
+            editorTimeline.setTransitions(timeline.getTransitions());
             editorTimeline.setSelectedTransitionIndex(-1);
         }
         updateTransitionSelection();
         hideTransitionInspector();
+        resyncPlayerForTransitionChange();
         saveProjectNow();
         Toast.makeText(this, R.string.faditor_transition_removed, Toast.LENGTH_SHORT).show();
     }
@@ -20100,6 +20308,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         syncTimelineOverlays();
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();
+        // GAPLESS: every keep-clip has a FRESH id, so the engine's playlist window for the
+        // original is orphaned — rebuild and home to the first keep. No-op on legacy.
+        resyncGaplessAfterStructuralEdit(
+                keeps.isEmpty() ? null : keeps.get(0).getId(), 0L, false);
         saveProjectNow();
 
         Toast.makeText(this,
@@ -20895,6 +21107,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             syncTimelineOverlays();
             editorTimeline.invalidate();
             refreshTotalTimeDisplay();
+            // GAPLESS: new clip (and possibly a fresh-id split pair around it) isn't in the
+            // engine's playlist — rebuild and home to the inserted clip. No-op on legacy.
+            resyncGaplessAfterStructuralEdit(newClip.getId(), 0L, false);
             saveProjectNow();
             Toast.makeText(this, R.string.faditor_asset_added, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
@@ -20948,6 +21163,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             syncTimelineOverlays();
             editorTimeline.invalidate();
             refreshTotalTimeDisplay();
+            // GAPLESS: new clip isn't in the engine's playlist — rebuild, home to it. No-op legacy.
+            resyncGaplessAfterStructuralEdit(newClip.getId(), 0L, false);
             saveProjectNow();
             Toast.makeText(this, R.string.faditor_asset_added, Toast.LENGTH_SHORT).show();
             if (item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE
@@ -21439,6 +21656,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             syncTimelineOverlays();
             editorTimeline.invalidate();
             refreshTotalTimeDisplay();
+            // GAPLESS: the id survives but the window's source URI + duration are stale —
+            // rebuild so the playlist points at the new render mp4. No-op on legacy.
+            resyncGaplessAfterStructuralEdit(fresh.getId(), 0L, false);
             saveProjectNow();
             renderSlidesInBackground();
             showSlidePreview(fresh, 0);
@@ -21892,14 +22112,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
             undoManager.recordAction(new EditActions.SplitClipAction(
                     timeline, originalIndex, originalClip, clipA, clipB));
 
-            // Update the player's trim end to match clip A's new out-point.
-            // Use updateTrimEndOnly so we DON'T trigger an unwanted seekTo(0).
-            // Then park the player 1 ms before the trim end (avoids the edge case where
-            // pos == trimEndMs would let play() think we're out of bounds).
-            playerManager.updateTrimEndOnly(clipA.getOutPointMs());
-            long trimmedMs = clipA.getOutPointMs() - clipA.getInPointMs();
-            if (trimmedMs > 1) {
-                playerManager.seekTo(trimmedMs - 1);
+            if (playerManager.isGapless()) {
+                // GAPLESS: the ClippingConfiguration playlist still has ONE window for the
+                // pre-split clip, so playback would run straight through the new seam (the
+                // 2026-07-18 bug). Rebuild and home to the seam — start of clip B — so the tape
+                // playhead (which sits at the split point) and the engine agree, and a play()
+                // from here continues correctly into clip B instead of the old continuous window.
+                resyncGaplessAfterStructuralEdit(clipB.getId(), 0L, false);
+            } else {
+                // LEGACY single-clip path (unchanged): update the trim end to clip A's new
+                // out-point via updateTrimEndOnly so we DON'T trigger an unwanted seekTo(0),
+                // then park 1 ms before the trim end (avoids pos == trimEndMs reading as
+                // out-of-bounds when play() is next pressed).
+                playerManager.updateTrimEndOnly(clipA.getOutPointMs());
+                long trimmedMs = clipA.getOutPointMs() - clipA.getInPointMs();
+                if (trimmedMs > 1) {
+                    playerManager.seekTo(trimmedMs - 1);
+                }
             }
 
             selectSegment(selectedClipIndex);
@@ -22015,6 +22244,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             editorTimeline.setTransitions(timeline.getTransitions());
             syncTimelineOverlays();
             editorTimeline.invalidate();
+            // GAPLESS: the removed clip's window is still in the stale playlist — rebuild and home
+            // to the clip that shifted into its place (2026-07-18 seam bug). No-op on legacy.
+            Clip homeAfterDelete = timeline.getClip(newIndex);
+            resyncGaplessAfterStructuralEdit(
+                    homeAfterDelete != null ? homeAfterDelete.getId() : null, 0L, false);
             saveProjectNow();
             Toast.makeText(this, R.string.faditor_segment_deleted, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {

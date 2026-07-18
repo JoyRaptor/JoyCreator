@@ -333,3 +333,80 @@ F9 DEVICE-VERIFIED (build 12:09, fresh empty bands cache): logcat
   one drawer kept showing "analyzing audio…" after completion (data was ready+cached;
   restart cleared it) — likely a missed invalidate/alias handoff in
   BandedTimelineWaveformCache onReady → superset alias path; cosmetic, worth a look.
+
+F10 — STRUCTURAL EDITS DESYNC THE GAPLESS ENGINE (JoyRaptor 2026-07-18 pm: cut a clip during
+  gapless playback → video played straight through the cut; on next play the audio jumped
+  to the start). ROOT CAUSE: MasterPlaybackEngine plays a ClippingConfiguration playlist
+  SNAPSHOTTED at prepareTimeline(); only trim/loop/undo paths rebuilt it. Every edit that
+  changes clip COUNT/ORDER/IDENTITY (split, delete, gap-delete, both reorder paths,
+  silence-cuts, both asset inserts, slide code edit) or ELIGIBILITY (transition add)
+  mutated the Timeline model only — engine kept playing the pre-edit cut. Split is worst:
+  new Clip(original) mints FRESH ids, so the engine's tracked clip id dies and any stale
+  resume homes to window 0 ("audio from the start").
+  FIX (uncommitted, on top of 9be7032):
+  - FaditorPlayerManager: rebuildGaplessTimeline() refactored onto shared
+    rebuildGaplessInternal(); new rebuildGaplessResumingAt(homeClipId, clipLocalMs,
+    playAfter) homes to a CALLER-chosen post-edit clip; stale-id guard via
+    windowForClipId() >= 0 before seekInClip.
+  - FaditorEditorActivity: one funnel resyncGaplessAfterStructuralEdit(...) — bumps
+    rebuildGeneration (RANK-1c stale-bake discard), rebuilds, and if the edit flipped
+    eligibility OFF (transition add) falls back to loadClipForPlayback(selected) so the
+    preview isn't dead after engine teardown. Wired into: splitAtPlayhead (homes to clip
+    B at the seam), deleteSelectedSegment (homes to shifted-in clip), gap-delete (homes
+    to spacer), moveSelectedClipTo + drag-reorder (home to moved clip), applySilenceCuts
+    (homes to first keep), insertAssetAtPlayhead/AtIndex (home to new clip),
+    applySlideCodeEdit (same id, stale source URI), both insertTransition* paths.
+  - Speed-change staleness (setPlaybackSpeed with no rebuild; engine bakes per-window
+    speed at prepare) is a KNOWN SIBLING, deliberately deferred: needs rebuild-on-release
+    plumbing in the speed sheet, separate change.
+F10 DEVICE-VERIFIED (build 13:1x, installed 13:22): split at absoluteSplit=66161 on the
+  45-min project logged "gapless playlist prepared: 7 clipped items" immediately after
+  splitAtPlayhead and "Selected segment 2/7 ... in=66161" — engine homed exactly to clip
+  B's start; preview rendered live. NOTE: the split was an ACCIDENT of adb UI driving
+  (tap landed on Split), and unwinding it while JoyRaptor was simultaneously handling the
+  phone caused stray Delete-clip actions; final state verified via project.json = the
+  original 6 clips (a82993aa restored continuous 12166..501515). Lesson recorded in
+  memory: never inject taps while the device is in-hand; verify screen state immediately
+  before EVERY tap, not per-batch.
+
+F11 — TRANSITION ADD/REMOVE: NO UNDO RECORD + PLAYER STRANDED (JoyRaptor 2026-07-18 pm: GL
+  transition at the eb36b1df|ba454ae7 seam looked janky reframing the video on canvas;
+  undo did not remove the jank). TWO defects, both pre-existing, exposed by the F10
+  eligibility fallback:
+  (1) insertTransitionAtSeam / insertTransitionAtPlayhead / deleteTransition recorded NO
+      undo action — "undo" after adding a transition silently unwound the user's PREVIOUS
+      edit while the transition stayed.
+  (2) Nothing resynced the player on transition REMOVAL, so after F10's add-side teardown
+      the session stayed stranded on the legacy single-clip player with a stale crop-zoom
+      transform (scale/translate/clipBounds computed for the engine's geometry) — the
+      persistent "reframed on canvas" jank. project.json diff (scratchpad project2 vs
+      project3) proved the MODEL was clean: crops/trims byte-identical, transition gone —
+      pure runtime state.
+  FIX (uncommitted): addTransitionUndoable() records a LambdaAction (restores a replaced
+  seam transition on undo; refreshes transition markers, which refreshEditorAfterUndoRedo
+  does NOT re-feed); deleteTransition records the mirror action;
+  resyncPlayerForTransitionChange() resyncs BOTH directions — add ⇒ gapless teardown +
+  legacy fallback + updatePreviewTransforms() (transform refresh added to the F10 funnel
+  fallback too), remove/undo ⇒ rebuildGaplessTimeline() re-promote when eligible again.
+  Build OK, installed 14:0x. DEVICE-VERIFY OWED (phone was in personal use): add a GL
+  transition on the lecture project → preview stays framed; undo → transition gone AND
+  session back on gapless with correct framing. If a FRESH legacy session still misframes
+  cropped clips, that is a separate legacy-path crop bug — chase with the device.
+
+F12 — TRANSITION FRAMES IGNORE CLIP CROP (JoyRaptor 2026-07-18: both clips cropped to 9:16;
+  at the transition the outgoing side "pops out where there are black bars around";
+  incoming leg reads as respected because the handoff ends on the correctly-cropped
+  player). ROOT CAUSE: decodeTransitionFrame() feeds RAW MediaMetadataRetriever frames
+  to the GL/overlay transition renderers — the preview's crop-zoom lives in the
+  PlayerView TRANSFORM, which transition rendering bypasses. Both legs were actually
+  uncropped during the transition.
+  FIX (uncommitted): cropToClipBounds() crops the decoded frame to the clip's custom
+  crop BEFORE letterbox/scale, in both the video and image paths; crop is part of the
+  frame-cache key (cropKey()) — REQUIRED because clips split from the same source share
+  a URI but can carry different crops. Installed ~14:2x; verify = re-run JoyRaptor's GL
+  transition at the eb36b1df|ba454ae7 seam: no pop-out at transition start.
+  KNOWN GAP (deliberately not fixed): EXPORT transitions have the same hole —
+  assembleClipVideoEffects skips the Crop effect for isTransitionItem=true (outgoing
+  leg, ExportManager:2181) and GlTransitionExportEffect samples the incoming clip's RAW
+  source. Fixing needs GL-side crop of both legs + canvas-compose review — do NOT change
+  blind; needs an A/B export frame-diff proof (see memory ab-export-frame-diff-proof).

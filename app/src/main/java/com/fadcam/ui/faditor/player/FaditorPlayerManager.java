@@ -316,8 +316,55 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * the same refresh path the legacy engine uses to re-prepare after edits. Re-evaluates
      * eligibility: if the project became ineligible (e.g. a transition or loop was added), tears
      * the engine down so the legacy path takes over on the next {@link #loadClip}.
+     *
+     * <p>Resumes WHERE THE ENGINE CURRENTLY IS — correct for edits that don't change the playing
+     * clip's identity (trim handles, loop mode/extend, effect toggles, undo/redo of those). For
+     * STRUCTURAL edits that mint new clip ids or remove the playing clip (split/delete/reorder/
+     * insert), use {@link #rebuildGaplessResumingAt} instead — see its doc.</p>
      */
     public void rebuildGaplessTimeline() {
+        // Resume by CLIP ID + visual position, not a raw window index: once a looped clip (L1)
+        // spans multiple playlist windows, a window index is no longer interchangeable with a
+        // timeline clip index (a stale "window index used as clip index" here would resume on the
+        // WRONG clip whenever the user was scrubbed into a loop-rep window past index
+        // clipCount-1, or into any rep of a clip that isn't the first one).
+        String resumeClipId = gapless() ? gaplessEngine.getCurrentClipId() : null;
+        long resumePos = gapless() ? gaplessEngine.getCurrentPositionInWindow() : 0L;
+        boolean wasPlaying = gapless() && gaplessEngine.getPlayWhenReady();
+        rebuildGaplessInternal(resumeClipId, resumePos, wasPlaying);
+    }
+
+    /**
+     * Rebuild the gapless playlist and home to a CALLER-SPECIFIED clip + position — for
+     * STRUCTURAL edits (split / delete / gap-delete / reorder / insert / silence-cut / slide
+     * replace) where {@link #rebuildGaplessTimeline}'s resume-by-current-id is wrong.
+     *
+     * <p>WHY: the ClippingConfiguration playlist is a SNAPSHOT of the timeline taken at
+     * {@code prepareTimeline()}; a structural edit leaves the engine playing the pre-edit cut
+     * (video runs straight through a deleted/split seam while the tape, reading the new model,
+     * diverges — the 2026-07-18 seam bug). And {@code new Clip(original)} mints a FRESH id, so a
+     * split's children are NOT the id the engine was tracking — resuming by the engine's old
+     * current-id would silently home to playlist window 0 ("audio plays from the start" after a
+     * cut). This variant homes to a clip that is guaranteed to exist in the post-edit timeline.</p>
+     *
+     * <p>No-op when the gapless engine isn't active (the legacy single-clip path's callers manage
+     * the player directly).</p>
+     *
+     * @param homeClipId  id of a clip that EXISTS in the post-edit timeline, or null to home to
+     *                    the playlist start.
+     * @param clipLocalMs 0-based VISUAL position within {@code homeClipId}.
+     * @param playAfter   resume playback after the rebuild (false parks paused at the position).
+     */
+    public void rebuildGaplessResumingAt(@Nullable String homeClipId, long clipLocalMs,
+                                         boolean playAfter) {
+        rebuildGaplessInternal(homeClipId, Math.max(0L, clipLocalMs), playAfter);
+    }
+
+    /** Shared rebuild core: re-evaluate eligibility, rebuild the playlist from the (live,
+     *  already-mutated) {@code gaplessTimeline}, then home to {@code resumeClipId}+{@code
+     *  resumePos} if that clip still exists. See the two public entry points for resume semantics. */
+    private void rebuildGaplessInternal(@Nullable String resumeClipId, long resumePos,
+                                        boolean wasPlaying) {
         if (!GAPLESS_ENGINE || gaplessResolver == null || gaplessSeamListener == null
                 || gaplessTimeline == null) {
             return;
@@ -331,14 +378,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             return;
         }
         if (playerView == null) return;
-        // Resume by CLIP ID + visual position, not a raw window index: once a looped clip (L1)
-        // spans multiple playlist windows, a window index is no longer interchangeable with a
-        // timeline clip index (a stale "window index used as clip index" here would resume on the
-        // WRONG clip whenever the user was scrubbed into a loop-rep window past index
-        // clipCount-1, or into any rep of a clip that isn't the first one).
-        String resumeClipId = gapless() ? gaplessEngine.getCurrentClipId() : null;
-        long resumePos = gapless() ? gaplessEngine.getCurrentPositionInWindow() : 0L;
-        boolean wasPlaying = gapless() && gaplessEngine.getPlayWhenReady();
         if (gaplessEngine == null) {
             gaplessEngine = new MasterPlaybackEngine(context, gaplessResolver, gaplessSeamListener);
         }
@@ -351,9 +390,9 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
         attachRegisteredListenersToEngine();
         gaplessEngine.seekInCurrentWindow(0L);
-        if (resumeClipId != null) {
-            // Best-effort: restore the clip + visual position the user was on (positions may
-            // shift after edits, e.g. a trim on an earlier clip, or the edited clip itself).
+        // Only home if the target clip survived the edit — a stale id (e.g. the split's
+        // now-replaced parent) leaves us at window 0 rather than seeking nowhere.
+        if (resumeClipId != null && gaplessEngine.windowForClipId(resumeClipId) >= 0) {
             gaplessEngine.seekInClip(resumeClipId, resumePos);
         }
         if (wasPlaying) gaplessEngine.play();

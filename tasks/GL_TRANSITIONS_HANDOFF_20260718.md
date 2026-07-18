@@ -56,9 +56,14 @@ Key invariants (breaking these re-introduces fixed bugs — see F13 in the spec)
 
 ## Task 2 — EXPORT parity (transitions must match preview)
 
+> **UPDATE 2026-07-18 ~15:50 (commit 62bc140): Task 2A is DONE and device-proven** —
+> see "F12 CLOSED" in the spec. Remaining here: 2B verification sweep, and the known
+> limit that incoming-leg crop covers the "custom" preset only (named preset crops on
+> the incoming clip still blend uncropped).
+
 Two known export gaps, both in the transition segment:
 
-A. CROPS IGNORED (spec F12): `ExportManager.assembleClipVideoEffects` skips the Crop
+A. ~~CROPS IGNORED~~ FIXED in 62bc140 (spec F12 CLOSED). Original description: `ExportManager.assembleClipVideoEffects` skips the Crop
    effect when `isTransitionItem == true` (~line 2181), and `GlTransitionExportEffect`
    samples the INCOMING clip's raw source (built in `ExportManager` ~line 1361 with
    `nextClip.getSourceUri()`). Exported result: framing pops to uncropped raw + black

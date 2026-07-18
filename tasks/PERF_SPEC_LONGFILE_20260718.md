@@ -444,3 +444,22 @@ F13 — GL SHADER TRANSITIONS: PREVIEW RELIABILITY + QUALITY OVERHAUL (JoyRaptor
   on hide). Uncommitted. Defensive-copy + endpoint-frame model means the blend uses
   STATIC endpoint frames (standard freeze-frame blend) — A's motion pauses for ≤600ms;
   live-texture (SurfaceTexture two-player) rendering would be the next tier if wanted.
+
+F12 CLOSED (2026-07-18 ~15:45): EXPORT transition crops implemented + device-proven.
+  - Outgoing leg: assembleClipVideoEffects no longer skips Crop for isTransitionItem —
+    the Crop effect is ordered BEFORE the GlTransitionExportEffect (preOverlayExtra), and
+    GlTransitionShaderProgram.configure() outputs at input size, so the segment's
+    geometry class is unchanged (crop dims now vs source dims before).
+  - Incoming leg: GlTransitionFrameOverlay.drawFrame samples only cropSrcRect(frame)
+    (mirror of preview cropToClipBounds; "custom" preset, same 0.99 no-op epsilon)
+    before fit-centering; applies to the image-clip path too.
+  - PROOF (absolute-geometry frame inspection per ab-export-frame-diff-proof): crops
+    [.15,.15,.85,.85] / [.05,.10,.75,.80] injected into sandbox project 302da9ac via
+    run-as json surgery -> exported Faditor_20260718_154016.mp4 (896x504) -> ffmpeg
+    frame pulls: A's cropped framing fills the frame INTO and THROUGH blend start (no
+    raw+black-bars pop), incoming B appears mid-blend already at its cropped framing,
+    and post-cut playback framing is identical (no snap). Test project's json restored
+    to its crop-free original afterward.
+  - LIMIT: incoming-leg crop handles the "custom" preset only (parity with preview);
+    named PRESET crops on the incoming clip still export uncropped through the blend —
+    small follow-up if preset crops matter. Uncommitted.

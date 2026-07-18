@@ -196,11 +196,34 @@ public class GlTransitionFrameOverlay extends BitmapOverlay {
         // oriented for GL sampling.
         canvas.save();
         canvas.scale(1f, -1f, bitmap.getWidth() / 2f, bitmap.getHeight() / 2f);
-        android.graphics.RectF rect = fitRect(frame.getWidth(), frame.getHeight(),
+        // Sample only the clip's CROP region (F12): the raw decode ignores the incoming
+        // clip's crop, so the exported blend showed the uncropped frame + black bars,
+        // then snapped to the cropped framing at the cut. Mirrors the preview fix
+        // (FaditorEditorActivity.cropToClipBounds).
+        android.graphics.Rect src = cropSrcRect(frame);
+        android.graphics.RectF rect = fitRect(src.width(), src.height(),
                 bitmap.getWidth(), bitmap.getHeight());
-        canvas.drawBitmap(frame, null, rect, new android.graphics.Paint(
+        canvas.drawBitmap(frame, src, rect, new android.graphics.Paint(
                 android.graphics.Paint.FILTER_BITMAP_FLAG | android.graphics.Paint.ANTI_ALIAS_FLAG));
         canvas.restore();
+    }
+
+    /** The clip's custom-crop region of {@code frame} in pixels (full frame when uncropped). */
+    @NonNull
+    private android.graphics.Rect cropSrcRect(@NonNull Bitmap frame) {
+        int w = frame.getWidth(), h = frame.getHeight();
+        android.graphics.Rect full = new android.graphics.Rect(0, 0, w, h);
+        if (!"custom".equals(clip.getCropPreset())) return full;
+        float l = clip.getCropLeft(), t = clip.getCropTop();
+        float r = clip.getCropRight(), b = clip.getCropBottom();
+        float cw = r - l, ch = b - t;
+        if (cw <= 0.01f || ch <= 0.01f || (cw >= 0.99f && ch >= 0.99f)) return full;
+        int x = Math.max(0, Math.min(w - 1, Math.round(l * w)));
+        int y = Math.max(0, Math.min(h - 1, Math.round(t * h)));
+        int pw = Math.min(w - x, Math.round(cw * w));
+        int ph = Math.min(h - y, Math.round(ch * h));
+        if (pw <= 0 || ph <= 0) return full;
+        return new android.graphics.Rect(x, y, x + pw, y + ph);
     }
 
     private void drawSolid(int color) {

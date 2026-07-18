@@ -2178,7 +2178,14 @@ public class ExportManager {
             }
         }
 
-        if (isVideo && !isTransitionItem) {
+        // Crop applies to TRANSITION items too (F12): it is added BEFORE preOverlayExtra
+        // (the GlTransitionExportEffect), so the outgoing leg's frames reach the blend
+        // already cropped — previously the exported transition popped from the cropped
+        // framing to the raw source + black bars for the transition's duration. The
+        // shader program's output size follows its input, so the segment's geometry
+        // class is unchanged (crop dims now, source dims before); the incoming leg is
+        // cropped inside GlTransitionFrameOverlay.
+        if (isVideo) {
             String cropPreset = clip.getCropPreset();
             if ("custom".equals(cropPreset)) {
                 float left   = clip.getCropLeft()  * 2f - 1f;

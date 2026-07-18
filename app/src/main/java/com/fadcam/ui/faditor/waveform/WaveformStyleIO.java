@@ -8,6 +8,7 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.model.VizLayer;
+import com.fadcam.ui.faditor.model.WaveformOverlayInstance;
 import com.fadcam.ui.faditor.model.WaveformStyle;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -206,6 +207,32 @@ public class WaveformStyleIO {
             FLog.w(TAG, "Failed parsing waveform style layers; kept base style", e);
         }
         return s;
+    }
+
+    /**
+     * Resolve the EFFECTIVE style an instance renders (SPEC_VIZ_ENGINE §4, Layers UI lane) — the ONE
+     * place preview, export and Save/Export-style all share, so a customized layer stack renders the
+     * same everywhere. Precedence: the instance's inline {@link WaveformOverlayInstance#getCustomStyleJson()
+     * custom style JSON} (a full layered {@link WaveformStyle}) WINS; if it is absent or fails to parse
+     * we fall back to {@code fallbackBase} (the {@code styleId} preset the caller already looked up).
+     * The instance's scalar overrides (colour / gradient / sensitivity / bar dims) are then layered on
+     * via {@link WaveformOverlayInstance#applyOverrides} — exactly as before — so the gradient Rolodex
+     * and sensitivity slider keep working over a custom stack (applyOverrides pushes onto layer 0).
+     *
+     * @return the effective style, or {@code null} only when the custom JSON is absent/unparseable AND
+     *         {@code fallbackBase} is null (caller should skip drawing, matching the old behaviour).
+     */
+    @Nullable
+    public static WaveformStyle resolveEffectiveStyle(
+            @NonNull WaveformOverlayInstance instance, @Nullable WaveformStyle fallbackBase) {
+        WaveformStyle base = null;
+        String custom = instance.getCustomStyleJson();
+        if (custom != null) {
+            base = fromJson(custom); // tolerant; null on parse failure → fall back to the preset
+        }
+        if (base == null) base = fallbackBase;
+        if (base == null) return null;
+        return instance.applyOverrides(base);
     }
 
     /** Write a style as JSON to an opened stream (SAF export). */

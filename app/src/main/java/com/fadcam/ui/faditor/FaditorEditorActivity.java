@@ -12030,6 +12030,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private interface RolodexSettle { void onSettle(int pos); }
 
+    // ── Layers UI session state (SPEC_VIZ_ENGINE §4/§5 Layers UI lane) ──
+    /** The editable layer-stack working copy for the drawer that's open (null = not yet materialized). */
+    @Nullable private com.fadcam.ui.faditor.model.WaveformStyle visualizerWorkingStyle;
+    /** Index of the layer whose props are shown/edited. */
+    private int visualizerSelectedLayer = 0;
+    /** Re-materialize + repaint the Layers section (called when the preset changes under it). */
+    @Nullable private Runnable visualizerLayersRefresh;
+    /** Setter for a single float control value (avoids java.util.function on older desugar paths). */
+    private interface FloatSetter { void set(float v); }
+
     /**
      * Build the compact 3-column visualizer Rolodex: a top row (sensitivity + save), then
      * LEFT vertical icon toggles (justify/mode/mirror), a CENTRE vertical carousel of style
@@ -12525,7 +12535,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (pos < 0 || pos >= styles.size()) return;
             com.fadcam.ui.faditor.model.WaveformStyle s = styles.get(pos);
             overlay.setStyleId(s.id);
+            // SPEC_VIZ_ENGINE §4 (Layers UI lane): picking a new preset drops any customized layer
+            // stack (back to preset + scalar overrides); the Layers section re-materializes on next edit.
+            overlay.setCustomStyleJson(null);
             if (waveformOverlayView != null) { waveformOverlayView.putStyle(s); waveformOverlayView.invalidate(); }
+            if (visualizerLayersRefresh != null) visualizerLayersRefresh.run();
             scheduleAutoSave();
         });
         styleRv.post(() -> styleRv.scrollToPosition(styleStart));
@@ -12538,7 +12552,449 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (waveformOverlayView != null) waveformOverlayView.invalidate();
             scheduleAutoSave();
         });
+
+        // ── Layers section (SPEC_VIZ_ENGINE §4/§5 Layers UI lane) ──
+        root.addView(buildVisualizerLayersSection(overlay, styles, dp));
         return root;
+    }
+
+    /**
+     * Build the drawer's Layers section (SPEC_VIZ_ENGINE §4/§5 Layers UI lane): a horizontal row of
+     * per-layer chips + add/dup/delete/reorder buttons, then a height-capped scroll of compact prop
+     * rows for the SELECTED layer. The layer stack is a session working copy of the visualizer's
+     * effective style; the FIRST edit that mutates it materializes it (legacy single-shape wrapped via
+     * {@link com.fadcam.ui.faditor.model.WaveformStyle#ensureLayers}) and serializes to the instance's
+     * {@code customStyleJson}, which then wins in preview + export. Edits autosave (undo deferred).
+     */
+    private View buildVisualizerLayersSection(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles, float dp) {
+        // Fresh session for this drawer open.
+        visualizerWorkingStyle = null;
+        visualizerSelectedLayer = 0;
+
+        LinearLayout section = new LinearLayout(this);
+        section.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams secLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        secLp.topMargin = (int) (8 * dp);
+        section.setLayoutParams(secLp);
+
+        TextView header = new TextView(this);
+        header.setText("Layers"); // TODO(strings): externalize once the studio strings land.
+        header.setTextColor(0xFF9E9E9E);
+        header.setTextSize(12);
+        header.setPadding(0, 0, 0, (int) (4 * dp));
+        section.addView(header);
+
+        // Chips row (horizontally scrollable) + action buttons.
+        android.widget.HorizontalScrollView chipsScroll = new android.widget.HorizontalScrollView(this);
+        chipsScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout chipsRow = new LinearLayout(this);
+        chipsRow.setOrientation(LinearLayout.HORIZONTAL);
+        chipsRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        chipsScroll.addView(chipsRow);
+        section.addView(chipsScroll);
+
+        // Prop area — capped ScrollView (~0.25 screen height) so the drawer stays compact.
+        android.widget.ScrollView propScroll = new android.widget.ScrollView(this);
+        int propMaxH = (int) (getResources().getDisplayMetrics().heightPixels * 0.25f);
+        LinearLayout.LayoutParams psLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        psLp.topMargin = (int) (4 * dp);
+        propScroll.setLayoutParams(psLp);
+        LinearLayout propBox = new LinearLayout(this);
+        propBox.setOrientation(LinearLayout.VERTICAL);
+        propScroll.addView(propBox);
+        section.addView(propScroll);
+        // Enforce the cap after measure (ScrollView has no maxHeight attr pre-set programmatically).
+        propScroll.getViewTreeObserver().addOnPreDrawListener(
+                new android.view.ViewTreeObserver.OnPreDrawListener() {
+                    @Override public boolean onPreDraw() {
+                        if (propScroll.getHeight() > propMaxH) {
+                            android.view.ViewGroup.LayoutParams lp = propScroll.getLayoutParams();
+                            lp.height = propMaxH;
+                            propScroll.setLayoutParams(lp);
+                            return false;
+                        }
+                        return true;
+                    }
+                });
+
+        // rebuild() re-renders chips + selected-layer props from the current working stack.
+        Runnable rebuild = () -> rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+        // Full reset used when the preset swaps under the section (Rolodex settle handler calls this).
+        visualizerLayersRefresh = () -> {
+            visualizerWorkingStyle = null;
+            visualizerSelectedLayer = 0;
+            rebuild.run();
+        };
+        rebuild.run();
+        return section;
+    }
+
+    /** Lazily materialize the editable working stack (SPEC_VIZ_ENGINE §4): from the instance's
+     *  {@code customStyleJson} when present, else a copy of the styleId preset wrapped to one layer. */
+    @NonNull
+    private com.fadcam.ui.faditor.model.WaveformStyle ensureVisualizerWorkingStyle(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles) {
+        if (visualizerWorkingStyle != null) return visualizerWorkingStyle;
+        com.fadcam.ui.faditor.model.WaveformStyle base = null;
+        String custom = overlay.getCustomStyleJson();
+        if (custom != null) {
+            base = com.fadcam.ui.faditor.waveform.WaveformStyleIO.fromJson(custom);
+        }
+        if (base == null) {
+            com.fadcam.ui.faditor.model.WaveformStyle preset = styles.get(indexOfStyle(styles, overlay.getStyleId()));
+            base = (preset != null ? preset : new com.fadcam.ui.faditor.model.WaveformStyle()).copy();
+        }
+        base.ensureLayers();
+        visualizerWorkingStyle = base;
+        return base;
+    }
+
+    /** Persist the working stack to the instance (customStyleJson) and push it live to preview. */
+    private void commitVisualizerWorkingStyle(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
+        if (visualizerWorkingStyle == null) return;
+        visualizerWorkingStyle.ensureLayers();
+        overlay.setCustomStyleJson(
+                com.fadcam.ui.faditor.waveform.WaveformStyleIO.toJson(visualizerWorkingStyle));
+        if (waveformOverlayView != null) {
+            waveformOverlayView.putStyle(visualizerWorkingStyle);
+            waveformOverlayView.invalidate();
+        }
+        scheduleAutoSave();
+    }
+
+    /** Human-facing emitter label for a chip (short + index). */
+    @NonNull
+    private static String emitterLabel(@NonNull String emitter) {
+        switch (emitter) {
+            case com.fadcam.ui.faditor.model.VizLayer.EMITTER_LINE: return "Line";
+            case com.fadcam.ui.faditor.model.VizLayer.EMITTER_FILLED: return "Filled";
+            case com.fadcam.ui.faditor.model.VizLayer.EMITTER_DOTS: return "Dots";
+            case com.fadcam.ui.faditor.model.VizLayer.EMITTER_SQUARES: return "Squares";
+            case com.fadcam.ui.faditor.model.VizLayer.EMITTER_PEAKS: return "Peaks";
+            case com.fadcam.ui.faditor.model.VizLayer.EMITTER_RING: return "Ring";
+            case com.fadcam.ui.faditor.model.VizLayer.EMITTER_PARTICLES: return "Particles";
+            default: return "Bars";
+        }
+    }
+
+    /** The emitter cycle order for the ▸ button. */
+    private static final String[] VIZ_EMITTERS = {
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_BARS,
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_LINE,
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_FILLED,
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_DOTS,
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_SQUARES,
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_PEAKS,
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_RING,
+            com.fadcam.ui.faditor.model.VizLayer.EMITTER_PARTICLES};
+
+    private void rebuildVisualizerLayers(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles, float dp,
+            @NonNull LinearLayout chipsRow, @NonNull LinearLayout propBox) {
+        com.fadcam.ui.faditor.model.WaveformStyle work = ensureVisualizerWorkingStyle(overlay, styles);
+        java.util.List<com.fadcam.ui.faditor.model.VizLayer> layers = work.layers; // ensureLayers => non-null
+        if (layers == null || layers.isEmpty()) { work.ensureLayers(); layers = work.layers; }
+        if (visualizerSelectedLayer < 0) visualizerSelectedLayer = 0;
+        if (visualizerSelectedLayer >= layers.size()) visualizerSelectedLayer = layers.size() - 1;
+
+        chipsRow.removeAllViews();
+        for (int i = 0; i < layers.size(); i++) {
+            final int idx = i;
+            com.fadcam.ui.faditor.model.VizLayer l = layers.get(i);
+            TextView chip = new TextView(this);
+            chip.setText(emitterLabel(l.emitter) + " " + (i + 1));
+            chip.setTextSize(11);
+            boolean sel = i == visualizerSelectedLayer;
+            chip.setTextColor(sel ? 0xFF00E5FF : 0xFFCCCCCC);
+            chip.setPadding((int) (10 * dp), (int) (5 * dp), (int) (10 * dp), (int) (5 * dp));
+            android.graphics.drawable.GradientDrawable cbg = new android.graphics.drawable.GradientDrawable();
+            cbg.setCornerRadius(12 * dp);
+            cbg.setColor(sel ? 0x2200E5FF : 0x22FFFFFF);
+            if (sel) cbg.setStroke((int) (1 * dp), 0xFF00E5FF);
+            chip.setBackground(cbg);
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            clp.setMarginEnd((int) (6 * dp));
+            chip.setLayoutParams(clp);
+            chip.setOnClickListener(v -> {
+                visualizerSelectedLayer = idx;
+                rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+            });
+            chipsRow.addView(chip);
+        }
+
+        // Action buttons: ＋ add · ⧉ duplicate · 🗑 delete · ◀ ▶ reorder.
+        final java.util.List<com.fadcam.ui.faditor.model.VizLayer> fLayers = layers;
+        chipsRow.addView(makeVizActionBtn("＋", dp, v -> {
+            com.fadcam.ui.faditor.model.VizLayer nl = fLayers.isEmpty()
+                    ? new com.fadcam.ui.faditor.model.VizLayer()
+                    : fLayers.get(Math.min(visualizerSelectedLayer, fLayers.size() - 1)).copy();
+            fLayers.add(nl);
+            visualizerSelectedLayer = fLayers.size() - 1;
+            commitVisualizerWorkingStyle(overlay);
+            rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+        }));
+        chipsRow.addView(makeVizActionBtn("⧉", dp, v -> {
+            if (fLayers.isEmpty()) return;
+            com.fadcam.ui.faditor.model.VizLayer dup = fLayers.get(visualizerSelectedLayer).copy();
+            fLayers.add(visualizerSelectedLayer + 1, dup);
+            visualizerSelectedLayer = visualizerSelectedLayer + 1;
+            commitVisualizerWorkingStyle(overlay);
+            rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+        }));
+        chipsRow.addView(makeVizActionBtn("🗑", dp, v -> {
+            if (fLayers.size() <= 1) { // min 1 layer stays
+                Toast.makeText(this, "At least one layer", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            fLayers.remove(visualizerSelectedLayer);
+            if (visualizerSelectedLayer >= fLayers.size()) visualizerSelectedLayer = fLayers.size() - 1;
+            commitVisualizerWorkingStyle(overlay);
+            rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+        }));
+        chipsRow.addView(makeVizActionBtn("◀", dp, v -> {
+            if (visualizerSelectedLayer <= 0) return;
+            java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer - 1);
+            visualizerSelectedLayer--;
+            commitVisualizerWorkingStyle(overlay);
+            rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+        }));
+        chipsRow.addView(makeVizActionBtn("▶", dp, v -> {
+            if (visualizerSelectedLayer >= fLayers.size() - 1) return;
+            java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer + 1);
+            visualizerSelectedLayer++;
+            commitVisualizerWorkingStyle(overlay);
+            rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+        }));
+
+        // Selected-layer props.
+        propBox.removeAllViews();
+        if (layers.isEmpty()) return;
+        final com.fadcam.ui.faditor.model.VizLayer layer = layers.get(visualizerSelectedLayer);
+        final Runnable commit = () -> commitVisualizerWorkingStyle(overlay);
+        final Runnable refreshChips = () -> rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
+
+        // emitter cycle
+        LinearLayout emRow = vizPropRow(dp, "Shape");
+        TextView emBtn = new TextView(this);
+        emBtn.setText(emitterLabel(layer.emitter));
+        emBtn.setTextColor(0xFFEEEEEE);
+        emBtn.setTextSize(12);
+        emBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
+        emBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
+        emBtn.setOnClickListener(v -> {
+            int cur = 0;
+            for (int k = 0; k < VIZ_EMITTERS.length; k++) if (VIZ_EMITTERS[k].equals(layer.emitter)) { cur = k; break; }
+            layer.emitter = VIZ_EMITTERS[(cur + 1) % VIZ_EMITTERS.length];
+            emBtn.setText(emitterLabel(layer.emitter));
+            commit.run();
+            refreshChips.run(); // chip label + particle-row visibility depend on emitter
+        });
+        emRow.addView(emBtn);
+        propBox.addView(emRow);
+
+        // color dots (in a horizontal scroll so a long palette never widens the drawer)
+        LinearLayout colRow = vizPropRow(dp, "Color");
+        String[] palette = {"#00E676", "#00E5FF", "#2196F3", "#7C4DFF", "#E040FB",
+                "#FF1744", "#FF6D00", "#FFEA00", "#FFFFFF", "#9E9E9E"};
+        android.widget.HorizontalScrollView colScroll = new android.widget.HorizontalScrollView(this);
+        colScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout dotsHost = new LinearLayout(this);
+        dotsHost.setOrientation(LinearLayout.HORIZONTAL);
+        for (String hex : palette) {
+            View dot = new View(this);
+            int sz = (int) (20 * dp);
+            LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(sz, sz);
+            dlp.setMarginEnd((int) (5 * dp));
+            dot.setLayoutParams(dlp);
+            android.graphics.drawable.GradientDrawable dg = new android.graphics.drawable.GradientDrawable();
+            dg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            dg.setColor(android.graphics.Color.parseColor(hex));
+            boolean isCur = hex.equalsIgnoreCase(layer.color);
+            dg.setStroke((int) ((isCur ? 2 : 1) * dp), isCur ? 0xFFFFFFFF : 0x55FFFFFF);
+            dot.setBackground(dg);
+            dot.setOnClickListener(v -> {
+                layer.color = hex;
+                layer.gradientStart = null;
+                layer.gradientEnd = null;
+                layer.gradientStops = null;
+                commit.run();
+                refreshChips.run();
+            });
+            dotsHost.addView(dot);
+        }
+        colScroll.addView(dotsHost);
+        colRow.addView(colScroll);
+        propBox.addView(colRow);
+
+        // opacity / softness / gain
+        propBox.addView(vizSlider(dp, "Opacity", 0f, 1f, layer.opacity, false, v -> { layer.opacity = v; commit.run(); }));
+        propBox.addView(vizSlider(dp, "Softness", 0f, 1f, layer.softness, false, v -> { layer.softness = v; commit.run(); }));
+        propBox.addView(vizSlider(dp, "Gain", 0.1f, 4f, layer.gain, false, v -> { layer.gain = v; commit.run(); }));
+
+        // blend toggle
+        LinearLayout blendRow = vizPropRow(dp, "Blend");
+        TextView blendBtn = new TextView(this);
+        Runnable setBlendLabel = () -> blendBtn.setText(
+                com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? "Add" : "Normal");
+        setBlendLabel.run();
+        blendBtn.setTextColor(0xFFEEEEEE);
+        blendBtn.setTextSize(12);
+        blendBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
+        blendBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
+        blendBtn.setOnClickListener(v -> {
+            layer.blend = com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend)
+                    ? com.fadcam.ui.faditor.model.VizLayer.BLEND_NORMAL
+                    : com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD;
+            setBlendLabel.run();
+            commit.run();
+        });
+        blendRow.addView(blendBtn);
+        propBox.addView(blendRow);
+
+        // trails
+        propBox.addView(vizSlider(dp, "Trails", 0f, 6f, layer.trailCount, true,
+                v -> { layer.trailCount = Math.round(v); commit.run(); }));
+
+        // particles (only when emitter == particles)
+        if (com.fadcam.ui.faditor.model.VizLayer.EMITTER_PARTICLES.equals(layer.emitter)) {
+            propBox.addView(vizSlider(dp, "Count", 1f, 8f, layer.particleCount, true,
+                    v -> { layer.particleCount = Math.round(v); commit.run(); }));
+            propBox.addView(vizSlider(dp, "Speed", 0.1f, 4f, layer.particleSpeed, false,
+                    v -> { layer.particleSpeed = v; commit.run(); }));
+        }
+
+        // spread / phase / mirror
+        propBox.addView(vizSlider(dp, "Spread", 0.1f, 1f, layer.spread, false, v -> { layer.spread = v; commit.run(); }));
+        propBox.addView(vizSlider(dp, "Phase", 0f, 360f, layer.phaseDeg, true,
+                v -> { layer.phaseDeg = Math.round(v); commit.run(); }));
+        LinearLayout mirRow = vizPropRow(dp, "Mirror");
+        TextView mirBtn2 = new TextView(this);
+        Runnable setMir = () -> {
+            mirBtn2.setText(layer.mirror ? "On" : "Off");
+            mirBtn2.setTextColor(layer.mirror ? 0xFF4CAF50 : 0xFFEEEEEE);
+        };
+        setMir.run();
+        mirBtn2.setTextSize(12);
+        mirBtn2.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
+        mirBtn2.setBackgroundResource(R.drawable.settings_home_row_bg);
+        mirBtn2.setOnClickListener(v -> { layer.mirror = !layer.mirror; setMir.run(); commit.run(); });
+        mirRow.addView(mirBtn2);
+        propBox.addView(mirRow);
+
+        // glow on/off + radius
+        LinearLayout glowRow = vizPropRow(dp, "Glow");
+        TextView glowBtn = new TextView(this);
+        Runnable setGlow = () -> {
+            boolean on = layer.glowColor != null && layer.glowRadiusDp > 0f;
+            glowBtn.setText(on ? "On" : "Off");
+            glowBtn.setTextColor(on ? 0xFF4CAF50 : 0xFFEEEEEE);
+        };
+        setGlow.run();
+        glowBtn.setTextSize(12);
+        glowBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
+        glowBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
+        glowBtn.setOnClickListener(v -> {
+            boolean on = layer.glowColor != null && layer.glowRadiusDp > 0f;
+            if (on) { layer.glowColor = null; layer.glowRadiusDp = 0f; }
+            else { layer.glowColor = layer.color; layer.glowRadiusDp = 6f; }
+            setGlow.run();
+            commit.run();
+            refreshChips.run(); // re-render so the glow radius slider default reflects the new state
+        });
+        glowRow.addView(glowBtn);
+        propBox.addView(glowRow);
+        propBox.addView(vizSlider(dp, "Glow radius", 0f, 24f, layer.glowRadiusDp, false, v -> {
+            layer.glowRadiusDp = v;
+            if (v > 0f && layer.glowColor == null) layer.glowColor = layer.color;
+            commit.run();
+        }));
+
+        // response attack / release
+        propBox.addView(vizSlider(dp, "Attack ms", 0f, 1000f, layer.attackMs, true,
+                v -> { layer.attackMs = Math.round(v); commit.run(); }));
+        propBox.addView(vizSlider(dp, "Release ms", 0f, 1000f, layer.releaseMs, true,
+                v -> { layer.releaseMs = Math.round(v); commit.run(); }));
+    }
+
+    /** Small square action button for the layer chip row (＋ ⧉ 🗑 ◀ ▶). */
+    @NonNull
+    private TextView makeVizActionBtn(@NonNull String label, float dp, @NonNull View.OnClickListener onClick) {
+        TextView b = new TextView(this);
+        b.setText(label);
+        b.setTextSize(13);
+        b.setTextColor(0xFFEEEEEE);
+        b.setGravity(android.view.Gravity.CENTER);
+        b.setPadding((int) (8 * dp), (int) (5 * dp), (int) (8 * dp), (int) (5 * dp));
+        b.setBackgroundResource(R.drawable.settings_home_row_bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMarginEnd((int) (4 * dp));
+        b.setLayoutParams(lp);
+        b.setOnClickListener(onClick);
+        return b;
+    }
+
+    /** A labeled prop row (horizontal; label + caller-appended control(s)). */
+    @NonNull
+    private LinearLayout vizPropRow(float dp, @NonNull String label) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(0, (int) (3 * dp), 0, (int) (3 * dp));
+        TextView t = new TextView(this);
+        t.setText(label);
+        t.setTextColor(0xFF9E9E9E);
+        t.setTextSize(11);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams((int) (74 * dp),
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        t.setLayoutParams(tlp);
+        row.addView(t);
+        return row;
+    }
+
+    /** A labeled SeekBar row mapping the progress 0..1000 onto [min,max]; value text updates live. */
+    @NonNull
+    private LinearLayout vizSlider(float dp, @NonNull String label, float min, float max, float value,
+                                   boolean intVal, @NonNull FloatSetter onChange) {
+        LinearLayout row = vizPropRow(dp, label);
+        TextView valT = new TextView(this);
+        valT.setTextSize(11);
+        valT.setTextColor(0xFFCCCCCC);
+        valT.setMinEms(3);
+        valT.setGravity(android.view.Gravity.END);
+        SeekBar sb = new SeekBar(this);
+        sb.setMax(1000);
+        float clamped = Math.max(min, Math.min(max, value));
+        sb.setProgress(Math.round((clamped - min) / (max - min) * 1000f));
+        Runnable setValLabel = () -> {
+            float cur = min + sb.getProgress() / 1000f * (max - min);
+            valT.setText(intVal ? String.valueOf(Math.round(cur))
+                    : String.format(java.util.Locale.US, "%.2f", cur));
+        };
+        setValLabel.run();
+        LinearLayout.LayoutParams sblp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        row.addView(sb, sblp);
+        row.addView(valT);
+        sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                if (!fromUser) return;
+                float cur = min + p / 1000f * (max - min);
+                setValLabel.run();
+                onChange.set(cur);
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) { }
+            @Override public void onStopTrackingTouch(SeekBar s) { }
+        });
+        return row;
     }
 
     private int indexOfStyle(java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles, String id) {
@@ -13464,7 +13920,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (base == null && !builtins.isEmpty()) base = builtins.get(0);
         if (base == null) return;
-        com.fadcam.ui.faditor.model.WaveformStyle effective = overlay.applyOverrides(base).copy();
+        // Route through the shared resolver so a CUSTOMIZED layer stack (customStyleJson) is saved,
+        // not just the preset+overrides (SPEC_VIZ_ENGINE §4, Layers UI lane).
+        com.fadcam.ui.faditor.model.WaveformStyle resolved =
+                com.fadcam.ui.faditor.waveform.WaveformStyleIO.resolveEffectiveStyle(overlay, base);
+        com.fadcam.ui.faditor.model.WaveformStyle effective = (resolved != null ? resolved : base).copy();
         String stamp = new java.text.SimpleDateFormat("MMdd_HHmmss", java.util.Locale.US)
                 .format(new java.util.Date());
         effective.id = "my_viz_" + stamp;
@@ -13488,7 +13948,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (base == null && !builtins.isEmpty()) base = builtins.get(0);
         if (base == null) return;
-        com.fadcam.ui.faditor.model.WaveformStyle effective = overlay.applyOverrides(base).copy();
+        // Same shared resolver as Save — export the customized stack when present.
+        com.fadcam.ui.faditor.model.WaveformStyle resolved =
+                com.fadcam.ui.faditor.waveform.WaveformStyleIO.resolveEffectiveStyle(overlay, base);
+        com.fadcam.ui.faditor.model.WaveformStyle effective = (resolved != null ? resolved : base).copy();
         pendingVisualizerExportStyle = effective;
         String fileName = (effective.id == null || effective.id.isEmpty() ? "visualizer" : effective.id)
                 + com.fadcam.ui.faditor.waveform.WaveformStyleIO.USER_STYLE_SUFFIX;

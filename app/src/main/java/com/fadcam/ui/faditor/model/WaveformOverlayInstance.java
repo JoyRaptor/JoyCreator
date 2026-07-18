@@ -82,6 +82,18 @@ public class WaveformOverlayInstance {
     @Nullable private String gradientStartOverride;
     @Nullable private String gradientEndOverride;
 
+    /**
+     * Joy Viz Engine (SPEC_VIZ_ENGINE §4, Layers UI lane): a full {@link WaveformStyle} JSON —
+     * WITH its layer stack — that this instance carries inline. When non-null it WINS over the
+     * {@link #styleId} preset lookup everywhere the effective style is resolved (preview, export,
+     * Save/Export-style) via
+     * {@link com.fadcam.ui.faditor.waveform.WaveformStyleIO#resolveEffectiveStyle}. The
+     * {@code styleId} stays underneath as the fallback if the JSON fails to parse, and picking a new
+     * preset from the Rolodex clears this (back to preset + scalar overrides). Persisted verbatim by
+     * {@code ProjectStorage} (absent = null, so every pre-Layers-UI project loads unchanged).
+     */
+    @Nullable private String customStyleJson;
+
     /** Normalized placement in canvas coords [0,1]. */
     private float centerX = 0.5f;
     private float centerY = 0.5f;
@@ -219,6 +231,12 @@ public class WaveformOverlayInstance {
 
     public float getSensitivityOverride() { return sensitivityOverride; }
     public void setSensitivityOverride(float s) { this.sensitivityOverride = Math.max(0f, s); }
+
+    @Nullable public String getCustomStyleJson() { return customStyleJson; }
+    /** Set (or clear, when null/empty) the inline custom-layer-stack JSON — see {@link #customStyleJson}. */
+    public void setCustomStyleJson(@Nullable String json) {
+        this.customStyleJson = (json == null || json.isEmpty()) ? null : json;
+    }
 
     @Nullable public String getGradientStartOverride() { return gradientStartOverride; }
     @Nullable public String getGradientEndOverride() { return gradientEndOverride; }

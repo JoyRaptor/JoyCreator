@@ -136,3 +136,20 @@ particle count budget ≤ ~64/band-window at xxhdpi.
   Compile-green (compileDefaultDebugJavaWithJavac). Legacy parity by construction (every new field
   defaults to identity). STILL TODO: **Layers UI** (drawer section — add/dup/delete/reorder + per-layer
   props; FaditorEditorActivity + WaveformVisualizerSettingsSheet lane); response/gradient authoring UI.
+- **Layers UI ✅ (built, pending review / device-verify, 2026-07-17):** drawer "Layers" section added
+  below the Rolodex columns in `FaditorEditorActivity.buildVisualizerRolodex` — horizontal layer chips
+  (emitter name + index, selected highlighted) + ＋add/⧉dup/🗑delete(min 1)/◀▶reorder, and a
+  height-capped (~0.25·screen) ScrollView of compact prop rows for the selected layer (emitter cycle,
+  10 color dots, opacity/softness/gain/spread/phase/trails/glow-radius/attack/release SeekBars,
+  particle count+speed shown only when emitter=particles, blend + mirror + glow on/off toggles).
+  MODEL: `WaveformOverlayInstance.customStyleJson` (@Nullable full layered `WaveformStyle` JSON) —
+  wins over `styleId` everywhere via the new single resolver
+  `WaveformStyleIO.resolveEffectiveStyle(instance, fallbackBase)` = customStyleJson parse (tolerant,
+  falls back to the styleId preset) → `applyOverrides`. Rerouted ALL three effective-style sites
+  through it: preview (`WaveformOverlayView.onDraw`), export (`ExportManager.buildWaveformSlots` →
+  `CompositeExportOverlay` slot), and Save/Export-style (`FaditorEditorActivity`). JSON travels inside
+  project.json (`ProjectStorage` round-trip, tolerant read → absent=null). `WaveformStyle.ensureLayers()`
+  materializes a legacy single-shape into a one-VizLayer stack (mirrors renderer `legacyLayer()`).
+  Picking a new preset from the style Rolodex clears customStyleJson. First layer edit materializes +
+  serializes; each change re-serializes + putStyle + invalidate + scheduleAutoSave. Renderer untouched.
+  **UNDO deferred** (drawer edits autosave, consistent with the existing sensitivity/gradient controls).

@@ -1786,7 +1786,11 @@ public class ExportManager {
             if (base == null) base = builtinStyles.isEmpty()
                     ? new WaveformStyle() : builtinStyles.get(0);
 
-            WaveformStyle effective = woi.applyOverrides(base);
+            // SPEC_VIZ_ENGINE §4 (Layers UI lane): the custom layer stack travels inline on the
+            // instance (customStyleJson, persisted in project.json), so the same shared helper the
+            // preview uses resolves it here — export matches the editor with no extra plumbing.
+            WaveformStyle effective = WaveformStyleIO.resolveEffectiveStyle(woi, base);
+            if (effective == null) effective = base;
             CompositeExportOverlay.WaveformSlot slot = new CompositeExportOverlay.WaveformSlot(
                     woi, data, effective, outW, outH, 1f);
             // G5(b) piggyback-looks: an ATTACHED rider mirrors its host clip's

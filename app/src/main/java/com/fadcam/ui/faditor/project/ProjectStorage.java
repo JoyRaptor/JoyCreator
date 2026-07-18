@@ -1675,6 +1675,11 @@ public class ProjectStorage {
                         wj.addProperty("gradStart", wo.getGradientStartOverride());
                         wj.addProperty("gradEnd", wo.getGradientEndOverride());
                     }
+                    // SPEC_VIZ_ENGINE §4 (Layers UI lane): inline custom layer stack (absent = null,
+                    // so every pre-Layers-UI project round-trips byte-identical).
+                    if (wo.getCustomStyleJson() != null) {
+                        wj.addProperty("customStyleJson", wo.getCustomStyleJson());
+                    }
                     // G5 attach/detach (tolerant, absent = detached — every pre-G5 project)
                     if (wo.getAttachedClipId() != null) {
                         wj.addProperty("attachedClipId", wo.getAttachedClipId());
@@ -2177,6 +2182,10 @@ public class ProjectStorage {
                         if (wj.has("gradStart") && wj.has("gradEnd")) {
                             wo.setGradientOverride(wj.get("gradStart").getAsString(),
                                     wj.get("gradEnd").getAsString());
+                        }
+                        // SPEC_VIZ_ENGINE §4 (Layers UI lane): tolerant read, absent = null.
+                        if (wj.has("customStyleJson") && !wj.get("customStyleJson").isJsonNull()) {
+                            wo.setCustomStyleJson(wj.get("customStyleJson").getAsString());
                         }
                         // G5 attach/detach (tolerant, absent = detached)
                         if (wj.has("attachedClipId")) {

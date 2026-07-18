@@ -144,6 +144,36 @@ public class WaveformStyle {
         return s;
     }
 
+    /**
+     * Materialize the editable layer stack (SPEC_VIZ_ENGINE §4, Layers UI lane). If {@link #layers}
+     * is already present it is left as-is; when {@code null} (a legacy single-shape style) it is wrapped
+     * into a one-element stack whose {@link VizLayer} copies the top-level look — the SAME mapping the
+     * renderer's {@code legacyLayer()} does at draw time, so materializing then editing keeps parity for
+     * an untouched layer. Returns {@code this} for chaining. Mutates in place — call on a {@link #copy()}
+     * if you must not disturb a shared preset.
+     */
+    @NonNull
+    public WaveformStyle ensureLayers() {
+        if (layers != null) return this;
+        VizLayer l = new VizLayer();
+        // Emitter from the legacy shape type (mirrors renderer shapeOf(): line/filled else bars).
+        if (TYPE_LINE.equals(type)) l.emitter = VizLayer.EMITTER_LINE;
+        else if (TYPE_FILLED_WAVE.equals(type)) l.emitter = VizLayer.EMITTER_FILLED;
+        else l.emitter = VizLayer.EMITTER_BARS;
+        l.color = color;
+        l.gradientStart = gradientStart;
+        l.gradientEnd = gradientEnd;
+        l.glowColor = glowColor;
+        l.glowRadiusDp = glowRadiusDp;
+        l.barWidthDp = barWidthDp;
+        l.barGapDp = barGapDp;
+        l.cornerRadiusDp = cornerRadiusDp;
+        java.util.List<VizLayer> stack = new java.util.ArrayList<>(1);
+        stack.add(l);
+        layers = stack;
+        return this;
+    }
+
     @NonNull
     @Override
     public String toString() {

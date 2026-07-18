@@ -130,9 +130,11 @@ public class WaveformOverlayView extends View {
         if (w <= 0 || h <= 0 || overlays.isEmpty()) return;
         for (WaveformOverlayInstance o : overlays) {
             if (playheadMs < o.getStartMs() || playheadMs > o.getEndMs()) continue;
-            WaveformStyle style = styles.get(o.getStyleId());
+            // SPEC_VIZ_ENGINE §4 (Layers UI lane): resolve through the shared helper so an instance's
+            // inline custom layer stack wins over the styleId preset (a customized visualizer previews
+            // exactly as it will export). Overrides (colour/gradient/sensitivity) still layer on top.
+            WaveformStyle style = WaveformStyleIO.resolveEffectiveStyle(o, styles.get(o.getStyleId()));
             if (style == null) continue;
-            style = o.applyOverrides(style);
             WaveformData data = o.getAudioSourceRef() != null
                     ? dataBySource.get(o.getAudioSourceRef()) : null;
 

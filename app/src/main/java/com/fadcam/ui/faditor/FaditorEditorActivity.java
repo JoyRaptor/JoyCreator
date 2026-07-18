@@ -626,7 +626,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             // Only keep ticking if actively playing — avoids wasting CPU
             // redrawing the playhead position when nothing is moving.
-            if ((playerManager != null && playerManager.isPlaying()) || audioTailActive) {
+            // transitionPlaybackActive keeps the loop alive across a transition even when
+            // isPlaying() drops (STATE_ENDED at a file-end seam, a buffering blip, or a
+            // user pause mid-blend) — if the ticker dies here the transition freezes with
+            // no completion path (sandbox repro 2026-07-18).
+            if ((playerManager != null && playerManager.isPlaying()) || audioTailActive
+                    || transitionPlaybackActive) {
                 playheadHandler.postDelayed(this, PLAYHEAD_UPDATE_INTERVAL_MS);
             }
         }
@@ -3528,6 +3533,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 } else if (!audioTailActive) {
                     pauseAudioPlayer();
                 }
+            }
+
+            @Override
+            public void onRenderedFirstFrame() {
+                // The incoming clip has a real frame on the surface — drop the held
+                // GL blend frame (see startGlTransitionAnimator's handoff hold).
+                releaseGlTransitionHold();
             }
 
             @Override
@@ -8204,6 +8216,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the isAtEnd block above, identically to a NORMAL loop). True reverse is the gapless
         // engine's baked-segment path only.
 
+        // Transition completion when the outgoing clip's source ENDED under the blend: with the
+        // seam at the file end, ExoPlayer hits STATE_ENDED before a poll can observe
+        // progress >= 1 — isPlaying() goes false, the in-playback branch below never ticks
+        // again, and the transition froze mid-blend without ever starting clip B (sandbox
+        // repro 2026-07-18, 3200ms clip / seam == file end). isAtTrimEnd distinguishes a true
+        // end from a user pause mid-transition (which should just hold).
+        // glTransitionAnimator == null: while the animator runs, it owns completion — A ending
+        // under a still-animating blend is NORMAL (the blend outlives A's last frame).
+        if (transitionPlaybackActive && !isPlaying && playerManager.isAtTrimEnd()
+                && glTransitionAnimator == null) {
+            hideTransitionPreview();
+            advanceToSegment(transitionPlaybackSeam + 1, true);
+            return;
+        }
+
         if (isPlaying) {
             long currentPos = playerManager.getCurrentPosition();
             // Clear the loop-restart pending flag once the seek-to-0 has
@@ -8220,6 +8247,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 long outputMs = getOutputPositionForCurrentPlayback(currentPos);
                 editorTimeline.setPlayheadPositionMs(outputMs);
                 updateCurrentTimeDisplay(outputMs);
+                Transition activeTransition = getTransitionAtSeam(transitionPlaybackSeam);
+                if (activeTransition != null && activeTransition.isGlShader()) {
+                    // Animator-driven: rendering + completion belong to startGlTransitionAnimator.
+                    // The poll only supplies the hard-cut fallback for a decode that never landed
+                    // within the window (A's live tail stayed on screen the whole time).
+                    if (glTransitionAnimator == null && progress >= 1f) {
+                        hideTransitionPreview();
+                        advanceToSegment(transitionPlaybackSeam + 1, true);
+                    }
+                    return;
+                }
                 renderTransitionPreview(progress, currentPos);
                 if (progress >= 1f) {
                     hideTransitionPreview();
@@ -8233,14 +8271,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (seamTransition != null) {
                 long transitionSourceDuration = Math.max(1L,
                         Math.min(clipDuration, (long) (seamTransition.durationMs * clip.getSpeedMultiplier())));
+                // Warm the GL endpoint frames off-main BEFORE the window opens, so the
+                // blend can start on its first frame instead of eating decode latency.
+                if (seamTransition.isGlShader() && glTransitionPrefetchSeam != selectedClipIndex
+                        && currentPos >= clipDuration - transitionSourceDuration - 1200) {
+                    glTransitionPrefetchSeam = selectedClipIndex;
+                    prefetchGlTransitionEndpoints(selectedClipIndex);
+                }
                 if (currentPos >= clipDuration - transitionSourceDuration) {
                     transitionPlaybackActive = true;
                     transitionPlaybackSeam = selectedClipIndex;
                     transitionPlaybackStartPositionMs = clipDuration - transitionSourceDuration;
                     transitionPlaybackDurationMs = transitionSourceDuration;
                     transitionPreviewOverlay.setVisibility(View.GONE);
+                    glTransitionHold = false; // a stale handoff-hold must not survive a new seam
                     if (glTransitionPreviewView != null) glTransitionPreviewView.clear();
                     if (playerView != null) playerView.setAlpha(1f);
+                    if (seamTransition.isGlShader()) {
+                        startGlTransitionAnimator(selectedClipIndex);
+                    }
                     return;
                 }
             }
@@ -8517,12 +8566,160 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void hideTransitionPreview() {
         transitionPlaybackActive = false;
+        cancelGlTransitionAnimator();
+        glTransitionPrefetchSeam = -1;
         if (transitionPreviewOverlay != null) {
             transitionPreviewOverlay.setVisibility(View.GONE);
         }
-        if (glTransitionPreviewView != null) glTransitionPreviewView.clear();
+        // During the blend→incoming-clip handoff the GL view HOLDS the blend's final frame
+        // over the canvas — clearing it here (advanceToSegment → loadClipForPlayback →
+        // hideTransitionPreview) popped to a black canvas + buffering spinner until the
+        // incoming player produced a frame. Released in onRenderedFirstFrame (+ timeout).
+        if (glTransitionPreviewView != null && !glTransitionHold) glTransitionPreviewView.clear();
         if (playerView != null) playerView.setAlpha(1f);
         clearTransitionFrameCache();
+    }
+
+    /** True while the GL view holds the blend's last frame over the incoming clip's load. */
+    private boolean glTransitionHold;
+
+    private void releaseGlTransitionHold() {
+        if (glTransitionHold) {
+            glTransitionHold = false;
+            if (glTransitionPreviewView != null) glTransitionPreviewView.clear();
+        }
+    }
+
+    // ── GL transition playback: animator-driven blend ────────────────────────
+    // The old flow decoded BOTH legs' frames via MediaMetadataRetriever ON THE MAIN
+    // THREAD on every 50ms poll tick — each decode costs 100-300ms, so on a 600ms
+    // window nothing ever rendered: the "transition" was a black flash (sandbox
+    // repro 2026-07-18). New flow: prefetch the two ENDPOINT frames off-main as the
+    // seam approaches, then run the shader off a 60fps ValueAnimator. The underlying
+    // player keeps showing A's live tail until the frames are ready, so a slow decode
+    // degrades to a shorter blend, never black.
+
+    /** Seam whose endpoint frames were already prefetch-kicked (-1 = none). */
+    private int glTransitionPrefetchSeam = -1;
+    @Nullable private android.animation.ValueAnimator glTransitionAnimator;
+    /** Serializes MediaMetadataRetriever use between the poll/scrub (main) and prefetch threads. */
+    private final Object transitionDecodeLock = new Object();
+    private final java.util.concurrent.ExecutorService transitionDecodeExecutor =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "gl-transition-decode");
+                t.setDaemon(true);
+                return t;
+            });
+
+    private void cancelGlTransitionAnimator() {
+        if (glTransitionAnimator != null) {
+            android.animation.ValueAnimator va = glTransitionAnimator;
+            glTransitionAnimator = null;
+            va.cancel();
+        }
+    }
+
+    /**
+     * The endpoint frames must be composed at the GL VIEW's aspect (the canvas rect the quad
+     * fills), NOT the whole preview container's — a container-aspect bitmap stretched onto the
+     * canvas-rect quad squashed the incoming clip for the blend's duration, then it snapped to
+     * the correct pillarbox at handoff (sandbox repro 2026-07-18, landscape canvas + vertical B).
+     */
+    private int[] glTransitionFrameDims() {
+        if (glTransitionPreviewView != null && glTransitionPreviewView.getWidth() > 0
+                && glTransitionPreviewView.getHeight() > 0) {
+            return new int[]{glTransitionPreviewView.getWidth(), glTransitionPreviewView.getHeight()};
+        }
+        android.graphics.RectF vr = computeVideoContentRect();
+        if (vr.width() >= 1f && vr.height() >= 1f) {
+            return new int[]{Math.round(vr.width()), Math.round(vr.height())};
+        }
+        return new int[]{previewWidth(), previewHeight()};
+    }
+
+    /** Warm the two endpoint frames into the cache off-main (kicked ~1.2s before the seam). */
+    private void prefetchGlTransitionEndpoints(int seam) {
+        Timeline tl = project.getTimeline();
+        Transition transition = getTransitionAtSeam(seam);
+        if (transition == null || seam + 1 >= tl.getClipCount()) return;
+        final Clip prev = tl.getClip(seam);
+        final Clip next = tl.getClip(seam + 1);
+        final int[] dims = glTransitionFrameDims();
+        transitionDecodeExecutor.execute(() -> {
+            decodeTransitionFrame(prev, prev.getOutPointMs(), dims[0], dims[1], true);
+            decodeTransitionFrame(next, transitionNextSourceMs(transition, next, 0f),
+                    dims[0], dims[1], true);
+        });
+    }
+
+    /**
+     * Decode the endpoint frames (cache-hit when prefetched), then blend A's last frame into
+     * B's first with the shader at animator rate. On finish, advance to the incoming clip —
+     * honoring a pause made mid-blend. The bitmaps are DEFENSIVE COPIES: the frame cache
+     * recycles its entries on {@link #hideTransitionPreview}, which would otherwise yank them
+     * out from under the GL renderer.
+     */
+    private void startGlTransitionAnimator(final int seam) {
+        Timeline tl = project.getTimeline();
+        final Transition transition = getTransitionAtSeam(seam);
+        if (transition == null || !transition.isGlShader() || seam + 1 >= tl.getClipCount()) return;
+        final Clip prev = tl.getClip(seam);
+        final Clip next = tl.getClip(seam + 1);
+        cancelGlTransitionAnimator();
+        final int[] dims = glTransitionFrameDims(); // GL-view aspect — see glTransitionFrameDims
+        final int outW = dims[0], outH = dims[1];
+        transitionDecodeExecutor.execute(() -> {
+            Bitmap fromCached = decodeTransitionFrame(prev, prev.getOutPointMs(), outW, outH, true);
+            Bitmap toCached = decodeTransitionFrame(next,
+                    transitionNextSourceMs(transition, next, 0f), outW, outH, true);
+            final Bitmap from = fromCached != null && !fromCached.isRecycled()
+                    ? fromCached.copy(Bitmap.Config.ARGB_8888, false) : null;
+            final Bitmap to = toCached != null && !toCached.isRecycled()
+                    ? toCached.copy(Bitmap.Config.ARGB_8888, false) : null;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                // Window already over (ENDED fallback advanced, user paused+scrubbed, …)
+                if (!transitionPlaybackActive || transitionPlaybackSeam != seam
+                        || glTransitionPreviewView == null || from == null || to == null) {
+                    return; // poll fallback (hard cut at progress>=1 / ENDED) covers it
+                }
+                android.animation.ValueAnimator va = android.animation.ValueAnimator.ofFloat(0f, 1f);
+                va.setDuration(Math.max(100L, transition.durationMs));
+                va.setInterpolator(new android.view.animation.LinearInterpolator());
+                va.addUpdateListener(a -> {
+                    if (glTransitionPreviewView != null) {
+                        glTransitionPreviewView.render(from, to, transition,
+                                (Float) a.getAnimatedValue());
+                    }
+                });
+                va.addListener(new android.animation.AnimatorListenerAdapter() {
+                    private boolean cancelled;
+                    @Override public void onAnimationCancel(android.animation.Animator a) {
+                        cancelled = true;
+                    }
+                    @Override public void onAnimationEnd(android.animation.Animator a) {
+                        if (glTransitionAnimator == va) glTransitionAnimator = null;
+                        if (cancelled) return;
+                        if (transitionPlaybackActive && transitionPlaybackSeam == seam) {
+                            // Resume only if the user didn't pause mid-blend.
+                            boolean resume = playerManager == null || playerManager.isPlaying()
+                                    || playerManager.isAtTrimEnd();
+                            // Hold the final blend frame (== B's first frame) over the canvas
+                            // while B prepares; released by onRenderedFirstFrame or the timeout.
+                            glTransitionHold = true;
+                            hideTransitionPreview();
+                            advanceToSegment(seam + 1, resume);
+                            if (playheadHandler != null) {
+                                playheadHandler.postDelayed(
+                                        FaditorEditorActivity.this::releaseGlTransitionHold, 1500L);
+                            }
+                        }
+                    }
+                });
+                glTransitionAnimator = va;
+                va.start();
+            });
+        });
     }
 
     private long transitionNextSourceMs(@NonNull Transition transition, @NonNull Clip next, float progress) {
@@ -8599,23 +8796,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Bitmap cached = cachedTransitionFrame(key);
             if (cached != null) return cached;
             if (transitionFrameFailed.contains(key)) return null;
-            if (transitionRetriever == null || !uriString.equals(transitionRetrieverUri)) {
-                releaseTransitionRetriever();
-                transitionRetriever = new MediaMetadataRetriever();
-                // file:// URIs must use the path form — setDataSource(Context, fileUri)
-                // fails with status 0x80000000 (which killed the decode and, because
-                // nothing cached, retried the slow failing call on every scrub tick).
-                if ("file".equals(playbackUri.getScheme()) && playbackUri.getPath() != null) {
-                    transitionRetriever.setDataSource(playbackUri.getPath());
-                } else {
-                    transitionRetriever.setDataSource(this, playbackUri);
+            Bitmap frame;
+            // The retriever is shared between the scrub path (main thread) and the GL
+            // endpoint prefetch (decode thread) — MediaMetadataRetriever is not thread-safe.
+            synchronized (transitionDecodeLock) {
+                if (transitionRetriever == null || !uriString.equals(transitionRetrieverUri)) {
+                    releaseTransitionRetriever();
+                    transitionRetriever = new MediaMetadataRetriever();
+                    // file:// URIs must use the path form — setDataSource(Context, fileUri)
+                    // fails with status 0x80000000 (which killed the decode and, because
+                    // nothing cached, retried the slow failing call on every scrub tick).
+                    if ("file".equals(playbackUri.getScheme()) && playbackUri.getPath() != null) {
+                        transitionRetriever.setDataSource(playbackUri.getPath());
+                    } else {
+                        transitionRetriever.setDataSource(this, playbackUri);
+                    }
+                    transitionRetrieverUri = uriString;
                 }
-                transitionRetrieverUri = uriString;
-            }
-            Bitmap frame = transitionRetriever.getFrameAtTime(sourceMs * 1000L,
-                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-            if (frame == null) {
-                frame = transitionRetriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                frame = transitionRetriever.getFrameAtTime(sourceMs * 1000L,
+                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (frame == null) {
+                    frame = transitionRetriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                }
             }
             if (frame == null) return null;
             // Crop BEFORE letterbox/scale so the transition legs match the player's
@@ -8755,6 +8957,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void releaseTransitionRetriever() {
+        synchronized (transitionDecodeLock) {
+            releaseTransitionRetrieverLocked();
+        }
+    }
+
+    private void releaseTransitionRetrieverLocked() {
         if (transitionRetriever != null) {
             try {
                 transitionRetriever.release();

@@ -90,6 +90,8 @@ public class GlTransitionPreviewView extends GLSurfaceView {
             fromBitmap = null;
             toBitmap = null;
             transition = null;
+            lastFromUploaded = null;
+            lastToUploaded = null;
         }
 
         void release() {
@@ -97,6 +99,8 @@ public class GlTransitionPreviewView extends GLSurfaceView {
             if (toTex > 0) GLES20.glDeleteTextures(1, new int[]{toTex}, 0);
             fromTex = -1;
             toTex = -1;
+            lastFromUploaded = null;
+            lastToUploaded = null;
             if (program > 0) GLES20.glDeleteProgram(program);
             program = -1;
         }
@@ -105,6 +109,13 @@ public class GlTransitionPreviewView extends GLSurfaceView {
         public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl,
                                      javax.microedition.khronos.egl.EGLConfig config) {
             GLES20.glClearColor(0f, 0f, 0f, 1f);
+            // Fresh EGL context: old texture ids are dead. Reset so bindTexture re-creates
+            // and re-uploads (the upload-on-change cache would otherwise skip the upload
+            // and sample stale/garbage textures after a surface recreation).
+            fromTex = -1;
+            toTex = -1;
+            lastFromUploaded = null;
+            lastToUploaded = null;
             reloadProgram();
         }
 
@@ -150,24 +161,36 @@ public class GlTransitionPreviewView extends GLSurfaceView {
             program = createProgram(vertexShader(), shader);
         }
 
-        private void bindTexture(int unit, Bitmap bitmap, boolean repeat) {
+        // Last bitmap uploaded to each texture unit — with static endpoint frames the
+        // upload happens ONCE per transition instead of every draw. (The old path
+        // re-uploaded BOTH textures per frame through a per-pixel Java loop — ~100ms+
+        // per draw, which is why the blend crawled even when frames were available.)
+        private Bitmap lastFromUploaded;
+        private Bitmap lastToUploaded;
+
+        private void bindTexture(int unit, Bitmap bitmap, boolean isFrom) {
             int[] tex = new int[1];
             GLES20.glActiveTexture(unit);
+            boolean created = false;
             if ((unit == GLES20.GL_TEXTURE0 && fromTex <= 0) || (unit == GLES20.GL_TEXTURE1 && toTex <= 0)) {
                 GLES20.glGenTextures(1, tex, 0);
                 if (unit == GLES20.GL_TEXTURE0) fromTex = tex[0]; else toTex = tex[0];
+                created = true;
             } else {
                 tex[0] = unit == GLES20.GL_TEXTURE0 ? fromTex : toTex;
             }
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex[0]);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER,
-                    repeat ? GLES20.GL_LINEAR : GLES20.GL_LINEAR);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
-            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
-                    bitmap.getWidth(), bitmap.getHeight(), 0, GLES20.GL_RGBA,
-                    GLES20.GL_UNSIGNED_BYTE, bitmapBuffer(bitmap));
+            Bitmap lastUploaded = isFrom ? lastFromUploaded : lastToUploaded;
+            if (created || lastUploaded != bitmap) {
+                if (bitmap.isRecycled()) return; // frame cache recycled it — keep last texture
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+                // Native upload (GLUtils) — same top-down RGBA order as the old manual buffer.
+                android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+                if (isFrom) lastFromUploaded = bitmap; else lastToUploaded = bitmap;
+            }
         }
 
         private static String vertexShader() {
@@ -197,20 +220,6 @@ public class GlTransitionPreviewView extends GLSurfaceView {
             GLES20.glShaderSource(shader, source);
             GLES20.glCompileShader(shader);
             return shader;
-        }
-
-        private static ByteBuffer bitmapBuffer(@NonNull Bitmap bitmap) {
-            int[] pixels = new int[bitmap.getWidth() * bitmap.getHeight()];
-            bitmap.getPixels(pixels, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
-            ByteBuffer buffer = ByteBuffer.allocateDirect(pixels.length * 4).order(ByteOrder.nativeOrder());
-            for (int pixel : pixels) {
-                buffer.put((byte) ((pixel >> 16) & 0xFF));
-                buffer.put((byte) ((pixel >> 8) & 0xFF));
-                buffer.put((byte) (pixel & 0xFF));
-                buffer.put((byte) ((pixel >> 24) & 0xFF));
-            }
-            buffer.position(0);
-            return buffer;
         }
 
         private static ByteBuffer directBuffer(float[] values) {

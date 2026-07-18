@@ -1371,6 +1371,7 @@ public class EditorTimelineView extends View {
         if (selected >= 0) {
             lastPlaybackIndex = selected;  // Track for playback continuation
         }
+        reconcileClipAudioDrawers();
         computeRects();
         
         // Center timeline on current playhead position
@@ -2543,6 +2544,40 @@ public class EditorTimelineView extends View {
             if (sd.clipId == null || sd.isImageClip) continue;
             if (clipAudioDrawerOpen.contains(sd.clipId) != opening) {
                 toggleClipAudioDrawer(sd.clipId);
+            }
+        }
+    }
+
+    /**
+     * Carry the OPEN audio shelf across a timeline re-feed. The open state is keyed by CLIP ID,
+     * and structural edits mint fresh ids — a split replaces the open parent with two closed
+     * children, silently collapsing the shelf mid-edit (JoyRaptor 2026-07-18: "the split should just
+     * cut through the film and the waveform"). The shelf is a LAYER-wide toggle in practice
+     * ({@link #toggleLayerAudioDrawers}), so: if it was open at all, keep it open for every
+     * (non-image) clip in the new timeline — instantly, fraction 1, no animation — and drop
+     * state for ids that no longer exist.
+     */
+    private void reconcileClipAudioDrawers() {
+        if (clipAudioDrawerOpen.isEmpty()) return; // shelf closed — nothing to carry
+        java.util.Set<String> live = new HashSet<>();
+        for (SegmentData sd : segments) {
+            if (sd.clipId != null) live.add(sd.clipId);
+        }
+        // Prune dead ids (and kill their in-flight animators).
+        for (java.util.Iterator<String> it = clipAudioDrawerOpen.iterator(); it.hasNext(); ) {
+            String id = it.next();
+            if (!live.contains(id)) {
+                it.remove();
+                clipAudioDrawerFraction.remove(id);
+                android.animation.ValueAnimator anim = clipAudioDrawerAnims.remove(id);
+                if (anim != null) anim.cancel();
+            }
+        }
+        // Shelf was open (set was non-empty on entry) — hold it open for the whole layer.
+        for (SegmentData sd : segments) {
+            if (sd.clipId == null || sd.isImageClip) continue;
+            if (clipAudioDrawerOpen.add(sd.clipId)) {
+                clipAudioDrawerFraction.put(sd.clipId, 1f);
             }
         }
     }

@@ -410,3 +410,37 @@ F12 — TRANSITION FRAMES IGNORE CLIP CROP (JoyRaptor 2026-07-18: both clips cro
   leg, ExportManager:2181) and GlTransitionExportEffect samples the incoming clip's RAW
   source. Fixing needs GL-side crop of both legs + canvas-compose review — do NOT change
   blind; needs an A/B export frame-diff proof (see memory ab-export-frame-diff-proof).
+
+F13 — GL SHADER TRANSITIONS: PREVIEW RELIABILITY + QUALITY OVERHAUL (JoyRaptor 2026-07-18 pm,
+  sandbox SM-N960U, test project 302da9ac: 3.2s landscape rug -> tangentMotionBlur ->
+  5.5s vertical clip, canvas 'original'). Four defects found by screenrecord frame pulls:
+  (1) FREEZE at a file-end seam: transition branch lived inside if(isPlaying); ExoPlayer
+      STATE_ENDED before progress>=1 -> isPlaying false -> tick loop died -> frozen
+      mid-blend, clip B never started. FIX: ticker keeps ticking while
+      transitionPlaybackActive; a !isPlaying+isAtTrimEnd tick completes + advances.
+  (2) BLACK FLASH instead of a blend: renderTransitionPreview decoded BOTH legs via
+      MediaMetadataRetriever ON MAIN per 50ms tick (100-300ms each) — nothing rendered
+      within a 600ms window. FIX: animator-driven blend — endpoint frames (A@out, B@in)
+      decoded once OFF-main (single-thread executor; retriever calls serialized with the
+      scrub path via transitionDecodeLock), prefetched ~1.2s before the seam, then a
+      LinearInterpolator ValueAnimator drives the shader at frame rate. A's LIVE tail
+      stays on screen until frames are ready (slow decode = shorter blend, never black).
+      Poll keeps a progress>=1 hard-cut fallback; ENDED fallback only when no animator.
+  (3) TEXTURE UPLOAD COST: GlTransitionPreviewView re-uploaded both textures EVERY draw
+      through a per-pixel Java loop (~100ms+/frame). FIX: GLUtils.texImage2D native
+      upload, only when the bitmap reference changes (once per transition with static
+      endpoints); texture ids + upload cache reset on surfaceCreated (fresh EGL context).
+  (4) GEOMETRY: endpoint frames were letterboxed to the CONTAINER aspect but the GL quad
+      fills the CANVAS rect -> incoming clip squashed during the blend, snapping to the
+      correct pillarbox at handoff. FIX: glTransitionFrameDims() = GL view rect (fallback
+      computeVideoContentRect) so blend framing == playback framing.
+  Plus HANDOFF HOLD: advanceToSegment->loadClipForPlayback->hideTransitionPreview cleared
+  the GL view before B had a frame (black canvas + spinner ~300ms). The GL view now HOLDS
+  the blend's final frame (== B's first frame); released on onRenderedFirstFrame of the
+  incoming player or a 1.5s timeout; stale holds cleared on new seam activation.
+  DEVICE-VERIFIED (screenrecord tr7, 10fps frame pull): live A tail -> full-rate
+  tangentMotionBlur blend at correct aspect -> hold -> B plays pillarboxed, zero black
+  frames, zero freezes. Animator bitmaps are defensive COPIES (the frame cache recycles
+  on hide). Uncommitted. Defensive-copy + endpoint-frame model means the blend uses
+  STATIC endpoint frames (standard freeze-frame blend) — A's motion pauses for ≤600ms;
+  live-texture (SurfaceTexture two-player) rendering would be the next tier if wanted.

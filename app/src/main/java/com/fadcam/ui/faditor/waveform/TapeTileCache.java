@@ -53,13 +53,20 @@ public final class TapeTileCache {
 
     /** Tile width in item content pixels. */
     public static final int TILE_W = 512;
-    /** LRU ceiling (on-screen tiles + a small margin). */
-    private static final int MAX_TILES = 16;
+    /** LRU ceiling (on-screen tiles + a small margin; 1440px screen ⇒ ~3 visible per item). */
+    private static final int MAX_TILES = 24;
 
     private final TapeWaveformRenderer baker;
     private final RectF bakeRect = new RectF();
     private final RectF dst = new RectF();
     private boolean directVectorMode = false;
+    /**
+     * Per-clip last-seen item width (F2d): tiles only bake once the width repeats — i.e.
+     * the zoom is at rest. During a live pinch every frame has a NEW width, and each bake
+     * is a full-item vector render clipped to 512px, so baking N visible tiles per frame
+     * would cost N× the plain vector draw the pinch gets instead.
+     */
+    private final java.util.HashMap<String, Integer> lastWidthByClip = new java.util.HashMap<>();
 
     /** Access-ordered LRU; evicts + recycles the eldest bitmap past the ceiling. */
     private final LinkedHashMap<String, Bitmap> tiles =
@@ -93,22 +100,48 @@ public final class TapeTileCache {
      * (or, in direct-vector mode, drawing straight through). Visual output is identical to a
      * direct {@link TapeWaveformRenderer#draw} at the same size.
      *
-     * @param clipKey stable per-source identity (audio clip id, or source-uri|span for the drawer).
-     * @param serial  the {@link BandedTimelineWaveformCache.Shaped#serial} of {@code shaped}.
+     * <p>F2d (PERF_SPEC_LONGFILE_20260718): the old {@code wF > 8192f} guard fell back to a
+     * FULL vector render every frame — at editing zoom 8192px is only ~10-45s of timeline, so
+     * every real clip on a long project took the fallback and the tile cache never engaged
+     * (>1s draw passes on the 45-min project). Now the caller passes the visible content
+     * window and only intersecting tiles are baked/blit, so item width no longer matters.</p>
+     *
+     * @param clipKey  stable per-source identity (audio clip id, or source-uri|span for the drawer).
+     * @param serial   the {@link BandedTimelineWaveformCache.Shaped#serial} of {@code shaped}.
+     * @param visLeft  left edge of the visible viewport in the same content space as {@code rect}.
+     * @param visRight right edge of the visible viewport (pass {@code Float.MAX_VALUE} with
+     *                 {@code -Float.MAX_VALUE} left to draw everything, e.g. offscreen bakes).
      */
     public void draw(@NonNull Canvas canvas, @NonNull RectF rect, @NonNull BandedWaveformData raw,
                      @NonNull ShapedTape shaped, long serial, @NonNull TapeWaveformStyle style,
-                     long clipInMs, long clipDurMs, @NonNull String clipKey) {
+                     long clipInMs, long clipDurMs, @NonNull String clipKey,
+                     float visLeft, float visRight) {
         final float wF = rect.width();
         final int H = Math.max(1, Math.round(rect.height()));
-        // Direct vector for tiny rects, degenerate sizes, or live drag.
-        if (directVectorMode || wF < 2f || wF > 8192f) {
-            baker.draw(canvas, rect, raw, shaped, style, clipInMs, clipDurMs);
+        // Direct vector for tiny rects, degenerate sizes, or live drag — WINDOWED to the
+        // viewport (F6b): a full-rect vector pass is O(item width) and on a 45-min layer
+        // that's a multi-second main-thread render (the double-tap-drawer ANR, 2026-07-18).
+        if (directVectorMode || wF < 2f) {
+            drawVectorWindowed(canvas, rect, raw, shaped, style, clipInMs, clipDurMs, visLeft, visRight);
             return;
         }
         final int Wpx = Math.max(1, Math.round(wF));
+        // Zoom-in-motion: width changed since the last frame → draw vector this frame and
+        // bake only once the width settles (see lastWidthByClip doc).
+        Integer lastW = lastWidthByClip.put(clipKey, Wpx);
+        if (lastW == null || lastW != Wpx) {
+            drawVectorWindowed(canvas, rect, raw, shaped, style, clipInMs, clipDurMs, visLeft, visRight);
+            return;
+        }
         final int tileCount = (Wpx + TILE_W - 1) / TILE_W;
-        for (int t = 0; t < tileCount; t++) {
+        // Only tiles intersecting the visible window (±0 margin: a tile is 512px, the blit is
+        // cheap, and bakes are the expensive part — bake exactly what shows).
+        int tStart = 0, tEnd = tileCount;
+        if (visRight > visLeft) {
+            tStart = Math.max(0, (int) Math.floor((visLeft - rect.left) / TILE_W));
+            tEnd = Math.min(tileCount, (int) Math.floor((visRight - rect.left) / TILE_W) + 1);
+        }
+        for (int t = tStart; t < tEnd; t++) {
             final int contentX = t * TILE_W;
             final int tileW = Math.min(TILE_W, Wpx - contentX);
             if (tileW <= 0) break;
@@ -124,19 +157,61 @@ public final class TapeTileCache {
         }
     }
 
-    /** Bake tile {@code t} as an exact crop of the full-width render (offset rect trick). */
+    /** Back-compat overload: draw with no viewport culling (bakes every tile). */
+    public void draw(@NonNull Canvas canvas, @NonNull RectF rect, @NonNull BandedWaveformData raw,
+                     @NonNull ShapedTape shaped, long serial, @NonNull TapeWaveformStyle style,
+                     long clipInMs, long clipDurMs, @NonNull String clipKey) {
+        draw(canvas, rect, raw, shaped, serial, style, clipInMs, clipDurMs, clipKey,
+                -Float.MAX_VALUE, Float.MAX_VALUE);
+    }
+
+    /**
+     * F6b: the renderer's time↔x mapping is linear ({@code x/W * clipDurMs}), so rendering a
+     * sub-span at the same ms-per-px is pixel-equivalent to cropping a full-item render — but
+     * O(window) instead of O(item). The old "offset rect trick" positioned the FULL item per
+     * bake; on the 45-min project one bake was a multi-second columns()+Path pass over ~100k px,
+     * ×(settle frame + each visible tile) ⇒ the double-tap-drawer ANR (2026-07-18). Overscan
+     * gives the edge smoothing (3-tap) and spark detection (±6px) real neighbor context so
+     * tile seams stay invisible; the bitmap/window clip discards it.
+     */
+    private static final int OVERSCAN_PX = 8;
+
+    /** Reusable rect for windowed direct-vector draws. */
+    private final RectF winRect = new RectF();
+
+    /** Vector-draw only the part of {@code rect} inside [visLeft, visRight], via time sub-span. */
+    private void drawVectorWindowed(@NonNull Canvas canvas, @NonNull RectF rect,
+                                    @NonNull BandedWaveformData raw, @NonNull ShapedTape shaped,
+                                    @NonNull TapeWaveformStyle style, long clipInMs, long clipDurMs,
+                                    float visLeft, float visRight) {
+        final float xL = Math.max(rect.left, visLeft - OVERSCAN_PX);
+        final float xR = Math.min(rect.right, visRight + OVERSCAN_PX);
+        if (xR <= xL) return;
+        if (xL <= rect.left && xR >= rect.right) {
+            baker.draw(canvas, rect, raw, shaped, style, clipInMs, clipDurMs);
+            return;
+        }
+        final double w = Math.max(1f, rect.width());
+        final long msL = clipInMs + (long) ((xL - rect.left) / w * clipDurMs);
+        final long msR = clipInMs + (long) Math.ceil((xR - rect.left) / w * clipDurMs);
+        winRect.set(xL, rect.top, xR, rect.bottom);
+        baker.draw(canvas, winRect, raw, shaped, style, msL, Math.max(1, msR - msL));
+    }
+
+    /** Bake tile {@code t} by rendering just its time sub-span (see OVERSCAN_PX doc). */
     @NonNull
     private Bitmap bakeTile(int t, int tileW, int H, int Wpx, float rectLeft,
                             @NonNull BandedWaveformData raw, @NonNull ShapedTape shaped,
                             @NonNull TapeWaveformStyle style, long clipInMs, long clipDurMs) {
         Bitmap bmp = Bitmap.createBitmap(tileW, H, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
-        // Position the FULL item so content-x [t*TILE_W, ...) lands at bitmap x 0: the bitmap is
-        // only tileW x H, so the renderer's out-of-bounds paths are clipped — the retained slice
-        // is a pixel-exact window into the same single render every tile shares (no seams).
-        final float left = -(float) (t * TILE_W);
-        bakeRect.set(left, 0f, left + Wpx, H);
-        baker.draw(c, bakeRect, raw, shaped, style, clipInMs, clipDurMs);
+        final int x0 = t * TILE_W;
+        final int padL = Math.min(OVERSCAN_PX, x0);
+        final int padR = Math.min(OVERSCAN_PX, Math.max(0, Wpx - (x0 + tileW)));
+        final long msL = clipInMs + (long) ((double) (x0 - padL) / Wpx * clipDurMs);
+        final long msR = clipInMs + (long) Math.ceil((double) (x0 + tileW + padR) / Wpx * clipDurMs);
+        bakeRect.set(-padL, 0f, tileW + padR, H);
+        baker.draw(c, bakeRect, raw, shaped, style, msL, Math.max(1, msR - msL));
         return bmp;
     }
 
@@ -147,5 +222,6 @@ public final class TapeTileCache {
             if (b != null && !b.isRecycled()) b.recycle();
             it.remove();
         }
+        lastWidthByClip.clear();
     }
 }

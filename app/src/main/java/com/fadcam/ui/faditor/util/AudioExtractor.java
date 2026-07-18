@@ -93,8 +93,18 @@ public class AudioExtractor {
     public void generateWaveform(@NonNull Uri audioUri, @NonNull WaveformCallback callback) {
         executor.execute(() -> {
             try {
-                int[] waveform = doGenerateWaveform(audioUri);
-                runOnMain(() -> callback.onWaveformReady(waveform));
+                // F3a (PERF_SPEC_LONGFILE_20260718): this decode covers the ENTIRE audio
+                // track (a 45-min source = minutes of MediaCodec work) and used to re-run
+                // on EVERY editor open — it was the visible "loading the audio" wait.
+                // Disk-cache the tiny int[] (one byte-range value per 20ms bin) keyed by
+                // source identity so a project reopen loads it instantly.
+                int[] waveform = readWaveformCache(audioUri);
+                if (waveform == null) {
+                    waveform = doGenerateWaveform(audioUri);
+                    writeWaveformCache(audioUri, waveform);
+                }
+                final int[] result = waveform;
+                runOnMain(() -> callback.onWaveformReady(result));
             } catch (Throwable e) {
                 // Catch Throwable (incl. OutOfMemoryError) so a pathological file
                 // can never crash the whole app — just skip its waveform.
@@ -104,6 +114,59 @@ public class AudioExtractor {
                 runOnMain(() -> callback.onError(ex));
             }
         });
+    }
+
+    private static final int WAVEFORM_CACHE_VERSION = 1;
+
+    /**
+     * Cache file keyed by the URI string plus the source's length+mtime when it resolves
+     * to a readable file (so a re-recorded/replaced source invalidates naturally). The
+     * URI here should be the clip's ORIGINAL source URI — a resolved playback URI flips
+     * between raw and remuxed cache paths across sessions and silently splits the key.
+     */
+    @NonNull
+    private File waveformCacheFile(@NonNull Uri uri) {
+        File dir = DurableCache.dir(context, "waveform_legacy");
+        long len = 0, mtime = 0;
+        if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
+            File f = new File(uri.getPath());
+            len = f.length();
+            mtime = f.lastModified();
+        }
+        String key = Integer.toHexString(uri.toString().hashCode())
+                + "_" + len + "_" + Long.toHexString(mtime);
+        return new File(dir, key + ".bin");
+    }
+
+    @Nullable
+    private int[] readWaveformCache(@NonNull Uri uri) {
+        File f = waveformCacheFile(uri);
+        if (!f.exists()) return null;
+        try (java.io.DataInputStream in = new java.io.DataInputStream(
+                new java.io.BufferedInputStream(new java.io.FileInputStream(f)))) {
+            if (in.readInt() != WAVEFORM_CACHE_VERSION) return null;
+            int n = in.readInt();
+            if (n < 0 || n > 20_000_000) return null; // sanity: ~110h at 20ms bins
+            int[] bins = new int[n];
+            for (int i = 0; i < n; i++) bins[i] = in.readUnsignedByte();
+            FLog.d(TAG, "Waveform cache HIT (" + n + " bins): " + f.getName());
+            return bins;
+        } catch (Exception e) {
+            FLog.w(TAG, "Waveform cache read failed; re-decoding", e);
+            return null;
+        }
+    }
+
+    private void writeWaveformCache(@NonNull Uri uri, @NonNull int[] bins) {
+        File f = waveformCacheFile(uri);
+        try (java.io.DataOutputStream out = new java.io.DataOutputStream(
+                new java.io.BufferedOutputStream(new java.io.FileOutputStream(f)))) {
+            out.writeInt(WAVEFORM_CACHE_VERSION);
+            out.writeInt(bins.length);
+            for (int b : bins) out.writeByte(Math.max(0, Math.min(255, b)));
+        } catch (Exception e) {
+            FLog.w(TAG, "Waveform cache write failed", e);
+        }
     }
 
     /**

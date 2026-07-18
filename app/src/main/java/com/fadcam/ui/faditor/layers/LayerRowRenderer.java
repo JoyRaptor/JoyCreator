@@ -1013,9 +1013,13 @@ public final class LayerRowRenderer {
             canvas.clipRect(x0, top, x1, bottom);
             // A3: blit cached bitmap tiles (bakes on demand) instead of full vector draw every
             // frame; falls back to direct vector draw if the tile cache is absent.
+            // F2d (PERF_SPEC_LONGFILE_20260718): pass the visible content window so only
+            // on-screen tiles bake/blit — item bodies are laid out in the god view's
+            // scroll-translated content space, so the viewport is [hScroll, hScroll + width].
             if (tapeTileCache != null) {
                 tapeTileCache.draw(canvas, tapeRect, tape.raw, tape.tape, tape.serial, tapeStyle,
-                        inMs, durMs, item.getAudioClip().getId());
+                        inMs, durMs, item.getAudioClip().getId(),
+                        lastHScrollOffsetPx, lastHScrollOffsetPx + lastWidthPx);
             } else {
                 tapeRenderer.draw(canvas, tapeRect, tape.raw, tape.tape, tapeStyle, inMs, durMs);
             }

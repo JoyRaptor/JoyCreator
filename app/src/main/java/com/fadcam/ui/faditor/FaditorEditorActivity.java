@@ -1128,21 +1128,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         playUri = Uri.fromFile(sourceFile);
                         // Saved projects never kicked a remux, so a fragmented source played
                         // RAW forever (sticky seeks / slow prepare on long recordings — JoyRaptor's
-                        // 45-min lecture, 2026-07-16). Now that remux writes are kill-safe
-                        // (temp+rename), build the seekable copy in the background: this
-                        // session keeps the raw file; the next open picks up the copy.
+                        // 45-min lecture, 2026-07-16). F1: the deferred background remux is
+                        // now centralized in scheduleBackgroundRemux (same 120s round-3
+                        // deferral, deduped with resolvePlaybackUri's own scheduling).
                         if (remuxer.needsRemux(sourceFile)) {
-                            // DELAYED 2min (round 3): kicking a 2.4GB ffmpeg copy at open
-                            // starved the player/analysis/thumbnails all reading the same
-                            // file — playback errored into the rank-1 cap. Let the initial
-                            // load settle first; the copy still lands for the next open.
-                            final File remuxSrc = sourceFile;
-                            new android.os.Handler(android.os.Looper.getMainLooper())
-                                    .postDelayed(() -> {
-                                        FLog.i(TAG, "Saved project on fragmented source — "
-                                                + "background remux (deferred)");
-                                        remuxer.remuxAsync(remuxSrc, null);
-                                    }, 120_000L);
+                            scheduleBackgroundRemux(sourceFile);
                         }
                     }
                 }
@@ -3021,6 +3011,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private final java.util.HashMap<String, Uri> playbackUriCache = new java.util.HashMap<>();
+    /**
+     * F1 (PERF_SPEC_LONGFILE_20260718): source URIs (as strings) that resolved to a
+     * STILL-FRAGMENTED raw file this session — no remuxed copy existed at resolve time.
+     * Gapless is skipped while any master clip is in here (ClippingConfiguration windows
+     * need a seekable SeekMap the raw fMP4 can't provide); the legacy single-clip path
+     * exists precisely for fMP4. Next open picks up the background-remuxed copy.
+     */
+    private final java.util.HashSet<String> unremuxedFmp4Sources = new java.util.HashSet<>();
+    /** F1: absolute paths whose background remux is already scheduled (dedupe). */
+    private final java.util.HashSet<String> remuxScheduled = new java.util.HashSet<>();
 
     @NonNull
     private Uri resolvePlaybackUri(@NonNull Uri sourceUri) {
@@ -3034,9 +3034,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         File sourceFile = resolveToFile(sourceUri);
         if (sourceFile != null) {
             if (remuxer.needsRemux(sourceFile)) {
-                File remuxed = remuxer.remuxSync(sourceFile);
-                if (remuxed != null) {
-                    resolved = Uri.fromFile(remuxed);
+                if (remuxer.hasRemuxedVersion(sourceFile)) {
+                    resolved = Uri.fromFile(remuxer.getRemuxedFile(sourceFile));
+                } else {
+                    // F1 (PERF_SPEC_LONGFILE_20260718): NEVER remux synchronously here.
+                    // remuxSync on a 2.3GB 45-min source was a ~40s MAIN-THREAD block at
+                    // project open (ffmpeg copy + faststart second pass ≈ 9GB of I/O) —
+                    // the ANR dialog it triggered killed the app mid-remux, discarding
+                    // the .part temp, so EVERY open paid the full cost again. This
+                    // session plays the RAW file (legacy player path handles fMP4);
+                    // the seekable copy is built in the background for the NEXT open.
+                    unremuxedFmp4Sources.add(key);
+                    scheduleBackgroundRemux(sourceFile);
                 }
             }
             if (resolved.equals(sourceUri)) {
@@ -3045,6 +3054,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         playbackUriCache.put(key, resolved);
         return resolved;
+    }
+
+    /**
+     * F1: kick ONE deferred kill-safe background remux for a fragmented source. Deferred
+     * 120s — kicking a multi-GB ffmpeg copy at open starved the player/analysis/thumbnails
+     * all reading the same file (the round-3 finding on the 2026-07-16 deferral this
+     * replaces). The remuxed copy is NOT hot-swapped into this session (player positions
+     * would need remapping); {@link #resolvePlaybackUri}'s cache keeps the raw URI until
+     * the next open, which finds the copy via {@code hasRemuxedVersion}.
+     */
+    private void scheduleBackgroundRemux(@NonNull File sourceFile) {
+        if (!remuxScheduled.add(sourceFile.getAbsolutePath())) return;
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (isDestroyed() || isFinishing()) return;
+            FLog.i(TAG, "Background remux (deferred) starting for fragmented source: "
+                    + sourceFile.getName());
+            remuxer.remuxAsync(sourceFile, null);
+        }, 120_000L);
+    }
+
+    /**
+     * F1: true when any master VIDEO clip's playback URI is a still-fragmented raw file
+     * this session (see {@link #unremuxedFmp4Sources}). Resolves each clip first so the
+     * set is populated even on the first call.
+     */
+    private boolean timelineHasUnremuxedFmp4() {
+        Timeline tl = project.getTimeline();
+        boolean any = false;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c.isImageClip() || c.isGeneratedSlide() || c.getSourceUri() == null) continue;
+            resolvePlaybackUri(c.getSourceUri());
+            if (unremuxedFmp4Sources.contains(c.getSourceUri().toString())) any = true;
+        }
+        return any;
     }
 
     @NonNull
@@ -3408,22 +3452,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // pre-buffered ClippingConfiguration playlist and cross plain cuts with no cold
         // re-prepare. Route auto-seam UI sync through onGaplessSeam(). No-op when the flag
         // is off or the project isn't eligible (loops/transitions/images keep the legacy path).
-        playerManager.setGaplessTimeline(project.getTimeline(),
-                new MasterPlaybackEngine.SourceResolver() {
-                    @NonNull
-                    @Override
-                    public Uri resolveSeekable(@NonNull Clip clip) {
-                        return resolvePlaybackUri(clip.getSourceUri());
-                    }
+        // F1 (PERF_SPEC_LONGFILE_20260718): also skipped while any master clip still plays
+        // a RAW fragmented source (no remuxed copy yet) — ClippingConfiguration windows
+        // need a seekable SeekMap the raw fMP4 can't provide. The legacy single-clip path
+        // (built for fMP4) carries this session; the next open finds the background-remuxed
+        // copy and goes gapless again.
+        if (timelineHasUnremuxedFmp4()) {
+            FLog.i(TAG, "Gapless skipped this session: raw fragmented source in timeline "
+                    + "(background remux scheduled; next open upgrades)");
+        } else {
+            playerManager.setGaplessTimeline(project.getTimeline(),
+                    new MasterPlaybackEngine.SourceResolver() {
+                        @NonNull
+                        @Override
+                        public Uri resolveSeekable(@NonNull Clip clip) {
+                            return resolvePlaybackUri(clip.getSourceUri());
+                        }
 
-                    // L2: baked TRUE-reversed file for a PING_PONG clip (cached-only lookup).
-                    @Nullable
-                    @Override
-                    public Uri resolveReversed(@NonNull Clip clip) {
-                        return resolveReversedUri(clip);
-                    }
-                },
-                this::onGaplessSeam);
+                        // L2: baked TRUE-reversed file for a PING_PONG clip (cached-only lookup).
+                        @Nullable
+                        @Override
+                        public Uri resolveReversed(@NonNull Clip clip) {
+                            return resolveReversedUri(clip);
+                        }
+                    },
+                    this::onGaplessSeam);
+        }
 
         // ── RANK-1 resilience: when the gapless player errors on a baked REVERSED leg, poison that
         // reversed URI (so resolveReversedUri returns null → this clip degrades to forward reps
@@ -5982,7 +6036,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 float top = offsetY + (viewH - renderH) / 2f;
                 android.graphics.RectF result = new android.graphics.RectF(
                         left, top, left + renderW, top + renderH);
-                FLog.d(TAG, "computeVideoContentRect: result=" + result);
+                // (F4 PERF_SPEC_LONGFILE_20260718: no per-call log here — this runs on every
+                // 50ms playhead tick and FLog's redaction regexes made it a hot-path cost.)
                 return result;
             }
         }
@@ -7354,6 +7409,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void updatePlayPauseButton(boolean isPlaying) {
         btnPlayPause.setText(isPlaying ? "pause" : "play_arrow");
+        // F3c (PERF_SPEC_LONGFILE_20260718): every play/pause transition funnels through
+        // here — gate background waveform analysis while playback owns the codec/disk.
+        if (editorTimeline != null) editorTimeline.setAnalysisSuspended(isPlaying);
     }
 
     // ── Time display helpers ─────────────────────────────────────────
@@ -9738,7 +9796,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (String ref : needed) {
             Clip clip = findClipById(ref);
             if (clip == null) continue;
-            android.net.Uri uri = resolvePlaybackUri(clip.getSourceUri());
+            // F3b (PERF_SPEC_LONGFILE_20260718): extract from the RAW source file, not
+            // resolvePlaybackUri's output — that flips between the raw file and the
+            // remuxed cache copy across sessions, and WaveformExtractor's disk cache is
+            // keyed by URI, so the same audio silently re-extracted under a new key.
+            // The audio stream is identical in both files; the raw path is stable.
+            File wfSrc = resolveToFile(clip.getSourceUri());
+            android.net.Uri uri = wfSrc != null ? Uri.fromFile(wfSrc)
+                    : resolvePlaybackUri(clip.getSourceUri());
             if (waveformExtractor == null) {
                 waveformExtractor = new com.fadcam.ui.faditor.waveform.WaveformExtractor(this);
             }

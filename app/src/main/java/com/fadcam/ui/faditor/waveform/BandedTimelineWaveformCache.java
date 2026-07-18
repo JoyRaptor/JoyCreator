@@ -86,6 +86,19 @@ public class BandedTimelineWaveformCache {
     private final Map<String, Uri> uriByKey = new HashMap<>();
     /** Live extraction progress (0..1) per in-flight key — feeds the minimap meters. */
     private final Map<String, Float> progressByKey = new HashMap<>();
+    /**
+     * F3c (PERF_SPEC_LONGFILE_20260718): while true, {@link #get} serves ready data but
+     * does NOT kick new extractions — a minutes-long band decode racing live playback for
+     * the codec/disk starved BOTH (playback dropped frames, the decode came back partial
+     * → never cached → re-kicked → loop). In-flight jobs are left to finish. Set from the
+     * editor's play/pause transitions.
+     */
+    private boolean suspended = false;
+
+    /** F3c: gate NEW extraction kicks (in-flight ones keep running). */
+    public void setSuspended(boolean s) {
+        this.suspended = s;
+    }
 
     public BandedTimelineWaveformCache(@NonNull Context context, @NonNull TapeWaveformStyle style,
                                        @NonNull InvalidateListener listener) {
@@ -136,6 +149,10 @@ public class BandedTimelineWaveformCache {
                 if (inFlight.contains(e.getKey())) return null;
             }
         }
+
+        // F3c: no NEW kicks while playback owns the codec/disk — the next draw after
+        // pause re-enters here and kicks then.
+        if (suspended) return null;
 
         inFlight.add(k);
         spanByKey.put(k, new long[]{start, end});

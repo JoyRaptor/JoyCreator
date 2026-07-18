@@ -104,6 +104,17 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     @Nullable
     private LoudnessEnhancer loudnessEnhancer;
 
+    /**
+     * F6 (PERF_SPEC_LONGFILE_20260718): builds a moof-indexed, seekable MediaSource for a
+     * RAW fragmented MP4 in seconds (the same VLC-like path PlayerHolder uses) — so the
+     * legacy single-clip path can actually PLAY/seek a raw fMP4 without the 40s remux that
+     * F1 removed. Without this, a raw fMP4 handed to plain setMediaItem has no seek map:
+     * seekTo(trimStart) lands nowhere and every clip reads as instantly ENDED, so playback
+     * auto-advances clip→clip and sticks (the regression F1 exposed). Lazily created.
+     */
+    @Nullable
+    private com.fadcam.playback.SeekableFragmentedMp4MediaSourceFactory fmp4SourceFactory;
+
     // ── Manual trim bounds (replaces ClippingConfiguration) ──────────
     private long trimStartMs = 0;
     private long trimEndMs = Long.MAX_VALUE;
@@ -935,7 +946,30 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
                 .setUri(resolvedUri)
                 .build();
 
-        player.setMediaItem(mediaItem);
+        // F6 (PERF_SPEC_LONGFILE_20260718): a RAW fragmented MP4 (FadCam recordings) has no
+        // seek index — plain setMediaItem leaves it unseekable, so trim-start seeks fail and
+        // the clip reads as instantly ENDED (playback jumps clip→clip and sticks). Build a
+        // moof-indexed seekable source instead (index scan is ~ms-seconds, not the 40s remux
+        // F1 removed). Falls back to the plain item for non-fMP4 or on any index failure.
+        boolean usedFmp4 = false;
+        try {
+            if (fmp4SourceFactory == null) {
+                fmp4SourceFactory =
+                        new com.fadcam.playback.SeekableFragmentedMp4MediaSourceFactory(context);
+            }
+            if (fmp4SourceFactory.isFragmentedMp4(resolvedUri)) {
+                androidx.media3.exoplayer.source.MediaSource src =
+                        fmp4SourceFactory.createMediaSource(mediaItem);
+                player.setMediaSource(src);
+                usedFmp4 = true;
+                FLog.d(TAG, "Prepared clip via seekable fMP4 index source");
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "fMP4 index source failed; falling back to plain MediaItem", e);
+        }
+        if (!usedFmp4) {
+            player.setMediaItem(mediaItem);
+        }
         player.prepare();
         needsPrepare = false;
 

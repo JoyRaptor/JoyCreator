@@ -77,6 +77,14 @@ public class TimelineWaveformCache {
     private final Set<String> inFlight = new HashSet<>();
     /** Sources that failed to extract — never re-request (avoids a retry storm per frame). */
     private final Set<String> failed = new HashSet<>();
+    /** F3c (PERF_SPEC_LONGFILE_20260718): while true, serve ready data but kick no NEW
+     *  extractions — decodes racing live playback starve both. See BandedTimelineWaveformCache. */
+    private boolean suspended = false;
+
+    /** F3c: gate NEW extraction kicks (in-flight ones keep running). */
+    public void setSuspended(boolean s) {
+        this.suspended = s;
+    }
 
     public TimelineWaveformCache(@NonNull Context context, @NonNull InvalidateListener listener) {
         this.extractor = new WaveformExtractor(context);
@@ -117,6 +125,7 @@ public class TimelineWaveformCache {
         WaveformData d = ready.get(k);
         if (d != null) return d;
         if (inFlight.contains(k) || failed.contains(k)) return null;
+        if (suspended) return null; // F3c: no new kicks while playing
 
         long start = quantStart(clip);
         long end = quantEnd(clip);

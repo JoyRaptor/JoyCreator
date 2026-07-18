@@ -144,6 +144,10 @@ public class WaveformExtractor {
         bucketsPerSec = Math.max(1, bucketsPerSec);
         long startUs = Math.max(0, startMs) * 1000L;
         long endUs = endMs >= FULL_END / 2 ? FULL_END : Math.max(startMs + 1, endMs) * 1000L;
+        // Decode-side only (cache keys stay on the caller's uri): a seekable remuxed copy
+        // makes span extraction actually span-limited — on a raw fMP4 the seek below lands
+        // at 0 and a mid-file window decodes everything before it.
+        uri = BandWaveformExtractor.resolveDecodeUri(context, uri);
         MediaExtractor extractor = new MediaExtractor();
         MediaCodec codec = null;
         try {
@@ -360,8 +364,7 @@ public class WaveformExtractor {
     @NonNull
     private File cacheFile(@NonNull Uri uri, int bands, long startMs, long endMs,
                            int bucketsPerSec, boolean withSpectrum) {
-        File dir = new File(context.getCacheDir(), "waveform");
-        if (!dir.exists()) dir.mkdirs();
+        File dir = com.fadcam.ui.faditor.util.DurableCache.dir(context, "waveform");
         String span = (startMs <= 0 && endMs >= FULL_END / 2)
                 ? "full" : (Math.max(0, startMs) + "-" + endMs);
         String key = Integer.toHexString(uri.toString().hashCode()) + "_" + bands + "_" + span;

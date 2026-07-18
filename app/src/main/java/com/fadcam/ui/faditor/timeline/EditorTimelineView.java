@@ -569,6 +569,15 @@ public class EditorTimelineView extends View {
     private final ExecutorService thumbnailExecutor = Executors.newFixedThreadPool(2);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Path clipPath = new Path();
+    /** Reusable dst rect for filmstrip tile blits (F2c: was a new RectF per tile per frame). */
+    private final RectF thumbTileDst = new RectF();
+    /**
+     * Gate for per-tick/per-motion-event debug logs (F4, PERF_SPEC_LONGFILE_20260718): FLog
+     * runs four redaction regexes per call and these paths fire at 20-120Hz during playback
+     * and scrubbing — string-building + regex there was a measurable slice of the main-thread
+     * budget on long projects. Constant-false so javac strips the calls; flip locally to debug.
+     */
+    private static final boolean VLOG = false;
 
     // ── §2 item preview images (LANE_BADGES spec) — decode/extract state owned HERE so the
     //    renderer stays pure-draw. All served from these caches; misses kick an async load
@@ -1696,7 +1705,7 @@ public class EditorTimelineView extends View {
         // Use last valid index for playback if currently deselected
         int playbackIndex = selectedIndex >= 0 ? selectedIndex : lastPlaybackIndex;
         
-        FLog.d(TAG, "setPlayheadFraction: fraction=" + sourceFraction + " selectedIndex=" + selectedIndex + " playbackIndex=" + playbackIndex);
+        if (VLOG) FLog.d(TAG, "setPlayheadFraction: fraction=" + sourceFraction + " selectedIndex=" + selectedIndex + " playbackIndex=" + playbackIndex);
         
         if (playbackIndex >= 0 && playbackIndex < segments.size()) {
             SegmentData sd = segments.get(playbackIndex);
@@ -1711,7 +1720,7 @@ public class EditorTimelineView extends View {
             // Remember this index for playback continuation
             lastPlaybackIndex = playbackIndex;
             
-            FLog.d(TAG, "setPlayheadFraction: playheadPositionMs=" + playheadPositionMs);
+            if (VLOG) FLog.d(TAG, "setPlayheadFraction: playheadPositionMs=" + playheadPositionMs);
             
             // Auto-scroll to keep playhead centered (always, not just when not dragging)
             centerPlayhead();
@@ -1731,7 +1740,7 @@ public class EditorTimelineView extends View {
         float centerX = getWidth() / 2f;
         float playheadX = timeToX(playheadPositionMs);
         scrollOffsetPx = playheadX - centerX;
-        FLog.d(TAG, "centerPlayhead: centerX=" + centerX + " playheadX=" + playheadX + " scrollOffset=" + scrollOffsetPx);
+        if (VLOG) FLog.d(TAG, "centerPlayhead: centerX=" + centerX + " playheadX=" + playheadX + " scrollOffset=" + scrollOffsetPx);
         clampScroll();
     }
 
@@ -2619,8 +2628,11 @@ public class EditorTimelineView extends View {
                 RectF body = new RectF(seg.left, bandTop, seg.right,
                         bandTop + H - CLIP_DRAWER_WORD_BAND_DP * density);
                 String drawerKey = sd.sourceUri + "|" + sd.inPointMs + "-" + sd.outPointMs;
+                // F2d: pass the visible content window so only on-screen tiles bake/blit
+                // (canvas is scroll-translated ⇒ viewport = [scrollOffsetPx, +width]).
                 clipDrawerTapeCache.draw(canvas, body, tape.raw, tape.tape, tape.serial, tapeStyle,
-                        sd.inPointMs, Math.max(1, sd.trimmedMs), drawerKey);
+                        sd.inPointMs, Math.max(1, sd.trimmedMs), drawerKey,
+                        scrollOffsetPx, scrollOffsetPx + getWidth());
             } else {
                 // Extraction in flight (or failed) — "analyzing audio…" label + a slow sheen
                 // sweep so the user can SEE work happening (JoyRaptor 2026-07-16: on a 45-min clip
@@ -2919,38 +2931,54 @@ public class EditorTimelineView extends View {
             mediumInterval = labelInterval; // No medium ticks, same as label
         }
         
+        // VIEWPORT CULL (F2a, PERF_SPEC_LONGFILE_20260718): the tick loops used to span the
+        // whole timeline — on a 45-min project that was 5k-18k canvas ops (plus a label String
+        // each) per frame regardless of scroll/zoom. Only the visible window's ticks draw now;
+        // ±1 interval of margin so a label whose center sits just off-screen still paints its
+        // on-screen half.
+        final long rulerVisStartMs = Math.max(0L, xToTime(scrollOffsetPx));
+        final long rulerVisEndMs = Math.min(totalEffectiveMs, xToTime(scrollOffsetPx + viewW));
+
         // Draw minor ticks (finest detail) - skip if too dense
         if (dpPerSecondPx > 25f * density) {  // Only show when zoomed in enough
             rulerTickPaint.setStrokeWidth(1f * density);
-            for (long t = 0; t <= totalEffectiveMs; t += minorInterval) {
+            long tStart = Math.max(0L, (rulerVisStartMs / minorInterval - 1) * minorInterval);
+            long tEnd = Math.min(totalEffectiveMs, rulerVisEndMs + minorInterval);
+            for (long t = tStart; t <= tEnd; t += minorInterval) {
                 if (t % mediumInterval == 0) continue;  // Skip medium/major ticks
                 float x = timeToX(t);
                 canvas.drawLine(x, rulerHeightPx - rulerTickHeightPx * 0.3f, x, rulerHeightPx, rulerTickPaint);
             }
         }
-        
+
         // Draw medium ticks (1s or sub-intervals)
         if (labelInterval > mediumInterval) {
             rulerTickPaint.setStrokeWidth(1.5f * density);
-            for (long t = 0; t <= totalEffectiveMs; t += mediumInterval) {
+            long tStart = Math.max(0L, (rulerVisStartMs / mediumInterval - 1) * mediumInterval);
+            long tEnd = Math.min(totalEffectiveMs, rulerVisEndMs + mediumInterval);
+            for (long t = tStart; t <= tEnd; t += mediumInterval) {
                 if (t % labelInterval == 0) continue;  // Skip labeled ticks
                 float x = timeToX(t);
                 canvas.drawLine(x, rulerHeightPx - rulerTickHeightPx * 0.6f, x, rulerHeightPx, rulerTickPaint);
             }
         }
-        
+
         // Draw major ticks with labels (dynamic interval)
         rulerTickPaint.setStrokeWidth(2f * density);
-        for (long t = 0; t <= totalEffectiveMs; t += labelInterval) {
-            float x = timeToX(t);
-            String text = fmtTime(t);
-            float halfText = rulerTextPaint.measureText(text) / 2f;
-            
-            // Tall tick for labeled intervals
-            canvas.drawLine(x, rulerHeightPx - rulerTickHeightPx, x, rulerHeightPx, rulerTickPaint);
-            
-            // Label
-            canvas.drawText(text, x - halfText, rulerHeightPx - rulerTickHeightPx - 2f * density, rulerTextPaint);
+        {
+            long tStart = Math.max(0L, (rulerVisStartMs / labelInterval - 1) * labelInterval);
+            long tEnd = Math.min(totalEffectiveMs, rulerVisEndMs + labelInterval);
+            for (long t = tStart; t <= tEnd; t += labelInterval) {
+                float x = timeToX(t);
+                String text = fmtTime(t);
+                float halfText = rulerTextPaint.measureText(text) / 2f;
+
+                // Tall tick for labeled intervals
+                canvas.drawLine(x, rulerHeightPx - rulerTickHeightPx, x, rulerHeightPx, rulerTickPaint);
+
+                // Label
+                canvas.drawText(text, x - halfText, rulerHeightPx - rulerTickHeightPx - 2f * density, rulerTextPaint);
+            }
         }
     }
     
@@ -3529,8 +3557,16 @@ public class EditorTimelineView extends View {
         float step = barW + audioWaveBarGapPx;
         int barCount = Math.max(1, (int) (rect.width() / step));
 
+        // VIEWPORT CULL (F2b, PERF_SPEC_LONGFILE_20260718): bars were drawn across the WHOLE
+        // segment (~43k drawRect/frame on an 8-min clip at editing zoom — the single biggest
+        // slice of the >1s draw passes on the 45-min project). Only visible bars draw now.
+        final float wVisL = scrollOffsetPx;
+        final float wVisR = scrollOffsetPx + getWidth();
+        int jStart = Math.max(0, (int) ((wVisL - rect.left) / step) - 1);
+        int jEnd = Math.min(barCount, (int) ((wVisR - rect.left) / step) + 2);
+
         segmentWavePaint.setColor(0xB34DD0E1); // soft cyan, distinct from green accents
-        for (int j = 0; j < barCount; j++) {
+        for (int j = jStart; j < jEnd; j++) {
             float fracInTrim = j / (float) barCount;
             long sourceMs = sd.inPointMs + (long) (fracInTrim * sd.trimmedMs);
             // Map by the waveform's fixed time-per-bin (each value = WAVEFORM_WINDOW_MS
@@ -3594,13 +3630,24 @@ public class EditorTimelineView extends View {
         // 45-min lecture, 2026-07-16). Proportional mapping keeps every tile representative
         // of its position at any zoom — thumbs repeat at deep zoom instead of vanishing.
         float tileWidth = rect.height();  // Square tiles matching track height
+
+        // VIEWPORT CULL (F2c, PERF_SPEC_LONGFILE_20260718): tiles were laid across the WHOLE
+        // segment (~2.3k drawBitmap + a new RectF each per frame at editing zoom on the 45-min
+        // project). Snap the start to the tile grid so the same tile boundaries land at the
+        // same content-x regardless of scroll, then stop at the visible right edge.
+        final float tVisL = scrollOffsetPx;
+        final float tVisR = scrollOffsetPx + getWidth();
         float x = rect.left;
+        if (tVisL > rect.left) {
+            x = rect.left + (float) Math.floor((tVisL - rect.left) / tileWidth) * tileWidth;
+        }
+        final float xStop = Math.min(rect.right, tVisR + tileWidth);
 
         // Thumbs cover the FULL source; map this tile's position through the clip's
         // trim window into source time, then into the full-source thumb list — so any
         // trim/split reuses the same extraction with position-correct frames.
         float srcDur = Math.max(1f, sd.sourceDurationMs);
-        while (x < rect.right) {
+        while (x < xStop) {
             float centerFrac = (x + tileWidth * 0.5f - rect.left) / rect.width();
             float srcFrac = sd.isImageClip ? centerFrac
                     : (sd.inPointMs + centerFrac * sd.trimmedMs) / srcDur;
@@ -3609,8 +3656,8 @@ public class EditorTimelineView extends View {
             Bitmap thumb = thumbs.get(idx);
             if (thumb != null && !thumb.isRecycled()) {
                 float drawRight = Math.min(x + tileWidth, rect.right);
-                RectF dest = new RectF(x, rect.top, drawRight, rect.bottom);
-                canvas.drawBitmap(thumb, null, dest, null);
+                thumbTileDst.set(x, rect.top, drawRight, rect.bottom);
+                canvas.drawBitmap(thumb, null, thumbTileDst, null);
             }
             x += tileWidth;
         }
@@ -3637,6 +3684,18 @@ public class EditorTimelineView extends View {
      * memory-heavy operation (e.g. export). They reload lazily on the next draw
      * (see onDraw), so this is safe to call any time.
      */
+    /**
+     * F3c (PERF_SPEC_LONGFILE_20260718): gate NEW waveform/band extraction kicks while the
+     * player is playing — a minutes-long audio decode racing live playback for the codec and
+     * disk starved both (dropped frames + partial never-cached extractions that re-kicked
+     * forever). Ready data still draws; in-flight jobs finish; the first draw after pause
+     * kicks anything still missing. Called from the activity's play/pause transitions.
+     */
+    public void setAnalysisSuspended(boolean suspended) {
+        if (tapeWaveformCache != null) tapeWaveformCache.setSuspended(suspended);
+        if (timelineWaveformCache != null) timelineWaveformCache.setSuspended(suspended);
+    }
+
     public void releaseThumbnailMemory() {
         for (List<Bitmap> thumbs : thumbnailsCache.values()) {
             if (thumbs != null) {
@@ -5049,7 +5108,7 @@ public class EditorTimelineView extends View {
             return true;
         }
 
-        FLog.d(TAG, "onTouchEvent: action=" + e.getActionMasked() + " x=" + e.getX() + " isScaling=" + isScaling + " activeDrag=" + activeDrag);
+        if (VLOG) FLog.d(TAG, "onTouchEvent: action=" + e.getActionMasked() + " x=" + e.getX() + " isScaling=" + isScaling + " activeDrag=" + activeDrag);
         
         // Let scale detector process ALL events (it needs to track for pinch detection)
         scaleDetector.onTouchEvent(e);
@@ -5065,7 +5124,7 @@ public class EditorTimelineView extends View {
 
         // If actually pinch-zooming, block other handlers
         if (isScaling) {
-            FLog.d(TAG, "onTouchEvent: consumed by active pinch zoom");
+            if (VLOG) FLog.d(TAG, "onTouchEvent: consumed by active pinch zoom");
             return true;
         }
 
@@ -5153,7 +5212,7 @@ public class EditorTimelineView extends View {
             // onScroll racing it — exactly like m6RowPendingAxisDecision for empty space.
             boolean gestureEvent = gestureDetector.onTouchEvent(e);
             if (gestureEvent) {
-                FLog.d(TAG, "onTouchEvent: consumed by gesture detector");
+                if (VLOG) FLog.d(TAG, "onTouchEvent: consumed by gesture detector");
                 return true;
             }
         }
@@ -5172,13 +5231,13 @@ public class EditorTimelineView extends View {
         }
         switch (e.getAction()) {
             case MotionEvent.ACTION_DOWN: 
-                FLog.d(TAG, "onTouchEvent: ACTION_DOWN - calling onDown");
+                if (VLOG) FLog.d(TAG, "onTouchEvent: ACTION_DOWN - calling onDown");
                 return onDown(x, y);
             case MotionEvent.ACTION_MOVE: 
                 return onMove(x, y);
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL: 
-                FLog.d(TAG, "onTouchEvent: ACTION_UP/CANCEL - calling onUp");
+                if (VLOG) FLog.d(TAG, "onTouchEvent: ACTION_UP/CANCEL - calling onUp");
                 return onUp(x, y, e.getAction() == MotionEvent.ACTION_UP);
         }
         return super.onTouchEvent(e);
@@ -5552,7 +5611,7 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onDown(float x, float y) {
-        FLog.d(TAG, "onDown: x=" + x + " y=" + y);
+        if (VLOG) FLog.d(TAG, "onDown: x=" + x + " y=" + y);
         // Bug A safety net: a fresh DOWN starts a new gesture stream — no row gesture from
         // a PRIOR stream can still be legitimately active. If any M6/M7 flag survived
         // (e.g. an UP/CANCEL that was swallowed by a competing handler), clear it now so
@@ -5566,7 +5625,7 @@ public class EditorTimelineView extends View {
 
         // Adjust x for scroll offset
         float scrolledX = x + scrollOffsetPx;
-        FLog.d(TAG, "onDown: scrolledX=" + scrolledX + " scrollOffset=" + scrollOffsetPx);
+        if (VLOG) FLog.d(TAG, "onDown: scrolledX=" + scrolledX + " scrollOffset=" + scrollOffsetPx);
 
         // M6 hook: touch dispatch into the multi-row Track UI. Header icon taps
         // (caret/hide/lock/mute) are handled entirely here; a tap elsewhere in a
@@ -5641,7 +5700,7 @@ public class EditorTimelineView extends View {
         }
 
         downSegIndex = hitTestSegment(scrolledX, y);
-        FLog.d(TAG, "onDown: hit segment " + downSegIndex);
+        if (VLOG) FLog.d(TAG, "onDown: hit segment " + downSegIndex);
 
         // Check audio trim handles (before audio body hit test) — LEGACY audio path only;
         // with the unified renderer audio band (audio consolidation), audio touches route
@@ -6928,14 +6987,14 @@ public class EditorTimelineView extends View {
      */
     private void updatePlayheadFromX(float x) {
         float playheadX = x;
-        FLog.d(TAG, "updatePlayheadFromX: x=" + x);
+        if (VLOG) FLog.d(TAG, "updatePlayheadFromX: x=" + x);
         
         long timelineEndMs = getTimelineEndMs();
         long newPlayheadMs = xToTime(playheadX);
         newPlayheadMs = Math.max(0, Math.min(newPlayheadMs, timelineEndMs));
         playheadPositionMs = newPlayheadMs;
         
-        FLog.d(TAG, "updatePlayheadFromX: playheadPositionMs=" + playheadPositionMs + "ms");
+        if (VLOG) FLog.d(TAG, "updatePlayheadFromX: playheadPositionMs=" + playheadPositionMs + "ms");
         
         if (listener != null && !segments.isEmpty()) {
             // Find which segment's RECTANGLE this X falls into (visually, not time-based)
@@ -6987,7 +7046,7 @@ public class EditorTimelineView extends View {
             float sourceFrac = sd.sourceDurationMs > 0 ? (float)sourceMs / sd.sourceDurationMs : 0f;
             sourceFrac = Math.max(0f, Math.min(sourceFrac, 1f));
             
-            FLog.d(TAG, "updatePlayheadFromX: targetSegment=" + targetSegment 
+            if (VLOG) FLog.d(TAG, "updatePlayheadFromX: targetSegment=" + targetSegment
                     + " posInSegmentMs=" + posInSegmentMs + " sourceFrac=" + sourceFrac);
             
             // Pass isDragging=true to prevent loading new clips during active drag
@@ -7195,7 +7254,7 @@ public class EditorTimelineView extends View {
             zoomLevel = initialZoom * scaleAccumulator;
             zoomLevel = Math.max(MIN_ZOOM, Math.min(zoomLevel, MAX_ZOOM));
             
-            FLog.d(TAG, "ScaleListener.onScale: scaleFactor=" + detector.getScaleFactor() + " zoomLevel=" + zoomLevel);
+            if (VLOG) FLog.d(TAG, "ScaleListener.onScale: scaleFactor=" + detector.getScaleFactor() + " zoomLevel=" + zoomLevel);
             
             updateDpPerSecond();
             computeRects();
@@ -7228,7 +7287,7 @@ public class EditorTimelineView extends View {
     private class GestureListener extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onDown(MotionEvent e) {
-            FLog.d(TAG, "GestureListener.onDown");
+            if (VLOG) FLog.d(TAG, "GestureListener.onDown");
             // Cancel any ongoing fling
             if (!flingScroller.isFinished()) {
                 flingScroller.abortAnimation();
@@ -7238,7 +7297,7 @@ public class EditorTimelineView extends View {
         
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            FLog.d(TAG, "GestureListener.onScroll: distanceX=" + distanceX + " activeDrag=" + activeDrag);
+            if (VLOG) FLog.d(TAG, "GestureListener.onScroll: distanceX=" + distanceX + " activeDrag=" + activeDrag);
             // Cancel long press — user is scrolling, not holding
             longPressHandler.removeCallbacks(longPressRunnable);
             // Cancel audio long-press too — prevents false-positive audio drag
@@ -7249,7 +7308,7 @@ public class EditorTimelineView extends View {
             if (!audioLongPressTriggered) pendingAudioIndex = -1;
             // Only handle scroll if not dragging handles
             if (activeDrag != Drag.NONE) {
-                FLog.d(TAG, "GestureListener.onScroll: ignoring, activeDrag=" + activeDrag);
+                if (VLOG) FLog.d(TAG, "GestureListener.onScroll: ignoring, activeDrag=" + activeDrag);
                 return false;
             }
             
@@ -7257,7 +7316,7 @@ public class EditorTimelineView extends View {
             float centerX = getWidth() / 2f;
             float newPlayheadX = centerX + scrollOffsetPx + distanceX;
             
-            FLog.d(TAG, "GestureListener.onScroll: newPlayheadX=" + newPlayheadX);
+            if (VLOG) FLog.d(TAG, "GestureListener.onScroll: newPlayheadX=" + newPlayheadX);
             
             // Find which segment and position this corresponds to
             updatePlayheadFromX(newPlayheadX);

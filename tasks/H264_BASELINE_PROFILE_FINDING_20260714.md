@@ -81,4 +81,60 @@ Keep it **purely additive**: default (High/Original) exports must stay byte-iden
   lines 354-365 is where `Quality.LOW` would request Baseline.
 - `app/src/main/java/com/fadcam/ui/faditor/model/ExportSettings.java` — `Quality { HIGH, MEDIUM, LOW }`.
 
-**Status:** investigated + designed, NOT implemented. Load-bearing fork change → do with full context.
+**Status:** IMPLEMENTED (2026-07-19, Opus-4.8) — plumbing landed, default OFF, both modules compile green.
+Runtime ffprobe proof is a device errand (recipe below). NOT committed.
+
+### What was implemented (Option B — thread original profile, no level-picking)
+1. **media3 fork** `DefaultEncoderFactory.java`:
+   - Call site (was line 374): `adjustMediaFormatForH264EncoderSettings(...)` now passes a 4th arg
+     `requestedVideoEncoderSettings.profile` — the **original** requested profile off the factory field.
+     Comment `// FadCam patch:` explains why we read the original (not `supportedVideoEncoderSettings`):
+     the validation reset (the profile/level guard in `findVideoEncoderWithClosestSupportedFormat`, was
+     lines 566-573) wipes `supported…`.profile→NO_VALUE whenever no level is supplied, so a level-less
+     Baseline request would be dropped. The original field is never touched by that reset.
+   - `adjustMediaFormatForH264EncoderSettings` signature gained `int requestedProfile`.
+   - **SDK ≥ 29 branch:** after HDR profile selection, if `requestedProfile == AVCProfileBaseline` AND
+     `expectedEncodingProfile` is still the `AVCProfileHigh` default (HDR didn't force one), switch
+     `expectedEncodingProfile` to Baseline. The existing `findHighestSupportedEncodingLevel(…, profile)`
+     call then auto-derives a guaranteed-supported level → no invalid-level landmine. The unconditional
+     `KEY_PROFILE` set now writes Baseline; `KEY_LEVEL` stays guarded as before.
+   - **SDK ≥ 26 branch:** same Baseline honoring (for API 26-28 devices). Both branches are grep-able via
+     `// FadCam patch:`.
+   - Untouched: SDK 24-25 branch (already defaults to Baseline) and the validation reset (irrelevant to
+     our path since we read the original profile field).
+2. **app** `ExportManager.java`:
+   - New default-OFF constant `private static final boolean REQUEST_BASELINE_PROFILE = false;`.
+   - In the `!qualityIsDefault` encoder-factory block, the `VideoEncoderSettings.Builder` conditionally
+     calls `.setEncodingProfileLevel(MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline,
+     VideoEncoderSettings.NO_VALUE)` when the constant is true (level NO_VALUE on purpose — the fork
+     auto-derives it). Added `import android.media.MediaCodecInfo;`. Default OFF ⇒ path byte-identical.
+
+### How the validation reset (lines ~566-573) is handled
+NOT patched. We sidestep it: `adjustMediaFormatForH264EncoderSettings` receives the profile straight from
+`requestedVideoEncoderSettings` (the factory's original field), which the reset never mutates. The reset
+still nulls `supportedVideoEncoderSettings.profile`/`.level` (so the level-less request never hits the
+lines 358-366 `KEY_PROFILE`/`KEY_LEVEL` setter with a bogus level — a good thing), while the fork picks up
+Baseline downstream from the untouched original.
+
+### Compile verification
+`$env:TEMP='C:\Users\JoyRaptor\gtmp'; $env:TMP=$env:TEMP` then from `FadCam/`:
+`.\gradlew.bat :media3-patched:lib-transformer:compileDebugJavaWithJavac` → BUILD SUCCESSFUL (17 executed,
+recompiled DefaultEncoderFactory; only pre-existing benign enum/deprecation warnings).
+`.\gradlew.bat compileDefaultDebugJavaWithJavac` → BUILD SUCCESSFUL (app green). Never used `--rerun-tasks`.
+
+### Device ffprobe repro recipe (orchestrator errand)
+Precondition: flip `REQUEST_BASELINE_PROFILE = true` in ExportManager.java (temporary; it's OFF by default),
+rebuild + install debug APK on the SM-N960U (API 29).
+1. In FadCam Faditor, open any project, tap the **"Low bandwidth"** export chip (sets 720p + Quality.LOW →
+   `!qualityIsDefault`, so the encoder factory with the Baseline request is used). Export.
+2. Pull the output file, e.g.:
+   `adb pull /sdcard/Movies/FadCam/<exported>.mp4 C:/Users/JoyRaptor/gtmp/baseline_test.mp4`
+3. `ffprobe -v error -select_streams v:0 -show_entries stream=profile,level,codec_name -of default=nw=1
+   C:/Users/JoyRaptor/gtmp/baseline_test.mp4`
+   → expect `codec_name=h264`, `profile=Constrained Baseline` (or `Baseline`). Default/OFF or a HIGH
+   export must instead show `profile=High`.
+4. (Alt, no ffprobe) temporary `FLog.d` in `adjustMediaFormatForH264EncoderSettings` printing
+   `mediaFormat.getInteger(KEY_PROFILE)` — Baseline = 1, High = 8 — then remove it.
+5. Regression: with the constant still true, run a normal HIGH/ORIGINAL export → must still complete and
+   report `profile=High` (that path never sets the encoder factory, so it's unaffected). Then restore
+   `REQUEST_BASELINE_PROFILE = false`.

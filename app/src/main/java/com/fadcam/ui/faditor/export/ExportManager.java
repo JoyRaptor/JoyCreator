@@ -4,6 +4,7 @@ import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.media.MediaCodecInfo;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
@@ -85,6 +86,12 @@ import java.util.Map;
 public class ExportManager {
 
     private static final String TAG = "ExportManager";
+
+    // Compatibility hook: when true, non-default-quality exports request the H.264 Baseline
+    // profile instead of the encoder's default (High on API >= 26). Default OFF — flip this (or
+    // later wire it to an ExportSettings flag) to opt into Baseline. Requires the matching
+    // "FadCam patch" in the media3-patched DefaultEncoderFactory to take effect.
+    private static final boolean REQUEST_BASELINE_PROFILE = false;
 
     @NonNull
     private final Context context;
@@ -354,13 +361,26 @@ public class ExportManager {
             if (!qualityIsDefault) {
                 int bitrate = suggestedExportBitrate(project);
                 if (bitrate > 0) {
+                    VideoEncoderSettings.Builder encoderSettings =
+                            new VideoEncoderSettings.Builder().setBitrate(bitrate);
+                    // Optional H.264 Baseline-profile request for max-compatibility / low-bandwidth
+                    // exports. Default OFF → the requested profile stays NO_VALUE and this whole
+                    // path is byte-identical to before. When enabled we pass Baseline with a
+                    // NO_VALUE level on purpose: the patched DefaultEncoderFactory reads the
+                    // original requested profile and auto-derives a supported level itself (see the
+                    // "FadCam patch" comments in adjustMediaFormatForH264EncoderSettings), so we
+                    // never have to pick a level here.
+                    if (REQUEST_BASELINE_PROFILE) {
+                        encoderSettings.setEncodingProfileLevel(
+                                MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline,
+                                VideoEncoderSettings.NO_VALUE);
+                    }
                     builder.setEncoderFactory(new DefaultEncoderFactory.Builder(context)
-                            .setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder()
-                                    .setBitrate(bitrate)
-                                    .build())
+                            .setRequestedVideoEncoderSettings(encoderSettings.build())
                             .build());
                     FLog.d(TAG, "Export quality " + exportSettings.getQuality()
-                            + " → requested video bitrate " + bitrate);
+                            + " → requested video bitrate " + bitrate
+                            + (REQUEST_BASELINE_PROFILE ? " (H.264 Baseline)" : ""));
                 }
             }
 

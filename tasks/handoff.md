@@ -1,5 +1,28 @@
 ﻿# FadCam AI Handoff
 
+> **⏰ 2026-07-19 02:00 — FABLE(5): session limit hit mid-orchestration; one-shot wakeup scheduled
+> for 06:58 to resume autonomously (JoyRaptor's standing directive: keep finishing specs until credits
+> run out, re-scheduling wakeups as needed).**
+> **LANDED EARLIER THIS ARC (all committed):** Joy Viz Engine COMPLETE — P3 particles/softness/
+> trails (`23bf053`, device-verified), P4 multi-stop gradients + attack/release response + perf +
+> 4 presets (`c877c31`, presets device-verified: Aurora Veil band-axis multi-stop + particles
+> render), Layers UI drawer with per-instance customStyleJson + shared resolveEffectiveStyle
+> across preview/export/save (`f2cbc05`, installed on Note 9 — hand-test owed). GL transitions:
+> live A+B motion tier + export crop parity (`509f842`..`14a6c47`, see
+> GL_TRANSITIONS_HANDOFF_20260718.md).
+> **IN-FLIGHT, UNCOMMITTED (review first on resume):** GL-transitions export-parity continuation —
+> modified: GlTransitionExportEffect/PreviewView/ShaderLoader/ShaderProgram, FaditorEditorActivity,
+> ProjectStorage, UndoManager, LayerRowRenderer, FaditorPlayerManager. Compile state UNKNOWN
+> (limit hit before check). Compile → review → commit if sound.
+> **DIED ON LIMIT, NO EDITS LANDED (relaunch):** (a) visualizer-studio Phase 4 live-recording viz
+> agent (was reading the recording pipeline: timestamp helpers, prefs/watermark flow to pipeline);
+> (b) H.264 baseline agent — its one finding worth keeping: the media3 encoder-settings validation
+> (~:566-573 of the factory it was reading) RESETS a requested profile to NO_VALUE when level is
+> absent, so the patch must thread the ORIGINAL requested profile, not the post-validation value.
+> **QUEUE AFTER THAT:** LANE_BADGES §4.5 eye/lock migration; audio-band marquee; device-verify
+> passes; dual-stream P4 (BLOCKED on JoyRaptor: link-creation UI entry point). Layers-UI drawer + viz
+> presets hand-test owed from JoyRaptor on the installed Note 9 build.
+
 > **♦ 2026-07-17 evening — OPUS 4.8 (started as Fable 5, user switched to Opus mid-session):
 > two spec-debt lanes landed, both compile-green + one installed.**
 > **(1) `3fed299` ObjectMenuSheet §2 adapters for audio / PiP / visualizer** (STILL-OPEN debt

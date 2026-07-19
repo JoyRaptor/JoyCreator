@@ -33,18 +33,33 @@ Mirror pulsing to a test tone; arm confirmed via the "draw is hot: 6.07ms" self-
 see the Phase-4 status block in feature-visualizer-studio-spec.md for the perf note + driving
 coordinates). Test artifacts cleaned off the device; viz left DISARMED.
 
-QUEUE (in order):
-1. Live-viz perf follow-up: 6.07ms/frame avg (budget 4) with a glow style — try strip render at
-   half-res upscaled, or skip glow pass on the live path; then the battery/dropped-frame A/B.
-2. G9 links device verify per PLAN_G9_LINK_ENGINE.md §7 (editor UI drive, adb-able).
-3. Dual-stream pair ops device verify (needs a REAL recorded pair: enable the dual-stream toggle
-   in FadRec settings → record → both files → editor "Add as linked pair" → delete/split/trim
-   mirrors + one-undo checks per the spec's Phase-4 checklist).
-4. Ping-pong owed device checks (PLAN_LOOP_PINGPONG.md Status: frame-inversion, degrade drill,
-   reverse audio, >30s guard, L3 readout bubble).
-5. road_map.md ship-blocker/verify lists, solo-doable items.
+DONE 0719 ~07:50 (wrap): live-viz perf fix COMMITTED `058f5c8` (LIVE_RENDER_SCALE=2 half-res
+strip render, density-compensated; expected ~6ms→~1.5ms; arm-log mystery resolved BENIGN —
+one-shot service-tag log vs periodic hot-draw warning). All 11 tracked lanes of the 0719 arcs
+are now COMMITTED and the tree is CLEAN except tools/jvm-harness/out2/ (ignore).
+
+QUEUE (in order — pure device-verify + small errands; NOTHING needs re-deriving):
+1. Rebuild+install (tree clean, HEAD has the perf fix) → re-arm Fire Mirror → record 15s →
+   logcat must NOT show "Live visualizer draw is hot" (that silence IS the perf proof); then
+   the battery/dropped-frame A/B (spec Phase-4 block has the recipe + driving coordinates:
+   viz toggle = 4th record-row button x906 y1998 @1080x2220; x802 = Audio Source, keep Mic on;
+   consent "Start now" x674 y2085; start/stop button x380 y1998; test tone recipe: ffmpeg
+   sine+tremolo wav → push → ACTION_VIEW file:///sdcard/Download/pulse.wav).
+2. G9 links device verify per PLAN_G9_LINK_ENGINE.md §7. HEAD START: project bdd51919 already
+   holds a persisted TIME group "test-g9-group-1" (master clip 92bec151… + waveform f6ba8ced…,
+   hostOffset 2000) and 5 text overlays — storage round-trip is half-proven; what remains is
+   the UI drive: hold-drag a member → partner follows live; ONE undo restores both; unlink.
+3. Dual-stream pair ops device verify (needs a REAL recorded pair: FadRec settings → "Record
+   webcam as separate file" toggle → record → editor playhead-insert offers "Add as linked
+   pair" → delete/split/trim mirrors + one-undo, per the spec's Phase-4 checklist).
+4. H.264 Baseline runtime proof: flip ExportManager.REQUEST_BASELINE_PROFILE=true, build TEST
+   apk, export via Low-bandwidth chip, ffprobe profile=Baseline, restore flag (recipe in
+   H264_BASELINE_PROFILE_FINDING_20260714.md status).
+5. Ping-pong owed device checks (PLAN_LOOP_PINGPONG.md Status list).
 6. OPEN JOYRAPTOR ITEMS (surface, don't block): assets/web FadSec dashboard + live id.fadseclab.com
-   domain; locale-file rename sweep; icon-asset renames (ic_launcher_fadseclab*).
+   domain; locale-file rename sweep; icon-asset renames; rebrand art set (ASSETS_WISHLIST.md).
+DEVICE ETIQUETTE: if screenshots show human activity (shade pulls, app switches you didn't
+cause), STOP injecting immediately and say so — JoyRaptor sometimes picks the phone up.
 
 HOUSE RULES (unchanged): `$env:TEMP='C:\Users\JoyRaptor\gtmp'; $env:TMP=$env:TEMP` before any
 gradlew; NEVER --rerun-tasks (corrupts media3-patched jars); adb at

@@ -222,6 +222,17 @@ public final class LayerRowRenderer {
 
     public void setHoverGapIndex(int gapIndex) { this.hoverGapIndex = gapIndex; }
 
+    /** G9c: ids of every link-group member — drives the chain badge on item blocks. */
+    private final java.util.Set<String> linkedItemIds = new java.util.HashSet<>();
+    private final Paint linkBadgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    { linkBadgePaint.setStyle(Paint.Style.STROKE); }
+
+    public void setLinkedItemIds(@NonNull java.util.Set<String> ids) {
+        linkedItemIds.clear();
+        linkedItemIds.addAll(ids);
+        linkBadgePaint.setStrokeWidth(1.4f * density);
+    }
+
     /**
      * Gap hit-test in screen-y (floating band only). {@code currentGap} is the
      * already-armed index (or -1) — it gets a 2x exit zone so the armed line is
@@ -1120,6 +1131,18 @@ public final class LayerRowRenderer {
                     centerY + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
             canvas.restore();
         }
+        // G9c: chain badge on linked items (visual only — unlink lives in the object
+        // drawer / batch menu). Two interlocked stroke rings at the top-right corner,
+        // the purple link-family color; skipped on slivers.
+        if (linkedItemIds.contains(item.getId()) && x1 - x0 > 26f * density) {
+            float r = 3.2f * density;
+            float cy = top + 5.5f * density;
+            float cx = x1 - 9f * density;
+            linkBadgePaint.setColor(ghosted ? 0x668C3DFA : 0xFF8C3DFA);
+            canvas.drawCircle(cx - r * 0.7f, cy, r, linkBadgePaint);
+            canvas.drawCircle(cx + r * 0.7f, cy, r, linkBadgePaint);
+        }
+
         // Frame-swap diamonds for sprite items (S5)
         if (item.getSprite() != null) {
             float cy = centerY;

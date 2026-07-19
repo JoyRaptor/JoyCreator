@@ -1660,7 +1660,10 @@ public class Timeline {
         for (com.fadcam.ui.faditor.layers.LinkGroup g : linkGroups) {
             if (!g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.TIME)) continue;
             com.fadcam.ui.faditor.layers.LinkMember host = g.getHost();
-            if (host == null) continue; // peer group — push-based, nothing to pull
+            if (host == null) {
+                resyncPeerTimeGroup(g);
+                continue;
+            }
             long hostStart = resolveLinkStartMs(host.kind, host.id);
             if (hostStart == Long.MIN_VALUE) continue; // prune handles it next pass
             for (com.fadcam.ui.faditor.layers.LinkMember m : g.members) {
@@ -1670,6 +1673,134 @@ public class Timeline {
                 applyLinkStartMs(m.kind, m.id, hostStart + m.hostOffsetMs);
             }
         }
+    }
+
+    /**
+     * G9e — peer TIME-link propagation, push-based but centralized HERE (not in gesture
+     * code) via last-known-start tracking on each {@link com.fadcam.ui.faditor.layers.LinkMember}:
+     * <ul>
+     *   <li>this runs from {@code syncTimelineOverlays()} after EVERY mutation and per drag
+     *       tick, so a linked item follows its partners live during a drag, after a drawer
+     *       nudge, a butt-snap — any surface — with zero per-callsite wiring;</li>
+     *   <li>UNDO IS ONE STEP FOR FREE: the existing per-item undo restores the dragged item,
+     *       the next resync sees that as a move and walks the partners back (their unclamped
+     *       {@code virtualStartMs} guarantees no drift through t=0 clamps);</li>
+     *   <li>MOVE-only (JoyRaptor 2026-07-19 #1): a start change with a duration change is a trim —
+     *       re-baseline, don't propagate;</li>
+     *   <li>ambiguity is safe: zero or 2+ movers in one pass (project load, batch undo,
+     *       simultaneous edits) → re-baseline everything, propagate nothing.</li>
+     * </ul>
+     */
+    private void resyncPeerTimeGroup(@NonNull com.fadcam.ui.faditor.layers.LinkGroup g) {
+        final long UNSET = com.fadcam.ui.faditor.layers.LinkMember.UNSET;
+        int moverIdx = -1;
+        int movedCount = 0;
+        long delta = 0;
+        boolean rebaselineOnly = false;
+        for (int i = 0; i < g.members.size(); i++) {
+            com.fadcam.ui.faditor.layers.LinkMember m = g.members.get(i);
+            long s = resolveLinkStartMs(m.kind, m.id);
+            if (s == Long.MIN_VALUE) continue; // dead id — prune next pass
+            long d = resolveLinkDurationMs(m.kind, m.id);
+            if (m.virtualStartMs == UNSET) {
+                m.virtualStartMs = s;
+                m.lastKnownDurMs = d;
+                rebaselineOnly = true; // fresh baseline this pass — never propagate yet
+                continue;
+            }
+            if (m.lastKnownDurMs != d) {
+                // Trim (or any duration edit) — MOVE-only rule: absorb, don't propagate.
+                m.virtualStartMs = s;
+                m.lastKnownDurMs = d;
+                rebaselineOnly = true;
+                continue;
+            }
+            long knownClamped = Math.max(0, m.virtualStartMs);
+            if (s != knownClamped) {
+                movedCount++;
+                moverIdx = i;
+                delta = s - knownClamped;
+            }
+        }
+        if (rebaselineOnly || movedCount != 1) {
+            if (movedCount > 0) {
+                // Ambiguous / mixed pass: accept reality as the new baseline.
+                for (com.fadcam.ui.faditor.layers.LinkMember m : g.members) {
+                    long s = resolveLinkStartMs(m.kind, m.id);
+                    if (s == Long.MIN_VALUE) continue;
+                    m.virtualStartMs = s;
+                    m.lastKnownDurMs = resolveLinkDurationMs(m.kind, m.id);
+                }
+            }
+            return;
+        }
+        // Exactly one mover: push its delta to every partner.
+        for (int i = 0; i < g.members.size(); i++) {
+            com.fadcam.ui.faditor.layers.LinkMember m = g.members.get(i);
+            if (i == moverIdx) {
+                m.virtualStartMs = resolveLinkStartMs(m.kind, m.id);
+                continue;
+            }
+            if (m.virtualStartMs == UNSET) continue;
+            m.virtualStartMs += delta; // unclamped virtual — drift-free through t=0
+            applyLinkStartMs(m.kind, m.id, Math.max(0, m.virtualStartMs));
+        }
+    }
+
+    /**
+     * Display-duration proxy for the MOVE-vs-TRIM discriminator. Open ends map to
+     * {@link Long#MAX_VALUE} (stable across moves), dead ids to {@link Long#MIN_VALUE}.
+     */
+    private long resolveLinkDurationMs(@NonNull String kind, @NonNull String id) {
+        switch (kind) {
+            case "clip":
+                for (Clip oc : overlayClips) {
+                    if (id.equals(oc.getId())) return oc.getTrimmedDurationMs();
+                }
+                return Long.MIN_VALUE;
+            case "textOverlay":
+                for (TextOverlayItem t : textOverlays) {
+                    if (id.equals(t.getId())) {
+                        return t.getEndMs() == Long.MAX_VALUE
+                                ? Long.MAX_VALUE : t.getEndMs() - t.getStartMs();
+                    }
+                }
+                return Long.MIN_VALUE;
+            case "audioClip":
+                for (AudioClip a : audioClips) {
+                    if (id.equals(a.getId())) return a.getTrimmedDurationMs();
+                }
+                return Long.MIN_VALUE;
+            case "sprite":
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+                    if (id.equals(s.getId())) {
+                        return s.getEndMs() == Long.MAX_VALUE
+                                ? Long.MAX_VALUE : s.getEndMs() - s.getStartMs();
+                    }
+                }
+                return Long.MIN_VALUE;
+            case "waveform":
+                for (WaveformOverlayInstance w : waveformOverlays) {
+                    if (id.equals(w.getId())) return w.getEndMs() - w.getStartMs();
+                }
+                return Long.MIN_VALUE;
+            default:
+                return Long.MIN_VALUE;
+        }
+    }
+
+    /**
+     * JoyRaptor's re-scope (2026-07-19 #3): membership is keyed by (item, property-axis). The
+     * owner of an axis for an item is the FIRST live group claiming both; link-creation
+     * must keep this unique — see {@code createTimeLinkGroup}'s conflict strip.
+     */
+    @Nullable
+    public com.fadcam.ui.faditor.layers.LinkGroup axisOwner(
+            @NonNull String itemId, @NonNull com.fadcam.ui.faditor.layers.LinkedProperty axis) {
+        for (com.fadcam.ui.faditor.layers.LinkGroup g : getAllLinkGroupsView()) {
+            if (g.properties.contains(axis) && g.findMember(itemId) != null) return g;
+        }
+        return null;
     }
 
     /**

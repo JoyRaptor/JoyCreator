@@ -26,6 +26,23 @@ public final class LinkMember {
     /** Rider's start offset (ms) within/behind the host's timeline start. {@link #UNSET} = none. */
     public long hostOffsetMs = UNSET;
 
+    // ── Peer TIME-link propagation tracking (G9e, transient — never persisted) ──
+    /**
+     * Last-known start of this member as an UNCLAMPED virtual position. The peer branch of
+     * {@code Timeline.resyncLinkGroups()} compares each member's live start against
+     * {@code max(0, virtualStartMs)}; exactly one mover per pass propagates its delta to the
+     * others. Keeping the virtual value unclamped means a partner pushed against t=0 and back
+     * returns to its original offset with no drift. {@link #UNSET} = baseline not captured yet
+     * (fresh load / fresh group) — the first resync baselines without propagating.
+     */
+    public long virtualStartMs = UNSET;
+    /**
+     * Last-known display duration, the MOVE-vs-TRIM discriminator (JoyRaptor 2026-07-19 answer #1:
+     * v1 links are MOVE-only). A start change accompanied by a duration change is a trim —
+     * re-baseline, never propagate.
+     */
+    public long lastKnownDurMs = UNSET;
+
     public LinkMember(@NonNull String kind, @NonNull String id, boolean isHost) {
         this.kind = kind;
         this.id = id;

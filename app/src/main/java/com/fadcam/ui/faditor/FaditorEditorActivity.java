@@ -10517,8 +10517,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // G5: attached visualizers re-derive their windows from their hosts' CURRENT
             // spans. Every edit path funnels through this sync, so time-riding is one call.
             tl.resyncAttachedVisualizers();
-            // G9: host/rider link groups re-derive rider times the same way (one write-point).
+            // G9: host/rider link groups re-derive rider times; peer TIME groups propagate
+            // single-mover deltas (G9e lives inside resyncLinkGroups — one write-point).
             tl.resyncLinkGroups();
+            // G9c: refresh the preset view + feed every linked member id to the row
+            // renderer so linked items wear the chain badge.
+            tl.synthesizeG5PresetLinkGroups();
+            java.util.HashSet<String> linkedIds = new java.util.HashSet<>();
+            for (com.fadcam.ui.faditor.layers.LinkGroup lg : tl.getAllLinkGroupsView()) {
+                for (com.fadcam.ui.faditor.layers.LinkMember lm : lg.members) {
+                    linkedIds.add(lm.id);
+                }
+            }
+            editorTimeline.setLinkedItemIds(linkedIds);
             // Layers-UX Slice C: the OLD read-only layer bars (EditorTimelineView#drawLayers —
             // text/image overlays, visualizers, captions) are RETIRED. Captions & visualizers
             // are now first-class headered Track rows in LayerRowRenderer (Slice A/B), so still
@@ -10755,14 +10766,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Batch menu: only actions UNIVERSAL to every selected type appear (contract §5.5).
-     *  v1 ships DELETE; more batch props (opacity/lock/move) ride later slices. */
+     *  Ships DELETE + G9d LINK TIMING (the multi-select link-creation entry point —
+     *  the batch menu, not the relink toolbar button, is the v1 surface: it already
+     *  appears on exactly the gesture the contract wants, long-press over a
+     *  multi-selection, and leaves media-relink untouched). */
     private void showMarqueeBatchMenu(@NonNull java.util.List<
             com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
         if (project == null || items.isEmpty()) return;
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(items.size() + " objects selected")
-                .setItems(new CharSequence[]{"Delete selected"}, (d, w) -> {
+                .setItems(new CharSequence[]{"Delete selected",
+                        "Link timing (move together)"}, (d, w) -> {           // TODO(strings)
                     if (w == 0) confirmMarqueeBatchDelete(items);
+                    else if (w == 1) createTimeLinkGroup(items);
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -10839,6 +10855,113 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
         Toast.makeText(this, deletable + " deleted"
                 + (skipped > 0 ? " (" + skipped + " skipped)" : ""), Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * G9d — create a peer TIME link group from the marquee selection. JoyRaptor's re-scope
+     * (2026-07-19 #3): the (item, TIME) axis must be uniquely owned, so members whose
+     * TIME axis is already claimed (ad-hoc or G5 preset) are stripped with a note;
+     * captions/master clips aren't linkable payloads. ONE undo step (plan §6.1) —
+     * the SAME group object round-trips through undo/redo so its id never changes.
+     */
+    private void createTimeLinkGroup(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final com.fadcam.ui.faditor.layers.LinkGroup g =
+                new com.fadcam.ui.faditor.layers.LinkGroup(
+                        java.util.UUID.randomUUID().toString());
+        g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.TIME);
+        int stripped = 0;
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
+            String kind = h.item.payloadKind();
+            String id = h.item.getId();
+            if (!seen.add(id)) continue;
+            boolean linkable = "textOverlay".equals(kind) || "sprite".equals(kind)
+                    || "audioClip".equals(kind) || "waveform".equals(kind)
+                    || ("clip".equals(kind) && h.item.getClip() != null
+                        && h.item.getClip().isOverlayClip());
+            if (!linkable) { stripped++; continue; }
+            if (timeline.axisOwner(id, com.fadcam.ui.faditor.layers.LinkedProperty.TIME) != null) {
+                stripped++; // TIME axis already owned — uniqueness invariant
+                continue;
+            }
+            g.members.add(new com.fadcam.ui.faditor.layers.LinkMember(kind, id, false));
+        }
+        if (g.members.size() < 2) {
+            Toast.makeText(this, stripped > 0
+                    ? "Not enough linkable objects (" + stripped + " already linked/unlinkable)"
+                    : "Select at least 2 linkable objects", Toast.LENGTH_SHORT).show(); // TODO(strings)
+            return;
+        }
+        timeline.addLinkGroup(g);
+        syncTimelineOverlays(); // baselines the group's tracking + shows badges
+        undoManager.recordAction(new EditActions.LambdaAction("Link timing",  // TODO(strings)
+                () -> { timeline.addLinkGroup(g); syncTimelineOverlays(); },
+                () -> { timeline.removeLinkGroup(g.id); syncTimelineOverlays(); }));
+        scheduleAutoSave();
+        if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
+        Toast.makeText(this, g.members.size() + " objects linked — they now move together"
+                + (stripped > 0 ? " (" + stripped + " skipped)" : ""),
+                Toast.LENGTH_SHORT).show();                                    // TODO(strings)
+    }
+
+    /**
+     * G9c — append an "Unlink timing…" action when {@code itemId} is in an AD-HOC TIME
+     * group (G5 preset tethers keep their own detach affordance in the viz drawer).
+     * The dialog offers the plan §5.3 scopes: this object only vs whole group.
+     */
+    private void maybeAddLinkActions(
+            @NonNull java.util.List<ObjectMenuSheet.Action> actions, @NonNull String itemId) {
+        if (project == null) return;
+        com.fadcam.ui.faditor.layers.LinkGroup owner = null;
+        for (com.fadcam.ui.faditor.layers.LinkGroup g : project.getTimeline().getLinkGroups()) {
+            if (g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.TIME)
+                    && g.findMember(itemId) != null) { owner = g; break; }
+        }
+        if (owner == null) return;
+        final com.fadcam.ui.faditor.layers.LinkGroup g = owner;
+        actions.add(new ObjectMenuSheet.Action("Unlink timing…", false, () ->  // TODO(strings)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Unlink timing")                             // TODO(strings)
+                        .setItems(new CharSequence[]{
+                                "This object only", "Unlink whole group"}, (d, w) ->  // TODO(strings)
+                                unlinkTimeMember(g, itemId, w == 1))
+                        .setNegativeButton("Cancel", null)                     // TODO(strings)
+                        .show()));
+    }
+
+    /** G9c unlink with ONE snapshot undo step; dissolves a group left under 2 members. */
+    private void unlinkTimeMember(@NonNull com.fadcam.ui.faditor.layers.LinkGroup g,
+                                  @NonNull String itemId, boolean wholeGroup) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final java.util.List<com.fadcam.ui.faditor.layers.LinkMember> beforeMembers =
+                new java.util.ArrayList<>(g.members);
+        final Runnable redo = () -> {
+            if (wholeGroup) {
+                timeline.removeLinkGroup(g.id);
+            } else {
+                com.fadcam.ui.faditor.layers.LinkMember m = g.findMember(itemId);
+                if (m != null) g.members.remove(m);
+                if (g.members.size() < 2) timeline.removeLinkGroup(g.id);
+            }
+            syncTimelineOverlays();
+        };
+        final Runnable undo = () -> {
+            g.members.clear();
+            g.members.addAll(beforeMembers);
+            timeline.removeLinkGroup(g.id); // avoid double-add on redo→undo cycles
+            timeline.addLinkGroup(g);
+            syncTimelineOverlays();
+        };
+        redo.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                wholeGroup ? "Unlink group" : "Unlink object", redo, undo));  // TODO(strings)
+        scheduleAutoSave();
+        Toast.makeText(this, wholeGroup ? "Group unlinked" : "Object unlinked",
+                Toast.LENGTH_SHORT).show();                                    // TODO(strings)
     }
 
     /** Every preview surface a batch delete can touch, refreshed in one place. */
@@ -16374,6 +16497,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String title = o.isImage() ? "Image"                            // TODO(strings)
                 : (o.getText().length() > 18 ? o.getText().substring(0, 18) + "…" : o.getText());
         Integer swatch = o.isImage() ? null : o.getColorInt();
+        maybeAddLinkActions(actions, o.getId());
         // Images: the drawer IS their type editor — no "More…" target left.
         Runnable onMore = o.isImage() ? null : () -> showTextOverlayEditor(o);
         ensureObjectMenuSheet().show(title, swatch, props, actions,
@@ -16467,6 +16591,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
         actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
                 () -> clearAllSpriteKeyframes(s)));
+        maybeAddLinkActions(actions, s.getId());
         ensureObjectMenuSheet().show(title, null, props, actions,
                 this::openSpritePalette, null, hooks, lastPlayheadAbsoluteMs, null);
     }
@@ -16704,6 +16829,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         String title = (ac.getLabel() != null && !ac.getLabel().isEmpty())
                 ? ac.getLabel() : "Audio"; // TODO(strings)
+        maybeAddLinkActions(actions, ac.getId());
         ensureObjectMenuSheet().show(title, null, props, actions,
                 null, null, hooks, lastPlayheadAbsoluteMs, null);
     }
@@ -16917,6 +17043,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 sliderBefore[0] = null;
             }
         };
+        maybeAddLinkActions(actions, c.getId());
         ensureObjectMenuSheet().show("Video overlay", null, props, actions, // TODO(strings)
                 null, null, hooks, lastPlayheadAbsoluteMs, null);
     }
@@ -17166,8 +17293,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 sliderBefore[0] = null;
             }
         };
+        java.util.List<ObjectMenuSheet.Action> vizActions = new java.util.ArrayList<>();
+        maybeAddLinkActions(vizActions, wf.getId());
         ensureObjectMenuSheet().show("Visualizer", null, props, // TODO(strings)
-                new java.util.ArrayList<>(), () -> showVisualizerDrawer(true),
+                vizActions, () -> showVisualizerDrawer(true),
                 rangeChips, hooks, lastPlayheadAbsoluteMs, null);
     }
 

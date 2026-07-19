@@ -599,6 +599,11 @@ public class EditorTimelineView extends View {
         if (layerRowRenderer.revealRowForItem(itemId)) invalidate();
     }
 
+    /** G9c: linked-member ids for the renderer's chain badge (fed by syncTimelineOverlays). */
+    public void setLinkedItemIds(@NonNull java.util.Set<String> ids) {
+        if (layerRowRenderer != null) layerRowRenderer.setLinkedItemIds(ids);
+    }
+
     // ── State ────────────────────────────────────────────────────────
     private final List<SegmentData> segments = new ArrayList<>();
     private final List<RectF> segRects = new ArrayList<>();

@@ -59,7 +59,21 @@ P1. ✅ BUILT `96b99d5` (0719 evening, Fable): OPACITY axis end-to-end proves mu
     supports one group per item. Re-scope per PLAN_G9_LINK_ENGINE.md §8 answer 3: membership must
     key by (item, axis)→group in LinkGroup/LinkMember + the resolver + toolbar tie-break.
     Real design work; touches Timeline + FaditorEditorActivity (god file — one agent at a time).
-P2. Ping-pong failure-drill on device — the per-item decode-fallback (poisoned-URI degrade) has
+P2. ⏸ ATTEMPTED 0719 ~19:10 (Fable), ABORTED ON HUMAN PRESENCE — notification shade opened
+    mid-drive (etiquette rule) with the drill ~90% staged; device FULLY restored (projects
+    clean, planted bake deleted). PROVEN RECIPE for the re-run (minutes, not re-derivation):
+    (1) bake trigger is UI-edit-only (kickReverseBakeIfNeeded), so injected JSON never bakes —
+    instead PLANT a corrupt bake at the exact cache name: key=uri|in|out|v2, filename
+    rev-v2-<in>-<out>-<abs(java hashCode%100000)>.mp4 in cache/reversed (Python hashCode
+    emulation verified); (2) inject loopMode=2+loopAfterMs into that clip's project.json
+    (project 129d8643 'bisect C long 2x' clip 668c2c49 in=98 out=7078 → rev-v2-98-7078-68993
+    .mp4); (3) FaditorEditorActivity is exported=false — open via UI: Faditor tab, project row
+    (logcat 'Editor opened saved project:' confirms id); (4) play across the wrap → expect
+    'RANK-1 recovery: POISONED reversed URI' + no blackout (resolveReversedUri poisons + playlist
+    rebuild, FaditorEditorActivity ~3142-3199). Backups land in the session scratchpad —
+    re-make them fresh. ALSO incidentally proven this pass: editor renders clean on the P1
+    build (rows/diamonds/badges), preview tap=select shows handles (no dialog).
+    (was) Ping-pong failure-drill on device — the per-item decode-fallback (poisoned-URI degrade) has
     never been WATCHED failing. Force a failure (corrupt a baked reverse file), confirm the
     shared player never blacks out and only that clip degrades. Failure mode if wrong = whole-
     player black, the exact bug that got the feature parked.

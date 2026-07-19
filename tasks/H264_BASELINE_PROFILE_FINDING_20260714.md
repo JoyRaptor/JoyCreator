@@ -81,7 +81,23 @@ Keep it **purely additive**: default (High/Original) exports must stay byte-iden
   lines 354-365 is where `Quality.LOW` would request Baseline.
 - `app/src/main/java/com/fadcam/ui/faditor/model/ExportSettings.java` — `Quality { HIGH, MEDIUM, LOW }`.
 
-**Status:** IMPLEMENTED (2026-07-19, Opus-4.8) — plumbing landed, default OFF, both modules compile green.
+**Status:** DEVICE-PROVEN (2026-07-19 15:38, Fable, Note 9) — ffprobe on a flag-ON Low-bandwidth
+export: `profile=Baseline, level=31` (720x1280), with the export process's own encoder logging
+`setupAVCEncoderParameters with [profile: Baseline] [level: Level31]`. Flag restored to OFF.
+
+**⚠️ THE FIRST DEVICE TEST CAUGHT DEAD CODE:** the initial flag-ON export came out `profile=High`
+because `settings.gradle.kts` substituted muxer/common/container/exoplayer but NOT
+`media3-transformer` — the patched DefaultEncoderFactory never shipped; the Maven transformer
+(which unconditionally clobbers the profile to High on API≥26) was in the APK. Fixed by adding
+`substitute(media3-transformer) → :lib-transformer` (comment in settings.gradle.kts). Lesson for
+every future media3-patched change: a patch is INERT unless its module is in the substitution
+list — compile-green in the fork proves nothing about the APK.
+
+**Owed:** one default-quality (flag-OFF) export regression check — expect `profile=High`
+unchanged now that the fork's transformer ships (its High path is documented byte-identical,
+but the substitution swaps the whole module's provenance, so eyeball one normal export).
+
+Previous status: IMPLEMENTED (2026-07-19, Opus-4.8) — plumbing landed, default OFF, both modules compile green.
 Runtime ffprobe proof is a device errand (recipe below). NOT committed.
 
 ### What was implemented (Option B — thread original profile, no level-picking)

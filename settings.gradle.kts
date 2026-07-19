@@ -46,6 +46,11 @@ if (file(media3PatchedPath).exists()) {
             // Gapless short-speed-clip clock-freeze fix lives in the patched DefaultAudioSink
             // (P1 2026-07-07): the stock artifact would silently drop it.
             substitute(module("androidx.media3:media3-exoplayer")).using(project(":lib-exoplayer"))
+            // H.264 Baseline-profile hook lives in the patched DefaultEncoderFactory (2026-07-19):
+            // WITHOUT this substitution the Maven transformer ships instead and silently clobbers
+            // any requested profile to High (proven by ffprobe on a flag-ON export) — the app-side
+            // REQUEST_BASELINE_PROFILE hook only works with the fork's transformer.
+            substitute(module("androidx.media3:media3-transformer")).using(project(":lib-transformer"))
         }
     }
 } else {

@@ -1,34 +1,50 @@
-# NEXT SESSION PROMPT (rewritten 2026-07-19 02:00 by Fable 5, pre-limit)
+# NEXT SESSION PROMPT (rewritten 2026-07-19 ~04:10 by Fable 5, mid-run)
 
 You are resuming autonomous spec-finishing on FadCam/Joy Creator at
-`C:\+Projects\Screenrecorder\FadCam` (branch `joy-creator`, HEAD `14a6c47`). JoyRaptor's standing
-directive: work autonomously through the unfinished specs, document as you go, and when the
-session limit hits, schedule a one-shot CronCreate wakeup ~5h out that points back at this file.
+`C:\+Projects\Screenrecorder\FadCam` (branch `joy-creator`). JoyRaptor's standing directive: work
+autonomously through unfinished specs toward an industry-leading mobile recording/editing/
+animation studio, document as you go, never stop to ask, and always keep a one-shot CronCreate
+wakeup ~5h out pointing back at this file (reschedule each session before the limit hits).
 
-READ FIRST: tasks/handoff.md top block (⏰ 2026-07-19 02:00) — it has the full state.
+READ FIRST: tasks/handoff.md top block (🔗 2026-07-19 ~04:00) — full state. HEAD when this file
+was written: `3c443b0`. Tree was CLEAN at that point except tools/jvm-harness/out2/ (ignore).
+If the tree is dirty now, a §4.5 slice was in flight — compile, review, finish or commit it
+coherently before anything else (slice plan below).
 
-IMMEDIATE ERRANDS, IN ORDER:
-1. UNCOMMITTED TREE — DO NOT COMMIT IT. The GL-transitions live-blend + export-parity work
-   (GlTransition* + FaditorEditorActivity + ProjectStorage + UndoManager + LayerRowRenderer +
-   FaditorPlayerManager) is COMPILE-GREEN (verified 02:05 2026-07-19) and device-proven per
-   tasks/GL_TRANSITIONS_HANDOFF_20260718.md, but that handoff's own rule is "JoyRaptor reviews before
-   commit — the human is reviewer-of-record". Leave the tree as-is; surface it to JoyRaptor when she's
-   back. Work AROUND it (don't touch those files in other lanes).
-2. Relaunch visualizer-studio Phase 4 (live-recording viz, tasks/feature-visualizer-studio-spec.md
-   §Phase 4 + RECORDING_HANDOFF.md; Tier-1 only, tap the encoder PCM buffer, reuse the
-   webcam-bubble compositing pass, perf validation is the done-when).
-3. Relaunch H.264 baseline patch (tasks/H264_BASELINE_PROFILE_FINDING_20260714.md; NOTE from the
-   dead agent: validation resets profile→NO_VALUE when level absent — thread the ORIGINAL request).
-4. LANE_BADGES §4.5 eye/lock migration; audio-band marquee; then device-verify queue.
-5. SKIP dual-stream P4 (blocked on JoyRaptor's link-UI decision).
+DONE THIS ARC (do not redo): GL live-blend + export parity committed (`a8efb6a`); KineMaster
+playhead + all 3 deferred seams (`d83bfd2`,`f0e0cd2`); audio-band marquee + audio batch delete
+(`2341596`); G9a–e links complete (`cc68b3b`,`114a163` — see PLAN_G9_LINK_ENGINE.md STATUS).
+Earlier arcs: viz Phase 4 (`f58a120`), H.264 baseline hook (`18a1824`), depoliticize A1/A2/B1
+(`492a55c`). Latest build with ALL of this is installed on the Note 9 (29e37138, attached).
 
-HOUSE RULES (unchanged): TEMP/TMP→C:\Users\JoyRaptor\gtmp before gradlew; NEVER --rerun-tasks;
-adb at C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe; Glob broken — Grep/ls;
-git commit -F <file>; commit per feature `faditor(scope): ...`; don't touch icons/PSD, out2/,
-whisper.cpp/, media3-patched/ (EXCEPT the H.264 lane which patches media3-patched deliberately —
-that lane alone). Opus subagents for mechanical builds; review line-by-line before committing;
-briefs must be self-contained (agents die on API errors — be ready to finish by hand).
+QUEUE (in order):
+1. LANE_BADGES §4.5 eye/lock → PER-OBJECT migration (LANE_BADGES_AND_PREVIEWS_SPEC_20260714.md).
+   Slice plan (each always-green + committed separately):
+   S1: `hidden`+`locked` booleans on TextOverlayItem, SpriteOverlayItem, WaveformOverlayInstance,
+       overlay Clip; `locked` ONLY on AudioClip (its per-clip mute already IS the eye) +
+       ProjectStorage tolerant round-trip (write-if-true). Inert.
+   S2: hide goes live — LayerPreviewController visible* filters also drop object.hidden (this is
+       the single authority preview AND export consume for text/sprite/image; check viz + PiP
+       export feeds separately and filter there too); LayerRowRenderer ghosts hidden objects
+       (extend the existing track-ghosted flag per item); ObjectMenuSheet drawers gain
+       Hide/Show + Lock/Unlock actions (audio: Lock only), one undo step each.
+   S3: locked enforcement — locked items stay SELECTABLE (else they could never be unlocked via
+       the drawer) but LayerGestureController never arms trim/pickup on them and the delete
+       badge is suppressed; THEN remove the per-track eye/lock gutter icons + hit zones + M6
+       toggle glue (keep caret + audio mute; per-layer SOLO is a separate unbuilt feature —
+       do not bundle it).
+2. G9 device verify, adb-drivable (PLAN_G9_LINK_ENGINE.md §7): marquee-link two text overlays →
+   badges; hold-drag one → partner follows live; ONE undo restores both; unlink scopes;
+   save/reload round-trip (project JSON gains linkGroups).
+3. Lane-3 GL export A/B (tasks/LANE3_gl_transition_ab_hypothesis.md — sandbox export recipe).
+4. Dual-stream P4 reachable ops — consider proposing the marquee-batch-menu pattern as the
+   link-creation UI (mirrors G9d) in a spec note for JoyRaptor rather than staying blocked.
+5. Whatever remains in road_map.md's ship-blocker/verify lists that is solo-doable.
 
-DEVICE: Note 9 SANDBOX_SERIAL unlocked and authorized as of last check; Layers-UI build
-installed. JoyRaptor hand-test owed: viz Layers drawer (chips/props/reorder), new P3/P4 presets in a
-real project, export A/B of a customized stack.
+HOUSE RULES (unchanged): `$env:TEMP='C:\Users\JoyRaptor\gtmp'; $env:TMP=$env:TEMP` before any
+gradlew; NEVER --rerun-tasks (corrupts media3-patched jars); adb at
+C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe; Glob broken — use Grep/ls;
+multi-line commits via `git commit -F <file>`; commit style `faditor(scope): ...`; don't touch
+icons/PSD, tools/jvm-harness/out2/, whisper.cpp/, media3-patched/; update this file + a
+handoff.md top block before each limit; reschedule the CronCreate wakeup (one-shot, ~5h out,
+off-minute) every session.

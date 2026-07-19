@@ -10778,10 +10778,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * One-shot batch delete with ONE composite undo step. Handles the payload types
+     * One-shot batch delete with ONE composite undo step. Handles every payload type
      * whose add/remove pairs are pure timeline mutations (text/image overlays, sprites,
-     * visualizers, PiP overlay clips). Captions (clip-owned, no delete semantics) and
-     * audio clips (index-anchored legacy subsystem) are skipped with a note.
+     * visualizers, PiP overlay clips, and — since the audio-band marquee landed —
+     * audio clips, with a player resync). Captions (clip-owned, no delete semantics)
+     * are skipped with a note.
      */
     private void performMarqueeBatchDelete(@NonNull java.util.List<
             com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
@@ -10794,6 +10795,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final java.util.List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> waves =
                 new java.util.ArrayList<>();
         final java.util.List<Clip> pips = new java.util.ArrayList<>();
+        final java.util.List<AudioClip> audios = new java.util.ArrayList<>();
         int skipped = 0;
         for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
             com.fadcam.ui.faditor.layers.TimedItem it = h.item;
@@ -10801,9 +10803,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             else if (it.getSprite() != null) sprites.add(it.getSprite());
             else if (it.getWaveform() != null) waves.add(it.getWaveform());
             else if (it.getClip() != null && it.getClip().isOverlayClip()) pips.add(it.getClip());
+            else if (it.getAudioClip() != null) audios.add(it.getAudioClip());
             else skipped++;
         }
-        int deletable = texts.size() + sprites.size() + waves.size() + pips.size();
+        int deletable = texts.size() + sprites.size() + waves.size() + pips.size() + audios.size();
         if (deletable == 0) {
             Toast.makeText(this, "Nothing deletable in the selection", Toast.LENGTH_SHORT).show();
             return;
@@ -10813,14 +10816,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : sprites) timeline.removeSpriteOverlay(s);
             for (com.fadcam.ui.faditor.model.WaveformOverlayInstance v : waves) timeline.removeWaveformOverlay(v);
             for (Clip c : pips) timeline.removeOverlayClip(c);
+            for (AudioClip a : audios) timeline.removeAudioClip(a);
             refreshAfterMarqueeBatchDelete();
+            if (!audios.isEmpty()) resyncAudioPlayerAfterBatch();
         };
         final Runnable revertDelete = () -> {
             for (com.fadcam.ui.faditor.model.TextOverlayItem t : texts) timeline.addTextOverlay(t);
             for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : sprites) timeline.addSpriteOverlay(s);
             for (com.fadcam.ui.faditor.model.WaveformOverlayInstance v : waves) timeline.addWaveformOverlay(v);
             for (Clip c : pips) timeline.addOverlayClip(c);
+            // Same object instances re-added with NO overlap-resolution so offset +
+            // layerId restore byte-identically (list order may differ; audio items are
+            // offset-positioned + lane-keyed, so the visual result is identical).
+            for (AudioClip a : audios) timeline.addAudioClip(a, false);
             refreshAfterMarqueeBatchDelete();
+            if (!audios.isEmpty()) resyncAudioPlayerAfterBatch();
         };
         applyDelete.run();
         undoManager.recordAction(new EditActions.LambdaAction(
@@ -10845,6 +10855,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         refreshSpritePreviewData();
         if (editorTimeline != null) editorTimeline.invalidate();
+    }
+
+    /** Audio half of a batch delete/undo: legacy feed + player resync (mirror of
+     *  deleteAudioClipWithConfirmation's refresh half). Called only when the batch
+     *  actually touched audio items — no player churn otherwise. */
+    private void resyncAudioPlayerAfterBatch() {
+        if (project == null || editorTimeline == null) return;
+        Timeline tl = project.getTimeline();
+        editorTimeline.setAudioClips(tl.getAudioClips());
+        releaseAudioPlayer();
+        if (tl.hasAudioClips()) prepareAudioPlayer();
     }
 
     /**

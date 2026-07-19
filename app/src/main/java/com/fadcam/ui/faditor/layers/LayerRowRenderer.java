@@ -2144,18 +2144,21 @@ public final class LayerRowRenderer {
                                             @NonNull TimeToX timeToX,
                                             boolean requireFullContainment) {
         List<ItemHit> out = new ArrayList<>();
+        // Audio-band rows live in a DIFFERENT content space (band 2, anchored at
+        // lastAudioTopPx, unscrolled) than the marquee rect (band-1 coords). The
+        // follow-up is closed: convert the rect into band-2 local space per row
+        // instead of skipping — band1-local + (lastTopPx - scrollOffsetPx) = screen,
+        // screen - lastAudioTopPx = band2-local.
+        float bandShift = (lastTopPx - scrollOffsetPx) - lastAudioTopPx;
         for (RowLayout row : rows) {
             Track t = row.track;
-            // Audio-band rows live in a DIFFERENT content space (band 2, below master) than
-            // the marquee rect (band-1 coords) — skip them so a marquee near the top of the
-            // floating band can't phantom-select audio items whose band-2 y happens to
-            // overlap numerically. Marquee coverage of the audio band is a follow-up.
-            if (!row.floatingBand) continue;
             if (t.isCollapsed() || t.isLocked() || t.isHidden()) continue;
+            float rTop = contentRect.top, rBot = contentRect.bottom;
+            if (!row.floatingBand) { rTop += bandShift; rBot += bandShift; }
             float top = row.bodyRect.top + 3f * density;
             float bottom = row.bodyRect.bottom - 3f * density;
-            boolean yIntersects = bottom >= contentRect.top && top <= contentRect.bottom;
-            boolean yContained = top >= contentRect.top && bottom <= contentRect.bottom;
+            boolean yIntersects = bottom >= rTop && top <= rBot;
+            boolean yContained = top >= rTop && bottom <= rBot;
             if (requireFullContainment ? !yContained : !yIntersects) continue;
             for (TimedItem item : t.getItems()) {
                 float x0 = timeToX.map(item.getTimelineStartMs());
@@ -2187,24 +2190,46 @@ public final class LayerRowRenderer {
         canvas.clipRect(lastHScrollOffsetPx, topPx,
                 lastHScrollOffsetPx + lastWidthPx, topPx + viewportHeightPx);
         for (RowLayout row : rows) {
-            if (!row.floatingBand) continue; // marquee = floating band only (see collectItemsInRect)
+            if (!row.floatingBand) continue; // audio rows drawn in their own pass below
             Track t = row.track;
             float top = topPx + row.bodyRect.top + 3f * density - scrollOffsetPx;
             float bottom = topPx + row.bodyRect.bottom - 3f * density - scrollOffsetPx;
-            for (TimedItem item : t.getItems()) {
-                if (!ids.contains(item.getId())) continue;
-                float x0 = timeToX.map(item.getTimelineStartMs());
-                long dur = item.getDisplayDurationMs(totalMs);
-                float x1 = Math.max(x0 + 6f * density,
-                        timeToX.map(item.getTimelineStartMs() + dur));
-                itemPaint.setColor(0x33FFFFFF);
-                canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density, itemPaint);
-                itemSelectionPaint.setColor(0xFFFFFFFF);
-                canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density,
-                        itemSelectionPaint);
-            }
+            drawMultiSelectionRow(canvas, t, ids, top, bottom, totalMs, timeToX);
         }
         canvas.restore();
+        // Audio band pass (band-2 anchors, unscrolled) — marquee coverage of the
+        // audio band, the collectItemsInRect follow-up now closed.
+        if (audioBandHeightPx > 0f) {
+            canvas.save();
+            canvas.clipRect(lastHScrollOffsetPx, lastAudioTopPx,
+                    lastHScrollOffsetPx + lastWidthPx, lastAudioTopPx + audioBandHeightPx);
+            for (RowLayout row : rows) {
+                if (row.floatingBand) continue;
+                float top = lastAudioTopPx + row.bodyRect.top + 3f * density;
+                float bottom = lastAudioTopPx + row.bodyRect.bottom - 3f * density;
+                drawMultiSelectionRow(canvas, row.track, ids, top, bottom, totalMs, timeToX);
+            }
+            canvas.restore();
+        }
+    }
+
+    /** One row's marquee-highlight blocks (shared by the floating + audio passes). */
+    private void drawMultiSelectionRow(@NonNull Canvas canvas, @NonNull Track t,
+                                       @NonNull java.util.Set<String> ids,
+                                       float top, float bottom, long totalMs,
+                                       @NonNull TimeToX timeToX) {
+        for (TimedItem item : t.getItems()) {
+            if (!ids.contains(item.getId())) continue;
+            float x0 = timeToX.map(item.getTimelineStartMs());
+            long dur = item.getDisplayDurationMs(totalMs);
+            float x1 = Math.max(x0 + 6f * density,
+                    timeToX.map(item.getTimelineStartMs() + dur));
+            itemPaint.setColor(0x33FFFFFF);
+            canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density, itemPaint);
+            itemSelectionPaint.setColor(0xFFFFFFFF);
+            canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density,
+                    itemSelectionPaint);
+        }
     }
 
     /** G8: current vertical scroll (px) of the band viewport, for marquee coordinate math. */

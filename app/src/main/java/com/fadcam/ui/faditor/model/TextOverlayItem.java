@@ -20,6 +20,18 @@ import java.util.UUID;
  */
 public class TextOverlayItem {
 
+    // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19): the eye/lock
+    // moved off the row gutter onto the object itself. Hidden = excluded from preview AND
+    // export via LayerPreviewController's single-authority filters; locked = selectable
+    // but never trims/moves/deletes. Tolerant storage: absent = false.
+    private boolean hidden;
+    private boolean locked;
+
+    public boolean isHidden() { return hidden; }
+    public void setHidden(boolean hidden) { this.hidden = hidden; }
+    public boolean isLocked() { return locked; }
+    public void setLocked(boolean locked) { this.locked = locked; }
+
     @NonNull
     private final String id;
 

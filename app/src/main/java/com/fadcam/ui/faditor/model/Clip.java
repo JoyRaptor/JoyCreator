@@ -20,6 +20,17 @@ import com.fadcam.ui.faditor.effects.EffectStack;
  */
 public class Clip {
 
+    // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19). Only honored
+    // for OVERLAY/PiP clips (isOverlayClip()) — master tape clips ignore both (hiding a
+    // master clip is a delete/gap decision, not an eye). Tolerant storage: absent = false.
+    private boolean hidden;
+    private boolean locked;
+
+    public boolean isHiddenObject() { return hidden; }
+    public void setHiddenObject(boolean hidden) { this.hidden = hidden; }
+    public boolean isLockedObject() { return locked; }
+    public void setLockedObject(boolean locked) { this.locked = locked; }
+
     @NonNull
     private final String id;
 

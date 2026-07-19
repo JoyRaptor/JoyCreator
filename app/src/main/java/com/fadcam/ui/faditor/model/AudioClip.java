@@ -32,6 +32,14 @@ import java.util.UUID;
  */
 public class AudioClip {
 
+    // §4.5 per-OBJECT lock (LANE_BADGES spec, built 2026-07-19): locked = selectable but
+    // never trims/moves/deletes. Audio has NO hidden twin — per-clip MUTE already is the
+    // audible "eye". Tolerant storage: absent = false.
+    private boolean locked;
+
+    public boolean isLocked() { return locked; }
+    public void setLocked(boolean locked) { this.locked = locked; }
+
     @NonNull
     private final String id;
 

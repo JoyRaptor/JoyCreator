@@ -1068,6 +1068,9 @@ public class ProjectStorage {
         clipJson.addProperty("cropTop", clip.getCropTop());
         clipJson.addProperty("cropRight", clip.getCropRight());
         clipJson.addProperty("cropBottom", clip.getCropBottom());
+        // §4.5 per-object eye/lock — write-if-true keeps master-clip JSON byte-identical.
+        if (clip.isHiddenObject()) clipJson.addProperty("objHidden", true);
+        if (clip.isLockedObject()) clipJson.addProperty("objLocked", true);
         if (!clip.getRemovedSpans().isEmpty()) {
             JsonArray spans = new JsonArray();
             for (long[] s : clip.getRemovedSpans()) {
@@ -1429,6 +1432,9 @@ public class ProjectStorage {
         if (clipObj.has("linkedClipId") && !clipObj.get("linkedClipId").isJsonNull()) {
             clip.setLinkedClipId(clipObj.get("linkedClipId").getAsString());
         }
+        // §4.5 per-object eye/lock (tolerant: absent = false).
+        if (clipObj.has("objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
+        if (clipObj.has("objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
         return clip;
     }
 
@@ -1583,6 +1589,8 @@ public class ProjectStorage {
                 acJson.addProperty("captionStyleId", ac.getCaptionStyleId());
                 acJson.addProperty("captionCenterX", ac.getCaptionCenterX());
                 acJson.addProperty("captionCenterY", ac.getCaptionCenterY());
+                // §4.5 per-object lock (write-if-true; audio's eye = its existing mute).
+                if (ac.isLocked()) acJson.addProperty("objLocked", true);
                 audioArray.add(acJson);
             }
             timelineJson.add("audioClips", audioArray);
@@ -1640,6 +1648,9 @@ public class ProjectStorage {
                     oJson.add("keyframes", tracksJson);
                 }
                 serializeGeneratedSource(oJson, o.getGeneratedSource());
+                // §4.5 per-object eye/lock (write-if-true — pre-§4.5 JSON unchanged).
+                if (o.isHidden()) oJson.addProperty("objHidden", true);
+                if (o.isLocked()) oJson.addProperty("objLocked", true);
                 overlaysArray.add(oJson);
             }
             timelineJson.add("textOverlays", overlaysArray);
@@ -1692,6 +1703,9 @@ public class ProjectStorage {
                             wj.addProperty("attachDurationMs", wo.getAttachDurationMs());
                         }
                         if (wo.isStratified()) wj.addProperty("stratified", true);
+                        // §4.5 per-object eye/lock (write-if-true).
+                        if (wo.isHidden()) wj.addProperty("objHidden", true);
+                        if (wo.isLocked()) wj.addProperty("objLocked", true);
                     }
                     wfArray.add(wj);
                 }
@@ -1787,6 +1801,9 @@ public class ProjectStorage {
                         }
                         sj.add("keyframes", tracksJson);
                     }
+                    // §4.5 per-object eye/lock (write-if-true).
+                    if (so.isHidden()) sj.addProperty("objHidden", true);
+                    if (so.isLocked()) sj.addProperty("objLocked", true);
                     spArray.add(sj);
                 }
                 timelineJson.add("spriteOverlays", spArray);
@@ -2074,6 +2091,8 @@ public class ProjectStorage {
                                     acObj.get("captionCenterX").getAsFloat(),
                                     acObj.get("captionCenterY").getAsFloat());
                         }
+                        // §4.5 per-object lock (tolerant: absent = false).
+                        if (acObj.has("objLocked")) ac.setLocked(acObj.get("objLocked").getAsBoolean());
                         project.getTimeline().addAudioClip(ac, false);
                     }
                 }
@@ -2137,6 +2156,9 @@ public class ProjectStorage {
                             o.setGeneratedSource(deserializeGeneratedSource(
                                     oObj.getAsJsonObject("generatedSource")));
                         }
+                        // §4.5 per-object eye/lock (tolerant: absent = false).
+                        if (oObj.has("objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
+                        if (oObj.has("objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         project.getTimeline().addTextOverlay(o);
                     }
                 }
@@ -2204,6 +2226,9 @@ public class ProjectStorage {
                                 wo.setStratified(wj.get("stratified").getAsBoolean());
                             }
                         }
+                        // §4.5 per-object eye/lock (tolerant: absent = false).
+                        if (wj.has("objHidden")) wo.setHidden(wj.get("objHidden").getAsBoolean());
+                        if (wj.has("objLocked")) wo.setLocked(wj.get("objLocked").getAsBoolean());
                         project.getTimeline().addWaveformOverlay(wo);
                     }
                     // Attached windows re-derive from their hosts' CURRENT spans on load.
@@ -2356,6 +2381,9 @@ public class ProjectStorage {
                                     }
                                 }
                             }
+                            // §4.5 per-object eye/lock (tolerant: absent = false).
+                            if (sj.has("objHidden")) so.setHidden(sj.get("objHidden").getAsBoolean());
+                            if (sj.has("objLocked")) so.setLocked(sj.get("objLocked").getAsBoolean());
                             project.getTimeline().addSpriteOverlay(so);
                         } catch (Exception ignored) { }
                     }

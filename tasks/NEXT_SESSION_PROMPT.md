@@ -61,9 +61,14 @@ QUEUE (in order — pure device-verify + small errands; NOTHING needs re-derivin
 3. Dual-stream pair ops device verify (needs a REAL recorded pair: FadRec settings → "Record
    webcam as separate file" toggle → record → editor playhead-insert offers "Add as linked
    pair" → delete/split/trim mirrors + one-undo, per the spec's Phase-4 checklist).
-4. H.264 Baseline runtime proof: flip ExportManager.REQUEST_BASELINE_PROFILE=true, build TEST
-   apk, export via Low-bandwidth chip, ffprobe profile=Baseline, restore flag (recipe in
-   H264_BASELINE_PROFILE_FINDING_20260714.md status).
+4. ~~H.264 Baseline runtime proof~~ ✅ DEVICE-PROVEN 15:38 (ffprobe profile=Baseline level=31).
+   CRITICAL FINDING while proving it: the patch was DEAD CODE — settings.gradle.kts didn't
+   substitute media3-transformer, so the Maven artifact shipped. Fixed in `f99f1fc`.
+   ⚠️ CONSEQUENCE: the shipping EXPORT ENGINE provenance changed from Maven transformer to the
+   fork's. (a) ✅ flag-OFF export re-probed 15:43: profile=High, level=31, full 9.03s duration —
+   fork transformer behaviorally identical when Baseline not requested. STILL OWED: (b) spot
+   re-check one transition export + one cropped export against their existing proofs (the crop/
+   canvas-parity proofs 62bc140/a8efb6a were measured on the Maven transformer).
 5. Ping-pong owed device checks (PLAN_LOOP_PINGPONG.md Status list).
 6. OPEN JOYRAPTOR ITEMS (surface, don't block): assets/web FadSec dashboard + live id.fadseclab.com
    domain; locale-file rename sweep; icon-asset renames; rebrand art set (ASSETS_WISHLIST.md).

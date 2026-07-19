@@ -51,6 +51,16 @@ left edge — "similar to the trash-can behavior, except on the other side of th
 - Suggested order: (1) badges [small, pure gutter change], (2) image-item thumbnail + §3 pinning,
   (3) sprite keyframe poses, (4) video-item strip previews [heaviest — extraction cost/caching].
 
+**Status (2026-07-19, Fable 5): §4.5 EYE/LOCK → PER-OBJECT MIGRATION BUILT** (`e926f88` fields+
+storage, `d5b7f42` hide live everywhere + drawer toggles, `508a74c` lock enforcement + gutter
+retire + load migration). Hidden/locked now live on the OBJECT (audio: lock only — its per-clip
+mute is the eye); toggles in every object drawer; hide honored by the shared preview/export
+visible* filters + row ghosting; locked = selectable-but-immutable (hold still opens the drawer
+for Unlock); gutter eye/lock glyphs gone (mute stays; per-layer SOLO = future); persisted
+track-level flags push down onto objects once on load. DEVICE-VERIFY OWED (JoyRaptor): hide/show +
+lock round-trips per type; a hidden object absent from export; locked item refuses trim/move/
+delete but opens its drawer; old project with a hidden track loads with its items object-hidden.
+
 **Status (2026-07-17):** §1 BADGES BUILT — `LayerRowRenderer.drawKindBadge` replaces the gutter
 name text with canvas-drawn kind glyphs (filmstrip+sprockets video, T-box text, mountain-frame
 image, stickman-ring sprite, CC box captions, bars visualizer, mirrored-bars audio). Device

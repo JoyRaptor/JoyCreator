@@ -38,13 +38,22 @@ strip render, density-compensated; expected ~6ms→~1.5ms; arm-log mystery resol
 one-shot service-tag log vs periodic hot-draw warning). All 11 tracked lanes of the 0719 arcs
 are now COMMITTED and the tree is CLEAN except tools/jvm-harness/out2/ (ignore).
 
+RE-MEASURE RESULT (0719 07:33, post-058f5c8 build ON-DEVICE): arm log now captured
+("Live visualizer armed: style=fire_mirror" — benign-window theory confirmed) but the draw is
+STILL hot: 4.5–6.25ms avg. Halving fill pixels barely moved the number ⇒ the cost is NOT
+Canvas-fill-dominated — next lever is SPLIT TIMING inside GLWatermarkRenderer.drawVisualizerLayer
+(measure renderFrame vs texImage2D upload vs GL sync separately; suspect the per-frame
+texImage2D upload + implicit sync). Half-res VISUAL PARITY confirmed (pulled-frame crop is
+crisp). No jank at 30fps — 6ms of a 33ms frame; the 4ms budget is self-imposed. Treat as
+POLISH, not a blocker.
+
 QUEUE (in order — pure device-verify + small errands; NOTHING needs re-deriving):
-1. Rebuild+install (tree clean, HEAD has the perf fix) → re-arm Fire Mirror → record 15s →
-   logcat must NOT show "Live visualizer draw is hot" (that silence IS the perf proof); then
-   the battery/dropped-frame A/B (spec Phase-4 block has the recipe + driving coordinates:
-   viz toggle = 4th record-row button x906 y1998 @1080x2220; x802 = Audio Source, keep Mic on;
-   consent "Start now" x674 y2085; start/stop button x380 y1998; test tone recipe: ffmpeg
-   sine+tremolo wav → push → ACTION_VIEW file:///sdcard/Download/pulse.wav).
+1. Live-viz perf round 2 (polish): add split timing logs, then either texture double-buffering
+   / texSubImage2D reuse, or accept and raise the self-check budget to ~8ms with a comment.
+   Then the battery/dropped-frame A/B (coordinates: viz toggle = 4th record-row button x906
+   y1998 @1080x2220; x802 = Audio Source (keep Mic); consent "Start now" x674 y2085;
+   start/stop x380 y1998; tone: ffmpeg sine+tremolo wav → push → ACTION_VIEW
+   file:///sdcard/Download/pulse.wav).
 2. G9 links device verify per PLAN_G9_LINK_ENGINE.md §7. HEAD START: project bdd51919 already
    holds a persisted TIME group "test-g9-group-1" (master clip 92bec151… + waveform f6ba8ced…,
    hostOffset 2000) and 5 text overlays — storage round-trip is half-proven; what remains is

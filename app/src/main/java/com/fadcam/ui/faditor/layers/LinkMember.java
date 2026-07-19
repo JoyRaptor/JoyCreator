@@ -42,6 +42,13 @@ public final class LinkMember {
      * re-baseline, never propagate.
      */
     public long lastKnownDurMs = UNSET;
+    /**
+     * P1 (multi-axis membership): last-known STATIC opacity as an UNCLAMPED virtual value —
+     * the OPACITY twin of {@link #virtualStartMs}, same exactly-one-mover delta push in
+     * {@code Timeline.resyncLinkGroups()}. {@link Float#NaN} = baseline not captured /
+     * payload doesn't support a static opacity (viz/PiP/audio in v1).
+     */
+    public float virtualOpacity = Float.NaN;
 
     public LinkMember(@NonNull String kind, @NonNull String id, boolean isHost) {
         this.kind = kind;

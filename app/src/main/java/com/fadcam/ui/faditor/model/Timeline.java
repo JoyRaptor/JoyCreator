@@ -1672,6 +1672,12 @@ public class Timeline {
     public void resyncLinkGroups() {
         pruneLinkGroups();
         for (com.fadcam.ui.faditor.layers.LinkGroup g : linkGroups) {
+            // P1 multi-axis: peer groups resync EVERY axis they carry, independently —
+            // an item can ride TIME in group A and OPACITY in group B simultaneously.
+            if (g.getHost() == null
+                    && g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.OPACITY)) {
+                resyncPeerOpacityGroup(g);
+            }
             if (!g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.TIME)) continue;
             com.fadcam.ui.faditor.layers.LinkMember host = g.getHost();
             if (host == null) {
@@ -1758,6 +1764,88 @@ public class Timeline {
             if (m.virtualStartMs == UNSET) continue;
             m.virtualStartMs += delta; // unclamped virtual — drift-free through t=0
             applyLinkStartMs(m.kind, m.id, Math.max(0, m.virtualStartMs));
+        }
+    }
+
+    /**
+     * P1 — peer OPACITY propagation, the exact twin of {@link #resyncPeerTimeGroup}:
+     * unclamped virtual opacities, exactly-one-mover delta push, ambiguity re-baselines.
+     * Members without a static opacity (resolve returns NaN) simply don't participate.
+     */
+    private void resyncPeerOpacityGroup(@NonNull com.fadcam.ui.faditor.layers.LinkGroup g) {
+        int moverIdx = -1;
+        int movedCount = 0;
+        float delta = 0f;
+        boolean rebaselineOnly = false;
+        for (int i = 0; i < g.members.size(); i++) {
+            com.fadcam.ui.faditor.layers.LinkMember m = g.members.get(i);
+            float v = resolveLinkOpacity(m.kind, m.id);
+            if (Float.isNaN(v)) continue; // unsupported payload / dead id
+            if (Float.isNaN(m.virtualOpacity)) {
+                m.virtualOpacity = v;
+                rebaselineOnly = true;
+                continue;
+            }
+            float knownClamped = Math.max(0f, Math.min(1f, m.virtualOpacity));
+            if (Math.abs(v - knownClamped) > 0.0005f) {
+                movedCount++;
+                moverIdx = i;
+                delta = v - knownClamped;
+            }
+        }
+        if (rebaselineOnly || movedCount != 1) {
+            if (movedCount > 0) {
+                for (com.fadcam.ui.faditor.layers.LinkMember m : g.members) {
+                    float v = resolveLinkOpacity(m.kind, m.id);
+                    if (!Float.isNaN(v)) m.virtualOpacity = v;
+                }
+            }
+            return;
+        }
+        for (int i = 0; i < g.members.size(); i++) {
+            com.fadcam.ui.faditor.layers.LinkMember m = g.members.get(i);
+            if (i == moverIdx) {
+                m.virtualOpacity = resolveLinkOpacity(m.kind, m.id);
+                continue;
+            }
+            if (Float.isNaN(m.virtualOpacity)) continue;
+            m.virtualOpacity += delta; // unclamped — drift-free through the 0/1 rails
+            applyLinkOpacity(m.kind, m.id, Math.max(0f, Math.min(1f, m.virtualOpacity)));
+        }
+    }
+
+    /** STATIC opacity of a linkable payload, or NaN (unsupported kind / dead id). v1:
+     *  text + sprite only — viz rides its host, PiP opacity is keyframe-set-owned. */
+    private float resolveLinkOpacity(@NonNull String kind, @NonNull String id) {
+        switch (kind) {
+            case "textOverlay":
+                for (TextOverlayItem t : textOverlays) {
+                    if (id.equals(t.getId())) return t.getOpacity();
+                }
+                return Float.NaN;
+            case "sprite":
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+                    if (id.equals(s.getId())) return s.getOpacity();
+                }
+                return Float.NaN;
+            default:
+                return Float.NaN;
+        }
+    }
+
+    private void applyLinkOpacity(@NonNull String kind, @NonNull String id, float v) {
+        switch (kind) {
+            case "textOverlay":
+                for (TextOverlayItem t : textOverlays) {
+                    if (id.equals(t.getId())) { t.setOpacity(v); return; }
+                }
+                return;
+            case "sprite":
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+                    if (id.equals(s.getId())) { s.setOpacity(v); return; }
+                }
+                return;
+            default:
         }
     }
 

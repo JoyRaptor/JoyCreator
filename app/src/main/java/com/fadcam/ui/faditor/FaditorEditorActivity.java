@@ -10787,8 +10787,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final java.util.List<Runnable> handlers = new java.util.ArrayList<>();
         labels.add("Delete selected");                                        // TODO(strings)
         handlers.add(() -> confirmMarqueeBatchDelete(items));
-        labels.add("Link timing (move together)");                            // TODO(strings)
-        handlers.add(() -> createTimeLinkGroup(items));
+        labels.add("Link objects…");                                          // TODO(strings)
+        handlers.add(() -> showLinkCreationDialog(items));
         // Dual-stream Phase 4 (manual entry point B): a master clip + an overlay video
         // clip can be linked as a synced pair; any selection touching a linked clip can
         // be unlinked. These are the master↔overlay `linkedClipId` mechanism, distinct
@@ -10885,53 +10885,115 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * G9d — create a peer TIME link group from the marquee selection. JoyRaptor's re-scope
-     * (2026-07-19 #3): the (item, TIME) axis must be uniquely owned, so members whose
-     * TIME axis is already claimed (ad-hoc or G5 preset) are stripped with a note;
-     * captions/master clips aren't linkable payloads. ONE undo step (plan §6.1) —
-     * the SAME group object round-trips through undo/redo so its id never changes.
+     * P1 (multi-axis membership) — axis-choice dialog for link creation. Checked axes
+     * become ONE peer group; per JoyRaptor's model an item may simultaneously belong to
+     * DIFFERENT groups on DIFFERENT axes, so conflicts are enforced per (item, axis).
      */
-    private void createTimeLinkGroup(@NonNull java.util.List<
+    private void showLinkCreationDialog(@NonNull java.util.List<
             com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        final boolean[] checked = {true, false}; // Timing on by default
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Link objects")                                      // TODO(strings)
+                .setMultiChoiceItems(new CharSequence[]{
+                        "Timing (move together)",
+                        "Opacity (fade together — text & sprites)"},           // TODO(strings)
+                        checked, (d, w, isChecked) -> checked[w] = isChecked)
+                .setNegativeButton("Cancel", null)                             // TODO(strings)
+                .setPositiveButton("Link", (d, w) -> {                         // TODO(strings)
+                    if (checked[0] || checked[1]) {
+                        createLinkGroup(items, checked[0], checked[1]);
+                    }
+                })
+                .show();
+    }
+
+    /**
+     * G9d/P1 — create a peer link group over the chosen axes. JoyRaptor's re-scope
+     * (2026-07-19 #3): each (item, axis) must be uniquely owned. STRICT axis rule: a
+     * chosen axis survives only if EVERY member supports it AND has it free — otherwise
+     * that axis is dropped with a note (members are never silently split per axis, so
+     * the group's meaning stays legible). ONE undo step; the SAME group object
+     * round-trips undo/redo (id stable).
+     */
+    private void createLinkGroup(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items,
+            boolean linkTime, boolean linkOpacity) {
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
         final com.fadcam.ui.faditor.layers.LinkGroup g =
                 new com.fadcam.ui.faditor.layers.LinkGroup(
                         java.util.UUID.randomUUID().toString());
-        g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.TIME);
         int stripped = 0;
         java.util.HashSet<String> seen = new java.util.HashSet<>();
+        java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> members =
+                new java.util.ArrayList<>();
         for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
             String kind = h.item.payloadKind();
-            String id = h.item.getId();
-            if (!seen.add(id)) continue;
+            if (!seen.add(h.item.getId())) continue;
             boolean linkable = "textOverlay".equals(kind) || "sprite".equals(kind)
                     || "audioClip".equals(kind) || "waveform".equals(kind)
                     || ("clip".equals(kind) && h.item.getClip() != null
                         && h.item.getClip().isOverlayClip());
-            if (!linkable) { stripped++; continue; }
-            if (timeline.axisOwner(id, com.fadcam.ui.faditor.layers.LinkedProperty.TIME) != null) {
-                stripped++; // TIME axis already owned — uniqueness invariant
-                continue;
-            }
-            g.members.add(new com.fadcam.ui.faditor.layers.LinkMember(kind, id, false));
+            if (linkable) members.add(h); else stripped++;
         }
-        if (g.members.size() < 2) {
-            Toast.makeText(this, stripped > 0
-                    ? "Not enough linkable objects (" + stripped + " already linked/unlinkable)"
-                    : "Select at least 2 linkable objects", Toast.LENGTH_SHORT).show(); // TODO(strings)
+        // STRICT per-axis survival: every member must support + be free on the axis.
+        boolean timeOk = linkTime;
+        boolean opacityOk = linkOpacity;
+        java.util.List<String> droppedAxes = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : members) {
+            String kind = h.item.payloadKind();
+            String id = h.item.getId();
+            if (timeOk && timeline.axisOwner(id,
+                    com.fadcam.ui.faditor.layers.LinkedProperty.TIME) != null) {
+                timeOk = false;
+                droppedAxes.add("timing (already linked)");                    // TODO(strings)
+            }
+            if (opacityOk) {
+                boolean supports = "textOverlay".equals(kind) || "sprite".equals(kind);
+                if (!supports || timeline.axisOwner(id,
+                        com.fadcam.ui.faditor.layers.LinkedProperty.OPACITY) != null) {
+                    opacityOk = false;
+                    droppedAxes.add(supports
+                            ? "opacity (already linked)" : "opacity (unsupported type)"); // TODO(strings)
+                }
+            }
+        }
+        if (timeOk) g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.TIME);
+        if (opacityOk) g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.OPACITY);
+        if (g.properties.isEmpty() || members.size() < 2) {
+            String why = members.size() < 2
+                    ? (stripped > 0 ? "Not enough linkable objects"
+                                    : "Select at least 2 linkable objects")
+                    : "Nothing to link — " + android.text.TextUtils.join(", ", droppedAxes);
+            Toast.makeText(this, why, Toast.LENGTH_LONG).show();               // TODO(strings)
             return;
+        }
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : members) {
+            g.members.add(new com.fadcam.ui.faditor.layers.LinkMember(
+                    h.item.payloadKind(), h.item.getId(), false));
         }
         timeline.addLinkGroup(g);
         syncTimelineOverlays(); // baselines the group's tracking + shows badges
-        undoManager.recordAction(new EditActions.LambdaAction("Link timing",  // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction("Link objects", // TODO(strings)
                 () -> { timeline.addLinkGroup(g); syncTimelineOverlays(); },
                 () -> { timeline.removeLinkGroup(g.id); syncTimelineOverlays(); }));
         scheduleAutoSave();
         if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
-        Toast.makeText(this, g.members.size() + " objects linked — they now move together"
-                + (stripped > 0 ? " (" + stripped + " skipped)" : ""),
-                Toast.LENGTH_SHORT).show();                                    // TODO(strings)
+        String axesLabel = describeLinkAxes(g);
+        Toast.makeText(this, g.members.size() + " objects linked (" + axesLabel + ")"
+                + (droppedAxes.isEmpty() ? "" : " — dropped: "
+                        + android.text.TextUtils.join(", ", droppedAxes)),
+                Toast.LENGTH_LONG).show();                                     // TODO(strings)
+    }
+
+    /** Human label for a group's axes ("timing", "opacity", "timing + opacity"). */
+    @NonNull
+    private static String describeLinkAxes(@NonNull com.fadcam.ui.faditor.layers.LinkGroup g) {
+        boolean t = g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.TIME);
+        boolean o = g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.OPACITY);
+        if (t && o) return "timing + opacity";                                 // TODO(strings)
+        if (o) return "opacity";                                               // TODO(strings)
+        return "timing";                                                       // TODO(strings)
     }
 
     /**
@@ -11016,21 +11078,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void maybeAddLinkActions(
             @NonNull java.util.List<ObjectMenuSheet.Action> actions, @NonNull String itemId) {
         if (project == null) return;
-        com.fadcam.ui.faditor.layers.LinkGroup owner = null;
-        for (com.fadcam.ui.faditor.layers.LinkGroup g : project.getTimeline().getLinkGroups()) {
-            if (g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.TIME)
-                    && g.findMember(itemId) != null) { owner = g; break; }
+        // P1 multi-axis membership: an item may sit in SEVERAL ad-hoc groups (one per
+        // axis) — one unlink action per group, labeled by that group's axes.
+        for (com.fadcam.ui.faditor.layers.LinkGroup owner
+                : project.getTimeline().getLinkGroups()) {
+            if (owner.findMember(itemId) == null) continue;
+            final com.fadcam.ui.faditor.layers.LinkGroup g = owner;
+            final String axes = describeLinkAxes(g);
+            actions.add(new ObjectMenuSheet.Action("Unlink " + axes + "…", false, () -> // TODO(strings)
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                            .setTitle("Unlink " + axes)                        // TODO(strings)
+                            .setItems(new CharSequence[]{
+                                    "This object only", "Unlink whole group"}, (d, w) ->  // TODO(strings)
+                                    unlinkTimeMember(g, itemId, w == 1))
+                            .setNegativeButton("Cancel", null)                 // TODO(strings)
+                            .show()));
         }
-        if (owner == null) return;
-        final com.fadcam.ui.faditor.layers.LinkGroup g = owner;
-        actions.add(new ObjectMenuSheet.Action("Unlink timing…", false, () ->  // TODO(strings)
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                        .setTitle("Unlink timing")                             // TODO(strings)
-                        .setItems(new CharSequence[]{
-                                "This object only", "Unlink whole group"}, (d, w) ->  // TODO(strings)
-                                unlinkTimeMember(g, itemId, w == 1))
-                        .setNegativeButton("Cancel", null)                     // TODO(strings)
-                        .show()));
     }
 
     /**

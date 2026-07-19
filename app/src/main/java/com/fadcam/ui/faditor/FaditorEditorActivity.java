@@ -1141,6 +1141,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                     }
                 }
+                // KineMaster-playhead lane: bookmarks sidecar → view (+ persist-on-change).
+                wireBookmarks();
+
                 // Honest loading indicator while a (possibly long) source parses — the
                 // overlay drops on the player's first STATE_READY. Long fMP4 recordings
                 // used to look like a frozen black screen here (JoyRaptor 2026-07-16).
@@ -3405,7 +3408,45 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         refreshTotalTimeDisplay();
 
+        // KineMaster-playhead lane: a fresh project has no sidecar yet, but the
+        // listener must be live so the first dropped bookmark persists.
+        wireBookmarks();
+
         FLog.d(TAG, "Project created from " + videoUris.size() + " clips; duration=" + totalDuration + "ms");
+    }
+
+    /**
+     * KineMaster-playhead lane (spec's deferred seam, now unblocked): load the
+     * bookmark sidecar into the timeline view, and persist + mirror + record ONE
+     * undo step on every change the view reports. {@code setBookmarks} does not
+     * re-fire the listener, so undo/redo application can reuse it safely.
+     */
+    private void wireBookmarks() {
+        if (editorTimeline == null || project == null) return;
+        java.util.List<Long> marks = com.fadcam.ui.faditor.project.BookmarkStore.load(
+                projectStorage.projectDir(project.getId()));
+        project.setBookmarksMs(marks);
+        editorTimeline.setBookmarks(marks);
+        editorTimeline.setBookmarkListener(list -> {
+            final java.util.List<Long> before =
+                    new java.util.ArrayList<>(project.getBookmarksMs());
+            final java.util.List<Long> after = new java.util.ArrayList<>(list);
+            if (before.equals(after)) return;
+            applyBookmarks(after);
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    after.size() > before.size() ? "Add bookmark" : "Remove bookmark", // TODO(strings)
+                    () -> applyBookmarks(after),
+                    () -> applyBookmarks(before)));
+        });
+    }
+
+    /** Mirror a bookmark list onto model + view + sidecar (undo/redo + listener path). */
+    private void applyBookmarks(@NonNull java.util.List<Long> marks) {
+        if (project == null) return;
+        project.setBookmarksMs(marks);
+        if (editorTimeline != null) editorTimeline.setBookmarks(marks);
+        com.fadcam.ui.faditor.project.BookmarkStore.save(
+                projectStorage.projectDir(project.getId()), marks);
     }
 
     private void updateEditorTitle() {

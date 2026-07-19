@@ -2251,6 +2251,36 @@ public final class LayerRowRenderer {
         return false;
     }
 
+    /**
+     * SCREEN-space {top, bottom} of the row band hosting {@code itemId} from the
+     * last {@link #layout} pass, or null when the item isn't laid out or its row is
+     * scrolled fully out of the floating viewport. KineMaster-playhead lane
+     * (deferred seam): lets the god view draw its context guides along a
+     * floating/audio row without duplicating band math. Floating rows are clamped
+     * to the band viewport so guides never bleed over master.
+     */
+    @Nullable
+    public float[] screenBandForItem(@NonNull String itemId) {
+        for (RowLayout row : rows) {
+            boolean hosts = false;
+            for (TimedItem item : row.track.getItems()) {
+                if (itemId.equals(item.getId())) { hosts = true; break; }
+            }
+            if (!hosts) continue;
+            if (row.floatingBand) {
+                float top = lastTopPx + row.bodyRect.top - scrollOffsetPx;
+                float bottom = lastTopPx + row.bodyRect.bottom - scrollOffsetPx;
+                float vTop = lastTopPx;
+                float vBot = lastTopPx + viewportHeightPx;
+                if (bottom < vTop || top > vBot) return null; // scrolled out of view
+                return new float[]{Math.max(top, vTop), Math.min(bottom, vBot)};
+            }
+            return new float[]{lastAudioTopPx + row.bodyRect.top,
+                               lastAudioTopPx + row.bodyRect.bottom};
+        }
+        return null;
+    }
+
     /** Scroll the row region by {@code dy} px (clamped); returns true if it consumed the scroll. */
     public boolean scrollBy(float dy) {
         float before = scrollOffsetPx;

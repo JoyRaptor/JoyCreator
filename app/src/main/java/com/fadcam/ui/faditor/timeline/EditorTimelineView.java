@@ -4477,6 +4477,17 @@ public class EditorTimelineView extends View {
         if (band != null) {
             canvas.drawLine(0, band.top, w, band.top, guidePaint);
             canvas.drawLine(0, band.bottom, w, band.bottom, guidePaint);
+        } else if (layerGestureController != null && layerRowRenderer != null
+                && layerGestureController.getSelectedItemId() != null) {
+            // Deferred-seam TODO closed: guides along the SELECTED layer item's row
+            // (text/sticker/sprite/viz/PiP in the floating band, or a renderer audio
+            // row), via the renderer's screen-space band accessor.
+            float[] tb = layerRowRenderer.screenBandForItem(
+                    layerGestureController.getSelectedItemId());
+            if (tb != null) {
+                canvas.drawLine(0, tb[0], w, tb[0], guidePaint);
+                canvas.drawLine(0, tb[1], w, tb[1], guidePaint);
+            }
         }
 
         // Vertical trim-edge guide (master trim; trimDragX is content-space).

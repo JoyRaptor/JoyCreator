@@ -121,6 +121,16 @@ Mirrors `ADD_GENERATED_SLIDE`'s shape on purpose — same applier family, same c
 - ffmpeg filter template gallery entries (Section 3.1 `renderer: "ffmpeg_filter"`), and tier 3 wired straight into the existing slide-authoring flow (manual HTML or `generate_slide`-style AI authoring, fed `audioSourceRef`'s peaks data as additional context).
 - **Done when:** both tiers are selectable from the Studio and render correctly at export; both are correctly absent from FadCam's live picker.
 
+> **Phase 4 DEVICE-VERIFIED 2026-07-19 07:21 (Fable, Note 9):** armed Fire Mirror via the new
+> visual picker → recorded 15s with a 330Hz pulse tone playing → pulled mp4 frames show the
+> bottom-strip visualizer BAKED INTO the recording, bars pulsing with the tone (mic path,
+> max −17.7dB). Arm path proven by the renderer's own self-check log: "Live visualizer draw is
+> hot: avg 6.07ms/frame (budget ~4ms)" — ⚠️ perf follow-up: Fire Mirror (glow blur at 1080w)
+> exceeds the 4ms soft budget; no visible jank at 30fps, but the battery/dropped-frame A/B is
+> still owed and a glow-downscale or strip-render-at-half-res optimization is the likely fix.
+> Driving notes: the viz toggle is the 4th record-row button (amber pill ~x906/y1998 @1080x2220);
+> 3rd (x802) is Audio Source — Microphone must be on for PCM; "Device Audio (Internal)" also works.
+
 ### Phase 4 — Live recording integration
 - Per Section 0: locate the actual recording pipeline first. Add `LiveAmplitudeSampler`, the record-row icon + Tier-1-only long-press picker, and the `VisualizerRenderer.draw()` call into the existing bubble-compositing pass.
 - **Performance validation required before calling this done:** record a representative session (several minutes, visualizer on) and compare dropped-frame count and battery drain against an equivalent session with it off. This is the one phase in this spec where "it compiles and runs once" isn't sufficient — sustained performance under real recording conditions is the actual requirement.

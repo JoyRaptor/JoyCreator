@@ -582,13 +582,13 @@ public final class LayerRowRenderer {
         float caretCx = row.headerRect.left + iconSize * 0.7f;
         row.caretRect.set(caretCx - iconSize / 2f, cy - iconSize / 2f,
                 caretCx + iconSize / 2f, cy + iconSize / 2f);
-        // Hide/lock/mute icons right-aligned in the header, evenly spaced.
+        // §4.5: eye/lock are PER-OBJECT now (object drawer) — the gutter keeps only
+        // mute (audio-ish rows), right-aligned. hideRect/lockRect stay EMPTY so their
+        // hit-tests can never fire; per-layer SOLO is the one remaining future control.
         float right = row.headerRect.right - gap;
         row.muteRect.set(right - iconSize, cy - iconSize / 2f, right, cy + iconSize / 2f);
-        right -= iconSize + gap;
-        row.lockRect.set(right - iconSize, cy - iconSize / 2f, right, cy + iconSize / 2f);
-        right -= iconSize + gap;
-        row.hideRect.set(right - iconSize, cy - iconSize / 2f, right, cy + iconSize / 2f);
+        row.lockRect.setEmpty();
+        row.hideRect.setEmpty();
     }
 
     private void drawRow(@NonNull Canvas canvas, @NonNull RowLayout row,
@@ -609,13 +609,13 @@ public final class LayerRowRenderer {
         // content on the row, clipped to the caret↔icon-cluster gap like the old name).
         canvas.save();
         canvas.clipRect(row.caretRect.right + 4f * density, row.headerRect.top,
-                row.hideRect.left - 2f * density, row.headerRect.bottom);
+                row.muteRect.left - 2f * density, row.headerRect.bottom);
         drawKindBadge(canvas, row.caretRect.right + 6f * density,
                 row.headerRect.centerY(), t.getKind());
         canvas.restore();
 
-        drawEyeIcon(canvas, row.hideRect, !t.isHidden());
-        drawLockIcon(canvas, row.lockRect, t.isLocked());
+        // §4.5: per-layer eye/lock glyphs RETIRED (drawEyeIcon/drawLockIcon calls gone) —
+        // hidden/locked live on objects, toggled in the drawer, ghosted on item bodies.
         drawMuteIcon(canvas, row.muteRect, !t.isMuted(), t.getKind() == TrackKind.AUDIO
                 || t.getKind() == TrackKind.VIDEO || t.getKind() == TrackKind.MASTER);
 

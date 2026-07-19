@@ -1098,6 +1098,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "T8 sprite-layer migration: moved " + movedSprites
                             + " overlapping sprite(s) to their own lanes");
                 }
+                // §4.5: per-layer eye/lock retired — push any persisted track flags down
+                // onto the objects so nothing is stuck hidden with the gutter toggle gone.
+                int eyeLockMigrated = project.getTimeline().migrateTrackEyeLockToObjects();
+                if (eyeLockMigrated > 0) {
+                    FLog.i(TAG, "§4.5 eye/lock migration: " + eyeLockMigrated
+                            + " track flag(s) pushed onto their objects");
+                }
                 // Slice F: enforce the no-overlap invariant on text overlay lanes (two text overlays
                 // could share a lane and overlap in time). Idempotent + model-level, same as the sprite
                 // migration above; deterministic lane ids persist on the next autosave.

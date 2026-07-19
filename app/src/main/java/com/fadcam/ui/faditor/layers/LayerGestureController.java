@@ -417,13 +417,19 @@ public final class LayerGestureController {
         movedDuringGesture = false;
         pickupArmed = false;
         pendingBodyDown = false;
+        lockedHoldRefused = false;
         // Delete badge (review fix 2026-07-03): DEFERRED to a tap-on-UP instead of firing
         // on DOWN. A DOWN on the badge routes exactly like a body hit (PENDING) with this
         // flag set: a quick lift within slop = the delete tap (confirmation fires in
         // onRowBodyUp); a horizontal swipe from the badge = SCRUB; a long-press = pickup.
         // Firing on DOWN hijacked swipes that happened to start on the (viewport-pinned)
         // badge with a blocking dialog — the contract says swipe must always scrub.
-        pendingDeleteBadge = hit.zone == LayerRowRenderer.ItemZone.DELETE;
+        // §4.5 per-OBJECT lock: a locked object stays SELECTABLE (otherwise it could
+        // never be unlocked via its drawer) but every mutating zone is refused — the
+        // delete badge, trim handles, and keyframe shift below all no-op, and
+        // beginPickup() refuses so it can never move.
+        boolean objectLocked = isObjectLocked(hit.item);
+        pendingDeleteBadge = !objectLocked && hit.zone == LayerRowRenderer.ItemZone.DELETE;
         hoverTargetTrack = null;
         hoverGapIndex = -1;
         rowRenderer.setHoverGapIndex(-1);
@@ -432,8 +438,8 @@ public final class LayerGestureController {
         rowRenderer.setProxyRowTrackId(null);
         rowRenderer.setProxyItem(null);
 
-        if (hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE
-                || hit.zone == LayerRowRenderer.ItemZone.RIGHT_HANDLE) {
+        if (!objectLocked && (hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE
+                || hit.zone == LayerRowRenderer.ItemZone.RIGHT_HANDLE)) {
             boolean left = hit.zone == LayerRowRenderer.ItemZone.LEFT_HANDLE;
             armTrim(hit.item, left);
             rowRenderer.setTrimmingItemId(hit.item.getId()); // timeline-locked stripe feedback
@@ -448,7 +454,8 @@ public final class LayerGestureController {
         // below), so a first touch on an unselected item keeps plain select/pickup/scrub.
         // Routes like a trim (ARMED_TRIM → view drives onRowBodyMove/onRowBodyUp here); the
         // diamond-only hit means it never competes with body pickup/scrub.
-        if (hit.item.getId().equals(selectedItemId) && tryArmKeyframeShift(hit, x, timeToX)) {
+        if (!objectLocked && hit.item.getId().equals(selectedItemId)
+                && tryArmKeyframeShift(hit, x, timeToX)) {
             return DownResult.ARMED_TRIM;
         }
 
@@ -478,8 +485,30 @@ public final class LayerGestureController {
      *         and route MOVEs to {@link #onRowBodyMove}); false if there was nothing to
      *         pick up.
      */
+    /** §4.5 per-OBJECT lock query (audio's lock lives on the AudioClip itself). */
+    private static boolean isObjectLocked(@NonNull TimedItem item) {
+        if (item.getTextOverlay() != null) return item.getTextOverlay().isLocked();
+        if (item.getSprite() != null) return item.getSprite().isLocked();
+        if (item.getWaveform() != null) return item.getWaveform().isLocked();
+        if (item.getAudioClip() != null) return item.getAudioClip().isLocked();
+        if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            return item.getClip().isLockedObject();
+        }
+        return false;
+    }
+
+    /** §4.5: the hold fired on a LOCKED object — no lift, but the release-in-place
+     *  must still open the drawer (it holds the Unlock action). */
+    private boolean lockedHoldRefused;
+
     public boolean beginPickup() {
         if (!active || !pendingBodyDown || activeItem == null) return false;
+        // §4.5: a locked object never lifts — remember the refusal so onRowBodyUp's
+        // hold-release-in-place branch still opens the general drawer.
+        if (isObjectLocked(activeItem)) {
+            lockedHoldRefused = true;
+            return false;
+        }
         pendingBodyDown = false;
         pickupArmed = true;
         activeKind = GestureKind.MOVE;
@@ -1415,7 +1444,8 @@ public final class LayerGestureController {
         // G1 (gesture contract §1): a HOLD that lifted the item (pickup armed) then released
         // WITHOUT crossing the move slop = "hold → release in place" → open the general
         // advanced menu. Captured before the reset block below clears pickupArmed.
-        boolean holdReleaseInPlace = pickupArmed && !movedDuringGesture;
+        boolean holdReleaseInPlace = (pickupArmed || lockedHoldRefused) && !movedDuringGesture;
+        lockedHoldRefused = false;
         // Captured BEFORE the reset block below wipes them (commit-time overlap guard
         // + open-endedness restoration).
         long commitDur = dragStartDisplayDurMs;

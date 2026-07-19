@@ -1850,6 +1850,47 @@ public class Timeline {
         }
     }
 
+    /**
+     * §4.5 one-time load migration: per-LAYER eye/lock is retired — any persisted
+     * track-level hidden/locked pushes DOWN onto the track's current objects, then the
+     * track flag clears, so no pre-§4.5 project is left invisibly hidden with the gutter
+     * toggle gone. Idempotent (cleared flags never re-fire). Caption tracks are skipped
+     * (caption visibility is the clip's captionsEnabled, not an object flag). Returns the
+     * migrated-track count for logging.
+     */
+    public int migrateTrackEyeLockToObjects() {
+        int migrated = 0;
+        List<Track> all = new ArrayList<>(getLayers());
+        all.addAll(getVisualizerTracks());
+        all.addAll(getAudioTracks());
+        for (Track t : all) {
+            TrackFlags f = trackFlags.get(t.getId());
+            if (f == null || (!f.hidden && !f.locked)) continue;
+            for (TimedItem item : t.getItems()) {
+                if (item.getTextOverlay() != null) {
+                    if (f.hidden) item.getTextOverlay().setHidden(true);
+                    if (f.locked) item.getTextOverlay().setLocked(true);
+                } else if (item.getSprite() != null) {
+                    if (f.hidden) item.getSprite().setHidden(true);
+                    if (f.locked) item.getSprite().setLocked(true);
+                } else if (item.getWaveform() != null) {
+                    if (f.hidden) item.getWaveform().setHidden(true);
+                    if (f.locked) item.getWaveform().setLocked(true);
+                } else if (item.getAudioClip() != null) {
+                    if (f.hidden) item.getAudioClip().setMuted(true); // audio eye == mute
+                    if (f.locked) item.getAudioClip().setLocked(true);
+                } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                    if (f.hidden) item.getClip().setHiddenObject(true);
+                    if (f.locked) item.getClip().setLockedObject(true);
+                }
+            }
+            f.hidden = false;
+            f.locked = false;
+            migrated++;
+        }
+        return migrated;
+    }
+
     // ── User-created layer-track definitions (M10) ─────────────────────
 
     /**

@@ -911,6 +911,17 @@ public final class LayerRowRenderer {
         }
     }
 
+    /** §4.5: per-OBJECT eye — a hidden object's row item ghosts like a hidden track's. */
+    private static boolean isObjectHidden(@NonNull TimedItem item) {
+        if (item.getTextOverlay() != null) return item.getTextOverlay().isHidden();
+        if (item.getSprite() != null) return item.getSprite().isHidden();
+        if (item.getWaveform() != null) return item.getWaveform().isHidden();
+        if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            return item.getClip().isHiddenObject();
+        }
+        return false;
+    }
+
     private void drawExpandedItems(@NonNull Canvas canvas, @NonNull RowLayout row,
                                     @NonNull Track t, long totalMs, @NonNull TimeToX timeToX,
                                     @Nullable String selectedItemId) {
@@ -934,7 +945,8 @@ public final class LayerRowRenderer {
                 // marker (drawn above) — do NOT draw a second copy of the item here.
                 continue;
             }
-            drawItemBody(canvas, item, t.getKind(), baseColor, ghosted, lifted,
+            drawItemBody(canvas, item, t.getKind(), baseColor,
+                    ghosted || isObjectHidden(item), lifted,
                     top, bottom, row.bodyRect.centerY(), totalMs, timeToX, selectedItemId);
         }
         // SPLIT-ELEMENT FIX (single proxy): if THIS row is the hovered cross-row target

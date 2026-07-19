@@ -10345,7 +10345,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshWaveformOverlays() {
         if (project == null || waveformOverlayView == null) return;
         java.util.List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> overlays =
-                project.getTimeline().getWaveformOverlays();
+                com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .visibleWaveformOverlays(project.getTimeline()); // §4.5 per-object eye
         waveformOverlayView.setOverlays(overlays);
         waveformOverlayView.setData(waveformDataBySource);
         waveformOverlayView.setPlayheadMs(editorTimeline.getPlayheadPositionMs());
@@ -10363,7 +10364,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         undoManager.recordAction(new EditActions.LambdaAction("Remove visualizer",
                                 () -> project.getTimeline().removeWaveformOverlay(overlay),
                                 () -> project.getTimeline().addWaveformOverlay(overlay)));
-                        waveformOverlayView.setOverlays(project.getTimeline().getWaveformOverlays());
+                        waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
                         waveformOverlayView.invalidate();
                         scheduleAutoSave();
                         Toast.makeText(FaditorEditorActivity.this, "Visualizer removed",
@@ -10932,6 +10933,59 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         .show()));
     }
 
+    /**
+     * §4.5: per-object eye/lock toggle actions for the general drawer (the eye/lock
+     * moved OFF the row gutter onto the object). Payload-agnostic via lambdas; each
+     * toggle = ONE undo step; refresh rides refreshAfterMarqueeBatchDelete (it already
+     * re-feeds every preview surface through the §4.5-aware visible* filters). The
+     * sheet closes on toggle so its action labels never go stale.
+     */
+    private void addObjectVisibilityActions(
+            @NonNull java.util.List<ObjectMenuSheet.Action> actions,
+            @Nullable java.util.function.BooleanSupplier getHidden,
+            @Nullable java.util.function.Consumer<Boolean> setHidden,
+            @NonNull java.util.function.BooleanSupplier getLocked,
+            @NonNull java.util.function.Consumer<Boolean> setLocked) {
+        if (getHidden != null && setHidden != null) {
+            final boolean was = getHidden.getAsBoolean();
+            actions.add(new ObjectMenuSheet.Action(
+                    was ? "Show object" : "Hide object", false, () -> {      // TODO(strings)
+                final Runnable apply = () -> {
+                    setHidden.accept(!was);
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                };
+                final Runnable revert = () -> {
+                    setHidden.accept(was);
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                };
+                apply.run();
+                undoManager.recordAction(new EditActions.LambdaAction(
+                        was ? "Show object" : "Hide object", apply, revert)); // TODO(strings)
+                if (objectMenuSheet != null) objectMenuSheet.hide();
+            }));
+        }
+        final boolean wasLocked = getLocked.getAsBoolean();
+        actions.add(new ObjectMenuSheet.Action(
+                wasLocked ? "Unlock object" : "Lock object", false, () -> {   // TODO(strings)
+            final Runnable apply = () -> {
+                setLocked.accept(!wasLocked);
+                if (editorTimeline != null) editorTimeline.invalidate();
+                scheduleAutoSave();
+            };
+            final Runnable revert = () -> {
+                setLocked.accept(wasLocked);
+                if (editorTimeline != null) editorTimeline.invalidate();
+                scheduleAutoSave();
+            };
+            apply.run();
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    wasLocked ? "Unlock object" : "Lock object", apply, revert)); // TODO(strings)
+            if (objectMenuSheet != null) objectMenuSheet.hide();
+        }));
+    }
+
     /** G9c unlink with ONE snapshot undo step; dissolves a group left under 2 members. */
     private void unlinkTimeMember(@NonNull com.fadcam.ui.faditor.layers.LinkGroup g,
                                   @NonNull String itemId, boolean wholeGroup) {
@@ -10973,7 +11027,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             overlayLayer.invalidate();
         }
         if (waveformOverlayView != null && project != null) {
-            waveformOverlayView.setOverlays(project.getTimeline().getWaveformOverlays());
+            waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
             waveformOverlayView.invalidate();
         }
         refreshSpritePreviewData();
@@ -12109,7 +12163,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             () -> project.getTimeline().removeWaveformOverlay(wv),
                             () -> project.getTimeline().addWaveformOverlay(wv)));
                     if (waveformOverlayView != null) {
-                        waveformOverlayView.setOverlays(project.getTimeline().getWaveformOverlays());
+                        waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
                         waveformOverlayView.invalidate();
                     }
                     syncTimelineOverlays();
@@ -16497,6 +16551,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String title = o.isImage() ? "Image"                            // TODO(strings)
                 : (o.getText().length() > 18 ? o.getText().substring(0, 18) + "…" : o.getText());
         Integer swatch = o.isImage() ? null : o.getColorInt();
+        addObjectVisibilityActions(actions, o::isHidden, o::setHidden, o::isLocked, o::setLocked);
         maybeAddLinkActions(actions, o.getId());
         // Images: the drawer IS their type editor — no "More…" target left.
         Runnable onMore = o.isImage() ? null : () -> showTextOverlayEditor(o);
@@ -16591,6 +16646,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
         actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
                 () -> clearAllSpriteKeyframes(s)));
+        addObjectVisibilityActions(actions, s::isHidden, s::setHidden, s::isLocked, s::setLocked);
         maybeAddLinkActions(actions, s.getId());
         ensureObjectMenuSheet().show(title, null, props, actions,
                 this::openSpritePalette, null, hooks, lastPlayheadAbsoluteMs, null);
@@ -16829,6 +16885,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         String title = (ac.getLabel() != null && !ac.getLabel().isEmpty())
                 ? ac.getLabel() : "Audio"; // TODO(strings)
+        addObjectVisibilityActions(actions, null, null, ac::isLocked, ac::setLocked);
         maybeAddLinkActions(actions, ac.getId());
         ensureObjectMenuSheet().show(title, null, props, actions,
                 null, null, hooks, lastPlayheadAbsoluteMs, null);
@@ -17043,6 +17100,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 sliderBefore[0] = null;
             }
         };
+        addObjectVisibilityActions(actions, c::isHiddenObject, c::setHiddenObject, c::isLockedObject, c::setLockedObject);
         maybeAddLinkActions(actions, c.getId());
         ensureObjectMenuSheet().show("Video overlay", null, props, actions, // TODO(strings)
                 null, null, hooks, lastPlayheadAbsoluteMs, null);
@@ -17294,6 +17352,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
         java.util.List<ObjectMenuSheet.Action> vizActions = new java.util.ArrayList<>();
+        addObjectVisibilityActions(vizActions, wf::isHidden, wf::setHidden, wf::isLocked, wf::setLocked);
         maybeAddLinkActions(vizActions, wf.getId());
         ensureObjectMenuSheet().show("Visualizer", null, props, // TODO(strings)
                 vizActions, () -> showVisualizerDrawer(true),

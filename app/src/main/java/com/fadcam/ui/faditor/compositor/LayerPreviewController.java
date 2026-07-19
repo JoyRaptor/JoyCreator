@@ -65,7 +65,8 @@ public final class LayerPreviewController {
             if (track.isHidden()) continue; // Mirrored on export (shared: ExportManager uses this method).
             for (TimedItem item : track.getItems()) {
                 TextOverlayItem overlay = item.getTextOverlay();
-                if (overlay != null) result.add(overlay);
+                // §4.5: per-OBJECT eye — shared here so preview AND export skip together.
+                if (overlay != null && !overlay.isHidden()) result.add(overlay);
             }
         }
         return result;
@@ -112,8 +113,28 @@ public final class LayerPreviewController {
             if (track.isHidden()) continue; // S6 export mirrors via this shared method.
             for (TimedItem item : track.getItems()) {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = item.getSprite();
-                if (sprite != null) result.add(sprite);
+                // §4.5: per-OBJECT eye — shared here so preview AND export skip together.
+                if (sprite != null && !sprite.isHidden()) result.add(sprite);
             }
+        }
+        return result;
+    }
+
+    // ── Visualizer overlays → WaveformOverlayView / export slots ───────────────────
+
+    /**
+     * §4.5: every visualizer instance whose per-OBJECT eye is open. The SHARED authority
+     * for the preview overlay view AND ExportManager's waveform slots (same rule as
+     * {@link #visibleTextOverlays}) — visualizers ride a flat instance list rather than
+     * track membership, so this is an instance-level filter only.
+     */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.model.WaveformOverlayInstance>
+            visibleWaveformOverlays(@NonNull Timeline timeline) {
+        List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> result = new ArrayList<>();
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w
+                : timeline.getWaveformOverlays()) {
+            if (!w.isHidden()) result.add(w);
         }
         return result;
     }
@@ -141,7 +162,10 @@ public final class LayerPreviewController {
             if (track.isHidden()) continue; // M-EXPORT-2 export mirrors via this shared method.
             for (TimedItem item : track.getItems()) {
                 com.fadcam.ui.faditor.model.Clip clip = item.getClip();
-                if (clip != null && clip.isOverlayClip()) result.add(clip);
+                // §4.5: per-OBJECT eye — shared here so preview AND export skip together.
+                if (clip != null && clip.isOverlayClip() && !clip.isHiddenObject()) {
+                    result.add(clip);
+                }
             }
         }
         return result;

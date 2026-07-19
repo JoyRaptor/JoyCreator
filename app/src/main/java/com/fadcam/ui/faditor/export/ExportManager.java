@@ -1652,7 +1652,7 @@ public class ExportManager {
                 + " hasAny=" + timeline.hasWaveformOverlays());
         if (!timeline.hasWaveformOverlays()) return cache;
         WaveformExtractor extractor = new WaveformExtractor(context);
-        for (WaveformOverlayInstance woi : timeline.getWaveformOverlays()) {
+        for (WaveformOverlayInstance woi : LayerPreviewController.visibleWaveformOverlays(timeline)) { // §4.5 per-object eye
             String clipId = woi.getAudioSourceRef();
             FLog.d(TAG, "preloadWaveformData: waveform " + woi.getId()
                     + " style=" + woi.getStyleId()
@@ -1744,7 +1744,7 @@ public class ExportManager {
             }
         }
 
-        for (WaveformOverlayInstance woi : timeline.getWaveformOverlays()) {
+        for (WaveformOverlayInstance woi : LayerPreviewController.visibleWaveformOverlays(timeline)) { // §4.5 per-object eye
             String clipId = woi.getAudioSourceRef();
             if (clipId == null) {
                 FLog.w(TAG, "buildWaveformSlots: waveform overlay " + woi.getId()

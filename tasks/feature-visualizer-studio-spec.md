@@ -128,6 +128,20 @@ Mirrors `ADD_GENERATED_SLIDE`'s shape on purpose — same applier family, same c
 > hot: avg 6.07ms/frame (budget ~4ms)" — ⚠️ perf follow-up: Fire Mirror (glow blur at 1080w)
 > exceeds the 4ms soft budget; no visible jank at 30fps, but the battery/dropped-frame A/B is
 > still owed and a glow-downscale or strip-render-at-half-res optimization is the likely fix.
+>
+> **PERF FIX APPLIED 2026-07-19 (Fable): strip-render-at-half-res.** `LiveVisualizer.renderFrame`
+> now renders the strip bitmap at `1/LIVE_RENDER_SCALE` (=2) per axis and scales density to match;
+> the GL quad already stretches the texture to the full strip rect (fixed NDC rect + normalized
+> [0,1] texcoords — dimension-agnostic, verified), so a 2× upscale of the soft glow is visually
+> free with full editor parity (no features stripped). Software-fill cost scales with pixel count,
+> so ¼ the pixels ⇒ expected ~6.07ms → ~1.5ms, back under the 4ms budget. The `>4ms`
+> `recordVisualizerFrameTiming` self-check is unchanged and is the proof — it should now stay
+> quiet. **RE-MEASURE OWED:** re-run the armed Fire Mirror session on the Note 9 and confirm the
+> "Live visualizer draw is hot" warning no longer fires; the battery/dropped-frame A/B is still owed.
+> (Arm-log note: "Live visualizer armed: style=" fires once, synchronously, at recording start
+> under tag `ScreenRecordingService`; a logcat `-t` window attached after start can miss it while
+> still catching the periodic hot-draw warning — benign, no ordering bug. See the comment at the
+> log site in `ScreenRecordingService.armLiveVisualizerIfEnabled`.)
 > Driving notes: the viz toggle is the 4th record-row button (amber pill ~x906/y1998 @1080x2220);
 > 3rd (x802) is Audio Source — Microphone must be on for PCM; "Device Audio (Internal)" also works.
 

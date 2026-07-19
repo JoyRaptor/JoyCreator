@@ -36,6 +36,19 @@ public final class LiveVisualizer implements GLWatermarkRenderer.OverlayFrameSou
     /** Bucket resolution of the live sampler (2 buckets/frame at ~30 fps). */
     private static final long BUCKET_MS = 16L;
 
+    /**
+     * Live-path software-render downscale factor. The visualizer strip is full output width × 18%
+     * height, so the Canvas fill (WaveformStyleRenderer.renderReusable + glow BlurMaskFilter at full
+     * width) dominates the compositing budget: measured 6.07ms/frame on a Note 9 at 1080p+ with the
+     * Fire Mirror style (budget ~4ms, see GLWatermarkRenderer's hot-draw self-check). We render the
+     * strip bitmap at 1/2 in each axis and let the GL quad stretch it to the full strip rect — a 2x
+     * upscale of a soft glowing visualizer is visually free. Fill cost scales with pixel count, so
+     * 1/2 × 1/2 quarters it (~6.07ms → ~1.5ms). Density is scaled by the same factor so stroke and
+     * glow radii (physical dp → px) keep their apparent size after the GL upscale — full visual
+     * parity with the editor, no features stripped.
+     */
+    private static final int LIVE_RENDER_SCALE = 2;
+
     public LiveVisualizer(@NonNull WaveformStyle style, int sampleRate) {
         this.style = style;
         this.sampler = new LiveAmplitudeSampler(sampleRate, BUCKET_MS, style.drawsSpectrum());
@@ -53,8 +66,15 @@ public final class LiveVisualizer implements GLWatermarkRenderer.OverlayFrameSou
         if (w <= 0 || h <= 0) return null;
         WaveformData data = sampler.snapshot();
         long atMs = sampler.snapshotAtMs();
+        // Render at 1/LIVE_RENDER_SCALE per axis; the GL quad stretches the smaller bitmap to the
+        // full strip rect (fixed NDC rect + normalized [0,1] texcoords in GLWatermarkRenderer are
+        // dimension-agnostic). Density is scaled to match so stroke/glow keep apparent size after
+        // the upscale. See LIVE_RENDER_SCALE for the measured cost this addresses.
+        int rw = Math.max(1, w / LIVE_RENDER_SCALE);
+        int rh = Math.max(1, h / LIVE_RENDER_SCALE);
+        float rDensity = density / LIVE_RENDER_SCALE;
         // renderReusable reuses its bitmap — no per-frame allocation on the compositing thread.
-        return renderer.renderReusable(data, style, w, h, atMs, density);
+        return renderer.renderReusable(data, style, rw, rh, atMs, rDensity);
     }
 
     // ── Tier-1 "cheap styles only" filter (spec Decision 1) ──────────────────

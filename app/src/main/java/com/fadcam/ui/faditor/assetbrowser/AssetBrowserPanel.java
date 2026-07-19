@@ -561,6 +561,41 @@ public class AssetBrowserPanel extends FrameLayout {
         applyFilter();
     }
 
+    /**
+     * Dual-stream pair detection (feature-dual-stream-recording-spec §3/Phase 4):
+     * the recorder writes a screen file {@code <base>.mp4} and a raw-webcam sibling
+     * {@code <base>_webcam.mp4} next to it. Given either half, return the OTHER half
+     * scanned in this same directory, or null if no partner file is present. Only
+     * VIDEO items pair. The returned item is always the WEBCAM (overlay) half's
+     * partner-of-the-screen-clip is resolved by the caller via {@link #isWebcamSibling}.
+     */
+    @Nullable
+    public AssetItem findDualStreamPartner(@NonNull AssetItem item) {
+        if (item.type != AssetItem.Type.VIDEO) return null;
+        String base = item.shortLabel(); // name without extension
+        final String wantName;
+        if (base.endsWith(WEBCAM_SUFFIX)) {
+            // item is the webcam half → partner is the screen file (strip suffix)
+            wantName = base.substring(0, base.length() - WEBCAM_SUFFIX.length());
+        } else {
+            // item is the screen half → partner is <base>_webcam
+            wantName = base + WEBCAM_SUFFIX;
+        }
+        for (AssetItem other : allItems) {
+            if (other == item || other.type != AssetItem.Type.VIDEO) continue;
+            if (wantName.equals(other.shortLabel())) return other;
+        }
+        return null;
+    }
+
+    /** True when {@code item}'s name ends with the recorder's raw-webcam suffix. */
+    public static boolean isWebcamSibling(@NonNull AssetItem item) {
+        return item.type == AssetItem.Type.VIDEO && item.shortLabel().endsWith(WEBCAM_SUFFIX);
+    }
+
+    /** The dual-stream recorder's raw-webcam filename suffix (WebcamEncoderPipeline). */
+    public static final String WEBCAM_SUFFIX = "_webcam";
+
     private List<AssetItem> filteredItems() {
         if (filterMode == FilterMode.ALL) return allItems;
         List<AssetItem> filtered = new ArrayList<>();

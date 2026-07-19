@@ -1423,10 +1423,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 long newIn = (long)(startFraction * duration);
                 long newOut = (long)(endFraction * duration);
 
-                // Record undo action before applying final values
+                // Record undo action before applying final values. Dual-stream Phase 4:
+                // when this clip is linked, mirror the SAME source-time trim deltas onto
+                // the partner and record BOTH as one undo step (see recordTrimMaybeMirrored).
+                final long fPreIn = preTrimInMs, fPreOut = preTrimOutMs;
                 if (preTrimInMs >= 0 && (preTrimInMs != newIn || preTrimOutMs != newOut)) {
-                    undoManager.recordAction(new EditActions.TrimAction(
-                            clip, preTrimInMs, preTrimOutMs, newIn, newOut));
+                    recordTrimMaybeMirrored(clip, fPreIn, fPreOut, newIn, newOut);
                 }
                 preTrimInMs = -1;
                 preTrimOutMs = -1;
@@ -10781,13 +10783,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showMarqueeBatchMenu(@NonNull java.util.List<
             com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
         if (project == null || items.isEmpty()) return;
+        final java.util.List<CharSequence> labels = new java.util.ArrayList<>();
+        final java.util.List<Runnable> handlers = new java.util.ArrayList<>();
+        labels.add("Delete selected");                                        // TODO(strings)
+        handlers.add(() -> confirmMarqueeBatchDelete(items));
+        labels.add("Link timing (move together)");                            // TODO(strings)
+        handlers.add(() -> createTimeLinkGroup(items));
+        // Dual-stream Phase 4 (manual entry point B): a master clip + an overlay video
+        // clip can be linked as a synced pair; any selection touching a linked clip can
+        // be unlinked. These are the master↔overlay `linkedClipId` mechanism, distinct
+        // from the G9 peer link-timing groups above.
+        Clip[] pair = eligibleDualStreamLinkPair(items);
+        if (pair != null) {
+            labels.add("Link clips (screen + webcam)");                       // TODO(strings)
+            handlers.add(() -> linkDualStreamPair(pair[0], pair[1]));
+        }
+        Clip linkedInSel = firstLinkedClipInSelection(items);
+        if (linkedInSel != null) {
+            labels.add("Unlink clips");                                       // TODO(strings)
+            handlers.add(() -> unlinkDualStreamPair(linkedInSel));
+        }
+        final Runnable[] h = handlers.toArray(new Runnable[0]);
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(items.size() + " objects selected")
-                .setItems(new CharSequence[]{"Delete selected",
-                        "Link timing (move together)"}, (d, w) -> {           // TODO(strings)
-                    if (w == 0) confirmMarqueeBatchDelete(items);
-                    else if (w == 1) createTimeLinkGroup(items);
-                })
+                .setItems(labels.toArray(new CharSequence[0]), (d, w) -> h[w].run())
                 .setNegativeButton("Cancel", null)
                 .show();
     }
@@ -10913,6 +10932,80 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Toast.makeText(this, g.members.size() + " objects linked — they now move together"
                 + (stripped > 0 ? " (" + stripped + " skipped)" : ""),
                 Toast.LENGTH_SHORT).show();                                    // TODO(strings)
+    }
+
+    /**
+     * Dual-stream Phase 4 (manual entry point B): the selection is eligible for a
+     * screen+webcam link iff it is EXACTLY one master clip + one overlay video clip,
+     * and NEITHER is already linked. Returns {@code {master, overlay}} or null.
+     */
+    @Nullable
+    private Clip[] eligibleDualStreamLinkPair(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        Clip master = null, overlay = null;
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
+            Clip c = h.item.getClip();
+            if (c == null) return null; // a non-clip payload in the selection → not a pair
+            if (c.isOverlayClip()) {
+                if (overlay != null) return null;
+                overlay = c;
+            } else {
+                if (master != null) return null;
+                master = c;
+            }
+        }
+        if (master == null || overlay == null) return null;
+        if (master.isLinked() || overlay.isLinked()) return null;
+        return new Clip[]{master, overlay};
+    }
+
+    /** First already-linked clip in a marquee selection, or null. */
+    @Nullable
+    private Clip firstLinkedClipInSelection(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
+            Clip c = h.item.getClip();
+            if (c != null && c.isLinked()) return c;
+        }
+        return null;
+    }
+
+    /** Link a master + overlay clip as a dual-stream pair (one undo step, toast). */
+    private void linkDualStreamPair(@NonNull Clip master, @NonNull Clip overlay) {
+        if (project == null) return;
+        Timeline.linkClips(master, overlay);
+        syncTimelineOverlays();
+        undoManager.recordAction(new EditActions.LambdaAction("Link clips", // TODO(strings)
+                () -> { Timeline.linkClips(master, overlay); syncTimelineOverlays(); },
+                () -> { master.setLinkedClipId(null); overlay.setLinkedClipId(null);
+                        syncTimelineOverlays(); }));
+        scheduleAutoSave();
+        if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
+        Toast.makeText(this, "Clips linked — edits mirror across both",
+                Toast.LENGTH_SHORT).show();                                    // TODO(strings)
+    }
+
+    /** Break a dual-stream link on both sides (one undo step, toast). */
+    private void unlinkDualStreamPair(@NonNull Clip clip) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final Clip partner = timeline.findLinkedClip(clip);
+        if (partner == null) { // link was one-sided/stale — just clear this side
+            clip.setLinkedClipId(null);
+            syncTimelineOverlays();
+            scheduleAutoSave();
+            Toast.makeText(this, "Clip unlinked", Toast.LENGTH_SHORT).show(); // TODO(strings)
+            return;
+        }
+        timeline.unlinkClip(clip);
+        syncTimelineOverlays();
+        undoManager.recordAction(new EditActions.LambdaAction("Unlink clips", // TODO(strings)
+                () -> { clip.setLinkedClipId(null); partner.setLinkedClipId(null);
+                        syncTimelineOverlays(); },
+                () -> { Timeline.linkClips(clip, partner); syncTimelineOverlays(); }));
+        scheduleAutoSave();
+        if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
+        Toast.makeText(this, "Clips unlinked", Toast.LENGTH_SHORT).show();     // TODO(strings)
     }
 
     /**
@@ -12137,6 +12230,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void deleteOverlayClipWithConfirmation(@NonNull Clip clip) {
         if (project == null) return;
         Timeline timeline = project.getTimeline();
+        // Dual-stream Phase 4: a linked webcam overlay drags its master screen clip with
+        // it — confirm + delete both as one undo step (master index used for undo re-insert).
+        Clip linkPartner = timeline.findLinkedClip(clip);
+        if (linkPartner != null && !linkPartner.isOverlayClip()) {
+            confirmDeleteLinkedPair(linkPartner, timeline.indexOfClip(linkPartner), clip);
+            return;
+        }
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Remove video overlay?")
                 .setNegativeButton("Cancel", null)
@@ -21660,7 +21760,143 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void insertSelectedAssetAtPlayhead() {
         if (selectedAsset == null || project == null) return;
+        // Dual-stream Phase 4 (auto-detect entry point A): if the picked video has a
+        // recorded partner in the same folder (<name>.mp4 ↔ <name>_webcam.mp4), offer
+        // to place BOTH as a linked screen+webcam pair in one action.
+        if (assetBrowserPanel != null
+                && selectedAsset.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO) {
+            com.fadcam.ui.faditor.assetbrowser.AssetItem partner =
+                    assetBrowserPanel.findDualStreamPartner(selectedAsset);
+            if (partner != null) {
+                offerDualStreamPairInsert(selectedAsset, partner);
+                return;
+            }
+        }
         insertAssetAtPlayhead(selectedAsset);
+    }
+
+    /**
+     * Dual-stream Phase 4 (auto-detect): a screen recording and its raw-webcam sibling
+     * were both found in the asset folder. Let the user add them as a synced linked pair
+     * (screen → master clip, webcam → overlay/PiP clip, {@code linkedClipId} both ways) or
+     * fall back to adding only the tapped file. TODO(strings).
+     */
+    private void offerDualStreamPairInsert(
+            @NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem tapped,
+            @NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem partner) {
+        final com.fadcam.ui.faditor.assetbrowser.AssetItem webcam =
+                com.fadcam.ui.faditor.assetbrowser.AssetBrowserPanel.isWebcamSibling(tapped)
+                        ? tapped : partner;
+        final com.fadcam.ui.faditor.assetbrowser.AssetItem screen =
+                (webcam == tapped) ? partner : tapped;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Linked recording detected")
+                .setMessage("“" + screen.shortLabel() + "” has a synced webcam file (“"
+                        + webcam.displayName + "”). Add both as a linked screen + webcam pair?")
+                .setPositiveButton("Add as linked pair",
+                        (d, w) -> addDualStreamLinkedPair(screen, webcam))
+                .setNeutralButton("Add “" + tapped.shortLabel() + "” only",
+                        (d, w) -> insertAssetAtPlayhead(tapped))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Dual-stream Phase 4: import a screen recording + its raw-webcam sibling and place them
+     * as ONE linked pair — the screen file as a master tape clip (appended at the timeline
+     * end) and the webcam file as an overlay/PiP clip pinned to the master's start, with
+     * {@link Timeline#linkClips} set both ways so later trim/split/delete mirror across the
+     * pair. IO (copy + duration probe) runs off the main thread (the ANR lesson from
+     * {@link #onOverlayVideoPicked}); the whole placement is ONE undo step.
+     */
+    private void addDualStreamLinkedPair(
+            @NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem screen,
+            @NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem webcam) {
+        showRemuxProgress();
+        assetImportExecutor.execute(() -> {
+            Uri screenUri = screen.uri, webcamUri = webcam.uri;
+            long screenDur = -1, webcamDur = -1;
+            try {
+                try {
+                    getContentResolver().takePersistableUriPermission(
+                            screen.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    getContentResolver().takePersistableUriPermission(
+                            webcam.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (SecurityException ignored) { }
+                screenUri = importInsertedAsset(screen.uri, screen.type, screen.displayName);
+                webcamUri = importInsertedAsset(webcam.uri, webcam.type, webcam.displayName);
+                screenDur = getVideoDuration(screenUri);
+                webcamDur = getVideoDuration(webcamUri);
+            } catch (Exception e) {
+                FLog.e(TAG, "Dual-stream pair import (IO) failed", e);
+            }
+            final Uri fScreenUri = screenUri, fWebcamUri = webcamUri;
+            final long fScreenDur = screenDur, fWebcamDur = webcamDur;
+            runOnUiThread(() -> {
+                hideRemuxProgress();
+                if (isFinishing() || isDestroyed() || project == null) return;
+                if (fScreenDur <= 0 || fWebcamDur <= 0) {
+                    Toast.makeText(this, R.string.faditor_asset_error, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                final Timeline timeline = project.getTimeline();
+                final Clip master = new Clip(fScreenUri, fScreenDur);
+                final int masterIndex = timeline.getClipCount();
+
+                // Overlay (webcam) pinned to the master's start-on-timeline. Mirrors
+                // onOverlayVideoPicked's starter transform so it composits like any PiP.
+                final Clip overlay = new Clip(fWebcamUri, fWebcamDur);
+                overlay.setLayerId("video");
+                overlay.setAudioMuted(true);
+                com.fadcam.ui.faditor.keyframe.KeyframeSet kf =
+                        new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X).put(0L,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X,
+                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y).put(0L,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y,
+                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE).put(0L,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_SCALE,
+                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                overlay.setOverlayTransform(kf);
+
+                // Link both ways BEFORE add so a round-trip save captures it immediately.
+                Timeline.linkClips(master, overlay);
+
+                final Runnable apply = () -> {
+                    timeline.addClip(masterIndex, master);
+                    timeline.shiftTransitionsAfterInsert(masterIndex);
+                    long masterStart = editorTimeline != null
+                            ? editorTimeline.getSegmentStartTimeMs(masterIndex) : 0L;
+                    overlay.setOverlayStartMs(Math.max(0, masterStart));
+                    timeline.addOverlayClip(overlay);
+                    selectSegment(masterIndex);
+                    if (editorTimeline != null) {
+                        editorTimeline.setTransitions(timeline.getTransitions());
+                        editorTimeline.scrollToSegment(masterIndex);
+                    }
+                    syncTimelineOverlays();
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                    refreshTotalTimeDisplay();
+                    resyncGaplessAfterStructuralEdit(master.getId(), 0L, false);
+                };
+                final Runnable revert = () -> {
+                    timeline.removeOverlayClip(overlay);
+                    timeline.removeClip(master);
+                    syncTimelineOverlays();
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                    refreshTotalTimeDisplay();
+                };
+                apply.run();
+                undoManager.recordAction(new EditActions.LambdaAction(
+                        "Add linked screen + webcam pair", apply, revert)); // TODO(strings)
+                saveProjectNow();
+                if (assetBrowserPanel != null) assetBrowserPanel.collapse();
+                Toast.makeText(this, "Linked pair added — edits mirror across both",
+                        Toast.LENGTH_SHORT).show(); // TODO(strings)
+            });
+        });
     }
 
     /**
@@ -22815,8 +23051,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Record undo action with the two new clips
             Clip clipA = timeline.getClip(newIndex);
             Clip clipB = timeline.getClip(newIndex + 1);
-            undoManager.recordAction(new EditActions.SplitClipAction(
-                    timeline, originalIndex, originalClip, clipA, clipB));
+            // Dual-stream Phase 4: if the master was linked, split the partner overlay at
+            // the SAME source-relative point and re-link the halves pairwise (A↔left,
+            // B↔right) as ONE undo step. Otherwise the plain single-clip split undo.
+            Clip splitPartner = timeline.findLinkedClip(originalClip);
+            if (splitPartner != null && splitPartner.isOverlayClip()) {
+                splitLinkedPartnerAndRecord(timeline, originalIndex, originalClip,
+                        clipA, clipB, splitPartner, absoluteSplitMs);
+            } else {
+                undoManager.recordAction(new EditActions.SplitClipAction(
+                        timeline, originalIndex, originalClip, clipA, clipB));
+            }
 
             if (playerManager.isGapless()) {
                 // GAPLESS: the ClippingConfiguration playlist still has ONE window for the
@@ -22846,6 +23091,62 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FLog.e(TAG, "splitAtPlayhead failed", e);
             Toast.makeText(this, R.string.faditor_split_error, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /**
+     * Dual-stream Phase 4: the master clip was just split into {@code masterA}/{@code masterB}
+     * at {@code masterSplitSourceMs}. Split its linked overlay {@code partner} at the SAME
+     * source-relative point (offset measured from each clip's in-point), re-link the halves
+     * pairwise (masterA↔left, masterB↔right), and record BOTH splits as ONE undo step.
+     * Split children are fresh-id (unlinked) copies — matching {@code splitAt} — so the
+     * re-link here is what re-establishes the pairing. The overlay split is applied here;
+     * the master split already ran in the caller.
+     */
+    private void splitLinkedPartnerAndRecord(@NonNull Timeline timeline, int originalIndex,
+            @NonNull Clip originalMaster, @NonNull Clip masterA, @NonNull Clip masterB,
+            @NonNull Clip partner, long masterSplitSourceMs) {
+        long delta = masterSplitSourceMs - originalMaster.getInPointMs();
+        long partnerSplit = partner.getInPointMs() + delta;
+        partnerSplit = Math.max(partner.getInPointMs() + 1,
+                Math.min(partnerSplit, partner.getOutPointMs() - 1));
+        final Clip left = new Clip(partner);   // fresh id, unlinked
+        left.setOutPointMs(partnerSplit);
+        final Clip right = new Clip(partner);  // fresh id, unlinked
+        right.setInPointMs(partnerSplit);
+        right.setOverlayStartMs(partner.getOverlayStartMs() + left.getEffectiveDurationMs());
+
+        // Apply the overlay split + re-link now (master halves already on the timeline).
+        timeline.removeOverlayClip(partner);
+        timeline.addOverlayClip(left);
+        timeline.addOverlayClip(right);
+        Timeline.linkClips(masterA, left);
+        Timeline.linkClips(masterB, right);
+
+        final Runnable apply = () -> {
+            timeline.removeClip(originalIndex);
+            timeline.addClip(originalIndex, masterB);
+            timeline.addClip(originalIndex, masterA);
+            timeline.removeOverlayClip(partner);
+            timeline.addOverlayClip(left);
+            timeline.addOverlayClip(right);
+            Timeline.linkClips(masterA, left);
+            Timeline.linkClips(masterB, right);
+            syncTimelineOverlays();
+            if (editorTimeline != null) editorTimeline.invalidate();
+        };
+        final Runnable revert = () -> {
+            timeline.removeClip(originalIndex + 1);
+            timeline.removeClip(originalIndex);
+            timeline.addClip(originalIndex, originalMaster);
+            timeline.removeOverlayClip(left);
+            timeline.removeOverlayClip(right);
+            timeline.addOverlayClip(partner);
+            Timeline.linkClips(originalMaster, partner);
+            syncTimelineOverlays();
+            if (editorTimeline != null) editorTimeline.invalidate();
+        };
+        undoManager.recordAction(new EditActions.LambdaAction(
+                "Split linked pair", apply, revert)); // TODO(strings)
     }
 
     /**
@@ -22904,6 +23205,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * Dual-stream Phase 4: record a master-clip trim, mirroring the SAME source-time
+     * in/out deltas onto its linked partner when present so both stay synced — as ONE
+     * undo step. Mirroring is SCOPED TO SAME-SPEED pairs: across a speed mismatch equal
+     * source deltas map to unequal on-timeline deltas, so we trim the master only and log
+     * why (spec Phase 4 scope decision). Partner clamps to its own source bounds.
+     */
+    private void recordTrimMaybeMirrored(@NonNull Clip clip,
+            long oldIn, long oldOut, long newIn, long newOut) {
+        Timeline timeline = project != null ? project.getTimeline() : null;
+        Clip partner = timeline != null ? timeline.findLinkedClip(clip) : null;
+        if (partner == null) {
+            undoManager.recordAction(new EditActions.TrimAction(clip, oldIn, oldOut, newIn, newOut));
+            return;
+        }
+        if (clip.getSpeedMultiplier() != partner.getSpeedMultiplier()) {
+            FLog.w(TAG, "Dual-stream trim mirror skipped: speed mismatch ("
+                    + clip.getSpeedMultiplier() + " vs " + partner.getSpeedMultiplier()
+                    + ") — trimming master only");
+            undoManager.recordAction(new EditActions.TrimAction(clip, oldIn, oldOut, newIn, newOut));
+            return;
+        }
+        final long dIn = newIn - oldIn, dOut = newOut - oldOut;
+        final long pOldIn = partner.getInPointMs(), pOldOut = partner.getOutPointMs();
+        final long pNewIn = pOldIn + dIn, pNewOut = pOldOut + dOut; // setters clamp to partner bounds
+        final Clip fClip = clip, fPartner = partner;
+        undoManager.recordAction(new EditActions.LambdaAction("Trim linked pair", // TODO(strings)
+                () -> { fClip.setInPointMs(newIn); fClip.setOutPointMs(newOut);
+                        fPartner.setInPointMs(pNewIn); fPartner.setOutPointMs(pNewOut);
+                        syncTimelineOverlays();
+                        if (editorTimeline != null) editorTimeline.invalidate(); },
+                () -> { fClip.setInPointMs(oldIn); fClip.setOutPointMs(oldOut);
+                        fPartner.setInPointMs(pOldIn); fPartner.setOutPointMs(pOldOut);
+                        syncTimelineOverlays();
+                        if (editorTimeline != null) editorTimeline.invalidate(); }));
+        // Apply the partner change now (the master was already applied during the drag /
+        // by the caller). recordAction stores but does NOT execute.
+        fPartner.setInPointMs(pNewIn);
+        fPartner.setOutPointMs(pNewOut);
+        syncTimelineOverlays();
+        if (editorTimeline != null) editorTimeline.invalidate();
+    }
+
+    /**
      * Delete the currently selected segment (cannot delete the last remaining segment).
      */
     private void deleteSelectedSegment() {
@@ -22939,6 +23283,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Record undo action before deletion
             Clip deletedClip = timeline.getClip(selectedClipIndex);
             int deletedIndex = selectedClipIndex;
+
+            // Dual-stream Phase 4: if this clip is half of a linked pair, confirm and
+            // delete BOTH as one undo step (the partner webcam/overlay clip goes too).
+            Clip linkPartner = timeline.findLinkedClip(deletedClip);
+            if (linkPartner != null) {
+                confirmDeleteLinkedPair(deletedClip, deletedIndex, linkPartner);
+                return;
+            }
+
             undoManager.recordAction(new EditActions.DeleteClipAction(
                     timeline, deletedClip, deletedIndex));
 
@@ -22960,6 +23313,77 @@ public class FaditorEditorActivity extends AppCompatActivity {
         } catch (Exception e) {
             FLog.e(TAG, "deleteSelectedSegment failed", e);
         }
+    }
+
+    /**
+     * Dual-stream Phase 4: the deleted master clip {@code master} is linked to
+     * {@code partner} (its recorded webcam/overlay half). Confirm mentioning the
+     * partner, then remove BOTH as ONE undo step — undo restores the pair intact.
+     * The partner may live in either lane (master {@code clips} or {@code overlayClips}).
+     */
+    private void confirmDeleteLinkedPair(@NonNull Clip master, int masterIndex,
+                                         @NonNull Clip partner) {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final boolean partnerIsOverlay = partner.isOverlayClip();
+        final int partnerMasterIndex = partnerIsOverlay ? -1 : timeline.indexOfClip(partner);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Delete linked pair?")                              // TODO(strings)
+                .setMessage("This clip is linked to its "
+                        + (partnerIsOverlay ? "webcam overlay" : "recorded partner")
+                        + " clip. Deleting it will remove BOTH.")             // TODO(strings)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete both", (d, w) -> {                 // TODO(strings)
+                    final Runnable apply = () -> {
+                        // Clear the link first so neither removal re-triggers pair logic.
+                        master.setLinkedClipId(null);
+                        partner.setLinkedClipId(null);
+                        if (partnerIsOverlay) timeline.removeOverlayClip(partner);
+                        else timeline.removeClip(partner);
+                        int mIdx = timeline.indexOfClip(master);
+                        if (mIdx >= 0) {
+                            timeline.removeClip(mIdx);
+                            timeline.removeTransitionsForDeletedClip(mIdx);
+                        }
+                        int newIndex = Math.min(masterIndex, timeline.getClipCount() - 1);
+                        selectSegment(Math.max(0, newIndex));
+                        editorTimeline.setTransitions(timeline.getTransitions());
+                        syncTimelineOverlays();
+                        editorTimeline.invalidate();
+                        Clip homeAfter = timeline.getClipCount() > 0
+                                ? timeline.getClip(Math.max(0, newIndex)) : null;
+                        resyncGaplessAfterStructuralEdit(
+                                homeAfter != null ? homeAfter.getId() : null, 0L, false);
+                    };
+                    final Runnable revert = () -> {
+                        // Re-insert both at their original positions, then restore the link.
+                        if (masterIndex >= 0 && masterIndex <= timeline.getClipCount()) {
+                            timeline.addClip(masterIndex, master);
+                        } else {
+                            timeline.addClip(master);
+                        }
+                        if (partnerIsOverlay) {
+                            timeline.addOverlayClip(partner);
+                        } else if (partnerMasterIndex >= 0
+                                && partnerMasterIndex <= timeline.getClipCount()) {
+                            timeline.addClip(partnerMasterIndex, partner);
+                        } else {
+                            timeline.addClip(partner);
+                        }
+                        Timeline.linkClips(master, partner);
+                        selectSegment(masterIndex);
+                        editorTimeline.setTransitions(timeline.getTransitions());
+                        syncTimelineOverlays();
+                        editorTimeline.invalidate();
+                        resyncGaplessAfterStructuralEdit(master.getId(), 0L, false);
+                    };
+                    apply.run();
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            "Delete linked pair", apply, revert));            // TODO(strings)
+                    saveProjectNow();
+                    Toast.makeText(this, "Linked pair deleted", Toast.LENGTH_SHORT).show(); // TODO(strings)
+                })
+                .show();
     }
 
     /**

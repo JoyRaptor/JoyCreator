@@ -1362,10 +1362,19 @@ public class Timeline {
 
     // ── Dual-stream linked pairs (feature-dual-stream-recording-spec §3/§6) ──
 
-    /** Look up a master clip by id, or null if it isn't on the timeline. */
+    /**
+     * Look up a clip by id across BOTH lanes — master tape clips and overlay/PiP
+     * clips. A dual-stream pair links a master (screen) clip to an overlay (webcam)
+     * clip, so the link resolver must see both lists; searching only {@code clips}
+     * would make {@link #findLinkedClip} blind to a webcam partner living in
+     * {@code overlayClips}. Returns null if the id is on neither lane.
+     */
     @Nullable
     public Clip findClipById(@NonNull String id) {
         for (Clip c : clips) {
+            if (id.equals(c.getId())) return c;
+        }
+        for (Clip c : overlayClips) {
             if (id.equals(c.getId())) return c;
         }
         return null;
@@ -1379,6 +1388,11 @@ public class Timeline {
     public Clip findLinkedClip(@NonNull Clip clip) {
         String partnerId = clip.getLinkedClipId();
         return partnerId == null ? null : findClipById(partnerId);
+    }
+
+    /** Index of {@code clip} in the master lane, or -1 if it isn't a master clip. */
+    public int indexOfClip(@NonNull Clip clip) {
+        return clips.indexOf(clip);
     }
 
     /** Link two clips as a synced pair — symmetric, so either can find the other. */

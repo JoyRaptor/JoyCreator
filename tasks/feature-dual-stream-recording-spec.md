@@ -7,20 +7,40 @@ schema + getter/setter/isLinked + ProjectStorage write/tolerant-read (omit-when-
 projects stay byte-identical) + copy semantics (fresh-id `Clip(other)` does NOT inherit the link;
 `relinked()` keeps it since it preserves the id) + `Timeline.findClipById/findLinkedClip/
 linkClips(static, symmetric)/unlinkClip(both-sides, idempotent)`. This is the dormant, safe base.
-**Phase 4 REMAINING (needs the sandbox + a UI decision — do NOT build blind):**
-  (a) **Link creation** — the importer has no non-SAF pair path today (`onVideoAssetPicked` imports
-      one SAF-picked file; siblings aren't visible through a content URI). The asset browser
-      (`assetbrowser/AssetScanner` — DocumentFile.listFiles over a tree) CAN see a `X_webcam.mp4`
-      sibling of `X.mp4`, so pair-detection belongs there: surface a dual-stream pair as ONE
-      browser item that adds BOTH clips and calls `Timeline.linkClips`. Decide with JoyRaptor whether
-      to also offer a manual "Link/Unlink selected clips" action as the reachable-now entry point.
-  (b) **Mirrored delete/trim/split + unlink** — editor lane. Anchors: delete = `deleteSelectedSegment`
-      (~21477, uses `EditActions.DeleteClipAction`); trim = `onTrimChanged` (~1373,
-      setInPointMs/setOutPointMs); split = `Timeline.splitAt` (308). Each must mirror onto
-      `findLinkedClip(...)` at the same CLIP-RELATIVE position, be ONE undo step for the pair,
-      and RE-LINK split children (A-left↔B-left, A-right↔B-right). These touch the destructive
-      paths, so device-verify on a real recorded pair before shipping (per ab-export-frame-diff
-      discipline — don't trust code-reasoning on compositing/timeline edits).
+**Phase 4 REACHABLE OPS LANDED (2026-07-19, compile-green, NOT device-verified):** both
+JoyRaptor-mandated entry points + delete/split/trim mirroring. Files: `Timeline.java`
+(findClipById now spans BOTH lanes so a master↔overlay link resolves; new `indexOfClip`),
+`assetbrowser/AssetBrowserPanel.java` (`findDualStreamPartner` + `isWebcamSibling` +
+`WEBCAM_SUFFIX="_webcam"`), `FaditorEditorActivity.java` (all UI + edit-op wiring).
+  (a) **Link creation — DONE, both entry points.**
+      - AUTO-DETECT: `insertSelectedAssetAtPlayhead` (the green playhead-insert button) checks
+        `assetBrowserPanel.findDualStreamPartner(selectedAsset)`; when a `<name>.mp4 ↔
+        <name>_webcam.mp4` sibling exists it shows `offerDualStreamPairInsert` → "Add as
+        linked pair" runs `addDualStreamLinkedPair(screen, webcam)`: IO off the main thread
+        (importInsertedAsset + getVideoDuration on `assetImportExecutor`), then screen →
+        master clip (appended), webcam → overlay/PiP clip (mirrors `onOverlayVideoPicked`'s
+        starter transform) pinned to the master's start, `Timeline.linkClips` both ways, ONE
+        undo step. Neutral button adds only the tapped file.
+      - MANUAL: `showMarqueeBatchMenu` now appends "Link clips (screen + webcam)" when
+        `eligibleDualStreamLinkPair` finds EXACTLY one master + one overlay clip, neither
+        already linked (`linkDualStreamPair`), and "Unlink clips" when the selection touches
+        any linked clip (`unlinkDualStreamPair`). Toasts on both; one undo step each. These
+        are the master↔overlay `linkedClipId` mechanism — SEPARATE from the G9 peer
+        link-timing groups, which stay untouched.
+  (b) **Mirrored ops — DONE (delete + split required; trim same-speed).**
+      - DELETE: `deleteSelectedSegment` (master lane) and `deleteOverlayClipWithConfirmation`
+        (overlay lane) both detect a linked partner and route to `confirmDeleteLinkedPair` —
+        a confirm dialog that NAMES the partner and deletes BOTH; ONE undo step restores the
+        pair (both clips re-inserted at original positions + re-linked).
+      - SPLIT: `splitAtPlayhead` → `splitLinkedPartnerAndRecord`. The master splits via
+        `Timeline.splitAt` (fresh-id, unlinked halves); the overlay partner is split at the
+        SAME source-relative point (offset from each clip's in-point, clamped to partner
+        bounds), the right half's `overlayStartMs` advances by the left half's effective
+        duration, and the halves are RE-LINKED pairwise (A↔left, B↔right). ONE undo step.
+      - TRIM: `onTrimFinished` → `recordTrimMaybeMirrored`. Same source-time in/out deltas
+        mirror onto the partner (setters clamp to partner bounds); ONE undo step for the pair.
+        **SCOPED TO SAME-SPEED pairs** (see Deferred) — a speed mismatch skips the mirror,
+        trims the master only, and logs why.
 Read the architecture reality map below BEFORE touching Phase 1 — Section 2's Camera2 guess does
 NOT match the codebase.
 
@@ -69,8 +89,21 @@ NOT match the codebase.
 - Segment rollover NOT implemented for the webcam file (v1).
 - Dual-stream unavailable in **avatar/puppet mode** (no raw camera surface).
 - User-facing strings are `// TODO(strings)` — failures are logged, not surfaced in UI.
-- Phase 4 importer `linkedClipId` linkage is untouched (editor lane owns it). The two files
-  currently land on disk as ordinary recordings; the `_webcam.mp4` suffix is the pairing hint.
+- Phase 4 reachable ops LANDED (see the Status block above). Remaining Phase-4 deferrals:
+  - **Trim mirror is same-speed only.** Across a speed mismatch, equal source-time deltas map
+    to unequal on-timeline deltas, so `recordTrimMaybeMirrored` trims the master only and logs
+    the skip. Full cross-speed trim mirroring (scaling the partner delta by the speed ratio and
+    re-clamping) is deferred — delete + split mirroring are complete and unconditional.
+  - **No linked badge on master/overlay clip blocks.** The G9 chain badge is for peer
+    link-timing groups, not the dual-stream `linkedClipId` pair; a visual affordance showing a
+    clip is dual-stream-linked is deferred (the link is still discoverable via the batch menu's
+    "Unlink clips" and the delete confirm dialog).
+  - **Split mirror assumes clean recorded pairs.** The overlay-half `overlayStartMs` advance
+    uses `getEffectiveDurationMs()`; interactions with per-half `removedSpans` (non-destructive
+    heal gaps) on a linked pair aren't exercised — v1 recorded pairs have none.
+  - **Auto-detect offer is on the playhead-insert button only.** Drag-drop insert
+    (`insertAssetAtIndex`) and the start/end insert buttons add the single tapped file without
+    the pair offer; the manual batch-menu "Link clips" covers those cases after the fact.
 
 ### DEVICE VERIFICATION (queued for a human-attended session — NOT run here)
 Prereqs: a device where `DualEncoderCapabilityChecker.supportsDualHardwareEncode()` is true;
@@ -92,6 +125,30 @@ LIVE camera (not an avatar); then screen-record.
    must be a valid, playable (shorter) file; the screen recording keeps going.
 5. **Fallback:** with the overlay in avatar mode, or on a device that fails the capability
    check, recording must proceed screen-only with no `_webcam.mp4` and no crash.
+
+### DEVICE VERIFICATION — Phase 4 reachable ops (owed; needs a real recorded pair)
+Prereqs: a dual-stream recording so `<name>.mp4` + `<name>_webcam.mp4` sit in the project's
+pinned asset folder. Open Faditor, open the asset browser on that folder.
+1. **Auto-detect pair add:** select `<name>.mp4`, tap the green playhead-insert button → the
+   "Linked recording detected" dialog appears → "Add as linked pair" places the screen file as
+   a master clip AND the webcam file as a PiP overlay pinned to the master's start. Repeat by
+   selecting the `_webcam.mp4` half — same offer. "Add … only" adds just the tapped file.
+2. **Manual link/unlink:** marquee-select exactly one master clip + one overlay clip → batch
+   menu shows "Link clips (screen + webcam)" → toast, clips linked. Re-marquee either → batch
+   menu shows "Unlink clips" → toast, unlinked. (Selection with a non-clip payload, or 2 masters,
+   must NOT offer "Link clips".)
+3. **Mirrored delete:** select the master, hit trash → confirm dialog NAMES the webcam partner →
+   "Delete both" removes both; ONE undo restores both. Repeat deleting the overlay half → same.
+4. **Mirrored split:** playhead mid-clip on the master, split → BOTH master and overlay split at
+   the same source-relative point; the resulting left pair and right pair are each still linked
+   (verify: delete a left half → its partner left half is named/removed). ONE undo restores the
+   pre-split pair.
+5. **Mirrored trim (same speed):** drag the master's trim handle → the overlay partner's window
+   mirrors the same source-time trim; ONE undo reverts both. Then set the master's speed ≠ the
+   partner's and trim again → only the master trims, logcat shows "trim mirror skipped: speed
+   mismatch".
+6. **Round-trip:** save + reload the project → all links survive (foundation round-trip), and
+   the mirrored ops above still behave.
 
 ## Architecture reality map (2026-07-17, verified against RECORDING_HANDOFF.md + source)
 

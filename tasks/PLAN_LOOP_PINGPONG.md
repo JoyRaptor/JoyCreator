@@ -77,7 +77,51 @@ on this track at a time; the 14:25 scheduled session should take rebrand/dedup/M
 `git status` before touching FaditorEditorActivity.
 
 ## Status
-- [!] **L2 PARKED by USER DECISION (2026-07-02 late).** True-reverse ping-pong was buggy on the Note 9:
+- [x] **L2 UN-PARKED (verified 2026-07-19; the un-park itself landed 2026-07-03 via the separate
+  `PLAN_PINGPONG_UNPARK` lineage, commit fe88e39, an ancestor of joy-creator HEAD 60fd849).** This
+  plan's [!] PARKED entry below is HISTORICAL — the real defect was fixed and the flag flipped weeks
+  ago; a 2026-07-19 audit re-read every seam, confirmed the flag is `Clip.PING_PONG_PARKED=false`,
+  and confirmed `compileDefaultDebugJavaWithJavac` is green.
+  - **The real defect (a reversed MediaItem that won't decode blacked out the whole shared gapless
+    player) is fixed PER-ITEM, not project-wide:** `MasterPlaybackEngine` gained an `onPlayerError`
+    (compositor/MasterPlaybackEngine.java:249). Each playlist window carries a `WindowInfo.reverse`
+    flag set at build time; on error the failing window is looked up by
+    `player.getCurrentMediaItemIndex()`, and if it is a reverse leg the engine reports the failing
+    clipId + the failing MediaItem's `localConfiguration.uri` to an `ErrorRecoveryListener`. The
+    activity's `onReverseWindowFailed` (FaditorEditorActivity.java:3179) adds that URI to the
+    session `poisonedReversedUris` blacklist; `resolveReversedUri` (:3162) then returns null for the
+    poisoned key → `isEligible` degrades ONLY that clip to forward reps (same clamp math), rebuilds
+    the playlist, and reseeks to the pre-error visual position. No project-wide black-out.
+  - **Race guard:** a `rebuildGeneration` counter (:169) is bumped on every rebuild/recovery;
+    `kickReverseBakeIfNeeded` captures the generation and DISCARDS a stale bake auto-promote whose
+    generation advanced during the bake (:3318) → a bake completing during a rebuild schedules at
+    most one follow-up rebuild. Hardened further 2026-07-16 with a loop-breaker cap
+    (`MAX_UNPOISONED_RECOVERY_REBUILDS` + 45s cooldown) so a corrupt FORWARD source with nothing to
+    poison can't storm an infinite rebuild loop.
+  - **All 4 flag-gated seams confirmed live (flag=false):** (1) loop-drawer ping-pong chip enabled →
+    `applyLoopMode(LOOP_MODE_PING_PONG)`, highlights green when active, header reads "Ping-pong"
+    (FaditorEditorActivity.java:4954/:5059/:5071); (2) `resolveReversedUri` performs the real cache
+    resolve (:3148); (3) `kickReverseBakeIfNeeded` bakes, incl. from loop-resize (:3275); (4)
+    `ExportManager` reverse leg uses the SAME baked file (export.ExportManager.java:1467).
+  - **DEVICE ACCEPTANCE (owed — orchestrator owns; no device work done in this audit).** Note:
+    `PLAN_PINGPONG_UNPARK` §Status records these as device-proven on the SM-N960U on 2026-07-03
+    (commit fe88e39); re-run/confirm on the current joy-creator HEAD since the god-files have moved
+    substantially since then:
+    - [ ] ffmpeg frame-inversion check: extract frames across a ping-pong wrap; a moving object's
+      positions must INVERT sequence on the reverse leg (true reverse, not forward tail-replay).
+    - [ ] No-black: ping-pong on the sandbox clip → zero blackout, zero frozen frames (freezedetect).
+    - [ ] Degrade path (forced-failure drill): manually poison a URI / corrupt a cache file → that
+      ONE clip degrades to forward reps, playback continues, rest of timeline unaffected (rank-1).
+    - [ ] Reverse-leg AUDIO listen: areverse'd audio present/continuous, confirm inoffensive
+      (weird-by-nature OK; consider mute-on-reverse-leg drawer option later).
+    - [ ] >30s guard: a segment over ReversedSegmentCache.canBake's limit does NOT bake, falls back
+      to forward-tail + one-time toast, never OOMs.
+    - [ ] L3 readout bubble: verify the live "+2.4s ≈ N loops" drag readout renders on a real
+      ping-pong extension-edge drag (needs a live edge-drag; user hand-test).
+    - [ ] Export parity: export the ping-pong project on-device, frame-compare the reverse leg vs
+      preview (same cache file by construction).
+- [!] **L2 PARKED by USER DECISION (2026-07-02 late)** — HISTORICAL, superseded by the [x] entry
+  above. True-reverse ping-pong was buggy on the Note 9:
   a baked-reversed playlist item that failed to decode blacked out the whole SHARED gapless player and
   the black spread across every clip; loop-resize also reverted. User's call: PARK ping-pong (niche),
   make normal editing rock-solid. Implemented via a single flag `Clip.PING_PONG_PARKED=true` gating 4

@@ -1,5 +1,12 @@
 # Lane 3 — Export-side GL transition A/B proof: targeted hypothesis (Opus, 2026-07-17)
 
+> **CLOSED 2026-07-19 (Fable): hypothesis CONFIRMED and FIXED in `a8efb6a`** (Task 2B of the GL
+> live-blend arc). The incoming leg was fit into the outgoing segment's rect, not the canvas —
+> measured 547px-wide mid-blend vs 1215px post-cut on a fixed 16:9 canvas with mixed crops; the
+> fix composes both legs on `canvasDims` (in-shader `uFromFit` letterbox, overlay configured at
+> canvas size) and the re-run measured zero snap (B at cols 32-1247 through the cut). 'original'
+> canvas byte-identical. Kept for the repro recipe only; no work remains.
+
 Read-only code analysis done BEFORE any device export, so the A/B proof tests a
 specific hypothesis instead of blindly diffing (per memory: absolute-geometry, not
 symmetric).

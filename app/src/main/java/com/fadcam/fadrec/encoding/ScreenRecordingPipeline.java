@@ -202,6 +202,11 @@ public class ScreenRecordingPipeline {
     }
     private volatile AudioTap audioTap;
 
+    // Second, independent PCM tap for the live recording visualizer (spec Phase 4). Kept separate
+    // from audioTap (which the dual-stream webcam pipeline uses) so both can run at once. The
+    // buffer is read through a duplicate on the sampler side, so tap order is irrelevant.
+    private volatile AudioTap visualizerAudioTap;
+
     /**
      * Builder for ScreenRecordingPipeline
      */
@@ -1044,11 +1049,43 @@ public class ScreenRecordingPipeline {
                 FLog.w(TAG, "Audio tap failed", e);
             }
         }
+
+        // Phase 4 live visualizer: feed the SAME PCM to the sampler (never a second AudioRecord).
+        AudioTap vizTap = visualizerAudioTap;
+        if (vizTap != null) {
+            audioData.position(0);
+            audioData.limit(size);
+            try {
+                vizTap.onPcm(audioData, size);
+            } catch (Exception e) {
+                FLog.w(TAG, "Visualizer audio tap failed", e);
+            }
+        }
     }
 
     /** Registers a PCM tap for audio duplication (Decision 4). Null clears it. */
     public void setAudioTap(@Nullable AudioTap tap) {
         this.audioTap = tap;
+    }
+
+    /**
+     * Arms the live recording visualizer (spec Phase 4): registers its PCM sink and hands its
+     * frame source to the GL compositor so the visualizer is drawn in the same pass as the
+     * watermark. Pass {@code source == null} to disarm. The GL call is posted to the render thread.
+     */
+    public void setLiveVisualizer(@Nullable GLWatermarkRenderer.OverlayFrameSource source,
+                                  @Nullable AudioTap pcmTap) {
+        this.visualizerAudioTap = pcmTap;
+        final GLWatermarkRenderer.OverlayFrameSource src = source;
+        if (glRenderHandler != null) {
+            glRenderHandler.post(() -> {
+                if (glWatermarkRenderer != null) {
+                    glWatermarkRenderer.setVisualizerSource(src, src != null);
+                }
+            });
+        } else if (glWatermarkRenderer != null) {
+            glWatermarkRenderer.setVisualizerSource(src, src != null);
+        }
     }
 
     /** @return the clock this pipeline drives, for sharing with the webcam pipeline. */

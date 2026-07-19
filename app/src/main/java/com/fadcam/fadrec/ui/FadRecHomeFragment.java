@@ -100,6 +100,7 @@ public class FadRecHomeFragment extends HomeFragment {
     private android.os.Handler timerHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private Runnable timerUpdateRunnable;
     private MaterialButton buttonFadRecMute;
+    private MaterialButton buttonFadRecViz;
     private boolean screenCardInfoInitialized = false;
     private final Runnable pendingStopStateReconcileRunnable = this::queryScreenRecordingState;
     
@@ -1017,7 +1018,30 @@ public class FadRecHomeFragment extends HomeFragment {
             });
             updateMuteButtonUi();
         }
-        
+
+        // Live recording visualizer toggle (Visualizer Studio spec Phase 4):
+        //  tap        = arm/disarm the current tier-1 style (pref fadrec_live_viz)
+        //  long-press = pick a cheap (tier-1-only) style (pref fadrec_live_viz_style)
+        buttonFadRecViz = rootView.findViewById(com.fadcam.R.id.buttonFadRecViz);
+        if (buttonFadRecViz != null) {
+            buttonFadRecViz.setVisibility(View.VISIBLE);
+            buttonFadRecViz.setOnClickListener(v -> {
+                boolean armed = !sharedPreferencesManager.sharedPreferences
+                        .getBoolean(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ, false);
+                sharedPreferencesManager.sharedPreferences.edit()
+                        .putBoolean(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ, armed).apply();
+                updateVizButtonUi();
+                Toast.makeText(requireContext(),
+                        armed ? "Live visualizer armed" : "Live visualizer off",
+                        Toast.LENGTH_SHORT).show();
+            });
+            buttonFadRecViz.setOnLongClickListener(v -> {
+                showVisualizerStylePicker();
+                return true;
+            });
+            updateVizButtonUi();
+        }
+
         FLog.d(TAG, "========== SETUP BUTTON HANDLERS COMPLETE ==========");
 
         // Safety: HomeFragment can disable this button based on camera resources.
@@ -1033,6 +1057,58 @@ public class FadRecHomeFragment extends HomeFragment {
         }
     }
     
+    /** Reflect the armed/disarmed state of the live visualizer on its toggle button. */
+    private void updateVizButtonUi() {
+        if (buttonFadRecViz == null || !isAdded()) return;
+        boolean armed = sharedPreferencesManager.sharedPreferences
+                .getBoolean(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ, false);
+        int tint = armed ? android.graphics.Color.parseColor("#00E676")
+                : android.graphics.Color.WHITE;
+        buttonFadRecViz.setIconTint(android.content.res.ColorStateList.valueOf(tint));
+        buttonFadRecViz.setContentDescription(
+                armed ? "Live visualizer armed (long-press to change style)"
+                        : "Live visualizer off (tap to arm)");
+    }
+
+    /**
+     * Long-press style picker: lists ONLY cheap (tier-1) built-in styles — those whose layer stack
+     * carries no particles emitter and no trail layers (spec's "Tier 1 only" rule, implemented in
+     * {@link LiveVisualizer#loadLiveEligibleBuiltins}). Persists the chosen style id.
+     */
+    private void showVisualizerStylePicker() {
+        if (!isAdded()) return;
+        final java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles =
+                com.fadcam.visualizer.LiveVisualizer.loadLiveEligibleBuiltins(requireContext());
+        if (styles.isEmpty()) {
+            Toast.makeText(requireContext(), "No live-eligible visualizer styles found",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String current = sharedPreferencesManager.sharedPreferences
+                .getString(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ_STYLE, null);
+        CharSequence[] names = new CharSequence[styles.size()];
+        int checked = 0;
+        for (int i = 0; i < styles.size(); i++) {
+            com.fadcam.ui.faditor.model.WaveformStyle s = styles.get(i);
+            names[i] = s.displayName != null ? s.displayName : s.id;
+            if (s.id != null && s.id.equals(current)) checked = i;
+        }
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Live visualizer style")
+                .setSingleChoiceItems(names, checked, (dialog, which) -> {
+                    com.fadcam.ui.faditor.model.WaveformStyle chosen = styles.get(which);
+                    sharedPreferencesManager.sharedPreferences.edit()
+                            .putString(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ_STYLE, chosen.id)
+                            // Choosing a style also arms it, so a long-press is a one-tap setup.
+                            .putBoolean(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ, true)
+                            .apply();
+                    updateVizButtonUi();
+                    dialog.dismiss();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     /**
      * Load persisted recording state from SharedPreferences.
      */

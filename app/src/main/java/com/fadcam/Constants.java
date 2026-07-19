@@ -5,6 +5,9 @@ import android.util.Size;
 public abstract class Constants {
 
     public static final String PREFS_NAME = "app_prefs";
+    // FadRec live recording visualizer (Visualizer Studio spec Phase 4).
+    public static final String PREF_FADREC_LIVE_VIZ = "fadrec_live_viz";
+    public static final String PREF_FADREC_LIVE_VIZ_STYLE = "fadrec_live_viz_style";
     public static final String LANGUAGE_KEY = "language";
     public static final String COMPLETED_ONBOARDING_KEY =
         "pref_completed_onboarding";

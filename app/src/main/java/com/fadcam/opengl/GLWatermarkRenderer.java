@@ -62,6 +62,31 @@ public class GLWatermarkRenderer {
     private int forensicsOverlayTextureId;
     private FloatBuffer forensicsOverlayRectBuffer;
     private String forensicsOverlayPayload = "";
+
+    // ── Live recording visualizer (Visualizer Studio spec Phase 4) ───────────
+    // Same compositing pass as the watermark/forensics overlay (spec Decision 2 — one more draw
+    // call, not a second pipeline). The armed source produces a Canvas bitmap for the bottom strip
+    // via the EXISTING WaveformStyleRenderer; we upload it as a GL_TEXTURE_2D and draw it over a
+    // bottom-strip quad, reusing watermarkProgram. No per-frame bitmap flip (the texcoord buffer
+    // inverts T instead — see setupWatermarkTexture()).
+    /** Source of the live visualizer bitmap, implemented in the visualizer package. */
+    public interface OverlayFrameSource {
+        /** @return a bitmap of exactly {@code w×h}, or {@code null} to skip this frame. */
+        @androidx.annotation.Nullable
+        Bitmap renderFrame(int w, int h, float density);
+    }
+    /** Bottom-strip height as a fraction of the frame height (v1 hardcode). TODO(prefs). */
+    private static final float VISUALIZER_STRIP_FRACTION = 0.18f;
+    private volatile boolean visualizerEnabled = false;
+    private volatile OverlayFrameSource visualizerSource;
+    private int visualizerTextureId = 0;
+    private FloatBuffer visualizerRectBuffer;
+    private FloatBuffer visualizerTexCoordBuffer;
+    private final float displayDensity;
+    // Perf self-check (spec Phase 4 done-when): warn, throttled, if the viz draw runs hot.
+    private long vizAccumNanos = 0L;
+    private int vizFrameCount = 0;
+    private long lastVizWarnMs = 0L;
     private int previewOverlayVpX = 0;
     private int previewOverlayVpY = 0;
     private int previewOverlayVpW = 0;
@@ -294,6 +319,11 @@ public class GLWatermarkRenderer {
         this.videoWidth = videoWidth;
         this.videoHeight = videoHeight;
         this.isScreenRecording = isScreenRecording;
+        float density = 2f;
+        try {
+            density = context.getResources().getDisplayMetrics().density;
+        } catch (Exception ignored) { }
+        this.displayDensity = density;
 
         watermarkPaint = new Paint();
         watermarkPaint.setTextSize(20);
@@ -673,6 +703,7 @@ public class GLWatermarkRenderer {
                 }
 
                 drawWatermark();
+                drawVisualizerLayer();
 
                 // Swap buffers to complete the frame
                 if (!EGL14.eglSwapBuffers(eglDisplay, eglSurface)) {
@@ -873,6 +904,7 @@ public class GLWatermarkRenderer {
             // Watermark and AI overlay in preview.
             drawWatermark();
             drawForensicsOverlayLayer();
+            drawVisualizerLayer();
 
             // Draw PiP overlay on preview too (if dual camera mode is active)
             // Use identity MVP for PiP so aspect-ratio correction doesn't distort it.
@@ -1008,8 +1040,41 @@ public class GLWatermarkRenderer {
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
         forensicsOverlayRectBuffer.put(overlayFullRect).position(0);
+        // Live visualizer: a full-width bottom strip (~18% height). Vertex order matches
+        // WATERMARK_TEXCOORDS' winding (TL, TR, BL, BR).
+        float stripNdc = 2.0f * VISUALIZER_STRIP_FRACTION; // NDC height = fraction × 2
+        float topY = -1.0f + stripNdc;
+        float[] visualizerRect = new float[] {
+                -1.0f, topY,   // top-left
+                1.0f, topY,    // top-right
+                -1.0f, -1.0f,  // bottom-left
+                1.0f, -1.0f    // bottom-right
+        };
+        visualizerRectBuffer = ByteBuffer.allocateDirect(visualizerRect.length * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer();
+        visualizerRectBuffer.put(visualizerRect).position(0);
+        // T-inverted texcoords: net orientation identical to the forensics overlay's
+        // (flip-the-bitmap + WATERMARK_TEXCOORDS) but WITHOUT a per-frame bitmap flip allocation.
+        float[] visualizerTexCoords = { 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f };
+        visualizerTexCoordBuffer = ByteBuffer.allocateDirect(visualizerTexCoords.length * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer();
+        visualizerTexCoordBuffer.put(visualizerTexCoords).position(0);
+        visualizerTextureId = createTexture();
         updateWatermarkTexture();
         updateForensicsOverlayTexture();
+    }
+
+    /**
+     * Arm/disarm the live recording visualizer (spec Phase 4). {@code source} produces the bottom-
+     * strip bitmap from live PCM via the existing WaveformStyleRenderer; {@code enabled} gates the
+     * extra draw. Safe to call off the GL thread (fields are volatile; texture setup already ran).
+     */
+    public void setVisualizerSource(@androidx.annotation.Nullable OverlayFrameSource source,
+                                    boolean enabled) {
+        this.visualizerSource = source;
+        this.visualizerEnabled = enabled && source != null;
     }
 
     private int createTexture() {
@@ -1866,6 +1931,82 @@ public class GLWatermarkRenderer {
         GLES20.glViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3]);
     }
 
+    /**
+     * Live recording visualizer draw (spec Phase 4, Decision 2) — one more draw call in the SAME
+     * compositing pass as the watermark. Pulls a bottom-strip bitmap from the armed source (the
+     * existing WaveformStyleRenderer, fed live PCM), uploads it, and blends it over the bottom
+     * strip using {@code watermarkProgram}. O(bands) per frame; renderReusable reuses its bitmap so
+     * the only per-frame cost is the strip texImage2D + quad draw. Self-checks its own timing and
+     * logs a throttled warning if it runs hot.
+     */
+    private void drawVisualizerLayer() {
+        if (!visualizerEnabled || visualizerTextureId == 0) {
+            return;
+        }
+        OverlayFrameSource source = visualizerSource;
+        if (source == null) {
+            return;
+        }
+        long startNs = System.nanoTime();
+        try {
+            int[] viewport = new int[4];
+            GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, viewport, 0);
+            int vpW = viewport[2];
+            int vpH = viewport[3];
+            if (vpW <= 0 || vpH <= 0) {
+                return;
+            }
+            int stripW = vpW;
+            int stripH = Math.max(1, Math.round(vpH * VISUALIZER_STRIP_FRACTION));
+            Bitmap bmp = source.renderFrame(stripW, stripH, displayDensity);
+            if (bmp == null || bmp.isRecycled()) {
+                return;
+            }
+            GLES20.glEnable(GLES20.GL_BLEND);
+            GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+            GLES20.glUseProgram(watermarkProgram);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, visualizerTextureId);
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0);
+            GLES20.glEnableVertexAttribArray(watermarkPositionHandle);
+            GLES20.glVertexAttribPointer(watermarkPositionHandle, 2, GLES20.GL_FLOAT, false, 0,
+                    visualizerRectBuffer);
+            GLES20.glEnableVertexAttribArray(watermarkTexCoordHandle);
+            GLES20.glVertexAttribPointer(watermarkTexCoordHandle, 2, GLES20.GL_FLOAT, false, 0,
+                    visualizerTexCoordBuffer);
+            GLES20.glUniform1i(watermarkSamplerHandle, 0);
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+            GLES20.glDisableVertexAttribArray(watermarkPositionHandle);
+            GLES20.glDisableVertexAttribArray(watermarkTexCoordHandle);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+            GLES20.glUseProgram(0);
+            GLES20.glDisable(GLES20.GL_BLEND);
+        } catch (Exception e) {
+            FLog.w(TAG, "Visualizer draw failed", e);
+        } finally {
+            recordVisualizerFrameTiming(System.nanoTime() - startNs);
+        }
+    }
+
+    /** Averages the viz draw cost and warns (throttled) when it exceeds the ~4ms budget. */
+    private void recordVisualizerFrameTiming(long elapsedNs) {
+        vizAccumNanos += elapsedNs;
+        vizFrameCount++;
+        if (vizFrameCount < 30) {
+            return;
+        }
+        float avgMs = (vizAccumNanos / (float) vizFrameCount) / 1_000_000f;
+        vizAccumNanos = 0L;
+        vizFrameCount = 0;
+        if (avgMs > 4.0f) {
+            long now = System.currentTimeMillis();
+            if (now - lastVizWarnMs > 5000L) {
+                lastVizWarnMs = now;
+                FLog.w(TAG, "Live visualizer draw is hot: avg " + (Math.round(avgMs * 100f) / 100f)
+                        + "ms/frame (budget ~4ms)");
+            }
+        }
+    }
+
     private int createProgram(String vertexSource, String fragmentSource) {
         int vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, vertexSource);
         int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentSource);
@@ -1998,6 +2139,9 @@ public class GLWatermarkRenderer {
             watermarkTextureId = 0;
             forensicsOverlayTextureId = 0;
             forensicsOverlayPayload = "";
+            visualizerEnabled = false;
+            visualizerSource = null;
+            visualizerTextureId = 0;
             mFullFrameBlit = null;
             initialized = false;
         }

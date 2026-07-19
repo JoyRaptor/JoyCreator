@@ -44,6 +44,7 @@ import com.fadcam.fadrec.ScreenRecordingState;
 import com.fadcam.fadrec.encoding.DualEncoderCapabilityChecker;
 import com.fadcam.fadrec.encoding.ScreenRecordingPipeline;
 import com.fadcam.fadrec.encoding.WebcamEncoderPipeline;
+import com.fadcam.visualizer.LiveVisualizer;
 import com.fadcam.fadrec.ui.FloatingWebcamService;
 import com.fadcam.opengl.WatermarkInfoProvider;
 import com.fadcam.utils.RecordingStoragePaths;
@@ -664,6 +665,7 @@ public class ScreenRecordingService extends Service {
 
             recordingPipeline = pipelineBuilder.build();
             recordingPipeline.setAudioMuted(initialMuted);
+            armLiveVisualizerIfEnabled();
             recordingPipeline.setPreviewSurface(
                 currentPreviewSurface,
                 currentPreviewSurfaceWidth,
@@ -959,6 +961,36 @@ public class ScreenRecordingService extends Service {
         } catch (Exception e) {
             FLog.e(TAG, "Dual-stream webcam start failed — continuing screen-only", e);
             stopDualStreamWebcam();
+        }
+    }
+
+    /**
+     * Arms the live recording visualizer (spec Phase 4) when the FadRec waveform toggle is on.
+     * Reuses the EXISTING WaveformStyleRenderer via {@link LiveVisualizer}: taps the screen mic
+     * PCM (already teed in {@code ScreenRecordingPipeline#queueAudioData}) and draws into the same
+     * GL pass as the watermark. Only cheap (tier-1) styles can ever be armed — the persisted style
+     * id is resolved against the live-eligible built-ins. Any failure downgrades to no visualizer.
+     */
+    private void armLiveVisualizerIfEnabled() {
+        try {
+            boolean armed = sharedPreferencesManager.sharedPreferences.getBoolean(
+                    Constants.PREF_FADREC_LIVE_VIZ, false);
+            if (!armed || recordingPipeline == null) {
+                return;
+            }
+            String styleId = sharedPreferencesManager.sharedPreferences.getString(
+                    Constants.PREF_FADREC_LIVE_VIZ_STYLE, null);
+            com.fadcam.ui.faditor.model.WaveformStyle style =
+                    LiveVisualizer.resolveArmedStyle(this, styleId);
+            if (style == null) {
+                FLog.w(TAG, "Live visualizer armed but no eligible style found — skipping");
+                return;
+            }
+            LiveVisualizer viz = new LiveVisualizer(style, Constants.DEFAULT_AUDIO_SAMPLING_RATE);
+            recordingPipeline.setLiveVisualizer(viz, viz::onPcm);
+            FLog.i(TAG, "Live visualizer armed: style=" + style.id);
+        } catch (Exception e) {
+            FLog.w(TAG, "Failed to arm live visualizer — continuing without it", e);
         }
     }
 

@@ -988,6 +988,14 @@ public class ScreenRecordingService extends Service {
             }
             LiveVisualizer viz = new LiveVisualizer(style, Constants.DEFAULT_AUDIO_SAMPLING_RATE);
             recordingPipeline.setLiveVisualizer(viz, viz::onPcm);
+            // Fires exactly ONCE, synchronously on the service thread, at recording start —
+            // armLiveVisualizerIfEnabled() runs only after build() returns, and build() already
+            // awaited the GL init latch, so setLiveVisualizer's post is delivered (not dropped) to
+            // a live GL thread. This is a one-shot line under tag "ScreenRecordingService"; if a
+            // logcat session attaches (or uses -t) after recording is already running, it can miss
+            // this line while still catching the PERIODIC "Live visualizer draw is hot" warning
+            // (tag "GLWatermarkRenderer"). Seeing that warning is itself proof the arm succeeded —
+            // the hot-draw self-check only runs when the visualizer source is armed and enabled.
             FLog.i(TAG, "Live visualizer armed: style=" + style.id);
         } catch (Exception e) {
             FLog.w(TAG, "Failed to arm live visualizer — continuing without it", e);

@@ -1,5 +1,21 @@
 # PLAN — G9 Object Linking: shared link engine (lean A)
 
+> **STATUS 2026-07-19 (Fable 5): G9a–G9e BUILT.** G9a/b groundwork `cc68b3b`; G9c/d/e `114a163`
+> per JoyRaptor's five answers. DEVIATIONS from this plan, deliberate: (1) G9e peer propagation lives
+> INSIDE `Timeline.resyncLinkGroups()` via last-known-start tracking on LinkMember (unclamped
+> virtual positions), NOT in gesture code — propagates from every mutation surface and makes
+> linked-move undo ONE step with zero merged-action plumbing; (2) the G9d entry point is the
+> marquee BATCH MENU ("Link timing"), not the repurposed relink toolbar button (§5.1) — media
+> relink stays untouched; (3) the chain badge is visual-only, unlink lives in the object drawers
+> ("Unlink timing…", both §5.3 scopes) — no new renderer hit-zone; (4) v1 creates TIME-only
+> groups (no multi-axis checklist until other axes actually propagate — no dead checkboxes).
+> JoyRaptor's #3 multi-membership: `axisOwner(item, axis)` resolver + creation-time strip enforce
+> (item, axis) uniqueness; an item may hold different axes in different groups.
+> REMAINING: G9f (trim decision after hands-on, partial-unlink polish, row tint); other-axis
+> propagation (POSITION/OPACITY/SCALE/ROTATION) when designed. DEVICE-VERIFY OWED (adb-drivable
+> per §7): marquee-link two text overlays → badges; drag one mid-hold → partner follows live;
+> one undo restores both; unlink scopes; save/reload round-trip.
+
 Execution design for gesture contract §5.6 (`PLAN_GESTURE_CONTRACT_FINAL_20260706.md` lines 262-281)
 and the G9 build-slice row (same doc, lines 348-350). Lean **A**: build one link engine, then
 re-express G5 piggyback/stratified attachment (already shipped, commit 5192186) as a named preset

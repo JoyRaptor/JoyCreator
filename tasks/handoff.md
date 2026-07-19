@@ -1,5 +1,25 @@
 ﻿# FadCam AI Handoff
 
+> **🔗 2026-07-19 ~04:00 — FABLE(5) autonomous resume (JoyRaptor's keep-working directive; wakeup
+> #12949963 armed for 07:57).** Committed the two held lanes as separate commits under the new
+> directive (review still owed, both revert-friendly): `a8efb6a` GL live A+B blend + export
+> canvas parity (device-proven per its handoff) and `d83bfd2` KineMaster playhead (chip/context
+> color/guides/bookmarks). Then BUILT, all compile-green:
+> **(1) `f0e0cd2` playhead seams closed** — bookmark sidecar wired (load on open + new-project,
+> ONE undo step per add/remove), layer-item context guides via new
+> `LayerRowRenderer.screenBandForItem`.
+> **(2) `2341596` audio-band marquee** — rect converted per-band, audio highlight pass, batch
+> delete handles audio (same-instance re-add, player resync only when audio touched).
+> **(3) `114a163` G9c/d/e peer TIME links** — see PLAN_G9_LINK_ENGINE.md's new STATUS block:
+> propagation INSIDE resyncLinkGroups (last-known-start tracking, one-step undo for free),
+> "Link timing" in the marquee batch menu, chain badge, "Unlink timing…" in all five drawers.
+> **DEVICE:** Note 9 attached; build with all of the above installing at session tail.
+> **NEXT QUEUE:** §4.5 eye/lock per-object migration (LARGE: per-object hidden/locked on all 5
+> payloads + preview/export/gesture honoring + drawer toggles + gutter icon removal); G9
+> adb-drivable verify (plan §7 recipes); Lane-3 GL export A/B (LANE3_gl_transition_ab_hypothesis
+> .md, needs sandbox export); dual-stream P4 reachable ops (link-creation UI decision from JoyRaptor
+> may now be informed by the G9 batch-menu pattern); JoyRaptor hand-test queues unchanged.
+
 > **⏰ 2026-07-19 02:00 — FABLE(5): session limit hit mid-orchestration; one-shot wakeup scheduled
 > for 06:58 to resume autonomously (JoyRaptor's standing directive: keep finishing specs until credits
 > run out, re-scheduling wakeups as needed).**

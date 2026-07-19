@@ -4,7 +4,26 @@ Executes `DESIGN_JOY_CREATOR.md §4` (remove political/activist identity; KEEP t
 the real privacy features — only the *messaging/theming* goes). Read-only audit; NO edits made yet.
 Presented for a scope go/no-go because this is outward-facing brand/content (hard to reverse).
 
-## Status: A1 / A2 / B1 EXECUTED (2026-07-19, JoyRaptor's decisions) — B2/B3/B4 + locales still parked
+## Status: A1 / A2 / B1 / B2 / B4 EXECUTED — B3 KEPT-BY-DECISION — web dashboard + locales still parked
+
+### B2 / B4 EXECUTED (2026-07-19, JoyRaptor's decisions — base `values/strings.xml` only)
+- **B2 DONE** — forensics module RESKINNED (display text only; no class/package/resource-id/pref-key renames,
+  code churn zero). Term mapping applied consistently: Digital Forensics / Forensic Intelligence → **Smart
+  Detection**; Evidence → **Snapshots** (Evidence Gallery→Snapshot Gallery, Evidence Info→Snapshot Info,
+  Evidence details→Snapshot details, evidence package/export→snapshot); Evidence Board/timeline → **Story
+  Board**; Intelligence Briefing → **Activity Summary**; Threat Assessment → **Overview** (badge scale
+  GUARDED/ELEVATED/SEVERE → NORMAL/ACTIVE/PEAK, in `ForensicsInsightsFragment.java`); Situation Report/SITREP
+  → **Session Report**; Personnel → **People**; Asset monitoring → **Activity monitoring**; proof frame →
+  snapshot frame; forensic database/history/events → detection database/history/events. ~50 string values in
+  `values/strings.xml:1838-1995` + display literals in `ForensicsInsightsFragment.java`. PARK: module already
+  gated by the `Enable Smart Detection` toggle (+ Enable Snapshot Collection), so kept as-is per decision.
+  KEPT unchanged: resource IDs (`text_threat_badge`, `cell_personnel`…), enum constant names (`ThreatLevel`,
+  `GUARDED`/`SEVERE`), pref keys, DB name `digital_forensics.db`, log tags, file/serial prefixes, code comments.
+- **B4 DONE** — `strings.xml:2494-2495`: Classified Mode → **Hidden Thumbnails**, REDACTED → **Hidden**.
+  `Privacy Black Screen` (2504-2515) left untouched. B4 spy terms in Java were comments only — left as-is.
+- **B3 KEPT-BY-DECISION** — icon-variant labels (`app_icon_*` 1799-1815) accepted as neutral icon variety.
+- **STILL OPEN**: web dashboard `assets/web/**` (undecided — untouched); `values-*/` locale files (separate
+  sweep — the reskinned keys still carry old spy vocabulary in every non-default locale).
 - **A1 DONE** — flag accent reskinned to a neutral "timer accent". New drawable `res/drawable/timer_accent.xml`
   (rounded purple gradient bar); both `fragment_home.xml` + `layout-land/fragment_home.xml` `ivElapsedAccent`
   now point at it. Strings `home_elapsed_flag_*` (194-200) + `home_elapsed_customize_helper` (161) rewritten to

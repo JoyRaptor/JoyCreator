@@ -67,18 +67,18 @@ public class ForensicsInsightsFragment extends Fragment {
         LOW(0xFF4CAF50, "LOW",
                 "Minimal activity detected",
                 "Low event volume, no significant patterns."),
-        GUARDED(0xFF2196F3, "GUARDED",
-                "Normal operational activity",
+        GUARDED(0xFF2196F3, "NORMAL",
+                "Normal activity",
                 "Routine detections within expected range."),
-        ELEVATED(0xFFFFC107, "ELEVATED",
+        ELEVATED(0xFFFFC107, "ACTIVE",
                 "Increased detection volume",
                 "Above-average activity warrants monitoring."),
         HIGH(0xFFFF9800, "HIGH",
-                "Significant activity flagged",
-                "High personnel presence or priority events."),
-        SEVERE(0xFFF44336, "SEVERE",
-                "Critical activity level",
-                "Extreme event volume or priority concentration.");
+                "Significant activity detected",
+                "High people count or priority events."),
+        SEVERE(0xFFF44336, "PEAK",
+                "Peak activity level",
+                "Very high event volume or priority concentration.");
 
         final int color;
         final String label;
@@ -720,7 +720,7 @@ public class ForensicsInsightsFragment extends Fragment {
         sb.append("\u25B8 Activity detected across ").append(activeHours).append(" of 24 hours\n");
 
         // Dominant type + full breakdown
-        String[] types = {"PERSONNEL", "VEHICLE", "ANIMAL", "OBJECT"};
+        String[] types = {"PEOPLE", "VEHICLE", "ANIMAL", "OBJECT"};
         int[] counts = {people, vehicle, pet, object};
         int maxIdx = 0;
         for (int i = 1; i < counts.length; i++) {

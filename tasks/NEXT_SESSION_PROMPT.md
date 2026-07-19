@@ -47,6 +47,23 @@ texImage2D upload + implicit sync). Half-res VISUAL PARITY confirmed (pulled-fra
 crisp). No jank at 30fps — 6ms of a 33ms frame; the 4ms budget is self-imposed. Treat as
 POLISH, not a blocker.
 
+JOYRAPTOR'S PRIORITY CALL (2026-07-19 evening, Fable's last day on this plan — these are the HARD
+items reserved for the strongest available model; everything else can go to lesser models + JoyRaptor
+hand-testing):
+P1. G9 multi-membership resolver — JoyRaptor requires an item to join DIFFERENT link groups on
+    DIFFERENT property-axes simultaneously (TIME→group A + OPACITY→group B). The shipped G9c/d/e
+    supports one group per item. Re-scope per PLAN_G9_LINK_ENGINE.md §8 answer 3: membership must
+    key by (item, axis)→group in LinkGroup/LinkMember + the resolver + toolbar tie-break.
+    Real design work; touches Timeline + FaditorEditorActivity (god file — one agent at a time).
+P2. Ping-pong failure-drill on device — the per-item decode-fallback (poisoned-URI degrade) has
+    never been WATCHED failing. Force a failure (corrupt a baked reverse file), confirm the
+    shared player never blacks out and only that clip degrades. Failure mode if wrong = whole-
+    player black, the exact bug that got the feature parked.
+P3. media3-fork discipline — today's H.264 lesson: a fork patch is INERT unless its module is in
+    settings.gradle.kts's substitution list; compile-green proves NOTHING about the APK. Rule
+    recorded in the H264 finding doc + the auto-memory; any future fork patch must end with a
+    runtime proof (ffprobe/logcat), never just a build.
+
 QUEUE (in order — pure device-verify + small errands; NOTHING needs re-deriving):
 1. Live-viz perf round 2 (polish): add split timing logs, then either texture double-buffering
    / texSubImage2D reuse, or accept and raise the self-check budget to ~8ms with a comment.

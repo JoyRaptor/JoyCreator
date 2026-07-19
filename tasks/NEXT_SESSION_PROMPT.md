@@ -66,9 +66,11 @@ QUEUE (in order — pure device-verify + small errands; NOTHING needs re-derivin
    substitute media3-transformer, so the Maven artifact shipped. Fixed in `f99f1fc`.
    ⚠️ CONSEQUENCE: the shipping EXPORT ENGINE provenance changed from Maven transformer to the
    fork's. (a) ✅ flag-OFF export re-probed 15:43: profile=High, level=31, full 9.03s duration —
-   fork transformer behaviorally identical when Baseline not requested. STILL OWED: (b) spot
-   re-check one transition export + one cropped export against their existing proofs (the crop/
-   canvas-parity proofs 62bc140/a8efb6a were measured on the Maven transformer).
+   fork transformer behaviorally identical when Baseline not requested. (b) ✅ 15:48 GL-transition
+   export smoke on the fork transformer (project 81033, tangentMotionBlur): seam frame-tiles show
+   the incoming clip at CONSTANT pillarbox scale mid-blend→post-cut, no snap/black/stretch —
+   engine parity holds. (The crop-injected extreme case stays covered by a8efb6a's historical
+   measurement; re-run it only if a transition regression ever appears.)
 5. Ping-pong owed device checks (PLAN_LOOP_PINGPONG.md Status list).
 6. OPEN JOYRAPTOR ITEMS (surface, don't block): assets/web FadSec dashboard + live id.fadseclab.com
    domain; locale-file rename sweep; icon-asset renames; rebrand art set (ASSETS_WISHLIST.md).

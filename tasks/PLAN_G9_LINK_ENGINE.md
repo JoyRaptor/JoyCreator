@@ -274,6 +274,16 @@ multi-select — so G9a-c can start before G8 lands; only G9d needs it.
 
 ## 8. Open questions for JoyRaptor
 
+> **ANSWERED (JoyRaptor, 2026-07-19):**
+> 1. Trim propagation: **MOVE-only v1** (ship move-linking; trim decided after hands-on).
+> 2. `stratified` field: **add now**, ahead of the toggle UI (inert until then).
+> 3. Overlapping groups: **multi-membership REQUIRED** — an item must support simultaneous
+>    TIME-link-to-A and OPACITY-link-to-B from day one. ⚠️ This deviates from the plan's v1 cap:
+>    the resolver + LinkMember model must key membership by (item, property-axis) → group, not
+>    item → group. Re-scope G9a/b accordingly before building.
+> 4. Toolbar mixed-selection tie-break: **any linked member present → UNLINK** (no third state).
+> 5. Caption attach: confirmed out of scope for G9 (tracked for the caption-attach slice).
+
 1. **Trim propagation (§3):** TIME-links also mirror TRIM, or MOVE-only for v1 (current lean)?
 2. **Piggyback/stratified field (§4.3):** OK to add `WaveformOverlayInstance.stratified` now, ahead of
    G5's own toggle UI shipping — or defer STRATIFIED state entirely until that toggle exists?

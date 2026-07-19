@@ -128,6 +128,31 @@ public class EditorTimelineView extends View {
     private static final int COLOR_AUDIO_LABEL    = 0xBBFFFFFF;
     private static final int COLOR_AUDIO_TRACK_BG = 0xFF151515;
 
+    // ── KineMaster-class playhead lane (JoyRaptor 2026-07-19) ─────────────────
+    // Per-kind playhead/chip-border tints MIRROR the (private) per-item constants in
+    // LayerRowRenderer — same hex, re-declared here because the source lives in a HELD
+    // file we must not edit. Keep in lockstep with LayerRowRenderer.baseColorFor.
+    private static final int COLOR_PH_MASTER  = 0xFF4397FD; // blue  (VIDEO/IMAGE/MASTER)
+    private static final int COLOR_PH_AUDIO   = 0xFF35F6BF; // aqua  (AUDIO)
+    private static final int COLOR_PH_TEXT    = 0xFF8C3DFA; // purple(TEXT/STICKER)
+    private static final int COLOR_PH_SPRITE  = 0xFFFFB74D; // amber (SPRITE)
+    private static final int COLOR_PH_CAPTION = 0xFFFFC107; // gold  (CAPTION)
+    private static final int COLOR_PH_VIZ     = 0xFF4DD0E1; // cyan  (VISUALIZER)
+    /** Distinct tint while a trim drag is active (amber, unused by any row family). */
+    private static final int COLOR_PLAYHEAD_TRIM = 0xFFFFA000;
+    /** Bookmark diamond glyph on the ruler. */
+    private static final int COLOR_BOOKMARK   = 0xFFFFCA28;
+
+    private static final float CHIP_TEXT_DP        = 10f;
+    private static final float CHIP_TEXT_SCRUB_DP  = 12f;
+    private static final float CHIP_PAD_H_DP        = 6f;
+    private static final float CHIP_PAD_V_DP        = 3f;
+    private static final float CHIP_CORNER_DP       = 4f;
+    private static final float GUIDE_DASH_DP        = 4f;
+    private static final float BOOKMARK_SIZE_DP     = 6f;
+    /** Tap/long-press hit tolerance for a bookmark, in dp (converted to ms per zoom). */
+    private static final float BOOKMARK_HIT_DP      = 12f;
+
     // ── Paints ───────────────────────────────────────────────────────
     private final Paint rulerBgPaint       = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rulerTextPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -142,6 +167,15 @@ public class EditorTimelineView extends View {
     private final Paint playheadPaint      = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint playheadCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelPaint         = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // KineMaster playhead lane paints (JoyRaptor 2026-07-19)
+    private final Paint chipBgPaint        = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint chipBorderPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint chipTextPaint       = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** Dashed guide line paint (top/bottom row-band + vertical trim edge). */
+    private final Paint guidePaint          = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint bookmarkPaint        = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path  bookmarkPath         = new Path();
+    private final RectF chipRect             = new RectF();
     private final Paint dragGhostPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trimOverlayPaint    = new Paint();
     private final Paint trimRecoverPaint    = new Paint();
@@ -177,6 +211,39 @@ public class EditorTimelineView extends View {
     private float handleWidthPx, handleOverhangPx, handleNotchWidthPx, handleNotchHeightPx;
     private float playheadWidthPx, playheadCirclePx, borderWidthPx;
     private float touchSlopPx, rulerTickHeightPx;
+    // KineMaster playhead lane pixel dims (JoyRaptor 2026-07-19)
+    private float chipTextPx, chipTextScrubPx, chipPadHPx, chipPadVPx, chipCornerPx;
+    private float guideDashPx, bookmarkSizePx, bookmarkHitPx;
+
+    // ── KineMaster playhead lane state (JoyRaptor 2026-07-19) ─────────────────
+    /** True while the user is actively scrubbing the playhead (chip grows/bolds). */
+    private boolean playheadScrubbing = false;
+    /** Animated (current) playhead+chip-border colour, and its target. */
+    private int playheadColorCurrent = COLOR_PLAYHEAD;
+    private int playheadColorTarget  = COLOR_PLAYHEAD;
+    @Nullable private android.animation.ValueAnimator playheadColorAnim;
+    private final android.animation.ArgbEvaluator argbEval = new android.animation.ArgbEvaluator();
+    /** Cache so a static frame does no String.format (perf culture). */
+    private long chipCachedMs = Long.MIN_VALUE;
+    private String chipCachedText = "";
+    // Bookmarks (view working copy; survives setTimeline). Sorted ascending.
+    private final List<Long> bookmarksMs = new ArrayList<>();
+    @Nullable private BookmarkListener bookmarkListener;
+    // Ruler-area-only long-press/tap detector for bookmarks (kept out of the main
+    // scrub/drag/pickup arbitration — a scroll cancels it via onScroll).
+    private boolean rulerTouchActive = false;
+    private boolean rulerLongPressFired = false;
+    private float rulerDownContentX = 0f;
+    private final Runnable rulerLongPressRunnable = new Runnable() {
+        @Override public void run() {
+            if (!rulerTouchActive) return;
+            rulerLongPressFired = true;
+            long t = Math.max(0, Math.min(xToTime(rulerDownContentX), getTimelineEndMs()));
+            toggleBookmarkNear(t);
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            invalidate();
+        }
+    };
     private float audioTrackHeightPx, audioTrackGapPx, audioCornerPx, audioWaveBarGapPx;
     private float audioLaneGapPx;
     /** Number of stacked audio lanes (≥1) and the lane each audio clip sits in. */
@@ -1177,6 +1244,14 @@ public class EditorTimelineView extends View {
         borderWidthPx = BORDER_WIDTH_DP * density;
         touchSlopPx = TOUCH_SLOP_DP * density;
         rulerTickHeightPx = RULER_TICK_HEIGHT_DP * density;
+        chipTextPx = CHIP_TEXT_DP * density;
+        chipTextScrubPx = CHIP_TEXT_SCRUB_DP * density;
+        chipPadHPx = CHIP_PAD_H_DP * density;
+        chipPadVPx = CHIP_PAD_V_DP * density;
+        chipCornerPx = CHIP_CORNER_DP * density;
+        guideDashPx = GUIDE_DASH_DP * density;
+        bookmarkSizePx = BOOKMARK_SIZE_DP * density;
+        bookmarkHitPx = BOOKMARK_HIT_DP * density;
         audioTrackHeightPx = AUDIO_TRACK_HEIGHT_DP * density;
         audioTrackGapPx = AUDIO_TRACK_GAP_DP * density;
         audioLaneGapPx = AUDIO_LANE_GAP_DP * density;
@@ -1234,6 +1309,22 @@ public class EditorTimelineView extends View {
         labelPaint.setColor(COLOR_LABEL);
         labelPaint.setTextSize(LABEL_SIZE_DP * density);
         labelPaint.setTextAlign(Paint.Align.CENTER);
+        // KineMaster playhead lane paints (JoyRaptor 2026-07-19)
+        chipBgPaint.setColor(0xE6141414);          // dark pill
+        chipBgPaint.setStyle(Paint.Style.FILL);
+        chipBorderPaint.setStyle(Paint.Style.STROKE);
+        chipBorderPaint.setStrokeWidth(1.25f * density);
+        chipBorderPaint.setColor(COLOR_PLAYHEAD);
+        chipTextPaint.setColor(0xFFFFFFFF);
+        chipTextPaint.setTextAlign(Paint.Align.CENTER);
+        chipTextPaint.setTextSize(chipTextPx);
+        chipTextPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        guidePaint.setStyle(Paint.Style.STROKE);
+        guidePaint.setStrokeWidth(1f * density);
+        guidePaint.setPathEffect(new android.graphics.DashPathEffect(
+                new float[]{guideDashPx, guideDashPx}, 0f));
+        bookmarkPaint.setColor(COLOR_BOOKMARK);
+        bookmarkPaint.setStyle(Paint.Style.FILL);
         dragGhostPaint.setColor(COLOR_DRAG_GHOST);
         dragGhostPaint.setStyle(Paint.Style.FILL);
         trimOverlayPaint.setColor(0x80000000);
@@ -1986,6 +2077,10 @@ public class EditorTimelineView extends View {
             drawReorderMode(canvas);
             return;
         }
+
+        // KineMaster lane (JoyRaptor 2026-07-19): retarget the playhead/chip colour animation
+        // to the current editing context. Cheap no-op when the context is unchanged.
+        updatePlayheadContextColor();
 
         int w = getWidth();
         float tTop = masterTopPx();
@@ -3015,8 +3110,12 @@ public class EditorTimelineView extends View {
                 canvas.drawText(text, x - halfText, rulerHeightPx - rulerTickHeightPx - 2f * density, rulerTextPaint);
             }
         }
+
+        // KineMaster lane (JoyRaptor 2026-07-19): bookmark diamonds on the ruler, culled to
+        // the same visible window as the ticks.
+        drawBookmarkGlyphs(canvas, rulerVisStartMs, rulerVisEndMs);
     }
-    
+
     /** Calculate label interval dynamically based on zoom level to prevent overlap */
     private long calculateDynamicLabelInterval(float minLabelGapPx) {
         // Available intervals in ascending order
@@ -4280,8 +4379,239 @@ public class EditorTimelineView extends View {
         // over the minimap makes it look like a stray cursor on the overview).
         float lineTop = minimapHeightPx;
         float lineBot = tBot;
+
+        // KineMaster lane (JoyRaptor 2026-07-19): dotted context guides drawn UNDER the
+        // playhead line so the solid line + chip stay crisp on top.
+        drawContextGuides(canvas, lineTop, lineBot);
+
+        // Context-coloured playhead line.
+        playheadPaint.setColor(playheadColorCurrent);
         canvas.drawRect(px - playheadWidthPx / 2f, lineTop,
                 px + playheadWidthPx / 2f, lineBot, playheadPaint);
+
+        // Floating time-chip at the playhead top.
+        drawPlayheadChip(canvas, px);
+    }
+
+    // ═══════════ KineMaster-class playhead lane (JoyRaptor 2026-07-19) ═══════════
+
+    /** Retarget the ~150ms colour animation if the editing context changed. */
+    private void updatePlayheadContextColor() {
+        int target = resolvePlayheadContextColor();
+        if (target == playheadColorTarget) return;
+        playheadColorTarget = target;
+        if (playheadColorAnim != null) playheadColorAnim.cancel();
+        android.animation.ValueAnimator a =
+                android.animation.ValueAnimator.ofObject(argbEval, playheadColorCurrent, target);
+        a.setDuration(150);
+        a.addUpdateListener(anim -> {
+            playheadColorCurrent = (int) anim.getAnimatedValue();
+            invalidate();
+        });
+        playheadColorAnim = a;
+        a.start();
+    }
+
+    /** Priority: trim tint &gt; legacy-audio &gt; master &gt; selected layer kind &gt; neutral. */
+    private int resolvePlayheadContextColor() {
+        if (activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE
+                || activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
+            return COLOR_PLAYHEAD_TRIM;
+        }
+        if (selectedAudioIndex >= 0) return COLOR_PH_AUDIO;
+        if (selectedIndex >= 0) return COLOR_PH_MASTER;
+        String selId = layerGestureController != null
+                ? layerGestureController.getSelectedItemId() : null;
+        if (selId != null) {
+            com.fadcam.ui.faditor.layers.TrackKind k = kindForSelectedLayerItem(selId);
+            if (k != null) return colorForKind(k);
+        }
+        return COLOR_PLAYHEAD;
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.layers.TrackKind kindForSelectedLayerItem(@NonNull String id) {
+        for (List<com.fadcam.ui.faditor.layers.Track> band
+                : java.util.Arrays.asList(layerTracks, audioLayerTracks)) {
+            for (com.fadcam.ui.faditor.layers.Track t : band) {
+                for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
+                    if (id.equals(it.getId())) return t.getKind();
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Mirrors LayerRowRenderer.baseColorFor (held) but returns a full-alpha tint. */
+    private int colorForKind(@NonNull com.fadcam.ui.faditor.layers.TrackKind k) {
+        switch (k) {
+            case TEXT:
+            case STICKER:    return COLOR_PH_TEXT;
+            case AUDIO:      return COLOR_PH_AUDIO;
+            case SPRITE:     return COLOR_PH_SPRITE;
+            case CAPTION:    return COLOR_PH_CAPTION;
+            case VISUALIZER: return COLOR_PH_VIZ;
+            default:         return COLOR_PH_MASTER;
+        }
+    }
+
+    /**
+     * Dotted guides in SCREEN space: top+bottom of the selected item's row band across
+     * the visible width, plus a vertical line at a live trim edge. Scoped to master +
+     * legacy-audio bands (a floating-layer item's band rect lives in the HELD
+     * LayerRowRenderer — see tasks/PLAYHEAD_KINEMASTER_20260719.md).
+     */
+    private void drawContextGuides(@NonNull Canvas canvas, float lineTop, float lineBot) {
+        int w = getWidth();
+        int guideColor = (playheadColorCurrent & 0x00FFFFFF) | 0x55000000; // low-alpha context tint
+        guidePaint.setColor(guideColor);
+
+        // Horizontal row-band guides (segRects/audioClipRects .top/.bottom are absolute
+        // Y — only X is scrolled — so they are valid screen coordinates as-is).
+        RectF band = null;
+        if (selectedAudioIndex >= 0 && selectedAudioIndex < audioClipRects.size()) {
+            band = audioClipRects.get(selectedAudioIndex);
+        } else if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+            band = segRects.get(selectedIndex);
+        }
+        if (band != null) {
+            canvas.drawLine(0, band.top, w, band.top, guidePaint);
+            canvas.drawLine(0, band.bottom, w, band.bottom, guidePaint);
+        }
+
+        // Vertical trim-edge guide (master trim; trimDragX is content-space).
+        if (activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE) {
+            float ex = trimDragX - scrollOffsetPx;
+            if (ex >= 0 && ex <= w) {
+                canvas.drawLine(ex, lineTop, ex, lineBot, guidePaint);
+            }
+        }
+    }
+
+    /** Floating dark pill showing mm:ss.mmm at the playhead top; bigger/bolder while scrubbing. */
+    private void drawPlayheadChip(@NonNull Canvas canvas, float px) {
+        if (chipCachedMs != playheadPositionMs) {
+            chipCachedMs = playheadPositionMs;
+            chipCachedText = fmtChipTime(playheadPositionMs);
+        }
+        String text = chipCachedText;
+        chipTextPaint.setTextSize(playheadScrubbing ? chipTextScrubPx : chipTextPx);
+        Paint.FontMetrics fm = chipTextPaint.getFontMetrics();
+        float textH = fm.descent - fm.ascent;
+        float textW = chipTextPaint.measureText(text);
+        float boxW = textW + chipPadHPx * 2f;
+        float boxH = textH + chipPadVPx * 2f;
+
+        // Sit in the ruler band (right at the playhead's top), clamped on-screen.
+        float top = minimapHeightPx + 1f * density;
+        float bottom = top + boxH;
+        float cx = px;
+        float left = cx - boxW / 2f;
+        float margin = 2f * density;
+        left = Math.max(margin, Math.min(left, getWidth() - boxW - margin));
+        chipRect.set(left, top, left + boxW, bottom);
+
+        canvas.drawRoundRect(chipRect, chipCornerPx, chipCornerPx, chipBgPaint);
+        chipBorderPaint.setColor((playheadColorCurrent & 0x00FFFFFF) | 0xCC000000);
+        canvas.drawRoundRect(chipRect, chipCornerPx, chipCornerPx, chipBorderPaint);
+        float baseline = top + chipPadVPx - fm.ascent;
+        canvas.drawText(text, chipRect.centerX(), baseline, chipTextPaint);
+    }
+
+    /** mm:ss.mmm, with an h: prefix only past one hour. */
+    private String fmtChipTime(long ms) {
+        if (ms < 0) ms = 0;
+        long h = ms / 3600000L;
+        long m = (ms / 60000L) % 60L;
+        long s = (ms / 1000L) % 60L;
+        long milli = ms % 1000L;
+        if (h > 0) {
+            return String.format(Locale.US, "%d:%02d:%02d.%03d", h, m, s, milli);
+        }
+        return String.format(Locale.US, "%02d:%02d.%03d", m, s, milli);
+    }
+
+    // ── Bookmarks ────────────────────────────────────────────────────────
+
+    /** Host callback for bookmark set changes (for sidecar persistence — see BookmarkStore). */
+    public interface BookmarkListener {
+        void onBookmarksChanged(@NonNull List<Long> bookmarksMs);
+    }
+
+    public void setBookmarkListener(@Nullable BookmarkListener l) { this.bookmarkListener = l; }
+
+    /** Replace the view's bookmark set (copied + sorted). */
+    public void setBookmarks(@Nullable List<Long> marks) {
+        bookmarksMs.clear();
+        if (marks != null) bookmarksMs.addAll(marks);
+        java.util.Collections.sort(bookmarksMs);
+        invalidate();
+    }
+
+    @NonNull
+    public List<Long> getBookmarks() { return new ArrayList<>(bookmarksMs); }
+
+    /** True when {@code y} is inside the ruler band (below the minimap, above the tracks). */
+    private boolean isRulerBandY(float y) {
+        return y >= minimapHeightPx && y < rulerHeightPx;
+    }
+
+    /** Bookmark-hit tolerance in ms at the current zoom. */
+    private long bookmarkTolMs() {
+        float pxPerMs = dpPerSecondPx / 1000f;
+        if (pxPerMs <= 0f) return 200L;
+        return (long) (bookmarkHitPx / pxPerMs);
+    }
+
+    /** Index of the nearest bookmark within tolerance of {@code timeMs}, or -1. */
+    private int bookmarkIndexNear(long timeMs) {
+        long tol = bookmarkTolMs();
+        int best = -1;
+        long bestDist = Long.MAX_VALUE;
+        for (int i = 0; i < bookmarksMs.size(); i++) {
+            long d = Math.abs(bookmarksMs.get(i) - timeMs);
+            if (d <= tol && d < bestDist) {
+                bestDist = d;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** Long-press semantics: remove the bookmark under the finger, else drop a new one. */
+    private void toggleBookmarkNear(long timeMs) {
+        int hit = bookmarkIndexNear(timeMs);
+        if (hit >= 0) {
+            bookmarksMs.remove(hit);
+        } else {
+            bookmarksMs.add(timeMs);
+            java.util.Collections.sort(bookmarksMs);
+        }
+        if (bookmarkListener != null) bookmarkListener.onBookmarksChanged(getBookmarks());
+    }
+
+    /**
+     * Diamond markers on the ruler. Called from {@link #drawRuler} (content space,
+     * inside the scroll translate) with the already-computed visible window so the
+     * cost stays viewport-bounded like the ruler ticks.
+     */
+    private void drawBookmarkGlyphs(@NonNull Canvas canvas, long visStartMs, long visEndMs) {
+        if (bookmarksMs.isEmpty()) return;
+        long tol = bookmarkTolMs();
+        float half = bookmarkSizePx;
+        float cy = minimapHeightPx + half + 1f * density;
+        for (int i = 0; i < bookmarksMs.size(); i++) {
+            long bm = bookmarksMs.get(i);
+            if (bm < visStartMs - tol || bm > visEndMs + tol) continue;
+            float x = timeToX(bm);
+            bookmarkPath.rewind();
+            bookmarkPath.moveTo(x, cy - half);
+            bookmarkPath.lineTo(x + half, cy);
+            bookmarkPath.lineTo(x, cy + half);
+            bookmarkPath.lineTo(x - half, cy);
+            bookmarkPath.close();
+            canvas.drawPath(bookmarkPath, bookmarkPaint);
+        }
     }
 
     /**

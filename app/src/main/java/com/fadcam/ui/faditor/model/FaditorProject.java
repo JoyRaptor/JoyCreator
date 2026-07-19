@@ -119,6 +119,20 @@ public class FaditorProject {
     private final List<String> assetDirHistory = new ArrayList<>();
 
     /**
+     * Timeline bookmarks (absolute timeline ms), sorted ascending. KineMaster-class
+     * playhead lane (JoyRaptor 2026-07-19): droppable ruler markers.
+     *
+     * <p>NOTE (persistence): the manual {@code ProjectSerializer}/{@code
+     * ProjectDeserializer} in the held {@code ProjectStorage} does not yet write this
+     * field, so it does NOT round-trip through project.json. Persistence is handled by
+     * the sidecar {@code BookmarkStore} (&lt;projectDir&gt;/bookmarks.json) until this
+     * can be folded into the project.json path. See
+     * tasks/PLAYHEAD_KINEMASTER_20260719.md.</p>
+     */
+    @NonNull
+    private final List<Long> bookmarksMs = new ArrayList<>();
+
+    /**
      * Create a new empty project.
      *
      * @param name display name for the project
@@ -226,6 +240,49 @@ public class FaditorProject {
     @NonNull
     public List<String> getAssetDirHistory() {
         return assetDirHistory;
+    }
+
+    /** Timeline bookmarks (absolute timeline ms), sorted ascending — live list. */
+    @NonNull
+    public List<Long> getBookmarksMs() {
+        return bookmarksMs;
+    }
+
+    /** Replace all bookmarks with {@code marks} (copied + sorted). */
+    public void setBookmarksMs(@Nullable List<Long> marks) {
+        bookmarksMs.clear();
+        if (marks != null) bookmarksMs.addAll(marks);
+        java.util.Collections.sort(bookmarksMs);
+        touch();
+    }
+
+    /** Add a bookmark at {@code ms} (ignored if one already sits within {@code tolMs}). */
+    public void addBookmark(long ms, long tolMs) {
+        for (long b : bookmarksMs) {
+            if (Math.abs(b - ms) <= tolMs) return;
+        }
+        bookmarksMs.add(ms);
+        java.util.Collections.sort(bookmarksMs);
+        touch();
+    }
+
+    /** Remove the nearest bookmark within {@code tolMs} of {@code ms}; true if one went. */
+    public boolean removeBookmarkNear(long ms, long tolMs) {
+        int best = -1;
+        long bestDist = Long.MAX_VALUE;
+        for (int i = 0; i < bookmarksMs.size(); i++) {
+            long d = Math.abs(bookmarksMs.get(i) - ms);
+            if (d <= tolMs && d < bestDist) {
+                bestDist = d;
+                best = i;
+            }
+        }
+        if (best >= 0) {
+            bookmarksMs.remove(best);
+            touch();
+            return true;
+        }
+        return false;
     }
 
     public int getSchemaVersion() {

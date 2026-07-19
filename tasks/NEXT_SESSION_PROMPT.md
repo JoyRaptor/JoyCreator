@@ -8,9 +8,12 @@ session limit hits, schedule a one-shot CronCreate wakeup ~5h out that points ba
 READ FIRST: tasks/handoff.md top block (⏰ 2026-07-19 02:00) — it has the full state.
 
 IMMEDIATE ERRANDS, IN ORDER:
-1. UNCOMMITTED TREE: GL-transitions export-parity work is sitting uncommitted (GlTransition* +
-   FaditorEditorActivity + ProjectStorage + UndoManager + LayerRowRenderer + FaditorPlayerManager;
-   context in tasks/GL_TRANSITIONS_HANDOFF_20260718.md). Compile, review the diff, commit if sound.
+1. UNCOMMITTED TREE — DO NOT COMMIT IT. The GL-transitions live-blend + export-parity work
+   (GlTransition* + FaditorEditorActivity + ProjectStorage + UndoManager + LayerRowRenderer +
+   FaditorPlayerManager) is COMPILE-GREEN (verified 02:05 2026-07-19) and device-proven per
+   tasks/GL_TRANSITIONS_HANDOFF_20260718.md, but that handoff's own rule is "JoyRaptor reviews before
+   commit — the human is reviewer-of-record". Leave the tree as-is; surface it to JoyRaptor when she's
+   back. Work AROUND it (don't touch those files in other lanes).
 2. Relaunch visualizer-studio Phase 4 (live-recording viz, tasks/feature-visualizer-studio-spec.md
    §Phase 4 + RECORDING_HANDOFF.md; Tier-1 only, tap the encoder PCM buffer, reuse the
    webcam-bubble compositing pass, perf validation is the done-when).

@@ -80,11 +80,19 @@ public class GLWatermarkRenderer {
     private volatile boolean visualizerEnabled = false;
     private volatile OverlayFrameSource visualizerSource;
     private int visualizerTextureId = 0;
+    // Allocated storage dims of visualizerTextureId. -1 = never allocated. The per-frame upload is a
+    // texSubImage2D into this once-allocated storage; we only re-spec (texImage2D(null)) when the
+    // strip render size changes. Avoids the driver re-allocating texture storage every frame.
+    private int visualizerTexW = -1;
+    private int visualizerTexH = -1;
     private FloatBuffer visualizerRectBuffer;
     private FloatBuffer visualizerTexCoordBuffer;
     private final float displayDensity;
     // Perf self-check (spec Phase 4 done-when): warn, throttled, if the viz draw runs hot.
-    private long vizAccumNanos = 0L;
+    // Split into three stages (render / upload / draw) so the on-device log localizes the cost.
+    private long vizRenderAccumNanos = 0L;
+    private long vizUploadAccumNanos = 0L;
+    private long vizDrawAccumNanos = 0L;
     private int vizFrameCount = 0;
     private long lastVizWarnMs = 0L;
     private int previewOverlayVpX = 0;
@@ -1935,9 +1943,10 @@ public class GLWatermarkRenderer {
      * Live recording visualizer draw (spec Phase 4, Decision 2) — one more draw call in the SAME
      * compositing pass as the watermark. Pulls a bottom-strip bitmap from the armed source (the
      * existing WaveformStyleRenderer, fed live PCM), uploads it, and blends it over the bottom
-     * strip using {@code watermarkProgram}. O(bands) per frame; renderReusable reuses its bitmap so
-     * the only per-frame cost is the strip texImage2D + quad draw. Self-checks its own timing and
-     * logs a throttled warning if it runs hot.
+     * strip using {@code watermarkProgram}. O(bands) per frame; renderReusable reuses its bitmap and
+     * the strip texture storage is allocated once (texSubImage2D upload per frame), so the only
+     * per-frame cost is the Canvas render + strip subimage upload + quad draw. Self-checks its own
+     * timing — split into render/upload/draw stages — and logs a throttled warning if it runs hot.
      */
     private void drawVisualizerLayer() {
         if (!visualizerEnabled || visualizerTextureId == 0) {
@@ -1947,7 +1956,7 @@ public class GLWatermarkRenderer {
         if (source == null) {
             return;
         }
-        long startNs = System.nanoTime();
+        long renderNs = 0L, uploadNs = 0L, drawNs = 0L;
         try {
             int[] viewport = new int[4];
             GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, viewport, 0);
@@ -1958,7 +1967,10 @@ public class GLWatermarkRenderer {
             }
             int stripW = vpW;
             int stripH = Math.max(1, Math.round(vpH * VISUALIZER_STRIP_FRACTION));
+            // (a) Canvas render (WaveformStyleRenderer fill + glow) into the reused bitmap.
+            long t0 = System.nanoTime();
             Bitmap bmp = source.renderFrame(stripW, stripH, displayDensity);
+            renderNs = System.nanoTime() - t0;
             if (bmp == null || bmp.isRecycled()) {
                 return;
             }
@@ -1966,7 +1978,24 @@ public class GLWatermarkRenderer {
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
             GLES20.glUseProgram(watermarkProgram);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, visualizerTextureId);
-            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0);
+            // (b) Texture upload. Allocate storage once (and only re-spec on a dimension change) so
+            // the driver does not re-allocate texture storage every frame; then upload the frame's
+            // pixels with texSubImage2D into that fixed storage. GLUtils.texSubImage2D copies the
+            // bitmap's pixels synchronously into GL-owned memory before it returns, so reusing one
+            // bitmap across frames is NOT a GL read hazard — no bitmap double-buffering is needed.
+            long t1 = System.nanoTime();
+            int bw = bmp.getWidth();
+            int bh = bmp.getHeight();
+            if (bw != visualizerTexW || bh != visualizerTexH) {
+                GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, bw, bh, 0,
+                        GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+                visualizerTexW = bw;
+                visualizerTexH = bh;
+            }
+            GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, bmp);
+            uploadNs = System.nanoTime() - t1;
+            // (c) Quad draw / GL state.
+            long t2 = System.nanoTime();
             GLES20.glEnableVertexAttribArray(watermarkPositionHandle);
             GLES20.glVertexAttribPointer(watermarkPositionHandle, 2, GLES20.GL_FLOAT, false, 0,
                     visualizerRectBuffer);
@@ -1980,31 +2009,51 @@ public class GLWatermarkRenderer {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
             GLES20.glUseProgram(0);
             GLES20.glDisable(GLES20.GL_BLEND);
+            drawNs = System.nanoTime() - t2;
         } catch (Exception e) {
             FLog.w(TAG, "Visualizer draw failed", e);
         } finally {
-            recordVisualizerFrameTiming(System.nanoTime() - startNs);
+            recordVisualizerFrameTiming(renderNs, uploadNs, drawNs);
         }
     }
 
-    /** Averages the viz draw cost and warns (throttled) when it exceeds the ~4ms budget. */
-    private void recordVisualizerFrameTiming(long elapsedNs) {
-        vizAccumNanos += elapsedNs;
+    /**
+     * Averages the viz draw cost (per stage) and warns (throttled) when the total exceeds budget.
+     * Budget stays at 4ms: round-1 halved the Canvas resolution and this round-2 change moves the
+     * upload off the per-frame full re-spec onto texSubImage2D into once-allocated storage — the
+     * remaining cost is not concluded to be irreducible upload bandwidth, so we keep the tighter
+     * 4ms bar and let the split-stage log (render/upload/draw) confirm where the time now goes.
+     */
+    private void recordVisualizerFrameTiming(long renderNs, long uploadNs, long drawNs) {
+        vizRenderAccumNanos += renderNs;
+        vizUploadAccumNanos += uploadNs;
+        vizDrawAccumNanos += drawNs;
         vizFrameCount++;
         if (vizFrameCount < 30) {
             return;
         }
-        float avgMs = (vizAccumNanos / (float) vizFrameCount) / 1_000_000f;
-        vizAccumNanos = 0L;
+        float inv = 1f / (vizFrameCount * 1_000_000f);
+        float renderMs = vizRenderAccumNanos * inv;
+        float uploadMs = vizUploadAccumNanos * inv;
+        float drawMs = vizDrawAccumNanos * inv;
+        float totalMs = renderMs + uploadMs + drawMs;
+        vizRenderAccumNanos = 0L;
+        vizUploadAccumNanos = 0L;
+        vizDrawAccumNanos = 0L;
         vizFrameCount = 0;
-        if (avgMs > 4.0f) {
+        if (totalMs > 4.0f) {
             long now = System.currentTimeMillis();
             if (now - lastVizWarnMs > 5000L) {
                 lastVizWarnMs = now;
-                FLog.w(TAG, "Live visualizer draw is hot: avg " + (Math.round(avgMs * 100f) / 100f)
-                        + "ms/frame (budget ~4ms)");
+                FLog.w(TAG, "Live visualizer draw is hot: total " + round2(totalMs)
+                        + "ms (render " + round2(renderMs) + ", upload " + round2(uploadMs)
+                        + ", draw " + round2(drawMs) + ") (budget ~4ms)");
             }
         }
+    }
+
+    private static float round2(float ms) {
+        return Math.round(ms * 100f) / 100f;
     }
 
     private int createProgram(String vertexSource, String fragmentSource) {
@@ -2142,6 +2191,8 @@ public class GLWatermarkRenderer {
             visualizerEnabled = false;
             visualizerSource = null;
             visualizerTextureId = 0;
+            visualizerTexW = -1;
+            visualizerTexH = -1;
             mFullFrameBlit = null;
             initialized = false;
         }

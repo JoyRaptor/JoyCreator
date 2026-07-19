@@ -142,6 +142,32 @@ Mirrors `ADD_GENERATED_SLIDE`'s shape on purpose — same applier family, same c
 > under tag `ScreenRecordingService`; a logcat `-t` window attached after start can miss it while
 > still catching the periodic hot-draw warning — benign, no ordering bug. See the comment at the
 > log site in `ScreenRecordingService.armLiveVisualizerIfEnabled`.)
+>
+> **PERF FIX ROUND 2 APPLIED 2026-07-19 (Fable): split-timing + texSubImage2D upload.** The round-1
+> re-measure on the Note 9 still showed the warning ("avg 4.5–6.25ms/frame"), so the cost is NOT
+> Canvas-fill-dominated — the suspect is the per-frame `GLUtils.texImage2D` full texture re-spec in
+> `GLWatermarkRenderer.drawVisualizerLayer` (the driver re-allocates texture storage every frame).
+> Two changes, `GLWatermarkRenderer.java` only:
+> 1. **Split timing.** `drawVisualizerLayer` now times three stages — (a) `renderFrame` Canvas
+>    render, (b) texture upload, (c) quad draw/state — and `recordVisualizerFrameTiming(render,
+>    upload, draw)` logs all three: "Live visualizer draw is hot: total X ms (render A, upload B,
+>    draw C) (budget ~4ms)". Same 30-frame averaging + 5s throttle; reuses three accumulator fields,
+>    no per-frame allocation.
+> 2. **Upload optimization.** The strip texture storage is now allocated ONCE via
+>    `glTexImage2D(...null)` at the strip render size (re-spec'd only when `bw/bh` change, tracked by
+>    `visualizerTexW/visualizerTexH`, reset to -1 on release); each frame uploads pixels with
+>    `GLUtils.texSubImage2D` into that fixed storage instead of re-spec'ing. Removes the per-frame
+>    driver storage re-allocation — the standard fix for this exact profile.
+> **Sync-hazard conclusion:** NO bitmap double-buffering added. `WaveformStyleRenderer.renderReusable`
+> reuses one bitmap, but `GLUtils.texSubImage2D`/`texImage2D` copy the bitmap's pixels synchronously
+> into GL-owned memory before returning, so the next frame's Canvas render into the same bitmap
+> cannot race a pending GL read — there is no hazard. (Comment recorded at the upload site.)
+> **Budget kept at 4ms** (not raised to 6ms): the remaining cost is not concluded to be irreducible
+> upload bandwidth — moving off the full re-spec should cut the upload stage materially, so the
+> tighter bar stays and the split-stage log is the proof. **RE-MEASURE OWED:** re-run the armed Fire
+> Mirror session on the Note 9 and read the new split-timing warning (render/upload/draw breakdown)
+> to confirm which stage dominates and whether the total is now under 4ms; battery/dropped-frame A/B
+> still owed.
 > Driving notes: the viz toggle is the 4th record-row button (amber pill ~x906/y1998 @1080x2220);
 > 3rd (x802) is Audio Source — Microphone must be on for PCM; "Device Audio (Internal)" also works.
 

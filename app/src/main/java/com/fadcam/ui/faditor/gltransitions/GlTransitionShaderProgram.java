@@ -39,8 +39,14 @@ public class GlTransitionShaderProgram extends BaseGlShaderProgram {
     /** Absolute composition time (ms) at which this transition item starts. */
     private final long timelineStartMs;
     private final TextureOverlay overlay;
+    @Nullable private final int[] canvasDims;
     private int width = 1;
     private int height = 1;
+    /**
+     * Fit-centered rect of the INPUT (outgoing leg) on the output frame, normalized
+     * {offX, offY, w, h}. Identity when the segment already runs at output dims.
+     */
+    private float[] fromFit = {0f, 0f, 1f, 1f};
 
     public GlTransitionShaderProgram(@NonNull android.content.Context context,
                                       @NonNull String fragmentShader,
@@ -49,11 +55,23 @@ public class GlTransitionShaderProgram extends BaseGlShaderProgram {
                                       long timelineStartMs,
                                       @NonNull TextureOverlay overlay)
             throws VideoFrameProcessingException {
+        this(context, fragmentShader, transition, durationMs, timelineStartMs, overlay, null);
+    }
+
+    public GlTransitionShaderProgram(@NonNull android.content.Context context,
+                                      @NonNull String fragmentShader,
+                                      @NonNull Transition transition,
+                                      long durationMs,
+                                      long timelineStartMs,
+                                      @NonNull TextureOverlay overlay,
+                                      @Nullable int[] canvasDims)
+            throws VideoFrameProcessingException {
         super(false, 2);
         this.transition = transition;
         this.durationMs = Math.max(1L, durationMs);
         this.timelineStartMs = timelineStartMs;
         this.overlay = overlay;
+        this.canvasDims = canvasDims == null ? null : new int[]{canvasDims[0], canvasDims[1]};
 
         try {
             this.glProgram = new GlProgram(VERTEX_SHADER, fragmentShader);
@@ -72,8 +90,29 @@ public class GlTransitionShaderProgram extends BaseGlShaderProgram {
     public Size configure(int inputWidth, int inputHeight) {
         width = Math.max(1, inputWidth);
         height = Math.max(1, inputHeight);
-        overlay.configure(new Size(width, height));
-        return new Size(width, height);
+        // CANVAS-ASPECT PARITY (2026-07-18, export sibling of preview F13 item 4): with a FIXED
+        // canvas preset, the transition segment used to run at the OUTGOING clip's frame dims and
+        // get fit onto the canvas downstream — so the incoming leg was fit into the outgoing
+        // rect FIRST and could land at a very different size than its own post-cut compose
+        // (measured: incoming B at 547px mid-blend vs 1215px after the cut, 16:9 canvas +
+        // narrow-cropped outgoing A). Run the blend ON THE CANVAS instead: output at canvasDims,
+        // fit-center the input in-shader (uFromFit, sampled black outside), and let the overlay
+        // compose the incoming leg directly at canvas size. The downstream canvas fit then
+        // no-ops (aspects equal) and both legs' mid-blend geometry == their own segments'.
+        int outW = width, outH = height;
+        fromFit = new float[]{0f, 0f, 1f, 1f};
+        if (canvasDims != null && canvasDims[0] > 0 && canvasDims[1] > 0
+                && (canvasDims[0] != width || canvasDims[1] != height)) {
+            outW = canvasDims[0];
+            outH = canvasDims[1];
+            float scale = Math.min(outW / (float) width, outH / (float) height);
+            float fw = width * scale / outW;
+            float fh = height * scale / outH;
+            fromFit = new float[]{(1f - fw) / 2f, (1f - fh) / 2f,
+                    Math.max(0.0001f, fw), Math.max(0.0001f, fh)};
+        }
+        overlay.configure(new Size(outW, outH));
+        return new Size(outW, outH);
     }
 
     @Override
@@ -90,6 +129,7 @@ public class GlTransitionShaderProgram extends BaseGlShaderProgram {
             glProgram.setSamplerTexIdUniform("uOverlayTexSampler0", overlayTexId, 1);
             setFloatUniform("uOverlayAlphaScale0",
                     overlay.getOverlaySettings(presentationTimeUs).getAlphaScale());
+            setFloatsUniform("uFromFit", fromFit);
             setFloatUniform("progress", progress);
             if ("GridFlip".equals(transition.glTransitionId)) {
                 setFloatsUniform("bgcolor", new float[]{0f, 0f, 0f, 1f});

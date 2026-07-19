@@ -1249,6 +1249,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (waveformExtractor != null) waveformExtractor.shutdown();
         releaseAudioPlayer();
         releaseTransitionRetriever();
+        releaseGlTransitionNextPlayer();
         // M-COMP-2: free the overlay-video decoder.
         if (overlayVideoLayer != null) overlayVideoLayer.releasePlayer();
         audioExecutor.shutdownNow();
@@ -7964,7 +7965,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // This can happen transiently (e.g. during thumbnail preview or after
         // audio tap when onSegmentSelected(-1) is suppressed). Without this
         // guard the playhead could jump to the wrong segment.
-        if (selectedClipIndex < 0) return;
+        // RECOVERY (2026-07-18): if the player is ACTIVELY PLAYING with no clip
+        // selected (e.g. a text-layer selection deselected the clip and playback
+        // started/resumed without passing through the play button's reselect),
+        // silently returning here froze the playhead, time display, and every
+        // overlay's time-driven visibility while the video kept playing. Derive
+        // the segment from the playhead and continue instead.
+        if (selectedClipIndex < 0) {
+            if (playerManager != null && playerManager.isPlaying()) {
+                int seg = editorTimeline.getSegmentAtPlayhead();
+                FLog.w(TAG, "updatePlayheadPosition: playing with no selection — recovering seg=" + seg);
+                if (seg < 0) return;
+                selectSegment(seg);
+            } else {
+                return;
+            }
+        }
 
         // ── Audio-tail mode: playhead continues past video end ───────
         if (audioTailActive) {
@@ -8277,6 +8293,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         && currentPos >= clipDuration - transitionSourceDuration - 1200) {
                     glTransitionPrefetchSeam = selectedClipIndex;
                     prefetchGlTransitionEndpoints(selectedClipIndex);
+                    // Live tier: warm a muted player on B so the blend can composite B's real
+                    // MOTION (not a frozen endpoint). Prepared here so it's READY at the seam.
+                    prepareGlTransitionNextPlayer(selectedClipIndex);
                 }
                 if (currentPos >= clipDuration - transitionSourceDuration) {
                     transitionPlaybackActive = true;
@@ -8568,6 +8587,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transitionPlaybackActive = false;
         cancelGlTransitionAnimator();
         glTransitionPrefetchSeam = -1;
+        // Live tier teardown: give the legacy player its PlayerView surface back (leg A was
+        // diverted into the blend's SurfaceTexture) and drop B's warm-up player. Both are
+        // no-ops when live never engaged. Runs BEFORE any loadClipForPlayback re-prepare so
+        // the incoming clip renders to the real view, and B's decoder is freed for it.
+        if (glTransitionLiveRetargeted) {
+            if (playerManager != null) playerManager.restoreVideoOutput();
+            glTransitionLiveRetargeted = false;
+        }
+        releaseGlTransitionNextPlayer();
         if (transitionPreviewOverlay != null) {
             transitionPreviewOverlay.setVisibility(View.GONE);
         }
@@ -8575,6 +8603,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // over the canvas — clearing it here (advanceToSegment → loadClipForPlayback →
         // hideTransitionPreview) popped to a black canvas + buffering spinner until the
         // incoming player produced a frame. Released in onRenderedFirstFrame (+ timeout).
+        // (clear() also tears down the live OES pipeline — deferred with the hold so the
+        // held frame survives; releasing B's PLAYER above is safe, the consumer keeps the
+        // last latched frame.)
         if (glTransitionPreviewView != null && !glTransitionHold) glTransitionPreviewView.clear();
         if (playerView != null) playerView.setAlpha(1f);
         clearTransitionFrameCache();
@@ -8652,6 +8683,157 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
     }
 
+    // ── GL transition LIVE tier: both legs move during the blend ─────────────
+    // Leg A = the main (legacy) player's real output, diverted into a SurfaceTexture for the
+    // window; leg B = this muted warm-up player, playing B's head into the second
+    // SurfaceTexture. The static endpoint-bitmap animator keeps running underneath and is the
+    // rendering floor: live only takes over once BOTH SurfaceTextures have latched a frame,
+    // and every failure path simply leaves the static blend on screen (F13's degradation
+    // invariant). Transition projects are always on the LEGACY player (gapless-ineligible),
+    // which is what makes the leg-A surface divert safe.
+
+    /** Muted warm-up player on the incoming clip; alive from prefetch to blend end. */
+    @Nullable private androidx.media3.exoplayer.ExoPlayer glTransitionNextPlayer;
+    private int glTransitionNextPlayerSeam = -1;
+    /** True while the MAIN player's video output is diverted into the blend's SurfaceTexture. */
+    private boolean glTransitionLiveRetargeted;
+    @Nullable private com.fadcam.playback.SeekableFragmentedMp4MediaSourceFactory glTransitionLiveFmp4Factory;
+
+    /** Prepare (paused, muted, exact-seeked to B's in-point) the incoming clip's warm-up player. */
+    private void prepareGlTransitionNextPlayer(int seam) {
+        Timeline tl = project.getTimeline();
+        if (seam + 1 >= tl.getClipCount()) return;
+        Clip next = tl.getClip(seam + 1);
+        Clip prev = tl.getClip(seam);
+        // Live needs two VIDEO decoders; images/slides render elsewhere → static tier.
+        if (next.isImageClip() || next.isGeneratedSlide()
+                || prev.isImageClip() || prev.isGeneratedSlide()) {
+            return;
+        }
+        if (glTransitionNextPlayer != null && glTransitionNextPlayerSeam == seam) return;
+        releaseGlTransitionNextPlayer();
+        try {
+            androidx.media3.exoplayer.ExoPlayer p =
+                    new androidx.media3.exoplayer.ExoPlayer.Builder(this).build();
+            p.setVolume(0f); // A's audio tail owns the window, matching the static tier
+            p.setSeekParameters(androidx.media3.exoplayer.SeekParameters.EXACT);
+            p.setPlaybackParameters(new androidx.media3.common.PlaybackParameters(
+                    Math.max(0.01f, next.getSpeedMultiplier())));
+            Uri resolved = resolvePlaybackUri(next.getSourceUri());
+            androidx.media3.common.MediaItem item = androidx.media3.common.MediaItem.fromUri(resolved);
+            boolean usedFmp4 = false;
+            try {
+                // Raw fMP4 has no seek index — same treatment as the main player (F6) or the
+                // in-point seek lands at 0 and the blend would show B's file start.
+                if (glTransitionLiveFmp4Factory == null) {
+                    glTransitionLiveFmp4Factory =
+                            new com.fadcam.playback.SeekableFragmentedMp4MediaSourceFactory(this);
+                }
+                if (glTransitionLiveFmp4Factory.isFragmentedMp4(resolved)) {
+                    p.setMediaSource(glTransitionLiveFmp4Factory.createMediaSource(item));
+                    usedFmp4 = true;
+                }
+            } catch (Exception ignored) {
+            }
+            if (!usedFmp4) p.setMediaItem(item);
+            p.setPlayWhenReady(false);
+            p.prepare();
+            p.seekTo(next.getInPointMs());
+            glTransitionNextPlayer = p;
+            glTransitionNextPlayerSeam = seam;
+        } catch (Exception e) {
+            FLog.w(TAG, "GL live transition: warm-up player failed (static tier carries it)", e);
+            releaseGlTransitionNextPlayer();
+        }
+    }
+
+    private void releaseGlTransitionNextPlayer() {
+        if (glTransitionNextPlayer != null) {
+            try {
+                glTransitionNextPlayer.release();
+            } catch (Exception ignored) {
+            }
+            glTransitionNextPlayer = null;
+        }
+        glTransitionNextPlayerSeam = -1;
+    }
+
+    /**
+     * Try to upgrade the just-started static blend to live two-decoder rendering. Called on the
+     * main thread right after the animator starts (the GL view is VISIBLE, so its surface — and
+     * with it the OES pipeline — can come up). Any missing precondition returns silently: the
+     * static endpoint blend is always the floor.
+     */
+    private void maybeStartLiveBlend(final int seam, @NonNull Clip prev, @NonNull Clip next,
+                                     @NonNull Transition transition) {
+        if (glTransitionPreviewView == null || playerManager == null) return;
+        if (prev.isImageClip() || prev.isGeneratedSlide()
+                || next.isImageClip() || next.isGeneratedSlide()) return;
+        final androidx.media3.exoplayer.ExoPlayer bPlayer = glTransitionNextPlayer;
+        if (bPlayer == null || glTransitionNextPlayerSeam != seam) return;
+        // Leg aspect sources: A = the decoded size the main player reported (post-rotation);
+        // B = the warm-up player's track format (container-parsed, so available without a
+        // surface), rotated to display orientation. Unknown size → no live this window.
+        int aW = lastDecodedVideoW, aH = lastDecodedVideoH;
+        androidx.media3.common.Format bFormat = bPlayer.getVideoFormat();
+        if (aW <= 0 || aH <= 0 || bFormat == null || bFormat.width <= 0 || bFormat.height <= 0) {
+            FLog.d(TAG, "GL live blend skipped: aW=" + aW + " aH=" + aH
+                    + " bFormat=" + (bFormat == null ? "null" : bFormat.width + "x" + bFormat.height));
+            return;
+        }
+        int bW = bFormat.width, bH = bFormat.height;
+        if (bFormat.rotationDegrees == 90 || bFormat.rotationDegrees == 270) {
+            int t = bW; bW = bH; bH = t;
+        }
+        int[] dims = glTransitionFrameDims();
+        glTransitionPreviewView.setLiveGeometry(
+                liveLegGeometry(prev, aW, aH, dims[0], dims[1]),
+                liveLegGeometry(next, bW, bH, dims[0], dims[1]));
+        glTransitionPreviewView.startLive((fromSurface, toSurface) -> {
+            // Main thread, ~a frame later. The window may already be over (scrub, pause+seek,
+            // ENDED fallback) — in that case do NOT touch the players; teardown of the GL
+            // objects is owned by hideTransitionPreview/releaseGlTransitionHold's clear().
+            if (!transitionPlaybackActive || transitionPlaybackSeam != seam
+                    || glTransitionAnimator == null || playerManager == null) {
+                return;
+            }
+            androidx.media3.exoplayer.ExoPlayer b = glTransitionNextPlayer;
+            if (b == null || glTransitionNextPlayerSeam != seam) return;
+            playerManager.retargetVideoOutput(fromSurface);
+            glTransitionLiveRetargeted = true;
+            b.setVideoSurface(toSurface);
+            b.play();
+            FLog.i(TAG, "GL live blend ENGAGED seam=" + seam);
+        });
+    }
+
+    /**
+     * Geometry for one live leg, in the live shader's contract (see
+     * {@code GlTransitionShaderLoader}'s live template): fit-centered content rect within the
+     * GL view + the clip's crop sub-rect in source uv, both bottom-left origin. Mirrors
+     * {@link #cropToClipBounds}'s preset/epsilon semantics so live and static framing match.
+     */
+    @NonNull
+    private float[] liveLegGeometry(@NonNull Clip clip, int videoW, int videoH,
+                                    int viewW, int viewH) {
+        float l = 0f, t = 0f, r = 1f, b = 1f;
+        if ("custom".equals(clip.getCropPreset())) {
+            float cl = clip.getCropLeft(), ct = clip.getCropTop();
+            float cr = clip.getCropRight(), cb = clip.getCropBottom();
+            float cwT = cr - cl, chT = cb - ct;
+            if (cwT > 0.01f && chT > 0.01f && !(cwT >= 0.99f && chT >= 0.99f)) {
+                l = cl; t = ct; r = cr; b = cb;
+            }
+        }
+        float cw = r - l, ch = b - t;
+        float contentAspect = (videoW * cw) / Math.max(0.0001f, videoH * ch);
+        float viewAspect = viewW / (float) Math.max(1, viewH);
+        float fw = contentAspect >= viewAspect ? 1f : contentAspect / viewAspect;
+        float fh = contentAspect >= viewAspect ? viewAspect / contentAspect : 1f;
+        // Crop offsets flip vertically: crop TOP in image terms is the HIGH end of uv V.
+        return new float[]{(1f - fw) / 2f, (1f - fh) / 2f, fw, fh, l, 1f - b, cw, ch};
+    }
+
     /**
      * Decode the endpoint frames (cache-hit when prefetched), then blend A's last frame into
      * B's first with the shader at animator rate. On finish, advance to the incoming clip —
@@ -8704,11 +8886,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             // Resume only if the user didn't pause mid-blend.
                             boolean resume = playerManager == null || playerManager.isPlaying()
                                     || playerManager.isAtTrimEnd();
+                            // Live tier: if B actually PLAYED its head inside the blend, the
+                            // handoff must continue B from where the blend left it — starting
+                            // at the in-point would visibly rewind B by the transition's
+                            // duration (and contradict the overlap timeline model, which
+                            // already subtracts the transition from the output duration).
+                            boolean liveRan = glTransitionPreviewView != null
+                                    && glTransitionPreviewView.isLiveShowing();
                             // Hold the final blend frame (== B's first frame) over the canvas
                             // while B prepares; released by onRenderedFirstFrame or the timeout.
                             glTransitionHold = true;
                             hideTransitionPreview();
                             advanceToSegment(seam + 1, resume);
+                            if (liveRan && playerManager != null) {
+                                long bOffsetMs = (long) (transition.durationMs
+                                        * Math.max(0.01f, next.getSpeedMultiplier()));
+                                // Trim-relative; queued as a pending seek if B isn't READY yet.
+                                playerManager.seekTo(bOffsetMs);
+                            }
                             if (playheadHandler != null) {
                                 playheadHandler.postDelayed(
                                         FaditorEditorActivity.this::releaseGlTransitionHold, 1500L);
@@ -8718,6 +8913,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 });
                 glTransitionAnimator = va;
                 va.start();
+                // Upgrade the running static blend to LIVE motion (both legs' real decoders).
+                // Failure at any step leaves the static animator untouched — same floor as F13.
+                maybeStartLiveBlend(seam, prev, next, transition);
             });
         });
     }
@@ -14476,12 +14674,55 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new com.fadcam.ui.faditor.model.TextOverlayItem(
                         getString(R.string.faditor_text_hint),
                         0xFFFFFFFF, 0.5f, 0.5f, 0.10f, 0f);
+        // FEEDBACK (2026-07-18): a new text must never stack onto a lane where its
+        // time range overlaps an existing item — route it to the first free TEXT
+        // lane, creating a new lane if every existing one is occupied.
+        assignTextOverlayToFreeLane(item);
         project.getTimeline().addTextOverlay(item);
         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
                 overlayLayerCallback());
         syncTimelineOverlays();
         scheduleAutoSave();
         showTextOverlayEditor(item);
+    }
+
+    /**
+     * Route a (not-yet-added) text overlay onto the first TEXT lane whose existing
+     * items don't overlap the new item's time range: the default lane (layerId null)
+     * first, then each user-created TEXT track in order. If every lane is occupied
+     * over the range, create a fresh TEXT track and assign the item there — the user
+     * should never have to manually untangle two objects stacked on one lane.
+     */
+    private void assignTextOverlayToFreeLane(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        Timeline tl = project.getTimeline();
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        candidates.add(null); // default TEXT lane
+        int textTrackCount = 1;
+        for (com.fadcam.ui.faditor.layers.LayerTrackDef def : tl.getExtraLayerTracks()) {
+            if (def.getKind() == com.fadcam.ui.faditor.layers.TrackKind.TEXT) {
+                candidates.add(def.getId());
+                textTrackCount++;
+            }
+        }
+        for (String trackId : candidates) {
+            boolean clash = false;
+            for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+                if (o == item) continue;
+                if (!java.util.Objects.equals(o.getLayerId(), trackId)) continue;
+                if (o.getStartMs() < item.getEndMs() && item.getStartMs() < o.getEndMs()) {
+                    clash = true;
+                    break;
+                }
+            }
+            if (!clash) {
+                item.setLayerId(trackId);
+                return;
+            }
+        }
+        String newId = tl.createLayerTrack(
+                com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text " + (textTrackCount + 1));
+        item.setLayerId(newId);
     }
 
     private android.graphics.Typeface getTypefaceForKey(String key) {

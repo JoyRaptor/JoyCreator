@@ -18,6 +18,46 @@ Continuation brief for the next agent. Read `tasks/PERF_SPEC_LONGFILE_20260718.m
 Current preview blend is FREEZE-FRAME: two static endpoint bitmaps, A's motion pauses
 ≤600ms. JoyRaptor wants the next tier.
 
+> **UPDATE 2026-07-18 ~16:30 — BOTH TASKS DONE, uncommitted (JoyRaptor reviews before commit).**
+>
+> **Task 1 (live A+B) SHIPPED, full two-decoder OES tier, device-proven ×3 runs:**
+> - `GlTransitionShaderLoader.loadWrappedLivePreviewShader`: samplerExternalOES template with
+>   per-leg ST matrices + in-shader crop (`u*Crop`) and fit-center (`u*Fit`) uniforms.
+> - `GlTransitionPreviewView`: live mode — OES textures + SurfaceTextures created lazily on the
+>   GL thread (`startLive` → surfaces posted to main), draw switches to live only when BOTH legs
+>   latched a frame; static endpoint blend remains the rendering floor (all failures degrade to
+>   F13 behavior, never black). `clear()` tears live down; EGL-context loss self-heals to static.
+> - `FaditorPlayerManager.retargetVideoOutput/restoreVideoOutput`: leg A = the legacy player's
+>   real output diverted into the blend (legal because transition projects are never gapless).
+> - `FaditorEditorActivity`: muted warm-up ExoPlayer on B (prefetch site, EXACT seek to in-point,
+>   fMP4 index source, clip speed applied); `maybeStartLiveBlend` after the animator starts;
+>   `hideTransitionPreview` restores A's surface + releases B on every exit path. On live
+>   completion the main player resumes B at in+transitionDur (matches the overlap timeline
+>   model; freeze tier used to rewind B's head). Log markers: "GL live blend ENGAGED seam=N" /
+>   "GL live blend skipped: …".
+> - Device proof (sandbox SANDBOX_SERIAL, project 302da9ac): screenrecord frame pulls show A's
+>   tail MOVING into the blend, B moving mid-blend, hold, B continuing forward (no rewind), zero
+>   black frames; crop parity proven by injecting custom crops (blend framing == PlayerView
+>   crop-zoom framing, no snap at handoff); pause-mid-blend honored (accidental live test).
+>
+> **Task 2B (export canvas-aspect parity) — trap CONFIRMED and FIXED:**
+> - Repro (fixed 16_9 canvas + narrow-cropped A [.15,.15,.45,.85] + wide-cropped B
+>   [.05,.35,.95,.65]): incoming B mid-blend was fit into the OUTGOING segment's rect →
+>   measured 547px wide mid-blend vs 1215px post-cut (absolute column bounds) — giant snap.
+>   ('original' canvas measured CLEAN — canvas == first-leg dims, cols 51-349 stable through
+>   the cut — which is why the F12 proof never saw it.)
+> - Fix: `GlTransitionShaderProgram.configure()` outputs at `canvasDims` when a fixed canvas is
+>   active; input (outgoing leg) fit-centered in-shader via new `uFromFit` uniform in the export
+>   template (black outside); overlay (incoming leg) configured at canvas size so it composes
+>   directly on the canvas. `canvasDims == null` ('original') is byte-identical to before.
+> - Proof: same wide-B export re-run post-fix → B at cols 32-1247 (w 1215) from blend-end
+>   through post-cut, zero snap; A's pre-blend letterbox (366-913) unchanged.
+> - Test project json restored to crop-free 'original' afterward; test exports deleted.
+>
+> Remaining known limits (unchanged): incoming-leg crop covers the "custom" preset only (named
+> presets still blend uncropped, preview + export); preview live tier requires both legs to be
+> video clips (images/slides stay on the static endpoint tier by design).
+
 ## Task 1 — Live A+B motion in the preview blend
 
 Goal: both legs MOVE during the blend.

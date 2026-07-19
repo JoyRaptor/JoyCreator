@@ -65,8 +65,10 @@ public class GlTransitionExportEffect implements GlEffect {
             String shader = GlTransitionShaderLoader.loadWrappedExportShader(context, id, outW, outH);
             GlTransitionFrameOverlay overlay = new GlTransitionFrameOverlay(context,
                     nextClip, transition, durationMs, timelineStartMs, canvasDims, sourceUri);
+            // canvasDims: the shader program outputs at CANVAS size when a fixed canvas is
+            // active, so both legs compose on the canvas (see configure() there).
             return new GlTransitionShaderProgram(context, shader, transition, durationMs,
-                    timelineStartMs, overlay);
+                    timelineStartMs, overlay, canvasDims);
         } catch (Exception e) {
             throw new VideoFrameProcessingException(e);
         }

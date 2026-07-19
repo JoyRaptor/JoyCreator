@@ -246,6 +246,29 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
     }
 
+    /**
+     * GL live transition (leg A): divert the LEGACY player's video output to an off-screen
+     * surface (a SurfaceTexture owned by the transition renderer) so A's tail keeps MOVING
+     * inside the blend. No-op in gapless mode — transition projects are gapless-ineligible,
+     * so during a transition window the legacy player is always the one rendering.
+     * Pair with {@link #restoreVideoOutput()} on every exit path from the blend.
+     */
+    public void retargetVideoOutput(@NonNull android.view.Surface surface) {
+        if (gapless() || player == null) return;
+        player.setVideoSurface(surface);
+    }
+
+    /** Undo {@link #retargetVideoOutput}: reattach the PlayerView's own video surface. */
+    public void restoreVideoOutput() {
+        if (player == null || playerView == null) return;
+        android.view.View videoView = playerView.getVideoSurfaceView();
+        if (videoView instanceof android.view.TextureView) {
+            player.setVideoTextureView((android.view.TextureView) videoView);
+        } else if (videoView instanceof android.view.SurfaceView) {
+            player.setVideoSurfaceView((android.view.SurfaceView) videoView);
+        }
+    }
+
     /** Whether the gapless engine is active and driving playback right now. */
     private boolean gapless() {
         return gaplessEngine != null && gaplessEngine.isPrepared();

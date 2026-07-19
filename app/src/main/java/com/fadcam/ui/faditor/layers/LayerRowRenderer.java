@@ -1108,7 +1108,15 @@ public final class LayerRowRenderer {
             canvas.save();
             canvas.clipRect(x0, top, x1, bottom);
             itemLabelPaint.setColor(ghosted ? 0x88FFFFFF : 0xFFFFFFFF);
-            canvas.drawText(label, x0 + 5f * density,
+            // §3 pinned-scroll for labels (JoyRaptor 2026-07-18): when the item start scrolls
+            // off-screen left, the label RIDES the left viewport edge exactly like the
+            // image thumb (drawPinnedThumb) — so a long text item stays identifiable
+            // while its body spans the screen; it parks at the right end as it leaves.
+            float pad = 5f * density;
+            float labelW = itemLabelPaint.measureText(label);
+            float viewLeft = lastHScrollOffsetPx + HEADER_WIDTH_DP * density;
+            float labelX = Math.max(x0 + pad, Math.min(viewLeft + pad, x1 - labelW - pad));
+            canvas.drawText(label, labelX,
                     centerY + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
             canvas.restore();
         }

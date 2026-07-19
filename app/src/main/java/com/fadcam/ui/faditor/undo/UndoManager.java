@@ -41,6 +41,13 @@ public class UndoManager {
     // captures out keeps cross-session undo functional without the per-edit cost.
     private static final long SNAPSHOT_MIN_INTERVAL_MS = 1500;
     private long lastSnapshotElapsedMs = -SNAPSHOT_MIN_INTERVAL_MS;
+    // Total chars of retained project-JSON snapshots across the undo stack.
+    // maxHistory alone is not enough of a cap: a large project serializes to
+    // multiple MB per snapshot, so 50 snapshots is hundreds of MB of heap and
+    // the app OOMs when the history is persisted. Entries past this budget keep
+    // their in-session undo (action replay) but lose the snapshot; snapshot-only
+    // entries past it are evicted entirely.
+    private static final long MAX_SNAPSHOT_CHARS = 24_000_000L;
 
     @NonNull
     private final Deque<HistoryEntry> undoStack;
@@ -200,11 +207,41 @@ public class UndoManager {
         while (undoStack.size() > maxHistory) {
             ((ArrayDeque<HistoryEntry>) undoStack).removeLast();
         }
+        enforceSnapshotBudget();
 
         FLog.d(TAG, "Recorded: " + action.getDescription()
                 + " (undo=" + undoStack.size() + ", redo=0"
                 + ", snapshot=" + (snapshot != null) + ")");
         notifyListener();
+    }
+
+    /**
+     * Walk the undo stack newest-first and enforce {@link #MAX_SNAPSHOT_CHARS}
+     * across retained snapshots. Over-budget in-session entries just drop their
+     * snapshot (action replay still undoes them); over-budget snapshot-only
+     * entries (loaded from disk) are removed — without a snapshot they are
+     * un-undoable dead weight.
+     */
+    private void enforceSnapshotBudget() {
+        long total = 0;
+        // ArrayDeque push() = addFirst(), so iteration order is newest → oldest.
+        java.util.Iterator<HistoryEntry> it = undoStack.iterator();
+        while (it.hasNext()) {
+            HistoryEntry e = it.next();
+            long len = (e.snapshotBefore != null ? e.snapshotBefore.length() : 0)
+                    + (e.snapshotAfter != null ? e.snapshotAfter.length() : 0);
+            if (len == 0) continue;
+            if (total + len > MAX_SNAPSHOT_CHARS && total > 0) {
+                if (e.action != null) {
+                    e.snapshotBefore = null;
+                    e.snapshotAfter = null;
+                } else {
+                    it.remove();
+                }
+            } else {
+                total += len;
+            }
+        }
     }
 
     /**

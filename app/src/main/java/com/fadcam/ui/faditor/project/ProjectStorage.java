@@ -654,46 +654,50 @@ public class ProjectStorage {
     public boolean saveUndoHistory(@NonNull String projectId,
                                    @NonNull List<String> descriptions,
                                    @NonNull List<String> snapshots) {
-        String json = buildUndoHistoryJson(descriptions, snapshots);
-        return writeUndoHistoryJson(projectId, json);
+        return writeUndoHistoryStreaming(projectId, descriptions, snapshots);
     }
 
     /**
-     * Async variant of {@link #saveUndoHistory}: the (potentially large) JSON of
-     * snapshot strings is assembled on the caller thread, but the disk write runs
-     * on the background serial executor. Undo-history snapshots can total tens of
-     * MB; writing them synchronously on the UI thread was a major stall.
+     * Async variant of {@link #saveUndoHistory}: the disk write runs on the
+     * background serial executor. Only the list references are copied on the
+     * caller thread (snapshot strings are immutable), so the caller pays
+     * near-zero cost.
      */
     public void saveUndoHistoryAsync(@NonNull String projectId,
                                      @NonNull List<String> descriptions,
                                      @NonNull List<String> snapshots) {
-        final String json = buildUndoHistoryJson(descriptions, snapshots);
-        lastWrite = ioExecutor.submit(() -> writeUndoHistoryJson(projectId, json));
+        final List<String> descCopy = new ArrayList<>(descriptions);
+        final List<String> snapCopy = new ArrayList<>(snapshots);
+        lastWrite = ioExecutor.submit(() -> writeUndoHistoryStreaming(projectId, descCopy, snapCopy));
     }
 
-    @NonNull
-    private String buildUndoHistoryJson(@NonNull List<String> descriptions,
-                                        @NonNull List<String> snapshots) {
-        JsonArray historyArray = new JsonArray();
-        int count = Math.min(descriptions.size(), snapshots.size());
-        for (int i = 0; i < count; i++) {
-            JsonObject entry = new JsonObject();
-            entry.addProperty("description", descriptions.get(i));
-            entry.addProperty("snapshot", snapshots.get(i));
-            historyArray.add(entry);
-        }
-        return gson.toJson(historyArray);
-    }
-
-    private boolean writeUndoHistoryJson(@NonNull String projectId, @NonNull String json) {
+    /**
+     * Stream the undo history straight to disk with JsonWriter. The history can
+     * total tens (formerly hundreds) of MB of snapshot strings; materializing it
+     * as one concatenated String first (the old approach) needed a contiguous
+     * allocation of the full serialized size and repeatedly OOM-crashed the app
+     * on large projects.
+     */
+    private boolean writeUndoHistoryStreaming(@NonNull String projectId,
+                                              @NonNull List<String> descriptions,
+                                              @NonNull List<String> snapshots) {
         File projectDir = getProjectDir(projectId);
         if (!projectDir.exists() && !projectDir.mkdirs()) {
             FLog.e(TAG, "Failed to create project directory for undo history");
             return false;
         }
         File file = new File(projectDir, UNDO_HISTORY_FILE);
-        try (FileWriter writer = new FileWriter(file)) {
-            writer.write(json);
+        int count = Math.min(descriptions.size(), snapshots.size());
+        try (com.google.gson.stream.JsonWriter writer = new com.google.gson.stream.JsonWriter(
+                new java.io.BufferedWriter(new FileWriter(file), 64 * 1024))) {
+            writer.beginArray();
+            for (int i = 0; i < count; i++) {
+                writer.beginObject();
+                writer.name("description").value(descriptions.get(i));
+                writer.name("snapshot").value(snapshots.get(i));
+                writer.endObject();
+            }
+            writer.endArray();
             writer.flush();
             return true;
         } catch (IOException e) {

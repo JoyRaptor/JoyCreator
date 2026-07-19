@@ -81,6 +81,39 @@ public final class GlTransitionShaderLoader {
         return wrap(context, transitionId, true, 0, 0);
     }
 
+    /**
+     * Live-preview variant: both legs are {@code samplerExternalOES} SurfaceTextures fed by
+     * real decoders (main player = A's tail, a muted prefetch player = B's head), so both legs
+     * MOVE during the blend. Crop + fit-center happen IN THE SHADER (uniforms below) because
+     * live frames arrive at raw source geometry — unlike the bitmap path, where
+     * decodeTransitionFrame pre-crops and letterboxes on the CPU.
+     */
+    @NonNull
+    public static String loadWrappedLivePreviewShader(@NonNull Context context,
+                                                      @NonNull String transitionId) throws IOException {
+        boolean external = EXTERNAL.containsKey(transitionId);
+        String body;
+        String uniforms;
+        if (external) {
+            body = sanitize(EXTERNAL.get(transitionId), true);
+            uniforms = "";
+        } else {
+            body = sanitize(readAsset(context, "gl_transitions/" + transitionId + ".glsl"), false);
+            uniforms = uniformsFor(transitionId);
+        }
+        return livePreviewTemplate()
+                .replace("/* EXTRA_PARAM_UNIFORMS_GO_HERE */", uniforms)
+                .replace("/* TRANSITION_BODY_GOES_HERE */", body);
+    }
+
+    /** Fallback (plain crossfade) live shader for ids whose body fails to load/compile. */
+    @NonNull
+    public static String fallbackLiveShader() {
+        return livePreviewTemplate()
+                .replace("/* TRANSITION_BODY_GOES_HERE */",
+                        "vec4 transition(vec2 uv) { return mix(getFromColor(uv), getToColor(uv), progress); }");
+    }
+
     @NonNull
     public static String fallbackShader(boolean preview) {
         return fallbackShader(preview, 1f);
@@ -182,9 +215,16 @@ public final class GlTransitionShaderLoader {
                 + "uniform float uOverlayAlphaScale0;\n"
                 + "uniform float progress;\n"
                 + "const float ratio = " + ratio + ";\n"
+                // Fit-centered rect of the outgoing input on the (canvas-sized) output —
+                // identity {0,0,1,1} when the segment runs at its own dims. Black outside.
+                + "uniform vec4 uFromFit;\n"
                 + "/* EXTRA_PARAM_UNIFORMS_GO_HERE */"
                 + "varying vec2 vTexSamplingCoord;\n"
-                + "vec4 getFromColor(vec2 uv) { return texture2D(uVideoTexSampler0, uv); }\n"
+                + "vec4 getFromColor(vec2 uv) {\n"
+                + "  vec2 c = (uv - uFromFit.xy) / max(uFromFit.zw, vec2(0.0001));\n"
+                + "  if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) return vec4(0.0, 0.0, 0.0, 1.0);\n"
+                + "  return texture2D(uVideoTexSampler0, c);\n"
+                + "}\n"
                 + "vec4 getToColor(vec2 uv) { vec4 c = texture2D(uOverlayTexSampler0, uv); c.a *= uOverlayAlphaScale0; return c; }\n"
                 + "/* TRANSITION_BODY_GOES_HERE */"
                 + "void main() {\n"
@@ -213,6 +253,54 @@ public final class GlTransitionShaderLoader {
                 // duration (and spin-style shaders make it read as mirrored).
                 + "vec4 getFromColor(vec2 uv) { return texture2D(uFromTex, vec2(uv.x, 1.0 - uv.y)); }\n"
                 + "vec4 getToColor(vec2 uv) { return texture2D(uToTex, vec2(uv.x, 1.0 - uv.y)); }\n"
+                + "/* TRANSITION_BODY_GOES_HERE */"
+                + "void main() {\n"
+                + "  gl_FragColor = transition(vTexSamplingCoord);\n"
+                + "}\n";
+    }
+
+    /**
+     * Template for the LIVE two-decoder preview. Geometry contract (all uv, origin bottom-left
+     * as GLTransitions expects; the SurfaceTexture ST matrix handles the buffer's own
+     * orientation/flip):
+     * <ul>
+     *   <li>{@code u*Fit}: xy = offset, zw = size of the leg's fit-centered content rect within
+     *       the view — outside it the leg is black (the letterbox bars).</li>
+     *   <li>{@code u*Crop}: xy = offset, zw = size of the clip's crop sub-rect in source uv —
+     *       content coords map into this window so the blend shows the CROPPED framing
+     *       (F12's decode-side crop, done shader-side for live frames).</li>
+     *   <li>{@code u*ST}: the SurfaceTexture transform matrix.</li>
+     * </ul>
+     */
+    @NonNull
+    private static String livePreviewTemplate() {
+        return "#version 100\n"
+                + "#extension GL_OES_EGL_image_external : require\n"
+                + "precision mediump float;\n"
+                + "uniform samplerExternalOES uFromTex;\n"
+                + "uniform samplerExternalOES uToTex;\n"
+                + "uniform mat4 uFromST;\n"
+                + "uniform mat4 uToST;\n"
+                + "uniform vec4 uFromFit;\n"
+                + "uniform vec4 uToFit;\n"
+                + "uniform vec4 uFromCrop;\n"
+                + "uniform vec4 uToCrop;\n"
+                + "uniform float progress;\n"
+                + "uniform float ratio;\n"
+                + "/* EXTRA_PARAM_UNIFORMS_GO_HERE */"
+                + "varying vec2 vTexSamplingCoord;\n"
+                + "vec4 getFromColor(vec2 uv) {\n"
+                + "  vec2 c = (uv - uFromFit.xy) / max(uFromFit.zw, vec2(0.0001));\n"
+                + "  if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) return vec4(0.0, 0.0, 0.0, 1.0);\n"
+                + "  vec2 s = uFromCrop.xy + c * uFromCrop.zw;\n"
+                + "  return texture2D(uFromTex, (uFromST * vec4(s, 0.0, 1.0)).xy);\n"
+                + "}\n"
+                + "vec4 getToColor(vec2 uv) {\n"
+                + "  vec2 c = (uv - uToFit.xy) / max(uToFit.zw, vec2(0.0001));\n"
+                + "  if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) return vec4(0.0, 0.0, 0.0, 1.0);\n"
+                + "  vec2 s = uToCrop.xy + c * uToCrop.zw;\n"
+                + "  return texture2D(uToTex, (uToST * vec4(s, 0.0, 1.0)).xy);\n"
+                + "}\n"
                 + "/* TRANSITION_BODY_GOES_HERE */"
                 + "void main() {\n"
                 + "  gl_FragColor = transition(vTexSamplingCoord);\n"

@@ -1084,29 +1084,103 @@ public class FadRecHomeFragment extends HomeFragment {
                     Toast.LENGTH_SHORT).show();
             return;
         }
-        String current = sharedPreferencesManager.sharedPreferences
+        final String current = sharedPreferencesManager.sharedPreferences
                 .getString(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ_STYLE, null);
-        CharSequence[] names = new CharSequence[styles.size()];
-        int checked = 0;
+
+        // Visualizer Studio spec Decision 7: show a RENDERED live mini-preview of each style
+        // (one static frame at t=PREVIEW_AT_MS) instead of a text-only list. We reuse the editor's
+        // WaveformStyleRenderer against LiveVisualizer.sampleWaveformData() — the same synthetic
+        // sequence WaveformDebugActivity previews against. ~15 styles × one render() ≈ a few ms
+        // total, so we build the tiles on the main thread (measured well under the 100ms budget).
+        final float density = getResources().getDisplayMetrics().density;
+        final int tileH = Math.round(64 * density);
+        final int pad = Math.round(12 * density);
+        final int gap = Math.round(8 * density);
+        // Fixed render resolution; ImageView (FIT_XY) scales it to the full-width tile.
+        final int renderW = 700;
+        final int renderH = 140;
+        final long PREVIEW_AT_MS = 3000L;
+        final com.fadcam.ui.faditor.model.WaveformData sample =
+                com.fadcam.visualizer.LiveVisualizer.sampleWaveformData();
+        // One renderer reused sequentially: render() returns a FRESH independent bitmap per call
+        // (unlike renderReusable, which recycles a single slot), so each tile keeps its own bitmap.
+        final com.fadcam.ui.faditor.waveform.WaveformStyleRenderer renderer =
+                new com.fadcam.ui.faditor.waveform.WaveformStyleRenderer();
+
+        android.widget.LinearLayout container = new android.widget.LinearLayout(requireContext());
+        container.setOrientation(android.widget.LinearLayout.VERTICAL);
+        container.setPadding(pad, pad, pad, pad);
+
+        final androidx.appcompat.app.AlertDialog dialog =
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        // TODO(strings): hardcoded title (file precedent).
+                        .setTitle("Live visualizer style")
+                        .setView(wrapScroll(container))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .create();
+
         for (int i = 0; i < styles.size(); i++) {
-            com.fadcam.ui.faditor.model.WaveformStyle s = styles.get(i);
-            names[i] = s.displayName != null ? s.displayName : s.id;
-            if (s.id != null && s.id.equals(current)) checked = i;
+            final com.fadcam.ui.faditor.model.WaveformStyle s = styles.get(i);
+            final boolean selected = s.id != null && s.id.equals(current);
+
+            // Tile = FrameLayout holding the rendered ImageView + a caption overlay; a stroked
+            // GradientDrawable background gives the selection border.
+            android.widget.FrameLayout tile = new android.widget.FrameLayout(requireContext());
+            android.widget.LinearLayout.LayoutParams tp = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT, tileH);
+            tp.topMargin = i == 0 ? 0 : gap;
+            tile.setLayoutParams(tp);
+
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setColor(0xFF000000);
+            bg.setCornerRadius(6 * density);
+            bg.setStroke(Math.round((selected ? 3 : 1) * density),
+                    selected ? 0xFF00E676 : 0x33FFFFFF);
+            tile.setBackground(bg);
+
+            android.widget.ImageView iv = new android.widget.ImageView(requireContext());
+            iv.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
+            iv.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
+            // Fresh independent bitmap per tile.
+            iv.setImageBitmap(renderer.render(sample, s, renderW, renderH, PREVIEW_AT_MS, density));
+            tile.addView(iv);
+
+            android.widget.TextView caption = new android.widget.TextView(requireContext());
+            caption.setText(s.displayName != null ? s.displayName : s.id);
+            caption.setTextColor(android.graphics.Color.WHITE);
+            caption.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12);
+            caption.setBackgroundColor(0x99000000);
+            int cpad = Math.round(6 * density);
+            caption.setPadding(cpad, cpad / 2, cpad, cpad / 2);
+            android.widget.FrameLayout.LayoutParams cp = new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+            cp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.START;
+            caption.setLayoutParams(cp);
+            tile.addView(caption);
+
+            tile.setOnClickListener(v -> {
+                sharedPreferencesManager.sharedPreferences.edit()
+                        .putString(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ_STYLE, s.id)
+                        // Choosing a style also arms it, so a long-press is a one-tap setup.
+                        .putBoolean(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ, true)
+                        .apply();
+                updateVizButtonUi();
+                dialog.dismiss();
+            });
+            container.addView(tile);
         }
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Live visualizer style")
-                .setSingleChoiceItems(names, checked, (dialog, which) -> {
-                    com.fadcam.ui.faditor.model.WaveformStyle chosen = styles.get(which);
-                    sharedPreferencesManager.sharedPreferences.edit()
-                            .putString(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ_STYLE, chosen.id)
-                            // Choosing a style also arms it, so a long-press is a one-tap setup.
-                            .putBoolean(com.fadcam.Constants.PREF_FADREC_LIVE_VIZ, true)
-                            .apply();
-                    updateVizButtonUi();
-                    dialog.dismiss();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
+
+        dialog.show();
+    }
+
+    /** Wrap a picker's tile list in a vertically scrolling container for the dialog body. */
+    private android.widget.ScrollView wrapScroll(android.view.View content) {
+        android.widget.ScrollView scroll = new android.widget.ScrollView(requireContext());
+        scroll.addView(content);
+        return scroll;
     }
 
     /**

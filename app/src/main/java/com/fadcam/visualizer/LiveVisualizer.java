@@ -87,6 +87,36 @@ public final class LiveVisualizer implements GLWatermarkRenderer.OverlayFrameSou
     }
 
     /**
+     * A stock synthetic amplitude + spectrum sequence for STATIC preview thumbnails (the FadRec
+     * style picker renders one frame of each live-eligible style against this). Mirrors the shape
+     * used by {@code WaveformDebugActivity.synthData} so previews look like the debug screen. This
+     * is NOT used on the live recording path — that pulls real PCM through the sampler.
+     */
+    @NonNull
+    public static WaveformData sampleWaveformData() {
+        int buckets = 400;
+        long durationMs = 4000;
+        int bands = 32;
+        float[] amp = new float[buckets];
+        float[][] spec = new float[buckets][bands];
+        for (int i = 0; i < buckets; i++) {
+            double base = 0.5 + 0.5 * Math.sin(i * 0.10);
+            double slow = 0.5 + 0.5 * Math.sin(i * 0.013);
+            amp[i] = (float) clamp01(base * slow);
+            for (int b = 0; b < bands; b++) {
+                double bandFall = 1.0 - (b / (double) bands) * 0.7; // bass louder than treble
+                double wob = 0.5 + 0.5 * Math.sin(i * 0.05 + b * 0.6);
+                spec[i][b] = (float) clamp01(bandFall * wob);
+            }
+        }
+        return new WaveformData(amp, spec, durationMs);
+    }
+
+    private static double clamp01(double v) {
+        return v < 0 ? 0 : (v > 1 ? 1 : v);
+    }
+
+    /**
      * Resolve the armed style by id from the live-eligible built-ins, falling back to the first
      * eligible style (or null if none). Keeps the recording path from ever arming a hot style even
      * if a stale/hand-edited pref points at one.

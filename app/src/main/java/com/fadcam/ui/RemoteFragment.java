@@ -1172,7 +1172,7 @@ public class RemoteFragment extends BaseFragment {
                 String userUuid = cloudAuthManager.getUserId();
                 if (userUuid == null || userUuid.isEmpty()) {
                     Toast.makeText(requireContext(),
-                            "Link your FadSec ID account first", Toast.LENGTH_SHORT).show();
+                            "Link your Joy Creator ID account first", Toast.LENGTH_SHORT).show();
                     return;
                 }
 

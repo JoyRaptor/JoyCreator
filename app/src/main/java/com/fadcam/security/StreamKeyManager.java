@@ -80,7 +80,7 @@ public class StreamKeyManager {
      * {@code public.users.e2e_verify_tag}. Providing it ensures the password is correct
      * before the key is ever stored — a wrong password throws {@link SecurityException}.
      *
-     * @param password          The user's FadSec ID password.
+     * @param password          The user's Joy Creator ID password.
      * @param userUuid          The user's UUID (PBKDF2 salt).
      * @param expectedVerifyTag 64-char hex tag fetched from Supabase, or {@code null} to skip
      *                          verification (not recommended; fails-open).

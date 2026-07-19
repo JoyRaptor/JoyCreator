@@ -275,7 +275,7 @@
                             android:alpha="0.72"
                             android:scaleType="fitCenter"
                             android:contentDescription="@null"
-                            android:src="@drawable/fadseclab_flag"
+                            android:src="@drawable/timer_accent"
                             android:translationX="0dp"
                             android:translationY="6dp" />
 

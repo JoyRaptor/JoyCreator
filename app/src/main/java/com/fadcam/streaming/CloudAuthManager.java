@@ -295,7 +295,7 @@ public class CloudAuthManager {
         String token = getJwtToken();
         String userId = getUserId();
         if (token == null || userId == null) {
-            throw new IllegalStateException("Not linked to a FadSec ID account");
+            throw new IllegalStateException("Not linked to a Joy Creator ID account");
         }
         String url = SUPABASE_URL + "/rest/v1/users?select=e2e_verify_tag&id=eq." + userId;
         java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
@@ -345,7 +345,7 @@ public class CloudAuthManager {
         String token = getJwtToken();
         String userId = getUserId();
         if (token == null || userId == null) {
-            throw new IllegalStateException("Not linked to a FadSec ID account");
+            throw new IllegalStateException("Not linked to a Joy Creator ID account");
         }
         String url = SUPABASE_URL + "/rest/v1/users?id=eq." + userId;
         java.net.HttpURLConnection conn = (java.net.HttpURLConnection)

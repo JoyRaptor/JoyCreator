@@ -657,7 +657,7 @@ public class ShortcutsSettingsFragment extends Fragment {
         items.add(new com.fadcam.ui.picker.OptionItem(
                 "branding",
                 getString(R.string.widget_branding_title),
-                R.drawable.fadseclab_flag,
+                R.mipmap.ic_launcher_foreground, // was the FadSec flag — de-politicize A1
                 prefs.showBranding()));
 
         com.fadcam.ui.picker.PickerBottomSheetFragment sheet = com.fadcam.ui.picker.PickerBottomSheetFragment

@@ -93,7 +93,7 @@ public class KoFiSupportBottomSheet extends BottomSheetDialogFragment {
         // Styled description (left-aligned, only keywords bold, project names red/clickable)
         TextView tvKoFiDescription = view.findViewById(R.id.tvKoFiDescription);
         if (tvKoFiDescription != null) {
-            String desc = "Built and maintained by the developer behind Joy Creator, FadCrypt, and other projects at FadSec Lab — a community-driven initiative focused on privacy-first, ad-free, tracker-free, and fully open-source tools, crafted over hundreds of hours of effort.\n\nIf you find value in this work and want to support the vision, you're welcome to buy the maintainer a coffee. ☕";
+            String desc = "Built and maintained by the developer behind Joy Creator, FadCrypt, and other projects — a community-driven effort focused on privacy-first, ad-free, tracker-free, and fully open-source tools, crafted over hundreds of hours of effort.\n\nIf you find value in this work and want to support the vision, you're welcome to buy the maintainer a coffee. ☕";
             android.text.SpannableString spannable = new android.text.SpannableString(desc);
             // Make Joy Creator red and clickable
             int fadCamStart = desc.indexOf("Joy Creator");
@@ -170,7 +170,9 @@ public class KoFiSupportBottomSheet extends BottomSheetDialogFragment {
         // see tasks/DESIGN_JOY_CREATOR.md §4).
         TextView tvKoFiFooterFull = view.findViewById(R.id.tvKoFiFooterFull);
         if (tvKoFiFooterFull != null) {
-            String footer = "Built on FadSec Lab foundations";
+            // GPL upstream attribution lives once, in the About screen. Keep this
+            // footer neutral so FadSec Lab is credited exactly once app-wide.
+            String footer = "Built with care for creators";
             SpannableString spannable = new SpannableString(footer);
             // FadSec Lab clickable, bold, and red
             int fadSecLabStart = footer.indexOf("FadSec Lab");

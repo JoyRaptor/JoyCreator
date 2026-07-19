@@ -3,7 +3,7 @@
     <string name="app_icon_description">Choose an icon and name for your app. This will change how it appears on your home screen.</string>
     <string name="check_for_updates">Check for Updates</string>
     <string name="accessibility_thumbnail_progress">%1$d%% watched</string>
-    <string name="fadsec_info">Joy Creator is part of the FadSec Lab suite. For more information, click on \'view source code\' below.</string>
+    <string name="fadsec_info">Joy Creator is free and open-source. For more information, click on \'view source code\' below.</string>
 
 
     <string name="app_description">
@@ -158,7 +158,7 @@
     <string name="recording_elapsed_time">Elapsed time</string>
     <string name="recording_remaining_time">Remaining time</string>
     <string name="home_elapsed_customize_title">Elapsed Time</string>
-    <string name="home_elapsed_customize_helper">Customize the elapsed timer display, alignment, size, font, accent flag, and background.</string>
+    <string name="home_elapsed_customize_helper">Customize the elapsed timer display, alignment, size, font, accent, and background.</string>
     <string name="home_elapsed_display_option">Display format</string>
     <string name="home_elapsed_display_option_desc">Switch between compact inline elapsed time and a digital clock format</string>
     <string name="home_elapsed_display_helper">Choose how the elapsed timer is shown on the card.</string>
@@ -191,13 +191,13 @@
     <string name="home_elapsed_font_monospace_desc">Uses Androidâ€™s built-in monospace font for clearer fixed-width digits</string>
     <string name="home_elapsed_font_doto">Doto</string>
     <string name="home_elapsed_font_doto_desc">Uses the Doto font for a more distinctive digital timer look</string>
-    <string name="home_elapsed_flag_option">Flag accent</string>
-    <string name="home_elapsed_flag_option_desc">Show or hide the FadSec Lab flag accent behind the timer</string>
-    <string name="home_elapsed_flag_helper">Choose whether the FadSec Lab flag accent is shown behind the elapsed timer.</string>
-    <string name="home_elapsed_flag_show">Show FadSec Lab flag (Default)</string>
-    <string name="home_elapsed_flag_show_desc">Display the branded flag accent behind the timer</string>
-    <string name="home_elapsed_flag_hide">Hide FadSec Lab flag</string>
-    <string name="home_elapsed_flag_hide_desc">Keep the elapsed timer area clean without the flag accent</string>
+    <string name="home_elapsed_flag_option">Timer accent</string>
+    <string name="home_elapsed_flag_option_desc">Show or hide the accent bar behind the timer</string>
+    <string name="home_elapsed_flag_helper">Choose whether the accent bar is shown behind the elapsed timer.</string>
+    <string name="home_elapsed_flag_show">Show accent (Default)</string>
+    <string name="home_elapsed_flag_show_desc">Display a subtle accent bar behind the timer</string>
+    <string name="home_elapsed_flag_hide">Hide accent</string>
+    <string name="home_elapsed_flag_hide_desc">Keep the elapsed timer area clean without the accent</string>
     <string name="home_elapsed_background_option">Background</string>
     <string name="home_elapsed_background_option_desc">Choose whether the elapsed timer sits on a black, white, or transparent card</string>
     <string name="home_elapsed_background_helper">Pick the background treatment used by the elapsed timer card.</string>
@@ -597,12 +597,12 @@
     <string name="ae_lock_switch_label">Lock AE</string>
     <string name="exposure_title">Exposure Compensation (EV)</string>
     <string-array name="easter_eggs_array">
-        <item>Alert! This is a restricted area. Start recording to gain access.</item>
-        <item>You\'ve found the secret button! It does nothing lol</item>
-        <item>Hurry! The system is about to explodeâ€¦ or maybe it just needs a recording to calm down.</item>
-        <item>Well, this is awkward nowâ€¦</item>
-        <item>What color is your Bugatti?</item>
-        <item>I was not programmed to do what you are doing. Wait, are you trying to hack me?</item>
+        <item>Oh, hi there! I was hoping you\'d come say hello. </item>
+        <item>You found the secret button! Your reward is my undivided admiration. </item>
+        <item>Psst, I keep all your best moments safe. Hit record and let\'s make more.</item>
+        <item>Just you and me here. Cozy, right?</item>
+        <item>Between us, you\'re my favorite creator.</item>
+        <item>Tap tap tap! That tickles. I\'m always here whenever you need me. </item>
     </string-array>
     <string-array name="questions_array" tools:ignore="InconsistentArrays">
         <item>DISCLAIMER</item>
@@ -818,7 +818,7 @@
     <string name="widget_black_background_title">Black Background</string>
     <string name="widget_arabic_date_title">Arabic Date</string>
     <string name="widget_arabic_date_format_title">Arabic Date Format</string>
-    <string name="widget_branding_title">FadSecLab Branding</string>
+    <string name="widget_branding_title">Joy Creator Branding</string>
 
     <!-- Widget Option Descriptions -->
     <string name="widget_time_format_12h">12-hour (3:30 PM)</string>
@@ -1671,7 +1671,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="support_ko_fi">Support us on Ko-fi</string>
     <string name="kofi_description">Description will be set in code.</string>
     <string name="kofi_button_text">Buy me a Ko-fi</string>
-    <string name="kofi_footer_text">Made with    at FadSec Lab in   </string>
+    <string name="kofi_footer_text">Made with    for creators in   </string>
 
     <string name="setting_audio_input_source_title">Audio Input Source</string>
     <string name="setting_audio_input_source_status_default">Phone Microphone</string>
@@ -2362,11 +2362,11 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="stream_notes_cellular">âš ï¸ WiFi-only limitation: Cellular networks block incoming connections. For seamless streaming from any network (WiFi, LTE, anywhere), upgrade to Joy Creator Pro+. Stream from anywhere globally with a private generated linkâ€”no port forwarding, no router changes, no network restrictions</string>
     <string name="stream_notes_android14_screen">âš ï¸ Android 14+: System restriction prevents recording when screen is off. Workarounds: (1) Enable "Black Screen Mode" in Settings â†’ Security, or (2) Disable screen lock (no PIN/password/fingerprint). Both allow seamless remote recording</string>
     
-    <!-- FadSec Cloud / Remote Streaming -->
-    <string name="cloud_account_button_desc">FadSec Cloud</string>
-    <string name="cloud_button_label">FadSec Cloud</string>
-    <string name="cloud_button_title">FadSec Cloud</string>
-    <string name="cloud_account_title">FadSec Cloud</string>
+    <!-- Joy Creator Cloud / Remote Streaming -->
+    <string name="cloud_account_button_desc">Joy Creator Cloud</string>
+    <string name="cloud_button_label">Joy Creator Cloud</string>
+    <string name="cloud_button_title">Joy Creator Cloud</string>
+    <string name="cloud_account_title">Joy Creator Cloud</string>
     <string name="cloud_account_link">Link Device</string>
     <string name="cloud_account_unlink">Unlink Device</string>
     <string name="cloud_account_connecting">Connectingâ€¦</string>
@@ -2374,20 +2374,20 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="cloud_account_not_linked">Not Linked</string>
     <string name="cloud_account_device_name_hint">Enter device name (e.g., My Phone)</string>
     <string name="cloud_account_device_name_title">Name Your Device</string>
-    <string name="cloud_account_device_name_desc">This name will appear in your FadSec Cloud dashboard</string>
+    <string name="cloud_account_device_name_desc">This name will appear in your Joy Creator Cloud dashboard</string>
     <string name="cloud_account_device_id">Device ID</string>
     <string name="cloud_account_link_success">Device linked successfully!</string>
     <string name="cloud_account_link_failed">Failed to link device. Please try again.</string>
     <string name="cloud_account_unlink_confirm">Are you sure you want to unlink this device?</string>
     <string name="cloud_account_unlink_success">Device unlinked</string>
-    <string name="cloud_account_webview_title">FadSec Cloud</string>
+    <string name="cloud_account_webview_title">Joy Creator Cloud</string>
     <string name="cloud_account_login_required">Please log in to link your device</string>
     <string name="cloud_account_helper_text">Unlink to disconnect from your account. You can link again with a different name.</string>
     
     <!-- Cloud Streaming -->
     <string name="cloud_streaming_title">Cloud Streaming</string>
     <string name="cloud_streaming_status_off">Stream locally only</string>
-    <string name="cloud_streaming_status_on">Uploading to FadSec Cloud</string>
+    <string name="cloud_streaming_status_on">Uploading to Joy Creator Cloud</string>
     <string name="cloud_streaming_not_linked">Link device first to enable</string>
 
     <!-- E2E Stream Encryption -->
@@ -2395,15 +2395,15 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="e2e_encryption_not_configured">Not configured â€” configure to enable cloud streaming</string>
     <string name="e2e_encryption_configured">Configured â€” segments are encrypted end-to-end</string>
     <string name="e2e_encryption_setup_title">Set E2E Encryption Password</string>
-    <string name="e2e_encryption_setup_hint">Enter your FadSec ID password</string>
-    <string name="e2e_encryption_setup_desc">Your FadSec ID password is used to derive the stream encryption key. This must match the password you use on the Joy Creator dashboard to view streams.</string>
+    <string name="e2e_encryption_setup_hint">Enter your Joy Creator ID password</string>
+    <string name="e2e_encryption_setup_desc">Your Joy Creator ID password is used to derive the stream encryption key. This must match the password you use on the Joy Creator dashboard to view streams.</string>
     <string name="e2e_encryption_change_title">Change E2E Encryption Password</string>
     
     <!-- Streaming Mode Selector -->
     <string name="streaming_mode_title">Streaming Destination</string>
     <string name="streaming_mode_local">Local Network</string>
     <string name="streaming_mode_local_desc">Stream to devices on the same WiFi</string>
-    <string name="streaming_mode_cloud">FadSec Cloud</string>
+    <string name="streaming_mode_cloud">Joy Creator Cloud</string>
     <string name="streaming_mode_cloud_desc">Stream anywhere via internet</string>
     <string name="streaming_mode_cloud_featured">FEATURED</string>
     <string name="streaming_mode_link_required">Link device to enable</string>
@@ -2498,7 +2498,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Home sidebar branding -->
     <string name="home_sidebar_discord">Discord</string>
     <string name="home_sidebar_discord_sub">Join the community</string>
-    <string name="home_sidebar_copyright" translatable="false">Â© FadSec Lab 2024 â€“ 2026</string>
+    <string name="home_sidebar_copyright" translatable="false">Â© Joy Creator 2024 â€“ 2026</string>
 
     <!-- Privacy Black Mode Settings -->
     <string name="privacy_black_mode_title">Privacy Black Screen</string>
@@ -2999,7 +2999,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="settings_location_update_interval_5s">5.0 seconds</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">by FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">by Joy Creator</string>
     <string name="annotation_quick_access">Quick Access</string>
     <string name="annotation_annotate">Annotate</string>
     <string name="annotation_enable_tools">Enable tools</string>

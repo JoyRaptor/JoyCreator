@@ -4,6 +4,21 @@ Executes `DESIGN_JOY_CREATOR.md §4` (remove political/activist identity; KEEP t
 the real privacy features — only the *messaging/theming* goes). Read-only audit; NO edits made yet.
 Presented for a scope go/no-go because this is outward-facing brand/content (hard to reverse).
 
+## Status: A1 / A2 / B1 EXECUTED (2026-07-19, JoyRaptor's decisions) — B2/B3/B4 + locales still parked
+- **A1 DONE** — flag accent reskinned to a neutral "timer accent". New drawable `res/drawable/timer_accent.xml`
+  (rounded purple gradient bar); both `fragment_home.xml` + `layout-land/fragment_home.xml` `ivElapsedAccent`
+  now point at it. Strings `home_elapsed_flag_*` (194-200) + `home_elapsed_customize_helper` (161) rewritten to
+  "timer accent" language. Pref key `PREF_HOME_ELAPSED_SHOW_FLAG` and the show/hide mechanic UNCHANGED.
+- **A2 DONE** — 6 easter-egg lines (`easter_eggs_array` 599-606) rewritten from snarky security-guard voice to a
+  warm AI-companion voice. Mechanic unchanged.
+- **B1 DONE** — user-facing FadSec Lab / Cloud / ID renamed to Joy Creator (Cloud/ID → "Joy Creator Cloud/ID").
+  Single GPL attribution now lives ONCE in About: "Based on FadCam by FadSec Lab" → github.com/fadsec-lab
+  (`AboutFragment.java:226`). Ko-fi footer + description neutralized so FadSec Lab is credited exactly once.
+- **Deliberately LEFT** (per JoyRaptor's scope): B2 forensics module; B3 icon-variant labels (`app_icon_fadseclab`
+  strings.xml:1802 kept); B4 Classified Mode; `values-*/` locale files (separate sweep); icon ASSET files
+  (`fadseclab.png`, `fadseclab_flag.png`, `ic_launcher_fadseclab*`, `ivFadSecLabLogo` view IDs, themes.xml
+  splash icon, widget-branding picker icon) — asset rename is a separate errand, flagged in report.
+
 ## Status: PARTLY DONE — no advocacy TEXT remains
 - **No "Free Palestine" / flag-slogan / activist TEXT anywhere in the shipping app.** Only occurrence of
   "Palestine" in the repo is the design rule itself (`DESIGN_JOY_CREATOR.md:30`).

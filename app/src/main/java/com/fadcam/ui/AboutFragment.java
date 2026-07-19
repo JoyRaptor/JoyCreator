@@ -220,7 +220,10 @@ public class AboutFragment extends BaseFragment {
         // Setup footer text with dev attribution (de-politicized: no flags/country messaging,
         // see tasks/DESIGN_JOY_CREATOR.md §4).
         if (tvAboutFooter != null) {
-            String footer = "Built on FadSec Lab foundations";
+            // Single GPL upstream attribution line for the project (Joy Creator is a
+            // rebrand of the GPL-licensed FadCam). This is the ONE place FadSec Lab is
+            // credited; see tasks/DESIGN_JOY_CREATOR.md §6.
+            String footer = "Based on FadCam by FadSec Lab";
             android.text.SpannableString spannable = new android.text.SpannableString(footer);
 
             // FadSec Lab clickable, bold, and red

@@ -50,7 +50,11 @@ POLISH, not a blocker.
 JOYRAPTOR'S PRIORITY CALL (2026-07-19 evening, Fable's last day on this plan — these are the HARD
 items reserved for the strongest available model; everything else can go to lesser models + JoyRaptor
 hand-testing):
-P1. G9 multi-membership resolver — JoyRaptor requires an item to join DIFFERENT link groups on
+P1. ✅ BUILT `96b99d5` (0719 evening, Fable): OPACITY axis end-to-end proves multi-axis
+    membership — axis-choice link dialog, per-axis strict conflict rules, per-group unlink
+    actions, opacity delta propagation (text+sprite). DEVICE-VERIFY: link 2 texts on TIME in
+    group A, then same texts + a third on OPACITY in group B → both propagate independently.
+    (was) G9 multi-membership resolver — JoyRaptor requires an item to join DIFFERENT link groups on
     DIFFERENT property-axes simultaneously (TIME→group A + OPACITY→group B). The shipped G9c/d/e
     supports one group per item. Re-scope per PLAN_G9_LINK_ENGINE.md §8 answer 3: membership must
     key by (item, axis)→group in LinkGroup/LinkMember + the resolver + toolbar tie-break.

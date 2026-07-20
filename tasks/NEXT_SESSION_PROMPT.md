@@ -112,6 +112,20 @@ QUEUE (in order — pure device-verify + small errands; NOTHING needs re-derivin
 DEVICE ETIQUETTE: if screenshots show human activity (shade pulls, app switches you didn't
 cause), STOP injecting immediately and say so — JoyRaptor sometimes picks the phone up.
 
+
+JOYRAPTOR 0719 HAND-TEST BATCH (`95e91af`, compile-green, NOT yet installed - device was unplugged;
+install on next connect): select-mode drag-on-object = instant move (empty space = box; this is
+what blocked her linked-motion test); preview double-tap fixed (handles overlay was eating the
+second tap - now forwards to the type editor); kind badges moved onto OBJECT blocks
+(payload-derived), row gutters identity-free; select toggle promoted to the transport row left
+of ripple (btn_select_mode). RE-TEST OWED (JoyRaptor): drag one TIME-linked text -> partner follows;
+double-tap text in preview opens text dialog; badges read per-object; transport toggle cycles.
+STILL OPEN from her feedback - THE BIG ONE: "any object on any layer" (neutral substrate,
+model half): Timeline.getLayers routes items into per-kind tracks and payloadCompatible blocks
+cross-kind drops. Needs: layerId-first routing in getLayers, payloadCompatible relaxed for the
+floating band, mixed-row rendering audit (drawItemBody is already per-item-kind), preview
+z-order across mixed lanes. Design lane - spec it before building.
+
 HOUSE RULES (unchanged): `$env:TEMP='C:\Users\JoyRaptor\gtmp'; $env:TMP=$env:TEMP` before any
 gradlew; NEVER --rerun-tasks (corrupts media3-patched jars); adb at
 C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe; Glob broken — use Grep/ls;

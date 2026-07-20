@@ -2088,6 +2088,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // G8 (contract §5.5): three-state marquee multi-select toggle.
         View toolSelect = findViewById(R.id.tool_select);
         if (toolSelect != null) toolSelect.setOnClickListener(v -> cycleMarqueeMode());
+        // JoyRaptor 2026-07-19: promoted transport-row twin of the select toggle.
+        View transportSelect = findViewById(R.id.btn_select_mode);
+        if (transportSelect != null) transportSelect.setOnClickListener(v -> cycleMarqueeMode());
         wireMarqueeListener();
         toolMove.setOnClickListener(v -> toggleMoveDrawer());
         initMoveDrawer();
@@ -10755,6 +10758,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.setMarqueeMode(next);
         TextView icon = findViewById(R.id.tool_select_icon);
         if (icon != null) icon.setTextColor(tint);
+        // JoyRaptor 2026-07-19: the toggle also lives on the transport row now — keep
+        // both affordances' state tint in sync.
+        TextView transportIcon = findViewById(R.id.btn_select_mode);
+        if (transportIcon != null) transportIcon.setTextColor(tint);
         Toast.makeText(this, hint, Toast.LENGTH_SHORT).show();
     }
 
@@ -16450,6 +16457,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Nullable com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before;
 
             @Override
+            public void onDoubleTapped() {
+                // Grammar: double-tap = type editor — works even while the handles
+                // consume in-box touches (JoyRaptor 2026-07-19 fix).
+                showTextOverlayEditor(o);
+            }
+
+            @Override
             public boolean frame(long timeMs, @NonNull android.graphics.RectF outRect) {
                 if (project == null
                         || !project.getTimeline().getTextOverlays().contains(o)
@@ -16550,6 +16564,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
         return new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target() {
             @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot before;
+
+            @Override
+            public void onDoubleTapped() {
+                openSpritePalette(); // grammar: double-tap = type editor
+            }
 
             @Override
             public boolean frame(long timeMs, @NonNull android.graphics.RectF outRect) {

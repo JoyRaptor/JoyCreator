@@ -604,15 +604,9 @@ public final class LayerRowRenderer {
         // Caret (collapse toggle) — right-pointing when collapsed, down when expanded.
         drawCaret(canvas, row.caretRect, collapsed);
 
-        // Kind BADGE instead of a track name (LANE_BADGES spec §1, JoyRaptor 2026-07-14:
-        // layers are substrate, not named entities — a small glyph for the kind of
-        // content on the row, clipped to the caret↔icon-cluster gap like the old name).
-        canvas.save();
-        canvas.clipRect(row.caretRect.right + 4f * density, row.headerRect.top,
-                row.muteRect.left - 2f * density, row.headerRect.bottom);
-        drawKindBadge(canvas, row.caretRect.right + 6f * density,
-                row.headerRect.centerY(), t.getKind());
-        canvas.restore();
+        // JoyRaptor 2026-07-19: layers are NEUTRAL SUBSTRATE — the kind badge moved off
+        // the row gutter onto each OBJECT (drawItemBody). The header keeps only the
+        // caret + mute; no name, no kind identity.
 
         // §4.5: per-layer eye/lock glyphs RETIRED (drawEyeIcon/drawLockIcon calls gone) —
         // hidden/locked live on objects, toggled in the drawer, ghosted on item bodies.
@@ -1143,6 +1137,14 @@ public final class LayerRowRenderer {
                     centerY + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
             canvas.restore();
         }
+        // JoyRaptor 2026-07-19 (neutral substrate): the KIND badge belongs to the OBJECT,
+        // not the lane — small glyph at the item's left inside edge, payload-derived
+        // so it stays correct when any-object-on-any-lane lands. Skipped on slivers.
+        if (x1 - x0 > 40f * density) {
+            drawKindBadge(canvas, x0 + 3f * density, (top + bottom) / 2f,
+                    payloadKindOf(item, rowKind));
+        }
+
         // G9c: chain badge on linked items (visual only — unlink lives in the object
         // drawer / batch menu). Two interlocked stroke rings at the top-right corner,
         // the purple link-family color; skipped on slivers.
@@ -1861,6 +1863,21 @@ public final class LayerRowRenderer {
      * sprocket holes (video), T-in-a-box (text), mountain-in-a-frame (image),
      * stickman-in-a-ring (sprite), CC box (captions), bars (visualizer/audio).
      */
+    /** The OBJECT's own kind (JoyRaptor 2026-07-19: badges ride objects, lanes are neutral).
+     *  Falls back to the row kind for payloads without a distinct identity. */
+    @NonNull
+    private static TrackKind payloadKindOf(@NonNull TimedItem item, @NonNull TrackKind rowKind) {
+        if (item.getTextOverlay() != null) {
+            return item.getTextOverlay().isImage() ? TrackKind.IMAGE : TrackKind.TEXT;
+        }
+        if (item.getSprite() != null) return TrackKind.SPRITE;
+        if (item.getAudioClip() != null) return TrackKind.AUDIO;
+        if (item.getWaveform() != null) return TrackKind.VISUALIZER;
+        if (item.getCaptionSpan() != null) return TrackKind.CAPTION;
+        if (item.getClip() != null && item.getClip().isOverlayClip()) return TrackKind.VIDEO;
+        return rowKind;
+    }
+
     private void drawKindBadge(@NonNull Canvas canvas, float leftX, float cy,
                                @NonNull TrackKind kind) {
         float s = 12f * density;          // badge box size

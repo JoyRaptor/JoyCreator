@@ -70,9 +70,18 @@ public final class PreviewHandlesOverlay extends View {
 
         /** Gesture ended with a change — record ONE undo step + persist. */
         void commit(@NonNull String what);
+
+        /**
+         * A clean double-tap landed inside the selected object's box (grammar:
+         * double-tap = TYPE editor). Default no-op so existing targets compile.
+         */
+        default void onDoubleTapped() { }
     }
 
     private enum Mode { NONE, MOVE, SCALE, ROTATE }
+
+    /** In-box tap pairing for the double-tap forwarder (see onTouchEvent UP). */
+    private long lastInBoxTapUpMs;
 
     /** Center-snap threshold, TextOverlayLayer parity. */
     private static final float SNAP_THRESHOLD = 0.045f;
@@ -200,6 +209,19 @@ public final class PreviewHandlesOverlay extends View {
                 if (moved && e.getActionMasked() == MotionEvent.ACTION_UP) {
                     t.commit(finished == Mode.MOVE ? "Move"
                             : finished == Mode.SCALE ? "Scale" : "Rotate");
+                } else if (!moved && finished == Mode.MOVE
+                        && e.getActionMasked() == MotionEvent.ACTION_UP) {
+                    // JoyRaptor 2026-07-19: once the handles are up they consume every touch
+                    // inside the box, which was EATING the second tap of a double-tap —
+                    // the type editor became unreachable from the preview on a selected
+                    // object. Pair clean in-box taps here and forward the double-tap.
+                    long now = android.os.SystemClock.uptimeMillis();
+                    if (now - lastInBoxTapUpMs <= 320) {
+                        lastInBoxTapUpMs = 0;
+                        t.onDoubleTapped();
+                    } else {
+                        lastInBoxTapUpMs = now;
+                    }
                 }
                 invalidate();
                 return true;

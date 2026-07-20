@@ -5646,6 +5646,10 @@ public class EditorTimelineView extends View {
     private boolean marqueeTouchActive = false;
     private boolean marqueeDragActive = false;
     private boolean marqueeBatchFired = false;
+    /** JoyRaptor 2026-07-19: in select mode a drag STARTING ON AN OBJECT manipulates it
+     *  (instant move, no hold needed); only empty space ropes a box. */
+    @Nullable private com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit marqueeDownItemHit;
+    private boolean marqueeItemDragActive = false;
     private float marqueeDownViewX, marqueeDownViewY;
     /** Marquee corners are CONTENT-anchored (x = scrolled content-x, y = band-local
      *  content-y) so edge-scrolling extends the box instead of dragging it along. */
@@ -5721,14 +5725,15 @@ public class EditorTimelineView extends View {
                 marqueeLastViewY = y;
                 marqueeAnchorContentX = x + scrollOffsetPx;
                 marqueeAnchorLocalY = y - getM6RowsTopPx() + layerRowRenderer.getScrollOffsetPx();
+                // Object-vs-empty routing (JoyRaptor 2026-07-19): remember what the touch
+                // started on — a later drag manipulates the OBJECT; empty space ropes.
+                marqueeDownItemHit = layerRowRenderer.hitTestItem(x + scrollOffsetPx, y,
+                        getM6RowsTopPx(), totalEffectiveMs, this::timeToX, null);
+                marqueeItemDragActive = false;
                 // Batch long-press arms only when the touch starts ON a selected item.
-                if (!marqueeSelectedIds.isEmpty()) {
-                    com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit hit =
-                            layerRowRenderer.hitTestItem(x + scrollOffsetPx, y, getM6RowsTopPx(),
-                                    totalEffectiveMs, this::timeToX, null);
-                    if (hit != null && marqueeSelectedIds.contains(hit.item.getId())) {
-                        longPressHandler.postDelayed(marqueeBatchLongPressRunnable, ITEM_PICKUP_MS);
-                    }
+                if (marqueeDownItemHit != null && !marqueeSelectedIds.isEmpty()
+                        && marqueeSelectedIds.contains(marqueeDownItemHit.item.getId())) {
+                    longPressHandler.postDelayed(marqueeBatchLongPressRunnable, ITEM_PICKUP_MS);
                 }
                 getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
@@ -5738,13 +5743,30 @@ public class EditorTimelineView extends View {
                 marqueeLastViewX = x;
                 marqueeLastViewY = y;
                 float slop = 8f * density;
-                if (!marqueeDragActive && (Math.abs(x - marqueeDownViewX) > slop
-                        || Math.abs(y - marqueeDownViewY) > slop)) {
-                    marqueeDragActive = true;
+                if (!marqueeDragActive && !marqueeItemDragActive
+                        && (Math.abs(x - marqueeDownViewX) > slop
+                            || Math.abs(y - marqueeDownViewY) > slop)) {
                     longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
-                    startMarqueeEdgeScroll();
+                    if (marqueeDownItemHit != null && layerGestureController != null) {
+                        // Drag started ON an object → instant pickup-move (no hold).
+                        layerGestureController.onRowBodyDown(
+                                marqueeDownViewX + scrollOffsetPx, marqueeDownViewY,
+                                getM6RowsTopPx(), totalEffectiveMs, this::timeToX);
+                        if (layerGestureController.beginPickup()) {
+                            marqueeItemDragActive = true;
+                        } else {
+                            // Locked object / nothing to lift — consume, no rope.
+                            marqueeDownItemHit = null;
+                        }
+                    } else {
+                        marqueeDragActive = true;
+                        startMarqueeEdgeScroll();
+                    }
                 }
-                if (marqueeDragActive) {
+                if (marqueeItemDragActive && layerGestureController != null) {
+                    layerGestureController.onRowBodyMove(x + scrollOffsetPx, y,
+                            getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
+                } else if (marqueeDragActive) {
                     updateMarqueeTo(x, y);
                 }
                 return true;
@@ -5753,11 +5775,18 @@ public class EditorTimelineView extends View {
             case MotionEvent.ACTION_CANCEL: {
                 longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
                 boolean wasDrag = marqueeDragActive;
+                boolean wasItemDrag = marqueeItemDragActive;
                 boolean batchFired = marqueeBatchFired;
                 marqueeDragActive = false;
+                marqueeItemDragActive = false;
                 marqueeTouchActive = false;
                 marqueeBatchFired = false;
-                if (e.getActionMasked() == MotionEvent.ACTION_UP && !wasDrag && !batchFired) {
+                marqueeDownItemHit = null;
+                if (wasItemDrag && layerGestureController != null) {
+                    layerGestureController.onRowBodyUp(
+                            e.getActionMasked() == MotionEvent.ACTION_UP);
+                } else if (e.getActionMasked() == MotionEvent.ACTION_UP
+                        && !wasDrag && !batchFired) {
                     onMarqueeTap(x, y);
                 }
                 getParent().requestDisallowInterceptTouchEvent(false);
@@ -5771,6 +5800,11 @@ public class EditorTimelineView extends View {
     /** Abort any in-flight marquee touch (pinch started, mode flipped, …). */
     private void cancelMarqueeTouch() {
         longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
+        if (marqueeItemDragActive && layerGestureController != null) {
+            layerGestureController.onRowBodyUp(false); // abort = revert, never commit
+        }
+        marqueeItemDragActive = false;
+        marqueeDownItemHit = null;
         marqueeTouchActive = false;
         marqueeDragActive = false;
         marqueeBatchFired = false;

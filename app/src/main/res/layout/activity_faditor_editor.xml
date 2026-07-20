@@ -1114,6 +1114,22 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Soft snap overlays" />
 
+                <!-- JoyRaptor 2026-07-19: the 3-state SELECT toggle promoted from the tool
+                     bucket to the transport row, left of the ripple selector. Grey =
+                     off, green = crossing, amber = window (same cycle as before). -->
+                <TextView
+                    android:id="@+id/btn_select_mode"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:gravity="center"
+                    android:fontFamily="@font/materialicons"
+                    android:text="select_all"
+                    android:textColor="#CCCCCC"
+                    android:textSize="18sp"
+                    android:layout_marginEnd="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Multi-select mode" />
+
                 <!-- PHASE-P P3 (M11): master ripple/gap edit-mode toggle. Green
                      align icon = ripple (deletes close the gap, today's default);
                      amber = gap (a master delete leaves a black gap spacer). -->

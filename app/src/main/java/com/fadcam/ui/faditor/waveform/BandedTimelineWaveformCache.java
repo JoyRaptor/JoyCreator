@@ -134,6 +134,7 @@ public class BandedTimelineWaveformCache {
         // SUPERSET REUSE: a ready entry over the same source that COVERS [start,end] answers
         // this window directly (raw data is absolute-source-time mapped). Alias it under this
         // key so the next lookup is an exact hit.
+        boolean coveringInFlight = false;
         for (Map.Entry<String, long[]> e : spanByKey.entrySet()) {
             long[] span = e.getValue();
             if (span[0] <= start && span[1] >= end && uri.equals(uriByKey.get(e.getKey()))) {
@@ -144,11 +145,15 @@ public class BandedTimelineWaveformCache {
                     uriByKey.put(k, uri);
                     return covering;
                 }
-                // A covering extraction is IN FLIGHT — don't start a duplicate; the
-                // listener invalidates on its completion and the alias forms then.
-                if (inFlight.contains(e.getKey())) return null;
+                // A covering extraction is IN FLIGHT — don't start a duplicate for it, but
+                // keep scanning: another covering entry may already be ready (F9 fix —
+                // returning null on the FIRST in-flight match short-circuited the loop and
+                // could mask an already-ready covering entry later in iteration order,
+                // leaving the placeholder stuck for the rest of the session).
+                if (inFlight.contains(e.getKey())) coveringInFlight = true;
             }
         }
+        if (coveringInFlight) return null;
 
         // F3c: no NEW kicks while playback owns the codec/disk — the next draw after
         // pause re-enters here and kicks then.

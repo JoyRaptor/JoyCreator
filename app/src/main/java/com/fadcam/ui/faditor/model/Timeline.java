@@ -849,31 +849,20 @@ public class Timeline {
         return true;
     }
 
+    // The index bookkeeping below lives in TransitionIndex so it can be exercised by the JVM
+    // harness without dragging in Clip (and android.net.Uri). See that class for why these
+    // in-place mutations are undo-hazardous.
+
     public void removeTransitionsForDeletedClip(int clipIndex) {
-        for (int i = transitions.size() - 1; i >= 0; i--) {
-            Transition t = transitions.get(i);
-            if (t.clipIndex == clipIndex || t.clipIndex == clipIndex - 1) {
-                transitions.remove(i);
-            } else if (t.clipIndex > clipIndex) {
-                t.clipIndex--;
-            }
-        }
+        TransitionIndex.removeForDeletedClip(transitions, clipIndex);
     }
 
     public void shiftTransitionsAfterInsert(int insertIndex) {
-        for (Transition t : transitions) {
-            if (t.clipIndex >= insertIndex) {
-                t.clipIndex++;
-            }
-        }
+        TransitionIndex.shiftAfterInsert(transitions, insertIndex);
     }
 
     public void shiftTransitionsAfterSplit(int splitIndex) {
-        for (Transition t : transitions) {
-            if (t.clipIndex >= splitIndex) {
-                t.clipIndex++;
-            }
-        }
+        TransitionIndex.shiftAfterSplit(transitions, splitIndex);
     }
 
     public void clearTransitions() {
@@ -901,15 +890,12 @@ public class Timeline {
      */
     @NonNull
     public List<Transition> snapshotTransitions() {
-        List<Transition> copy = new ArrayList<>(transitions.size());
-        for (Transition t : transitions) copy.add(t.copy());
-        return copy;
+        return TransitionIndex.snapshot(transitions);
     }
 
     /** Restore a {@link #snapshotTransitions()} result, replacing the current list. */
     public void restoreTransitions(@NonNull List<Transition> snapshot) {
-        transitions.clear();
-        for (Transition t : snapshot) transitions.add(t.copy());
+        TransitionIndex.restore(transitions, snapshot);
     }
 
     // ── Waveform visualizer overlays (schema v7) ─────────────────────

@@ -67,3 +67,24 @@ The bug is pure model logic, so it does not need a phone:
 3. Assert the transition list — count, `clipIndex`, duration, type — is identical to before.
 
 This is a good candidate for the JVM harness rather than a device pass.
+
+## Harness landed (2026-07-25)
+
+The "verify without a device" section above is no longer aspirational. The index bookkeeping
+was extracted to `model/TransitionIndex` (Timeline delegates to it) precisely so it compiles
+against nothing but annotation stubs, and `tools/jvm-harness/TransitionIndexTest.java` now
+pins the rules — including the exact regression, `[0,2,4]` → delete clip 3 → `[0,3]` →
+restore → `[0,2,4]`.
+
+```bash
+javac -nowarn -d tools/jvm-harness/out3 tools/jvm-harness/stubs/androidx/annotation/*.java app/src/main/java/com/fadcam/ui/faditor/model/Transition.java app/src/main/java/com/fadcam/ui/faditor/model/TransitionIndex.java tools/jvm-harness/TransitionIndexTest.java && java -cp tools/jvm-harness/out3 TransitionIndexTest
+```
+
+10/10 PASS. It also covers deep-copy aliasing (both directions — a shallow snapshot would
+alias `clipIndex`, and a shallow restore would let the NEXT in-place shift corrupt the
+snapshot and break a second undo), the delete-clip-0 boundary, and the non-index fields
+(`paramOverrides` is a mutable map).
+
+**This makes the remaining audit cheap**: the RULES are now proven, so each unaudited call site
+reduces to one question — does its undo call `snapshotTransitions()`/`restoreTransitions()`?
+No new reasoning about index arithmetic is needed.

@@ -61,7 +61,12 @@ public final class LayerPreviewController {
         layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
         List<TextOverlayItem> result = new ArrayList<>();
         for (Track track : layers) {
-            if (track.getKind() != TrackKind.TEXT && track.getKind() != TrackKind.STICKER) continue;
+            // SPEC_NEUTRAL_SUBSTRATE S4/S5: a neutral LAYER lane carries mixed payloads;
+            // the per-item null-check below picks out this surface's items. Cross-type
+            // z inside such a lane is the global surface stack (PiP under sprite under
+            // text) — identical in preview and export by construction.
+            if (track.getKind() != TrackKind.TEXT && track.getKind() != TrackKind.STICKER
+                    && track.getKind() != TrackKind.LAYER) continue;
             if (track.isHidden()) continue; // Mirrored on export (shared: ExportManager uses this method).
             for (TimedItem item : track.getItems()) {
                 TextOverlayItem overlay = item.getTextOverlay();
@@ -109,7 +114,10 @@ public final class LayerPreviewController {
         layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
         List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> result = new ArrayList<>();
         for (Track track : layers) {
-            if (track.getKind() != TrackKind.SPRITE) continue;
+            // SPEC_NEUTRAL_SUBSTRATE S4/S5: LAYER lanes carry sprites too (per-item
+            // null-check below selects them).
+            if (track.getKind() != TrackKind.SPRITE
+                    && track.getKind() != TrackKind.LAYER) continue;
             if (track.isHidden()) continue; // S6 export mirrors via this shared method.
             for (TimedItem item : track.getItems()) {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = item.getSprite();
@@ -158,7 +166,10 @@ public final class LayerPreviewController {
         layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
         List<com.fadcam.ui.faditor.model.Clip> result = new ArrayList<>();
         for (Track track : layers) {
-            if (track.getKind() != TrackKind.VIDEO) continue;
+            // SPEC_NEUTRAL_SUBSTRATE S4/S5: LAYER lanes carry overlay clips too
+            // (per-item isOverlayClip() check below selects them).
+            if (track.getKind() != TrackKind.VIDEO
+                    && track.getKind() != TrackKind.LAYER) continue;
             if (track.isHidden()) continue; // M-EXPORT-2 export mirrors via this shared method.
             for (TimedItem item : track.getItems()) {
                 com.fadcam.ui.faditor.model.Clip clip = item.getClip();

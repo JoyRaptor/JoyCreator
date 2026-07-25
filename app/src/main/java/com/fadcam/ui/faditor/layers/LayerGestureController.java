@@ -1700,6 +1700,14 @@ public final class LayerGestureController {
 
     /** Guard: a payload may only be dropped on a track whose kind accepts it. */
     private static boolean payloadCompatible(@NonNull TimedItem item, @NonNull Track candidate) {
+        // SPEC_NEUTRAL_SUBSTRATE S1: a user-created neutral lane accepts every VISUAL
+        // payload (text/sticker/sprite/image/video). Audio stays in its own band —
+        // the same-band guard blocks cross-band drops anyway; this keeps the model
+        // consistent if that ever changes. Default typed rows stay type-pure
+        // (DECISION (b) in the spec).
+        if (candidate.getKind() == TrackKind.LAYER) {
+            return item.getAudioClip() == null;
+        }
         if (item.getClip() != null) {
             return candidate.getKind() == TrackKind.VIDEO || candidate.getKind() == TrackKind.IMAGE;
         }

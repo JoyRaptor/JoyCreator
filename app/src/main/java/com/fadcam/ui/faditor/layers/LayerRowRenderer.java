@@ -1986,9 +1986,15 @@ public final class LayerRowRenderer {
      * stickman-in-a-ring (sprite), CC box (captions), bars (visualizer/audio).
      */
     /** The OBJECT's own kind (JoyRaptor 2026-07-19: badges ride objects, lanes are neutral).
-     *  Falls back to the row kind for payloads without a distinct identity. */
+     *  Falls back to the row kind for payloads without a distinct identity.
+     *
+     *  <p>PUBLIC because it is the single answer to "what kind is this object", which under
+     *  the neutral substrate is no longer the same question as "what kind is its lane". Every
+     *  consumer that used to read the lane's {@link TrackKind} for an ITEM must come here
+     *  instead — a third private copy of this switch is how the badge, the mute icon and the
+     *  playhead tint drifted apart in the first place.</p> */
     @NonNull
-    private static TrackKind payloadKindOf(@NonNull TimedItem item, @NonNull TrackKind rowKind) {
+    public static TrackKind payloadKindOf(@NonNull TimedItem item, @NonNull TrackKind rowKind) {
         if (item.getTextOverlay() != null) {
             return item.getTextOverlay().isImage() ? TrackKind.IMAGE : TrackKind.TEXT;
         }

@@ -4481,7 +4481,15 @@ public class EditorTimelineView extends View {
                 : java.util.Arrays.asList(layerTracks, audioLayerTracks)) {
             for (com.fadcam.ui.faditor.layers.Track t : band) {
                 for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
-                    if (id.equals(it.getId())) return t.getKind();
+                    // NEUTRAL SUBSTRATE: colour by the OBJECT's kind, not its lane's. A lane
+                    // no longer describes what it holds, so returning t.getKind() tinted the
+                    // playhead by whatever the lane happened to be called — a sprite on the
+                    // "Text" lane read as text, and anything on a neutral lane hit an
+                    // unhandled LAYER case. Same authority the row badges use.
+                    if (id.equals(it.getId())) {
+                        return com.fadcam.ui.faditor.layers.LayerRowRenderer
+                                .payloadKindOf(it, t.getKind());
+                    }
                 }
             }
         }

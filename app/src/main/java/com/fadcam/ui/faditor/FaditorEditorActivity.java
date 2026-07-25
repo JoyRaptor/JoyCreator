@@ -11285,7 +11285,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         syncTimelineOverlays();
         if (overlayLayer != null && project != null) {
             overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
-                    .visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
+                    .visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
             overlayLayer.invalidate();
         }
         if (waveformOverlayView != null && project != null) {
@@ -11399,7 +11399,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (overlayLayer != null && project != null) {
             overlayLayer.setData(
                     com.fadcam.ui.faditor.compositor.LayerPreviewController
-                            .visibleTextOverlays(project.getTimeline()),
+                            .visibleTextOverlaysAboveVideo(project.getTimeline()),
                     overlayLayerCallback());
             overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
         }
@@ -15480,7 +15480,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         () -> { project.getTimeline().addSpriteOverlay(item); syncTimelineOverlays(); }));
                 scheduleAutoSave();
                 p.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
-                        .visibleSpriteItems(project.getTimeline()));
+                        .visibleSpriteItemsAboveVideo(project.getTimeline()));
             }
 
             @Override
@@ -15627,7 +15627,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         });
         p.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
-                .visibleSpriteItems(project.getTimeline()));
+                .visibleSpriteItemsAboveVideo(project.getTimeline()));
         p.setPlayheadMs(lastPlayheadAbsoluteMs);
         ViewGroup root = findViewById(android.R.id.content);
         root.addView(p);
@@ -17191,7 +17191,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (spriteOverlayView != null && project != null) {
             spriteOverlayView.setData(
                     com.fadcam.ui.faditor.compositor.LayerPreviewController
-                            .visibleSpriteItems(project.getTimeline()),
+                            .visibleSpriteItemsAboveVideo(project.getTimeline()),
                     spriteOverlayCallback());
             spriteOverlayView.invalidate();
         }

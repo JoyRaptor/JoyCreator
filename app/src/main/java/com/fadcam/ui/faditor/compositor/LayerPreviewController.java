@@ -244,6 +244,11 @@ public final class LayerPreviewController {
      * z within a lane is still the fixed global surface stack (overlay video under sprite
      * under text); {@code SPEC_CROSSTYPE_Z} is what changes that.</p>
      */
+    // NOTE (Z3): the PREVIEW no longer calls this — its surfaces are fed the bucketed
+    // ...AboveVideo/...BelowVideo variants, so an item is drawn by exactly one of them.
+    // This whole-set query is kept because "every visible text overlay, in paint order",
+    // independent of which side of the video plane it lands on, is the right question for a
+    // consumer that spans both — the merged hit-testing upgrade the spec's Z3 note describes.
     @NonNull
     public static List<TextOverlayItem> visibleTextOverlays(@NonNull Timeline timeline) {
         List<TextOverlayItem> result = new ArrayList<>();
@@ -284,6 +289,7 @@ public final class LayerPreviewController {
      * preview/export visibility cannot diverge). A project with no sprites returns
      * an empty list — the overlay view draws nothing and passes touches through.
      */
+    /** Whole-set sprite query — see the note on {@link #visibleTextOverlays}. */
     @NonNull
     public static List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> visibleSpriteItems(
             @NonNull Timeline timeline) {

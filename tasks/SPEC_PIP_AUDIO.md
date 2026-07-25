@@ -80,6 +80,20 @@ already telling the user it will.
   (`EditorTimelineView` :307, keyed by master `segments`) to lane rows holding a PiP. Only
   meaningful now that A–C have landed.
 
+## Adversarial follow-up on slice B (found + fixed before it shipped)
+
+The first cut of `buildOverlayAudioSequence` read `timeline.getOverlayClips()` directly, while
+the exported PIXELS come from `LayerPreviewController.visibleOverlayVideoClips`. That split the
+two: a PiP hidden by its lane's eye — or by its own per-object eye — would have vanished from
+the picture while its **audio kept playing in the export**. An object excluded from the export
+must be excluded whole. The sequence now sources the same shared authority, so pixels and audio
+cannot disagree about which PiPs exist.
+
+Worth noting the asymmetry this makes explicit, because it is a real design decision: for
+`AudioClip`s, `hidden` does NOT silence (only `muted` does) — an audio clip has no picture, so
+its eye means nothing. For a PiP, `hidden` means the whole object is out. Both are right; they
+just differ, so neither should be "fixed" to match the other.
+
 ## Known gaps (deliberate, recorded so they are not "discovered" as bugs)
 
 - **Preview plays at most ONE PiP's audio** — the view owns a single `ExoPlayer` bound to the

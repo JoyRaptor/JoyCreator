@@ -1977,8 +1977,12 @@ public class ExportManager {
      */
     @Nullable
     private EditedMediaItemSequence buildOverlayAudioSequence(@NonNull Timeline timeline) {
+        // Source the clip list from the SHARED visibility authority, not the raw list: a PiP
+        // hidden by its lane's eye (or its own per-object eye) is excluded from the exported
+        // PIXELS by this same method, and an object excluded from the export must not keep
+        // contributing audio. Reading getOverlayClips() here would have done exactly that.
         List<Clip> overlays = new ArrayList<>();
-        for (Clip c : timeline.getOverlayClips()) {
+        for (Clip c : LayerPreviewController.visibleOverlayVideoClips(timeline)) {
             if (c == null || c.isImageClip()) continue; // a still has no audio
             if (LayerPreviewController.effectiveOverlayVolume(timeline, c) <= 0f) continue;
             overlays.add(c);

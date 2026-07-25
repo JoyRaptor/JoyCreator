@@ -468,3 +468,29 @@ F12 CLOSED (2026-07-18 ~15:45): EXPORT transition crops implemented + device-pro
   - LIMIT: incoming-leg crop handles the "custom" preset only (parity with preview);
     named PRESET crops on the incoming clip still export uncropped through the blend —
     small follow-up if preset crops matter. Uncommitted.
+
+F12 LIMIT RE-SCOPED (2026-07-25, Opus 5 — the one-line note above understates it).
+  The limit reads as an EXPORT-side gap ("named PRESET crops on the incoming clip still
+  export uncropped through the blend — small follow-up"), which implies a small fix in
+  GlTransitionFrameOverlay.cropSrcRect. It is not that, and a fix scoped that way would
+  make things worse.
+  - The PREVIEW has the SAME gap: FaditorEditorActivity.liveLegGeometry (the live A+B tier)
+    and cropToClipBounds both branch on `"custom".equals(clip.getCropPreset())` and apply NO
+    crop for a named preset. So preview and export currently AGREE — both blend a
+    preset-cropped clip uncropped, then snap to the cropped framing at the cut.
+  - Therefore fixing only the export leg would CREATE a preview/export divergence, which is
+    the one invariant this compositor work is not allowed to break. The fix has to be
+    symmetric: preset → source-rect in cropSrcRect (export) AND in liveLegGeometry /
+    cropToClipBounds (preview), landing together.
+  - Doing it safely by construction: express BOTH paths through one NDC→rect conversion, fed
+    either by the custom fractions or by the preset table (ExportManager.getCropRect, which
+    is what the Crop effect itself consumes). Then the device-proven custom path and the new
+    preset path cannot disagree — the preset case inherits F12's proof instead of needing a
+    fresh derivation.
+  - ⚠️ Note while there: the preset table's NDC constants are written for a 16:9 source
+    (`"1:1"` is `[-1,1,-1,1]`, i.e. no crop at all). Mirroring them gives blend/post-cut
+    PARITY, which is the goal, but it inherits whatever the Crop effect actually does — do
+    not "correct" the constants in the same change, or the blend will stop matching the cut.
+  - NOT ATTEMPTED THIS SESSION: the acceptance gate is an absolute-geometry frame-pull A/B
+    (memory: ab-export-frame-diff-proof), same as F12's, and the device was in human use.
+    This is device work, not a desk fix.

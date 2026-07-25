@@ -69,6 +69,18 @@ transition list wholesale — a single pre-everything snapshot covers both the s
 insert's index shifts. The no-split path still records the plain `AddClipAction`, so the
 common case is unchanged.
 
+### Checked and NOT a bug — reorder
+
+`Timeline.moveClip` deliberately does not touch transitions, so a transition stays at its
+SEAM position ("between slots 2 and 3") rather than following a clip. `ReorderClipAction.undo`
+is `moveClip(to, from)`, which is the exact inverse of `moveClip(from, to)` (traced both
+directions), so reorder+undo round-trips cleanly and cannot corrupt placement.
+
+Whether a transition *should* follow its clip through a reorder is a genuine design question —
+most NLEs bind a transition to a specific cut — but the current behaviour is at least
+self-consistent, and it is not the undo bug this audit is about. Recorded so the next reader
+does not re-derive it.
+
 ### EditScriptApplier
 
 The four AI-script sites apply a whole edit script; that subsystem does its own

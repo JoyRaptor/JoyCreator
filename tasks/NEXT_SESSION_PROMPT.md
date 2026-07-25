@@ -6,9 +6,12 @@
 > lane, audio is the only separate band; `getLayers()` is now layerId-first), PiP audio A–D (it
 > had NO audio path at all: opt-in `Clip.overlayAudioEnabled`, preview + export + object-menu
 > toggle + a waveform shelf on lane rows), and a read-only warning for newer-schema projects.
-> **EIGHT real bugs found by adversarial review** — see the handoff block; three were in my own
-> new code, five pre-existing (incl. undo losing a named lane, hidden PiPs exporting audio, and
-> the downgrade guard being silent).
+> **TWELVE real bugs found by adversarial review** — see the handoff block. Three were in my own
+> new code; the rest pre-existing, and the biggest is its own lane: **transition placement
+> survived NO clip-structural undo** (delete/split/insert/duplicate/pair ops all left
+> transitions on the wrong seams — they still play, at a cut the user never chose). All fixed,
+> and that lane is the ONE part of this session that is verified: `tools/jvm-harness/
+> TransitionIndexTest.java`, 16/16 PASS. Audit closed in `tasks/AUDIT_TRANSITION_INDEX_UNDO.md`.
 > **SPECS:** `SPEC_NEUTRAL_SUBSTRATE.md`, `SPEC_PIP_AUDIO.md`, `SPEC_CROSSTYPE_Z.md`,
 > `REVIEW_ORDER_20260725.md`, `DRILL_SCHEMA_DOWNGRADE.md`.
 > **⚠️ NOTHING BELOW WAS DEVICE-VERIFIED — this is the top priority for the next session.** The

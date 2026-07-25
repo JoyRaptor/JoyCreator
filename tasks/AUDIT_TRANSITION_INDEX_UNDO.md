@@ -1,8 +1,9 @@
 # Audit: transition index shifting vs undo
 
-Opened 2026-07-25 (Opus 5) after fixing the delete case in `601383a`. This is a **scoped,
-unfinished audit** — one instance is fixed and proven by reading; the rest are listed so the
-next pass can work through them rather than rediscovering the shape.
+Opened 2026-07-25 (Opus 5) after fixing the delete case in `601383a`, then **completed the
+same session**. Every clip-structural undo path now restores transition placement, and the
+rules are pinned by a JVM harness. One genuine gap remains, and it is NOT an index bug — see
+"The one structural gap left".
 
 ## The bug shape
 
@@ -41,32 +42,38 @@ Tools now available for the rest: `Transition.copy()` (deep — `paramOverrides`
 `clipIndex` is precisely the field a shallow copy would alias) and
 `Timeline.snapshotTransitions()` / `restoreTransitions()`.
 
-## NOT yet audited — the remaining call sites
+## Audit COMPLETE (2026-07-25) — every site walked
 
-Each needs the same question asked: *does the undo step that reverses this restructuring also
-restore the transition list?*
+| Site | Call | Verdict |
+|---|---|---|
+| `EditActions.DeleteClipAction` | delete | **FIXED** — snapshot/restore (`601383a`) |
+| `confirmDeleteLinkedPair` | delete | **FIXED** — snapshot/restore (`601383a`) |
+| `EditActions.SplitClipAction` | split | **FIXED** — snapshot/restore, call site snapshots pre-shift |
+| `splitLinkedPartnerAndRecord` | split | **FIXED** — same |
+| `EditActions.AddClipAction` | insert | **FIXED** — exact inverse (covers all four add-clip/add-image sites) |
+| `EditActions.DuplicateClipAction` | insert | **FIXED** — exact inverse |
+| linked-pair add (`~22173`) | insert | **FIXED** — exact inverse in its `revert` |
+| `ai/EditScriptApplier` ×4 | insert/split | **OUT OF SCOPE** — see below |
 
-| Site | Call |
-|---|---|
-| `FaditorEditorActivity:19745` | `shiftTransitionsAfterSplit` (transition-seam split helper) |
-| `FaditorEditorActivity:22173` | `shiftTransitionsAfterInsert` |
-| `FaditorEditorActivity:22338` | `shiftTransitionsAfterSplit` |
-| `FaditorEditorActivity:22346` | `shiftTransitionsAfterInsert` |
-| `FaditorEditorActivity:22403` | `shiftTransitionsAfterInsert` |
-| `FaditorEditorActivity:22948` | `shiftTransitionsAfterInsert` |
-| `FaditorEditorActivity:23020` | `shiftTransitionsAfterInsert` |
-| `FaditorEditorActivity:23353` | `shiftTransitionsAfterSplit` |
-| `FaditorEditorActivity:23732` | `shiftTransitionsAfterInsert` |
-| `ai/EditScriptApplier:537` | `shiftTransitionsAfterInsert` |
-| `ai/EditScriptApplier:745` | `shiftTransitionsAfterSplit` |
-| `ai/EditScriptApplier:927-928` | `shiftTransitionsAfterSplit` ×2 (double-shift — check intent) |
+### The one structural gap left (NOT a transition bug)
 
-**Start with SPLIT**: it is the most-used structural edit in the app, so if its undo has this
-gap, users are hitting it routinely.
+`FaditorEditorActivity ~22338` — "insert a clip at the playhead" SPLITS the current clip first
+when the playhead is mid-clip, then inserts. It records only an `AddClipAction`, so **the
+implicit split is not in the undo history at all**: undoing the insert leaves the clip split in
+two. My fix reverses the insert's index shift correctly, but the split's shift (and the split
+itself) still are not undone, because nothing ever recorded them.
 
-`EditScriptApplier:927-928` calls `shiftTransitionsAfterSplit(clipIndex)` twice with the same
-index — that may well be deliberate (a split producing two new boundaries), but it is worth
-confirming rather than assuming.
+That is a pre-existing *undo-composition* defect, not an index-arithmetic one, and fixing it
+means making that flow record a composite action (split + insert) as one step. Left alone
+deliberately: it is a behaviour change to a working feature and deserves its own slice.
+
+### EditScriptApplier
+
+The four AI-script sites apply a whole edit script; that subsystem does its own
+snapshot/restore at script level rather than per-action, so the per-edit reasoning here does
+not transfer. Worth a look when that subsystem is next touched — note `:927-928` shifts twice
+with the same index, which may be deliberate (one split producing two boundaries) but is worth
+confirming.
 
 ## How to verify without a device
 

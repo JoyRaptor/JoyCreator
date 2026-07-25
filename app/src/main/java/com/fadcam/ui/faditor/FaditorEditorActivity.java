@@ -22188,6 +22188,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 final Runnable revert = () -> {
                     timeline.removeOverlayClip(overlay);
                     timeline.removeClip(master);
+                    // The insert renumbered every later transition's clipIndex in place;
+                    // removing the clip does not put them back. Exact arithmetic inverse —
+                    // an insert drops nothing. See AUDIT_TRANSITION_INDEX_UNDO.md.
+                    timeline.unshiftTransitionsAfterInsert(masterIndex);
                     syncTimelineOverlays();
                     if (editorTimeline != null) editorTimeline.invalidate();
                     refreshTotalTimeDisplay();

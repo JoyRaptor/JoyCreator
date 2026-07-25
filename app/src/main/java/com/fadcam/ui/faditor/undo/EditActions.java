@@ -710,8 +710,16 @@ public final class EditActions {
             this.insertIndex = insertIndex;
         }
 
-        @Override public void execute() { timeline.addClip(insertIndex, duplicatedClip); }
-        @Override public void undo() { timeline.removeClip(duplicatedClip); }
+        @Override public void execute() {
+            timeline.addClip(insertIndex, duplicatedClip);
+            timeline.shiftTransitionsAfterInsert(insertIndex); // redo the index shift too
+        }
+        @Override public void undo() {
+            timeline.removeClip(duplicatedClip);
+            // Duplicating inserts a clip, which renumbered every later transition in place;
+            // removing it does not put them back. Exact inverse — see AddClipAction.
+            timeline.unshiftTransitionsAfterInsert(insertIndex);
+        }
         @NonNull @Override public String getDescription() { return "Duplicate clip"; }
     }
 

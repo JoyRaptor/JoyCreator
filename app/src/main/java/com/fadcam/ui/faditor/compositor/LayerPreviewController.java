@@ -35,43 +35,94 @@ public final class LayerPreviewController {
 
     private LayerPreviewController() { }
 
+    // ── Z1: the single visual ordering (SPEC_CROSSTYPE_Z) ─────────────────────────
+
+    /**
+     * One visible item, with the lane it came from — the unit of
+     * {@link #orderedVisualItems}.
+     */
+    public static final class VisualItem {
+        @NonNull public final TimedItem item;
+        @NonNull public final Track lane;
+
+        VisualItem(@NonNull TimedItem item, @NonNull Track lane) {
+            this.item = item;
+            this.lane = lane;
+        }
+    }
+
+    /**
+     * Z1 (SPEC_CROSSTYPE_Z): EVERY visible visual item, across every floating lane and every
+     * payload type, in one bottom→top paint order — lanes ascending by
+     * {@link Track#getZIndex()} (stable, so equal-z lanes keep {@code getLayers()} emission
+     * order), then items in lane order.
+     *
+     * <p>This is the ordering the three {@code visible*} methods below are now derived from,
+     * which is the point: they used to each re-derive it, so the ONLY thing keeping their z
+     * agreement honest was that three copies of the same six lines stayed in sync. Now there
+     * is one copy. Hidden lanes and per-object eyes are applied here, once.</p>
+     *
+     * <p>It is also the foundation for cross-type z: today each consumer filters this list
+     * down to its own payload type, which reproduces the historical per-type surfaces exactly;
+     * SPEC_CROSSTYPE_Z's Z2 partitions this same list instead of filtering it.</p>
+     */
+    @NonNull
+    public static List<VisualItem> orderedVisualItems(@NonNull Timeline timeline) {
+        List<Track> lanes = new ArrayList<>(timeline.getLayers());
+        // Per-item zHint is deliberately NOT consulted: TimedItem views are rebuilt with
+        // default zHint=0 on every getLayers() call (M5 ephemeral-views note), so within a
+        // lane, insertion order IS the z order today.
+        lanes.sort(java.util.Comparator.comparingInt(Track::getZIndex));
+        List<VisualItem> out = new ArrayList<>();
+        for (Track lane : lanes) {
+            if (lane.isHidden()) continue; // mirrored on export — these methods are shared
+            for (TimedItem item : lane.getItems()) {
+                if (isObjectHidden(item)) continue; // §4.5 per-OBJECT eye
+                out.add(new VisualItem(item, lane));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * §4.5 per-object eye, for whichever payload this item carries. Kept next to
+     * {@link #orderedVisualItems} so preview and export skip the same objects by construction.
+     */
+    private static boolean isObjectHidden(@NonNull TimedItem item) {
+        TextOverlayItem overlay = item.getTextOverlay();
+        if (overlay != null) return overlay.isHidden();
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = item.getSprite();
+        if (sprite != null) return sprite.isHidden();
+        com.fadcam.ui.faditor.model.Clip clip = item.getClip();
+        if (clip != null) return clip.isHiddenObject();
+        return false;
+    }
+
     // ── Hidden TEXT/STICKER tracks → filtered TextOverlayLayer input ──────────────
 
     /**
-     * The list to feed {@code TextOverlayLayer#setData}/{@code #rebuild}: every
-     * {@link TextOverlayItem} belonging to a TEXT (or STICKER, once that kind is
-     * produced) track that is NOT hidden. A plain project has exactly one TEXT track,
-     * always unhidden by default, so this returns {@code timeline.getTextOverlays()}
-     * unchanged (same objects, same order) — byte-identical behavior.
+     * The list to feed {@code TextOverlayLayer#setData}/{@code #rebuild}: every visible
+     * {@link TextOverlayItem}, on any lane, in paint order.
+     *
+     * <p>M-EXPORT-1: the SHARED authority for both the live preview
+     * ({@code TextOverlayLayer#setData} call sites) AND the export path
+     * ({@code ExportManager#assembleClipVideoEffects} → {@code CompositeExportOverlay}), so
+     * visibility and draw-order decisions cannot diverge between the two. A plain project has
+     * one unhidden lane, so this returns {@code timeline.getTextOverlays()} unchanged — same
+     * objects, same order.</p>
+     *
+     * <p>NEUTRAL SUBSTRATE: a lane's KIND is not a filter — any lane may hold any visual
+     * payload, so this selects by PAYLOAD out of the single ordering ({@link
+     * #orderedVisualItems}, which also applies lane-hidden and the per-object eye). Cross-type
+     * z within a lane is still the fixed global surface stack (overlay video under sprite
+     * under text); {@code SPEC_CROSSTYPE_Z} is what changes that.</p>
      */
     @NonNull
     public static List<TextOverlayItem> visibleTextOverlays(@NonNull Timeline timeline) {
-        // M-EXPORT-1: this is now the SHARED authority for both the live preview
-        // (TextOverlayLayer#setData call sites) AND the export path
-        // (ExportManager#assembleClipVideoEffects → CompositeExportOverlay), so
-        // visibility + draw-order decisions cannot diverge between the two.
-        // Z-order: tracks are drawn in getLayers() order refined by a STABLE sort
-        // on Track#getZIndex() (the M6 TrackFlags side-table value). Every track's
-        // zIndex is 0 unless a flags entry says otherwise, so a plain project keeps
-        // the exact original order (stable sort = no-op) — byte-identical behavior.
-        // Per-item zHint is deliberately NOT consulted: TimedItem views are rebuilt
-        // with default zHint=0 on every getLayers() call (M5 ephemeral-views note),
-        // so within a track insertion order IS the z order today.
-        List<Track> layers = new ArrayList<>(timeline.getLayers());
-        layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
         List<TextOverlayItem> result = new ArrayList<>();
-        for (Track track : layers) {
-            // NEUTRAL SUBSTRATE: every floating lane may hold any visual payload, so the
-            // lane's KIND is not a filter — the per-item payload check below selects this
-            // surface's items. Cross-type z inside a lane is the global surface stack
-            // (overlay video under sprite under text) — identical in preview and export
-            // by construction. See tasks/SPEC_NEUTRAL_SUBSTRATE.md.
-            if (track.isHidden()) continue; // Mirrored on export (shared: ExportManager uses this method).
-            for (TimedItem item : track.getItems()) {
-                TextOverlayItem overlay = item.getTextOverlay();
-                // §4.5: per-OBJECT eye — shared here so preview AND export skip together.
-                if (overlay != null && !overlay.isHidden()) result.add(overlay);
-            }
+        for (VisualItem v : orderedVisualItems(timeline)) {
+            TextOverlayItem overlay = v.item.getTextOverlay();
+            if (overlay != null) result.add(overlay);
         }
         return result;
     }
@@ -109,18 +160,11 @@ public final class LayerPreviewController {
     @NonNull
     public static List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> visibleSpriteItems(
             @NonNull Timeline timeline) {
-        List<Track> layers = new ArrayList<>(timeline.getLayers());
-        layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
+        // Payload-selected out of the single ordering (Z1) — see visibleTextOverlays.
         List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> result = new ArrayList<>();
-        for (Track track : layers) {
-            // NEUTRAL SUBSTRATE: lane kind is not a filter — the per-item check selects
-            // the sprites on any floating lane.
-            if (track.isHidden()) continue; // S6 export mirrors via this shared method.
-            for (TimedItem item : track.getItems()) {
-                com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = item.getSprite();
-                // §4.5: per-OBJECT eye — shared here so preview AND export skip together.
-                if (sprite != null && !sprite.isHidden()) result.add(sprite);
-            }
+        for (VisualItem v : orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = v.item.getSprite();
+            if (sprite != null) result.add(sprite);
         }
         return result;
     }
@@ -159,20 +203,11 @@ public final class LayerPreviewController {
     @NonNull
     public static List<com.fadcam.ui.faditor.model.Clip> visibleOverlayVideoClips(
             @NonNull Timeline timeline) {
-        List<Track> layers = new ArrayList<>(timeline.getLayers());
-        layers.sort(java.util.Comparator.comparingInt(Track::getZIndex));
+        // Payload-selected out of the single ordering (Z1) — see visibleTextOverlays.
         List<com.fadcam.ui.faditor.model.Clip> result = new ArrayList<>();
-        for (Track track : layers) {
-            // NEUTRAL SUBSTRATE: lane kind is not a filter — the per-item
-            // isOverlayClip() check selects the PiPs on any floating lane.
-            if (track.isHidden()) continue; // M-EXPORT-2 export mirrors via this shared method.
-            for (TimedItem item : track.getItems()) {
-                com.fadcam.ui.faditor.model.Clip clip = item.getClip();
-                // §4.5: per-OBJECT eye — shared here so preview AND export skip together.
-                if (clip != null && clip.isOverlayClip() && !clip.isHiddenObject()) {
-                    result.add(clip);
-                }
-            }
+        for (VisualItem v : orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.model.Clip clip = v.item.getClip();
+            if (clip != null && clip.isOverlayClip()) result.add(clip);
         }
         return result;
     }

@@ -2428,13 +2428,23 @@ public class ExportManager {
             // in the exact same order as the old getTextOverlays() call — identical
             // composition, byte-identical output. Hidden layer tracks' items are
             // excluded here exactly as they are from the preview (PLAN §5.3(4)).
+            // Z4 (SPEC_CROSSTYPE_Z): split the overlay content around the PiP plane. The
+            // ABOVE bucket feeds the existing overlay pass; a non-empty BELOW bucket gets its
+            // own pass inserted BEFORE the PiP composite further down, so a lane ordered
+            // beneath a PiP lane actually renders beneath it. Both buckets come from the same
+            // partition the preview consumes — that shared split is what keeps them in step.
+            // Inert today: with every zIndex at its default the below bucket is empty and
+            // exportTextOverlays/exportSpriteItems are exactly what they always were.
+            final java.util.List<java.util.List<LayerPreviewController.VisualItem>> zBuckets =
+                    LayerPreviewController.partitionAroundVideo(project.getTimeline());
+            final java.util.List<LayerPreviewController.VisualItem> belowBucket = zBuckets.get(0);
             List<TextOverlayItem> exportTextOverlays =
-                    LayerPreviewController.visibleTextOverlays(project.getTimeline());
+                    LayerPreviewController.textsIn(zBuckets.get(1));
             // S6: sprites ride the SAME shared authority the preview's
             // SpriteOverlayView feeds from (visibleSpriteItems) — hidden SPRITE
             // tracks are excluded identically in both places by construction.
             List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> exportSpriteItems =
-                    LayerPreviewController.visibleSpriteItems(project.getTimeline());
+                    LayerPreviewController.spritesIn(zBuckets.get(1));
             // M-EXPORT-2: overlay-video (PiP) clips ride the SAME shared authority
             // the preview's OverlayVideoPreviewView binds from — hidden VIDEO
             // tracks are excluded identically in both places by construction.
@@ -2452,6 +2462,27 @@ public class ExportManager {
             // itself is HIDDEN from normal rendering while it serves (its pixels
             // exist only as the recipient's alpha). A dangling peerId degrades
             // to unmatted — never a broken export.
+            // Z4: the BELOW pass goes in FIRST — chain order IS paint order, so anything added
+            // before the PiP blends below composites underneath them. Skipped entirely when the
+            // bucket is empty, which is every project that has not reordered a lane under a PiP.
+            List<TextOverlayItem> belowTexts = LayerPreviewController.textsIn(belowBucket);
+            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> belowSprites =
+                    LayerPreviewController.spritesIn(belowBucket);
+            if (!belowTexts.isEmpty() || !belowSprites.isEmpty()) {
+                // No captions/waveforms in this pass: those are clip- and instance-owned
+                // rather than lane-owned, so they have no lane z to sit below and stay in the
+                // ABOVE pass where they have always been.
+                CompositeExportOverlay belowOverlay = new CompositeExportOverlay(
+                        context, timelineCursorMs, clip,
+                        overlayW, overlayH,
+                        belowTexts,
+                        Collections.emptyList(),
+                        project.getTimeline().getAudioClips(),
+                        belowSprites,
+                        project.getSpriteSheets(),
+                        project.getAvatarRigs());
+                videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
+            }
             java.util.Set<String> servingMatteIds = new java.util.HashSet<>();
             for (Clip oc : exportOverlayVideoClips) {
                 com.fadcam.ui.faditor.model.CompositingSpec cs = oc.getCompositing();

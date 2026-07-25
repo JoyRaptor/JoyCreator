@@ -80,6 +80,12 @@ public class TextOverlayLayer extends FrameLayout {
         super(context, attrs, defStyle);
     }
 
+    /** Z3: false = draw-only (the below-video instance). See SPEC_CROSSTYPE_Z. */
+    private boolean interactive = true;
+
+    /** Z3: make this instance draw-only, so it never competes for touch. */
+    public void setInteractive(boolean value) { this.interactive = value; }
+
     public void setData(@NonNull List<TextOverlayItem> overlays, @NonNull Callback cb) {
         this.overlays.clear();
         this.overlays.addAll(overlays);
@@ -268,6 +274,10 @@ public class TextOverlayLayer extends FrameLayout {
 
             @Override
             public boolean onTouch(View v, MotionEvent e) {
+                // Z3: an INERT instance (the below-video surface) draws but never grabs
+                // touch — two hit-testing text layers would have the top one silently eat
+                // taps meant for the bottom. See SPEC_CROSSTYPE_Z's Z3 note.
+                if (!interactive) return false;
                 scaleDetector.onTouchEvent(e);
                 switch (e.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:

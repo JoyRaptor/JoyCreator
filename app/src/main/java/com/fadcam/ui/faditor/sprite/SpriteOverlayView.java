@@ -129,6 +129,12 @@ public class SpriteOverlayView extends View {
     private final java.util.Map<String, com.fadcam.ui.faditor.avatar.AvatarItemPuppet>
             puppets = new java.util.HashMap<>();
 
+    /** Z3: false = draw-only (the below-video instance). See SPEC_CROSSTYPE_Z. */
+    private boolean interactive = true;
+
+    /** Z3: make this instance draw-only, so it never competes for touch. */
+    public void setInteractive(boolean value) { this.interactive = value; }
+
     public void setData(@NonNull List<SpriteOverlayItem> items, @NonNull Callback cb) {
         this.items.clear();
         this.items.addAll(items);
@@ -239,6 +245,8 @@ public class SpriteOverlayView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        // Z3: the below-video instance is draw-only — see SPEC_CROSSTYPE_Z's Z3 note.
+        if (!interactive) return false;
         if (callback == null) return false;
         if (manipulating != null) scaleDetector.onTouchEvent(e);
         switch (e.getActionMasked()) {

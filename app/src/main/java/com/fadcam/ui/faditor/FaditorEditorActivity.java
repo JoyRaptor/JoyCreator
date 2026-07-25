@@ -250,6 +250,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.player.TransitionPreviewOverlayView transitionPreviewOverlay;
     private GlTransitionPreviewView glTransitionPreviewView;
     private com.fadcam.ui.faditor.overlay.TextOverlayLayer overlayLayer;
+    /** Z3 (SPEC_CROSSTYPE_Z): the BELOW-video overlay surfaces. Non-interactive; fed the
+     *  "behind the PiP plane" bucket, which is empty until a lane is ordered under a PiP. */
+    private com.fadcam.ui.faditor.overlay.TextOverlayLayer overlayLayerBelow;
+    private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayViewBelow;
     /** IMAGE-track layer preview surface (M-COMP-1; PLAN §3.2 scope item 4). */
     private com.fadcam.ui.faditor.compositor.LayerImageOverlayView layerImageOverlay;
     /** Sprite preview surface (S4): resolver-driven, above video, below text/captions. */
@@ -1217,7 +1221,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
                     syncTimelineOverlays();
                     if (overlayLayer != null) {
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                                 overlayLayerCallback());
                     }
                     selectSegment(selectedClipIndex);
@@ -1343,6 +1347,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             layerImageOverlay.setRectProvider(this::computeCanvasRect);
         }
         spriteOverlayView = findViewById(R.id.sprite_overlay_layer);
+        overlayLayerBelow = findViewById(R.id.overlay_layer_below);
+        spriteOverlayViewBelow = findViewById(R.id.sprite_overlay_layer_below);
         overlayVideoLayer = findViewById(R.id.overlay_video_layer);
         waveformOverlayView = findViewById(R.id.waveform_overlay);
         waveformExtractor = new com.fadcam.ui.faditor.waveform.WaveformExtractor(this);
@@ -10391,7 +10397,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // restored) model so overlay add/delete/move/keyframe undo is reflected
         // in the preview, then re-position it for the current playhead.
         if (overlayLayer != null) {
-            overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
+            overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
             overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
         }
         if (captionsActive) {
@@ -10578,6 +10584,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void syncTimelineOverlays() {
         if (editorTimeline != null && project != null) {
             Timeline tl = project.getTimeline();
+            syncBelowVideoOverlays(tl);
             applyDefaultAudioCollapseOnce(tl);
             // G5: attached visualizers re-derive their windows from their hosts' CURRENT
             // spans. Every edit path funnels through this sync, so time-riding is one call.
@@ -10637,14 +10644,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // same single-authority filter S6's export will consume.
             if (spriteOverlayView != null) {
                 spriteOverlayView.setData(
-                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItems(tl),
+                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItemsAboveVideo(tl),
                         spriteOverlayCallback());
                 spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
             }
             // S3: the palette panel mirrors the same filtered list when open.
             if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
                 spritePalettePanel.setData(
-                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItems(tl));
+                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItemsAboveVideo(tl));
             }
             // M-COMP-2: re-bind the live PiP layer from the (hidden-filtered) Track
             // model — the same single authority M-EXPORT-2's export must consume.
@@ -11238,6 +11245,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
         Toast.makeText(this, wholeGroup ? "Group unlinked" : "Object unlinked",
                 Toast.LENGTH_SHORT).show();                                    // TODO(strings)
+    }
+
+    /**
+     * Z3 (SPEC_CROSSTYPE_Z): feed the BELOW-video surfaces. Fed from here alone rather than
+     * from all fourteen above-surface call sites, because bucket membership only changes when
+     * a lane's zIndex or an item's lane membership changes — and every one of those paths
+     * funnels through {@code syncTimelineOverlays()}.
+     *
+     * <p>Costs nothing until used: the bucket is empty for every project that has not ordered
+     * a lane beneath a PiP lane, so both surfaces are handed an empty list and draw nothing.</p>
+     */
+    private void syncBelowVideoOverlays(@NonNull Timeline tl) {
+        if (overlayLayerBelow != null) {
+            // Real callbacks: the below surface still needs the content rect to lay items out
+            // (and the sprite one needs sheet/renderer lookups to draw at all). It is made
+            // non-interactive explicitly instead — clickable=false does not stop a custom
+            // view's touch handling.
+            overlayLayerBelow.setInteractive(false);
+            overlayLayerBelow.setData(
+                    com.fadcam.ui.faditor.compositor.LayerPreviewController
+                            .visibleTextOverlaysBelowVideo(tl), overlayLayerCallback());
+            overlayLayerBelow.invalidate();
+        }
+        if (spriteOverlayViewBelow != null) {
+            spriteOverlayViewBelow.setInteractive(false);
+            spriteOverlayViewBelow.setData(
+                    com.fadcam.ui.faditor.compositor.LayerPreviewController
+                            .visibleSpriteItemsBelowVideo(tl), spriteOverlayCallback());
+            spriteOverlayViewBelow.invalidate();
+        }
     }
 
     /** Every preview surface a batch delete can touch, refreshed in one place. */
@@ -12362,7 +12399,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             () -> project.getTimeline().addTextOverlay(o)));
                     syncTimelineOverlays();
                     if (overlayLayer != null) {
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
                         overlayLayer.invalidate();
                     }
                     editorTimeline.invalidate();
@@ -12975,7 +13012,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void setupOverlayLayer() {
         if (overlayLayer == null || project == null) return;
         overlayLayer.setSnapEnabled(overlaySoftSnapEnabled);
-        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
+        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
         // Reposition overlays whenever the preview area changes. On a SIZE change (rotation, or a
         // preview/timeline split), RE-FLOW the whole preview — the canvas rect + every explicitly-
@@ -15201,7 +15238,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // lane, creating a new lane if every existing one is occupied.
         assignTextOverlayToFreeLane(item);
         project.getTimeline().addTextOverlay(item);
-        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
+        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                 overlayLayerCallback());
         syncTimelineOverlays();
         scheduleAutoSave();
@@ -16175,7 +16212,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.model.TextOverlayItem.createImage(
                         imageUri.toString(), 0.5f, 0.5f, 0.30f);
         project.getTimeline().addTextOverlay(item);
-        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()), overlayLayerCallback());
+        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
         undoManager.recordAction(new EditActions.LambdaAction("Add image overlay",
                 () -> project.getTimeline().addTextOverlay(item),
@@ -16286,7 +16323,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         if (overlayLayer != null) {
             overlayLayer.setData(
-                    com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(
+                    com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(
                             project.getTimeline()), overlayLayerCallback());
             overlayLayer.invalidate();
         }
@@ -18285,7 +18322,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (txt.trim().isEmpty()) {
                         // No text entered → don't leave an empty "Enter text" ghost.
                         project.getTimeline().removeTextOverlay(item);
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                                 overlayLayerCallback());
                         syncTimelineOverlays();
                         scheduleAutoSave();
@@ -18294,7 +18331,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     item.setText(txt);
                     item.setColorInt(chosen[0]);
                     item.setFontFamily(chosenFont[0]);
-                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
+                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                             overlayLayerCallback());
                     syncTimelineOverlays();
                     // Record ADD undo only once the overlay is committed with real text
@@ -18311,7 +18348,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setNeutralButton(R.string.faditor_text_delete, (d, w) -> {
                     boolean wasCommitted = textOverlayAddRecorded.remove(item);
                     project.getTimeline().removeTextOverlay(item);
-                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
+                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                             overlayLayerCallback());
                     syncTimelineOverlays();
                     // Only record a DELETE if this overlay had been committed (its ADD was
@@ -18329,7 +18366,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (cur == null || cur.trim().isEmpty()
                             || cur.equals(getString(R.string.faditor_text_hint))) {
                         project.getTimeline().removeTextOverlay(item);
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlays(project.getTimeline()),
+                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                                 overlayLayerCallback());
                         syncTimelineOverlays();
                         scheduleAutoSave();

@@ -107,13 +107,30 @@ have nothing to draw and can skip layout entirely — keeping the whole feature 
   silently pushing content behind the video. **Inert by construction and proven so**: with no
   PiP, or with every zIndex at its default 0, the below bucket is empty and every consumer sees
   exactly today's order — asserted for all 11 real projects, plus synthetic active/tie cases.
-- **Z3 — preview.** A second overlay View beneath `OverlayVideoPreviewView` fed the "below"
-  bucket; the existing surfaces take the "above" bucket. No new drawing code — the same item
-  renderers, pointed at a filtered list.
-- **Z4 — export.** A second `CompositeExportOverlay` instance for the "below" bucket, inserted
-  into `assembleClipVideoEffects` BEFORE the PiP composite; the existing one keeps the "above"
-  bucket. Must be proven with an absolute-geometry A/B frame diff (memory:
-  `ab-export-frame-diff-proof` — symmetric proofs miss flips).
+- **Z3 — ✅ BUILT (visual verification owed).** Two new surfaces in the layout BENEATH
+  `OverlayVideoPreviewView` — a second `SpriteOverlayView` and `TextOverlayLayer` — fed the
+  "below" bucket; the existing surfaces now take the "above" bucket
+  (`visibleTextOverlaysAboveVideo` / `visibleSpriteItemsAboveVideo`, converted mechanically at
+  all 13 preview call sites). No new drawing code, same renderers.
+  - The below instances are **draw-only**: both view classes gained `setInteractive(false)`,
+    which returns early from touch. `android:clickable="false"` was NOT enough — it does not
+    stop a custom view's own touch handling, and two hit-testing text layers would have had
+    the top one silently eat taps meant for the bottom.
+  - They are fed the REAL callbacks, not a no-op: the below surface still needs the content
+    rect to lay items out, and the sprite one needs sheet/renderer lookups to draw at all.
+  - Fed from `syncTimelineOverlays()` alone rather than all fourteen above-surface sites,
+    because bucket membership only changes when a lane's zIndex or an item's lane changes, and
+    every such path funnels through that sync.
+- **Z4 — ✅ BUILT (frame-diff proof owed).** A second `CompositeExportOverlay` for the "below"
+  bucket, added to the effect chain BEFORE the PiP blends — chain order IS paint order — and
+  skipped entirely when that bucket is empty. The existing pass keeps the "above" bucket.
+  Captions/waveforms deliberately stay in the ABOVE pass: they are clip- and instance-owned
+  rather than lane-owned, so they have no lane z to sit below.
+  - ⚠️ Z3 and Z4 had to land TOGETHER. Shipping Z4 alone would have been reachable-divergent:
+    the lane move-up/down UI already writes zIndex, so a user could have made export honour an
+    ordering the preview ignored — the exact failure this spec exists to prevent.
+  - Still owed: the absolute-geometry A/B frame diff (memory: `ab-export-frame-diff-proof` —
+    symmetric proofs miss flips).
 - **Z5 — UI.** Nothing new: lane move-up/down already exists and already writes zIndex. The
   point of Z1-Z4 is that those controls finally do what their name says across types.
 

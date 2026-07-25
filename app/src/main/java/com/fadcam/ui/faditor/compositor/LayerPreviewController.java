@@ -148,6 +148,60 @@ public final class LayerPreviewController {
     }
 
     /**
+     * Z3 (SPEC_CROSSTYPE_Z): what the ABOVE-video text surface shows — the existing
+     * {@code TextOverlayLayer}. Identical to {@link #visibleTextOverlays} until a lane is
+     * deliberately ordered beneath a PiP lane, because until then the below bucket is empty.
+     */
+    @NonNull
+    public static List<TextOverlayItem> visibleTextOverlaysAboveVideo(@NonNull Timeline timeline) {
+        return textsIn(partitionAroundVideo(timeline).get(1));
+    }
+
+    /** Z3: what the BELOW-video text surface shows. Empty for every project that has not
+     *  ordered a lane under a PiP lane — the surface then draws nothing. */
+    @NonNull
+    public static List<TextOverlayItem> visibleTextOverlaysBelowVideo(@NonNull Timeline timeline) {
+        return textsIn(partitionAroundVideo(timeline).get(0));
+    }
+
+    /** Z3: sprites on the ABOVE-video surface. See {@link #visibleTextOverlaysAboveVideo}. */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> visibleSpriteItemsAboveVideo(
+            @NonNull Timeline timeline) {
+        return spritesIn(partitionAroundVideo(timeline).get(1));
+    }
+
+    /** Z3: sprites on the BELOW-video surface. */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> visibleSpriteItemsBelowVideo(
+            @NonNull Timeline timeline) {
+        return spritesIn(partitionAroundVideo(timeline).get(0));
+    }
+
+    /** The text/sticker payloads of a {@link #partitionAroundVideo} bucket, in bucket order. */
+    @NonNull
+    public static List<TextOverlayItem> textsIn(@NonNull List<VisualItem> bucket) {
+        List<TextOverlayItem> out = new ArrayList<>();
+        for (VisualItem v : bucket) {
+            TextOverlayItem o = v.item.getTextOverlay();
+            if (o != null) out.add(o);
+        }
+        return out;
+    }
+
+    /** The sprite payloads of a {@link #partitionAroundVideo} bucket, in bucket order. */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spritesIn(
+            @NonNull List<VisualItem> bucket) {
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> out = new ArrayList<>();
+        for (VisualItem v : bucket) {
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = v.item.getSprite();
+            if (s != null) out.add(s);
+        }
+        return out;
+    }
+
+    /**
      * §4.5 per-object eye, for whichever payload this item carries. Kept next to
      * {@link #orderedVisualItems} so preview and export skip the same objects by construction.
      */

@@ -533,6 +533,27 @@
 
         <!-- M-COMP-2: live overlay-video (PiP) layer — above the master surfaces,
              below visualizer/image/sprite/text overlays (plan §3.3 stack order). -->
+        <!-- Z3 (SPEC_CROSSTYPE_Z): the BELOW-video overlay surfaces. Empty for every project
+             that has not ordered a lane beneath a PiP lane, so they draw nothing by default.
+             Deliberately NON-INTERACTIVE (clickable=false, focusable=false): two hit-testing
+             text layers would have the top one silently eat taps meant for the bottom. An
+             object behind the video stays fully editable from its timeline row; to drag it on
+             the canvas again, order its lane back above the video. See the spec's Z3 note. -->
+        <com.fadcam.ui.faditor.sprite.SpriteOverlayView
+            android:id="@+id/sprite_overlay_layer_below"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false"
+            android:layout_gravity="center" />
+
+        <com.fadcam.ui.faditor.overlay.TextOverlayLayer
+            android:id="@+id/overlay_layer_below"
+            android:clickable="false"
+            android:focusable="false"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
         <com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView
             android:id="@+id/overlay_video_layer"
             android:layout_width="match_parent"

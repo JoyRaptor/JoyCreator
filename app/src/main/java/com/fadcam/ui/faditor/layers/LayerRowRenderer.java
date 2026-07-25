@@ -878,14 +878,16 @@ public final class LayerRowRenderer {
      * icon, while an emptied VIDEO-kind lane still drew the live one. The spine
      * ({@link TrackKind#MASTER}) and the audio band always carry audio by construction;
      * every other row carries audio exactly when it holds an audio clip or an overlay
-     * (PiP) clip.</p>
+     * (PiP) clip that has OPTED IN to contributing audio (SPEC_PIP_AUDIO — a PiP is silent
+     * by default, so muting a lane that holds only silent PiPs would do nothing, and the
+     * icon must not promise otherwise).</p>
      */
     private static boolean rowCarriesAudio(@NonNull Track t) {
         if (t.getKind() == TrackKind.AUDIO || t.getKind() == TrackKind.MASTER) return true;
         for (TimedItem item : t.getItems()) {
             if (item.getAudioClip() != null) return true;
             com.fadcam.ui.faditor.model.Clip clip = item.getClip();
-            if (clip != null && clip.isOverlayClip()) return true;
+            if (clip != null && clip.isOverlayClip() && clip.isOverlayAudioEnabled()) return true;
         }
         return false;
     }

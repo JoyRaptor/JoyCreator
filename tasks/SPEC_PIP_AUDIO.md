@@ -69,11 +69,30 @@ already telling the user it will.
   composition builders. Returns null when no PiP has opted in → composition byte-identical.
   ⚠️ `usesLayerFeaturesAffectingExport` already returns true whenever any overlay clip exists,
   so the full re-encode path is already taken — no change needed there.
-- **C — UI.** An "Include audio" toggle on the PiP object menu (`ObjectMenuSheet` already has a
-  PiP adapter), plus volume where the sheet already exposes it for audio clips.
-- **D — layer-row audio drawer.** Extend the master-only clip-audio drawer
+- **C — UI.** ✅ DONE. "Include audio" / "Mute overlay audio" action on the PiP object menu
+  (`showObjectMenuSheetForPipClip`), one undo step, refreshing the preview volume and the rows.
+  A static **Volume** slider (0–2×) appears on the sheet only once the clip has opted in —
+  a volume control on a silent clip is noise. Deliberately static, not keyframed: a PiP volume
+  ENVELOPE is not threaded through the export sequence yet (audio clips have one; see below).
+  The row mute icon's applicability also requires opt-in, so a lane holding only silent PiPs
+  correctly shows the greyed icon rather than promising a mute that would do nothing.
+- **D — layer-row audio drawer.** TODO. Extend the master-only clip-audio drawer
   (`EditorTimelineView` :307, keyed by master `segments`) to lane rows holding a PiP. Only
-  meaningful once A–C land.
+  meaningful now that A–C have landed.
+
+## Known gaps (deliberate, recorded so they are not "discovered" as bugs)
+
+- **Preview plays at most ONE PiP's audio** — the view owns a single `ExoPlayer` bound to the
+  top-most visible overlay clip. Export has no such limit, so a project with two overlapping
+  opted-in PiPs will export both but preview only the top one. Fixing needs a second player
+  (or a mixer) in `OverlayVideoPreviewView`.
+- **No PiP volume ENVELOPE on export.** `Clip` carries a `VolumeKeyframe` list and
+  `buildAudioSequence` honors it for audio clips; `buildOverlayAudioSequence` applies only the
+  static level. Wiring the envelope is a small, contained follow-up.
+- **PiP loop extension / removed spans are not reflected in its audio.** The audio item uses
+  the clip's in/out points and trimmed duration; the preview's visual extent has the same
+  simplification today (`topVisibleAt` uses `getTrimmedDurationMs`), so the two agree — but
+  neither honors a looped PiP.
 
 ## Acceptance
 

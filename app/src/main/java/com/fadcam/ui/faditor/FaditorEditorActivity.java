@@ -17359,8 +17359,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Rotate", -180f, 180f, deg)); // TODO(strings)
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
                 "Opacity", 0f, 1f, pct));    // TODO(strings)
+        // SPEC_PIP_AUDIO slice C: volume is only meaningful once this PiP contributes
+        // audio at all, so the slider appears only for an opted-in clip (static — a PiP
+        // volume ENVELOPE is not wired through the export sequence yet).
+        if (c.isOverlayAudioEnabled()) {
+            props.add(ObjectMenuSheet.staticProp("pipVolume", "Volume", 0f, 2f, pct, // TODO(strings)
+                    ms -> c.getVolumeLevel(),
+                    (v, ms) -> {
+                        c.setVolumeLevel(v);
+                        if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+                        scheduleAutoSave();
+                    }));
+        }
 
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
+        addPipAudioAction(actions, c);
         actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
                 () -> clearAllPipKeyframes(c)));
 
@@ -17377,6 +17390,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
         maybeAddLinkActions(actions, c.getId());
         ensureObjectMenuSheet().show("Video overlay", null, props, actions, // TODO(strings)
                 null, null, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    /**
+     * SPEC_PIP_AUDIO slice C: the opt-in toggle for a PiP's audio, with one undo step.
+     * A PiP is silent by default (see {@code Clip#overlayAudioEnabled}) — this is the only
+     * way to turn it on, deliberately: auto-enabling would change existing exports and would
+     * double the voice on a dual-stream pair.
+     */
+    private void addPipAudioAction(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
+            @NonNull Clip c) {
+        final boolean was = c.isOverlayAudioEnabled();
+        actions.add(new ObjectMenuSheet.Action(
+                was ? "Mute overlay audio" : "Include audio", false, () -> {  // TODO(strings)
+            final Runnable apply = () -> {
+                c.setOverlayAudioEnabled(!was);
+                if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+                syncTimelineOverlays(); // the row's mute icon is content-derived
+                scheduleAutoSave();
+            };
+            final Runnable revert = () -> {
+                c.setOverlayAudioEnabled(was);
+                if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+                syncTimelineOverlays();
+                scheduleAutoSave();
+            };
+            apply.run();
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    was ? "Mute overlay audio" : "Include overlay audio", apply, revert));
+        }));
     }
 
     @NonNull

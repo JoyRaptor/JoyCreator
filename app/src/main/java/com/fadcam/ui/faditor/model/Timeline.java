@@ -1096,138 +1096,79 @@ public class Timeline {
 
     /**
      * Build the floating layer tracks above the master (PLAN §2.2, extended M10 §6.3
-     * track-membership). Groups {@link #textOverlays} by {@link TextOverlayItem#getLayerId()}:
-     * every item with a {@code null} (or {@code "text"}) layerId lands in the single
-     * fixed {@code "text"} track — EXACTLY today's M5 behavior, byte-for-byte, for
-     * every project that predates M10 or never used it (no item has ever had a
-     * non-default layerId, so there is only ever this one bucket). An item with a
-     * distinct non-null layerId lands in its own track instead, keyed by that id;
-     * {@link #extraLayerTracks} additionally seeds a still-EMPTY track definition (so
-     * a freshly-created empty layer survives a save/reload — see M10 build report).
-     * Order: the fixed "text" track first (if non-empty), then user-created tracks in
-     * {@link #extraLayerTracks} order. Freshly rebuilt on every call; persisted flags
-     * (M6) are re-applied per track.
+     * track-membership; NEUTRAL SUBSTRATE — see {@code tasks/SPEC_NEUTRAL_SUBSTRATE.md}).
+     *
+     * <p><b>Routing is layerId-FIRST.</b> A row is the set of visual items — text/sticker,
+     * sprite, and overlay video/image alike — that share one {@code layerId}, regardless
+     * of which backing list holds them. Every floating row is therefore a neutral lane
+     * that can hold anything; a {@link TrackKind} survives only as the row's label and to
+     * decide where in the band its lane is emitted, so an existing project's rows come out
+     * in exactly the order they always did. (Audio is the one genuinely separate band —
+     * it is never visually composited — and lives in {@link #getAudioTracks()}.)</p>
+     *
+     * <p>Three lane ids are SEEDED so items that never chose a lane still have a home:
+     * {@code "text"} (also a {@code null} text layerId), {@code "sprite"} (null sprite
+     * layerId) and {@code "video"} (an overlay clip's layerId is NEVER null — null means
+     * master-clip). Each is emitted when ANY payload type has items for it, then the
+     * user-created {@link #extraLayerTracks} definitions in their own order (emitted even
+     * when empty, so a freshly-created lane survives save/reload), then any orphan id.
+     * Freshly rebuilt on every call; persisted flags (M6) are re-applied per track.</p>
      */
     @NonNull
     public List<Track> getLayers() {
-        // NEUTRAL substrate (SPEC_NEUTRAL_SUBSTRATE S0): collect LAYER-def ids up front
-        // so the per-type leftover flushes below EXCLUDE their buckets — otherwise a
-        // shared layerId would surface as one defensive per-type track PER payload type
-        // (the split-row bug the merge pass at the bottom exists to fix). Empty for
-        // every project without a user-created neutral lane, leaving this method
-        // byte-identical to its pre-LAYER behavior.
-        java.util.Set<String> neutralIds = new java.util.HashSet<>();
-        for (LayerTrackDef def : extraLayerTracks) {
-            if (def.getKind() == TrackKind.LAYER) neutralIds.add(def.getId());
-        }
-        // id -> ordered items, built in textOverlays' own order so each track's items
-        // stay in insertion order regardless of how many tracks they're split across.
-        Map<String, List<TextOverlayItem>> byLayer = new LinkedHashMap<>();
+        // NEUTRAL SUBSTRATE (SPEC_NEUTRAL_SUBSTRATE): EVERY floating row is a lane that
+        // holds ANY visual payload. Routing is layerId-FIRST — a row is the set of items
+        // (text/sticker, sprite, overlay video/image) sharing one layerId, whatever their
+        // backing list. A Track's kind no longer gates membership; it survives only as the
+        // row's label/affordance hint and to decide EMISSION ORDER below, so an existing
+        // project's rows come out in exactly the order they always did.
+        //
+        // Grouping maps, each built in its backing list's own order so a lane's items of
+        // one type keep insertion order (which IS their per-type z — see
+        // LayerPreviewController; cross-type paint order is the global surface stack).
+        Map<String, List<TextOverlayItem>> textsByLayer = new LinkedHashMap<>();
         for (TextOverlayItem overlay : textOverlays) {
             String id = overlay.getLayerId() != null ? overlay.getLayerId() : "text";
-            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(overlay);
+            textsByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(overlay);
         }
-        List<Track> layers = new ArrayList<>();
-        List<TextOverlayItem> defaultBucket = byLayer.remove("text");
-        if (defaultBucket != null && !defaultBucket.isEmpty()) {
-            layers.add(buildTextTrack("text", TrackKind.TEXT, "Text", defaultBucket));
-        }
-        for (LayerTrackDef def : extraLayerTracks) {
-            if (def.getKind() != TrackKind.TEXT && def.getKind() != TrackKind.STICKER) continue;
-            List<TextOverlayItem> bucket = byLayer.remove(def.getId());
-            layers.add(buildTextTrack(def.getId(), def.getKind(), def.getName(),
-                    bucket != null ? bucket : Collections.emptyList()));
-        }
-        // Any remaining bucket (a layerId with items but no matching def — should not
-        // happen via the normal M10 UI, but defensive: surface it as a track anyway
-        // rather than silently dropping items) — mirrors old-build-tolerant patterns
-        // elsewhere in this class.
-        for (Map.Entry<String, List<TextOverlayItem>> e : byLayer.entrySet()) {
-            if (neutralIds.contains(e.getKey())) continue; // owned by the LAYER merge pass
-            layers.add(buildTextTrack(e.getKey(), TrackKind.TEXT, "Text", e.getValue()));
-        }
-
-        // SPRITE tracks (schema v9, PLAN_SPRITE_ANIMATION S1) — mirrors the text
-        // grouping exactly: default "sprite" bucket first, then SPRITE LayerTrackDefs,
-        // then defensive leftover buckets. Sprite rows sit after text rows in the
-        // floating band (z stays list-order until row-reorder ships).
         Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> spritesByLayer =
                 new LinkedHashMap<>();
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : spriteOverlays) {
             String id = so.getLayerId() != null ? so.getLayerId() : "sprite";
             spritesByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(so);
         }
-        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteDefault =
-                spritesByLayer.remove("sprite");
-        if (spriteDefault != null && !spriteDefault.isEmpty()) {
-            layers.add(buildSpriteTrack("sprite", "Sprite", spriteDefault));
-        }
-        for (LayerTrackDef def : extraLayerTracks) {
-            if (def.getKind() != TrackKind.SPRITE) continue;
-            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> bucket =
-                    spritesByLayer.remove(def.getId());
-            layers.add(buildSpriteTrack(def.getId(), def.getName(),
-                    bucket != null ? bucket : Collections.emptyList()));
-        }
-        for (Map.Entry<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> e
-                : spritesByLayer.entrySet()) {
-            if (neutralIds.contains(e.getKey())) continue; // owned by the LAYER merge pass
-            layers.add(buildSpriteTrack(e.getKey(), "Sprite", e.getValue()));
-        }
-
-        // VIDEO/IMAGE overlay tracks (M-COMP-2) — mirrors the sprite grouping
-        // exactly: default "video" bucket first, then VIDEO/IMAGE LayerTrackDefs,
-        // then defensive leftover buckets. Zero-cost for every project without
-        // overlay clips (the list is empty → no buckets, and the def pass below
-        // only sees defs the user explicitly created).
         Map<String, List<Clip>> videosByLayer = new LinkedHashMap<>();
         for (Clip oc : overlayClips) {
             String id = oc.getLayerId() != null ? oc.getLayerId() : "video";
             videosByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(oc);
         }
-        List<Clip> videoDefault = videosByLayer.remove("video");
-        if (videoDefault != null && !videoDefault.isEmpty()) {
-            layers.add(buildVideoTrack("video", TrackKind.VIDEO, "PiP", videoDefault));
-        }
-        for (LayerTrackDef def : extraLayerTracks) {
-            if (def.getKind() != TrackKind.VIDEO && def.getKind() != TrackKind.IMAGE) continue;
-            List<Clip> bucket = videosByLayer.remove(def.getId());
-            layers.add(buildVideoTrack(def.getId(), def.getKind(), def.getName(),
-                    bucket != null ? bucket : Collections.emptyList()));
-        }
-        for (Map.Entry<String, List<Clip>> e : videosByLayer.entrySet()) {
-            if (neutralIds.contains(e.getKey())) continue; // owned by the LAYER merge pass
-            layers.add(buildVideoTrack(e.getKey(), TrackKind.VIDEO, "PiP", e.getValue()));
-        }
+        LaneBuckets buckets = new LaneBuckets(textsByLayer, spritesByLayer, videosByLayer);
 
-        // NEUTRAL merge pass (SPEC_NEUTRAL_SUBSTRATE S0): one Track per LAYER def
-        // holding EVERY visual payload sharing its id — text, sprite, and overlay
-        // video/image in one row. Item order groups by type; that is sufficient
-        // because cross-type paint order is the global surface stack (see
-        // LayerPreviewController) — only per-type insertion order carries z meaning
-        // within a track, and each type keeps its backing-list order here. Emitted
-        // even when empty so a freshly-created neutral lane survives save/reload
-        // (same contract as the typed def passes above).
-        for (LayerTrackDef def : extraLayerTracks) {
-            if (def.getKind() != TrackKind.LAYER) continue;
-            Track track = new Track(def.getId(), TrackKind.LAYER, def.getName());
-            List<TextOverlayItem> tb = byLayer.remove(def.getId());
-            if (tb != null) {
-                for (TextOverlayItem o : tb) track.addItem(TimedItem.ofTextOverlay(o));
-            }
-            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sb =
-                    spritesByLayer.remove(def.getId());
-            if (sb != null) {
-                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : sb) {
-                    track.addItem(TimedItem.ofSprite(so));
-                }
-            }
-            List<Clip> vb = videosByLayer.remove(def.getId());
-            if (vb != null) {
-                for (Clip oc : vb) track.addItem(videoTimedItem(oc));
-            }
-            applyTrackFlags(track);
-            layers.add(track);
+        List<Track> layers = new ArrayList<>();
+        // The three SEEDED default lanes, in their historical row order. Each is emitted
+        // when ANY payload type has items for its id — so a sprite dropped onto the "text"
+        // lane keeps that lane alive even after its last text leaves.
+        if (buckets.hasItems("text")) {
+            layers.add(buildLaneTrack("text", TrackKind.TEXT, "Text", buckets));
+        }
+        emitDefs(layers, buckets, TrackKind.TEXT, TrackKind.STICKER);
+
+        if (buckets.hasItems("sprite")) {
+            layers.add(buildLaneTrack("sprite", TrackKind.SPRITE, "Sprite", buckets));
+        }
+        emitDefs(layers, buckets, TrackKind.SPRITE, null);
+
+        if (buckets.hasItems("video")) {
+            layers.add(buildLaneTrack("video", TrackKind.VIDEO, "PiP", buckets));
+        }
+        emitDefs(layers, buckets, TrackKind.VIDEO, TrackKind.IMAGE);
+        emitDefs(layers, buckets, TrackKind.LAYER, null);
+        // Defensive: any id with items but no matching def (should not happen via the
+        // normal UI) still surfaces as a lane rather than silently dropping its items.
+        // ONE flush for all remaining ids, so an orphan id holding several payload types
+        // becomes ONE lane — the same layerId-first rule the rest of this method follows.
+        for (String orphanId : buckets.remainingIds()) {
+            layers.add(buildLaneTrack(orphanId, TrackKind.LAYER, "Layer", buckets));
         }
 
         sortBandByZIndex(layers); // PHASE-P P2: row order follows persisted zIndex
@@ -1235,18 +1176,79 @@ public class Timeline {
     }
 
     /**
-     * Build one VIDEO/IMAGE overlay track (M-COMP-2). The {@link TimedItem} view
-     * mirrors each clip's PERSISTED overlay fields: {@code overlayStartMs} becomes
-     * the item start, {@code overlayTransform} the item transform, and
-     * {@code overlayBlendMode} the item blend — so preview/export consumers read
-     * the exact state storage round-trips (single-authority rule).
+     * The three layerId→items groupings {@link #getLayers()} routes from, bundled so a
+     * lane can be built from ALL of them by id (neutral substrate: membership is the
+     * layerId, never the payload's backing list). Consuming a lane REMOVES its id from
+     * every map, so each item lands in exactly one row and whatever is left over at the
+     * end is by definition an orphan id.
+     */
+    private static final class LaneBuckets {
+        final Map<String, List<TextOverlayItem>> texts;
+        final Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> sprites;
+        final Map<String, List<Clip>> videos;
+
+        LaneBuckets(@NonNull Map<String, List<TextOverlayItem>> texts,
+                @NonNull Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> sprites,
+                @NonNull Map<String, List<Clip>> videos) {
+            this.texts = texts;
+            this.sprites = sprites;
+            this.videos = videos;
+        }
+
+        /** True if ANY payload type has items for {@code id}. */
+        boolean hasItems(@NonNull String id) {
+            return texts.containsKey(id) || sprites.containsKey(id) || videos.containsKey(id);
+        }
+
+        /** Every id still unconsumed, in text→sprite→video discovery order, deduped. */
+        @NonNull
+        List<String> remainingIds() {
+            java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>(texts.keySet());
+            ids.addAll(sprites.keySet());
+            ids.addAll(videos.keySet());
+            return new ArrayList<>(ids);
+        }
+    }
+
+    /**
+     * Emit one Track per {@link LayerTrackDef} of the given kind(s), in
+     * {@link #extraLayerTracks} order — kind decides only WHERE a lane appears in the
+     * band (preserving the historical row order), never what it may hold. Emitted even
+     * when empty so a freshly-created lane survives save/reload.
+     */
+    private void emitDefs(@NonNull List<Track> out, @NonNull LaneBuckets buckets,
+            @NonNull TrackKind kind, @Nullable TrackKind alsoKind) {
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() != kind && (alsoKind == null || def.getKind() != alsoKind)) continue;
+            out.add(buildLaneTrack(def.getId(), def.getKind(), def.getName(), buckets));
+        }
+    }
+
+    /**
+     * Build ONE lane: every visual payload sharing {@code id}, whatever its backing list
+     * (neutral substrate). Item order groups by type, which is sufficient because
+     * cross-type paint order is the fixed global surface stack (overlay video under
+     * sprite under text — see {@code LayerPreviewController} and the layout's overlay
+     * stack); only per-type order carries z meaning inside a lane, and each type keeps
+     * its backing-list order here.
      */
     @NonNull
-    private Track buildVideoTrack(@NonNull String id, @NonNull TrackKind kind,
-            @NonNull String name, @NonNull List<Clip> items) {
+    private Track buildLaneTrack(@NonNull String id, @NonNull TrackKind kind,
+            @NonNull String name, @NonNull LaneBuckets buckets) {
         Track track = new Track(id, kind, name);
-        for (Clip oc : items) {
-            track.addItem(videoTimedItem(oc));
+        List<TextOverlayItem> tb = buckets.texts.remove(id);
+        if (tb != null) {
+            for (TextOverlayItem overlay : tb) track.addItem(TimedItem.ofTextOverlay(overlay));
+        }
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sb = buckets.sprites.remove(id);
+        if (sb != null) {
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : sb) {
+                track.addItem(TimedItem.ofSprite(so));
+            }
+        }
+        List<Clip> vb = buckets.videos.remove(id);
+        if (vb != null) {
+            for (Clip oc : vb) track.addItem(videoTimedItem(oc));
         }
         applyTrackFlags(track);
         return track;
@@ -1254,9 +1256,10 @@ public class Timeline {
 
     /**
      * The TimedItem view of one overlay (PiP) clip — mirrors the clip's PERSISTED
-     * overlay fields (start/transform/blend) per the single-authority rule above.
-     * Shared by {@link #buildVideoTrack} and the neutral LAYER merge pass in
-     * {@link #getLayers()} so the mirroring cannot drift between them.
+     * overlay fields: {@code overlayStartMs} becomes the item start,
+     * {@code overlayTransform} the item transform, and {@code overlayBlendMode} the item
+     * blend, so preview/export consumers read the exact state storage round-trips
+     * (single-authority rule, M-COMP-2).
      */
     @NonNull
     private static TimedItem videoTimedItem(@NonNull Clip oc) {
@@ -1265,28 +1268,6 @@ public class Timeline {
         item.setBlendMode(com.fadcam.ui.faditor.layers.BlendMode
                 .fromName(oc.getOverlayBlendMode()));
         return item;
-    }
-
-    @NonNull
-    private Track buildSpriteTrack(@NonNull String id, @NonNull String name,
-            @NonNull List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> items) {
-        Track track = new Track(id, TrackKind.SPRITE, name);
-        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : items) {
-            track.addItem(TimedItem.ofSprite(so));
-        }
-        applyTrackFlags(track);
-        return track;
-    }
-
-    @NonNull
-    private Track buildTextTrack(@NonNull String id, @NonNull TrackKind kind, @NonNull String name,
-                                  @NonNull List<TextOverlayItem> items) {
-        Track track = new Track(id, kind, name);
-        for (TextOverlayItem overlay : items) {
-            track.addItem(TimedItem.ofTextOverlay(overlay));
-        }
-        applyTrackFlags(track);
-        return track;
     }
 
     /**

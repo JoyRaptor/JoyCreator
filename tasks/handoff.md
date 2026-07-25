@@ -15,11 +15,27 @@
 > **DEVICE-PROVEN** via project.json injection on the Note 9: app's own autosave
 > re-serialized ONE LAYER track holding [textOverlay, sprite, clip]; sprite on the lane
 > renders in preview. Fixture project: `129d8643` (backup at project.json.bak on-device).
-> **NEXT (MECHANICAL, cheaper model):** spec slices S2 (stageCreateLayerAndMoveItem picks
-> LAYER + "Layer n" name), S2b (sprite/PiP branches in the two drop-staging methods), S3
-> (row header glyph/mute-icon for LAYER rows). Invariants listed in the spec block — the
-> big ones: zero-LAYER projects stay byte-identical; overlay-clip layerId NEVER null;
-> DECISION (b) (default rows stay type-pure) needs JoyRaptor/JoyRaptor ratification.
+> **THEN JOYRAPTOR SETTLED THE DESIGN → FULL NEUTRALITY** (rejecting my user-created-only
+> recommendation): *"layers just be a substrate that anything can go on... having limitations
+> and labeled rows that only certain things can go in is frustrating. The only specific track
+> that should be separate is audio-only rows."* Third commit rewrites to that:
+> `getLayers()` is now **layerId-first** (a row = the items sharing a layerId, whatever their
+> backing list; kind only picks the emission phase, which preserves existing row order), the
+> preview/export kind filters were DELETED (net code removal), `payloadCompatible` collapsed
+> to "AUDIO lane takes only audio, every floating lane takes any visual payload", and S2/S2b
+> landed: all four payload types can now move between lanes and open new ones (sprites and
+> PiPs previously could not move AT ALL), every "new lane" affordance creates a neutral
+> `LAYER`, and `assignTextOverlayToFreeLane` reuses any non-audio lane.
+> **DEVICE STATUS:** the MERGE was device-proven on the pre-rewrite build; the full-neutrality
+> rewrite is COMPILE-GREEN ONLY — the device run was aborted when a screenshot showed the
+> phone in human use, so tap injection stopped. Sandbox project 129d8643 restored to its exact
+> original bytes. WARNING for the next device pass: the app rotates its own `project.json.bak`,
+> so that file is NOT a pristine snapshot — capture the original host-side first.
+> **NEXT:** spec's validation queue (device), then S3 (row cosmetics) — the only slice left,
+> and the mute-icon there has the same kind-vs-content bug in cosmetic form.
+> **ALSO CAPTURED (JoyRaptor, own lane, NOT built):** a video row should get an expandable AUDIO
+> sub-drawer (waveform + transcript aligned under its visual tape) instead of audio living
+> only in a separate band. Needs its own spec — see the spec's DECISION section.
 
 > **⚡ 2026-07-25 ~13:20 — OPUS 4.8 (user directive: "do everything except frontier work"; ≤3
 > subagents). Tree CLEAN, HEAD `9eed3b7`.**

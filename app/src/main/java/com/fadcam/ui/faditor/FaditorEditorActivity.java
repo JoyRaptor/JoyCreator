@@ -12123,52 +12123,76 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return null;
         final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
         final AudioClip audioPayload = item.getAudioClip();
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem spritePayload = item.getSprite();
         final Clip clipPayload = item.getClip();
-        if (textPayload == null && audioPayload == null && (clipPayload == null || !clipPayload.isOverlayClip())) return null;
-        // "text"/"audio" are the fixed default-track ids the migration always assigns;
-        // storing null (rather than the literal string) for a move BACK to the default
-        // track keeps old-shaped/never-touched items indistinguishable from ones
-        // explicitly re-homed to the default (matches the serializer's omit-when-default
-        // convention for layerId — see ProjectStorage).
-        final String toStored = ("text".equals(toTrackId) || "audio".equals(toTrackId)) ? null : toTrackId;
-        final String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
+        if (textPayload == null && audioPayload == null && spritePayload == null
+                && (clipPayload == null || !clipPayload.isOverlayClip())) return null;
+        // Each payload type has its own SEEDED default lane id ("text"/"sprite"/"audio");
+        // storing null (rather than the literal string) for a move BACK to that lane keeps
+        // old-shaped/never-touched items indistinguishable from ones explicitly re-homed
+        // there (the serializer's omit-when-default convention — see ProjectStorage).
+        // Under the neutral substrate a payload can land on ANOTHER type's seeded lane
+        // (e.g. a sprite onto "text"), which stores that id literally — routing is
+        // layerId-first, so the item merges into that lane. See Timeline#getLayers().
+        final String defaultId = textPayload != null ? "text"
+                : spritePayload != null ? "sprite"
+                : audioPayload != null ? "audio" : null;
+        final String toStored = defaultId != null && defaultId.equals(toTrackId) ? null : toTrackId;
+        final String fromStored = defaultId != null && defaultId.equals(fromTrackId) ? null : fromTrackId;
         // CRITICAL: overlay clip's layerId must NEVER be null (null = master-clip semantics;
         // isOverlayClip() breaks). Store the literal toTrackId always.
         final String clipToStored = toTrackId;
         final String clipFromStored = fromTrackId != null ? fromTrackId : "video";
-        if (textPayload != null) textPayload.setLayerId(toStored);
-        else if (audioPayload != null) audioPayload.setLayerId(toStored);
-        else if (clipPayload != null) clipPayload.setLayerId(clipToStored);
+        applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                toStored, clipToStored);
         syncTimelineOverlays();
         maybeRemoveEmptyLayerTrack(fromTrackId);
         return new PendingLayerTrackUndo("Move to layer",
                 () -> {
-                    if (textPayload != null) textPayload.setLayerId(toStored);
-                    else if (audioPayload != null) audioPayload.setLayerId(toStored);
-                    else if (clipPayload != null) clipPayload.setLayerId(clipToStored);
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                            toStored, clipToStored);
                     syncTimelineOverlays();
                     maybeRemoveEmptyLayerTrack(fromTrackId);
                 },
                 () -> {
-                    if (textPayload != null) textPayload.setLayerId(fromStored);
-                    else if (audioPayload != null) audioPayload.setLayerId(fromStored);
-                    else if (clipPayload != null) clipPayload.setLayerId(clipFromStored);
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                            fromStored, clipFromStored);
                     syncTimelineOverlays();
                 });
     }
 
     /**
-     * M10 glue: drop-to-new-layer (PLAN Part 7 row M10 scope 2). Creates a new
-     * persistent track definition matching the dragged item's own band/kind (a TEXT/
-     * STICKER item creates a TEXT track; an AUDIO item creates an AUDIO track — cross-
-     * band drops are not offered by the gesture controller, see
-     * {@code LayerGestureController#updateDragTarget}'s same-band guard), reassigns the
-     * item to it IMMEDIATELY, and returns the staged undo/redo halves (track creation +
-     * move) for {@code onGestureFinished} to fold into ONE undo action alongside the
-     * position change (undoing removes the item from the new track; since the track was
-     * created empty and only this item was ever added, the resulting empty track is
-     * pruned by the same {@link #maybeRemoveEmptyLayerTrack} helper the cross-row move
-     * uses).
+     * Write {@code stored} (or {@code clipStored} for an overlay clip, which may never be
+     * null) onto whichever payload the moved item actually carries. Shared by the apply/
+     * redo/undo halves of {@link #stageMoveItemToLayerTrack} so the three can't drift.
+     */
+    private static void applyMovedLayerId(
+            @Nullable com.fadcam.ui.faditor.model.TextOverlayItem textPayload,
+            @Nullable AudioClip audioPayload,
+            @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem spritePayload,
+            @Nullable Clip clipPayload,
+            @Nullable String stored, @NonNull String clipStored) {
+        if (textPayload != null) textPayload.setLayerId(stored);
+        else if (audioPayload != null) audioPayload.setLayerId(stored);
+        else if (spritePayload != null) spritePayload.setLayerId(stored);
+        else if (clipPayload != null) clipPayload.setLayerId(clipStored);
+    }
+
+    /**
+     * M10 glue: drop-to-new-layer (PLAN Part 7 row M10 scope 2). Creates a new persistent
+     * track definition, reassigns the dragged item to it IMMEDIATELY, and returns the
+     * staged undo/redo halves (track creation + move) for {@code onGestureFinished} to
+     * fold into ONE undo action alongside the position change (undoing removes the item
+     * from the new track; since the track was created empty and only this item was ever
+     * added, the resulting empty track is pruned by the same
+     * {@link #maybeRemoveEmptyLayerTrack} helper the cross-row move uses).
+     *
+     * <p>NEUTRAL SUBSTRATE: a drop in the FLOATING band creates a neutral
+     * {@link com.fadcam.ui.faditor.layers.TrackKind#LAYER} lane ("Layer n") that accepts
+     * any visual payload afterwards — the item that opened the lane does not brand it.
+     * The audio band still creates an AUDIO lane (audio is never visually composited).
+     * Cross-band drops are not offered by the gesture controller — see
+     * {@code LayerGestureController#updateDragTarget}'s same-band guard.</p>
      */
     @Nullable
     private PendingLayerTrackUndo stageCreateLayerAndMoveItem(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
@@ -12177,19 +12201,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null || editorTimeline == null) return null;
         final com.fadcam.ui.faditor.model.TextOverlayItem textPayload = item.getTextOverlay();
         final AudioClip audioPayload = item.getAudioClip();
-        if (textPayload == null && audioPayload == null) return null;
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem spritePayload = item.getSprite();
+        final Clip clipPayload = item.getClip();
+        final boolean overlayClipPayload = clipPayload != null && clipPayload.isOverlayClip();
+        if (textPayload == null && audioPayload == null && spritePayload == null
+                && !overlayClipPayload) return null;
         final Timeline timeline = project.getTimeline();
         boolean floatingBand = editorTimeline.isLayerTrackFloatingBand(fromTrack);
         com.fadcam.ui.faditor.layers.TrackKind newKind = floatingBand
-                ? com.fadcam.ui.faditor.layers.TrackKind.TEXT
+                ? com.fadcam.ui.faditor.layers.TrackKind.LAYER
                 : com.fadcam.ui.faditor.layers.TrackKind.AUDIO;
         int nextNum = (floatingBand ? timeline.getLayers().size() : timeline.getAudioTracks().size()) + 1;
-        String newName = (floatingBand ? "Text " : "Audio ") + nextNum;
+        String newName = (floatingBand ? "Layer " : "Audio ") + nextNum;
         final String newTrackId = timeline.createLayerTrack(newKind, newName);
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);
         final String fromTrackId = fromTrack.getId();
-        final String fromStored = ("text".equals(fromTrackId) || "audio".equals(fromTrackId)) ? null : fromTrackId;
+        // Per-payload seeded default lane id (see stageMoveItemToLayerTrack).
+        final String defaultId = textPayload != null ? "text"
+                : spritePayload != null ? "sprite"
+                : audioPayload != null ? "audio" : null;
+        final String fromStored = defaultId != null && defaultId.equals(fromTrackId)
+                ? null : fromTrackId;
+        // CRITICAL: an overlay clip's layerId may never be null (null = master-clip).
+        final String clipFromStored = fromTrackId != null ? fromTrackId : "video";
 
         // Slice 2 (gap-insertion): land the new FLOATING lane at the visual position the
         // user dropped into. Row order = getLayers() DESC by persisted zIndex, so we
@@ -12218,8 +12253,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
-        if (textPayload != null) textPayload.setLayerId(newTrackId);
-        else audioPayload.setLayerId(newTrackId);
+        applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                newTrackId, newTrackId);
         syncTimelineOverlays();
         maybeRemoveEmptyLayerTrack(fromTrackId);
         return new PendingLayerTrackUndo("New layer",
@@ -12228,14 +12263,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     for (java.util.Map.Entry<String, Integer> e : zAfter.entrySet()) {
                         timeline.getOrCreateTrackFlags(e.getKey()).zIndex = e.getValue();
                     }
-                    if (textPayload != null) textPayload.setLayerId(newTrackId);
-                    else audioPayload.setLayerId(newTrackId);
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                            newTrackId, newTrackId);
                     syncTimelineOverlays();
                     maybeRemoveEmptyLayerTrack(fromTrackId);
                 },
                 () -> {
-                    if (textPayload != null) textPayload.setLayerId(fromStored);
-                    else audioPayload.setLayerId(fromStored);
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                            fromStored, clipFromStored);
                     for (java.util.Map.Entry<String, Integer> e : zBefore.entrySet()) {
                         timeline.getOrCreateTrackFlags(e.getKey()).zIndex = e.getValue();
                     }
@@ -15149,13 +15184,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         Timeline tl = project.getTimeline();
         java.util.List<String> candidates = new java.util.ArrayList<>();
-        candidates.add(null); // default TEXT lane
+        candidates.add(null); // default "text" lane
         int textTrackCount = 1;
         for (com.fadcam.ui.faditor.layers.LayerTrackDef def : tl.getExtraLayerTracks()) {
-            if (def.getKind() == com.fadcam.ui.faditor.layers.TrackKind.TEXT) {
-                candidates.add(def.getId());
-                textTrackCount++;
-            }
+            // NEUTRAL SUBSTRATE: every FLOATING lane can hold text, so every one is a
+            // placement candidate (audio is the one band that cannot). Without this, a
+            // neutral lane would never be reused and each new overlay would spawn a lane.
+            if (def.getKind() == com.fadcam.ui.faditor.layers.TrackKind.AUDIO) continue;
+            candidates.add(def.getId());
+            textTrackCount++;
         }
         for (String trackId : candidates) {
             boolean clash = false;
@@ -15173,7 +15210,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
         String newId = tl.createLayerTrack(
-                com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text " + (textTrackCount + 1));
+                com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Layer " + (textTrackCount + 1));
         item.setLayerId(newId);
     }
 
@@ -16107,9 +16144,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final Timeline timeline = project.getTimeline();
 
-        // Create a new TEXT-kind layer track ABOVE all existing layers.
+        // Create a new NEUTRAL lane ABOVE all existing layers (it holds this image now,
+        // but accepts any visual payload later — see tasks/SPEC_NEUTRAL_SUBSTRATE.md).
         final String newTrackId = timeline.createLayerTrack(
-                com.fadcam.ui.faditor.layers.TrackKind.TEXT,
+                com.fadcam.ui.faditor.layers.TrackKind.LAYER,
                 "Image " + (timeline.getLayers().size() + 1)); // TODO(strings)
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);
@@ -17851,7 +17889,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Timeline timeline = project.getTimeline();
         final String fromLayerId = o.getLayerId(); // null = default "text" track
         final String newTrackId = timeline.createLayerTrack(
-                com.fadcam.ui.faditor.layers.TrackKind.TEXT,
+                com.fadcam.ui.faditor.layers.TrackKind.LAYER,
                 (o.isImage() ? "Image " : "Text ") + (timeline.getLayers().size() + 1)); // TODO(strings)
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);

@@ -110,6 +110,37 @@ def ordered_visual_items(tl):
 def new_visible(tl, want):
     return [ident(p) for kind, p in ordered_visual_items(tl) if kind == want]
 
+# --- Z2: the two-bucket partition (SPEC_CROSSTYPE_Z) ---
+
+def top_pip_lane_z(tl):
+    """Highest zIndex among lanes holding a visible overlay clip; -inf if none."""
+    lanes, flags = build_lanes(tl), lane_flags(tl)
+    top = None
+    for lane_id, items in lanes:
+        if flags.get(lane_id, (0, False))[1]:
+            continue
+        for kind, payload in items:
+            if kind == 'clip' and not obj_hidden(payload):
+                z = flags.get(lane_id, (0, False))[0]
+                top = z if top is None else max(top, z)
+    return top
+
+def partition_around_video(tl):
+    """(below, above) — the PiPs themselves belong to neither bucket."""
+    pip_z = top_pip_lane_z(tl)
+    lanes, flags = build_lanes(tl), lane_flags(tl)
+    ordered = sorted(lanes, key=lambda l: flags.get(l[0], (0, False))[0])
+    below, above = [], []
+    for lane_id, items in ordered:
+        if flags.get(lane_id, (0, False))[1]:
+            continue
+        z = flags.get(lane_id, (0, False))[0]
+        for kind, payload in items:
+            if obj_hidden(payload) or kind == 'clip':
+                continue
+            (below if (pip_z is not None and z < pip_z) else above).append(ident(payload))
+    return below, above
+
 fails = 0
 for path in sorted(glob.glob(sys.argv[1])):
     j = json.load(open(path, encoding='utf-8'))
@@ -124,6 +155,14 @@ for path in sorted(glob.glob(sys.argv[1])):
         o, n = old_visible(tl, want), new_visible(tl, want)
         if o != n:
             bad.append(f"{label}: old={o} new={n}")
+    # Z2 INERTNESS: on a real project (no lane deliberately ordered under a PiP lane) the
+    # "below" bucket must be EMPTY and "above" must equal the whole non-PiP ordering — i.e.
+    # the two-bucket split changes nothing until someone uses it.
+    below, above = partition_around_video(tl)
+    whole = [i for k, i in [(k, ident(p)) for k, p in ordered_visual_items(tl)] ] \
+        if False else [ident(p) for k, p in ordered_visual_items(tl) if k != 'clip']
+    if below or above != whole:
+        bad.append(f"Z2 not inert: below={below} above={above} whole={whole}")
     if bad:
         fails += 1
         print(f"  DIFF {name}")
@@ -131,4 +170,42 @@ for path in sorted(glob.glob(sys.argv[1])):
             print(f"       {b}")
     else:
         print(f"  OK   {name}")
-print(f"\n{'ALL THREE LISTS IDENTICAL' if not fails else str(fails)+' PROJECT(S) DIFFER'}")
+print(f"\n{'ALL IDENTICAL + Z2 INERT' if not fails else str(fails)+' PROJECT(S) DIFFER'}")
+
+# --- Z2 ACTIVE case: no real project exercises it yet, so build one. ---
+# Lane A (z=3) text, Lane B (z=2) PiP, Lane C (z=1) text  =>  C behind the video, A in front.
+synth = {
+    'timeline': {
+        'textOverlays': [{'id': 'txtAbove', 'layerId': 'A'},
+                         {'id': 'txtBelow', 'layerId': 'C'}],
+        'spriteOverlays': [{'id': 'sprBelow', 'layerId': 'C'}],
+        'overlayClips': [{'id': 'pip', 'layerId': 'B'}],
+        'layers': {
+            'trackDefs': [{'id': 'A', 'kind': 'LAYER', 'name': 'A'},
+                          {'id': 'B', 'kind': 'LAYER', 'name': 'B'},
+                          {'id': 'C', 'kind': 'LAYER', 'name': 'C'}],
+            'layers': [{'id': 'A', 'zIndex': 3}, {'id': 'B', 'zIndex': 2},
+                       {'id': 'C', 'zIndex': 1}],
+        },
+    }
+}
+stl = synth['timeline']
+sb, sa = partition_around_video(stl)
+ok_active = (sorted(sb) == ['sprBelow', 'txtBelow'] and sa == ['txtAbove'])
+print(("PASS  " if ok_active else "FAIL  ")
+      + f"Z2 active: lane under the PiP lane goes behind -> below={sorted(sb)} above={sa}")
+
+# Tie => ABOVE (equal z means the user expressed no ordering; keep today's look).
+tie = {'timeline': {
+    'textOverlays': [{'id': 'txtTie', 'layerId': 'A'}],
+    'spriteOverlays': [], 'overlayClips': [{'id': 'pip', 'layerId': 'B'}],
+    'layers': {'trackDefs': [{'id': 'A', 'kind': 'LAYER', 'name': 'A'},
+                             {'id': 'B', 'kind': 'LAYER', 'name': 'B'}],
+               'layers': [{'id': 'A', 'zIndex': 0}, {'id': 'B', 'zIndex': 0}]}}}
+tb, ta = partition_around_video(tie['timeline'])
+ok_tie = (tb == [] and ta == ['txtTie'])
+print(("PASS  " if ok_tie else "FAIL  ")
+      + f"Z2 tie goes ABOVE (no expressed ordering) -> below={tb} above={ta}")
+
+if not (ok_active and ok_tie):
+    sys.exit(1)

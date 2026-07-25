@@ -85,6 +85,69 @@ public final class LayerPreviewController {
     }
 
     /**
+     * Z2 (SPEC_CROSSTYPE_Z): does this item paint UNDER the PiP video surface?
+     *
+     * <p>The two-bucket model. The overlay-video surface is one plane that cannot be split
+     * per item (it is a live decoder, not a canvas draw), so the question every other item
+     * answers is binary: in front of it, or behind it. An item is BEHIND when its lane sits
+     * below the highest PiP-bearing lane.</p>
+     *
+     * <p><b>Inert by construction.</b> With no PiP present there is no plane to be behind, and
+     * with every zIndex at its default 0 no lane is strictly below another, so the "below"
+     * bucket is empty and every consumer sees exactly today's ordering. The feature only turns
+     * on when a user deliberately orders a lane beneath a PiP lane — which is precisely the
+     * gesture that does nothing today.</p>
+     *
+     * <p>Ties go ABOVE deliberately: equal zIndex means the user never expressed an ordering,
+     * and the historical stack draws overlays over video. So "no opinion" keeps today's look
+     * rather than silently sending content behind the video.</p>
+     */
+    public static boolean paintsBelowVideo(@NonNull Timeline timeline, @NonNull VisualItem item) {
+        return item.lane.getZIndex() < topPipLaneZ(timeline);
+    }
+
+    /**
+     * Highest zIndex among lanes that hold a visible overlay (PiP) clip, or
+     * {@link Integer#MIN_VALUE} when there is no PiP at all — which makes
+     * {@link #paintsBelowVideo} false for everything, i.e. today's behavior.
+     */
+    public static int topPipLaneZ(@NonNull Timeline timeline) {
+        int top = Integer.MIN_VALUE;
+        for (VisualItem v : orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.model.Clip clip = v.item.getClip();
+            if (clip != null && clip.isOverlayClip() && v.lane.getZIndex() > top) {
+                top = v.lane.getZIndex();
+            }
+        }
+        return top;
+    }
+
+    /**
+     * Z2: the ordering split into the two paint buckets — {@code [0]} = behind the video
+     * surface, {@code [1]} = in front of it. Both preserve {@link #orderedVisualItems} order,
+     * so within a bucket the existing per-type consumers behave exactly as they do now.
+     *
+     * <p>Returned as one call because preview and export must consume the SAME split; giving
+     * each side its own partition helper is how they would drift.</p>
+     */
+    @NonNull
+    public static List<List<VisualItem>> partitionAroundVideo(@NonNull Timeline timeline) {
+        int pipZ = topPipLaneZ(timeline);
+        List<VisualItem> below = new ArrayList<>();
+        List<VisualItem> above = new ArrayList<>();
+        for (VisualItem v : orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.model.Clip clip = v.item.getClip();
+            // The PiPs themselves ARE the plane — they belong to neither bucket.
+            if (clip != null && clip.isOverlayClip()) continue;
+            (v.lane.getZIndex() < pipZ ? below : above).add(v);
+        }
+        List<List<VisualItem>> out = new ArrayList<>(2);
+        out.add(below);
+        out.add(above);
+        return out;
+    }
+
+    /**
      * §4.5 per-object eye, for whichever payload this item carries. Kept next to
      * {@link #orderedVisualItems} so preview and export skip the same objects by construction.
      */

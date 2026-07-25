@@ -68,9 +68,46 @@ lockstep, because both consume the same single ordering. B is the honest end sta
 multi-session compositor rewrite that should not be started without device verification
 available — and every C-stage artifact (the global ordering, the split passes) is reused by it.
 
+## Z3's blocking design question — ANSWERED (2026-07-25)
+
+Splitting each canvas surface into two instances (one under the PiP plane, one over) raises a
+question that has to be settled before any code, or it becomes a bug: **which instance handles
+touch?** Two `TextOverlayLayer`s both hit-testing the same screen means the top one silently
+eats taps meant for an item behind the video.
+
+**Decision: the BELOW instance is inert — `setClickable(false)`, no gesture callback, draw
+only. Interaction stays with the existing (above) instance.**
+
+Rationale, and the consequence to accept:
+- Dragging an object that is *behind* a video is not a real workflow — you cannot see what you
+  are grabbing. Users place it, then send it behind.
+- The object remains fully editable via its timeline row (select, drawer, keyframes), which is
+  where lane ordering is done anyway. So nothing becomes unreachable, only un-draggable
+  in the canvas.
+- Consequence: to drag it directly again, order its lane back above the video. That is a
+  discoverable, reversible rule, unlike "sometimes taps land, sometimes they don't".
+- The alternative — merged hit-testing across both instances, picking the topmost by the Z1
+  ordering — is strictly better UX and strictly worse risk. It can be layered on later without
+  changing anything below; the inert-below decision does not foreclose it.
+
+Second question, also settled: **the below instance must not double-render.** Each instance is
+fed its own bucket from `partitionAroundVideo`, never the full list, so an item is drawn by
+exactly one of them. With the "below" bucket empty (every current project), the below instances
+have nothing to draw and can skip layout entirely — keeping the whole feature free until used.
+
 ## Slices (for C)
 
-- **Z1 — the ordering, one authority.** `LayerPreviewController.orderedVisualItems(timeline)`:
+- **Z1 — ✅ DONE (`88f522d`).** `LayerPreviewController.orderedVisualItems`, with all three
+  `visible*` methods derived from it; equivalence proved over 11 real projects by
+  `tasks/visible_equiv.py`.
+- **Z2 — ✅ DONE.** `partitionAroundVideo` / `paintsBelowVideo` / `topPipLaneZ`. An item is
+  BEHIND when its lane's zIndex is strictly below the highest PiP-bearing lane's; the PiPs
+  themselves belong to neither bucket (they ARE the plane). Ties go ABOVE deliberately — equal
+  zIndex means the user expressed no ordering, so "no opinion" keeps today's look instead of
+  silently pushing content behind the video. **Inert by construction and proven so**: with no
+  PiP, or with every zIndex at its default 0, the below bucket is empty and every consumer sees
+  exactly today's order — asserted for all 11 real projects, plus synthetic active/tie cases.
+- (original Z1 wording) **the ordering, one authority.** `LayerPreviewController.orderedVisualItems(timeline)`:
   every visible item of every type, sorted by (lane zIndex, lane emission order, item order),
   each tagged with its payload type. Pure, testable off-device — extend
   `tasks/getlayers_equiv.py`-style simulation rather than trusting inspection.

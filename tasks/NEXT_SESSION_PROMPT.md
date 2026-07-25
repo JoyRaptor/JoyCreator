@@ -1,5 +1,28 @@
 # NEXT SESSION PROMPT
 
+> **▶ START HERE — UPDATE 2026-07-25 evening (Opus 5, continuous session). HEAD `dd61015`,
+> tree clean.** Read `handoff.md`'s top block for the full account; the short version:
+> **BUILT:** neutral substrate S0–S5 (FULL neutrality — JoyRaptor's call: any object on any floating
+> lane, audio is the only separate band; `getLayers()` is now layerId-first), PiP audio A–D (it
+> had NO audio path at all: opt-in `Clip.overlayAudioEnabled`, preview + export + object-menu
+> toggle + a waveform shelf on lane rows), and a read-only warning for newer-schema projects.
+> **EIGHT real bugs found by adversarial review** — see the handoff block; three were in my own
+> new code, five pre-existing (incl. undo losing a named lane, hidden PiPs exporting audio, and
+> the downgrade guard being silent).
+> **SPECS:** `SPEC_NEUTRAL_SUBSTRATE.md`, `SPEC_PIP_AUDIO.md`, `SPEC_CROSSTYPE_Z.md`,
+> `REVIEW_ORDER_20260725.md`, `DRILL_SCHEMA_DOWNGRADE.md`.
+> **⚠️ NOTHING BELOW WAS DEVICE-VERIFIED — this is the top priority for the next session.** The
+> phone was in human use (Messages), so tap injection was stopped per the etiquette rule and not
+> resumed. Validation queues are written into both specs; the drill recipe is its own file.
+> Two device gotchas learned: the app ROTATES its own `project.json.bak` (so it is NOT a pristine
+> snapshot — capture originals host-side first), and `FaditorEditorActivity` is `exported=false`
+> (open projects through the UI, not `am start`).
+> **REGRESSION GUARD:** `python tasks/getlayers_equiv.py "<pulled>/proj_*.json"` after ANY
+> `getLayers()` change — it proved 9/10 real projects byte-identical across the rewrite.
+> **BIGGEST REMAINING PRODUCT GAP:** `SPEC_CROSSTYPE_Z.md` — lane order still does not control
+> paint order across item types. Deliberately NOT built blind: its acceptance gate is an
+> absolute-geometry export A/B, which needs the device.
+
 > **UPDATE 2026-07-25 ~13:25 (Opus 4.8, user directive "everything except frontier"): HEAD is now
 > `b3f7224`, tree CLEAN.** Landed since `3c443b0`: `3de40a2` speed-change gapless sibling (speed
 > edits re-bake the snapshot on speed-sheet commit), `9eed3b7` F9 "analyzing audio…" sticky fix.

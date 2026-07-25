@@ -5574,7 +5574,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onSpeedCommitted() {
-                commitClipSpeedToGaplessEngine(clip);
+                // Only re-bake if the speed ACTUALLY changed: a rebuild is a visible hitch,
+                // and merely peeking at the sheet during playback used to cost one.
+                if (clip.getSpeedMultiplier() != oldSpeed) {
+                    commitClipSpeedToGaplessEngine(clip);
+                }
             }
         });
         sheet.show(getSupportFragmentManager(), "speed_slider");
@@ -5603,12 +5607,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void commitClipSpeedToGaplessEngine(@Nullable Clip clip) {
         if (clip == null || playerManager == null || !playerManager.isGapless()) return;
-        float speed = clip.getSpeedMultiplier();
-        long homeVisualMs = (speed > 0)
-                ? (long) (lastSourcePositionInSegmentMs / speed)
+        // Home to the clip the PLAYHEAD is actually in, which is not necessarily the clip
+        // whose speed was edited: the sheet stays open across a scrub (the other drawers
+        // deliberately track it), so the user can move the playhead into another segment
+        // before dismissing. lastSourcePositionInSegmentMs then belongs to THAT segment, and
+        // homing it against the edited clip would land at an unrelated offset — a visible
+        // jump. In the ordinary case the two are the same clip and this is unchanged.
+        Clip home = getSelectedClip();
+        if (home == null) home = clip;
+        float homeSpeed = home.getSpeedMultiplier();
+        // lastSourcePositionInSegmentMs is a SOURCE-domain offset from the clip's in-point
+        // (see updateCurrentTimeDisplay), so dividing by the home clip's speed gives the
+        // visual position the engine resumes at — the same frame stays on screen.
+        long homeVisualMs = (homeSpeed > 0)
+                ? (long) (lastSourcePositionInSegmentMs / homeSpeed)
                 : lastSourcePositionInSegmentMs;
         boolean wasPlaying = playerManager.getPlayWhenReady();
-        resyncGaplessAfterStructuralEdit(clip.getId(), homeVisualMs, wasPlaying);
+        resyncGaplessAfterStructuralEdit(home.getId(), homeVisualMs, wasPlaying);
     }
 
     /**

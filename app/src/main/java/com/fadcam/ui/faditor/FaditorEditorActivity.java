@@ -12143,6 +12143,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // isOverlayClip() breaks). Store the literal toTrackId always.
         final String clipToStored = toTrackId;
         final String clipFromStored = fromTrackId != null ? fromTrackId : "video";
+        // Moving the LAST item off a user-created lane prunes that lane's definition
+        // (maybeRemoveEmptyLayerTrack). Snapshot it — with its index — so undo restores the
+        // lane itself, not just the item: without this, undo returned the item into a
+        // NAMELESS orphan row ("My titles" → "Text") at the end of its phase.
+        final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
+                project.getTimeline().getLayerTrackDef(fromTrackId);
+        final int fromDefIndex = project.getTimeline().indexOfLayerTrackDef(fromTrackId);
         applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
                 toStored, clipToStored);
         syncTimelineOverlays();
@@ -12155,6 +12162,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     maybeRemoveEmptyLayerTrack(fromTrackId);
                 },
                 () -> {
+                    if (fromDefBefore != null) {
+                        project.getTimeline().restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
+                    }
                     applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
                             fromStored, clipFromStored);
                     syncTimelineOverlays();
@@ -12225,6 +12235,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ? null : fromTrackId;
         // CRITICAL: an overlay clip's layerId may never be null (null = master-clip).
         final String clipFromStored = fromTrackId != null ? fromTrackId : "video";
+        // As in stageMoveItemToLayerTrack: the SOURCE lane can be pruned when this item was
+        // its last, so snapshot it (with its index) for the undo half. The NEW lane's own
+        // def is already handled below via createdDef/removeLayerTrackDef.
+        final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
+                timeline.getLayerTrackDef(fromTrackId);
+        final int fromDefIndex = timeline.indexOfLayerTrackDef(fromTrackId);
 
         // Slice 2 (gap-insertion): land the new FLOATING lane at the visual position the
         // user dropped into. Row order = getLayers() DESC by persisted zIndex, so we
@@ -12269,6 +12285,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     maybeRemoveEmptyLayerTrack(fromTrackId);
                 },
                 () -> {
+                    if (fromDefBefore != null) {
+                        timeline.restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
+                    }
                     applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
                             fromStored, clipFromStored);
                     for (java.util.Map.Entry<String, Integer> e : zBefore.entrySet()) {
@@ -17946,6 +17965,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);
         final int newZ = above ? topLayerZIndex(timeline) + 1 : bottomLayerZIndex(timeline) - 1;
+        // The SOURCE lane is pruned when this was its last item — snapshot it (with its
+        // index) so undo restores the lane, not just the item. See stageMoveItemToLayerTrack.
+        final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
+                fromLayerId != null ? timeline.getLayerTrackDef(fromLayerId) : null;
+        final int fromDefIndex =
+                fromLayerId != null ? timeline.indexOfLayerTrackDef(fromLayerId) : -1;
 
         Runnable redo = () -> {
             if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
@@ -17955,6 +17980,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             refreshAfterOverlayLayerChange();
         };
         Runnable undo = () -> {
+            if (fromDefBefore != null) timeline.restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
             o.setLayerId(fromLayerId);
             timeline.removeLayerTrackDef(newTrackId);
             timeline.setTrackFlags(newTrackId, null);
@@ -17986,12 +18012,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String targetId = layers.get(target).getId();
         final String toLayerId = "text".equals(targetId) ? null : targetId;
 
+        // Snapshot the source lane's def: moving this last item off it prunes it, and undo
+        // must bring the LANE back too, not just the item (see stageMoveItemToLayerTrack).
+        final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
+                fromLayerId != null ? timeline.getLayerTrackDef(fromLayerId) : null;
+        final int fromDefIndex =
+                fromLayerId != null ? timeline.indexOfLayerTrackDef(fromLayerId) : -1;
         Runnable redo = () -> {
             o.setLayerId(toLayerId);
             if (fromLayerId != null) maybeRemoveEmptyLayerTrack(fromLayerId);
             refreshAfterOverlayLayerChange();
         };
-        Runnable undo = () -> { o.setLayerId(fromLayerId); refreshAfterOverlayLayerChange(); };
+        Runnable undo = () -> {
+            if (fromDefBefore != null) timeline.restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
+            o.setLayerId(fromLayerId);
+            refreshAfterOverlayLayerChange();
+        };
         redo.run();
         undoManager.recordAction(new EditActions.LambdaAction(
                 up ? "Move to layer up" : "Move to layer down", redo, undo));

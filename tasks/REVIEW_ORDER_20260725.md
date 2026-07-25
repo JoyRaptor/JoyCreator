@@ -41,6 +41,22 @@ requested audio drawer on layer rows would render a waveform for audio that neve
 must land WITH lane-mute support: `LayerPreviewController.isAudioClipTrackMuted` only walks
 audio tracks and only matches `AudioClip`s, so a muted lane would not mute its PiP.
 
+## Third bug found by the same sweep (pre-existing, fixed) — undo lost the LANE
+
+`maybeRemoveEmptyLayerTrack` prunes a user-created lane once its last item leaves. It runs on
+apply and on redo — but was missing from **every** undo half (`stageMoveItemToLayerTrack`,
+`stageCreateLayerAndMoveItem`, `moveOverlayItemToNewLayer`, `moveOverlayItemToAdjacentLayer`).
+So: move the only item off a lane you named "My titles" → the lane's definition is deleted →
+undo brings the item back into a NAMELESS orphan row called "Text". The item survived; the lane
+did not. Pre-existing, but the neutral substrate makes it far more reachable, because sprites
+and PiPs can now move between lanes at all, and lanes are now worth naming.
+
+Fixed by snapshotting the source lane's def AND its index before the prune, and restoring both
+in the undo half (`Timeline.restoreLayerTrackDefAt` / `indexOfLayerTrackDef`). The index matters
+on its own: within a kind's phase `getLayers()` emits defs in list order, so an append-only
+restore would silently move the recovered row to the end of its phase whenever zIndex flags
+don't already pin it.
+
 ## Recommended order (revised)
 
 1. ~~Neutral substrate S0–S5~~ ✅ done, adversarially reviewed, model half proven.

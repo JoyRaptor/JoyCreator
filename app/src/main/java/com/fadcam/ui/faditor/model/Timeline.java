@@ -2077,10 +2077,33 @@ public class Timeline {
 
     /** Re-insert a previously-created track definition (undo of a delete/creation). */
     public void restoreLayerTrackDef(@NonNull LayerTrackDef def) {
+        restoreLayerTrackDefAt(def, -1);
+    }
+
+    /**
+     * Re-insert a definition at its ORIGINAL index in {@link #extraLayerTracks}
+     * ({@code index < 0} = append). Position matters: within a kind's phase,
+     * {@link #getLayers()} emits defs in this list's order, so an undo that appended
+     * instead of re-inserting would silently move the restored row to the end of its
+     * phase whenever zIndex flags don't already pin the order.
+     */
+    public void restoreLayerTrackDefAt(@NonNull LayerTrackDef def, int index) {
         for (LayerTrackDef existing : extraLayerTracks) {
             if (existing.getId().equals(def.getId())) return; // already present
         }
-        extraLayerTracks.add(def);
+        if (index >= 0 && index <= extraLayerTracks.size()) {
+            extraLayerTracks.add(index, def);
+        } else {
+            extraLayerTracks.add(def);
+        }
+    }
+
+    /** Index of {@code trackId} in {@link #extraLayerTracks}, or -1. */
+    public int indexOfLayerTrackDef(@NonNull String trackId) {
+        for (int i = 0; i < extraLayerTracks.size(); i++) {
+            if (extraLayerTracks.get(i).getId().equals(trackId)) return i;
+        }
+        return -1;
     }
 
     /**

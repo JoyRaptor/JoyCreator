@@ -1088,6 +1088,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (loaded != null && !loaded.getTimeline().isEmpty()) {
                 initViews();
                 project = loaded;
+                warnIfProjectIsReadOnly(loaded);
 
                 // T8: split any legacy sprites that share one lane (pre-T8 placements all
                 // left layerId=null → one overlapping "sprite" track). Idempotent + purely
@@ -16009,6 +16010,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }));
             }
         };
+    }
+
+    /**
+     * Tell the user when this project is READ-ONLY because it was written by a newer build
+     * (the schema downgrade guard, PLAN §4.1(2)).
+     *
+     * <p>The guard itself was already correct — {@code save()}/{@code saveAsync()} both refuse,
+     * so the newer data can never be clobbered — but it was entirely SILENT. The editor opened
+     * normally, every edit appeared to work, each autosave was refused with only a log line,
+     * and the whole session's work vanished on close. From the user's side that is
+     * indistinguishable from losing their work at random. A refusal the user cannot see is
+     * worse than no guard, because it buys safety with their time.</p>
+     */
+    private void warnIfProjectIsReadOnly(@NonNull FaditorProject p) {
+        if (!p.isLoadedFromNewerVersion()) return;
+        FLog.w(TAG, "Opened read-only (newer schema v" + p.getSchemaVersion() + "): " + p.getName());
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Read-only project")                                  // TODO(strings)
+                .setMessage("This project was made with a newer version of the app, so it "
+                        + "can't be saved here without losing the parts this version doesn't "
+                        + "understand.\n\nYou can watch and export it, but any edits you make "
+                        + "will NOT be saved. Update the app to edit it.")      // TODO(strings)
+                .setPositiveButton("Got it", null)                              // TODO(strings)
+                .setCancelable(false)
+                .show();
     }
 
     /** Undo/redo helper: restore a PiP transform snapshot in place + refresh the layer. */

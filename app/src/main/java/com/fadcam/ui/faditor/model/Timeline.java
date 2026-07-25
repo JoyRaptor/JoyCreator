@@ -1143,30 +1143,45 @@ public class Timeline {
             videosByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(oc);
         }
         LaneBuckets buckets = new LaneBuckets(textsByLayer, spritesByLayer, videosByLayer);
+        // Ids that a DEF owns. The per-phase leftover flushes below must skip these or a
+        // def whose id happens to sit in an earlier phase's map would be pre-empted: the
+        // flush would emit its items under a leftover name and the def would then emit an
+        // EMPTY lane. (Reachable today: a LAYER def holding text is in the text map, and
+        // the text flush runs before emitDefs(LAYER).)
+        java.util.Set<String> defIds = new java.util.HashSet<>();
+        for (LayerTrackDef def : extraLayerTracks) defIds.add(def.getId());
 
         List<Track> layers = new ArrayList<>();
-        // The three SEEDED default lanes, in their historical row order. Each is emitted
-        // when ANY payload type has items for its id — so a sprite dropped onto the "text"
-        // lane keeps that lane alive even after its last text leaves.
+        // Emission order below is EXACTLY the historical band order — seeded lane, its
+        // defs, then its leftovers, per payload phase. Orphan ids (a layerId with items
+        // but no def — real projects have them, e.g. legacy "sprite-<uuid>" ids) therefore
+        // keep both their historical row POSITION and their type-derived name; only their
+        // membership is now merged. Each seeded lane is emitted when ANY payload type has
+        // items for its id, so a sprite dropped on the "text" lane keeps that lane alive
+        // even after its last text leaves.
         if (buckets.hasItems("text")) {
             layers.add(buildLaneTrack("text", TrackKind.TEXT, "Text", buckets));
         }
         emitDefs(layers, buckets, TrackKind.TEXT, TrackKind.STICKER);
+        flushLeftovers(layers, buckets, buckets.texts, defIds, TrackKind.TEXT, "Text");
 
         if (buckets.hasItems("sprite")) {
             layers.add(buildLaneTrack("sprite", TrackKind.SPRITE, "Sprite", buckets));
         }
         emitDefs(layers, buckets, TrackKind.SPRITE, null);
+        flushLeftovers(layers, buckets, buckets.sprites, defIds, TrackKind.SPRITE, "Sprite");
 
         if (buckets.hasItems("video")) {
             layers.add(buildLaneTrack("video", TrackKind.VIDEO, "PiP", buckets));
         }
         emitDefs(layers, buckets, TrackKind.VIDEO, TrackKind.IMAGE);
+        flushLeftovers(layers, buckets, buckets.videos, defIds, TrackKind.VIDEO, "PiP");
+
         emitDefs(layers, buckets, TrackKind.LAYER, null);
-        // Defensive: any id with items but no matching def (should not happen via the
-        // normal UI) still surfaces as a lane rather than silently dropping its items.
-        // ONE flush for all remaining ids, so an orphan id holding several payload types
-        // becomes ONE lane — the same layerId-first rule the rest of this method follows.
+        // Belt-and-braces: an id owned by a def of a kind no phase emits (CAPTION/
+        // VISUALIZER/MASTER — nothing creates those defs today) would have been skipped by
+        // every flush above, so surface it rather than silently dropping its items. Empty
+        // in every reachable case.
         for (String orphanId : buckets.remainingIds()) {
             layers.add(buildLaneTrack(orphanId, TrackKind.LAYER, "Layer", buckets));
         }
@@ -1221,6 +1236,21 @@ public class Timeline {
         for (LayerTrackDef def : extraLayerTracks) {
             if (def.getKind() != kind && (alsoKind == null || def.getKind() != alsoKind)) continue;
             out.add(buildLaneTrack(def.getId(), def.getKind(), def.getName(), buckets));
+        }
+    }
+
+    /**
+     * Emit a lane for every id still left in {@code phaseMap} that no def owns — the
+     * defensive path for a layerId whose def is missing (legacy data). Iterates a SNAPSHOT
+     * of the keys because {@link #buildLaneTrack} removes from this very map (and from the
+     * other two, so an orphan id holding several payload types still becomes ONE lane).
+     */
+    private void flushLeftovers(@NonNull List<Track> out, @NonNull LaneBuckets buckets,
+            @NonNull Map<String, ?> phaseMap, @NonNull java.util.Set<String> defIds,
+            @NonNull TrackKind kind, @NonNull String name) {
+        for (String id : new ArrayList<>(phaseMap.keySet())) {
+            if (defIds.contains(id)) continue; // its def emits it later, with its own name
+            out.add(buildLaneTrack(id, kind, name, buckets));
         }
     }
 

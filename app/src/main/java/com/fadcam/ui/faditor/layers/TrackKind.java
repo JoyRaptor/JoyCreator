@@ -42,6 +42,23 @@ public enum TrackKind {
     AUDIO,
     LAYER;
 
+    /**
+     * True if a row of this kind is a real LANE — a container whose membership is decided by
+     * its items' {@code layerId}, and which may therefore receive a dropped payload.
+     *
+     * <p>Deliberately a WHITELIST: the floating band also carries rows that are read-only
+     * VIEWS over data owned elsewhere — {@link #CAPTION} (clip-owned caption spans) and
+     * {@link #VISUALIZER} (flat {@code WaveformOverlayInstance} list, no layerId at all) —
+     * plus the {@link #MASTER} spine and the {@link #AUDIO} band, none of which can own a
+     * dropped item. Dropping onto one would write a layerId nothing routes to, orphaning the
+     * item into a phantom lane. A new kind added later therefore defaults to NOT-a-lane:
+     * a refused drop is a small annoyance, a silently orphaned item is data loss.</p>
+     */
+    public boolean isLane() {
+        return this == VIDEO || this == IMAGE || this == TEXT
+                || this == STICKER || this == SPRITE || this == LAYER;
+    }
+
     /** Parse a persisted name, defaulting to {@link #VIDEO} for an unknown value. */
     @NonNull
     public static TrackKind fromName(@NonNull String name) {

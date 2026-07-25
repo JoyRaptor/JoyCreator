@@ -23,8 +23,9 @@
 >   `"L1"`; (b) full-neutrality test — NO new def at all: set a sprite's and an overlayClip's
 >   `layerId` to `"text"` and a text overlay's to `"sprite"`, then expect the seeded "Text"
 >   row to hold the sprite + PiP and the "Sprite" row to hold the text.
-> **CHEAPER MODEL STARTS ON: S3** (row header glyph/label + mute-icon for neutral lanes).
-> That is the only slice left, and it is cosmetic.
+> **ALL SLICES S0–S5 ARE NOW DONE.** What remains is DEVICE VERIFICATION (queue at the
+> bottom) — the model half is proven by `tasks/getlayers_equiv.py`, but no gesture has been
+> driven on a phone.
 > **INVARIANTS YOU MUST NOT BREAK:**
 > 1. **Existing projects keep their exact row ORDER.** Kind no longer gates membership, but
 >    it still decides which emission phase a lane appears in (`emitDefs` calls in
@@ -106,6 +107,58 @@ Therefore, inside a mixed lane:
 True per-lane cross-type interleaving would require unifying five surfaces into one
 compositor (and the export bitmap/GL split) — flagged, out of scope.
 
+## ADVERSARIAL REVIEW (2026-07-25, post-`d420272`) — 2 real bugs found + fixed
+
+Reviewing my own rewrite before building on it. Both bugs were introduced BY the rewrite;
+neither would have shown up in a compile or a happy-path click-through.
+
+**BUG 1 — the floating band is not all lanes (data-corrupting).** `FaditorEditorActivity`
+(~10605) builds the band as `getLayers()` + `getVisualizerTracks()` + `getCaptionTracks()`.
+CAPTION and VISUALIZER rows are READ-ONLY VIEWS: captions are clip-owned, and
+`WaveformOverlayInstance` has no `layerId` at all. The rewritten `payloadCompatible` accepted
+any visual payload on any non-AUDIO row, so dropping a text on the CC row would set its
+`layerId = "caption"` — an id nothing routes to, orphaning the item into a phantom lane.
+FIX: `TrackKind.isLane()`, a deliberate WHITELIST (`VIDEO/IMAGE/TEXT/STICKER/SPRITE/LAYER`).
+A future kind therefore defaults to not-a-lane: a refused drop is an annoyance, a silently
+orphaned item is data loss.
+
+**BUG 2 — orphan ids lost their row position and name.** I had replaced the three per-phase
+leftover flushes with ONE flush at the end of the band. Real projects DO carry orphan layerIds
+(the sandbox project has a legacy `sprite-<uuid>` sprite with no def), so those rows jumped to
+the bottom of the band and were renamed "Sprite" → "Layer" — violating invariant 1.
+FIX: per-phase flushes restored in the exact historical order, each skipping ids owned by a
+def. That skip is load-bearing in its own right: without it a LAYER def holding text sits in
+the text map, the text flush would emit its items under a leftover name, and the def would
+then emit an EMPTY lane.
+
+**PROOF (not an argument): `tasks/getlayers_equiv.py`.** Simulates the OLD and NEW emission
+algorithms over real `project.json` files and diffs the emitted row sequence (id, kind, name,
+ordered item ids). Pre-sort order is compared — `sortBandByZIndex` is unchanged and stable, so
+equal input order ⇒ equal output order. Run against 10 projects pulled from the Note 9:
+**9 identical**; the 1 diff is the LAYER fixture, showing exactly the intended merge (3 split
+rows → 1) while the orphan sprite row keeps its kind, name and position. Re-run it after any
+future `getLayers()` edit:
+```bash
+python tasks/getlayers_equiv.py "/path/to/pulled/proj_*.json"
+```
+
+**NOT a bug, but a semantic worth stating: one lane = one timeline track.**
+`LayerGestureController.nearestFreeStart` treats every sibling in a row as an occupied block
+regardless of payload type, so two items on ONE lane can never overlap in TIME. That is the
+industry-standard model (Premiere/CapCut: a track holds mixed media, but clips on it cannot
+overlap; simultaneity comes from stacking tracks) and it is preserved deliberately — a row is
+drawn as one horizontal strip, so overlapping bodies would collide and be unpickable.
+Consequence to watch in hand-testing: dropping a sprite onto a Text lane that is already busy
+at that moment SLIDES it to the nearest free slot rather than layering it. If that reads as
+broken to users, the fix is UX (reject + hint, or auto-pick a free lane), NOT relaxing the
+resolver.
+
+**Verified-not-broken while looking (no change needed):** schema stamping. A payload can only
+reach a foreign seeded lane if that lane exists, which implies sprites (stamp v9) or overlay
+clips (v8), and a user lane implies a def (v8) — so every reachable cross-lane state already
+stamps ≥ 8. `layerId` is serialized unconditionally for all four payload types, so membership
+round-trips regardless of the stamp.
+
 ## Slices
 
 ### S0 — model foundation — FRONTIER — ✅ DONE (rewritten to layerId-first)
@@ -158,16 +211,21 @@ a shared `applyMovedLayerId` helper, so the apply/redo/undo halves cannot drift.
   sprite→"sprite", audio→"audio"; an overlay clip ALWAYS stores a literal id (invariant 2).
   A payload landing on another type's seeded lane stores that id literally and merges there.
 
-### S3 — mixed-row cosmetics — MECHANICAL — TODO (the only slice left)
-- `layers/LayerRowRenderer`: item bodies already render per-ITEM kind (`kindForItem` ~1871)
-  — nothing to do there. Row header: give `LAYER` rows their own glyph/label (e.g. "◆" +
-  name). Mute icon (~613) keys off `AUDIO/VIDEO/MASTER` kind, so a neutral lane holding a
-  PiP-with-audio shows the no-audio variant — decide it per CONTENT (does this lane hold an
-  overlay clip?) rather than per kind, which is the same neutrality bug in cosmetic form.
-- Row height: a LAYER lane uses the default (non-AUDIO) height — correct, leave it.
-- Nice-to-have while there: the seeded rows are still labelled "Text"/"Sprite"/"PiP" even
-  once mixed. Consider labelling by content or letting the existing rename (TrackFlags
-  `customName`) carry it. Cosmetic only — do not change routing.
+### S3 — mixed-row cosmetics — ✅ DONE (was mostly already built)
+Audit found the row header had ALREADY been made neutral by JoyRaptor's 2026-07-19 change: the
+kind badge moved off the gutter onto each OBJECT (`payloadKindOf` per item), and the header
+keeps only caret + mute — "no name, no kind identity" (`LayerRowRenderer` ~605). Nothing to
+add there; item bodies were already per-item-kind.
+- The one real gap, now fixed: the mute icon's applicability keyed off
+  `kind == AUDIO || VIDEO || MASTER`. Once lanes stopped being branded by type that stopped
+  being the same question as "holds audio" — a neutral lane holding a PiP drew the greyed
+  not-applicable icon, and an emptied VIDEO-kind lane still drew the live one. Now decided by
+  CONTENT via `rowCarriesAudio(Track)`: MASTER/AUDIO always, else any audio clip or overlay
+  (PiP) clip among the row's items.
+- Row height: a neutral lane uses the default (non-AUDIO) height — correct, left alone.
+- Deliberately NOT done: relabelling the seeded "Text"/"Sprite"/"PiP" rows by content. They
+  are stable, user-renameable (TrackFlags `customName`), and churning a row's name as its
+  contents change would be worse than a slightly stale label.
 
 ### S4 — preview z-order across mixed lanes — FRONTIER — ✅ DONE
 - `compositor/LayerPreviewController`: the kind checks in `visibleTextOverlays`,

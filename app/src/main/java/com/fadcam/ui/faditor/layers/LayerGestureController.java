@@ -1711,6 +1711,10 @@ public final class LayerGestureController {
         if (candidate.getKind() == TrackKind.AUDIO) {
             return item.getAudioClip() != null;
         }
+        // NOT every floating row is a lane: the band also carries the read-only CAPTION and
+        // VISUALIZER views (FaditorEditorActivity appends them to the layer band). Dropping
+        // onto one would write a layerId that no routing consumes — see TrackKind#isLane.
+        if (!candidate.getKind().isLane()) return false;
         if (item.getAudioClip() != null) return false;
         return item.getClip() != null
                 || item.getTextOverlay() != null

@@ -610,8 +610,7 @@ public final class LayerRowRenderer {
 
         // §4.5: per-layer eye/lock glyphs RETIRED (drawEyeIcon/drawLockIcon calls gone) —
         // hidden/locked live on objects, toggled in the drawer, ghosted on item bodies.
-        drawMuteIcon(canvas, row.muteRect, !t.isMuted(), t.getKind() == TrackKind.AUDIO
-                || t.getKind() == TrackKind.VIDEO || t.getKind() == TrackKind.MASTER);
+        drawMuteIcon(canvas, row.muteRect, !t.isMuted(), rowCarriesAudio(t));
 
         if (collapsed) {
             drawCollapsedStrip(canvas, row, totalMs, timeToX);
@@ -868,6 +867,27 @@ public final class LayerRowRenderer {
         RectF shackle = new RectF(r.left + r.width() * 0.2f, r.top,
                 r.right - r.width() * 0.2f, bodyTop + r.height() * 0.1f);
         canvas.drawArc(shackle, 180f, 180f, false, iconPaint);
+    }
+
+    /**
+     * Whether the row's mute toggle means anything — i.e. does this row carry audio?
+     *
+     * <p>NEUTRAL SUBSTRATE: decided by CONTENT, not by the row's {@link TrackKind}. A lane
+     * is no longer branded by type, so "kind == VIDEO" stopped being the same question as
+     * "holds a video": a neutral lane holding a PiP used to draw the greyed not-applicable
+     * icon, while an emptied VIDEO-kind lane still drew the live one. The spine
+     * ({@link TrackKind#MASTER}) and the audio band always carry audio by construction;
+     * every other row carries audio exactly when it holds an audio clip or an overlay
+     * (PiP) clip.</p>
+     */
+    private static boolean rowCarriesAudio(@NonNull Track t) {
+        if (t.getKind() == TrackKind.AUDIO || t.getKind() == TrackKind.MASTER) return true;
+        for (TimedItem item : t.getItems()) {
+            if (item.getAudioClip() != null) return true;
+            com.fadcam.ui.faditor.model.Clip clip = item.getClip();
+            if (clip != null && clip.isOverlayClip()) return true;
+        }
+        return false;
     }
 
     private void drawMuteIcon(@NonNull Canvas canvas, @NonNull RectF r, boolean unmuted,

@@ -556,21 +556,38 @@ public final class EditActions {
         private final Timeline timeline;
         private final Clip clip;
         private final int index;
+        /**
+         * Transitions as they were BEFORE the delete. Deleting a clip also runs
+         * {@code removeTransitionsForDeletedClip}, which drops the transitions adjacent to
+         * the removed clip AND renumbers every later {@code clipIndex} in place. Re-adding
+         * the clip undid neither, so a delete+undo used to leave every later transition on
+         * the WRONG seam (one between clips 5 and 6 came back between 4 and 5) with the
+         * adjacent ones gone for good — silent corruption of the edit, not just data loss.
+         * Captured at construction, which every call site does before mutating.
+         */
+        private final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBefore;
 
         public DeleteClipAction(@NonNull Timeline timeline,
                                 @NonNull Clip clip, int index) {
             this.timeline = timeline;
             this.clip = clip;
             this.index = index;
+            this.transitionsBefore = timeline.snapshotTransitions();
         }
 
-        @Override public void execute() { timeline.removeClip(clip); }
+        @Override public void execute() {
+            timeline.removeClip(clip);
+            // REDO must reproduce the whole delete, transitions included — undo() restored
+            // them, so without this a redo would leave them pointing at a clip that is gone.
+            timeline.removeTransitionsForDeletedClip(index);
+        }
         @Override public void undo() {
             if (index >= 0 && index <= timeline.getClipCount()) {
                 timeline.addClip(index, clip);
             } else {
                 timeline.addClip(clip);
             }
+            timeline.restoreTransitions(transitionsBefore);
         }
         @NonNull @Override public String getDescription() { return "Delete clip"; }
     }

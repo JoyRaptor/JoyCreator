@@ -23631,6 +23631,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Timeline timeline = project.getTimeline();
         final boolean partnerIsOverlay = partner.isOverlayClip();
         final int partnerMasterIndex = partnerIsOverlay ? -1 : timeline.indexOfClip(partner);
+        // Same trap as the single-clip delete: removeTransitionsForDeletedClip drops the
+        // adjacent transitions and renumbers every later clipIndex in place, and re-inserting
+        // the clips undoes neither. Snapshot before touching anything.
+        final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBefore =
+                timeline.snapshotTransitions();
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Delete linked pair?")                              // TODO(strings)
                 .setMessage("This clip is linked to its "
@@ -23675,6 +23680,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             timeline.addClip(partner);
                         }
                         Timeline.linkClips(master, partner);
+                        timeline.restoreTransitions(transitionsBefore);
                         selectSegment(masterIndex);
                         editorTimeline.setTransitions(timeline.getTransitions());
                         syncTimelineOverlays();

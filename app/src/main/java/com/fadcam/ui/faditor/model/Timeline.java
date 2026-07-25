@@ -889,6 +889,29 @@ public class Timeline {
         return !transitions.isEmpty();
     }
 
+    /**
+     * Deep snapshot of the transition list, for an undo step that is about to run one of the
+     * index-shifting helpers ({@link #removeTransitionsForDeletedClip} and friends).
+     *
+     * <p>Those helpers are DESTRUCTIVE in two ways at once: they drop the transitions adjacent
+     * to the edited seam AND renumber every later {@code clipIndex} in place. Re-inserting the
+     * clip does not undo either — so without snapshot/restore, undoing a delete leaves every
+     * later transition attached to the WRONG seam, which is silent corruption of the user's
+     * edit rather than mere data loss.</p>
+     */
+    @NonNull
+    public List<Transition> snapshotTransitions() {
+        List<Transition> copy = new ArrayList<>(transitions.size());
+        for (Transition t : transitions) copy.add(t.copy());
+        return copy;
+    }
+
+    /** Restore a {@link #snapshotTransitions()} result, replacing the current list. */
+    public void restoreTransitions(@NonNull List<Transition> snapshot) {
+        transitions.clear();
+        for (Transition t : snapshot) transitions.add(t.copy());
+    }
+
     // ── Waveform visualizer overlays (schema v7) ─────────────────────
 
     public void addWaveformOverlay(@NonNull WaveformOverlayInstance overlay) {

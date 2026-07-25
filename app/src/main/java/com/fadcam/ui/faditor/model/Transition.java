@@ -77,6 +77,20 @@ public class Transition {
         this.fuzziness = Math.max(0f, Math.min(1f, fuzziness));
     }
 
+    /**
+     * Deep copy — every field, including the mutable {@code paramOverrides} map. Used to
+     * SNAPSHOT the transition list for undo: {@code clipIndex} is mutated in place by the
+     * index-shifting helpers on {@code Timeline}, so a shallow copy of the list would alias
+     * the very field the snapshot exists to preserve.
+     */
+    @NonNull
+    public Transition copy() {
+        Transition t = new Transition(type, durationMs, clipIndex, fuzziness);
+        t.glTransitionId = glTransitionId;
+        if (paramOverrides != null) t.paramOverrides = new java.util.HashMap<>(paramOverrides);
+        return t;
+    }
+
     /** True if this is a directional wipe/push transition. */
     public boolean isDirectional() {
         return type.name().startsWith("WIPE_") || type.name().startsWith("PUSH_");

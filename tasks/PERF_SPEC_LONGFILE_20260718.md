@@ -333,6 +333,11 @@ F9 DEVICE-VERIFIED (build 12:09, fresh empty bands cache): logcat
   one drawer kept showing "analyzing audio…" after completion (data was ready+cached;
   restart cleared it) — likely a missed invalidate/alias handoff in
   BandedTimelineWaveformCache onReady → superset alias path; cosmetic, worth a look.
+  FIXED `9eed3b7` (2026-07-25): it was the superset-REUSE scan in `get()`, not onReady — it
+  early-returned null on the first IN-FLIGHT covering span, short-circuiting before it could find
+  an already-READY covering entry later in HashMap iteration order (two overlapping extractions =
+  full-source prime + per-clip window). Now scans all candidates for a ready covering span first;
+  returns null only if none ready (no-duplicate-extraction guarantee preserved). Compile-green.
 
 F10 — STRUCTURAL EDITS DESYNC THE GAPLESS ENGINE (JoyRaptor 2026-07-18 pm: cut a clip during
   gapless playback → video played straight through the cut; on next play the audio jumped

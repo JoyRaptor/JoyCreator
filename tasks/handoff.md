@@ -1,5 +1,38 @@
 ﻿# FadCam AI Handoff
 
+> **⚡ 2026-07-25 ~13:20 — OPUS 4.8 (user directive: "do everything except frontier work"; ≤3
+> subagents). Tree CLEAN, HEAD `9eed3b7`.**
+> **Committed 2 fixes** (both compile-green on the watcher, revert-friendly, device-verify owed):
+> - `3de40a2` SPEED-CHANGE GAPLESS SIBLING (the deferred half of F10's structural resync): a
+>   per-clip speed edit now re-bakes the gapless snapshot on speed-sheet COMMIT (new
+>   `SpeedSliderBottomSheet.onSpeedCommitted`, fired from `onDismiss` — NEVER per slider tick) via
+>   the existing `resyncGaplessAfterStructuralEdit` funnel, homing to the edited clip at
+>   source-pos/new-speed, preserving play/pause. Legacy single-clip path untouched. DEVICE-VERIFY
+>   OWED: needs a multi-clip GAPLESS project (NO transition — 81033 is legacy) to confirm speed
+>   takes effect live + the landing frame. Possible refinement: gate the rebuild on
+>   speed-actually-changed (a no-op sheet peek during gapless playback currently triggers one
+>   rebuild-hitch).
+> - `9eed3b7` F9 COSMETIC (closes the PERF_SPEC F9 niggle): band-tape "analyzing audio…" sticking
+>   after extraction — `BandedTimelineWaveformCache.get()`'s superset-reuse scan early-returned
+>   null on the FIRST in-flight covering span, masking an already-READY covering entry later in
+>   HashMap order. Now scans all candidates before returning null (no-dup guarantee preserved).
+> **0719 BATCH (`95e91af`) INSTALLED + smoke-verified** on the Note 9 (it had NEVER been installed —
+> device was unplugged): app launches, Faditor opens project 81033, editor renders clean, and the
+> promoted transport SELECT toggle is FUNCTIONAL (green + "Select: touch anything the box crosses"
+> marquee hint). Latest APK (both fixes + batch) INSTALLED on 29e37138 at 13:20.
+> **STILL OWED (JoyRaptor hand-test / lesser models — token-expensive via tap-injection):** object-centric
+> batch items (badges on objects, double-tap→text dialog, drag-on-object move); P1 multi-axis
+> links; G9 links; dual-stream pair ops; P2 ping-pong drill (proven recipe in NEXT_SESSION_PROMPT).
+> **FRONTIER, DELIBERATELY NOT STARTED (reserved for the strongest model + a design spec):** the
+> neutral-substrate "any object on any layer" lane. Architecture mapped this session:
+> `Timeline.getLayers()` emits a SEPARATE Track per (item-type, layerId) because items live in 4
+> type-segregated backing lists (textOverlays/spriteOverlays/overlayClips/audioClips) — but the
+> `TimedItem`/`Track` VIEW is already type-agnostic, so the substrate is a getLayers MERGE
+> (layerId-first routing) + `payloadCompatible` relax (LayerGestureController:1702) + a new neutral
+> `TrackKind` (`Timeline.createLayerTrack`/storage round-trip via `TrackKind.fromName`, forward-safe)
+> + preview z-order across mixed lanes. Spec it before building; ratify with JoyRaptor whether the DEFAULT
+> rows stay type-pure or also go neutral.
+
 > **🔗 2026-07-19 ~04:00 — FABLE(5) autonomous resume (JoyRaptor's keep-working directive; wakeup
 > #12949963 armed for 07:57).** Committed the two held lanes as separate commits under the new
 > directive (review still owed, both revert-friendly): `a8efb6a` GL live A+B blend + export

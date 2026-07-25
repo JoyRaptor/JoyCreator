@@ -148,7 +148,9 @@ cropped framing holds through the blend and matches preview screenrecords.
 
 ## Also open (smaller, unrelated to transitions)
 
-- Speed-change gapless sibling: `setPlaybackSpeed` never rebuilds the engine's playlist
-  (per-window speed baked at prepare) — needs rebuild-on-release in the speed sheet.
-- F9 cosmetic: same-session "analyzing audio…" sticks after band extraction completes
-  (restart clears; likely missed invalidate in BandedTimelineWaveformCache onReady).
+- ~~Speed-change gapless sibling~~ FIXED `3de40a2` (2026-07-25): speed-sheet COMMIT
+  (`onSpeedCommitted`/`onDismiss`) re-bakes the gapless snapshot via
+  `resyncGaplessAfterStructuralEdit`. Device-verify on a multi-clip gapless project owed.
+- ~~F9 cosmetic ("analyzing audio…" sticks)~~ FIXED `9eed3b7` (2026-07-25): the superset-reuse
+  scan in `BandedTimelineWaveformCache.get()` early-returned null on the first in-flight covering
+  span, masking a ready covering entry later in HashMap order; now scans all candidates first.

@@ -107,13 +107,6 @@ have nothing to draw and can skip layout entirely — keeping the whole feature 
   silently pushing content behind the video. **Inert by construction and proven so**: with no
   PiP, or with every zIndex at its default 0, the below bucket is empty and every consumer sees
   exactly today's order — asserted for all 11 real projects, plus synthetic active/tie cases.
-- (original Z1 wording) **the ordering, one authority.** `LayerPreviewController.orderedVisualItems(timeline)`:
-  every visible item of every type, sorted by (lane zIndex, lane emission order, item order),
-  each tagged with its payload type. Pure, testable off-device — extend
-  `tasks/getlayers_equiv.py`-style simulation rather than trusting inspection.
-- **Z2 — split the buckets.** Partition that ordering at the PiP surface: items on lanes BELOW
-  the topmost PiP-bearing lane vs items above it. Define the tie-break explicitly and write it
-  down; ambiguity here is what produces "it looked right in preview" bugs.
 - **Z3 — preview.** A second overlay View beneath `OverlayVideoPreviewView` fed the "below"
   bucket; the existing surfaces take the "above" bucket. No new drawing code — the same item
   renderers, pointed at a filtered list.

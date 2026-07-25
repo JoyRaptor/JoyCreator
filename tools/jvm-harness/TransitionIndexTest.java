@@ -86,6 +86,22 @@ public class TransitionIndexTest {
         TransitionIndex.restore(sp, spBefore);
         check(idx(sp).equals("[0,2,5]"), "split+restore is exact -> " + idx(sp));
 
+        // 5b. unshiftAfterInsert is the EXACT inverse of shiftAfterInsert — an insert drops
+        //     nothing, so no snapshot is needed. The bound matters: a transition that sat at
+        //     insertIndex-1 was never shifted and must NOT be pulled down with the others.
+        for (int at = 0; at <= 4; at++) {
+            List<Transition> u = lst(0, 1, 2, 3, 4);
+            String want = idx(u);
+            TransitionIndex.shiftAfterInsert(u, at);
+            TransitionIndex.unshiftAfterInsert(u, at);
+            check(idx(u).equals(want), "insert@" + at + " then unshift is exact -> " + idx(u));
+        }
+        // ...and it inverts a SPLIT shift too (same renumbering).
+        List<Transition> us = lst(0, 2, 5);
+        TransitionIndex.shiftAfterSplit(us, 2);
+        TransitionIndex.unshiftAfterInsert(us, 2);
+        check(idx(us).equals("[0,2,5]"), "split then unshift is exact -> " + idx(us));
+
         // 6. Deleting clip 0 has no clipIndex -1 seam to drop, and must not go negative.
         List<Transition> zero = lst(0, 1);
         TransitionIndex.removeForDeletedClip(zero, 0);

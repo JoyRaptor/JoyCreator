@@ -494,14 +494,30 @@ public final class EditActions {
         private final Clip clipA;
         private final Clip clipB;
 
+        /**
+         * Transitions as they were BEFORE the split. A split runs
+         * {@code shiftTransitionsAfterSplit}, which increments every {@code clipIndex} at or
+         * after the split IN PLACE; re-joining the two halves does not decrement them back, so
+         * a split+undo used to leave every later transition one seam too far right — the
+         * transition still plays, just at a cut the user never chose. Split is the most-used
+         * structural edit in the app, so this was the most-hit instance of that bug.
+         * Captured at construction, which the call site does after splitting but the list is
+         * only read on undo, so the pre-split state must be captured by the CALLER order —
+         * see the note in {@code splitAtPlayhead}: the snapshot is taken before the shift.
+         */
+        private final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBefore;
+
         public SplitClipAction(@NonNull Timeline timeline, int originalIndex,
                                @NonNull Clip originalClip,
-                               @NonNull Clip clipA, @NonNull Clip clipB) {
+                               @NonNull Clip clipA, @NonNull Clip clipB,
+                               @NonNull java.util.List<com.fadcam.ui.faditor.model.Transition>
+                                       transitionsBefore) {
             this.timeline = timeline;
             this.originalIndex = originalIndex;
             this.originalClip = originalClip;
             this.clipA = clipA;
             this.clipB = clipB;
+            this.transitionsBefore = transitionsBefore;
         }
 
         @Override public void execute() {
@@ -509,12 +525,15 @@ public final class EditActions {
             timeline.removeClip(originalIndex);
             timeline.addClip(originalIndex, clipB);
             timeline.addClip(originalIndex, clipA);
+            // REDO must reproduce the index shift too — undo() restored the pre-split list.
+            timeline.shiftTransitionsAfterSplit(originalIndex);
         }
         @Override public void undo() {
             // Remove two split clips, re-insert original
             timeline.removeClip(originalIndex + 1);
             timeline.removeClip(originalIndex);
             timeline.addClip(originalIndex, originalClip);
+            timeline.restoreTransitions(transitionsBefore);
         }
         @NonNull @Override public String getDescription() { return "Split clip"; }
     }
@@ -709,8 +728,21 @@ public final class EditActions {
             this.insertIndex = insertIndex;
         }
 
-        @Override public void execute() { timeline.addClip(insertIndex, clip); }
-        @Override public void undo() { timeline.removeClip(clip); }
+        @Override public void execute() {
+            timeline.addClip(insertIndex, clip);
+            // REDO must reproduce the index shift the insert performs, or the transitions
+            // undo() pushed back down stay one seam too far left.
+            timeline.shiftTransitionsAfterInsert(insertIndex);
+        }
+        @Override public void undo() {
+            timeline.removeClip(clip);
+            // Inserting renumbered every later transition's clipIndex IN PLACE, and removing
+            // the clip does not put them back — so an undone insert used to leave every later
+            // transition one seam too far right (it still plays, at a cut the user never
+            // chose). An insert drops nothing, so the arithmetic inverse is exact and no
+            // snapshot is needed.
+            timeline.unshiftTransitionsAfterInsert(insertIndex);
+        }
         @NonNull @Override public String getDescription() { return "Add clip"; }
     }
 

@@ -861,6 +861,11 @@ public class Timeline {
         TransitionIndex.shiftAfterInsert(transitions, insertIndex);
     }
 
+    /** Exact inverse of {@link #shiftTransitionsAfterInsert} — see TransitionIndex. */
+    public void unshiftTransitionsAfterInsert(int insertIndex) {
+        TransitionIndex.unshiftAfterInsert(transitions, insertIndex);
+    }
+
     public void shiftTransitionsAfterSplit(int splitIndex) {
         TransitionIndex.shiftAfterSplit(transitions, splitIndex);
     }

@@ -54,6 +54,22 @@ public final class TransitionIndex {
     }
 
     /**
+     * EXACT inverse of {@link #shiftAfterInsert} (and of {@link #shiftAfterSplit}, which is the
+     * same renumbering): decrement everything that the shift pushed up.
+     *
+     * <p>Unlike a delete, an insert DROPS nothing — it only increments — so the arithmetic
+     * inverse is complete and no snapshot is needed. The bound is {@code insertIndex + 1}, not
+     * {@code insertIndex}: after the shift, every transition the shift touched sits at
+     * {@code >= insertIndex + 1}, while one that was originally at {@code insertIndex - 1} was
+     * never touched and must stay put.</p>
+     */
+    public static void unshiftAfterInsert(@NonNull List<Transition> transitions, int insertIndex) {
+        for (Transition t : transitions) {
+            if (t.clipIndex >= insertIndex + 1) t.clipIndex--;
+        }
+    }
+
+    /**
      * DEEP snapshot for an undo step. Deep because {@code clipIndex} is mutated in place — a
      * shallow list copy would alias the exact field the snapshot exists to preserve.
      */

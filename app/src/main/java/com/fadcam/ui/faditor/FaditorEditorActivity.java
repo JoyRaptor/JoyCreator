@@ -23345,6 +23345,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int originalIndex = selectedClipIndex;
 
             Timeline timeline = project.getTimeline();
+            // Snapshot BEFORE the index shift below: shiftTransitionsAfterSplit renumbers
+            // clipIndex in place and re-joining the halves does not undo it, so without this
+            // an undone split left every later transition one seam too far right.
+            final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBeforeSplit =
+                    timeline.snapshotTransitions();
             int newIndex = timeline.splitAt(selectedClipIndex, absoluteSplitMs);
             if (newIndex < 0) {
                 Toast.makeText(this, R.string.faditor_split_error, Toast.LENGTH_SHORT).show();
@@ -23361,10 +23366,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Clip splitPartner = timeline.findLinkedClip(originalClip);
             if (splitPartner != null && splitPartner.isOverlayClip()) {
                 splitLinkedPartnerAndRecord(timeline, originalIndex, originalClip,
-                        clipA, clipB, splitPartner, absoluteSplitMs);
+                        clipA, clipB, splitPartner, absoluteSplitMs, transitionsBeforeSplit);
             } else {
                 undoManager.recordAction(new EditActions.SplitClipAction(
-                        timeline, originalIndex, originalClip, clipA, clipB));
+                        timeline, originalIndex, originalClip, clipA, clipB,
+                        transitionsBeforeSplit));
             }
 
             if (playerManager.isGapless()) {
@@ -23408,7 +23414,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void splitLinkedPartnerAndRecord(@NonNull Timeline timeline, int originalIndex,
             @NonNull Clip originalMaster, @NonNull Clip masterA, @NonNull Clip masterB,
-            @NonNull Clip partner, long masterSplitSourceMs) {
+            @NonNull Clip partner, long masterSplitSourceMs,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBefore) {
         long delta = masterSplitSourceMs - originalMaster.getInPointMs();
         long partnerSplit = partner.getInPointMs() + delta;
         partnerSplit = Math.max(partner.getInPointMs() + 1,
@@ -23435,6 +23442,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             timeline.addOverlayClip(right);
             Timeline.linkClips(masterA, left);
             Timeline.linkClips(masterB, right);
+            // REDO must reproduce the split's index shift too (revert restored the old list).
+            timeline.shiftTransitionsAfterSplit(originalIndex);
             syncTimelineOverlays();
             if (editorTimeline != null) editorTimeline.invalidate();
         };
@@ -23446,6 +23455,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             timeline.removeOverlayClip(right);
             timeline.addOverlayClip(partner);
             Timeline.linkClips(originalMaster, partner);
+            timeline.restoreTransitions(transitionsBefore);
             syncTimelineOverlays();
             if (editorTimeline != null) editorTimeline.invalidate();
         };

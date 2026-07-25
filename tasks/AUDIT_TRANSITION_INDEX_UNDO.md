@@ -20,13 +20,22 @@ also restoring the transition list leaves transitions attached to the wrong seam
 That failure mode is nastier than data loss. The transition is still there and still plays —
 just at a cut the user never chose. Nothing looks broken until playback or export.
 
-## Fixed
+## Fixed (all three structural edits)
 
 - **Single-clip delete** (`EditActions.DeleteClipAction`) — snapshots at construction, restores
   on undo, and `execute()` now re-runs `removeTransitionsForDeletedClip` so REDO reproduces the
   whole delete. Verified `UndoManager.recordAction` does NOT execute the action, so the manual
   delete at the call site is not double-applied.
 - **Dual-stream linked-pair delete** (`confirmDeleteLinkedPair`) — same snapshot/restore.
+
+- **Split** (`EditActions.SplitClipAction` + the dual-stream `splitLinkedPartnerAndRecord`) —
+  the most-used structural edit in the app, so this was the most-hit instance. The call site
+  now snapshots BEFORE `shiftTransitionsAfterSplit` and passes it in; `execute()` re-applies
+  the shift so redo is faithful.
+- **Insert** (`EditActions.AddClipAction`, which is what the four "add clip / add image"
+  sites all record) — fixed WITHOUT snapshot plumbing: an insert drops nothing and only
+  increments, so the arithmetic inverse is exact. New `unshiftTransitionsAfterInsert`,
+  harness-proven at every insert position.
 
 Tools now available for the rest: `Transition.copy()` (deep — `paramOverrides` too, since
 `clipIndex` is precisely the field a shallow copy would alias) and

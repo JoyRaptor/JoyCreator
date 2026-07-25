@@ -54,6 +54,24 @@
 > video surface) before a full compositor rewrite, because preview and export must change
 > together or not at all.
 >
+> **LANE 3 (unplanned, found by the sweep) — TRANSITION PLACEMENT SURVIVED NO UNDO.**
+> `removeTransitionsForDeletedClip` / `shiftTransitionsAfter{Insert,Split}` mutate
+> `Transition.clipIndex` IN PLACE, and re-adding or removing a clip does not reverse that. So
+> **every** clip-structural undo left transitions on the WRONG seams — a transition between
+> clips 5 and 6 came back between 4 and 5, adjacent ones vanished. That is worse than data
+> loss: the transition still plays, at a cut the user never chose, so nothing looks broken
+> until playback or export. Delete, split (the most-used edit, so the most-hit), insert,
+> duplicate, and both dual-stream pair variants are now all fixed —
+> snapshot/restore where a delete drops rows, an exact arithmetic inverse
+> (`unshiftTransitionsAfterInsert`) where an insert only renumbers. Plus: "insert at playhead"
+> silently SPLIT the clip without recording it, so undo left the original cut in two; it is now
+> one composite step. See `tasks/AUDIT_TRANSITION_INDEX_UNDO.md` (audit closed).
+> **This lane is the one thing here that IS verified**: the rules were extracted to
+> `model/TransitionIndex` purely so they compile off-Android, and
+> `tools/jvm-harness/TransitionIndexTest.java` pins them — **16/16 PASS**, including the exact
+> regression and the insert-inverse at every position. Run it after touching any of this:
+> `javac -nowarn -d tools/jvm-harness/out3 tools/jvm-harness/stubs/androidx/annotation/*.java app/src/main/java/com/fadcam/ui/faditor/model/Transition.java app/src/main/java/com/fadcam/ui/faditor/model/TransitionIndex.java tools/jvm-harness/TransitionIndexTest.java && java -cp tools/jvm-harness/out3 TransitionIndexTest`
+>
 > **NEXT:** (a) device-verify everything above — validation queues are written in both specs, and
 > the H.264 episode is the standing reminder that compile-green proves nothing; (b) PiP-audio
 > slice D = the layer-row audio drawer (the tape cache already has a URI-keyed API the master

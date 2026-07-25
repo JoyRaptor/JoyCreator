@@ -1286,6 +1286,10 @@ public class EditorTimelineView extends View {
         layerRowRenderer.setImagePreviewProvider(this::imagePreviewFor);
         layerRowRenderer.setSpriteCellProvider(spriteCellProvider);
         layerRowRenderer.setVideoFilmstripProvider(this::filmstripForOverlayClip);
+        // SPEC_PIP_AUDIO slice D: a PiP's tape comes from the SAME banded cache the master
+        // clip-audio drawer uses, via its URI-keyed API — one extraction per unique file
+        // serves every trim window (superset reuse), so opening a drawer never re-analyses.
+        layerRowRenderer.setLaneTapeProvider(this::laneTapeFor);
         layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
                 layerRowRenderer, NOOP_GESTURE_CALLBACK);
 
@@ -1619,6 +1623,43 @@ public class EditorTimelineView extends View {
      * 45-min clip that read as a blank, broken drawer). Idempotent: the cache's get() is
      * in-flight/ready/failed guarded, and extraction runs on the cache's single worker thread.
      */
+    /**
+     * SPEC_PIP_AUDIO slice D: shaped tape for an opted-in PiP, or null while extracting.
+     * Uses the FULL-source span (not the trim window) for the same reason the master drawer
+     * does: with the cache's superset reuse, one extraction per file serves every trim this
+     * clip will ever have, so trimming or splitting never restarts a long analysis.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped laneTapeFor(
+            @NonNull com.fadcam.ui.faditor.model.Clip clip) {
+        if (tapeWaveformCache == null) return null;
+        android.net.Uri uri = clip.getSourceUri();
+        long srcDur = clip.getSourceDurationMs();
+        if (uri == null || srcDur <= 0 || clip.isImageClip()) return null;
+        return tapeWaveformCache.get(uri, 0, srcDur, srcDur);
+    }
+
+    /**
+     * SPEC_PIP_AUDIO slice D: open/close a lane's audio drawer. Kept here (not in the
+     * renderer) so it survives the renderer's per-frame row rebuild, mirroring how the master
+     * clip-audio drawer's open set lives on this view.
+     */
+    public void setLaneAudioDrawerOpen(@NonNull String trackId, boolean open) {
+        if (open) laneAudioDrawerOpen.add(trackId);
+        else laneAudioDrawerOpen.remove(trackId);
+        layerRowRenderer.setAudioDrawerOpenTrackIds(laneAudioDrawerOpen);
+        requestLayout();
+        invalidate();
+    }
+
+    /** True if {@code trackId}'s audio drawer is currently open. */
+    public boolean isLaneAudioDrawerOpen(@NonNull String trackId) {
+        return laneAudioDrawerOpen.contains(trackId);
+    }
+
+    /** Lane ids whose audio drawer is open (session UI state, like the master drawer's). */
+    private final java.util.Set<String> laneAudioDrawerOpen = new java.util.HashSet<>();
+
     private void primeBackgroundTapeAnalysis() {
         if (tapeWaveformCache == null) return;
         for (SegmentData sd : segments) {

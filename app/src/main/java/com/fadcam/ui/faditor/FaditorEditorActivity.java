@@ -17393,6 +17393,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
         addPipAudioAction(actions, c);
+        addPipAudioDrawerAction(actions, c);
         actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
                 () -> clearAllPipKeyframes(c)));
 
@@ -17437,6 +17438,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
             apply.run();
             undoManager.recordAction(new EditActions.LambdaAction(
                     was ? "Mute overlay audio" : "Include overlay audio", apply, revert));
+        }));
+    }
+
+    /**
+     * SPEC_PIP_AUDIO slice D: show/hide this PiP's waveform shelf on its lane row — the
+     * lane-row sibling of the master clip-audio drawer, so the picture tape and the audio can
+     * be read together. Offered only for a clip that actually contributes audio; there is
+     * nothing to draw otherwise. Pure view state, so no undo step (matching the master
+     * drawer, which is also session UI state).
+     */
+    private void addPipAudioDrawerAction(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
+            @NonNull Clip c) {
+        if (!c.isOverlayAudioEnabled() || editorTimeline == null) return;
+        final String laneId = c.getLayerId() != null ? c.getLayerId() : "video";
+        final boolean open = editorTimeline.isLaneAudioDrawerOpen(laneId);
+        actions.add(new ObjectMenuSheet.Action(
+                open ? "Hide audio waveform" : "Show audio waveform", false, () -> { // TODO(strings)
+            if (editorTimeline != null) editorTimeline.setLaneAudioDrawerOpen(laneId, !open);
         }));
     }
 

@@ -166,6 +166,33 @@ public final class LayerRowRenderer {
     /** Height (px) of the AUDIO band laid out by the last {@link #layout} (0 = no audio). */
     private float audioBandHeightPx = 0f;
 
+    /** SPEC_PIP_AUDIO slice D: height of an OPEN lane audio drawer. */
+    private static final float LANE_AUDIO_DRAWER_DP = 34f;
+
+    /** Lane ids whose audio drawer is open. Empty = the feature is entirely inert. */
+    @NonNull
+    private final java.util.Set<String> audioDrawerOpenTrackIds = new java.util.HashSet<>();
+
+    /** Replace the set of lanes showing an audio drawer (see {@link #laneAudioDrawerPx}). */
+    public void setAudioDrawerOpenTrackIds(@Nullable java.util.Set<String> ids) {
+        audioDrawerOpenTrackIds.clear();
+        if (ids != null) audioDrawerOpenTrackIds.addAll(ids);
+    }
+
+    /** Source of a PiP clip's shaped quad-band tape, or null while extracting. */
+    public interface LaneTapeProvider {
+        @Nullable
+        com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped get(
+                @NonNull com.fadcam.ui.faditor.model.Clip clip);
+    }
+
+    @Nullable
+    private LaneTapeProvider laneTapeProvider;
+
+    public void setLaneTapeProvider(@Nullable LaneTapeProvider provider) {
+        this.laneTapeProvider = provider;
+    }
+
     /** Viewport-left in content-x at the last layout (for panel-relative gestures). */
     public float getLastHScrollOffsetPx() { return lastHScrollOffsetPx; }
     /** Timeline-panel width at the last layout (for panel-relative gestures). */
@@ -177,6 +204,16 @@ public final class LayerRowRenderer {
         final boolean floatingBand;
         final RectF headerRect = new RectF();
         final RectF bodyRect = new RectF();
+        /** SPEC_PIP_AUDIO slice D: the open audio shelf at the row's bottom; EMPTY when closed. */
+        final RectF drawerRect = new RectF();
+
+        /**
+         * Bottom of the ITEM area — the row's bottom, minus an open audio drawer. Every item
+         * extent and hit-test goes through this, so a closed drawer is a no-op by construction.
+         */
+        float itemsBottom() {
+            return drawerRect.isEmpty() ? bodyRect.bottom : drawerRect.top;
+        }
         final RectF caretRect = new RectF();
         final RectF hideRect = new RectF();
         final RectF lockRect = new RectF();
@@ -363,7 +400,23 @@ public final class LayerRowRenderer {
     private float rowHeightPx(@NonNull Track t) {
         if (t.isCollapsed()) return ROW_HEIGHT_COLLAPSED_DP * density;
         if (t.getKind() == TrackKind.AUDIO) return ROW_HEIGHT_AUDIO_EXPANDED_DP * density;
-        return ROW_HEIGHT_EXPANDED_DP * density;
+        return ROW_HEIGHT_EXPANDED_DP * density + laneAudioDrawerPx(t);
+    }
+
+    /**
+     * SPEC_PIP_AUDIO slice D: extra height for this lane's open audio drawer — the shelf that
+     * shows an opted-in PiP's waveform under its own body, so the picture tape and the audio
+     * can be read together (the lane-row sibling of the master clip-audio drawer in
+     * {@code EditorTimelineView}).
+     *
+     * <p>0 unless the lane's drawer is explicitly OPEN, which makes every existing row
+     * pixel-identical: the layout, the item extents and the hit-test all key off this one
+     * number, so a closed drawer cannot perturb anything.</p>
+     */
+    private float laneAudioDrawerPx(@NonNull Track t) {
+        if (audioDrawerOpenTrackIds.isEmpty()) return 0f;
+        if (t.isCollapsed() || t.getKind() == TrackKind.AUDIO) return 0f;
+        return audioDrawerOpenTrackIds.contains(t.getId()) ? LANE_AUDIO_DRAWER_DP * density : 0f;
     }
 
     /**
@@ -570,7 +623,17 @@ public final class LayerRowRenderer {
         float h = rowHeightPx(t);
         row.headerRect.set(hScrollOffsetPx, y, hScrollOffsetPx + HEADER_WIDTH_DP * density, y + h);
         row.bodyRect.set(hScrollOffsetPx + HEADER_WIDTH_DP * density, y, hScrollOffsetPx + widthPx, y + h);
-        layoutHeaderIcons(row, h);
+        // SPEC_PIP_AUDIO slice D: carve the drawer off the BOTTOM of the row. Stays EMPTY
+        // for every closed row, and row.itemsBottom() then returns bodyRect.bottom exactly
+        // as before — so items keep their height instead of stretching into the shelf.
+        float drawerPx = laneAudioDrawerPx(t);
+        if (drawerPx > 0f) {
+            row.drawerRect.set(row.bodyRect.left, row.bodyRect.bottom - drawerPx,
+                    row.bodyRect.right, row.bodyRect.bottom);
+        } else {
+            row.drawerRect.setEmpty();
+        }
+        layoutHeaderIcons(row, h - drawerPx);
         rows.add(row);
         return y + h + rowGap;
     }
@@ -621,13 +684,14 @@ public final class LayerRowRenderer {
                     && liftedItemId != null && liftedItemId.equals(proxyItem.getId())
                     && !isItemOnRow(proxyItem, t)) {
                 float top = row.bodyRect.top + 3f * density;
-                float bottom = row.bodyRect.bottom - 3f * density;
+                float bottom = row.itemsBottom() - 3f * density;
                 drawItemBody(canvas, proxyItem, t.getKind(), baseColorFor(t.getKind()),
-                        t.isHidden(), true, top, bottom, row.bodyRect.centerY(),
+                        t.isHidden(), true, top, bottom, (top + bottom) / 2f,
                         totalMs, timeToX, selectedItemId);
             }
         } else {
             drawExpandedItems(canvas, row, t, totalMs, timeToX, selectedItemId);
+            drawLaneAudioDrawer(canvas, row, t, totalMs, timeToX);
         }
 
         // M10: highlight the row a cross-row item drag is hovering. This used to be a full-width
@@ -944,7 +1008,7 @@ public final class LayerRowRenderer {
         int baseColor = baseColorFor(t.getKind());
         boolean ghosted = t.isHidden();
         float top = row.bodyRect.top + 3f * density;
-        float bottom = row.bodyRect.bottom - 3f * density;
+        float bottom = row.itemsBottom() - 3f * density;
         // Home ghost first — it sits UNDER the live items (the moving/trimming item
         // slides over its own origin outline).
         if (homeGhostTrackId != null && homeGhostTrackId.equals(t.getId())) {
@@ -963,7 +1027,7 @@ public final class LayerRowRenderer {
             }
             drawItemBody(canvas, item, t.getKind(), baseColor,
                     ghosted || isObjectHidden(item), lifted,
-                    top, bottom, row.bodyRect.centerY(), totalMs, timeToX, selectedItemId);
+                    top, bottom, (top + bottom) / 2f, totalMs, timeToX, selectedItemId);
         }
         // SPLIT-ELEMENT FIX (single proxy): if THIS row is the hovered cross-row target
         // and the lifted proxy item's home row is a DIFFERENT track, draw the ONE proxy
@@ -974,7 +1038,43 @@ public final class LayerRowRenderer {
                 && liftedItemId != null && liftedItemId.equals(proxyItem.getId())
                 && !isItemOnRow(proxyItem, t)) {
             drawItemBody(canvas, proxyItem, t.getKind(), baseColorFor(t.getKind()), ghosted,
-                    true, top, bottom, row.bodyRect.centerY(), totalMs, timeToX, selectedItemId);
+                    true, top, bottom, (top + bottom) / 2f, totalMs, timeToX, selectedItemId);
+        }
+    }
+
+    /**
+     * SPEC_PIP_AUDIO slice D: draw the lane's open audio shelf — each opted-in PiP on this row
+     * gets its waveform under its own body, aligned to the SAME x span, so picture and audio
+     * read together. No-op unless the drawer is open (empty {@code drawerRect}), so a closed
+     * row is untouched. A PiP whose tape is still extracting simply draws the empty shelf —
+     * the master drawer behaves the same way.
+     */
+    private void drawLaneAudioDrawer(@NonNull Canvas canvas, @NonNull RowLayout row,
+                                      @NonNull Track t, long totalMs, @NonNull TimeToX timeToX) {
+        if (row.drawerRect.isEmpty()) return;
+        float top = row.drawerRect.top + 2f * density;
+        float bottom = row.drawerRect.bottom - 2f * density;
+        if (bottom <= top) return;
+        int prevBody = itemPaint.getColor();
+        itemPaint.setColor(0xFF0A0D11);
+        canvas.drawRoundRect(row.drawerRect, 3f * density, 3f * density, itemPaint);
+        itemPaint.setColor(prevBody);
+        if (laneTapeProvider == null || tapeStyle == null || tapeRenderer == null) return;
+        for (TimedItem item : t.getItems()) {
+            com.fadcam.ui.faditor.model.Clip clip = item.getClip();
+            if (clip == null || !clip.isOverlayClip() || !clip.isOverlayAudioEnabled()) continue;
+            com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped tape =
+                    laneTapeProvider.get(clip);
+            if (tape == null) continue; // still extracting
+            float x0 = timeToX.map(item.getTimelineStartMs());
+            float x1 = Math.max(x0 + 2f * density,
+                    timeToX.map(item.getTimelineStartMs() + item.getDisplayDurationMs(totalMs)));
+            tapeRect.set(x0, top, x1, bottom);
+            canvas.save();
+            canvas.clipRect(x0, top, x1, bottom);
+            tapeRenderer.draw(canvas, tapeRect, tape.raw, tape.tape, tapeStyle,
+                    clip.getInPointMs(), Math.max(1, clip.getTrimmedDurationMs()));
+            canvas.restore();
         }
     }
 
@@ -2160,7 +2260,7 @@ public final class LayerRowRenderer {
             Track t = row.track;
             if (t.isCollapsed() || t.isLocked() || t.isHidden()) return null;
             float top = row.bodyRect.top + 3f * density;
-            float bottom = row.bodyRect.bottom - 3f * density;
+            float bottom = row.itemsBottom() - 3f * density;
             if (!(localY >= top && localY <= bottom)) return null;
             for (TimedItem item : t.getItems()) {
                 float x0 = timeToX.map(item.getTimelineStartMs());
@@ -2230,7 +2330,7 @@ public final class LayerRowRenderer {
             float rTop = contentRect.top, rBot = contentRect.bottom;
             if (!row.floatingBand) { rTop += bandShift; rBot += bandShift; }
             float top = row.bodyRect.top + 3f * density;
-            float bottom = row.bodyRect.bottom - 3f * density;
+            float bottom = row.itemsBottom() - 3f * density;
             boolean yIntersects = bottom >= rTop && top <= rBot;
             boolean yContained = top >= rTop && bottom <= rBot;
             if (requireFullContainment ? !yContained : !yIntersects) continue;
@@ -2267,7 +2367,7 @@ public final class LayerRowRenderer {
             if (!row.floatingBand) continue; // audio rows drawn in their own pass below
             Track t = row.track;
             float top = topPx + row.bodyRect.top + 3f * density - scrollOffsetPx;
-            float bottom = topPx + row.bodyRect.bottom - 3f * density - scrollOffsetPx;
+            float bottom = topPx + row.itemsBottom() - 3f * density - scrollOffsetPx;
             drawMultiSelectionRow(canvas, t, ids, top, bottom, totalMs, timeToX);
         }
         canvas.restore();
@@ -2280,7 +2380,7 @@ public final class LayerRowRenderer {
             for (RowLayout row : rows) {
                 if (row.floatingBand) continue;
                 float top = lastAudioTopPx + row.bodyRect.top + 3f * density;
-                float bottom = lastAudioTopPx + row.bodyRect.bottom - 3f * density;
+                float bottom = lastAudioTopPx + row.itemsBottom() - 3f * density;
                 drawMultiSelectionRow(canvas, row.track, ids, top, bottom, totalMs, timeToX);
             }
             canvas.restore();

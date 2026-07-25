@@ -76,9 +76,26 @@ already telling the user it will.
   ENVELOPE is not threaded through the export sequence yet (audio clips have one; see below).
   The row mute icon's applicability also requires opt-in, so a lane holding only silent PiPs
   correctly shows the greyed icon rather than promising a mute that would do nothing.
-- **D — layer-row audio drawer.** TODO. Extend the master-only clip-audio drawer
-  (`EditorTimelineView` :307, keyed by master `segments`) to lane rows holding a PiP. Only
-  meaningful now that A–C have landed.
+- **D — layer-row audio drawer.** ✅ BUILT, **visual verification owed**. An opted-in PiP gets
+  a waveform shelf on its own lane row, aligned to the same x span as its body, so picture and
+  audio read together — the lane-row sibling of the master clip-audio drawer. Toggled from the
+  PiP object menu ("Show/Hide audio waveform"); pure session view state, no undo step, matching
+  the master drawer.
+  - Built INERT-WHEN-CLOSED on purpose, the same discipline as S0: `laneAudioDrawerPx()` returns
+    0 unless that lane's drawer is open, and it is the single number feeding row height, item
+    extents and hit-testing. A project with no drawer open is pixel-identical.
+  - Items keep their normal height instead of stretching into the shelf: every item extent now
+    goes through `RowLayout.itemsBottom()`, which returns `bodyRect.bottom` when closed.
+  - **Hit-testing was aligned with drawing in the same pass** — four sites derived item bounds
+    from `bodyRect.bottom`, so with a drawer open a tap on the waveform would have selected the
+    item above it. All four now use `itemsBottom()`. This is the class of bug that only appears
+    once the feature is switched on, which is exactly why it was worth chasing before shipping.
+  - Tape data reuses the master drawer's banded cache via its URI-keyed API, on the FULL-source
+    span: with the cache's superset reuse, one extraction per file serves every trim window, so
+    opening a drawer never restarts a long analysis.
+  - ⚠️ NOT seen on a device — the phone was in human use. The layout maths and the closed-path
+    inertness are reasoned, not observed. First device pass should check: shelf height/alignment,
+    the tape aligning to the PiP body's x span, and a tap on the shelf NOT selecting the item.
 
 ## Adversarial follow-up on slice B (found + fixed before it shipped)
 

@@ -22,9 +22,13 @@
 > (open projects through the UI, not `am start`).
 > **REGRESSION GUARD:** `python tasks/getlayers_equiv.py "<pulled>/proj_*.json"` after ANY
 > `getLayers()` change — it proved 9/10 real projects byte-identical across the rewrite.
-> **BIGGEST REMAINING PRODUCT GAP:** `SPEC_CROSSTYPE_Z.md` — lane order still does not control
-> paint order across item types. Deliberately NOT built blind: its acceptance gate is an
-> absolute-geometry export A/B, which needs the device.
+> **CROSS-TYPE Z IS NOW BUILT** (`SPEC_CROSSTYPE_Z.md`, Z1–Z5): lane order finally decides what
+> paints over the video, in preview AND export. Two-bucket model (in front of / behind the PiP
+> plane), inert until a lane is deliberately ordered under a PiP — asserted across 11 real
+> projects, not assumed. Z3 and Z4 landed together on purpose: either alone would have let a
+> user make export honour an ordering the preview ignored. **OWED: visual check of the preview
+> stack + an absolute-geometry export A/B frame diff.** Full interleaving (text A over PiP over
+> text B) is still out of scope and remains the documented limit.
 
 > **UPDATE 2026-07-25 ~13:25 (Opus 4.8, user directive "everything except frontier"): HEAD is now
 > `b3f7224`, tree CLEAN.** Landed since `3c443b0`: `3de40a2` speed-change gapless sibling (speed

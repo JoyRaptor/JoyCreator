@@ -47,12 +47,17 @@
 > ENVELOPE on export; loop extension not reflected in PiP audio), `SPEC_CROSSTYPE_Z.md`, and
 > `REVIEW_ORDER_20260725.md` (the checkpoint order review).
 >
-> **THE BIG REMAINING GAP — `SPEC_CROSSTYPE_Z.md`.** Lane order still does NOT control paint
-> order ACROSS types: preview is five stacked Views and export mirrors that split, so a text on
-> the bottom lane still paints over a PiP on the top lane. Pre-existing, but the substrate makes
-> it reachable-by-accident. Recommends the two-bucket compromise (lanes in front of / behind the
-> video surface) before a full compositor rewrite, because preview and export must change
-> together or not at all.
+> **LANE 4 — CROSS-TYPE Z, BUILT (`SPEC_CROSSTYPE_Z.md` Z1–Z5).** The substrate's other half:
+> lane order now decides what paints over the video, in preview AND export. Z1 = one ordering
+> (`orderedVisualItems`, the three `visible*` derived from it); Z2 = the two-bucket partition
+> around the PiP plane (ties go ABOVE — equal zIndex means no expressed ordering, so keep
+> today's look); Z3 = two draw-only surfaces beneath the PiP view (a new `setInteractive(false)`
+> on both view classes — `clickable=false` does NOT stop a custom view's touch, and two
+> hit-testing text layers would have had the top eat the bottom's taps); Z4 = a second export
+> overlay pass before the PiP blends. **Z3 and Z4 landed together deliberately** — either alone
+> is reachable-divergent, since the lane move-up/down UI already writes zIndex. Inert until a
+> lane is ordered under a PiP, asserted across 11 real projects by `tasks/visible_equiv.py`.
+> OWED: visual check + absolute-geometry export A/B. Full interleaving stays out of scope.
 >
 > **LANE 3 (unplanned, found by the sweep) — TRANSITION PLACEMENT SURVIVED NO UNDO.**
 > `removeTransitionsForDeletedClip` / `shiftTransitionsAfter{Insert,Split}` mutate

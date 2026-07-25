@@ -17,6 +17,12 @@ import androidx.annotation.NonNull;
  *   <li>{@link #VISUALIZER} — an audio-waveform/spectrum visualizer; wraps
  *       {@code timeline.waveformOverlays}.</li>
  *   <li>{@link #AUDIO} — an audio track (below the master); wraps {@code timeline.audioClips}.</li>
+ *   <li>{@link #LAYER} — a NEUTRAL user-created floating lane (SPEC_NEUTRAL_SUBSTRATE):
+ *       holds text/sticker/sprite/image/video items MIXED. Only exists as a
+ *       {@code LayerTrackDef} kind — {@code Timeline#getLayers()} merges every payload
+ *       type sharing its layerId into one Track. Old builds reading a project with a
+ *       LAYER def degrade via {@link #fromName}'s VIDEO fallback (row renders as PiP-kind;
+ *       no crash, no data loss).</li>
  * </ul>
  *
  * <p>Only {@code MASTER}, {@code TEXT} and {@code AUDIO} are produced by the M5 auto-migration
@@ -33,7 +39,8 @@ public enum TrackKind {
     SPRITE,
     CAPTION,
     VISUALIZER,
-    AUDIO;
+    AUDIO,
+    LAYER;
 
     /** Parse a persisted name, defaulting to {@link #VIDEO} for an unknown value. */
     @NonNull

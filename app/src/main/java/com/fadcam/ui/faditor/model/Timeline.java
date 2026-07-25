@@ -1110,6 +1110,16 @@ public class Timeline {
      */
     @NonNull
     public List<Track> getLayers() {
+        // NEUTRAL substrate (SPEC_NEUTRAL_SUBSTRATE S0): collect LAYER-def ids up front
+        // so the per-type leftover flushes below EXCLUDE their buckets — otherwise a
+        // shared layerId would surface as one defensive per-type track PER payload type
+        // (the split-row bug the merge pass at the bottom exists to fix). Empty for
+        // every project without a user-created neutral lane, leaving this method
+        // byte-identical to its pre-LAYER behavior.
+        java.util.Set<String> neutralIds = new java.util.HashSet<>();
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() == TrackKind.LAYER) neutralIds.add(def.getId());
+        }
         // id -> ordered items, built in textOverlays' own order so each track's items
         // stay in insertion order regardless of how many tracks they're split across.
         Map<String, List<TextOverlayItem>> byLayer = new LinkedHashMap<>();
@@ -1133,6 +1143,7 @@ public class Timeline {
         // rather than silently dropping items) — mirrors old-build-tolerant patterns
         // elsewhere in this class.
         for (Map.Entry<String, List<TextOverlayItem>> e : byLayer.entrySet()) {
+            if (neutralIds.contains(e.getKey())) continue; // owned by the LAYER merge pass
             layers.add(buildTextTrack(e.getKey(), TrackKind.TEXT, "Text", e.getValue()));
         }
 
@@ -1160,6 +1171,7 @@ public class Timeline {
         }
         for (Map.Entry<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> e
                 : spritesByLayer.entrySet()) {
+            if (neutralIds.contains(e.getKey())) continue; // owned by the LAYER merge pass
             layers.add(buildSpriteTrack(e.getKey(), "Sprite", e.getValue()));
         }
 
@@ -1184,7 +1196,38 @@ public class Timeline {
                     bucket != null ? bucket : Collections.emptyList()));
         }
         for (Map.Entry<String, List<Clip>> e : videosByLayer.entrySet()) {
+            if (neutralIds.contains(e.getKey())) continue; // owned by the LAYER merge pass
             layers.add(buildVideoTrack(e.getKey(), TrackKind.VIDEO, "PiP", e.getValue()));
+        }
+
+        // NEUTRAL merge pass (SPEC_NEUTRAL_SUBSTRATE S0): one Track per LAYER def
+        // holding EVERY visual payload sharing its id — text, sprite, and overlay
+        // video/image in one row. Item order groups by type; that is sufficient
+        // because cross-type paint order is the global surface stack (see
+        // LayerPreviewController) — only per-type insertion order carries z meaning
+        // within a track, and each type keeps its backing-list order here. Emitted
+        // even when empty so a freshly-created neutral lane survives save/reload
+        // (same contract as the typed def passes above).
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() != TrackKind.LAYER) continue;
+            Track track = new Track(def.getId(), TrackKind.LAYER, def.getName());
+            List<TextOverlayItem> tb = byLayer.remove(def.getId());
+            if (tb != null) {
+                for (TextOverlayItem o : tb) track.addItem(TimedItem.ofTextOverlay(o));
+            }
+            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sb =
+                    spritesByLayer.remove(def.getId());
+            if (sb != null) {
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : sb) {
+                    track.addItem(TimedItem.ofSprite(so));
+                }
+            }
+            List<Clip> vb = videosByLayer.remove(def.getId());
+            if (vb != null) {
+                for (Clip oc : vb) track.addItem(videoTimedItem(oc));
+            }
+            applyTrackFlags(track);
+            layers.add(track);
         }
 
         sortBandByZIndex(layers); // PHASE-P P2: row order follows persisted zIndex
@@ -1203,14 +1246,25 @@ public class Timeline {
             @NonNull String name, @NonNull List<Clip> items) {
         Track track = new Track(id, kind, name);
         for (Clip oc : items) {
-            TimedItem item = TimedItem.ofClip(oc, oc.getOverlayStartMs());
-            item.setTransform(oc.getOverlayTransform());
-            item.setBlendMode(com.fadcam.ui.faditor.layers.BlendMode
-                    .fromName(oc.getOverlayBlendMode()));
-            track.addItem(item);
+            track.addItem(videoTimedItem(oc));
         }
         applyTrackFlags(track);
         return track;
+    }
+
+    /**
+     * The TimedItem view of one overlay (PiP) clip — mirrors the clip's PERSISTED
+     * overlay fields (start/transform/blend) per the single-authority rule above.
+     * Shared by {@link #buildVideoTrack} and the neutral LAYER merge pass in
+     * {@link #getLayers()} so the mirroring cannot drift between them.
+     */
+    @NonNull
+    private static TimedItem videoTimedItem(@NonNull Clip oc) {
+        TimedItem item = TimedItem.ofClip(oc, oc.getOverlayStartMs());
+        item.setTransform(oc.getOverlayTransform());
+        item.setBlendMode(com.fadcam.ui.faditor.layers.BlendMode
+                .fromName(oc.getOverlayBlendMode()));
+        return item;
     }
 
     @NonNull
@@ -2000,7 +2054,8 @@ public class Timeline {
      * {@code kind} must be {@link TrackKind#TEXT}/{@link TrackKind#STICKER}/
      * {@link TrackKind#SPRITE} (floating layer — SPRITE routed since schema v9,
      * PLAN_SPRITE_ANIMATION S1) or {@link TrackKind#AUDIO} (audio band) — the kinds
-     * {@link #getLayers()}/{@link #getAudioTracks()} route by {@code layerId} today.
+     * {@link #getLayers()}/{@link #getAudioTracks()} route by {@code layerId} today —
+     * or {@link TrackKind#LAYER} for a neutral any-payload lane (SPEC_NEUTRAL_SUBSTRATE).
      */
     @NonNull
     public String createLayerTrack(@NonNull TrackKind kind, @NonNull String name) {
@@ -2051,6 +2106,15 @@ public class Timeline {
         }
         for (AudioClip ac : audioClips) {
             if (trackId.equals(ac.getLayerId())) return true;
+        }
+        // SPEC_NEUTRAL_SUBSTRATE S0: sprites and overlay clips were MISSING here, so a
+        // user SPRITE/VIDEO (and now LAYER) track still holding them could be pruned by
+        // maybeRemoveEmptyLayerTrack, orphaning its items into defensive leftover buckets.
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : spriteOverlays) {
+            if (trackId.equals(so.getLayerId())) return true;
+        }
+        for (Clip oc : overlayClips) {
+            if (trackId.equals(oc.getLayerId())) return true;
         }
         return false;
     }

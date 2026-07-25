@@ -1,3 +1,15 @@
+# NEXT SESSION PROMPT
+
+> **UPDATE 2026-07-25 ~13:25 (Opus 4.8, user directive "everything except frontier"): HEAD is now
+> `b3f7224`, tree CLEAN.** Landed since `3c443b0`: `3de40a2` speed-change gapless sibling (speed
+> edits re-bake the snapshot on speed-sheet commit), `9eed3b7` F9 "analyzing audio…" sticky fix.
+> The 0719 hand-test batch (`95e91af`) is now INSTALLED on the Note 9 (29e37138) and smoke-verified
+> (editor renders; transport SELECT toggle functional). Latest APK (both fixes + batch) installed
+> 13:20. See handoff.md top block for the full state. NEUTRAL-SUBSTRATE lane deliberately left for
+> the frontier model (architecture mapped in the handoff block). REMAINING device-verify (below) is
+> for JoyRaptor hand-test / lesser models. The DONE/QUEUE lists below predate this and are otherwise
+> current.
+
 # NEXT SESSION PROMPT (rewritten 2026-07-19 ~04:10 by Fable 5, mid-run)
 
 You are resuming autonomous spec-finishing on FadCam/Joy Creator at

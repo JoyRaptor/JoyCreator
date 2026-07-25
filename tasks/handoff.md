@@ -1,5 +1,26 @@
 ﻿# FadCam AI Handoff
 
+> **⚡ 2026-07-25 ~14:10 — FABLE 5 (frontier pass): NEUTRAL SUBSTRATE lane OPENED — spec +
+> the risky slices LANDED, device-proven.** See `tasks/SPEC_NEUTRAL_SUBSTRATE.md` (its top
+> HANDOFF block is authoritative). Two commits:
+> - `e3ec062` S0 foundation: `TrackKind.LAYER` + `getLayers()` neutral MERGE pass (one Track
+>   per LAYER def holding text+sprite+PiP together; byte-identical when zero LAYER defs) +
+>   `layerTrackHasItems` now scans sprites/overlayClips (pre-existing wrongful-prune bug).
+> - `68814a4` S1+S4+S5: `payloadCompatible` accepts any VISUAL payload on a LAYER lane;
+>   `LayerPreviewController.visibleTextOverlays/visibleSpriteItems/visibleOverlayVideoClips`
+>   walk LAYER tracks (export shares these SAME methods — no export-side change needed).
+>   KEY FINDING: cross-type z inside a mixed lane = the fixed global surface stack (PiP
+>   under sprite under text), identical preview/export by construction — per-lane
+>   interleaving would be a compositor unification, deliberately out of scope.
+> **DEVICE-PROVEN** via project.json injection on the Note 9: app's own autosave
+> re-serialized ONE LAYER track holding [textOverlay, sprite, clip]; sprite on the lane
+> renders in preview. Fixture project: `129d8643` (backup at project.json.bak on-device).
+> **NEXT (MECHANICAL, cheaper model):** spec slices S2 (stageCreateLayerAndMoveItem picks
+> LAYER + "Layer n" name), S2b (sprite/PiP branches in the two drop-staging methods), S3
+> (row header glyph/mute-icon for LAYER rows). Invariants listed in the spec block — the
+> big ones: zero-LAYER projects stay byte-identical; overlay-clip layerId NEVER null;
+> DECISION (b) (default rows stay type-pure) needs JoyRaptor/JoyRaptor ratification.
+
 > **⚡ 2026-07-25 ~13:20 — OPUS 4.8 (user directive: "do everything except frontier work"; ≤3
 > subagents). Tree CLEAN, HEAD `9eed3b7`.**
 > **Committed 2 fixes** (both compile-green on the watcher, revert-friendly, device-verify owed):

@@ -3,6 +3,14 @@
 > **HANDOFF (2026-07-25, Fable 5 frontier pass) — READ THIS BLOCK FIRST.**
 > **DONE + COMMITTED this pass:** S0 (inert foundation, byte-identical proof below), S4+S5
 > (preview/export filter relax — one shared site), and S1 (payloadCompatible relax).
+> **DEVICE-VALIDATED (Note 9, 29e37138):** sandbox project `129d8643` ("bisect C long 2x",
+> row "FadCam_...145132 / Jul 19 6:10 PM" in the list) was INJECTED with a LAYER def
+> `L1-neutral-test` holding its text + first sprite + PiP clip (original at
+> `project.json.bak` on-device). The editor loaded it and its OWN autosave re-serialized
+> ONE `kind=LAYER "Layer 1"` track with items `[textOverlay, sprite, clip]` (serializeTrack
+> writes live getLayers() output — merge proven), trackDefs round-tripped the LAYER def, and
+> the lane's sprite renders in preview (S4 path exercised). This project is your ready-made
+> mixed-lane fixture for S2/S3 testing and the export A/B — do not "fix" its odd lanes.
 > **CHEAPER MODEL STARTS ON: S2** (creation UI), then S3 (row cosmetics), then the S2b
 > sprite-move gap. All remaining work is mechanical; the sites are exact.
 > **INVARIANTS YOU MUST NOT BREAK:**

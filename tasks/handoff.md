@@ -1,5 +1,70 @@
 ﻿# FadCam AI Handoff
 
+> **🧭 2026-07-25 late — OPUS 5 continuous session. HEAD `b57884d`. Two lanes landed + three
+> specs; SIX real bugs found by adversarial review, all fixed. NOTHING device-verified below —
+> the phone was in human use (see DEVICE at the end).**
+>
+> **LANE 1 — neutral substrate, DONE (S0–S5).** JoyRaptor REJECTED the earlier
+> "only user-created lanes are neutral" recommendation: *"layers should just be a substrate that
+> anything can go on... the only specific track that should be separate is audio-only rows."*
+> Rebuilt to that. `Timeline.getLayers()` is now **layerId-first** (a row = the items sharing a
+> layerId, whatever backing list they live in); `TrackKind` only picks the emission phase, which
+> is what preserves existing row order. Preview/export kind filters DELETED (net code removal —
+> export shares those methods, so it followed for free). Sprites and PiPs can now move between
+> lanes and open new ones **at all** — they previously could not. Every "new lane" affordance
+> creates a neutral `LAYER`.
+> **Bugs found reviewing my own work:** (1) the floating band is NOT all lanes — it also carries
+> the read-only CC and visualizer rows, so the relaxed drop gate would have written
+> `layerId="caption"` and orphaned the item → fixed with a `TrackKind.isLane()` whitelist;
+> (2) collapsing the per-type leftover flushes moved orphan-layerId rows to the bottom and
+> renamed them (real projects have such ids) → per-phase flushes restored, def-owned ids skipped;
+> (3) `maybeRemoveEmptyLayerTrack` ran on apply+redo but on NO undo path, so undoing a move off a
+> lane you had named returned the item into a nameless orphan row → all four sites now snapshot
+> the def **and its index** and restore both.
+> **PROOF, not argument:** `tasks/getlayers_equiv.py` simulates old-vs-new emission over real
+> project.json files. Over 10 pulled from the Note 9: **9 byte-identical**, the 1 diff being the
+> LAYER fixture showing exactly the intended merge (3 split rows → 1) while the orphan sprite row
+> keeps its kind, name and position. **Re-run it after any `getLayers()` change.**
+>
+> **LANE 2 — PiP audio, slices A–C (`tasks/SPEC_PIP_AUDIO.md`).** Discovered while answering
+> JoyRaptor's audio-drawer question: PiP video had **no audio path at all** (preview hardcoded
+> `setVolume(0f)`; PiPs aren't media items in the export composition), so the layer-row audio
+> drawer he asked for was unbuildable — it would draw a waveform for audio that can never be
+> heard. Now: `Clip.overlayAudioEnabled` **default false** (auto-enabling would change every
+> existing export and would DOUBLE the voice on a dual-stream pair), storage round-trip written
+> only when true, `LayerPreviewController.effectiveOverlayVolume` as the one authority for
+> preview+export, `buildOverlayAudioSequence` mirroring the proven `buildAudioSequence` shape,
+> and an "Include audio" toggle + volume slider on the PiP object menu.
+> **Bugs found reviewing that:** (4) lane mute never reached PiPs (`isAudioClipTrackMuted` only
+> walks the audio band) → new `isOverlayClipLaneMuted`; (5) the row mute icon claimed
+> applicability for silent PiPs → now requires opt-in; (6) the export audio sequence read the raw
+> clip list while the pixels come from the visibility authority, so a **hidden PiP would have kept
+> exporting audio** → now reads the same authority.
+>
+> **SPECS WRITTEN:** `SPEC_NEUTRAL_SUBSTRATE.md` (slices, invariants, z-order model, adversarial
+> review, validation queue), `SPEC_PIP_AUDIO.md` (incl. deliberate known gaps: preview plays at
+> most ONE PiP's audio — single ExoPlayer bound to the top-most visible clip; no PiP volume
+> ENVELOPE on export; loop extension not reflected in PiP audio), `SPEC_CROSSTYPE_Z.md`, and
+> `REVIEW_ORDER_20260725.md` (the checkpoint order review).
+>
+> **THE BIG REMAINING GAP — `SPEC_CROSSTYPE_Z.md`.** Lane order still does NOT control paint
+> order ACROSS types: preview is five stacked Views and export mirrors that split, so a text on
+> the bottom lane still paints over a PiP on the top lane. Pre-existing, but the substrate makes
+> it reachable-by-accident. Recommends the two-bucket compromise (lanes in front of / behind the
+> video surface) before a full compositor rewrite, because preview and export must change
+> together or not at all.
+>
+> **NEXT:** (a) device-verify everything above — validation queues are written in both specs, and
+> the H.264 episode is the standing reminder that compile-green proves nothing; (b) PiP-audio
+> slice D = the layer-row audio drawer (the tape cache already has a URI-keyed API the master
+> drawer uses, so a PiP can reuse it); (c) `SPEC_CROSSTYPE_Z.md` Z1–Z5.
+> **DEVICE (29e37138):** verification was ABORTED mid-run when a screenshot showed the phone in
+> human use (Messages), per the etiquette rule; a later check showed it Awake on a different home
+> page, so no input was injected after that. Sandbox project `129d8643` was restored to its exact
+> original 37879 bytes. ⚠️ **The app rotates its own `project.json.bak`** — that file is NOT a
+> pristine snapshot (my first restore pulled back an autosave). Capture originals host-side
+> before injecting.
+
 > **⚡ 2026-07-25 ~14:10 — FABLE 5 (frontier pass): NEUTRAL SUBSTRATE lane OPENED — spec +
 > the risky slices LANDED, device-proven.** See `tasks/SPEC_NEUTRAL_SUBSTRATE.md` (its top
 > HANDOFF block is authoritative). Two commits:

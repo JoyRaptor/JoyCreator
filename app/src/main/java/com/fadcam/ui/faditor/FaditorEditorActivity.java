@@ -10584,7 +10584,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void syncTimelineOverlays() {
         if (editorTimeline != null && project != null) {
             Timeline tl = project.getTimeline();
-            syncBelowVideoOverlays(tl);
             applyDefaultAudioCollapseOnce(tl);
             // G5: attached visualizers re-derive their windows from their hosts' CURRENT
             // spans. Every edit path funnels through this sync, so time-riding is one call.
@@ -10595,6 +10594,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // G9c: refresh the preset view + feed every linked member id to the row
             // renderer so linked items wear the chain badge.
             tl.synthesizeG5PresetLinkGroups();
+            // Fed AFTER the resyncs above: they mutate item start times (attached visualizers,
+            // link-group propagation), so feeding the below surfaces first would have rendered
+            // them one pass stale relative to the above surfaces.
+            syncBelowVideoOverlays(tl);
             java.util.HashSet<String> linkedIds = new java.util.HashSet<>();
             for (com.fadcam.ui.faditor.layers.LinkGroup lg : tl.getAllLinkGroupsView()) {
                 for (com.fadcam.ui.faditor.layers.LinkMember lm : lg.members) {

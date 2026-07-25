@@ -132,10 +132,20 @@ public final class LayerPreviewController {
      */
     @NonNull
     public static List<List<VisualItem>> partitionAroundVideo(@NonNull Timeline timeline) {
-        int pipZ = topPipLaneZ(timeline);
+        // Walk the ordering ONCE. orderedVisualItems() rebuilds every lane view from the flat
+        // lists (getLayers is not cached), and this runs on every preview sync, so deriving
+        // pipZ via topPipLaneZ() here would double that cost for no benefit.
+        List<VisualItem> ordered = orderedVisualItems(timeline);
+        int pipZ = Integer.MIN_VALUE;
+        for (VisualItem v : ordered) {
+            com.fadcam.ui.faditor.model.Clip clip = v.item.getClip();
+            if (clip != null && clip.isOverlayClip() && v.lane.getZIndex() > pipZ) {
+                pipZ = v.lane.getZIndex();
+            }
+        }
         List<VisualItem> below = new ArrayList<>();
         List<VisualItem> above = new ArrayList<>();
-        for (VisualItem v : orderedVisualItems(timeline)) {
+        for (VisualItem v : ordered) {
             com.fadcam.ui.faditor.model.Clip clip = v.item.getClip();
             // The PiPs themselves ARE the plane — they belong to neither bucket.
             if (clip != null && clip.isOverlayClip()) continue;

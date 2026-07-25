@@ -5571,8 +5571,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), enabled);
                 scheduleAutoSave();
             }
+
+            @Override
+            public void onSpeedCommitted() {
+                commitClipSpeedToGaplessEngine(clip);
+            }
         });
         sheet.show(getSupportFragmentManager(), "speed_slider");
+    }
+
+    /**
+     * Speed-change gapless sibling (the deferred half of the structural-resync work). Per-window
+     * playback speed is BAKED into the {@link com.fadcam.ui.faditor.compositor.MasterPlaybackEngine}
+     * ClippingConfiguration snapshot at {@code prepareTimeline()}. {@code setPlaybackSpeed} mutates
+     * the clip's speed in the Timeline model and pushes a crude live GLOBAL playback-param preview,
+     * but the correct per-clip speed is inaudible/invisible until the snapshot is re-baked — so a
+     * speed edit during a live gapless session was a no-op until reopen.
+     *
+     * <p>On COMMIT (speed sheet dismissed — see {@link SpeedSliderBottomSheet.Callback#onSpeedCommitted};
+     * NEVER per slider tick, which would thrash the engine), re-bake the snapshot through the SAME
+     * funnel structural edits use ({@link #resyncGaplessAfterStructuralEdit} → {@code
+     * rebuildGaplessResumingAt}): it no-ops off the gapless path, bumps {@code rebuildGeneration},
+     * and homes the playhead to the edited clip preserving play/pause.</p>
+     *
+     * <p>Homes at the VISUAL position recomputed from the still-current SOURCE position at the NEW
+     * speed ({@code sourceMs / newSpeed}) so the same source frame stays on screen instead of
+     * jumping (the engine maps visual→source through the new window's speed).</p>
+     *
+     * <p>No-op on the legacy single-clip path: there {@code setPlaybackSpeed} applies live via
+     * {@code player.setPlaybackParameters} and needs no rebuild — leaving that path untouched.</p>
+     */
+    private void commitClipSpeedToGaplessEngine(@Nullable Clip clip) {
+        if (clip == null || playerManager == null || !playerManager.isGapless()) return;
+        float speed = clip.getSpeedMultiplier();
+        long homeVisualMs = (speed > 0)
+                ? (long) (lastSourcePositionInSegmentMs / speed)
+                : lastSourcePositionInSegmentMs;
+        boolean wasPlaying = playerManager.getPlayWhenReady();
+        resyncGaplessAfterStructuralEdit(clip.getId(), homeVisualMs, wasPlaying);
     }
 
     /**

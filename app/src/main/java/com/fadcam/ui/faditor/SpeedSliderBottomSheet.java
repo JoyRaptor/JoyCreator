@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor;
 
 import android.app.Dialog;
+import android.content.DialogInterface;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -33,6 +34,13 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         void onSpeedChanged(float speed);
         /** Called when the user toggles pitch compensation. Default no-op for existing callers. */
         default void onPitchCompensationChanged(boolean enabled) {}
+        /**
+         * Called ONCE when the sheet is dismissed — the COMMIT point for the final speed/pitch.
+         * {@link #onSpeedChanged} fires per slider tick (a live preview); listeners that must do
+         * heavier finalize work (e.g. re-baking a playback snapshot) should do it here, not there.
+         * Default no-op for existing callers.
+         */
+        default void onSpeedCommitted() {}
     }
 
     @Nullable
@@ -67,6 +75,15 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
 
     public void setCallback(@Nullable Callback callback) {
         this.callback = callback;
+    }
+
+    @Override
+    public void onDismiss(@NonNull DialogInterface dialog) {
+        super.onDismiss(dialog);
+        // COMMIT point: the sheet is closing, so the last onSpeedChanged/onPitchCompensationChanged
+        // already mutated the model to its final value. Fire the one-shot commit callback so heavy
+        // finalize work runs exactly once (never per slider tick).
+        if (callback != null) callback.onSpeedCommitted();
     }
 
     @Override

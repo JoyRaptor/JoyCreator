@@ -1,7 +1,7 @@
 # NEXT SESSION PROMPT
 
-> **▶ START HERE — UPDATE 2026-07-25 evening (Opus 5, continuous session). HEAD `dd61015`,
-> tree clean.** Read `handoff.md`'s top block for the full account; the short version:
+> **▶ START HERE — UPDATE 2026-07-25 evening (Opus 5, continuous session). Tree clean; see
+> `git log` for the ~20 commits of this session (they are individually revert-friendly).** Read `handoff.md`'s top block for the full account; the short version:
 > **BUILT:** neutral substrate S0–S5 (FULL neutrality — JoyRaptor's call: any object on any floating
 > lane, audio is the only separate band; `getLayers()` is now layerId-first), PiP audio A–D (it
 > had NO audio path at all: opt-in `Clip.overlayAudioEnabled`, preview + export + object-menu

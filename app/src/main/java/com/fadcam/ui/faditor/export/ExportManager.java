@@ -714,6 +714,11 @@ public class ExportManager {
                 sequences.add(audioSequence);
             }
         }
+        // SPEC_PIP_AUDIO: an opted-in PiP contributes audio to the audio-only export too.
+        EditedMediaItemSequence overlayAudioOnly = buildOverlayAudioSequence(timeline);
+        if (overlayAudioOnly != null) {
+            sequences.add(overlayAudioOnly);
+        }
         if (sequences.isEmpty()) {
             // Nothing audible at all — emit a short silence so the Transformer has valid input.
             List<EditedMediaItem> tiny = new ArrayList<>();
@@ -1047,6 +1052,12 @@ public class ExportManager {
             if (audioSequence != null) {
                 sequences.add(audioSequence);
             }
+        }
+        // SPEC_PIP_AUDIO: PiP audio rides its own audio-only sequence (the pixels come from
+        // the overlay pass above). Null unless a PiP opted in → composition unchanged.
+        EditedMediaItemSequence overlayAudio = buildOverlayAudioSequence(timeline);
+        if (overlayAudio != null) {
+            sequences.add(overlayAudio);
         }
 
         return new Composition.Builder(sequences).build();
@@ -1944,6 +1955,106 @@ public class ExportManager {
         FLog.d(TAG, "buildAudioSequence: built " + audioItems.size()
                 + " audio items, total ~" + cursorMs + "ms");
         return new EditedMediaItemSequence.Builder(audioItems).build();
+    }
+
+    /**
+     * Build an audio-only {@link EditedMediaItemSequence} from the timeline's OVERLAY (PiP)
+     * clips — SPEC_PIP_AUDIO slice B. PiPs are composited as PIXELS (the GL effect chain +
+     * {@code CompositeExportOverlay}); they are not media items in the video sequence, so
+     * their audio has no path into the export without this. Same proven shape as
+     * {@link #buildAudioSequence}: silence-gap items place each clip at its own
+     * {@code overlayStartMs}, then the clip rides as an audio-only item.
+     *
+     * <p>Returns null unless at least one PiP has explicitly OPTED IN
+     * ({@code overlayAudioEnabled}); every existing project therefore builds the exact same
+     * composition as before. The opt-in is not conservatism for its own sake — a dual-stream
+     * pair is the same take recorded twice, so auto-enabling would double the voice.</p>
+     *
+     * <p>Volume/mute come from {@code LayerPreviewController.effectiveOverlayVolume}, the
+     * same authority the preview player uses, so a lane-muted or clip-muted PiP is silent in
+     * both. Volume 0 == skip the clip entirely: gaps key off each clip's own start, so
+     * skipping never shifts a later one (identical treatment to a muted audio clip).</p>
+     */
+    @Nullable
+    private EditedMediaItemSequence buildOverlayAudioSequence(@NonNull Timeline timeline) {
+        List<Clip> overlays = new ArrayList<>();
+        for (Clip c : timeline.getOverlayClips()) {
+            if (c == null || c.isImageClip()) continue; // a still has no audio
+            if (LayerPreviewController.effectiveOverlayVolume(timeline, c) <= 0f) continue;
+            overlays.add(c);
+        }
+        if (overlays.isEmpty()) return null;
+        Collections.sort(overlays, Comparator.comparingLong(Clip::getOverlayStartMs));
+
+        File silenceFile = getOrCreateSilenceFile();
+        if (silenceFile == null) {
+            FLog.e(TAG, "buildOverlayAudioSequence: no silence source — skipping PiP audio");
+            return null;
+        }
+        Uri silenceUri = Uri.fromFile(silenceFile);
+
+        List<EditedMediaItem> items = new ArrayList<>();
+        long cursorMs = 0;
+        for (Clip c : overlays) {
+            Uri src = resolveSeekableSourceUri(c);
+            // A source with no audio track would emit zero samples and wedge the AudioGraph
+            // (same stall class the master path guards with audioDurationMsOf).
+            if (audioDurationMsOf(src) <= 0) {
+                FLog.d(TAG, "buildOverlayAudioSequence: PiP " + c.getId() + " has no audio — skipped");
+                continue;
+            }
+            long startMs = Math.max(0, c.getOverlayStartMs());
+            if (startMs > cursorMs) {
+                long gap = startMs - cursorMs;
+                while (gap > 0) {
+                    long chunk = Math.min(gap, SILENCE_FILE_MS);
+                    items.add(buildSilenceItem(silenceUri, chunk));
+                    gap -= chunk;
+                }
+                cursorMs = startMs;
+            }
+
+            MediaItem mediaItem = new MediaItem.Builder()
+                    .setUri(src)
+                    .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(c.getInPointMs())
+                            .setEndPositionMs(c.getOutPointMs())
+                            .build())
+                    .build();
+            EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
+                    .setRemoveVideo(true); // audio only — the pixels come from the overlay pass
+
+            List<AudioProcessor> processors = new ArrayList<>();
+            float speed = c.getSpeedMultiplier();
+            if (Math.abs(speed - 1.0f) >= 0.001f && speed > 0) {
+                SonicAudioProcessor sonic = new SonicAudioProcessor();
+                sonic.setSpeed(speed);
+                if (c.isPitchCompensationEnabled()) sonic.setPitch(1.0f);
+                processors.add(sonic);
+            }
+            float volume = LayerPreviewController.effectiveOverlayVolume(timeline, c);
+            if (Math.abs(volume - 1.0f) >= 0.01f) {
+                VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                vp.setVolume(volume);
+                processors.add(vp);
+            }
+            if (!processors.isEmpty()) {
+                eb.setEffects(new Effects(processors, Collections.emptyList()));
+            }
+            items.add(eb.build());
+            // Advance by the REAL audio duration: Sonic compresses/stretches, so a sped-up
+            // PiP occupies less. Getting this wrong would only ever mis-place the NEXT gap,
+            // but that is exactly how a later clip drifts early.
+            long dur = Math.max(0, c.getTrimmedDurationMs());
+            if (Math.abs(speed - 1.0f) >= 0.001f && speed > 0) {
+                dur = (long) (dur / speed);
+            }
+            cursorMs = startMs + dur;
+        }
+        if (items.isEmpty()) return null;
+        FLog.d(TAG, "buildOverlayAudioSequence: " + items.size()
+                + " items, total ~" + cursorMs + "ms");
+        return new EditedMediaItemSequence.Builder(items).build();
     }
 
     /**

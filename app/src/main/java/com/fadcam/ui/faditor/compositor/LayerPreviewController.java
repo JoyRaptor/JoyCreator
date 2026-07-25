@@ -200,6 +200,46 @@ public final class LayerPreviewController {
         return false;
     }
 
+    // ── Overlay (PiP) clip audio — SPEC_PIP_AUDIO ─────────────────────────────────
+
+    /**
+     * Whether the FLOATING lane holding {@code clip} is muted. The overlay-clip sibling of
+     * {@link #isAudioClipTrackMuted}, which only walks the audio band and only matches
+     * {@link AudioClip}s — so without this a muted lane would silence its audio clips but
+     * NOT its PiPs, while the row's mute icon (drawn by content since the neutral-substrate
+     * work) told the user otherwise.
+     */
+    public static boolean isOverlayClipLaneMuted(@NonNull Timeline timeline,
+            @NonNull com.fadcam.ui.faditor.model.Clip clip) {
+        for (Track track : timeline.getLayers()) {
+            if (!track.isMuted()) continue;
+            for (TimedItem item : track.getItems()) {
+                if (item.getClip() == clip) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Effective playback/export volume for an overlay (PiP) clip — the SHARED authority for
+     * the preview player and the export audio sequence, so the two cannot diverge (same rule
+     * as {@link #visibleOverlayVideoClips} for pixels).
+     *
+     * <p>0 unless the clip has been explicitly opted in ({@code overlayAudioEnabled}): a PiP
+     * has always been silent, and making every existing one audible would change exports
+     * behind the user's back — and would DOUBLE the voice on a dual-stream pair. On top of
+     * that gate, the clip's own mute and its lane's mute both force silence (multiplicative,
+     * never replacing the clip's own level) — mirroring
+     * {@link #effectivePreviewVolume}'s treatment of audio clips.</p>
+     */
+    public static float effectiveOverlayVolume(@NonNull Timeline timeline,
+            @NonNull com.fadcam.ui.faditor.model.Clip clip) {
+        if (!clip.isOverlayAudioEnabled()) return 0f;
+        if (clip.isAudioMuted()) return 0f;
+        if (isOverlayClipLaneMuted(timeline, clip)) return 0f;
+        return clip.getVolumeLevel();
+    }
+
     /**
      * Effective preview playback volume for an audio clip: 0 if the clip itself is
      * muted OR its owning track is muted (track-mute multiplies over, never overwrites,

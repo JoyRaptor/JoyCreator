@@ -55,6 +55,18 @@ public class Clip {
     /** Whether audio is muted for this clip. */
     private boolean audioMuted = false;
 
+    /**
+     * OVERLAY (PiP) clips only: whether this clip contributes its audio to preview/export.
+     * Defaults to {@code false} — a PiP has always been pixels-only, and simply making every
+     * PiP audible would change the output of every existing project that has one. Worse, for a
+     * dual-stream pair (the same take recorded twice, the webcam riding as a PiP) it would
+     * double the voice. So audio is OPT-IN per clip. Deliberately NOT folded into
+     * {@link #audioMuted}, whose default ({@code false} = audible) means the opposite.
+     * Meaningless on a master clip, which always contributes its audio.
+     * See {@code tasks/SPEC_PIP_AUDIO.md}.
+     */
+    private boolean overlayAudioEnabled = false;
+
     /** Volume level (0.0 = silence, 1.0 = original, 2.0 = 200%). */
     private float volumeLevel = 1.0f;
 
@@ -465,6 +477,7 @@ public class Clip {
         this.speedMultiplier = other.speedMultiplier;
         this.pitchCompensation = other.pitchCompensation;
         this.audioMuted = other.audioMuted;
+        this.overlayAudioEnabled = other.overlayAudioEnabled;
         this.volumeLevel = other.volumeLevel;
         this.rotationDegrees = other.rotationDegrees;
         this.flipHorizontal = other.flipHorizontal;
@@ -542,6 +555,7 @@ public class Clip {
         c.captionSizeFraction = captionSizeFraction;
         c.effectStack = new EffectStack(effectStack);
         c.pitchCompensation = pitchCompensation;
+        c.overlayAudioEnabled = overlayAudioEnabled;
         c.duckAmount = duckAmount;
         c.zoomLevel = zoomLevel;
         c.zoomCenterX = zoomCenterX;
@@ -617,6 +631,15 @@ public class Clip {
 
     public boolean isAudioMuted() {
         return audioMuted;
+    }
+
+    /** OVERLAY clips: does this PiP contribute audio? See {@link #overlayAudioEnabled}. */
+    public boolean isOverlayAudioEnabled() {
+        return overlayAudioEnabled;
+    }
+
+    public void setOverlayAudioEnabled(boolean enabled) {
+        this.overlayAudioEnabled = enabled;
     }
 
     public float getVolumeLevel() {

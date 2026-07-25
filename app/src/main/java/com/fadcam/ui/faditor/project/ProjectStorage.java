@@ -1184,6 +1184,11 @@ public class ProjectStorage {
         if (clip.getLayerId() != null) {
             clipJson.addProperty("layerId", clip.getLayerId());
             clipJson.addProperty("overlayStartMs", clip.getOverlayStartMs());
+            // SPEC_PIP_AUDIO: opt-in PiP audio. Written ONLY when true so every existing
+            // project's JSON (and its export) stays byte-identical; absent => false.
+            if (clip.isOverlayAudioEnabled()) {
+                clipJson.addProperty("overlayAudioEnabled", true);
+            }
             if (!"NORMAL".equals(clip.getOverlayBlendMode())) {
                 clipJson.addProperty("overlayBlendMode", clip.getOverlayBlendMode());
             }
@@ -1402,6 +1407,9 @@ public class ProjectStorage {
                     .fromJson(clipObj.getAsJsonObject("compositing")));
         }
         // ── Floating overlay-video fields (M-COMP-2) — absent on master clips. ──
+        if (clipObj.has("overlayAudioEnabled")) {
+            clip.setOverlayAudioEnabled(clipObj.get("overlayAudioEnabled").getAsBoolean());
+        }
         if (clipObj.has("layerId")) {
             clip.setLayerId(clipObj.get("layerId").getAsString());
             if (clipObj.has("overlayStartMs")) {

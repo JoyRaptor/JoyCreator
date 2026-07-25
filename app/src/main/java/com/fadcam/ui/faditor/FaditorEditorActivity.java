@@ -15950,6 +15950,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public float overlayVolumeFor(@NonNull Clip clip) {
+                // SPEC_PIP_AUDIO: one authority shared with the export audio sequence.
+                // 0 for every PiP that has not opted in — the default, and exactly the
+                // silence this view hardcoded before.
+                if (project == null) return 0f;
+                return com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .effectiveOverlayVolume(project.getTimeline(), clip);
+            }
+
+            @Override
             public void onOverlayVideoManipulated(@NonNull Clip clip,
                     @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet before) {
                 final com.fadcam.ui.faditor.keyframe.KeyframeSet after =

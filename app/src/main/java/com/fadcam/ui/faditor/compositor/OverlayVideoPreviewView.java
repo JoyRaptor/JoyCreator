@@ -82,6 +82,13 @@ public class OverlayVideoPreviewView extends FrameLayout {
         void onOverlayVideoChanged();
         /** A drag/pinch finished; record ONE undo step from the snapshot. */
         void onOverlayVideoManipulated(@NonNull Clip clip, @NonNull KeyframeSet before);
+        /**
+         * Playback volume for this PiP — the host answers from
+         * {@code LayerPreviewController.effectiveOverlayVolume} so preview and export share
+         * one authority. 0 for every clip that has not opted into audio (the default), which
+         * is exactly the hardcoded silence this view used to apply. See SPEC_PIP_AUDIO.
+         */
+        float overlayVolumeFor(@NonNull Clip clip);
     }
 
     private final TextureView textureView;
@@ -377,7 +384,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
         if (player == null) {
             player = new ExoPlayer.Builder(getContext()).build();
             player.setVideoTextureView(textureView);
-            player.setVolume(0f); // pixels only — matches export's setRemoveAudio (M-EXPORT-1)
+            player.setVolume(0f); // silent until a clip opts in — applyActiveVolume() below
             player.setSeekParameters(SeekParameters.CLOSEST_SYNC);
             player.addListener(new Player.Listener() {
                 @Override public void onVideoSizeChanged(@NonNull VideoSize size) {
@@ -400,10 +407,28 @@ public class OverlayVideoPreviewView extends FrameLayout {
         player.setMediaItem(MediaItem.fromUri(uri));
         player.prepare();
         active = clip;
+        applyActiveVolume();
         videoW = 0;
         videoH = 0;
         FLog.i(TAG, "overlay decoder bound to clip layer=" + clip.getLayerId()
                 + " start=" + clip.getOverlayStartMs() + "ms uri=" + uri.getLastPathSegment());
+    }
+
+    /**
+     * Push the bound clip's effective volume onto the player. Called whenever the decoder is
+     * (re)bound, and by {@link #refreshVolume()} when the host changes a mute/volume/lane
+     * flag. Silent when nothing is bound or the host says 0 — the default for every PiP that
+     * has not opted into audio, which reproduces this view's historical hardcoded silence.
+     */
+    private void applyActiveVolume() {
+        if (player == null || active == null || callback == null) return;
+        float v = callback.overlayVolumeFor(active);
+        player.setVolume(Math.max(0f, v));
+    }
+
+    /** Host hook: re-read the bound PiP's volume after a mute/volume/lane-mute change. */
+    public void refreshVolume() {
+        applyActiveVolume();
     }
 
     // ── Transform ─────────────────────────────────────────────────────────────

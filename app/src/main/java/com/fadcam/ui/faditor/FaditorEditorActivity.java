@@ -22327,7 +22327,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             long playheadMs = editorTimeline.getPlayheadPositionMs();
             int insertIndex = computeInsertIndexAtTimelineMs(playheadMs);
 
-            // If playhead is mid-clip, split first
+            // If playhead is mid-clip, split first. The split and the insert are ONE user
+            // action ("put this here"), so they must be ONE undo step: recording only the
+            // insert left the clip permanently split in two after an undo, because nothing
+            // ever recorded the split. Captured for the composite action below.
+            final Timeline tl = project.getTimeline();
+            Clip splitOriginal = null;   // non-null only when a split actually happened
+            Clip splitLeft = null, splitRight = null;
+            int splitIndex = -1;
+            final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBeforeAll =
+                    tl.snapshotTransitions();
             if (insertIndex >= 0 && selectedClipIndex >= 0) {
                 Clip currentClip = getSelectedClip();
                 if (currentClip != null && !currentClip.isImageClip()) {
@@ -22338,18 +22347,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (localMs > 200 && localMs < segEffective - 200) {
                         long sourceSplitMs = currentClip.getInPointMs()
                                 + (long)(localMs * currentClip.getSpeedMultiplier());
-                        project.getTimeline().splitAt(selectedClipIndex, sourceSplitMs);
-                        project.getTimeline().shiftTransitionsAfterSplit(selectedClipIndex);
+                        splitIndex = selectedClipIndex;
+                        splitOriginal = currentClip;
+                        tl.splitAt(selectedClipIndex, sourceSplitMs);
+                        tl.shiftTransitionsAfterSplit(selectedClipIndex);
+                        splitLeft = tl.getClip(selectedClipIndex);
+                        splitRight = tl.getClip(selectedClipIndex + 1);
                         insertIndex = selectedClipIndex + 1;
                     }
                 }
             }
 
-            if (insertIndex < 0) insertIndex = project.getTimeline().getClipCount();
-            project.getTimeline().addClip(insertIndex, newClip);
-            project.getTimeline().shiftTransitionsAfterInsert(insertIndex);
-            undoManager.recordAction(new EditActions.AddClipAction(
-                    project.getTimeline(), newClip, insertIndex));
+            if (insertIndex < 0) insertIndex = tl.getClipCount();
+            tl.addClip(insertIndex, newClip);
+            tl.shiftTransitionsAfterInsert(insertIndex);
+            if (splitOriginal == null) {
+                undoManager.recordAction(new EditActions.AddClipAction(
+                        tl, newClip, insertIndex));
+            } else {
+                // Composite: undo removes the inserted clip AND re-joins the two halves,
+                // restoring the transition list wholesale (one snapshot covers both shifts).
+                final Clip fOriginal = splitOriginal, fLeft = splitLeft, fRight = splitRight;
+                final int fSplitIndex = splitIndex, fInsertIndex = insertIndex;
+                undoManager.recordAction(new EditActions.LambdaAction(
+                        "Insert at playhead",                              // TODO(strings)
+                        () -> {
+                            tl.removeClip(fSplitIndex);
+                            tl.addClip(fSplitIndex, fRight);
+                            tl.addClip(fSplitIndex, fLeft);
+                            tl.addClip(fInsertIndex, newClip);
+                            tl.shiftTransitionsAfterSplit(fSplitIndex);
+                            tl.shiftTransitionsAfterInsert(fInsertIndex);
+                        },
+                        () -> {
+                            tl.removeClip(newClip);
+                            tl.removeClip(fRight);
+                            tl.removeClip(fLeft);
+                            tl.addClip(fSplitIndex, fOriginal);
+                            tl.restoreTransitions(transitionsBeforeAll);
+                        }));
+            }
 
             selectSegment(insertIndex);
             editorTimeline.setTransitions(project.getTimeline().getTransitions());

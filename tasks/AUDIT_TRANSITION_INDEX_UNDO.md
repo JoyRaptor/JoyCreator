@@ -55,17 +55,19 @@ Tools now available for the rest: `Transition.copy()` (deep — `paramOverrides`
 | linked-pair add (`~22173`) | insert | **FIXED** — exact inverse in its `revert` |
 | `ai/EditScriptApplier` ×4 | insert/split | **OUT OF SCOPE** — see below |
 
-### The one structural gap left (NOT a transition bug)
+### The structural gap — ALSO FIXED
 
-`FaditorEditorActivity ~22338` — "insert a clip at the playhead" SPLITS the current clip first
-when the playhead is mid-clip, then inserts. It records only an `AddClipAction`, so **the
-implicit split is not in the undo history at all**: undoing the insert leaves the clip split in
-two. My fix reverses the insert's index shift correctly, but the split's shift (and the split
-itself) still are not undone, because nothing ever recorded them.
+`FaditorEditorActivity` "insert a clip at the playhead" SPLITS the current clip when the
+playhead is mid-clip, then inserts, but recorded only an `AddClipAction` — so **the implicit
+split was not in the undo history at all**: undoing the insert removed the new clip and left
+the original permanently cut in two. A pre-existing *undo-composition* defect rather than index
+arithmetic.
 
-That is a pre-existing *undo-composition* defect, not an index-arithmetic one, and fixing it
-means making that flow record a composite action (split + insert) as one step. Left alone
-deliberately: it is a behaviour change to a working feature and deserves its own slice.
+Now recorded as ONE composite step, which is what it is to the user ("put this here"): undo
+removes the inserted clip, re-joins the two halves back into the original, and restores the
+transition list wholesale — a single pre-everything snapshot covers both the split's and the
+insert's index shifts. The no-split path still records the plain `AddClipAction`, so the
+common case is unchanged.
 
 ### EditScriptApplier
 

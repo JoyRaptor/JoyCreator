@@ -153,6 +153,20 @@ at that moment SLIDES it to the nearest free slot rather than layering it. If th
 broken to users, the fix is UX (reject + hint, or auto-pick a free lane), NOT relaxing the
 resolver.
 
+**BUG 3 — the playhead tint read the LANE's kind for an ITEM.**
+`EditorTimelineView.kindForSelectedLayerItem` returned the selected item's *track* kind to
+colour the KineMaster playhead. A lane no longer describes what it holds, so a sprite parked
+on the "Text" lane tinted the playhead as text, and anything on a neutral lane produced
+`TrackKind.LAYER`, which `colorForKind` has no case for. Fixed by deriving from the payload
+via `LayerRowRenderer.payloadKindOf`, promoted private→public rather than adding a third copy
+of that switch — three private copies of "what kind is this object" drifting apart is exactly
+how the row badge, the mute icon and the playhead tint each ended up wrong in a different way.
+
+**AUDIT COMPLETE — every remaining `getKind()` check was re-read and is legitimate:** the
+AUDIO-band checks (audio is genuinely a separate band), the MASTER structural exclusion, the
+inert IMAGE path (nothing creates an IMAGE lane), and `Timeline`'s def-kind→emission-phase
+routing. There are no remaining places that treat a lane's kind as its items' kind.
+
 **Verified-not-broken while looking (no change needed):** schema stamping. A payload can only
 reach a foreign seeded lane if that lane exists, which implies sprites (stamp v9) or overlay
 clips (v8), and a user lane implies a def (v8) — so every reachable cross-lane state already

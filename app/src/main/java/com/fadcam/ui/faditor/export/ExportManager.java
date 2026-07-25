@@ -1981,11 +1981,17 @@ public class ExportManager {
         // hidden by its lane's eye (or its own per-object eye) is excluded from the exported
         // PIXELS by this same method, and an object excluded from the export must not keep
         // contributing audio. Reading getOverlayClips() here would have done exactly that.
+        // Hoist getLayers() out of the loop: it rebuilds every lane view from the flat lists
+        // on each call, and the volume authority needs it per clip.
+        List<Track> lanes = timeline.getLayers();
         List<Clip> overlays = new ArrayList<>();
+        Map<String, Float> volumes = new HashMap<>();
         for (Clip c : LayerPreviewController.visibleOverlayVideoClips(timeline)) {
             if (c == null || c.isImageClip()) continue; // a still has no audio
-            if (LayerPreviewController.effectiveOverlayVolume(timeline, c) <= 0f) continue;
+            float vol = LayerPreviewController.effectiveOverlayVolume(c, lanes);
+            if (vol <= 0f) continue;
             overlays.add(c);
+            volumes.put(c.getId(), vol);
         }
         if (overlays.isEmpty()) return null;
         Collections.sort(overlays, Comparator.comparingLong(Clip::getOverlayStartMs));
@@ -2036,7 +2042,7 @@ public class ExportManager {
                 if (c.isPitchCompensationEnabled()) sonic.setPitch(1.0f);
                 processors.add(sonic);
             }
-            float volume = LayerPreviewController.effectiveOverlayVolume(timeline, c);
+            float volume = volumes.get(c.getId());
             if (Math.abs(volume - 1.0f) >= 0.01f) {
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
                 vp.setVolume(volume);

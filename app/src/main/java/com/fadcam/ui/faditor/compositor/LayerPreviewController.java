@@ -246,7 +246,17 @@ public final class LayerPreviewController {
      */
     public static boolean isOverlayClipLaneMuted(@NonNull Timeline timeline,
             @NonNull com.fadcam.ui.faditor.model.Clip clip) {
-        for (Track track : timeline.getLayers()) {
+        return isOverlayClipLaneMuted(clip, timeline.getLayers());
+    }
+
+    /**
+     * Lane-precomputed overload. {@code getLayers()} rebuilds every lane view from the flat
+     * lists on each call, so a caller looping over many clips (the export audio sequence)
+     * must hoist it out of the loop rather than paying that rebuild per clip.
+     */
+    public static boolean isOverlayClipLaneMuted(@NonNull com.fadcam.ui.faditor.model.Clip clip,
+            @NonNull List<Track> lanes) {
+        for (Track track : lanes) {
             if (!track.isMuted()) continue;
             for (TimedItem item : track.getItems()) {
                 if (item.getClip() == clip) return true;
@@ -269,9 +279,17 @@ public final class LayerPreviewController {
      */
     public static float effectiveOverlayVolume(@NonNull Timeline timeline,
             @NonNull com.fadcam.ui.faditor.model.Clip clip) {
+        if (!clip.isOverlayAudioEnabled()) return 0f;   // cheap gates first: the common
+        if (clip.isAudioMuted()) return 0f;             // case never touches getLayers()
+        return effectiveOverlayVolume(clip, timeline.getLayers());
+    }
+
+    /** Lane-precomputed overload — see {@link #isOverlayClipLaneMuted(Clip, List)}. */
+    public static float effectiveOverlayVolume(@NonNull com.fadcam.ui.faditor.model.Clip clip,
+            @NonNull List<Track> lanes) {
         if (!clip.isOverlayAudioEnabled()) return 0f;
         if (clip.isAudioMuted()) return 0f;
-        if (isOverlayClipLaneMuted(timeline, clip)) return 0f;
+        if (isOverlayClipLaneMuted(clip, lanes)) return 0f;
         return clip.getVolumeLevel();
     }
 

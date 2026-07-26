@@ -4,6 +4,47 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### NEXT UP — Transcript navigator (audit 1.1 step 3, DECIDED design). SCOPED, not started.
+
+Decided behaviour: after a split, the panel shows the WHOLE source with the current clip
+highlighted, and BECOMES a navigation surface (tap a word in another clip's region → jump to
+that clip). Key finding from scoping (do NOT re-derive): **the panel already shows the whole
+source** — `loadTranscriptPanelContent()` binds `currentTranscript = clip.getTranscript()`
+(`FaditorEditorActivity.java:20835`, also 20820 for audio), and post the transcript-SHARING
+migration every clip from one source holds the SAME whole-source transcript. So the old
+"windowing wraps words misaligned" symptom is already gone; what's missing is the
+CURRENT-CLIP HIGHLIGHT and the cross-clip NAVIGATION. Build those two things:
+
+1. `TranscriptPanelView` (494 lines): add `setClipWindow(long inMs, long outMs)` +
+   `clipWindowInMs/OutMs` fields. In `onDraw`, render words whose `startMs` is OUTSIDE
+   `[inMs,outMs]` dimmed (they belong to OTHER clips of the same source); words inside are
+   full-strength. The existing `activePaint` cyan highlight (playback word) stays. Words are
+   in SOURCE time already (`transcript.words[i].startMs`), so the window is a direct compare.
+2. Tap routing in `onTouchEvent` (~line 383-399): currently a tap calls
+   `listener.onSeekToMs(words[idx].startMs)`. Change so that when the tapped word is OUTSIDE
+   the current clip window, it fires a NEW listener callback `onNavigateToSourceMs(long)`
+   instead — the host resolves which clip's `[inPointMs,outPointMs]` contains that source ms,
+   selects that segment (`selectSegment`), and seeks. Inside-window tap keeps `onSeekToMs`.
+3. Host (`FaditorEditorActivity`): after every `transcriptView.setTranscript(...)` (7 sites:
+   20828, 20843, 7966, 20959, plus the binds near 7964/12180), also call
+   `transcriptView.setClipWindow(clip.getInPointMs(), clip.getOutPointMs())`. Implement the
+   new `onNavigateToSourceMs` in the Listener at 18955: find the clip index whose source
+   window contains the ms (careful: multiple clips of the same source can overlap in source
+   time — pick the one nearest the current selection, or the first containing it), then
+   `selectSegment(idx)` + seek. Note `editorTimeline.setTranscriptHighlight(selectedClipIndex,
+   sourceMs)` at 7980 already exists for the timeline-side highlight — mirror its clip
+   resolution.
+4. DEVICE-VERIFY: split a clip in cebc19e0 or a throwaway, open the transcript on each half,
+   confirm (a) the same whole-source words show on both, (b) the current half's words are
+   full-strength and the other half's are dimmed, (c) tapping a dimmed word switches the
+   selected clip and seeks. Use a THROWAWAY clone (restore after) — and remember the adb-dir
+   indexing trap above (corrupt/clone an ALREADY-INDEXED project, don't hand-make a dir).
+
+### Not scoped for code changes without a user design decision: B1, B4, B5, and B3's fix.
+B1 (PiP audio route), B4 (link badge = "lock", no unlink), B5 (dual-stream discoverability)
+and B3's remedy are all discoverability/affordance calls the user has NOT decided. Diagnosed;
+await a design decision before shipping UX changes.
+
 - **LOAD-FAILURE SHAPE fix DONE + device-verified (`e6a1f0b`).** Decided behaviour built:
   one bad item no longer aborts the whole load into a silent `.bak`. ProjectStorage's
   deserializer now wraps each clip / overlay-clip / audio-clip / text-overlay / waveform

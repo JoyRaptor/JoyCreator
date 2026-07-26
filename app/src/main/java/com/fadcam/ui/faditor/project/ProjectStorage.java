@@ -311,6 +311,9 @@ public class ProjectStorage {
                     p.setDiskLastModifiedAtLastSync(p.getLastModified());
                     // One-time transcript-duplicate migration (backup-first; see method doc).
                     dedupTranscriptsWithBackup(p, file);
+                    // Then collapse per-clip forks onto one shared transcript per id, so an
+                    // edit made from any clip is an edit everywhere (backup-first too).
+                    shareTranscriptsWithBackup(p, file);
                     return p;
                 }
                 FLog.w(TAG, "Main project file empty/invalid, trying backup: " + projectId);
@@ -368,6 +371,58 @@ public class ProjectStorage {
      * re-entrant merge machinery. Downgrade guard respected: projects written
      * by a newer app version are never touched.</p>
      */
+    /**
+     * One-time (idempotent) migration: collapse per-clip transcript FORKS onto one shared
+     * instance per id, reconstructing legacy partitions on the way — see {@link
+     * com.fadcam.ui.faditor.transcript.TranscriptSharing} for the merge rule and the two
+     * fork shapes it has to tell apart.
+     *
+     * <p>Backup-first and verified, exactly like {@link #dedupTranscriptsWithBackup}:
+     * nothing is mutated until a byte-copy of the file we loaded exists and is
+     * size-identical. This one earns that caution — an earlier first-wins version of this
+     * migration would have replaced a 1112-word transcript with a 1110-word one on the
+     * reporter's live project.</p>
+     */
+    private void shareTranscriptsWithBackup(@NonNull FaditorProject p, @NonNull File sourceFile) {
+        try {
+            if (p.isLoadedFromNewerVersion()) return;
+            if (com.fadcam.ui.faditor.transcript.TranscriptSharing.countForks(p) <= 0) return;
+
+            File backupsDir = new File(sourceFile.getParentFile(), "backups");
+            if (!backupsDir.exists() && !backupsDir.mkdirs()) {
+                FLog.w(TAG, "transcriptSharing: cannot create backups dir — skipping");
+                return;
+            }
+            String ts = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+                    .format(new java.util.Date());
+            File backup = new File(backupsDir, "project-preshare-" + ts + ".json");
+            try (java.io.FileInputStream in = new java.io.FileInputStream(sourceFile);
+                 java.io.FileOutputStream out = new java.io.FileOutputStream(backup)) {
+                byte[] buf = new byte[65536];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                out.flush();
+                out.getFD().sync();
+            }
+            if (!backup.exists() || backup.length() <= 0
+                    || backup.length() != sourceFile.length()) {
+                FLog.w(TAG, "transcriptSharing: backup verification FAILED — skipping");
+                backup.delete();
+                return;
+            }
+
+            com.fadcam.ui.faditor.transcript.TranscriptSharing.Result r =
+                    com.fadcam.ui.faditor.transcript.TranscriptSharing.shareProject(p);
+            if (!r.changedAnything()) return;
+            String json = gson.toJson(p);
+            writeProjectJson(p.getId(), json);
+            FLog.i(TAG, "transcriptSharing: " + r + " for project " + p.getId()
+                    + "; backup=" + backup.getName());
+        } catch (Exception e) {
+            FLog.w(TAG, "transcriptSharing failed (project left as loaded)", e);
+        }
+    }
+
     private void dedupTranscriptsWithBackup(@NonNull FaditorProject p, @NonNull File sourceFile) {
         try {
             if (p.isLoadedFromNewerVersion()) return;

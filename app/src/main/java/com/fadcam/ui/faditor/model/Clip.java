@@ -494,9 +494,13 @@ public class Clip {
         for (long[] s : other.silenceCandidates) {
             this.silenceCandidates.add(new long[]{s[0], s[1]});
         }
-        for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : other.transcripts) {
-            this.transcripts.add(nt.copy());
-        }
+        // SHARED, not deep-copied. Every caller here is making another clip of the SAME
+        // source — a split half, a duplicate, an AI split — so they are all windows onto
+        // one recording's words. Deep-copying forked the transcript per clip, so a break or
+        // a struck word added from one clip was invisible from its own sibling, and the
+        // forks then drifted apart with every edit. Legacy forks already on disk are healed
+        // at load by TranscriptSharing; this stops new ones being made.
+        this.transcripts.addAll(other.transcripts);
         this.activeTranscriptIndex = other.activeTranscriptIndex;
         this.displayName = other.displayName;
         this.captionsEnabled = other.captionsEnabled;
@@ -543,9 +547,7 @@ public class Clip {
                 cropLeft, cropTop, cropRight, cropBottom);
         c.imageClip = imageClip;
         c.removedSpans.addAll(removedSpans);
-        for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : transcripts) {
-            c.transcripts.add(nt.copy());
-        }
+        c.transcripts.addAll(transcripts); // shared, not forked — see the copy constructor
         c.activeTranscriptIndex = activeTranscriptIndex;
         c.displayName = displayName;
         c.captionsEnabled = captionsEnabled;

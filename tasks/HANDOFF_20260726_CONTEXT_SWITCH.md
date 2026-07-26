@@ -118,7 +118,7 @@ attached, think before saving.
 
 Read `tasks/AUDIT_UNFINISHED_20260726.md` first — it is the map. Highlights:
 
-1. **Verify the transcript migration actually runs** (§1). Blocking everything else transcript.
+1. ~~Verify the transcript migration~~ — DONE and verified on device, see §1.
 2. **`TrackKind.LAYER` schema hole** (audit 1.2) — DATA-LOSS class, cheapest fix in the list.
    `SCHEMA_VERSION` is still 10 so the downgrade guard never fires for a neutral lane; an
    older build coerces LAYER→VIDEO and re-saves, permanently changing paint order.

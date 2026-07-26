@@ -1,5 +1,61 @@
 # HANDOFF 2026-07-26 — context/account switch
 
+---
+
+## 0. CURRENT STATE (updated 03:15, after the audit stretch) — READ THIS FIRST
+
+HEAD `6851eca`, branch `joy-creator`, tree clean except the always-ignorable
+`tools/jvm-harness/out*/`. Build watcher ALIVE and installing to the **Note 9 only**
+(Note 20 unplugged). Installed APK 03:07:57, current with source.
+
+Landed this stretch, each with its own offline proof and device verification:
+
+| commit | audit item | proof |
+|---|---|---|
+| `b8b6234` | guard hygiene | both python guards now hard-fail on zero matched files |
+| `d77daf3` | **1.2** LAYER schema hole | `tasks/schema_layer_stamp.py` (survey + corruption repro + guard + 4 source tripwires); device 7→11 with a LAYER def, stays 7 without |
+| `eaff34b` | **2.1 + 2.2** caption size | device A/B 3%↔20% live in preview; audio size 0.15 round-trips. Also fixed: any re-bind blanked the captions while paused |
+| `7a09eb6` | **1.3** `layerId: null` | device: 15 objects in → 15 out with 4 explicit nulls; control (`cropPreset: null`) silently opens the older `.bak` |
+| `6851eca` | **1.4** downgrade drill | drill RAN 7/7; found + fixed the undo-history sidecar being written for a read-only project |
+
+**Device hygiene:** every experiment used throwaway `cp -r` clones. All 10 real sandbox
+projects are **sha256-identical to their safety copies** — verified after the last
+fixture was removed. Nothing needed restoring. One stray artifact left deliberately: a
+480p export in `FadCam/Faditor/` on the sandbox from drill step 6.
+
+**Reusable fixture recipe** (this is the machinery to reuse, it worked well):
+`adb shell run-as com.fadcam.beta cp -r <projects>/<real-id> <projects>/<fake-uuid>`,
+patch the JSON on the host, `adb push` to `/data/local/tmp` then
+`cat /data/local/tmp/x.json | run-as com.fadcam.beta sh -c 'cat > .../project.json'`.
+Bump `lastModified` to now so it sorts to row 1 of the project list, then tap
+Faditor `(627,2108)` → row 1 `(538,705)`. Delete the clone when done.
+`FaditorEditorActivity` is **not exported**, so `am start` cannot open a project directly.
+
+**Newly known traps:**
+- Screenshots must be captured with the **Bash** tool (`adb exec-out screencap -p > f.png`).
+  PowerShell's `>` corrupts binaries with a BOM. Same for `adb shell cat` of JSON — read
+  those with `utf-8-sig` or use Bash.
+- `adb push /data/local/tmp/...` from **Bash** gets MSYS-mangled to `C:/Program Files/Git/data/...`.
+  Use PowerShell for `adb push`, Bash for `exec-out` redirects.
+- `touch` does NOT trigger Gradle's continuous build (it hashes content, not mtime). To
+  force a rebuild you need a real content change.
+- Foreground `sleep` is blocked by the harness; wait on the APK with a backgrounded
+  `until [ "$APK" -nt "$SRC" ]; do sleep 3; done`.
+
+**Two things found in passing, NOT fixed, worth their own look:**
+1. Immediately after an undo with the caption drawer open, the preview canvas collapses to
+   a thin strip for a frame or two; it recovers on the next playhead move.
+2. `ProjectStorage` has ~223 typed JSON reads guarded by `.has()` alone (78 `getAsString`,
+   57 `getAsFloat`, 38 `getAsLong`, 34 `getAsBoolean`, 22 `getAsInt`; only 6 null-guarded).
+   Audit 1.3 fixed the 4 named `layerId` sites; the rest want one `optString/optFloat`
+   helper and a mechanical sweep, with its own proof. See `7a09eb6`.
+
+Next per the audit's own order: **2.5** (PiP audio plumbing), **2.6** (cross-type Z
+absolute-geometry A/B), **2.7** (neutral substrate queue items 2,3,5–8), then **2.3**
+(preset crop — read the F12 RE-SCOPED block, not the older note).
+
+---
+
 Written at the end of a long Opus 5 session because the account ran out of credits and work
 continues on a **different login, same machine**. Everything below lived only in that
 session's context and would otherwise be lost. HEAD at write time: `11c4927`, tree clean

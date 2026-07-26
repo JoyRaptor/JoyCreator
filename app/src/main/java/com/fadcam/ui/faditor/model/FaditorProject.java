@@ -316,6 +316,34 @@ public class FaditorProject {
     }
 
     /**
+     * Per-item load-tolerance record (2026-07-26 load-failure SHAPE fix). When
+     * {@code ProjectStorage}'s deserializer hits a malformed item (a bad/absent
+     * required field that would otherwise throw and abort the WHOLE project load,
+     * dropping the user back to a silent {@code project.json.bak}), it SKIPS that one
+     * item and records a short human-readable line here instead. {@code
+     * FaditorEditorActivity} reads this right after {@code load()}: if non-empty it
+     * tells the user exactly what was dropped and offers "open the last backup
+     * instead" as a choice — never a silent skip and never a silent rollback.
+     * Transient — a per-load runtime marker, never serialized.
+     */
+    private transient java.util.List<String> loadSkips = new java.util.ArrayList<>();
+
+    @NonNull
+    public java.util.List<String> getLoadSkips() {
+        if (loadSkips == null) loadSkips = new java.util.ArrayList<>();
+        return loadSkips;
+    }
+
+    public void addLoadSkip(@NonNull String description) {
+        if (loadSkips == null) loadSkips = new java.util.ArrayList<>();
+        loadSkips.add(description);
+    }
+
+    public boolean hasLoadSkips() {
+        return loadSkips != null && !loadSkips.isEmpty();
+    }
+
+    /**
      * The on-disk {@code lastModified} value this copy last confirmed matches the
      * file (see {@link #diskLastModifiedAtLastSync}'s doc), or {@code -1} if never
      * synced (e.g. a brand-new project that has not yet been saved once).

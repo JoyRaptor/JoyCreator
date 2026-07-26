@@ -345,6 +345,46 @@ public class ProjectStorage {
     }
 
     /**
+     * Whether a {@code project.json.bak} exists for this project — i.e. whether the
+     * "open the last backup instead" choice can be offered when {@link #load} reports
+     * skipped items (load-failure SHAPE fix).
+     */
+    public boolean hasBackup(@NonNull String projectId) {
+        return new File(getProjectDir(projectId), PROJECT_FILE + ".bak").exists();
+    }
+
+    /**
+     * Load ONLY the {@code project.json.bak} backup, ignoring the (possibly
+     * partly-malformed) main file. Used when the user, told that {@link #load} had to
+     * skip some items, explicitly chooses "open the last backup instead". Returns
+     * {@code null} if there is no readable backup. The same per-item tolerance and
+     * transcript migrations that {@link #load} applies to the main file apply here, so
+     * the backup itself is served as-good-as-possible rather than all-or-nothing.
+     */
+    @Nullable
+    public FaditorProject loadBackupOnly(@NonNull String projectId) {
+        File bak = new File(getProjectDir(projectId), PROJECT_FILE + ".bak");
+        if (!bak.exists()) {
+            FLog.w(TAG, "loadBackupOnly: no backup for " + projectId);
+            return null;
+        }
+        try (FileReader reader = new FileReader(bak)) {
+            FaditorProject p = gson.fromJson(reader, FaditorProject.class);
+            if (p != null && p.getTimeline() != null) {
+                p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                dedupTranscriptsWithBackup(p, bak);
+                shareTranscriptsWithBackup(p, bak);
+                FLog.i(TAG, "loadBackupOnly: opened backup for " + projectId
+                        + " (skips=" + p.getLoadSkips().size() + ")");
+                return p;
+            }
+        } catch (Exception e) {
+            FLog.e(TAG, "loadBackupOnly: backup unreadable for " + projectId, e);
+        }
+        return null;
+    }
+
+    /**
      * One-time (idempotent) migration: strip accumulated duplicate transcript
      * versions from a freshly loaded project — see {@link
      * com.fadcam.ui.faditor.transcript.TranscriptDedup} for the exact keep/remove
@@ -2160,9 +2200,17 @@ public class ProjectStorage {
                 if (hasValue(timelineJson, "clips")) {
                     JsonArray clips = timelineJson.getAsJsonArray("clips");
                     for (int i = 0; i < clips.size(); i++) {
-                        JsonObject clipObj = clips.get(i).getAsJsonObject();
-                        project.getTimeline().addClip(
-                                deserializeClipObject(projectDir, clipObj));
+                        // Per-item fault tolerance (load-failure SHAPE fix): a single
+                        // malformed clip must not abort the whole load and drop the user
+                        // to a silent .bak. Skip it, record it, keep the rest.
+                        try {
+                            JsonObject clipObj = clips.get(i).getAsJsonObject();
+                            project.getTimeline().addClip(
+                                    deserializeClipObject(projectDir, clipObj));
+                        } catch (Exception ex) {
+                            FLog.e(TAG, "Skipping malformed clip #" + i, ex);
+                            project.addLoadSkip("Video clip #" + (i + 1));
+                        }
                     }
                 }
                 // Floating overlay-video (PiP) clips — M-COMP-2. Absent on every
@@ -2170,15 +2218,20 @@ public class ProjectStorage {
                 if (hasValue(timelineJson, "overlayClips")) {
                     JsonArray overlayArr = timelineJson.getAsJsonArray("overlayClips");
                     for (int i = 0; i < overlayArr.size(); i++) {
-                        JsonObject clipObj = overlayArr.get(i).getAsJsonObject();
-                        Clip oc = deserializeClipObject(projectDir, clipObj);
-                        if (oc.getLayerId() == null) {
-                            // Tolerant-read (A1 fromJson lesson): an overlay clip whose
-                            // layerId was lost lands on the default PiP layer instead of
-                            // silently vanishing into neither list.
-                            oc.setLayerId("video");
+                        try {
+                            JsonObject clipObj = overlayArr.get(i).getAsJsonObject();
+                            Clip oc = deserializeClipObject(projectDir, clipObj);
+                            if (oc.getLayerId() == null) {
+                                // Tolerant-read (A1 fromJson lesson): an overlay clip whose
+                                // layerId was lost lands on the default PiP layer instead of
+                                // silently vanishing into neither list.
+                                oc.setLayerId("video");
+                            }
+                            project.getTimeline().addOverlayClip(oc);
+                        } catch (Exception ex) {
+                            FLog.e(TAG, "Skipping malformed overlay (PiP) clip #" + i, ex);
+                            project.addLoadSkip("Picture-in-picture clip #" + (i + 1));
                         }
-                        project.getTimeline().addOverlayClip(oc);
                     }
                 }
             }
@@ -2189,6 +2242,8 @@ public class ProjectStorage {
                 if (hasValue(tl, "audioClips")) {
                     JsonArray audioArr = tl.getAsJsonArray("audioClips");
                     for (int i = 0; i < audioArr.size(); i++) {
+                      // Per-item fault tolerance (load-failure SHAPE fix).
+                      try {
                         JsonObject acObj = audioArr.get(i).getAsJsonObject();
                         Uri acUri = fromStorageUri(projectDir, acObj.get("sourceUri").getAsString());
                         long acDuration = acObj.get("sourceDurationMs").getAsLong();
@@ -2274,6 +2329,10 @@ public class ProjectStorage {
                         // §4.5 per-object lock (tolerant: absent = false).
                         if (hasValue(acObj, "objLocked")) ac.setLocked(acObj.get("objLocked").getAsBoolean());
                         project.getTimeline().addAudioClip(ac, false);
+                      } catch (Exception ex) {
+                        FLog.e(TAG, "Skipping malformed audio clip #" + i, ex);
+                        project.addLoadSkip("Audio track #" + (i + 1));
+                      }
                     }
                 }
             }
@@ -2284,6 +2343,11 @@ public class ProjectStorage {
                 if (hasValue(tl, "textOverlays")) {
                     JsonArray ovArr = tl.getAsJsonArray("textOverlays");
                     for (int i = 0; i < ovArr.size(); i++) {
+                      // Per-item fault tolerance (load-failure SHAPE fix). This is the
+                      // exact site the repro hits: a text overlay with sizeFraction:null
+                      // used to throw here (getAsFloat), abort the whole load, and drop
+                      // the user to a silent .bak. Now it skips this one overlay only.
+                      try {
                         JsonObject oObj = ovArr.get(i).getAsJsonObject();
                         com.fadcam.ui.faditor.model.TextOverlayItem o =
                                 new com.fadcam.ui.faditor.model.TextOverlayItem(
@@ -2341,6 +2405,10 @@ public class ProjectStorage {
                         if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
                         project.getTimeline().addTextOverlay(o);
+                      } catch (Exception ex) {
+                        FLog.e(TAG, "Skipping malformed text overlay #" + i, ex);
+                        project.addLoadSkip("Text overlay #" + (i + 1));
+                      }
                     }
                 }
             }
@@ -2351,6 +2419,8 @@ public class ProjectStorage {
                 if (hasValue(tl, "waveformOverlays")) {
                     JsonArray wfArr = tl.getAsJsonArray("waveformOverlays");
                     for (int i = 0; i < wfArr.size(); i++) {
+                      // Per-item fault tolerance (load-failure SHAPE fix).
+                      try {
                         JsonObject wj = wfArr.get(i).getAsJsonObject();
                         String id = wj.has("id") ? wj.get("id").getAsString()
                                 : java.util.UUID.randomUUID().toString();
@@ -2411,6 +2481,10 @@ public class ProjectStorage {
                         if (hasValue(wj, "objHidden")) wo.setHidden(wj.get("objHidden").getAsBoolean());
                         if (hasValue(wj, "objLocked")) wo.setLocked(wj.get("objLocked").getAsBoolean());
                         project.getTimeline().addWaveformOverlay(wo);
+                      } catch (Exception ex) {
+                        FLog.e(TAG, "Skipping malformed waveform overlay #" + i, ex);
+                        project.addLoadSkip("Audio visualizer #" + (i + 1));
+                      }
                     }
                     // Attached windows re-derive from their hosts' CURRENT spans on load.
                     project.getTimeline().resyncAttachedVisualizers();

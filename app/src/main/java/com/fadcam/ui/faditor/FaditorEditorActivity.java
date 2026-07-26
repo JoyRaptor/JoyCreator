@@ -112,6 +112,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Intent extra key for opening a saved project by ID. */
     public static final String EXTRA_PROJECT_ID = "faditor_project_id";
+    /**
+     * When true, open the project from its {@code project.json.bak} backup instead of
+     * the main file. Set only by the "open the last backup instead" choice offered when
+     * a load had to skip malformed items (load-failure SHAPE fix).
+     */
+    public static final String EXTRA_LOAD_BACKUP = "faditor_load_backup";
 
     /** Default duration for still image clips (milliseconds). */
     private static final long IMAGE_CLIP_DURATION_MS = 5000;
@@ -581,7 +587,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // on pause so nothing is lost when leaving the editor.
     private static final long UNDO_HISTORY_SAVE_THROTTLE_MS = 15000;
     private long lastUndoHistorySaveMs = 0;
+    /**
+     * True while the "some parts couldn't be loaded" dialog (load-failure SHAPE fix) is
+     * unresolved. Blocks EVERY save so an autosave/onPause can't rotate the current file
+     * into {@code project.json.bak} and destroy the clean backup the user was just
+     * offered. Cleared when the user picks "keep going"; left true through an "open last
+     * backup" restart so the dying activity never persists over the backup.
+     */
+    private boolean loadSkipDialogPending = false;
     private final Runnable autoSaveRunnable = () -> {
+        if (loadSkipDialogPending) return; // don't clobber the backup we're offering
         if (project != null && projectStorage != null) {
             projectStorage.saveAsync(project);   // off the UI thread (debounced autosave)
             FLog.d(TAG, "Project auto-saved");
@@ -1109,11 +1124,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Check if opening a saved project by ID
         String projectId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
         if (projectId != null) {
-            FaditorProject loaded = projectStorage.load(projectId);
+            boolean openBackup = getIntent().getBooleanExtra(EXTRA_LOAD_BACKUP, false);
+            FaditorProject loaded = openBackup
+                    ? projectStorage.loadBackupOnly(projectId)
+                    : projectStorage.load(projectId);
             if (loaded != null && !loaded.getTimeline().isEmpty()) {
                 initViews();
                 project = loaded;
                 warnIfProjectIsReadOnly(loaded);
+                warnIfItemsSkipped(loaded, projectId, openBackup);
 
                 // T8: split any legacy sprites that share one lane (pre-T8 placements all
                 // left layerId=null → one overlapping "sprite" track). Idempotent + purely
@@ -16184,6 +16203,64 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .show();
     }
 
+    /**
+     * Load-failure SHAPE fix (2026-07-26): a project that loaded but had to SKIP one or
+     * more malformed items (a bad/absent required field that would previously have
+     * aborted the whole load and dropped the user to a silent {@code project.json.bak}).
+     * The user's decision: never a silent skip and never a silent rollback — tell them
+     * exactly what was dropped and let them choose "open the last backup instead".
+     *
+     * @param openedBackup true if THIS load already came from the backup (via
+     *                     {@link #EXTRA_LOAD_BACKUP}); then we don't offer the backup
+     *                     again (it's what we're already showing) — we just report.
+     */
+    private void warnIfItemsSkipped(@NonNull FaditorProject p, @NonNull String projectId,
+                                    boolean openedBackup) {
+        if (!p.hasLoadSkips()) return;
+        java.util.List<String> skips = p.getLoadSkips();
+        FLog.w(TAG, "Loaded with " + skips.size() + " skipped item(s)"
+                + (openedBackup ? " [from backup]" : "") + ": " + skips);
+        StringBuilder sb = new StringBuilder();
+        sb.append(openedBackup
+                ? "The backup also had parts this app couldn't read, so they were left out:\n"
+                : "Some parts of this project couldn't be read and were left out so the rest "
+                        + "could still open:\n");                                 // TODO(strings)
+        for (String s : skips) sb.append("\n  • ").append(s);
+        boolean canOfferBackup = !openedBackup && projectStorage.hasBackup(projectId);
+        if (canOfferBackup) {
+            sb.append("\n\nYou can keep going without them, or open the last saved "
+                    + "backup instead.");                                        // TODO(strings)
+        }
+        // Block all saves until the user resolves this — otherwise an autosave/onPause
+        // would rotate the current (skipped) file into .bak and destroy the clean backup
+        // we're offering. Cleared on "keep going"; kept true through an "open backup"
+        // restart so the dying activity never persists over the backup.
+        loadSkipDialogPending = true;
+        autoSaveHandler.removeCallbacks(autoSaveRunnable);
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Some parts couldn't be loaded")               // TODO(strings)
+                        .setMessage(sb.toString())
+                        .setCancelable(false)
+                        .setPositiveButton("Keep going", (d, w) -> {             // TODO(strings)
+                            // User accepts the project without the dropped items. Allow
+                            // saves again; the next save legitimately finalises the skip.
+                            loadSkipDialogPending = false;
+                        });
+        if (canOfferBackup) {
+            b.setNegativeButton("Open last backup", (d, w) -> {                  // TODO(strings)
+                // Keep loadSkipDialogPending true: this activity is about to die, and its
+                // onPause save must NOT run (it would clobber the backup we're opening).
+                Intent again = new Intent(this, FaditorEditorActivity.class);
+                again.putExtra(EXTRA_PROJECT_ID, projectId);
+                again.putExtra(EXTRA_LOAD_BACKUP, true);
+                finish();
+                startActivity(again);
+            });
+        }
+        b.show();
+    }
+
     /** Undo/redo helper: restore a PiP transform snapshot in place + refresh the layer. */
     private void restoreOverlayTransform(@NonNull Clip clip,
             @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet snapshot) {
@@ -21930,6 +22007,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void saveProjectNow(boolean forceUndoHistory) {
         if (project != null && projectStorage != null) {
             autoSaveHandler.removeCallbacks(autoSaveRunnable);
+            // Load-failure SHAPE fix: while the "some parts couldn't be loaded" dialog is
+            // unresolved, refuse to save — a save here would rotate the current file into
+            // project.json.bak and destroy the clean backup we just offered to open.
+            if (loadSkipDialogPending) {
+                FLog.d(TAG, "saveProjectNow skipped — load-skip dialog pending: " + project.getId());
+                return;
+            }
             // Downgrade guard, found by running DRILL_SCHEMA_DOWNGRADE end-to-end.
             // save()/saveAsync() each refuse a project written by a NEWER build, but the
             // undo-history SIDECAR had no such guard — so a read-only project still got a

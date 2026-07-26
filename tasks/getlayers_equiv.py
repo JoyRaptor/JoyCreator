@@ -9,6 +9,9 @@ stable, so equal input order => equal output order.
 """
 import json, sys, glob, os
 
+# The seeded lane ids that have an emission phase of their own but no LayerTrackDef.
+SEEDED = ('text', 'sprite', 'video')
+
 def group(items, default_id, key='layerId'):
     out = {}
     for it in items:
@@ -79,6 +82,7 @@ def new_algo(tl):
     def flush(m, kind, name):
         for i in list(m.keys()):
             if i in def_ids: continue
+            if i in SEEDED: continue  # its own phase emits it later (see Timeline.SEEDED_LANE_IDS)
             build(i, kind, name)
 
     if has('text'): build('text', 'TEXT', 'Text')
@@ -112,3 +116,55 @@ for path in sorted(glob.glob(sys.argv[1])):
             for extra in n[len(o):]: print(f"       new-only={extra}")
             for extra in o[len(n):]: print(f"       old-only={extra}")
 print(f"\n{'ALL IDENTICAL' if not fails else str(fails)+' PROJECT(S) DIFFER'}")
+
+# ---------------------------------------------------------------------------
+# Seeded-lane pre-emption regression (device-proven 2026-07-25, Note 9).
+# A payload sitting on ANOTHER type's seeded lane must NOT let an earlier
+# phase's leftover flush claim that lane: doing so renamed the row, flipped its
+# TrackKind and HOISTED it up the band -- which is a silent z change under
+# cross-type Z. Asserts the lane keeps its own kind, name and band position.
+# ---------------------------------------------------------------------------
+def _lane_case(name, tl, want):
+    got = [(r[0], r[1], r[2]) for r in new_algo(tl)]
+    ok = got == want
+    print(f"{'PASS' if ok else 'FAIL'}  {name}")
+    if not ok:
+        print(f"      want={want}\n      got ={got}")
+    return ok
+
+seeded_ok = True
+# A text overlay dropped on the seeded PiP lane: 'video' must stay VIDEO/'PiP'
+# and stay LAST, with the text merged into it.
+seeded_ok &= _lane_case(
+    "text on the seeded PiP lane keeps it VIDEO/'PiP' and last",
+    {'layers': {'trackDefs': []},
+     'textOverlays': [{'id': 't1', 'layerId': 'video'}],
+     'spriteOverlays': [{'id': 's1'}],
+     'overlayClips': [{'id': 'v1', 'layerId': 'video'}]},
+    [('sprite', 'SPRITE', 'Sprite'), ('video', 'VIDEO', 'PiP')])
+# A text dropped on the seeded Sprite lane: 'sprite' must stay SPRITE/'Sprite'.
+seeded_ok &= _lane_case(
+    "text on the seeded Sprite lane keeps it SPRITE/'Sprite'",
+    {'layers': {'trackDefs': []},
+     'textOverlays': [{'id': 't1', 'layerId': 'sprite'}],
+     'spriteOverlays': [{'id': 's1'}],
+     'overlayClips': []},
+    [('sprite', 'SPRITE', 'Sprite')])
+# A sprite dropped on the seeded PiP lane: the sprite phase must not claim it.
+seeded_ok &= _lane_case(
+    "sprite on the seeded PiP lane keeps it VIDEO/'PiP'",
+    {'layers': {'trackDefs': []},
+     'textOverlays': [],
+     'spriteOverlays': [{'id': 's1', 'layerId': 'video'}],
+     'overlayClips': [{'id': 'v1', 'layerId': 'video'}]},
+    [('video', 'VIDEO', 'PiP')])
+# A genuine ORPHAN id must still be flushed in its phase (unchanged behavior).
+seeded_ok &= _lane_case(
+    "orphan layerId still flushes in its own phase",
+    {'layers': {'trackDefs': []},
+     'textOverlays': [{'id': 't1', 'layerId': 'sprite-legacy-uuid'}],
+     'spriteOverlays': [], 'overlayClips': []},
+    [('sprite-legacy-uuid', 'TEXT', 'Text')])
+
+if not seeded_ok:
+    sys.exit(1)

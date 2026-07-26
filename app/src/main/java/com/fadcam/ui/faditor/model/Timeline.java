@@ -1211,6 +1211,20 @@ public class Timeline {
      * every map, so each item lands in exactly one row and whatever is left over at the
      * end is by definition an orphan id.
      */
+    /**
+     * The three lane ids that are NOT owned by a {@link LayerTrackDef} but are still
+     * emitted by a phase of their own in {@link #getLayers()} (the seeded Text/Sprite/PiP
+     * rows). A per-phase leftover flush must skip them for the same reason it skips
+     * def-owned ids: an EARLIER phase's flush would otherwise claim the lane, emit it
+     * under that phase's kind + generic name, and consume it before its own branch runs.
+     * Reachable the moment the neutral substrate lets a payload sit on another type's
+     * seeded lane — e.g. a text on the "video" lane renamed the PiP row to "Text" and
+     * hoisted it above the sprite rows, which under cross-type Z is a silent z change.
+     */
+    private static final java.util.Set<String> SEEDED_LANE_IDS =
+            java.util.Collections.unmodifiableSet(
+                    new java.util.HashSet<>(java.util.Arrays.asList("text", "sprite", "video")));
+
     private static final class LaneBuckets {
         final Map<String, List<TextOverlayItem>> texts;
         final Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> sprites;
@@ -1264,6 +1278,7 @@ public class Timeline {
             @NonNull TrackKind kind, @NonNull String name) {
         for (String id : new ArrayList<>(phaseMap.keySet())) {
             if (defIds.contains(id)) continue; // its def emits it later, with its own name
+            if (SEEDED_LANE_IDS.contains(id)) continue; // its own phase emits it later
             out.add(buildLaneTrack(id, kind, name, buckets));
         }
     }

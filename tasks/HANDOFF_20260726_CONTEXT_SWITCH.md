@@ -2,25 +2,106 @@
 
 ---
 
-## 0. CURRENT STATE (updated 08:25) — READ THIS FIRST
+## 0. CURRENT STATE (updated 10:00) — READ THIS FIRST
 
-HEAD `cc1691a`, branch `joy-creator`, tree clean except the always-ignorable
-`tools/jvm-harness/out*/`. Build watcher ALIVE and installing to the **Note 9 only**
-(Note 20 unplugged). Installed APK 03:07:57 — verified newer than the newest source file
-(03:07:44); everything since has been docs/tooling only, so no Java is waiting to compile.
+HEAD `b794b9d`, branch `joy-creator`, tree clean except the always-ignorable
+`tools/jvm-harness/out*/`. Build watcher ALIVE, installing to the **Note 9 only** (Note 20
+unplugged). APK 09:56:59, installed, newer than every source file.
 
-**Verification-first tooling now in `tasks/` — reuse these, do not rebuild them:**
-- `export_ab_diff.py` — decode two exports and diff pixels. `--check-asym` REFUSES a fixture
-  symmetric enough to hide a flip. Never compare mp4 hashes; never threshold below ~40/255.
+**All 10 real sandbox projects are sha256-identical to their safety copies.** Every experiment
+in this run used a throwaway `cp -r` clone; nothing needed restoring. Stray artifacts left
+deliberately on the sandbox: a handful of 480p test exports in `FadCam/Faditor/`.
+
+### Audit items closed in this run (see the audit's STATUS BOARD for the live list)
+
+1.2, 1.3, 1.4, 2.1, 2.2, 2.4, 2.5 (export leg), 2.6, 2.7 (items 2/3/8), guard hygiene, plus
+the timer-export answer owed in §7 and the ROWGESTURE logging in Tier 4. Each has its own
+commit whose message states what was proved and how.
+
+**Three of them found more than the audit described** — worth knowing, because it means the
+audit's wording is a starting point, not a spec:
+- **1.3** is not "drops an object". For 3 of 4 sites the loader treats the file as corrupt and
+  silently opens `project.json.bak`. Reproduced: a fixture opened titled "ROLLED BACK TO BAK".
+- **2.4** has the direction BACKWARDS. The export was correct; the PREVIEW over-rendered the
+  neighbouring clip's words. Fixing the export on the audit's wording would have broken it.
+- **2.1** needed a second fix: any re-bind blanked captions while paused, so the slider erased
+  the very thing it was meant to show.
+
+### Verification tooling in `tasks/` — REUSE, do not rebuild
+
+- `export_ab_diff.py` — decode two exports, diff PIXELS. `--check-asym` refuses a fixture
+  symmetric enough to hide a flip. Proven on 2.7 item 8 and cross-type Z.
 - `export_audio_probe.py` — fit a source's amplitude inside an export. 1.0 = mixed once,
-  2.0 = doubled. `--expect-absent` for the not-opted-in control.
-- `schema_layer_stamp.py` — schema-stamp survey + corruption repro + source tripwires.
+  2.0 = doubled. `--expect-absent` for a not-present control.
+- `schema_layer_stamp.py` — schema-stamp survey + corruption repro + 4 source tripwires.
+- `getlayers_equiv.py`, `visible_equiv.py` — both now hard-fail on zero matched files.
 
-**Second/third stretch (04:00–09:45):** 2.7 items 2/3/8, 2.6 acceptance 1/2/4, 2.5 export leg, the timer export answer (§7), and 2.4 — which the audit had backwards.
-See the audit's STATUS BOARD. Three verification lessons, each of which produced a confident
-wrong answer before it was caught: a symmetric fixture hides flips; a cross-encode pixel diff
-thresholded at 8/255 reports noise as signal; a correlation probe nearly as long as the export
-has no lag headroom and fits garbage (reported gain −0.204 where the truth was 0.993).
+### The habit that actually produced these results
+
+Every proof carried a POSITIVE CONTROL, and that is not ceremony. **Five times in this run a
+confident finding turned out to be my own harness**, and each was caught only by a control or
+by looking at the actual pixels:
+- a 3-way export comparison gave three byte-identical files → my setup deleted only the
+  same-id fixture, so "row 1" kept opening the wrong project;
+- a cross-encode pixel diff at threshold 8/255 read lossy residual as signal and made a clean
+  cross-type-Z result look broken;
+- a correlation probe nearly as long as the export had no lag headroom and fitted gain −0.204
+  where the truth was 0.993;
+- "the lane eye does not persist for text or sprite" — I grepped for `hidden`; the key is
+  `objHidden`;
+- an export "truncated with no moov atom" was me `am force-stop`-ing during muxing.
+
+If a proof reports "no difference", assume the instrument is blind until a control says
+otherwise.
+
+### Next, in the audit's own order
+
+1. **2.3** preset crops during transitions. Deliberately not started — symmetric three-site
+   change in the GL transition compositor, and starting it without room to device-verify is
+   worse than not starting. **The executable recipe is now written into
+   `PERF_SPEC_LONGFILE_20260718.md`'s F12 RE-SCOPED block**, including "capture the FAILING
+   baseline before touching code".
+2. **Tier 3** items, then Tier 4.
+3. Still open and needing a HUMAN, not a harness: 2.5's preview leg (someone must listen to a
+   PiP), 2.5 acceptance 4 (needs a real dual-stream pair project — none exists on the
+   sandbox), and 2.7 items 5–7 (gesture drag-and-drop; adb injection drifts, and this is why
+   `ROWGESTURE_DEBUG` was turned off rather than deleted).
+
+### Found in passing, NOT fixed
+
+1. After an undo with the caption drawer open, the preview canvas collapses to a thin strip
+   for a frame or two; it recovers on the next playhead move.
+2. `ProjectStorage` has ~223 typed JSON reads guarded by `.has()` alone (78 `getAsString`,
+   57 `getAsFloat`, 38 `getAsLong`, 34 `getAsBoolean`, 22 `getAsInt`; only 6 null-guarded).
+   Audit 1.3 fixed the 4 named `layerId` sites; the rest want one `optString/optFloat` helper
+   and a mechanical sweep, with its own proof.
+
+### Device + harness traps (each cost real time)
+
+- Screenshots via the **Bash** tool (`adb exec-out screencap -p > f.png`); PowerShell's `>`
+  adds a BOM and corrupts binaries. Same for `adb shell cat` of JSON — read with `utf-8-sig`.
+- `adb push` via **PowerShell**; from Bash `/data/local/tmp` becomes
+  `C:/Program Files/Git/data/local/tmp` (or prefix `//`).
+- `touch` does NOT trigger Gradle's watcher (content hash, not mtime).
+- Foreground `sleep` is blocked; wait with a backgrounded `until [ "$APK" -nt "$SRC" ]`.
+- An export of a 4-second project takes **~55 s**, not the ~15 s the dialog implies. Poll for
+  output-size stability before touching the app.
+- Never compare mp4 hashes (container bytes differ, frames identical).
+- `FaditorEditorActivity` is not exported — `am start` cannot open a project. Use the UI:
+  Faditor `(627,2108)`, row 1 `(538,705)`. **Purge every non-real project dir first**, or
+  row 1 is ambiguous.
+
+### Fixture recipe (how every proof here was made)
+
+`adb shell run-as com.fadcam.beta cp -r <projects>/<real-id> <projects>/<fake-uuid>`, patch
+the JSON on the host, `adb push` to `/data/local/tmp`, then
+`adb shell "cat /data/local/tmp/x.json | run-as com.fadcam.beta sh -c 'cat > .../project.json'"`.
+Set `lastModified` to now so it sorts to row 1. Delete the clone when done and re-verify the
+10 real projects by sha256.
+Projects: `/data/data/com.fadcam.beta/files/faditor/projects/<id>/project.json`
+Exports: `/storage/emulated/0/Android/data/com.fadcam.beta/files/FadCam/Faditor/`
+
+---
 
 Landed in the first stretch, each with its own offline proof and device verification:
 

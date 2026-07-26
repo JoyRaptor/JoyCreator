@@ -229,7 +229,7 @@ public class ProjectStorage {
         if (!file.exists()) return null;
         try (FileReader reader = new FileReader(file)) {
             JsonObject json = gson.fromJson(reader, JsonObject.class);
-            if (json != null && json.has("lastModified")) {
+            if (json != null && hasValue(json, "lastModified")) {
                 return json.get("lastModified").getAsLong();
             }
         } catch (Exception e) {
@@ -507,8 +507,8 @@ public class ProjectStorage {
                 if (json == null) continue;
 
                 String id = json.has("id") ? json.get("id").getAsString() : dir.getName();
-                String name = json.has("name") ? json.get("name").getAsString() : "Untitled";
-                long lastModified = json.has("lastModified")
+                String name = hasValue(json, "name") ? json.get("name").getAsString() : "Untitled";
+                long lastModified = hasValue(json, "lastModified")
                         ? json.get("lastModified").getAsLong()
                         : file.lastModified();
                 long createdAt = json.has("createdAt")
@@ -517,9 +517,9 @@ public class ProjectStorage {
 
                 // Get video URI from first clip (for thumbnail in future)
                 String videoUri = null;
-                if (json.has("timeline")) {
+                if (hasValue(json, "timeline")) {
                     JsonObject timeline = json.getAsJsonObject("timeline");
-                    if (timeline.has("clips")) {
+                    if (hasValue(timeline, "clips")) {
                         JsonArray clips = timeline.getAsJsonArray("clips");
                         if (clips.size() > 0) {
                             JsonObject firstClip = clips.get(0).getAsJsonObject();
@@ -797,9 +797,9 @@ public class ProjectStorage {
 
             for (int i = 0; i < historyArray.size(); i++) {
                 JsonObject entry = historyArray.get(i).getAsJsonObject();
-                String desc = entry.has("description")
+                String desc = hasValue(entry, "description")
                         ? entry.get("description").getAsString() : "Unknown";
-                String snap = entry.has("snapshot")
+                String snap = hasValue(entry, "snapshot")
                         ? entry.get("snapshot").getAsString() : null;
                 if (snap != null) {
                     outDescriptions.add(desc);
@@ -916,8 +916,8 @@ public class ProjectStorage {
                     wj.get("t").getAsString(),
                     wj.get("s").getAsLong(),
                     wj.get("e").getAsLong(),
-                    wj.has("x") && wj.get("x").getAsBoolean(),
-                    wj.has("b") && wj.get("b").getAsBoolean()));
+                    hasValue(wj, "x") && wj.get("x").getAsBoolean(),
+                    hasValue(wj, "b") && wj.get("b").getAsBoolean()));
         }
         return tr;
     }
@@ -944,31 +944,31 @@ public class ProjectStorage {
     /** Inverse of {@link #serializeTimerSpec}; unknown enum names degrade to defaults. */
     @Nullable
     private static com.fadcam.ui.faditor.model.TimerSpec deserializeTimerSpec(JsonObject o) {
-        if (o == null || !o.has("timer") || !o.get("timer").isJsonObject()) return null;
+        if (o == null || !hasValue(o, "timer") || !o.get("timer").isJsonObject()) return null;
         JsonObject t = o.getAsJsonObject("timer");
         com.fadcam.ui.faditor.model.TimerSpec spec =
                 new com.fadcam.ui.faditor.model.TimerSpec();
-        if (t.has("direction")) {
+        if (hasValue(t, "direction")) {
             try {
                 spec.setDirection(com.fadcam.ui.faditor.model.TimerSpec.Direction
                         .valueOf(t.get("direction").getAsString()));
             } catch (IllegalArgumentException ignored) { }
         }
-        if (t.has("basis")) {
+        if (hasValue(t, "basis")) {
             try {
                 spec.setBasis(com.fadcam.ui.faditor.model.TimerSpec.Basis
                         .valueOf(t.get("basis").getAsString()));
             } catch (IllegalArgumentException ignored) { }
         }
-        if (t.has("precision")) {
+        if (hasValue(t, "precision")) {
             try {
                 spec.setPrecision(com.fadcam.ui.faditor.model.TimerSpec.Precision
                         .valueOf(t.get("precision").getAsString()));
             } catch (IllegalArgumentException ignored) { }
         }
-        if (t.has("showHours")) spec.setShowHours(t.get("showHours").getAsBoolean());
-        if (t.has("showMinutes")) spec.setShowMinutes(t.get("showMinutes").getAsBoolean());
-        if (t.has("showSeconds")) spec.setShowSeconds(t.get("showSeconds").getAsBoolean());
+        if (hasValue(t, "showHours")) spec.setShowHours(t.get("showHours").getAsBoolean());
+        if (hasValue(t, "showMinutes")) spec.setShowMinutes(t.get("showMinutes").getAsBoolean());
+        if (hasValue(t, "showSeconds")) spec.setShowSeconds(t.get("showSeconds").getAsBoolean());
         return spec;
     }
 
@@ -996,23 +996,23 @@ public class ProjectStorage {
     @Nullable
     private static com.fadcam.ui.faditor.model.GeneratedSource deserializeGeneratedSource(
             JsonObject g) {
-        if (g == null || !g.has("htmlUri") || !g.has("contentHash")) return null;
+        if (g == null || !hasValue(g, "htmlUri") || !hasValue(g, "contentHash")) return null;
         com.fadcam.ui.faditor.model.GeneratedSource gs =
                 new com.fadcam.ui.faditor.model.GeneratedSource();
-        if (g.has("kind")) gs.kind = g.get("kind").getAsString();
-        if (g.has("mode")) gs.mode = g.get("mode").getAsString();
+        if (hasValue(g, "kind")) gs.kind = g.get("kind").getAsString();
+        if (hasValue(g, "mode")) gs.mode = g.get("mode").getAsString();
         gs.htmlUri = g.get("htmlUri").getAsString();
         gs.contentHash = g.get("contentHash").getAsString();
-        if (g.has("renderCacheUri")) gs.renderCacheUri = g.get("renderCacheUri").getAsString();
-        if (g.has("renderSequenceDir")) gs.renderSequenceDir = g.get("renderSequenceDir").getAsString();
-        if (g.has("authoredDurationMs")) gs.authoredDurationMs = g.get("authoredDurationMs").getAsLong();
-        if (g.has("width")) gs.width = g.get("width").getAsInt();
-        if (g.has("height")) gs.height = g.get("height").getAsInt();
-        if (g.has("styleHint")) gs.styleHint = g.get("styleHint").getAsString();
-        if (g.has("sourceModel")) gs.sourceModel = g.get("sourceModel").getAsString();
-        if (g.has("freezeStartMs")) gs.freezeStartMs = g.get("freezeStartMs").getAsLong();
-        if (g.has("freezeEndMs")) gs.freezeEndMs = g.get("freezeEndMs").getAsLong();
-        if (g.has("renderStateHash")) gs.renderStateHash = g.get("renderStateHash").getAsString();
+        if (hasValue(g, "renderCacheUri")) gs.renderCacheUri = g.get("renderCacheUri").getAsString();
+        if (hasValue(g, "renderSequenceDir")) gs.renderSequenceDir = g.get("renderSequenceDir").getAsString();
+        if (hasValue(g, "authoredDurationMs")) gs.authoredDurationMs = g.get("authoredDurationMs").getAsLong();
+        if (hasValue(g, "width")) gs.width = g.get("width").getAsInt();
+        if (hasValue(g, "height")) gs.height = g.get("height").getAsInt();
+        if (hasValue(g, "styleHint")) gs.styleHint = g.get("styleHint").getAsString();
+        if (hasValue(g, "sourceModel")) gs.sourceModel = g.get("sourceModel").getAsString();
+        if (hasValue(g, "freezeStartMs")) gs.freezeStartMs = g.get("freezeStartMs").getAsLong();
+        if (hasValue(g, "freezeEndMs")) gs.freezeEndMs = g.get("freezeEndMs").getAsLong();
+        if (hasValue(g, "renderStateHash")) gs.renderStateHash = g.get("renderStateHash").getAsString();
         return gs;
     }
 
@@ -1107,11 +1107,11 @@ public class ProjectStorage {
     private static void restoreTrackFlags(@NonNull Timeline timeline, @NonNull JsonObject tj) {
         if (!tj.has("id")) return;
         String id = tj.get("id").getAsString();
-        boolean collapsed = tj.has("collapsed") && tj.get("collapsed").getAsBoolean();
-        boolean hidden = tj.has("hidden") && tj.get("hidden").getAsBoolean();
-        boolean locked = tj.has("locked") && tj.get("locked").getAsBoolean();
-        boolean muted = tj.has("muted") && tj.get("muted").getAsBoolean();
-        int zIndex = tj.has("zIndex") ? tj.get("zIndex").getAsInt() : 0;
+        boolean collapsed = hasValue(tj, "collapsed") && tj.get("collapsed").getAsBoolean();
+        boolean hidden = hasValue(tj, "hidden") && tj.get("hidden").getAsBoolean();
+        boolean locked = hasValue(tj, "locked") && tj.get("locked").getAsBoolean();
+        boolean muted = hasValue(tj, "muted") && tj.get("muted").getAsBoolean();
+        int zIndex = hasValue(tj, "zIndex") ? tj.get("zIndex").getAsInt() : 0;
         if (!collapsed && !hidden && !locked && !muted && zIndex == 0) return;
         com.fadcam.ui.faditor.layers.TrackFlags flags = timeline.getOrCreateTrackFlags(id);
         flags.collapsed = collapsed;
@@ -1423,9 +1423,9 @@ public class ProjectStorage {
                         parseWordsArray(vj.getAsJsonArray("words"));
                 String id = vj.has("id") ? vj.get("id").getAsString()
                         : java.util.UUID.randomUUID().toString();
-                String label = vj.has("label") ? vj.get("label").getAsString()
+                String label = hasValue(vj, "label") ? vj.get("label").getAsString()
                         : "Transcript";
-                String engine = vj.has("engine") ? vj.get("engine").getAsString()
+                String engine = hasValue(vj, "engine") ? vj.get("engine").getAsString()
                         : "vosk";
                 clip.addTranscript(
                         new com.fadcam.ui.faditor.transcript.NamedTranscript(
@@ -1617,19 +1617,19 @@ public class ProjectStorage {
 
     private static void deserializeEffectStack(
             com.fadcam.ui.faditor.effects.EffectStack stack, JsonObject fx) {
-        if (fx.has("exposure")) stack.setExposure(fx.get("exposure").getAsFloat());
-        if (fx.has("contrast")) stack.setContrast(fx.get("contrast").getAsFloat());
-        if (fx.has("saturation")) stack.setSaturation(fx.get("saturation").getAsFloat());
-        if (fx.has("temperature")) stack.setTemperature(fx.get("temperature").getAsFloat());
-        if (fx.has("tint")) stack.setTint(fx.get("tint").getAsFloat());
-        if (fx.has("highlights")) stack.setHighlights(fx.get("highlights").getAsFloat());
-        if (fx.has("shadows")) stack.setShadows(fx.get("shadows").getAsFloat());
-        if (fx.has("fade")) stack.setFade(fx.get("fade").getAsFloat());
-        if (fx.has("vignette")) stack.setVignette(fx.get("vignette").getAsFloat());
-        if (fx.has("grain")) stack.setGrain(fx.get("grain").getAsFloat());
-        if (fx.has("lutEnabled")) stack.setLutEnabled(fx.get("lutEnabled").getAsBoolean());
-        if (fx.has("lutId")) stack.setLutId(fx.get("lutId").getAsString());
-        if (fx.has("lutIntensity")) stack.setLutIntensity(fx.get("lutIntensity").getAsFloat());
+        if (hasValue(fx, "exposure")) stack.setExposure(fx.get("exposure").getAsFloat());
+        if (hasValue(fx, "contrast")) stack.setContrast(fx.get("contrast").getAsFloat());
+        if (hasValue(fx, "saturation")) stack.setSaturation(fx.get("saturation").getAsFloat());
+        if (hasValue(fx, "temperature")) stack.setTemperature(fx.get("temperature").getAsFloat());
+        if (hasValue(fx, "tint")) stack.setTint(fx.get("tint").getAsFloat());
+        if (hasValue(fx, "highlights")) stack.setHighlights(fx.get("highlights").getAsFloat());
+        if (hasValue(fx, "shadows")) stack.setShadows(fx.get("shadows").getAsFloat());
+        if (hasValue(fx, "fade")) stack.setFade(fx.get("fade").getAsFloat());
+        if (hasValue(fx, "vignette")) stack.setVignette(fx.get("vignette").getAsFloat());
+        if (hasValue(fx, "grain")) stack.setGrain(fx.get("grain").getAsFloat());
+        if (hasValue(fx, "lutEnabled")) stack.setLutEnabled(fx.get("lutEnabled").getAsBoolean());
+        if (hasValue(fx, "lutId")) stack.setLutId(fx.get("lutId").getAsString());
+        if (hasValue(fx, "lutIntensity")) stack.setLutIntensity(fx.get("lutIntensity").getAsFloat());
     }
 
     /**
@@ -2119,17 +2119,17 @@ public class ProjectStorage {
                     ? getProjectDir(projectIdForPaths) : projectsRoot;
 
             // Restore schema version (defaults to 0 for very old projects)
-            int schemaVersion = obj.has("schemaVersion")
+            int schemaVersion = hasValue(obj, "schemaVersion")
                     ? obj.get("schemaVersion").getAsInt() : 0;
 
-            String name = obj.has("name") ? obj.get("name").getAsString() : "Untitled";
+            String name = hasValue(obj, "name") ? obj.get("name").getAsString() : "Untitled";
 
             // Restore project with original ID and timestamps
             FaditorProject project;
             if (obj.has("id") && obj.has("createdAt")) {
                 String id = obj.get("id").getAsString();
                 long createdAt = obj.get("createdAt").getAsLong();
-                long lastModified = obj.has("lastModified")
+                long lastModified = hasValue(obj, "lastModified")
                         ? obj.get("lastModified").getAsLong() : createdAt;
                 project = new FaditorProject(id, name, createdAt, lastModified);
             } else {
@@ -2155,9 +2155,9 @@ public class ProjectStorage {
             }
 
             // Restore timeline clips
-            if (obj.has("timeline")) {
+            if (hasValue(obj, "timeline")) {
                 JsonObject timelineJson = obj.getAsJsonObject("timeline");
-                if (timelineJson.has("clips")) {
+                if (hasValue(timelineJson, "clips")) {
                     JsonArray clips = timelineJson.getAsJsonArray("clips");
                     for (int i = 0; i < clips.size(); i++) {
                         JsonObject clipObj = clips.get(i).getAsJsonObject();
@@ -2167,7 +2167,7 @@ public class ProjectStorage {
                 }
                 // Floating overlay-video (PiP) clips — M-COMP-2. Absent on every
                 // pre-existing project; same clip deserializer as the master list.
-                if (timelineJson.has("overlayClips")) {
+                if (hasValue(timelineJson, "overlayClips")) {
                     JsonArray overlayArr = timelineJson.getAsJsonArray("overlayClips");
                     for (int i = 0; i < overlayArr.size(); i++) {
                         JsonObject clipObj = overlayArr.get(i).getAsJsonObject();
@@ -2184,9 +2184,9 @@ public class ProjectStorage {
             }
 
             // Restore audio clips
-            if (obj.has("timeline")) {
+            if (hasValue(obj, "timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
-                if (tl.has("audioClips")) {
+                if (hasValue(tl, "audioClips")) {
                     JsonArray audioArr = tl.getAsJsonArray("audioClips");
                     for (int i = 0; i < audioArr.size(); i++) {
                         JsonObject acObj = audioArr.get(i).getAsJsonObject();
@@ -2195,22 +2195,22 @@ public class ProjectStorage {
                         AudioClip ac = new AudioClip(acUri, acDuration);
                         ac.setInPointMs(acObj.get("inPointMs").getAsLong());
                         ac.setOutPointMs(acObj.get("outPointMs").getAsLong());
-                        if (acObj.has("offsetMs")) {
+                        if (hasValue(acObj, "offsetMs")) {
                             ac.setOffsetMs(acObj.get("offsetMs").getAsLong());
                         }
-                        if (acObj.has("layerId") && !acObj.get("layerId").isJsonNull()) {
+                        if (hasValue(acObj, "layerId") && !acObj.get("layerId").isJsonNull()) {
                             ac.setLayerId(acObj.get("layerId").getAsString()); // audit 1.3
                         }
-                        if (acObj.has("volumeLevel")) {
+                        if (hasValue(acObj, "volumeLevel")) {
                             ac.setVolumeLevel(acObj.get("volumeLevel").getAsFloat());
                         }
-                        if (acObj.has("muted")) {
+                        if (hasValue(acObj, "muted")) {
                             ac.setMuted(acObj.get("muted").getAsBoolean());
                         }
-                        if (acObj.has("label")) {
+                        if (hasValue(acObj, "label")) {
                             ac.setLabel(acObj.get("label").getAsString());
                         }
-                        if (acObj.has("volumeKeyframes")) {
+                        if (hasValue(acObj, "volumeKeyframes")) {
                             JsonArray kfArr = acObj.getAsJsonArray("volumeKeyframes");
                             List<AudioClip.VolumeKeyframe> kfs = new ArrayList<>();
                             for (int j = 0; j < kfArr.size(); j++) {
@@ -2221,7 +2221,7 @@ public class ProjectStorage {
                             }
                             ac.setVolumeKeyframes(kfs);
                         }
-                        if (acObj.has("waveform")) {
+                        if (hasValue(acObj, "waveform")) {
                             JsonArray wfArr = acObj.getAsJsonArray("waveform");
                             int[] waveform = new int[wfArr.size()];
                             for (int j = 0; j < wfArr.size(); j++) {
@@ -2230,7 +2230,7 @@ public class ProjectStorage {
                             ac.setWaveform(waveform);
                         }
                         // Restore transcripts + caption settings
-                        if (acObj.has("transcripts")) {
+                        if (hasValue(acObj, "transcripts")) {
                             JsonArray versionsArr = acObj.getAsJsonArray("transcripts");
                             for (int v = 0; v < versionsArr.size(); v++) {
                                 JsonObject vj = versionsArr.get(v).getAsJsonObject();
@@ -2238,28 +2238,28 @@ public class ProjectStorage {
                                         parseWordsArray(vj.getAsJsonArray("words"));
                                 String id = vj.has("id") ? vj.get("id").getAsString()
                                         : java.util.UUID.randomUUID().toString();
-                                String label = vj.has("label") ? vj.get("label").getAsString()
+                                String label = hasValue(vj, "label") ? vj.get("label").getAsString()
                                         : "Transcript";
-                                String engine = vj.has("engine") ? vj.get("engine").getAsString()
+                                String engine = hasValue(vj, "engine") ? vj.get("engine").getAsString()
                                         : "vosk";
                                 ac.addTranscript(
                                         new com.fadcam.ui.faditor.transcript.NamedTranscript(
                                                 id, label, engine, tr));
                             }
-                            if (acObj.has("activeTranscript")) {
+                            if (hasValue(acObj, "activeTranscript")) {
                                 ac.setActiveTranscriptIndex(
                                         acObj.get("activeTranscript").getAsInt());
                             }
                         }
-                        if (acObj.has("captionsEnabled")) {
+                        if (hasValue(acObj, "captionsEnabled")) {
                             ac.setCaptionsEnabled(
                                     acObj.get("captionsEnabled").getAsBoolean());
                         }
-                        if (acObj.has("captionStyleId")) {
+                        if (hasValue(acObj, "captionStyleId")) {
                             ac.setCaptionStyleId(
                                     acObj.get("captionStyleId").getAsString());
                         }
-                        if (acObj.has("captionCenterX") && acObj.has("captionCenterY")) {
+                        if (hasValue(acObj, "captionCenterX") && hasValue(acObj, "captionCenterY")) {
                             ac.setCaptionCenter(
                                     acObj.get("captionCenterX").getAsFloat(),
                                     acObj.get("captionCenterY").getAsFloat());
@@ -2267,21 +2267,21 @@ public class ProjectStorage {
                         // Audit 2.2. Tolerant like every other read: absent (every project
                         // written before this) keeps AudioClip's 0.060f default, which is
                         // exactly the value those projects were being reset to anyway.
-                        if (acObj.has("captionSizeFraction")) {
+                        if (hasValue(acObj, "captionSizeFraction")) {
                             ac.setCaptionSizeFraction(
                                     acObj.get("captionSizeFraction").getAsFloat());
                         }
                         // §4.5 per-object lock (tolerant: absent = false).
-                        if (acObj.has("objLocked")) ac.setLocked(acObj.get("objLocked").getAsBoolean());
+                        if (hasValue(acObj, "objLocked")) ac.setLocked(acObj.get("objLocked").getAsBoolean());
                         project.getTimeline().addAudioClip(ac, false);
                     }
                 }
             }
 
             // Restore text overlays
-            if (obj.has("timeline")) {
+            if (hasValue(obj, "timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
-                if (tl.has("textOverlays")) {
+                if (hasValue(tl, "textOverlays")) {
                     JsonArray ovArr = tl.getAsJsonArray("textOverlays");
                     for (int i = 0; i < ovArr.size(); i++) {
                         JsonObject oObj = ovArr.get(i).getAsJsonObject();
@@ -2293,31 +2293,31 @@ public class ProjectStorage {
                                         oObj.get("centerX").getAsFloat(),
                                         oObj.get("centerY").getAsFloat(),
                                         oObj.get("sizeFraction").getAsFloat(),
-                                        oObj.has("rotationDeg")
+                                        hasValue(oObj, "rotationDeg")
                                                 ? oObj.get("rotationDeg").getAsFloat() : 0f);
-                        if (oObj.has("fontFamily")) {
+                        if (hasValue(oObj, "fontFamily")) {
                             o.setFontFamily(oObj.get("fontFamily").getAsString());
                         }
-                        if (oObj.has("imageUri")) {
+                        if (hasValue(oObj, "imageUri")) {
                             o.setImageUri(fromStorageUri(projectDir,
                                     oObj.get("imageUri").getAsString()).toString());
                         }
-                        if (oObj.has("layerId") && !oObj.get("layerId").isJsonNull()) {
+                        if (hasValue(oObj, "layerId") && !oObj.get("layerId").isJsonNull()) {
                             o.setLayerId(oObj.get("layerId").getAsString()); // audit 1.3
                         }
-                        long startMs = oObj.has("startMs") ? oObj.get("startMs").getAsLong() : 0;
-                        long endMs = oObj.has("endMs")
+                        long startMs = hasValue(oObj, "startMs") ? oObj.get("startMs").getAsLong() : 0;
+                        long endMs = hasValue(oObj, "endMs")
                                 ? oObj.get("endMs").getAsLong() : Long.MAX_VALUE;
                         o.setTimeRange(startMs, endMs);
-                        if (oObj.has("strokeColorInt")) o.setStrokeColorInt(oObj.get("strokeColorInt").getAsInt());
-                        if (oObj.has("strokeWidthPx")) o.setStrokeWidthPx(oObj.get("strokeWidthPx").getAsFloat());
-                        if (oObj.has("shadowColorInt")) o.setShadowColorInt(oObj.get("shadowColorInt").getAsInt());
-                        if (oObj.has("shadowRadiusPx")) o.setShadowRadiusPx(oObj.get("shadowRadiusPx").getAsFloat());
-                        if (oObj.has("glowColorInt")) o.setGlowColorInt(oObj.get("glowColorInt").getAsInt());
-                        if (oObj.has("glowRadiusPx")) o.setGlowRadiusPx(oObj.get("glowRadiusPx").getAsFloat());
-                        if (oObj.has("backgroundColorInt")) o.setBackgroundColorInt(oObj.get("backgroundColorInt").getAsInt());
-                        if (oObj.has("opacity")) o.setOpacity(oObj.get("opacity").getAsFloat());
-                        if (oObj.has("keyframes")) {
+                        if (hasValue(oObj, "strokeColorInt")) o.setStrokeColorInt(oObj.get("strokeColorInt").getAsInt());
+                        if (hasValue(oObj, "strokeWidthPx")) o.setStrokeWidthPx(oObj.get("strokeWidthPx").getAsFloat());
+                        if (hasValue(oObj, "shadowColorInt")) o.setShadowColorInt(oObj.get("shadowColorInt").getAsInt());
+                        if (hasValue(oObj, "shadowRadiusPx")) o.setShadowRadiusPx(oObj.get("shadowRadiusPx").getAsFloat());
+                        if (hasValue(oObj, "glowColorInt")) o.setGlowColorInt(oObj.get("glowColorInt").getAsInt());
+                        if (hasValue(oObj, "glowRadiusPx")) o.setGlowRadiusPx(oObj.get("glowRadiusPx").getAsFloat());
+                        if (hasValue(oObj, "backgroundColorInt")) o.setBackgroundColorInt(oObj.get("backgroundColorInt").getAsInt());
+                        if (hasValue(oObj, "opacity")) o.setOpacity(oObj.get("opacity").getAsFloat());
+                        if (hasValue(oObj, "keyframes")) {
                             JsonObject tracksJson = oObj.getAsJsonObject("keyframes");
                             for (java.util.Map.Entry<String, JsonElement> e
                                     : tracksJson.entrySet()) {
@@ -2332,13 +2332,13 @@ public class ProjectStorage {
                                 }
                             }
                         }
-                        if (oObj.has("generatedSource")) {
+                        if (hasValue(oObj, "generatedSource")) {
                             o.setGeneratedSource(deserializeGeneratedSource(
                                     oObj.getAsJsonObject("generatedSource")));
                         }
                         // §4.5 per-object eye/lock (tolerant: absent = false).
-                        if (oObj.has("objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
-                        if (oObj.has("objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
+                        if (hasValue(oObj, "objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
+                        if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
                         project.getTimeline().addTextOverlay(o);
                     }
@@ -2346,70 +2346,70 @@ public class ProjectStorage {
             }
 
             // Restore waveform visualizer overlays (schema v7)
-            if (obj.has("timeline")) {
+            if (hasValue(obj, "timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
-                if (tl.has("waveformOverlays")) {
+                if (hasValue(tl, "waveformOverlays")) {
                     JsonArray wfArr = tl.getAsJsonArray("waveformOverlays");
                     for (int i = 0; i < wfArr.size(); i++) {
                         JsonObject wj = wfArr.get(i).getAsJsonObject();
                         String id = wj.has("id") ? wj.get("id").getAsString()
                                 : java.util.UUID.randomUUID().toString();
-                        String styleId = wj.has("styleId") ? wj.get("styleId").getAsString() : "neon_bars";
+                        String styleId = hasValue(wj, "styleId") ? wj.get("styleId").getAsString() : "neon_bars";
                         com.fadcam.ui.faditor.model.WaveformOverlayInstance wo =
                                 new com.fadcam.ui.faditor.model.WaveformOverlayInstance(id, styleId);
-                        if (wj.has("audioSourceRef")) {
+                        if (hasValue(wj, "audioSourceRef")) {
                             wo.setAudioSourceRef(wj.get("audioSourceRef").getAsString());
                         }
-                        long startMs = wj.has("startMs") ? wj.get("startMs").getAsLong() : 0;
-                        long endMs = wj.has("endMs") ? wj.get("endMs").getAsLong() : Long.MAX_VALUE;
+                        long startMs = hasValue(wj, "startMs") ? wj.get("startMs").getAsLong() : 0;
+                        long endMs = hasValue(wj, "endMs") ? wj.get("endMs").getAsLong() : Long.MAX_VALUE;
                         wo.setTimeRange(startMs, endMs);
-                        if (wj.has("centerX") && wj.has("centerY")) {
+                        if (hasValue(wj, "centerX") && hasValue(wj, "centerY")) {
                             wo.setCenter(wj.get("centerX").getAsFloat(), wj.get("centerY").getAsFloat());
                         }
-                        if (wj.has("widthFraction") && wj.has("heightFraction")) {
+                        if (hasValue(wj, "widthFraction") && hasValue(wj, "heightFraction")) {
                             wo.setSize(wj.get("widthFraction").getAsFloat(),
                                     wj.get("heightFraction").getAsFloat());
                         }
-                        if (wj.has("rotationDeg")) {
+                        if (hasValue(wj, "rotationDeg")) {
                             wo.setRotationDeg(wj.get("rotationDeg").getAsFloat());
                         }
-                        if (wj.has("justify")) wo.setJustify(wj.get("justify").getAsInt());
-                        if (wj.has("dataMode")) wo.setDataMode(wj.get("dataMode").getAsInt());
-                        if (wj.has("hMirror")) wo.setHorizontalMirror(wj.get("hMirror").getAsBoolean());
-                        if (wj.has("centerMode")) wo.setCenterMode(wj.get("centerMode").getAsInt());
-                        if (wj.has("renderMode")) wo.setRenderMode(wj.get("renderMode").getAsInt());
-                        if (wj.has("radialRingSize")) wo.setRadialRingSize(wj.get("radialRingSize").getAsFloat());
-                        if (wj.has("freqLowHz")) wo.setFrequencyRangeLowHz(wj.get("freqLowHz").getAsInt());
-                        if (wj.has("freqHighHz")) wo.setFrequencyRangeHighHz(wj.get("freqHighHz").getAsInt());
-                        if (wj.has("bandCount")) wo.setBandCountOverride(wj.get("bandCount").getAsInt());
-                        if (wj.has("barWidthDp")) wo.setBarWidthOverrideDp(wj.get("barWidthDp").getAsFloat());
-                        if (wj.has("barGapDp")) wo.setBarGapOverrideDp(wj.get("barGapDp").getAsFloat());
-                        if (wj.has("colorOverride")) wo.setColorOverride(wj.get("colorOverride").getAsString());
-                        if (wj.has("sensitivity")) wo.setSensitivityOverride(wj.get("sensitivity").getAsFloat());
-                        if (wj.has("gradStart") && wj.has("gradEnd")) {
+                        if (hasValue(wj, "justify")) wo.setJustify(wj.get("justify").getAsInt());
+                        if (hasValue(wj, "dataMode")) wo.setDataMode(wj.get("dataMode").getAsInt());
+                        if (hasValue(wj, "hMirror")) wo.setHorizontalMirror(wj.get("hMirror").getAsBoolean());
+                        if (hasValue(wj, "centerMode")) wo.setCenterMode(wj.get("centerMode").getAsInt());
+                        if (hasValue(wj, "renderMode")) wo.setRenderMode(wj.get("renderMode").getAsInt());
+                        if (hasValue(wj, "radialRingSize")) wo.setRadialRingSize(wj.get("radialRingSize").getAsFloat());
+                        if (hasValue(wj, "freqLowHz")) wo.setFrequencyRangeLowHz(wj.get("freqLowHz").getAsInt());
+                        if (hasValue(wj, "freqHighHz")) wo.setFrequencyRangeHighHz(wj.get("freqHighHz").getAsInt());
+                        if (hasValue(wj, "bandCount")) wo.setBandCountOverride(wj.get("bandCount").getAsInt());
+                        if (hasValue(wj, "barWidthDp")) wo.setBarWidthOverrideDp(wj.get("barWidthDp").getAsFloat());
+                        if (hasValue(wj, "barGapDp")) wo.setBarGapOverrideDp(wj.get("barGapDp").getAsFloat());
+                        if (hasValue(wj, "colorOverride")) wo.setColorOverride(wj.get("colorOverride").getAsString());
+                        if (hasValue(wj, "sensitivity")) wo.setSensitivityOverride(wj.get("sensitivity").getAsFloat());
+                        if (hasValue(wj, "gradStart") && hasValue(wj, "gradEnd")) {
                             wo.setGradientOverride(wj.get("gradStart").getAsString(),
                                     wj.get("gradEnd").getAsString());
                         }
                         // SPEC_VIZ_ENGINE §4 (Layers UI lane): tolerant read, absent = null.
-                        if (wj.has("customStyleJson") && !wj.get("customStyleJson").isJsonNull()) {
+                        if (hasValue(wj, "customStyleJson") && !wj.get("customStyleJson").isJsonNull()) {
                             wo.setCustomStyleJson(wj.get("customStyleJson").getAsString());
                         }
                         // G5 attach/detach (tolerant, absent = detached)
-                        if (wj.has("attachedClipId")) {
+                        if (hasValue(wj, "attachedClipId")) {
                             wo.setAttachedClipId(wj.get("attachedClipId").getAsString());
-                            if (wj.has("attachOffsetMs")) {
+                            if (hasValue(wj, "attachOffsetMs")) {
                                 wo.setAttachOffsetMs(wj.get("attachOffsetMs").getAsLong());
                             }
-                            if (wj.has("attachDurationMs")) {
+                            if (hasValue(wj, "attachDurationMs")) {
                                 wo.setAttachDurationMs(wj.get("attachDurationMs").getAsLong());
                             }
-                            if (wj.has("stratified")) {
+                            if (hasValue(wj, "stratified")) {
                                 wo.setStratified(wj.get("stratified").getAsBoolean());
                             }
                         }
                         // §4.5 per-object eye/lock (tolerant: absent = false).
-                        if (wj.has("objHidden")) wo.setHidden(wj.get("objHidden").getAsBoolean());
-                        if (wj.has("objLocked")) wo.setLocked(wj.get("objLocked").getAsBoolean());
+                        if (hasValue(wj, "objHidden")) wo.setHidden(wj.get("objHidden").getAsBoolean());
+                        if (hasValue(wj, "objLocked")) wo.setLocked(wj.get("objLocked").getAsBoolean());
                         project.getTimeline().addWaveformOverlay(wo);
                     }
                     // Attached windows re-derive from their hosts' CURRENT spans on load.
@@ -2419,7 +2419,7 @@ public class ProjectStorage {
                 // G9 link groups (tolerant: absent = unlinked). Members that don't resolve to a
                 // live payload are dropped; a group left <2 dissolves — logged in prune, never a
                 // hard failure (PLAN_G9_LINK_ENGINE.md §2).
-                if (tl.has("linkGroups")) {
+                if (hasValue(tl, "linkGroups")) {
                     JsonArray lgArr = tl.getAsJsonArray("linkGroups");
                     for (int i = 0; i < lgArr.size(); i++) {
                         try {
@@ -2428,7 +2428,7 @@ public class ProjectStorage {
                                     : java.util.UUID.randomUUID().toString();
                             com.fadcam.ui.faditor.layers.LinkGroup g =
                                     new com.fadcam.ui.faditor.layers.LinkGroup(gid);
-                            if (gj.has("properties")) {
+                            if (hasValue(gj, "properties")) {
                                 for (com.google.gson.JsonElement pe : gj.getAsJsonArray("properties")) {
                                     try {
                                         g.properties.add(com.fadcam.ui.faditor.layers
@@ -2438,16 +2438,16 @@ public class ProjectStorage {
                                     }
                                 }
                             }
-                            if (gj.has("members")) {
+                            if (hasValue(gj, "members")) {
                                 for (com.google.gson.JsonElement me : gj.getAsJsonArray("members")) {
                                     JsonObject mj = me.getAsJsonObject();
-                                    if (!mj.has("kind") || !mj.has("id")) continue;
+                                    if (!hasValue(mj, "kind") || !mj.has("id")) continue;
                                     com.fadcam.ui.faditor.layers.LinkMember m =
                                             new com.fadcam.ui.faditor.layers.LinkMember(
                                                     mj.get("kind").getAsString(),
                                                     mj.get("id").getAsString(),
-                                                    mj.has("host") && mj.get("host").getAsBoolean());
-                                    if (mj.has("hostOffsetMs")) {
+                                                    hasValue(mj, "host") && mj.get("host").getAsBoolean());
+                                    if (hasValue(mj, "hostOffsetMs")) {
                                         m.hostOffsetMs = mj.get("hostOffsetMs").getAsLong();
                                     }
                                     g.members.add(m);
@@ -2468,7 +2468,7 @@ public class ProjectStorage {
             // Restore sprite-sheet definitions (schema v9, project level). Tolerant:
             // absent on every pre-v9 project. sheetUri comes back project://-relative
             // and is resolved to an absolute URI here (imageUri convention).
-            if (obj.has("spriteSheets")) {
+            if (hasValue(obj, "spriteSheets")) {
                 JsonArray sheetsArr = obj.getAsJsonArray("spriteSheets");
                 for (int i = 0; i < sheetsArr.size(); i++) {
                     try {
@@ -2485,7 +2485,7 @@ public class ProjectStorage {
             }
 
             // Restore avatar rigs (schema v10, project level). Tolerant: absent pre-v10.
-            if (obj.has("avatarRigs")) {
+            if (hasValue(obj, "avatarRigs")) {
                 JsonArray rigsArr = obj.getAsJsonArray("avatarRigs");
                 for (int i = 0; i < rigsArr.size(); i++) {
                     try {
@@ -2497,9 +2497,9 @@ public class ProjectStorage {
             }
 
             // Restore placed sprite overlays (schema v9, timeline level).
-            if (obj.has("timeline")) {
+            if (hasValue(obj, "timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
-                if (tl.has("spriteOverlays")) {
+                if (hasValue(tl, "spriteOverlays")) {
                     JsonArray spArr = tl.getAsJsonArray("spriteOverlays");
                     for (int i = 0; i < spArr.size(); i++) {
                         try {
@@ -2508,51 +2508,51 @@ public class ProjectStorage {
                                     new com.fadcam.ui.faditor.sprite.SpriteOverlayItem(
                                             sj.get("id").getAsString(),
                                             sj.get("sheetId").getAsString());
-                            if (sj.has("centerX") && sj.has("centerY")) {
+                            if (hasValue(sj, "centerX") && hasValue(sj, "centerY")) {
                                 so.setCenter(sj.get("centerX").getAsFloat(),
                                         sj.get("centerY").getAsFloat());
                             }
-                            if (sj.has("sizeFraction")) so.setSizeFraction(sj.get("sizeFraction").getAsFloat());
-                            if (sj.has("rotationDeg")) so.setRotationDeg(sj.get("rotationDeg").getAsFloat());
-                            if (sj.has("opacity")) so.setOpacity(sj.get("opacity").getAsFloat());
-                            if (sj.has("flipH")) so.setFlipH(sj.get("flipH").getAsBoolean());
-                            if (sj.has("flipV")) so.setFlipV(sj.get("flipV").getAsBoolean());
-                            long sStart = sj.has("startMs") ? sj.get("startMs").getAsLong() : 0;
-                            long sEnd = sj.has("endMs") ? sj.get("endMs").getAsLong() : Long.MAX_VALUE;
+                            if (hasValue(sj, "sizeFraction")) so.setSizeFraction(sj.get("sizeFraction").getAsFloat());
+                            if (hasValue(sj, "rotationDeg")) so.setRotationDeg(sj.get("rotationDeg").getAsFloat());
+                            if (hasValue(sj, "opacity")) so.setOpacity(sj.get("opacity").getAsFloat());
+                            if (hasValue(sj, "flipH")) so.setFlipH(sj.get("flipH").getAsBoolean());
+                            if (hasValue(sj, "flipV")) so.setFlipV(sj.get("flipV").getAsBoolean());
+                            long sStart = hasValue(sj, "startMs") ? sj.get("startMs").getAsLong() : 0;
+                            long sEnd = hasValue(sj, "endMs") ? sj.get("endMs").getAsLong() : Long.MAX_VALUE;
                             so.setTimeRange(sStart, sEnd);
                             // Audit 1.3. Unlike the three above, this one sits inside a
                             // `catch (Exception ignored)`, so an explicit null does not
                             // break the load — it silently drops THIS SPRITE and moves on.
-                            if (sj.has("layerId") && !sj.get("layerId").isJsonNull()) {
+                            if (hasValue(sj, "layerId") && !sj.get("layerId").isJsonNull()) {
                                 so.setLayerId(sj.get("layerId").getAsString());
                             }
-                            if (sj.has("endBehavior")) so.setEndBehavior(sj.get("endBehavior").getAsString());
-                            if (sj.has("avatarRigId")) {
+                            if (hasValue(sj, "endBehavior")) so.setEndBehavior(sj.get("endBehavior").getAsString());
+                            if (hasValue(sj, "avatarRigId")) {
                                 so.setAvatarRigId(sj.get("avatarRigId").getAsString());
                             }
-                            if (sj.has("avatarTrack") && sj.get("avatarTrack").isJsonObject()) {
+                            if (hasValue(sj, "avatarTrack") && sj.get("avatarTrack").isJsonObject()) {
                                 com.fadcam.ui.faditor.avatar.AvatarParamTrack t =
                                         com.fadcam.ui.faditor.avatar.AvatarParamTrack
                                                 .fromJson(sj.getAsJsonObject("avatarTrack"));
                                 if (!t.isEmpty()) so.setAvatarTrack(t);
                             }
-                            if (sj.has("frameTrack")) {
+                            if (hasValue(sj, "frameTrack")) {
                                 JsonArray ftArr = sj.getAsJsonArray("frameTrack");
                                 for (int k = 0; k < ftArr.size(); k++) {
                                     JsonObject kj = ftArr.get(k).getAsJsonObject();
                                     long t = kj.get("t").getAsLong();
-                                    if (kj.has("p")) {
+                                    if (hasValue(kj, "p")) {
                                         so.getFrameTrack().put(
                                                 com.fadcam.ui.faditor.sprite.FrameTrack.Key
                                                         .ofPreset(t, kj.get("p").getAsString()));
-                                    } else if (kj.has("c")) {
+                                    } else if (hasValue(kj, "c")) {
                                         so.getFrameTrack().put(
                                                 com.fadcam.ui.faditor.sprite.FrameTrack.Key
                                                         .ofCell(t, kj.get("c").getAsInt()));
                                     }
                                 }
                             }
-                            if (sj.has("keyframes")) {
+                            if (hasValue(sj, "keyframes")) {
                                 JsonObject tracksJson = sj.getAsJsonObject("keyframes");
                                 for (java.util.Map.Entry<String, JsonElement> e
                                         : tracksJson.entrySet()) {
@@ -2568,8 +2568,8 @@ public class ProjectStorage {
                                 }
                             }
                             // §4.5 per-object eye/lock (tolerant: absent = false).
-                            if (sj.has("objHidden")) so.setHidden(sj.get("objHidden").getAsBoolean());
-                            if (sj.has("objLocked")) so.setLocked(sj.get("objLocked").getAsBoolean());
+                            if (hasValue(sj, "objHidden")) so.setHidden(sj.get("objHidden").getAsBoolean());
+                            if (hasValue(sj, "objLocked")) so.setLocked(sj.get("objLocked").getAsBoolean());
                             project.getTimeline().addSpriteOverlay(so);
                         } catch (Exception ignored) { }
                     }
@@ -2577,9 +2577,9 @@ public class ProjectStorage {
             }
 
             // Restore transitions
-            if (obj.has("timeline")) {
+            if (hasValue(obj, "timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
-                if (tl.has("transitions")) {
+                if (hasValue(tl, "transitions")) {
                     JsonArray transArr = tl.getAsJsonArray("transitions");
                     for (int i = 0; i < transArr.size(); i++) {
                         JsonObject tj = transArr.get(i).getAsJsonObject();
@@ -2587,15 +2587,15 @@ public class ProjectStorage {
                             com.fadcam.ui.faditor.model.Transition.Type type =
                                     com.fadcam.ui.faditor.model.Transition.Type.valueOf(
                                             tj.get("type").getAsString());
-                            long dur = tj.has("durationMs") ? tj.get("durationMs").getAsLong() : 500;
-                            int clipIdx = tj.has("clipIndex") ? tj.get("clipIndex").getAsInt() : 0;
-                            float fuzz = tj.has("fuzziness") ? tj.get("fuzziness").getAsFloat() : 0f;
+                            long dur = hasValue(tj, "durationMs") ? tj.get("durationMs").getAsLong() : 500;
+                            int clipIdx = hasValue(tj, "clipIndex") ? tj.get("clipIndex").getAsInt() : 0;
+                            float fuzz = hasValue(tj, "fuzziness") ? tj.get("fuzziness").getAsFloat() : 0f;
                             com.fadcam.ui.faditor.model.Transition transition =
                                     new com.fadcam.ui.faditor.model.Transition(type, dur, clipIdx, fuzz);
                             if (type == com.fadcam.ui.faditor.model.Transition.Type.GL_SHADER) {
-                                transition.glTransitionId = tj.has("glTransitionId")
+                                transition.glTransitionId = hasValue(tj, "glTransitionId")
                                         ? tj.get("glTransitionId").getAsString() : "CrossZoom";
-                                if (tj.has("paramOverrides")) {
+                                if (hasValue(tj, "paramOverrides")) {
                                     JsonObject params = tj.getAsJsonObject("paramOverrides");
                                     java.util.Map<String, Float> overrides = new java.util.HashMap<>();
                                     for (java.util.Map.Entry<String, JsonElement> e : params.entrySet()) {
@@ -2619,45 +2619,45 @@ public class ProjectStorage {
             // restores them here into Timeline's persistent trackFlags side-table
             // (Timeline.getOrCreateTrackFlags) keyed by each track's serialized id — the
             // same "master"/"text"/"audio" ids the view builders assign.
-            if (obj.has("timeline")) {
+            if (hasValue(obj, "timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
-                if (tl.has("rippleMode")) {
+                if (hasValue(tl, "rippleMode")) {
                     project.getTimeline().setRippleMode(tl.get("rippleMode").getAsString());
                 }
-                if (tl.has("layers")) {
+                if (hasValue(tl, "layers")) {
                     JsonObject layersBlock = tl.getAsJsonObject("layers");
                     // M10: restore user-created track DEFINITIONS first — Timeline.getLayers()/
                     // getAudioTracks() need these present so a still-EMPTY user-created track
                     // (no items yet) still shows up as a track after reload, not just tracks
                     // that happen to have items on the flat lists.
-                    if (layersBlock.has("trackDefs")) {
+                    if (hasValue(layersBlock, "trackDefs")) {
                         for (JsonElement e : layersBlock.getAsJsonArray("trackDefs")) {
                             JsonObject dj = e.getAsJsonObject();
-                            if (!dj.has("id") || !dj.has("kind")) continue;
+                            if (!dj.has("id") || !hasValue(dj, "kind")) continue;
                             com.fadcam.ui.faditor.layers.TrackKind kind =
                                     com.fadcam.ui.faditor.layers.TrackKind.fromName(dj.get("kind").getAsString());
-                            String defName = dj.has("name") ? dj.get("name").getAsString() : "Layer";
+                            String defName = hasValue(dj, "name") ? dj.get("name").getAsString() : "Layer";
                             project.getTimeline().restoreLayerTrackDef(
                                     new com.fadcam.ui.faditor.layers.LayerTrackDef(
                                             dj.get("id").getAsString(), kind, defName));
                         }
                     }
-                    if (layersBlock.has("masterTrack")) {
+                    if (hasValue(layersBlock, "masterTrack")) {
                         restoreTrackFlags(project.getTimeline(),
                                 layersBlock.getAsJsonObject("masterTrack"));
                     }
-                    if (layersBlock.has("layers")) {
+                    if (hasValue(layersBlock, "layers")) {
                         for (JsonElement e : layersBlock.getAsJsonArray("layers")) {
                             restoreTrackFlags(project.getTimeline(), e.getAsJsonObject());
                         }
                     }
-                    if (layersBlock.has("audioTracks")) {
+                    if (hasValue(layersBlock, "audioTracks")) {
                         for (JsonElement e : layersBlock.getAsJsonArray("audioTracks")) {
                             restoreTrackFlags(project.getTimeline(), e.getAsJsonObject());
                         }
                     }
                     // PHASE-P P1: restore default-track renames into the flags side-table.
-                    if (layersBlock.has("trackNames")) {
+                    if (hasValue(layersBlock, "trackNames")) {
                         JsonObject namesObj = layersBlock.getAsJsonObject("trackNames");
                         for (java.util.Map.Entry<String, JsonElement> e : namesObj.entrySet()) {
                             String nm = e.getValue().getAsString();
@@ -2690,15 +2690,15 @@ public class ProjectStorage {
             project.getTimeline().snapshotBaselineTrackFlags();
 
             // Restore canvas preset
-            if (obj.has("canvasPreset")) {
+            if (hasValue(obj, "canvasPreset")) {
                 project.setCanvasPreset(obj.get("canvasPreset").getAsString());
             }
 
             // Restore pinned asset directory (schema v3+, safe defaults for older)
-            if (obj.has("pinnedAssetDir")) {
+            if (hasValue(obj, "pinnedAssetDir")) {
                 project.setPinnedAssetDir(obj.get("pinnedAssetDir").getAsString());
             }
-            if (obj.has("assetDirHistory")) {
+            if (hasValue(obj, "assetDirHistory")) {
                 for (JsonElement e : obj.getAsJsonArray("assetDirHistory")) {
                     String s = e.getAsString();
                     if (!project.getAssetDirHistory().contains(s)) {
@@ -2708,31 +2708,31 @@ public class ProjectStorage {
             }
 
             // Restore export settings
-            if (obj.has("exportSettings")) {
+            if (hasValue(obj, "exportSettings")) {
                 JsonObject expObj = obj.getAsJsonObject("exportSettings");
                 ExportSettings settings = project.getExportSettings();
-                if (expObj.has("resolution")) {
+                if (hasValue(expObj, "resolution")) {
                     try {
                         settings.setResolution(
                                 ExportSettings.Resolution.valueOf(
                                         expObj.get("resolution").getAsString()));
                     } catch (IllegalArgumentException ignored) { }
                 }
-                if (expObj.has("quality")) {
+                if (hasValue(expObj, "quality")) {
                     try {
                         settings.setQuality(
                                 ExportSettings.Quality.valueOf(
                                         expObj.get("quality").getAsString()));
                     } catch (IllegalArgumentException ignored) { }
                 }
-                if (expObj.has("format")) {
+                if (hasValue(expObj, "format")) {
                     try {
                         settings.setFormat(
                                 ExportSettings.Format.valueOf(
                                         expObj.get("format").getAsString()));
                     } catch (IllegalArgumentException ignored) { }
                 }
-                if (expObj.has("cleanAudio")) {
+                if (hasValue(expObj, "cleanAudio")) {
                     settings.setCleanAudio(expObj.get("cleanAudio").getAsBoolean());
                 }
             }

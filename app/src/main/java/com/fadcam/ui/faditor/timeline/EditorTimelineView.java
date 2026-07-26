@@ -1854,7 +1854,7 @@ public class EditorTimelineView extends View {
             // Adjust for speed
             localMs = (long)(localMs / sd.speed);
             playheadPositionMs = selectedSegmentStartMs + localMs;
-            
+
             // Remember this index for playback continuation
             lastPlaybackIndex = playbackIndex;
             

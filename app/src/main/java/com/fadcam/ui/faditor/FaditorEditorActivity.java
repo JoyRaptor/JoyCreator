@@ -18807,11 +18807,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transcriptView.setListener(new com.fadcam.ui.faditor.transcript.TranscriptPanelView.Listener() {
             @Override
             public void onSeekToMs(long sourceMs) {
-                Clip clip = getSelectedClip();
+                // A tapped word's time belongs to the clip whose TRANSCRIPT is on screen,
+                // NOT to whatever happens to be selected at this instant. Those two come
+                // apart during a double-tap: the first tap can land the playhead in a
+                // neighbouring clip, which moves the selection, and 165ms later the second
+                // tap of the SAME double-tap gets rebased onto that new clip. Measured on
+                // the Note 20: a word at sourceMs=5700 resolved against a clip whose
+                // in-point is 103389 produced timelineMs=-4608, clamped to 0 — the "jumped
+                // to 0:00 and ate my double-tap" report.
+                Timeline tl = project.getTimeline();
+                int idx = -1;
+                if (!transcriptIsForAudio && transcriptClipId != null) {
+                    for (int i = 0; i < tl.getClipCount(); i++) {
+                        Clip c = tl.getClip(i);
+                        if (c != null && transcriptClipId.equals(c.getId())) { idx = i; break; }
+                    }
+                }
+                if (idx < 0) idx = selectedClipIndex; // audio transcript / owner gone
+                Clip clip = (idx >= 0 && idx < tl.getClipCount()) ? tl.getClip(idx) : null;
                 if (clip == null) return;
-                long segStart = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
+                // The transcript covers the whole SOURCE, but a source is usually cut into
+                // several clips — so a word the user scrolled to can easily belong to a
+                // DIFFERENT clip than the one the panel is titled with. Re-home the tap on
+                // whichever clip of the same source actually contains that source time, so
+                // reading down the transcript and tapping lands where the word really is
+                // instead of pinning to the owner clip's out-point.
+                if (clip.getSourceUri() != null
+                        && (sourceMs < clip.getInPointMs() || sourceMs > clip.getOutPointMs())) {
+                    for (int i = 0; i < tl.getClipCount(); i++) {
+                        Clip c = tl.getClip(i);
+                        if (c == null || c.getSourceUri() == null) continue;
+                        if (!c.getSourceUri().equals(clip.getSourceUri())) continue;
+                        if (sourceMs >= c.getInPointMs() && sourceMs <= c.getOutPointMs()) {
+                            idx = i;
+                            clip = c;
+                            break;
+                        }
+                    }
+                }
+                // Whatever clip we settled on, a word can only address time INSIDE its trim.
+                // Clamping is the backstop that stops a word with no home (trimmed away, or
+                // a stale transcript) computing a NEGATIVE timeline position, which the view
+                // then pins to 0 — the original 0:00 report.
+                long srcMs = Math.max(clip.getInPointMs(),
+                        Math.min(sourceMs, clip.getOutPointMs()));
+                long segStart = editorTimeline.getSegmentStartTimeMs(idx);
                 long timelineMs = segStart + (long)
-                        ((sourceMs - clip.getInPointMs()) / clip.getSpeedMultiplier());
+                        ((srcMs - clip.getInPointMs()) / clip.getSpeedMultiplier());
                 playerManager.pause();
                 editorTimeline.seekToTimelineMs(timelineMs);
             }

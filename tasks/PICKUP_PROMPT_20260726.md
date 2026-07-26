@@ -17,7 +17,26 @@ FIRST, IN THIS ORDER:
 1. Read tasks/HANDOFF_20260726_CONTEXT_SWITCH.md — start at §0 "CURRENT STATE", which is
    kept current as work lands and tells you exactly where the last session stopped.
 2. Read tasks/AUDIT_UNFINISHED_20260726.md — the STATUS BOARD near the top says what is
-   closed and what is open. That board is your work queue; work down it in its stated order.
+   closed and what is open.
+
+   BUT START WITH HANDOFF §0a, not the board. A human test pass on 2026-07-26 ~12:20 took two
+   product DECISIONS and found five bugs the harness could not reach. Work those first:
+
+     B2  FIRST. In project `cebc19e0` on the Note 9 the PLAYHEAD DOES NOT MOVE and there is no
+         audible playback. Undiagnosed. That project is deliberately NOT restored to its safety
+         copy because it IS the evidence — do not restore it until B2 and B3 are diagnosed.
+         Reproduce, then use `adb shell "logcat -d --pid=$(adb shell pidof com.fadcam.beta)"`
+         — filter by PID, not tag, or Bluetooth chatter buries the app's lines.
+     B3  a horizontal drag on a text layer RESIZES it in time instead of moving it.
+     B1  PiP "Include audio" is built and correct but only reachable by hold-release-in-place
+         on the TIMELINE item; the user double-tapped the preview and found nothing.
+     B4  the purple LINK badge reads as a lock and has no discoverable unlink.
+     B5  dual-stream recording cannot be found at all (this blocks SPEC_PIP_AUDIO acceptance 4).
+
+   Then the load-failure SHAPE described in §0 (one bad value loses the whole project to a
+   silent .bak swap) — the user has already decided how it should behave: skip the bad ITEM,
+   TELL the user what is missing, and OFFER the backup as a choice.
+   Then the board in its stated order.
 3. Set a one-shot wakeup ~5h out pointing back at this same prompt, so work continues while
    the user sleeps. Reschedule it each time before it lapses.
 

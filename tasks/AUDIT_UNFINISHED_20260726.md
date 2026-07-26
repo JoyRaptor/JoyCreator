@@ -103,6 +103,56 @@ remaining instance of that pattern.
 
 ## TIER 1 — DATA-LOSS RISK
 
+### 1.5 NEW (found 2026-07-26): the undo stack survives an AI reload that replaces the project
+Not previously in this audit. When the AI assistant edits the project on disk, the editor
+reloads it on resume and does **`project = reloaded;`**
+(`FaditorEditorActivity.java:1245-1272`) — but the undo stack is never cleared or rebound
+(`undoManager` is constructed once, `:1109`; no `clear()` in that block). Every entry left on
+the stack still describes the DISCARDED object graph. `UndoManager.undo()` (`:283-315`)
+prefers `entry.action` when it is non-null, so there are two distinct failure modes:
+
+- **In-session entry** (has an `action`): `entry.action.undo()` mutates the ORPHANED
+  `Timeline`/`Clip` objects. The undo/redo counters move, the screen does not. A silent no-op
+  that reads to the user as "undo is broken".
+- **Snapshot-only entry** (loaded from disk, `action == null`): restores `snapshotBefore`
+  (`:302-307`), i.e. the pre-AI project JSON — **silently discarding the AI's edits**, and
+  anything else that happened since. This is the data-loss-shaped one.
+
+**REPRODUCED ON THE NOTE 9 (2026-07-26 ~18:33), with a positive control.** Project
+`74e36000`, one in-session edit (`Trim [0–1929] → [0–617]`, undo=1):
+- **Control — undo BEFORE any AI edit:** log `Undone (action): Trim [0–1929] → [0–617]`,
+  undo 1→0, and the clip VISIBLY returns to its full length (the `0.6s` tape label
+  disappears). So undo works and the instrument can see it working.
+- **Bug — same action, undo AFTER an AI edit:** background the editor, fire the AI apply
+  path, resume (log: `AI modified project on disk — reloading from storage`; the AI's
+  overlay is on screen; **undo is still 1 — the stack was NOT cleared**), then press undo.
+  Log says `Undone (action): Trim [0–1929] → [0–617]`, undo 1→0 — and **nothing changes on
+  screen**. Ground truth: the project saved on the next `onPause` still has
+  `clip0 outPointMs = 617`, i.e. the model was never touched. The AI's overlay also
+  survives, so the undo reverted nothing at all.
+No LLM is needed to reproduce: `ApplyEditsActivity` is **exported** (`AndroidManifest.xml:129`,
+action `com.fadcam.APPLY_EDITS`) and calls `AIChatState.signalModified`, so the whole sequence
+drives from adb —
+`am start -a com.fadcam.APPLY_EDITS --es project_id <id> --es edit_script '<json>'`.
+The **snapshot-path variant** (undo silently restoring the pre-AI project and discarding the
+AI's work) is reasoned from `:302-307` and is **still UNVERIFIED** — it needs an entry with
+`action == null`, i.e. history loaded from disk in a fresh session.
+**Risk:** SILENT WRONGNESS (action path, CONFIRMED on device) + DATA-LOSS (snapshot path,
+unverified). **VERIFIED-OPEN.**
+**NEEDS A USER DECISION — three options, all with UX consequences:**
+  1. `undoManager.clear()` on AI reload. Minimal and honest, but throws away the user's undo
+     history every time the AI touches the project.
+  2. Capture a snapshot-only entry ("AI edits") BEFORE `project = reloaded`, reusing the
+     existing `snapshotRestorer` machinery (`UndoManager.java:193-199, 294-296, 337-340`), so
+     one undo reverts the AI's change. Nicest behaviour; needs a call on granularity.
+  3. Leave it and document that AI edits are outside the undo model — in which case audit 3.3
+     should be rescoped from "transitions get lost" to that statement, and the misleading
+     comment at `AIToolExecutor.java:1460-1463` ("one undoable step") must be corrected.
+Independent of the choice, `EditScriptApplier.applyReorderClips` (`:812-854`) should stop
+mutating live `Transition` objects after `clearTransitions()` with no retained pre-state
+(`:818-819` is a SHALLOW copy; `:850` writes `t.clipIndex`), which makes a part-way failure
+unrollbackable. That part is mechanical.
+
 ### 1.1 Transcript windowing: step 3 never landed, and no repair for damaged projects
 `PLAN_transcript_windowing.md:39-59`. Steps 1 (`Transcript.java:51`), 2 (`partitionWords`
 `Timeline.java:369` and `EditScriptApplier.partitionTranscripts:780` both have ZERO callers),

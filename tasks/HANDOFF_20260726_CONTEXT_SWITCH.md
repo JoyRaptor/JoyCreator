@@ -4,7 +4,26 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### ⚠️ NO DEVICE ATTACHED as of ~18:20. `adb devices` is EMPTY — the Note 9 was unplugged
+### NEW TIER-1 BUG FOUND AND **DEVICE-REPRODUCED**: undo is silently dead after an AI edit
+(full write-up = audit item **1.5**). When the AI assistant edits a project, the editor
+reloads and does `project = reloaded` (`FaditorEditorActivity.java:1245-1272`) but never
+clears or rebinds the undo stack, so every entry still points at the DISCARDED object graph.
+Measured with a positive control on `74e36000`: the SAME undo of the SAME action visibly
+restores the clip before an AI edit, and does NOTHING after one — while still logging
+`Undone (action): …` and decrementing the badge, so the user is told it worked. Ground truth:
+the next autosave still has the un-undone value.
+**Reproduce it without an LLM** — `ApplyEditsActivity` is exported (`AndroidManifest.xml:129`):
+`am start -a com.fadcam.APPLY_EDITS --es project_id <id> --es edit_script '{"version":1,
+"operations":[{"type":"ADD_TEXT_OVERLAY","text":"AIMARK","centerX":0.5,"centerY":0.8,
+"sizeFraction":0.09,"startMs":0,"endMs":3000}]}'`. That is a genuinely reusable harness for
+any AI-path test — it needs no network and no API key.
+**NOT FIXED — needs a user decision** (three options in the audit item: clear the stack /
+synthesize one "AI edits" snapshot step / declare AI edits outside the undo model). Each
+changes what the undo button means, so it should not be picked blind. The second, worse
+variant — undo restoring a pre-AI snapshot and DISCARDING the AI's work — is reasoned from
+`UndoManager:302-307` and remains **unverified**; it needs history loaded from disk.
+
+### ⚠️ NO DEVICE ATTACHED as of ~18:20 (RESOLVED ~18:25 — Note 9 is back and unlocked). `adb devices` is EMPTY — the Note 9 was unplugged
 (the Note 20 did NOT appear; nothing was installed to a wrong phone). Device verification is
 unavailable until a phone is back. The build watcher is still alive and still compiles, so
 source edits are safe, but NOTHING can be device-proved right now — and the watcher will

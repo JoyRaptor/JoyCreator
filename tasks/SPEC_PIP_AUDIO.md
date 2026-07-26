@@ -136,9 +136,43 @@ just differ, so neither should be "fixed" to match the other.
 
 1. ✅ (authority) Open any existing project with a PiP → export is byte-identical to before
    (nothing opted in). *Fixture A returned 0.0 with `overlayAudioEnabled` absent.*
-2. ⏳ Opt a PiP in → its audio is audible in preview at its own volume, and present in the export
-   at the right timeline offset. *Authority returns 0.8; preview/export plumbing UNVERIFIED.*
+2. **EXPORT LEG ✅ PROVED 2026-07-26 ~04:10 (Note 9). PREVIEW LEG still ⏳ UNVERIFIED** —
+   nobody has listened, and I cannot.
+   *The export half is now measured rather than heard. Two throwaway clones, identical except
+   `overlayAudioEnabled`, with **every master clip muted and every audio clip removed** so the
+   PiP is the only possible sound source, and `overlayStartMs = 1200` so the offset is actually
+   testable. Probed with the new `tasks/export_audio_probe.py`:*
+
+   | | not opted in (`Poff`) | opted in (`Pon`) |
+   |---|---|---|
+   | audio stream in export | **none at all** | AAC 44.1 kHz mono, 4.226 s |
+   | rms before 1200 ms | – | **0.000000** (digital silence) |
+   | rms over the PiP span | – | 0.006298 vs source 0.006354 |
+   | best-match lag | – | 1246.4 ms vs 1200 expected (Δ 46 ms) |
+   | **fitted gain** | – | **0.993** |
+   | correlation | – | **0.999** |
+
+   *The fitted gain is the point. The recorded failure mode for this spec is "doubled audio in
+   an export the user may not re-check", and doubling is not something anyone can reliably hear
+   on a phone speaker — but it is a least-squares fit away: 1.0 means mixed in once, ~2.0 means
+   twice. 0.993 with correlation 0.999 says the PiP's audio is in the export exactly once at
+   unity gain, starting where it should. The 46 ms lag delta is the order of AAC
+   priming/frame-alignment delay and is not distinguishable from exact.*
+
+   *This also strengthens acceptance 1 from "the authority returns 0.0" to "the export carries
+   no audio track whatsoever" — the not-opted-in PiP contributes nothing, not even silence.*
+
+   *Two harness mistakes worth recording, both of which produced a confident wrong answer
+   first: (a) a probe nearly as long as the export leaves the cross-correlation almost no valid
+   lag range, so the peak lands on the search edge and the fitted gain came out **-0.204** for
+   an export whose real gain is 0.993 — the script now shortens the probe to keep 2x the
+   expected offset of headroom and says when it does; (b) ffmpeg cannot decode a WAV from a
+   file with no audio stream, so the negative control died with a traceback instead of
+   reporting the very thing it was checking — hence `--expect-absent`.*
 3. ✅ (authority) Mute that PiP's lane → it goes silent in BOTH preview and export (one
    authority). *Fixture C → 0.0. This is the lane-mute-never-reached-PiPs bug, confirmed fixed.*
 4. ⏳ A dual-stream pair still exports single-voice audio unless the user explicitly opts the
-   webcam PiP in. *Not exercised — needs a real pair project.*
+   webcam PiP in. *Still not exercised — needs a real dual-stream pair project, and the Note 9
+   sandbox has none. The tooling now exists though: `tasks/export_audio_probe.py --expect-absent`
+   against the webcam file is exactly the assertion, and acceptance 2's run shows the
+   not-opted-in case produces no audio track at all, which is the same mechanism.*

@@ -18,16 +18,34 @@ public class AIChatState {
     /** True while the AI chat activity is running (for the editor to know). */
     public static volatile boolean chatActive = false;
 
+    /**
+     * What the AI did, in the user's words — used as the label of the single undo step the
+     * editor records for the AI's work. Null/empty falls back to a generic label.
+     */
+    public static volatile String modifiedDescription = null;
+
     /** Signal that the project was modified by an AI tool. */
     public static void signalModified(String projectId) {
+        signalModified(projectId, null);
+    }
+
+    /**
+     * @param description short human-readable summary of the change (an edit script's own
+     *                    {@code description} is exactly this), shown in the undo history
+     */
+    public static void signalModified(String projectId, String description) {
         projectModifiedByAI = true;
         modifiedProjectId = projectId;
+        if (description != null && !description.trim().isEmpty()) {
+            modifiedDescription = description.trim();
+        }
     }
 
     /** Clear the signal after the editor has reloaded. */
     public static void clearModified() {
         projectModifiedByAI = false;
         modifiedProjectId = null;
+        modifiedDescription = null;
     }
 
     public static String getModifiedProjectId() {

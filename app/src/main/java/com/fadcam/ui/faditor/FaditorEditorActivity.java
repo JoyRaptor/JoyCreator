@@ -1247,12 +1247,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 && project.getId().equals(
                     com.fadcam.ui.faditor.ai.AIChatState.modifiedProjectId)) {
             FLog.i(TAG, "AI modified project on disk — reloading from storage");
+            String aiWhat = com.fadcam.ui.faditor.ai.AIChatState.modifiedDescription;
             com.fadcam.ui.faditor.ai.AIChatState.clearModified();
 
             try {
                 com.fadcam.ui.faditor.model.FaditorProject reloaded =
                         projectStorage.load(project.getId());
                 if (reloaded != null && !reloaded.getTimeline().isEmpty()) {
+                    // The AI's work becomes ONE undoable step, and it has to be captured
+                    // from the state we are still holding — i.e. BEFORE the swap below.
+                    // Snapshot-based on purpose: the AI edited a separate copy on disk, so
+                    // no EditAction can describe it against the live object graph.
+                    boolean aiStepRecorded = undoManager.recordAiCheckpoint(
+                            (aiWhat == null || aiWhat.isEmpty())
+                                    ? getString(R.string.faditor_undo_ai_edits) : aiWhat);
+                    // Everything already on the stacks closes over the model objects we are
+                    // about to discard; replaying one would silently mutate an orphan and
+                    // report success. Keep what can still be honoured (the snapshots), drop
+                    // what cannot.
+                    undoManager.invalidateActionsForProjectSwap();
+                    FLog.i(TAG, "AI reload: undo checkpoint recorded=" + aiStepRecorded);
                     project = reloaded;
                     selectedClipIndex = Math.min(selectedClipIndex,
                             project.getTimeline().getClipCount() - 1);
@@ -2349,9 +2363,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // predates the save-side guard above from resurfacing.
         List<String> descriptions = new ArrayList<>();
         List<String> snapshots = new ArrayList<>();
+        List<Boolean> aiFlags = new ArrayList<>();
         if (!project.isLoadedFromNewerVersion()
-                && projectStorage.loadUndoHistory(project.getId(), descriptions, snapshots)) {
-            undoManager.loadHistory(descriptions, snapshots);
+                && projectStorage.loadUndoHistory(project.getId(), descriptions, snapshots, aiFlags)) {
+            undoManager.loadHistory(descriptions, snapshots, aiFlags);
             FLog.d(TAG, "Restored " + descriptions.size() + " undo history entries");
         }
 
@@ -10193,7 +10208,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.undo.UndoManager.HistoryEntry entry = redoEntries.get(i);
             int stepsForward = i + 1; // how many redo() calls to reach this entry
             String label = "+" + stepsForward;
-            list.addView(buildHistoryRow(label, entry.getDescription(), false, () -> {
+            list.addView(buildHistoryRow(label, entry.getDescription(), false,
+                    entry.isAiOrigin(), () -> {
                 jumpUndoRedoBy(stepsForward, true);
                 if (animateOutAndDismiss[0] != null) animateOutAndDismiss[0].run();
                 else if (popupHolder[0] != null) popupHolder[0].dismiss();
@@ -10211,7 +10227,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.undo.UndoManager.HistoryEntry entry = undoEntriesOldestFirst.get(i);
             int stepsBack = undoEntriesOldestFirst.size() - i; // how many undo() calls to reach this entry
             String label = "-" + stepsBack;
-            list.addView(buildHistoryRow(label, entry.getDescription(), true, () -> {
+            list.addView(buildHistoryRow(label, entry.getDescription(), true,
+                    entry.isAiOrigin(), () -> {
                 jumpUndoRedoBy(stepsBack, false);
                 if (animateOutAndDismiss[0] != null) animateOutAndDismiss[0].run();
                 else if (popupHolder[0] != null) popupHolder[0].dismiss();
@@ -10359,6 +10376,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Build a single tappable history row (redo entry above centerline, undo entry below). */
     private View buildHistoryRow(@NonNull String label, @NonNull String description,
                                   boolean isUndoSide, @NonNull Runnable onTap) {
+        return buildHistoryRow(label, description, isUndoSide, false, onTap);
+    }
+
+    /**
+     * @param aiOrigin the AI assistant made this step, not the user — drawn in a distinct
+     *                 colour so a glance down the list separates "I did that" from
+     *                 "the AI did the other thing"
+     */
+    private View buildHistoryRow(@NonNull String label, @NonNull String description,
+                                  boolean isUndoSide, boolean aiOrigin,
+                                  @NonNull Runnable onTap) {
         float dp = getResources().getDisplayMetrics().density;
         android.widget.LinearLayout row = new android.widget.LinearLayout(this);
         row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -10384,7 +10412,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView descView = new TextView(this);
         descView.setText(description);
         descView.setTextSize(13);
-        descView.setTextColor(0xFFDDDDDD);
+        // AI steps read violet; the user's own steps stay the neutral near-white.
+        descView.setTextColor(aiOrigin ? 0xFFB388FF : 0xFFDDDDDD);
         descView.setMaxLines(1);
         descView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         android.widget.LinearLayout.LayoutParams descLp = new android.widget.LinearLayout.LayoutParams(
@@ -22121,16 +22150,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (!history.isEmpty()) {
                     List<String> descriptions = new ArrayList<>();
                     List<String> snapshots = new ArrayList<>();
+                    List<Boolean> aiFlags = new ArrayList<>();
                     for (UndoManager.HistoryEntry entry : history) {
                         if (entry.getSnapshotBefore() != null) {
                             descriptions.add(entry.getDescription());
                             snapshots.add(entry.getSnapshotBefore());
+                            aiFlags.add(entry.isAiOrigin());
                         }
                     }
                     if (forceUndoHistory) {
-                        projectStorage.saveUndoHistory(project.getId(), descriptions, snapshots);
+                        projectStorage.saveUndoHistory(project.getId(), descriptions, snapshots, aiFlags);
                     } else {
-                        projectStorage.saveUndoHistoryAsync(project.getId(), descriptions, snapshots);
+                        projectStorage.saveUndoHistoryAsync(project.getId(), descriptions, snapshots, aiFlags);
                     }
                 }
             }

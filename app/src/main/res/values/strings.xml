@@ -1375,6 +1375,8 @@
     <string name="faditor_asset_added">Asset added to timeline</string>
     <string name="faditor_asset_error">Could not add asset</string>
     <string name="faditor_split_success">Segment split into two</string>
+    <!-- Undo-history label for the AI assistant's work when it did not describe itself. -->
+    <string name="faditor_undo_ai_edits">AI edits</string>
     <string name="faditor_split_error">Cannot split here â€” too close to edge</string>
     <string name="faditor_heal_success">Gap healed non-destructively</string>
     <string name="faditor_heal_error">Cannot heal here - too close to edge</string>

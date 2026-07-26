@@ -95,16 +95,32 @@ public class UndoManager {
         @Nullable
         String snapshotAfter;
 
+        /**
+         * True when this step was made by the AI assistant rather than by the user,
+         * so the history list can colour it differently — "I did that, the AI did the
+         * other thing" is the thing you want to see while scanning.
+         */
+        final boolean aiOrigin;
+
         HistoryEntry(@Nullable EditAction action,
                      @NonNull String description,
                      @Nullable String snapshotBefore) {
+            this(action, description, snapshotBefore, false);
+        }
+
+        HistoryEntry(@Nullable EditAction action,
+                     @NonNull String description,
+                     @Nullable String snapshotBefore,
+                     boolean aiOrigin) {
             this.action = action;
             this.description = description;
             this.snapshotBefore = snapshotBefore;
+            this.aiOrigin = aiOrigin;
         }
 
         public @NonNull String getDescription() { return description; }
         public @Nullable String getSnapshotBefore() { return snapshotBefore; }
+        public boolean isAiOrigin() { return aiOrigin; }
     }
 
     /**
@@ -438,15 +454,102 @@ public class UndoManager {
      */
     public void loadHistory(@NonNull List<String> descriptions,
                             @NonNull List<String> snapshots) {
+        loadHistory(descriptions, snapshots, java.util.Collections.emptyList());
+    }
+
+    /**
+     * @param aiFlags parallel to the other two (may be shorter/empty — missing entries read
+     *                as user-authored, which is what pre-existing sidecars contain)
+     */
+    public void loadHistory(@NonNull List<String> descriptions,
+                            @NonNull List<String> snapshots,
+                            @NonNull List<Boolean> aiFlags) {
         clear();
         int count = Math.min(descriptions.size(), snapshots.size());
         // Push oldest first (addLast) so the most recent ends up on top
         for (int i = 0; i < count; i++) {
-            HistoryEntry entry = new HistoryEntry(null, descriptions.get(i), snapshots.get(i));
+            boolean ai = i < aiFlags.size() && Boolean.TRUE.equals(aiFlags.get(i));
+            HistoryEntry entry = new HistoryEntry(null, descriptions.get(i), snapshots.get(i), ai);
             ((ArrayDeque<HistoryEntry>) undoStack).addLast(entry);
         }
         FLog.d(TAG, "Loaded " + count + " history entries from disk");
         notifyListener();
+    }
+
+    /**
+     * Record the AI assistant's work as ONE undoable step, captured from the state the
+     * project is in RIGHT NOW — so this must be called BEFORE the editor swaps in the
+     * reloaded project.
+     *
+     * <p>Snapshot-based on purpose: the AI edits a separate copy of the project on disk, so
+     * there is no {@link EditAction} that could describe the change against the live object
+     * graph. Restoring the pre-AI snapshot is the only faithful inverse.</p>
+     *
+     * @param description what the AI did, for the history row
+     * @return true if the step was recorded; false when no snapshot could be taken (in which
+     *         case there is nothing honest to offer and no row is added)
+     */
+    public boolean recordAiCheckpoint(@NonNull String description) {
+        if (snapshotRestorer == null) return false;
+        String snapshot;
+        try {
+            snapshot = snapshotRestorer.captureSnapshot();
+        } catch (Exception e) {
+            FLog.e(TAG, "AI checkpoint: snapshot capture failed", e);
+            return false;
+        }
+        if (snapshot == null) return false;
+
+        undoStack.push(new HistoryEntry(null, description, snapshot, true));
+        redoStack.clear();
+        while (undoStack.size() > maxHistory) {
+            ((ArrayDeque<HistoryEntry>) undoStack).removeLast();
+        }
+        enforceSnapshotBudget();
+        FLog.i(TAG, "Recorded AI checkpoint: " + description
+                + " (undo=" + undoStack.size() + ", redo=0)");
+        notifyListener();
+        return true;
+    }
+
+    /**
+     * The editor is about to replace the whole project object (an AI edit landed on disk).
+     * Every {@link EditAction} on both stacks closes over the OUTGOING model objects, so
+     * replaying one would mutate an orphan: the undo would report success and change
+     * nothing. Drop those references and keep only what can still be honoured — the
+     * snapshots, which restore by value and do not care about object identity.
+     *
+     * <p>Entries with neither an action nor a snapshot are REMOVED rather than kept as dead
+     * rows: {@code recordAction} skips the snapshot when one was taken too recently, so such
+     * entries exist and would otherwise sit in the history doing nothing when tapped.</p>
+     *
+     * @return the number of entries dropped as unhonourable
+     */
+    public int invalidateActionsForProjectSwap() {
+        int dropped = replaceWithSnapshotOnly(undoStack) + replaceWithSnapshotOnly(redoStack);
+        FLog.i(TAG, "Project swapped under the undo stack: actions invalidated, "
+                + dropped + " unrestorable entr(ies) dropped (undo=" + undoStack.size()
+                + ", redo=" + redoStack.size() + ")");
+        notifyListener();
+        return dropped;
+    }
+
+    /** Null every action in {@code stack} and drop entries that have no snapshot to fall back on. */
+    private int replaceWithSnapshotOnly(@NonNull Deque<HistoryEntry> stack) {
+        List<HistoryEntry> kept = new ArrayList<>(stack.size());
+        int dropped = 0;
+        for (HistoryEntry entry : stack) { // iteration order is top-to-bottom
+            if (entry.snapshotBefore == null) {
+                dropped++;
+                continue;
+            }
+            entry.action = null;
+            kept.add(entry);
+        }
+        stack.clear();
+        // kept is top-to-bottom; addLast preserves that order.
+        for (HistoryEntry entry : kept) ((ArrayDeque<HistoryEntry>) stack).addLast(entry);
+        return dropped;
     }
 
     // ── Internal ─────────────────────────────────────────────────────

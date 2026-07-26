@@ -519,7 +519,8 @@ public class AIToolExecutor {
             EditScriptApplier.Result result = applier.apply(proj, script);
             if (result.success) {
                 storage.save(proj);
-                AIChatState.signalModified(projectId);
+                // The script's description becomes the undo-history label for this step.
+                AIChatState.signalModified(projectId, script.getDescription());
                 return "Applied " + result.appliedCount + " operations successfully.";
             } else {
                 return "Apply failed: " + result.error;

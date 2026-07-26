@@ -79,7 +79,9 @@ public class ApplyEditsActivity extends Activity {
             }
 
             storage.save(project);
-            AIChatState.signalModified(projectId);
+            // Pass the script's own description through so the editor's undo history can
+            // label this step with what was actually done, not just "AI edits".
+            AIChatState.signalModified(projectId, script.getDescription());
 
             JSONObject response = new JSONObject();
             response.put("ok", true);

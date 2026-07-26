@@ -762,7 +762,15 @@ public class ProjectStorage {
     public boolean saveUndoHistory(@NonNull String projectId,
                                    @NonNull List<String> descriptions,
                                    @NonNull List<String> snapshots) {
-        return writeUndoHistoryStreaming(projectId, descriptions, snapshots);
+        return saveUndoHistory(projectId, descriptions, snapshots, Collections.emptyList());
+    }
+
+    /** @param aiFlags parallel to the other lists; marks steps the AI assistant made. */
+    public boolean saveUndoHistory(@NonNull String projectId,
+                                   @NonNull List<String> descriptions,
+                                   @NonNull List<String> snapshots,
+                                   @NonNull List<Boolean> aiFlags) {
+        return writeUndoHistoryStreaming(projectId, descriptions, snapshots, aiFlags);
     }
 
     /**
@@ -774,9 +782,19 @@ public class ProjectStorage {
     public void saveUndoHistoryAsync(@NonNull String projectId,
                                      @NonNull List<String> descriptions,
                                      @NonNull List<String> snapshots) {
+        saveUndoHistoryAsync(projectId, descriptions, snapshots, Collections.emptyList());
+    }
+
+    /** @param aiFlags parallel to the other lists; marks steps the AI assistant made. */
+    public void saveUndoHistoryAsync(@NonNull String projectId,
+                                     @NonNull List<String> descriptions,
+                                     @NonNull List<String> snapshots,
+                                     @NonNull List<Boolean> aiFlags) {
         final List<String> descCopy = new ArrayList<>(descriptions);
         final List<String> snapCopy = new ArrayList<>(snapshots);
-        lastWrite = ioExecutor.submit(() -> writeUndoHistoryStreaming(projectId, descCopy, snapCopy));
+        final List<Boolean> aiCopy = new ArrayList<>(aiFlags);
+        lastWrite = ioExecutor.submit(
+                () -> writeUndoHistoryStreaming(projectId, descCopy, snapCopy, aiCopy));
     }
 
     /**
@@ -788,7 +806,8 @@ public class ProjectStorage {
      */
     private boolean writeUndoHistoryStreaming(@NonNull String projectId,
                                               @NonNull List<String> descriptions,
-                                              @NonNull List<String> snapshots) {
+                                              @NonNull List<String> snapshots,
+                                              @NonNull List<Boolean> aiFlags) {
         File projectDir = getProjectDir(projectId);
         if (!projectDir.exists() && !projectDir.mkdirs()) {
             FLog.e(TAG, "Failed to create project directory for undo history");
@@ -803,6 +822,11 @@ public class ProjectStorage {
                 writer.beginObject();
                 writer.name("description").value(descriptions.get(i));
                 writer.name("snapshot").value(snapshots.get(i));
+                // Written only when true: absent means user-authored, which is exactly what
+                // every pre-existing sidecar contains.
+                if (i < aiFlags.size() && Boolean.TRUE.equals(aiFlags.get(i))) {
+                    writer.name("ai").value(true);
+                }
                 writer.endObject();
             }
             writer.endArray();
@@ -825,6 +849,14 @@ public class ProjectStorage {
     public boolean loadUndoHistory(@NonNull String projectId,
                                    @NonNull List<String> outDescriptions,
                                    @NonNull List<String> outSnapshots) {
+        return loadUndoHistory(projectId, outDescriptions, outSnapshots, new ArrayList<>());
+    }
+
+    /** @param outAiFlags populated parallel to the others; absent "ai" reads as false. */
+    public boolean loadUndoHistory(@NonNull String projectId,
+                                   @NonNull List<String> outDescriptions,
+                                   @NonNull List<String> outSnapshots,
+                                   @NonNull List<Boolean> outAiFlags) {
         File file = new File(getProjectDir(projectId), UNDO_HISTORY_FILE);
         if (!file.exists()) {
             FLog.d(TAG, "No undo history found for: " + projectId);
@@ -844,6 +876,7 @@ public class ProjectStorage {
                 if (snap != null) {
                     outDescriptions.add(desc);
                     outSnapshots.add(snap);
+                    outAiFlags.add(hasValue(entry, "ai") && entry.get("ai").getAsBoolean());
                 }
             }
             FLog.d(TAG, "Loaded " + outDescriptions.size()

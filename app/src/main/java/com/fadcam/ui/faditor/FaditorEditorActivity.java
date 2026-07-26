@@ -617,6 +617,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── Playhead sync ────────────────────────────────────────────────
     private final Handler playheadHandler = new Handler(Looper.getMainLooper());
     private static final long PLAYHEAD_UPDATE_INTERVAL_MS = 50;
+    // How close to the timeline end the playhead must be for a play-tap to be treated
+    // as "at the end" and rewind to the start instead of no-op'ing (B2). ~1.5 frames at
+    // 30fps — large enough to catch the terminal playhead left just short of the end,
+    // small enough not to hijack a deliberate "play the last sliver" intent.
+    private static final long END_REPLAY_EPSILON_MS = 50;
 
     private final Runnable playheadUpdater = new Runnable() {
         @Override
@@ -3947,6 +3952,57 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     long playheadMs = editorTimeline.getPlayheadPositionMs();
                     long videoEndMs = totalEffectiveMs();
                     long timelineEndMs = editorTimeline.getTimelineEndMs();
+
+                    // B2 (2026-07-26): pressing play with the playhead already at the very
+                    // end of the timeline used to be a silent no-op — the engine started,
+                    // immediately hit end-of-timeline and stopped ("Playback stopped at last
+                    // segment end"), so the playhead never moved and no audio played. The
+                    // transport button looked dead. Auto-rewind to the start and play from
+                    // there, mirroring the image-clip branch above and standard player UX.
+                    //
+                    // Detecting "at the end" is subtle, so three OR'd signals:
+                    //  • isAtTrimEnd() on the LAST segment — the primary case. On natural end
+                    //    the Activity detects the last clip's trim-end BY POSITION (isAtTrimEnd
+                    //    fires ~150ms before STATE_ENDED) and PAUSES proactively, so the engine
+                    //    is left in READY (isEnded()==false) and the terminal playhead sits
+                    //    short of getTimelineEndMs()'s sum-of-clips whenever transitions overlap
+                    //    clips. Reusing isAtTrimEnd() — the very signal the natural-end handler
+                    //    uses — is what makes this robust to transition-shortened timelines.
+                    //    Gated on the playhead being in the last segment so a pause landing on
+                    //    an interior clip's trim-end (== the next clip's seam) does NOT rewind.
+                    //  • isEnded() — the engine actually reached STATE_ENDED. Reset by any scrub.
+                    //  • position within END_REPLAY_EPSILON_MS of getTimelineEndMs() — a manual
+                    //    scrub to the very end, where the engine is READY (re-seeked), not ENDED.
+                    // None fires at video-end when a real audio tail still follows: that case is
+                    // caught by the audioTailActive branch at the top of this listener, and a
+                    // scrub to video-end leaves video-end < getTimelineEndMs() with the last
+                    // segment not at its trim-end.
+                    // Gate the isAtTrimEnd() shortcut on there being NO audio tail beyond the
+                    // video: with a tail, the last VIDEO clip's trim-end is NOT the timeline
+                    // end, and pressing play there must ENTER the tail (the audioTailActive
+                    // branch below), not rewind. In that case the true-end rewind is still
+                    // covered by isEnded() (engine ran past the tail) or the position check.
+                    boolean hasAudioTail = timelineEndMs > videoEndMs;
+                    int lastSegIdx = (project != null && project.getTimeline() != null)
+                            ? project.getTimeline().getClipCount() - 1 : -1;
+                    int segAtPlayhead = editorTimeline.getSegmentAtPlayhead();
+                    boolean atTrimEndOfLast = !hasAudioTail
+                            && playerManager != null && playerManager.isAtTrimEnd()
+                            && lastSegIdx >= 0 && segAtPlayhead == lastSegIdx;
+                    boolean atTimelineEnd =
+                            atTrimEndOfLast
+                            || (playerManager != null && playerManager.isEnded())
+                            || (timelineEndMs > 0 && playheadMs >= timelineEndMs - END_REPLAY_EPSILON_MS);
+                    if (atTimelineEnd) {
+                        FLog.d(TAG, "Play at timeline end -> auto-rewind to 0 (was "
+                                + playheadMs + "ms, videoEnd=" + videoEndMs
+                                + ", timelineEnd=" + timelineEndMs + ", hasTail=" + hasAudioTail
+                                + ", ended=" + (playerManager != null && playerManager.isEnded())
+                                + ", atTrimEndOfLast=" + atTrimEndOfLast
+                                + ", seg=" + segAtPlayhead + "/" + lastSegIdx + ")");
+                        playheadMs = 0;
+                        editorTimeline.setPlayheadPositionMs(0);
+                    }
 
                     if (playheadMs >= videoEndMs && timelineEndMs > videoEndMs) {
                         // Playhead is in audio-only region past video

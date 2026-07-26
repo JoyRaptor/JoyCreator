@@ -4,7 +4,63 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### NEXT UP — Transcript navigator (audit 1.1 step 3, DECIDED design). SCOPED, not started.
+### NEXT UP — audit 2.3, preset crops during transitions (read the F12 RE-SCOPED block in
+PERF_SPEC_LONGFILE_20260718.md first), then the rest of AUDIT_UNFINISHED_20260726.md's
+STATUS BOARD in its stated order. B1/B4/B5/B3-remedy still await a user design decision.
+
+- **TRANSCRIPT NAVIGATOR DONE + device-verified (`bd84402`).** Built both halves of the
+  decided design. (1) `TranscriptPanelView.setClipWindow(inMs,outMs)` + `inClipWindow()`:
+  words whose SOURCE start falls outside the current clip's trim draw dimmed (0xFF6E6E6E,
+  struck 0xFF4A4A4A); the window defaults to UNBOUNDED so any caller that never sets one
+  keeps the old rendering. (2) A tap on a dimmed word is now unambiguously NAVIGATION —
+  it routes straight to `onSeekToMs` and is no longer eligible for the double-tap
+  line-break gesture. IMPLEMENTATION NOTE (differs from the scoped plan, deliberately):
+  no new `onNavigateToSourceMs` callback was needed — `onSeekToMs` (18955) ALREADY
+  re-homes a source ms onto whichever clip of the same source contains it, and
+  `seekToTimelineMs` → `onPlayheadSeeked(isDragging=false)` already sets
+  `selectedClipIndex` + `setSelectedIndex`. So cross-clip selection was already wired;
+  only the highlight and the tap disambiguation were missing. Host applies the window via
+  new `applyTranscriptClipWindow()` at both panel binds in `loadTranscriptPanelContent()`
+  and from the playhead updater (selection changes route through `selectSegment` →
+  `loadTranscriptPanelContent`, so coverage is complete).
+  **Bug this exposed and fixed in the same commit:** both halves of an IN-MEMORY split
+  share ONE `Transcript` instance (`Clip` copy-ctor addAll's the same `NamedTranscript`
+  refs), so the existing re-bind branch — which only fires when the instance DIFFERS —
+  left `transcriptClipId` pinned to the pre-split clip, and the `clip.getId().equals(
+  transcriptClipId)` gate at ~7971 stopped updating the playback highlight the moment
+  playback crossed the seam. Added an else-if that re-homes the id when the instance
+  matches but the clip differs.
+  **Device proof (Note 9, project `129d8643` "bisect C long 2x", predictions computed in
+  Python from project.json BEFORE looking at the screen):** clip [1406,4457] → bright
+  "this cat is very cute she is white and"; sibling clip [4457,4884] of the SAME source →
+  bright "fluffy" ONLY. Both observed exactly — same panel, same 37 words, different clip
+  (that pair IS the positive control: a blind instrument would have shown one set twice).
+  Then a real split at source 2730 (predicted blind): half A bright "this cat is very
+  cute", half B bright "cute she is white and", boundary word bright in both. Tapping a
+  dimmed word selected the owning clip, flipped the dimming, and seeked to that word;
+  playing across the seam kept the highlight advancing (not frozen).
+  **Sandbox restored + verified:** `129d8643` project.json AND .bak are back to
+  sha256 `111bea60…` = its safety copy; 9/10 projects match their safety copies and
+  `cebc19e0` still diverges ON PURPOSE ('hi' start=1892, lastModified unchanged —
+  untouched this session). Its `undo_history.json` held full-project snapshots of my
+  split, which would have fought the restored file, so it was removed after being copied
+  to scratchpad `tn/backup_undo_history.json` (a missing history is a supported state:
+  `loadUndoHistory` logs "No undo history found" and returns false).
+  **FIXTURE TRAPS PAID FOR HERE (both mine, not the app's):** (a) the timeline toolbar's
+  orange "±" at ~(386,1305) is `btn_ripple_mode` (edit mode), NOT split — tapping it
+  recorded an undo entry and looked like "the split silently failed"; the real Split lives
+  in the SCROLLABLE bottom tool carousel and its position moves. Get real bounds with
+  `adb shell uiautomator dump /sdcard/vh.xml` + `exec-out cat` (needs
+  `MSYS_NO_PATHCONV=1` in Bash or Git-Bash mangles the device path) and grep for
+  `id/tool_split`. (b) `adb shell cat` inserts CRs — a pulled project.json will NEVER
+  sha256-match its safety copy until you normalize CRLF→LF (or pull with `exec-out cat`,
+  which is byte-exact). I nearly mis-read this as "the project was already modified".
+  **Cosmetic follow-up, NOT a regression:** right after a split/undo the active-word cyan
+  box can briefly sit on an out-of-window (dimmed) word, because `setActiveSourceMs` is
+  driven by the player position which hasn't resettled. Pre-existing behaviour that the
+  new dimming merely makes visible; it self-corrects on the next tick.
+
+### (DONE — see above) Transcript navigator (audit 1.1 step 3, DECIDED design).
 
 Decided behaviour: after a split, the panel shows the WHOLE source with the current clip
 highlighted, and BECOMES a navigation surface (tap a word in another clip's region → jump to

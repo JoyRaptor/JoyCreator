@@ -7966,6 +7966,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         transcriptView.setTranscript(currentTranscript);
                     }
                     syncTimelineTranscript();
+                } else if (activeNt != null && activeNt.transcript == currentTranscript
+                        && !transcriptIsForAudio
+                        && !clip.getId().equals(transcriptClipId)) {
+                    // Same transcript OBJECT, different clip: this is the other half of a
+                    // split (both halves share one whole-source transcript in memory, see
+                    // Timeline.partitionAfterSplit). The branch above only re-homes when the
+                    // transcript instance differs, so without this the panel stayed pinned to
+                    // the pre-split clip id and the gate below went false — the playback
+                    // highlight froze the moment you crossed the seam.
+                    transcriptClipId = clip.getId();
+                }
+
+                if (transcriptView != null && transcriptPanel != null
+                        && transcriptPanel.getVisibility() == View.VISIBLE) {
+                    applyTranscriptClipWindow();
                 }
 
                 if (clip.getId().equals(transcriptClipId)) {
@@ -20808,6 +20823,52 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Tell the transcript panel which slice of the source the CURRENT clip owns, so the rest
+     * of the source (the sibling clips a split produced) draws dimmed and reads as "elsewhere
+     * in this recording, tap to go there". Every clip cut from one source keeps the whole
+     * source transcript, so without this the panel gives no clue where the current clip ends.
+     *
+     * <p>Windows by the clip whose transcript is actually on screen: usually the selected
+     * clip, but if the selection has moved to a clip that has no transcript of its own the
+     * panel still shows the previous clip's, and windowing by the new selection would dim an
+     * unrelated source's words at random.</p>
+     */
+    private void applyTranscriptClipWindow() {
+        if (transcriptView == null) return;
+        if (transcriptIsForAudio) {
+            java.util.List<AudioClip> audio = project.getTimeline().getAudioClips();
+            if (transcriptAudioIndex >= 0 && transcriptAudioIndex < audio.size()) {
+                AudioClip ac = audio.get(transcriptAudioIndex);
+                if (ac != null) {
+                    transcriptView.setClipWindow(ac.getInPointMs(), ac.getOutPointMs());
+                    return;
+                }
+            }
+            transcriptView.clearClipWindow();
+            return;
+        }
+        Clip owner = getSelectedClip();
+        if (owner == null || currentTranscript == null
+                || owner.getActiveNamedTranscript() == null
+                || owner.getActiveNamedTranscript().transcript != currentTranscript) {
+            // Fall back to the clip the displayed transcript was bound from.
+            owner = null;
+            Timeline tl = project.getTimeline();
+            if (transcriptClipId != null) {
+                for (int i = 0; i < tl.getClipCount(); i++) {
+                    Clip c = tl.getClip(i);
+                    if (c != null && transcriptClipId.equals(c.getId())) { owner = c; break; }
+                }
+            }
+        }
+        if (owner == null) {
+            transcriptView.clearClipWindow();
+            return;
+        }
+        transcriptView.setClipWindow(owner.getInPointMs(), owner.getOutPointMs());
+    }
+
     /** Loads the transcript (or model picker) for the current target without animating the panel. */
     private void loadTranscriptPanelContent() {
         resolveTranscriptTarget();
@@ -20826,6 +20887,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 transcriptProgress.setVisibility(View.GONE);
                 transcriptView.setVisibility(View.VISIBLE);
                 transcriptView.setTranscript(currentTranscript);
+                applyTranscriptClipWindow();
                 return;
             }
         } else {
@@ -20841,6 +20903,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 transcriptProgress.setVisibility(View.GONE);
                 transcriptView.setVisibility(View.VISIBLE);
                 transcriptView.setTranscript(currentTranscript);
+                applyTranscriptClipWindow();
                 return;
             }
         }

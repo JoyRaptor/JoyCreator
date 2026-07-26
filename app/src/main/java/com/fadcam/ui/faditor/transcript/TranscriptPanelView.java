@@ -49,6 +49,17 @@ public class TranscriptPanelView extends View {
         default void onActiveWordChanged(int index) {}
     }
 
+    /**
+     * Source-time window of the clip the panel is currently titled with. Every clip cut
+     * from one source keeps the WHOLE source transcript (see Timeline.partitionAfterSplit),
+     * so the panel is a map of the whole recording: words inside this window belong to the
+     * current clip, words outside belong to a sibling clip of the same source and are drawn
+     * dimmed. The default window is unbounded, so a caller that never sets one sees the old
+     * all-full-strength rendering.
+     */
+    private long clipWindowInMs = Long.MIN_VALUE;
+    private long clipWindowOutMs = Long.MAX_VALUE;
+
     @Nullable private Transcript transcript;
     @Nullable private Listener listener;
 
@@ -125,6 +136,33 @@ public class TranscriptPanelView extends View {
         scrollY = 0;
         requestLayout();
         invalidate();
+    }
+
+    /**
+     * Set the source-time range owned by the clip on screen. Words outside it are drawn
+     * dimmed (they belong to another clip of the same source). Pass an unbounded range to
+     * clear. No-ops when unchanged so the 50ms playhead updater can call this freely.
+     */
+    public void setClipWindow(long inMs, long outMs) {
+        if (inMs == clipWindowInMs && outMs == clipWindowOutMs) return;
+        clipWindowInMs = inMs;
+        clipWindowOutMs = outMs;
+        invalidate();
+    }
+
+    public void clearClipWindow() {
+        setClipWindow(Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    /** Whether this word's source time falls inside the current clip's trim. */
+    private boolean inClipWindow(@NonNull TranscriptWord w) {
+        return w.startMs >= clipWindowInMs && w.startMs <= clipWindowOutMs;
+    }
+
+    /** True if the word at {@code index} belongs to a DIFFERENT clip of the same source. */
+    public boolean isOutsideClipWindow(int index) {
+        TranscriptWord w = getWord(index);
+        return w != null && !inClipWindow(w);
     }
 
     /** Highlight the currently-playing word, scrolling only if it's off-screen. */
@@ -282,6 +320,7 @@ public class TranscriptPanelView extends View {
             float wy = wordY[i] - scrollY;
             if (wy + lineHeight < 0 || wy > h) continue; // offscreen
             TranscriptWord w = transcript.words.get(i);
+            boolean outside = !inClipWindow(w);
 
             if (i == activeIndex && !w.struck) {
                 RectF bg = new RectF(wordX[i] - 2 * density, wy,
@@ -297,10 +336,14 @@ public class TranscriptPanelView extends View {
                         isCurrent ? searchCurrentPaint : searchPaint);
             }
 
-            textPaint.setColor(w.struck ? 0xFF888888 : 0xFFFFFFFF);
+            // Outside the current clip's trim = another clip's words: dimmed, still legible
+            // and still tappable (a tap there navigates to that clip).
+            textPaint.setColor(outside ? (w.struck ? 0xFF4A4A4A : 0xFF6E6E6E)
+                                       : (w.struck ? 0xFF888888 : 0xFFFFFFFF));
             float baseY = wy + baselineOffset;
             canvas.drawText(w.text, wordX[i], baseY, textPaint);
             if (w.struck) {
+                strikePaint.setColor(outside ? 0xFF4A4A4A : 0xFF888888);
                 float midY = wy + lineHeight / 2f;
                 canvas.drawLine(wordX[i], midY, wordX[i] + wordW[i], midY, strikePaint);
             }
@@ -382,7 +425,15 @@ public class TranscriptPanelView extends View {
                     int idx = wordAt(e.getX(), e.getY() + scrollY);
                     if (idx >= 0 && transcript != null && listener != null) {
                         long now = System.currentTimeMillis();
-                        if (idx == lastTapIndex
+                        boolean outside = isOutsideClipWindow(idx);
+                        if (outside) {
+                            // Another clip's word: this tap is NAVIGATION. The host re-homes
+                            // the source time onto whichever clip owns it and selects it, so
+                            // don't consume the tap as a caption line-break instead.
+                            lastTapIndex = -1;
+                            lastTapTime = 0;
+                            listener.onSeekToMs(transcript.words.get(idx).startMs);
+                        } else if (idx == lastTapIndex
                                 && now - lastTapTime <= DOUBLE_TAP_TIMEOUT_MS) {
                             transcript.words.get(idx).forceLineBreakAfter =
                                     !transcript.words.get(idx).forceLineBreakAfter;

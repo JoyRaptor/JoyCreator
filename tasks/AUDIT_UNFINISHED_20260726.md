@@ -30,7 +30,6 @@ remaining instance of that pattern.
 > | 2.7 neutral substrate | items **2, 3** (preview/eye, device A/B) and **8** (export frame diff) now RUN and pass; 4 re-confirmed. Items 5–7 still open (gesture injection drifts) | `c8cee20`, `9c8e8bc` |
 > | 2.6 cross-type Z | **CLOSED** — acceptance 1, 2 and 4 all run on device. Z3's visual debt and Z4's frame-diff debt are cleared | see `SPEC_CROSSTYPE_Z.md` |
 > | 2.5 PiP audio | **export leg PROVED** — fitted gain 0.993, corr 0.999, silent before the offset, and no audio track at all when not opted in. So "doubled audio" is ruled out. **Preview leg still UNVERIFIED (needs a human to listen); acceptance 4 still open (no dual-stream pair project exists)** | `cc1691a` |
->
 > | 2.4 captions after a split | **CLOSED, and the audit had the direction backwards** — the EXPORT is correct (it windows per clip); the PREVIEW over-rendered the neighbouring clip's words. Observed on a real transcript, fixed, device-verified | `1a4bcc8` |
 > | timer export (handoff §7) | **ANSWERED** — timer renders and counts in an export: 0:04/0:03/0:02/0:01 at the right times, 4/4 | `21f518a` |
 >
@@ -41,9 +40,7 @@ remaining instance of that pattern.
 >
 > Everything else below is untouched and still open. Next by the recommended order: **2.3**
 > (preset crops during transitions — read the F12 RE-SCOPED block, NOT the older one-line note;
-> fixing only the export leg CREATES a divergence), then **2.4** (captions after a split: export
-> windows the transcript, preview does not — the straddle trigger was reasoned, never observed,
-> and `export_ab_diff.py` can now settle it), then the Tier 3 items.
+> fixing only the export leg CREATES a divergence), then the Tier 3 items, then Tier 4.
 
 ---
 

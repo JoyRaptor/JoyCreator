@@ -974,8 +974,24 @@ public final class LayerGestureController {
     // Greppable log tag for the device-in-the-loop hand-test: `adb logcat -d -s ROWGESTURE:D`.
     // Gated behind ROWGESTURE_DEBUG so it is cheap when off. LEFT IN (marked TEMP) for the
     // follow-up strip once the user confirms the single-proxy drag on a GREEN build.
-    /** TEMP: flip false to silence ROWGESTURE logs (kept true through the hand-test cycle). */
-    public static final boolean ROWGESTURE_DEBUG = true;
+    /**
+     * TEMP: flip true to re-enable ROWGESTURE logs for a device-in-the-loop hand-test.
+     *
+     * <p>Turned OFF 2026-07-26 (`PLAN_LAYER_GESTURE_CONTRACT.md:136-138` asked for this
+     * instrumentation to be stripped). Deliberately turned off rather than DELETED, because
+     * the condition the note above attaches to the strip — "once the user confirms the
+     * single-proxy drag on a GREEN build" — has not happened: that confirmation IS
+     * `SPEC_NEUTRAL_SUBSTRATE`'s validation-queue items 5-7, which are still open, and that
+     * queue's own method note recommends exactly this kind of log probe for them. Deleting
+     * the instrumentation now would remove the tool the remaining work needs.
+     *
+     * <p>Off matters because {@code FLog.d} is NOT gated on {@code BuildConfig.DEBUG} — every
+     * call writes two log lines and runs a redaction pass. The only per-frame call site (the
+     * MOVE branch) is already behind this flag, so flipping it is the whole cost saving; the
+     * other four sites are one-shot (pickup / drop-commit / hold-release) and their string
+     * concatenation is negligible.
+     */
+    public static final boolean ROWGESTURE_DEBUG = false;
     private static final String RG_TAG = "ROWGESTURE";
     /** Last hover row id logged, to throttle per-move spam to one line per row change. */
     @Nullable private String lastLoggedHoverRow;

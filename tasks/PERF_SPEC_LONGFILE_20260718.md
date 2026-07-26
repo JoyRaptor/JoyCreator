@@ -494,3 +494,37 @@ F12 LIMIT RE-SCOPED (2026-07-25, Opus 5 — the one-line note above understates 
   - NOT ATTEMPTED THIS SESSION: the acceptance gate is an absolute-geometry frame-pull A/B
     (memory: ab-export-frame-diff-proof), same as F12's, and the device was in human use.
     This is device work, not a desk fix.
+
+  ### 2026-07-26: still not attempted, but the acceptance gate is now BUILT and the recipe
+  ### is spelled out, so this is no longer blocked on inventing a proof.
+
+  Deliberately NOT started in that session: it is a symmetric three-site change in the GL
+  transition compositor (the area the `gl-transition-preview-design` and
+  `gl-transition-live-tier` memories describe as having four separate traps), and there was
+  not enough remaining context to do it AND device-verify it without risking an unfinished
+  tree. Starting it half-way would be worse than not starting.
+
+  **Everything needed to execute it now exists.** `tasks/export_ab_diff.py` is the acceptance
+  gate, already proven on two other items this session (neutral-substrate item 8, cross-type Z
+  acceptance 1/2/4). Concretely:
+
+  1. Build ONE fixture pair off a throwaway clone (recipe in
+     `tasks/PICKUP_PROMPT_20260726.md`): two clips with a GL transition between them, the
+     incoming clip carrying a NAMED preset crop (not `custom`). Second fixture identical but
+     with the equivalent crop expressed as `custom` fractions.
+  2. **BASELINE FIRST, before touching any code.** Export both and diff. Today's expected
+     result is that they DIFFER during the blend and AGREE after the cut — that difference IS
+     the bug, and capturing it first is what proves the later fix did something. Skipping this
+     baseline is how you end up unable to tell a fix from a no-op.
+  3. Make the change symmetrically — `cropSrcRect` (export) AND `liveLegGeometry` /
+     `cropToClipBounds` (preview) — routed through one NDC→rect conversion fed by
+     `ExportManager.getCropRect`, exactly as the block above prescribes.
+  4. Re-export both and diff again. Acceptance: preset and custom now agree THROUGHOUT,
+     including mid-blend. Use `--check-asym` and put the crop OFF-CENTRE — a centred crop is
+     symmetric and would hide a flip, which is the specific way this class of proof has failed
+     before.
+  5. Screenshot the PREVIEW mid-blend for both fixtures too. The invariant this item exists to
+     protect is preview/export parity, and an export-only diff cannot see a preview regression.
+
+  Do NOT "correct" the preset table's 16:9 NDC constants in the same change — see the warning
+  two bullets up. Parity with the Crop effect is the goal, not correctness of the table.

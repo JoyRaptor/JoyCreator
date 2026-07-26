@@ -1839,6 +1839,13 @@ public class EditorTimelineView extends View {
      * Converts to absolute ms position in timeline.
      * Works regardless of UI selection state - uses last known playing segment.
      */
+    /**
+     * How far past a clip's out-point a playback report may run and still be treated as
+     * "the seam is passing" rather than a bad report. Observed overshoot is 9-48ms; half a
+     * second is comfortably above that and far below a real mis-attribution.
+     */
+    private static final long MAX_BOUNDARY_GLIDE_SOURCE_MS = 500L;
+
     public void setPlayheadFraction(float sourceFraction) {
         // Use last valid index for playback if currently deselected
         int playbackIndex = selectedIndex >= 0 ? selectedIndex : lastPlaybackIndex;
@@ -1848,12 +1855,30 @@ public class EditorTimelineView extends View {
         if (playbackIndex >= 0 && playbackIndex < segments.size()) {
             SegmentData sd = segments.get(playbackIndex);
             long selectedSegmentStartMs = getSegmentStartTime(playbackIndex);
-            long localMs = (long)(sourceFraction * sd.sourceDurationMs);
+            long rawSourceMs = (long)(sourceFraction * sd.sourceDurationMs);
+            // BOUNDARY GLIDE: near a cut the player keeps reporting positions a little PAST
+            // this clip's out-point (measured on the Note 20: 9-48ms over, for 2-6 updates
+            // in a row). Pinning every one of them to the out-point froze the playhead at
+            // each cut for 110-330ms before the next clip's updates took over — a visible
+            // hitch on every edit. Carry the overshoot FORWARD instead, so the playhead
+            // keeps moving through the seam at the rate time is actually passing.
+            // Only a SMALL overshoot glides: a wildly out-of-range fraction is a stale or
+            // wrong-segment report, and flinging the playhead across the timeline on one of
+            // those would be far worse than the freeze this replaces.
+            long overshootMs = 0;
+            if (rawSourceMs > sd.outPointMs) {
+                long overSourceMs = rawSourceMs - sd.outPointMs;
+                if (overSourceMs <= MAX_BOUNDARY_GLIDE_SOURCE_MS) {
+                    overshootMs = (long) (overSourceMs / sd.speed);
+                }
+            }
             // Convert from source position to trimmed position
-            localMs = Math.max(sd.inPointMs, Math.min(localMs, sd.outPointMs)) - sd.inPointMs;
+            long localMs = Math.max(sd.inPointMs, Math.min(rawSourceMs, sd.outPointMs))
+                    - sd.inPointMs;
             // Adjust for speed
             localMs = (long)(localMs / sd.speed);
-            playheadPositionMs = selectedSegmentStartMs + localMs;
+            playheadPositionMs = Math.min(totalEffectiveMs,
+                    selectedSegmentStartMs + localMs + overshootMs);
 
             // Remember this index for playback continuation
             lastPlaybackIndex = playbackIndex;

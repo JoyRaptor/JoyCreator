@@ -97,7 +97,16 @@ def new_algo(tl):
     return rows
 
 fails = 0
-for path in sorted(glob.glob(sys.argv[1])):
+# Print the match count and treat zero as a HARD FAILURE. A guard that "passes"
+# over no files is worse than no guard: this one silently did exactly that once,
+# because Windows python cannot resolve a /c/... path (pass C:/... instead).
+_paths = sorted(glob.glob(sys.argv[1], recursive=True))
+print(f"pattern : {sys.argv[1]}")
+print(f"MATCHED : {len(_paths)} file(s)")
+if not _paths:
+    print("FAIL: zero files matched - nothing was verified.")
+    sys.exit(1)
+for path in _paths:
     j = json.load(open(path, encoding='utf-8'))
     tl = j['timeline']
     if 'layers' not in tl:

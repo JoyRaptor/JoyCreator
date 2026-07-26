@@ -2,6 +2,29 @@
 
 ---
 
+## 0z. PROGRESS LOG (newest first) — updated as work lands this session
+
+- **B2 FIXED + device-verified (`a9e4503`).** Diagnosis: NOT a start-freeze. cebc19e0
+  ("P0 control2 plain", the cat project, row 1/2 in the list — NOT the screen-recording
+  "Untitled" project that happens to be open on arrival, which is a DIFFERENT project)
+  plays fine from the start. The bug is **pressing play with the playhead already at the
+  timeline END = silent no-op** (no auto-rewind): play() seeks to the last clip's trim-end,
+  immediately hits end, stops (`Playback stopped at last segment end` -> STATE_ENDED),
+  playhead never moves, no audio. Fix rewinds to 0 at end. The load-bearing signal is
+  `isAtTrimEnd() on the last segment` gated on `!hasAudioTail` — isEnded() is false (Activity
+  pauses proactively ~150ms before ENDED) and the terminal playhead (13166) sits 189ms below
+  getTimelineEndMs()'s sum-of-clips (13355) because of 3 transitions, so neither isEnded() nor
+  a position-epsilon could fire. Proven by on-device log + screenshots; positive control
+  (mid-clip play does NOT rewind) also passed.
+- Note: opening cebc19e0 bumps its lastModified (now row 1). Playback/scrub with autosave may
+  have touched the earlier "Untitled" screen-recording project's mtime — re-verify the 9
+  non-cebc sandbox projects' sha256 at end of stretch (cebc19e0 intentionally still diverges).
+- Wakeup mechanism note: ScheduleWakeup is /loop-scoped and clamps to 1h; cloud scheduled
+  tasks have NO device access (wrong env). Continuation is by ongoing work in-session; this
+  §0z + git log is the seam if the turn ends.
+
+---
+
 ## 0a. HUMAN TEST PASS, 2026-07-26 ~12:20 — findings + two product decisions
 
 The user ran the four things a harness cannot. Evidence is on the Note 9 in

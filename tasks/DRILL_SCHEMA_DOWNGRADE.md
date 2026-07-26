@@ -3,6 +3,39 @@
 Ship-blocker #3 in `road_map.md` is *"Schema downgrade-guard drill — only forward migration
 exercised on a real project."* This is the recipe, plus what reviewing the guard already found.
 
+## RUN 2026-07-26 03:00–03:12, Note 9 (SM-N960U) — 7/7 PASS, one real gap found
+
+Run on a throwaway `cp -r` clone of a real sandbox project (4 clips / 3 audio / 5 text /
+2 sprites / 1 overlay clip) hand-stamped `"schemaVersion": 99`, with its `.bak` deleted so
+nothing could mask the result. Pushed sha256
+`e8b0fdae06099984c6811c1813fd0d61860f156e3a81c7dffb0637adf36db751`.
+
+| step | result |
+|---|---|
+| 3 read-only dialog on open | PASS — fires immediately, wording correct ("watch and export it, but any edits you make will NOT be saved") |
+| 4 edit is visible in-session, save refused | PASS — caption size slider moved to 20% in-session; `project.json` sha256 UNCHANGED, no `.bak` created |
+| 5 close/reopen: edit gone, dialog again, file untouched | PASS — dialog re-fires; the slider reads back **6%**, not the 20% set in the previous session; sha256 still identical |
+| 6 export works | PASS — 480p/Low export reached 100% ("saved to the Records Tab"); sha256 still identical afterwards |
+| 7 restore | N/A — a throwaway clone, deleted. All 10 real sandbox projects verified sha256-identical to their safety copies afterwards |
+| forward case (older stamp opens + saves) | PASS — a v7-stamped fixture opened and re-saved, restamped to 11 |
+
+**GAP FOUND — the sidecar was not covered.** `project.json` was correctly left
+byte-identical, but a **75,933-byte `undo_history.json` was written into the directory**,
+because `save()`/`saveAsync()` each carry the guard and the undo-history write path does
+not (it takes only a `projectId`, so it cannot even see the flag). Fixed by bailing out at
+the top of `saveProjectNow`, and by refusing to RESTORE a read-only project's undo history
+on open — an undo stack whose snapshots can never be saved is incoherent, and it would
+also resurrect any sidecar left by a build predating the fix.
+
+Re-run after the fix: **no `undo_history.json` at all**, `project.json` still sha256
+`e8b0fda…`. Non-regression on a v10 (writable) clone through the identical tap sequence:
+`project.json` sha256 changed, `.bak` rotated, `undo_history.json` written (75,930 bytes) —
+so the new early-return only affects read-only projects.
+
+This is the third time this guard has passed code review and then failed a real run
+(silent refusal, now the sidecar). Re-run the drill whenever a new file is written next to
+`project.json`.
+
 ## What the guard does (verified by reading, 2026-07-25)
 
 - `ProjectStorage.load` compares the on-disk `schemaVersion` to

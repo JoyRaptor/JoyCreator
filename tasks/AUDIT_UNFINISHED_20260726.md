@@ -17,6 +17,19 @@ remaining instance of that pattern.
 > **Step 3 (the panel) is still open**, and that spec argues it should NOT be implemented as
 > originally written.
 
+> ## STATUS BOARD (updated 2026-07-26 ~03:10)
+>
+> | item | state | commit |
+> |---|---|---|
+> | 1.2 LAYER schema hole | **CLOSED** — stamp v11, offline-proved + device-verified | `d77daf3` |
+> | 2.1 caption size in preview | **CLOSED** — device A/B 3%↔20%, plus the re-bind-blanks-captions bug found doing it | `eaff34b` |
+> | 2.2 audio caption size persisted | **CLOSED** — device round-trip 0.15 in → 0.15 out | `eaff34b` |
+> | 1.3 `layerId: null` | **CLOSED for the 4 named sites**; ~219 sibling reads still exposed, see the commit | `7a09eb6` |
+> | 1.4 downgrade drill | **RAN 7/7 on device** — guard holds, dialog fires, file byte-identical, export works. Found one real gap: the undo-history sidecar was written for a read-only project | see below |
+> | guard hygiene | zero-match now a hard failure in both python guards | `b8b6234` |
+>
+> Everything else below is untouched and still open.
+
 ---
 
 ## TIER 1 — DATA-LOSS RISK

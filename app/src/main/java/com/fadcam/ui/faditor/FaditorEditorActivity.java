@@ -2318,10 +2318,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Restore animated captions if a clip had them enabled.
         editorTimeline.post(this::restoreCaptionsAfterLoad);
 
-        // Restore undo history from disk
+        // Restore undo history from disk — but never for a read-only (newer-schema)
+        // project. Its snapshots describe edits that this build refuses to save, so
+        // restoring them offers an undo stack that can only ever produce state the file
+        // will not receive. Also stops any sidecar already written by a build that
+        // predates the save-side guard above from resurfacing.
         List<String> descriptions = new ArrayList<>();
         List<String> snapshots = new ArrayList<>();
-        if (projectStorage.loadUndoHistory(project.getId(), descriptions, snapshots)) {
+        if (!project.isLoadedFromNewerVersion()
+                && projectStorage.loadUndoHistory(project.getId(), descriptions, snapshots)) {
             undoManager.loadHistory(descriptions, snapshots);
             FLog.d(TAG, "Restored " + descriptions.size() + " undo history entries");
         }
@@ -21810,6 +21815,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void saveProjectNow(boolean forceUndoHistory) {
         if (project != null && projectStorage != null) {
             autoSaveHandler.removeCallbacks(autoSaveRunnable);
+            // Downgrade guard, found by running DRILL_SCHEMA_DOWNGRADE end-to-end.
+            // save()/saveAsync() each refuse a project written by a NEWER build, but the
+            // undo-history SIDECAR had no such guard — so a read-only project still got a
+            // multi-MB undo_history.json written into the very directory we promised not
+            // to touch (measured: 75,933 bytes for a project whose project.json was
+            // correctly left byte-identical). Bail out at the top instead of gating one
+            // call: nothing below can legitimately be persisted for a read-only project,
+            // and skipping it also saves re-serializing every snapshot for nothing.
+            if (project.isLoadedFromNewerVersion()) {
+                FLog.d(TAG, "saveProjectNow skipped — read-only (newer schema v"
+                        + project.getSchemaVersion() + "): " + project.getId());
+                return;
+            }
             // forceUndoHistory is set on the critical paths (onPause/onDestroy) where
             // we must guarantee the bytes hit disk before the activity can die — use
             // the synchronous save + flush there. The per-edit hot path uses the

@@ -1528,7 +1528,14 @@ public class ProjectStorage {
         if (clipObj.has("overlayAudioEnabled")) {
             clip.setOverlayAudioEnabled(clipObj.get("overlayAudioEnabled").getAsBoolean());
         }
-        if (clipObj.has("layerId")) {
+        // Audit 1.3: `.has()` alone is not an optional-field guard — an EXPLICIT
+        // `"layerId": null` satisfies it and then JsonNull.getAsString() throws. Here that
+        // exception escapes deserialize() entirely and load() catches it as "file corrupt",
+        // silently falling back to project.json.bak — i.e. the user loses whatever the last
+        // save contained, with no error. `null` means "no layer" (a master clip), which is
+        // exactly what skipping this block gives. Same idiom already used for linkedClipId
+        // below and customStyleJson.
+        if (clipObj.has("layerId") && !clipObj.get("layerId").isJsonNull()) {
             clip.setLayerId(clipObj.get("layerId").getAsString());
             if (clipObj.has("overlayStartMs")) {
                 clip.setOverlayStartMs(clipObj.get("overlayStartMs").getAsLong());
@@ -2169,8 +2176,8 @@ public class ProjectStorage {
                         if (acObj.has("offsetMs")) {
                             ac.setOffsetMs(acObj.get("offsetMs").getAsLong());
                         }
-                        if (acObj.has("layerId")) {
-                            ac.setLayerId(acObj.get("layerId").getAsString());
+                        if (acObj.has("layerId") && !acObj.get("layerId").isJsonNull()) {
+                            ac.setLayerId(acObj.get("layerId").getAsString()); // audit 1.3
                         }
                         if (acObj.has("volumeLevel")) {
                             ac.setVolumeLevel(acObj.get("volumeLevel").getAsFloat());
@@ -2273,8 +2280,8 @@ public class ProjectStorage {
                             o.setImageUri(fromStorageUri(projectDir,
                                     oObj.get("imageUri").getAsString()).toString());
                         }
-                        if (oObj.has("layerId")) {
-                            o.setLayerId(oObj.get("layerId").getAsString());
+                        if (oObj.has("layerId") && !oObj.get("layerId").isJsonNull()) {
+                            o.setLayerId(oObj.get("layerId").getAsString()); // audit 1.3
                         }
                         long startMs = oObj.has("startMs") ? oObj.get("startMs").getAsLong() : 0;
                         long endMs = oObj.has("endMs")
@@ -2491,7 +2498,12 @@ public class ProjectStorage {
                             long sStart = sj.has("startMs") ? sj.get("startMs").getAsLong() : 0;
                             long sEnd = sj.has("endMs") ? sj.get("endMs").getAsLong() : Long.MAX_VALUE;
                             so.setTimeRange(sStart, sEnd);
-                            if (sj.has("layerId")) so.setLayerId(sj.get("layerId").getAsString());
+                            // Audit 1.3. Unlike the three above, this one sits inside a
+                            // `catch (Exception ignored)`, so an explicit null does not
+                            // break the load — it silently drops THIS SPRITE and moves on.
+                            if (sj.has("layerId") && !sj.get("layerId").isJsonNull()) {
+                                so.setLayerId(sj.get("layerId").getAsString());
+                            }
                             if (sj.has("endBehavior")) so.setEndBehavior(sj.get("endBehavior").getAsString());
                             if (sj.has("avatarRigId")) {
                                 so.setAvatarRigId(sj.get("avatarRigId").getAsString());

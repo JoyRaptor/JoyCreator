@@ -4,7 +4,38 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### NEW TIER-1 BUG FOUND AND **DEVICE-REPRODUCED**: undo is silently dead after an AI edit
+### ⚠️ NEW DEFECT FOUND WHILE VERIFYING THE FIX BELOW — **snapshot-based undo is OFF BY ONE.**
+Restoring an entry's `snapshotBefore` yields the state INCLUDING that edit, not the state
+before it, despite the field's name and javadoc. Measured: after undoing a
+`Trim [0–1929] → [0–616]` via the snapshot path, the saved project still held
+`outPointMs=616`. **Pre-existing, not introduced by 4f0eee6** — the same mechanism governs
+every history entry reloaded from disk, so undo after an app RESTART has presumably always
+been off by one (that variant is NOT separately reproduced). The AI checkpoint is immune by
+construction because it is captured before the project swap. Fixing it means moving when
+`recordAction` captures its snapshot, which is core-path surgery and wants its own session
+plus a positive control. **Do not fold it into an unrelated change.**
+
+### AI EDITS ARE NOW ONE LABELLED, UNDOABLE, VIOLET UNDO STEP (`4f0eee6`) — user-approved
+design, device-verified. `recordAiCheckpoint()` captures the pre-AI state BEFORE
+`project = reloaded`; `invalidateActionsForProjectSwap()` drops the poisoned action refs and
+keeps the snapshots (removing entries that have neither, since `recordAction` skips the
+snapshot when one was taken too recently); `HistoryEntry.aiOrigin` drives a violet row in the
+long-press history popup and round-trips through the sidecar (absent `ai` reads as
+user-authored, so old sidecars load unchanged); `AIChatState` now carries a description so
+the row reads "Added a title card". Proof on the Note 9: undo=1 after a trim → AI edit +
+resume → `Recorded AI checkpoint: Added a title card (undo=2)`, 0 entries dropped → popup
+shows the AI row violet above the white user row → one undo removes the AI's overlay from
+the preview, the timeline AND the saved file.
+**Still wanted by the user, NOT built:** (1) per-step granular undo for a multi-op AI run,
+with tool icons — note their own caveat that acquisitions (transcribe, analyse silence)
+should probably NOT be undoable, so the split is mutations-are-undoable vs
+acquisitions-are-informational; watch the undo-history OOM history before adding N snapshots
+per AI turn. (2) A pre-execution checkbox approval list of what the AI plans to do
+(unchecked = muted + strikethrough), executing as one step — cheap given `EditScript` already
+carries typed ops and a description and `validate()` already exists, BUT ops are
+order/state-dependent, so unchecking one needs re-validation and dependent-op handling.
+
+### PRIOR TIER-1 BUG, **DEVICE-REPRODUCED** then FIXED by 4f0eee6: undo silently dead after an AI edit
 (full write-up = audit item **1.5**). When the AI assistant edits a project, the editor
 reloads and does `project = reloaded` (`FaditorEditorActivity.java:1245-1272`) but never
 clears or rebinds the undo stack, so every entry still points at the DISCARDED object graph.

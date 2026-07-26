@@ -292,9 +292,33 @@ add there; item bodies were already per-item-kind.
 > - **4 re-confirmed** on the same runs: `layerId` round-trips literally as
 >   `"mixedlane-0001"` on all three payloads.
 >
+> **DONE 2026-07-26 ~03:40 — item 8 (export A/B frame diff) PASSES both halves.**
+> Four exports off four throwaway clones, identical export settings (480p/Low, 480x854,
+> 4.229 s), diffed with the new reusable `tasks/export_ab_diff.py`:
+>
+> | | claim | result |
+> |---|---|---|
+> | A neutral lane **vs** B own-type lanes | lane membership must not move pixels | **0 / 253 frames differ**, maxAbsDiff 0 |
+> | C lane eye off **vs** D items removed entirely | a hidden lane exports none of its payloads | **0 / 253 frames differ**, maxAbsDiff 0 |
+> | A **vs** C — POSITIVE CONTROL | the harness must see a real difference | 253 / 253 differ, maxAbsDiff 255, 112,241 pixels on the worst frame |
+>
+> The control matters: without it, "0 frames differ" is equally consistent with a broken
+> diff. Two things this run had to get right, both recorded in the script:
+> - **Compare pixels, not files.** A and B have the SAME byte length (827,002) and
+>   DIFFERENT sha256 — mp4 container metadata differs while every frame is identical. A
+>   hash comparison would have reported a difference that does not exist.
+> - **Asymmetric geometry.** Items at (0.30,0.22), (0.68,0.40), (0.35,0.72): no x-, y- or
+>   xy-flip maps any item onto another item's slot or onto itself. `--check-asym` re-derives
+>   this and refuses to run on a fixture that could hide a flip — the a4fbeba lesson.
+>
+> One harness trap worth knowing: an export of this project takes **~55 s**, not the ~15 s
+> the progress dialog suggests, and `am force-stop` during muxing truncates the file (no
+> moov atom, 636 KB instead of 827 KB). Wait for the output size to be stable across
+> several polls before touching the app.
+>
 > Still open: **5, 6, 7** (gesture-level — drag-and-drop injection drifts on this device, see
 > the device-input-injection-limits memory, so these want either a human or the
-> temp-widen-a-constant trick) and **8** (export A/B frame diff).
+> temp-widen-a-constant trick).
 
 Model-level (injection, cheap, deterministic — use recipe (b) in the handoff block):
 1. ✅ **DONE** — Sprite + PiP with `layerId:"text"` and a text overlay with `layerId:"sprite"`

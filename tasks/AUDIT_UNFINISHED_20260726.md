@@ -21,6 +21,7 @@ remaining instance of that pattern.
 >
 > | item | state | commit |
 > |---|---|---|
+> | 1.1 transcript windowing step 3 | **CLOSED** — built as the DECIDED navigator (current-clip highlight + tap-a-dimmed-word-jumps-to-that-clip), device-verified against blind offline predictions; also fixed the shared-instance highlight freeze at a split seam | `bd84402` |
 > | 1.2 LAYER schema hole | **CLOSED** — stamp v11, offline-proved + device-verified | `d77daf3` |
 > | 2.1 caption size in preview | **CLOSED** — device A/B 3%↔20%, plus the re-bind-blanks-captions bug found doing it | `eaff34b` |
 > | 2.2 audio caption size persisted | **CLOSED** — device round-trip 0.15 in → 0.15 out | `eaff34b` |
@@ -57,8 +58,13 @@ in/out. **No transcript migration existed** (grepped every `migrate*` in
 Timeline/ProjectStorage). Live consequence: the exact regression baking was added to prevent
 now ships — after a split the panel wraps ALL words sequentially, so each half shows the
 other's words misaligned.
-**Risk:** DATA-LOSS (historical) + SILENT WRONGNESS (current). **VERIFIED-OPEN.**
-*(Migration since built; step 3 still open.)*
+**Risk:** DATA-LOSS (historical) + SILENT WRONGNESS (current). **CLOSED `bd84402`.**
+*(Migration since built. Step 3 landed 2026-07-26 — but NOT as "window the panel to the
+clip": the user decided the panel should keep showing the WHOLE source and become a
+NAVIGATOR. The "each half shows the other's words misaligned" symptom above was already
+gone by then, because post transcript-SHARING every clip of one source holds the same
+whole-source transcript; what was missing was the current-clip highlight and the
+cross-clip tap. Both built and device-verified — see HANDOFF §0z.)*
 
 ### 1.2 `TrackKind.LAYER` shipped with NO schema bump — an older build silently rewrites lanes
 `SPEC_NEUTRAL_SUBSTRATE.md:180-198` declared "Storage: FREE… No schema bump", relying on

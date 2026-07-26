@@ -4,9 +4,58 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### NEXT UP — audit 2.3, preset crops during transitions (read the F12 RE-SCOPED block in
-PERF_SPEC_LONGFILE_20260718.md first), then the rest of AUDIT_UNFINISHED_20260726.md's
+### NEXT UP — audit 2.3, preset crops during transitions. SCOPED BELOW, no device work
+started yet (clean seam — nothing half-done). Then the rest of AUDIT_UNFINISHED_20260726.md's
 STATUS BOARD in its stated order. B1/B4/B5/B3-remedy still await a user design decision.
+
+**2.3 scoping done this session (do NOT re-derive):**
+
+- **The four sites, all branching `"custom".equals(clip.getCropPreset())` and applying NO
+  crop for a named preset:** `GlTransitionFrameOverlay.cropSrcRect` (:216, export incoming
+  leg), `FaditorEditorActivity.cropToClipBounds` (:9281, preview static tier),
+  `liveLegGeometry` (:9053, preview live A+B tier) and `cropKey` (:9302 — the frame-cache
+  key; MISS IT AND a preset-cropped frame gets served from an uncropped cache entry).
+  The OUTGOING leg is already correct in export: `ExportManager` :2331-2340 feeds the Crop
+  effect from `getCropRect(preset)` for any non-`none` preset.
+- **The one conversion to route all four through** (per the RE-SCOPED block): NDC→fractions
+  off `ExportManager.getCropRect`, whose array is `{left, right, bottom, top}` in NDC −1..1
+  and is consumed as `new Crop(left, right, bottom, top)`. Fractions: `l=(left+1)/2`,
+  `r=(right+1)/2`, `t=(1-top)/2`, `b=(1-bottom)/2`. That table is currently private static
+  in ExportManager — expose it (or move it) so preview and export cannot drift apart. Keep
+  the existing epsilon rules (`>0.01`, and full when both `>=0.99`).
+- **Transition seam convention (verified from `TransitionIndex.removeForDeletedClip`, which
+  drops `t.clipIndex == i` and `i-1` for clip i):** a transition at `clipIndex = i` is the
+  seam AFTER clip i, so OUTGOING = clip i and **INCOMING = clip i+1**. The crop under test
+  goes on clip i+1.
+- **Fixture candidate:** `aeb0517e` ("AudioExportVerify") already has a `GL_SHADER`
+  cross_dissolve. Prefer JSON surgery on an ALREADY-INDEXED project + restore afterwards
+  (what F12 did with 302da9ac) over a cloned dir — a dir created behind the app's back is
+  NOT indexed and its list row misroutes the click.
+- **⚠️ CORRECTION to the RE-SCOPED block's step 4 — `--check-asym` does NOT apply here.**
+  It takes ITEM CENTRES (`x,y;x,y`) and fails when a flip maps one item onto another: it is
+  a compositing-LAYOUT guard, not a crop guard. And its intent ("put the crop OFF-CENTRE")
+  is unachievable by construction: EVERY named preset rect is centred on both axes, so no
+  preset fixture can expose a flip of the crop rect. Do not fake an off-centre preset —
+  that would no longer be the thing under test. Use these two guards instead:
+    1. **Within-export blend-vs-post-cut framing comparison** (what F12 actually proved):
+       pull a mid-blend frame and a post-cut frame from the SAME export. Post-cut framing
+       comes from the Crop effect, the known-good authority — so "no snap at the cut" is a
+       real check, and it is the check the user-visible bug is about.
+    2. **Pick the `9:16` preset** (x∈[-0.3125,0.3125], y FULL) on the 1080x1920 portrait
+       sources: it crops in ONE axis only, so the realistic bug for this conversion —
+       mis-indexing the `{left,right,bottom,top}` array and cropping the wrong axis —
+       shows up as an obviously wrong framing rather than a subtle offset.
+- **Order (unchanged and load-bearing): BASELINE BOTH EXPORTS BEFORE TOUCHING CODE.**
+  Fixture P = preset `9:16` on the incoming clip; fixture C = the numerically equal `custom`
+  fractions (l=0.34375, r=0.65625, t=0, b=1). Today they must DIFFER mid-blend and AGREE
+  after the cut — capturing that difference first is what makes the later fix
+  distinguishable from a no-op. Then the symmetric 4-site change, then re-export both and
+  require agreement THROUGHOUT, plus preview screenshots mid-blend for both (an export-only
+  diff cannot see a preview regression, and preview/export parity is the invariant this
+  item exists to protect).
+- Do NOT "correct" the preset table's 16:9-oriented NDC constants in the same change (a
+  standing warning in the RE-SCOPED block): parity with the cut is the goal, and
+  "fixing" the constants would break it.
 
 - **TRANSCRIPT NAVIGATOR DONE + device-verified (`bd84402`).** Built both halves of the
   decided design. (1) `TranscriptPanelView.setClipWindow(inMs,outMs)` + `inClipWindow()`:

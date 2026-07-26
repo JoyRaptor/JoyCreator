@@ -141,3 +141,52 @@ have nothing to draw and can skip layout entirely — keeping the whole feature 
 3. A project that never reorders lanes is pixel-identical to today (the ordering degenerates to
    the current type order when every zIndex is 0 — assert this in the simulation, not by eye).
 4. Export A/B frame diff confirms 1 and 2 with absolute geometry.
+
+### RUN 2026-07-26 03:45–04:10, Note 9 — 1, 2 and 4 all PASS (Z3/Z4 debt cleared)
+
+Three throwaway clones, identical in every respect except the one variable, each exported at
+480p/Low (480x854, 4.229 s, 253 decoded frames) and diffed with `tasks/export_ab_diff.py`:
+
+| fixture | text lane zIndex | PiP lane zIndex | text |
+|---|---|---|---|
+| `Zbelow`  | 0 | 5 | present |
+| `Zabove`  | 9 | 5 | present |
+| `Znotext` | – | 5 | removed |
+
+Geometry is absolute and asymmetric — text centre (0.42, 0.60), PiP centre (0.45, 0.55);
+`--check-asym` confirms no x-, y- or xy-flip maps either onto the other or onto itself, so a
+flip cannot hide (the a4fbeba lesson).
+
+**Acceptance 1 — text on the lower lane really is BEHIND the PiP.** In `Zbelow` the glyph run
+`ZPROBE` comes out as `ZP…E`: measured over the text band (rows 429–564, threshold 40/255,
+which is far above the 8/255 residual measured elsewhere), the hidden columns form **exactly
+one contiguous band, x 148–283 (136 px)**, with surviving glyph pixels in **exactly two runs,
+x 92–147 and x 285–311 — one on each side of it**. That band is the PiP rectangle. This is a
+strictly stronger result than the full occlusion the fixture was aiming for: a
+"text never drawn" bug would hide ALL glyph columns, and a "z ignored" bug would hide NONE.
+Only real clipping by the PiP's silhouette produces a hidden middle with visible ends.
+
+**Acceptance 2 — the flip changes nothing else.** `Zabove` shows the complete glyph run over
+the PiP. Outside the text's own band, `Zbelow`, `Zabove` and `Znotext` are **pixel-identical**:
+zero pixels above 8/255, worst residual 5–8, which is lossy-encode noise. So "with no other
+visual change" is measured, not assumed.
+
+**Acceptance 2, preview leg** — verified on the same fixtures before exporting: `ZPROBE` is
+invisible at zIndex 0 and visible at zIndex 9, with nothing else in the frame moving.
+
+**Acceptance 4 — confirmed**, per the two blocks above.
+
+**Acceptance 3** stays where it was: proved by simulation (`tasks/visible_equiv.py`, all-zero
+zIndex ⇒ below bucket empty ⇒ today's order) rather than by eye, which is what it asks for.
+The neutral-substrate item-8 run adds a pixel-level version of the same claim — with every
+zIndex at its default, a neutral lane and own-type lanes exported **0/253 differing frames**.
+
+Two traps for whoever repeats this:
+- Do NOT compare mp4 hashes. Separate encodes of the same composite differ in container bytes
+  while every frame is identical.
+- Do NOT threshold a cross-encode diff at 1. Lossy residual reaches 8/255 on high-contrast
+  edges; an x-projection at that threshold reported occluded columns out to the canvas edge
+  and made a clean result look broken. 40/255 separates signal from noise here.
+- The PiP's `scale: 0.90` renders ~136 px wide on a 480 px canvas, so it is NOT a fraction of
+  canvas width. Do not size a fixture assuming it is — that is why the intended full
+  occlusion came out partial.

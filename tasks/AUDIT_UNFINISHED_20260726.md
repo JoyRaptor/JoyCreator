@@ -27,8 +27,17 @@ remaining instance of that pattern.
 > | 1.3 `layerId: null` | **CLOSED for the 4 named sites**; ~219 sibling reads still exposed, see the commit | `7a09eb6` |
 > | 1.4 downgrade drill | **RAN 7/7 on device** — guard holds, dialog fires, file byte-identical, export works. Found one real gap: the undo-history sidecar was written for a read-only project | see below |
 > | guard hygiene | zero-match now a hard failure in both python guards | `b8b6234` |
+> | 2.7 neutral substrate | items **2, 3** (preview/eye, device A/B) and **8** (export frame diff) now RUN and pass; 4 re-confirmed. Items 5–7 still open (gesture injection drifts) | `c8cee20`, `9c8e8bc` |
+> | 2.6 cross-type Z | **CLOSED** — acceptance 1, 2 and 4 all run on device. Z3's visual debt and Z4's frame-diff debt are cleared | see `SPEC_CROSSTYPE_Z.md` |
 >
-> Everything else below is untouched and still open.
+> New reusable tooling: `tasks/export_ab_diff.py` (absolute-geometry export frame diff, with a
+> `--check-asym` gate that refuses fixtures symmetric enough to hide a flip) and
+> `tasks/schema_layer_stamp.py`.
+>
+> Everything else below is untouched and still open. Next by the recommended order: **2.5**
+> (PiP audio plumbing — nobody has listened to a PiP or exported one; note the export A/B
+> harness now exists and an audio-track energy comparison would settle "doubled audio"
+> objectively), then **2.3** (preset crops during transitions — read the F12 RE-SCOPED block).
 
 ---
 

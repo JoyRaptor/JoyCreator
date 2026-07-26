@@ -2,19 +2,41 @@
 
 ---
 
-## 0. CURRENT STATE (updated 10:20) — READ THIS FIRST
+## 0. CURRENT STATE (updated 11:40) — READ THIS FIRST
 
-HEAD `0c13dca`, branch `joy-creator`, tree clean except the always-ignorable
+HEAD `270ce4c`, branch `joy-creator`, tree clean except the always-ignorable
 `tools/jvm-harness/out*/`. Build watcher ALIVE, installing to the **Note 9 only** (Note 20
-unplugged). APK 10:11:27, installed, newer than every source file.
+unplugged). APK 11:19:50, installed, newer than every source file.
 
-**Pick up here:** the `hasValue()` null-guard sweep (commit `0c13dca`) did the CLIP
-deserializer — 44 sites — and left roughly 175 more in the audio, textOverlay and sprite
-deserializers plus the transcript/keyframe/effect sub-objects. The helper exists, the pattern
-is one token per site, and the device acceptance test is written out in that commit message
-(explicitly null every optional field of one payload type, confirm the project loads under its
-OWN name with object counts unchanged). That is the highest value-per-risk work remaining and
-it is batch-able: one payload type per commit.
+**Pick up here.** The `hasValue()` sweep is now COMPLETE (`0c13dca` + `270ce4c`): all 195
+guard sites in ProjectStorage's read paths examined, 182 converted, 13 identity fields left
+loud on purpose. Device-verified on both the clip path and the audio/text/sprite/overlayClip
+paths.
+
+That work surfaced the thing actually worth doing next, which is bigger than the guard class:
+
+> **A single malformed value in ONE item aborts deserialization of the WHOLE project**, and
+> `load()` then silently serves `project.json.bak` with nothing but an `FLog` line. The user
+> loses everything since their previous save because one overlay had a bad number. Guarding
+> optionals shrank the surface; it did not change the shape.
+>
+> Two candidate fixes, either of which is a real improvement:
+> 1. **Per-item fault tolerance** — wrap each clip/overlay/audio item's deserialization so a
+>    bad item is skipped and logged, and the rest of the project still loads. Note the sprite
+>    path ALREADY does this (`catch (Exception ignored)`), so there is precedent in-file; the
+>    other three payload types do not.
+> 2. **Make the fallback visible** — if `load()` falls back to `.bak`, tell the user, the way
+>    `warnIfProjectIsReadOnly` tells them about a newer-schema file. Silent rollback is the
+>    part that turns a bad field into lost work.
+>
+> Reproduce it in one line: take any clone, set a text overlay's `sizeFraction` to `null`
+> (read unguarded in `TextOverlayItem`'s constructor, `ProjectStorage:2290-2295`), open the
+> project — it silently opens the backup, or fails to open at all if there is no backup.
+
+**Diagnostic lesson worth keeping:** filter logcat by PID, not tag —
+`adb shell "logcat -d --pid=$(adb shell pidof com.fadcam.beta) -t 700"`. App-wide greps
+returned nothing because Bluetooth chatter had pushed the app's lines out of the window, and
+three fixtures were mis-diagnosed before I read the actual exception.
 
 **All 10 real sandbox projects are sha256-identical to their safety copies.** Every experiment
 in this run used a throwaway `cp -r` clone; nothing needed restoring. Stray artifacts left

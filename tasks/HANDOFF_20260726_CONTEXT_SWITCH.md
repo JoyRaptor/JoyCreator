@@ -206,6 +206,27 @@ Read `tasks/AUDIT_UNFINISHED_20260726.md` first — it is the map. Highlights:
 ## 7. Things the user is owed an answer on
 
 - Whether the transcript migration recovered their ~937 words (§1).
-- Timer export leg: the authority is device-verified and the preview is device-verified, but
-  **no export has ever been rendered with a timer in it**.
+- ~~Timer export leg: no export has ever been rendered with a timer in it.~~
+  **ANSWERED 2026-07-26 09:05 — the timer renders in the export and counts correctly.**
+  A throwaway clone carrying one countdown timer text (`COUNT_DOWN`/`RELATIVE`, min+sec,
+  precision NONE, span 0–4000 ms, off-centre at 0.32/0.30) was exported at 480p/Low and
+  sampled at four timestamps. Rendered values, read off the frames:
+
+  | t | expected `ceil((4000−t)/1000)` | in the exported frame |
+  |---|---|---|
+  | 0.35 s | 0:04 | **0:04** |
+  | 1.2 s | 0:03 | **0:03** |
+  | 2.2 s | 0:02 | **0:02** |
+  | 3.2 s | 0:01 | **0:01** |
+
+  4/4, matching `TimerText.format`'s ceiling-seconds contract (the same values
+  `tools/jvm-harness/TimerTextTest.java` asserts). This is self-validating in a way a single
+  frame would not be: a static text overlay cannot produce four different values in the right
+  order, so it also rules out "the timer is baked as one frozen string at export time" — which
+  was the plausible failure mode given preview and export share the authority but not the
+  render loop.
+
+  *Caveat worth stating: this verifies the RELATIVE countdown path with minutes+seconds and
+  precision NONE. `ABSOLUTE` basis, `COUNT_UP`, hours, and the FRAMES/MILLIS precisions are
+  covered by the 38/38 JVM harness but have not been through an export.*
 - They asked for animated text; the spec exists, the build does not.

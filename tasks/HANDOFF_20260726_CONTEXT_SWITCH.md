@@ -2,13 +2,27 @@
 
 ---
 
-## 0. CURRENT STATE (updated 03:15, after the audit stretch) — READ THIS FIRST
+## 0. CURRENT STATE (updated 08:25) — READ THIS FIRST
 
-HEAD `6851eca`, branch `joy-creator`, tree clean except the always-ignorable
+HEAD `cc1691a`, branch `joy-creator`, tree clean except the always-ignorable
 `tools/jvm-harness/out*/`. Build watcher ALIVE and installing to the **Note 9 only**
-(Note 20 unplugged). Installed APK 03:07:57, current with source.
+(Note 20 unplugged). Installed APK 03:07:57 — verified newer than the newest source file
+(03:07:44); everything since has been docs/tooling only, so no Java is waiting to compile.
 
-Landed this stretch, each with its own offline proof and device verification:
+**Verification-first tooling now in `tasks/` — reuse these, do not rebuild them:**
+- `export_ab_diff.py` — decode two exports and diff pixels. `--check-asym` REFUSES a fixture
+  symmetric enough to hide a flip. Never compare mp4 hashes; never threshold below ~40/255.
+- `export_audio_probe.py` — fit a source's amplitude inside an export. 1.0 = mixed once,
+  2.0 = doubled. `--expect-absent` for the not-opted-in control.
+- `schema_layer_stamp.py` — schema-stamp survey + corruption repro + source tripwires.
+
+**Second stretch (04:00–08:25):** 2.7 items 2/3/8, 2.6 acceptance 1/2/4, 2.5 export leg.
+See the audit's STATUS BOARD. Three verification lessons, each of which produced a confident
+wrong answer before it was caught: a symmetric fixture hides flips; a cross-encode pixel diff
+thresholded at 8/255 reports noise as signal; a correlation probe nearly as long as the export
+has no lag headroom and fits garbage (reported gain −0.204 where the truth was 0.993).
+
+Landed in the first stretch, each with its own offline proof and device verification:
 
 | commit | audit item | proof |
 |---|---|---|

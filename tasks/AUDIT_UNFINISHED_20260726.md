@@ -60,13 +60,42 @@ remaining instance of that pattern.
 >   `enforceNoOverlapTextLanes()`, `enforceNoOverlapVideoLanes()`
 >   (`FaditorEditorActivity.java:1141, 1156, 1164`).
 >
-> **Reported by the same pass but NOT independently re-verified — treat as leads, confirm before
-> acting:** that audio alone lacks a load-time overlap pass (the code comment at :1164 claims
-> "completes text/sprite/audio/PiP coverage", which contradicts the lead — resolve that first);
-> that 3.3 is worse than written because six `AIToolExecutor` apply sites record NO undo at all
-> (not merely lossy transitions), while the one site using `EditActions.AddClipAction` is
-> arithmetically correct and must NOT be "fixed"; and that 3.2's `removedSpans` sub-claim is a
-> non-issue because removed spans are source-time and clamped per half at consumption.
+> **3.7's audio question — RESOLVED by reading, and the contradiction was only apparent.**
+> Audio and text/video use DIFFERENT, deliberate strategies, which is why there is no
+> `enforceNoOverlapAudioLanes` and why the :1164 comment still says audio is "covered":
+> - text/sprite/PiP: separated onto ANOTHER LANE, at LOAD time, preserving their time
+>   (`enforceNoOverlapTextLanes` / `enforceNoOverlapVideoLanes`, `Timeline.java:651, 701`).
+> - audio: SHIFTED IN TIME to the nearest free slot on its own lane, at ADD time only
+>   (`Timeline.resolveAudioOverlap:438`, called from `addAudioClip` :410/:424; the `false`
+>   overload exists so undo/restore can reproduce an exact position).
+>
+> So the real residue is narrow: audio clips that were PERSISTED overlapping stay overlapping
+> across a load. Consequence is **cosmetic/interaction only** — two blocks drawn in one row and
+> ambiguous hit-testing. It is NOT data loss and NOT wrong output: export mixes every audio clip
+> regardless of lane. **Deliberately not built.** A load-time audio pass rewrites `layerId`s and
+> persists on the next autosave, i.e. it is a data-touching migration, and there is currently no
+> device attached to verify it against a real project. It also is not obviously the right repair:
+> audio's existing contract is "never overlap in time", so lane-splitting would contradict it.
+> *(Correction to the coupling worry in the review pass: adding audio lanes could NOT newly
+> expose the legacy `drawAudioTrack` branch. `audioLayerTracks` is fed from `getAudioTracks()`
+> (`FaditorEditorActivity.java:10775` → `EditorTimelineView.java:537`), which returns ≥1 track
+> whenever any audio clip exists, so the list cannot be emptied by ADDING lanes.)*
+>
+> **3.2 sub-claims — I re-read these three sites and confirm all three:**
+> - `removedSpans` really are source-time and clamped to `[inPointMs, outPointMs]` at consumption
+>   (`Clip.java:773-779`), so each split half excludes the other's spans by construction. That
+>   sub-claim is a **non-issue — drop it.**
+> - `offerDualStreamPairInsert` has exactly ONE call site (`FaditorEditorActivity.java:22671`,
+>   inside the playhead-insert path). "Entry point B" genuinely does not exist. **VERIFIED-OPEN.**
+> - The speed-mismatch trim guard (`:24173-24178`) does `FLog.w(... "trimming master only")` and
+>   trims the master. So it is not silent in the LOG but is entirely silent to the USER.
+>   **VERIFIED-OPEN, and the real gap is user-facing notice.** Note both remaining 3.2 items (a
+>   linked badge on clip blocks, a user-visible mismatch notice) are UI-visible additions →
+>   **user design decisions, not mechanical fixes.**
+>
+> **Still NOT independently verified — treat as a lead:** that 3.3 is worse than written because
+> six `AIToolExecutor` apply sites record NO undo at all, while the one site using
+> `EditActions.AddClipAction` is arithmetically correct and must NOT be "fixed".
 >
 > Everything else below is untouched and still open.
 

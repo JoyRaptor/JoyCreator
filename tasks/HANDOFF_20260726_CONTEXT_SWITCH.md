@@ -4,9 +4,35 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### NEXT UP — the rest of AUDIT_UNFINISHED_20260726.md's STATUS BOARD in its stated order
-(Tier 3, then Tier 4). B1/B4/B5/B3-remedy still await a user design decision, and there is
-now a FIFTH thing needing a user decision — the preview-side preset-crop gap, below.
+### ⚠️ NO DEVICE ATTACHED as of ~18:20. `adb devices` is EMPTY — the Note 9 was unplugged
+(the Note 20 did NOT appear; nothing was installed to a wrong phone). Device verification is
+unavailable until a phone is back. The build watcher is still alive and still compiles, so
+source edits are safe, but NOTHING can be device-proved right now — and the watcher will
+auto-install to whatever phone appears next, so re-check `adb devices` before saving source.
+
+### NEXT UP — Tier 3 / Tier 4 of AUDIT_UNFINISHED_20260726.md. Most of what is left is either
+a USER DESIGN DECISION or a data-touching change that should not land unverified. Pending user
+decisions now number five: B1, B4, B5, B3's remedy, and the preview-side preset-crop gap.
+
+- **Tier 3 triage done (no code shipped — on purpose).**
+  - **3.7's audio contradiction RESOLVED by reading** (details in the audit doc): audio and
+    text/video use deliberately DIFFERENT strategies — text/sprite/PiP get separated onto
+    another LANE at load, audio gets SHIFTED IN TIME at add-time
+    (`Timeline.resolveAudioOverlap:438`). So the missing "audio load-time pass" is not an
+    oversight of the same mechanism. Residue is narrow and **cosmetic only** (persisted
+    overlapping audio draws two blocks in one row; export mixes every audio clip regardless of
+    lane). NOT built: it is a data-touching migration (rewrites layerIds, persists on autosave)
+    and there is no device to verify it on. Also corrected a coupling worry from the review
+    pass — adding audio lanes cannot re-expose the legacy `drawAudioTrack` branch, because
+    `audioLayerTracks` comes from `getAudioTracks()`, which is non-empty whenever any audio
+    clip exists.
+  - **3.2: I re-read all three sub-claims.** `removedSpans` clamping makes that sub-claim a
+    **non-issue (drop it)**; "no entry point B" for dual-stream auto-detect is **real** (one
+    call site); the speed-mismatch trim logs a warning but says nothing to the USER — **real**.
+    Both remaining 3.2 items are UI-visible additions, so they are design decisions, not
+    mechanical fixes.
+  - **3.5 stays closed** (premise dead — verified last stretch). Its only residue is dead-code
+    removal, which is not worth doing blind with no device to confirm the timeline still draws.
 
 - **2.3 EXPORT LEG FIXED + device-proved. PREVIEW LEG DELIBERATELY NOT SHIPPED (needs a user
   decision) — see below.** The preset table moved from `ExportManager.getCropRect` to

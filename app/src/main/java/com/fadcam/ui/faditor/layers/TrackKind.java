@@ -21,8 +21,9 @@ import androidx.annotation.NonNull;
  *       holds text/sticker/sprite/image/video items MIXED. Only exists as a
  *       {@code LayerTrackDef} kind — {@code Timeline#getLayers()} merges every payload
  *       type sharing its layerId into one Track. Old builds reading a project with a
- *       LAYER def degrade via {@link #fromName}'s VIDEO fallback (row renders as PiP-kind;
- *       no crash, no data loss).</li>
+ *       LAYER def degrade via {@link #fromName}'s VIDEO fallback, which does not crash
+ *       but IS data loss on that build's next autosave — see
+ *       {@link #minSchemaVersion()}.</li>
  * </ul>
  *
  * <p>Only {@code MASTER}, {@code TEXT} and {@code AUDIO} are produced by the M5 auto-migration
@@ -59,7 +60,37 @@ public enum TrackKind {
                 || this == STICKER || this == SPRITE || this == LAYER;
     }
 
-    /** Parse a persisted name, defaulting to {@link #VIDEO} for an unknown value. */
+    /**
+     * The minimum project {@code schemaVersion} that must be STAMPED on any project which
+     * persists a {@code LayerTrackDef} of this kind, so that a build too old to know the
+     * kind refuses the file outright instead of quietly coercing it.
+     *
+     * <p>{@link #fromName} maps an unknown kind to {@link #VIDEO}. That is a safe way to
+     * avoid a crash and an UNSAFE way to avoid a schema bump, because the coerced kind is
+     * then re-serialized by the old build's next autosave. Kind decides a lane's emission
+     * phase, emission phase decides band position, and band position is paint order under
+     * cross-type Z — so the round-trip permanently changes what paints over what, with no
+     * error and no way back. That is exactly what shipped for {@link #LAYER}
+     * (SPEC_NEUTRAL_SUBSTRATE declared "Storage: FREE... No schema bump" on the strength of
+     * the fallback; audit 1.2 caught it). Reproduced offline in
+     * {@code tasks/schema_layer_stamp.py}: a LAYER lane swaps band position with an orphan
+     * PiP lane after one old-build load/save.
+     *
+     * <p>7 = representable by every build that has the layer model at all. <b>Any kind
+     * added from here on MUST return the {@code SCHEMA_VERSION} of the build that
+     * introduced it.</b> The value is a literal on purpose: it names the version that
+     * first understood the kind, so a later unrelated bump must not drag it along.
+     */
+    public int minSchemaVersion() {
+        return this == LAYER ? 11 : 7;
+    }
+
+    /**
+     * Parse a persisted name, defaulting to {@link #VIDEO} for an unknown value.
+     *
+     * <p>This fallback keeps an old build from crashing; it does NOT make a new kind
+     * storage-safe. Pair every new kind with {@link #minSchemaVersion()}.
+     */
     @NonNull
     public static TrackKind fromName(@NonNull String name) {
         try {

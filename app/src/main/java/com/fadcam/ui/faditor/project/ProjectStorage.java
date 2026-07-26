@@ -1614,16 +1614,29 @@ public class ProjectStorage {
             JsonObject json = new JsonObject();
             // Dual-write schema stamp (PLAN §4.1(1)): stamp only the version the
             // project GENUINELY needs, so older builds keep opening sprite-free /
-            // layer-free projects losslessly. v9 = sprites (PLAN_SPRITE_ANIMATION S1),
-            // v8 = layer features, else 7. All newer blocks are written additively
-            // either way (old builds ignore unknown fields).
+            // layer-free projects losslessly. v10 = avatar rigs, v9 = sprites
+            // (PLAN_SPRITE_ANIMATION S1), v8 = layer features, else 7. All newer blocks
+            // are written additively either way (old builds ignore unknown fields).
+            // Each is a LITERAL, not SCHEMA_VERSION: it names the version that first
+            // understood the feature, so a later unrelated bump must not drag it along
+            // (that would lock old builds out of files they can read perfectly well).
             boolean usesRigs = !src.getAvatarRigs().isEmpty();
             boolean usesSprites = !src.getTimeline().getSpriteOverlays().isEmpty()
                     || !src.getSpriteSheets().isEmpty();
-            int stampedVersion = usesRigs
-                    ? com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION  // 10
+            int stampedVersion = usesRigs ? 10
                     : usesSprites ? 9
                     : usesLayerFeatures(src) ? 8 : 7;
+            // Audit 1.2: a lane KIND an older build cannot represent is its own floor on
+            // the stamp. usesLayerFeatures() above already returns true for any
+            // LayerTrackDef, but v8 is not enough — a v10 build's downgrade guard fires
+            // only on on-disk > running, so v8 sails straight past it, TrackKind.fromName
+            // coerces LAYER to VIDEO, and the next autosave writes that coercion back,
+            // permanently changing the lane's band position and therefore its paint order.
+            // Raising the stamp is what makes that build refuse the file instead.
+            for (com.fadcam.ui.faditor.layers.LayerTrackDef def
+                    : src.getTimeline().getExtraLayerTracks()) {
+                stampedVersion = Math.max(stampedVersion, def.getKind().minSchemaVersion());
+            }
             json.addProperty("schemaVersion", stampedVersion);
             json.addProperty("id", src.getId());
             json.addProperty("name", src.getName());

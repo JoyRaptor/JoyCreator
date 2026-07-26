@@ -29,8 +29,8 @@ means:
 
 ## Schema Version Stamping (dual-write, not monotonic-only)
 
-`FaditorProject.SCHEMA_VERSION = 10` is the current build's ceiling, but the
-serializer does **not** always stamp 10. It stamps the **minimum version the
+`FaditorProject.SCHEMA_VERSION = 11` is the current build's ceiling, but the
+serializer does **not** always stamp 11. It stamps the **minimum version the
 project's actual content needs**, so older app builds can still open
 projects that don't use newer features (`ProjectStorage.java` —
 `ProjectSerializer.serialize`, ~line 1450):
@@ -40,7 +40,23 @@ usesAvatarRigs   -> stamp 10
 else usesSprites -> stamp 9
 else usesLayers  -> stamp 8
 else             -> stamp 7
+
+then, as a FLOOR over the result:
+  max(stamp, TrackKind.minSchemaVersion()) for every LayerTrackDef
+  -> a LAYER-kind (neutral) lane forces 11
 ```
+
+The floor exists because a lane **kind** an older build cannot represent is not
+covered by the ladder above. `TrackKind.fromName()` maps an unknown kind to
+`VIDEO`, which stops the old build crashing but does not stop it re-serializing
+the coerced kind on its next autosave — and kind decides emission phase, which
+decides band position, which is paint order. A v8/v9/v10 stamp sails straight
+past that build's downgrade guard (which only fires on on-disk > running), so
+the stamp itself is the only thing that can refuse the file. See
+`TrackKind.minSchemaVersion()`; reproduced offline in
+`tasks/schema_layer_stamp.py`. **Any new `TrackKind` must be given a
+`minSchemaVersion()`** — "the fromName fallback makes it storage-free" is the
+reasoning that shipped this hole (audit 1.2).
 
 `usesLayerFeatures()` (~line 910) checks whether the project has any
 layer/track-only state (extra layer tracks, track flags, overlay/PiP clips,
@@ -59,7 +75,7 @@ saved (the stamp is recomputed from content, not carried forward blindly).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `schemaVersion` | int | yes | Minimum schema version this project's content needs (7–10, or lower for legacy). See stamping rule above. |
+| `schemaVersion` | int | yes | Minimum schema version this project's content needs (7–11, or lower for legacy). See stamping rule above. |
 | `id` | string | yes | UUID. Unique project identifier. |
 | `name` | string | yes | User-visible project name. |
 | `createdAt` | long | yes | Unix epoch milliseconds. |

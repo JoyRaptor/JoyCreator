@@ -26,8 +26,16 @@ public class FaditorProject {
      * same dual-write discipline: additive blocks always written, {@code schemaVersion}
      * stamped 9 only when the project actually contains sprite data.</p>
      * <p>v10 adds avatar rigs (PLAN_AVATAR_STUDIO A1), stamped 10 only when rigs exist.</p>
+     * <p>v11 covers the NEUTRAL {@code TrackKind.LAYER} lane (SPEC_NEUTRAL_SUBSTRATE),
+     * stamped 11 only when the project actually holds a LAYER-kind {@code LayerTrackDef}.
+     * The spec declared this storage-free on the strength of {@code TrackKind.fromName}'s
+     * VIDEO fallback; it is not. Without a stamp the downgrade guard below never fires for
+     * such a project, so a v10 build coerces {@code kind=LAYER} to {@code VIDEO} and
+     * re-serializes it that way — permanently moving the lane's band position, i.e. its
+     * paint order (audit 1.2; reproduced in {@code tasks/schema_layer_stamp.py}). Which
+     * kinds force which version lives on {@code TrackKind.minSchemaVersion()}.</p>
      */
-    public static final int SCHEMA_VERSION = 10;
+    public static final int SCHEMA_VERSION = 11;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project

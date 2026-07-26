@@ -4,6 +4,44 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+- **LOAD-FAILURE SHAPE fix DONE + device-verified (`e6a1f0b`).** Decided behaviour built:
+  one bad item no longer aborts the whole load into a silent `.bak`. ProjectStorage's
+  deserializer now wraps each clip / overlay-clip / audio-clip / text-overlay / waveform
+  item in its own try/catch (sprite path already did); a bad item is skipped + recorded on
+  `FaditorProject.loadSkips`. The Activity's `warnIfItemsSkipped()` dialog names the dropped
+  items and offers **Keep going** / **Open last backup** (new `loadBackupOnly()` +
+  `EXTRA_LOAD_BACKUP`). A `loadSkipDialogPending` guard blocks all saves while the dialog is
+  open so an autosave/onPause can't rotate the current file into `.bak` and destroy the clean
+  backup being offered. Device proof on an INDEXED project with a text overlay's
+  sizeFraction=null: `Skipping malformed text overlay #0 — UnsupportedOperationException:
+  JsonNull` → `Loaded with 1 skipped item(s): [Text overlay #1]` → dialog shown with the
+  overlay absent + rest intact → "Open last backup" → `loadBackupOnly: … (skips=0)` reloaded
+  clean. Positive control: valid sibling overlay 'Yo' + the clean backup both loaded skips=0.
+  TEST-INFRA NOTE (cost real time): a project dir created via adb (bypassing the app) is
+  NOT indexed — its recent-projects row misroutes the click to another project. To device-test
+  a load-corruption fix, corrupt an ALREADY-INDEXED project's project.json (with a pulled
+  restore point), not a freshly-adb-created dir.
+- **Sandbox integrity RESTORED + verified.** cebc19e0 restored to the user's real state
+  (`scratchpad/b3_before.json`, 'hi' start=1892) for BOTH project.json and .bak; throwaway
+  fixture `aaaa1111-…` deleted. All 9 non-cebc safety-copied projects are sha256-IDENTICAL to
+  their copies (playback/scrub never dirtied them). `3072f113` (user's B5 project) untouched.
+- **B3 DIAGNOSED (device, not a standalone code bug — a symptom of B4).** On cebc19e0's 'hi'
+  overlay I measured all three drag routes: a **body/center drag SCRUBS** (playhead moves, 'hi'
+  data UNCHANGED — pulled before/after: start=1892 end=4925 both times); an **edge-grab TRIMS**
+  (resizes) — this is the only drag that visibly changes 'hi', and it is correct behaviour for a
+  trim handle; a **move requires a long-press pickup (450ms, ITEM_PICKUP_MS)** which is
+  undiscoverable AND, because 'hi' is in the TIME+OPACITY link group, the move is refused/clamped
+  (the B4 constraint). Net: the user tried to move 'hi', the middle-drag scrubbed (nothing
+  happened to the text) and/or the edge-grab trimmed ("got longer"), and the real move was
+  blocked by the link. So B3's root cause is **B4 (time-link + no discoverable unlink)**, NOT a
+  separate gesture bug. FALSE ALARM ruled out: a left-trim to 0 serialises `startMs` as ABSENT
+  (ProjectStorage:1795 only writes startMs when !=0; reader defaults absent->0), which pull-diff
+  shows as `null` — that is start=0, correctly handled on load, NOT corruption.
+  Fix is a UX/affordance decision (make unlink discoverable per B4; make trim-vs-move legible) —
+  NOT shipped blind. cebc19e0's 'hi' currently has start=0 from my trim experiment; restore from
+  the pre-experiment pull `scratchpad/b3_before.json` (start=1892) when done with B1/B4 (they
+  also need cebc19e0's PiPs/link-groups). Note: still deciding whether B4's unlink UX is a
+  user-design call before shipping.
 - **B2 FIXED + device-verified (`a9e4503`).** Diagnosis: NOT a start-freeze. cebc19e0
   ("P0 control2 plain", the cat project, row 1/2 in the list — NOT the screen-recording
   "Untitled" project that happens to be open on arrival, which is a DIFFERENT project)

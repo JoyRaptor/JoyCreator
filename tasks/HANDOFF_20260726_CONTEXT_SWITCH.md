@@ -4,11 +4,85 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### NEXT UP — audit 2.3, preset crops during transitions. SCOPED BELOW, no device work
-started yet (clean seam — nothing half-done). Then the rest of AUDIT_UNFINISHED_20260726.md's
-STATUS BOARD in its stated order. B1/B4/B5/B3-remedy still await a user design decision.
+### NEXT UP — the rest of AUDIT_UNFINISHED_20260726.md's STATUS BOARD in its stated order
+(Tier 3, then Tier 4). B1/B4/B5/B3-remedy still await a user design decision, and there is
+now a FIFTH thing needing a user decision — the preview-side preset-crop gap, below.
 
-**2.3 scoping done this session (do NOT re-derive):**
+- **2.3 EXPORT LEG FIXED + device-proved. PREVIEW LEG DELIBERATELY NOT SHIPPED (needs a user
+  decision) — see below.** The preset table moved from `ExportManager.getCropRect` to
+  `Clip.cropRectNdc`, and a new `Clip.effectiveCropFractions()` turns either the custom
+  fractions or a preset's NDC rect into ONE image-space rect {l,t,r,b}. `ExportManager`
+  delegates to it (still exactly one table) and `GlTransitionFrameOverlay.cropSrcRect` (the
+  export INCOMING leg) now uses it, so a preset-cropped clip no longer blends uncropped and
+  snaps at the cut.
+  **Numbers (Note 9; fixture = black image → 800ms GL cross_dissolve → 1080x1920 clip
+  cropped "9:16"; second fixture identical except the crop is written as the numerically
+  equal `custom` 0.34375..0.65625, which is the ORACLE for what the preset must render):**
+    - baseline pre-fix, preset vs custom: **235/798 frames differ**, blend-region mean
+      absdiff **18.47**; within-export content width **1.000 during the blend → 0.312 after
+      the cut** (that width snap IS the user-visible bug).
+    - after the fix, preset vs custom: **0/798 frames differ**; width **0.312 throughout**.
+    - regression control, custom on old build vs new build: **0/798 differ** → the working
+      custom path is untouched.
+    - instrument not blind: the same diff saw 235 differing frames on the baseline pair; the
+      encoder-residual floor (mean ~1–2) was calibrated from regions of that same pair whose
+      composites are identical. All three mp4s have DIFFERENT sha256 while decoding to
+      identical frames — the reason this class of proof compares pixels, never files.
+  **⚠️ THE BIG FINDING — the RE-SCOPED block's premise was WRONG, and it changes the scope.**
+  It claimed "preview and export currently AGREE — both blend a preset-cropped clip uncropped,
+  then snap to the cropped framing at the cut". The preview does NOT snap, because **the live
+  preview never renders a named preset crop at all**: `applyCropZoom`
+  (`FaditorEditorActivity` ~:7391) is `"custom"`-only, and it is the only thing that crops the
+  normal-playback preview. MEASURED at an identical playhead (00:12.132, same clip selected):
+  the same crop written as `custom` previews as a narrow strip; written as `9:16` it previews
+  FULL WIDTH. So the real state was: export self-inconsistent (blend vs cut), preview
+  self-consistent but silently ignoring presets everywhere.
+  Consequence: following the spec literally — cropping presets in `cropToClipBounds` /
+  `liveLegGeometry` only — would have MOVED the snap into the preview (cropped during the
+  blend, uncropped the instant the cut lands) instead of removing it. Those three preview
+  sites are therefore left `"custom"`-only with a comment saying exactly this, so nobody
+  "finishes the job" and reintroduces it.
+  **Needs a user decision (do NOT ship blind):** named preset crops are invisible in the
+  whole editor while the export applies them — what you see is not what you get, for every
+  preset-cropped clip, not just during transitions. Closing it means making `applyCropZoom`
+  preset-aware, which changes what the editor shows for every existing preset-cropped
+  project. That is a visible behaviour change, so it is diagnosed here and left for the user.
+  **Sandbox:** `aeb0517e` was the fixture host (JSON surgery on an already-indexed project,
+  per the F12 recipe); restored byte-exact, project.json AND .bak both back to
+  `0db82121…` = its safety copy. 9/10 projects match; `cebc19e0` still diverges on purpose.
+  HONEST NOTE: during fixture pushes I deleted that project's `project.json.bak` and
+  `undo_history.json` WITHOUT copying them first (unlike the 129d8643 restore earlier, where
+  I did). Both are derived files and .bak has been rewritten from the restored original, but
+  if that project had a distinct pre-existing backup or undo stack, it is gone. Four test
+  exports were left in the device's Faditor export folder, as previous sessions also did.
+  New reusable tool: **`tasks/framing_probe.py`** measures the content width at given
+  timestamps of ONE export — the within-export blend-vs-cut check that `export_ab_diff.py`
+  (an A-vs-B tool) structurally cannot do.
+  **AN ADVERSARIAL REVIEW OF MY OWN DIFF CAUGHT A REGRESSION I HAD SHIPPED INTO THE WORKING
+  TREE — worth repeating on compositor changes.** `ExportManager` gates the whole crop block
+  on `isVideo` (`= !clip.isImageClip()`, :2273/:2329), so an IMAGE clip's own segment is never
+  crop-effected — but `GlTransitionFrameOverlay` routes image clips through `cropSrcRect` too.
+  My first version therefore would have cropped an image clip's BLEND and not its CUT: the
+  same snap, mirrored — the exact failure I had just written a comment warning against on the
+  preview side. Fixed before commit by excluding image clips (they keep the `"custom"`-only
+  rule, making the expression identical to the old code for them). NOTE this exclusion is
+  correct BY CONSTRUCTION, not by measurement: the only image asset in these projects is
+  solid black, so a framing probe cannot see a crop on it. An image-incoming fixture would
+  need a non-black image pushed and indexed.
+  **Other caveats from that review (recorded, not fixed):** `cropSrcRect` cuts in UNROTATED
+  space while the clip's own segment is cropped AFTER `ScaleAndRotateTransformation`, so a
+  rotated+cropped clip's blend and cut disagree — pre-existing for `"custom"`, now reachable
+  for presets too. And `docs/project-schema.md` advertises a `4:5` preset that
+  `cropRectNdc` has no case for (such a project gets no crop anywhere — consistent, so not a
+  new break, but the doc is wrong).
+  **SCOPE, HONESTLY:** no UI path writes a named preset to a clip today — the crop tool only
+  ever sets `"custom"` or `"none"` (`FaditorEditorActivity:6026, 6071, 6465`; `EditActions`
+  just replays whatever was set). So this bug is reachable from legacy or hand-edited project
+  JSON (which is what the fixtures are) and from any future writer using the presets the
+  schema advertises. The fix is still right, but it is lower-severity than the audit implied,
+  and that is worth knowing before spending more on the preview leg.
+
+**2.3 scoping notes from before the work (kept — the code sites are still accurate):**
 
 - **The four sites, all branching `"custom".equals(clip.getCropPreset())` and applying NO
   crop for a named preset:** `GlTransitionFrameOverlay.cropSrcRect` (:216, export incoming

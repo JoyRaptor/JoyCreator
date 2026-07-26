@@ -21,6 +21,7 @@ remaining instance of that pattern.
 >
 > | item | state | commit |
 > |---|---|---|
+> | 2.3 preset crops in transitions | **EXPORT LEG CLOSED** — preset↔custom exports now bit-identical (0/798 frames) vs 235/798 before; regression control passed. **Preview leg NOT shipped: needs a user decision** (the live preview never renders a named preset crop at all) | `see §0z` |
 > | 1.1 transcript windowing step 3 | **CLOSED** — built as the DECIDED navigator (current-clip highlight + tap-a-dimmed-word-jumps-to-that-clip), device-verified against blind offline predictions; also fixed the shared-instance highlight freeze at a split seam | `bd84402` |
 > | 1.2 LAYER schema hole | **CLOSED** — stamp v11, offline-proved + device-verified | `d77daf3` |
 > | 2.1 caption size in preview | **CLOSED** — device A/B 3%↔20%, plus the re-bind-blanks-captions bug found doing it | `eaff34b` |
@@ -39,9 +40,35 @@ remaining instance of that pattern.
 > `tasks/export_audio_probe.py` (fits a source's amplitude inside an export: 1.0 = once,
 > 2.0 = doubled) and `tasks/schema_layer_stamp.py`.
 >
-> Everything else below is untouched and still open. Next by the recommended order: **2.3**
-> (preset crops during transitions — read the F12 RE-SCOPED block, NOT the older one-line note;
-> fixing only the export leg CREATES a divergence), then the Tier 3 items, then Tier 4.
+> Next by the recommended order: the **Tier 3** items, then Tier 4. 2.3's export leg is closed
+> (see §0z of the handoff; note the RE-SCOPED block's premise about the preview turned out to be
+> false, and the preview leg is now a user decision, not a code task).
+>
+> ### TIER 3 RE-VERIFICATION (2026-07-26, a review pass over the current tree)
+>
+> Two Tier 3 items rest on premises that are no longer true. **I re-read these two sites myself
+> and confirm them:**
+> - **3.5 "old audio path still double-rendered" — PREMISE DEAD.** The legacy draw is behind a
+>   mutual-exclusion guard, `if (!audioClips.isEmpty() && audioLayerTracks.isEmpty())`
+>   (`timeline/EditorTimelineView.java:2218`), whose own comment names the "two audio bars" bug
+>   it prevents. The legacy and unified paths cannot both run. The scary "63 call sites" figure
+>   also counts consumers of `getSelectedAudioIndex()`, which was already turned into a shim
+>   that derives the index from the layer selection — they are consumers of a migrated
+>   accessor, not 63 sites to re-anchor. What remains is dead-code removal, not correctness.
+> - **3.7 "overlapping items never migrated" — PREMISE MOSTLY DEAD.** Three load-time
+>   migrations exist and run before the timeline view is wired: `migrateSpriteLayers()`,
+>   `enforceNoOverlapTextLanes()`, `enforceNoOverlapVideoLanes()`
+>   (`FaditorEditorActivity.java:1141, 1156, 1164`).
+>
+> **Reported by the same pass but NOT independently re-verified — treat as leads, confirm before
+> acting:** that audio alone lacks a load-time overlap pass (the code comment at :1164 claims
+> "completes text/sprite/audio/PiP coverage", which contradicts the lead — resolve that first);
+> that 3.3 is worse than written because six `AIToolExecutor` apply sites record NO undo at all
+> (not merely lossy transitions), while the one site using `EditActions.AddClipAction` is
+> arithmetically correct and must NOT be "fixed"; and that 3.2's `removedSpans` sub-claim is a
+> non-issue because removed spans are source-time and clamped per half at consumption.
+>
+> Everything else below is untouched and still open.
 
 ---
 

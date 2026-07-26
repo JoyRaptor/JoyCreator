@@ -388,6 +388,20 @@ public class ProjectStorage {
             if (p.isLoadedFromNewerVersion()) return;
             if (com.fadcam.ui.faditor.transcript.TranscriptSharing.countForks(p) <= 0) return;
 
+            // Sharing is an IN-MEMORY collapse, and each clip still serialises its own copy
+            // (the file-level dedup is a schema change, deliberately deferred). So forks
+            // reappear on every load and this runs every time. Only the RECONSTRUCTION of
+            // legacy partitions actually changes the data and is worth a backup + rewrite;
+            // a pure re-collapse must not, or opening a project would write a fresh
+            // multi-megabyte backup each time. Measured: two 5.3MB backups from a single app
+            // launch before this check existed.
+            com.fadcam.ui.faditor.transcript.TranscriptSharing.Result dry =
+                    com.fadcam.ui.faditor.transcript.TranscriptSharing.shareProject(p);
+            if (dry.recovered <= 0) {
+                FLog.d(TAG, "transcriptSharing: " + dry + " (in-memory only, nothing to persist)");
+                return;
+            }
+
             File backupsDir = new File(sourceFile.getParentFile(), "backups");
             if (!backupsDir.exists() && !backupsDir.mkdirs()) {
                 FLog.w(TAG, "transcriptSharing: cannot create backups dir — skipping");
@@ -411,9 +425,8 @@ public class ProjectStorage {
                 return;
             }
 
-            com.fadcam.ui.faditor.transcript.TranscriptSharing.Result r =
-                    com.fadcam.ui.faditor.transcript.TranscriptSharing.shareProject(p);
-            if (!r.changedAnything()) return;
+            // Already applied above (idempotent); persist that result.
+            com.fadcam.ui.faditor.transcript.TranscriptSharing.Result r = dry;
             String json = gson.toJson(p);
             writeProjectJson(p.getId(), json);
             FLog.i(TAG, "transcriptSharing: " + r + " for project " + p.getId()

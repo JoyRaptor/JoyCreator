@@ -2,11 +2,19 @@
 
 ---
 
-## 0. CURRENT STATE (updated 10:00) — READ THIS FIRST
+## 0. CURRENT STATE (updated 10:20) — READ THIS FIRST
 
-HEAD `b794b9d`, branch `joy-creator`, tree clean except the always-ignorable
+HEAD `0c13dca`, branch `joy-creator`, tree clean except the always-ignorable
 `tools/jvm-harness/out*/`. Build watcher ALIVE, installing to the **Note 9 only** (Note 20
-unplugged). APK 09:56:59, installed, newer than every source file.
+unplugged). APK 10:11:27, installed, newer than every source file.
+
+**Pick up here:** the `hasValue()` null-guard sweep (commit `0c13dca`) did the CLIP
+deserializer — 44 sites — and left roughly 175 more in the audio, textOverlay and sprite
+deserializers plus the transcript/keyframe/effect sub-objects. The helper exists, the pattern
+is one token per site, and the device acceptance test is written out in that commit message
+(explicitly null every optional field of one payload type, confirm the project loads under its
+OWN name with object counts unchanged). That is the highest value-per-risk work remaining and
+it is batch-able: one payload type per commit.
 
 **All 10 real sandbox projects are sha256-identical to their safety copies.** Every experiment
 in this run used a throwaway `cp -r` clone; nothing needed restoring. Stray artifacts left

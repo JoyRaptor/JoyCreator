@@ -1,5 +1,69 @@
 ﻿# FadCam AI Handoff
 
+> **🔬 2026-07-25 ~21:30 — OPUS 5 (device-verification session). HEAD `4eda119`, tree clean.
+> The headline: the previous session's "35 commits, all compile-green" was NOT TRUE, and the
+> first device-verified substrate bug is found, fixed and pinned.**
+>
+> **0. THE BUILD WAS BROKEN AND NOTHING HAD EVER COMPILED (`292b791`).** The installed APK was
+> from 13:56 — *before* the evening lane started landing. The build watcher had died at that
+> same moment, so **none of those ~35 commits were ever compiled.** Two failures stacked:
+> (a) `app/build/intermediates/javac/defaultDebug` was **stale from 2026-07-06**, so every build
+> died early with `NoSuchFileException` on a missing `.class` before javac type-checked
+> anything — that masked (b) a real error, `ObjectMenuSheet.staticProp(...)` in the PiP volume
+> slider, where `staticProp` is a static factory on the nested `Prop` class (every other call
+> site writes `ObjectMenuSheet.Prop.staticProp`). Clearing that one intermediates subtree
+> surfaced it immediately. **Lesson: "compile-green" claimed without a fresh APK timestamp is
+> worthless — check `lastUpdateTime` against `git log`, and check the watcher is alive
+> (`build.log` mtime > source mtime, AND java processes exist).**
+>
+> **1. SEEDED-LANE PRE-EMPTION — found, DEVICE-PROVEN, fixed, pinned (`4eda119`).** Moving ONE
+> text overlay onto the seeded PiP lane made `getLayers()` emit
+> `id=video kind=TEXT name=Text` at row 3 instead of `id=video kind=VIDEO name=PiP` at row 5.
+> Three wrongs at once: the lane was **renamed**, its **TrackKind flipped**, and it was
+> **hoisted two rows up the band** — and under cross-type Z row order IS paint order, so
+> dropping a caption onto the PiP lane silently reordered what paints over what.
+> Cause: `flushLeftovers()` skipped only DEF-owned ids, so the TEXT phase's flush reached the
+> id `"video"` and `buildLaneTrack()` consumed it from all three bucket maps before the
+> `hasItems("video")` branch ran. Same shape as last session's orphan-id fix — which protected
+> def-owned ids and **missed the three seeded ones** (`text`/`sprite`/`video`), which have an
+> emission phase of their own but no `LayerTrackDef`. Fix: `flushLeftovers` also skips
+> `SEEDED_LANE_IDS`. Inert for every project that exists today.
+> **`tasks/getlayers_equiv.py` now pins it** with 4 assertions (text-on-PiP-lane,
+> text-on-Sprite-lane, sprite-on-PiP-lane, plus an orphan-id case proving the skip is not too
+> broad). Reintroducing the bug turns exactly the first three red and exits 1 — **checked, not
+> assumed.**
+>
+> **2. HOW THE DEVICE PROOF WAS DONE (reuse this).** The timeline lane header is CANVAS-drawn,
+> so row names are not in `uiautomator`/`dumpsys` and are unreadable from screenshots. What
+> worked: a temporary `android.util.Log` probe at the end of `getLayers()` dumping
+> `i id= kind= name= items=[...]`, plus a second probe of the INPUT lists. Both removed again;
+> HEAD is probe-free. **The INPUT probe earned its keep:** a first fixture appeared to DROP a
+> sprite, which looked like a substrate bug. It was not — my python `json.dump` wrote
+> `"layerId": null` where pristine simply **omits the key**, and the loader drops a sprite on
+> explicit null. Fixture artifact, but a real loader fragility (**explicit-null vs absent key**)
+> worth a look; only reachable via hand-edited JSON, so low priority.
+>
+> **3. PiP AUDIO — the volume authority is device-verified (gate matrix, all four correct).**
+> `effectiveOverlayVolume` is the SHARED authority for preview and export, so this is the
+> load-bearing half:
+> | fixture | enabled | clipMuted | laneMuted | EFFECTIVE | |
+> |---|---|---|---|---|---|
+> | A default | false | false | false | **0.0** | opt-in default holds — existing exports unchanged |
+> | B opt-in | true | false | false | **0.8** | audible at the clip's own level |
+> | C lane mute | true | false | true | **0.0** | **last session's bug #4, confirmed fixed** |
+> | D clip mute | true | true | false | **0.0** | clip mute still wins |
+> **STILL OWED (do not mark PiP audio done):** that the preview player actually *applies* this
+> value and the export sequence actually *carries* the PiP's audio at the right offset — i.e.
+> the plumbing on each side of the shared authority. Acceptance 2/4 need a real listen + an
+> export.
+>
+> **STATE:** sandbox project `129d8643` restored and **sha256-verified byte-identical** to its
+> pristine 37879 bytes. All three guards green (`getlayers_equiv` 10/10 + 4 new asserts,
+> `visible_equiv`, TransitionIndex 16/16). Device drive was user-approved this session.
+> **NEXT:** cross-type z preview visual + the absolute-geometry export A/B (still owed, and it
+> is now MORE interesting because row order is provably mutable); slice D drawer taps; the
+> PiP-audio plumbing above.
+
 > **🧭 2026-07-25 late — OPUS 5 continuous session. HEAD `b57884d`. Two lanes landed + three
 > specs; SIX real bugs found by adversarial review, all fixed. NOTHING device-verified below —
 > the phone was in human use (see DEVICE at the end).**

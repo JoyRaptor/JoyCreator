@@ -1,6 +1,26 @@
 # NEXT SESSION PROMPT
 
-> **▶ START HERE — UPDATE 2026-07-25 evening (Opus 5, continuous session). Tree clean; see
+> **▶ START HERE — UPDATE 2026-07-25 ~21:30 (Opus 5, device-verification session). HEAD
+> `4eda119`, tree clean. Read `handoff.md`'s TOP block first — it supersedes the banner below.**
+> **THE BUILD WAS BROKEN.** The previous session's "35 commits, all compile-green" was false:
+> the watcher had been dead since 13:56 and a stale-from-07-06 javac intermediates dir made
+> every build die before type-checking, hiding a real error. Both fixed (`292b791`). **Before
+> trusting any "compile-green" claim, check the APK's `lastUpdateTime` against `git log` and
+> confirm the watcher is alive (build.log mtime > source mtime AND java processes exist).**
+> **FIRST DEVICE-PROVEN SUBSTRATE BUG, fixed + pinned (`4eda119`):** a payload on another
+> type's seeded lane let an earlier phase's leftover flush steal that lane — renaming it,
+> flipping its TrackKind and hoisting it up the band, which under cross-type Z is a silent
+> paint-order change. `getlayers_equiv.py` now carries 4 assertions that go red if it returns.
+> **PiP audio:** the shared `effectiveOverlayVolume` authority is verified across all four gate
+> states (incl. lane-mute, last session's bug #4). **Still owed: the preview/export plumbing on
+> each side of it — acceptance 2 and 4.**
+> **METHOD (reuse):** the lane header is canvas-drawn — row names are unreadable from
+> screenshots/`uiautomator`. Use a temporary `Log` probe in `getLayers()`, and probe the INPUT
+> lists too. Beware: pristine project.json OMITS an absent `layerId`; writing `"layerId": null`
+> makes the loader drop the sprite (a real, separate loader fragility).
+> Sandbox `129d8643` restored sha256-identical. Device driving was user-approved this session.
+
+> **UPDATE 2026-07-25 evening (Opus 5, continuous session). Tree clean; see
 > `git log` for the ~20 commits of this session (they are individually revert-friendly).** Read `handoff.md`'s top block for the full account; the short version:
 > **BUILT:** neutral substrate S0–S5 (FULL neutrality — JoyRaptor's call: any object on any floating
 > lane, audio is the only separate band; `getLayers()` is now layerId-first), PiP audio A–D (it

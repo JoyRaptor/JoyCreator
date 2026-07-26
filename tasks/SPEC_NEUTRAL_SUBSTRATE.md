@@ -255,12 +255,24 @@ add there; item bodies were already per-item-kind.
   change. `usesLayerFeaturesAffectingExport` (:2088) already forces the full re-encode path
   whenever ANY extra layer def exists, LAYER included.
 
-## Validation queue (device — OWED for the full-neutrality rewrite)
+## Validation queue (device — items 1/4 DONE 2026-07-25 ~21:20, Note 9)
+
+> **DONE — item 1 ran and FOUND A BUG (fixed in `4eda119`).** A payload on another type's
+> seeded lane let an EARLIER phase's leftover flush claim that lane: the row was renamed, its
+> TrackKind flipped, and it was hoisted up the band (a silent z change under cross-type Z).
+> See the handoff block. Item 4 (layerIds round-trip literally) is covered by the same runs —
+> the pristine control re-emitted byte-identically across every reload.
+> **Method note for whoever does 2/3/5–8:** the lane header is CANVAS-drawn, so row names are
+> NOT in `uiautomator`/`dumpsys` and cannot be read off a screenshot. Use a temporary
+> `android.util.Log` probe at the end of `getLayers()` (and one of its INPUT lists — it is what
+> caught a fixture artifact masquerading as a dropped sprite). Also: pristine project.json
+> **omits** an absent `layerId` key; writing `"layerId": null` instead makes the loader DROP
+> the sprite, so build fixtures by editing only the field under test.
 
 Model-level (injection, cheap, deterministic — use recipe (b) in the handoff block):
-1. Sprite + PiP with `layerId:"text"` and a text overlay with `layerId:"sprite"` ⇒ the
-   seeded "Text" row shows the sprite + PiP bodies, the "Sprite" row shows the text pill.
-   No extra rows appear, nothing is dropped.
+1. ✅ **DONE** — Sprite + PiP with `layerId:"text"` and a text overlay with `layerId:"sprite"`
+   ⇒ merged rows, no extras, nothing dropped. Confirmed on device; exposed the seeded-lane
+   pre-emption bug above, now fixed and pinned by 4 assertions in `tasks/getlayers_equiv.py`.
 2. Preview renders all of them; z is the surface stack (PiP under sprite under text).
 3. Lane eye on a mixed row hides every payload type on it at once.
 4. Save/reload keeps the same row membership (layerIds round-trip literally).

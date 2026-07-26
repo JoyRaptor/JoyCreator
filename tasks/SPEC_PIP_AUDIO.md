@@ -127,9 +127,18 @@ just differ, so neither should be "fixed" to match the other.
 
 ## Acceptance
 
-1. Open any existing project with a PiP → export is byte-identical to before (nothing opted in).
-2. Opt a PiP in → its audio is audible in preview at its own volume, and present in the export
-   at the right timeline offset.
-3. Mute that PiP's lane → it goes silent in BOTH preview and export (one authority).
-4. A dual-stream pair still exports single-voice audio unless the user explicitly opts the
-   webcam PiP in.
+> **STATUS 2026-07-25 ~21:25 (Note 9, device):** the shared authority `effectiveOverlayVolume`
+> is verified across the whole gate matrix — A default (not opted in) → **0.0**; B opted in →
+> **0.8**, the clip's own level; C lane muted → **0.0**; D clip muted → **0.0**. Since preview
+> and export both read this one method, that covers the *decision*. It does NOT cover the
+> plumbing on either side: **1 and 3 are satisfied at the authority level; 2 and 4 still need a
+> real listen and a real export.** Do not mark this spec done on the strength of the matrix.
+
+1. ✅ (authority) Open any existing project with a PiP → export is byte-identical to before
+   (nothing opted in). *Fixture A returned 0.0 with `overlayAudioEnabled` absent.*
+2. ⏳ Opt a PiP in → its audio is audible in preview at its own volume, and present in the export
+   at the right timeline offset. *Authority returns 0.8; preview/export plumbing UNVERIFIED.*
+3. ✅ (authority) Mute that PiP's lane → it goes silent in BOTH preview and export (one
+   authority). *Fixture C → 0.0. This is the lane-mute-never-reached-PiPs bug, confirmed fixed.*
+4. ⏳ A dual-stream pair still exports single-voice audio unless the user explicitly opts the
+   webcam PiP in. *Not exercised — needs a real pair project.*

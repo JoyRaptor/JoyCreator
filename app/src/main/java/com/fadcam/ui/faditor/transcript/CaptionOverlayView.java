@@ -90,12 +90,32 @@ public class CaptionOverlayView extends View {
         });
     }
 
+    /**
+     * (Re)bind transcript + style + callback.
+     *
+     * <p>The active word is RESET only when the transcript actually changes identity (a
+     * different clip's captions, where the old index means nothing). A re-bind carrying
+     * the SAME transcript is a style/size/position refresh, and resetting on those was a
+     * silent hole: {@link #onDraw} draws nothing while {@code activeWordIdx < 0}, and the
+     * only thing that ever sets it again is the playback-position loop. So every re-bind
+     * with the player PAUSED — a style chip, the size slider, a bulk apply, an undo —
+     * made the captions vanish until playback resumed. That is half of why "the user
+     * sizes captions blind" (audit 2.1): binding the size was necessary but not
+     * sufficient, because moving the slider erased the very thing it was meant to show.
+     * Clamped rather than trusted, since the same Transcript instance can be edited in
+     * place (a struck word can shorten the list).</p>
+     */
     public void setData(@Nullable Transcript t, @NonNull CaptionStyle s, @NonNull Callback cb) {
+        boolean sameTranscript = t != null && t == this.transcript;
         this.transcript = t;
         this.style = s;
         this.callback = cb;
         buildPhrases();
-        activeWordIdx = -1;
+        if (sameTranscript) {
+            activeWordIdx = Math.min(activeWordIdx, wordPhrase.length - 1);
+        } else {
+            activeWordIdx = -1;
+        }
         invalidate();
     }
 
@@ -111,6 +131,27 @@ public class CaptionOverlayView extends View {
     public void setCenter(float x, float y) {
         centerX = Math.max(0.05f, Math.min(0.95f, x));
         centerY = Math.max(0.05f, Math.min(0.95f, y));
+        invalidate();
+    }
+
+    public float getSizeFraction() { return sizeFraction; }
+
+    /**
+     * Caption font height as a fraction of the CANVAS height — the same quantity the
+     * export renderer multiplies by its output height ({@code CaptionExportRenderer}),
+     * which is why {@code getVideoContentRect()} hands this view the canvas rect and not
+     * the per-clip video rect.
+     *
+     * <p>Until this existed the field was written once at construction and never again:
+     * the size slider updated the model and the export, so the user was sizing captions
+     * blind and only found out what they had chosen after rendering (audit 2.1, open a
+     * month). Clamped to the same 0.02–0.6 range as {@code Clip#setCaptionSizeFraction},
+     * so a hand-edited project cannot make the preview and the export disagree.</p>
+     */
+    public void setSizeFraction(float f) {
+        float clamped = Math.max(0.02f, Math.min(0.6f, f));
+        if (clamped == sizeFraction) return;
+        sizeFraction = clamped;
         invalidate();
     }
 

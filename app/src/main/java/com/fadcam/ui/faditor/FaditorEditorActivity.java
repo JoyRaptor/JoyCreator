@@ -10433,6 +10433,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 bindCaptionData(cc);
             }
         }
+        // The AUDIO caption overlay was never re-bound here, so undoing an audio caption
+        // edit left the preview showing the un-undone state. Latent while size wasn't
+        // bound at all (audit 2.1) and position was the only visible casualty; now that
+        // the slider drives the preview it would be an obvious lie. Same idiom as
+        // refreshActiveCaptionOverlaysAfterBulkStyleChange().
+        AudioClip boundAudioCaption =
+                audioCaptionClipId != null ? findAudioClipById(audioCaptionClipId) : null;
+        if (boundAudioCaption != null) {
+            bindAudioCaptionData(boundAudioCaption);
+        }
     }
 
     /**
@@ -19513,6 +19523,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 });
         captionOverlay.setCenter(clip.getCaptionCenterX(), clip.getCaptionCenterY());
+        // Audit 2.1: position was bound here and size was not, so the slider moved the
+        // model and the export while the preview stayed at the view's 0.060f default.
+        captionOverlay.setSizeFraction(clip.getCaptionSizeFraction());
     }
 
     private void bindAudioCaptionData(@NonNull AudioClip clip) {
@@ -19575,6 +19588,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 });
         audioCaptionOverlay.setCenter(clip.getCaptionCenterX(), clip.getCaptionCenterY());
+        audioCaptionOverlay.setSizeFraction(clip.getCaptionSizeFraction()); // audit 2.1
     }
 
     /** After loading a saved project, re-show captions for the clip that had them. */

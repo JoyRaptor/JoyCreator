@@ -1728,6 +1728,10 @@ public class ProjectStorage {
                 acJson.addProperty("captionStyleId", ac.getCaptionStyleId());
                 acJson.addProperty("captionCenterX", ac.getCaptionCenterX());
                 acJson.addProperty("captionCenterY", ac.getCaptionCenterY());
+                // Audit 2.2: the clip serializer has written this since captions landed;
+                // the audio one never did, so an audio caption's size survived into the
+                // EXPORT (which reads the model) but reverted to 0.060 on the next load.
+                acJson.addProperty("captionSizeFraction", ac.getCaptionSizeFraction());
                 // §4.5 per-object lock (write-if-true; audio's eye = its existing mute).
                 if (ac.isLocked()) acJson.addProperty("objLocked", true);
                 audioArray.add(acJson);
@@ -2230,6 +2234,13 @@ public class ProjectStorage {
                             ac.setCaptionCenter(
                                     acObj.get("captionCenterX").getAsFloat(),
                                     acObj.get("captionCenterY").getAsFloat());
+                        }
+                        // Audit 2.2. Tolerant like every other read: absent (every project
+                        // written before this) keeps AudioClip's 0.060f default, which is
+                        // exactly the value those projects were being reset to anyway.
+                        if (acObj.has("captionSizeFraction")) {
+                            ac.setCaptionSizeFraction(
+                                    acObj.get("captionSizeFraction").getAsFloat());
                         }
                         // §4.5 per-object lock (tolerant: absent = false).
                         if (acObj.has("objLocked")) ac.setLocked(acObj.get("objLocked").getAsBoolean());

@@ -742,6 +742,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         selectedClipIndex = index;
         Clip clip = getSelectedClip();
 
+        // Tell the VIEW its new selection BEFORE anything reads or writes segment data
+        // through it. Everything below resolves against EditorTimelineView.selectedIndex,
+        // which used to still hold the PREVIOUS selection until the setTimeline() call at
+        // the very end of this method — so a selection change corrupted itself twice:
+        //   1. setTrimFromClip() writes SegmentData built from the NEW clip into the OLD
+        //      segment's slot, after which getSegmentStartTimeMs() sums the wrong
+        //      durations, and
+        //   2. setPlayheadFraction() clamps the NEW clip's source position into the OLD
+        //      clip's in/out range, which lands the playhead at that clip's start and then
+        //      centerPlayhead() scrolls to it.
+        // That is the "play jumps back to the beginning of the cut clip" report, and the
+        // same family as the older back-to-start-of-clip bugs: a stale selected index used
+        // to resolve a position.
+        editorTimeline.setSelectedIndex(index);
+
         // Sync timeline view to the selected segment's trim
         editorTimeline.setTrimFromClip(clip);
 
@@ -784,9 +799,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Convert local (effective) ms to source position
             long sourcePositionMs = clip.getInPointMs() + (long)(localMs * clip.getSpeedMultiplier());
             sourcePositionMs = Math.max(clip.getInPointMs(), Math.min(sourcePositionMs, clip.getOutPointMs()));
-            float sourceFrac = clip.getSourceDurationMs() > 0
-                    ? (float) sourcePositionMs / clip.getSourceDurationMs() : 0f;
-
             // MISSING source: show MISSING overlay instead of loading preview
             if (!clip.isGeneratedSlide() && !isSourceResolvable(clip.getSourceUri())) {
                 hideImagePreview();
@@ -827,8 +839,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 updatePreviewTransforms();
             }
 
-            // Set playhead to preserved position (not segment start)
-            editorTimeline.setPlayheadFraction(sourceFrac);
+            // Set playhead to preserved position (not segment start). Set it ABSOLUTELY:
+            // segStartMs + localMs is the value this method already computed in timeline
+            // space, so there is no reason to round-trip it through a source FRACTION that
+            // setPlayheadFraction has to re-resolve against the view's selected index. One
+            // less way for the two to disagree.
+            editorTimeline.setPlayheadPositionMs(segStartMs + localMs);
             
             long seekPositionMs = sourcePositionMs - clip.getInPointMs();
             if (!clip.isImageClip()
@@ -1462,7 +1478,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     loadedSlideClipId = null;
                     renderSlidesInBackground();
                 }
-                updateCurrentTimeDisplay(0);
+                // Re-derive the playhead from the TAPE (which a trim drag never moves)
+                // instead of passing 0 — 0 means "position 0 within this segment", i.e. it
+                // parked the editor's whole notion of the playhead at the clip's START
+                // after every trim, which then read back as a jump on the next play.
+                // Clamped into the new trimmed range in case the edge was dragged past it.
+                long trimSegStartMs = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
+                long trimLocalEffMs = Math.max(0,
+                        editorTimeline.getPlayheadPositionMs() - trimSegStartMs);
+                long trimSrcOffMs = clip.getSpeedMultiplier() > 0
+                        ? (long) (trimLocalEffMs * clip.getSpeedMultiplier())
+                        : trimLocalEffMs;
+                trimSrcOffMs = Math.max(0, Math.min(trimSrcOffMs, newOut - newIn));
+                updateCurrentTimeDisplay(trimSrcOffMs);
                 refreshTotalTimeDisplay();
                 saveProjectNow();
             }

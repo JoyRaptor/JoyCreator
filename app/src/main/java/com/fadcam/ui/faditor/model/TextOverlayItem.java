@@ -283,6 +283,25 @@ public class TextOverlayItem {
     /** True if this overlay renders from an AI-authored PNG frame sequence. */
     public boolean isGeneratedSlide() { return generatedSource != null; }
 
+    // ── Countdown / count-up timer (SPEC_TIMER_OBJECT) ──────────────────
+
+    /**
+     * Turns this overlay into a live clock, or {@code null} for ordinary text.
+     * Only the displayed STRING changes — every style field above still applies, so a
+     * timer inherits the caption look for free. See {@link TimerText}, which is the one
+     * authority preview and export both read.
+     */
+    @Nullable
+    private TimerSpec timerSpec;
+
+    @Nullable
+    public TimerSpec getTimerSpec() { return timerSpec; }
+
+    public void setTimerSpec(@Nullable TimerSpec spec) { this.timerSpec = spec; }
+
+    /** True if this overlay displays a computed time rather than its authored text. */
+    public boolean isTimer() { return timerSpec != null; }
+
     // ── Layer-track membership (M10) ────────────────────────────────────
 
     /** Stable id of the layer track this item belongs to, or {@code null} for the default TEXT track. */

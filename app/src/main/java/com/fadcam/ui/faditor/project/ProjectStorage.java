@@ -854,6 +854,56 @@ public class ProjectStorage {
         return tr;
     }
 
+    /**
+     * SPEC_TIMER_OBJECT: written ONLY for a timer overlay, so every project that has no
+     * timer keeps byte-identical JSON (same discipline as {@code overlayAudioEnabled} and
+     * the objHidden/objLocked pair). Enum names are stored, not ordinals — reordering an
+     * enum must never silently reinterpret existing projects.
+     */
+    private static void serializeTimerSpec(JsonObject parentJson,
+            com.fadcam.ui.faditor.model.TimerSpec spec) {
+        if (spec == null) return;
+        JsonObject t = new JsonObject();
+        t.addProperty("direction", spec.getDirection().name());
+        t.addProperty("basis", spec.getBasis().name());
+        t.addProperty("showHours", spec.isShowHours());
+        t.addProperty("showMinutes", spec.isShowMinutes());
+        t.addProperty("showSeconds", spec.isShowSeconds());
+        t.addProperty("precision", spec.getPrecision().name());
+        parentJson.add("timer", t);
+    }
+
+    /** Inverse of {@link #serializeTimerSpec}; unknown enum names degrade to defaults. */
+    @Nullable
+    private static com.fadcam.ui.faditor.model.TimerSpec deserializeTimerSpec(JsonObject o) {
+        if (o == null || !o.has("timer") || !o.get("timer").isJsonObject()) return null;
+        JsonObject t = o.getAsJsonObject("timer");
+        com.fadcam.ui.faditor.model.TimerSpec spec =
+                new com.fadcam.ui.faditor.model.TimerSpec();
+        if (t.has("direction")) {
+            try {
+                spec.setDirection(com.fadcam.ui.faditor.model.TimerSpec.Direction
+                        .valueOf(t.get("direction").getAsString()));
+            } catch (IllegalArgumentException ignored) { }
+        }
+        if (t.has("basis")) {
+            try {
+                spec.setBasis(com.fadcam.ui.faditor.model.TimerSpec.Basis
+                        .valueOf(t.get("basis").getAsString()));
+            } catch (IllegalArgumentException ignored) { }
+        }
+        if (t.has("precision")) {
+            try {
+                spec.setPrecision(com.fadcam.ui.faditor.model.TimerSpec.Precision
+                        .valueOf(t.get("precision").getAsString()));
+            } catch (IllegalArgumentException ignored) { }
+        }
+        if (t.has("showHours")) spec.setShowHours(t.get("showHours").getAsBoolean());
+        if (t.has("showMinutes")) spec.setShowMinutes(t.get("showMinutes").getAsBoolean());
+        if (t.has("showSeconds")) spec.setShowSeconds(t.get("showSeconds").getAsBoolean());
+        return spec;
+    }
+
     private static void serializeGeneratedSource(JsonObject parentJson,
             com.fadcam.ui.faditor.model.GeneratedSource gs) {
         if (gs == null) return;
@@ -1659,6 +1709,7 @@ public class ProjectStorage {
                 // §4.5 per-object eye/lock (write-if-true — pre-§4.5 JSON unchanged).
                 if (o.isHidden()) oJson.addProperty("objHidden", true);
                 if (o.isLocked()) oJson.addProperty("objLocked", true);
+                serializeTimerSpec(oJson, o.getTimerSpec());
                 overlaysArray.add(oJson);
             }
             timelineJson.add("textOverlays", overlaysArray);
@@ -2167,6 +2218,7 @@ public class ProjectStorage {
                         // §4.5 per-object eye/lock (tolerant: absent = false).
                         if (oObj.has("objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
                         if (oObj.has("objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
+                        o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
                         project.getTimeline().addTextOverlay(o);
                     }
                 }

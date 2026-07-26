@@ -1862,7 +1862,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> overlays =
                         project.getTimeline().getTextOverlays();
                 if (overlayIndex < 0 || overlayIndex >= overlays.size()) return;
-                if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                 syncTimelineOverlays();
             }
 
@@ -1874,7 +1874,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (overlayIndex < 0 || overlayIndex >= overlays.size()) return;
                 recordOverlayTimelineDrag(overlays.get(overlayIndex), overlayIndex, "Overlay time range");
                 if (overlayLayer != null) {
-                    overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                    setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                     overlayLayer.rebuild();
                 }
                 syncTimelineOverlays();
@@ -1883,7 +1883,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onOverlayKeyframeMoved(int overlayIndex, long oldLocalMs, long newLocalMs) {
-                if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                 syncTimelineOverlays();
             }
 
@@ -1901,7 +1901,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         recordOverlayTimelineDrag(overlays.get(overlayIndex), overlayIndex, "Move overlay keyframe");
                     }
                 }
-                if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                 syncTimelineOverlays();
                 scheduleAutoSave();
             }
@@ -7755,10 +7755,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             previewHandlesOverlay.setPlayheadMs(absoluteMs);
         }
 
-        // Drive overlay time-ranges + keyframe animation from the playhead.
-        if (overlayLayer != null && overlayLayer.getVisibility() == View.VISIBLE) {
-            overlayLayer.setPlayheadMs(absoluteMs);
-        }
+        // Drive overlay time-ranges + keyframe animation from the playhead (both surfaces;
+        // the helper gates each on its own visibility).
+        setTextOverlayPlayhead(absoluteMs);
         // M-COMP-1: same playhead tick drives the IMAGE-track preview surface (scrub +
         // live playback both flow through this one method — PLAN §3.2 scope item 5).
         if (layerImageOverlay != null) {
@@ -7766,7 +7765,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         // S4: same tick drives sprite frame resolution + keyframed transforms.
         if (spriteOverlayView != null && !spriteOverlayView.isEmpty()) {
-            spriteOverlayView.setPlayheadMs(absoluteMs);
+            setSpriteOverlayPlayhead(absoluteMs);
         }
         // M-COMP-2: same tick drives the live PiP layer — time-range visibility,
         // keyframed transform, and overlay-decoder sync against the master clock.
@@ -10398,7 +10397,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // in the preview, then re-position it for the current playhead.
         if (overlayLayer != null) {
             overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
-            overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
         }
         if (captionsActive) {
             Clip cc = getSelectedClip();
@@ -10649,7 +10648,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 spriteOverlayView.setData(
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItemsAboveVideo(tl),
                         spriteOverlayCallback());
-                spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
+                setSpriteOverlayPlayhead(lastPlayheadAbsoluteMs);
             }
             // S3: the palette panel mirrors the same filtered list when open.
             if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
@@ -11401,7 +11400,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.compositor.LayerPreviewController
                             .visibleTextOverlaysAboveVideo(project.getTimeline()),
                     overlayLayerCallback());
-            overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
         }
     }
 
@@ -11843,7 +11842,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // the on-canvas overlay layer (for text) so a row-drag looks identical to
                 // an on-canvas drag while it's happening.
                 if (item.getTextOverlay() != null && overlayLayer != null) {
-                    overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                    setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                 }
                 syncTimelineOverlays();
             }
@@ -11879,7 +11878,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 trackChange));
                     }
                     if (overlayLayer != null) {
-                        overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                        setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                         overlayLayer.rebuild();
                     }
                 } else if (item.getAudioClip() != null) {
@@ -12092,7 +12091,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 kfShiftOverlayBefore = null;
                 kfShiftSpriteBefore = null;
                 if (overlayLayer != null) {
-                    overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                    setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                     overlayLayer.rebuild();
                 }
                 syncTimelineOverlays();
@@ -15355,6 +15354,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public long getProjectDurationMs() {
+                // SPEC_TIMER_OBJECT: the same value export passes to CompositeExportOverlay
+                // (project.getTimeline().getTotalDurationMs()), so a timer reads identically
+                // in both. 0 when no project is loaded — TimerText degrades to a zero span
+                // rather than overflowing.
+                return project == null ? 0L : project.getTimeline().getTotalDurationMs();
+            }
+
+            @Override
             public void onEditRequested(
                     @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
                 // Double-tap = type editor (grammar 2026-07-17). For images the
@@ -16736,7 +16744,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Light per-drag-frame refresh: reposition text children, no rebuild. */
     private void refreshTextAfterHandleWrite() {
-        if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+        setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+    }
+
+    /**
+     * Drive BOTH text-overlay surfaces from the playhead — the normal one and the
+     * draw-only below-the-PiP one added by SPEC_CROSSTYPE_Z Z3.
+     *
+     * <p>The below surface was never being ticked (21 call sites for the above surface, 0
+     * for it), so it sat frozen at {@code currentTimeMs == 0} forever: an item ordered
+     * under the PiP plane never animated its keyframes and was VISIBLE ONLY IF its time
+     * range happened to contain 0ms. Export draws that same item correctly in its own Z4
+     * pass, so the two disagreed — the precise preview/export divergence Z3 and Z4 were
+     * landed together to prevent. Timers made it impossible to miss: one on a below lane
+     * would simply never count.</p>
+     */
+    private void setTextOverlayPlayhead(long ms) {
+        // Each surface gates on its OWN visibility. The per-tick caller used to gate both
+        // on the ABOVE layer's, which would starve the below one whenever the above was
+        // hidden — the same starvation in a different disguise.
+        if (overlayLayer != null && overlayLayer.getVisibility() == View.VISIBLE) {
+            overlayLayer.setPlayheadMs(ms);
+        }
+        if (overlayLayerBelow != null && overlayLayerBelow.getVisibility() == View.VISIBLE) {
+            overlayLayerBelow.setPlayheadMs(ms);
+        }
+    }
+
+    /** Sprite twin of {@link #setTextOverlayPlayhead} — same frozen-below-surface bug. */
+    private void setSpriteOverlayPlayhead(long ms) {
+        if (spriteOverlayView != null) spriteOverlayView.setPlayheadMs(ms);
+        if (spriteOverlayViewBelow != null) spriteOverlayViewBelow.setPlayheadMs(ms);
     }
 
     /**
@@ -16842,7 +16880,148 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Light per-drag-frame refresh: re-evaluate sprite transforms + repaint. */
     private void refreshSpriteAfterHandleWrite() {
-        if (spriteOverlayView != null) spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
+        setSpriteOverlayPlayhead(lastPlayheadAbsoluteMs);
+    }
+
+    /**
+     * SPEC_TIMER_OBJECT: the timer block of a text overlay's object menu. One row turns the
+     * overlay into a clock; the rest appear ONLY once it is one, so an ordinary caption's
+     * drawer is untouched.
+     *
+     * <p>Images are excluded — a timer replaces the displayed STRING, which an image
+     * overlay does not have.</p>
+     */
+    private void addTimerActions(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (o.isImage() || o.isGeneratedSlide()) return;
+        final com.fadcam.ui.faditor.model.TimerSpec spec = o.getTimerSpec();
+        if (spec == null) {
+            actions.add(new ObjectMenuSheet.Action("Make it a timer", false, () -> { // TODO(strings)
+                // Default = countdown over the tape with M:SS, which is the shape the
+                // feature was asked for ("trim in at 5s, out at 10s, counts 5 -> 0").
+                applyTimerEdit(o, new com.fadcam.ui.faditor.model.TimerSpec(), null,
+                        "Make it a timer");
+            }));
+            return;
+        }
+        final boolean down =
+                spec.getDirection() == com.fadcam.ui.faditor.model.TimerSpec.Direction.COUNT_DOWN;
+        actions.add(new ObjectMenuSheet.Action(
+                down ? "Counting: down ▾" : "Counting: up ▴", false, () -> {  // TODO(strings)
+            com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
+            next.setDirection(down
+                    ? com.fadcam.ui.faditor.model.TimerSpec.Direction.COUNT_UP
+                    : com.fadcam.ui.faditor.model.TimerSpec.Direction.COUNT_DOWN);
+            applyTimerEdit(o, next, spec, "Timer direction");
+        }));
+
+        final boolean relative =
+                spec.getBasis() == com.fadcam.ui.faditor.model.TimerSpec.Basis.RELATIVE;
+        actions.add(new ObjectMenuSheet.Action(
+                relative ? "Measured: this tape" : "Measured: whole project", // TODO(strings)
+                false, () -> {
+            com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
+            next.setBasis(relative
+                    ? com.fadcam.ui.faditor.model.TimerSpec.Basis.ABSOLUTE
+                    : com.fadcam.ui.faditor.model.TimerSpec.Basis.RELATIVE);
+            applyTimerEdit(o, next, spec, "Timer basis");
+        }));
+
+        addTimerFieldToggle(actions, o, spec, "Hours", spec.isShowHours(),   // TODO(strings)
+                s -> s.setShowHours(!spec.isShowHours()));
+        addTimerFieldToggle(actions, o, spec, "Minutes", spec.isShowMinutes(), // TODO(strings)
+                s -> s.setShowMinutes(!spec.isShowMinutes()));
+        addTimerFieldToggle(actions, o, spec, "Seconds", spec.isShowSeconds(), // TODO(strings)
+                s -> s.setShowSeconds(!spec.isShowSeconds()));
+
+        final com.fadcam.ui.faditor.model.TimerSpec.Precision p = spec.getPrecision();
+        final String pLabel = p == com.fadcam.ui.faditor.model.TimerSpec.Precision.FRAMES
+                ? "frames" : p == com.fadcam.ui.faditor.model.TimerSpec.Precision.MILLIS
+                ? "milliseconds" : "off";                                    // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action("Sub-second: " + pLabel, false, () -> {
+            com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
+            // Cycle off -> frames -> milliseconds -> off.
+            next.setPrecision(p == com.fadcam.ui.faditor.model.TimerSpec.Precision.NONE
+                    ? com.fadcam.ui.faditor.model.TimerSpec.Precision.FRAMES
+                    : p == com.fadcam.ui.faditor.model.TimerSpec.Precision.FRAMES
+                    ? com.fadcam.ui.faditor.model.TimerSpec.Precision.MILLIS
+                    : com.fadcam.ui.faditor.model.TimerSpec.Precision.NONE);
+            applyTimerEdit(o, next, spec, "Timer precision");
+        }));
+
+        actions.add(new ObjectMenuSheet.Action("Stop being a timer", true, () -> // TODO(strings)
+                applyTimerEdit(o, null, spec, "Remove timer")));
+    }
+
+    /** Flips one H/M/S flag on a COPY of a timer spec (no java.util.function: minSdk). */
+    private interface TimerFieldFlip {
+        void accept(@NonNull com.fadcam.ui.faditor.model.TimerSpec spec);
+    }
+
+    /**
+     * One H/M/S field row. Refuses to clear the LAST remaining field: a spec with nothing
+     * selected would render an empty overlay, which reads as a broken timer rather than a
+     * deliberate setting. ({@code TimerText} also falls back defensively, for JSON that
+     * reaches that state without going through this UI.)
+     */
+    private void addTimerFieldToggle(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull com.fadcam.ui.faditor.model.TimerSpec spec,
+            @NonNull String label, boolean on,
+            @NonNull TimerFieldFlip flip) {
+        actions.add(new ObjectMenuSheet.Action(label + (on ? ": shown" : ": hidden"), // TODO(strings)
+                false, () -> {
+            com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
+            flip.accept(next);
+            if (!next.hasAnyField()) {
+                android.widget.Toast.makeText(this,
+                        "A timer needs at least one field", // TODO(strings)
+                        android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            applyTimerEdit(o, next, spec, "Timer fields");
+        }));
+    }
+
+    /**
+     * Swap an overlay's timer spec as ONE undoable step, refresh the preview and re-open
+     * the drawer so the rows show their new state. The redo/undo lambdas deep-copy the
+     * specs so a later edit of the live spec cannot mutate what undo restores.
+     */
+    private void applyTimerEdit(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @Nullable com.fadcam.ui.faditor.model.TimerSpec next,
+            @Nullable com.fadcam.ui.faditor.model.TimerSpec before,
+            @NonNull String label) {
+        final com.fadcam.ui.faditor.model.TimerSpec redoSpec = next == null ? null : next.copy();
+        final com.fadcam.ui.faditor.model.TimerSpec undoSpec =
+                before == null ? null : before.copy();
+        final Runnable apply = () -> {
+            o.setTimerSpec(redoSpec == null ? null : redoSpec.copy());
+            refreshAfterTimerEdit(o);
+        };
+        final Runnable revert = () -> {
+            o.setTimerSpec(undoSpec == null ? null : undoSpec.copy());
+            refreshAfterTimerEdit(o);
+        };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction(label, apply, revert));
+    }
+
+    /**
+     * A timer edit changes the STRING an overlay draws, so the preview view must be rebuilt
+     * (not just repositioned) before the playhead re-evaluates it — the TextView caches its
+     * text, and turning a timer off has to restore the authored text.
+     */
+    private void refreshAfterTimerEdit(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (overlayLayer != null) {
+            overlayLayer.rebuild();
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+        }
+        syncTimelineOverlays();
+        scheduleAutoSave();
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
+            showObjectMenuSheetForTextOverlay(o); // re-open so the rows show the new state
+        }
     }
 
     /**
@@ -16881,6 +17060,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ms -> o.animatedOpacity(ms)));
 
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
+        addTimerActions(actions, o);
         actions.add(new ObjectMenuSheet.Action("New layer above", false, // TODO(strings)
                 () -> moveOverlayItemToNewLayer(o, true)));
         actions.add(new ObjectMenuSheet.Action("New layer below", false, // TODO(strings)
@@ -16964,7 +17144,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void refreshOverlayAfterRangeEdit() {
-        if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+        setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
         syncTimelineOverlays();
         scheduleAutoSave();
     }
@@ -17059,7 +17239,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         o.clearKeyframes();
         recordOverlayMenuUndo(o, before, "Clear all keyframes"); // TODO(strings)
         if (overlayLayer != null) {
-            overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             overlayLayer.rebuild();
         }
         syncTimelineOverlays();
@@ -17180,7 +17360,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void refreshSpriteAfterMenuWrite() {
         if (spriteOverlayView != null) {
-            spriteOverlayView.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setSpriteOverlayPlayhead(lastPlayheadAbsoluteMs);
             spriteOverlayView.invalidate();
         }
         syncTimelineOverlays();
@@ -17890,7 +18070,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 o.setOpacity(v);
             }
             if (overlayLayer != null) {
-                overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                 overlayLayer.rebuild();
             }
             syncTimelineOverlays();
@@ -17908,7 +18088,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 o.addKeyframeAt(lastPlayheadAbsoluteMs);
             }
             recordOverlayMenuUndo(o, before, "Add keyframe");
-            if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
         };
         // G3: diamond swipe-nav + long-press-delete.
@@ -17923,7 +18103,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             o.getKeyframes().removeKey(key, hit);
             recordOverlayMenuUndo(o, before, "Delete keyframe");
             if (overlayLayer != null) {
-                overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                 overlayLayer.rebuild();
             }
             syncTimelineOverlays();
@@ -17973,7 +18153,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         owner.easing = e;
         recordOverlayMenuUndo(o, before, "Ease curve"); // TODO(strings)
         if (overlayLayer != null) {
-            overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             overlayLayer.rebuild();
         }
         syncTimelineOverlays();
@@ -18467,7 +18647,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     item.setOpacity(op);
                 }
                 if (overlayLayer != null) {
-                    overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+                    setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                     overlayLayer.rebuild();
                 }
                 syncTimelineOverlays();
@@ -18500,7 +18680,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return;
             }
             item.setTimeRange(lastPlayheadAbsoluteMs, item.getEndMs());
-            if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
             scheduleAutoSave();
             Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
@@ -18517,7 +18697,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return;
             }
             item.setTimeRange(item.getStartMs(), lastPlayheadAbsoluteMs);
-            if (overlayLayer != null) overlayLayer.setPlayheadMs(lastPlayheadAbsoluteMs);
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
             scheduleAutoSave();
             Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();

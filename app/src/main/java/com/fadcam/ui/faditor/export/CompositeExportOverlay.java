@@ -61,6 +61,14 @@ public class CompositeExportOverlay extends BitmapOverlay {
      * safe upper bound.
      */
     private final long clipVisualEndMs;
+    /**
+     * SPEC_TIMER_OBJECT: total project duration — a timer's ABSOLUTE basis counts against
+     * it, and it is also the fallback out-point for an untrimmed (endMs == MAX_VALUE) tape.
+     * A constructor parameter rather than a setter on purpose: a forgotten setter would
+     * leave export computing timers against 0 while the preview used the real duration,
+     * which is precisely the preview/export divergence this feature must not have.
+     */
+    private final long projectDurationMs;
 
     private Bitmap bitmap;
     private Canvas canvas;
@@ -194,7 +202,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<AudioClip> audioClips,
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> allSpriteItems,
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets,
-                                   @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs) {
+                                   @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs,
+                                   long projectDurationMs) {
+        this.projectDurationMs = projectDurationMs;
         this.context = context.getApplicationContext();
         // Custom caption styles resolve through the store; the :export process is
         // fresh per export, so init here before any CaptionStyle.byId call.
@@ -497,7 +507,18 @@ public class CompositeExportOverlay extends BitmapOverlay {
             float cy = o.animatedCenterY(timelineMs) * outH;
             float sizeFrac = o.animatedSizeFraction(timelineMs);
             float rot = o.animatedRotation(timelineMs);
-            TextOverlayItem frameOverlay = new TextOverlayItem(o.getText(), o.getColorInt(),
+            // SPEC_TIMER_OBJECT: a timer overlay draws a COMPUTED string for this frame;
+            // everything else about it (style, transform, keyframes) is unchanged, which
+            // is what makes a timer inherit the caption look. Same authority the preview
+            // calls, so the two cannot drift.
+            String frameText = o.getText();
+            if (o.isTimer()) {
+                String t = com.fadcam.ui.faditor.model.TimerText.format(
+                        o.getTimerSpec(), timelineMs, o.getStartMs(), o.getEndMs(),
+                        projectDurationMs, com.fadcam.ui.faditor.model.TimerText.DEFAULT_FPS);
+                if (t != null) frameText = t;
+            }
+            TextOverlayItem frameOverlay = new TextOverlayItem(frameText, o.getColorInt(),
                     cx / outW, cy / outH, sizeFrac, rot);
             frameOverlay.setStrokeColorInt(o.getStrokeColorInt());
             frameOverlay.setStrokeWidthPx(o.getStrokeWidthPx());

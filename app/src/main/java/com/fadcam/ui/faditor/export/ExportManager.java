@@ -2480,7 +2480,8 @@ public class ExportManager {
                         project.getTimeline().getAudioClips(),
                         belowSprites,
                         project.getSpriteSheets(),
-                        project.getAvatarRigs());
+                        project.getAvatarRigs(),
+                        project.getTimeline().getTotalDurationMs());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
             }
             java.util.Set<String> servingMatteIds = new java.util.HashSet<>();
@@ -2516,7 +2517,8 @@ public class ExportManager {
                         project.getTimeline().getAudioClips(),
                         exportSpriteItems,
                         project.getSpriteSheets(),
-                        project.getAvatarRigs());
+                        project.getAvatarRigs(),
+                        project.getTimeline().getTotalDurationMs());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

@@ -34,6 +34,13 @@ public class TextOverlayLayer extends FrameLayout {
         /** An overlay's position/size/text changed — persist it. */
         void onOverlayChanged();
         /**
+         * SPEC_TIMER_OBJECT: total project duration, for a timer overlay's ABSOLUTE basis
+         * and as the fallback out-point of an untrimmed tape. Deliberately NOT a default
+         * method: export takes the same value as a required constructor argument, and a
+         * silently-zero duration here would make the preview disagree with the export.
+         */
+        long getProjectDurationMs();
+        /**
          * User DOUBLE-TAPPED an overlay — open its type editor (program-wide
          * gesture grammar, JoyRaptor 2026-07-17: tap = select, double-tap = type
          * editor, hold = general drawer).
@@ -185,6 +192,18 @@ public class TextOverlayLayer extends FrameLayout {
             return;
         }
         view.setVisibility(VISIBLE);
+        // SPEC_TIMER_OBJECT: a timer's string depends on the PLAYHEAD, so it is refreshed
+        // here (position() runs on every tick) rather than in createOverlayView(), which
+        // only runs on rebuild. Same authority the export calls.
+        if (o.isTimer() && view instanceof TextView) {
+            String t = com.fadcam.ui.faditor.model.TimerText.format(
+                    o.getTimerSpec(), currentTimeMs, o.getStartMs(), o.getEndMs(),
+                    callback.getProjectDurationMs(),
+                    com.fadcam.ui.faditor.model.TimerText.DEFAULT_FPS);
+            if (t != null && !t.contentEquals(((TextView) view).getText())) {
+                ((TextView) view).setText(t);
+            }
+        }
         // While the user is dragging/scaling this overlay, follow the finger
         // (static transform) rather than the keyframed value at the playhead.
         boolean live = o == manipulating;

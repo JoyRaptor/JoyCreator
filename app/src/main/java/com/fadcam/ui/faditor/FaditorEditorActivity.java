@@ -9050,6 +9050,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private float[] liveLegGeometry(@NonNull Clip clip, int videoW, int videoH,
                                     int viewW, int viewH) {
         float l = 0f, t = 0f, r = 1f, b = 1f;
+        // "custom" only, for the same reason as cropToClipBounds — see the note there.
         if ("custom".equals(clip.getCropPreset())) {
             float cl = clip.getCropLeft(), ct = clip.getCropTop();
             float cr = clip.getCropRight(), cb = clip.getCropBottom();
@@ -9278,6 +9279,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @NonNull
     private Bitmap cropToClipBounds(@NonNull Bitmap frame, @NonNull Clip clip) {
+        // DELIBERATELY "custom" only — do NOT switch this to Clip.effectiveCropFractions()
+        // on its own. The live preview does not render a NAMED preset crop at all
+        // (applyCropZoom is custom-only), so cropping presets here would make the preview
+        // snap the other way: cropped during the blend, uncropped the moment the cut lands.
+        // Whoever closes the preview-side gap has to change applyCropZoom in the same
+        // commit. Measured on the Note 9: identical crop as "custom" previews as a narrow
+        // strip, as "9:16" previews full-width.
         if (!"custom".equals(clip.getCropPreset())) return frame;
         float l = clip.getCropLeft(), t = clip.getCropTop();
         float r = clip.getCropRight(), b = clip.getCropBottom();
@@ -9296,7 +9304,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
-    /** Cache-key fragment for {@code clip}'s crop ("" when uncropped). */
+    /**
+     * Cache-key fragment for {@code clip}'s crop ("" when uncropped). Kept in lockstep with
+     * {@link #cropToClipBounds} — it must key exactly what that method actually applies, so
+     * it stays "custom" only until the preview honours presets too.
+     */
     @NonNull
     private static String cropKey(@NonNull Clip clip) {
         if (!"custom".equals(clip.getCropPreset())) return "";

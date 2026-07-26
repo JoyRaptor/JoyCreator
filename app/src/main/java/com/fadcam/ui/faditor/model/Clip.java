@@ -671,6 +671,62 @@ public class Clip {
     public float getCropBottom() { return cropBottom; }
 
     /**
+     * Crop rectangle for a NAMED aspect preset, in NDC {@code {left, right, bottom, top}} —
+     * the exact argument order {@code androidx.media3.effect.Crop} takes. Returns null for
+     * "none"/"custom"/unknown.
+     *
+     * <p>This table lives here, rather than in the exporter, because BOTH the exporter and
+     * the preview compositor have to agree about what a preset means; when they each had
+     * their own idea, a preset-cropped clip blended uncropped through a transition and then
+     * snapped to the cropped framing at the cut.</p>
+     *
+     * <p>The constants are written for a 16:9 source (which is why "1:1" and "16:9" are
+     * no-ops). Do NOT "correct" them here: every consumer inherits whatever the Crop effect
+     * actually does, and parity with the cut is the property that matters.</p>
+     */
+    @Nullable
+    public static float[] cropRectNdc(@Nullable String preset) {
+        if (preset == null) return null;
+        switch (preset) {
+            case "1:1":   return new float[]{-1f, 1f, -1f, 1f};
+            case "16:9":  return new float[]{-1f, 1f, -1f, 1f};
+            case "9:16":  return new float[]{-0.3125f, 0.3125f, -1f, 1f};
+            case "4:3":   return new float[]{-0.833f, 0.833f, -1f, 1f};
+            case "3:4":   return new float[]{-0.375f, 0.375f, -1f, 1f};
+            case "21:9":  return new float[]{-1f, 1f, -0.643f, 0.643f};
+            default:      return null;
+        }
+    }
+
+    /**
+     * The sub-rectangle of the source this clip actually shows, as image-space fractions
+     * {@code {left, top, right, bottom}} with a TOP-LEFT origin, or null when the clip has no
+     * effective crop (no preset, an unknown preset, a degenerate rect, or one so close to the
+     * full frame that cropping is a no-op).
+     *
+     * <p>The single conversion every crop-aware path goes through, so the "custom" case and
+     * the named-preset case cannot disagree. NDC y is bottom-up and image y is top-down,
+     * which is why top/bottom swap in the mapping.</p>
+     */
+    @Nullable
+    public float[] effectiveCropFractions() {
+        float l, t, r, b;
+        if ("custom".equals(cropPreset)) {
+            l = cropLeft; t = cropTop; r = cropRight; b = cropBottom;
+        } else {
+            float[] ndc = cropRectNdc(cropPreset);
+            if (ndc == null) return null;
+            l = (ndc[0] + 1f) / 2f;   // NDC left  -> fraction from the left edge
+            r = (ndc[1] + 1f) / 2f;   // NDC right
+            t = (1f - ndc[3]) / 2f;   // NDC top    -> fraction from the TOP edge
+            b = (1f - ndc[2]) / 2f;   // NDC bottom
+        }
+        float cw = r - l, ch = b - t;
+        if (cw <= 0.01f || ch <= 0.01f || (cw >= 0.99f && ch >= 0.99f)) return null;
+        return new float[]{l, t, r, b};
+    }
+
+    /**
      * Whether this clip represents a still image rather than a video.
      */
     public boolean isImageClip() {

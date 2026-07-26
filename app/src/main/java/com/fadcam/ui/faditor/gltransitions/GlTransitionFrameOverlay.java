@@ -208,16 +208,26 @@ public class GlTransitionFrameOverlay extends BitmapOverlay {
         canvas.restore();
     }
 
-    /** The clip's custom-crop region of {@code frame} in pixels (full frame when uncropped). */
+    /** The clip's crop region of {@code frame} in pixels (full frame when uncropped). */
     @NonNull
     private android.graphics.Rect cropSrcRect(@NonNull Bitmap frame) {
         int w = frame.getWidth(), h = frame.getHeight();
         android.graphics.Rect full = new android.graphics.Rect(0, 0, w, h);
-        if (!"custom".equals(clip.getCropPreset())) return full;
-        float l = clip.getCropLeft(), t = clip.getCropTop();
-        float r = clip.getCropRight(), b = clip.getCropBottom();
+        // Named presets count too, not just "custom": the outgoing leg is cropped by the
+        // Crop effect for ANY preset, so ignoring presets here made a preset-cropped
+        // incoming clip blend uncropped and then snap at the cut.
+        //
+        // EXCEPT for image clips. ExportManager gates that Crop effect on `isVideo`
+        // (= !isImageClip), so an image clip's own segment is never crop-effected at all;
+        // honouring a preset here would crop the blend and NOT the cut — the same snap,
+        // mirrored. Images therefore keep the pre-existing "custom"-only rule, which makes
+        // this expression identical to the old code for them.
+        float[] cf = (!clip.isImageClip() || "custom".equals(clip.getCropPreset()))
+                ? clip.effectiveCropFractions() : null;
+        if (cf == null) return full;
+        float l = cf[0], t = cf[1];
+        float r = cf[2], b = cf[3];
         float cw = r - l, ch = b - t;
-        if (cw <= 0.01f || ch <= 0.01f || (cw >= 0.99f && ch >= 0.99f)) return full;
         int x = Math.max(0, Math.min(w - 1, Math.round(l * w)));
         int y = Math.max(0, Math.min(h - 1, Math.round(t * h)));
         int pw = Math.min(w - x, Math.round(cw * w));

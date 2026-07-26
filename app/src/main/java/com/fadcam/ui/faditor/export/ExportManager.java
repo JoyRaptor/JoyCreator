@@ -2553,15 +2553,10 @@ public class ExportManager {
      */
     @Nullable
     private static float[] getCropRect(@NonNull String preset) {
-        switch (preset) {
-            case "1:1":   return new float[]{-1f, 1f, -1f, 1f};
-            case "16:9":  return new float[]{-1f, 1f, -1f, 1f};
-            case "9:16":  return new float[]{-0.3125f, 0.3125f, -1f, 1f};
-            case "4:3":   return new float[]{-0.833f, 0.833f, -1f, 1f};
-            case "3:4":   return new float[]{-0.375f, 0.375f, -1f, 1f};
-            case "21:9":  return new float[]{-1f, 1f, -0.643f, 0.643f};
-            default:      return null;
-        }
+        // Single source of truth: the preview compositor reads the SAME table through
+        // Clip.effectiveCropFractions(), so a preset cannot mean one thing in a blend and
+        // another at the cut.
+        return Clip.cropRectNdc(preset);
     }
 
     /**

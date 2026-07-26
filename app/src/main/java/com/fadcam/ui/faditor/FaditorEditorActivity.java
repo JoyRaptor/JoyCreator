@@ -17463,7 +17463,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // audio at all, so the slider appears only for an opted-in clip (static — a PiP
         // volume ENVELOPE is not wired through the export sequence yet).
         if (c.isOverlayAudioEnabled()) {
-            props.add(ObjectMenuSheet.staticProp("pipVolume", "Volume", 0f, 2f, pct, // TODO(strings)
+            props.add(ObjectMenuSheet.Prop.staticProp("pipVolume", "Volume", 0f, 2f, pct, // TODO(strings)
                     ms -> c.getVolumeLevel(),
                     (v, ms) -> {
                         c.setVolumeLevel(v);

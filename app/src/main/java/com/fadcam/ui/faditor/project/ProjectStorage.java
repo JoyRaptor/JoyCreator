@@ -1345,33 +1345,55 @@ public class ProjectStorage {
      * absent on master clips, so restoring them is a no-op there.
      */
     @NonNull
+    /**
+     * Optional-field guard: the key is present AND carries an actual value.
+     *
+     * <p>{@code JsonObject.has(k)} is true for an EXPLICIT {@code "k": null}, and every typed
+     * accessor ({@code getAsString}, {@code getAsFloat}, …) throws on {@link com.google.gson
+     * .JsonNull}. So the ubiquitous {@code if (o.has(k)) x.set(o.get(k).getAsFloat())} idiom is
+     * one JSON literal away from an exception — and in the clip/audio/text deserializers that
+     * exception escapes {@code deserialize()} entirely, so {@code load()} logs "file corrupt"
+     * and silently serves {@code project.json.bak} instead. That is not a hypothetical: it was
+     * reproduced on device for {@code layerId} (audit 1.3, commit 7a09eb6) — a fixture opened
+     * under the title of its own older backup, with no error shown.
+     *
+     * <p>Swapping {@code o.has(k)} for {@code hasValue(o, k)} is a one-token change per site
+     * that keeps every existing default and branch exactly as it was: an explicit null now
+     * takes the same path as an absent key, which is the semantics the callers already assume.
+     * Preferred over an {@code optString/optFloat} family precisely because it does not
+     * restructure working code — the diff stays reviewable line by line.
+     */
+    private static boolean hasValue(@NonNull JsonObject o, @NonNull String key) {
+        return o.has(key) && !o.get(key).isJsonNull();
+    }
+
     private Clip deserializeClipObject(@NonNull File projectDir, @NonNull JsonObject clipObj) {
         String clipId = clipObj.get("id").getAsString();
         Uri sourceUri = fromStorageUri(projectDir, clipObj.get("sourceUri").getAsString());
         long inPointMs = clipObj.get("inPointMs").getAsLong();
         long outPointMs = clipObj.get("outPointMs").getAsLong();
         long sourceDurationMs = clipObj.get("sourceDurationMs").getAsLong();
-        float speed = clipObj.has("speedMultiplier")
+        float speed = hasValue(clipObj, "speedMultiplier")
                 ? clipObj.get("speedMultiplier").getAsFloat() : 1.0f;
-        boolean audioMuted = clipObj.has("audioMuted")
+        boolean audioMuted = hasValue(clipObj, "audioMuted")
                 && clipObj.get("audioMuted").getAsBoolean();
-        float volumeLevel = clipObj.has("volumeLevel")
+        float volumeLevel = hasValue(clipObj, "volumeLevel")
                 ? clipObj.get("volumeLevel").getAsFloat() : 1.0f;
-        int rotationDeg = clipObj.has("rotationDegrees")
+        int rotationDeg = hasValue(clipObj, "rotationDegrees")
                 ? clipObj.get("rotationDegrees").getAsInt() : 0;
-        boolean flipH = clipObj.has("flipHorizontal")
+        boolean flipH = hasValue(clipObj, "flipHorizontal")
                 && clipObj.get("flipHorizontal").getAsBoolean();
-        boolean flipV = clipObj.has("flipVertical")
+        boolean flipV = hasValue(clipObj, "flipVertical")
                 && clipObj.get("flipVertical").getAsBoolean();
-        String crop = clipObj.has("cropPreset")
+        String crop = hasValue(clipObj, "cropPreset")
                 ? clipObj.get("cropPreset").getAsString() : "none";
-        float cropL = clipObj.has("cropLeft")
+        float cropL = hasValue(clipObj, "cropLeft")
                 ? clipObj.get("cropLeft").getAsFloat() : 0f;
-        float cropT = clipObj.has("cropTop")
+        float cropT = hasValue(clipObj, "cropTop")
                 ? clipObj.get("cropTop").getAsFloat() : 0f;
-        float cropR = clipObj.has("cropRight")
+        float cropR = hasValue(clipObj, "cropRight")
                 ? clipObj.get("cropRight").getAsFloat() : 1f;
-        float cropB = clipObj.has("cropBottom")
+        float cropB = hasValue(clipObj, "cropBottom")
                 ? clipObj.get("cropBottom").getAsFloat() : 1f;
 
         Clip clip = new Clip(clipId, sourceUri,
@@ -1379,10 +1401,10 @@ public class ProjectStorage {
                 speed, audioMuted, volumeLevel,
                 rotationDeg, flipH, flipV, crop,
                 cropL, cropT, cropR, cropB);
-        if (clipObj.has("imageClip")) {
+        if (hasValue(clipObj, "imageClip")) {
             clip.setImageClip(clipObj.get("imageClip").getAsBoolean());
         }
-        if (clipObj.has("removedSpans")) {
+        if (hasValue(clipObj, "removedSpans")) {
             JsonArray spans = clipObj.getAsJsonArray("removedSpans");
             java.util.List<long[]> list = new java.util.ArrayList<>();
             for (int s = 0; s < spans.size(); s++) {
@@ -1393,7 +1415,7 @@ public class ProjectStorage {
             clip.setRemovedSpans(list);
         }
         // New format: list of named transcript versions.
-        if (clipObj.has("transcripts")) {
+        if (hasValue(clipObj, "transcripts")) {
             JsonArray versionsArr = clipObj.getAsJsonArray("transcripts");
             for (int v = 0; v < versionsArr.size(); v++) {
                 JsonObject vj = versionsArr.get(v).getAsJsonObject();
@@ -1409,11 +1431,11 @@ public class ProjectStorage {
                         new com.fadcam.ui.faditor.transcript.NamedTranscript(
                                 id, label, engine, tr));
             }
-            if (clipObj.has("activeTranscript")) {
+            if (hasValue(clipObj, "activeTranscript")) {
                 clip.setActiveTranscriptIndex(
                         clipObj.get("activeTranscript").getAsInt());
             }
-        } else if (clipObj.has("transcript")) {
+        } else if (hasValue(clipObj, "transcript")) {
             // Back-compat: a single un-named transcript.
             com.fadcam.ui.faditor.transcript.Transcript tr =
                     parseWordsArray(clipObj.getAsJsonArray("transcript"));
@@ -1421,50 +1443,50 @@ public class ProjectStorage {
                     new com.fadcam.ui.faditor.transcript.NamedTranscript(
                             "Transcript", "vosk", tr));
         }
-        if (clipObj.has("displayName")) {
+        if (hasValue(clipObj, "displayName")) {
             clip.setDisplayName(clipObj.get("displayName").getAsString());
         }
-        if (clipObj.has("captionsEnabled")) {
+        if (hasValue(clipObj, "captionsEnabled")) {
             clip.setCaptionsEnabled(
                     clipObj.get("captionsEnabled").getAsBoolean());
         }
-        if (clipObj.has("captionStyleId")) {
+        if (hasValue(clipObj, "captionStyleId")) {
             clip.setCaptionStyleId(
                     clipObj.get("captionStyleId").getAsString());
         }
-        if (clipObj.has("captionCenterX") && clipObj.has("captionCenterY")) {
+        if (hasValue(clipObj, "captionCenterX") && hasValue(clipObj, "captionCenterY")) {
             clip.setCaptionCenter(
                     clipObj.get("captionCenterX").getAsFloat(),
                     clipObj.get("captionCenterY").getAsFloat());
         }
-        if (clipObj.has("captionSizeFraction")) {
+        if (hasValue(clipObj, "captionSizeFraction")) {
             clip.setCaptionSizeFraction(
                     clipObj.get("captionSizeFraction").getAsFloat());
         }
         // Audio ducking and punch-in zoom (schema v2)
-        if (clipObj.has("duckAmount")) {
+        if (hasValue(clipObj, "duckAmount")) {
             clip.setDuckAmount(clipObj.get("duckAmount").getAsFloat());
         }
-        if (clipObj.has("zoomLevel")) {
+        if (hasValue(clipObj, "zoomLevel")) {
             clip.setZoomLevel(clipObj.get("zoomLevel").getAsFloat());
-            float zcx = clipObj.has("zoomCenterX")
+            float zcx = hasValue(clipObj, "zoomCenterX")
                     ? clipObj.get("zoomCenterX").getAsFloat() : 0.5f;
-            float zcy = clipObj.has("zoomCenterY")
+            float zcy = hasValue(clipObj, "zoomCenterY")
                     ? clipObj.get("zoomCenterY").getAsFloat() : 0.5f;
             clip.setZoomCenter(zcx, zcy);
         }
         // Loop / ping-pong (schema v6+)
-        if (clipObj.has("loopMode")) {
+        if (hasValue(clipObj, "loopMode")) {
             clip.setLoopMode(clipObj.get("loopMode").getAsInt());
-            clip.setLoopBeforeMs(clipObj.has("loopBeforeMs")
+            clip.setLoopBeforeMs(hasValue(clipObj, "loopBeforeMs")
                     ? clipObj.get("loopBeforeMs").getAsLong() : 0);
-            clip.setLoopAfterMs(clipObj.has("loopAfterMs")
+            clip.setLoopAfterMs(hasValue(clipObj, "loopAfterMs")
                     ? clipObj.get("loopAfterMs").getAsLong() : 0);
         }
-        if (clipObj.has("pitchCompensation")) {
+        if (hasValue(clipObj, "pitchCompensation")) {
             clip.setPitchCompensationEnabled(clipObj.get("pitchCompensation").getAsBoolean());
         }
-        if (clipObj.has("opacityKeyframes")) {
+        if (hasValue(clipObj, "opacityKeyframes")) {
             JsonArray kfArr = clipObj.getAsJsonArray("opacityKeyframes");
             java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.OpacityKeyframe> kfs =
                     new java.util.ArrayList<>();
@@ -1476,7 +1498,7 @@ public class ProjectStorage {
             }
             clip.setOpacityKeyframes(kfs);
         }
-        if (clipObj.has("volumeKeyframes")) {
+        if (hasValue(clipObj, "volumeKeyframes")) {
             JsonArray kfArr = clipObj.getAsJsonArray("volumeKeyframes");
             java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.VolumeKeyframe> kfs =
                     new java.util.ArrayList<>();
@@ -1488,7 +1510,7 @@ public class ProjectStorage {
             }
             clip.setVolumeKeyframes(kfs);
         }
-        if (clipObj.has("captionStyleKeyframes")) {
+        if (hasValue(clipObj, "captionStyleKeyframes")) {
             JsonArray kfArr = clipObj.getAsJsonArray("captionStyleKeyframes");
             java.util.ArrayList<com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe> kfs =
                     new java.util.ArrayList<>();
@@ -1500,11 +1522,11 @@ public class ProjectStorage {
             }
             clip.getCaptionStyleKeyframes().addAll(kfs);
         }
-        if (clipObj.has("effectStack")) {
+        if (hasValue(clipObj, "effectStack")) {
             deserializeEffectStack(clip.getEffectStack(),
                     clipObj.getAsJsonObject("effectStack"));
         }
-        if (clipObj.has("generatedSource")) {
+        if (hasValue(clipObj, "generatedSource")) {
             clip.setGeneratedSource(deserializeGeneratedSource(
                     clipObj.getAsJsonObject("generatedSource")));
             // Slides are freely stretchable (the animation time-remaps to the
@@ -1520,12 +1542,12 @@ public class ProjectStorage {
         }
         // Per-item compositing spec — restored for masters AND overlays (the
         // serializer writes it at clip level, outside the layerId block).
-        if (clipObj.has("compositing")) {
+        if (hasValue(clipObj, "compositing")) {
             clip.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec
                     .fromJson(clipObj.getAsJsonObject("compositing")));
         }
         // ── Floating overlay-video fields (M-COMP-2) — absent on master clips. ──
-        if (clipObj.has("overlayAudioEnabled")) {
+        if (hasValue(clipObj, "overlayAudioEnabled")) {
             clip.setOverlayAudioEnabled(clipObj.get("overlayAudioEnabled").getAsBoolean());
         }
         // Audit 1.3: `.has()` alone is not an optional-field guard — an EXPLICIT
@@ -1535,15 +1557,15 @@ public class ProjectStorage {
         // save contained, with no error. `null` means "no layer" (a master clip), which is
         // exactly what skipping this block gives. Same idiom already used for linkedClipId
         // below and customStyleJson.
-        if (clipObj.has("layerId") && !clipObj.get("layerId").isJsonNull()) {
+        if (hasValue(clipObj, "layerId")) {
             clip.setLayerId(clipObj.get("layerId").getAsString());
-            if (clipObj.has("overlayStartMs")) {
+            if (hasValue(clipObj, "overlayStartMs")) {
                 clip.setOverlayStartMs(clipObj.get("overlayStartMs").getAsLong());
             }
-            if (clipObj.has("overlayBlendMode")) {
+            if (hasValue(clipObj, "overlayBlendMode")) {
                 clip.setOverlayBlendMode(clipObj.get("overlayBlendMode").getAsString());
             }
-            if (clipObj.has("overlayTransform")) {
+            if (hasValue(clipObj, "overlayTransform")) {
                 com.fadcam.ui.faditor.keyframe.KeyframeSet ks =
                         new com.fadcam.ui.faditor.keyframe.KeyframeSet();
                 JsonObject tracksJson = clipObj.getAsJsonObject("overlayTransform");
@@ -1562,12 +1584,12 @@ public class ProjectStorage {
             }
         }
         // Dual-stream pair link (spec §3) — master or overlay clip; absent = unlinked.
-        if (clipObj.has("linkedClipId") && !clipObj.get("linkedClipId").isJsonNull()) {
+        if (hasValue(clipObj, "linkedClipId")) {
             clip.setLinkedClipId(clipObj.get("linkedClipId").getAsString());
         }
         // §4.5 per-object eye/lock (tolerant: absent = false).
-        if (clipObj.has("objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
-        if (clipObj.has("objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
+        if (hasValue(clipObj, "objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
+        if (hasValue(clipObj, "objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
         return clip;
     }
 

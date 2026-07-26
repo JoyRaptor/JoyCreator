@@ -265,9 +265,36 @@ add there; item bodies were already per-item-kind.
 > **Method note for whoever does 2/3/5–8:** the lane header is CANVAS-drawn, so row names are
 > NOT in `uiautomator`/`dumpsys` and cannot be read off a screenshot. Use a temporary
 > `android.util.Log` probe at the end of `getLayers()` (and one of its INPUT lists — it is what
-> caught a fixture artifact masquerading as a dropped sprite). Also: pristine project.json
+> caught a fixture artifact masquerading as a dropped sprite). ~~Also: pristine project.json
 > **omits** an absent `layerId` key; writing `"layerId": null` instead makes the loader DROP
-> the sprite, so build fixtures by editing only the field under test.
+> the sprite~~ — **that trap is GONE as of `7a09eb6` (audit 1.3)**: all four `layerId` readers
+> now check `isJsonNull()`, so an explicit `null` is read as "no layer" instead of throwing.
+> Editing only the field under test is still the right habit, but a stray null no longer
+> destroys the fixture.
+>
+> **DONE 2026-07-26 ~03:25, Note 9 — items 2 and 3 both PASS.** Ran as a single-variable
+> A/B: one throwaway clone with ONE `LAYER` def holding a text (`centerY` 0.5, size 0.11,
+> red), a sprite (same centre, size 0.42) and a PiP (same centre, scale 0.85) — all three
+> overlapping in time AND space so z is observable — versus a byte-identical copy differing
+> only in that lane's `hidden` flag.
+>
+> - **2 PASS.** All three render simultaneously from one neutral lane, and the z order is
+>   exactly the documented surface stack: PiP at the bottom (its own watermark visible),
+>   sprite (yellow star) over it, text ("TOPTEXT") over that. Nothing dropped, nothing
+>   duplicated.
+> - **3 PASS.** With that lane's eye off, all three vanish together; the master clip and its
+>   caption stay (correct — caption visibility is `captionsEnabled`, not an object flag).
+>   Verified it also SURVIVES a reload: `migrateTrackEyeLockToObjects()` pushes the lane flag
+>   down and the serializer persists **`objHidden: true` on all three** payload types, with
+>   the lane flag correctly cleared to `false`. (Beware when checking this by hand: the
+>   persisted key is `objHidden`, not `hidden` — grepping for `hidden` makes text and sprite
+>   look unpersisted and invents a bug that is not there.)
+> - **4 re-confirmed** on the same runs: `layerId` round-trips literally as
+>   `"mixedlane-0001"` on all three payloads.
+>
+> Still open: **5, 6, 7** (gesture-level — drag-and-drop injection drifts on this device, see
+> the device-input-injection-limits memory, so these want either a human or the
+> temp-widen-a-constant trick) and **8** (export A/B frame diff).
 
 Model-level (injection, cheap, deterministic — use recipe (b) in the handoff block):
 1. ✅ **DONE** — Sprite + PiP with `layerId:"text"` and a text overlay with `layerId:"sprite"`

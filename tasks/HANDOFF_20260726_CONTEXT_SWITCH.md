@@ -16,7 +16,7 @@ HEAD `cc1691a`, branch `joy-creator`, tree clean except the always-ignorable
   2.0 = doubled. `--expect-absent` for the not-opted-in control.
 - `schema_layer_stamp.py` — schema-stamp survey + corruption repro + source tripwires.
 
-**Second stretch (04:00–08:25):** 2.7 items 2/3/8, 2.6 acceptance 1/2/4, 2.5 export leg.
+**Second/third stretch (04:00–09:45):** 2.7 items 2/3/8, 2.6 acceptance 1/2/4, 2.5 export leg, the timer export answer (§7), and 2.4 — which the audit had backwards.
 See the audit's STATUS BOARD. Three verification lessons, each of which produced a confident
 wrong answer before it was caught: a symmetric fixture hides flips; a cross-encode pixel diff
 thresholded at 8/255 reports noise as signal; a correlation probe nearly as long as the export

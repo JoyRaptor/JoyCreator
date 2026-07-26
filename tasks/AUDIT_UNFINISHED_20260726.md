@@ -31,6 +31,9 @@ remaining instance of that pattern.
 > | 2.6 cross-type Z | **CLOSED** — acceptance 1, 2 and 4 all run on device. Z3's visual debt and Z4's frame-diff debt are cleared | see `SPEC_CROSSTYPE_Z.md` |
 > | 2.5 PiP audio | **export leg PROVED** — fitted gain 0.993, corr 0.999, silent before the offset, and no audio track at all when not opted in. So "doubled audio" is ruled out. **Preview leg still UNVERIFIED (needs a human to listen); acceptance 4 still open (no dual-stream pair project exists)** | `cc1691a` |
 >
+> | 2.4 captions after a split | **CLOSED, and the audit had the direction backwards** — the EXPORT is correct (it windows per clip); the PREVIEW over-rendered the neighbouring clip's words. Observed on a real transcript, fixed, device-verified | `1a4bcc8` |
+> | timer export (handoff §7) | **ANSWERED** — timer renders and counts in an export: 0:04/0:03/0:02/0:01 at the right times, 4/4 | `21f518a` |
+>
 > New reusable tooling: `tasks/export_ab_diff.py` (absolute-geometry export frame diff, with a
 > `--check-asym` gate that refuses fixtures symmetric enough to hide a flip),
 > `tasks/export_audio_probe.py` (fits a source's amplitude inside an export: 1.0 = once,

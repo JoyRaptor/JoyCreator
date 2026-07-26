@@ -2,6 +2,64 @@
 
 ---
 
+## 0a. HUMAN TEST PASS, 2026-07-26 ~12:20 — findings + two product decisions
+
+The user ran the four things a harness cannot. Evidence is on the Note 9 in
+`cebc19e0` (touched, **do NOT restore it — it is the evidence**) and a new `3072f113`.
+
+### DECISIONS TAKEN (build to these)
+
+1. **Corrupt project file.** Do BOTH: skip the bad ITEM and keep the project, *and* tell the
+   user what is broken/missing, *and* offer "open the last backup instead" as a choice. Not a
+   silent fallback and not a silent skip — say what was lost and let them pick.
+2. **Transcript panel after a split: show the WHOLE source with the current clip highlighted.**
+   Rationale from the user, and it is a stronger reason than the spec recorded: because every
+   clip points at ONE source, the panel becomes a NAVIGATION surface — you can see how big your
+   clip is and jump to the other clips through the transcript itself. Build it as a navigator,
+   not just a viewer.
+
+### CONFIRMED WORKING (harness could not have shown these)
+
+- **Neutral-substrate queue item 7 PASSES.** Dropping into the row gap created lanes named
+  **"Layer 8" / "Layer 9"** — `LAYER` kind, correct naming, not "Text N".
+- **Item 5/6 direction confirmed**: the `'hi'` text overlay is sitting on `layerId
+  43fda830-…`, which is a **LAYER-kind lane** — a text really does land and stick on a neutral
+  lane.
+- **Audit 1.2's schema fix fired in the wild**: that project is now `schemaVersion=11`,
+  stamped because the user created real LAYER lanes. Exactly the designed behaviour, on a
+  project no fixture touched.
+
+### BUGS FOUND
+
+- **B1 — PiP audio opt-in is effectively unreachable.** The user could not turn it on, and the
+  file proves why: BOTH PiPs still have `overlayAudioEnabled` absent (never set) and
+  `audioMuted=true`, so silence was CORRECT behaviour. "Include audio" lives only on the PiP
+  object menu, and that menu opens only on **hold → release-in-place on the timeline item**
+  (`onItemMenuRequested`). The user reasonably double-tapped the PiP in the preview and got
+  nothing. The feature is built and correct and cannot be found. Needs a discoverable route.
+- **B2 — playhead does not move / no audible playback** in that project. NOT explained by B1
+  and not yet diagnosed. Reproduce in `cebc19e0` before anything else.
+- **B3 — a horizontal drag on a text layer RESIZES it instead of moving it.** User moved the
+  `'hi'` text sideways and it "got longer in the time domain as opposed to just shifted".
+  Real bug, distinct from the link-group constraint below.
+- **B4 — "purple link" is a LINK GROUP, not a lock, and there is no discoverable way out.**
+  The file has 2 link groups: 3 waveforms bound by `TIME`, and 2 text overlays bound by
+  `TIME`+`OPACITY`. That is why most items would not drag sideways — they are time-linked to
+  their host, which is *correct* behaviour badly communicated. The user read purple as "locked"
+  and could not find any unlock/unlink affordance. Needs the badge to say what it means and
+  offer "unlink".
+- **B5 — dual-stream recording is not discoverable.** The user enabled something in options and
+  still found no dual mode; the new project `3072f113` is a plain 1-clip, `schemaVersion=7`
+  project with no PiP. So SPEC_PIP_AUDIO acceptance 4 stays BLOCKED, and there is a real
+  discoverability bug in front of it.
+
+### Note on sandbox integrity
+
+`cebc19e0` no longer matches its safety copy **on purpose** — it holds the user's test work.
+The other 9 still match. Do not "restore" `cebc19e0` until B2/B3 are diagnosed from it.
+
+---
+
 ## 0. CURRENT STATE (updated 11:40) — READ THIS FIRST
 
 HEAD `270ce4c`, branch `joy-creator`, tree clean except the always-ignorable

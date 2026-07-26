@@ -19458,11 +19458,70 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * visibility or the editing toolbar. Used by the playback loop to switch captions to the clip under
      * the playhead at each cut (captions are clip-specific, like the visualizer).
      */
+    // ── Caption transcript windowing (audit 2.4) ─────────────────────────────
+    //
+    // The caption overlay must show EXACTLY the words the export will draw. Export builds
+    // its captions from `t.windowed(in, out)` (CompositeExportOverlay), while the preview
+    // used to bind the RAW full transcript. After a split that lands mid-phrase, the two
+    // therefore disagreed: observed on device with a phrase spanning source 2250-4350ms
+    // split at 3300 — the preview drew "is very cute she is white" in BOTH halves, while
+    // the export correctly drew "is very cute" in the first and "she is white" in the
+    // second. The user saw words in the preview that the render would never contain.
+    //
+    // Transcript.windowed() allocates a NEW Transcript on every call (sharing the same
+    // TranscriptWord references). Binding it directly would hand CaptionOverlayView a
+    // different instance on every re-bind, which defeats the identity check that stops
+    // setData() resetting the active word — i.e. it would silently reintroduce the
+    // "captions vanish on any re-bind while paused" bug fixed in eaff34b. Hence the cache:
+    // the same clip at the same trim must yield the SAME object.
+    //
+    // The key includes the word count and the source transcript's identity so switching
+    // transcript VERSION or gaining words re-windows; strike edits need no invalidation
+    // because the word objects are shared with the source.
+    @Nullable private String captionWindowKey;
+    @Nullable private com.fadcam.ui.faditor.transcript.Transcript captionWindowCache;
+    @Nullable private String audioCaptionWindowKey;
+    @Nullable private com.fadcam.ui.faditor.transcript.Transcript audioCaptionWindowCache;
+
+    private static String captionWindowKeyFor(
+            @NonNull String ownerId, long inMs, long outMs,
+            @NonNull com.fadcam.ui.faditor.transcript.Transcript full) {
+        return ownerId + '|' + inMs + '|' + outMs + '|' + full.words.size()
+                + '|' + System.identityHashCode(full);
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.transcript.Transcript windowedCaptionsFor(@NonNull Clip clip) {
+        com.fadcam.ui.faditor.transcript.Transcript full = clip.getTranscript();
+        if (full == null) return null;
+        String key = captionWindowKeyFor(
+                clip.getId(), clip.getInPointMs(), clip.getOutPointMs(), full);
+        if (captionWindowCache == null || !key.equals(captionWindowKey)) {
+            captionWindowKey = key;
+            captionWindowCache = full.windowed(clip.getInPointMs(), clip.getOutPointMs());
+        }
+        return captionWindowCache;
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.transcript.Transcript windowedCaptionsFor(
+            @NonNull AudioClip clip) {
+        com.fadcam.ui.faditor.transcript.Transcript full = clip.getTranscript();
+        if (full == null) return null;
+        String key = captionWindowKeyFor(
+                clip.getId(), clip.getInPointMs(), clip.getOutPointMs(), full);
+        if (audioCaptionWindowCache == null || !key.equals(audioCaptionWindowKey)) {
+            audioCaptionWindowKey = key;
+            audioCaptionWindowCache = full.windowed(clip.getInPointMs(), clip.getOutPointMs());
+        }
+        return audioCaptionWindowCache;
+    }
+
     private void bindCaptionData(@NonNull Clip clip) {
         if (captionOverlay == null) return;
         captionClipId = clip.getId();
         highlightActiveCaptionChip(clip.getCaptionStyleId());
-        captionOverlay.setData(clip.getTranscript(),
+        captionOverlay.setData(windowedCaptionsFor(clip),
                 com.fadcam.ui.faditor.transcript.CaptionStyle.byId(clip.getCaptionStyleId()),
                 new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
                     @NonNull
@@ -19537,7 +19596,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (audioCaptionOverlay == null) return;
         audioCaptionClipId = clip.getId();
         highlightActiveCaptionChip(clip.getCaptionStyleId());
-        audioCaptionOverlay.setData(clip.getTranscript(),
+        audioCaptionOverlay.setData(windowedCaptionsFor(clip),   // audit 2.4 — match export
                 com.fadcam.ui.faditor.transcript.CaptionStyle.byId(clip.getCaptionStyleId()),
                 new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
                     @NonNull @Override

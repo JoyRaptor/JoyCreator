@@ -8316,7 +8316,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // exit path to notify, ask the view whether a finger is actually still down.
         if (userDragging) {
             if (editorTimeline != null && !editorTimeline.isGestureActive()) {
-                FLog.w(TAG, "userDragging was stranded with no active gesture — clearing");
+                // The lastUpState snapshot names which touch branch swallowed the release that
+                // should have ended this drag — the second stranding path, still unidentified
+                // after the post-pinch pan was fixed directly (device-confirmed 2026-07-27).
+                FLog.w(TAG, "userDragging was stranded with no active gesture — clearing"
+                        + " | lastUp: " + (editorTimeline != null
+                                ? editorTimeline.getLastUpState() : "?"));
                 userDragging = false;
             } else {
                 return;

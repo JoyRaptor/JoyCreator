@@ -790,6 +790,8 @@ public class EditorTimelineView extends View {
      * gesture branches.
      */
     private boolean gestureActive = false;
+    /** DIAGNOSTIC: branch-selecting flags captured at the last ACTION_UP/CANCEL. See onTouchEvent. */
+    private String lastUpState = "none";
     /** FOLLOW-UP 2: true from onScaleEnd (a finger survived the pinch) until that
      *  finger lifts — its MOVEs drive the scrub directly, re-anchored (see onScaleEnd). */
     private boolean postPinchPanActive = false;
@@ -1861,6 +1863,16 @@ public class EditorTimelineView extends View {
      */
     public boolean isGestureActive() {
         return gestureActive || (flingScroller != null && !flingScroller.isFinished());
+    }
+
+    /**
+     * DIAGNOSTIC: the branch-selecting flags as they stood at the last ACTION_UP/CANCEL, so a
+     * stranded-latch heal can name which touch branch swallowed the release. Temporary, paired
+     * with PHDIAG. See the ACTION_UP case in {@link #onTouchEvent}.
+     */
+    @NonNull
+    public String getLastUpState() {
+        return lastUpState;
     }
 
     /**
@@ -5770,6 +5782,23 @@ public class EditorTimelineView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 gestureActive = false;
+                // DIAGNOSTIC (2026-07-27, additive only — no control flow depends on this).
+                // The device confirmation of the stranded-latch fix showed the SELF-HEAL firing
+                // once, which means a stranding path OTHER than the post-pinch pan (fixed
+                // directly) still exists. Rather than tag ten early-return sites, snapshot the
+                // flags that DECIDE which branch is about to consume this release: read back in
+                // the heal warning, it names the culprit the next time it happens. Remove with
+                // PHDIAG once that path is closed.
+                lastUpState = "action=" + (e.getActionMasked() == MotionEvent.ACTION_UP ? "UP" : "CANCEL")
+                        + " reorder=" + isReorderMode
+                        + " minimapDrag=" + minimapDragging
+                        + " scaling=" + isScaling
+                        + " marquee=" + marqueeMode
+                        + " postPinchPan=" + postPinchPanActive
+                        + " audioDrag=" + isDraggingAudio
+                        + " pendingAudio=" + pendingAudioIndex
+                        + " activeDrag=" + activeDrag
+                        + " pointers=" + e.getPointerCount();
                 break;
             default:
                 break;

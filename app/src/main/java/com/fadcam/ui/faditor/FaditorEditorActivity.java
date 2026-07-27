@@ -14645,6 +14645,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             sizeVal.setText(Math.round(value * 100) + "%");
             applyCaptionSize(value);
         });
+        // Coalesce a whole size-drag into ONE undo (user 2026-07-27: a small scrub flooded the
+        // undo list). Suppress per-change undo while the finger is down; record once on release.
+        sizeSlider.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
+            @Override public void onStartTrackingTouch(@NonNull Slider s) {
+                captionSizeSuppressUndo = true;
+                captionSizeDragBefore = currentCaptionSizeOfSelection();
+            }
+            @Override public void onStopTrackingTouch(@NonNull Slider s) {
+                captionSizeSuppressUndo = false;
+                recordCaptionSizeUndo(captionSizeDragBefore);
+            }
+        });
 
         // ── Row: font selector (collapsed chip → expandable carousel) ──
         root.addView(makeDivider(d));
@@ -15228,6 +15240,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    private boolean captionSizeSuppressUndo = false;
+    private float captionSizeDragBefore = Float.NaN;
+
+    /** Caption size fraction of the currently-selected caption target (audio clip or clip), or NaN. */
+    private float currentCaptionSizeOfSelection() {
+        int idx = editorTimeline.getSelectedAudioIndex();
+        if (idx >= 0 && idx < project.getTimeline().getAudioClips().size())
+            return project.getTimeline().getAudioClips().get(idx).getCaptionSizeFraction();
+        Clip cc = getSelectedClip();
+        return (cc != null && cc.hasTranscript()) ? cc.getCaptionSizeFraction() : Float.NaN;
+    }
+
+    /** Record ONE undo for a completed caption-size drag (before -> current), if it changed. */
+    private void recordCaptionSizeUndo(float before) {
+        if (Float.isNaN(before)) return;
+        int idx = editorTimeline.getSelectedAudioIndex();
+        if (idx >= 0 && idx < project.getTimeline().getAudioClips().size()) {
+            final AudioClip ac = project.getTimeline().getAudioClips().get(idx);
+            final float after = ac.getCaptionSizeFraction();
+            if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                    () -> ac.setCaptionSizeFraction(after), () -> ac.setCaptionSizeFraction(before)));
+            return;
+        }
+        final Clip cc = getSelectedClip();
+        if (cc != null && cc.hasTranscript()) {
+            final float after = cc.getCaptionSizeFraction();
+            if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                    () -> cc.setCaptionSizeFraction(after), () -> cc.setCaptionSizeFraction(before)));
+        }
+    }
+
     private void applyCaptionSize(float size) {
         boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
@@ -15238,7 +15281,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 final float beforeSize = ac.getCaptionSizeFraction();
                 ac.setCaptionSizeFraction(size);
                 bindAudioCaptionData(ac);
-                if (beforeSize != size) {
+                if (!captionSizeSuppressUndo && beforeSize != size) {
                     undoManager.recordAction(new EditActions.LambdaAction("Caption size",
                             () -> ac.setCaptionSizeFraction(size),
                             () -> ac.setCaptionSizeFraction(beforeSize)));
@@ -15251,7 +15294,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 final float beforeSize = cc.getCaptionSizeFraction();
                 cc.setCaptionSizeFraction(size);
                 bindCaptionData(cc);
-                if (beforeSize != size) {
+                if (!captionSizeSuppressUndo && beforeSize != size) {
                     undoManager.recordAction(new EditActions.LambdaAction("Caption size",
                             () -> cc.setCaptionSizeFraction(size),
                             () -> cc.setCaptionSizeFraction(beforeSize)));

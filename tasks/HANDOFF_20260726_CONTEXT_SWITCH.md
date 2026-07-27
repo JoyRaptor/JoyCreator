@@ -4,6 +4,25 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### RELOADED UNDO HISTORY CAME BACK INVERTED — **FIXED + verified** (`f52cb26`, audit 1.7).
+`loadHistory` appended with `addLast()` while the rest of the class pushes/pops the other end,
+so after a restart the OLDEST edit was on top and the history popup listed events upside down.
+Proven against the SAME sidecar file, unchanged on disk: before the fix it rendered
+`-1 Trim, -2 Added a title card`; after, `-1 Added a title card, -2 Trim`. Same input,
+different build. Also confirmed while there: the AI flag round-trips (the sidecar's AI entry
+carries `"ai": true`, the user's trim does not) and the violet row survives a restart.
+
+### ❌ DO NOT "FIX" 1.6 THE OBVIOUS WAY. A sweep of all 115 `recordAction` sites refutes the
+candidate repair (restore entry *i-1*'s snapshot): **18 sites record BEFORE mutating** and
+already hold a correct pre-state (rotate `:5884`, flip, speed, volume/mute, delete clip/audio,
+split-audio, reorder, replace-source, canvas-preset, audio-trim…), so the rule reverts one edit
+too many for all of them; it would ALSO silently discard a whole AI edit, because
+`recordAiCheckpoint`'s snapshot is a true pre-state; and the predecessor snapshot is often
+absent or non-adjacent (1.5s throttle + byte budget drop entries, so the reloaded stack is a
+SUBSEQUENCE of history). Recommended direction, plus two hazards that must be fixed alongside
+(`undo()` returns true even when nothing was restored; the plain snapshot path invalidates only
+the REDO stack), are written up in audit 1.6.
+
 ### ✅ THE OFF-BY-ONE IS NOW FULLY VERIFIED, INCLUDING THE RESTART PATH → audit item **1.6**.
 Both halves measured on the Note 9: (1) the sidecar's stored snapshot for
 `Trim [0–1929] → [0–614]` literally contains `clip0.outPointMs = 614`, the AFTER value —

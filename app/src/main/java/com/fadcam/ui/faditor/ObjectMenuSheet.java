@@ -177,6 +177,21 @@ public final class ObjectMenuSheet extends LinearLayout {
         }
     }
 
+    /**
+     * Host for the "Move in time" section (SPEC_OBJECT_TIME_SCRUBBER). ADDITIVE: the section is
+     * hidden unless {@link #setTimeScrub} is called with a non-null listener, so every existing
+     * caller of {@link #show} is unaffected. The shuttle streams {@code onScrubTick}; the
+     * tap-to-type readout fires {@code onJumpTo}; the two toggles fire their change callbacks.
+     */
+    public interface TimeScrubListener {
+        void onScrubStart();
+        void onScrubTick(long deltaMs);
+        void onScrubEnd();
+        void onJumpTo(long targetMs);
+        void onPushThroughToggled(boolean on);
+        void onIncrementToggled(boolean on);
+    }
+
     private static final int SLIDER_STEPS = 1000;
     private static final int BG = 0xFF1C1C1E;
     private static final int TXT_DIM = 0xFF888888;
@@ -197,6 +212,17 @@ public final class ObjectMenuSheet extends LinearLayout {
     private final LinearLayout rangeBox;
     private final LinearLayout actionsBox;
     private final TextView moreBtn;
+
+    // ── Move-in-time section (SPEC_OBJECT_TIME_SCRUBBER); additive, hidden unless configured ──
+    private final LinearLayout timeScrubBox;
+    private final com.fadcam.ui.faditor.move.TimeShuttleView shuttle;
+    private final TextView scrubReadout;
+    private final TextView pushToggle;
+    private final TextView incrementToggle;
+    @Nullable private TimeScrubListener timeScrubListener;
+    private boolean pushThroughOn = true;
+    private boolean incrementOn = false;
+    private long scrubDisplayMs = 0;
 
     private final List<Row> rows = new ArrayList<>();
     @Nullable private GestureHooks hooks;
@@ -291,6 +317,79 @@ public final class ObjectMenuSheet extends LinearLayout {
         moreBtn.setPadding(0, dp(12), 0, dp(6));
         content.addView(moreBtn);
 
+        // Move-in-time section — built once, added at the TOP of the body, hidden until
+        // setTimeScrub() configures it for a movable object.
+        timeScrubBox = new LinearLayout(ctx);
+        timeScrubBox.setOrientation(VERTICAL);
+        timeScrubBox.setPadding(0, dp(2), 0, dp(8));
+        timeScrubBox.setVisibility(GONE);
+
+        LinearLayout readRow = new LinearLayout(ctx);
+        readRow.setOrientation(HORIZONTAL);
+        readRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView moveLbl = new TextView(ctx);
+        moveLbl.setText("Move to"); // TODO(strings)
+        moveLbl.setTextColor(TXT_DIM);
+        moveLbl.setTextSize(12);
+        readRow.addView(moveLbl, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        scrubReadout = new TextView(ctx);
+        scrubReadout.setTextColor(TXT);
+        scrubReadout.setTextSize(15);
+        scrubReadout.setTypeface(null, Typeface.BOLD);
+        scrubReadout.setPadding(dp(10), dp(4), dp(10), dp(4));
+        scrubReadout.setBackgroundResource(selectableBg());
+        scrubReadout.setText(fmtTime(0));
+        scrubReadout.setOnClickListener(v -> promptJumpToTime());
+        readRow.addView(scrubReadout);
+        timeScrubBox.addView(readRow);
+
+        shuttle = new com.fadcam.ui.faditor.move.TimeShuttleView(ctx);
+        shuttle.setListener(new com.fadcam.ui.faditor.move.TimeShuttleView.Listener() {
+            @Override public void onScrubStart() {
+                if (timeScrubListener != null) timeScrubListener.onScrubStart();
+            }
+            @Override public void onScrubTick(long deltaMs) {
+                if (timeScrubListener != null) timeScrubListener.onScrubTick(deltaMs);
+            }
+            @Override public void onScrubEnd() {
+                if (timeScrubListener != null) timeScrubListener.onScrubEnd();
+            }
+        });
+        LayoutParams shuttleLp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(44));
+        shuttleLp.topMargin = dp(4);
+        timeScrubBox.addView(shuttle, shuttleLp);
+
+        LinearLayout togRow = new LinearLayout(ctx);
+        togRow.setOrientation(HORIZONTAL);
+        togRow.setPadding(0, dp(6), 0, 0);
+        pushToggle = new TextView(ctx);
+        pushToggle.setTextSize(12);
+        pushToggle.setPadding(dp(4), dp(6), dp(10), dp(6));
+        pushToggle.setOnClickListener(v -> {
+            pushThroughOn = !pushThroughOn;
+            renderToggle(pushToggle, "Push through", pushThroughOn); // TODO(strings)
+            if (timeScrubListener != null) timeScrubListener.onPushThroughToggled(pushThroughOn);
+        });
+        renderToggle(pushToggle, "Push through", pushThroughOn); // TODO(strings)
+        togRow.addView(pushToggle);
+        incrementToggle = new TextView(ctx);
+        incrementToggle.setTextSize(12);
+        incrementToggle.setPadding(dp(4), dp(6), dp(10), dp(6));
+        incrementToggle.setOnClickListener(v -> {
+            incrementOn = !incrementOn;
+            renderToggle(incrementToggle, "Snap", incrementOn); // TODO(strings)
+            if (timeScrubListener != null) timeScrubListener.onIncrementToggled(incrementOn);
+        });
+        renderToggle(incrementToggle, "Snap", incrementOn); // TODO(strings)
+        LayoutParams incLp = new LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        incLp.leftMargin = dp(12);
+        incrementToggle.setLayoutParams(incLp);
+        togRow.addView(incrementToggle);
+        timeScrubBox.addView(togRow);
+
+        content.addView(timeScrubBox, 0);
+
         // Expanded content is capped so the sheet never swallows the whole
         // screen; inside the cap it scrolls (always-scroll rule).
         scroll = new ScrollView(ctx) {
@@ -378,6 +477,10 @@ public final class ObjectMenuSheet extends LinearLayout {
         for (Prop p : props) {
             if ("opacity".equals(p.key)) { activeKey = p.key; break; }
         }
+        // Move-in-time is opt-in per show(): the activity calls setTimeScrub() AFTER show()
+        // only for a movable object, so reset it hidden here.
+        timeScrubListener = null;
+        timeScrubBox.setVisibility(GONE);
         expanded = false;
         showing = true;
         hintShownThisShowing = false;
@@ -406,9 +509,87 @@ public final class ObjectMenuSheet extends LinearLayout {
         if (showing) refreshRows();
     }
 
+    // ── Move-in-time public API (SPEC_OBJECT_TIME_SCRUBBER) ────────────
+
+    /**
+     * Show + configure the Move-in-time section, or hide it ({@code l == null}). Call AFTER
+     * {@link #show}. Additive — no effect on any other part of the sheet.
+     */
+    public void setTimeScrub(@Nullable TimeScrubListener l, long startMs,
+                             boolean pushThrough, boolean increment) {
+        this.timeScrubListener = l;
+        if (l == null) { timeScrubBox.setVisibility(GONE); return; }
+        this.pushThroughOn = pushThrough;
+        this.incrementOn = increment;
+        renderToggle(pushToggle, "Push through", pushThroughOn); // TODO(strings)
+        renderToggle(incrementToggle, "Snap", incrementOn);      // TODO(strings)
+        setScrubTimeMs(startMs);
+        timeScrubBox.setVisibility(showing ? VISIBLE : GONE);
+        requestLayout();
+    }
+
+    /** Update the live readout (the object's current start), e.g. on each scrub preview. */
+    public void setScrubTimeMs(long ms) {
+        scrubDisplayMs = Math.max(0, ms);
+        scrubReadout.setText(fmtTime(scrubDisplayMs));
+    }
+
+    private void renderToggle(@NonNull TextView t, @NonNull String label, boolean on) {
+        t.setText((on ? "☑ " : "☐ ") + label);   // ☑ / ☐
+        t.setTextColor(on ? ACCENT : TXT_DIM);
+    }
+
+    private void promptJumpToTime() {
+        if (timeScrubListener == null) return;
+        final android.widget.EditText in = new android.widget.EditText(getContext());
+        in.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        in.setText(fmtTime(scrubDisplayMs));
+        in.setSelectAllOnFocus(true);
+        new android.app.AlertDialog.Builder(getContext())
+                .setTitle("Jump to time (m:ss.mmm)") // TODO(strings)
+                .setView(in)
+                .setPositiveButton("Go", (d, w) -> {  // TODO(strings)
+                    long ms = parseTime(in.getText().toString());
+                    if (ms >= 0 && timeScrubListener != null) timeScrubListener.onJumpTo(ms);
+                })
+                .setNegativeButton("Cancel", null)    // TODO(strings)
+                .show();
+    }
+
+    /** {@code m:ss.mmm}. */
+    static String fmtTime(long ms) {
+        if (ms < 0) ms = 0;
+        long totalSec = ms / 1000;
+        long m = totalSec / 60, s = totalSec % 60, millis = ms % 1000;
+        return String.format(java.util.Locale.US, "%d:%02d.%03d", m, s, millis);
+    }
+
+    /** Parse {@code m:ss.mmm} / {@code ss.mmm} / {@code ss}; -1 if unparseable. */
+    static long parseTime(@Nullable String s) {
+        if (s == null) return -1;
+        s = s.trim();
+        if (s.isEmpty()) return -1;
+        try {
+            long minutes = 0;
+            String rest = s;
+            int colon = s.indexOf(':');
+            if (colon >= 0) {
+                minutes = Long.parseLong(s.substring(0, colon).trim());
+                rest = s.substring(colon + 1).trim();
+            }
+            double seconds = Double.parseDouble(rest);
+            return Math.max(0, Math.round((minutes * 60 + seconds) * 1000.0));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     // ── internals ────────────────────────────────────────────────────
 
     private void applyState() {
+        // Move-in-time stays visible in PEEK and EXPANDED whenever it's configured — like the
+        // range chips, it needs the timeline live under it.
+        timeScrubBox.setVisibility(timeScrubListener != null ? VISIBLE : GONE);
         headerRow.setVisibility(expanded ? VISIBLE : GONE);
         // Range chips stay in PEEK — they're the scrub-while-open actions (C2).
         rangeBox.setVisibility(rangeBox.getChildCount() > 0 ? VISIBLE : GONE);

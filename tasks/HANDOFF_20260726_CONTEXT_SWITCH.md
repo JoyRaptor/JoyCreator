@@ -4,6 +4,24 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### #6 LIVE WIRING STARTED — user greenlit it (2026-07-27). v1 slice: TEXT OVERLAYS, lock-only (`3556d63`).
+User: "Note 20 is unplugged — wire up #6, I'll feel-test." Only the Note 9 is attached (safe).
+Staged per SPEC §10 B: ONE payload first (text overlay), lock-only collision, then extend +
+add relayer. What landed (`3556d63`, compiles + installed Note 9 APK 09:13:02, NOT run by me —
+menu opens via hold-release, adb can't reach it):
+- `ObjectMenuSheet.setTimeScrub` gained a `showPushThrough` arg (v1 hides the toggle).
+- `EditorTimelineView.updateLayerItemStartLight(id, ms)` — the ANR-safe per-frame path: nudges the
+  fed TimedItem's start in place + invalidate, NO getLayers()/setLayerTracks rebuild (SPEC §8a).
+- `FaditorEditorActivity.attachTextOverlayTimeScrub` wired into `showObjectMenuSheetForTextOverlay`:
+  session-driven span move (start+end together), light refresh per frame, full sync + one undo
+  step on commit. Keyframes ride along (item-local time — verified). Locked overlays skipped.
+**PENDING device feel-test (user, Note 9 first):** does the menu open without CRASHING; does the
+shuttle feel buttery; does lock stop flush against a sibling; does jump-to-time + Snap + undo work.
+Known v1 limits (noted, not bugs): jump-to-time TELEPORTS (glide is the polish slice); link-group/
+visualizer riders resync on commit not live; push-through relayer + cross-lane y-glide are the
+NEXT slice. After Note 9 passes → swap to Note 20 to PROFILE the light refresh on a large project.
+NEXT payloads: sprite, audio (AudioClip.setOffsetMs), PiP (Clip.setOverlayStartMs), visualizer.
+
 ### ENGINE HARNESS HARDENED (`3eee17e`) — `ObjectTimeMoverTest` 15→21 (total move harness now 31/31).
 Added multi-obstacle + list-order-independence + multi-item-above cases (each with a positive
 control): lock-right/left pick the NEAREST obstacle regardless of list order; the above lane is

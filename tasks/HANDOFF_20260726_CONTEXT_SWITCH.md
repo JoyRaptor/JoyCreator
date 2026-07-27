@@ -4,6 +4,21 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### CONTEXT-WINDOW HANDOFF (2026-07-27 ~14:50). Batch of device-driven fixes landed; undo 1.6 next.
+This session's scrubber/timeline fixes, all installed on the Note 9, all AWAITING the user's
+final feel-confirm: uniform time axis (`1bfc121`, fixed the warp + below-length at the root),
+edge-tracking (`c772384`), overshoot step-past (`9a7a0a4`), diagonal-drag loosen (`699937b`),
+terminology lanes/layers (`1395738`), and "End here" live-playhead + scroll-off clamp (`this batch`).
+Field-feedback ledger = SPEC §12 (honest DONE/OPEN list). **NEXT SESSION TOP PRIORITY = AUDIT 1.6**
+(undo after app restart silently does nothing — the everyday data-trust bug). Deliberately NOT
+rushed in a closing window: it is core-path surgery, every obvious fix is wrong (audit 1.6 lists
+why: 18 record-before-mutate sites, the AI checkpoint, absent predecessors), and it needs a DEVICE
+positive control. Do it first, fresh, per audit 1.6's "recommended direction" + its two
+alongside-hazards (undo() silent-success on null snapshot at `UndoManager:318-330`; orphaned-graph
+invalidation on the plain snapshot path). Then SPEC §12 open items (scrubber completion: other
+payloads, relayer+glide, move drawer; polish: color-by-type, badge, center-on-add, pan-delay,
+caption-drawer, mini-map).
+
 ### WARP BUG DIAGNOSED (proven) → TIME AXIS MADE UNIFORM (`1bfc121`), awaiting user test.
 User reported a BOUNDED text block changing length while scrubbed. Instrumented `onPreview` with a
 `SCRUBWARP` Log.d; the device log PROVED the model is perfect — `dur` held constant at 2488ms the

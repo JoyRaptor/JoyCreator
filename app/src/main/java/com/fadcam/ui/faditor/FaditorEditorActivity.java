@@ -638,15 +638,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // small enough not to hijack a deliberate "play the last sliver" intent.
     private static final long END_REPLAY_EPSILON_MS = 50;
 
+    // ── PHDIAG (temporary, 2026-07-27) ───────────────────────────────
+    // Field diagnosis for the Note 20 report: during playback the playhead/timeline freeze
+    // and overlays stop compositing in, while video+audio keep playing normally. Proven from
+    // logcat that the main thread is NOT blocked and the player keeps advancing, so the fault
+    // is somewhere in this update path. updatePlayheadPosition() has ~20 early returns and
+    // logs nothing on the happy path, so one call site here — measuring whether the playhead
+    // actually MOVED while the player advanced — separates "ticker not running" from "ticker
+    // running but returning early" from "ticker fine, view not repainting". Throttled to
+    // ~500ms. REMOVE once the root cause is fixed.
+    private int phDiagTick = 0;
+
     private final Runnable playheadUpdater = new Runnable() {
         @Override
         public void run() {
+            long phBefore = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : -1;
             try {
                 updatePlayheadPosition();
                 syncAudioPlayerWithPlayhead();
                 applyAudioKeyframeGains();
             } catch (Exception e) {
                 FLog.e(TAG, "Error in updatePlayheadPosition", e);
+            }
+            if ((phDiagTick++ % 10) == 0 && editorTimeline != null) {
+                long phAfter = editorTimeline.getPlayheadPositionMs();
+                FLog.d(TAG, "PHDIAG t=" + phDiagTick
+                        + " playing=" + (playerManager != null && playerManager.isPlaying())
+                        + " pwr=" + (playerManager != null && playerManager.getPlayWhenReady())
+                        + " gapless=" + (playerManager != null && playerManager.isGapless())
+                        + " playerPos=" + (playerManager != null ? playerManager.getCurrentPosition() : -1)
+                        + " sel=" + selectedClipIndex
+                        + " segAtHead=" + editorTimeline.getSegmentAtPlayhead()
+                        + " head=" + phBefore + "->" + phAfter
+                        + " moved=" + (phAfter != phBefore)
+                        + " drag=" + userDragging
+                        + " tail=" + audioTailActive
+                        + " trans=" + transitionPlaybackActive);
             }
             // Only keep ticking if actively playing — avoids wasting CPU
             // redrawing the playhead position when nothing is moving.

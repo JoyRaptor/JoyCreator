@@ -40,7 +40,22 @@ public class UndoManager {
     // the UI thread per trim/transition/move — the dominant per-edit stall. Spacing
     // captures out keeps cross-session undo functional without the per-edit cost.
     private static final long SNAPSHOT_MIN_INTERVAL_MS = 1500;
-    private long lastSnapshotElapsedMs = -SNAPSHOT_MIN_INTERVAL_MS;
+
+    // ── Deferred rolling baseline (audit 1.6) ────────────────────────
+    // Cross-session undo restores a per-entry snapshot. That snapshot must be the state
+    // BEFORE the edit. It cannot be captured inside recordAction: most call sites mutate the
+    // model BEFORE recording (so a capture there is an AFTER state — the audit-1.6 bug), and
+    // some structural actions even snapshot live timeline state in their own constructor, so
+    // "just capture before recording" would corrupt them. Instead we keep a rolling baseline
+    // — the project state as of the LAST edit — and hand it to each new entry as its
+    // snapshotBefore. The baseline is (re)captured on the looper tick AFTER an edit handler
+    // fully completes (via SnapshotRestorer.scheduleBaselineRefresh), so it reflects the final
+    // post-edit state no matter whether the site recorded before or after mutating.
+    @Nullable
+    private String baselineSnapshot;
+    private boolean baselineRefreshScheduled;
+    private boolean baselineRefreshForce;
+    private long lastBaselineCaptureMs = -SNAPSHOT_MIN_INTERVAL_MS;
     // Total chars of retained project-JSON snapshots across the undo stack.
     // maxHistory alone is not enough of a cap: a large project serializes to
     // multiple MB per snapshot, so 50 snapshots is hundreds of MB of heap and
@@ -156,6 +171,15 @@ public class UndoManager {
          * @param projectJson the JSON string to restore from
          */
         void restoreFromSnapshot(@NonNull String projectJson);
+
+        /**
+         * Run {@code r} AFTER the current edit handler has fully completed — i.e. post it to
+         * the main looper. The manager uses this to capture the rolling baseline for the NEXT
+         * edit's before-state. Deferring it one tick is what makes the baseline correct
+         * regardless of whether the call site recorded before or after mutating the model
+         * (audit 1.6). The implementation may run {@code r} on the main thread.
+         */
+        void scheduleBaselineRefresh(@NonNull Runnable r);
     }
 
     // ── Construction ─────────────────────────────────────────────────
@@ -201,21 +225,22 @@ public class UndoManager {
      * @param action the action that was just performed
      */
     public void recordAction(@NonNull EditAction action) {
-        // Capture a full-project snapshot only if enough time has passed since the
-        // last one (see SNAPSHOT_MIN_INTERVAL_MS). Skipping it just means this
-        // particular step won't be undoable after an app restart; in-session undo
-        // still works precisely via action.undo(). This avoids serializing the
-        // entire (possibly multi-MB) project on the UI thread for every edit.
-        String snapshot = null;
-        if (snapshotRestorer != null) {
-            long now = android.os.SystemClock.elapsedRealtime();
-            if (now - lastSnapshotElapsedMs >= SNAPSHOT_MIN_INTERVAL_MS) {
-                snapshot = snapshotRestorer.captureSnapshot();
-                lastSnapshotElapsedMs = now;
-            }
+        // The snapshot for cross-session undo is the state BEFORE this edit. We do NOT capture
+        // it here — the model is usually already mutated by now (audit 1.6). Instead we hand
+        // this entry the rolling baseline (the state captured on the tick after the PREVIOUS
+        // edit) and schedule the next baseline capture for the tick after THIS edit completes.
+        String before = baselineSnapshot;
+        if (before == null && snapshotRestorer != null) {
+            // No baseline yet — the editor did not call resetBaseline (e.g. the very first
+            // edit of a brand-new project). Best-effort seed. If this call site mutated before
+            // recording, this is an after-state, so this ONE entry won't undo across a restart;
+            // but it seeds the baseline so every subsequent entry is a true pre-state.
+            before = snapshotRestorer.captureSnapshot();
+            baselineSnapshot = before;
+            lastBaselineCaptureMs = clockNow();
         }
 
-        HistoryEntry entry = new HistoryEntry(action, action.getDescription(), snapshot);
+        HistoryEntry entry = new HistoryEntry(action, action.getDescription(), before);
         undoStack.push(entry);
         redoStack.clear();
 
@@ -225,10 +250,82 @@ public class UndoManager {
         }
         enforceSnapshotBudget();
 
+        // Capture the post-edit state as the baseline for the NEXT edit — but only after the
+        // whole handler unwinds (deferred), and throttled so rapid editing doesn't serialize
+        // the multi-MB project every step.
+        scheduleBaselineRefresh(false);
+
         FLog.d(TAG, "Recorded: " + action.getDescription()
                 + " (undo=" + undoStack.size() + ", redo=0"
-                + ", snapshot=" + (snapshot != null) + ")");
+                + ", before=" + (before != null) + ")");
         notifyListener();
+    }
+
+    /** Wall clock for the baseline throttle (elapsedRealtime; stubbed in the JVM harness). */
+    private long clockNow() {
+        return android.os.SystemClock.elapsedRealtime();
+    }
+
+    /**
+     * (Re)establish the rolling baseline from the current project state. The editor MUST call
+     * this once the project is loaded and displayed (before the user can edit) and again after
+     * any full project swap (e.g. an AI reload) — so the first edit afterwards records a true
+     * pre-state. Captures immediately; resets the throttle so the next post-edit refresh fires.
+     *
+     * <p>Deliberately SYNCHRONOUS. Deferring it would leave a window in which an edit records
+     * against a null baseline (new project) or — far worse, after an AI swap — the PREVIOUS
+     * project's baseline, so undoing that edit after a restart would silently discard the whole
+     * AI step. The cost is one project serialize at load; {@code BASELINE} logs measure it, so
+     * the large-project impact is data rather than guesswork.</p>
+     */
+    public void resetBaseline() {
+        if (snapshotRestorer == null) return;
+        long t0 = clockNow();
+        String snap = snapshotRestorer.captureSnapshot();
+        FLog.d(TAG, "BASELINE reset: " + (clockNow() - t0) + "ms, "
+                + (snap == null ? -1 : snap.length()) + " chars");
+        if (snap != null) {
+            baselineSnapshot = snap;
+            // Let the next post-edit refresh capture even if it lands soon: the just-taken
+            // baseline must not throttle-suppress the first edit's after-state.
+            lastBaselineCaptureMs = clockNow() - SNAPSHOT_MIN_INTERVAL_MS;
+        }
+        baselineRefreshScheduled = false;
+        baselineRefreshForce = false;
+    }
+
+    /**
+     * Ask the restorer to run {@link #refreshBaselineNow()} on the tick after the current edit
+     * handler completes. Deduped by {@link #baselineRefreshScheduled} so a burst of edits posts
+     * at most one refresh (it captures the latest state). {@code force} bypasses the throttle —
+     * used after undo/redo, which are discrete and must leave an exact baseline behind.
+     */
+    private void scheduleBaselineRefresh(boolean force) {
+        if (snapshotRestorer == null) return;
+        if (force) baselineRefreshForce = true;
+        if (baselineRefreshScheduled) return;
+        baselineRefreshScheduled = true;
+        snapshotRestorer.scheduleBaselineRefresh(this::refreshBaselineNow);
+    }
+
+    /** Deferred: capture the current project state as the baseline for the next edit. */
+    private void refreshBaselineNow() {
+        baselineRefreshScheduled = false;
+        boolean force = baselineRefreshForce;
+        baselineRefreshForce = false;
+        if (snapshotRestorer == null) return;
+        long now = clockNow();
+        if (!force && now - lastBaselineCaptureMs < SNAPSHOT_MIN_INTERVAL_MS) {
+            FLog.d(TAG, "BASELINE refresh throttled (" + (now - lastBaselineCaptureMs) + "ms)");
+            return;
+        }
+        String snap = snapshotRestorer.captureSnapshot();
+        FLog.d(TAG, "BASELINE refresh: " + (clockNow() - now) + "ms, "
+                + (snap == null ? -1 : snap.length()) + " chars, force=" + force);
+        if (snap != null) {
+            baselineSnapshot = snap;
+            lastBaselineCaptureMs = now;
+        }
     }
 
     /**
@@ -240,13 +337,23 @@ public class UndoManager {
      */
     private void enforceSnapshotBudget() {
         long total = 0;
+        // Count each distinct snapshot String ONCE. Rolling-baseline entries recorded in the
+        // same throttle window share one String object (audit 1.6); per-entry summing would
+        // over-count that shared snapshot and evict distinct older ones to fit a phantom total.
+        java.util.Set<String> counted =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         // ArrayDeque push() = addFirst(), so iteration order is newest → oldest.
         java.util.Iterator<HistoryEntry> it = undoStack.iterator();
         while (it.hasNext()) {
             HistoryEntry e = it.next();
-            long len = (e.snapshotBefore != null ? e.snapshotBefore.length() : 0)
-                    + (e.snapshotAfter != null ? e.snapshotAfter.length() : 0);
-            if (len == 0) continue;
+            long len = 0;
+            if (e.snapshotBefore != null && !counted.contains(e.snapshotBefore)) {
+                len += e.snapshotBefore.length();
+            }
+            if (e.snapshotAfter != null && !counted.contains(e.snapshotAfter)) {
+                len += e.snapshotAfter.length();
+            }
+            if (len == 0) continue; // nothing new (no snapshots, or all already counted)
             if (total + len > MAX_SNAPSHOT_CHARS && total > 0) {
                 if (e.action != null) {
                     e.snapshotBefore = null;
@@ -256,6 +363,8 @@ public class UndoManager {
                 }
             } else {
                 total += len;
+                if (e.snapshotBefore != null) counted.add(e.snapshotBefore);
+                if (e.snapshotAfter != null) counted.add(e.snapshotAfter);
             }
         }
     }
@@ -302,28 +411,48 @@ public class UndoManager {
             return false;
         }
 
-        HistoryEntry entry = undoStack.pop();
-
-        // Capture current state as "after" (needed for redo) ONLY for snapshot-only
-        // entries — in-session entries redo via action.execute(), so serializing the
-        // whole project here would be a pointless multi-MB UI-thread stall.
-        if (entry.action == null && snapshotRestorer != null) {
-            entry.snapshotAfter = snapshotRestorer.captureSnapshot();
-        }
+        HistoryEntry entry = undoStack.peek();
+        boolean applied = false;
 
         if (entry.action != null) {
             // In-session: precise action-based undo
             entry.action.undo();
+            applied = true;
             FLog.d(TAG, "Undone (action): " + entry.description);
         } else if (entry.snapshotBefore != null && snapshotRestorer != null) {
-            // Loaded from disk: snapshot-based undo
+            // Loaded from disk / AI checkpoint: snapshot-based undo. Capture the current state
+            // as "after" (for redo) BEFORE overwriting it.
+            entry.snapshotAfter = snapshotRestorer.captureSnapshot();
             snapshotRestorer.restoreFromSnapshot(entry.snapshotBefore);
-            // After snapshot restore, invalidate action refs on redo stack
-            invalidateRedoActions();
+            // The restore swapped in a fresh object graph, so every action still on EITHER
+            // stack now closes over orphaned objects — replaying one would silently mutate a
+            // detached model and report success. Drop those action refs; the snapshots restore
+            // by value and don't care about identity. (The redo side was already handled here;
+            // invalidating the UNDO side too is the audit-1.6 alongside-hazard.)
+            invalidateActions(redoStack);
+            invalidateActions(undoStack);
+            // We are now IN entry.snapshotBefore, which is exactly the baseline the next edit
+            // should record as its before-state.
+            baselineSnapshot = entry.snapshotBefore;
+            applied = true;
             FLog.d(TAG, "Undone (snapshot): " + entry.description);
         }
 
+        if (!applied) {
+            // Neither an action nor a snapshot to restore (e.g. a budget-evicted snapshot).
+            // Drop the dead entry and DON'T report success — undo must not lie or advance redo
+            // with an entry it cannot honour.
+            undoStack.pop();
+            FLog.w(TAG, "Undo skipped an unrestorable entry: " + entry.description);
+            notifyListener();
+            return false;
+        }
+
+        undoStack.pop();
         redoStack.push(entry);
+        // The project changed; refresh the baseline (forced, since undo is discrete) so the
+        // next recorded edit's before-state matches what is now on screen.
+        scheduleBaselineRefresh(true);
 
         FLog.d(TAG, "(undo=" + undoStack.size() + ", redo=" + redoStack.size() + ")");
         notifyListener();
@@ -344,19 +473,35 @@ public class UndoManager {
             return false;
         }
 
-        HistoryEntry entry = redoStack.pop();
+        HistoryEntry entry = redoStack.peek();
+        boolean applied = false;
 
         if (entry.action != null) {
             // In-session: precise action-based redo
             entry.action.execute();
+            applied = true;
             FLog.d(TAG, "Redone (action): " + entry.description);
         } else if (entry.snapshotAfter != null && snapshotRestorer != null) {
-            // Loaded from disk: snapshot-based redo
+            // Loaded from disk: snapshot-based redo. Same orphan hazard as undo — the restore
+            // swaps the object graph, so drop stale action refs on both stacks.
             snapshotRestorer.restoreFromSnapshot(entry.snapshotAfter);
+            invalidateActions(undoStack);
+            invalidateActions(redoStack);
+            baselineSnapshot = entry.snapshotAfter;
+            applied = true;
             FLog.d(TAG, "Redone (snapshot): " + entry.description);
         }
 
+        if (!applied) {
+            redoStack.pop();
+            FLog.w(TAG, "Redo skipped an unrestorable entry: " + entry.description);
+            notifyListener();
+            return false;
+        }
+
+        redoStack.pop();
         undoStack.push(entry);
+        scheduleBaselineRefresh(true);
 
         FLog.d(TAG, "(undo=" + undoStack.size() + ", redo=" + redoStack.size() + ")");
         notifyListener();
@@ -426,6 +571,33 @@ public class UndoManager {
         // Reverse so oldest is first
         java.util.Collections.reverse(list);
         return list;
+    }
+
+    /**
+     * Persist-ready history: oldest-first, snapshot-bearing only, with throttle-collapsed
+     * duplicates removed. When several edits land inside one baseline-throttle window they all
+     * receive the SAME {@code snapshotBefore} object (the baseline never refreshed between
+     * them). Persisting all of them would, after a restart, make one undo restore the shared
+     * pre-state (correct) and the rest silent no-ops. Keeping only the most-recent of each such
+     * run collapses a throttle burst into ONE honest undo step — the sub-second granularity was
+     * never captured anyway (that is the price of not serializing the project on every edit).
+     *
+     * <p>Dedup is by reference identity: same-window entries literally share the baseline
+     * String, and entries reloaded from disk are already distinct + already deduped.</p>
+     */
+    @NonNull
+    public List<HistoryEntry> getUndoHistoryForPersist() {
+        List<HistoryEntry> ordered = getUndoHistory(); // oldest-first
+        List<HistoryEntry> out = new ArrayList<>(ordered.size());
+        for (HistoryEntry e : ordered) {
+            if (e.snapshotBefore == null) continue;
+            if (!out.isEmpty() && out.get(out.size() - 1).snapshotBefore == e.snapshotBefore) {
+                out.set(out.size() - 1, e); // newest description wins for the shared pre-state
+            } else {
+                out.add(e);
+            }
+        }
+        return out;
     }
 
     /**
@@ -563,17 +735,16 @@ public class UndoManager {
     // ── Internal ─────────────────────────────────────────────────────
 
     /**
-     * After a snapshot-based project restore, action references on the
-     * redo stack point to stale model objects. Null them out so redo
-     * falls back to snapshot restoration.
+     * After a snapshot-based project restore, action references on either stack point to stale
+     * model objects (the graph was replaced). Null them out so undo/redo fall back to snapshot
+     * restoration, which restores by value and is immune to the swap.
      */
-    private void invalidateRedoActions() {
-        for (HistoryEntry entry : redoStack) {
-            if (entry.action != null) {
-                entry.action = null;
-            }
+    private void invalidateActions(@NonNull Deque<HistoryEntry> stack) {
+        int n = 0;
+        for (HistoryEntry entry : stack) {
+            if (entry.action != null) { entry.action = null; n++; }
         }
-        FLog.d(TAG, "Invalidated action refs on redo stack (" + redoStack.size() + " entries)");
+        if (n > 0) FLog.d(TAG, "Invalidated " + n + " stale action ref(s) after snapshot restore");
     }
 
     private void notifyListener() {

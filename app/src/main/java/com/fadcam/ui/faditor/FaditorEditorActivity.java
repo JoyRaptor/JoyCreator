@@ -1119,6 +1119,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void restoreFromSnapshot(@NonNull String projectJson) {
                 restoreProjectFromSnapshot(projectJson);
             }
+
+            @Override
+            public void scheduleBaselineRefresh(@NonNull Runnable r) {
+                // Post to the main looper so the rolling baseline is captured AFTER the current
+                // edit handler unwinds — i.e. it reflects the final post-edit state regardless
+                // of whether the call site recorded before or after mutating (audit 1.6).
+                autoSaveHandler.post(r);
+            }
         });
 
         // Check if opening a saved project by ID
@@ -1282,6 +1290,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     updateEditorTitle();
                     refreshTotalTimeDisplay();
                     syncTimelineTranscript();
+                    // The AI checkpoint above captured the PRE-AI state as its before. Now
+                    // reseed the rolling baseline from the swapped-in (post-AI) project so the
+                    // next user edit records a correct pre-state (audit 1.6).
+                    undoManager.resetBaseline();
                     Toast.makeText(this, "AI edits applied", Toast.LENGTH_SHORT).show();
                 }
             } catch (Exception e) {
@@ -2305,6 +2317,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         initExport();
         initBackHandler();
         setupOverlayLayer();
+
+        // Seed the rolling undo baseline for a brand-new project so its first edit records a
+        // true pre-state for cross-session undo (audit 1.6).
+        undoManager.resetBaseline();
     }
 
     /**
@@ -2372,6 +2388,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Push transcripts to the timeline for scrolling text display
         syncTimelineTranscript();
+
+        // Seed the rolling undo baseline from the loaded state, BEFORE the user can edit, so
+        // the first edit records a true pre-state and cross-session undo works (audit 1.6).
+        // Runs after loadHistory so it does not disturb the loaded snapshot-only entries.
+        undoManager.resetBaseline();
 
         FLog.d(TAG, "Editor loaded saved project: " + project.getId()
                 + ", clips=" + project.getTimeline().getClipCount()
@@ -22311,17 +22332,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             long now = android.os.SystemClock.elapsedRealtime();
             if (forceUndoHistory || now - lastUndoHistorySaveMs > UNDO_HISTORY_SAVE_THROTTLE_MS) {
                 lastUndoHistorySaveMs = now;
-                List<UndoManager.HistoryEntry> history = undoManager.getUndoHistory();
+                // Persist-ready view: oldest-first, snapshot-bearing only, throttle-collapsed
+                // duplicates removed (audit 1.6) — so a burst of edits inside one baseline
+                // window becomes ONE honest cross-session undo step, not a step + no-ops.
+                List<UndoManager.HistoryEntry> history = undoManager.getUndoHistoryForPersist();
                 if (!history.isEmpty()) {
                     List<String> descriptions = new ArrayList<>();
                     List<String> snapshots = new ArrayList<>();
                     List<Boolean> aiFlags = new ArrayList<>();
                     for (UndoManager.HistoryEntry entry : history) {
-                        if (entry.getSnapshotBefore() != null) {
-                            descriptions.add(entry.getDescription());
-                            snapshots.add(entry.getSnapshotBefore());
-                            aiFlags.add(entry.isAiOrigin());
-                        }
+                        descriptions.add(entry.getDescription());
+                        snapshots.add(entry.getSnapshotBefore());
+                        aiFlags.add(entry.isAiOrigin());
                     }
                     if (forceUndoHistory) {
                         projectStorage.saveUndoHistory(project.getId(), descriptions, snapshots, aiFlags);

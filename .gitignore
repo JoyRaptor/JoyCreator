@@ -51,5 +51,6 @@ feedback.md
 build.log
 prebuild.log
 
-# JVM test harness compiled output
+# JVM test harness compiled output (each harness run uses its own outN/ dir)
 tools/jvm-harness/out/
+tools/jvm-harness/out*/

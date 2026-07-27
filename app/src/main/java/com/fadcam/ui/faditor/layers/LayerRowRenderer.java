@@ -215,8 +215,6 @@ public final class LayerRowRenderer {
             return drawerRect.isEmpty() ? bodyRect.bottom : drawerRect.top;
         }
         final RectF caretRect = new RectF();
-        final RectF hideRect = new RectF();
-        final RectF lockRect = new RectF();
         final RectF muteRect = new RectF();
         RowLayout(Track t, boolean floatingBand) { track = t; this.floatingBand = floatingBand; }
     }
@@ -646,12 +644,11 @@ public final class LayerRowRenderer {
         row.caretRect.set(caretCx - iconSize / 2f, cy - iconSize / 2f,
                 caretCx + iconSize / 2f, cy + iconSize / 2f);
         // §4.5: eye/lock are PER-OBJECT now (object drawer) — the gutter keeps only
-        // mute (audio-ish rows), right-aligned. hideRect/lockRect stay EMPTY so their
-        // hit-tests can never fire; per-layer SOLO is the one remaining future control.
+        // mute (audio-ish rows), right-aligned. (The retired header hide/lock hit zones and
+        // their always-empty rects have been removed — per-layer SOLO is the one remaining
+        // future control.)
         float right = row.headerRect.right - gap;
         row.muteRect.set(right - iconSize, cy - iconSize / 2f, right, cy + iconSize / 2f);
-        row.lockRect.setEmpty();
-        row.hideRect.setEmpty();
     }
 
     private void drawRow(@NonNull Canvas canvas, @NonNull RowLayout row,
@@ -2144,8 +2141,8 @@ public final class LayerRowRenderer {
             // header hit: skip this row so the caller falls through to onRowBodyDown.
             if (x < row.headerRect.left || x > row.headerRect.right) continue;
             if (row.caretRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.CARET);
-            if (row.hideRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.HIDE);
-            if (row.lockRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.LOCK);
+            // (Retired: the HIDE/LOCK header zones were always-empty rects that could never
+            // fire — hide/lock are per-object now, in the object drawer. Dead branches removed.)
             if (row.muteRect.contains(x, localY)) {
                 // The mute glyph is drawn DISABLED (COLOR_ICON_OFF, no strike) on any row
                 // that carries no audio — see drawMuteIcon's `applicable` arg = rowCarriesAudio(t).

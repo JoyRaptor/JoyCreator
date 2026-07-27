@@ -4,7 +4,20 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### ⚠️ NEW DEFECT FOUND WHILE VERIFYING THE FIX BELOW — **snapshot-based undo is OFF BY ONE.**
+### ✅ THE OFF-BY-ONE IS NOW FULLY VERIFIED, INCLUDING THE RESTART PATH → audit item **1.6**.
+Both halves measured on the Note 9: (1) the sidecar's stored snapshot for
+`Trim [0–1929] → [0–614]` literally contains `clip0.outPointMs = 614`, the AFTER value —
+a file-level measurement with no UI timing in it; (2) force-stop → reopen
+(`Loaded 1 history entries from disk`) → undo logs
+`Undone (snapshot): Trim [0–1929] → [0–614]`, badge 1→0, redo→1, and the saved project is
+STILL 614. Positive control: the mechanism demonstrably ran, and the same trim undone
+in-session (action path) correctly restores 1929.
+**So: edit → close the app → reopen → undo does nothing, and says it did.** No AI needed;
+this is the everyday case. Candidate fix + its one semantic choice (what happens to the
+OLDEST entry, which has no predecessor snapshot) are written up in audit 1.6. Still NOT
+fixed — core-path surgery, wants its own session and its own positive control.
+
+### ⚠️ (superseded by the block above) snapshot-based undo is OFF BY ONE.
 Restoring an entry's `snapshotBefore` yields the state INCLUDING that edit, not the state
 before it, despite the field's name and javadoc. Measured: after undoing a
 `Trim [0–1929] → [0–616]` via the snapshot path, the saved project still held

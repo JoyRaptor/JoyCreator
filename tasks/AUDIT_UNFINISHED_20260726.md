@@ -103,6 +103,47 @@ remaining instance of that pattern.
 
 ## TIER 1 — DATA-LOSS RISK
 
+### 1.6 NEW (found + FULLY device-verified 2026-07-26): undo after an app restart does NOTHING
+Not previously in this audit, and **no AI involvement** — this hits every user who edits,
+closes the app, reopens the project and presses undo.
+
+`UndoManager.HistoryEntry.snapshotBefore` is named, and documented, as "Project JSON snapshot
+captured BEFORE this action was applied" (`UndoManager.java:87-89`). It actually holds the
+state **after** that edit, because `recordAction` (`:187-204`) captures the snapshot at
+RECORD time and the callers mutate the model first (e.g. the trim path reaches
+`recordTrimMaybeMirrored` at `FaditorEditorActivity.java:24196` with the new values already
+applied). In-session undo hides this completely, because `undo()` prefers `entry.action`
+(`:298-301`) and the action replays a precise inverse. The snapshot is only consulted when
+there is no action — i.e. **after a restart**, when history is reloaded from the sidecar as
+snapshot-only entries — and then it restores the state that already includes the edit.
+
+**PROOF (Note 9, project `74e36000`), two independent measurements plus a positive control:**
+1. *Root cause, at the file level, no UI timing involved.* One trim
+   (`Trim [0–1929] → [0–614]`), background to persist, then read the sidecar directly:
+   the stored `snapshot` for that entry contains `clip0.outPointMs = 614` — the AFTER value.
+2. *User-visible effect.* Force-stop → reopen (`Loaded 1 history entries from disk` /
+   `Restored 1 undo history entries`) → press undo. Log:
+   `Undone (snapshot): Trim [0–1929] → [0–614]`, `(undo=0, redo=1)`. The saved project still
+   holds `outPointMs = 614`. The trim was NOT reverted.
+3. *Positive control.* The undo mechanism demonstrably RAN (badge 1→0, redo 0→1, log line),
+   so this is not "undo never fired"; and the same trim undone IN-SESSION (action path)
+   correctly restores 1929 — measured earlier the same day.
+
+**Risk:** SILENT WRONGNESS, and it is the everyday case (restart is normal). Undo reports
+success and the badge moves, so the user believes the edit was reverted.
+**VERIFIED-OPEN.** Not fixed here — see the note below; it is core-path surgery.
+
+**Candidate fix (has one semantic choice in it, so it wants a decision):** since each
+entry's snapshot is really "state AFTER this edit", undoing entry *i* should restore the
+snapshot of entry *i-1* (whose after-state IS entry *i*'s before-state) rather than its own.
+That is a small change localized to `UndoManager.undo()`. The wrinkle: the OLDEST entry has
+no predecessor, so there is nothing to restore it to without also persisting a base snapshot
+of the project as opened. Options are (a) persist that base snapshot, (b) make the oldest
+entry non-undoable after a restart and say so in the history row, or (c) capture snapshots
+BEFORE each edit instead, which is the "correct" fix but touches every caller.
+Whatever is chosen needs its own positive control: undo a known edit after a restart and
+assert the saved file returns to the PRE-edit value.
+
 ### 1.5 NEW (found 2026-07-26): the undo stack survives an AI reload that replaces the project
 Not previously in this audit. When the AI assistant edits the project on disk, the editor
 reloads it on resume and does **`project = reloaded;`**

@@ -4,6 +4,24 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### LAYER FINDING #3 (mute-on-non-audio-lane) FIXED — `7045904` (new account, 2026-07-26 ~22:05).
+The mute glyph is drawn DISABLED (COLOR_ICON_OFF, no strike) on any lane with no audio
+(`drawMuteIcon`'s `applicable` = `rowCarriesAudio(t)`), but `hitTestHeader` returned
+`HitZone.MUTE` regardless — so tapping the greyed mute on a text lane flipped `TrackFlags.muted`,
+pushed a "Mute track" undo step and scheduled an autosave for zero audible effect. Fix:
+`hitTestHeader` now reports MUTE only when `rowCarriesAudio(row.track)` (the same predicate that
+greys it), else consumes as `HitZone.NONE`. Compile-verified + installed (APK 22:04:56 > edit
+22:04:44). CONFIRMED BY CODE READING, NOT device-reproduced — mute rect is on a custom Canvas
+view (no uiautomator node), same adb limitation as the `c6274e4` lock fix; wants the same ~10s
+human test. Safe by construction (mirrors an existing condition; audio/master lanes untouched).
+**All other layer findings (#2, #4–#7) verified against code this session and are AFFORDANCE/
+DESIGN decisions — NOT shipped blind. Put to the user via AskUserQuestion; awaiting the answer.**
+#2 rename-draws-nothing (`LayerTrackDef.getName`/`TrackFlags.customName` persist + undo, but
+`namePaint` only ever draws a kind glyph at :2026-2035, never a name; header comment at :670-672
+deliberately keeps only caret+mute). #4 `lockRect`/`hideRect` `setEmpty()` at :653-654 → the
+HIDE/LOCK branches at :2147-2148 are dead code. #5 gap-insertion (`gapIndexAt`) tested FIRST at
+LayerGestureController:896. #6 no drag-to-reorder (menu-only). #7 MOVE_SLOP_PX=4 / 450ms pickup.
+
 ### ⭐ NEW TOP PRIORITY (user, 2026-07-26 late): LAYER MANAGEMENT POLISH — moving layers,
 dragging, reordering, and navigating the lane menus, using what already exists. Ducking is
 explicitly LOW priority ("I have never used ducking"). The user is not a developer and is

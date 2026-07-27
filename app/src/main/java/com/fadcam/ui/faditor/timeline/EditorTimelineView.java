@@ -33,6 +33,7 @@ import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.keyframe.Keyframe;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.keyframe.KeyframeTrack;
+import com.fadcam.ui.faditor.layers.ObjectPalette;
 
 import java.io.File;
 import java.io.InputStream;
@@ -65,6 +66,14 @@ public class EditorTimelineView extends View {
 
     private static final float RULER_HEIGHT_DP = 22f;
     private static final float MINIMAP_HEIGHT_DP = 16f;
+    // F-MINIMAP: thin per-layer lines stacked ABOVE the master tape, so a glance at the strip
+    // shows WHERE the objects are across the whole project, not just where the clips are.
+    /** Thickness of one layer line. */
+    private static final float MINIMAP_LAYER_LINE_DP = 1.2f;
+    /** Line-to-line pitch (thickness + gap). */
+    private static final float MINIMAP_LAYER_PITCH_DP = 2f;
+    /** Hard cap. Past this the lines stop being readable and start eating the timeline. */
+    private static final int MINIMAP_MAX_LAYER_LINES = 12;
     private static final float TRACK_HEIGHT_DP = 56f;
     /** Sprocket-rail thickness reserved OUTSIDE the film content (top + bottom of the master band),
      *  so the perforations FRAME the thumbnails instead of covering them (JoyRaptor 2026-07-07). */
@@ -129,15 +138,10 @@ public class EditorTimelineView extends View {
     private static final int COLOR_AUDIO_TRACK_BG = 0xFF151515;
 
     // ── KineMaster-class playhead lane (JoyRaptor 2026-07-19) ─────────────────
-    // Per-kind playhead/chip-border tints MIRROR the (private) per-item constants in
-    // LayerRowRenderer — same hex, re-declared here because the source lives in a HELD
-    // file we must not edit. Keep in lockstep with LayerRowRenderer.baseColorFor.
-    private static final int COLOR_PH_MASTER  = 0xFF4397FD; // blue  (VIDEO/IMAGE/MASTER)
-    private static final int COLOR_PH_AUDIO   = 0xFF35F6BF; // aqua  (AUDIO)
-    private static final int COLOR_PH_TEXT    = 0xFF8C3DFA; // purple(TEXT/STICKER)
-    private static final int COLOR_PH_SPRITE  = 0xFFFFB74D; // amber (SPRITE)
-    private static final int COLOR_PH_CAPTION = 0xFFFFC107; // gold  (CAPTION)
-    private static final int COLOR_PH_VIZ     = 0xFF4DD0E1; // cyan  (VISUALIZER)
+    // The per-kind playhead tints used to be re-declared here as a hand-kept mirror of
+    // LayerRowRenderer's private per-item constants ("keep in lockstep"). They had already
+    // fallen out of lockstep — neither copy had an IMAGE case. Both now read the one table in
+    // ObjectPalette (F-COLOR), so there is nothing left to keep in step.
     /** Distinct tint while a trim drag is active (amber, unused by any row family). */
     private static final int COLOR_PLAYHEAD_TRIM = 0xFFFFA000;
     /** Bookmark diamond glyph on the ruler. */
@@ -250,6 +254,12 @@ public class EditorTimelineView extends View {
     private int audioLaneCount = 1;
     private int[] audioClipLanes = new int[0];
     private float minimapHeightPx;
+    /**
+     * Height of the F-MINIMAP per-layer line band sitting above the master tape. ADAPTIVE:
+     * zero when the project has no floating/audio layers, so a plain single-track project
+     * measures and draws exactly as it did before this feature existed.
+     */
+    private float minimapLayerBandPx = 0f;
     private boolean minimapDragging = false;
     private final Paint minimapBlockPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint minimapViewportPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -542,6 +552,9 @@ public class EditorTimelineView extends View {
         layerTracks.addAll(layers);
         audioLayerTracks.clear();
         audioLayerTracks.addAll(audioTracks);
+        // F-MINIMAP: the layer-line band is sized from these lists, so it must be recomputed
+        // before the requestLayout() below — adding a text layer grows the strip.
+        recomputeMinimapHeight();
         // Stale-selection guard: ops that replace item identity (split → two new ids,
         // delete, undo/redo swapping objects) re-feed through here. If the controller's
         // selected id no longer exists in EITHER band, clear it — otherwise every
@@ -1307,10 +1320,7 @@ public class EditorTimelineView extends View {
         updateDpPerSecond();
         minSegmentPx = MIN_SEGMENT_DP * density;
         edgePaddingPx = EDGE_PADDING_DP * density;
-        minimapHeightPx = MINIMAP_HEIGHT_DP * density;
-        // Ruler band sits below the minimap strip; everything keyed off
-        // rulerHeightPx shifts down together.
-        rulerHeightPx = RULER_HEIGHT_DP * density + minimapHeightPx;
+        recomputeMinimapHeight();
         trackHeightPx = TRACK_HEIGHT_DP * density;
         segmentGapPx = SEGMENT_GAP_DP * density;
         segmentCornerPx = SEGMENT_CORNER_DP * density;
@@ -2149,7 +2159,10 @@ public class EditorTimelineView extends View {
         // Audio-band clipping fix: measure DESIRED height with no squeeze, then let the
         // floating band absorb whatever the parent refuses (see end of this method).
         layerRowRenderer.setViewportSqueezePx(0f);
-        float contentDp = MINIMAP_HEIGHT_DP + RULER_HEIGHT_DP + TRACK_HEIGHT_DP + 2f * FILM_RAIL_DP;
+        // F-MINIMAP: measure the LIVE strip height (base + the adaptive layer-line band),
+        // not the base constant — otherwise the lines draw into the ruler's space.
+        float contentDp = minimapHeightPx / density
+                + RULER_HEIGHT_DP + TRACK_HEIGHT_DP + 2f * FILM_RAIL_DP;
         if (!audioLayerTracks.isEmpty()) {
             // Audio consolidation: audio renders as headered renderer rows in their own
             // band below master — reserve the renderer's band height instead of the
@@ -3050,6 +3063,93 @@ public class EditorTimelineView extends View {
     /** True during a draw pass iff some minimap meter is mid-load (drives the pulse). */
     private boolean minimapMetersAnimating = false;
 
+    /**
+     * F-MINIMAP: size the minimap band for however many layer lines the project currently has,
+     * and shift the ruler down to match. Called from {@link #init()} and whenever the Track
+     * model is re-fed, since adding a text layer must grow the strip.
+     *
+     * <p>Deliberately adaptive rather than a fixed 12-line reservation: a project with no
+     * layers keeps the original 16dp strip, so nothing about the existing layout moves.</p>
+     */
+    private void recomputeMinimapHeight() {
+        int lines = minimapLayerLineCount();
+        minimapLayerBandPx = lines == 0
+                ? 0f
+                // +1 pitch of breathing room between the lowest line and the master tape.
+                : (lines * MINIMAP_LAYER_PITCH_DP + 1f) * density;
+        minimapHeightPx = MINIMAP_HEIGHT_DP * density + minimapLayerBandPx;
+        // Ruler band sits below the minimap strip; everything keyed off
+        // rulerHeightPx shifts down together.
+        rulerHeightPx = RULER_HEIGHT_DP * density + minimapHeightPx;
+    }
+
+    /** Number of layer lines the strip will draw (floating band then audio band, capped). */
+    private int minimapLayerLineCount() {
+        return Math.min(MINIMAP_MAX_LAYER_LINES, layerTracks.size() + audioLayerTracks.size());
+    }
+
+    /**
+     * F-MINIMAP: one thin line per layer above the master tape, each item drawn as a segment
+     * at its position across the WHOLE project — so a glance shows where the objects live even
+     * when the viewport is zoomed into a few seconds of a long timeline.
+     *
+     * <p>Segments are coloured by the OBJECT's type via {@link ObjectPalette} (the same table
+     * the row bodies, badges and playhead use), never by the lane — a text object on a neutral
+     * lane still reads purple. The selected object blinks white so it can be found instantly in
+     * a long project. Everything is clipped to the master length, so an item dragged past the
+     * end cannot draw outside the strip.</p>
+     *
+     * <p>Stack order matches the timeline: floating layers first (top-down), then audio.</p>
+     */
+    private void drawMinimapLayerLines(Canvas canvas, float margin, float stripW) {
+        int lines = minimapLayerLineCount();
+        if (lines == 0 || totalEffectiveMs <= 0) return;
+
+        String selectedId = layerGestureController != null
+                ? layerGestureController.getSelectedItemId() : null;
+        // Medium blink for the selected object (spec: PULSES white, not an outline). Reuses the
+        // loading-meter animation flag, which already drives a repost while anything animates.
+        float pulse = 0.5f + 0.5f * (float) Math.sin(
+                android.os.SystemClock.uptimeMillis() / 260.0);
+
+        float thickness = MINIMAP_LAYER_LINE_DP * density;
+        float pitch = MINIMAP_LAYER_PITCH_DP * density;
+        float y = 3f * density;
+
+        List<com.fadcam.ui.faditor.layers.Track> ordered =
+                new ArrayList<>(layerTracks.size() + audioLayerTracks.size());
+        ordered.addAll(layerTracks);
+        ordered.addAll(audioLayerTracks);
+
+        for (int i = 0; i < lines; i++) {
+            com.fadcam.ui.faditor.layers.Track t = ordered.get(i);
+            // Faint rail so an EMPTY layer still reads as a layer that exists.
+            minimapBlockPaint.setColor(0x1AFFFFFF);
+            canvas.drawRect(margin, y, margin + stripW, y + thickness, minimapBlockPaint);
+
+            for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
+                long start = item.getTimelineStartMs();
+                long dur = item.getDisplayDurationMs(totalEffectiveMs);
+                // Clip to the master length — an object may legitimately be parked past the
+                // end mid-drag, and it must not paint outside the strip.
+                long s = Math.max(0, Math.min(totalEffectiveMs, start));
+                long e = Math.max(0, Math.min(totalEffectiveMs, start + Math.max(0, dur)));
+                if (e <= s) continue;
+                float x0 = margin + (s / (float) totalEffectiveMs) * stripW;
+                float x1 = margin + (e / (float) totalEffectiveMs) * stripW;
+                int color = ObjectPalette.forItem(item, t.getKind());
+                if (selectedId != null && selectedId.equals(item.getId())) {
+                    color = blendColors(color, 0xFFFFFFFF, pulse);
+                    minimapMetersAnimating = true; // keep the blink repainting
+                }
+                minimapBlockPaint.setColor(color);
+                // Floor the width so a very short object stays visible as a dot.
+                canvas.drawRect(x0, y, Math.max(x0 + 1f, x1), y + thickness, minimapBlockPaint);
+            }
+            y += pitch;
+        }
+    }
+
     /** Linear blend a→b by t (0..1), per ARGB channel. */
     private static int blendColors(int a, int b, float t) {
         t = Math.max(0f, Math.min(1f, t));
@@ -3063,10 +3163,14 @@ public class EditorTimelineView extends View {
         minimapMetersAnimating = false;
         if (totalEffectiveMs <= 0 || segments.isEmpty()) return;
         float margin = 8f * density;
-        float top = 3f * density;
+        // The master tape keeps its original 16dp slot at the BOTTOM of the strip; the
+        // per-layer lines (F-MINIMAP) occupy the adaptive band above it, so adding layers
+        // pushes the lines upward and never shrinks the tape.
+        float top = 3f * density + minimapLayerBandPx;
         float bot = minimapHeightPx - 3f * density;
         float stripW = viewW - margin * 2;
         if (stripW <= 0) return;
+        drawMinimapLayerLines(canvas, margin, stripW);
 
         // Clip blocks
         long cumul = 0;
@@ -4591,8 +4695,8 @@ public class EditorTimelineView extends View {
                 || activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
             return COLOR_PLAYHEAD_TRIM;
         }
-        if (selectedAudioIndex >= 0) return COLOR_PH_AUDIO;
-        if (selectedIndex >= 0) return COLOR_PH_MASTER;
+        if (selectedAudioIndex >= 0) return com.fadcam.ui.faditor.layers.ObjectPalette.AUDIO;
+        if (selectedIndex >= 0) return com.fadcam.ui.faditor.layers.ObjectPalette.MASTER;
         String selId = layerGestureController != null
                 ? layerGestureController.getSelectedItemId() : null;
         if (selId != null) {
@@ -4623,17 +4727,14 @@ public class EditorTimelineView extends View {
         return null;
     }
 
-    /** Mirrors LayerRowRenderer.baseColorFor (held) but returns a full-alpha tint. */
+    /**
+     * F-COLOR: was a second hand-maintained copy of the item table (the COLOR_PH_* block),
+     * which had already drifted — it had no IMAGE case, so images took the VIDEO blue through
+     * {@code default:}. Both tables now read {@link com.fadcam.ui.faditor.layers.ObjectPalette},
+     * so a hue is changed in one place and they cannot disagree again.
+     */
     private int colorForKind(@NonNull com.fadcam.ui.faditor.layers.TrackKind k) {
-        switch (k) {
-            case TEXT:
-            case STICKER:    return COLOR_PH_TEXT;
-            case AUDIO:      return COLOR_PH_AUDIO;
-            case SPRITE:     return COLOR_PH_SPRITE;
-            case CAPTION:    return COLOR_PH_CAPTION;
-            case VISUALIZER: return COLOR_PH_VIZ;
-            default:         return COLOR_PH_MASTER;
-        }
+        return com.fadcam.ui.faditor.layers.ObjectPalette.forKind(k);
     }
 
     /**

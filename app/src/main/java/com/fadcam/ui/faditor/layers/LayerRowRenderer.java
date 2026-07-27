@@ -78,12 +78,7 @@ public final class LayerRowRenderer {
     private static final int COLOR_ROW_NAME       = 0xFFEDEDED;
     private static final int COLOR_ICON_ON        = 0xFFFFFFFF;
     private static final int COLOR_ICON_OFF       = 0x66FFFFFF;
-    private static final int COLOR_ITEM_TEXT      = 0xDD8C3DFA;   // purple (TEXT/STICKER)
-    private static final int COLOR_ITEM_VIDEO     = 0xDD4397FD;   // blue (VIDEO/IMAGE)
-    private static final int COLOR_ITEM_AUDIO     = 0xDD35F6BF;   // aqua (AUDIO)
-    private static final int COLOR_ITEM_SPRITE    = 0xDDFFB74D;   // amber (SPRITE, S5)
-    private static final int COLOR_ITEM_CAPTION   = 0xDDFFC107;   // amber-gold (CAPTION/CC, Slice B)
-    private static final int COLOR_ITEM_VIZ       = 0xDD4DD0E1;   // cyan (VISUALIZER, Slice B)
+    // Per-item hues moved to ObjectPalette (F-COLOR) — one table for the whole editor.
     private static final int COLOR_ITEM_HIDDEN    = 0x552A2A2A;   // dimmed/ghosted
     private static final int COLOR_STRIP          = 0x99CC27FF;   // collapsed summary strip
     /** Selection stroke width, item-hit-test PLAN §6: "accent-colored stroke... per the item's color family." */
@@ -687,7 +682,9 @@ public final class LayerRowRenderer {
                     && !isItemOnRow(proxyItem, t)) {
                 float top = row.bodyRect.top + 3f * density;
                 float bottom = row.itemsBottom() - 3f * density;
-                drawItemBody(canvas, proxyItem, t.getKind(), baseColorFor(t.getKind()),
+                // F-COLOR: the dragged proxy keeps the OBJECT's colour as it crosses lanes —
+                // otherwise it changed hue mid-drag to match whatever row it was hovering.
+                drawItemBody(canvas, proxyItem, t.getKind(), baseColorForItem(proxyItem, t.getKind()),
                         t.isHidden(), true, top, bottom, (top + bottom) / 2f,
                         totalMs, timeToX, selectedItemId);
             }
@@ -1007,7 +1004,6 @@ public final class LayerRowRenderer {
     private void drawExpandedItems(@NonNull Canvas canvas, @NonNull RowLayout row,
                                     @NonNull Track t, long totalMs, @NonNull TimeToX timeToX,
                                     @Nullable String selectedItemId) {
-        int baseColor = baseColorFor(t.getKind());
         boolean ghosted = t.isHidden();
         float top = row.bodyRect.top + 3f * density;
         float bottom = row.itemsBottom() - 3f * density;
@@ -1027,7 +1023,11 @@ public final class LayerRowRenderer {
                 // marker (drawn above) — do NOT draw a second copy of the item here.
                 continue;
             }
-            drawItemBody(canvas, item, t.getKind(), baseColor,
+            // F-COLOR: per-ITEM colour. This used to hoist baseColorFor(t.getKind()) out of the
+            // loop, so every object on a row wore its LANE's colour — the neutral substrate made
+            // that wrong (a text object on a VIDEO/LAYER lane read blue). The badge and the
+            // playhead tint already resolved by payload; the body now agrees with them.
+            drawItemBody(canvas, item, t.getKind(), baseColorForItem(item, t.getKind()),
                     ghosted || isObjectHidden(item), lifted,
                     top, bottom, (top + bottom) / 2f, totalMs, timeToX, selectedItemId);
         }
@@ -1039,8 +1039,9 @@ public final class LayerRowRenderer {
         if (proxyItem != null && proxyRowTrackId != null && proxyRowTrackId.equals(t.getId())
                 && liftedItemId != null && liftedItemId.equals(proxyItem.getId())
                 && !isItemOnRow(proxyItem, t)) {
-            drawItemBody(canvas, proxyItem, t.getKind(), baseColorFor(t.getKind()), ghosted,
-                    true, top, bottom, (top + bottom) / 2f, totalMs, timeToX, selectedItemId);
+            drawItemBody(canvas, proxyItem, t.getKind(), baseColorForItem(proxyItem, t.getKind()),
+                    ghosted, true, top, bottom, (top + bottom) / 2f, totalMs, timeToX,
+                    selectedItemId);
         }
     }
 
@@ -1963,22 +1964,19 @@ public final class LayerRowRenderer {
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
+    /**
+     * F-COLOR: the hue now lives in {@link ObjectPalette} (one table for the whole editor) —
+     * this only applies the item-body alpha. Prefer {@link #baseColorForItem} at any call site
+     * that HAS the item: colouring from a row's kind is what turned a purple text object blue
+     * after it was moved onto another lane.
+     */
     private int baseColorFor(@NonNull TrackKind kind) {
-        switch (kind) {
-            case TEXT:
-            case STICKER:
-                return COLOR_ITEM_TEXT;
-            case AUDIO:
-                return COLOR_ITEM_AUDIO;
-            case SPRITE:
-                return COLOR_ITEM_SPRITE;
-            case CAPTION:
-                return COLOR_ITEM_CAPTION;
-            case VISUALIZER:
-                return COLOR_ITEM_VIZ;
-            default:
-                return COLOR_ITEM_VIDEO;
-        }
+        return ObjectPalette.body(ObjectPalette.forKind(kind));
+    }
+
+    /** F-COLOR: an item's body colour, resolved from the OBJECT's kind, not its lane's. */
+    private int baseColorForItem(@NonNull TimedItem item, @NonNull TrackKind rowKind) {
+        return ObjectPalette.body(ObjectPalette.forItem(item, rowKind));
     }
 
     /**
@@ -1997,15 +1995,10 @@ public final class LayerRowRenderer {
      *  playhead tint drifted apart in the first place.</p> */
     @NonNull
     public static TrackKind payloadKindOf(@NonNull TimedItem item, @NonNull TrackKind rowKind) {
-        if (item.getTextOverlay() != null) {
-            return item.getTextOverlay().isImage() ? TrackKind.IMAGE : TrackKind.TEXT;
-        }
-        if (item.getSprite() != null) return TrackKind.SPRITE;
-        if (item.getAudioClip() != null) return TrackKind.AUDIO;
-        if (item.getWaveform() != null) return TrackKind.VISUALIZER;
-        if (item.getCaptionSpan() != null) return TrackKind.CAPTION;
-        if (item.getClip() != null && item.getClip().isOverlayClip()) return TrackKind.VIDEO;
-        return rowKind;
+        // Delegates so the badge, the body colour, the playhead tint and the mini-map all read
+        // ONE definition of what an object is (F-COLOR). Kept as a public entry point because
+        // several call sites already refer to it by this name.
+        return ObjectPalette.payloadKindOf(item, rowKind);
     }
 
     private void drawKindBadge(@NonNull Canvas canvas, float leftX, float cy,

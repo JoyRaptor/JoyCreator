@@ -10,11 +10,18 @@ in the user's real project, 0 frozen, 0 `drag=true`. See SPEC §13 for the full 
 
 **THE ONE THING TO DO NEXT:** the confirming run showed the self-heal FIRING once with playback
 continuing through it — so a SECOND stranding path exists that the direct fix did not cover.
-Not user-visible (the net catches it), but close it so the net stays a net. Suspects: the
-`if (isScaling) return true` UP, the audio-band tap/double-tap returns, the slide double-tap
-return. Instrument by recording which touch branch consumed the last ACTION_UP.
-**Do this when the user is NOT mid-test** — a save reinstalls and kills their session.
-KEEP `PHDIAG` (`701c1e0`) until that second path is closed; remove it after.
+Not user-visible (the net catches it), but close it so the net stays a net.
+**The instrument is already in and waiting (`1fc3298`)** — additive only, no control flow on it.
+`EditorTimelineView` snapshots the branch-selecting flags at every ACTION_UP/CANCEL and the heal
+warning prints them, so the NEXT stranding names its own culprit:
+`userDragging was stranded … | lastUp: action=UP reorder=… scaling=… postPinchPan=… activeDrag=…`
+So: have the user drive the editor normally, grep for `lastUp:`, read which branch was live,
+fix THAT return, done. Suspects if you want a prior: the `if (isScaling) return true` UP, the
+audio-band tap/double-tap returns, the slide double-tap return.
+NOTE `1fc3298` is **compile-verified only** — the Note 20 was unplugged, so the watcher's
+`installDefaultDebug` failed with "No connected devices!" while javac ran clean. It installs on
+the next connect; confirm the APK timestamp before trusting it.
+KEEP `PHDIAG` (`701c1e0`) until that second path is closed; remove both together after.
 
 **B-PLAYFREEZE fixed (`f59850a`)** — full write-up in SPEC §13. Short version: `userDragging`
 was a stranded latch; the post-pinch handback pan latched it and its ACTION_UP returned before

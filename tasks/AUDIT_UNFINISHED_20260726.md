@@ -103,7 +103,7 @@ remaining instance of that pattern.
 
 ## TIER 1 — DATA-LOSS RISK
 
-### 1.6 NEW (found + FULLY device-verified 2026-07-26): undo after an app restart does NOTHING
+### 1.6 ~~NEW (found + FULLY device-verified 2026-07-26)~~ **FIXED 2026-07-27 (`5b06c4a`)**: undo after an app restart does NOTHING
 Not previously in this audit, and **no AI involvement** — this hits every user who edits,
 closes the app, reopens the project and presses undo.
 
@@ -131,7 +131,31 @@ snapshot-only entries — and then it restores the state that already includes t
 
 **Risk:** SILENT WRONGNESS, and it is the everyday case (restart is normal). Undo reports
 success and the badge moves, so the user believes the edit was reverted.
-**VERIFIED-OPEN.** Not fixed here — see the note below; it is core-path surgery.
+~~**VERIFIED-OPEN.** Not fixed here — see the note below; it is core-path surgery.~~
+**FIXED 2026-07-27 in `5b06c4a`** — via the "recommended direction" below, but WITHOUT
+touching the 18 sites. Instead of normalising each call site, a **deferred rolling baseline**
+makes the ordering irrelevant: the manager keeps the project state as of the last edit and
+hands it to each new entry as its `snapshotBefore`, recapturing it on the looper tick AFTER
+the edit handler unwinds (`SnapshotRestorer.scheduleBaselineRefresh` → `autoSaveHandler.post`).
+That post-handler tick sees the final post-edit state whether the site recorded before or
+after mutating — so the 18 record-before-mutate sites and the structural actions that
+snapshot live state in their own constructor are all left alone. Both alongside-hazards named
+below are fixed too (undo/redo now peek-apply-then-pop and return `false` when nothing was
+restored; the plain snapshot path invalidates BOTH stacks, not just redo).
+
+**PROOF (the positive control this section demanded).** Note 9, project `302da9ac`, on a
+**record-BEFORE-mutate** site (Rotate) — deliberately the case the naive fix would over-revert:
+1. *File level.* The persisted sidecar entry `Rotate 0° → 90°` holds
+   `clips[0].rotationDegrees = 0` — the PRE value. The old build stored the after value.
+2. *User visible.* Force-stop → reopen (`Loaded 23 undo history entries`) → undo. Log
+   `Undone (snapshot): Rotate 0° → 90°`, `(undo=22, redo=1)`, and the saved `project.json` is
+   **byte-identical to the pre-edit file** apart from `lastModified`.
+3. *Control.* The undone file still DIFFERS from the post-edit file in exactly
+   `rotationDegrees`, so the comparison is not vacuously passing.
+
+Plus `tools/jvm-harness/UndoManagerTest.java` — 34/34, every check paired with a positive
+control (including an identity control that a throttle burst really did share one baseline
+object and the entry before it did not).
 
 **❌ THE OBVIOUS FIX IS WRONG — DO NOT SHIP IT.** The tempting repair is "undo entry *i* by
 restoring entry *i-1*'s snapshot, since that IS entry *i*'s before-state". A full sweep of all

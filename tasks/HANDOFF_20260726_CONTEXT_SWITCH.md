@@ -4,6 +4,45 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-27 ~16:10 — AUDIT 1.6 FIXED AND PROVEN (`5b06c4a`). Next: Note 20 playback sync/perf.
+**Undo after an app restart now actually reverts the edit.** Root cause was that
+`snapshotBefore` held the state AFTER the edit (recordAction captured at record time; most
+sites mutate first). In-session undo hid it entirely because it prefers `action.undo()`.
+
+Fixed with a **deferred rolling baseline**, NOT by the "restore the predecessor" rule the
+audit refutes and NOT by reordering the 18 record-before-mutate sites: the manager keeps the
+state as of the last edit and hands it to each new entry, recapturing on the looper tick
+AFTER the edit handler unwinds. That tick sees the final post-edit state regardless of the
+site's ordering. `resetBaseline()` is seeded at saved-project load, new-project load and the
+AI swap, and is deliberately SYNCHRONOUS — deferring it would let an edit record against a
+stale baseline, which after an AI swap is the pre-AI state (undo would silently eat the AI
+step). Both alongside-hazards fixed: undo/redo peek-apply-then-pop and return `false` when
+nothing was restored; the snapshot path invalidates BOTH stacks.
+
+PROVED, both halves:
+- `tools/jvm-harness/UndoManagerTest.java` 34/34, every check paired with a positive control.
+- Note 9 device control on project `302da9ac`, using **Rotate** (a record-BEFORE-mutate site,
+  i.e. the case a naive fix over-reverts): sidecar entry holds the PRE value (0, not 90); and
+  after force-stop + reopen + undo the saved `project.json` is **byte-identical to the
+  pre-edit file** apart from `lastModified`, while still differing from the post-edit file in
+  exactly `rotationDegrees` (so the comparison isn't vacuous).
+
+Cost is now measured, not guessed: `BASELINE` log lines carry duration + snapshot size
+(9ms / 6611 chars on that small fixture; size matches `project.json` exactly). **Watch these
+lines on the Note 20's large projects** — one project serialize was added to project-open.
+
+**NEXT, user-reported 2026-07-27 ~16:05, to be done ON THE NOTE 20 with the user present**
+(they will plug it in): preview/timeline desync during playback in a large project. Symptoms
+as reported: with the main video playing and ~4-5 text layers stacked, approaching that stack
+the **playhead stops moving and the timeline view stalls** while video keeps playing and the
+text overlays do NOT composite in as they enter; manually scrubbing into a text's time range
+DOES render it. Intermittent — sometimes audio+video+overlays+playhead move, but rarely all
+together. Separately: **gaps between clips have an unnaturally long pause**, and the user
+suspects the visual inter-clip gap is being given real time to resync. They also want
+playback perf checked with many text layers, visualizers and PiP layers. NOTE: the display-
+only inter-clip inset from the uniform-axis change (`1bfc121`) is a rendering inset and should
+NOT add playback time — verify that first, and prove whatever is claimed.
+
 ### CONTEXT-WINDOW HANDOFF (2026-07-27 ~14:50). Batch of device-driven fixes landed; undo 1.6 next.
 This session's scrubber/timeline fixes, all installed on the Note 9, all AWAITING the user's
 final feel-confirm: uniform time axis (`1bfc121`, fixed the warp + below-length at the root),

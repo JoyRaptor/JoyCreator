@@ -199,6 +199,40 @@ drag proxy snaps rows vertically; a true y-glide is new renderer work).
 
 ---
 
+## 10. When you're back — device-session runbook + feel-test checklist
+
+**A. Feel-test the constants already shipped this session** (each is a one-line retune if wrong):
+1. **Mute (`7045904`):** tap the mute glyph on a TEXT/visual lane (no audio) → nothing should
+   happen (no undo entry appears). On an audio lane → it still toggles. Correct = disabled-looking
+   mute is inert.
+2. **Gap target (`e6e895f`, 5dp):** pick up an object and drag it toward a NEIGHBOURING lane →
+   it should land ON that lane, not spawn a new one. Deliberately aim at the thin gap between rows
+   → a new lane should still be creatable. If lane creation feels too hard, nudge 5dp→6dp; if it
+   still steals row taps, 5dp→4dp (`GAP_HIT_HALF_DP`, LayerRowRenderer).
+3. **Hold-release menu (`4557cf9`, 8dp):** select an object → hold → release in place → the object
+   menu should now open reliably (was "sometimes"). Retune `MOVE_SLOP_DP` in EditorTimelineView.
+4. **Trim unchanged (`e0c510b`):** grab a text/audio/PiP item's edge and trim → should feel exactly
+   as before (no dead-zone lurch at the start). If it lurches, the scope-fix regressed.
+
+**B. Wire #6 live (the device-gated step) — do IN THIS ORDER, verifying each:**
+1. First RUN the current build once and open an object menu (hold-release) for a text overlay —
+   confirm the (inert) "Move in time" section does NOT appear yet (nothing calls setTimeScrub).
+2. Add a generic `attachTimeScrub(...)` helper + call it at the end of each of the 5
+   `showObjectMenuSheetForXxx` methods (SPEC §8). Wire ONE payload first (text overlay), build,
+   open its menu → the section appears; confirm no crash on open (this is the crash-risk gate).
+3. Implement `ObjectTimeScrubSession.Host`: `originLaneSpans` = sibling spans on the object's
+   home Track (find the Track in `getLayers()`/`getAudioTracks()` containing the object id;
+   OTHER items' `[timelineStartMs, +getDisplayDurationMs)`); `pushThrough`/`snapStepMs` from the
+   toggles; `onPreview` = set the payload start live + LIGHT refresh + `sheet.setScrubTimeMs`;
+   `onCommit` = one undo step (position-only for lock; `mergedAction` if a lane changed).
+4. **Profile the light refresh on the LARGEST project** (SPEC §8a): a per-frame `getLayers()` +
+   `setLayerTracks` may ANR a 45-min project. If it stutters, throttle (rebuild ≤~20/s or only
+   when the resolved start actually crossed a row) before shipping.
+5. Only after lock-only time-move is smooth: add push-through relayering + the cross-lane
+   y-GLIDE (SPEC §9 — new renderer work; even the drag proxy snaps rows today).
+6. Extend to the other 4 payloads; verify undo restores each; re-verify sandbox sha256 after any
+   fixture use.
+
 ## Appendix — user's answer, verbatim (2026-07-26)
 
 > primary case is navigating the timeline. up down layers, shifting controlled in time like

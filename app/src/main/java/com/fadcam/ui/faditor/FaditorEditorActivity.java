@@ -1649,7 +1649,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onPlayheadSeeked(int segmentIndex, float fractionInSegment, boolean isDragging) {
                 loopVisualOffsetMs = 0;
                 loopStillExtensionStartMs = -1;
-                userDragging = true;
+                // Only a real DRAG latches. A discrete seek (isDragging=false — a tap, a
+                // tap-a-word jump) has no matching drag-finished edge to clear it, so latching
+                // there could freeze the playhead with no finger ever on screen.
+                userDragging = isDragging;
                 audioTailActive = false;  // Cancel audio-tail on seek
                 // Get clip directly — DON'T call selectSegment() during scrubbing.
                 // selectSegment triggers setPlayheadFraction → centerPlayhead which
@@ -8302,8 +8305,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long sourceDuration = clip.getSourceDurationMs();
         if (sourceDuration <= 0) return;
 
-        // Don't overwrite playhead while user is dragging
-        if (userDragging) return;
+        // Don't overwrite playhead while user is dragging.
+        // SELF-HEAL (device-proven 2026-07-27, Note 20): userDragging is a latch set by
+        // onPlayheadSeeked and cleared by onPlayheadDragFinished, but a dozen touch branches in
+        // EditorTimelineView can return before the shared ACTION_UP block that fires the clear
+        // — the post-pinch handback pan did exactly that. A stranded latch made this early
+        // return permanent, freezing the playhead, the timeline scroll and every overlay's
+        // time-driven visibility while video and audio kept playing (PHDIAG showed drag=true
+        // with playerPos advancing and head unchanged for 30s straight). Rather than trust each
+        // exit path to notify, ask the view whether a finger is actually still down.
+        if (userDragging) {
+            if (editorTimeline != null && !editorTimeline.isGestureActive()) {
+                FLog.w(TAG, "userDragging was stranded with no active gesture — clearing");
+                userDragging = false;
+            } else {
+                return;
+            }
+        }
 
         // ── Image clip playback (internal timer — LEGACY path only; in gapless mode the
         // engine plays the image as a native playlist window and the ExoPlayer path below

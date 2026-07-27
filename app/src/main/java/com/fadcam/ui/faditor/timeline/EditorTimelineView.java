@@ -771,6 +771,12 @@ public class EditorTimelineView extends View {
 
     // ── Touch ────────────────────────────────────────────────────────
     private boolean isScaling = false;
+    /**
+     * True between ACTION_DOWN and ACTION_UP/ACTION_CANCEL on this view — see the top of
+     * {@link #onTouchEvent} for why it is maintained there rather than in the individual
+     * gesture branches.
+     */
+    private boolean gestureActive = false;
     /** FOLLOW-UP 2: true from onScaleEnd (a finger survived the pinch) until that
      *  finger lifts — its MOVEs drive the scrub directly, re-anchored (see onScaleEnd). */
     private boolean postPinchPanActive = false;
@@ -1827,6 +1833,24 @@ public class EditorTimelineView extends View {
      */
     public long getPlayheadPositionMs() {
         return playheadPositionMs;
+    }
+
+    /**
+     * True while a finger is down on the timeline, or a playhead fling is still gliding.
+     *
+     * <p>Exists so the editor can tell a LIVE drag from a STRANDED "drag active" latch. The
+     * editor sets that latch from {@code onPlayheadSeeked} and clears it from
+     * {@code onPlayheadDragFinished}, but a dozen touch branches can return before the shared
+     * ACTION_UP block that fires the latter — so the latch could survive the gesture and freeze
+     * the playhead permanently (device-proven on the Note 20, 2026-07-27). This query lets the
+     * editor self-heal instead of depending on every exit path remembering to notify.</p>
+     *
+     * <p>The fling term matters: a flung release genuinely keeps driving the playhead after the
+     * finger is gone, and its own completion path notifies. Healing during it would let playback
+     * fight the glide.</p>
+     */
+    public boolean isGestureActive() {
+        return gestureActive || (flingScroller != null && !flingScroller.isFinished());
     }
 
     /**
@@ -5631,6 +5655,25 @@ public class EditorTimelineView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        // GESTURE LIVENESS — tracked FIRST, before every branch below, because almost all of
+        // them can return early (reorder, minimap, active pinch, marquee, post-pinch pan, the
+        // audio-band taps, the slide double-tap). Any of those returns skips the shared
+        // ACTION_UP block that ends a playhead drag, so a "drag is active" latch held by the
+        // editor could outlive the finger. This flag cannot be skipped, so it is a truthful
+        // answer to "is a finger still down on the timeline?" no matter which branch consumed
+        // the event. See isGestureActive().
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+                gestureActive = true;
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                gestureActive = false;
+                break;
+            default:
+                break;
+        }
+
         // Reorder mode intercepts all touch events
         if (isReorderMode) {
             return handleReorderTouch(e);
@@ -5701,13 +5744,26 @@ public class EditorTimelineView extends View {
                 postPinchLastX = Float.NaN;
                 // Same glide parity as the row-band scrub: a flick that ends the
                 // pinch→pan motion flings like any other timeline swipe.
+                boolean flung = false;
                 if (ppAction == MotionEvent.ACTION_UP && rowScrubVelocityTracker != null) {
                     rowScrubVelocityTracker.computeCurrentVelocity(1000, maxFlingVelocityPx);
                     float vx = rowScrubVelocityTracker.getXVelocity();
                     if (Math.abs(vx) > minFlingVelocityPx) {
                         startPlayheadFling(vx);
+                        flung = true;
                     }
                 }
+                // THE STRANDED-LATCH FIX (device-proven 2026-07-27, Note 20). This branch
+                // returns before the shared ACTION_UP block, so it must end the drag itself.
+                // Its ACTION_MOVE above calls updatePlayheadFromX -> onPlayheadSeeked(
+                // isDragging=true), which latches the editor's userDragging; without this
+                // notify the latch outlived the gesture and updatePlayheadPosition() then
+                // early-returned forever, freezing the playhead/timeline/overlay visibility
+                // while video and audio kept playing. It only bit after a ZOOM because the
+                // pinch is what hands off to this pan, and only on a GENTLE release because
+                // a flick starts a fling whose completion path already notifies — which is
+                // exactly why the user saw it as intermittent and zoom-correlated.
+                if (!flung && listener != null) listener.onPlayheadDragFinished();
                 getParent().requestDisallowInterceptTouchEvent(false);
                 return true;
             }

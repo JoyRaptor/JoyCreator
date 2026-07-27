@@ -17392,6 +17392,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         || !editorTimeline.updateLayerItemStartLight(o.getId(), start)) {
                     syncTimelineOverlays();
                 }
+                // Keep the moving object on-screen with lookahead (user: track before the edge).
+                if (editorTimeline != null) editorTimeline.followScrubTimeMs(start);
                 sheet.setScrubTimeMs(start);
             }
             @Override public void onCommit(long start,

@@ -584,6 +584,40 @@ public class EditorTimelineView extends View {
         return any;
     }
 
+    /** Fraction of the viewport kept as a lookahead dead-zone on each side while following a
+     *  time-scrub. Tracking kicks in when the scrubbed point crosses this margin — BEFORE the
+     *  edge — so the user can see what the object is sliding toward. Tunable feel constant. */
+    private static final float SCRUB_FOLLOW_MARGIN_FRAC = 0.25f;
+
+    /**
+     * Object time-scrubber (user feedback 2026-07-27): while the shuttle moves the object, keep
+     * that point on-screen by panning the timeline so it stays inside a centered dead-zone —
+     * so the object doesn't run off the edge and you can see it approach neighbours. Called each
+     * frame from the scrub's onPreview; a direct set (not animated) because the shuttle already
+     * advances smoothly per frame. Clamped to the same bounds as every other pan.
+     */
+    public void followScrubTimeMs(long ms) {
+        float w = getWidth();
+        if (w <= 0f) return;
+        float contentX = timeToX(ms);
+        float screenX = contentX - scrollOffsetPx;
+        float margin = w * SCRUB_FOLLOW_MARGIN_FRAC;
+        float target = scrollOffsetPx;
+        if (screenX > w - margin) {
+            target = contentX - (w - margin);   // moving right: hold it at the right dead-zone
+        } else if (screenX < margin) {
+            target = contentX - margin;          // moving left: hold it at the left dead-zone
+        }
+        float centerX = w / 2f;
+        float minScroll = edgePaddingPx - centerX;
+        float maxScroll = timeToX(getTimelineEndMs()) - centerX;
+        target = Math.max(minScroll, Math.min(target, maxScroll));
+        if (target != scrollOffsetPx) {
+            scrollOffsetPx = target;
+            invalidate();
+        }
+    }
+
     /** True if a fed row item with this id exists in either band (floating layers + audio). */
     private boolean layerItemIdExists(@NonNull String id) {
         for (List<com.fadcam.ui.faditor.layers.Track> band

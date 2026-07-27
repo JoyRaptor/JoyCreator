@@ -4,6 +4,53 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### ⭐ NEW TOP PRIORITY (user, 2026-07-26 late): LAYER MANAGEMENT POLISH — moving layers,
+dragging, reordering, and navigating the lane menus, using what already exists. Ducking is
+explicitly LOW priority ("I have never used ducking"). The user is not a developer and is
+relying on us for the last 10%. Treat the PiP-volume-envelope and set_clip_duck items as
+parked.
+
+**Layer surface mapped this session. Highest-value findings, in order:**
+
+1. **LOCK IS A ONE-WAY DOOR — FIXED this session (`LayerGestureController.beginPickup`).**
+   Unlock lives ONLY in the hold→release-in-place object menu, and that menu could not open on
+   a locked object: the locked branch set `lockedHoldRefused` but did NOT clear
+   `pendingBodyDown`, so `onRowBodyUp` computed `wasTap = true` and its `wasTap` branch is
+   tested BEFORE the `holdReleaseInPlace` branch. So locking an item from the row made it
+   permanently locked (locked audio/PiP have no double-tap editor either). The code's own
+   comment at the refusal says the release "must still open the drawer (it holds the Unlock
+   action)" — the fix makes that true. **CONFIRMED BY CODE READING, NOT DEVICE-REPRODUCED:**
+   `adb input swipe` cannot synthesize a hold-release-in-place (both a 900ms and a 1400ms
+   1px-drift hold produced only selection + the Opacity drawer, no menu), which is the same
+   class of adb gesture limitation already recorded for drag/sendevent.
+   **20-SECOND HUMAN TEST WANTED:** select a text overlay → hold → release → menu → Lock. Now
+   hold that same item again and release. Before the fix: nothing. After: the menu with Unlock.
+2. **Renaming a lane does nothing you can see.** The name persists (`LayerTrackDef.setName` /
+   `TrackFlags.customName`) and records an undo step, but NO code path ever draws a track name
+   — `LayerRowRenderer` configures a `namePaint` and never uses it for a name, and the header
+   deliberately "keeps only the caret + mute; no name, no kind identity". Confirmed visually on
+   the Note 9: every lane header is an anonymous caret + icon. So Move up / Move down / Delete
+   layer all target rows the user can only identify by position. This is probably the single
+   biggest "layer management feels unclear" item and it is pure rendering work.
+3. **Mute is offered on lanes that have no audio.** The mute rect is laid out on EVERY row and
+   only the glyph greys out; the hit-test still returns MUTE, so tapping it on a text lane
+   flips the flag, records an undo step, and does nothing audible. Also: track hide and track
+   mute are preview-only — both have `TODO(M-EXPORT-1)` and the export ignores them.
+4. **Per-lane hide/lock are unreachable by construction**: the renderer sets `lockRect`/
+   `hideRect` to EMPTY, so those hit zones can never fire and their handlers are dead code.
+   Per-object hide/lock moved into the object sheet; the header still renders as if they exist.
+5. **~38% of each row's height is a "make a new lane" target.** The gap hit zone is ±8dp around
+   a 3dp gap between 34dp rows, and gap is tested BEFORE row, so aiming at a neighbouring lane
+   frequently creates a new one instead — and because an emptied user lane is auto-deleted, one
+   drag can create a lane and destroy another.
+6. **No drag-to-reorder of rows exists at all** — lane order is menu-only (Move up/Move down),
+   and new AUDIO lanes skip the zIndex splice entirely so they land in builder order rather
+   than where the insertion line promised.
+7. Row gestures are arbitrated by a 450ms timer racing a **22dp** slop (system default is 8dp),
+   so short swipes over an item do nothing at all and can resolve as taps; and the
+   hold-release menu needs the finger to stay within **4 raw px** (~1.3dp), which is why "hold
+   works sometimes".
+
 ### RELOADED UNDO HISTORY CAME BACK INVERTED — **FIXED + verified** (`f52cb26`, audit 1.7).
 `loadHistory` appended with `addLast()` while the rest of the class pushes/pops the other end,
 so after a restart the OLDEST edit was on top and the history popup listed events upside down.

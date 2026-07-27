@@ -507,6 +507,12 @@ public final class LayerGestureController {
         // hold-release-in-place branch still opens the general drawer.
         if (isObjectLocked(activeItem)) {
             lockedHoldRefused = true;
+            // Clear pendingBodyDown too, exactly as the non-locked path below does. Without
+            // this, onRowBodyUp still computes wasTap = pendingBodyDown && !moved = TRUE, and
+            // its wasTap branch is tested BEFORE the holdReleaseInPlace branch — so the menu
+            // this refusal exists to open was unreachable, and since Unlock lives only in
+            // that menu, locking an object from the row made it permanently locked.
+            pendingBodyDown = false;
             return false;
         }
         pendingBodyDown = false;

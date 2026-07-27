@@ -4,6 +4,37 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-27 ~17:00 — PLAYHEAD FREEZE ROOT-CAUSED + FIXED; F-COLOR/F-MINIMAP; audit sweep.
+**THE ONE THING TO DO NEXT: have the user play the Note 20 project after a ZOOM-OUT.** That
+confirms or refutes `f59850a`, and `PHDIAG` (`701c1e0`) is still in the build as the
+instrument. `drag=false` + `moved=true` = fixed → then REMOVE PHDIAG. A monitor is armed.
+
+**B-PLAYFREEZE fixed (`f59850a`)** — full write-up in SPEC §13. Short version: `userDragging`
+was a stranded latch; the post-pinch handback pan latched it and its ACTION_UP returned before
+the shared block that clears it. Measured, not guessed — and the instrument proved WRONG the
+two hypotheses a read-only pass had produced. Fix is (1) that branch now ends its own drag and
+(2) the class is closed via `isGestureActive()` + a self-heal, so the other ~12 bypassing
+returns can't strand it either. STILL OPEN from that same report and NOT looked at: the long
+pause at inter-clip gaps, and playback perf with many layers.
+
+**TRAP worth remembering:** `adb logcat` with no `-T` replays the whole ring buffer, so a
+freshly-armed monitor re-reports OLD lines. It briefly looked like the fix had failed; the
+timestamps were all pre-install. Use `logcat -T 1` when watching for NEW events.
+
+**F-COLOR + F-MINIMAP done (`c4fc55f`)**, palette harness 30/30 — see SPEC §12. Appearance is
+compile-verified only and **wants the user's eyes**, especially whether 12 mini-map lines at
+2dp pitch is the right density on the Note 20.
+
+**Audit sweep (`3b03081`)**: 1.5's mechanical half done (AI clip-reorder is now rollbackable);
+**1.2 and 1.3 re-verified as ALREADY CLOSED** — the audit text was stale, now marked with
+evidence so a later session doesn't re-scope them. 1.5's three-way decision still needs the
+user, and a NEW related risk is logged: an AI reorder silently drops any clip missing from
+`newOrder`.
+
+**Note on the build watcher:** while the Note 20 is the only attached device it auto-installs
+there on every save, which KILLS the running app. That cost a live repro once. Don't save app
+source while the user is mid-test on that phone.
+
 ### 2026-07-27 ~16:10 — AUDIT 1.6 FIXED AND PROVEN (`5b06c4a`). Next: Note 20 playback sync/perf.
 **Undo after an app restart now actually reverts the edit.** Root cause was that
 `snapshotBefore` held the state AFTER the edit (recordAction captured at record time; most

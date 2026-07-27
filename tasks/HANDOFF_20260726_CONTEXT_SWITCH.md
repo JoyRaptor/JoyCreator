@@ -4,6 +4,18 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### ADVERSARIAL SELF-REVIEW of this session's changes — caught + fixed one regression (`e0c510b`).
+The #7 move-slop fix (`4557cf9`) dp-scaled the slop at `onRowBodyMove:711`, which is SHARED by
+MOVE and TRIM. TRIM maps the edge to the finger's ABSOLUTE time (`applyTrim`, no grab offset),
+so the enlarged slop turned a trim's first ~8dp into a dead zone then snapped the edge to the
+finger — an ~3mm start-lurch (MOVE is immune: it captures `moveGrabOffsetMs`). Fixed by scoping
+the enlarged slop to MOVE only (its purpose is the hold-release menu, which TRIM lacks) and
+keeping TRIM at the historical raw `TRIM_START_SLOP_PX = 4f` — trim feel now byte-for-byte as
+before `4557cf9`. Everything else reviewed clean: mute guard (`7045904`) agrees with the drawn
+disabled state; dead-code removal (`9d3f1ba`) provably unreachable + compiles; gap shrink
+(`e6e895f`) is a pure constant; the menu section (`5904532`) is inert (nothing calls
+`setTimeScrub`, no background loop when GONE). Move-package harnesses re-run: 25/25.
+
 ### ALL BLIND-SAFE LAYER-POLISH WORK NOW DONE (2026-07-27). Only device/feel-gated work remains.
 - #1 lock one-way door — `c6274e4`. #2 lane names — DROPPED (user: "layers don't need names").
   #3 mute-on-non-audio-lane — `7045904`. #4 dead hide/lock header hit zones removed — `9d3f1ba`

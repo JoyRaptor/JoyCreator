@@ -273,23 +273,35 @@ Reuse the object-menu path's `followScrubTimeMs` edge-tracking + `updateLayerIte
 
 ## 12. FIELD FEEDBACK QUEUE (from device testing, 2026-07-27) — live list
 
-Validated: the object-menu scrubber works + is "very smooth". Open items from testing:
+Validated: the object-menu scrubber works + is "very smooth".
 
-**BUGS (scaling/display — priority; several may share a root cause):**
-- [ ] **B-WARP** a BOUNDED text block changes length while being scrubbed (should hold
-  `end-start`). Move math preserves duration and `drawItemBody` draws width FROM duration, so on
-  paper width is constant → instrumented with a `SCRUBWARP` Log.d in `onPreview` (start/oStart/
-  oEnd/dur/lightFound) to catch whether dur actually changes or it's a draw/resync artifact.
-  Awaiting the user's device repro + logcat. TEMP logging is UNCOMMITTED — strip after diagnosis.
-- [ ] **B-BELOW** during a push-through attempt (scrubber only, no hand-drag) the object BELOW
-  changed tape length — suspect link/attached-visualizer resync or the same warp. Note push-through
-  relayer isn't built yet (v1 lock-only), so the "teleport down a layer" is a separate bug.
-- [ ] **B-STARTEND** "Start here"/"End here" (`setOverlayRangeEdgeAtPlayhead`) don't land on the
-  EXACT playhead — off by a bit. Pre-existing mapping/scaling bug, not the scrubber.
+**DONE this chat (installed; awaiting user's final feel-confirm where noted):**
+- [x] scrubber v1 — text overlays, lock-only (`3556d63`); shuttle/engine/session proven (31/31).
+- [x] edge-tracking — pan before the edge (`c772384`).
+- [x] **B-WARP + B-BELOW** — root cause was the NON-UNIFORM time axis (min-width clamp + inter-clip
+  gap); proven off the SCRUBWARP log (dur constant). Fixed by making time UNIFORM (`1bfc121`).
+  Awaiting the user's confirm that the warp is gone + clips still read separate.
+- [x] **B-OVERSHOOT** — push-past now steps flush just past the obstacle, no shoot-past (`9a7a0a4`).
+- [x] diagonal hand-drag loosened — small side-move breaks the lane time-lock (`699937b`).
+- [x] terminology — rows="lanes", object move="Move layer", kept "object" (`1395738`).
+
+**OPEN BUGS:**
+- [ ] **B-ENDHERE** "End here" does NOTHING (Start here works) — a real logic bug in
+  `setOverlayRangeEdgeAtPlayhead`'s end case, SEPARATE from the (now-fixed) scaling precision.
+- [ ] **B-CLAMP** the scrub can push an object off past the timeline end forever (have to scroll
+  back from infinity) — clamp so its start stops at the timeline end.
 - [ ] **B-PREVIEW** during a move the preview isn't always clear; want a stable same-size box
   under the finger / a constant indicator of what's moving.
 
-**POLISH / FEATURES (queued):**
+**OPEN — SCRUBBER COMPLETION:**
+- [ ] extend the scrubber to the other payloads: sprite / audio (`setOffsetMs`) / PiP
+  (`setOverlayStartMs`) / visualizer (currently text-overlay only).
+- [ ] push-through relayer (lane up/down) + the buttery cross-lane y-GLIDE (SPEC §9); today the
+  object-menu scrubber is lock-only, push-through toggle hidden.
+- [ ] **F-MOVEDRAWER** (SPEC §11) build the scrubber into the move drawer (fix its "move to" to
+  move the selected object; Lane up/down real relayering).
+
+**OPEN — POLISH / FEATURES:**
 - [ ] **F-COLOR** color objects BY TYPE always (not by lane, not by content color): text=purple,
   visualizer=pink, sprite=amber, image=teal, audio=green. The purple→blue-on-another-lane is the
   bug. Define the palette ONCE in a central place (single source of truth for the app's colors).

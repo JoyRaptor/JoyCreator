@@ -346,6 +346,25 @@ slider resizes text live.
 - [ ] **F-CAPTIONPREVIEW** — long-press on a caption in the PREVIEW currently toggles invisible;
   change it to open the caption style drawer (invisible is redundant — it's on the bottom bar).
 
+### Round-2b (2026-07-27 ~15:20)
+
+- [x] **caption-size undo flooding — FIXED** (`this batch`): the size slider recorded an undo on
+  every onChange tick; now suppressed during the drag + ONE undo on release (Slider touch listener).
+- [ ] **STRAY-DOT-PAST-END** — DIAGNOSED on project `129d8643`: `timeline.spriteOverlays[1]` has
+  `startMs=12645` (past the ~11305ms 4-clip end) and NO endMs (open-ended), so its drawn width
+  collapses to a dot and it sits off past the end; zooming pushes it out of frame; can't be
+  reached/expanded. General fix (for all users): (a) an object stranded PAST the master length
+  should stay reachable — the mini-map (F-MINIMAP) would surface it, and/or clamp/flag it; (b) a
+  degenerate-width object (open-ended start past end, or ~0 duration) should render at a MIN
+  visible/tappable width so it's not an untouchable 1px dot. Immediate: the user's specific dot can
+  be cleared by fixing that sprite's start/end in the project JSON, but the class needs the general
+  handling above.
+- [ ] **B-GREENHILITE clarified** — NOT gone: the selected-clip green (`COLOR_SEGMENT_SEL`) is
+  still there, but it no longer tracks the clip UNDER THE PLAYHEAD dynamically (used to move as the
+  playhead moved; now static on the selection). Check whether a playhead-follows-selection / active-
+  clip highlight regressed with the uniform `computeRects`/`drawSegment` change, or was always
+  selection-only. Lower priority; user just wants the under-playhead clip visibly indicated.
+
 ## Appendix — user's answer, verbatim (2026-07-26)
 
 > primary case is navigating the timeline. up down layers, shifting controlled in time like

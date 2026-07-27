@@ -319,6 +319,33 @@ Validated: the object-menu scrubber works + is "very smooth".
   not outline), clipped to master length. Mockup approved. Build after the scaling bugs.
 - [ ] **F-MOVEDRAWER** (SPEC §11) also build the scrubber into the move drawer.
 
+## 13. ROUND-2 DEVICE FEEDBACK (2026-07-27 ~15:00) — after the uniform-axis batch
+
+CONFIRMED WORKING: uniform timeline (drags now uniform width), "lane" terminology, caption size
+slider resizes text live.
+
+- [ ] **B-DIAGPREVIEW** (diagonal drag) — the loosen (`699937b`) WORKED: the object now goes
+  where it should. BUT the PREVIEW during the drag is wrong — it stays snapped VERTICALLY and
+  doesn't show the horizontal (side-to-side) offset until the finger LIFTS. So it PLACES correctly
+  but isn't WYSIWYG — the user can't see where it'll land until release. Fix the drag PROXY to
+  render the live diagonal position (horizontal offset) during the drag, not just on drop.
+- [ ] **B-GREENHILITE** — the green highlight on the clip under the playhead/selection
+  disappeared; user asked why. Green = `COLOR_SEGMENT_SEL` fill / `COLOR_BORDER_SEL` border for
+  `i == selectedIndex`. Uniform `drawSegment` change only inset `r`; VERIFY it's not a regression
+  (note: the green FILL only draws on clips WITHOUT thumbnails — thumbnailed clips show selection
+  via border/overlay). Check on-device whether a clip is still visibly selected.
+- [ ] **F-COLOR reconfirmed OPEN** — a text layer STILL changes color when moved to another
+  lane. Color BY TYPE (SPEC §12 F-COLOR) is the fix; still not built.
+- [ ] **D-OVERSHOOT-v2** — the step-past (`9a7a0a4`) still overshoots. User's refined design: on
+  breakthrough (nudge past the obstacle WITHOUT releasing), transport the object flush past it
+  AND RESET SHUTTLE VELOCITY TO ZERO so motion STOPS completely — giving the user a beat to
+  register + decide — then continued pushing re-accelerates from zero. All without lifting the
+  finger. Needs session↔shuttle coordination (an onStepPast → shuttle re-baseline / zero-velocity).
+- [ ] **F-CAPTIONGEST** — long-press OR double-tap on a caption IN THE TIMELINE should open the
+  caption style drawer (currently nothing happens). Map both gestures to caption style.
+- [ ] **F-CAPTIONPREVIEW** — long-press on a caption in the PREVIEW currently toggles invisible;
+  change it to open the caption style drawer (invisible is redundant — it's on the bottom bar).
+
 ## Appendix — user's answer, verbatim (2026-07-26)
 
 > primary case is navigating the timeline. up down layers, shifting controlled in time like

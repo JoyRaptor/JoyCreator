@@ -133,16 +133,48 @@ snapshot-only entries — and then it restores the state that already includes t
 success and the badge moves, so the user believes the edit was reverted.
 **VERIFIED-OPEN.** Not fixed here — see the note below; it is core-path surgery.
 
-**Candidate fix (has one semantic choice in it, so it wants a decision):** since each
-entry's snapshot is really "state AFTER this edit", undoing entry *i* should restore the
-snapshot of entry *i-1* (whose after-state IS entry *i*'s before-state) rather than its own.
-That is a small change localized to `UndoManager.undo()`. The wrinkle: the OLDEST entry has
-no predecessor, so there is nothing to restore it to without also persisting a base snapshot
-of the project as opened. Options are (a) persist that base snapshot, (b) make the oldest
-entry non-undoable after a restart and say so in the history row, or (c) capture snapshots
-BEFORE each edit instead, which is the "correct" fix but touches every caller.
+**❌ THE OBVIOUS FIX IS WRONG — DO NOT SHIP IT.** The tempting repair is "undo entry *i* by
+restoring entry *i-1*'s snapshot, since that IS entry *i*'s before-state". A full sweep of all
+115 `recordAction` call sites refutes its premise: **mutate-before-record is NOT universal.**
+- **18 sites record BEFORE mutating**, so their `snapshotBefore` is already a correct
+  pre-state, and the "restore the predecessor" rule would revert one edit too many for every
+  one of them. Examples: rotate (`FaditorEditorActivity.java:5884` records, `:5885` applies),
+  flip (`:5915`/`:5919`), speed (`:5689`), clip + audio volume/mute (`:4426`, `:4429`,
+  `:4463`, `:4467`), delete clip (`:24277`), delete audio clip (`:12604`, `:24386`), split
+  audio (`:24169`), reorder (`:1801`, `:5511`), replace source (`:2945`), canvas preset
+  (`:6597`), audio trim (`:1895`), remove video overlay (`:12633`).
+- **It would break the AI checkpoint in both directions.** `recordAiCheckpoint` stores a true
+  pre-AI state (and bypasses the throttle, so it is always on disk). Under the rule, undoing
+  the edit AFTER an AI step would restore the AI entry's snapshot = the pre-AI state,
+  silently discarding the whole AI edit — landing on exactly the violet rows the user is most
+  likely to be looking at.
+- **The predecessor is frequently absent or non-adjacent.** `SNAPSHOT_MIN_INTERVAL_MS`
+  (1500ms) skips capture for closely-spaced edits, and the persist step drops entries with a
+  null snapshot, so the reloaded stack is a SUBSEQUENCE of real history. The byte budget can
+  also evict snapshot-only entries outright. "Restore the neighbour" would therefore revert
+  several un-snapshotted edits in one tap while the row still names only one.
+- One site is incoherent under EITHER rule: the linked-pair trim (`:24215`) stores
+  master-after + partner-before.
+
+**Recommended direction instead:** normalise the ordering per-site so the field name matches
+reality — make every call site mutate BEFORE recording (the 18 above are the smaller, bounded,
+individually-verifiable set). Two things must be fixed alongside, whichever way it goes:
+`undo()` pushes to redo and returns `true` even when nothing was restored (silent success on a
+null snapshot), and the plain snapshot path invalidates only the REDO stack, so once restores
+stop being value-identical no-ops, undoing past a snapshot entry into an in-session entry will
+mutate an orphaned object graph — the same hazard `invalidateActionsForProjectSwap` handles for
+the AI path. Redo needs no change: `snapshotAfter` is already captured correctly.
 Whatever is chosen needs its own positive control: undo a known edit after a restart and
 assert the saved file returns to the PRE-edit value.
+
+### 1.7 NEW (found + device-verified 2026-07-26): reloaded undo history came back INVERTED
+Separate from 1.6 and now **FIXED**. `UndoManager.loadHistory` iterated the persisted entries
+oldest-first but appended with `addLast()`, the opposite end from the `push()`/`pop()` that
+`recordAction` and `undo()` use — so after a restart the OLDEST edit sat on top of the stack.
+Measured on the Note 9: a trim followed by an AI step reloaded as `-1 Trim, -2 Added a title
+card`, i.e. the history popup listed the timeline of events upside down and the nearest undo
+was the oldest edit. Fixed by pushing on the same end the rest of the class uses; the loop's
+own comment already said "so the most recent ends up on top", which is what it now does.
 
 ### 1.5 NEW (found 2026-07-26): the undo stack survives an AI reload that replaces the project
 Not previously in this audit. When the AI assistant edits the project on disk, the editor

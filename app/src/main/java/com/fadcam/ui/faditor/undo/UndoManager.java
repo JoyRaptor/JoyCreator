@@ -466,11 +466,19 @@ public class UndoManager {
                             @NonNull List<Boolean> aiFlags) {
         clear();
         int count = Math.min(descriptions.size(), snapshots.size());
-        // Push oldest first (addLast) so the most recent ends up on top
+        // Oldest first, pushed with push() — i.e. addFirst, the SAME end recordAction uses
+        // and the end undo() pops from — so the newest edit ends up on top, which is what
+        // this loop always intended.
+        //
+        // It used to addLast() here, which is the opposite end, so a reloaded history came
+        // back INVERTED: after a restart the nearest undo was the OLDEST edit and the
+        // history popup listed everything upside down. Measured on the Note 9 — a trim
+        // followed by an AI step reloaded as "-1 Trim, -2 AI" when the AI step was the
+        // most recent thing that happened.
         for (int i = 0; i < count; i++) {
             boolean ai = i < aiFlags.size() && Boolean.TRUE.equals(aiFlags.get(i));
             HistoryEntry entry = new HistoryEntry(null, descriptions.get(i), snapshots.get(i), ai);
-            ((ArrayDeque<HistoryEntry>) undoStack).addLast(entry);
+            undoStack.push(entry);
         }
         FLog.d(TAG, "Loaded " + count + " history entries from disk");
         notifyListener();

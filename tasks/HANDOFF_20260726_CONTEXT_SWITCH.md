@@ -4,6 +4,30 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### ⭐ USER REFRAME (2026-07-26, new account) — "layers don't need names, OBJECTS need names."
+Interactive Q&A corrected my layer-polish framing. Load-bearing corrections, do NOT re-derive:
+- **Lane names are UNWANTED** (finding #2 direction was WRONG). Layers stay nameless. Object
+  naming is a separate, unbuilt idea.
+- **"Move up/down" arranges OBJECTS, not lanes.** The user calls timeline OBJECTS "layers." The
+  purpose is a precise, TOUCH-FREE way to move an object (vid/vis/pip/audio) — for imprecise
+  touch, small/cluttered screens, AI control, and exact-value entry.
+- The full, detailed design is now **`tasks/SPEC_OBJECT_TIME_SCRUBBER.md`** (variable-speed
+  jog/shuttle scrubber + live tap-to-type time readout + jump-to-time + a magnetic
+  collision/push-through-relayer model with a strict one-lane-up-or-new-lane limit and
+  return-to-origin). It is a MULTI-PHASE, feel-driven feature, NOT a commit — Phase 1 (UI shell +
+  lock-at-collision, no relayering) can start; Phase 2 (relayering) waits on the user confirming
+  §2/§6 of that spec. User's verbatim answer is in the spec's appendix.
+- **#7 gesture slop FIXED — `4557cf9`.** The "hold works only sometimes" cause: the post-pickup
+  move slop was a hardcoded 4 RAW px (~1.5dp here, tighter on the Note 20) — smaller than
+  hold-jitter, so hold→release registered a micro-move and the object menu didn't open. Now
+  dp-scaled via `setMoveSlopPx` (mirrors `setSnapRadiusPx`) to the conventional 8dp; only touches
+  `LayerGestureController:711`, leaving the 450ms scrub-vs-move arbitration and `TOUCH_SLOP_DP`
+  intact. Compile+install verified (APK 22:33:41 > edit); NOT feel-tested (adb can't inject
+  hold-release) — 8dp is the user's to retune (one-line `MOVE_SLOP_DP`).
+- **#5 gap target:** user chose "shrink it" — still TODO (gesture-feel, defer with #7 tuning).
+- **Priority order the user gave: #7 → #6 → #4.** #7 done; #6 = the SPEC above (next, needs
+  Phase-2 confirmation); #4 = dead hide/lock header code removal (cleanup, last).
+
 ### LAYER FINDING #3 (mute-on-non-audio-lane) FIXED — `7045904` (new account, 2026-07-26 ~22:05).
 The mute glyph is drawn DISABLED (COLOR_ICON_OFF, no strike) on any lane with no audio
 (`drawMuteIcon`'s `applicable` = `rowCarriesAudio(t)`), but `hitTestHeader` returned

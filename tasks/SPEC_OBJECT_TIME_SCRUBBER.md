@@ -271,6 +271,42 @@ before the next — the drawer/menu can't be reached via adb, so the user's test
 
 Reuse the object-menu path's `followScrubTimeMs` edge-tracking + `updateLayerItemStartLight` here.
 
+## 12. FIELD FEEDBACK QUEUE (from device testing, 2026-07-27) — live list
+
+Validated: the object-menu scrubber works + is "very smooth". Open items from testing:
+
+**BUGS (scaling/display — priority; several may share a root cause):**
+- [ ] **B-WARP** a BOUNDED text block changes length while being scrubbed (should hold
+  `end-start`). Move math preserves duration and `drawItemBody` draws width FROM duration, so on
+  paper width is constant → instrumented with a `SCRUBWARP` Log.d in `onPreview` (start/oStart/
+  oEnd/dur/lightFound) to catch whether dur actually changes or it's a draw/resync artifact.
+  Awaiting the user's device repro + logcat. TEMP logging is UNCOMMITTED — strip after diagnosis.
+- [ ] **B-BELOW** during a push-through attempt (scrubber only, no hand-drag) the object BELOW
+  changed tape length — suspect link/attached-visualizer resync or the same warp. Note push-through
+  relayer isn't built yet (v1 lock-only), so the "teleport down a layer" is a separate bug.
+- [ ] **B-STARTEND** "Start here"/"End here" (`setOverlayRangeEdgeAtPlayhead`) don't land on the
+  EXACT playhead — off by a bit. Pre-existing mapping/scaling bug, not the scrubber.
+- [ ] **B-PREVIEW** during a move the preview isn't always clear; want a stable same-size box
+  under the finger / a constant indicator of what's moving.
+
+**POLISH / FEATURES (queued):**
+- [ ] **F-COLOR** color objects BY TYPE always (not by lane, not by content color): text=purple,
+  visualizer=pink, sprite=amber, image=teal, audio=green. The purple→blue-on-another-lane is the
+  bug. Define the palette ONCE in a central place (single source of truth for the app's colors).
+- [ ] **F-BADGE** object badge: fully WHITE (not gray); badge at the left edge, text starts right
+  after it, the two SLIDE TOGETHER as the left edge scrolls off — never overlapping.
+- [ ] **F-CENTER** on adding a new object, auto-scroll VERTICALLY to its layer if off-screen
+  (playhead stays — objects land at the playhead).
+- [ ] **F-PANDELAY** the pan-on-approach onto a long object needs a longer delay (kill false
+  positives); EXEMPT any object spanning the full master length (can't move past the timeline).
+- [ ] **F-CAPTIONDRAWER** the caption Pop/Zoom/Bounce drawer (`caption_drawer`/`showCaptionDrawer`,
+  opened by the captions tool) should only appear + pop-animate when a caption is SELECTED
+  (timeline OR preview), not stay up.
+- [ ] **F-MINIMAP** enhance the mini-map: thin 1–2px per-layer lines above the master tape, colored
+  BY TYPE, max 12 layers, stack order = timeline order, selected object PULSES white (medium blink,
+  not outline), clipped to master length. Mockup approved. Build after the scaling bugs.
+- [ ] **F-MOVEDRAWER** (SPEC §11) also build the scrubber into the move drawer.
+
 ## Appendix — user's answer, verbatim (2026-07-26)
 
 > primary case is navigating the timeline. up down layers, shifting controlled in time like

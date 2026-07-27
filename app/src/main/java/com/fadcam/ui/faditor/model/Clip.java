@@ -513,6 +513,13 @@ public class Clip {
         this.zoomLevel = other.zoomLevel;
         this.zoomCenterX = other.zoomCenterX;
         this.zoomCenterY = other.zoomCenterY;
+        // Volume keyframes are copied like every other keyframe list. They were MISSING
+        // here, so `new Clip(other)` silently dropped the envelope — and both halves of a
+        // split are built with this constructor, which meant splitting (or duplicating) a
+        // clip destroyed its volume automation with no warning and no undo of its own.
+        for (VolumeKeyframe kf : other.volumeKeyframes) {
+            this.volumeKeyframes.add(new VolumeKeyframe(kf.timeMs, kf.volume));
+        }
         for (OpacityKeyframe kf : other.opacityKeyframes) {
             this.opacityKeyframes.add(new OpacityKeyframe(kf.timeMs, kf.opacity));
         }
@@ -562,6 +569,11 @@ public class Clip {
         c.zoomLevel = zoomLevel;
         c.zoomCenterX = zoomCenterX;
         c.zoomCenterY = zoomCenterY;
+        // Same omission as the copy constructor: relinking media must not silently discard
+        // the clip's volume automation.
+        for (VolumeKeyframe kf : volumeKeyframes) {
+            c.volumeKeyframes.add(new VolumeKeyframe(kf.timeMs, kf.volume));
+        }
         for (OpacityKeyframe kf : opacityKeyframes) {
             c.opacityKeyframes.add(new OpacityKeyframe(kf.timeMs, kf.opacity));
         }

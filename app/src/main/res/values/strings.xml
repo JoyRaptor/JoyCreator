@@ -677,8 +677,8 @@
     <string name="toast_rename_success">Video renamed successfully</string>
     <string name="toast_rename_bad_video">Invalid position or video list is null</string>
     <string name="toast_rename_with_copy">Renamed to %1$s (duplicate name)</string>
-    <string name="rename_layer_title">Rename Layer</string>
-    <string name="rename_layer_message">Enter new name for the layer</string>
+    <string name="rename_layer_title">Rename lane</string>
+    <string name="rename_layer_message">Enter a new name for the lane</string>
     <string name="rename_page_title">Rename Page</string>
     <string name="rename_page_message">Enter new name for the page</string>
     <string name="rename_dialog_hint">New name</string>

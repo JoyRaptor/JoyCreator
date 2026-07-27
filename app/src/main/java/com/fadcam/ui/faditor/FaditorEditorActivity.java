@@ -5333,10 +5333,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Layer up/down (future layer implementation)
         moveLayerUp.setOnClickListener(v -> {
-            Toast.makeText(this, "Layer up (coming soon)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Move layer up (coming soon)", Toast.LENGTH_SHORT).show();
         });
         moveLayerDown.setOnClickListener(v -> {
-            Toast.makeText(this, "Layer down (coming soon)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Move layer down (coming soon)", Toast.LENGTH_SHORT).show();
         });
 
         // Go button: parse input and seek to position
@@ -5401,7 +5401,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             movePositionFrames.setText(frames + "f");
         }
         if (movePositionLayer != null) {
-            movePositionLayer.setText("Layer 1");
+            movePositionLayer.setText("Lane 1");
         }
         refreshMoveClipButtons();
     }
@@ -11621,7 +11621,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         addTrackMenuRow(list, popup, "Move up", () -> moveTrackZ(track, true, floatingBand));
         addTrackMenuRow(list, popup, "Move down", () -> moveTrackZ(track, false, floatingBand));
         if (userCreated) {
-            addTrackMenuRow(list, popup, "Delete layer", () -> confirmDeleteLayerTrack(track));
+            addTrackMenuRow(list, popup, "Delete lane", () -> confirmDeleteLayerTrack(track));
         }
 
         int[] loc = new int[2];
@@ -11670,7 +11670,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wrap.addView(input);
 
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Rename layer") // TODO(strings)
+                .setTitle("Rename lane") // TODO(strings)
                 .setView(wrap)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
@@ -11681,7 +11681,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (def != null) {
                         final String before = def.getName();
                         def.setName(newName);
-                        undoManager.recordAction(new EditActions.LambdaAction("Rename layer",
+                        undoManager.recordAction(new EditActions.LambdaAction("Rename lane",
                                 () -> { def.setName(newName); syncTimelineOverlays(); },
                                 () -> { def.setName(before); syncTimelineOverlays(); }));
                     } else {
@@ -11692,7 +11692,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         flags.customName = newName;
                         timeline.pruneDefaultTrackFlags();
                         final com.fadcam.ui.faditor.layers.TrackFlags after = flags.copy();
-                        undoManager.recordAction(new EditActions.LambdaAction("Rename layer",
+                        undoManager.recordAction(new EditActions.LambdaAction("Rename lane",
                                 () -> { timeline.setTrackFlags(trackId, after.copy());
                                         syncTimelineOverlays(); },
                                 () -> { timeline.setTrackFlags(trackId, before.copy());
@@ -11749,7 +11749,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 snapshotBandFlags(timeline, band);
 
         undoManager.recordAction(new EditActions.LambdaAction(
-                up ? "Move layer up" : "Move layer down",
+                up ? "Move lane up" : "Move lane down",
                 () -> applyBandFlags(timeline, after),
                 () -> applyBandFlags(timeline, before)));
 
@@ -11842,7 +11842,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshPreviewOverlayVisibility();
             };
             redo.run();
-            undoManager.recordAction(new EditActions.LambdaAction("Delete layer", redo, undo));
+            undoManager.recordAction(new EditActions.LambdaAction("Delete lane", redo, undo));
             scheduleAutoSave();
         };
 
@@ -11850,8 +11850,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             doDelete.run();
         } else {
             new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                    .setTitle("Delete layer") // TODO(strings)
-                    .setMessage("Move " + itemCount + " item(s) to the default track and delete this layer?")
+                    .setTitle("Delete lane") // TODO(strings)
+                    .setMessage("Move " + itemCount + " item(s) to the default track and delete this lane?")
                     .setNegativeButton(android.R.string.cancel, null)
                     .setPositiveButton("Delete", (d, w) -> doDelete.run())
                     .show();
@@ -12383,7 +12383,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 toStored, clipToStored);
         syncTimelineOverlays();
         maybeRemoveEmptyLayerTrack(fromTrackId);
-        return new PendingLayerTrackUndo("Move to layer",
+        return new PendingLayerTrackUndo("Move layer",
                 () -> {
                     applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
                             toStored, clipToStored);
@@ -12451,7 +12451,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ? com.fadcam.ui.faditor.layers.TrackKind.LAYER
                 : com.fadcam.ui.faditor.layers.TrackKind.AUDIO;
         int nextNum = (floatingBand ? timeline.getLayers().size() : timeline.getAudioTracks().size()) + 1;
-        String newName = (floatingBand ? "Layer " : "Audio ") + nextNum;
+        String newName = (floatingBand ? "Lane " : "Audio ") + nextNum;
         final String newTrackId = timeline.createLayerTrack(newKind, newName);
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);
@@ -12502,7 +12502,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 newTrackId, newTrackId);
         syncTimelineOverlays();
         maybeRemoveEmptyLayerTrack(fromTrackId);
-        return new PendingLayerTrackUndo("New layer",
+        return new PendingLayerTrackUndo("New lane",
                 () -> {
                     if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
                     for (java.util.Map.Entry<String, Integer> e : zAfter.entrySet()) {
@@ -13249,7 +13249,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         int changed = tl.compactOverlayLanes();
         if (changed == 0) {
-            Toast.makeText(this, "Layers already compact", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Lanes already compact", Toast.LENGTH_SHORT).show();
             return;
         }
         java.util.Map<TextOverlayItem, String> textAfter = new java.util.HashMap<>();
@@ -13260,12 +13260,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             spriteAfter.put(s, s.getLayerId());
         }
 
-        undoManager.recordAction(new EditActions.LambdaAction("Compact layers",
+        undoManager.recordAction(new EditActions.LambdaAction("Compact lanes",
                 () -> { applyLaneSnapshot(textBefore, spriteBefore); refreshAfterLaneChange(); },
                 () -> { applyLaneSnapshot(textAfter, spriteAfter); refreshAfterLaneChange(); }));
 
         refreshAfterLaneChange();
-        Toast.makeText(this, "Compacted " + changed + " layer" + (changed == 1 ? "" : "s"),
+        Toast.makeText(this, "Compacted " + changed + " lane" + (changed == 1 ? "" : "s"),
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -13972,7 +13972,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         section.setLayoutParams(secLp);
 
         TextView header = new TextView(this);
-        header.setText("Layers"); // TODO(strings): externalize once the studio strings land.
+        header.setText("Lanes"); // TODO(strings): externalize once the studio strings land.
         header.setTextColor(0xFF9E9E9E);
         header.setTextSize(12);
         header.setPadding(0, 0, 0, (int) (4 * dp));
@@ -14142,7 +14142,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }));
         chipsRow.addView(makeVizActionBtn("🗑", dp, v -> {
             if (fLayers.size() <= 1) { // min 1 layer stays
-                Toast.makeText(this, "At least one layer", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "At least one lane", Toast.LENGTH_SHORT).show();
                 return;
             }
             fLayers.remove(visualizerSelectedLayer);
@@ -15458,7 +15458,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
         String newId = tl.createLayerTrack(
-                com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Layer " + (textTrackCount + 1));
+                com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Lane " + (textTrackCount + 1));
         item.setLayerId(newId);
     }
 
@@ -17293,20 +17293,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
         addTimerActions(actions, o);
-        actions.add(new ObjectMenuSheet.Action("New layer above", false, // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action("New lane above", false, // TODO(strings)
                 () -> moveOverlayItemToNewLayer(o, true)));
-        actions.add(new ObjectMenuSheet.Action("New layer below", false, // TODO(strings)
+        actions.add(new ObjectMenuSheet.Action("New lane below", false, // TODO(strings)
                 () -> moveOverlayItemToNewLayer(o, false)));
         // Adjacent-layer moves only make sense with >1 floating layer present.
         java.util.List<com.fadcam.ui.faditor.layers.Track> layers = timeline.getLayers();
         int rowIdx = overlayItemRowIndex(o, layers);
         if (layers.size() > 1 && rowIdx >= 0) {
             if (rowIdx > 0) { // not already the top row (row 0 = highest z)
-                actions.add(new ObjectMenuSheet.Action("Move to layer ▲", false, // TODO(strings)
+                actions.add(new ObjectMenuSheet.Action("Move layer ▲", false, // TODO(strings)
                         () -> moveOverlayItemToAdjacentLayer(o, true)));
             }
             if (rowIdx < layers.size() - 1) {
-                actions.add(new ObjectMenuSheet.Action("Move to layer ▼", false, // TODO(strings)
+                actions.add(new ObjectMenuSheet.Action("Move layer ▼", false, // TODO(strings)
                         () -> moveOverlayItemToAdjacentLayer(o, false)));
             }
         }
@@ -18617,9 +18617,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         redo.run();
         undoManager.recordAction(new EditActions.LambdaAction(
-                above ? "New layer above" : "New layer below", redo, undo));
+                above ? "New lane above" : "New lane below", redo, undo));
         scheduleAutoSave();
-        Toast.makeText(this, above ? "Moved to new layer above" : "Moved to new layer below",
+        Toast.makeText(this, above ? "Moved to new lane above" : "Moved to new lane below",
                 Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 
@@ -18659,9 +18659,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         redo.run();
         undoManager.recordAction(new EditActions.LambdaAction(
-                up ? "Move to layer up" : "Move to layer down", redo, undo));
+                up ? "Move layer up" : "Move layer down", redo, undo));
         scheduleAutoSave();
-        Toast.makeText(this, up ? "Moved up a layer" : "Moved down a layer",
+        Toast.makeText(this, up ? "Moved up a lane" : "Moved down a lane",
                 Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 

@@ -4,6 +4,25 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### OBJECT TIME-SCRUBBER (#6) — UI SECTION BUILT (`5904532`); LIVE WIRING IS DEVICE-GATED (why below).
+Additive `ObjectMenuSheet.setTimeScrub(...)` section landed (`5904532`): the `TimeShuttleView`,
+a tap-to-type `m:ss.mmm` readout (→ jump-to-time), and Push-through + Snap toggles. It is INERT —
+`show()`'s signature is unchanged and nothing calls `setTimeScrub` yet, so no existing menu/gesture
+behaviour is touched. Compiles; not run (object menu opens via hold-release, adb can't reach it).
+
+**The remaining LIVE wiring is deliberately DEVICE-GATED, not skipped — the reason is a real
+ANR risk, not caution (SPEC §8a, found by code-reading 2026-07-27):** `TimedItem` snapshots the
+payload start at construction and the renderer draws from `setLayerTracks` views, so a live
+`setStartMs` needs a Track-view REBUILD to show; `syncTimelineOverlays()` (the normal refresh) is
+heavy (link-group propagation, visualizer/preview resync) and can't run ~60×/s; a light per-frame
+row rebuild is needed but its cost is UNKNOWN and, given this app's documented long-project
+ANR/2-3fps history ([[faditor-long-project-perf]]), a per-frame rebuild could ANR a 45-min
+project. That is a usability/correctness risk that MUST be device-profiled — beyond the
+"feel-tuning" the user accepted blind. The cross-lane GLIDE (§9) is also new renderer work (even
+the drag proxy snaps rows vertically). So the Host + per-frame refresh + relayer glide land as a
+DEVICE-VERIFIED step (blueprint = SPEC §8/§8a/§9). The whole PROVEN toolkit is ready for it:
+engine (`c7cf338`, 15/15), session (`db744be`, 10/10), shuttle (`3eaee80`), section (`5904532`).
+
 ### OBJECT TIME-SCRUBBER (#6) — LOGICAL CORE BUILT + PROVEN; editor wiring specified, deferred.
 User decisions (2026-07-26): **build the whole feature**; **push-through is a TOGGLE for all
 kinds incl. audio** (on = relayer, off = lock); **animation must be "buttery, not jarring."**

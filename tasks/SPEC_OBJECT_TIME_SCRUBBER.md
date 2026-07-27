@@ -155,6 +155,33 @@ reachable only via the new UI), so it must not alter any existing menu/gesture b
 4. **Selection required:** the section only shows for a movable payload (text/sticker/sprite/
    waveform/PiP/audio) — NOT master clips or caption spans (§4).
 
+### 8a. REFRESH STRATEGY — the reason the live wiring is DEVICE-GATED (found 2026-07-27)
+
+Verified in code, and it is the load-bearing risk:
+- `TimedItem` **snapshots** the payload's start at construction (`ofTextOverlay` copies
+  `getStartMs()`), and the renderer draws from `layerTracks` fed via `EditorTimelineView.setLayerTracks`.
+  So a live `setStartMs`/`setOffsetMs` does NOT show on a bare `invalidate()` — the Track views
+  must be rebuilt (`getLayers()` → `setLayerTracks`) for the moved block to redraw.
+- `syncTimelineOverlays()` (the normal post-edit refresh, `FaditorEditorActivity:10757`) is HEAVY:
+  it also runs `resyncAttachedVisualizers`, `resyncLinkGroups` (propagates time deltas to linked
+  members — desirable on COMMIT, wrong to run every frame), `synthesizeG5PresetLinkGroups`,
+  `syncBelowVideoOverlays`, preview re-bind, sprite-sheet feed. Calling it ~60×/s would not be
+  buttery.
+- A per-frame scrub therefore needs a LIGHT refresh (rebuild the row views + `invalidate` only),
+  with the full `syncTimelineOverlays()` run ONCE on commit. **But the light refresh's per-frame
+  cost is unknown and MUST be device-profiled** — this app has a documented long-project
+  ANR/2-3fps history (see memory `faditor-long-project-perf`: `onDraw`/rebuild cost scales with
+  the whole timeline). On a 45-min project a per-frame row rebuild could ANR. That is NOT a
+  "feel-tuning" item the user can accept blind — it is a usability/correctness risk that needs
+  on-device profiling.
+
+**Consequence:** the LIVE wiring (Host + per-frame refresh + relayer glide) is left for a
+device-verified step. The proven core (engine/session), the shuttle widget, and the additive
+(inert) menu section are all landed. When building the live wiring on-device: prototype the light
+refresh, profile it on the largest available project, and only then choose per-frame vs
+throttled-refresh. The relayer's cross-lane GLIDE (§9) also needs the device (even the existing
+drag proxy snaps rows vertically; a true y-glide is new renderer work).
+
 ## 9. Animation contract ("buttery, not jarring" — user requirement)
 
 - **Scrub travel** is already frame-synced in the widget (Choreographer, dt-integrated) and the

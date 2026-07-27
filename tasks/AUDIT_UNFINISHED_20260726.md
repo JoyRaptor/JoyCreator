@@ -245,10 +245,24 @@ unverified). **VERIFIED-OPEN.**
   3. Leave it and document that AI edits are outside the undo model — in which case audit 3.3
      should be rescoped from "transitions get lost" to that statement, and the misleading
      comment at `AIToolExecutor.java:1460-1463` ("one undoable step") must be corrected.
-Independent of the choice, `EditScriptApplier.applyReorderClips` (`:812-854`) should stop
+~~Independent of the choice, `EditScriptApplier.applyReorderClips` (`:812-854`) should stop
 mutating live `Transition` objects after `clearTransitions()` with no retained pre-state
 (`:818-819` is a SHALLOW copy; `:850` writes `t.clipIndex`), which makes a part-way failure
-unrollbackable. That part is mechanical.
+unrollbackable. That part is mechanical.~~
+**The mechanical half is DONE 2026-07-27.** `applyReorderClips` now captures a true pre-state
+(the clip order plus each transition's ORIGINAL `clipIndex`) before touching the model, and
+restores it from a `catch (RuntimeException)` before rethrowing — so a throw mid-rebuild can no
+longer leave a half-reordered timeline with transitions carrying indices for an order that was
+never finished. The three-way decision above is UNTOUCHED and still needs the user.
+
+**NEW, noticed while doing that (2026-07-27), NOT changed — needs a decision.**
+`applyReorderClips` silently DROPS any clip missing from `newOrder` ("clips not listed are
+dropped", `:834`). That is deliberate for a well-formed script, but it means a truncated or
+partially-hallucinated `newOrder` from the model deletes the omitted clips with no error and no
+undo entry that can restore them (see 1.5 above — the undo stack does not survive an AI reload
+intact). Suggested: refuse the op unless `newOrder` is a permutation of the existing clip ids,
+or append the unlisted clips in their original relative order. Both change AI semantics, so
+it is the user's call rather than a mechanical fix.
 
 ### 1.1 Transcript windowing: step 3 never landed, and no repair for damaged projects
 `PLAN_transcript_windowing.md:39-59`. Steps 1 (`Transcript.java:51`), 2 (`partitionWords`
@@ -279,15 +293,28 @@ older v10 build coerces `kind=LAYER` to `VIDEO` and re-serializes it that way on
 Since kind decides emission phase = band position, and band position IS paint order after
 cross-type Z, the round-trip permanently changes what paints over what in preview AND
 export. Same shape as the seeded-lane pre-emption bug.
-**Risk:** DATA-LOSS (irreversible lane-identity rewrite). **VERIFIED-OPEN.**
-**Cheapest real fix in this audit:** bump SCHEMA_VERSION, or stamp on first LAYER def.
+**Risk:** DATA-LOSS (irreversible lane-identity rewrite). ~~**VERIFIED-OPEN.**~~
+**ALREADY CLOSED — re-verified against the code 2026-07-27.** The audit text above is STALE.
+`FaditorProject.SCHEMA_VERSION` is now **11**, not 10 (`FaditorProject.java:38`, with the v11
+rationale documented at `:29-37` citing this audit item), and the stamp is wired: the
+serializer raises the stamped version to `def.getKind().minSchemaVersion()` for every
+`LayerTrackDef` (`ProjectStorage.java:1738-1741`), and `TrackKind.minSchemaVersion()` returns
+11 for `LAYER` (`TrackKind.java:84-86`). So a LAYER lane now stamps 11, an older v10 build's
+downgrade guard DOES trip, and the coercion round-trip is refused rather than silently written
+back. A repro exists at `tasks/schema_layer_stamp.py`. **Do not re-scope.**
 
 ### 1.3 Explicit `layerId: null` makes the loader drop the object
 `handoff.md` section 2. All four deserializers do `if (obj.has("layerId")) …getAsString()` —
 `ProjectStorage.java:1518, 2142, 2239, 2457`. `JsonNull.getAsString()` throws; in the sprite
 path it swallows the whole sprite. Only reachable via hand-edited JSON today, but any future
 writer that serializes nulls (repair tool, import path, AI-generated project) silently
-deletes objects. Four `isJsonNull()` checks. **VERIFIED-OPEN.**
+deletes objects. Four `isJsonNull()` checks. ~~**VERIFIED-OPEN.**~~
+**ALREADY CLOSED in `7a09eb6` — re-verified against the code 2026-07-27.** The line numbers
+above are stale. A `hasValue(o, key)` helper (`ProjectStorage.java:1439-1441`) returns
+`o.has(key) && !o.get(key).isJsonNull()`, and every `layerId` read now goes through it:
+clip `:1633`, audio clip `:2289`, overlay `:2402`, sprite `:2633` (the last three are even
+belt-and-braces, re-checking `isJsonNull()` after `hasValue`). The commit's own comment at
+`:1425-1432` records that it was reproduced on device with a fixture. **Do not re-scope.**
 
 ### 1.4 Schema downgrade-guard drill has never been run end-to-end
 `DRILL_SCHEMA_DOWNGRADE.md`; ship-blocker #3 in `road_map.md:31`. The guard is real and

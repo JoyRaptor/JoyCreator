@@ -831,25 +831,52 @@ public class EditScriptApplier {
         java.util.List<String> newOrder = new java.util.ArrayList<>();
         for (com.google.gson.JsonElement e : arr) newOrder.add(e.getAsString());
 
-        // Rebuild the clip list in the requested order (clips not listed are dropped).
-        for (int i = tl.getClipCount() - 1; i >= 0; i--) tl.removeClip(i);
-        for (String id : newOrder) {
-            Clip c = byId.get(id);
-            if (c != null) tl.addClip(c);
-        }
+        // ── Rollback pre-state (audit 1.5, the mechanical half) ──────────────────────────
+        // `trans` above is a SHALLOW copy: it duplicates the LIST but holds the very same
+        // Transition objects the timeline does, and the loop below writes t.clipIndex on them.
+        // Combined with clearTransitions() that left a part-way failure unrollbackable — the
+        // clips were already removed, the transition list already emptied, and the surviving
+        // Transition objects already carried indices for an order that was never finished.
+        // Capture a true pre-state (clip order + each transition's ORIGINAL clipIndex) so any
+        // throw mid-rebuild restores exactly what was there.
+        java.util.List<Clip> clipsBefore = new java.util.ArrayList<>();
+        for (int i = 0; i < tl.getClipCount(); i++) clipsBefore.add(tl.getClip(i));
+        int[] transIndexBefore = new int[trans.size()];
+        for (int ti = 0; ti < trans.size(); ti++) transIndexBefore[ti] = trans.get(ti).clipIndex;
 
-        // Keep a transition only if its two clips are still adjacent in the new order.
-        tl.clearTransitions();
-        for (int ti = 0; ti < trans.size(); ti++) {
-            String[] pair = seamPairs.get(ti);
-            if (pair[0] == null || pair[1] == null) continue;
-            int li = newOrder.indexOf(pair[0]);
-            int ri = newOrder.indexOf(pair[1]);
-            if (li >= 0 && ri == li + 1) {
+        try {
+            // Rebuild the clip list in the requested order (clips not listed are dropped).
+            for (int i = tl.getClipCount() - 1; i >= 0; i--) tl.removeClip(i);
+            for (String id : newOrder) {
+                Clip c = byId.get(id);
+                if (c != null) tl.addClip(c);
+            }
+
+            // Keep a transition only if its two clips are still adjacent in the new order.
+            tl.clearTransitions();
+            for (int ti = 0; ti < trans.size(); ti++) {
+                String[] pair = seamPairs.get(ti);
+                if (pair[0] == null || pair[1] == null) continue;
+                int li = newOrder.indexOf(pair[0]);
+                int ri = newOrder.indexOf(pair[1]);
+                if (li >= 0 && ri == li + 1) {
+                    com.fadcam.ui.faditor.model.Transition t = trans.get(ti);
+                    t.clipIndex = li;
+                    tl.addTransition(t);
+                }
+            }
+        } catch (RuntimeException e) {
+            // Restore the pre-state, then rethrow so the caller still reports the failure —
+            // a half-reordered timeline is worse than a refused edit.
+            for (int i = tl.getClipCount() - 1; i >= 0; i--) tl.removeClip(i);
+            for (Clip c : clipsBefore) tl.addClip(c);
+            tl.clearTransitions();
+            for (int ti = 0; ti < trans.size(); ti++) {
                 com.fadcam.ui.faditor.model.Transition t = trans.get(ti);
-                t.clipIndex = li;
+                t.clipIndex = transIndexBefore[ti];
                 tl.addTransition(t);
             }
+            throw e;
         }
     }
 

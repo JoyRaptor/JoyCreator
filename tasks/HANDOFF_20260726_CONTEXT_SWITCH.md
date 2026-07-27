@@ -4,6 +4,19 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### ALL BLIND-SAFE LAYER-POLISH WORK NOW DONE (2026-07-27). Only device/feel-gated work remains.
+- #1 lock one-way door — `c6274e4`. #2 lane names — DROPPED (user: "layers don't need names").
+  #3 mute-on-non-audio-lane — `7045904`. #4 dead hide/lock header hit zones removed — `9d3f1ba`
+  (provably dead: `HitZone.HIDE/LOCK` produced only by branches gated on always-empty rects;
+  enum + activity handlers left intact). #5 gap hit-zone 8dp→5dp — `e6e895f` (user chose "shrink
+  it"; feel-tune, retunable). #7 move-slop dp-scaled to 8dp — `4557cf9`.
+- #6 object time-scrubber — toolkit BUILT+PROVEN + inert UI section shipped; LIVE wiring
+  DEVICE-GATED (see below). This is the ONLY remaining scrubber work.
+- **What's left is all device/user-gated:** the #6 live wiring (crash+ANR risk if built blind),
+  and FEEL-tuning of the retunable constants (#5 gap 5dp, #7 slop 8dp, shuttle curve/speed). No
+  more layer-polish is safely buildable blind. Next autonomous cycles should catch a user reply
+  or do device-verified work — NOT force blind changes.
+
 ### OBJECT TIME-SCRUBBER (#6) — UI SECTION BUILT (`5904532`); LIVE WIRING IS DEVICE-GATED (why below).
 Additive `ObjectMenuSheet.setTimeScrub(...)` section landed (`5904532`): the `TimeShuttleView`,
 a tap-to-type `m:ss.mmm` readout (→ jump-to-time), and Push-through + Snap toggles. It is INERT —

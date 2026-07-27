@@ -4,6 +4,31 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### OBJECT TIME-SCRUBBER (#6) — LOGICAL CORE BUILT + PROVEN; editor wiring specified, deferred.
+User decisions (2026-07-26): **build the whole feature**; **push-through is a TOGGLE for all
+kinds incl. audio** (on = relayer, off = lock); **animation must be "buttery, not jarring."**
+The user then stepped out → full autonomy.
+
+Landed this stretch, each proven OFF-DEVICE with positive controls (see commits):
+- `c7cf338` `ObjectTimeMover` — collision lock + push-through one-lane-up-or-new relayer,
+  return-to-origin, breakthrough threshold, toggle-off=lock. Harness 15/15.
+- `3eaee80` `TimeShuttleView` — Choreographer frame-synced variable-speed jog/shuttle, dead
+  zone + cubic ramp, inertial eased spring-back. Compiles; feel is device-only (retunable consts).
+- `db744be` `ObjectTimeScrubSession` — tick→resolve→preview, one-step commit / no-op-if-unchanged,
+  origin-anchored lock reference. Harness 10/10.
+All three live in `app/.../faditor/move/`; harness tests in `tools/jvm-harness/*Test.java`
+(compile+run cmds in each test's header; out4). App build stays green.
+
+**DELIBERATELY NOT wired into the editor yet** (the honest reason, do NOT mistake for "forgot"):
+the wiring is surgery in the 20k-line `FaditorEditorActivity` + `LayerRowRenderer`, it is
+feel-driven, and the buttery cross-lane GLIDE can't be verified by adb — writing it blind risks a
+silent regression in the LIVE editor. It is fully specified in `SPEC_OBJECT_TIME_SCRUBBER.md`
+§8 (wiring blueprint: additive `ObjectMenuSheet.setTimeScrub`, Host impl reusing the cross-row-drag
+`mergedAction` undo + proxy, per-payload start/layerId setters, new-lane via `createLayerTrack`) and
+§9 (animation contract: lane change = y-glide via the excursion-animator pattern, new lane eases in,
+jump-to-time glides). Land it as a DEVICE-VERIFIED step. It is ADDITIVE — must not alter existing
+menu/gesture behaviour.
+
 ### ⭐ USER REFRAME (2026-07-26, new account) — "layers don't need names, OBJECTS need names."
 Interactive Q&A corrected my layer-polish framing. Load-bearing corrections, do NOT re-derive:
 - **Lane names are UNWANTED** (finding #2 direction was WRONG). Layers stay nameless. Object

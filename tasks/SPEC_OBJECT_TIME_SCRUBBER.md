@@ -100,16 +100,75 @@ whole span (start and end together), not a trim.
 - Q-D **audio vs visual collision:** audio's contract is "never overlap in time on its lane."
   Does audio use the SAME push-through relayering, or does audio just lock (no new audio lane)?
 
-## 7. Phased build plan
+## 6a. DECISIONS TAKEN (user, 2026-07-26)
 
-- **Phase 1 (unambiguous, can start now):** object-menu time-scrubber UI shell —
-  variable-speed shuttle + live tap-to-type time readout + jump-to-time — moving the object in
-  time with a simple **lock-at-collision clamp** (no relayering yet; objects can't overlap).
-  Device feel-test the shuttle curve with the user. No lane changes.
-- **Phase 2 (after §2/§6 confirmed):** push-through relayering (bump one lane / new lane,
-  return to origin, release-commits-home), single-undo-step integration.
-- **Phase 3:** increment toggle; on-screen x/y exact entry (the user also selected this — a
-  sibling numeric affordance for spatial position, distinct from time).
+- **Build the whole feature** (not phased-behind-confirmation) — Phases 1+2 together.
+- **Push-through is a TOGGLE, for ALL object kinds incl. audio.** Toggle ON = the §2 relayer;
+  toggle OFF = just lock flush, never leave the lane. So audio uses the same push-through as
+  visuals when the toggle is on. (Resolves §6 Q-D.)
+- **Animation is a first-class requirement: "buttery, not jarring."** See §9.
+- Remaining §6 open questions default as written unless the user says otherwise: Q-A lane-above =
+  adjacent by zIndex upward; Q-B increment step = TODO pick (frames if fps known, else 100ms);
+  Q-C new lane = neutral LAYER kind.
+
+## 7. Build status (2026-07-26, new account)
+
+**LOGICAL CORE — BUILT + PROVEN OFF-DEVICE (3 commits):**
+- `ObjectTimeMover` (engine): collision lock + push-through one-lane-up-or-new relayer,
+  return-to-origin, breakthrough threshold, toggle-off=lock. `ObjectTimeMoverTest` 15/15.
+- `TimeShuttleView` (widget): frame-synced (Choreographer) variable-speed jog/shuttle with a
+  dead zone + cubic velocity ramp and an inertial eased spring-back. Compiles; feel = device.
+- `ObjectTimeScrubSession` (session): tick→resolve→preview, one-step commit / no-op-if-unchanged,
+  origin-anchored lock reference. `ObjectTimeScrubSessionTest` 10/10.
+
+**REMAINING — EDITOR WIRING + ANIMATION (NOT built; blueprint in §8, contract in §9).**
+Deliberately deferred from the unattended run: it is surgery in the 20k-line
+`FaditorEditorActivity` + `LayerRowRenderer`, it is feel-driven, and the cross-lane glide can't
+be verified by automated device tooling — writing it blind risks a silent regression in the live
+editor. It should land as a device-verified step. It is ADDITIVE (new control + new code path
+reachable only via the new UI), so it must not alter any existing menu/gesture behaviour.
+
+## 8. Wiring blueprint (the exact remaining work)
+
+1. **ObjectMenuSheet — additive "Move in time" section.** Add a `setTimeScrub(...)` setter (do
+   NOT change `show()`'s signature — keep it additive so every existing caller is untouched).
+   The section holds: a `TimeShuttleView`; the increment toggle + push-through toggle (two small
+   toggles); a live time readout `TextView` that updates on `onScrubTick`/`onPlayheadChanged` and,
+   on tap, opens a numeric time-entry dialog → `session.jumpTo(ms)`. Put it in PEEK (it needs the
+   timeline live under it, like the range chips).
+2. **Host impl in FaditorEditorActivity.** Implement `ObjectTimeScrubSession.Host` for the
+   selected `TimedItem`:
+   - `originLaneSpans()`/`aboveLaneSpans()`: from the object's home `Track` (id = payload
+     `layerId`, or the default lane) and the adjacent higher-zIndex `Track` in the same band
+     (`getLayers()`/`getAudioTracks()` are already zIndex-sorted). Each OTHER item's span =
+     `[timelineStartMs, timelineStartMs + getDisplayDurationMs(total))`.
+   - per-payload start setter on preview: `TextOverlayItem.setStartMs` / `AudioClip.setOffsetMs` /
+     sprite & waveform `setStartMs` / overlay `Clip` start. Keep END anchored (shift whole span).
+   - lane change: reuse the cross-row-drag precedent — set the payload `layerId`; for `NEW`,
+     `Timeline.createLayerTrack(neutral LAYER, "")` and splice zIndex just above the home lane.
+   - `onCommit`: ONE undo step via the existing `mergedAction(positionRedo/Undo, PendingLayerTrackUndo)`
+     machinery (`FaditorEditorActivity` ~:12289-12340) — the same one cross-row drag uses.
+3. **Live preview vs commit:** move TIME live (set start + `invalidate`), but show a lane change
+   with the renderer's PROXY (do not mutate `layerId` every tick — mirror the drag's
+   proxy/homeGhost, `LayerRowRenderer.setHomeGhost`/`proxyItem`), committing `layerId` +
+   new-lane creation only in `onCommit`. This avoids per-tick timeline rebuild thrash.
+4. **Selection required:** the section only shows for a movable payload (text/sticker/sprite/
+   waveform/PiP/audio) — NOT master clips or caption spans (§4).
+
+## 9. Animation contract ("buttery, not jarring" — user requirement)
+
+- **Scrub travel** is already frame-synced in the widget (Choreographer, dt-integrated) and the
+  object's time move is applied per frame, so horizontal motion glides.
+- **Release** eases the shuttle to centre on a cubic ease-out that keeps ticking → the object
+  DECELERATES to a stop (inertia), never a hard halt.
+- **Lane change (the main jarring risk)** must be a vertical GLIDE, not a teleport: when the
+  object relayers up / drops back / lands on a new lane, tween its y between rows (reuse the
+  `excursion` ValueAnimator pattern in `EditorTimelineView` ~:1013-1034 and the drag proxy) over
+  ~180–220ms with an accelerate-decelerate interpolator. A NEW lane must EASE IN (grow/fade its
+  row height), not pop; if it is abandoned (object returned to origin before commit) it eases out.
+- **Jump-to-time** should GLIDE the object to the typed target (short animated seek of the same
+  time-move path), preserving the from→to frame of reference, not snap.
+- No layout jump when the section opens/closes: use the sheet's existing peek/expand transitions.
 
 ---
 

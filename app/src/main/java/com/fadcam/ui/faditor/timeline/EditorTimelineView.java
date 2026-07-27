@@ -2079,11 +2079,17 @@ public class EditorTimelineView extends View {
 
         for (int i = 0; i < segments.size(); i++) {
             SegmentData sd = segments.get(i);
-            float segW = Math.max(minSegmentPx, (sd.effectiveMs / 1000f) * dpPerSecondPx);
+            // UNIFORM TIME AXIS (user 2026-07-27): width is strictly proportional to duration and
+            // clips abut with NO positioning gap, so 1s = the same pixels everywhere and timeToX/
+            // xToTime are linear. This removes the old min-width clamp + inter-clip gap that made
+            // the scale non-uniform (which warped moving overlays and threw off Start/End-here).
+            // Short clips are now genuinely narrow — you zoom in to work with them. Clips are kept
+            // visually separated by a DISPLAY-ONLY inset in drawSegment (never in the time mapping).
+            float segW = (sd.effectiveMs / 1000f) * dpPerSecondPx;
             segRects.add(new RectF(x, tTop, x + segW, tTop + trackHeightPx));
-            x += segW + segmentGapPx;
+            x += segW;
         }
-        contentWidthPx = x - segmentGapPx + edgePaddingPx;
+        contentWidthPx = x + edgePaddingPx;
 
         // Thumbnails are loaded lazily for ON-SCREEN segments only (see onDraw).
         // Eagerly extracting frames for every clip here caused heavy background
@@ -2100,8 +2106,8 @@ public class EditorTimelineView extends View {
                 AudioClip ac = audioClips.get(i);
                 float clipStartX = edgePaddingPx
                         + (ac.getOffsetMs() / 1000f) * dpPerSecondPx;
-                float clipW = Math.max(minSegmentPx,
-                        (ac.getTrimmedDurationMs() / 1000f) * dpPerSecondPx);
+                // Uniform axis: audio width is proportional too (no min-width clamp).
+                float clipW = (ac.getTrimmedDurationMs() / 1000f) * dpPerSecondPx;
                 float top = audioTop
                         + audioClipLanes[i] * (audioTrackHeightPx + audioLaneGapPx);
                 RectF audioRect = new RectF(
@@ -3431,7 +3437,11 @@ public class EditorTimelineView extends View {
     }
 
     private void drawSegment(Canvas canvas, int i) {
-        RectF r = segRects.get(i);
+        RectF full = segRects.get(i);
+        // Uniform axis: segRects now abut with no time gap, so separate clips with a DISPLAY-ONLY
+        // inset (never in the time mapping). Narrow clips inset proportionally so they never vanish.
+        float visInset = Math.min(segmentGapPx * 0.5f, full.width() * 0.2f);
+        RectF r = new RectF(full.left + visInset, full.top, full.right - visInset, full.bottom);
         boolean sel = (i == selectedIndex);
         SegmentData sd = segments.get(i);
 

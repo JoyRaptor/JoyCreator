@@ -250,8 +250,13 @@ public final class LayerRowRenderer {
     /** Armed gap index: 0..floatingRowCount (i = above row i; count = below last). -1 = none. */
     private int hoverGapIndex = -1;
     /** Entry half-height (px basis dp) of a gap hit-zone; the CURRENTLY-armed gap uses
-     *  2x on the way out (sticky hover, spec-correction C5 — no flicker at boundaries). */
-    private static final float GAP_HIT_HALF_DP = 8f;
+     *  2x on the way out (sticky hover, spec-correction C5 — no flicker at boundaries).
+     *  Layer-polish #5 (user: "shrink the gap target"): was 8dp, which — since the gap is
+     *  hit-tested BEFORE the row and rows are only 34dp — made ~half of each row a
+     *  create-a-new-lane target, so aiming at a neighbouring lane often made a lane instead.
+     *  5dp leaves the centre ~24dp of a row as a solid row-target while the 2x sticky exit
+     *  still makes a gap easy to hold once entered. Retunable feel constant. */
+    private static final float GAP_HIT_HALF_DP = 5f;
     /** Floating-row count at the last {@link #layout} — gap indices are only valid against it. */
     private int floatingRowCountAtLayout = 0;
 

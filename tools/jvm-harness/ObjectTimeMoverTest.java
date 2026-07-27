@@ -121,6 +121,46 @@ public class ObjectTimeMoverTest {
                 0, Lane.ORIGIN,
                 ObjectTimeMover.resolve(DUR, 50, -500, false, 150, NONE, null));
 
+        // ── 11. Lock RIGHT picks the NEAREST obstacle ahead, independent of list order. ──
+        // object [0,100) driving right toward two obstacles [200,300) & [500,600); it must stop
+        // flush at the first (100), not the one nearer the desired position.
+        check("lock right, two obstacles -> nearest wins (@100)",
+                100, Lane.ORIGIN,
+                ObjectTimeMover.resolve(DUR, 0, 550, false, 150,
+                        spans(new Span(200, 300), new Span(500, 600)), null));
+        // POSITIVE CONTROL: reverse the list order -> same answer (lockFlush is order-independent).
+        check("lock right, reversed order -> still @100",
+                100, Lane.ORIGIN,
+                ObjectTimeMover.resolve(DUR, 0, 550, false, 150,
+                        spans(new Span(500, 600), new Span(200, 300)), null));
+
+        // ── 12. Lock LEFT picks the nearest obstacle behind, order-independent. ──
+        // object [800,900) driving left; obstacles [100,200) & [400,500); stop flush right of
+        // the nearest behind (end 500) -> start 500.
+        check("lock left, two obstacles -> nearest wins (@500)",
+                500, Lane.ORIGIN,
+                ObjectTimeMover.resolve(DUR, 800, 50, false, 150,
+                        spans(new Span(100, 200), new Span(400, 500)), null));
+        check("lock left, reversed order -> still @500",
+                500, Lane.ORIGIN,
+                ObjectTimeMover.resolve(DUR, 800, 50, false, 150,
+                        spans(new Span(400, 500), new Span(100, 200)), null));
+
+        // ── 13. Above lane is scanned FULLY: any overlapping item there forces NEW. ──
+        // breakthrough (desired 250, overshoot 150 >= 100); above has a clear item AND an
+        // overlapping one -> blocked -> NEW.
+        check("above lane multi-item, one overlaps -> NEW",
+                250, Lane.NEW,
+                ObjectTimeMover.resolve(DUR, 0, 250, true, 100,
+                        spans(new Span(200, 300)),
+                        spans(new Span(0, 50), new Span(240, 260))));
+        // POSITIVE CONTROL: above has two items, NEITHER overlaps [250,350) -> ABOVE.
+        check("above lane multi-item, none overlap -> ABOVE",
+                250, Lane.ABOVE,
+                ObjectTimeMover.resolve(DUR, 0, 250, true, 100,
+                        spans(new Span(200, 300)),
+                        spans(new Span(0, 50), new Span(600, 700))));
+
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         System.exit(fail > 0 ? 1 : 0);
     }

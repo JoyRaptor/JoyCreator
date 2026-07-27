@@ -4,6 +4,25 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### WARP BUG DIAGNOSED (proven) → TIME AXIS MADE UNIFORM (`1bfc121`), awaiting user test.
+User reported a BOUNDED text block changing length while scrubbed. Instrumented `onPreview` with a
+`SCRUBWARP` Log.d; the device log PROVED the model is perfect — `dur` held constant at 2488ms the
+whole scrub, `lightFound=true` (no resync fallback). So the warp was RENDER-side: the block width
+= `timeToX(end)-timeToX(start)` and `timeToX` was NON-LINEAR. Root cause (confirmed in
+`computeRects`): a MIN-WIDTH clamp on short clips (`Math.max(minSegmentPx, …)`) + a positioning GAP
+between clips (`+ segmentGapPx`) — both add pixels that aren't time. User's call: make time UNIFORM
+("that's what zooming fixes"). `1bfc121`: `computeRects` now lays segments strictly proportional
+with NO gap/clamp (video+audio) → `segRects` abut → `timeToX`/`xToTime` linear = uniform scale.
+Kills the overlay warp AND makes the playhead↔time mapping EXACT (prerequisite for precise
+Start/End-here). Short clips are now genuinely narrow (zoom to work with them — accepted trade);
+clips separated by a DISPLAY-ONLY inset in `drawSegment` (never in the time mapping). SCRUBWARP
+logging stripped. Installed Note 9 APK 13:04:35. **AWAITING USER TEST:** uniform look, warp gone,
+clip separation reads OK, playhead lines up. This is a CORE rendering change (segRects feed
+playhead/trim/thumbnails/overlays/hit-test/minimap) — watch for any regression there.
+**PENDING NEXT (separate, kept isolated):** "End here" does nothing (Start works) — real bug;
+and clamp the scrub so an object can't be pushed past the timeline end (scroll-off-forever).
+Full field-feedback queue = SPEC §12.
+
 ### #6 v1 VALIDATED ON DEVICE + edge-tracking added (`c772384`). PLACEMENT: the MOVE DRAWER is the real home.
 User tested the object-menu scrubber: **"the moving itself was very smooth"** — so v1 WORKS
 (menu opened, no crash, buttery). Two things from the feedback:

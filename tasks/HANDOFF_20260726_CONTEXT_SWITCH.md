@@ -4,6 +4,11 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### ENGINE HARNESS HARDENED (`3eee17e`) — `ObjectTimeMoverTest` 15→21 (total move harness now 31/31).
+Added multi-obstacle + list-order-independence + multi-item-above cases (each with a positive
+control): lock-right/left pick the NEAREST obstacle regardless of list order; the above lane is
+scanned fully. Test-only, no app change — hardens the core the device-gated wiring will build on.
+
 ### ADVERSARIAL SELF-REVIEW of this session's changes — caught + fixed one regression (`e0c510b`).
 The #7 move-slop fix (`4557cf9`) dp-scaled the slop at `onRowBodyMove:711`, which is SHARED by
 MOVE and TRIM. TRIM maps the edge to the finger's ABSOLUTE time (`applyTrim`, no grab offset),

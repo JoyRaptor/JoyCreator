@@ -5,9 +5,16 @@
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
 ### 2026-07-27 ~17:00 — PLAYHEAD FREEZE ROOT-CAUSED + FIXED; F-COLOR/F-MINIMAP; audit sweep.
-**THE ONE THING TO DO NEXT: have the user play the Note 20 project after a ZOOM-OUT.** That
-confirms or refutes `f59850a`, and `PHDIAG` (`701c1e0`) is still in the build as the
-instrument. `drag=false` + `moved=true` = fixed → then REMOVE PHDIAG. A monitor is armed.
+**B-PLAYFREEZE IS CONFIRMED FIXED ON DEVICE (2026-07-27 17:48)** — 90 post-fix PHDIAG samples
+in the user's real project, 0 frozen, 0 `drag=true`. See SPEC §13 for the full result.
+
+**THE ONE THING TO DO NEXT:** the confirming run showed the self-heal FIRING once with playback
+continuing through it — so a SECOND stranding path exists that the direct fix did not cover.
+Not user-visible (the net catches it), but close it so the net stays a net. Suspects: the
+`if (isScaling) return true` UP, the audio-band tap/double-tap returns, the slide double-tap
+return. Instrument by recording which touch branch consumed the last ACTION_UP.
+**Do this when the user is NOT mid-test** — a save reinstalls and kills their session.
+KEEP `PHDIAG` (`701c1e0`) until that second path is closed; remove it after.
 
 **B-PLAYFREEZE fixed (`f59850a`)** — full write-up in SPEC §13. Short version: `userDragging`
 was a stranded latch; the post-pinch handback pan latched it and its ACTION_UP returned before

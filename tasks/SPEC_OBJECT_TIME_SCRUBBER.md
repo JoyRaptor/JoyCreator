@@ -338,7 +338,22 @@ Validated: the object-menu scrubber works + is "very smooth".
 CONFIRMED WORKING: uniform timeline (drags now uniform width), "lane" terminology, caption size
 slider resizes text live.
 
-- [x] **B-PLAYFREEZE** (Note 20, large project) FIXED `f59850a`, **awaiting the user's confirm**.
+- [x] **B-PLAYFREEZE** (Note 20, large project) FIXED `f59850a` — **CONFIRMED ON DEVICE
+  2026-07-27 17:48**, in the user's real project. 90 post-fix PHDIAG samples: **0 frozen, 0
+  `drag=true`**, playhead advancing throughout.
+  **The confirming run is more informative than a clean one would have been.** The self-heal
+  FIRED once (`17:48:50.834 userDragging was stranded with no active gesture — clearing`) and
+  playback continued uninterrupted straight through it (next sample `t=321 moved=true`). So:
+  (a) the layered fix is doing real work, not decorating a single-path repair; and (b) **a
+  SECOND stranding path still exists** — the post-pinch pan was fixed directly, so something
+  else stranded the latch here. Under the old build that moment would have frozen the playhead
+  permanently. It is now caught by the net, so it is no longer user-visible, but it is a latent
+  defect worth closing so the net stays a net.
+  **TODO (not user-visible, do when the user is NOT mid-test — a save reinstalls and kills their
+  session):** name the second path. Prime suspects are the bypassing returns found during this
+  work and deliberately not edited blind: the `if (isScaling) return true` UP, the audio-band
+  tap/double-tap returns, and the slide double-tap return. Cheapest instrument: record which
+  touch branch consumed the last ACTION_UP and log it in the heal warning.
   Reported as: during playback the playhead stops, the timeline stalls and text layers stop
   compositing in as they enter, while video+audio keep playing; scrubbing to a text's range still
   renders it; intermittent; "works zoomed in, breaks when zoomed out".

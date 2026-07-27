@@ -2146,7 +2146,17 @@ public final class LayerRowRenderer {
             if (row.caretRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.CARET);
             if (row.hideRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.HIDE);
             if (row.lockRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.LOCK);
-            if (row.muteRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.MUTE);
+            if (row.muteRect.contains(x, localY)) {
+                // The mute glyph is drawn DISABLED (COLOR_ICON_OFF, no strike) on any row
+                // that carries no audio — see drawMuteIcon's `applicable` arg = rowCarriesAudio(t).
+                // The hit-test must agree with that visual: tapping a disabled mute used to
+                // still flip TrackFlags.muted, push a "Mute track" undo step and schedule an
+                // autosave, all with zero audible effect. Only report MUTE when it can do
+                // something; otherwise consume as NONE (same as an empty-header tap) so the
+                // touch is swallowed rather than falling through to the body.
+                return new HeaderHit(row.track,
+                        rowCarriesAudio(row.track) ? HitZone.MUTE : HitZone.NONE);
+            }
             return new HeaderHit(row.track, HitZone.NONE); // header hit, no icon — still consume
         }
         return null;

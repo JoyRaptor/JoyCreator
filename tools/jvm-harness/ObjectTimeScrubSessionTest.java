@@ -148,6 +148,28 @@ public class ObjectTimeScrubSessionTest {
             eq("jump into obstacle (no above) -> NEW@250", "NEW@250", h.lastCommit);
         }
 
+        // ── 8. Anti-overshoot: a lock-only clear STEPS flush-past the obstacle, not to far desired. ──
+        {
+            FakeHost h = new FakeHost();
+            h.origin = spans(new Span(200, 300));
+            h.push = false;
+            ObjectTimeScrubSession s = new ObjectTimeScrubSession(h);
+            s.begin();
+            s.tick(150);   // desired 150 -> locks flush at 100
+            s.tick(60);    // desired 210 -> still locked at 100
+            s.tick(500);   // desired 710 -> would JUMP free; instead steps to flush-past 300
+            s.end();
+            eq("push OFF clear steps to flush-past (300), not 710", "ORIGIN@300", h.lastCommit);
+        }
+        // POSITIVE CONTROL: no obstacle -> the same big push reaches the desired (step-past inert).
+        {
+            FakeHost h = new FakeHost();
+            h.push = false;
+            ObjectTimeScrubSession s = new ObjectTimeScrubSession(h);
+            s.begin(); s.tick(150); s.tick(60); s.tick(500); s.end();  // desired 710
+            eq("control: no obstacle -> reaches 710", "ORIGIN@710", h.lastCommit);
+        }
+
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         System.exit(fail > 0 ? 1 : 0);
     }

@@ -96,6 +96,17 @@ public final class ObjectTimeScrubSession {
     private void resolveAndPreview() {
         long d = (snap > 0) ? Math.round((double) desired / snap) * snap : desired;
         Result r = ObjectTimeMover.resolve(durMs, originAnchor, d, push, breakthrough, origin, above);
+        // Anti-overshoot (user 2026-07-27): with push-through OFF, a move that CLEARS an obstacle
+        // used to jump straight to the (possibly far) desired, so a small extra shuttle push
+        // "shot past". Instead step the object to flush JUST PAST the first obstacle it crossed and
+        // RESET the desired there, so the shuttle's extra momentum is discarded (no overshoot).
+        if (!push && r.lane == Lane.ORIGIN && r.startMs > lastStart) {
+            long fp = flushPastForward(lastStart, r.startMs);
+            if (fp < r.startMs) {
+                r = new Result(fp, Lane.ORIGIN);
+                desired = fp;
+            }
+        }
         if (r.lane == Lane.ORIGIN) originAnchor = r.startMs;   // valid-on-origin by construction
         boolean laneChanged = r.lane != lastLane;
         if (r.startMs != lastStart || laneChanged) {
@@ -103,6 +114,25 @@ public final class ObjectTimeScrubSession {
             lastLane = r.lane;
             host.onPreview(r.startMs, r.lane, laneChanged);
         }
+    }
+
+    /**
+     * Forward step-past: if sliding from {@code from} to {@code to} would cross an origin-lane
+     * obstacle, return the flush position just past the FIRST such obstacle (so a lock-only clear
+     * steps over cleanly, one obstacle at a time, instead of jumping to a far desired); else
+     * {@code to}. This is what turns "shoots past" into "steps just over".
+     */
+    private long flushPastForward(long from, long to) {
+        long objRight = from + durMs;
+        long nearestStart = Long.MAX_VALUE;
+        long flush = to;
+        for (Span o : origin) {
+            if (o.startMs >= objRight && o.startMs < to && o.startMs < nearestStart) {
+                nearestStart = o.startMs;
+                flush = o.endMs;
+            }
+        }
+        return flush;
     }
 
     /** Gesture finished (shuttle glide settled / jump applied): commit the net move, if any. */

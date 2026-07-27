@@ -205,6 +205,16 @@ public final class LayerGestureController {
     public void setMoveSlopPx(float px) { if (px > 0f) moveSlopPx = px; }
 
     /**
+     * Trim-grab start slop (RAW px), kept at the historical value. The enlarged, dp-scaled
+     * {@link #moveSlopPx} exists to make "released in place → open the object menu" reliable,
+     * which is a MOVE/pickup-path concern. TRIM has no such menu and maps the edge to the
+     * finger's ABSOLUTE time, so enlarging ITS start-slop would add a dead-zone-then-catch-up
+     * lurch at trim start (found by adversarial self-review of the #7 fix). Keeping TRIM here
+     * leaves trim feel byte-for-byte as it was before that fix.
+     */
+    private static final float TRIM_START_SLOP_PX = 4f;
+
+    /**
      * Snap radius in RAW px — the ONE tunable for every drag snap in this controller
      * (home snap, trim-home snap, butting suggestion). The view supplies a dp-scaled
      * value at construction (FEEDBACK_20260703_dragux_v3 A4: user measured the old
@@ -719,8 +729,12 @@ public final class LayerGestureController {
         // drop/commit path in onRowBodyUp records the change. For MOVE this also starts
         // the cross-row hover/new-layer-zone tracking. Either axis counts (a cross-row
         // drag is inherently VERTICAL — the finger travels down while x barely changes).
+        // #7 correction: the enlarged dp-scaled slop applies to the MOVE/pickup path ONLY
+        // (its purpose is the hold-release-in-place menu). TRIM keeps the historical raw slop
+        // so the #7 fix doesn't add a start-lurch to trims (they map the edge absolutely).
+        float startSlop = (activeKind == GestureKind.MOVE) ? moveSlopPx : TRIM_START_SLOP_PX;
         if (!movedDuringGesture
-                && (Math.abs(x - dragStartX) > moveSlopPx || Math.abs(y - dragStartY) > moveSlopPx)) {
+                && (Math.abs(x - dragStartX) > startSlop || Math.abs(y - dragStartY) > startSlop)) {
             movedDuringGesture = true;
             // Capture the pre-mutation displayed extent ONCE: it drives the bookend
             // math AND the "home ghost" — the grey outline left at the item's original

@@ -302,9 +302,17 @@ Validated: the object-menu scrubber works + is "very smooth".
   move the selected object; Lane up/down real relayering).
 
 **OPEN — POLISH / FEATURES:**
-- [ ] **F-COLOR** color objects BY TYPE always (not by lane, not by content color): text=purple,
-  visualizer=pink, sprite=amber, image=teal, audio=green. The purple→blue-on-another-lane is the
-  bug. Define the palette ONCE in a central place (single source of truth for the app's colors).
+- [x] **F-COLOR** DONE `c4fc55f`. Palette now lives ONCE in
+  `com.fadcam.ui.faditor.layers.ObjectPalette` (text=purple, visualizer=pink, sprite=amber,
+  image=teal, audio=green, caption=gold, video/master=blue). The purple→blue bug was structural:
+  `drawExpandedItems` hoisted `baseColorFor(track.getKind())` OUT of the item loop, so every
+  object wore its LANE's colour — body colour is now resolved per ITEM (including the cross-lane
+  drag proxy, which used to change hue mid-drag). The hues had ALSO been duplicated in two
+  hand-kept tables (`COLOR_ITEM_*` + `COLOR_PH_*`) that had already drifted — neither had an
+  IMAGE case, so images took VIDEO blue via `default:`. Both deleted. `payloadKindOf` moved into
+  the palette so badge / body / playhead tint / mini-map share one definition.
+  PROVED: `tools/jvm-harness/ObjectPaletteTest.java` 30/30, each check with a positive control.
+  NOT proved: that the pixels actually paint this way (needs a Canvas) — **wants the user's eyes**.
 - [ ] **F-BADGE** object badge: fully WHITE (not gray); badge at the left edge, text starts right
   after it, the two SLIDE TOGETHER as the left edge scrolls off — never overlapping.
 - [ ] **F-CENTER** on adding a new object, auto-scroll VERTICALLY to its layer if off-screen
@@ -314,15 +322,50 @@ Validated: the object-menu scrubber works + is "very smooth".
 - [ ] **F-CAPTIONDRAWER** the caption Pop/Zoom/Bounce drawer (`caption_drawer`/`showCaptionDrawer`,
   opened by the captions tool) should only appear + pop-animate when a caption is SELECTED
   (timeline OR preview), not stay up.
-- [ ] **F-MINIMAP** enhance the mini-map: thin 1–2px per-layer lines above the master tape, colored
-  BY TYPE, max 12 layers, stack order = timeline order, selected object PULSES white (medium blink,
-  not outline), clipped to master length. Mockup approved. Build after the scaling bugs.
+- [x] **F-MINIMAP** DONE `c4fc55f`. Per-layer lines above the master tape: 1.2dp lines on a 2dp
+  pitch, floating band then audio (timeline order), capped at 12, coloured by type through
+  `ObjectPalette`, selected object blinks white, all clipped to master length so an object parked
+  past the end mid-drag can't paint outside the strip. An EMPTY layer still draws a faint rail so
+  it reads as a layer that exists. The band is ADAPTIVE (zero when a project has no layers), so a
+  plain single-track project measures/draws exactly as before; height recomputes in
+  `setLayerTracks` and `onMeasure` reads the live strip height, not the base constant.
+  NOT proved: appearance/legibility on a real project — **wants the user's eyes**. In particular
+  whether 12 lines at 2dp pitch is the right density on the Note 20's screen.
 - [ ] **F-MOVEDRAWER** (SPEC §11) also build the scrubber into the move drawer.
 
 ## 13. ROUND-2 DEVICE FEEDBACK (2026-07-27 ~15:00) — after the uniform-axis batch
 
 CONFIRMED WORKING: uniform timeline (drags now uniform width), "lane" terminology, caption size
 slider resizes text live.
+
+- [x] **B-PLAYFREEZE** (Note 20, large project) FIXED `f59850a`, **awaiting the user's confirm**.
+  Reported as: during playback the playhead stops, the timeline stalls and text layers stop
+  compositing in as they enter, while video+audio keep playing; scrubbing to a text's range still
+  renders it; intermittent; "works zoomed in, breaks when zoomed out".
+  ROOT CAUSE, measured not guessed (PHDIAG instrumentation, `701c1e0`, two independent app
+  processes): `playing=true` with `playerPos` advancing 157900→188175 over 30s while `head`
+  never changed — and `drag=true` throughout. `userDragging` was a STRANDED LATCH.
+  `updatePlayheadPosition()` early-returns on it, so the return became permanent.
+  MECHANISM: pinch to zoom out → lift one finger → the surviving finger drives the "post-pinch
+  handback pan" → that pan calls `updatePlayheadFromX` → `onPlayheadSeeked(isDragging=true)` and
+  LATCHES → its `ACTION_UP` branch returns before the shared block that fires
+  `onPlayheadDragFinished()`. Intermittent because a hard flick starts a fling whose completion
+  path DOES notify (recovers), while a gentle lift does not (sticks). Zoom-only because the
+  pinch is what hands off to that pan.
+  Worth recording: a read-only pass produced two plausible hypotheses (`selectedClipIndex < 0`,
+  `getSegmentAtPlayhead() == -1` in a gap) and the instrument showed BOTH were wrong (`sel=7
+  segAtHead=7`). That is why it was instrumented instead of patched.
+  FIX: (1) that branch now ends the drag it started unless it handed off to a fling; (2) the
+  class is closed — the view tracks finger-down at the TOP of `onTouchEvent` where no branch can
+  skip it, exposes `isGestureActive()` (finger down OR fling gliding), and the editor clears a
+  latch that outlived its gesture instead of trusting ~12 exit paths to each notify. Also
+  `onPlayheadSeeked` no longer latches for a DISCRETE seek (a tap has no drag-finished edge).
+  PHDIAG is deliberately LEFT IN as the confirmation instrument — one play session after a
+  zoom-out should show `drag=false`/`moved=true`. **Remove PHDIAG once confirmed.**
+  STILL OPEN from the same report, NOT yet investigated: the unnaturally long pause at
+  inter-clip gaps, and playback perf with many text/visualizer/PiP layers. First thing to rule
+  out for the gap pause: the display-only inter-clip inset from `1bfc121` is a RENDERING inset
+  and must not be costing playback time.
 
 - [ ] **B-DIAGPREVIEW** (diagonal drag) — the loosen (`699937b`) WORKED: the object now goes
   where it should. BUT the PREVIEW during the drag is wrong — it stays snapped VERTICALLY and

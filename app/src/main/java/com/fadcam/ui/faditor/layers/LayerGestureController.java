@@ -794,8 +794,13 @@ public final class LayerGestureController {
                     // ("same time, different layer"). A larger horizontal move unlocks +
                     // hides them (diagonal = move both). PHASE-R R3/R4: the lock zone IS
                     // the one snap constant (re-entering re-locks + re-shows the guides).
+                    // #loosen (user 2026-07-27): the lane-change time-lock was too sticky — you
+                    // could snap to a lane but not flow diagonally into it. Release the lock with a
+                    // SMALLER sideways move (half the snap radius) so "snap to the lane, then a
+                    // little side-to-side starts sliding in that lane" just works. Tunable.
+                    long timeLockThrMs = Math.max(1, snapThrMs / 2);
                     if (hoverTargetTrack != null
-                            && Math.abs(prospective - dragStartTimelineMs) <= snapThrMs) {
+                            && Math.abs(prospective - dragStartTimelineMs) <= timeLockThrMs) {
                         // A9 SNAP-PRIORITY + WYSIWYG (dragux_v3, user hand-tests 2026-07-04
                         // and 2026-07-05): keep the ORIGINAL time when the target-row slot
                         // at that time is FREE — the drag rails straight up/down with no

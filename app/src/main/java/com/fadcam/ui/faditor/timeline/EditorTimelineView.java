@@ -556,6 +556,34 @@ public class EditorTimelineView extends View {
         invalidate();
     }
 
+    /**
+     * Object time-scrubber (SPEC_OBJECT_TIME_SCRUBBER §8a) LIGHT per-frame update: nudge one
+     * already-laid-out layer/audio item's drawn start WITHOUT rebuilding the Track views. The
+     * fed Track views hold the live payloads, so their {@code TimedItem} snapshot of
+     * {@code timelineStartMs} is updated in place and the view is invalidated — O(items), no
+     * {@code getLayers()}/{@code setLayerTracks} rebuild (which is why it can run every frame
+     * without the ANR risk that a full sync would carry on a long project). Returns false if
+     * the item isn't currently in either band (caller should fall back to a full sync).
+     */
+    public boolean updateLayerItemStartLight(@NonNull String itemId, long newStartMs) {
+        boolean found = nudgeItemStartIn(layerTracks, itemId, newStartMs)
+                | nudgeItemStartIn(audioLayerTracks, itemId, newStartMs);
+        if (found) invalidate();
+        return found;
+    }
+
+    private static boolean nudgeItemStartIn(
+            @NonNull List<com.fadcam.ui.faditor.layers.Track> tracks,
+            @NonNull String itemId, long newStartMs) {
+        boolean any = false;
+        for (com.fadcam.ui.faditor.layers.Track t : tracks) {
+            for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
+                if (it.getId().equals(itemId)) { it.setTimelineStartMs(newStartMs); any = true; }
+            }
+        }
+        return any;
+    }
+
     /** True if a fed row item with this id exists in either band (floating layers + audio). */
     private boolean layerItemIdExists(@NonNull String id) {
         for (List<com.fadcam.ui.faditor.layers.Track> band

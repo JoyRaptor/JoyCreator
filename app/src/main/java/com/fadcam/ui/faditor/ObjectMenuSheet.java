@@ -516,11 +516,13 @@ public final class ObjectMenuSheet extends LinearLayout {
      * {@link #show}. Additive — no effect on any other part of the sheet.
      */
     public void setTimeScrub(@Nullable TimeScrubListener l, long startMs,
-                             boolean pushThrough, boolean increment) {
+                             boolean pushThrough, boolean increment, boolean showPushThrough) {
         this.timeScrubListener = l;
         if (l == null) { timeScrubBox.setVisibility(GONE); return; }
         this.pushThroughOn = pushThrough;
         this.incrementOn = increment;
+        // The push-through toggle is hidden until the relayer slice ships (v1 is lock-only).
+        pushToggle.setVisibility(showPushThrough ? VISIBLE : GONE);
         renderToggle(pushToggle, "Push through", pushThroughOn); // TODO(strings)
         renderToggle(incrementToggle, "Snap", incrementOn);      // TODO(strings)
         setScrubTimeMs(startMs);

@@ -17340,8 +17340,123 @@ public class FaditorEditorActivity extends AppCompatActivity {
         maybeAddLinkActions(actions, o.getId());
         // Images: the drawer IS their type editor — no "More…" target left.
         Runnable onMore = o.isImage() ? null : () -> showTextOverlayEditor(o);
-        ensureObjectMenuSheet().show(title, swatch, props, actions,
+        ObjectMenuSheet sheet = ensureObjectMenuSheet();
+        sheet.show(title, swatch, props, actions,
                 onMore, rangeChips, hooks, lastPlayheadAbsoluteMs, null);
+        attachTextOverlayTimeScrub(sheet, o);
+    }
+
+    // ── Object time-scrubber wiring (SPEC_OBJECT_TIME_SCRUBBER §8) ────────────────────────
+    // v1 slice: TEXT OVERLAYS only, LOCK-only collision (push-through relayer + cross-lane glide
+    // are the next slice; the toggle is hidden). Per frame it moves the overlay's WHOLE span and
+    // refreshes the timeline LIGHT (updateLayerItemStartLight — no full sync, so no long-project
+    // ANR); one undo step on release. Keyframes ride along automatically because they are stored
+    // in item-LOCAL time (TextOverlayItem.localTime = timelineMs - startMs).
+
+    /** Snap step (ms) for the increment toggle. TODO: pick frames (needs fps) vs a fixed step. */
+    private long scrubIncrementStepMs = 100L;
+    private boolean scrubIncrementOn = false;
+
+    private void attachTextOverlayTimeScrub(@NonNull ObjectMenuSheet sheet,
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        // A LOCKED object must not be movable (its menu is still openable — that's where Unlock
+        // lives), so leave the Move-in-time section hidden; show() already reset it hidden.
+        if (project == null || o.isLocked()) return;
+        final long[] fromRange = new long[2]; // [start, end] snapshot at gesture begin (for undo)
+        final com.fadcam.ui.faditor.move.ObjectTimeScrubSession[] sessionRef =
+                new com.fadcam.ui.faditor.move.ObjectTimeScrubSession[1];
+
+        com.fadcam.ui.faditor.move.ObjectTimeScrubSession.Host host =
+                new com.fadcam.ui.faditor.move.ObjectTimeScrubSession.Host() {
+            @Override public long durationMs() {
+                long total = project.getTimeline().getTotalDurationMs();
+                long start = Math.max(0, o.getStartMs());
+                long end = o.getEndMs();
+                return (end == Long.MAX_VALUE || end <= start)
+                        ? Math.max(1, total - start) : (end - start);
+            }
+            @Override public long startMs() { return o.getStartMs(); }
+            @Override public java.util.List<com.fadcam.ui.faditor.move.ObjectTimeMover.Span>
+                    originLaneSpans() {
+                return textLaneSiblingSpans(o, project.getTimeline().getTotalDurationMs());
+            }
+            @Override public java.util.List<com.fadcam.ui.faditor.move.ObjectTimeMover.Span>
+                    aboveLaneSpans() { return null; }          // v1: lock-only, no relayer
+            @Override public boolean pushThrough() { return false; }
+            @Override public long breakthroughMs() { return Long.MAX_VALUE / 4; }
+            @Override public long snapStepMs() { return scrubIncrementOn ? scrubIncrementStepMs : 0; }
+            @Override public void onPreview(long start,
+                    com.fadcam.ui.faditor.move.ObjectTimeMover.Lane lane, boolean laneChanged) {
+                applyTextOverlayMove(o, start);
+                if (editorTimeline == null
+                        || !editorTimeline.updateLayerItemStartLight(o.getId(), start)) {
+                    syncTimelineOverlays();
+                }
+                sheet.setScrubTimeMs(start);
+            }
+            @Override public void onCommit(long start,
+                    com.fadcam.ui.faditor.move.ObjectTimeMover.Lane lane) {
+                final long fromStart = fromRange[0], fromEnd = fromRange[1];
+                final long toStart = o.getStartMs(), toEnd = o.getEndMs();
+                if (fromStart == toStart) { syncTimelineOverlays(); return; }
+                undoManager.recordAction(new EditActions.LambdaAction("Move text in time", // TODO(strings)
+                        () -> { o.setTimeRange(toStart, toEnd); syncTimelineOverlays(); },
+                        () -> { o.setTimeRange(fromStart, fromEnd); syncTimelineOverlays(); }));
+                syncTimelineOverlays();
+                scheduleAutoSave();
+            }
+        };
+        sessionRef[0] = new com.fadcam.ui.faditor.move.ObjectTimeScrubSession(host);
+
+        ObjectMenuSheet.TimeScrubListener l = new ObjectMenuSheet.TimeScrubListener() {
+            @Override public void onScrubStart() {
+                fromRange[0] = o.getStartMs(); fromRange[1] = o.getEndMs();
+                sessionRef[0].begin();
+            }
+            @Override public void onScrubTick(long deltaMs) { sessionRef[0].tick(deltaMs); }
+            @Override public void onScrubEnd() { sessionRef[0].end(); }
+            @Override public void onJumpTo(long targetMs) {
+                fromRange[0] = o.getStartMs(); fromRange[1] = o.getEndMs();
+                sessionRef[0].begin(); sessionRef[0].jumpTo(targetMs); sessionRef[0].end();
+            }
+            @Override public void onPushThroughToggled(boolean on) { /* v1: hidden */ }
+            @Override public void onIncrementToggled(boolean on) { scrubIncrementOn = on; }
+        };
+        sheet.setTimeScrub(l, o.getStartMs(), false, scrubIncrementOn, false);
+    }
+
+    /** Shift a text overlay's WHOLE span so its start lands at {@code newStart} (a move, not a
+     *  trim); an open-ended overlay (end == MAX_VALUE) stays open-ended. Keyframes need no shift
+     *  (stored item-local, relative to start). */
+    private void applyTextOverlayMove(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, long newStart) {
+        long oldStart = o.getStartMs();
+        long oldEnd = o.getEndMs();
+        long newEnd = (oldEnd == Long.MAX_VALUE) ? Long.MAX_VALUE
+                : Math.max(newStart + 1, newStart + (oldEnd - oldStart));
+        o.setTimeRange(newStart, newEnd);
+    }
+
+    /** OTHER items' spans on text overlay {@code o}'s home layer (for collision locking). */
+    private java.util.List<com.fadcam.ui.faditor.move.ObjectTimeMover.Span> textLaneSiblingSpans(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, long totalMs) {
+        java.util.List<com.fadcam.ui.faditor.move.ObjectTimeMover.Span> spans =
+                new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.layers.Track t : project.getTimeline().getLayers()) {
+            boolean has = false;
+            for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
+                if (it.getId().equals(o.getId())) { has = true; break; }
+            }
+            if (!has) continue;
+            for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
+                if (it.getId().equals(o.getId())) continue;
+                long s = it.getTimelineStartMs();
+                long d = it.getDisplayDurationMs(totalMs);
+                if (d > 0) spans.add(new com.fadcam.ui.faditor.move.ObjectTimeMover.Span(s, s + d));
+            }
+            break;
+        }
+        return spans;
     }
 
     /**

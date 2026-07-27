@@ -189,8 +189,20 @@ public final class LayerGestureController {
     private static final long MIN_TEXT_DURATION_MS = 250;
     private static final long AUDIO_MIN_TRIM_GAP_MS = 500;
 
-    /** Movement slop (px) that promotes a touch to a drag — matches the horizontal value historically used here. */
-    private static final float MOVE_SLOP_PX = 4f;
+    /**
+     * Movement slop (RAW px) that promotes a picked-up touch to a real MOVE — i.e. how far
+     * the finger may drift after a pickup/trim-grab before it counts as a drag rather than a
+     * "released in place" (which opens the object menu — gesture contract §1). This was a
+     * hardcoded {@code 4f} RAW px, which is ~1.5dp on the Note 9 and even TIGHTER (~1.1dp) on
+     * higher-DPI phones — smaller than normal finger jitter during a hold, so a hold→release
+     * frequently registered a micro-move and the object menu "worked only sometimes." Now
+     * dp-scaled by the view (see {@link #setMoveSlopPx}); default stays at the old raw value
+     * for any caller that never wires the setter.
+     */
+    private float moveSlopPx = 4f;
+
+    /** See {@link #moveSlopPx} — the view calls this once with {@code MOVE_SLOP_DP * density}. */
+    public void setMoveSlopPx(float px) { if (px > 0f) moveSlopPx = px; }
 
     /**
      * Snap radius in RAW px — the ONE tunable for every drag snap in this controller
@@ -708,7 +720,7 @@ public final class LayerGestureController {
         // the cross-row hover/new-layer-zone tracking. Either axis counts (a cross-row
         // drag is inherently VERTICAL — the finger travels down while x barely changes).
         if (!movedDuringGesture
-                && (Math.abs(x - dragStartX) > MOVE_SLOP_PX || Math.abs(y - dragStartY) > MOVE_SLOP_PX)) {
+                && (Math.abs(x - dragStartX) > moveSlopPx || Math.abs(y - dragStartY) > moveSlopPx)) {
             movedDuringGesture = true;
             // Capture the pre-mutation displayed extent ONCE: it drives the bookend
             // math AND the "home ghost" — the grey outline left at the item's original

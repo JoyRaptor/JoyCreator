@@ -423,6 +423,12 @@ public class EditorTimelineView extends View {
             // dragux_v3 A4: the ONE snap tunable — gentle ~8dp (≈1–2mm), was 48raw px.
             layerGestureController.setSnapRadiusPx(
                     8f * getResources().getDisplayMetrics().density);
+            // Layer-polish #7: the post-pickup move slop was a hardcoded 4 RAW px (~1.5dp
+            // here, tighter on higher-DPI phones) — smaller than hold-jitter, so the
+            // hold→release-in-place object menu opened only sometimes. dp-scale it to the
+            // conventional 8dp touch slop so a hold that doesn't really move opens the menu.
+            layerGestureController.setMoveSlopPx(
+                    8f * getResources().getDisplayMetrics().density);
         }
     }
 

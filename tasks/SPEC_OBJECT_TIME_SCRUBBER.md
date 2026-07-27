@@ -329,8 +329,10 @@ Validated: the object-menu scrubber works + is "very smooth".
   it reads as a layer that exists. The band is ADAPTIVE (zero when a project has no layers), so a
   plain single-track project measures/draws exactly as before; height recomputes in
   `setLayerTracks` and `onMeasure` reads the live strip height, not the base constant.
-  NOT proved: appearance/legibility on a real project — **wants the user's eyes**. In particular
-  whether 12 lines at 2dp pitch is the right density on the Note 20's screen.
+  **CONFIRMED BY THE USER 2026-07-27 on the Note 20's real project: "minimap looks great".**
+  So the adaptive band, the 2dp pitch and the by-type colouring all read correctly at real layer
+  counts — no density tuning needed. (`f59850a` playback also re-confirmed the same session:
+  "played well".)
 - [ ] **F-MOVEDRAWER** (SPEC §11) also build the scrubber into the move drawer.
 
 ## 13. ROUND-2 DEVICE FEEDBACK (2026-07-27 ~15:00) — after the uniform-axis batch

@@ -17385,6 +17385,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public boolean pushThrough() { return false; }
             @Override public long breakthroughMs() { return Long.MAX_VALUE / 4; }
             @Override public long snapStepMs() { return scrubIncrementOn ? scrubIncrementStepMs : 0; }
+            @Override public long maxStartMs() { return project.getTimeline().getTotalDurationMs(); }
             @Override public void onPreview(long start,
                     com.fadcam.ui.faditor.move.ObjectTimeMover.Lane lane, boolean laneChanged) {
                 applyTextOverlayMove(o, start);
@@ -17468,7 +17469,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void setOverlayRangeEdgeAtPlayhead(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, boolean startEdge) {
-        final long ph = lastPlayheadAbsoluteMs;
+        // Use the LIVE playhead, not the cached lastPlayheadAbsoluteMs: the Start/End-here chips
+        // are peek-visible so the user scrubs WHILE the menu is open (user 2026-07-27: "End here
+        // didn't land where the playhead is"). The cached value can lag the live scrub.
+        final long ph = (editorTimeline != null)
+                ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs;
         if (startEdge) {
             if (o.getEndMs() != Long.MAX_VALUE && ph >= o.getEndMs()) {
                 Toast.makeText(this, R.string.faditor_kf_range_invalid, Toast.LENGTH_SHORT).show();

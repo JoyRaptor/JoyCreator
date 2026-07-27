@@ -40,6 +40,10 @@ public final class ObjectTimeScrubSession {
         long breakthroughMs();                 // push-past distance before a relayer fires
         long snapStepMs();                     // 0 = continuous; >0 = snap to this increment
 
+        /** Farthest the object's START may be pushed (user 2026-07-27: a scrub shouldn't run the
+         *  object off past the timeline end forever). Default unbounded. */
+        default long maxStartMs() { return Long.MAX_VALUE; }
+
         /** Reflect a change during the gesture (host moves/relayers the object; may animate). */
         void onPreview(long startMs, Lane lane, boolean laneChanged);
         /** Finalize the net move as ONE undo step (host mutates model + records undo). */
@@ -56,6 +60,7 @@ public final class ObjectTimeScrubSession {
     private boolean push;
     private long breakthrough;
     private long snap;
+    private long maxStart;
 
     private long desired;                      // integrated target (pre-snap)
     private long originAnchor;                 // last valid ON-ORIGIN position (lock reference)
@@ -72,6 +77,7 @@ public final class ObjectTimeScrubSession {
         push = host.pushThrough();
         breakthrough = Math.max(0, host.breakthroughMs());
         snap = Math.max(0, host.snapStepMs());
+        maxStart = Math.max(0, host.maxStartMs());
         desired = originStart;
         originAnchor = originStart;
         lastStart = originStart;
@@ -82,15 +88,19 @@ public final class ObjectTimeScrubSession {
     /** Shuttle tick: advance the desired start by {@code deltaMs} and reflect. */
     public void tick(long deltaMs) {
         if (!active) return;
-        desired = Math.max(0, desired + deltaMs);
+        desired = clampDesired(desired + deltaMs);
         resolveAndPreview();
     }
 
     /** Jump-to-time: set an absolute target; same collision/relayer behaviour applies. */
     public void jumpTo(long targetMs) {
         if (!active) return;
-        desired = Math.max(0, targetMs);
+        desired = clampDesired(targetMs);
         resolveAndPreview();
+    }
+
+    private long clampDesired(long v) {
+        return Math.max(0, Math.min(v, maxStart));
     }
 
     private void resolveAndPreview() {

@@ -233,6 +233,44 @@ drag proxy snaps rows vertically; a true y-glide is new renderer work).
 6. Extend to the other 4 payloads; verify undo restores each; re-verify sandbox sha256 after any
    fixture use.
 
+## 11. MOVE-DRAWER build recipe (the real home — investigated 2026-07-27, ready to build WITH the user)
+
+The "move" tool's drawer (`FaditorEditorActivity.initMoveDrawer` ~:5289) is a half-built version
+of this feature. Complete it in TESTABLE slices (each compiled + installed for the user to try
+before the next — the drawer/menu can't be reached via adb, so the user's test IS the check).
+
+**Payload move APIs (all verified):** move = shift the WHOLE span, preserving duration + open-end.
+- text / sprite / waveform: `getStartMs`/`getEndMs` + `setTimeRange(newStart, newEnd)` where
+  `newEnd = (end==MAX_VALUE)?MAX_VALUE:newStart+(end-start)` (see `applyTextOverlayMove`).
+- audio: `AudioClip.getOffsetMs`/`setOffsetMs(newStart)` (no end to shift).
+- PiP overlay clip: `Clip.getOverlayStartMs`/`setOverlayStartMs(newStart)`.
+- caption span: read-only (`CaptionSpanRef`) — NOT movable.
+- Dispatch on a `TimedItem` exactly as `onItemMenuRequested` does (`:12180-12190`):
+  `getTextOverlay()/getSprite()/getAudioClip()/getClip().isOverlayClip()/getWaveform()`.
+
+**⚠️ Selection model is FRAGMENTED (the main gotcha):** there is no single "selected object".
+- master clip: `selectedClipIndex` (the drawer's existing clip-reorder buttons use this).
+- audio: `editorTimeline.getSelectedAudioIndex()`.
+- floating layer item (text/sprite/pip/waveform): `LayerGestureController.getSelectedItemId()`
+  (on `editorTimeline`; NOT currently exposed to the activity — add a
+  `EditorTimelineView.getSelectedLayerItemId()` passthrough, then find the `TimedItem` by id in
+  `getLayers()`/`getAudioTracks()`).
+- So build a `getSelectedMovableItem()` → `TimedItem` (floating id first, else audio index, else
+  master clip = not free-movable), and a generic `moveSelectedObjectToTimeMs(target)` reusing
+  `ObjectTimeScrubSession` for a discrete jump + the per-payload setter above.
+
+**Slices (stop + let the user test after each):**
+1. Fix the drawer "move to" (`performMoveToInput` :5428) to move the SELECTED floating object (not
+   `seekToTimelineMs`) — keep the seek only when nothing movable is selected. Fixes the user's
+   "timestamp jumps the playhead not the item".
+2. Add a `TimeShuttleView` to the `move_drawer` layout XML (res/layout) + wire it like the object
+   menu; make `move_position_*` track the selected object (not the playhead) via `refreshMoveDrawer`.
+3. `move_layer_up`/`move_layer_down` (:5335-5340 stubs) → real object relayering (reuse
+   `moveOverlayItemToAdjacentLayer`/`moveOverlayItemToNewLayer`, generalised per payload).
+4. push-through relayer + cross-lane y-GLIDE (SPEC §9). Then Note 20 large-project refresh profile.
+
+Reuse the object-menu path's `followScrubTimeMs` edge-tracking + `updateLayerItemStartLight` here.
+
 ## Appendix — user's answer, verbatim (2026-07-26)
 
 > primary case is navigating the timeline. up down layers, shifting controlled in time like

@@ -4,6 +4,25 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### #6 v1 VALIDATED ON DEVICE + edge-tracking added (`c772384`). PLACEMENT: the MOVE DRAWER is the real home.
+User tested the object-menu scrubber: **"the moving itself was very smooth"** — so v1 WORKS
+(menu opened, no crash, buttery). Two things from the feedback:
+1. **Edge-tracking (FIXED `c772384`):** scrubbing an object toward the viewport edge ran it
+   off-screen. Added `EditorTimelineView.followScrubTimeMs(ms)` — pans the timeline to keep the
+   scrubbed point inside a centered dead-zone (25% margin each side), so tracking starts BEFORE
+   the edge with lookahead. Called from onPreview. Installed Note 9 APK 09:38:23. Pending feel.
+2. **PLACEMENT was wrong — the real home is the MOVE DRAWER (the "move" tool, `open_with`).** It
+   is a HALF-BUILT version of this exact feature (`FaditorEditorActivity` ~:5289 `initMoveDrawer`):
+   clip-reorder buttons WORK; **"move to" time input wrongly seeks the PLAYHEAD** (`performMoveToInput`
+   → `seekToTimelineMs`, :5473) — the user's "timestamp jumps the playhead not the item" complaint;
+   **Layer up/down are "coming soon" toast STUBS** (:5335-5340); timestamp shows the playhead;
+   "Layer 1" hardcoded; NO shuttle. User decision: **build the scrubber into the move drawer too**
+   ("can be in both"), acting on **WHATEVER OBJECT IS SELECTED** (any type). So NEXT: complete the
+   move drawer — add the shuttle, fix "move to" to move the selected ITEM, make the timestamp/layer
+   readouts track the selection, implement Layer up/down as real object relayering, wire collision.
+   The proven toolkit (engine/session/shuttle) re-homes here; the move-drawer XML already has the
+   slots (`move_target_input`, `move_go`, `move_layer_up/down`, `move_position_*`, `move_clip_*`).
+
 ### #6 LIVE WIRING STARTED — user greenlit it (2026-07-27). v1 slice: TEXT OVERLAYS, lock-only (`3556d63`).
 User: "Note 20 is unplugged — wire up #6, I'll feel-test." Only the Note 9 is attached (safe).
 Staged per SPEC §10 B: ONE payload first (text overlay), lock-only collision, then extend +

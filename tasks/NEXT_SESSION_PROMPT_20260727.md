@@ -63,6 +63,17 @@ THAT early return. Suspects: the `if (isScaling) return true` UP, the audio-band
 double-tap returns, the slide double-tap return.
 **Then REMOVE both `PHDIAG` (`701c1e0`) and this snapshot (`1fc3298`).**
 
+**UPDATE 2026-07-28 — hunted over adb, NOT reproduced, and the search is now narrowed.** Every
+adb-injectable SINGLE-TOUCH gesture releases the latch cleanly (audio-band scrub — the only one
+that actually latches, confirmed by a mid-gesture control — plus ruler/filmstrip/empty-lane
+scrubs, flings, cross-lane releases, double-taps): `drag=false` after release, no heal. The
+prime remaining suspect is the one `adb input` CANNOT synthesize — the `if (isScaling) return
+true` ACTION_UP on a PINCH, which is the same shape as the first stranding. `sendevent` is
+denied on this device. **So this needs the user: one pinch-zoom-and-release WHILE PLAYING, then
+`grep lastUp:`.** Don't burn more autonomous cycles on it. Full method + the two
+self-manufactured signals it produced are in handoff §0z (2026-07-28 ~03:35) — read that before
+re-running, especially the "playback stops on a short fixture and `tail -1` goes stale" trap.
+
 ### 2. Undo-snapshot cost on large projects — ~~implementation open~~ **DONE (`9c59d0e`)**
 Implemented as the schema-**v12** transcript pool: each distinct transcript is stored ONCE per
 file (`transcriptPool`) and clips carry `transcriptRefs`. Proved by `TranscriptPoolCodecTest`

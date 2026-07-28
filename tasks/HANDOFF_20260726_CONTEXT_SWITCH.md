@@ -4,6 +4,47 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~03:35 — STRANDED-LATCH HUNT: negative result that NARROWS it to the pinch path.
+Tried to close outstanding item 1 by driving the editor over adb instead of waiting for the
+user. **Did not reproduce it** — but the run is worth keeping, because it eliminates most of
+the suspect list and leaves one suspect standing.
+
+**How to drive this probe (reusable).** The heal only fires from `updatePlayheadPosition()`,
+i.e. ONLY WHILE PLAYING — with playback stopped no gesture can ever produce the warning. Better
+still, don't wait for the heal at all: `PHDIAG` prints `drag=` every tick, which IS
+`userDragging`, so the latch can be read directly. Sequence per gesture: tap the ruler near 0,
+tap play, gesture, then read the newest `PHDIAG` line.
+
+**Which gestures can even latch it.** `userDragging` latches only on
+`onPlayheadSeeked(..., isDragging=true)`, which comes from `updatePlayheadFromX` on the
+ROW-SCRUB path. Confirmed by a mid-gesture control (sample while the finger is still down):
+- audio band (y≈1622) — `mid=drag=true` ✅ the probe genuinely exercises the latch
+- ruler (y≈1408), filmstrip (y≈1798), empty lane (y≈1476) — `mid=drag=false`; these never latch,
+  so a "clean" result from them proves NOTHING. The first six gestures I ran were all of this
+  kind and had to be thrown away.
+
+**Result:** on the audio band the latch clears correctly on release — `drag=false` in 3/3 runs,
+no heal in any of them. Same for ruler/filmstrip/empty-lane scrubs, fling releases, cross-lane
+releases and double-taps.
+
+**TWO SELF-MANUFACTURED SIGNALS I nearly recorded as findings** (both caught, both worth
+knowing about before re-running this):
+1. `after=drag=true` on a 2500ms swipe looked like a live reproduction. It was not: the fixture
+   is only 7s long, playback ENDED mid-swipe, `PHDIAG` stopped printing, and `tail -1` returned
+   a stale line from DURING the gesture. Any probe here must either use a fixture longer than
+   the gesture or require the sampled line to post-date the release.
+2. The freshness gate I then added was itself blind — `adb shell date "+%m-%d %H:%M:%S"`
+   word-splits, so the comparison ran against just `07-28` and every line passed as fresh. The
+   three results above were re-checked by reading the clock times by hand.
+
+**WHAT THIS LEAVES.** Every adb-injectable SINGLE-TOUCH path releases cleanly. The prime
+remaining suspect is the one `input` cannot synthesize: the `if (isScaling) return true`
+ACTION_UP on a PINCH, which is also exactly the shape of the FIRST stranding (the post-pinch
+handback pan). `adb input` has no multitouch and `sendevent` is denied on this device, so this
+needs either the user's fingers or a different injection route. **Recommend: stop spending
+autonomous cycles on it and ask the user for one pinch-zoom-then-release while playing** —
+`1fc3298` will name the branch the moment it happens. Keep `PHDIAG` + the snapshot until then.
+
 ### 2026-07-28 ~03:05 — DATA-LOSS BUG FOUND AND FIXED (`34b4297`): one undo could eat a session.
 Found by MEASURING, not reading, while checking whether the v12 pool shrank the 22MB sidecar:
 after eight edits across two app sessions, `project.json` had been rewritten twice and

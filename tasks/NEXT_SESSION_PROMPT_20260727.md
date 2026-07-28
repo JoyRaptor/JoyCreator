@@ -89,7 +89,17 @@ whether retaining 50 snapshots is the right number. Worth its own look.
 Pooling preserves the version list's order exactly (asserted in the harness), so the persisted
 index stays valid — but an index into a mutable list is still the wrong key.
 
-### 3. Inter-clip seam stall — measured, not yet optimised
+### 3. Inter-clip seam stall — RE-MEASURED 2026-07-28; THE CAUSE BELOW IS REFUTED
+**Do not start from the "discontinuous source position" explanation in the paragraph that
+follows — it was tested and it fails.** On the Note 9 (project `cebc19e0`, 9 clips, two full
+playthroughs at 50ms resolution) a **contiguous** same-source seam (`gap=+0ms`, no seek needed)
+cost **287ms / 327ms** while a **discontinuous** one (`gap=+404ms`) cost **155ms / 150ms**. The
+seam machinery itself is the cost, not the seek. Confirmed alongside: whole-playthrough rate
+**0.884× / 0.888×** (a 27.6s project takes ~31s) and per-seam costs of 123–327ms, with a
+control showing 1–8ms drift away from seams so the metric is not manufacturing the deficit.
+**Caveat: that project runs the LEGACY path (`gapless=false`); the gapless path is unverified.**
+Method + the reproducible unexplained backward playhead jumps are in handoff §0z
+(2026-07-28 ~04:10). Original (now-refuted) text kept below for context:
 Every clip boundary costs ~150–250ms: playback runs at 0.77–0.91× for ~1s after each seam then
 recovers to exactly 1.00×. Cause is a decoder seek into a DISCONTINUOUS source position — the 11
 clips are cuts from one long recording, so each seam jumps in source time. The clips DO abut in

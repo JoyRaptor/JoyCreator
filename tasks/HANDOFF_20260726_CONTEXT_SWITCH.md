@@ -4,6 +4,58 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~04:10 — SEAM STALL MEASURED ON THE NOTE 9; ITS RECORDED CAUSE IS REFUTED.
+Item 3 said "measured, not yet optimised" with the cause given as *"a decoder seek into a
+DISCONTINUOUS source position"*. Before optimising I re-measured — and the stated cause does
+not survive. **Nothing was optimised this wake; the next attempt should start from the
+corrected cause, not the old one.**
+
+**Method (reusable).** `PHDIAG` throttles to every 10th tick (500ms) — too coarse for a
+150–250ms event. Temporarily changed `% 10` to `% 1` for 50ms resolution (**reverted; not
+committed**), then played project `cebc19e0` "P0 control2 plain" (9 clips, 27.6s, 8 seams of
+MIXED kind) end to end, twice. Rate = Δhead/Δwall-clock from the logcat stamps; a seam is a
+`segAtHead` transition. Scripts in the session scratchpad (`seam_analyse.py`).
+
+**The metric is honest** — control: the identical 1-second window sampled away from any seam
+loses **1–8ms** (≈1.00×) at nine spots in each run. Without that, a metric that always reports
+a deficit would have looked like a finding.
+
+**Reproduced across two runs** (run1 → run2):
+- whole playthrough **0.884× → 0.888×**: a 27.6s project takes ~31s, ~3.5s lost. Reproducible.
+- clean seams cost **123–327ms** each — the reported 150–250ms band is about right.
+
+**THE REFUTATION.** The cause cannot be the discontinuous seek, because a **CONTIGUOUS**
+same-source seam is the *worst* one measured:
+
+| seam | source gap | run1 | run2 |
+|---|---|---|---|
+| 1→2 same source | **+0ms (no seek needed)** | **287ms** | **327ms** |
+| 0→1 same source | +404ms (seek) | 155ms | 150ms |
+
+Two data points each, both directions consistent. A seam that requires **no seek at all** costs
+roughly twice one that does. So the cost lives in the seam/window-transition machinery itself,
+not in the source discontinuity. Optimising "make the seek cheaper" would have chased the wrong
+thing.
+
+**SCOPE CAVEAT — read before generalising.** This project played with `gapless=false` (the
+LEGACY path). The Note 20 report that produced item 3 was on an 11-clip project which may well
+be `gapless=true` (the 4-clip fixture `129d8643` reports gapless=true). The refutation above is
+therefore proven for the legacy path; whether the gapless path shares the cause is UNVERIFIED.
+Re-run this method on a gapless project before acting.
+
+**UNEXPLAINED, reproducible, logged not chased:** the playhead steps BACKWARD twice per
+playthrough — −600ms and −5497ms, at the same points in both runs — and `segAtHead` traverses
+0,1,2,3,4,3,5,6,7,2,8 rather than in order. No clip has `loopMode` set, so that is not it; the
+project does have **3 transitions**, which is the obvious next suspect (`PHDIAG` has a `trans=`
+field to check). Could equally be clips whose timeline order differs from array order, which
+would make the seg sequence expected and only the two backward head steps anomalous. Not
+investigated further — flagged so it is not mistaken for measurement noise, because it
+reproduces exactly.
+
+**Incidental v12 confirmation:** opening `cebc19e0` re-saved it **58,999 → 44,800 bytes
+(−24.1%)** — a bigger win than the 15.1% on the 4-clip fixture, as expected for a project where
+one transcript is shared by 4 clips.
+
 ### 2026-07-28 ~03:35 — STRANDED-LATCH HUNT: negative result that NARROWS it to the pinch path.
 Tried to close outstanding item 1 by driving the editor over adb instead of waiting for the
 user. **Did not reproduce it** — but the run is worth keeping, because it eliminates most of

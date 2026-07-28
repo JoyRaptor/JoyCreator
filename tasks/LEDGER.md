@@ -91,7 +91,25 @@ names."* The decision was recorded and never applied: `FaditorEditorActivity:117
 Rename row, the dialog persists a name, pushes an undo step and writes to disk, and
 `LayerRowRenderer` never draws a track name anywhere. The user types a name and sees nothing.
 
-**3d. Cut smoothness — HYBRID, approved to execute, then PROVE IT EARNS ITS PLACE.**
+**3d. Cut smoothness — HYBRID BUILT + MEASURED 2026-07-28. Verdict: it is very nearly a waste,
+and here is the number.** `KeyframeAlignment` probes each window start and claims
+`setStartsAtKeyFrame` only where it is genuinely true (cached; ~15ms/start; bounded to 120ms per
+build; skips counted, never silent). Measured over two projects, **7 real window starts, 0
+aligned** — nearest sync sample 98/121/334/381/406ms away, keyframes ~1.0s apart. Only an
+in-point of **0** (never trimmed at the head) earns the flag.
+**A user trim has ~1-in-1000 odds of landing on a keyframe, and file length does not change that**
+— a longer file has more cuts, not better-aligned ones, which is why the 45-minute project was
+not needed to answer it. The `0.887× → 0.999×` figure below came from forcing the flag on EVERY
+window (the unsafe version); a trimmed timeline keeps its 250–330ms rebuild per cut.
+Kept because it is free after the first build and does pay for whole-clip timelines, split
+children inheriting in=0, and short-GOP sources. **The `KFALIGN` log line reports the hit rate per
+project — if it says 0%, the feature is doing nothing there and says so.**
+*Open question for the user: worth keeping, or delete it? It is ~170 lines for a benefit that is
+zero on a normally-trimmed timeline.*
+
+<details><summary>Original entry (kept for the root-cause record)</summary>
+
+**Cut smoothness — HYBRID, approved to execute, then PROVE IT EARNS ITS PLACE.**
 Root cause is exact: `DefaultMediaSourceFactory:589`
 `setEnableInitialDiscontinuity(!clippingConfiguration.startsAtKeyFrame)`. Every clipped window
 leaves that flag false, so ExoPlayer rebuilds the video renderer at EVERY cut — measured
@@ -102,6 +120,7 @@ trims do not. **Frame-level trim precision anywhere is non-negotiable (user), so
 is permanently off the table.** Hybrid = set the flag only for windows already keyframe-aligned.
 **User requirement: after implementing, test on a LONGER file and report what fraction of real
 cuts actually benefit — "get it working and then verify its usefulness, or if it's just a waste."**
+</details>
 
 **3e. AI clip reorder — two-stage, approved to execute.**
 User's design, better than either option originally offered: a reorder must never be able to lose

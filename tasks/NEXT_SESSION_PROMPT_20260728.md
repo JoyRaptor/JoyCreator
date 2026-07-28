@@ -12,52 +12,57 @@ feature — masking/chroma-key — was built, shipped as an engine, and then LOS
 no checklist item was ever left unticked. Keep it current: when something lands, move it to §1
 with its proof; never delete an entry to shorten the list.
 
-## WHAT THE LAST SESSION DID (2026-07-28 afternoon)
+## WHAT THE LAST SESSION DID (2026-07-28 evening)
 
-Four code commits, each measured on the Note 9 before being believed:
+**§3g text animation now RUNS end to end.** Three commits, each with its evidence:
 
-- `d3e3a63` — **§2a, the playhead↔clip mapping bug, FIXED.** Root cause: the drag computed its
-  seek against the segment under the playhead but handed it to the player holding the clip the
-  drag STARTED on, because `selectedClipIndex` was frozen for the whole gesture. 40 out-of-range
-  seeks → 0 (two runs). Also fixed `effectiveTrimEnd()` (tested `Long.MIN_VALUE`, but media3
-  reports `C.TIME_UNSET` = MIN_VALUE+1 → the window collapsed to 0 and every seek clamped to the
-  clip start), the GL-transition handoff seeking past a short clip B, and added the layer-(ii)
-  `ENDED`-with-clips-ahead advance.
-- `a19ee53` — **§3b lane mute icon, DONE.** Absent (not greyed) with no audio, real
-  `volume_up`/`volume_off` glyphs, flush against the caret, gutter 92dp → 34.4dp, touch box
-  enlarged from the 12dp glyph to the full row height.
-- `7b3edff` then `bd2bd58` — **§3d cut smoothness: built, measured, and DELETED** on the user's
-  call. The measurement is the keeper; see LEDGER §3d.
-- `95dc7e2` — **§3g step 1: `CaptionAnimator`, the one authority for text animation.** Preview
-  and export shared an easing curve but not a CLOCK. See `SPEC_TEXT_ANIMATION.md`.
-- Plus `docs:` commits keeping the LEDGER honest.
+- `5cc34fd` — **presets, granularity and unit splitting land on the one evaluator**, plus a JVM
+  harness. The handoff asked for the unification to be verified before building on it: it holds
+  BY CONSTRUCTION, because preview (`FaditorEditorActivity:8121`) and export
+  (`CompositeExportOverlay:576,590`) compute source time with the same formula and apply the
+  speed multiplier on both sides before the animator sees anything. A frame-diff proves one
+  sample; what makes them agree everywhere is that the animation is a pure function of ELAPSED
+  media time, so that is pinned instead (`CaptionAnimatorTest.clockInvariant`).
+- `c7b6359` — **the animation actually runs.** Four fields on `Clip`, round-tripped through
+  `ProjectStorage`, driving BOTH renderers. `CaptionPhrases` extracted, because the phrase
+  grouping was a second identical-and-independent copy across the same preview/export boundary
+  that WAS §3g — and it became load-bearing the moment the phrase span became the animation's
+  tape.
+- Docs kept current: LEDGER §3g is now a step table with the evidence and the limits.
 
-## YOUR FIRST JOB — continue §3g TEXT ANIMATION. Read its spec first.
+**131 harness checks, off-device, seconds to run:**
+```
+javac -nowarn -d tools/jvm-harness/out-caption tools/jvm-harness/stubs/androidx/annotation/*.java tools/jvm-harness/stubs-caption/com/fadcam/ui/faditor/transcript/CaptionStyle.java app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java tools/jvm-harness/CaptionAnimatorTest.java && java -cp tools/jvm-harness/out-caption CaptionAnimatorTest
+```
 
-**`FadCam/tasks/SPEC_TEXT_ANIMATION.md` is current and detailed. Read it before touching code.**
-It has a "Where this actually is" section at the top separating what is DONE from what is not,
-and a "Suggested next steps" section at the bottom.
+Earlier the same day: `d3e3a63` §2a playhead↔clip mapping (FIXED, re-verified against the code
+this session — all four claims hold), `a19ee53` §3b lane mute icon, `7b3edff`+`bd2bd58` §3d built
+then deleted, `95dc7e2` §3g step 1.
 
-Short version: **step 1 (unification) is done and in the build** (`95dc7e2`). The three shipping
-caption animations were implemented twice — preview on a wall-clock `ValueAnimator`, export on
-media time — and now both call one `CaptionAnimator`. The presets, the picker UI, the tape
-handles and per-glyph layout are **not** started.
+## YOUR FIRST JOB — the AUTHORING UI for §3g. Read `SPEC_TEXT_ANIMATION.md` first.
 
-The user's binding decisions from 2026-07-28, all captured in the spec:
-- the tape's in/out handles **ARE** the timing, for every preset at every granularity — handles
-  at the ends = no animation, handles to the centre = animates in then straight back out;
-- four granularities: **LETTER / WORD / SENTENCE / BLOCK**, orthogonal to the preset;
-- LTR-only v1; zones live on the item (mirror `GeneratedSource.freezeStartMs`); time-based, not
-  frame-based.
+The engine is done; **nothing in the app can set these fields.** That is precisely the state §3a
+was in when a whole feature got lost, so this is the thing to finish, not to start something new.
 
-Two things still need the user: **which of the ten presets are v1**, and the **composition order**
-against existing keyframes.
+The spec's "NOT STARTED" section names the exact precedents, with line numbers:
+1. **Tape `>` `<` handles** — copy the slide freeze-zone handles in `EditorTimelineView`
+   (`hitTestFreezeHandle` :7187, `doFreezeDrag` :7199, `finishFreezeDrag` :7221,
+   `drawSlideFreezeHandles` :7245, `drawFreezeMarker` :7265 — already triangle carets), undo via
+   `LambdaAction` as at `FaditorEditorActivity:1661`. Their hit-test is deliberately TIGHT and
+   runs BEFORE the outer trim handles; keep that.
+2. **Preset grid** — reuse `EasePickerPopover` (4-column tiles that draw their own thumbnail from
+   the evaluator). Caption drawer is `buildCaptionDrawerContent` :14837; existing Pop/Zoom/Bounce
+   row :14950; icon helper `addCaptionActionIcon` :15179. **Filter on `Preset.implemented`** —
+   five presets are declared but cannot be expressed as a `Transform` yet, and each says why.
+3. Hardcode strings with `// TODO(strings)`. The extraction is frozen behind the rebrand.
 
-**Before building on the unification, verify it held** — same `(word, sourceMs)` must give the
-same transform in preview and export. It was smoke-tested (opens, plays, renders, no exceptions)
-but NOT frame-diffed, and the easing formulas were identical before and after, so what changed is
-*when* the value is sampled, not the curve. An A/B export frame-diff on a captioned clip with a
-**speed multiplier** is the sharpest test, since speed is where the two clocks disagreed most.
+**Then capture the device frame the evidence is missing.** The before/after is real — 2901 px
+changed, bounding box exactly the caption text, zero elsewhere — but small, because the sampled
+frame sat near the zone saturation point where progress is 1 by design. Once the handles exist
+you can park the playhead inside an entrance instead of hunting for one.
+
+**Two things still need the user — do not guess:** which of the ten presets are v1, and the
+composition order against existing keyframes.
 
 ## AFTER §3g — two decisions belong to the user
 
@@ -104,6 +109,15 @@ Remaining order: **§3g (in progress)** → §3a (masking UI) → §3e (two-stag
   `compileJavaWithJavac UP-TO-DATE` happens constantly here; and a first invocation after an edit
   sometimes FAILS on CMake/packaging and succeeds on a plain re-run. Always check the APK's
   mtime against the source's, and dex-scan for a symbol you just added.
+- **THE RE-RUN CAN LIE — paid for on 2026-07-28.** A gradle run failed with
+  `Unable to delete directory ...javac/defaultDebug/...classes` (a Windows file lock). The plain
+  re-run reported BUILD SUCCESSFUL and packaged a PARTIAL dex set: the APK was missing
+  `FadCamApplication` entirely and the app crash-looped with `ClassNotFoundException` before any
+  of my code ran. **A dex scan for the symbol you just added does not catch this** — the new
+  symbol was present, because the new file compiled fine. Always scan for something that must
+  ALWAYS be there (`FadCamApplication`, `FaditorEditorActivity`) as the positive control, and if
+  a build ever fails on a file lock, delete `app/build/intermediates/javac/<variant>` and
+  `.../dex/<variant>` before believing the next one.
 - `adb logcat` without `-T` replays the whole ring buffer. Never `logcat -c`.
 - Navigate the UI with `uiautomator dump` and match `resource-id`/`text` + bounds. The project
   list reorders every time a project is opened. Screenshots must be captured through the **Bash**

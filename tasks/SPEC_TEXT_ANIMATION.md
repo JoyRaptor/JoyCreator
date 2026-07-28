@@ -1,63 +1,77 @@
 # SPEC: Animated text (and animated timers)
 
-**Status 2026-07-28:** **STEP 1 (UNIFICATION) IS DONE AND IN THE BUILD.** Presets are NOT
-started. Read "Where this actually is" before doing anything else.
+**Status 2026-07-28 (evening): THE ANIMATION RUNS.** Model, storage, preview and export are
+done and committed. What is missing is the AUTHORING UI — the tape handles and the preset
+picker — so today the feature is reachable only by editing `project.json`. Read "Where this
+actually is" before touching code.
 
 Requested by the reporter directly after the countdown-timer feature landed; the two are
 related and should share machinery.
 
 ---
 
-## Where this actually is (2026-07-28)
+## Where this actually is (2026-07-28, evening)
 
-### DONE — `CaptionAnimator` is now the one authority
+### DONE — the engine, end to end
 
-`app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java`
-
-Before this, the three shipping animations (`CaptionStyle.Anim` = POP / ZOOM / BOUNCE) were
-implemented **twice**: `CaptionOverlayView` (preview) and `CaptionExportRenderer` (export). The
-export copy said so in its own comment — *"Approximate the preview interpolators"*.
-
-The easing arithmetic in the two copies actually matched. **The divergence was the CLOCK:**
-
-| | drove the animation from |
+| Piece | Where |
 |---|---|
-| preview | a 300ms `ValueAnimator` started on the word-change EVENT → **wall-clock** time |
-| export | `(sourceMs - wordStart) / 300` → **media** time |
+| One evaluator, one clock | `transcript/CaptionAnimator.java` |
+| Phrase grouping, shared by both renderers | `transcript/CaptionPhrases.java` |
+| Four fields + a clamping setter | `model/Clip.java` (`captionAnim*`) |
+| Sparse write / guarded read, no schema bump | `project/ProjectStorage.java` |
+| Preview honours the preset | `transcript/CaptionOverlayView.java` |
+| Export honours the preset | `export/CaptionExportRenderer.java` |
+| Both fed the same four values | `FaditorEditorActivity.bindCaptionData`, `CompositeExportOverlay` |
+| 131 off-device checks | `tools/jvm-harness/CaptionAnimatorTest.java` |
 
-Those agree only when wall-clock and media time agree, which is exactly when it doesn't matter.
-On a **2× clip** the same animation covered a different span in the file than on screen; a
-**paused** preview kept animating while media time stood still; and a **scrub** re-triggered the
-entrance instead of showing the frame that would actually be exported.
+Commits `95dc7e2` (unification), `5cc34fd` (presets + harness), `c7b6359` (live end to end).
+Evidence for each is in LEDGER §3g, including the honest limit on the device proof.
 
-**Media time won** — the exported frame is ground truth, so the preview changed. The
-`ValueAnimator` is gone; `CaptionOverlayView.setActiveSourceMs()` now asks `CaptionAnimator` for
-the value at the current playhead. That makes paused-preview and scrub correct *by construction*
-rather than by matching two implementations. Both renderers now call
-`CaptionAnimator.transform(...)`; the duplicated `switch`, the duplicated `lerp`, the duplicated
-`EMPHASIS_MS` and the three interpolator imports are deleted.
+**The load-bearing rule:** every preset lands on `CaptionAnimator`. If you find yourself writing
+easing arithmetic anywhere else, stop.
 
-**This is the load-bearing part of the whole feature.** Every preset below lands on that one
-evaluator. Do not add a second path — if you find yourself writing easing arithmetic anywhere
-other than `CaptionAnimator`, stop.
+### DONE — the original §3g defect, and why it stays fixed
 
-### DONE — the groundwork the presets need
+The three shipping animations were implemented twice. The easing arithmetic MATCHED; the
+divergence was the CLOCK — preview ran a 300ms `ValueAnimator` from the word-change EVENT
+(wall-clock), export used `(sourceMs - wordStart) / 300` (media time). Those agree only when the
+two clocks agree, which is exactly when it does not matter. Media time won, so the preview
+changed: paused and scrubbed frames are now correct by construction.
 
-Already in `CaptionAnimator`, unused by any UI yet:
+It stays fixed because the property is pinned, not the pixels:
+`CaptionAnimatorTest.clockInvariant` asserts the animation depends ONLY on elapsed media time,
+so any future wall-clock term fails the harness instead of failing quietly in an export.
 
-- `enum Granularity { LETTER, WORD, SENTENCE, BLOCK }` — see "Granularity" below.
-- `unitProgress(mediaMs, itemStartMs, itemEndMs, inZoneMs, outZoneMs, unitIndex, unitCount)` —
-  the tape-driven timing model, see below. Returns one signed 0→1→1→0 number that every preset
-  can be driven from, with units staggered across their zone so the effect reads as a sweep.
-- `Transform { scale, dy, alpha }` — deliberately multiplicative/additive so presets **compose
-  with** keyframed opacity/scale instead of replacing them.
+### DONE — decisions that were forced while building
 
-### NOT STARTED
+- **The PHRASE is the animating object, not the clip.** Zones are stored on the clip as
+  durations and applied against each phrase's own span, capped at half of it
+  (`zoneForSpan`). Otherwise continuous speech would animate its first phrase and let every
+  later one simply appear.
+- **Zones are SOURCE ms.** Both renderers evaluate against source time; timeline ms would halve
+  the zones on a 2× clip.
+- **Presets compose with `CaptionStyle.Anim` rather than replacing it** — those three are an
+  active-word emphasis (1.15× at rest), not an entrance.
 
-The presets themselves, the preset-picker UI, the tape handles, and per-glyph layout.
+### NOT STARTED — the authoring UI, which is the whole remaining feature
+
+1. **Tape `>` `<` handles.** Precedent to copy is exact: the slide freeze-zone handles in
+   `EditorTimelineView` (`hitTestFreezeHandle` :7187, `doFreezeDrag` :7199, `finishFreezeDrag`
+   :7221, `drawSlideFreezeHandles` :7245, `drawFreezeMarker` :7265 — already triangle carets),
+   with the undo step at `FaditorEditorActivity:1661` (`LambdaAction`). Note their hit-test is
+   deliberately TIGHT and checked BEFORE the outer trim handles.
+2. **Preset grid + granularity selector.** Reuse `EasePickerPopover` — a 4-column grid of tiles
+   that render their own thumbnail from the evaluator, which is precisely the reporter's
+   "KineMaster keyframe-curve picker, but presets". The caption drawer is built
+   programmatically in `FaditorEditorActivity.buildCaptionDrawerContent` :14837; the existing
+   Pop/Zoom/Bounce row is :14950 and the icon-button helper is `addCaptionActionIcon` :15179.
+   **The picker must filter on `Preset.implemented`** — five presets are declared but cannot be
+   expressed as a `Transform` yet.
+3. Strings are HARDCODED with a `// TODO(strings)` marker here — the extraction is frozen
+   behind the rebrand (`road_map.md:49`). Follow that, do not "fix" it.
 
 ---
-
 ## The timing model — the reporter's, 2026-07-28 (BINDING)
 
 > "the in/out carets show how long it will take for the animation to play in, and how long, if at
@@ -179,11 +193,22 @@ are v1.**
 
 ## Suggested next steps for whoever picks this up
 
-1. **Verify the unification held** before building on it: same `(word, sourceMs)` must give the
-   same transform in preview and export. The A/B export frame-diff method is the tool
-   (see the memory note on absolute-geometry A/B diffs — symmetric proofs miss flips).
-2. Persist `granularity` + `inZoneMs` / `outZoneMs` on the caption/text item and round-trip them
-   through `ProjectStorage` (bump the schema note in `docs/project-schema.md`).
-3. Wire the tape `>` `<` handles to those two fields — the visible half of the timing model.
-4. Only then add presets, one at a time, each as data driven by `unitProgress` — no new easing
-   arithmetic outside `CaptionAnimator`.
+Steps 1 and 2 of the old list are DONE (the unification is verified, and the fields persist and
+round-trip). What is left is the authoring UI, in this order:
+
+1. **Tape `>` `<` handles**, copying the slide freeze-zone handles named above. They write
+   `Clip.setCaptionAnimZones(in, out)` — one setter, because the clamp is on the SUM. Darken the
+   dragged-in regions, per the reporter. The handles are the timing for every preset at every
+   granularity; there is no separate enable switch because zero-length zones ARE "off".
+2. **Preset grid + granularity selector** in the caption drawer, filtered on
+   `Preset.implemented`.
+3. **Capture the large-amplitude device frame** the current evidence is missing — once the
+   handles exist the playhead can be placed inside an entrance without hunting for it.
+4. Only then add more presets, one at a time, as data driven by `unitProgress` — and never any
+   easing arithmetic outside `CaptionAnimator`.
+5. `docs/project-schema.md` needs the four `captionAnim*` rows; its stated `SCHEMA_VERSION = 11`
+   is also behind the code's 12, and `GeneratedSource.freezeStartMs`/`freezeEndMs` were never
+   documented there either.
+
+**Two things still need the reporter, and should not be guessed:** which of the ten presets are
+v1, and the composition order against existing keyframes.

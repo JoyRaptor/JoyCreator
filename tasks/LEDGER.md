@@ -169,17 +169,63 @@ player package. The human-facing slider was correctly hidden behind `if (false)`
 saying the feature is unimplemented; the AI copy was missed. User has said ducking is low
 priority, so the fix is to stop the assistant claiming it happened, not to build ducking.
 
-**3g. Text animation presets — NEXT UP. User moved it AHEAD of masking, 2026-07-28.**
-Spec: `SPEC_TEXT_ANIMATION.md` (design captured, **zero code** — `textAnimation`/`animationPreset`
-have 0 matches in `app/src/main/java`).
-Its own stated constraint is the one that matters: ONE shared `(spec, t) → per-glyph transform`
-function called by BOTH preview and export, or the exported video will not match what the user
-saw. **That hazard is already REALISED for the animations that exist today**: `CaptionStyle.Anim`
-(POP / ZOOM / BOUNCE) is implemented TWICE and differently — `CaptionOverlayView:194` drives it
-with a `ValueAnimator` + `Overshoot/Decelerate` interpolators, while `CaptionExportRenderer:222`
-re-derives it as arithmetic in a `switch`. Any per-glyph work must unify that, not add a third
-copy. Precedents to copy: `TimerText` (shared, `DEFAULT_FPS`), `freezeStartMs/freezeEndMs` on
-`GeneratedSource` for the in/out animation zones.
+**3g. Text animation presets — IN PROGRESS. Steps 1–3 landed, authoring UI is what remains.**
+Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
+
+| Step | State | Commit |
+|---|---|---|
+| 1. One evaluator (`CaptionAnimator`), preview and export on the same clock | DONE | `95dc7e2` |
+| 2. Presets + granularity + unit splitting, with a harness | DONE | `5cc34fd` |
+| 3. Persist on `Clip`, round-trip, and RUN in both renderers | DONE | `c7b6359` |
+| 4. Tape `>` `<` handles (the visible half of the timing model) | NOT STARTED | — |
+| 5. Preset grid picker + granularity selector in the caption drawer | NOT STARTED | — |
+
+**Today the four fields are reachable only by editing `project.json`.** That is exactly the
+state §3a was in when it got lost, so it stays here until step 5 ships.
+
+**How step 1 was verified** (the handoff asked for it before anything was built on top):
+preview computes `inPoint + positionInCurrentSegmentMs * speed` (`FaditorEditorActivity:8121`),
+export computes `inPoint + clipLocalMs * speed` (`CompositeExportOverlay:576,590`) — the same
+formula, speed applied on both sides BEFORE the animator sees anything. A frame-diff would have
+proved one sample; the property that makes them agree everywhere is that the animation is a pure
+function of ELAPSED media time, so that is what is pinned instead
+(`CaptionAnimatorTest.clockInvariant`: same word 300ms in gives an identical transform at 0s,
+60s and 1h into the file). **131 harness checks**, run with:
+`javac -nowarn -d tools/jvm-harness/out-caption tools/jvm-harness/stubs/androidx/annotation/*.java tools/jvm-harness/stubs-caption/com/fadcam/ui/faditor/transcript/CaptionStyle.java app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java tools/jvm-harness/CaptionAnimatorTest.java && java -cp tools/jvm-harness/out-caption CaptionAnimatorTest`
+
+**How step 3 was proved on device** (Note 9, project `bb2a9deb…` "P0 control no image", clip 1,
+same playhead both runs, toggling ONLY the four JSON fields): **2901 pixels changed, bounding box
+(354,778)–(745,919)** — the caption text and nothing else; zero pixels differ in the video, the
+sticker, the waveform or the timeline. **Stated honestly: this proves the PLUMBING, not the look.**
+The sampled frame sat near the zone saturation point, where progress is 1 by construction and the
+text is *meant* to be fully present, so the amplitude is small. **A large-amplitude frame has NOT
+been captured** — do that once the tape handles exist and the playhead can be placed inside an
+entrance without hunting.
+
+**Decisions taken while building, so they are not re-litigated:**
+- **The PHRASE is the animating object, not the clip.** Taking "the item's tape drives the timing"
+  literally as the clip would animate a clip's first phrase and let every later phrase simply
+  appear — continuous speech would animate once a minute. Zones are stored on the clip as
+  DURATIONS and applied against each phrase's own span. Every stated property survives: zero is
+  off, and capping each zone at half the span (`CaptionAnimator.zoneForSpan`) makes the entrance
+  end exactly where the exit begins at EVERY phrase length.
+- **Zones are SOURCE ms, not timeline ms.** `getTrimmedDurationMs()` divides by the speed
+  multiplier; clamping against it would have halved the zones on a 2× clip — the same units
+  confusion that WAS §3g.
+- **Presets compose with `CaptionStyle.Anim`, they do not replace it.** POP/ZOOM/BOUNCE sit at
+  1.15× at rest (an active-word emphasis, not an entrance), so merging the vocabularies would
+  silently restyle every existing captioned project.
+- **Five presets are declared but NOT implemented** — MATRIX, UNSCRAMBLE, ODOMETER (glyph
+  substitution / positional scatter), MASK_WIPE (a clip rect), NEON_FLICKER (stroke/glow). Each
+  names its blocker in `CaptionAnimator.unsupportedReason` and returns identity, never an
+  approximation. The picker must filter on `Preset.implemented`.
+- **Blur is ignored by BOTH renderers**, so GHOST reads as slide+shrink+fade. Consistently
+  ignored is safe; approximating it in one path is the divergence this area exists to prevent.
+- **Audio-clip captions have NO animation.** `AudioClip` deliberately did not get the four
+  fields — half-persisted state no UI writes is how features rot. Add it with the UI, not before.
+
+**Still needs the user:** which of the ten presets are v1, and the composition order against
+existing keyframes.
 
 ## 4. DECIDED — settled, do not re-litigate
 

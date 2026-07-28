@@ -4,6 +4,43 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~05:40 — CONFOUND RESOLVED, AND IT RESOLVES AGAINST MY OWN EARLIER READING.
+Seam kind does NOT drive the cost. **Retract "a contiguous seam is worse than a discontinuous
+one" as a causal claim** — it was the confound, and the data that settles it was already in hand.
+
+**How it was settled without a new fixture.** If seam KIND drove the cost, seams of the SAME
+kind should cost alike. In `cebc19e0` run1 the CROSS-SOURCE seams alone cost
+**191 / 1000 / 151 / 925 / 524 / 165 ms** — a ~6.6× spread inside one kind, far larger than any
+gap between kinds. The 276–348ms measured at the contiguous seam sits comfortably inside that
+range. So kind explains nothing; per-seam cost is set by something else, and the obvious
+candidate given last wake's result (the PLAYER loses the time, not the UI thread) is the decode
+ramp-up of whichever clip is being entered — its bitrate, resolution, keyframe spacing.
+
+**WHAT STILL STANDS, unchanged:** the originally recorded cause — *"a decoder seek into a
+discontinuous source position"* — remains REFUTED, and for a reason the confound does not
+touch: a seam needing **no seek at all** costs 276–348ms, so the seek cannot be the mechanism.
+Also unchanged: the cost is real (123–350ms typical), it is in the player (`head` and
+`playerPos` lose time together), and it accounts for ~90% of the whole-playthrough deficit.
+
+**So the corrected statement of item 3 is:** *crossing a window boundary costs 120–350ms
+(sometimes ~1s) of real playback rate, the loss is inside ExoPlayer rather than the UI thread,
+and it scales with the clip being entered rather than with whether the source position was
+continuous.* That is the sentence a fix should be designed against.
+
+**The device attempt this wake FAILED and is worth knowing about.** `aeb0517e` (the fixture
+with a `gap=+0` seam at position 2→3) will not play through: it stops ~5s in with
+`playing=false pwr=true` — an ExoPlayer BUFFERING stall at a window transition that never
+recovers — and subsequent play taps do nothing. It runs the LEGACY path (2 transitions), whose
+per-clip cold `setMediaItem()+prepare()` is exactly what `MasterPlaybackEngine` was built to
+replace, so a hard stall there is plausible rather than surprising. **This may be a real bug
+worth its own look** (a legacy-path project that wedges mid-playback), but it is NOT the seam
+item and was not chased. `bdd51919` has the same shape and is the obvious retry fixture.
+
+**Navigation is solved and was NOT the problem this time** — `uiautomator` found the row and
+`btn_play_pause` exactly, and the playhead was confirmed at 00:00 before the run. Note the list
+reorders constantly: opening a project re-saves it, so it jumps to row 1 (`aeb0517e` was row 1
+this wake, not row 6).
+
 ### 2026-07-28 ~05:10 — SEAM COST IS THE PLAYER, NOT THE UI THREAD. My own hypothesis refuted.
 The seam diagnosis now has three hypotheses tested and two dead. Still nothing optimised — but
 the next person no longer has to guess where to look.

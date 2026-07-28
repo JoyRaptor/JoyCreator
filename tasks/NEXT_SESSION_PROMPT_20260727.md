@@ -115,10 +115,20 @@ hundred ms after a media-item transition. **A fix belongs in buffering / decoder
 window change, not in trimming `onGaplessSeam`'s UI work.** Trap: `playerPos` is window-local
 and resets at each seam — start the measurement window only once it advances monotonically.
 
-**BEFORE BUILDING A FIX, kill one confound (one playthrough of work):** in both fixtures the
-contiguous seam sat at the same ordinal position (1→2), so kind and position are entangled.
-`aeb0517e`/`bdd51919` have their `gap=+0` seam at position 2→3 — measure one of those. I
-mis-tapped and did NOT get this measurement, so treat it as unmeasured.
+**UPDATE 2026-07-28 ~05:40 — CONFOUND RESOLVED; the "contiguous is worse" claim is RETRACTED.**
+Seam kind does not drive the cost: within CROSS-SOURCE seams alone the losses span
+191/1000/151/925/524/165ms in a single run — a ~6.6× spread inside one kind, which the
+276–348ms contiguous figure sits inside. Cost scales with the clip being ENTERED (decode
+ramp-up), not with source continuity. **The refutation of the original recorded cause still
+stands** on its own footing: a seam needing no seek at all costs 276–348ms, so a seek cannot be
+the mechanism.
+**Design a fix against this sentence:** *crossing a window boundary costs 120–350ms (sometimes
+~1s) of real playback rate; the loss is inside ExoPlayer, not the UI thread; and it scales with
+the entered clip rather than with source continuity.*
+**Separate possible bug, found while trying to measure, NOT chased:** `aeb0517e` will not play
+through — it stops ~5s in with `playing=false pwr=true` (an ExoPlayer buffering stall at a
+window transition) and further play taps do nothing. It runs the LEGACY path (2 transitions).
+Worth its own look; `bdd51919` is the retry fixture.
 Method + the reproducible unexplained backward playhead jumps are in handoff §0z
 (2026-07-28 ~04:10). Original (now-refuted) text kept below for context:
 Every clip boundary costs ~150–250ms: playback runs at 0.77–0.91× for ~1s after each seam then

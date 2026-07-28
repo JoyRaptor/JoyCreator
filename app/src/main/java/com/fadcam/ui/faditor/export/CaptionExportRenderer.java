@@ -30,7 +30,8 @@ import java.util.List;
  */
 public class CaptionExportRenderer {
 
-    private static final long EMPHASIS_MS = 300;
+    // (The 300ms emphasis duration lives on CaptionAnimator now — the one authority both this
+    // renderer and the live preview evaluate, so it cannot be set to two different values.)
 
     @NonNull private final Transcript transcript;
     @NonNull private final CaptionStyle style;
@@ -111,18 +112,11 @@ public class CaptionExportRenderer {
     }
 
     private float emphasisFor(int activeWordIdx, long sourceMs) {
-        long wordStart = transcript.words.get(activeWordIdx).startMs;
-        float t = (sourceMs - wordStart) / (float) EMPHASIS_MS;
-        t = Math.max(0f, Math.min(1f, t));
-        // Approximate the preview interpolators: decelerate for ZOOM, overshoot
-        // otherwise. Overshoot peaks above 1 then settles.
-        if (style.anim == CaptionStyle.Anim.ZOOM) {
-            return 1f - (1f - t) * (1f - t); // decelerate
-        }
-        // OvershootInterpolator(2.2) approximation.
-        float s = 2.2f;
-        float u = t - 1f;
-        return u * u * ((s + 1f) * u + s) + 1f;
+        // Delegates to the ONE authority. This used to "approximate the preview interpolators"
+        // in its own arithmetic — see CaptionAnimator for why approximating the other renderer
+        // is exactly the thing that must not happen here.
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.emphasis(
+                style, sourceMs, transcript.words.get(activeWordIdx).startMs);
     }
 
     private void drawPhrase(int activeWordIdx, float emphasisValue) {
@@ -216,15 +210,11 @@ public class CaptionExportRenderer {
             paintWord(word, x, baseY, style.baseColor, fontPx);
             return;
         }
-        float a = emphasisValue;
-        float scale;
-        float dy = 0f;
-        switch (style.anim) {
-            case ZOOM:   scale = lerp(1.6f, 1.15f, a); break;
-            case BOUNCE: dy = -(1f - a) * fontPx * 0.5f; scale = 1.15f; break;
-            case POP:
-            default:     scale = 1.15f + (1f - a) * 0.35f; break;
-        }
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform tf =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.transform(
+                        style, emphasisValue, fontPx);
+        float scale = tf.scale;
+        float dy = tf.dy;
         float wordCx = x + ww / 2f;
         float wordCy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
@@ -248,7 +238,4 @@ public class CaptionExportRenderer {
         canvas.drawText(word, x, baseY, textPaint);
     }
 
-    private static float lerp(float from, float to, float t) {
-        return from + (to - from) * Math.max(0f, Math.min(1f, t));
-    }
 }

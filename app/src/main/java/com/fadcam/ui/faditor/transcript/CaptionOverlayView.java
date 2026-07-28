@@ -1,6 +1,5 @@
 package com.fadcam.ui.faditor.transcript;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -10,8 +9,6 @@ import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
-import android.view.animation.OvershootInterpolator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -57,7 +54,8 @@ public class CaptionOverlayView extends View {
     private final List<int[]> phrases = new ArrayList<>(); // {startIdx, endIdxInclusive}
 
     private int activeWordIdx = -1;
-    private final ValueAnimator emphasis = ValueAnimator.ofFloat(0f, 1f);
+    /** Eased entrance progress of the active word, evaluated from MEDIA time by
+     *  {@link CaptionAnimator} — see {@link #setActiveSourceMs}. */
     private float emphasisValue = 1f;
 
     private final RectF blockRect = new RectF(); // last drawn bounds (for drag hit-test)
@@ -83,11 +81,6 @@ public class CaptionOverlayView extends View {
     public CaptionOverlayView(Context c, @Nullable AttributeSet a) {
         super(c, a);
         density = getResources().getDisplayMetrics().density;
-        emphasis.setDuration(300);
-        emphasis.addUpdateListener(an -> {
-            emphasisValue = (float) an.getAnimatedValue();
-            invalidate();
-        });
     }
 
     /**
@@ -184,17 +177,26 @@ public class CaptionOverlayView extends View {
         }
     }
 
-    /** Update which word is active from the playback time, animating word changes. */
+    /**
+     * Update which word is active from the playback time, and evaluate its entrance animation
+     * AT THAT MEDIA TIME.
+     *
+     * <p>This used to start a 300ms {@code ValueAnimator} on the word-change event, which drove
+     * the animation from WALL-CLOCK time while the exporter drove the identical animation from
+     * MEDIA time. The two agree only when those clocks agree — so a speed-adjusted clip
+     * animated over a different span in the file than on screen, a paused preview kept animating
+     * while media time stood still, and a scrub re-triggered the entrance instead of showing the
+     * frame that would actually be exported. Asking {@link CaptionAnimator} for the value at
+     * {@code sourceMs} makes all three correct by construction, and is why the animator is gone
+     * rather than merely re-tuned.</p>
+     */
     public void setActiveSourceMs(long sourceMs) {
         if (transcript == null) return;
         int idx = transcript.indexAtOrBeforeTime(sourceMs);
-        if (idx != activeWordIdx) {
-            activeWordIdx = idx;
-            emphasis.cancel();
-            emphasis.setInterpolator(style.anim == CaptionStyle.Anim.ZOOM
-                    ? new DecelerateInterpolator() : new OvershootInterpolator(2.2f));
-            emphasis.start();
-        }
+        activeWordIdx = idx;
+        emphasisValue = idx >= 0 && idx < transcript.words.size()
+                ? CaptionAnimator.emphasis(style, sourceMs, transcript.words.get(idx).startMs)
+                : 1f;
         invalidate();
     }
 
@@ -304,16 +306,11 @@ public class CaptionOverlayView extends View {
             paintWord(canvas, word, x, baseY, style.baseColor, fontPx);
             return;
         }
-        // Active word: colour + entrance animation driven by `emphasisValue` (0→1).
-        float a = emphasisValue;
-        float scale = 1.15f;
-        float dy = 0f;
-        switch (style.anim) {
-            case ZOOM:   scale = lerp(1.6f, 1.15f, a); break;
-            case BOUNCE: dy = -(1f - a) * fontPx * 0.5f; scale = 1.15f; break;
-            case POP:
-            default:     scale = 1.15f + (1f - a) * 0.35f; break;
-        }
+        // Active word: colour + entrance animation, evaluated by the ONE authority at the
+        // current MEDIA time (CaptionAnimator) rather than by a wall-clock ValueAnimator.
+        CaptionAnimator.Transform tf = CaptionAnimator.transform(style, emphasisValue, fontPx);
+        float scale = tf.scale;
+        float dy = tf.dy;
         float wordCx = x + ww / 2f;
         float wordCy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
@@ -338,9 +335,6 @@ public class CaptionOverlayView extends View {
         canvas.drawText(word, x, baseY, textPaint);
     }
 
-    private static float lerp(float from, float to, float t) {
-        return from + (to - from) * Math.max(0f, Math.min(1f, t));
-    }
 
     @Override
     public boolean onTouchEvent(MotionEvent e) {

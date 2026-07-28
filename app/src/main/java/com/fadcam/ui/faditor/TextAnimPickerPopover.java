@@ -124,32 +124,46 @@ public final class TextAnimPickerPopover {
         container.addView(granRow);
         CaptionAnimator.Granularity[] grans = CaptionAnimator.Granularity.values();
         String[] granNames = {"Letter", "Word", "Sentence", "Block"}; // TODO(strings)
+        final TextView[] granChips = new TextView[grans.length];
         for (int i = 0; i < grans.length; i++) {
             final CaptionAnimator.Granularity g = grans[i];
+            final int idx = i;
             TextView chip = new TextView(ctx);
             chip.setText(granNames[i]);
             chip.setTextSize(12);
-            chip.setTextColor(g == currentGran ? ACCENT : GLYPH);
-            chip.setAlpha(g == currentGran ? 1f : 0.5f);
             int cp = (int) (8 * d);
             chip.setPadding(cp, cp / 2, cp, cp / 2);
-            GradientDrawable cbg = new GradientDrawable();
-            cbg.setCornerRadius(8 * d);
-            cbg.setColor(TILE_BG);
-            if (g == currentGran) cbg.setStroke((int) (1.5f * d), ACCENT);
-            chip.setBackground(cbg);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT);
             lp.setMargins((int) (3 * d), (int) (2 * d), (int) (3 * d), (int) (2 * d));
             granRow.addView(chip, lp);
+            granChips[i] = chip;
+            styleGranChip(chip, d, g == currentGran);
+            // Picking a granularity does NOT dismiss. It is orthogonal to the preset, so the
+            // common move is to choose one and then immediately try it against a different
+            // preset; closing the popover would cost a reopen every time. Picking a PRESET does
+            // dismiss, because that is the primary action.
             chip.setOnClickListener(v -> {
                 onPick.onGranularity(g);
-                anchor.postDelayed(pop::dismiss, 150);
+                for (int j = 0; j < granChips.length; j++) {
+                    styleGranChip(granChips[j], d, j == idx);
+                }
             });
         }
 
         popShow(pop, container, anchor, d);
+    }
+
+    /** Selected/unselected look for a granularity chip, so the two states cannot drift apart. */
+    private static void styleGranChip(@NonNull TextView chip, float d, boolean selected) {
+        chip.setTextColor(selected ? ACCENT : GLYPH);
+        chip.setAlpha(selected ? 1f : 0.5f);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(8 * d);
+        bg.setColor(TILE_BG);
+        if (selected) bg.setStroke((int) (1.5f * d), ACCENT);
+        chip.setBackground(bg);
     }
 
     @NonNull

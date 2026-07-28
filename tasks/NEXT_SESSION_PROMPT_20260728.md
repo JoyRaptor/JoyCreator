@@ -26,26 +26,55 @@ Four code commits, each measured on the Note 9 before being believed:
 - `a19ee53` — **§3b lane mute icon, DONE.** Absent (not greyed) with no audio, real
   `volume_up`/`volume_off` glyphs, flush against the caret, gutter 92dp → 34.4dp, touch box
   enlarged from the 12dp glyph to the full row height.
-- `7b3edff` — **§3d cut smoothness, BUILT AND MEASURED. Verdict: almost a waste.** See below.
+- `7b3edff` then `bd2bd58` — **§3d cut smoothness: built, measured, and DELETED** on the user's
+  call. The measurement is the keeper; see LEDGER §3d.
+- `95dc7e2` — **§3g step 1: `CaptionAnimator`, the one authority for text animation.** Preview
+  and export shared an easing curve but not a CLOCK. See `SPEC_TEXT_ANIMATION.md`.
 - Plus `docs:` commits keeping the LEDGER honest.
 
-## YOUR FIRST JOB — two decisions belong to the user
+## YOUR FIRST JOB — continue §3g TEXT ANIMATION. Read its spec first.
 
-**Decision 1 — §3d, keep or delete?** The hybrid works and is safe, but the measurement says it
-buys nothing on a normally-trimmed timeline: 0 of 7 real window starts were keyframe-aligned,
-keyframes are ~1.0s apart, and a millisecond-precision trim has ~1-in-1000 odds of hitting one.
-Only an in-point of 0 earns the flag. It is ~170 lines (`KeyframeAlignment`) for a benefit that
-is zero unless the timeline is assembled from whole clips or the source has a short GOP.
-The `KFALIGN` log line reports the hit rate per project, so the user can check their own
-projects before deciding. **Do not delete it unilaterally — the user asked for the number, and
-the number is now on the table.**
+**`FadCam/tasks/SPEC_TEXT_ANIMATION.md` is current and detailed. Read it before touching code.**
+It has a "Where this actually is" section at the top separating what is DONE from what is not,
+and a "Suggested next steps" section at the bottom.
 
-**Decision 2 — §3a masking/chroma-key AUTHORING UI.** The ledger is explicit: **bring a proposed
-interaction design to the user BEFORE building.** This feature already failed once by being
-technically complete and practically invisible. Do not open an editor on it until that
-conversation has happened.
+Short version: **step 1 (unification) is done and in the build** (`95dc7e2`). The three shipping
+caption animations were implemented twice — preview on a wall-clock `ValueAnimator`, export on
+media time — and now both call one `CaptionAnimator`. The presets, the picker UI, the tape
+handles and per-glyph layout are **not** started.
 
-Then the remaining order is §3e (two-stage AI reorder), §3a (masking UI), §3g (text animation).
+The user's binding decisions from 2026-07-28, all captured in the spec:
+- the tape's in/out handles **ARE** the timing, for every preset at every granularity — handles
+  at the ends = no animation, handles to the centre = animates in then straight back out;
+- four granularities: **LETTER / WORD / SENTENCE / BLOCK**, orthogonal to the preset;
+- LTR-only v1; zones live on the item (mirror `GeneratedSource.freezeStartMs`); time-based, not
+  frame-based.
+
+Two things still need the user: **which of the ten presets are v1**, and the **composition order**
+against existing keyframes.
+
+**Before building on the unification, verify it held** — same `(word, sourceMs)` must give the
+same transform in preview and export. It was smoke-tested (opens, plays, renders, no exceptions)
+but NOT frame-diffed, and the easing formulas were identical before and after, so what changed is
+*when* the value is sampled, not the curve. An A/B export frame-diff on a captioned clip with a
+**speed multiplier** is the sharpest test, since speed is where the two clocks disagreed most.
+
+## AFTER §3g — two decisions belong to the user
+
+**§3d is CLOSED — measured, then deleted on the user's call (`bd2bd58`). Do not rebuild it.**
+The number is in LEDGER §3d so nobody re-derives it: 0 of 7 real window starts keyframe-aligned,
+keyframes ~1.0s apart, so a millisecond-precision trim has ~1-in-1000 odds. User: *"170 nearly
+useless lines? … lets not bloat the codebase."*
+
+**§3a masking/chroma-key — SCOPE IS DECIDED, design is drafted, build not started.** The four
+binding answers and the proposed interaction are in LEDGER §3a. Summary: live preview of key AND
+matte is in v1; PiP **and image** overlays only (text/sprites wait); capsule corners are fine (no
+ellipse); a soft-edges/feather slider **is** in v1 (engine work — `MaskPathBuilder:22-23` records
+the method: render the mask to an ALPHA_8 bitmap and `DST_OUT` it, because `clipPath` is not
+antialiased). Fix the two preview/export divergences listed there first, including the newly
+found one where **matte-peer AUDIO still exports** while its picture is hidden.
+
+Remaining order: **§3g (in progress)** → §3a (masking UI) → §3e (two-stage AI reorder).
 
 ## INSTRUMENTS LEFT IN THE BUILD ON PURPOSE — do not remove yet
 

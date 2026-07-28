@@ -39,30 +39,38 @@ Earlier the same day: `d3e3a63` §2a playhead↔clip mapping (FIXED, re-verified
 this session — all four claims hold), `a19ee53` §3b lane mute icon, `7b3edff`+`bd2bd58` §3d built
 then deleted, `95dc7e2` §3g step 1.
 
-## YOUR FIRST JOB — the AUTHORING UI for §3g. Read `SPEC_TEXT_ANIMATION.md` first.
+## UPDATE 2026-07-28 (late) — the §3g AUTHORING UI IS DONE. Two commits.
 
-The engine is done; **nothing in the app can set these fields.** That is precisely the state §3a
-was in when a whole feature got lost, so this is the thing to finish, not to start something new.
+`dbc6ab0` (carets + picker + drawer row + docs) and `bbfbcf0` (popover UX). The section below is
+superseded and kept only for its line-number references. Read `SPEC_TEXT_ANIMATION.md` and
+LEDGER §3g for the current state.
 
-The spec's "NOT STARTED" section names the exact precedents, with line numbers:
-1. **Tape `>` `<` handles** — copy the slide freeze-zone handles in `EditorTimelineView`
-   (`hitTestFreezeHandle` :7187, `doFreezeDrag` :7199, `finishFreezeDrag` :7221,
-   `drawSlideFreezeHandles` :7245, `drawFreezeMarker` :7265 — already triangle carets), undo via
-   `LambdaAction` as at `FaditorEditorActivity:1661`. Their hit-test is deliberately TIGHT and
-   runs BEFORE the outer trim handles; keep that.
-2. **Preset grid** — reuse `EasePickerPopover` (4-column tiles that draw their own thumbnail from
-   the evaluator). Caption drawer is `buildCaptionDrawerContent` :14837; existing Pop/Zoom/Bounce
-   row :14950; icon helper `addCaptionActionIcon` :15179. **Filter on `Preset.implemented`** —
-   five presets are declared but cannot be expressed as a `Transform` yet, and each says why.
-3. Hardcode strings with `// TODO(strings)`. The extraction is frozen behind the rebrand.
+**What shipped:** amber `▶` `◀` tape carets on a captioned clip while the caption drawer is open;
+a preset grid whose tiles draw their thumbnails from `presetTransform` itself, filtered on
+`Preset.implemented`; a granularity row; an "A in motion" entry point; undo on all three. Both
+formerly-open questions are answered in the spec (v1 = the six implemented presets; composition
+order was undefined in prose but already identical in both renderers, and is now written down).
 
-**Then capture the device frame the evidence is missing.** The before/after is real — 2901 px
-changed, bounding box exactly the caption text, zero elsewhere — but small, because the sampled
-frame sat near the zone saturation point where progress is 1 by design. Once the handles exist
-you can park the playhead inside an entrance instead of hunting for one.
+**YOUR FIRST JOB IS NOW THE EVIDENCE, not more building.** Only one thing is unproven:
 
-**Two things still need the user — do not guess:** which of the ten presets are v1, and the
-composition order against existing keyframes.
+1. **Capture the large-amplitude device frame** (LEDGER §3g step 6). No device was attached when
+   the UI landed — `adb devices` was empty — so *nothing about this UI has been seen by a human
+   or a phone.* It is verified by build and by 145 harness checks, and that is all. This is now
+   easy: open the caption drawer, drag the `▶` caret well in, and the entrance is a known span at
+   a known place instead of something to hunt for.
+2. **Walk the UI once** for what a harness cannot see: are the amber carets grabbable with a real
+   thumb without stealing edge grabs from the trim handles; do the tiles read as distinct at
+   60dp; does LETTER granularity on a long phrase hold frame rate (it is the cost centre —
+   per-glyph layout in BOTH paths).
+3. Then §3g moves to LEDGER §1. Not before.
+
+**Do not guess:** which of the five unimplemented presets to build next, and whether GHOST should
+get its blur (a real decision with a per-frame performance price — see the spec's "KNOWN GAP").
+
+**Build note learned here:** gradle printed `compileDefaultDebugJavaWithJavac UP-TO-DATE` on runs
+that had in fact just compiled. The console is not the signal — compare the `.class` and `.apk`
+mtimes against the source, then dex-scan. Also, piping gradle through `Select-String` returns
+exit 255 on a run that succeeded; capture the output to a variable instead.
 
 ## AFTER §3g — two decisions belong to the user
 

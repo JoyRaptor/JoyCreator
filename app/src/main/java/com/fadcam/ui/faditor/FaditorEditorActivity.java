@@ -3527,6 +3527,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void loadClipForPlayback(@NonNull Clip clip) {
         if (playerManager == null) return;
         transitionPlaybackActive = false;
+        // Loading a VIDEO clip means no image timer can still be running — clear it HERE, at the
+        // funnel, exactly as transitionPlaybackActive is cleared on the line above. Patching the
+        // individual callers was not enough: a timeline drag loads a clip through this method
+        // WITHOUT going via advanceToSegment, so the flag leaked anyway (device 2026-07-28 — the
+        // playhead froze at 9870ms while the ticker kept running on the stale flag, and
+        // syncAudioPlayerWithPlayhead re-seeked the audio to that frozen position every tick,
+        // replaying the same second of narration on a loop).
+        //
+        // Sets the field directly rather than calling stopImagePlayback(), because that also
+        // forces the play/pause button to "paused" — wrong here, since this method is on the
+        // path that advances into the NEXT clip mid-playback.
+        imagePlaybackActive = false;
         hideTransitionPreview();
         playerManager.loadClip(getPlaybackClip(clip));
         durationCorrectionPending = true;
@@ -4087,6 +4099,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     audioTailActive = false;
                     playerManager.pause();
                     pauseAudioPlayer();
+                    // Belt-and-braces with the advanceToSegment fix above: a PAUSE must stop
+                    // every clock, not just the player's. If an image timer were still running
+                    // here, the ticker would survive on imagePlaybackActive and keep advancing
+                    // the playhead — which is what "stop doesn't stop" looked like on device.
+                    stopImagePlayback();
                     updatePlayPauseButton(false);
                 } else {
                     long playheadMs = editorTimeline.getPlayheadPositionMs();
@@ -9620,6 +9637,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         } else {
             // Video clip: load and play
             hideImagePreview();
+            // (The image-timer flag is cleared inside loadClipForPlayback, the funnel every
+            // video-clip load goes through — see the comment there for why the call site is the
+            // wrong place to fix it.)
             loadClipForPlayback(nextClip);
             playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
             playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier(), nextClip.isPitchCompensationEnabled());

@@ -106,6 +106,15 @@ playthrough deficit sits inside the seam windows, so a fix here is worth real wa
 Also answered: `cebc19e0` was legacy because **transition projects are gapless-ineligible**
 (`FaditorPlayerManager`), which likely explains its backward playhead jumps too — the gapless
 fixture had zero.
+**UPDATE 2026-07-28 ~05:10 — WHERE THE TIME GOES IS NOW KNOWN: the PLAYER, not the UI thread.**
+`PHDIAG` logs two independent clocks. Across three gapless runs, `head` (main-thread ticker)
+and `playerPos` (ExoPlayer's own) lose time IDENTICALLY after each seam — 0.85–0.98× on both,
+with a seam-free control at 1.00×/1.00×. So the plausible "the seam handler's main-thread work
+starves the playhead ticker" story is REFUTED: ExoPlayer really is running slow for a few
+hundred ms after a media-item transition. **A fix belongs in buffering / decoder ramp-up at the
+window change, not in trimming `onGaplessSeam`'s UI work.** Trap: `playerPos` is window-local
+and resets at each seam — start the measurement window only once it advances monotonically.
+
 **BEFORE BUILDING A FIX, kill one confound (one playthrough of work):** in both fixtures the
 contiguous seam sat at the same ordinal position (1→2), so kind and position are entangled.
 `aeb0517e`/`bdd51919` have their `gap=+0` seam at position 2→3 — measure one of those. I

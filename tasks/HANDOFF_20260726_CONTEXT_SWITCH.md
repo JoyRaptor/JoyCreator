@@ -4,6 +4,57 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~05:10 — SEAM COST IS THE PLAYER, NOT THE UI THREAD. My own hypothesis refuted.
+The seam diagnosis now has three hypotheses tested and two dead. Still nothing optimised — but
+the next person no longer has to guess where to look.
+
+**The hypothesis I formed from the code, and then killed.** `MasterPlaybackEngine`'s header
+says the gapless path pre-buffers the next item so a cut is a *warm* `onMediaItemTransition`,
+and its 2026-07-02 probe found **ZERO frozen frames** at any seam. That plus `onGaplessSeam`
+doing real main-thread work per seam (`setVolume`, `setPlaybackSpeed`,
+`updatePreviewTransforms`, caption/overlay rebind) suggested the seam cost was the MAIN THREAD
+being busy, delaying the 50ms playhead ticker while video kept decoding normally.
+
+**It is not.** `PHDIAG` logs two independent clocks — `head` (advanced by the main-thread
+ticker) and `playerPos` (ExoPlayer's own). If the ticker were being starved, `playerPos` would
+still read ~1.00×. Across the three gapless runs, measured in the window after each seam, the
+two lose time IDENTICALLY:
+
+| | seam→1 | seam→2 | seam→3 |
+|---|---|---|---|
+| run1 | head 0.91× / player 0.92× | 0.93× / 0.93× | 0.98× / 0.98× |
+| run2 | 0.88× / 0.88× | 0.86× / 0.88× | 0.96× / 0.96× |
+| run3 | 0.88× / 0.89× | 0.85× / 0.85× | 0.87× / 0.87× |
+
+Control (same measurement in a seam-free window): head 1.00× / player 1.00×.
+**So ExoPlayer itself runs at ~0.85–0.98× for a few hundred ms after a media-item transition.**
+The fix belongs in playback (buffering / decoder ramp-up at a window change), NOT in trimming
+the seam handler's UI work. Note this is consistent with "zero frozen frames": the video never
+freezes, it runs slightly slow while the new window spins up.
+
+**MEASUREMENT TRAP worth keeping:** `playerPos` is WINDOW-LOCAL and resets at every seam. A
+window that starts at the seam measures the reset, not playback — it produced nonsense like
+`-4.69×` on the first pass. Start the window at the first sample where `playerPos` has begun
+advancing monotonically inside the new window.
+
+**CONFOUND STILL OPEN — I failed to close it, twice. Do not record it as clean.** In both
+fixtures measured so far the contiguous `gap=+0ms` seam sits at the same ordinal position
+(1→2), so "seam kind" and "which clip is entered" are entangled — and now that the cause looks
+like per-window decoder ramp-up, the "position" explanation is the more likely one (a clip's
+own bitrate/keyframe spacing would set its ramp cost). `aeb0517e` has a `gap=+0` seam at
+position 2→3 and separates them. This wake I opened it correctly (confirmed: `gapless=false`,
+as its 2 transitions require) but never got a playthrough — the transport taps went out of
+phase across runs and the "seek to start" tap landed in the lane area on that layout.
+
+**NAVIGATION, solved — use this instead of guessed coordinates.** Blind taps have now cost
+several attempts. `uiautomator` gives exact positions:
+```
+adb shell uiautomator dump /sdcard/ui.xml     # quote the path: Git-Bash mangles /sdcard/...
+adb shell "cat /sdcard/ui.xml"                # then match resource-id + bounds
+```
+`btn_play_pause` was at (540,1190) on that project — the transport moves with the preview
+aspect, so it MUST be looked up per project, not carried over.
+
 ### 2026-07-28 ~04:40 — SEAM COST CONFIRMED ON THE GAPLESS PATH TOO; scope caveat CLOSED.
 Closed the caveat the previous entry opened. The refutation is not a legacy-path artifact — it
 holds on the gapless engine, and more strongly.

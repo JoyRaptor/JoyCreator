@@ -45,14 +45,34 @@ public final class CaptionAnimator {
      * The per-unit transform. Fields are deliberately additive/multiplicative over whatever the
      * caller already has, so a preset composes with keyframed opacity/scale rather than
      * replacing it (SPEC_TEXT_ANIMATION "compose, don't replace").
+     *
+     * <p>The scale is split into X and Y because BEAM — "letters start 200% tall / 5% wide and
+     * normalise" — is not expressible with a uniform one, and a preset that cannot be expressed
+     * is a preset that grows its own private arithmetic somewhere else.</p>
      */
     public static final class Transform {
-        /** Uniform scale about the unit's centre. 1 = unchanged. */
-        public float scale = 1f;
+        /** Horizontal scale about the unit's centre. 1 = unchanged. */
+        public float scaleX = 1f;
+        /** Vertical scale about the unit's centre. 1 = unchanged. */
+        public float scaleY = 1f;
+        /** Horizontal offset in px, applied before the scale. */
+        public float dx = 0f;
         /** Vertical offset in px, applied before the scale. */
         public float dy = 0f;
         /** Alpha multiplier, 0..1. */
         public float alpha = 1f;
+        /**
+         * Gaussian blur radius in px, 0 = sharp. GHOST is the only preset that uses it. Renderers
+         * that cannot blur must ignore this rather than approximate it — an approximation here is
+         * exactly the preview/export divergence this class exists to prevent.
+         */
+        public float blurPx = 0f;
+
+        /** Set both axes at once — the common case. */
+        void scale(float s) {
+            scaleX = s;
+            scaleY = s;
+        }
     }
 
     /**
@@ -74,12 +94,7 @@ public final class CaptionAnimator {
      */
     public static float ease(@NonNull CaptionStyle.Anim anim, float linear) {
         float t = Math.max(0f, Math.min(1f, linear));
-        if (anim == CaptionStyle.Anim.ZOOM) {
-            return 1f - (1f - t) * (1f - t); // DecelerateInterpolator(1.0)
-        }
-        float s = 2.2f;                       // OvershootInterpolator(2.2)
-        float u = t - 1f;
-        return u * u * ((s + 1f) * u + s) + 1f;
+        return anim == CaptionStyle.Anim.ZOOM ? decelerate(t) : overshoot(t);
     }
 
     /**
@@ -91,15 +106,15 @@ public final class CaptionAnimator {
         Transform out = new Transform();
         switch (style.anim) {
             case ZOOM:
-                out.scale = lerp(1.6f, 1.15f, eased);
+                out.scale(lerp(1.6f, 1.15f, eased));
                 break;
             case BOUNCE:
                 out.dy = -(1f - eased) * fontPx * 0.5f;
-                out.scale = 1.15f;
+                out.scale(1.15f);
                 break;
             case POP:
             default:
-                out.scale = 1.15f + (1f - eased) * 0.35f;
+                out.scale(1.15f + (1f - eased) * 0.35f);
                 break;
         }
         return out;
@@ -180,6 +195,211 @@ public final class CaptionAnimator {
         }
         // Between the zones — or no zones at all, which is the handles-at-the-ends "off" state.
         return 1f;
+    }
+
+    // ── Presets ──────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * The animation presets from SPEC_TEXT_ANIMATION. Orthogonal to {@link Granularity}: one
+     * preset at four granularities is four quite different effects, which is where most of the
+     * expressive range comes from for very little code.
+     *
+     * <p><b>Not the same thing as {@link CaptionStyle.Anim}.</b> Those three (POP / ZOOM /
+     * BOUNCE) are an ACTIVE-WORD EMPHASIS — they sit at 1.15x scale at rest, permanently
+     * enlarging the spoken word relative to its neighbours. A preset here is an ENTRANCE/EXIT:
+     * it resolves to identity at rest. Folding the two together would silently change how every
+     * existing captioned project renders, so they stay separate vocabularies that compose.</p>
+     *
+     * <p>{@link #implemented} is what the picker filters on. The five unimplemented entries are
+     * declared rather than omitted because each needs something a {@link Transform} cannot
+     * express, and naming that requirement here is what stops the next person quietly inventing
+     * a second evaluator for it. See {@link #unsupportedReason}.</p>
+     */
+    public enum Preset {
+        /** Handles at the ends. The natural "off" — no zones, so nothing to evaluate. */
+        NONE(true),
+        /** The unit simply appears, fully formed, when its slot arrives. No easing. */
+        TYPEWRITER(true),
+        /** Opacity only. The safe default. */
+        FADE(true),
+        /** Slides up past the baseline and settles. The lower-third standard. */
+        RISE(true),
+        /** Fades in while sliding horizontally, shrinking and un-blurring — materialising out of smoke. */
+        GHOST(true),
+        /** Starts 200% tall / 5% wide and normalises, as if written in by a beam. */
+        BEAM(true),
+
+        // Declared, NOT implemented. Each needs more than a Transform:
+        /** Needs GLYPH SUBSTITUTION — ticking through nonsense characters before settling. */
+        MATRIX(false),
+        /** Needs PER-GLYPH POSITIONAL SCATTER — letters displaced then settling into place. */
+        UNSCRAMBLE(false),
+        /** Needs GLYPH SUBSTITUTION plus a vertical roll clip per slot. */
+        ODOMETER(false),
+        /** Needs a CLIP RECT per unit — revealed by masking, not by opacity. */
+        MASK_WIPE(false),
+        /** Needs the renderer to modulate STROKE/GLOW, which is not a geometric transform. */
+        NEON_FLICKER(false);
+
+        /** True when {@link #presetTransform} fully expresses this preset. */
+        public final boolean implemented;
+
+        Preset(boolean implemented) {
+            this.implemented = implemented;
+        }
+    }
+
+    /** Why an unimplemented preset cannot ship yet — one line, for the picker and for the log. */
+    @NonNull
+    public static String unsupportedReason(@NonNull Preset p) {
+        switch (p) {
+            case MATRIX:      return "needs glyph substitution";
+            case UNSCRAMBLE:  return "needs per-glyph positional scatter";
+            case ODOMETER:    return "needs glyph substitution and a per-slot roll clip";
+            case MASK_WIPE:   return "needs a per-unit clip rect";
+            case NEON_FLICKER:return "needs stroke/glow modulation";
+            default:          return "";
+        }
+    }
+
+    /**
+     * The transform for one unit of a preset at {@code progress}.
+     *
+     * <p>{@code progress} is the LINEAR number from {@link #unitProgress}: 0 = fully absent,
+     * 1 = fully arrived, and on the way back down through the exit zone. Easing is applied HERE,
+     * per preset, so a preset owns its own feel while the timing stays entirely the tape's.</p>
+     *
+     * <p><b>The exit is the entrance reversed</b>, which is not a shortcut but the user's stated
+     * model — "everything animates in, and as soon as it's in it starts animating out". One
+     * signed progress therefore drives both directions and there is no separate exit curve to
+     * keep in agreement with the entrance one.</p>
+     *
+     * <p>An unimplemented preset returns identity rather than an approximation. A preset that
+     * silently degrades to "something roughly like it" is how the preview and the export come
+     * apart again.</p>
+     *
+     * @param fontPx type size, so distance-based motion is proportional to the text rather than
+     *               a fixed pixel count that looks right at one size only
+     */
+    @NonNull
+    public static Transform presetTransform(@NonNull Preset preset, float progress, float fontPx) {
+        float p = Math.max(0f, Math.min(1f, progress));
+        Transform out = new Transform();
+        if (!preset.implemented || preset == Preset.NONE) return out;
+        switch (preset) {
+            case TYPEWRITER:
+                // Deliberately a step, not a ramp: a typewriter that fades is a fade.
+                out.alpha = p > 0f ? 1f : 0f;
+                break;
+            case FADE:
+                out.alpha = decelerate(p);
+                break;
+            case RISE: {
+                float e = overshoot(p);
+                out.dy = (1f - e) * fontPx * 0.9f;
+                out.alpha = Math.min(1f, p * 2f); // opaque well before it settles
+                break;
+            }
+            case GHOST: {
+                float e = decelerate(p);
+                out.dx = (1f - e) * fontPx * 0.35f;
+                out.scale(lerp(1.18f, 1f, e));
+                out.blurPx = (1f - e) * fontPx * 0.18f;
+                out.alpha = e;
+                break;
+            }
+            case BEAM: {
+                float e = decelerate(p);
+                out.scaleX = lerp(0.05f, 1f, e);
+                out.scaleY = lerp(2.0f, 1f, e);
+                out.alpha = Math.min(1f, p * 3f);
+                break;
+            }
+            default:
+                break;
+        }
+        return out;
+    }
+
+    /** Convenience: {@link #unitProgress} straight into {@link #presetTransform}. */
+    @NonNull
+    public static Transform presetTransformAt(@NonNull Preset preset, long mediaMs,
+                                              long itemStartMs, long itemEndMs,
+                                              long inZoneMs, long outZoneMs,
+                                              int unitIndex, int unitCount, float fontPx) {
+        float p = unitProgress(mediaMs, itemStartMs, itemEndMs, inZoneMs, outZoneMs,
+                unitIndex, unitCount);
+        return presetTransform(preset, p, fontPx);
+    }
+
+    // ── Unit splitting ───────────────────────────────────────────────────────────────────────
+
+    /**
+     * Cut {@code text} into the independently-animating units of a {@link Granularity}, as
+     * {@code [startOffset, endOffset)} character ranges into the ORIGINAL string — offsets rather
+     * than substrings so a renderer can lay the text out once and animate slices of that layout,
+     * which is what makes LETTER affordable.
+     *
+     * <p>Whitespace between units is never itself a unit; it belongs to no one and is drawn
+     * unanimated. LTR only for v1, per the spec — no grapheme clustering, so a combining mark
+     * animates as its own letter.</p>
+     */
+    @NonNull
+    public static int[][] splitUnits(@NonNull String text, @NonNull Granularity g) {
+        int n = text.length();
+        if (n == 0) return new int[0][];
+        if (g == Granularity.BLOCK) return new int[][]{{0, n}};
+
+        java.util.List<int[]> out = new java.util.ArrayList<>();
+        if (g == Granularity.LETTER) {
+            for (int i = 0; i < n; i++) {
+                if (!Character.isWhitespace(text.charAt(i))) out.add(new int[]{i, i + 1});
+            }
+        } else if (g == Granularity.WORD) {
+            int start = -1;
+            for (int i = 0; i < n; i++) {
+                boolean ws = Character.isWhitespace(text.charAt(i));
+                if (!ws && start < 0) start = i;
+                if (ws && start >= 0) {
+                    out.add(new int[]{start, i});
+                    start = -1;
+                }
+            }
+            if (start >= 0) out.add(new int[]{start, n});
+        } else { // SENTENCE
+            int start = -1;
+            for (int i = 0; i < n; i++) {
+                char c = text.charAt(i);
+                if (start < 0 && !Character.isWhitespace(c)) start = i;
+                if (start >= 0 && (c == '.' || c == '!' || c == '?' || c == '\n')) {
+                    // Absorb a run of trailing terminators so "?!" is one sentence, not two.
+                    int end = i + 1;
+                    while (end < n && (text.charAt(end) == '.' || text.charAt(end) == '!'
+                            || text.charAt(end) == '?')) {
+                        end++;
+                    }
+                    out.add(new int[]{start, end});
+                    start = -1;
+                    i = end - 1;
+                }
+            }
+            if (start >= 0) out.add(new int[]{start, n});
+        }
+        return out.toArray(new int[0][]);
+    }
+
+    // ── Easing, as pure math ─────────────────────────────────────────────────────────────────
+
+    /** Android's {@code DecelerateInterpolator(1.0)}. */
+    private static float decelerate(float t) {
+        return 1f - (1f - t) * (1f - t);
+    }
+
+    /** Android's {@code OvershootInterpolator(2.2f)}. May exceed 1 — that IS the overshoot. */
+    private static float overshoot(float t) {
+        float s = 2.2f;
+        float u = t - 1f;
+        return u * u * ((s + 1f) * u + s) + 1f;
     }
 
     private static float lerp(float from, float to, float t) {

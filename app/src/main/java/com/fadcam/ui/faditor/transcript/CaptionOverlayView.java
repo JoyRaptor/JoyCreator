@@ -309,14 +309,13 @@ public class CaptionOverlayView extends View {
         // Active word: colour + entrance animation, evaluated by the ONE authority at the
         // current MEDIA time (CaptionAnimator) rather than by a wall-clock ValueAnimator.
         CaptionAnimator.Transform tf = CaptionAnimator.transform(style, emphasisValue, fontPx);
-        float scale = tf.scale;
         float dy = tf.dy;
         float wordCx = x + ww / 2f;
         float wordCy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
         canvas.save();
         canvas.translate(0, dy);
-        canvas.scale(scale, scale, wordCx, wordCy);
+        canvas.scale(tf.scaleX, tf.scaleY, wordCx, wordCy);
         paintWord(canvas, word, x, baseY, style.activeColor, fontPx);
         canvas.restore();
     }

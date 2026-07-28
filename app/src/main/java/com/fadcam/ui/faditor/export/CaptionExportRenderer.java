@@ -213,14 +213,13 @@ public class CaptionExportRenderer {
         com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform tf =
                 com.fadcam.ui.faditor.transcript.CaptionAnimator.transform(
                         style, emphasisValue, fontPx);
-        float scale = tf.scale;
         float dy = tf.dy;
         float wordCx = x + ww / 2f;
         float wordCy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
         canvas.save();
         canvas.translate(0, dy);
-        canvas.scale(scale, scale, wordCx, wordCy);
+        canvas.scale(tf.scaleX, tf.scaleY, wordCx, wordCy);
         paintWord(word, x, baseY, style.activeColor, fontPx);
         canvas.restore();
     }

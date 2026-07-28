@@ -91,23 +91,23 @@ names."* The decision was recorded and never applied: `FaditorEditorActivity:117
 Rename row, the dialog persists a name, pushes an undo step and writes to disk, and
 `LayerRowRenderer` never draws a track name anywhere. The user types a name and sees nothing.
 
-**3d. Cut smoothness — HYBRID BUILT + MEASURED 2026-07-28. Verdict: it is very nearly a waste,
-and here is the number.** `KeyframeAlignment` probes each window start and claims
-`setStartsAtKeyFrame` only where it is genuinely true (cached; ~15ms/start; bounded to 120ms per
-build; skips counted, never silent). Measured over two projects, **7 real window starts, 0
-aligned** — nearest sync sample 98/121/334/381/406ms away, keyframes ~1.0s apart. Only an
-in-point of **0** (never trimmed at the head) earns the flag.
-**A user trim has ~1-in-1000 odds of landing on a keyframe, and file length does not change that**
-— a longer file has more cuts, not better-aligned ones, which is why the 45-minute project was
-not needed to answer it. The `0.887× → 0.999×` figure below came from forcing the flag on EVERY
-window (the unsafe version); a trimmed timeline keeps its 250–330ms rebuild per cut.
-Kept because it is free after the first build and does pay for whole-clip timelines, split
-children inheriting in=0, and short-GOP sources. **The `KFALIGN` log line reports the hit rate per
-project — if it says 0%, the feature is doing nothing there and says so.**
-*Open question for the user: worth keeping, or delete it? It is ~170 lines for a benefit that is
-zero on a normally-trimmed timeline.*
+**3d. Cut smoothness — BUILT, MEASURED, and DELETED. CLOSED, do not rebuild it.**
+The hybrid was implemented (`7b3edff`), measured, and reverted on the user's decision
+(`bd2bd58`, 2026-07-28): *"170 nearly useless lines? 1-in-1000 odds of landing on a keyframe.
+lets not bloat the codebase."*
 
-<details><summary>Original entry (kept for the root-cause record)</summary>
+**The number, so nobody re-derives it:** over two projects, **7 real window starts, 0 aligned.**
+Nearest sync sample 98/121/334/381/406ms away; keyframes ~**1.0s** apart (standard ~30-frame
+camera GOP). Only an in-point of **0** — a clip never trimmed at the head — ever earns the flag.
+A millisecond-precision trim therefore has ~**1-in-1000** odds of landing on a keyframe, and
+**file length does not change this**: a longer file has more cuts, not better-aligned ones, which
+is why the 45-minute project was never needed to settle it.
+The `0.887× → 0.999×` figure below is real but came from forcing the flag on EVERY window — the
+unsafe version, which asserts a keyframe start that isn't there and buys a corrupt first frame.
+**A trimmed timeline keeps its 250–330ms renderer rebuild at every cut. That is the accepted
+cost.** If cut smoothness is ever revisited it needs a different mechanism entirely, not this one.
+
+<details><summary>Original entry + root cause (kept — the mechanism is still true)</summary>
 
 **Cut smoothness — HYBRID, approved to execute, then PROVE IT EARNS ITS PLACE.**
 Root cause is exact: `DefaultMediaSourceFactory:589`

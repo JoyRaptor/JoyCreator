@@ -92,6 +92,36 @@ public final class CaptionPhrases {
     }
 
     /**
+     * The largest in/out zone that still CHANGES anything, in source ms — half the longest
+     * phrase, because {@link CaptionAnimator#zoneForSpan} caps every phrase's zone at half its
+     * own span.
+     *
+     * <h3>Why the tape handles need this</h3>
+     * The zones are stored as absolute durations on the CLIP but spent against each PHRASE, and
+     * phrases are short (six words, capped) while clips are long. So a handle that mapped its
+     * travel linearly onto the clip's tape would put its entire useful range in the first few
+     * percent: on a 60s clip every position from ~3% to the centre stores a zone that saturates
+     * every phrase, and the handle would feel broken for 94% of its travel.
+     *
+     * <p>Mapping full inward travel to THIS value instead keeps both endpoints of the user's
+     * stated model exactly true — handle at the end is zero and therefore off; handle at the
+     * centre makes every phrase finish arriving exactly as it starts leaving — and makes every
+     * position in between distinct. The travel is compressed relative to the tape; the meaning
+     * is not.</p>
+     *
+     * @return 0 when nothing is drawn, in which case there is no animation to time and the
+     *         handles should not be offered at all
+     */
+    public long maxUsefulZoneMs() {
+        long longest = 0L;
+        for (int i = 0; i < phrases.size(); i++) {
+            long[] s = spanMs(i);
+            if (s != null) longest = Math.max(longest, s[1] - s[0]);
+        }
+        return longest / 2;
+    }
+
+    /**
      * The phrase's span in SOURCE ms — from the first visible word's start to the last visible
      * word's end. This is the animating object's tape: the in/out zones are measured against it,
      * so a phrase of continuous speech animates in and out on its own, rather than only the

@@ -1,9 +1,9 @@
 # SPEC: Animated text (and animated timers)
 
-**Status 2026-07-28 (evening): THE ANIMATION RUNS.** Model, storage, preview and export are
-done and committed. What is missing is the AUTHORING UI — the tape handles and the preset
-picker — so today the feature is reachable only by editing `project.json`. Read "Where this
-actually is" before touching code.
+**Status 2026-07-28 (late): THE FEATURE IS AUTHORABLE.** Engine, storage, preview, export AND
+the authoring UI are done and committed. `project.json` is no longer the only way in. What is
+NOT done is the on-device capture of a large-amplitude frame — no device was attached when the
+UI landed, so that evidence is still outstanding. Read "Where this actually is" first.
 
 Requested by the reporter directly after the countdown-timer feature landed; the two are
 related and should share machinery.
@@ -54,22 +54,65 @@ so any future wall-clock term fails the harness instead of failing quietly in an
 - **Presets compose with `CaptionStyle.Anim` rather than replacing it** — those three are an
   active-word emphasis (1.15× at rest), not an entrance.
 
-### NOT STARTED — the authoring UI, which is the whole remaining feature
+### DONE — the authoring UI
 
-1. **Tape `>` `<` handles.** Precedent to copy is exact: the slide freeze-zone handles in
-   `EditorTimelineView` (`hitTestFreezeHandle` :7187, `doFreezeDrag` :7199, `finishFreezeDrag`
-   :7221, `drawSlideFreezeHandles` :7245, `drawFreezeMarker` :7265 — already triangle carets),
-   with the undo step at `FaditorEditorActivity:1661` (`LambdaAction`). Note their hit-test is
-   deliberately TIGHT and checked BEFORE the outer trim handles.
-2. **Preset grid + granularity selector.** Reuse `EasePickerPopover` — a 4-column grid of tiles
-   that render their own thumbnail from the evaluator, which is precisely the reporter's
-   "KineMaster keyframe-curve picker, but presets". The caption drawer is built
-   programmatically in `FaditorEditorActivity.buildCaptionDrawerContent` :14837; the existing
-   Pop/Zoom/Bounce row is :14950 and the icon-button helper is `addCaptionActionIcon` :15179.
-   **The picker must filter on `Preset.implemented`** — five presets are declared but cannot be
-   expressed as a `Transform` yet.
-3. Strings are HARDCODED with a `// TODO(strings)` marker here — the extraction is frozen
-   behind the rebrand (`road_map.md:49`). Follow that, do not "fix" it.
+| Piece | Where |
+|---|---|
+| Tape `▶` `◀` carets + zone tint (amber) | `EditorTimelineView.drawCaptionAnimHandles` / `hitTestCaptionAnimHandle` |
+| Caret ↔ zone mapping, as pure math | `CaptionAnimator.caretFractionForZone` / `zoneFromCaretFraction` |
+| The caret's meaningful range | `CaptionPhrases.maxUsefulZoneMs` |
+| Preset grid + granularity, tiles drawn from the evaluator | `TextAnimPickerPopover` |
+| "A in motion" entry point + Motion row | `FaditorEditorActivity.makeTextMotionIcon`, `buildCaptionDrawerContent` |
+| Undo for zones / preset / granularity | `applyCaptionAnimZones`, `applyCaptionAnimPreset`, `applyCaptionAnimGranularity` |
+| 145 off-device checks (was 131) | `tools/jvm-harness/CaptionAnimatorTest.java` |
+
+The carets copy the slide freeze-zone precedent exactly — tight hit-test, checked BEFORE the
+outer trim handles, `LambdaAction` undo — with ONE deliberate departure: **the freeze carets
+convert px through `getTrimmedDurationMs()` (timeline ms), and these must not.** The caption
+zones are SOURCE ms, so `finishCaptionAnimDrag` never divides by the speed multiplier. Copying
+that line unchanged would have halved every zone on a 2× clip, which is precisely the §3g class
+of defect one level over.
+
+Strings are HARDCODED with `// TODO(strings)` — the extraction is frozen behind the rebrand
+(`road_map.md:49`). Follow that, do not "fix" it.
+
+### DONE — decisions forced while building the UI, each with its reasoning
+
+- **The caret's travel is scaled to what actually changes, not to the tape.** The zones are
+  absolute durations on the CLIP but spent against each PHRASE, and phrases are short while clips
+  are long. A caret mapped linearly onto the tape would put its whole useful range in the first
+  few percent — on a 60s clip every position from ~3% to the centre saturates every phrase, so
+  94% of the travel would be dead and the control would feel broken. Full inward travel therefore
+  maps to `CaptionPhrases.maxUsefulZoneMs()` (half the longest VISIBLE phrase). Both endpoints of
+  the reporter's model stay exactly true — caret at the end is off, caret at the centre means
+  every phrase finishes arriving as it starts leaving — and every position between them is
+  distinct. Pinned by `caretMapping()` in the harness.
+- **Measured on the TRIMMED window, not the whole source transcript.** A phrase outside the trim
+  is not drawn, so it must not scale a handle against text the user cannot see.
+- **Picking a preset with both carets at the ends seeds an entrance.** Zero zones ARE the off
+  state — that is the timing model and why there is no enable switch — but it means every tile in
+  the picker would apply cleanly and change nothing on a fresh clip. Choosing a preset is an
+  explicit request to animate, so it seeds half the usable entrance range, in the SAME undo step,
+  and the carets then show what happened.
+- **The carets appear only while the caption drawer is open.** A captioned clip is commonly
+  selected for reasons unrelated to animating it, and two extra carets competing with the trim
+  handles for the tape edges is clutter the rest of the time.
+- **The emphasis row is relabelled "Highlight".** Pop/Zoom/Bounce are the active-word emphasis;
+  the new row is the entrance/exit. Both being called "Animation" read as if one were redundant.
+
+### KNOWN GAP — GHOST ships without its blur
+
+`Transform.blurPx` is computed by GHOST and **consumed by no renderer**, so GHOST is currently
+slide + shrink + fade. The picker's thumbnail deliberately omits the blur to match, because a
+tile that advertises softness the app never draws is the exact failure a thumbnail-from-the-
+evaluator exists to prevent.
+
+This is recorded rather than quietly fixed because the obvious fix is a trap: `BlurMaskFilter` is
+ignored on a hardware-accelerated canvas, so adding it to the preview alone does nothing on
+screen while the export — which draws into a `Bitmap`, i.e. software — really would blur. That is
+a preview/export divergence no frame-diff of the preview would catch. Blurring the preview needs
+`LAYER_TYPE_SOFTWARE` on the overlay, which costs every frame of playback. It is a decision with
+a price, not an oversight to patch. Full reasoning is on `CaptionAnimator.Transform#blurPx`.
 
 ---
 ## The timing model — the reporter's, 2026-07-28 (BINDING)
@@ -180,7 +223,7 @@ are v1.**
 - **Per-letter is the cost centre.** Word-level stays cheap; per-glyph means per-glyph layout and
   transforms in both preview and export. Budget accordingly.
 
-## Open questions — three answered, one still open
+## Open questions — all answered; one wants the reporter's sign-off
 
 - ~~Does per-glyph layout need RTL / combining marks?~~ **LTR-only for v1.**
 - ~~Do animation zones belong on the item or the preset instance?~~ **On the item**, mirroring
@@ -188,27 +231,55 @@ are v1.**
 - ~~Does export need a frame-rate-independent formulation?~~ **Time-based**, so the fixed-30fps
   export path (`TimerText.DEFAULT_FPS`) and the live preview agree by construction. Already how
   `CaptionAnimator` works.
-- **STILL OPEN:** which of the ten presets are v1, and the exact composition order against
-  existing keyframes.
+- ~~Which of the ten presets are v1?~~ **The six that are implemented** — NONE, TYPEWRITER, FADE,
+  RISE, GHOST, BEAM. This was never really a taste question: the picker filters on
+  `Preset.implemented`, and the other five return identity, so shipping them would ship five
+  tiles that do nothing. The taste question that remains is which of the five to BUILD next, and
+  that one is genuinely the reporter's.
+- ~~The exact composition order against existing keyframes.~~ **Answered by reading what both
+  renderers already do, and now written down** (below). It was undefined in prose, not in code —
+  and the two paths already agree, which is the part that mattered.
+
+### Composition order (as implemented in BOTH renderers — reporter to confirm the taste)
+
+`CaptionOverlayView.drawUnit` and `CaptionExportRenderer.drawUnit` compose identically:
+
+1. **A caption-style keyframe selects the style** at the current time. That style carries
+   `Anim` (POP / ZOOM / BOUNCE), so a keyframe changes WHICH emphasis is in play.
+2. **The preset transform is computed first** from `unitProgress` — the tape carets' timing.
+3. **The active word's emphasis multiplies over it**: `scaleX/scaleY` multiply, `dy` adds. The
+   preset's `alpha` alone gates whether the unit draws at all.
+
+So the preset never replaces the emphasis, and a keyframed style change never fights the
+entrance: one is a transient arrival, the other a permanent 1.15× on the spoken word. **The order
+is not in question — it is the same in both paths and pinned by the harness. What the reporter
+may still want to change is the FEEL** (e.g. whether emphasis should be suppressed during an
+entrance rather than multiplied into it).
 
 ## Suggested next steps for whoever picks this up
 
-Steps 1 and 2 of the old list are DONE (the unification is verified, and the fields persist and
-round-trip). What is left is the authoring UI, in this order:
+Engine, persistence and the authoring UI are all DONE. `docs/project-schema.md` is caught up too
+— the four `captionAnim*` rows, the `SCHEMA_VERSION` correction (11 → 12) and the previously
+undocumented `GeneratedSource.freezeStartMs`/`freezeEndMs` all landed with the UI.
 
-1. **Tape `>` `<` handles**, copying the slide freeze-zone handles named above. They write
-   `Clip.setCaptionAnimZones(in, out)` — one setter, because the clamp is on the SUM. Darken the
-   dragged-in regions, per the reporter. The handles are the timing for every preset at every
-   granularity; there is no separate enable switch because zero-length zones ARE "off".
-2. **Preset grid + granularity selector** in the caption drawer, filtered on
-   `Preset.implemented`.
-3. **Capture the large-amplitude device frame** the current evidence is missing — once the
-   handles exist the playhead can be placed inside an entrance without hunting for it.
+What is left, in order:
+
+1. **Capture the large-amplitude device frame the evidence is still missing.** This is the ONLY
+   unfinished item from the previous handoff. It could not be done when the UI landed because no
+   device was attached. It is now much easier than it was: open the caption drawer, drag the `▶`
+   caret well in, and the entrance is a known span at a known place instead of something to hunt
+   for. The existing proof (2901 px changed, bounding box exactly the caption text, zero pixels
+   elsewhere) shows the plumbing works; it does not show the LOOK, because the sampled frame sat
+   at the zone saturation point where progress is 1 by construction.
+2. **Walk the UI once on-device for the things a harness cannot see:** that the amber carets are
+   grabbable without stealing edge grabs from the trim handles, that the popover's tiles read as
+   distinct at 60dp, and that LETTER granularity on a long phrase does not drop frames (it is the
+   cost centre — per-glyph layout in both paths).
+3. **Decide GHOST's blur** — see "KNOWN GAP" above. It is a real decision with a performance
+   price, not a bug to fix in passing.
 4. Only then add more presets, one at a time, as data driven by `unitProgress` — and never any
-   easing arithmetic outside `CaptionAnimator`.
-5. `docs/project-schema.md` needs the four `captionAnim*` rows; its stated `SCHEMA_VERSION = 11`
-   is also behind the code's 12, and `GeneratedSource.freezeStartMs`/`freezeEndMs` were never
-   documented there either.
-
-**Two things still need the reporter, and should not be guessed:** which of the ten presets are
-v1, and the composition order against existing keyframes.
+   easing arithmetic outside `CaptionAnimator`. The five unimplemented ones each name what they
+   need; **which to build next is the reporter's call.**
+5. The retrigger-on-value-change requirement (a timer wanting a pop on each TICK) is **still not
+   addressed in `CaptionAnimator`** — it is an event, not a function of elapsed time, and the
+   spec warns it is painful to retrofit. It is untouched by this work.

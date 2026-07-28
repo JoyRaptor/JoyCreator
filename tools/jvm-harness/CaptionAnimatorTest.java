@@ -1,5 +1,8 @@
 import com.fadcam.ui.faditor.transcript.CaptionAnimator;
+import com.fadcam.ui.faditor.transcript.CaptionPhrases;
 import com.fadcam.ui.faditor.transcript.CaptionStyle;
+import com.fadcam.ui.faditor.transcript.Transcript;
+import com.fadcam.ui.faditor.transcript.TranscriptWord;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -33,6 +36,9 @@ import static com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity.WORD;
  *     tools/jvm-harness/stubs/androidx/annotation/*.java \
  *     tools/jvm-harness/stubs-caption/com/fadcam/ui/faditor/transcript/CaptionStyle.java \
  *     app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java \
+ *     app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionPhrases.java \
+ *     app/src/main/java/com/fadcam/ui/faditor/transcript/Transcript.java \
+ *     app/src/main/java/com/fadcam/ui/faditor/transcript/TranscriptWord.java \
  *     tools/jvm-harness/CaptionAnimatorTest.java
  *   java -cp tools/jvm-harness/out-caption CaptionAnimatorTest
  */
@@ -68,6 +74,7 @@ public class CaptionAnimatorTest {
         presetShapes();
         unitSplitting();
         phraseUnits();
+        caretMapping();
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
@@ -374,5 +381,68 @@ public class CaptionAnimatorTest {
                     render("   ", CaptionAnimator.splitUnits("   ", g)).replaceAll("[\\[\\]| ]", "")
                             .isEmpty());
         }
+    }
+
+    // ── The tape carets: what the user drags <-> what gets stored ───────────────────────────
+
+    static Transcript t(long[]... spans) {
+        Transcript t = new Transcript();
+        for (long[] s : spans) t.words.add(new TranscriptWord("w", s[0], s[1]));
+        return t;
+    }
+
+    static void caretMapping() {
+        System.out.println("\n── maxUsefulZoneMs: the caret's travel covers what actually changes ──");
+        // One phrase, 0..1000ms (words are within the 550ms gap rule and under the 6-word cap).
+        CaptionPhrases one = CaptionPhrases.of(t(new long[]{0, 400}, new long[]{500, 1000}));
+        ok("one phrase -> half its span", one.maxUsefulZoneMs() == 500);
+
+        // Two phrases split by a >550ms gap. The LONGER one sets the travel: a zone that still
+        // changes the longest phrase must remain reachable, even though it saturates the shorter.
+        CaptionPhrases two = CaptionPhrases.of(t(
+                new long[]{0, 200},          // phrase 0: span 200
+                new long[]{2000, 4000}));    // phrase 1: span 2000
+        ok("two phrases -> half the LONGEST span", two.maxUsefulZoneMs() == 1000);
+
+        ok("nothing drawn -> no travel, so no carets are offered",
+                CaptionPhrases.of(new Transcript()).maxUsefulZoneMs() == 0);
+        ok("a null transcript does not throw", CaptionPhrases.of(null).maxUsefulZoneMs() == 0);
+
+        System.out.println("\n── caret fraction <-> zone round-trips ──");
+        long max = 1000;
+        eqF("caret at the end is the off state", 0f,
+                CaptionAnimator.caretFractionForZone(0, max));
+        eqF("caret at the centre is full travel", 1f,
+                CaptionAnimator.caretFractionForZone(max, max));
+        eqF("a zone past the useful range still pins the caret at the centre", 1f,
+                CaptionAnimator.caretFractionForZone(99_999, max));
+        ok("zero stored is zero back", CaptionAnimator.zoneFromCaretFraction(0f, max) == 0);
+        ok("full travel stores the whole useful range",
+                CaptionAnimator.zoneFromCaretFraction(1f, max) == max);
+        ok("a fraction past 1 is clamped, not extrapolated",
+                CaptionAnimator.zoneFromCaretFraction(5f, max) == max);
+        ok("a negative fraction is clamped to the off state",
+                CaptionAnimator.zoneFromCaretFraction(-3f, max) == 0);
+        ok("no useful range -> every caret position stores nothing",
+                CaptionAnimator.zoneFromCaretFraction(1f, 0) == 0);
+
+        // The property that matters: a caret dragged and then redrawn must land back where the
+        // finger left it. A drift here would make a zone creep every time the view is rebuilt.
+        boolean roundTrips = true;
+        for (int i = 0; i <= 100; i++) {
+            float f = i / 100f;
+            long zone = CaptionAnimator.zoneFromCaretFraction(f, max);
+            float back = CaptionAnimator.caretFractionForZone(zone, max);
+            if (Math.abs(back - f) > 1e-3f) roundTrips = false;
+        }
+        ok("caret -> zone -> caret is stable across the whole travel", roundTrips);
+
+        // And the model's headline property, end to end: full travel on BOTH carets means every
+        // phrase finishes arriving exactly as it starts leaving.
+        long span = two.spanMs(1)[1] - two.spanMs(1)[0];
+        long full = CaptionAnimator.zoneFromCaretFraction(1f, two.maxUsefulZoneMs());
+        ok("both carets at the centre: entrance ends exactly where the exit begins",
+                CaptionAnimator.zoneForSpan(full, span)
+                        + CaptionAnimator.zoneForSpan(full, span) == span);
     }
 }

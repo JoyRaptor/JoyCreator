@@ -169,7 +169,7 @@ player package. The human-facing slider was correctly hidden behind `if (false)`
 saying the feature is unimplemented; the AI copy was missed. User has said ducking is low
 priority, so the fix is to stop the assistant claiming it happened, not to build ducking.
 
-**3g. Text animation presets — IN PROGRESS. Steps 1–3 landed, authoring UI is what remains.**
+**3g. Text animation presets — BUILT AND AUTHORABLE. One piece of EVIDENCE is still outstanding.**
 Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
 
 | Step | State | Commit |
@@ -177,11 +177,49 @@ Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
 | 1. One evaluator (`CaptionAnimator`), preview and export on the same clock | DONE | `95dc7e2` |
 | 2. Presets + granularity + unit splitting, with a harness | DONE | `5cc34fd` |
 | 3. Persist on `Clip`, round-trip, and RUN in both renderers | DONE | `c7b6359` |
-| 4. Tape `>` `<` handles (the visible half of the timing model) | NOT STARTED | — |
-| 5. Preset grid picker + granularity selector in the caption drawer | NOT STARTED | — |
+| 4. Tape `▶` `◀` carets (the visible half of the timing model) | DONE | see below |
+| 5. Preset grid picker + granularity selector in the caption drawer | DONE | see below |
+| 6. **Large-amplitude device frame** | **NOT CAPTURED** | — |
 
-**Today the four fields are reachable only by editing `project.json`.** That is exactly the
-state §3a was in when it got lost, so it stays here until step 5 ships.
+**The four fields are no longer `project.json`-only**, so this is out of the §3a failure mode.
+It stays in §3 rather than moving to §1 because step 6 is unproven: no device was attached when
+the UI landed, so the UI has been verified by build and by harness, **not by a human or a phone
+looking at it.** Nothing here claims otherwise.
+
+**How steps 4–5 were verified, and the limit of that verification.** The harness grew from 131 to
+**145 checks**, all passing, with the new ones (`caretMapping`) pinning the caret↔zone round-trip
+across its whole travel and the model's headline property end to end — both carets at full travel
+means entrance ends exactly where exit begins. The APK was dex-scanned for the new symbols
+(`TextAnimPickerPopover`, `CAPTION_ANIM_IN_HANDLE`, `zoneFromCaretFraction`, `maxUsefulZoneMs`,
+`applyCaptionAnimPreset`) **and for `FadCamApplication` + `FaditorEditorActivity` as the positive
+control** — the check the 2026-07-28 partial-dex trap defeated. Class files and APK both postdate
+the last source edit. **What none of that proves:** that the carets are grabbable in a real
+thumb's-width without stealing edge grabs from the trim handles, that the tiles read as distinct
+at 60dp, or that LETTER granularity holds frame rate. Those need the phone.
+
+**Two defects found and fixed by reviewing this work before believing it:**
+- `captionAnimTarget()` used `getSelectedClip()` alone, so with an AUDIO clip's captions selected
+  the Motion row would have appeared and then silently written to whatever video clip happened to
+  be selected underneath. Now gated on `getSelectedAudioIndex()`, the same test
+  `tweakCaptionStyle` uses. This is the concrete instance of the "audio-clip captions have NO
+  animation" note below.
+- The caret's scale was computed from the FULL source transcript rather than the trimmed window,
+  so words outside the trim — which are never drawn — could stretch the handle's travel.
+
+**New decisions, with their reasoning, so they are not re-litigated:**
+- **Caret travel is scaled to `CaptionPhrases.maxUsefulZoneMs()`, not to the tape.** Zones are
+  absolute durations on the clip but spent per PHRASE, and phrases are short while clips are long,
+  so a linear map onto the tape would leave ~94% of a 60s clip's travel dead. Full travel now
+  means "half the longest visible phrase", which keeps both endpoints of the user's model exactly
+  true and makes every position between them distinct.
+- **Choosing a preset with both carets at the ends seeds an entrance zone**, in the same undo
+  step. Zero zones ARE off by design — but without this, every tile in the picker would apply
+  correctly and change nothing on screen, and the feature would read as broken on first use.
+- **The carets show only while the caption drawer is open.** Otherwise every captioned clip
+  carries two extra carets competing with the trim handles for its edges.
+- **`finishCaptionAnimDrag` does NOT divide by the speed multiplier**, unlike the freeze-caret
+  precedent it otherwise copies line for line. The freeze zones are timeline ms; these are source
+  ms. Copying that one line unchanged would have halved every zone on a 2× clip.
 
 **How step 1 was verified** (the handoff asked for it before anything was built on top):
 preview computes `inPoint + positionInCurrentSegmentMs * speed` (`FaditorEditorActivity:8121`),
@@ -224,8 +262,23 @@ entrance without hunting.
 - **Audio-clip captions have NO animation.** `AudioClip` deliberately did not get the four
   fields — half-persisted state no UI writes is how features rot. Add it with the UI, not before.
 
-**Still needs the user:** which of the ten presets are v1, and the composition order against
-existing keyframes.
+**Both "still needs the user" questions are now answered — see the spec for the full reasoning:**
+- *Which of the ten presets are v1?* **The six implemented ones.** This was never a taste call:
+  the picker filters on `Preset.implemented`, and the other five return identity, so shipping
+  them would ship five tiles that do nothing. What IS the user's call is which to build next.
+- *Composition order against existing keyframes?* **It was undefined in prose, not in code.** Both
+  renderers already compose identically: a style keyframe selects the style (hence the emphasis),
+  the preset transform is computed from the carets' timing, and the active-word emphasis
+  multiplies over it (scales multiply, `dy` adds; the preset's alpha alone gates the draw). Now
+  written down. **The user may still want to change the FEEL** — e.g. suppressing emphasis during
+  an entrance instead of multiplying into it — but the two paths agreeing was the part that
+  mattered, and they do.
+
+**Still outstanding for §3g:** step 6, the large-amplitude device frame — and a human's eyes on
+the UI.
+
+**Harness command (updated — it now compiles the phrase grouping and transcript too):**
+`javac -nowarn -d tools/jvm-harness/out-caption tools/jvm-harness/stubs/androidx/annotation/*.java tools/jvm-harness/stubs-caption/com/fadcam/ui/faditor/transcript/CaptionStyle.java app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionPhrases.java app/src/main/java/com/fadcam/ui/faditor/transcript/Transcript.java app/src/main/java/com/fadcam/ui/faditor/transcript/TranscriptWord.java tools/jvm-harness/CaptionAnimatorTest.java && java -cp tools/jvm-harness/out-caption CaptionAnimatorTest`
 
 ## 4. DECIDED — settled, do not re-litigate
 

@@ -186,6 +186,11 @@ public class EditorTimelineView extends View {
     // Slide freeze-zone markers + frozen-zone tint (JoyRaptor 2026-07-16)
     private final Paint freezeMarkerPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint freezeZonePaint     = new Paint();
+    // Caption text-animation in/out zone carets + zone tint (SPEC_TEXT_ANIMATION). Amber rather
+    // than the freeze markers' cyan: the two never appear on the same clip, but they sit in the
+    // same place on the tape, so a glance has to say WHICH kind of zone this is.
+    private final Paint captionAnimMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint captionAnimZonePaint   = new Paint();
 
     // Audio track paints
     private final Paint audioTrackBgPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -807,11 +812,24 @@ public class EditorTimelineView extends View {
         TRANSITION_LEFT_HANDLE,
         TRANSITION_RIGHT_HANDLE,
         FREEZE_LEFT_HANDLE,
-        FREEZE_RIGHT_HANDLE
+        FREEZE_RIGHT_HANDLE,
+        CAPTION_ANIM_IN_HANDLE,
+        CAPTION_ANIM_OUT_HANDLE
     }
     private Drag activeDrag = Drag.NONE;
     /** Finger x (scrolled space) while dragging a slide freeze-zone handle. */
     private float freezeDragX;
+    /** Finger x (scrolled space) while dragging a caption text-animation zone caret. */
+    private float captionAnimDragX;
+    /**
+     * Whether the caption in/out carets are offered at all — true only while the caption drawer
+     * is open. They are a text-animation control, and a captioned clip is a common thing to
+     * select for reasons that have nothing to do with animating it; showing two extra grabbable
+     * carets on the tape every one of those times is clutter that also competes with the trim
+     * handles for the edges. Scoping them to the drawer makes them appear exactly when the user
+     * is looking at caption controls.
+     */
+    private boolean captionAnimHandlesVisible = false;
     private float downX, downY;
     private long downTime;
     private int downSegIndex = -1;
@@ -1278,6 +1296,17 @@ public class EditorTimelineView extends View {
          */
         default void onSlideFreezeChanged(int segmentIndex,
                 long freezeStartMs, long freezeEndMs) {}
+        /**
+         * Caption text-animation caret drag finished (SPEC_TEXT_ANIMATION): how long the caption
+         * takes to animate in, and how long to animate out.
+         *
+         * <p><b>Values are SOURCE ms</b>, already clamped — the same base
+         * {@code Clip.setCaptionAnimZones} stores and both caption renderers evaluate against.
+         * They are NOT timeline ms: a zone measured on the timeline would cover the wrong span on
+         * any speed-adjusted clip, which is the exact class of mistake LEDGER §3g was.</p>
+         */
+        default void onCaptionAnimZonesChanged(int segmentIndex,
+                long inSourceMs, long outSourceMs) {}
         /** Double-tap on a generated-slide clip → its code editor sheet. */
         default void onSlideDoubleTapped(int segmentIndex) {}
         /** Called when playhead is seeked. isDragging=true means user is actively dragging,
@@ -1434,6 +1463,8 @@ public class EditorTimelineView extends View {
         trimOverlayPaint.setColor(0x80000000);
         freezeMarkerPaint.setColor(0xFFFFFFFF);
         freezeZonePaint.setColor(0x3300E5FF);
+        captionAnimMarkerPaint.setColor(0xFFFFC107);
+        captionAnimZonePaint.setColor(0x40FFC107);
         trimOverlayPaint.setStyle(Paint.Style.FILL);
         trimRecoverPaint.setColor(0x404CAF50);
         trimRecoverPaint.setStyle(Paint.Style.FILL);
@@ -2341,6 +2372,7 @@ public class EditorTimelineView extends View {
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
             drawSlideFreezeHandles(canvas, segRects.get(selectedIndex));
+            drawCaptionAnimHandles(canvas, segRects.get(selectedIndex));
         }
 
         // Draw audio clips — LEGACY path only. When audio rides the unified renderer rows
@@ -6500,6 +6532,20 @@ public class EditorTimelineView extends View {
             }
         }
 
+        // Caption text-animation carets: same rule as the freeze carets above — tight zone,
+        // checked BEFORE the outer trim handles so a caret resting at zone 0 (just inside the
+        // green bar) is grabbable at all, while a true edge grab still lands on the trim bar.
+        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+            Drag ch = hitTestCaptionAnimHandle(scrolledX, y);
+            if (ch != Drag.NONE) {
+                FLog.d(TAG, "onDown: hit caption anim caret " + ch);
+                activeDrag = ch;
+                captionAnimDragX = scrolledX;
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+        }
+
         // Check trim handles first
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             Drag h = hitTestHandle(scrolledX, y);
@@ -6791,6 +6837,12 @@ public class EditorTimelineView extends View {
             return true;
         }
 
+        if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE
+                || activeDrag == Drag.CAPTION_ANIM_OUT_HANDLE) {
+            doCaptionAnimDrag(scrolledX);
+            return true;
+        }
+
         // Audio trim handle drag
         if (activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
             lastTrimFingerScreenX = x;
@@ -7014,6 +7066,9 @@ public class EditorTimelineView extends View {
             loopChangedDuringDrag = false;
         } else if (last == Drag.FREEZE_LEFT_HANDLE || last == Drag.FREEZE_RIGHT_HANDLE) {
             finishFreezeDrag();
+        } else if (last == Drag.CAPTION_ANIM_IN_HANDLE
+                || last == Drag.CAPTION_ANIM_OUT_HANDLE) {
+            finishCaptionAnimDrag();
         } else if (last == Drag.AUDIO_LEFT_HANDLE || last == Drag.AUDIO_RIGHT_HANDLE) {
             // Audio trim finished — data was already applied during drag
             if (listener != null) {
@@ -7278,6 +7333,196 @@ public class EditorTimelineView extends View {
         }
         p.close();
         canvas.drawPath(p, freezeMarkerPaint);
+    }
+
+    // ── Caption text-animation carets (SPEC_TEXT_ANIMATION) ─────────
+
+    /**
+     * Show or hide the caption in/out carets. Driven by the caption drawer's open state — see
+     * {@link #captionAnimHandlesVisible} for why they are not simply always on.
+     */
+    public void setCaptionAnimHandlesVisible(boolean visible) {
+        if (captionAnimHandlesVisible == visible) return;
+        captionAnimHandlesVisible = visible;
+        invalidate();
+    }
+
+    /**
+     * The selected segment's clip when the caption carets apply to it, else null.
+     *
+     * <p>Generated slides are excluded even when captioned: the slide freeze carets already own
+     * that tape, and two pairs of carets in the same place — one cyan, one amber, with different
+     * meanings and different units — is worse than not offering the second pair there.</p>
+     */
+    @Nullable
+    private Clip selectedCaptionAnimClip() {
+        if (!captionAnimHandlesVisible) return null;
+        if (selectedIndex < 0 || selectedIndex >= segments.size()) return null;
+        Clip c = segments.get(selectedIndex).clip;
+        if (c == null || c.isGeneratedSlide() || !c.hasTranscript()) return null;
+        return captionAnimMaxZoneMs(c) > 0 ? c : null;
+    }
+
+    // Cache for the phrase grouping's max useful zone: recomputing it windows the transcript and
+    // walks every word, and both the hit-test and the draw want it on every frame of a drag. The
+    // key carries everything the answer depends on — the clip, its trim, and the word count — so
+    // a trim drag or a strike edit recomputes rather than being served a stale scale.
+    private String captionAnimCacheKey;
+    private long captionAnimCacheMaxZoneMs;
+
+    /**
+     * The largest zone that still changes anything on this clip, in SOURCE ms. 0 = no carets.
+     *
+     * <p>Measured on the TRIMMED window, matching what the caption renderers draw: a phrase
+     * outside the trim is not on screen, so letting it set the caret's travel would scale the
+     * handle against text the user cannot see.</p>
+     */
+    private long captionAnimMaxZoneMs(@NonNull Clip clip) {
+        com.fadcam.ui.faditor.transcript.Transcript full = clip.getTranscript();
+        if (full == null || full.isEmpty()) return 0L;
+        String key = clip.getId() + '|' + clip.getInPointMs() + '|' + clip.getOutPointMs()
+                + '|' + full.words.size();
+        if (key.equals(captionAnimCacheKey)) return captionAnimCacheMaxZoneMs;
+        long max = com.fadcam.ui.faditor.transcript.CaptionPhrases
+                .of(full.windowed(clip.getInPointMs(), clip.getOutPointMs()))
+                .maxUsefulZoneMs();
+        captionAnimCacheKey = key;
+        captionAnimCacheMaxZoneMs = max;
+        return max;
+    }
+
+    /**
+     * Where a caret's full inward travel ends: the tape's centre, which is the user's stated
+     * "brought all the way into the centre" — every phrase finishing its entrance exactly as it
+     * begins its exit. See {@code CaptionPhrases.maxUsefulZoneMs} for why the travel between the
+     * end and the centre is compressed against the tape rather than measured on it.
+     */
+    private float captionAnimTravelPx(@NonNull RectF seg) {
+        return Math.max(1f, (seg.width() - 2 * handleWidthPx) / 2f);
+    }
+
+    /** Visual x of the entrance caret: inset from the left trim bar by the stored in-zone. */
+    private float captionAnimInX(@NonNull RectF seg, @NonNull Clip clip) {
+        float frac = com.fadcam.ui.faditor.transcript.CaptionAnimator.caretFractionForZone(
+                clip.getCaptionAnimInMs(), captionAnimMaxZoneMs(clip));
+        return seg.left + handleWidthPx + captionAnimTravelPx(seg) * frac;
+    }
+
+    /** Visual x of the exit caret: inset from the right trim bar by the stored out-zone. */
+    private float captionAnimOutX(@NonNull RectF seg, @NonNull Clip clip) {
+        float frac = com.fadcam.ui.faditor.transcript.CaptionAnimator.caretFractionForZone(
+                clip.getCaptionAnimOutMs(), captionAnimMaxZoneMs(clip));
+        return seg.right - handleWidthPx - captionAnimTravelPx(seg) * frac;
+    }
+
+    /**
+     * Hit-test the caption animation carets. Deliberately TIGHT and checked BEFORE the outer trim
+     * handles, exactly as the slide freeze carets are: at zone 0 a caret sits just inside the
+     * green trim bar, and the tight zone is what lets it be grabbed at all while the bar's
+     * generous slop still owns a true edge grab.
+     */
+    private Drag hitTestCaptionAnimHandle(float x, float y) {
+        Clip clip = selectedCaptionAnimClip();
+        if (clip == null || selectedIndex >= segRects.size()) return Drag.NONE;
+        RectF seg = segRects.get(selectedIndex);
+        if (y < seg.top || y > seg.bottom) return Drag.NONE;
+        float zone = handleWidthPx * 0.9f;
+        if (Math.abs(x - captionAnimInX(seg, clip)) <= zone) return Drag.CAPTION_ANIM_IN_HANDLE;
+        if (Math.abs(x - captionAnimOutX(seg, clip)) <= zone) return Drag.CAPTION_ANIM_OUT_HANDLE;
+        return Drag.NONE;
+    }
+
+    /**
+     * Live caret drag. Each caret is clamped to its own half of the tape: at full travel both sit
+     * ON the centre, which is the intended "animates in, and starts animating out the instant it
+     * is in" state rather than a collision to be prevented.
+     */
+    private void doCaptionAnimDrag(float x) {
+        Clip clip = selectedCaptionAnimClip();
+        if (clip == null || selectedIndex >= segRects.size()) return;
+        RectF seg = segRects.get(selectedIndex);
+        float centre = seg.left + handleWidthPx + captionAnimTravelPx(seg);
+        float min, max;
+        if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE) {
+            min = seg.left + handleWidthPx;
+            max = centre;
+        } else {
+            min = centre;
+            max = seg.right - handleWidthPx;
+        }
+        captionAnimDragX = Math.max(min, Math.min(x, max));
+        invalidate();
+    }
+
+    /**
+     * Commit the caret drag: px → SOURCE ms, then notify the listener.
+     *
+     * <p><b>The unit conversion is the whole point of this method.</b> The travel maps onto the
+     * clip's usable zone range, which is already in source ms, so — unlike the freeze carets,
+     * which are clip-window (timeline) ms — there is no speed division anywhere here. Dividing by
+     * the speed multiplier would halve every zone on a 2x clip and put the preview and the export
+     * back on different scales.</p>
+     */
+    private void finishCaptionAnimDrag() {
+        Clip clip = selectedCaptionAnimClip();
+        if (clip == null || selectedIndex >= segRects.size() || listener == null) return;
+        RectF seg = segRects.get(selectedIndex);
+        long maxZone = captionAnimMaxZoneMs(clip);
+        float travel = captionAnimTravelPx(seg);
+        long in = clip.getCaptionAnimInMs();
+        long out = clip.getCaptionAnimOutMs();
+        if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE) {
+            in = com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretFraction(
+                    (captionAnimDragX - seg.left - handleWidthPx) / travel, maxZone);
+        } else {
+            out = com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretFraction(
+                    (seg.right - handleWidthPx - captionAnimDragX) / travel, maxZone);
+        }
+        listener.onCaptionAnimZonesChanged(selectedIndex, in, out);
+        invalidate();
+    }
+
+    /**
+     * The caption in/out carets plus a tint over the two zones — the user's "dragging them inward
+     * darkens those regions to show the in/out zones". A ▶ where the entrance runs, a ◀ where the
+     * exit does; carets resting at the ends mean zero-length zones, which IS the off state and is
+     * why there is no separate enable switch.
+     */
+    private void drawCaptionAnimHandles(Canvas canvas, RectF seg) {
+        Clip clip = selectedCaptionAnimClip();
+        if (clip == null) return;
+        float lx = activeDrag == Drag.CAPTION_ANIM_IN_HANDLE
+                ? captionAnimDragX : captionAnimInX(seg, clip);
+        float rx = activeDrag == Drag.CAPTION_ANIM_OUT_HANDLE
+                ? captionAnimDragX : captionAnimOutX(seg, clip);
+        if (lx > seg.left + handleWidthPx + 1f) {
+            canvas.drawRect(seg.left + handleWidthPx, seg.top, lx, seg.bottom,
+                    captionAnimZonePaint);
+        }
+        if (rx < seg.right - handleWidthPx - 1f) {
+            canvas.drawRect(rx, seg.top, seg.right - handleWidthPx, seg.bottom,
+                    captionAnimZonePaint);
+        }
+        drawCaptionAnimMarker(canvas, lx, seg, true);
+        drawCaptionAnimMarker(canvas, rx, seg, false);
+    }
+
+    private void drawCaptionAnimMarker(Canvas canvas, float x, RectF seg, boolean pointsRight) {
+        float cy = seg.centerY();
+        float h = handleNotchHeightPx * 1.2f;
+        float w = handleWidthPx * 0.8f;
+        android.graphics.Path p = new android.graphics.Path();
+        if (pointsRight) {
+            p.moveTo(x - w / 2f, cy - h / 2f);
+            p.lineTo(x - w / 2f, cy + h / 2f);
+            p.lineTo(x + w / 2f, cy);
+        } else {
+            p.moveTo(x + w / 2f, cy - h / 2f);
+            p.lineTo(x + w / 2f, cy + h / 2f);
+            p.lineTo(x - w / 2f, cy);
+        }
+        p.close();
+        canvas.drawPath(p, captionAnimMarkerPaint);
     }
 
     /**

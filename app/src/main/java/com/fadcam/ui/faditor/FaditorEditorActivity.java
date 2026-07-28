@@ -1691,6 +1691,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onCaptionAnimZonesChanged(int segmentIndex, long inSourceMs,
+                    long outSourceMs) {
+                applyCaptionAnimZones(inSourceMs, outSourceMs);
+            }
+
+            @Override
             public void onLoopTrimFinished(int segmentIndex, long oldBefore, long oldAfter, long newBefore, long newAfter) {
                 // NOTE: as of the resize-revert fix, a loop-extension edge drag fires THIS callback
                 // ONLY (never onTrimFinished — see EditorTimelineView ACTION_UP), because the clip's
@@ -14824,6 +14830,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     .withEndAction(() -> drawer.setVisibility(View.GONE)).start();
         }
         captionDrawerOpen = show;
+        // The tape carets are a caption control, so they appear with the caption drawer — see
+        // EditorTimelineView.captionAnimHandlesVisible for why they are not simply always on.
+        if (editorTimeline != null) editorTimeline.setCaptionAnimHandlesVisible(show);
     }
 
     /**
@@ -14954,7 +14963,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         animRow.setGravity(Gravity.CENTER_VERTICAL);
         root.addView(animRow);
         TextView animLabel = new TextView(this);
-        animLabel.setText("Animation"); // TODO(strings)
+        // "Highlight", not "Animation": these three are the ACTIVE-WORD emphasis (a permanent
+        // 1.15x on the spoken word), and the Motion row below is the entrance/exit animation.
+        // Two different vocabularies that compose — labelling both "Animation" made the drawer
+        // read as if one of them were redundant. TODO(strings)
+        animLabel.setText("Highlight");
         animLabel.setTextColor(0xFFAAAAAA);
         animLabel.setTextSize(12);
         animRow.addView(animLabel);
@@ -14975,6 +14988,69 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             });
             animRow.addView(ab);
+        }
+
+        // ── Row: text motion (entrance/exit preset + granularity) ──────
+        // SPEC_TEXT_ANIMATION. Only for a captioned VIDEO clip: the four captionAnim* fields live
+        // on Clip, and an audio clip's captions have no animation to configure.
+        final Clip motionTarget = captionAnimTarget();
+        if (motionTarget != null) {
+            root.addView(makeDivider(d));
+            LinearLayout motionRow = new LinearLayout(this);
+            motionRow.setOrientation(LinearLayout.HORIZONTAL);
+            motionRow.setGravity(Gravity.CENTER_VERTICAL);
+            root.addView(motionRow);
+
+            TextView motionLabel = new TextView(this);
+            motionLabel.setText("Motion"); // TODO(strings)
+            motionLabel.setTextColor(0xFFAAAAAA);
+            motionLabel.setTextSize(12);
+            motionRow.addView(motionLabel);
+
+            final TextView motionChip = new TextView(this);
+            styleDrawerChip(motionChip, d);
+            motionChip.setText(captionAnimPresetLabel(motionTarget));
+            motionRow.addView(motionChip);
+
+            View motionBtn = makeTextMotionIcon(d);
+            motionRow.addView(motionBtn);
+            View.OnClickListener open = v -> {
+                Clip t = captionAnimTarget();
+                if (t == null) return;
+                TextAnimPickerPopover.show(v,
+                        com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                .parsePreset(t.getCaptionAnimPreset()),
+                        com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                .parseGranularity(t.getCaptionAnimGranularity()),
+                        new TextAnimPickerPopover.OnPick() {
+                            @Override
+                            public void onPreset(@NonNull com.fadcam.ui.faditor.transcript
+                                    .CaptionAnimator.Preset p) {
+                                applyCaptionAnimPreset(p);
+                                Clip now = captionAnimTarget();
+                                if (now != null) motionChip.setText(captionAnimPresetLabel(now));
+                            }
+
+                            @Override
+                            public void onGranularity(@NonNull com.fadcam.ui.faditor.transcript
+                                    .CaptionAnimator.Granularity g) {
+                                applyCaptionAnimGranularity(g);
+                                Clip now = captionAnimTarget();
+                                if (now != null) motionChip.setText(captionAnimPresetLabel(now));
+                            }
+                        });
+            };
+            motionBtn.setOnClickListener(open);
+            motionChip.setOnClickListener(open);
+
+            TextView motionHint = new TextView(this);
+            // The timing lives on the tape, not here — say so once, where the user is looking,
+            // rather than growing a duration control that would contradict the caret model.
+            motionHint.setText("Drag the ▶ ◀ carets on the clip to set timing"); // TODO(strings)
+            motionHint.setTextColor(0xFF777777);
+            motionHint.setTextSize(11);
+            motionHint.setPadding(0, (int)(6*d), 0, 0);
+            root.addView(motionHint);
         }
 
         // ── Rows: colors + box / outline / shadow ──────────────────────
@@ -15097,6 +15173,75 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (dd < bestD) { bestD = dd; best = i; }
         }
         return best;
+    }
+
+    /** The drawer chip's text for a clip's current motion preset. TODO(strings) */
+    @NonNull
+    private String captionAnimPresetLabel(@NonNull Clip clip) {
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .parsePreset(clip.getCaptionAnimPreset());
+        String gran;
+        switch (com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .parseGranularity(clip.getCaptionAnimGranularity())) {
+            case LETTER:   gran = "letter"; break;
+            case SENTENCE: gran = "sentence"; break;
+            case BLOCK:    gran = "block"; break;
+            default:       gran = "word"; break;
+        }
+        switch (p) {
+            case NONE:       return "None";
+            case TYPEWRITER: return "Type · " + gran;
+            case FADE:       return "Fade · " + gran;
+            case RISE:       return "Rise · " + gran;
+            case GHOST:      return "Ghost · " + gran;
+            case BEAM:       return "Beam · " + gran;
+            default:         return p.name();
+        }
+    }
+
+    /**
+     * The reporter's icon for this feature: "an 'A' in motion with motion lines". Drawn rather
+     * than picked from the icon font — no ligature in the set is an A with motion lines, and a
+     * near-miss glyph on the one entry point to a feature is how the feature stays undiscovered.
+     * Same bespoke-View precedent as {@link #makeCaptionPositionToggle}.
+     */
+    @NonNull
+    private View makeTextMotionIcon(float d) {
+        View v = new View(this) {
+            @Override
+            protected void onDraw(android.graphics.Canvas canvas) {
+                super.onDraw(canvas);
+                android.graphics.Paint p = new android.graphics.Paint(
+                        android.graphics.Paint.ANTI_ALIAS_FLAG);
+                float w = getWidth(), h = getHeight();
+                // The "A", pushed right so the motion lines have room to trail it.
+                p.setColor(0xFFEEEEEE);
+                p.setTextAlign(android.graphics.Paint.Align.CENTER);
+                p.setTextSize(h * 0.52f);
+                p.setFakeBoldText(true);
+                canvas.drawText("A", w * 0.62f, h * 0.68f, p);
+                // Three trailing motion lines, shortening and fading with distance.
+                p.setStyle(android.graphics.Paint.Style.STROKE);
+                p.setStrokeWidth(2f * d);
+                p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+                float[] ys = {h * 0.36f, h * 0.52f, h * 0.68f};
+                float[] lens = {0.20f, 0.26f, 0.16f};
+                int[] alphas = {0x66, 0xAA, 0x44};
+                for (int i = 0; i < 3; i++) {
+                    p.setColor((alphas[i] << 24) | 0x00EEEEEE);
+                    float rx = w * 0.34f;
+                    canvas.drawLine(rx - w * lens[i], ys[i], rx, ys[i], p);
+                }
+            }
+        };
+        int wPx = (int)(44*d), hPx = (int)(34*d);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(wPx, hPx);
+        lp.leftMargin = (int)(8*d);
+        v.setLayoutParams(lp);
+        v.setBackgroundResource(R.drawable.floating_button_item_bg);
+        v.setContentDescription("Text motion"); // TODO(strings)
+        return v;
     }
 
     /** Label + color swatch that opens the palette picker. */
@@ -15543,6 +15688,131 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 scheduleAutoSave();
             }
         }
+    }
+
+    // ── Text animation (SPEC_TEXT_ANIMATION step 2) ────────────────────
+    //
+    // The four captionAnim* fields live on Clip only. Audio-clip captions have no animation
+    // fields, so the drawer's motion control is hidden rather than shown-and-inert when an audio
+    // caption is the selection — a control that silently does nothing is the failure mode this
+    // whole area is being cleaned up from.
+
+    /**
+     * The clip these controls act on: the selected clip, if it is captioned.
+     *
+     * <p>Returns null when an AUDIO clip's captions are the current target — the same
+     * {@code getSelectedAudioIndex()} test {@code tweakCaptionStyle} uses. Without it the drawer
+     * would show a motion control while an audio caption is selected and then apply it to
+     * whatever video clip happened to be selected underneath, which is a silent edit to the wrong
+     * object.</p>
+     */
+    @Nullable
+    private Clip captionAnimTarget() {
+        int audioIdx = editorTimeline.getSelectedAudioIndex();
+        if (audioIdx >= 0 && audioIdx < project.getTimeline().getAudioClips().size()) return null;
+        Clip c = getSelectedClip();
+        return (c != null && c.hasTranscript()) ? c : null;
+    }
+
+    /**
+     * Largest in/out zone that still changes anything on this clip, in source ms.
+     *
+     * <p>Measured on the TRIMMED window, not the whole source transcript, because that is what
+     * the caption renderers actually draw — words outside the trim are not on screen and must not
+     * stretch the caret's travel to cover a phrase nobody sees.</p>
+     */
+    private long captionAnimMaxZoneMs(@NonNull Clip clip) {
+        com.fadcam.ui.faditor.transcript.Transcript t = windowedCaptionsFor(clip);
+        if (t == null || t.isEmpty()) return 0L;
+        return com.fadcam.ui.faditor.transcript.CaptionPhrases.of(t).maxUsefulZoneMs();
+    }
+
+    /**
+     * Commit an in/out zone change from the tape carets. Values arrive in SOURCE ms and go
+     * through {@code setCaptionAnimZones}, the one setter, because the clamp is on their SUM.
+     */
+    private void applyCaptionAnimZones(long inSourceMs, long outSourceMs) {
+        final Clip cc = captionAnimTarget();
+        if (cc == null) return;
+        final long beforeIn = cc.getCaptionAnimInMs();
+        final long beforeOut = cc.getCaptionAnimOutMs();
+        cc.setCaptionAnimZones(inSourceMs, outSourceMs);
+        final long afterIn = cc.getCaptionAnimInMs();
+        final long afterOut = cc.getCaptionAnimOutMs();
+        if (beforeIn == afterIn && beforeOut == afterOut) return;
+        // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction("Text animation timing",
+                () -> { cc.setCaptionAnimZones(afterIn, afterOut); bindCaptionData(cc); },
+                () -> { cc.setCaptionAnimZones(beforeIn, beforeOut); bindCaptionData(cc); }));
+        bindCaptionData(cc);
+        editorTimeline.invalidate();
+        scheduleAutoSave();
+    }
+
+    /**
+     * Choose a preset.
+     *
+     * <p><b>Picking a preset with both carets at the ends seeds an entrance zone.</b> Zero-length
+     * zones ARE the off state — that is the timing model and it is why there is no enable switch
+     * — but it means that on a fresh clip every tile in the picker would apply cleanly and change
+     * nothing on screen, and the user would reasonably conclude the feature is broken. Choosing a
+     * preset is an explicit request to animate, so it seeds half the usable entrance range and
+     * leaves the exit at zero. It is one undo step with the preset, and the carets then say
+     * exactly what happened.</p>
+     */
+    private void applyCaptionAnimPreset(
+            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset preset) {
+        final Clip cc = captionAnimTarget();
+        if (cc == null) return;
+        final String before = cc.getCaptionAnimPreset();
+        final long beforeIn = cc.getCaptionAnimInMs();
+        final long beforeOut = cc.getCaptionAnimOutMs();
+        final String after = preset.name();
+
+        long seedIn = beforeIn;
+        if (preset != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                && beforeIn <= 0 && beforeOut <= 0) {
+            seedIn = Math.max(1L, captionAnimMaxZoneMs(cc) / 2);
+        }
+        final long afterIn = seedIn;
+        if (before.equals(after) && beforeIn == afterIn) return;
+
+        cc.setCaptionAnimPreset(after);
+        cc.setCaptionAnimZones(afterIn, beforeOut);
+        final long clampedIn = cc.getCaptionAnimInMs();
+        final long clampedOut = cc.getCaptionAnimOutMs();
+        // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction("Text animation",
+                () -> {
+                    cc.setCaptionAnimPreset(after);
+                    cc.setCaptionAnimZones(clampedIn, clampedOut);
+                    bindCaptionData(cc);
+                },
+                () -> {
+                    cc.setCaptionAnimPreset(before);
+                    cc.setCaptionAnimZones(beforeIn, beforeOut);
+                    bindCaptionData(cc);
+                }));
+        bindCaptionData(cc);
+        editorTimeline.invalidate();
+        scheduleAutoSave();
+    }
+
+    /** Choose what animates as one unit. Orthogonal to the preset — see SPEC_TEXT_ANIMATION. */
+    private void applyCaptionAnimGranularity(
+            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
+        final Clip cc = captionAnimTarget();
+        if (cc == null) return;
+        final String before = cc.getCaptionAnimGranularity();
+        final String after = g.name();
+        if (before.equals(after)) return;
+        cc.setCaptionAnimGranularity(after);
+        // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction("Text animation unit",
+                () -> { cc.setCaptionAnimGranularity(after); bindCaptionData(cc); },
+                () -> { cc.setCaptionAnimGranularity(before); bindCaptionData(cc); }));
+        bindCaptionData(cc);
+        scheduleAutoSave();
     }
 
     /** Deep-copy snapshot of a clip's caption-style keyframe list (for undo capture). */

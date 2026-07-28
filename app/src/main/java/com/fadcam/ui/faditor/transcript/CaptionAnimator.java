@@ -62,9 +62,21 @@ public final class CaptionAnimator {
         /** Alpha multiplier, 0..1. */
         public float alpha = 1f;
         /**
-         * Gaussian blur radius in px, 0 = sharp. GHOST is the only preset that uses it. Renderers
-         * that cannot blur must ignore this rather than approximate it — an approximation here is
-         * exactly the preview/export divergence this class exists to prevent.
+         * Gaussian blur radius in px, 0 = sharp. GHOST is the only preset that sets it.
+         *
+         * <p><b>NO RENDERER CONSUMES THIS TODAY (2026-07-28).</b> Neither {@code
+         * CaptionOverlayView} nor {@code CaptionExportRenderer} applies it, so GHOST currently
+         * ships as slide + shrink + fade with no softening, and the preset picker's thumbnail
+         * deliberately omits the blur to match. This is recorded rather than quietly fixed
+         * because the obvious fix is a trap: {@code BlurMaskFilter} is ignored on a
+         * hardware-accelerated canvas, so adding it to the preview alone would do nothing on
+         * screen while the export — which draws into a {@code Bitmap}, i.e. software — really
+         * would blur. That is the preview/export divergence this class exists to prevent, in a
+         * form no frame-diff of the preview would catch. Blurring the preview needs
+         * {@code LAYER_TYPE_SOFTWARE} on the overlay, which costs every frame of playback, so it
+         * is a decision with a price rather than an oversight to patch.</p>
+         *
+         * <p>Renderers that cannot blur must ignore this rather than approximate it.</p>
          */
         public float blurPx = 0f;
 
@@ -480,6 +492,34 @@ public final class CaptionAnimator {
     public static long zoneForSpan(long storedZoneMs, long spanMs) {
         if (storedZoneMs <= 0 || spanMs <= 0) return 0L;
         return Math.min(storedZoneMs, spanMs / 2);
+    }
+
+    // ── The tape carets ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Where a caret sits, as a fraction of its inward travel: 0 = resting at the end of the tape
+     * (no animation), 1 = at the tape's centre (the unit finishes arriving exactly as it starts
+     * leaving).
+     *
+     * <p>This pair and its inverse live HERE rather than in the timeline view for the same reason
+     * the easing does: it is the mapping between what the user drags and what gets stored, and a
+     * mapping that exists in one place cannot round-trip differently from itself. The view owns
+     * pixels; this owns milliseconds.</p>
+     *
+     * @param maxUsefulZoneMs {@code CaptionPhrases.maxUsefulZoneMs()} — full inward travel. Zero
+     *                        means nothing is drawn, so every caret position means the same thing
+     *                        and the fraction collapses to 0.
+     */
+    public static float caretFractionForZone(long zoneMs, long maxUsefulZoneMs) {
+        if (maxUsefulZoneMs <= 0 || zoneMs <= 0) return 0f;
+        return Math.min(1f, zoneMs / (float) maxUsefulZoneMs);
+    }
+
+    /** The inverse: a caret's travel fraction back to a stored zone in SOURCE ms. */
+    public static long zoneFromCaretFraction(float fraction, long maxUsefulZoneMs) {
+        if (maxUsefulZoneMs <= 0) return 0L;
+        float f = Math.max(0f, Math.min(1f, fraction));
+        return Math.round(maxUsefulZoneMs * (double) f);
     }
 
     // ── Resolving stored values ──────────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@ means:
 
 ## Schema Version Stamping (dual-write, not monotonic-only)
 
-`FaditorProject.SCHEMA_VERSION = 11` is the current build's ceiling, but the
+`FaditorProject.SCHEMA_VERSION = 12` is the current build's ceiling, but the
 serializer does **not** always stamp 11. It stamps the **minimum version the
 project's actual content needs**, so older app builds can still open
 projects that don't use newer features (`ProjectStorage.java` —
@@ -150,6 +150,10 @@ the change to stick — edit the flat lists (`clips`, `textOverlays`,
 | `captionCenterX` | float | no | 0.5 | Caption center X (0.0–1.0). |
 | `captionCenterY` | float | no | 0.82 | Caption center Y (0.0–1.0). |
 | `captionSizeFraction` | float | no | 0.060 | Caption height as fraction of video height. |
+| `captionAnimPreset` | string | no | `"NONE"` | Text-animation preset NAME (`CaptionAnimator.Preset`): `NONE`, `TYPEWRITER`, `FADE`, `RISE`, `GHOST`, `BEAM`. Stored as a name, not an ordinal, so reordering the enum cannot re-point existing projects; an unknown name degrades to `NONE`. **No schema bump** — the field is written only when non-default, and its default is the pre-feature behaviour. |
+| `captionAnimGranularity` | string | no | `"WORD"` | What animates as one unit (`CaptionAnimator.Granularity`): `LETTER`, `WORD`, `SENTENCE`, `BLOCK`. Orthogonal to the preset. Unknown → `WORD`. |
+| `captionAnimInMs` | long | no | 0 | Entrance-zone length in **SOURCE ms** — how far the `▶` tape caret is dragged in from the head. 0 (caret at the end) is the natural "off", which is why there is no separate enable flag. Source ms, not timeline ms: both caption renderers evaluate against source time, so a timeline-ms zone would cover the wrong span on a speed-adjusted clip. |
+| `captionAnimOutMs` | long | no | 0 | Exit-zone length in SOURCE ms — the `◀` caret, dragged in from the tail. Clamped with `captionAnimInMs` so their SUM never exceeds `outPointMs - inPointMs`. |
 | `loopMode` | string | no | null | Loop-extension mode when a still/short clip should visually fill more timeline than its source. |
 | `loopBeforeMs` / `loopAfterMs` | long | no | 0 | Loop padding before/after the trimmed content. |
 | `opacityKeyframes` | object | no | — | Keyframe track for opacity (same shape as overlay keyframes). |
@@ -200,6 +204,8 @@ content-addressed cache — same rule as remuxed media paths, never the truth.
 | `width` / `height` | int | Pixel dimensions the HTML was authored/hashed against. |
 | `styleHint` | string\|null | Style direction given to the AI; kept for "regenerate". |
 | `sourceModel` | string\|null | OpenRouter model id that authored the slide (null = built-in template; `external-paste`/`external-file` = imported via the API-less copy-a-prompt path). |
+| `freezeStartMs` | long | How long the slide holds its FIRST frame before its animation runs, in clip-window (timeline) ms. Set by the inner cyan carets on a selected slide clip. Note the unit differs from the caption `captionAnim*` zones, which are source ms. |
+| `freezeEndMs` | long | How long the slide holds its LAST frame after its animation ends, same units. Clamped so `freezeStartMs + freezeEndMs` never exceeds the trimmed duration. |
 
 Slides can also be authored WITHOUT an API key: the editor's Add-asset → "AI
 slide" flow copies a contract-teaching prompt (embedding a

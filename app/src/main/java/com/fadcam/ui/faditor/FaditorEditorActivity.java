@@ -21633,6 +21633,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 transcriptModelChoice.setVisibility(View.GONE);
                 transcriptView.setVisibility(View.VISIBLE);
                 transcriptView.setTranscript(currentTranscript);
+                // The TAPE has to follow the selection too. The audio branch above already
+                // pushes setAudioClipTranscript; this branch updated only the panel and the
+                // captions, so switching version on a VIDEO clip left the timeline tape showing
+                // the previously-active transcript — different words, different timings, and no
+                // visible response to the picker (user-reported 2026-07-27). Full resync rather
+                // than a single setSegmentTranscript: one transcript object is shared by every
+                // clip of the same source, so a switch can affect more than the selected clip.
+                syncTimelineTranscript();
                 if (captionsActive && clip.getId().equals(captionClipId)) {
                     showCaptionsForClip(clip);
                 }

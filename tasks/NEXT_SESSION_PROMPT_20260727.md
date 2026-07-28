@@ -97,7 +97,19 @@ cost **287ms / 327ms** while a **discontinuous** one (`gap=+404ms`) cost **155ms
 seam machinery itself is the cost, not the seek. Confirmed alongside: whole-playthrough rate
 **0.884× / 0.888×** (a 27.6s project takes ~31s) and per-seam costs of 123–327ms, with a
 control showing 1–8ms drift away from seams so the metric is not manufacturing the deficit.
-**Caveat: that project runs the LEGACY path (`gapless=false`); the gapless path is unverified.**
+**UPDATE 2026-07-28 ~04:40 — the gapless caveat is now CLOSED.** Re-measured on `74e36000`
+(0 transitions, `gapless=true`, 3 playthroughs): the contiguous `gap=+0ms` seam cost
+**348 / 299 / 276ms** vs **123–213ms** for cross-source seams, and the overall rate was
+**0.887× / 0.890× / 0.894×** — indistinguishable from legacy. So gapless does NOT make seams
+cheaper, and the refutation holds on both engines (5 runs, 2 projects). ~90% of the whole
+playthrough deficit sits inside the seam windows, so a fix here is worth real wall-clock.
+Also answered: `cebc19e0` was legacy because **transition projects are gapless-ineligible**
+(`FaditorPlayerManager`), which likely explains its backward playhead jumps too — the gapless
+fixture had zero.
+**BEFORE BUILDING A FIX, kill one confound (one playthrough of work):** in both fixtures the
+contiguous seam sat at the same ordinal position (1→2), so kind and position are entangled.
+`aeb0517e`/`bdd51919` have their `gap=+0` seam at position 2→3 — measure one of those. I
+mis-tapped and did NOT get this measurement, so treat it as unmeasured.
 Method + the reproducible unexplained backward playhead jumps are in handoff §0z
 (2026-07-28 ~04:10). Original (now-refuted) text kept below for context:
 Every clip boundary costs ~150–250ms: playback runs at 0.77–0.91× for ~1s after each seam then

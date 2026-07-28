@@ -4,6 +4,49 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~04:40 — SEAM COST CONFIRMED ON THE GAPLESS PATH TOO; scope caveat CLOSED.
+Closed the caveat the previous entry opened. The refutation is not a legacy-path artifact — it
+holds on the gapless engine, and more strongly.
+
+**Why the earlier fixture was legacy, answered:** `FaditorPlayerManager` — *"transition projects
+are gapless-ineligible"*. `cebc19e0` has 3 transitions, hence `gapless=false`. That also makes
+transitions the likely explanation for that run's backward playhead jumps: the gapless fixture
+here shows **0 backward steps** in all three runs.
+
+**Gapless fixture `74e36000` "bisect B 1x clip0"** (4 clips, 0 transitions, `gapless=true`
+confirmed in the trace), three playthroughs at 50ms:
+
+| seam | kind | run1 | run2 | run3 |
+|---|---|---|---|---|
+| 1→2 | **same source, gap=+0ms — NO seek** | **348ms** | **299ms** | **276ms** |
+| 0→1 | cross source | 180ms | 213ms | 199ms |
+| 2→3 | cross source | 142ms | 148ms | 123ms |
+
+Overall rate **0.887× / 0.890× / 0.894×** — statistically indistinguishable from legacy's
+0.884× / 0.888×. **Gapless does not make seams cheaper.**
+
+**Five runs across two projects and both engines now agree:** the seam needing NO seek is
+consistently the most expensive, roughly double a cross-source seam. The recorded cause
+("a decoder seek into a discontinuous source position") is refuted on both paths.
+
+**Where the time goes:** summing the three seam windows accounts for **91% / 93% / 88%** of the
+whole playthrough's deficit (e.g. run1: 670ms of seam loss out of 735ms total). Outside the seam
+windows playback runs ~0.98–1.00×. So this is not diffuse slowness — it is concentrated at the
+cuts, which is what makes it worth fixing.
+
+**CONTROL CAVEAT, stated rather than hidden:** these fixtures are ~6.5s, so the dedicated
+"sample a 1s window far from any seam" control has no room to run (it returned an empty set).
+The metric was validated by that control on the longer legacy runs, and here by the accounting
+identity above (seam losses ≈ total loss ⟹ non-seam playback ≈ 1.0×).
+
+**CONFOUND, not yet eliminated — do this before building a fix.** In BOTH fixtures measured the
+contiguous seam sits at the same ordinal position (1→2), so "seam kind" and "seam position" are
+entangled; the effect could belong to whichever clip is entered second rather than to the kind.
+`aeb0517e` / `bdd51919` have their `gap=+0` seam at position **2→3** and would separate the two.
+I tried to open `aeb0517e` and mis-tapped (its `project.json` was untouched and the trace read
+`gapless=true`, which it cannot be with 2 transitions) — so this is UNMEASURED, not measured-
+and-clean. It is one playthrough of work.
+
 ### 2026-07-28 ~04:10 — SEAM STALL MEASURED ON THE NOTE 9; ITS RECORDED CAUSE IS REFUTED.
 Item 3 said "measured, not yet optimised" with the cause given as *"a decoder seek into a
 DISCONTINUOUS source position"*. Before optimising I re-measured — and the stated cause does

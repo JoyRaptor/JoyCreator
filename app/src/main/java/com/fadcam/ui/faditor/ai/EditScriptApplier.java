@@ -806,6 +806,21 @@ public class EditScriptApplier {
             if (!existing.contains(id)) return "newOrder references unknown clipId: " + id;
             if (!seen.add(id)) return "newOrder has duplicate clipId: " + id;
         }
+        // COMPLETENESS (user decision 2026-07-27). The three checks above reject unknown and
+        // duplicate ids but never required the list to be COMPLETE, and applyReorderClips drops
+        // whatever is missing. For a well-formed script that is fine; for a truncated or
+        // partially-hallucinated newOrder it silently DELETED footage, with no error raised and
+        // -- per audit 1.5 -- no undo entry that reliably restores it. Reordering is not a
+        // deletion tool, so a partial list is now a refused edit rather than a quiet data loss.
+        if (seen.size() != existing.size()) {
+            java.util.Set<String> missing = new java.util.LinkedHashSet<>();
+            for (int i = 0; i < tl.getClipCount(); i++) {
+                String id = tl.getClip(i).getId();
+                if (!seen.contains(id)) missing.add(id);
+            }
+            return "newOrder must list every clip (reorder cannot delete). Missing "
+                    + missing.size() + " of " + existing.size() + ": " + missing;
+        }
         return null;
     }
 
@@ -845,7 +860,9 @@ public class EditScriptApplier {
         for (int ti = 0; ti < trans.size(); ti++) transIndexBefore[ti] = trans.get(ti).clipIndex;
 
         try {
-            // Rebuild the clip list in the requested order (clips not listed are dropped).
+            // Rebuild the clip list in the requested order. validateReorderClips now guarantees
+            // newOrder is a complete permutation of the existing clip ids, so the byId lookup
+            // below cannot drop a clip; the null guard is kept as a belt-and-braces.
             for (int i = tl.getClipCount() - 1; i >= 0; i--) tl.removeClip(i);
             for (String id : newOrder) {
                 Clip c = byId.get(id);

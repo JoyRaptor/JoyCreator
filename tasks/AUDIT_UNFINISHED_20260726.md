@@ -235,8 +235,23 @@ The **snapshot-path variant** (undo silently restoring the pre-AI project and di
 AI's work) is reasoned from `:302-307` and is **still UNVERIFIED** — it needs an entry with
 `action == null`, i.e. history loaded from disk in a fresh session.
 **Risk:** SILENT WRONGNESS (action path, CONFIRMED on device) + DATA-LOSS (snapshot path,
-unverified). **VERIFIED-OPEN.**
-**NEEDS A USER DECISION — three options, all with UX consequences:**
+unverified). ~~**VERIFIED-OPEN.**~~
+**CLOSED — fixed in `4f0eee6` one hour AFTER this repro, and the entry was never updated.**
+Re-verified against the code 2026-07-27. The repro above is timestamped 2026-07-26 ~18:33;
+`4f0eee6` ("an AI edit is now one labelled, undoable, violet step") landed 19:31 the same
+evening and IS an ancestor of HEAD. `FaditorEditorActivity.java:1296-1303` now calls
+`recordAiCheckpoint(...)` — capturing the PRE-AI state from the copy still held, BEFORE
+`project = reloaded` — and then `invalidateActionsForProjectSwap()`, which nulls the action refs
+that would otherwise mutate the orphaned graph (the CONFIRMED failure mode above). Audit 1.6's
+fix added `resetBaseline()` after the swap (`:1323`) so the next user edit records a correct
+pre-state, and made the snapshot path invalidate BOTH stacks.
+**PROVED:** `tools/jvm-harness/UndoManagerTest.java` §4 — `4b` the AI entry's before IS the
+pre-AI state, `4c` the aiOrigin flag round-trips, `4d` undo after a RESTART restores the pre-AI
+state. 34/34.
+**The user chose option 2 on 2026-07-27** ("one undo reverts the whole AI change") — which is
+exactly what shipped, so no behaviour change was needed. Options 1 and 3 are moot.
+~~**NEEDS A USER DECISION — three options, all with UX consequences:**~~
+*(Retained below for the reasoning about why option 2 was the right shape.)*
   1. `undoManager.clear()` on AI reload. Minimal and honest, but throws away the user's undo
      history every time the AI touches the project.
   2. Capture a snapshot-only entry ("AI edits") BEFORE `project = reloaded`, reusing the

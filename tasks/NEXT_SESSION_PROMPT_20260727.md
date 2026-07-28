@@ -63,17 +63,20 @@ THAT early return. Suspects: the `if (isScaling) return true` UP, the audio-band
 double-tap returns, the slide double-tap return.
 **Then REMOVE both `PHDIAG` (`701c1e0`) and this snapshot (`1fc3298`).**
 
-### 2. Undo-snapshot cost on large projects — investigation DONE, implementation open
-`BASELINE refresh: ~250ms, 5.3M chars` on the real project = a main-thread stall per edit burst.
-The user chose "investigate a faster path before trading anything away", and the answer is
-dramatic: **transcripts are 99.2% of the payload, and 71.8% of the project is byte-identical
-duplication** — the same transcript object (same `id`, same sha) stored on up to 7 clips.
-Collapsing it is **zero semantic change**.
-Implement either: store each transcript ONCE per distinct id and reference it, or exclude
-transcripts from the undo snapshot and re-attach on restore. Prove with a harness first.
-Fallback the user pre-approved only if needed: scale the snapshot interval with project size.
-The project has since grown to ~7.9MB (Best transcripts added), so this got MORE valuable.
-Related: `undo_history.json` is **22 MB** — several full project snapshots. Worth its own look.
+### 2. Undo-snapshot cost on large projects — ~~implementation open~~ **DONE (`9c59d0e`)**
+Implemented as the schema-**v12** transcript pool: each distinct transcript is stored ONCE per
+file (`transcriptPool`) and clips carry `transcriptRefs`. Proved by `TranscriptPoolCodecTest`
+29/29 plus a Note 9 round-trip 14/14 and a cold-reopen read-path check 7/7 — see handoff §0z
+(2026-07-28 ~02:30) for the method and, importantly, for what was measured vs projected.
+**The effect on the user's real 5.3M-char project is PROJECTED, not measured** (it lives on the
+Note 20). Confirm it there when the user is present: watch the `BASELINE refresh: Nms, N chars`
+line — the char count should drop by roughly the duplication share.
+**Still open:** `undo_history.json` was **22 MB** — several full project snapshots. It is now
+written pooled so it should shrink by itself, but that is unconfirmed, and nobody has asked
+whether retaining 50 snapshots is the right number. Worth its own look.
+**Not made worse, still not fixed:** the `activeTranscript` index→id migration (`1075eec`).
+Pooling preserves the version list's order exactly (asserted in the harness), so the persisted
+index stays valid — but an index into a mutable list is still the wrong key.
 
 ### 3. Inter-clip seam stall — measured, not yet optimised
 Every clip boundary costs ~150–250ms: playback runs at 0.77–0.91× for ~1s after each seam then

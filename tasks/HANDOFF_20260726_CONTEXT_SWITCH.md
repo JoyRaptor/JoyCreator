@@ -4,6 +4,48 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~02:30 — OUTSTANDING ITEM 2 DONE: transcripts are stored ONCE per file (`9c59d0e`).
+The undo-snapshot cost item from `NEXT_SESSION_PROMPT_20260727.md` §2 is implemented and
+proved. Schema **v12** adds a project-level `transcriptPool` + per-clip `transcriptRefs`;
+each distinct transcript is written once instead of once per clip that carries it.
+
+**The design question was settled by measurement, not by argument.** A JVM bench at project
+scale (`SplitBench`, session scratchpad) split the serialize cost: **building the Gson tree is
+44%, stringifying is 56%.** So collapsing duplicates as a post-pass over the finished tree
+recovers only about half of what is there (268→140ms) where interning during serialization
+gets 268→12ms. The writer therefore interns from inside `serializeClipObject`; the reader is
+deliberately NOT symmetric — `TranscriptPoolCodec.expand()` rewrites a pooled tree back to the
+inline shape before deserialization starts, so the long clip/audio deserializers keep seeing
+the single input shape they have always seen. Zero change to them.
+
+Two things that would have silently eaten data, both handled + tested: interning is by id but
+**guarded by instance identity** (same-id forks that `TranscriptSharing` has not collapsed yet
+get their own suffixed pool key — interning by id alone would give every clip the first fork's
+words), and refs preserve list **order and length** exactly because `activeTranscript` is an
+INDEX into that list. Pooling turns on only when it pays, so an un-duplicated project keeps
+the inline shape, its older stamp, and byte-identical JSON.
+
+**PROVED three ways, every check paired with a positive control:** `TranscriptPoolCodecTest`
+29/29 (harness); Note 9 project `129d8643` 14/14 — after a 4×90° rotate (a real edit that
+returns the model to its exact starting value) the saved file went v11→v12, 37,779→32,060
+bytes, and expanding it and comparing ABSOLUTELY against the pre-change file shows the ONLY
+field that differs anywhere is `.label`, which is `TranscriptLabelMigration`'s documented
+`"Fast"`→`"Fast timing"` rename (`a3657da`), unrelated to pooling; and the read path proved by
+the APP rather than by my host reimplementation — force-stop, cold reopen (captions render),
+edit, save again, 7/7 with the pool byte-identical across pooled→load→pooled.
+
+**HONEST LIMIT:** the effect on the user's own 5.3M-char project is **projected, not
+measured** — that project is on the Note 20. The 15.1% measured here is small only because
+this fixture's transcripts are 37 words; the win scales with the transcript share of the file,
+which on the real project is 99.2% with 71.8% duplication.
+
+**STILL OPEN from that same item:** `undo_history.json` is 22MB (several full snapshots) and
+was NOT looked at — it is now written in the pooled form, so it should shrink on its own, but
+nobody has confirmed that or asked whether 50 retained snapshots is the right number.
+**Note on the `activeTranscript` index→id migration** (the landmine flagged in `1075eec`): it
+is NOT made worse by this change — pooling preserves list order exactly, which the harness
+asserts — but it is also NOT fixed, and it remains the right thing to do.
+
 ### 2026-07-27 ~17:00 — PLAYHEAD FREEZE ROOT-CAUSED + FIXED; F-COLOR/F-MINIMAP; audit sweep.
 **B-PLAYFREEZE IS CONFIRMED FIXED ON DEVICE (2026-07-27 17:48)** — 90 post-fix PHDIAG samples
 in the user's real project, 0 frozen, 0 `drag=true`. See SPEC §13 for the full result.

@@ -598,7 +598,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final Runnable autoSaveRunnable = () -> {
         if (loadSkipDialogPending) return; // don't clobber the backup we're offering
         if (project != null && projectStorage != null) {
-            projectStorage.saveAsync(project);   // off the UI thread (debounced autosave)
+            // Goes through saveProjectNow so the undo SIDECAR is written too (throttled by
+            // UNDO_HISTORY_SAVE_THROTTLE_MS above, which is what that constant's comment has
+            // always claimed happens on the ordinary edit path). This used to call
+            // projectStorage.saveAsync(project) directly, which advanced project.json and
+            // left undo_history.json behind — and edits that only schedule an autosave (the
+            // rotate button, for one) never wrote the sidecar at all.
+            //
+            // The consequence is not cosmetic and was reproduced on the Note 9: after any
+            // process death that skips onPause (a crash, a low-memory kill, `am force-stop`),
+            // project.json is at edit N while the sidecar still describes edit M << N. On
+            // reload the newest sidecar entry's snapshotBefore is a PRE-state for edit M, so
+            // ONE undo press silently reverts the project past every edit since — measured as
+            // 441 changed fields restored from the previous day, under a row labelled with an
+            // edit from that day. Same family as audit 1.6, and this app has an OOM-crash
+            // history, so the window is real rather than theoretical.
+            //
+            // NOTE this narrows the window, it does not close it: a death inside the 15s
+            // throttle still desynchronises the pair. Closing it needs the load-side staleness
+            // check written up in the handoff (it changes what undo offers after a crash,
+            // which is the user's call).
+            saveProjectNow(false);
             FLog.d(TAG, "Project auto-saved");
         }
     };

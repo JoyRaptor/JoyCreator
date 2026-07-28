@@ -738,6 +738,21 @@ public class ProjectStorage {
                     FLog.i(TAG, "fromJson: stripped " + removed
                             + " duplicate transcript version(s) from snapshot");
                 }
+                // Re-share transcripts across clips, exactly as load() does. Deserialization
+                // builds a FRESH NamedTranscript per clip, so a restored snapshot arrives as
+                // per-clip forks rather than the one shared instance a clip cut from the same
+                // source should hold. Without this, the v12 pool stops "paying" the moment a
+                // snapshot is restored (the writer keys on instance identity), so the very
+                // next save silently rewrites the project in the old duplicated shape and the
+                // undo snapshots grow back with it — measured on the Note 9: 31,945 -> 37,684
+                // bytes after a single cross-session undo. Restoring the sharing here keeps
+                // the restore semantically identical (TranscriptSharing collapses forks of the
+                // SAME id and unions legacy partitions) while keeping the file pooled.
+                com.fadcam.ui.faditor.transcript.TranscriptSharing.Result shared =
+                        com.fadcam.ui.faditor.transcript.TranscriptSharing.shareProject(p);
+                if (shared.changedAnything()) {
+                    FLog.d(TAG, "fromJson: re-shared transcripts in snapshot — " + shared);
+                }
             }
             return p;
         } catch (Exception e) {

@@ -34,8 +34,15 @@ public class FaditorProject {
      * re-serializes it that way — permanently moving the lane's band position, i.e. its
      * paint order (audit 1.2; reproduced in {@code tasks/schema_layer_stamp.py}). Which
      * kinds force which version lives on {@code TrackKind.minSchemaVersion()}.</p>
+     * <p>v12 stores transcripts ONCE in a project-level {@code transcriptPool} instead of
+     * once per clip that carries them ({@code TranscriptPoolCodec}). Unlike every block
+     * above it this one is NOT additive — a pooled file has no per-clip {@code transcripts}
+     * — so an older build must be kept out by the stamp rather than allowed to read the
+     * project transcript-less and autosave that back. Stamped 12 only when pooling actually
+     * pays (some transcript instance sits on more than one clip), so a project without that
+     * duplication keeps the inline shape and its older stamp.</p>
      */
-    public static final int SCHEMA_VERSION = 11;
+    public static final int SCHEMA_VERSION = 12;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project

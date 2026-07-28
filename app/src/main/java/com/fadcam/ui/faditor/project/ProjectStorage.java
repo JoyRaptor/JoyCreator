@@ -1241,6 +1241,19 @@ public class ProjectStorage {
      */
     @NonNull
     private JsonObject serializeClipObject(@NonNull File projectDir, @NonNull Clip clip) {
+        return serializeClipObject(projectDir, clip, null);
+    }
+
+    /**
+     * @param pool when non-null, transcript versions are interned into it and the clip carries
+     *             {@code transcriptRefs} instead of a full inline copy (see
+     *             {@link com.fadcam.ui.faditor.transcript.TranscriptPoolCodec}). Null keeps the
+     *             historical inline shape byte-for-byte.
+     */
+    @NonNull
+    private JsonObject serializeClipObject(
+            @NonNull File projectDir, @NonNull Clip clip,
+            @Nullable com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool pool) {
         JsonObject clipJson = new JsonObject();
         clipJson.addProperty("id", clip.getId());
         clipJson.addProperty("sourceUri", toStorageUri(projectDir, clip.getSourceUri().toString()));
@@ -1279,24 +1292,18 @@ public class ProjectStorage {
         if (!versions.isEmpty()) {
             JsonArray versionsArr = new JsonArray();
             for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : versions) {
-                JsonObject vj = new JsonObject();
-                vj.addProperty("id", nt.id);
-                vj.addProperty("label", nt.label);
-                vj.addProperty("engine", nt.engine);
-                JsonArray wordsArr = new JsonArray();
-                for (com.fadcam.ui.faditor.transcript.TranscriptWord w : nt.transcript.words) {
-                    JsonObject wj = new JsonObject();
-                    wj.addProperty("t", w.text);
-                    wj.addProperty("s", w.startMs);
-                    wj.addProperty("e", w.endMs);
-                    if (w.struck) wj.addProperty("x", true);
-                    if (w.forceLineBreakAfter) wj.addProperty("b", true);
-                    wordsArr.add(wj);
+                if (pool != null) {
+                    versionsArr.add(pool.intern(nt));
+                } else {
+                    versionsArr.add(
+                            com.fadcam.ui.faditor.transcript.TranscriptPoolCodec
+                                    .serializeVersion(nt));
                 }
-                vj.add("words", wordsArr);
-                versionsArr.add(vj);
             }
-            clipJson.add("transcripts", versionsArr);
+            clipJson.add(pool != null
+                            ? com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.REFS_KEY
+                            : com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.INLINE_KEY,
+                    versionsArr);
             clipJson.addProperty("activeTranscript", clip.getActiveTranscriptIndex());
         }
         if (clip.getDisplayName() != null) {
@@ -1708,6 +1715,45 @@ public class ProjectStorage {
     /**
      * Custom serializer for FaditorProject (flattens nested objects).
      */
+    /**
+     * Whether pooling transcripts would actually save anything for {@code src}: true when some
+     * {@link com.fadcam.ui.faditor.transcript.NamedTranscript} INSTANCE is carried by more than
+     * one owner (clip, overlay clip or audio clip). That is precisely the duplication the pool
+     * removes.
+     *
+     * <p>Deliberately identity-based. Two forks that share an id are not a saving — they get
+     * separate pool entries — and a project with one transcript on one clip would gain nothing
+     * but a schema bump locking older builds out of a file they read perfectly well. Same
+     * "stamp only what the project genuinely needs" discipline as the rest of this serializer.</p>
+     */
+    private static boolean poolingWouldPay(@Nullable FaditorProject src) {
+        if (src == null || src.getTimeline() == null) return false;
+        java.util.Set<com.fadcam.ui.faditor.transcript.NamedTranscript> seen =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        com.fadcam.ui.faditor.model.Timeline tl = src.getTimeline();
+        for (Clip c : tl.getClips()) {
+            if (c != null && anyTranscriptRepeat(c.getTranscripts(), seen)) return true;
+        }
+        for (Clip c : tl.getOverlayClips()) {
+            if (c != null && anyTranscriptRepeat(c.getTranscripts(), seen)) return true;
+        }
+        for (AudioClip a : tl.getAudioClips()) {
+            if (a != null && anyTranscriptRepeat(a.getTranscripts(), seen)) return true;
+        }
+        return false;
+    }
+
+    /** True as soon as one of {@code list}'s instances has already been seen. */
+    private static boolean anyTranscriptRepeat(
+            @Nullable java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> list,
+            @NonNull java.util.Set<com.fadcam.ui.faditor.transcript.NamedTranscript> seen) {
+        if (list == null) return false;
+        for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : list) {
+            if (nt != null && !seen.add(nt)) return true;
+        }
+        return false;
+    }
+
     private class ProjectSerializer implements JsonSerializer<FaditorProject> {
         @Override
         public JsonElement serialize(FaditorProject src, Type typeOfSrc,
@@ -1739,6 +1785,21 @@ public class ProjectStorage {
                     : src.getTimeline().getExtraLayerTracks()) {
                 stampedVersion = Math.max(stampedVersion, def.getKind().minSchemaVersion());
             }
+            // v12 — transcript pool. The ONE non-additive block here: a pooled file has no
+            // per-clip "transcripts" at all, so an older build would read the project with
+            // its transcripts missing and autosave that back. Raising the stamp is what makes
+            // that build refuse the file instead. Pooling is therefore switched on only when
+            // it actually pays (some transcript instance is on more than one owner) — an
+            // un-duplicated project keeps the inline shape AND its old stamp, so it stays
+            // openable by older builds and its JSON stays byte-identical.
+            com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool transcriptPool =
+                    poolingWouldPay(src)
+                            ? new com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool()
+                            : null;
+            if (transcriptPool != null) {
+                stampedVersion = Math.max(stampedVersion,
+                        com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.MIN_SCHEMA_VERSION);
+            }
             json.addProperty("schemaVersion", stampedVersion);
             json.addProperty("id", src.getId());
             json.addProperty("name", src.getName());
@@ -1749,7 +1810,7 @@ public class ProjectStorage {
             JsonObject timelineJson = new JsonObject();
             JsonArray clipsArray = new JsonArray();
             for (Clip clip : src.getTimeline().getClips()) {
-                clipsArray.add(serializeClipObject(projectDir, clip));
+                clipsArray.add(serializeClipObject(projectDir, clip, transcriptPool));
             }
             timelineJson.add("clips", clipsArray);
 
@@ -1759,7 +1820,7 @@ public class ProjectStorage {
             if (!src.getTimeline().getOverlayClips().isEmpty()) {
                 JsonArray overlayClipsArray = new JsonArray();
                 for (Clip oc : src.getTimeline().getOverlayClips()) {
-                    overlayClipsArray.add(serializeClipObject(projectDir, oc));
+                    overlayClipsArray.add(serializeClipObject(projectDir, oc, transcriptPool));
                 }
                 timelineJson.add("overlayClips", overlayClipsArray);
             }
@@ -1806,24 +1867,18 @@ public class ProjectStorage {
                 if (ac.hasTranscript()) {
                     JsonArray versionsArr = new JsonArray();
                     for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : ac.getTranscripts()) {
-                        JsonObject vj = new JsonObject();
-                        vj.addProperty("id", nt.id);
-                        vj.addProperty("label", nt.label);
-                        vj.addProperty("engine", nt.engine);
-                        JsonArray wordsArr = new JsonArray();
-                        for (com.fadcam.ui.faditor.transcript.TranscriptWord w : nt.transcript.words) {
-                            JsonObject wj = new JsonObject();
-                            wj.addProperty("t", w.text);
-                            wj.addProperty("s", w.startMs);
-                            wj.addProperty("e", w.endMs);
-                            if (w.struck) wj.addProperty("x", true);
-                            if (w.forceLineBreakAfter) wj.addProperty("b", true);
-                            wordsArr.add(wj);
+                        if (transcriptPool != null) {
+                            versionsArr.add(transcriptPool.intern(nt));
+                        } else {
+                            versionsArr.add(
+                                    com.fadcam.ui.faditor.transcript.TranscriptPoolCodec
+                                            .serializeVersion(nt));
                         }
-                        vj.add("words", wordsArr);
-                        versionsArr.add(vj);
                     }
-                    acJson.add("transcripts", versionsArr);
+                    acJson.add(transcriptPool != null
+                                    ? com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.REFS_KEY
+                                    : com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.INLINE_KEY,
+                            versionsArr);
                     acJson.addProperty("activeTranscript", ac.getActiveTranscriptIndex());
                 }
                 acJson.addProperty("captionsEnabled", ac.isCaptionsEnabled());
@@ -2130,6 +2185,21 @@ public class ProjectStorage {
 
             json.add("timeline", timelineJson);
 
+            // The transcript pool the clip/audio serializers above interned into. Attached
+            // after the timeline because that is when it is complete; the reader looks it up
+            // by key, so position is irrelevant.
+            if (transcriptPool != null && !transcriptPool.isEmpty()) {
+                json.add(com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.POOL_KEY,
+                        transcriptPool.toJson());
+                if (transcriptPool.forkCount() > 0) {
+                    // Two instances shared one id — an unmerged fork (TranscriptSharing). Not
+                    // an error here (each got its own entry, so nothing is lost), but worth a
+                    // line: it means the sharing migration has not run on this project yet.
+                    FLog.d(TAG, "transcriptPool: " + transcriptPool.size() + " entries, "
+                            + transcriptPool.forkCount() + " of them unmerged forks");
+                }
+            }
+
             // Serialize sprite-sheet definitions (schema v9, project level). The sheet's
             // own toJson emits the in-memory URI; convert to project://-relative here so
             // the sheet image travels with the project bundle (imageUri convention).
@@ -2186,6 +2256,14 @@ public class ProjectStorage {
                                           JsonDeserializationContext context)
                 throws JsonParseException {
             JsonObject obj = json.getAsJsonObject();
+            // Expand a v12 transcript pool back into the inline per-clip shape BEFORE anything
+            // below reads the tree, so the clip/audio deserializers keep seeing exactly the one
+            // input shape they have always seen. A non-pooled file is untouched by this.
+            int danglingRefs = com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.expand(obj);
+            if (danglingRefs > 0) {
+                FLog.w(TAG, "transcriptPool: " + danglingRefs
+                        + " ref(s) named a missing pool entry; those versions were dropped");
+            }
             // Resolve project://<relative> asset paths against this project's dir.
             String projectIdForPaths = obj.has("id") ? obj.get("id").getAsString() : null;
             File projectDir = projectIdForPaths != null

@@ -3076,6 +3076,43 @@ public class EditorTimelineView extends View {
     private boolean minimapMetersAnimating = false;
 
     /**
+     * Per-segment transcription progress, 0..1, or a NEGATIVE value for indeterminate
+     * (the engine reports -1 while it has no fraction to give). Absent = not transcribing.
+     */
+    private final java.util.Map<Integer, Float> transcribeProgress = new java.util.HashMap<>();
+    /** Per-segment bar colour, keyed the same way — identifies WHICH model is running. */
+    private final android.util.SparseIntArray transcribeColor = new android.util.SparseIntArray();
+
+    /**
+     * Show (or update) a transcription meter on a segment's mini-map block.
+     * Pass {@code fraction < 0} for indeterminate. Call {@link #clearSegmentTranscribing} when
+     * the run finishes, fails, or is cancelled — a meter left behind would claim work is still
+     * happening after it stopped, which is the failure this feature exists to prevent.
+     */
+    public void setSegmentTranscribing(int segmentIndex, float fraction, int color) {
+        if (segmentIndex < 0) return;
+        transcribeProgress.put(segmentIndex, fraction);
+        transcribeColor.put(segmentIndex, color);
+        invalidate();
+    }
+
+    /** Remove a segment's transcription meter. Safe to call when none is showing. */
+    public void clearSegmentTranscribing(int segmentIndex) {
+        if (transcribeProgress.remove(segmentIndex) != null) {
+            transcribeColor.delete(segmentIndex);
+            invalidate();
+        }
+    }
+
+    /** Remove every transcription meter (e.g. the editor is tearing down). */
+    public void clearAllTranscribing() {
+        if (transcribeProgress.isEmpty()) return;
+        transcribeProgress.clear();
+        transcribeColor.clear();
+        invalidate();
+    }
+
+    /**
      * F-MINIMAP: size the minimap band for however many layer lines the project currently has,
      * and shift the ruler down to match. Called from {@link #init()} and whenever the Track
      * model is re-fed, since adding a text layer must grow the strip.
@@ -3224,6 +3261,36 @@ public class EditorTimelineView extends View {
                     canvas.drawRect(x0, bot - 2f * density, x0 + bw, bot, minimapBlockPaint);
                     minimapMetersAnimating = true;
                 }
+            }
+
+            // TRANSCRIBING meter, sitting just above the audio-analysis bar. Same idea as that
+            // bar and for a sharper reason: transcription runs in SERIES and a long clip on the
+            // Accurate model takes tens of minutes, with nothing on screen to say so. A user
+            // closed the editor on a 20-minute run because it looked idle and lost the lot
+            // (2026-07-28). Coloured per model so several queued runs are distinguishable.
+            Float tp = transcribeProgress.get(i);
+            if (tp != null) {
+                float blockW = Math.max(x0 + 1, x1 - gap) - x0;
+                float barTop = bot - 4.5f * density, barBot = bot - 2.5f * density;
+                // Dim full-width track so a QUEUED clip (progress 0, or indeterminate) still
+                // reads as "this one is waiting its turn", not as "nothing is happening".
+                minimapBlockPaint.setColor(0x33FFFFFF);
+                canvas.drawRect(x0, barTop, x0 + blockW, barBot, minimapBlockPaint);
+                int tcol = transcribeColor.get(i, 0xFFFFC107);
+                if (tp < 0f) {
+                    // Indeterminate: a short shuttle sweeping the block.
+                    float ph = (android.os.SystemClock.uptimeMillis() % 1400L) / 1400f;
+                    float segW = blockW * 0.28f;
+                    float sx = x0 + (blockW + segW) * ph - segW;
+                    minimapBlockPaint.setColor(tcol);
+                    canvas.drawRect(Math.max(x0, sx), barTop,
+                            Math.min(x0 + blockW, sx + segW), barBot, minimapBlockPaint);
+                } else {
+                    minimapBlockPaint.setColor(tcol);
+                    canvas.drawRect(x0, barTop, x0 + blockW * Math.min(1f, tp), barBot,
+                            minimapBlockPaint);
+                }
+                minimapMetersAnimating = true;
             }
 
             // Show silence candidates as yellow dots and cut spans as dark

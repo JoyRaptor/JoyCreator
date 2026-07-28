@@ -21225,6 +21225,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * engines sequentially against the "Transcribe this video?" prompt
      * (Feature A) without running them concurrently.
      */
+    /**
+     * Mini-map transcription-meter colour for a model, so several queued runs are told apart at
+     * a glance. Deliberately NOT the object palette: this is a transient progress meter, and
+     * reusing an object hue would read as "there is a sprite/text object here".
+     */
+    private int transcribeMeterColor(
+            @NonNull com.fadcam.ui.faditor.transcript.TranscriptionEngine.ModelType type) {
+        switch (type) {
+            case FAST:     return 0xFF4CAF50;   // green  — quick pass, best timing
+            case ACCURATE: return 0xFFFFC107;   // amber  — slower, better words
+            default:       return 0xFF7E57C2;   // violet — Whisper, slowest, best words
+        }
+    }
+
     private void startTranscription(
             @NonNull com.fadcam.ui.faditor.transcript.TranscriptionEngine.ModelType type,
             @Nullable Runnable onDone) {
@@ -21241,6 +21255,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final Clip fClip = clip;
         final AudioClip fAudioClip = audioClip;
+        // Captured NOW: the mini-map meter is keyed by segment index, and the selection can
+        // move while a run is in flight (transcription is serial and long). Reading
+        // selectedClipIndex from inside the callback would paint the meter on whatever clip the
+        // user had wandered to.
+        final int fSegmentIndex = isAudio ? -1 : selectedClipIndex;
 
         transcriptModelChoice.setVisibility(View.GONE);
         transcriptView.setVisibility(View.GONE);
@@ -21278,6 +21297,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     public void onProgress(@NonNull String status, float fraction) {
                         transcriptProgressText.setText(status);
                         updateTranscriptionProgress(type, status, fraction);
+                        // Mirror progress onto the mini-map block for THIS clip. Transcription
+                        // runs in series and a long clip on the Accurate model takes tens of
+                        // minutes; without this the editor looks idle and the run gets closed
+                        // out from under itself (lost a 20-minute run this way, 2026-07-28).
+                        if (!isAudio && editorTimeline != null) {
+                            editorTimeline.setSegmentTranscribing(
+                                    fSegmentIndex, fraction, transcribeMeterColor(type));
+                        }
                         if (transcriptProgressBar != null) {
                             if (fraction >= 0f) {
                                 transcriptProgressBar.setIndeterminate(false);
@@ -21308,6 +21335,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Override
                     public void onResult(@NonNull com.fadcam.ui.faditor.transcript.Transcript t) {
                         transcriptProgress.setVisibility(View.GONE);
+                        if (!isAudio && editorTimeline != null) {
+                            editorTimeline.clearSegmentTranscribing(fSegmentIndex);
+                        }
                         finishTranscription(type);
                         if (t.isEmpty()) {
                             Toast.makeText(FaditorEditorActivity.this,
@@ -21344,6 +21374,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Override
                     public void onError(@NonNull String message) {
                         transcriptProgress.setVisibility(View.GONE);
+                        if (!isAudio && editorTimeline != null) {
+                            editorTimeline.clearSegmentTranscribing(fSegmentIndex);
+                        }
                         finishTranscription(type);
                         if (isAudio && fAudioClip != null) {
                             int vi = indexOfVersion(fAudioClip, versionId);

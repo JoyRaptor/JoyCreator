@@ -713,7 +713,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // racing at the previous clip's speed — then "Playback state: ENDED" 4.8s in and the
             // readout stuck at 00:04 of 00:14. Note isPlayingAnything() at ~:7325 ALREADY counts
             // imagePlaybackActive as playing; this ticker was the one place that did not.
-            if ((playerManager != null && playerManager.isPlaying()) || audioTailActive
+            // getPlayWhenReady() — NOT just isPlaying() — because isPlaying() is FALSE while the
+            // player is buffering, and this condition is the loop's only self-restart gate. A
+            // transient stall therefore killed the ticker permanently: the designated restart
+            // point is the isPlaying=true callback (~:3766), so if the player never resumes,
+            // nothing ever posts the loop again and the playhead is frozen for good.
+            // Reproduced on device 2026-07-28 (drag alternating with play): the final beat read
+            // "playing=false pwr=TRUE ... head=12982 moved=false" — the player still WANTED to
+            // play, was parked at the last clip's out point, and never rendered another frame.
+            // playWhenReady is the honest "the user asked for playback and hasn't cancelled it"
+            // signal, and it still goes false on a real pause, so the loop still self-terminates.
+            if ((playerManager != null
+                        && (playerManager.isPlaying() || playerManager.getPlayWhenReady()))
+                    || audioTailActive
                     || transitionPlaybackActive || imagePlaybackActive) {
                 playheadHandler.postDelayed(this, PLAYHEAD_UPDATE_INTERVAL_MS);
             }
@@ -8308,6 +8320,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         imagePlaybackStartOffsetMs = startOffsetMs;
         imagePlaybackStartSystemMs = System.currentTimeMillis();
         updatePlayPauseButton(true);
+        // An image clip has NO player, so the loop's usual restart point — the player's
+        // isPlaying=true callback (~:3766) — never fires for it. Setting the flag alone is not
+        // enough: after a pause the loop has already self-terminated, so nothing would ever post
+        // it again and play would look dead. This was masked until 2a0329d, when pausing the
+        // outgoing player on entry to an image clip removed the accidental life support that had
+        // been keeping the loop alive. Remove-then-post keeps it single-instance, matching :3766.
+        playheadHandler.removeCallbacks(playheadUpdater);
+        playheadHandler.post(playheadUpdater);
     }
 
     /**

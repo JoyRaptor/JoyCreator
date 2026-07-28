@@ -32,6 +32,7 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 | Seek right after loading a clip landed at the clip's START | `d3e3a63` | `effectiveTrimEnd()` tested `Long.MIN_VALUE`, but media3 reports `C.TIME_UNSET` (= MIN_VALUE+1) and 0 pre-prepare → window collapsed to 0. **14 zero-window seeks → 0** |
 | A transition longer than the clip it hands off to seeks past that clip's end | `d3e3a63` | Caught by `SEEKRANGE` as `rel=600 window=500` from the GL handoff; clamped to B's length |
 | `ENDED` with clips still ahead parked forever instead of advancing (§2a layer ii) | `d3e3a63` | Net added + its recovery action proved with a temporary switch (advanced `sel=2 → 3`, playback continued); it also fired on a real park at the last clip. See the caveat below. |
+| Lane mute icon: drawn on lanes with no audio, fake speaker glyph, stranded 62dp from the caret (§3b) | `a19ee53` | Screenshots: layer lanes now draw a caret only; audio lanes a real `volume_up`, red crossed `volume_off` when muted. `undo_count` unchanged (3) across taps where the glyph sits on no-audio lanes; 3 → 4 → 5 on an audio lane. Gutter 92dp → 34.4dp |
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
@@ -80,12 +81,10 @@ be useful — say, on a layer itself", and explicit instruction to **think hard 
 is genuinely usable rather than merely present.**
 **Sequencing (user): after the play/audio-divergence and freeze bugs in §2 are squashed.**
 
-**3b. Lane mute icon — redesign, approved 2026-07-28.**
-Mute itself is useful; the current affordance is not. Required behaviour:
-- do NOT render it at all when the lane has no audio (absent, not greyed out — "that way things
-  aren't cluttered when you don't actually have need for it")
-- when audio exists: a real speaker icon; tapped → speaker with a cross through it
-- move it **flush against the caret**. It currently sits ~1cm in, wasting lane width.
+**3b. Lane mute icon — DONE 2026-07-28, `a19ee53`. Moved to §1.**
+All three asks landed: absent (not greyed) with no audio, a real `volume_up`/`volume_off`
+speaker, flush against the caret with the gutter shrunk 92dp → 34.4dp. The touch box was also
+enlarged from the 12dp glyph to the full row height, since a 12dp target is not finger-sized.
 
 **3c. "Rename lane" — DELETE. Decided twice.** User: *"layers don't need names, OBJECTS need
 names."* The decision was recorded and never applied: `FaditorEditorActivity:11792` still adds a

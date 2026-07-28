@@ -76,10 +76,43 @@ known limits are fixable, so fix them:
   peers unfiltered, while `ExportManager` correctly hides them → preview would show the stencil
   clip as a normal PiP. One missing filter, not an architectural limit.
 - masks on text/sprites: `TextOverlayItem` has no `compositing` field. A model addition.
+  *(Deferred by the user 2026-07-28 — not v1.)*
+- **NEW, found 2026-07-28 while surveying:** the export AUDIO path (`ExportManager:1989`) feeds
+  from the same unfiltered `visibleOverlayVideoClips` list, so a matte peer with
+  `overlayAudioEnabled` still contributes **sound** to the export while its picture is hidden.
+  Fix alongside the preview filter, BEFORE any UI lets a user nominate an arbitrary clip as a
+  matte.
 Also asked for: a toolbox icon so it is discoverable, plus entry points "anywhere else that would
 be useful — say, on a layer itself", and explicit instruction to **think hard about the UX so it
 is genuinely usable rather than merely present.**
-**Sequencing (user): after the play/audio-divergence and freeze bugs in §2 are squashed.**
+
+**SCOPE DECIDED BY THE USER 2026-07-28 — these four answers are binding, do not re-ask:**
+1. **Live preview of key AND matte is IN v1.** *"get it all working in preview too for v1."*
+   Today both are EXPORT-ONLY (`BlendModeGlEffect:54-56` — preview renders unkeyed/unmatted), so
+   a tolerance slider would be tuned blind. This is the largest piece of the work and the one
+   that stops the feature failing the same way twice.
+2. **PiP overlays AND image overlays in v1. Text/sprites can wait.** *"pip first, and images.
+   sprites text etc can wait."* Note `CompositingSpec` lives on `Clip` only — image-overlay
+   support needs the spec reachable from the image-track item and honoured by
+   `layerImageOverlay` + its export peer.
+3. **Capsule is fine — NO true ellipse for now.** `corner=1` on a non-square box gives a stadium,
+   not a circle. Accepted. Do not spend engine time on `MaskPathBuilder` shapes.
+4. **A soft-edges (feather) slider IS in v1.** Engine work: `MaskPathBuilder:22-23` records the
+   method — render the mask to an ALPHA_8 bitmap and `DST_OUT` it instead of `clipPath`, which
+   is not antialiased. Both the preview and export mask paths go through that one class, so it
+   is one change, not two.
+
+Proposed interaction (drafted 2026-07-28, not yet built): a *Mask & Key* chip in the tool row
+(enabled only with an overlay object selected) **and** the same action in the object's long-press
+menu. Panel = two tabs. *Shape*: "+ Box" drops a drag/resize handle box on the preview, Round /
+Rotate / **Soften** sliders, per-shape add|subtract chip, one "show only inside" switch. *Key*:
+black/green/blue swatches **plus an eyedropper — tap it, then tap the preview to sample the
+colour under your finger** (the user's "drag a swatch to sample a specific colour from the video
+itself"), then Tolerance / Softness / Choke. Matte: "Use as matte for…" on a PiP's object menu;
+the stencil clip gets a dashed outline + MATTE badge on its timeline item so its disappearance
+from the canvas is explained rather than mysterious.
+
+**Sequencing (user, revised 2026-07-28): §3g TEXT ANIMATION COMES FIRST, then this.**
 
 **3b. Lane mute icon — DONE 2026-07-28, `a19ee53`. Moved to §1.**
 All three asks landed: absent (not greyed) with no audio, a real `volume_up`/`volume_off`
@@ -136,10 +169,17 @@ player package. The human-facing slider was correctly hidden behind `if (false)`
 saying the feature is unimplemented; the AI copy was missed. User has said ducking is low
 priority, so the fix is to stop the assistant claiming it happened, not to build ducking.
 
-**3g. Text animation presets.** `SPEC_TEXT_ANIMATION.md`. User wants it, explicitly after the
-bug work. Its own stated constraint is the one that matters: ONE shared `(spec, t) → per-glyph
-transform` function called by BOTH preview and export, or the exported video will not match what
-the user saw. Precedents to copy: `TimerText`, `LayerPreviewController.effectiveOverlayVolume`.
+**3g. Text animation presets — NEXT UP. User moved it AHEAD of masking, 2026-07-28.**
+Spec: `SPEC_TEXT_ANIMATION.md` (design captured, **zero code** — `textAnimation`/`animationPreset`
+have 0 matches in `app/src/main/java`).
+Its own stated constraint is the one that matters: ONE shared `(spec, t) → per-glyph transform`
+function called by BOTH preview and export, or the exported video will not match what the user
+saw. **That hazard is already REALISED for the animations that exist today**: `CaptionStyle.Anim`
+(POP / ZOOM / BOUNCE) is implemented TWICE and differently — `CaptionOverlayView:194` drives it
+with a `ValueAnimator` + `Overshoot/Decelerate` interpolators, while `CaptionExportRenderer:222`
+re-derives it as arithmetic in a `switch`. Any per-glyph work must unify that, not add a third
+copy. Precedents to copy: `TimerText` (shared, `DEFAULT_FPS`), `freezeStartMs/freezeEndMs` on
+`GeneratedSource` for the in/out animation zones.
 
 ## 4. DECIDED — settled, do not re-litigate
 

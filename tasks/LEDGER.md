@@ -28,20 +28,28 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 | A transient buffering stall killed the playhead loop permanently | `92c41b9` | Captured `playing=false pwr=TRUE … moved=false`; loop now keyed on playWhenReady too |
 | "Rename lane" wrote a name to disk + pushed an undo step while nothing ever drew it (§3c) | `228293b` | Row + its 57-line dialog deleted; no callers remained |
 | The AI reported "ducking set to N%" for a field nothing reads (§3f) | `228293b` | Tool unregistered; `duckAmount` has 0 refs in export and 0 in the player package |
+| **A drag could seek a clip using ANOTHER clip's coordinates** — the §2a big one | `d3e3a63` | New `SEEKRANGE` probe, same scripted gesture each run on AudioExportVerify: **40 out-of-range seeks → 0** (two runs), in-range 379 → 446/444 so the probe stayed alive |
+| Seek right after loading a clip landed at the clip's START | `d3e3a63` | `effectiveTrimEnd()` tested `Long.MIN_VALUE`, but media3 reports `C.TIME_UNSET` (= MIN_VALUE+1) and 0 pre-prepare → window collapsed to 0. **14 zero-window seeks → 0** |
+| A transition longer than the clip it hands off to seeks past that clip's end | `d3e3a63` | Caught by `SEEKRANGE` as `rel=600 window=500` from the GL handoff; clamped to B's length |
+| `ENDED` with clips still ahead parked forever instead of advancing (§2a layer ii) | `d3e3a63` | Net added + its recovery action proved with a temporary switch (advanced `sel=2 → 3`, playback continued); it also fired on a real park at the last clip. See the caveat below. |
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
-**2a. Playhead↔clip mapping can address a position beyond the clip it is in. — THE BIG ONE.**
-Caught red-handed 2026-07-28 09:52: `Seek to 5363ms (rel) / 4457ms (abs)` on a clip that is only
-**3051ms** long (trim 1406→4457). The position clamps to the clip's out point, the player runs
-out and reaches `ENDED`, and because the app still has play switched on it sits forever in
-"wants to play, will never play". Related sighting: `sel=3 segAtHead=2` — the SELECTED clip and
-the clip under the playhead had diverged.
-*This is why playback only recovers by returning to zero.* Everything in §1 that touched the
-playhead loop made the failure survivable; none of it addressed this. **Fix this before adding
-features.**
-Two layers wanted: (i) a drag must never produce a position beyond the addressed clip; (ii) a
-safety net — `ENDED` with clips still ahead should advance to the next clip rather than park.
+**2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**
+Root cause, for the record: the drag computed its position against the segment under the
+playhead but handed it to the player holding the clip the drag STARTED on, because
+`selectedClipIndex` was frozen for the whole gesture — the index and the media load were tied
+together, and loading mid-drag snaps at split points, so neither moved. The index now follows
+the playhead during a drag; only the load stays deferred. Seeks are clip-scoped
+(`FaditorPlayerManager.seekInClip`).
+**One caveat, deliberately left honest:** the layer-(ii) `ENDED` net's TRIGGER could not be
+manufactured on demand — every attempt to park the player was won by a poll catching
+READY+playing, so the ordinary advance handled it. Its recovery ACTION is proved; the trigger
+predicate is evidenced only by the field `PHDIAG` signature. If it ever fires in the wild it now
+logs `ENDEDNET: parked at end with play still on …`. **Watch for that line.**
+The `SEEKRANGE` probe it was found with is still in `FaditorPlayerManager.seekTo` / `seekInClip`
+and logs `ok=false` for any clip-relative seek that exceeds the loaded window. Keep it until the
+playhead work is closed; it is what makes this class of bug visible instead of intermittent.
 
 **2b. The stranded drag-latch, second path.** Self-heals, so it is invisible to the user, but it
 fires: three separate times on 2026-07-28. Every captured instance reports **every gesture flag

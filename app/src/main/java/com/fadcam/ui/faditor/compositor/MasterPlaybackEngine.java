@@ -378,6 +378,7 @@ public class MasterPlaybackEngine {
 
         List<MediaItem> items = new ArrayList<>();
         windows.clear();
+        KeyframeAlignment.beginBuild(); // §3d: reopen the per-build keyframe-probe budget
         int count = timeline.getClipCount();
         for (int i = 0; i < count; i++) {
             Clip clip = timeline.getClip(i);
@@ -432,6 +433,10 @@ public class MasterPlaybackEngine {
         view.setPlayer(p);
         FLog.d(TAG, "gapless playlist prepared: " + items.size() + " clipped items ("
                 + count + " timeline clips)");
+        // §3d: how many of this project's real window starts earned the keyframe flag. The
+        // point of the hybrid is unknown until this is measured on real footage, so it reports
+        // rather than being assumed — see KeyframeAlignment.
+        FLog.i(TAG, KeyframeAlignment.summary());
         return true;
     }
 
@@ -519,6 +524,8 @@ public class MasterPlaybackEngine {
                             new MediaItem.ClippingConfiguration.Builder()
                                     .setStartPositionMs(startMs)
                                     .setEndPositionMs(endMs)
+                                    .setStartsAtKeyFrame(
+                                            KeyframeAlignment.startsAtKeyFrame(context, uri, startMs))
                                     .build())
                     .build();
             items.add(item);
@@ -535,12 +542,20 @@ public class MasterPlaybackEngine {
                                 long visualStartMs, long visualLenMs) {
         long inMs = clip.getInPointMs();
         long outMs = clip.getOutPointMs();
+        // §3d HYBRID: claim "starts at a keyframe" ONLY when it demonstrably does. That flag is
+        // what stops ExoPlayer tearing down and rebuilding the video renderer at this cut
+        // (measured 250–330ms per cut, ~11% of playback), but it is an assertion, not a request:
+        // claiming it for a mid-GOP start buys a corrupt first frame instead of a slow one.
+        // Trim precision is non-negotiable, so the trim point is never moved to earn the flag —
+        // the window either already starts on a keyframe or it pays the discontinuity.
         MediaItem item = new MediaItem.Builder()
                 .setUri(seekable)
                 .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                                 .setStartPositionMs(inMs)
                                 .setEndPositionMs(outMs)
+                                .setStartsAtKeyFrame(
+                                        KeyframeAlignment.startsAtKeyFrame(context, seekable, inMs))
                                 .build())
                 .build();
         items.add(item);

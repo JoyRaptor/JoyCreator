@@ -4,6 +4,28 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~08:30 — PRIORITY-4 SWEEP CLEAN. AUTONOMOUS RUN ENDED (user returned).
+Ran the one instrument the audit had never had pointed at it deliberately: the METHOD NOTE's
+own blind spot — architecture stated as a PREMISE in prose rather than as a checklist item.
+Searched `SPEC_*.md` for ownership/authority claims (`belongs to`, `single source of truth`,
+`one authority`, `is the canonical`) and checked each against the code.
+
+**Result: no unbuilt premise found.** Recorded so it is not re-swept:
+- **CLEARED** `SPEC_PIP_AUDIO` §"Effective volume — one authority". The premise HOLDS: preview
+  (`FaditorEditorActivity:16399`, `OverlayVideoPreviewView`'s host callback) and export
+  (`ExportManager:1991`) both call `LayerPreviewController.effectiveOverlayVolume`. Same
+  pattern documented on `TimerText` for the countdown string.
+- **N/A** `SPEC_TEXT_ANIMATION` §"ONE AUTHORITY". That is a design constraint for work NOT YET
+  BUILT, not a claim about existing code — nothing to drift from yet. Worth honouring when the
+  feature is written; it explicitly cites the two shared-authority precedents above.
+
+So the premise/checklist gap that hid the transcript-ownership bug appears to be a one-off
+rather than a pattern across the spec set.
+
+**RUN ENDED HERE.** The user returned, and what remains is not autonomous work: five queued
+decisions (`NEXT_SESSION_PROMPT_20260727.md` items 3b, 3c, 4, 5) plus the one-pinch
+stranded-latch test that `adb` cannot perform. Restart with `/loop` any time.
+
 ### 2026-07-28 ~08:05 — POLISH PASS: no code change, and one of MY OWN earlier notes was WRONG.
 A deliberate no-change wake. The two polish targets I had queued turned out not to exist, and
 checking that is the result.

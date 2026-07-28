@@ -1353,7 +1353,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         playheadHandler.removeCallbacks(playheadUpdater);
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         if (silenceDetector != null) silenceDetector.shutdown();
-        if (transcriptionEngine != null) transcriptionEngine.shutdown();
+        // Do NOT kill a transcription that is still running. This shutdown() is what threw away
+        // a 20-minute Whisper/Accurate run when the user closed the editor on it (2026-07-28) —
+        // the engine's single-thread executor was torn down mid-job and the half-built version
+        // was left behind with zero words. A run now keeps going, kept alive by the foreground
+        // AIJobService started in startTranscription(), and persists its result itself; the
+        // callbacks below are all guarded against a destroyed Activity.
+        if (transcriptionEngine != null) {
+            if (activeTranscriptionModels.isEmpty()) {
+                transcriptionEngine.shutdown();
+            } else {
+                FLog.i(TAG, "Editor closing with " + activeTranscriptionModels.size()
+                        + " transcription(s) in flight — leaving the engine running");
+            }
+        }
         if (waveformExtractor != null) waveformExtractor.shutdown();
         releaseAudioPlayer();
         releaseTransitionRetriever();
@@ -2414,6 +2427,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 && projectStorage.loadUndoHistory(project.getId(), descriptions, snapshots, aiFlags)) {
             undoManager.loadHistory(descriptions, snapshots, aiFlags);
             FLog.d(TAG, "Restored " + descriptions.size() + " undo history entries");
+        }
+
+        // Transcript labels now name the trade-off ("Fast timing" / "Balanced" / "Best
+        // wording"). The label is persisted, so projects made before that carry the old names —
+        // rename them here or the picker shows both spellings for the same engine and dedup,
+        // which keys on engine+label, stops collapsing re-runs of the same model.
+        int relabelled = com.fadcam.ui.faditor.transcript.TranscriptLabelMigration.migrate(project);
+        if (relabelled > 0) {
+            FLog.i(TAG, "Renamed " + relabelled + " transcript label(s) to the trade-off naming");
+            scheduleAutoSave();
         }
 
         // Push transcripts to the timeline for scrolling text display
@@ -21267,6 +21290,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transcriptProgress.setVisibility(View.VISIBLE);
         transcriptProgressText.setText(R.string.faditor_transcript_working);
         addActiveTranscription(type);
+        // Foreground service + wake lock, so the run survives the editor closing and the screen
+        // going off. AIJobService already exists for exactly this ("long tasks (transcription,
+        // silence detection...)") — it simply had never been wired to transcription, which is
+        // why a run silently died with the Activity.
+        com.fadcam.ui.faditor.ai.AIJobService.start(
+                getApplicationContext(), "Transcribing (" + type.label + ")");
 
         final String clipId = isAudio ? audioClip.getId() : clip.getId();
         final Uri sourceUri = isAudio ? audioClip.getSourceUri() : clip.getSourceUri();
@@ -21295,6 +21324,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new com.fadcam.ui.faditor.transcript.TranscriptionEngine.Callback() {
                     @Override
                     public void onProgress(@NonNull String status, float fraction) {
+                        // The run outlives the editor now, so every callback must tolerate a
+                        // destroyed Activity. Keep the SERVICE notification updated regardless —
+                        // that is the only progress the user can see once the editor is gone.
+                        com.fadcam.ui.faditor.ai.AIJobService.update(getApplicationContext(),
+                                "Transcribing (" + type.label + ") — " + status,
+                                fraction >= 0f ? (int) (fraction * 100) : -1);
+                        if (isFinishing() || isDestroyed()) return;
                         transcriptProgressText.setText(status);
                         updateTranscriptionProgress(type, status, fraction);
                         // Mirror progress onto the mini-map block for THIS clip. Transcription
@@ -21318,6 +21354,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                     @Override
                     public void onPartial(@NonNull com.fadcam.ui.faditor.transcript.Transcript t) {
+                        // Model update is safe after teardown; the UI below is not.
+                        if (isFinishing() || isDestroyed()) {
+                            updateTranscriptVersion(clipId, versionId, t);
+                            return;
+                        }
                         if (updateTranscriptVersion(clipId, versionId, t)) {
                             currentTranscript = t;
                             transcriptClipId = clipId;
@@ -21334,11 +21375,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                     @Override
                     public void onResult(@NonNull com.fadcam.ui.faditor.transcript.Transcript t) {
+                        finishTranscription(type);
+                        if (activeTranscriptionModels.isEmpty()) {
+                            com.fadcam.ui.faditor.ai.AIJobService.stop(getApplicationContext());
+                        }
+                        if (isFinishing() || isDestroyed()) {
+                            // The editor is gone but the work is real: fold the result into the
+                            // model and persist it directly, or a completed run would be thrown
+                            // away at the finish line — the very thing this change prevents.
+                            if (updateTranscriptVersion(clipId, versionId, t) && project != null
+                                    && projectStorage != null) {
+                                projectStorage.save(project);
+                                FLog.i(TAG, "Transcription finished after the editor closed — saved");
+                            }
+                            if (transcriptionEngine != null
+                                    && activeTranscriptionModels.isEmpty()) {
+                                transcriptionEngine.shutdown();
+                            }
+                            return;
+                        }
                         transcriptProgress.setVisibility(View.GONE);
                         if (!isAudio && editorTimeline != null) {
                             editorTimeline.clearSegmentTranscribing(fSegmentIndex);
                         }
-                        finishTranscription(type);
                         if (t.isEmpty()) {
                             Toast.makeText(FaditorEditorActivity.this,
                                     R.string.faditor_transcript_empty, Toast.LENGTH_SHORT).show();
@@ -21373,11 +21432,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                     @Override
                     public void onError(@NonNull String message) {
+                        finishTranscription(type);
+                        if (activeTranscriptionModels.isEmpty()) {
+                            com.fadcam.ui.faditor.ai.AIJobService.stop(getApplicationContext());
+                        }
+                        if (isFinishing() || isDestroyed()) {
+                            if (transcriptionEngine != null
+                                    && activeTranscriptionModels.isEmpty()) {
+                                transcriptionEngine.shutdown();
+                            }
+                            return;
+                        }
                         transcriptProgress.setVisibility(View.GONE);
                         if (!isAudio && editorTimeline != null) {
                             editorTimeline.clearSegmentTranscribing(fSegmentIndex);
                         }
-                        finishTranscription(type);
                         if (isAudio && fAudioClip != null) {
                             int vi = indexOfVersion(fAudioClip, versionId);
                             if (vi >= 0 && fAudioClip.getTranscripts().get(vi).transcript.isEmpty()) {

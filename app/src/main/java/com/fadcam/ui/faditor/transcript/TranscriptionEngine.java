@@ -55,16 +55,24 @@ public class TranscriptionEngine {
 
     /** Selectable speech models (offline). */
     public enum ModelType {
+        // LABELS name the TRADE-OFF, not the model (user, 2026-07-28). "Fast" / "Accurate" /
+        // "High accuracy" described nothing a user could act on, and "Accurate" vs "High
+        // accuracy" was actively ambiguous. The real distinction — measured on a real project —
+        // is that Whisper has the BEST WORDS and the WORST TIMING, while the small Vosk model
+        // has the best timing and the weakest words. Naming that is what lets someone choose,
+        // and it is why a merged "Best" track (good words on good timings) makes sense at all.
+        // Run cost is in the detail line because it is what people get caught by: Whisper and
+        // the large Vosk model run slower than realtime on a phone.
         FAST(Engine.VOSK, "vosk-model-small-en-us-0.15",
                 "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
-                "Fast", "~40 MB · quick, lower accuracy"),
+                "Fast timing", "~40 MB · quickest · best word TIMING, rougher words"),
         ACCURATE(Engine.VOSK, "vosk-model-en-us-0.22-lgraph",
                 "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip",
-                "Accurate", "~128 MB · slower download, much better words"),
+                "Balanced", "~128 MB · good timing AND good words · ~realtime to run"),
         // Whisper base.en, quantised q5_1: best accuracy, NEON-optimised on ARM.
         WHISPER_BASE_EN(Engine.WHISPER, "ggml-base.en-q5_1.bin",
                 "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin",
-                "High accuracy", "~57 MB · Whisper, best words · slower to run");
+                "Best wording", "~57 MB · best WORDS, looser timing · slowest to run");
 
         public final Engine engine;
         public final String dir;

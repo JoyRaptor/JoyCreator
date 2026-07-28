@@ -472,25 +472,36 @@ public class TranscriptionEngine {
             input = FFmpegKitConfig.getSafParameterForRead(context, sourceUri);
         }
 
-        // SEEK ACCURACY (device-proven 2026-07-27). This used to be a single `-ss` BEFORE `-i`,
-        // an INPUT seek, and then every word was stamped `inMs + engineRelativeTime` on the
-        // assumption that the extracted audio begins exactly at inMs. It does not: FadCam
-        // records fragmented MP4, where an input seek lands on a fragment boundary rather than
-        // the requested time. Measured on the user's project — clip 7 (inPoint 506760) produced
-        // audio starting ~5.63s LATE, so every word was stamped ~5.63s EARLY and the captions
-        // ran ahead of the speech. Both Vosk and Whisper were off by the same amount to within
-        // 22ms, which is what proves it is the shared audio and not either engine.
+        // TIME ALIGNMENT (device-proven 2026-07-27). Words are stamped `inMs +
+        // engineRelativeTime`, where the relative time is derived from the SAMPLE COUNT of this
+        // raw PCM. That is only correct if the PCM is a faithful, gap-free rendering of the
+        // requested source span. Two ways it was not:
         //
-        // Fix is the standard fast-then-exact idiom: a coarse INPUT seek to a safe margin before
-        // the target (cheap, and its inaccuracy no longer matters), then an exact OUTPUT seek
-        // for the remainder, which decodes and discards to land on the precise sample. Cost is
-        // decoding at most SEEK_SAFETY_S of extra audio.
+        // 1. DRIFT (the bug the user hit). Raw s16le carries no timestamps. Where the source
+        //    has audio gaps -- common in long phone recordings -- ffmpeg concatenated across
+        //    them, so the PCM came out SHORTER than the span it represents and every word was
+        //    stamped progressively too EARLY. Measured on clip 7 of the user's project: drift
+        //    ~0 at the clip start, growing to -6.8s by 28:10, a rate of about -0.6%. Corroborated
+        //    independently: that clip's transcript span falls 6291ms (0.516%) short of the clip
+        //    duration. `aresample=async=1` pads gaps with silence so output time keeps tracking
+        //    input time, which is what makes the sample count a valid clock.
+        //    NOTE this is why both Vosk and Whisper agreed to within 22ms on the same error:
+        //    they transcribe the SAME mis-timed PCM, so neither engine was at fault.
+        //
+        // 2. SEEK PRECISION. A lone `-ss` BEFORE `-i` is an INPUT seek and lands on a
+        //    fragment/keyframe boundary rather than the requested time; FadCam records
+        //    fragmented MP4. That was NOT the cause of the reported drift (the error measured
+        //    ~0 at the clip's first words, which a bad seek could not produce -- it would be
+        //    wrong by a constant from the very first word). Corrected anyway, because the
+        //    stamping assumes an exact start: coarse INPUT seek to a safe margin before the
+        //    target, then an exact OUTPUT seek for the remainder.
         double target = inMs / 1000.0;
         double coarse = Math.max(0.0, target - SEEK_SAFETY_S);
         double fine = target - coarse;          // 0 when the clip starts near the file head
         double dur = Math.max(0.1, (outMs - inMs) / 1000.0);
         String cmd = String.format(java.util.Locale.US,
-                "-y -ss %.3f -i \"%s\" -ss %.3f -t %.3f -vn -ac 1 -ar %d -f s16le \"%s\"",
+                "-y -ss %.3f -i \"%s\" -ss %.3f -t %.3f -vn -af aresample=async=1:first_pts=0"
+                        + " -ac 1 -ar %d -f s16le \"%s\"",
                 coarse, input, fine, dur, SAMPLE_RATE, outPcm.getAbsolutePath());
         FLog.d(TAG, "extractPcm: target=" + target + "s coarse=" + coarse + "s fine=" + fine
                 + "s dur=" + dur + "s");
@@ -500,6 +511,22 @@ public class TranscriptionEngine {
             FLog.e(TAG, "ffmpeg audio extract failed: " + session.getReturnCode());
             outPcm.delete();
             return null;
+        }
+        // SELF-CHECK. The PCM's own length IS the clock every word timestamp is derived from,
+        // so comparing it against the span we asked for detects a mis-timed extraction directly
+        // — no transcript, no playback, no human ear required. The original bug (gaps dropped,
+        // PCM short, words progressively early) would have shown up here as a growing negative
+        // skew instead of costing a round of guesswork.
+        long pcmMs = (outPcm.length() * 1000L) / (2L * SAMPLE_RATE);   // s16le mono
+        long wantMs = (long) (dur * 1000);
+        long skew = pcmMs - wantMs;
+        if (Math.abs(skew) > Math.max(500L, wantMs / 200L)) {          // >0.5% or >500ms
+            FLog.w(TAG, "extractPcm SKEW: got " + pcmMs + "ms of audio for a " + wantMs
+                    + "ms span (" + (skew > 0 ? "+" : "") + skew + "ms, "
+                    + String.format(java.util.Locale.US, "%.3f%%", 100.0 * skew / Math.max(1, wantMs))
+                    + ") — word timings will be off by this much by the clip's end");
+        } else {
+            FLog.d(TAG, "extractPcm ok: " + pcmMs + "ms audio for " + wantMs + "ms span");
         }
         return outPcm;
     }

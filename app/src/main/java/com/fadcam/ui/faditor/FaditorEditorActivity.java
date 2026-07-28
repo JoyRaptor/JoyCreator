@@ -11797,7 +11797,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         popup.setElevation(8 * dp);
 
         // TODO(strings): hardcoded per the rebrand-freeze standing rule.
-        addTrackMenuRow(list, popup, "Rename", () -> showRenameTrackDialog(track));
+        // NO "Rename" row. The user decided twice that "layers don't need names, OBJECTS need
+        // names" — and the renderer never drew a track name anywhere, so the action typed a
+        // name, pushed an undo step and wrote to disk while the screen showed nothing at all.
+        // Removed 2026-07-28 along with showRenameTrackDialog. See tasks/LEDGER.md §3c.
         addTrackMenuRow(list, popup, "Move up", () -> moveTrackZ(track, true, floatingBand));
         addTrackMenuRow(list, popup, "Move down", () -> moveTrackZ(track, false, floatingBand));
         if (userCreated) {
@@ -11825,63 +11828,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.setBackgroundResource(tv.resourceId);
         row.setOnClickListener(v -> { popup.dismiss(); action.run(); });
         parent.addView(row);
-    }
-
-    /**
-     * P1 Rename: user-created tracks persist via {@code LayerTrackDef#setName} (already
-     * serialized in the trackDefs block); the fixed DEFAULT tracks ("text"/"audio"/
-     * "sprite") have no def, so the rename persists in the additive
-     * {@code TrackFlags.customName} side-table field (serialized as the layers-block
-     * "trackNames" map — absent for any project that never renamed one, so old
-     * projects/builds are untouched). One undo step either way.
-     */
-    private void showRenameTrackDialog(@NonNull com.fadcam.ui.faditor.layers.Track track) {
-        if (project == null) return;
-        final Timeline timeline = project.getTimeline();
-        final String trackId = track.getId();
-
-        final android.widget.EditText input = new android.widget.EditText(this);
-        input.setText(track.getName());
-        input.setSelectAllOnFocus(true);
-        input.setSingleLine(true);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
-        wrap.setPadding(pad, pad / 2, pad, 0);
-        wrap.addView(input);
-
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Rename lane") // TODO(strings)
-                .setView(wrap)
-                .setNegativeButton(android.R.string.cancel, null)
-                .setPositiveButton(android.R.string.ok, (d, w) -> {
-                    String newName = input.getText().toString().trim();
-                    if (newName.isEmpty() || newName.equals(track.getName())) return;
-                    com.fadcam.ui.faditor.layers.LayerTrackDef def =
-                            timeline.getLayerTrackDef(trackId);
-                    if (def != null) {
-                        final String before = def.getName();
-                        def.setName(newName);
-                        undoManager.recordAction(new EditActions.LambdaAction("Rename lane",
-                                () -> { def.setName(newName); syncTimelineOverlays(); },
-                                () -> { def.setName(before); syncTimelineOverlays(); }));
-                    } else {
-                        final com.fadcam.ui.faditor.layers.TrackFlags before =
-                                timeline.getOrCreateTrackFlags(trackId).copy();
-                        com.fadcam.ui.faditor.layers.TrackFlags flags =
-                                timeline.getOrCreateTrackFlags(trackId);
-                        flags.customName = newName;
-                        timeline.pruneDefaultTrackFlags();
-                        final com.fadcam.ui.faditor.layers.TrackFlags after = flags.copy();
-                        undoManager.recordAction(new EditActions.LambdaAction("Rename lane",
-                                () -> { timeline.setTrackFlags(trackId, after.copy());
-                                        syncTimelineOverlays(); },
-                                () -> { timeline.setTrackFlags(trackId, before.copy());
-                                        syncTimelineOverlays(); }));
-                    }
-                    syncTimelineOverlays();
-                    scheduleAutoSave();
-                })
-                .show();
     }
 
     /**

@@ -114,7 +114,14 @@ public class AIToolExecutor {
                 case "cut_all_fillers": return toolCutAllFillers(args);
                 case "ai_merge_transcript": return toolAIMergeTranscript(args);
                 case "ai_enhance": return toolAIEnhance(args);
-                case "set_clip_duck": return toolSetClipDuck(args);
+                // set_clip_duck is DELIBERATELY NOT REGISTERED. duckAmount is read by nothing —
+                // zero references in ExportManager and zero in the whole player package — so the
+                // tool set the field, reported "Audio ducking set to N%", and changed nothing the
+                // user could ever hear. The human-facing slider was already hidden behind
+                // `if (false)` for exactly this reason (VolumeControlBottomSheet ~:338); the AI
+                // copy of it was missed. An assistant that claims an edit it did not make is
+                // worse than one that says it cannot. Re-register when a duck processor exists.
+                // See tasks/LEDGER.md §3f.
                 case "set_clip_zoom": return toolSetClipZoom(args);
                 case "auto_zoom": return toolAutoZoom(args);
                 case "generate_slide": return toolGenerateSlide(args);
@@ -210,14 +217,12 @@ public class AIToolExecutor {
                  args: {"clipId":"...", "anchors":[{"word":"in","timeMs":6000},{"index":5,"timeMs":15000}], "distribute":"even"}
             21. synthesize_transcript — Merge Vosk timing + Whisper words + silence data into a "best of both" transcript. Filler words (um/uh) are detected via silence cross-checking and pre-marked as [CUT]. Requires both Vosk and Whisper transcripts to exist.
                 args: {"clipId":"...", "runSilence":true, "sensitivity":0.5}
-            21. cut_all_fillers — Cut all pre-marked filler words (struck) from a clip's transcript. Run synthesize_transcript first.
+            22. cut_all_fillers — Cut all pre-marked filler words (struck) from a clip's transcript. Run synthesize_transcript first.
                 args: {"clipId":"..."}
-            22. ai_merge_transcript — Merge Vosk + Whisper transcripts algorithmically (LCS alignment, picks better word per position)
+            23. ai_merge_transcript — Merge Vosk + Whisper transcripts algorithmically (LCS alignment, picks better word per position)
                 args: {"clipId":"..."}
-            23. ai_enhance — One-button enhance: generates missing transcripts, detects silence, synthesizes, and cuts fillers for ALL clips
+            24. ai_enhance — One-button enhance: generates missing transcripts, detects silence, synthesizes, and cuts fillers for ALL clips
                 args: {}
-            24. set_clip_duck — Set audio ducking (lower volume when voice detected)
-                args: {"clipId":"...", "duckAmount":0.3}
             25. set_clip_zoom — Set punch-in zoom on a clip
                 args: {"clipId":"...", "zoom":2.0, "centerX":0.5, "centerY":0.5}
             26. auto_zoom — Detect important words from transcript and apply punch-in zoom
@@ -245,59 +250,59 @@ public class AIToolExecutor {
                 the user confirms, call apply_narrative_proposal (preferred — it builds
                 the splits+reorder reliably) rather than hand-writing apply_edit_script.
                 args: {"clipId":"..."}
-            30. apply_narrative_proposal — Apply a CONFIRMED narrative proposal. Pass the
+            29. apply_narrative_proposal — Apply a CONFIRMED narrative proposal. Pass the
                 same chunk list analyze_narrative_structure returned (optionally edited by
                 the user's KEEP/DROP/order changes). Builds and atomically applies the
                 SPLIT×N + REORDER_CLIPS script with matching ids; other clips on the
                 timeline are preserved. Only call AFTER the user confirms.
                 args: {"clipId":"...","chunks":[{"startMs":0,"endMs":47000,"keep":true,
                 "order":1}, ...]}
-            31. apply_broll_proposal — Apply CONFIRMED b-roll cutaways. Pass the accepted
+            30. apply_broll_proposal — Apply CONFIRMED b-roll cutaways. Pass the accepted
                 items from suggest_broll_placements (each must include assetUri). Inserts
                 each cutaway atomically (narration audio keeps playing underneath). Only
                 call AFTER the user confirms.
                 args: {"cutaways":[{"atMs":64000,"durationMs":3500,
                 "assetUri":"content://.../clip.mp4"}, ...]}
-            29. move_clip_to — Move a clip to a specific position in the timeline.
+            31. move_clip_to — Move a clip to a specific position in the timeline.
                 Use when the user says e.g. "move Intro to the end", "make the selected clip last", "move this to third place".
                 The clip is identified by its id or by matching part of its name/label.
                 args: {"clipId":"...", "position":"end|start|3"} or {"namePattern":"Intro", "position":"end"}
                 Position can be "start", "end", or a 1-based number ("1", "3", etc.)
 
-            30. reorder_clips_by_name — Reorder clips by matching their names/labels.
+            32. reorder_clips_by_name — Reorder clips by matching their names/labels.
                 Use when the user says e.g. "make the order: Intro, Scene1, Scene2, Outro".
                 args: {"nameOrder":["Intro","Scene1","Scene2","Outro"]}
                 Each entry is matched against clip names (case-insensitive contains match).
                 Clips not matched stay in their original relative order at the end.
                 If clips are on different layers, the tool asks the user to confirm.
 
-            32. rename_clip — Rename a single clip by id.
+            33. rename_clip — Rename a single clip by id.
                 Use when the user says e.g. "rename the first clip to Intro".
                 args: {"clipId":"...", "newName":"Intro"}
 
-            33. rename_asset — Batch rename clips whose names/labels contain a pattern.
+            34. rename_asset — Batch rename clips whose names/labels contain a pattern.
                 Use when the user says e.g. "rename all IMG_ clips to Vacation".
                 args: {"namePattern":"IMG_", "newName":"Vacation", "startIndex":1}
                 startIndex is the starting counter for numbered suffixes (default 1).
                 Result: "Vacation 1", "Vacation 2", ...
 
-            34. describe_clip — Show detailed info about a clip (name, duration, source, overlays).
+            35. describe_clip — Show detailed info about a clip (name, duration, source, overlays).
                 Use when the user wants to know about a specific clip.
                 args: {"clipId":"..."}
 
-            31. resize_overlay — Resize a text/image overlay by percentage.
+            36. resize_overlay — Resize a text/image overlay by percentage.
                 Use when the user says e.g. "make the title bigger", "shrink the logo by 50%".
                 args: {"overlayId":"...", "percentChange":50} (positive = bigger, negative = smaller)
                 Or: {"overlayId":"...", "sizeFraction":0.15} (absolute size as fraction of screen height)
 
-            29. suggest_broll_placements — Read-only. Suggest documentary-style b-roll
+            37. suggest_broll_placements — Read-only. Suggest documentary-style b-roll
                 cutaways (b-roll replaces the visible frame while the original narration
                 keeps playing). Returns guardrail-checked candidates with reasons;
                 applies NOTHING. To apply after confirmation, emit apply_edit_script
                 with INSERT_BROLL_CUTAWAY per accepted suggestion.
                 args: {"clipId":"..."}
 
-            32. tag_broll_assets — Vision-tag the b-roll bucket: extracts a thumbnail
+            38. tag_broll_assets — Vision-tag the b-roll bucket: extracts a thumbnail
                 from each untagged image/video asset, sends it to the configured
                 multimodal model, and caches searchable tags + a one-line description.
                 Cached tags automatically improve list_broll and
@@ -322,7 +327,7 @@ public class AIToolExecutor {
                 no network. Omit both args to list the project's sheets.
                 args: {"sheetId":"..."}  OR  {"imageUri":"file://…|content://…"}
 
-            35. author_avatar_rig — Propose an AVATAR PUPPET RIG (Avatar Studio) for the
+            39. author_avatar_rig — Propose an AVATAR PUPPET RIG (Avatar Studio) for the
                 user to confirm. Emit rig JSON against the BUILT-IN BIPED TEMPLATE:
                 canonical part ids head/body/armL/armR/handL/handR/mouth (body is the
                 root; head/armL/armR parent to body; handL/handR parent to their arm;
@@ -341,7 +346,7 @@ public class AIToolExecutor {
                 "driverY":"pitch","cols":3,"rows":3},{"id":"armL","driverX":"angle",
                 "cols":5,"rows":1}]}
                 args: {"rig":{ …rig JSON object… }}
-            36. apply_avatar_rig — Apply a CONFIRMED avatar rig: registers it in the
+            40. apply_avatar_rig — Apply a CONFIRMED avatar rig: registers it in the
                 project. Only call AFTER the user confirms (or use the Apply card).
                 args: {"rig":{ …the same rig JSON… }}
 

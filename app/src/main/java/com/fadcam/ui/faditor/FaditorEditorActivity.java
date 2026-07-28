@@ -638,6 +638,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private boolean wasPlayingBeforeDrag = false;
 
+    /**
+     * Set when a playhead DRAG moved the selection onto a different clip. The selection itself
+     * follows the playhead live (positions have to be computed in the right clip's coordinate
+     * space — LEDGER §2a), but the media LOAD stays deferred to the end of the drag, because
+     * preparing a source at every crossing snaps the preview at each split point. This flag is
+     * what carries "a crossing happened" across the drag now that the index comparison can no
+     * longer detect it; {@code onPlayheadDragFinished} consumes it and loads exactly once.
+     */
+    private boolean pendingClipSwapAfterDrag = false;
+
     /** Tracks the last playhead fraction set by the user (drag or trim). */
     private float lastUserPlayheadFraction = 0f;
 
@@ -749,6 +759,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return project.getTimeline().getClip(0);
         }
         return project.getTimeline().getClip(selectedClipIndex);
+    }
+
+    /**
+     * Whether the player is actually serving {@code clip} right now — in gapless mode, whether
+     * it is the current playlist window. Any position expressed relative to a clip is only
+     * meaningful to a player holding that clip, so this is the question a seek has to be able
+     * to ask (LEDGER §2a).
+     */
+    private boolean playerHoldsClip(@Nullable Clip clip) {
+        return clip != null && playerManager != null
+                && clip.getId().equals(playerManager.getLoadedClipId());
     }
 
     /** Find a clip by its id, or null if not present. */
@@ -1719,16 +1740,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (segmentIndex < 0 || segmentIndex >= tl.getClipCount()) return;
                 Clip clip = tl.getClip(segmentIndex);
                 if (clip == null) return;
+                final int previousSelection = selectedClipIndex;
 
-                // If crossing to a different segment and NOT actively dragging,
-                // load the new clip in the player (needed for correct seek bounds).
-                // During drag, we skip loading to prevent snapping at split points.
-                // When the drag ends, onPlayheadDragFinished() will load the new clip.
-                if (segmentIndex != selectedClipIndex && !isDragging) {
+                // SELECTION FOLLOWS THE PLAYHEAD — during a drag too (LEDGER §2a).
+                // The INDEX and the MEDIA LOAD are two different costs and used to be tied
+                // together: because loading a clip mid-drag snaps the preview at every split
+                // point, this block was gated on !isDragging, which left selectedClipIndex
+                // pointing at the clip the drag STARTED on. Everything downstream —
+                // getAbsolutePlayheadMs(), updateCurrentTimeDisplay() and the whole overlay time
+                // base, and the seek arithmetic below — resolves against selectedClipIndex, so a
+                // crossing produced positions in ONE clip's coordinate space and handed them to a
+                // player holding ANOTHER. Measured on the Note 9 2026-07-28: a single backward
+                // drag out of a 500ms clip into a 3051ms one emitted 22 seeks running
+                // rel=582…2886 into a 500ms window (SEEKRANGE, all from this method). Each clamps
+                // to the out point, so the player runs out, reaches ENDED with play still
+                // switched on, and parks — the "playback stops mid-timeline and only recovers by
+                // scrubbing back to zero" report. It is also the `sel=3 segAtHead=2` divergence.
+                // The index is free, so it moves now; only the LOAD stays deferred, and
+                // pendingClipSwapAfterDrag makes onPlayheadDragFinished do it exactly once, for
+                // the clip the drag actually ended on.
+                if (segmentIndex != selectedClipIndex) {
                     selectedClipIndex = segmentIndex;
                     // Keep the green selection honest: it must match the clip the
                     // playhead is on, since that's what Delete/Split/etc. act on.
                     editorTimeline.setSelectedIndex(segmentIndex);
+                    if (isDragging) {
+                        pendingClipSwapAfterDrag = true;
+                    }
+                }
+                // The preview/media swap keeps its ORIGINAL trigger — "the playhead moved to a
+                // clip other than the one that was selected on entry, and this is not a drag" —
+                // hence previousSelection rather than the (now already updated) field.
+                if (segmentIndex != previousSelection && !isDragging) {
+                    pendingClipSwapAfterDrag = false;
                     // MISSING source: show MISSING overlay instead of loading preview
                     if (!clip.isGeneratedSlide() && !isSourceResolvable(clip.getSourceUri())) {
                         hideImagePreview();
@@ -1788,7 +1832,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // Pause FIRST so ExoPlayer renders the decoded frame to TextureView
                     // (frame only becomes visible when playWhenReady=false and seek completes)
                     playerManager.pause();
-                    playerManager.seekTo(seekPosition);
+                    // seekInClip, not seekTo: seekPosition is expressed in THIS clip's space and
+                    // is only meaningful to a player holding THIS clip. Gapless serves every clip
+                    // from one playlist, so it just homes to the right window and the preview
+                    // stays correct across the whole drag. On the legacy single-clip path the
+                    // seek is REFUSED while the drag is still over a clip that isn't loaded —
+                    // holding the last rendered frame is honest, where applying the position to
+                    // the wrong clip parked the player at its out point (LEDGER §2a). The load
+                    // then happens once, on the clip the drag ends on, in
+                    // onPlayheadDragFinished.
+                    playerManager.seekInClip(clip, seekPosition);
                     updatePreviewTransforms();
                     updateScrubTransitionPreview(clip, segmentIndex, seekPosition);
                 } else {
@@ -1811,10 +1864,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 userDragging = false;
                 
                 // Now that drag is finished, check if we crossed into a different segment
-                // If so, load that clip now (we skipped it during the drag to avoid snapping)
+                // If so, load that clip now (we skipped it during the drag to avoid snapping).
+                // The SELECTION now follows the playhead live (see onPlayheadSeeked), so the
+                // index comparison alone can no longer detect a crossing — pendingClipSwapAfterDrag
+                // carries that fact across the drag. It only forces a load when the player is not
+                // already serving the clip the drag ended on, so crossing out of a clip and back
+                // into it does not re-prepare the source it is still holding.
                 Timeline tl = project.getTimeline();
                 int segmentAtPlayhead = editorTimeline.getSegmentAtPlayhead();
-                if (segmentAtPlayhead >= 0 && segmentAtPlayhead != selectedClipIndex) {
+                Clip headClip = (segmentAtPlayhead >= 0 && segmentAtPlayhead < tl.getClipCount())
+                        ? tl.getClip(segmentAtPlayhead) : null;
+                boolean crossedDuringDrag = pendingClipSwapAfterDrag && !playerHoldsClip(headClip);
+                pendingClipSwapAfterDrag = false;
+                if (segmentAtPlayhead >= 0
+                        && (segmentAtPlayhead != selectedClipIndex || crossedDuringDrag)) {
                     selectedClipIndex = segmentAtPlayhead;
                     editorTimeline.setSelectedIndex(segmentAtPlayhead);
                     Clip clip = tl.getClip(segmentAtPlayhead);
@@ -1855,7 +1918,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 long sourceMs = clip.getInPointMs()
                                         + (long)(localMs * clip.getSpeedMultiplier());
                                 long seekPos = Math.max(0, sourceMs - clip.getInPointMs());
-                                playerManager.seekTo(seekPos);
+                                playerManager.seekInClip(clip, seekPos);
                                 updatePreviewTransforms();
                             }
                         }
@@ -1888,7 +1951,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         long seekPos = Math.max(0, sourceMs - fc.getInPointMs());
                         playerManager.setExactSeek(true);
                         playerManager.pause();
-                        playerManager.seekTo(seekPos);
+                        playerManager.seekInClip(fc, seekPos);
                     }
                 }
                 seekAudioPlayersToPlayhead();
@@ -4212,8 +4275,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             // clip — point it at this image window before the window-local seek.
                             playerManager.loadClip(playClip);
                         }
-                        playerManager.seekTo(relativePlayheadMs);
-                        
+                        // Clip-scoped: relativePlayheadMs was computed against playClip, so it is
+                        // only meaningful to a player holding playClip (LEDGER §2a).
+                        if (playClip != null) {
+                            playerManager.seekInClip(playClip, relativePlayheadMs);
+                        } else {
+                            playerManager.seekTo(relativePlayheadMs);
+                        }
                         playerManager.play();
                         syncAndPlayAudioPlayer();
                     }
@@ -8658,6 +8726,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
 
+        // ── SAFETY NET: "wants to play, will never play" (LEDGER §2a, layer ii) ──────────
+        // The end-of-clip advance lives inside the `isPlaying` block below, but isPlaying() is
+        // FALSE at STATE_ENDED while playWhenReady stays TRUE. So any path that leaves the
+        // player parked at its out point with play still switched on — a position that clamped
+        // there, a source that ran out early, a decode that never resumed — wedges the transport
+        // permanently: nothing in this method converts ENDED into an advance, and the user's only
+        // escape was to scrub back to zero. That is the reported "playback stops mid-timeline and
+        // the transport goes unresponsive".
+        // Gated on getPlayWhenReady() so a deliberate PAUSE landing exactly on a clip's trim-end
+        // still parks, which is correct; and placed AFTER the loop-extension and transition
+        // blocks above so those keep owning their own ends.
+        if (!isPlaying && isAtEnd && !transitionPlaybackActive
+                && playerManager.getPlayWhenReady()) {
+            Timeline timeline = project.getTimeline();
+            int nextIndex = selectedClipIndex + 1;
+            FLog.w(TAG, "ENDEDNET: parked at end with play still on — sel=" + selectedClipIndex
+                    + " next=" + nextIndex + "/" + timeline.getClipCount()
+                    + " pos=" + playerManager.getCurrentPosition()
+                    + " head=" + editorTimeline.getPlayheadPositionMs());
+            if (nextIndex < timeline.getClipCount()) {
+                advanceToSegment(nextIndex, true);
+            } else if (editorTimeline.getTimelineEndMs() > totalEffectiveMs()) {
+                // Audio outlasts the video track — same handoff the in-playback path makes.
+                playerManager.pause();
+                audioTailActive = true;
+                audioTailStartMs = totalEffectiveMs();
+                audioTailStartWall = android.os.SystemClock.elapsedRealtime();
+                updatePlayPauseButton(true);
+            } else {
+                playerManager.pause();
+                pauseAudioPlayer();
+                updatePlayPauseButton(false);
+                timeCurrent.setText(TimeFormatter.formatAuto(timeline.getTotalDurationMs()));
+            }
+            return;
+        }
+
         if (isPlaying) {
             long currentPos = playerManager.getCurrentPosition();
             // Clear the loop-restart pending flag once the seek-to-0 has
@@ -9313,8 +9418,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (liveRan && playerManager != null) {
                                 long bOffsetMs = (long) (transition.durationMs
                                         * Math.max(0.01f, next.getSpeedMultiplier()));
+                                // A transition can be LONGER than the clip it hands off to, in
+                                // which case this offset addresses a position past the end of B.
+                                // Measured on the Note 9: a 600ms blend into a 500ms clip
+                                // (SEEKRANGE "rel=600 window=500"), which parks B at its out
+                                // point with play still on — the same "wants to play, will never
+                                // play" park as LEDGER §2a, reached by a different road. Clamp to
+                                // B's own length, a frame short of the end so it still has
+                                // something to play.
+                                long bTrimmedMs = Math.max(0L, next.getTrimmedDurationMs());
+                                bOffsetMs = Math.min(bOffsetMs, Math.max(0L, bTrimmedMs - 40L));
                                 // Trim-relative; queued as a pending seek if B isn't READY yet.
-                                playerManager.seekTo(bOffsetMs);
+                                playerManager.seekInClip(next, bOffsetMs);
                             }
                             if (playheadHandler != null) {
                                 playheadHandler.postDelayed(

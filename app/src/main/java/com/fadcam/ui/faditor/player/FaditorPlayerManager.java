@@ -529,8 +529,17 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     private long effectiveTrimEnd() {
         if (player == null) return trimEndMs;
         long duration = player.getDuration();
-        if (duration == Long.MIN_VALUE) return trimEndMs;
-        return Math.min(trimEndMs, Math.max(0L, duration));
+        // "Duration not known yet" is C.TIME_UNSET, which is Long.MIN_VALUE + 1 — NOT
+        // Long.MIN_VALUE — and getDuration() also reports 0 for a source that has not been
+        // prepared. The old `== Long.MIN_VALUE` test caught neither, so Math.max(0, TIME_UNSET)
+        // collapsed the trim window to ZERO, and seekTo() then clamped EVERY position back to
+        // trimStart: seek right after loading a clip landed at the clip's first frame instead of
+        // where the user scrubbed to. Found by SEEKRANGE on the Note 9 2026-07-28 —
+        // "rel=494 window=0 from=onPlayheadDragFinished" — i.e. the drag-end re-seek was being
+        // thrown away every time the newly loaded clip wasn't prepared yet.
+        // Any non-positive duration means "unknown"; keep the clip's own out-point.
+        if (duration <= 0L) return trimEndMs;
+        return Math.min(trimEndMs, duration);
     }
 
     public void play() {
@@ -722,6 +731,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     }
 
     public void seekTo(long positionMs) {
+        logSeekRange("seekTo", positionMs);
         // Gapless: position is 0-based within the current window's clip, which is exactly what the
         // ClippingConfiguration player uses natively — seek directly, no trim-offset arithmetic.
         if (gapless()) {
@@ -755,6 +765,96 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             pendingSeekMs = absoluteMs;
             FLog.d(TAG, "Seek to " + positionMs + "ms (queued, state=" + state + ")");
         }
+    }
+
+    // ── SEEKRANGE (LEDGER §2a) ───────────────────────────────────────────────────────────────
+    // A clip-relative seek is only meaningful in the coordinate space of the clip the player
+    // ACTUALLY holds. When a timeline drag crossed a cut, the editor computed the position
+    // against the segment under the playhead while the player still held the previous clip, so
+    // the request landed in a foreign space: measured on the Note 9 2026-07-28,
+    // "Seek to 5363ms (rel)" into a clip only 3051ms long. It clamps to the out point, the
+    // player runs out, hits ENDED with playWhenReady still true, and parks forever.
+    //
+    // This logs EVERY clip-relative seek with the loaded window's real length, so the in-range
+    // lines (ok=true) are the instrument's own positive control — their absence would mean the
+    // probe is blind rather than that the defect is gone.
+
+    /** A seek may land this far past the window end (rounding, a frame of overshoot) and still
+     *  be in range. Anything beyond is a coordinate-space error, not a rounding error. */
+    private static final long SEEK_RANGE_TOLERANCE_MS = 50L;
+
+    /** Length of the window {@code seekTo} positions are relative to, or -1 if unknown. */
+    private long loadedWindowDurationMs() {
+        if (gapless()) return gaplessEngine.getCurrentWindowDuration();
+        if (player == null) return -1L;
+        return Math.max(0L, effectiveTrimEnd() - Math.min(trimStartMs, trimEndMs));
+    }
+
+    private void logSeekRange(@NonNull String where, long positionMs) {
+        long windowMs = loadedWindowDurationMs();
+        if (windowMs < 0) return;
+        boolean ok = positionMs <= windowMs + SEEK_RANGE_TOLERANCE_MS;
+        String line = "SEEKRANGE ok=" + ok + " via=" + where + " rel=" + positionMs
+                + " window=" + windowMs
+                + " over=" + Math.max(0L, positionMs - windowMs)
+                + " clip=" + (currentClip != null ? currentClip.getId() : "null")
+                + " gapless=" + gapless();
+        if (ok) {
+            FLog.d(TAG, line);
+        } else {
+            FLog.w(TAG, line + " from=" + callerTrace());
+        }
+    }
+
+    /** The first few app frames above this class — names the call site of an out-of-range seek
+     *  so the capture identifies the path instead of leaving it to be inferred. Diagnostic only. */
+    @NonNull
+    private static String callerTrace() {
+        StringBuilder sb = new StringBuilder();
+        StackTraceElement[] st = new Throwable().getStackTrace();
+        int shown = 0;
+        for (StackTraceElement e : st) {
+            if (e.getClassName().endsWith("FaditorPlayerManager")) continue;
+            if (!e.getClassName().startsWith("com.fadcam")) continue;
+            if (shown > 0) sb.append('<');
+            sb.append(e.getMethodName()).append(':').append(e.getLineNumber());
+            if (++shown >= 4) break;
+        }
+        return sb.length() == 0 ? "?" : sb.toString();
+    }
+
+    /**
+     * Seek to a clip-relative position IN A NAMED CLIP — the safe form of {@link #seekTo(long)}
+     * for any caller that computed the position against a clip which may not be the loaded one.
+     *
+     * <p>Gapless: the playlist already contains every clip, so homing to that clip's window is a
+     * plain playlist seek (no prepare) and the preview stays correct across the whole drag; the
+     * engine's seam callback syncs the editor's per-clip UI.</p>
+     *
+     * <p>Legacy single-clip path: honoured only when the player really holds {@code clip}.
+     * Otherwise the seek is REFUSED (returns false) rather than applied in the wrong coordinate
+     * space — the caller keeps the last rendered frame and loads the clip when the drag ends.</p>
+     *
+     * @return true if the seek was applied to the clip that was asked for.
+     */
+    public boolean seekInClip(@NonNull Clip clip, long positionMs) {
+        long pos = Math.max(0L, positionMs);
+        if (gapless()) {
+            if (gaplessEngine.windowForClipId(clip.getId()) < 0) return false;
+            logSeekRange("seekInClip", pos);
+            gaplessEngine.seekInClip(clip.getId(), pos);
+            return true;
+        }
+        if (player == null) return false;
+        if (currentClip == null || !currentClip.getId().equals(clip.getId())) return false;
+        seekTo(pos);
+        return true;
+    }
+
+    /** Id of the clip the player currently holds (gapless: the current window's clip), or null. */
+    @Nullable
+    public String getLoadedClipId() {
+        return currentClip != null ? currentClip.getId() : null;
     }
 
     /**

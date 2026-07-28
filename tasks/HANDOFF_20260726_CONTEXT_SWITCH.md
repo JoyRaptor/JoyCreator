@@ -4,7 +4,7 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
-### 2026-07-28 ~07:15 — IMAGE-CLIP PLAYBACK FREEZE: found and FIXED (`f8c07b3`).
+### 2026-07-28 ~07:15 — IMAGE-CLIP PLAYBACK FREEZE: found and FIXED (`8a3acaf`).
 The `aeb0517e` "wedge" from the last wake was not a fixture quirk — it is a real bug in any
 legacy-path project where a video clip is followed by an IMAGE clip. Playback stops dead
 partway through the image and the transport goes unresponsive.

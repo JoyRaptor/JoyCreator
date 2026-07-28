@@ -403,6 +403,16 @@ public class MasterPlaybackEngine {
 
         ExoPlayer p = new ExoPlayer.Builder(context).build();
         p.setRepeatMode(Player.REPEAT_MODE_OFF);
+        // NOTE (2026-07-28): playlist preloading was TRIED HERE AND DID NOT HELP — do not
+        // re-add it without new evidence. media3's PreloadConfiguration.DEFAULT disables
+        // preloading, so setting a 2s target looked like the obvious fix for the per-seam
+        // stall. Measured on the Note 9 (project 74e36000, EventLogger): baseline seam cost
+        // 250/271/330ms vs 219/236/398ms with preloading — the same mean, and the event
+        // sequence was byte-for-byte the same shape (videoDisabled -> videoEnabled ->
+        // downstreamFormat -> renderedFirstFrame, the next window's format still arriving only
+        // AFTER the transition). It costs an extra buffered period for no measured gain.
+        // The renderer teardown at each item transition is the thing to attack; see
+        // handoff §0z 2026-07-28 ~06:15.
         p.addListener(internalListener);
         if (eventLoggingEnabled) {
             try {

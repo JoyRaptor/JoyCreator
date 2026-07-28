@@ -4,6 +4,57 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~06:15 — SEAM MECHANISM FOUND (renderer teardown per cut). One fix tried, REJECTED.
+The seam item now has a mechanism, not just a location — and the obvious fix for it was tested
+and does not work. Nothing shipped; the tree carries only a comment warning off the dead end.
+
+**THE MECHANISM.** `EventLogger` is already attached in debug builds
+(`FaditorPlayerManager:941`, `setEventLoggingEnabled(BuildConfig.DEBUG)`), so this needed no new
+instrument. On project `74e36000` every seam logs, in order:
+```
+videoDisabled  window=0        rendererReady video,false
+videoEnabled   window=1        downstreamFormat window=1   renderedFirstFrame window=1
+```
+**The video renderer is torn down and rebuilt at every cut**, and `videoDisabled →
+renderedFirstFrame` was **250 / 271 / 330 ms** — which is the entire per-seam loss measured all
+week. Decisive detail: every window in that project is the SAME source file with a
+**byte-identical format** (`video/hevc hvc1.1.6.L150.B0 1080x1920 bitrate=7697274`), so nothing
+about the format forces this. The ACodec log agrees — the decoder is flushed twice per seam
+(`OMX.qcom.video.decoder.hevc signalFlush`) with no codec re-creation.
+
+This closes the chain: the cost is in the player (proved), it scales with the entered clip
+(its keyframe/bitrate cost to re-fill after a flush), and it has nothing to do with source
+continuity (proved) — because **every** clipped playlist item pays a renderer restart.
+
+**THE FIX I TRIED AND REJECTED — playlist preloading.** media3 1.8.0 has
+`ExoPlayer.setPreloadConfiguration`, whose `DEFAULT` **disables** playlist preloading, and this
+engine never set it. So the class header's claim that "ExoPlayer pre-buffers the next item
+natively" is true of the SOURCE but not of the RENDERER. Setting a 2s target preload looked
+like the answer. It is not:
+
+| | seam1 | seam2 | seam3 | mean |
+|---|---|---|---|---|
+| baseline | 250ms | 271ms | 330ms | 284ms |
+| preload 2s | 219ms | 236ms | 398ms | 284ms |
+
+Identical mean, and — the part that actually settles it — **the event sequence was unchanged**:
+still `videoDisabled → videoEnabled → downstreamFormat → renderedFirstFrame`, with the next
+window's format still arriving only AFTER the transition. No preload activity in logcat at all.
+**Reverted**, because it costs an extra buffered period for no measured gain. A comment at the
+call site records this so it is not re-attempted blind.
+
+**WHERE TO GO NEXT (not yet tried).** The target is the renderer restart itself, not the
+buffer. Worth checking, in rough order of promise: whether `ClippingConfiguration` per item is
+what forces a fresh period+renderer at each cut (a single `ClippingMediaSource`-free playlist,
+or pre-cut media, would test it); whether `DefaultPreloadManager` — a different API from the
+one I tried — warms renderers rather than just sources; and whether the double `signalFlush`
+per seam is one flush too many (each pair is ~85ms apart, both BEFORE the transition callback).
+
+**Useful metric for whoever continues:** `videoDisabled → renderedFirstFrame` from EventLogger
+is a direct, ms-accurate per-seam cost that needs NO instrument change — much better than the
+50ms PHDIAG rebuild used earlier this week. `scratchpad/seamgap.sh` extracts it from a logcat
+capture.
+
 ### 2026-07-28 ~05:40 — CONFOUND RESOLVED, AND IT RESOLVES AGAINST MY OWN EARLIER READING.
 Seam kind does NOT drive the cost. **Retract "a contiguous seam is worse than a discontinuous
 one" as a causal claim** — it was the confound, and the data that settles it was already in hand.

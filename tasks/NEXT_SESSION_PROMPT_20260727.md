@@ -122,6 +122,24 @@ Seam kind does not drive the cost: within CROSS-SOURCE seams alone the losses sp
 ramp-up), not with source continuity. **The refutation of the original recorded cause still
 stands** on its own footing: a seam needing no seek at all costs 276–348ms, so a seek cannot be
 the mechanism.
+**UPDATE 2026-07-28 ~06:15 — MECHANISM FOUND: the video renderer is torn down and rebuilt at
+EVERY cut.** EventLogger (already on in debug builds) shows `videoDisabled → videoEnabled →
+downstreamFormat → renderedFirstFrame` at each seam, taking **250/271/330ms** — the entire
+measured loss — on a project where every window is the SAME file with a byte-identical format
+(`video/hevc hvc1.1.6.L150.B0 1080x1920`). The decoder is flushed twice per seam and never
+re-created. So every clipped playlist item pays a renderer restart regardless of source
+continuity, which explains all of the week's measurements at once.
+**ONE FIX TRIED AND REJECTED — do not repeat blind:** `setPreloadConfiguration(2s)` (media3
+1.8.0 disables playlist preloading by default, and the engine never set it). Baseline
+250/271/330 vs preload 219/236/398 — same mean, and the event sequence was unchanged, so it did
+not address the restart. Reverted; a comment at the call site records it.
+**Next candidates, untried:** whether per-item `ClippingConfiguration` is what forces a fresh
+period+renderer at each cut (test with pre-cut media or a clipping-free playlist);
+`DefaultPreloadManager` (a different API from the one tried); and the redundant second
+`signalFlush` per seam.
+**Metric to use:** `videoDisabled → renderedFirstFrame` from EventLogger — ms-accurate, no
+instrument rebuild needed (`scratchpad/seamgap.sh`).
+
 **Design a fix against this sentence:** *crossing a window boundary costs 120–350ms (sometimes
 ~1s) of real playback rate; the loss is inside ExoPlayer, not the UI thread; and it scales with
 the entered clip rather than with source continuity.*

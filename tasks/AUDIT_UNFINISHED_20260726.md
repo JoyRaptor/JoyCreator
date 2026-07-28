@@ -101,6 +101,40 @@ remaining instance of that pattern.
 
 ---
 
+## METHOD NOTE — what this audit's instrument CANNOT see (added 2026-07-28)
+
+This audit swept task docs for **unfinished checklist items**. That has a structural blind spot,
+found the hard way: architecture stated as a PREMISE in prose is not a checklist item, so a
+checklist sweep cannot see it.
+
+The case that exposed it. `PLAN_transcript_windowing.md`'s problem statement says "the transcript
+belongs to the SOURCE; each clip is a window over it". Its implementation STEPS were only about
+not destroying words on split and windowing the display consumers — moving storage from clip to
+source was never listed. Every listed step landed, item 1.1 was verified and closed, and the
+architecture was still unbuilt: each clip keeps its own full copy, copies diverge, and
+`TranscriptSharing` had to be written to collapse the forks afterwards. Missed on three separate
+passes over the same doc, because nothing in it was ever unticked.
+
+The second signal was louder and also invisible to a docs audit: `TranscriptSharing`'s own header
+says *"The code has never quite worked that way."* Code comments are where this debt confesses,
+and a doc sweep does not read code.
+
+**Second instrument, cheap, worth re-running:** grep the codebase for the phrases where
+implementation-vs-intent drift admits itself, then check each against whether anything tracks it:
+
+    grep -rn -i "never quite\|does not yet\|known limitation\|should really\|not actually\|for now" app/src/main/java --include=*.java
+
+Run 2026-07-28. One real finding (the transcript ownership above). Two candidates checked and
+CLEARED, recorded so nobody re-investigates them: `FaditorProject.bookmarksMs` does not round-trip
+through project.json but is deliberately persisted by a `BookmarkStore` sidecar; `BlendMode`'s
+non-NORMAL values are reserved model capacity with no UI exposing them and no code setting them.
+
+Distinct from the OTHER failure this audit had — entries 1.2, 1.3 and 1.5 were STALE, already
+fixed and never updated. That one is solved by verifying each item against the code before
+working it. These are two different failure modes and they need two different instruments.
+
+---
+
 ## TIER 1 — DATA-LOSS RISK
 
 ### 1.6 ~~NEW (found + FULLY device-verified 2026-07-26)~~ **FIXED 2026-07-27 (`5b06c4a`)**: undo after an app restart does NOTHING

@@ -388,6 +388,138 @@ public final class CaptionAnimator {
         return out.toArray(new int[0][]);
     }
 
+    // ── Units within a caption phrase ────────────────────────────────────────────────────────
+
+    /**
+     * How many units a phrase's visible words make up at {@code g}.
+     *
+     * <p>Captions arrive as a list of already-separated words rather than as one string, so this
+     * is the word-list twin of {@link #splitUnits}. Both must agree about what a unit is, which
+     * is why they live next to each other.</p>
+     */
+    public static int unitCount(@NonNull java.util.List<String> words, @NonNull Granularity g) {
+        if (words.isEmpty()) return 1;
+        switch (g) {
+            case BLOCK:    return 1;
+            case WORD:     return words.size();
+            case SENTENCE: return sentenceIndexOf(words, words.size() - 1) + 1;
+            case LETTER: {
+                int n = 0;
+                for (String w : words) n += w.length();
+                return Math.max(1, n);
+            }
+            default:       return words.size();
+        }
+    }
+
+    /**
+     * Which unit a given character of a given word belongs to.
+     *
+     * @param charIdxInWord ignored for every granularity except LETTER, so a renderer that
+     *                      draws whole words can pass 0 and get the right answer
+     */
+    public static int unitIndexOf(@NonNull java.util.List<String> words, @NonNull Granularity g,
+                                  int wordIdx, int charIdxInWord) {
+        if (words.isEmpty()) return 0;
+        int wi = Math.max(0, Math.min(wordIdx, words.size() - 1));
+        switch (g) {
+            case BLOCK:    return 0;
+            case WORD:     return wi;
+            case SENTENCE: return sentenceIndexOf(words, wi);
+            case LETTER: {
+                int n = 0;
+                for (int i = 0; i < wi; i++) n += words.get(i).length();
+                return n + Math.max(0, Math.min(charIdxInWord,
+                        Math.max(0, words.get(wi).length() - 1)));
+            }
+            default:       return wi;
+        }
+    }
+
+    /** Sentence ordinal of {@code wordIdx}, counting terminators on the END of a word. */
+    private static int sentenceIndexOf(@NonNull java.util.List<String> words, int wordIdx) {
+        int s = 0;
+        for (int i = 0; i < wordIdx; i++) {
+            if (endsSentence(words.get(i))) s++;
+        }
+        return s;
+    }
+
+    /**
+     * Characters that may sit AFTER a sentence terminator without cancelling it, as a string
+     * rather than a chain of char literals: the JVM harness compiles with the platform default
+     * encoding (windows-1252 here), where a literal curly quote fails to build. The two curly
+     * quotes are therefore written as escapes.
+     */
+    private static final String SENTENCE_TRAILERS = "\"')]" + (char) 0x201D + (char) 0x2019;
+
+    private static boolean endsSentence(@NonNull String w) {
+        for (int i = w.length() - 1; i >= 0; i--) {
+            char c = w.charAt(i);
+            if (c == '.' || c == '!' || c == '?') return true;
+            // Trailing quotes and brackets are skipped so a quoted sentence still
+            // terminates. The curly quotes are compared BY CODE POINT rather than written as
+            // literals: the JVM harness compiles with the platform default encoding
+            // (windows-1252 here) and a literal curly quote fails that build.
+            if (SENTENCE_TRAILERS.indexOf(c) >= 0) continue;
+            return false;
+        }
+        return false;
+    }
+
+    /**
+     * The in/out zone actually usable on an object of {@code spanMs}.
+     *
+     * <p>The zones are stored as DURATIONS on the clip, but each caption phrase is its own
+     * animating object and phrases are short. Capping each zone at half the span is what keeps
+     * the user's stated property true at every phrase length: at the cap the entrance ends
+     * exactly where the exit begins, which is "everything animates in, and as soon as it's in it
+     * starts animating out" — so a zone dragged beyond the midpoint saturates there instead of
+     * overlapping into the undefined region.</p>
+     */
+    public static long zoneForSpan(long storedZoneMs, long spanMs) {
+        if (storedZoneMs <= 0 || spanMs <= 0) return 0L;
+        return Math.min(storedZoneMs, spanMs / 2);
+    }
+
+    // ── Resolving stored values ──────────────────────────────────────────────────────────────
+
+    /**
+     * Resolve a stored preset NAME. Lives here rather than on either renderer because both need
+     * it and a helper duplicated across the preview/export boundary is how this whole area went
+     * wrong the first time.
+     *
+     * <p>An unknown name - a project written by a newer build, or a preset later removed -
+     * degrades to {@link Preset#NONE} rather than throwing. Silently not animating is recoverable;
+     * crashing the export thread is not.</p>
+     */
+    @NonNull
+    public static Preset parsePreset(String name) {
+        if (name == null) return Preset.NONE;
+        try {
+            return Preset.valueOf(name);
+        } catch (IllegalArgumentException e) {
+            return Preset.NONE;
+        }
+    }
+
+    /** Resolve a stored granularity NAME, defaulting to {@link Granularity#WORD}. */
+    @NonNull
+    public static Granularity parseGranularity(String name) {
+        if (name == null) return Granularity.WORD;
+        try {
+            return Granularity.valueOf(name);
+        } catch (IllegalArgumentException e) {
+            return Granularity.WORD;
+        }
+    }
+
+    /** Multiply a colour's alpha channel - how {@link Transform#alpha} reaches a canvas. */
+    public static int applyAlpha(int color, float a) {
+        int alpha = Math.round(((color >>> 24) & 0xFF) * Math.max(0f, Math.min(1f, a)));
+        return (alpha << 24) | (color & 0x00FFFFFF);
+    }
+
     // ── Easing, as pure math ─────────────────────────────────────────────────────────────────
 
     /** Android's {@code DecelerateInterpolator(1.0)}. */

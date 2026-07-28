@@ -217,6 +217,34 @@ public class Clip {
     /** Caption text height as a fraction of the video height. */
     private float captionSizeFraction = 0.060f;
 
+    // ── Caption text animation (SPEC_TEXT_ANIMATION, LEDGER §3g) ─────
+    // Stored as enum NAMES rather than ordinals so reordering the enums cannot silently
+    // re-point every existing project at a different preset, and so an unknown value from a
+    // newer build degrades to the default instead of throwing. Defaults are the "off" state,
+    // which keeps every project written before this feature rendering exactly as it did.
+
+    /** {@code CaptionAnimator.Preset} name. {@code "NONE"} = no entrance/exit animation. */
+    @NonNull
+    private String captionAnimPreset = "NONE";
+
+    /** {@code CaptionAnimator.Granularity} name — what animates as one unit. */
+    @NonNull
+    private String captionAnimGranularity = "WORD";
+
+    /**
+     * Entrance-zone length in SOURCE ms — the distance the {@code >} tape handle has been
+     * dragged in from the head. 0 (handle at the end) is the natural "off", which is why the
+     * animation needs no separate enable switch. Mirrors {@code GeneratedSource.freezeStartMs}.
+     *
+     * <p>Source ms, not timeline ms: the caption renderers evaluate against source time, so a
+     * zone measured in timeline ms would cover the wrong span on any speed-adjusted clip. See
+     * {@link #setCaptionAnimZones}.</p>
+     */
+    private long captionAnimInMs = 0L;
+
+    /** Exit-zone length in SOURCE ms — the {@code <} handle, dragged in from the tail. */
+    private long captionAnimOutMs = 0L;
+
     // ── Loop / Ping-pong ─────────────────────────────────────────────
 
     /** Loop mode: 0=OFF, 1=LOOP (forward repeat), 2=PING_PONG (alternate), 3=STILL (freeze first/last frame). */
@@ -508,6 +536,10 @@ public class Clip {
         this.captionCenterX = other.captionCenterX;
         this.captionCenterY = other.captionCenterY;
         this.captionSizeFraction = other.captionSizeFraction;
+        this.captionAnimPreset = other.captionAnimPreset;
+        this.captionAnimGranularity = other.captionAnimGranularity;
+        this.captionAnimInMs = other.captionAnimInMs;
+        this.captionAnimOutMs = other.captionAnimOutMs;
         this.effectStack = new EffectStack(other.effectStack);
         this.duckAmount = other.duckAmount;
         this.zoomLevel = other.zoomLevel;
@@ -562,6 +594,10 @@ public class Clip {
         c.captionCenterX = captionCenterX;
         c.captionCenterY = captionCenterY;
         c.captionSizeFraction = captionSizeFraction;
+        c.captionAnimPreset = captionAnimPreset;
+        c.captionAnimGranularity = captionAnimGranularity;
+        c.captionAnimInMs = captionAnimInMs;
+        c.captionAnimOutMs = captionAnimOutMs;
         c.effectStack = new EffectStack(effectStack);
         c.pitchCompensation = pitchCompensation;
         c.overlayAudioEnabled = overlayAudioEnabled;
@@ -1098,6 +1134,55 @@ public class Clip {
 
     public void setCaptionSizeFraction(float f) {
         this.captionSizeFraction = Math.max(0.02f, Math.min(0.6f, f));
+    }
+
+    // ── Caption text animation (SPEC_TEXT_ANIMATION) ─────────────────
+
+    @NonNull
+    public String getCaptionAnimPreset() { return captionAnimPreset; }
+
+    public void setCaptionAnimPreset(@NonNull String presetName) {
+        this.captionAnimPreset = presetName;
+    }
+
+    @NonNull
+    public String getCaptionAnimGranularity() { return captionAnimGranularity; }
+
+    public void setCaptionAnimGranularity(@NonNull String granularityName) {
+        this.captionAnimGranularity = granularityName;
+    }
+
+    public long getCaptionAnimInMs() { return captionAnimInMs; }
+
+    public long getCaptionAnimOutMs() { return captionAnimOutMs; }
+
+    /**
+     * Set both animation zones at once, clamped so they cannot be negative and cannot overlap.
+     *
+     * <p>Both zones go through this ONE setter deliberately. They are not independent: the
+     * constraint is on their SUM against the clip's own trimmed length, so a setter that could
+     * only see one of them would have to trust the caller about the other. Dragging the
+     * handles past each other is otherwise reachable — the evaluator resolves the overlap by
+     * letting the entrance win, which is a defined behaviour rather than a good one, and the
+     * fix belongs at the funnel so the timeline drag, an AI edit and a future preset picker all
+     * inherit it rather than each remembering to clamp.</p>
+     *
+     * <p>The excess is taken off the EXIT zone, because the user is dragging one handle at a
+     * time: the one they are moving should keep the value they asked for.</p>
+     *
+     * <p><b>Units are SOURCE ms, not timeline ms.</b> Both caption renderers evaluate against
+     * source time ({@code inPointMs + clipLocalMs * speedMultiplier}), so the zones must be
+     * measured in the same base or a speed-adjusted clip would animate over the wrong span —
+     * which is the exact class of mistake LEDGER §3g was. Hence {@code outPointMs - inPointMs}
+     * here and NOT {@link #getTrimmedDurationMs()}, which divides by the speed multiplier.</p>
+     */
+    public void setCaptionAnimZones(long inMs, long outMs) {
+        long span = Math.max(0L, outPointMs - inPointMs);
+        long in = Math.max(0L, Math.min(inMs, span));
+        long out = Math.max(0L, Math.min(outMs, span));
+        if (in + out > span) out = span - in;
+        this.captionAnimInMs = in;
+        this.captionAnimOutMs = out;
     }
 
     // ── Caption style keyframes ───────────────────────────────────────

@@ -67,6 +67,7 @@ public class CaptionAnimatorTest {
         presetsRestAtIdentity();
         presetShapes();
         unitSplitting();
+        phraseUnits();
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
@@ -282,6 +283,66 @@ public class CaptionAnimatorTest {
             sb.append(text, units[i][0], units[i][1]);
         }
         return sb.append(']').toString();
+    }
+
+    static void phraseUnits() {
+        System.out.println("\n── unitCount / unitIndexOf over a phrase's visible words ──");
+        List<String> w = java.util.Arrays.asList("Hi", "there.", "How", "are", "you?");
+
+        ok("BLOCK: one unit", CaptionAnimator.unitCount(w, BLOCK) == 1);
+        ok("WORD: one unit per word", CaptionAnimator.unitCount(w, WORD) == w.size());
+        ok("SENTENCE: two sentences here", CaptionAnimator.unitCount(w, SENTENCE) == 2);
+        int letters = 0;
+        for (String s : w) letters += s.length();
+        ok("LETTER: one unit per character", CaptionAnimator.unitCount(w, LETTER) == letters);
+
+        ok("BLOCK: every word maps to unit 0",
+                CaptionAnimator.unitIndexOf(w, BLOCK, 0, 0) == 0
+                        && CaptionAnimator.unitIndexOf(w, BLOCK, 4, 0) == 0);
+        ok("WORD: word 3 is unit 3", CaptionAnimator.unitIndexOf(w, WORD, 3, 0) == 3);
+        ok("SENTENCE: 'there.' still belongs to sentence 0 (the terminator ENDS it)",
+                CaptionAnimator.unitIndexOf(w, SENTENCE, 1, 0) == 0);
+        ok("SENTENCE: 'How' starts sentence 1",
+                CaptionAnimator.unitIndexOf(w, SENTENCE, 2, 0) == 1);
+        ok("LETTER: first char of word 1 follows the 2 chars of word 0",
+                CaptionAnimator.unitIndexOf(w, LETTER, 1, 0) == 2);
+        ok("LETTER: units are strictly increasing across the phrase",
+                CaptionAnimator.unitIndexOf(w, LETTER, 1, 1)
+                        > CaptionAnimator.unitIndexOf(w, LETTER, 1, 0));
+        ok("LETTER: the last unit is in range",
+                CaptionAnimator.unitIndexOf(w, LETTER, 4, 3) < CaptionAnimator.unitCount(w, LETTER));
+
+        System.out.println("\n── unitIndexOf guards ──");
+        ok("word index past the end is clamped",
+                CaptionAnimator.unitIndexOf(w, WORD, 99, 0) == w.size() - 1);
+        ok("negative word index is clamped", CaptionAnimator.unitIndexOf(w, WORD, -5, 0) == 0);
+        ok("empty phrase does not throw",
+                CaptionAnimator.unitCount(new ArrayList<String>(), WORD) == 1
+                        && CaptionAnimator.unitIndexOf(new ArrayList<String>(), WORD, 0, 0) == 0);
+        ok("a terminator wrapped in a quote still ends the sentence",
+                CaptionAnimator.unitCount(java.util.Arrays.asList("He", "left.\"", "Then"),
+                        SENTENCE) == 2);
+        ok("a decimal point mid-word does NOT end a sentence",
+                CaptionAnimator.unitCount(java.util.Arrays.asList("costs", "3.50", "today"),
+                        SENTENCE) == 1);
+
+        System.out.println("\n── zoneForSpan: the centre is a saturation point, not an overlap ──");
+        ok("a zone shorter than half the span is untouched",
+                CaptionAnimator.zoneForSpan(200, 1000) == 200);
+        ok("a zone at exactly half saturates", CaptionAnimator.zoneForSpan(500, 1000) == 500);
+        ok("a zone past half is capped at half, never overlapping",
+                CaptionAnimator.zoneForSpan(9999, 1000) == 500);
+        ok("zero stays zero (the off state survives)", CaptionAnimator.zoneForSpan(0, 1000) == 0);
+        ok("a zero-length span yields no zone", CaptionAnimator.zoneForSpan(500, 0) == 0);
+        // The property the cap exists to protect: capped in + capped out never exceed the span,
+        // so unitProgress is never asked to resolve an overlap it has no good answer for.
+        boolean neverOverlaps = true;
+        for (long span = 1; span <= 400; span += 7) {
+            long in = CaptionAnimator.zoneForSpan(100_000, span);
+            long out = CaptionAnimator.zoneForSpan(100_000, span);
+            if (in + out > span) neverOverlaps = false;
+        }
+        ok("capped zones never overlap, at any span", neverOverlaps);
     }
 
     static void unitSplitting() {

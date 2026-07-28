@@ -1330,6 +1330,21 @@ public class ProjectStorage {
         clipJson.addProperty("captionCenterX", clip.getCaptionCenterX());
         clipJson.addProperty("captionCenterY", clip.getCaptionCenterY());
         clipJson.addProperty("captionSizeFraction", clip.getCaptionSizeFraction());
+        // Caption text animation (SPEC_TEXT_ANIMATION). Written SPARSELY — omitted entirely at
+        // the defaults — so every project made before this feature stays byte-identical and no
+        // schema bump is needed. Same idiom as GeneratedSource.freezeStartMs/freezeEndMs.
+        if (!"NONE".equals(clip.getCaptionAnimPreset())) {
+            clipJson.addProperty("captionAnimPreset", clip.getCaptionAnimPreset());
+        }
+        if (!"WORD".equals(clip.getCaptionAnimGranularity())) {
+            clipJson.addProperty("captionAnimGranularity", clip.getCaptionAnimGranularity());
+        }
+        if (clip.getCaptionAnimInMs() != 0L) {
+            clipJson.addProperty("captionAnimInMs", clip.getCaptionAnimInMs());
+        }
+        if (clip.getCaptionAnimOutMs() != 0L) {
+            clipJson.addProperty("captionAnimOutMs", clip.getCaptionAnimOutMs());
+        }
         // Audio ducking and punch-in zoom (schema v2)
         if (clip.getDuckAmount() > 0f) {
             clipJson.addProperty("duckAmount", clip.getDuckAmount());
@@ -1557,6 +1572,25 @@ public class ProjectStorage {
         if (hasValue(clipObj, "captionSizeFraction")) {
             clip.setCaptionSizeFraction(
                     clipObj.get("captionSizeFraction").getAsFloat());
+        }
+        // Caption text animation. Guarded reads, so a project written before the feature keeps
+        // the model defaults ("NONE"/"WORD"/0/0) — which are the off state, so it renders
+        // exactly as it always did.
+        if (hasValue(clipObj, "captionAnimPreset")) {
+            clip.setCaptionAnimPreset(clipObj.get("captionAnimPreset").getAsString());
+        }
+        if (hasValue(clipObj, "captionAnimGranularity")) {
+            clip.setCaptionAnimGranularity(clipObj.get("captionAnimGranularity").getAsString());
+        }
+        // Both zones through the one setter: it clamps them against each other and against the
+        // clip's trimmed length, and it can only do that if it sees both. This runs AFTER the
+        // trim points are read above, so getTrimmedDurationMs() is already correct here.
+        if (hasValue(clipObj, "captionAnimInMs") || hasValue(clipObj, "captionAnimOutMs")) {
+            clip.setCaptionAnimZones(
+                    hasValue(clipObj, "captionAnimInMs")
+                            ? clipObj.get("captionAnimInMs").getAsLong() : 0L,
+                    hasValue(clipObj, "captionAnimOutMs")
+                            ? clipObj.get("captionAnimOutMs").getAsLong() : 0L);
         }
         // Audio ducking and punch-in zoom (schema v2)
         if (hasValue(clipObj, "duckAmount")) {

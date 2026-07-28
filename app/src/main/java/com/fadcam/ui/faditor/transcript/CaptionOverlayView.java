@@ -49,14 +49,27 @@ public class CaptionOverlayView extends View {
     private final Paint pillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float density;
 
-    // Phrase grouping
-    private int[] wordPhrase = new int[0];
-    private final List<int[]> phrases = new ArrayList<>(); // {startIdx, endIdxInclusive}
+    /** Phrase grouping — shared with the export renderer so both agree where a phrase begins. */
+    @NonNull private CaptionPhrases grouping = CaptionPhrases.of(null);
 
     private int activeWordIdx = -1;
     /** Eased entrance progress of the active word, evaluated from MEDIA time by
      *  {@link CaptionAnimator} — see {@link #setActiveSourceMs}. */
     private float emphasisValue = 1f;
+    /** The playhead in SOURCE ms, kept so {@link #onDraw} can evaluate per-unit animation. */
+    private long sourceMs = 0L;
+
+    // Text animation (SPEC_TEXT_ANIMATION). Defaults are the off state.
+    @NonNull private CaptionAnimator.Preset animPreset = CaptionAnimator.Preset.NONE;
+    @NonNull private CaptionAnimator.Granularity animGran = CaptionAnimator.Granularity.WORD;
+    private long animInMs = 0L;
+    private long animOutMs = 0L;
+    // Per-phrase animation state, recomputed at the top of each onDraw. Fields rather than
+    // locals only so drawWord can see them without a six-argument signature; onDraw is the sole
+    // writer, and allocating these per frame is what a caption overlay cannot afford.
+    private final List<String> animWords = new ArrayList<>();
+    private int animUnitCount = 1;
+    private long animSpanStart = 0L, animSpanEnd = 1L, animInEff = 0L, animOutEff = 0L;
 
     private final RectF blockRect = new RectF(); // last drawn bounds (for drag hit-test)
     private boolean dragging;
@@ -103,9 +116,9 @@ public class CaptionOverlayView extends View {
         this.transcript = t;
         this.style = s;
         this.callback = cb;
-        buildPhrases();
+        grouping = CaptionPhrases.of(t);
         if (sameTranscript) {
-            activeWordIdx = Math.min(activeWordIdx, wordPhrase.length - 1);
+            activeWordIdx = Math.min(activeWordIdx, grouping.wordPhrase.length - 1);
         } else {
             activeWordIdx = -1;
         }
@@ -149,32 +162,17 @@ public class CaptionOverlayView extends View {
     }
 
     /**
-     * Group words into short phrases. Break on long gaps, every ~6 words, or a
-     * forced line-break flag on the previous word.
+     * The clip's text-animation settings. Names rather than enums so the caller (the editor,
+     * reading a {@code Clip}) does not have to resolve them, and so a value written by a newer
+     * build degrades to the default here instead of throwing.
      */
-    private void buildPhrases() {
-        phrases.clear();
-        if (transcript == null || transcript.words.isEmpty()) {
-            wordPhrase = new int[0];
-            return;
-        }
-        int n = transcript.words.size();
-        wordPhrase = new int[n];
-        int start = 0;
-        for (int i = 1; i <= n; i++) {
-            boolean brk = i == n;
-            if (!brk) {
-                long gap = transcript.words.get(i).startMs - transcript.words.get(i - 1).endMs;
-                brk = gap > 550 || (i - start) >= 6
-                        || transcript.words.get(i - 1).forceLineBreakAfter;
-            }
-            if (brk) {
-                int phraseIdx = phrases.size();
-                phrases.add(new int[]{start, i - 1});
-                for (int j = start; j < i; j++) wordPhrase[j] = phraseIdx;
-                start = i;
-            }
-        }
+    public void setCaptionAnimation(@Nullable String presetName, @Nullable String granularityName,
+                                    long inMs, long outMs) {
+        animPreset = CaptionAnimator.parsePreset(presetName);
+        animGran = CaptionAnimator.parseGranularity(granularityName);
+        animInMs = Math.max(0L, inMs);
+        animOutMs = Math.max(0L, outMs);
+        invalidate();
     }
 
     /**
@@ -192,6 +190,7 @@ public class CaptionOverlayView extends View {
      */
     public void setActiveSourceMs(long sourceMs) {
         if (transcript == null) return;
+        this.sourceMs = sourceMs;
         int idx = transcript.indexAtOrBeforeTime(sourceMs);
         activeWordIdx = idx;
         emphasisValue = idx >= 0 && idx < transcript.words.size()
@@ -203,19 +202,26 @@ public class CaptionOverlayView extends View {
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         if (transcript == null || callback == null || activeWordIdx < 0) return;
-        if (activeWordIdx >= wordPhrase.length) return;
+        int phraseIdx = grouping.phraseOf(activeWordIdx);
+        if (phraseIdx < 0) return;
         RectF r = callback.getVideoContentRect();
         if (r.width() <= 0 || r.height() <= 0) return;
 
-        int phraseIdx = wordPhrase[activeWordIdx];
-        int[] phrase = phrases.get(phraseIdx);
-
-        // Struck (removed) words should not appear in captions.
-        List<Integer> visible = new ArrayList<>();
-        for (int i = phrase[0]; i <= phrase[1]; i++) {
-            if (!transcript.words.get(i).struck) visible.add(i);
-        }
+        // Struck (removed) words are not drawn, so they must not hold an animation slot either.
+        List<Integer> visible = grouping.visibleWords(phraseIdx);
         if (visible.isEmpty()) return;
+
+        // Per-unit animation state for this phrase. The PHRASE is the animating object, not the
+        // clip: captions are continuous speech, so zones measured against the whole clip would
+        // animate the first phrase and let every later one simply appear.
+        animWords.clear();
+        for (int i : visible) animWords.add(transcript.words.get(i).text);
+        long[] span = grouping.spanMs(phraseIdx);
+        animUnitCount = CaptionAnimator.unitCount(animWords, animGran);
+        animSpanStart = span != null ? span[0] : 0L;
+        animSpanEnd = span != null ? span[1] : 1L;
+        animInEff = CaptionAnimator.zoneForSpan(animInMs, animSpanEnd - animSpanStart);
+        animOutEff = CaptionAnimator.zoneForSpan(animOutMs, animSpanEnd - animSpanStart);
 
         float fontPx = sizeFraction * r.height();
         textPaint.setTextSize(fontPx);
@@ -280,8 +286,11 @@ public class CaptionOverlayView extends View {
             blockRect.set(cx - widest / 2f, top, cx + widest / 2f, top + totalH);
         }
 
-        // Draw each line centred, emphasising the active word.
+        // Draw each line centred, emphasising the active word. `unitPos` counts the visible
+        // words of the phrase in order — lines are built from `visible` in order, so a running
+        // counter is the same sequence the animator indexes by.
         float baseY = top - fm.ascent;
+        int unitPos = 0;
         for (List<Integer> ln : lines) {
             float w = 0;
             for (int k = 0; k < ln.size(); k++) {
@@ -293,44 +302,96 @@ public class CaptionOverlayView extends View {
                 String word = transcript.words.get(wi).text;
                 float ww = textPaint.measureText(word);
                 boolean active = wi == activeWordIdx;
-                drawWord(canvas, word, x, baseY, ww, lineH, active, fontPx);
+                drawWord(canvas, word, x, baseY, ww, active, fontPx, unitPos++);
                 x += ww + space;
             }
             baseY += lineH;
         }
     }
 
+    /**
+     * Progress of one animating unit of the current phrase, from the ONE authority.
+     * {@code charIdx} matters only at LETTER granularity.
+     */
+    private float unitProgress(int wordPos, int charIdx) {
+        return CaptionAnimator.unitProgress(sourceMs, animSpanStart, animSpanEnd,
+                animInEff, animOutEff,
+                CaptionAnimator.unitIndexOf(animWords, animGran, wordPos, charIdx),
+                animUnitCount);
+    }
+
     private void drawWord(Canvas canvas, String word, float x, float baseY,
-                          float ww, float lineH, boolean active, float fontPx) {
-        if (!active) {
-            paintWord(canvas, word, x, baseY, style.baseColor, fontPx);
+                          float ww, boolean active, float fontPx, int wordPos) {
+        int color = active ? style.activeColor : style.baseColor;
+
+        // LETTER granularity is the only case that cannot draw the word as one run: each glyph
+        // carries its own transform, so it must be measured and placed individually. This is the
+        // cost centre the spec warns about, which is why it is reached only when asked for.
+        if (animPreset != CaptionAnimator.Preset.NONE
+                && animGran == CaptionAnimator.Granularity.LETTER) {
+            float gx = x;
+            for (int i = 0; i < word.length(); i++) {
+                String ch = word.substring(i, i + 1);
+                float cw = textPaint.measureText(ch);
+                drawUnit(canvas, ch, gx, baseY, cw, color, fontPx,
+                        unitProgress(wordPos, i), active);
+                gx += cw;
+            }
             return;
         }
-        // Active word: colour + entrance animation, evaluated by the ONE authority at the
-        // current MEDIA time (CaptionAnimator) rather than by a wall-clock ValueAnimator.
-        CaptionAnimator.Transform tf = CaptionAnimator.transform(style, emphasisValue, fontPx);
-        float dy = tf.dy;
-        float wordCx = x + ww / 2f;
-        float wordCy = baseY - (textPaint.getFontMetrics().descent
+
+        drawUnit(canvas, word, x, baseY, ww, color, fontPx,
+                animPreset == CaptionAnimator.Preset.NONE ? 1f : unitProgress(wordPos, 0),
+                active);
+    }
+
+    /**
+     * Draw one unit with both transforms applied: the PRESET (entrance/exit, from the tape
+     * handles) and, for the active word only, the style's active-word EMPHASIS. They compose
+     * rather than override — the emphasis is a permanent 1.15x on the spoken word, the preset is
+     * a transient entrance, and collapsing them into one number would make choosing a preset
+     * silently restyle the emphasis.
+     */
+    private void drawUnit(Canvas canvas, String text, float x, float baseY, float w,
+                          int color, float fontPx, float progress, boolean active) {
+        CaptionAnimator.Transform pre = CaptionAnimator.presetTransform(animPreset, progress, fontPx);
+        float scaleX = pre.scaleX, scaleY = pre.scaleY, dx = pre.dx, dy = pre.dy;
+        if (active) {
+            CaptionAnimator.Transform emp = CaptionAnimator.transform(style, emphasisValue, fontPx);
+            scaleX *= emp.scaleX;
+            scaleY *= emp.scaleY;
+            dy += emp.dy;
+        }
+        // Fully transparent: skip the draw entirely rather than paint nothing expensively.
+        if (pre.alpha <= 0.004f) return;
+
+        float ucx = x + w / 2f;
+        float ucy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
         canvas.save();
-        canvas.translate(0, dy);
-        canvas.scale(tf.scaleX, tf.scaleY, wordCx, wordCy);
-        paintWord(canvas, word, x, baseY, style.activeColor, fontPx);
+        canvas.translate(dx, dy);
+        canvas.scale(scaleX, scaleY, ucx, ucy);
+        paintWord(canvas, text, x, baseY, color, fontPx, pre.alpha);
         canvas.restore();
     }
 
-    /** Fill pass plus optional stroke-outline pass, sharing one paint. */
+    /**
+     * Fill pass plus optional stroke-outline pass, sharing one paint.
+     *
+     * <p>{@code animAlpha} multiplies BOTH passes. Fading only the fill would leave the outline
+     * standing at full opacity, so a fading word would read as an empty outline of itself
+     * rather than as text going away.</p>
+     */
     private void paintWord(Canvas canvas, String word, float x, float baseY,
-                           int fillColor, float fontPx) {
+                           int fillColor, float fontPx, float animAlpha) {
         if (style.outline) {
             textPaint.setStyle(Paint.Style.STROKE);
             textPaint.setStrokeWidth(Math.max(1f, fontPx * 0.08f));
-            textPaint.setColor(style.outlineColor);
+            textPaint.setColor(CaptionAnimator.applyAlpha(style.outlineColor, animAlpha));
             canvas.drawText(word, x, baseY, textPaint);
             textPaint.setStyle(Paint.Style.FILL);
         }
-        textPaint.setColor(fillColor);
+        textPaint.setColor(CaptionAnimator.applyAlpha(fillColor, animAlpha));
         canvas.drawText(word, x, baseY, textPaint);
     }
 

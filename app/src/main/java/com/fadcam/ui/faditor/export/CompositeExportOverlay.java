@@ -586,6 +586,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
                             CaptionStyle.byId(styleId), captionCenterX, captionCenterY,
                             captionSizeFraction, outW, outH);
                     captionRendererStyleId = styleId;
+                    // Text animation (SPEC_TEXT_ANIMATION): the SAME four values the preview
+                    // reads off this clip in bindCaptionData. Set on construction rather than
+                    // per frame because they cannot change during an export.
+                    captionRenderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
+                            clip.getCaptionAnimGranularity(),
+                            clip.getCaptionAnimInMs(), clip.getCaptionAnimOutMs());
                 }
                 long sourceMs = clip.getInPointMs() + clipSourceLocalMs;
                 Bitmap captionBmp = captionRenderer.render(sourceMs);

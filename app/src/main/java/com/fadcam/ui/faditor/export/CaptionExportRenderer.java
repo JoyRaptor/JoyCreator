@@ -44,8 +44,23 @@ public class CaptionExportRenderer {
     private final TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    private final int[] wordPhrase;
-    private final List<int[]> phrases = new ArrayList<>();
+    /** Phrase grouping — the SAME class the preview uses, so both agree where a phrase begins. */
+    @NonNull private final com.fadcam.ui.faditor.transcript.CaptionPhrases grouping;
+
+    // Text animation (SPEC_TEXT_ANIMATION). Defaults are the off state, so an export of a
+    // project that predates the feature is byte-identical to what it was.
+    @NonNull private com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset animPreset =
+            com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE;
+    @NonNull private com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity animGran =
+            com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity.WORD;
+    private long animInMs = 0L;
+    private long animOutMs = 0L;
+    // Per-phrase animation state, recomputed at the top of each drawPhrase.
+    private final List<String> animWords = new ArrayList<>();
+    private int animUnitCount = 1;
+    private long animSpanStart = 0L, animSpanEnd = 1L, animInEff = 0L, animOutEff = 0L;
+    /** The frame's source time — the animator's only clock. */
+    private long frameSourceMs = 0L;
 
     @NonNull private final Bitmap bitmap;
     @NonNull private final Canvas canvas;
@@ -63,7 +78,7 @@ public class CaptionExportRenderer {
         this.outH = Math.max(1, outH);
         this.bitmap = Bitmap.createBitmap(this.outW, this.outH, Bitmap.Config.ARGB_8888);
         this.canvas = new Canvas(bitmap);
-        this.wordPhrase = buildPhrases();
+        this.grouping = com.fadcam.ui.faditor.transcript.CaptionPhrases.of(transcript);
     }
 
     /** Output frame size the overlay bitmap is rendered at. */
@@ -77,9 +92,10 @@ public class CaptionExportRenderer {
     @NonNull
     public Bitmap render(long sourceMs) {
         int active = transcript.indexAtOrBeforeTime(sourceMs);
+        frameSourceMs = sourceMs;
         canvas.drawColor(0, PorterDuff.Mode.CLEAR);
         lastDrawnWord = active;
-        if (active < 0 || active >= wordPhrase.length) {
+        if (active < 0 || grouping.phraseOf(active) < 0) {
             return bitmap;
         }
         float emphasis = emphasisFor(active, sourceMs);
@@ -89,26 +105,17 @@ public class CaptionExportRenderer {
 
     // ── Layout (mirrors CaptionOverlayView) ──────────────────────────
 
-    private int[] buildPhrases() {
-        if (transcript.words.isEmpty()) return new int[0];
-        int n = transcript.words.size();
-        int[] wp = new int[n];
-        int start = 0;
-        for (int i = 1; i <= n; i++) {
-            boolean brk = i == n;
-            if (!brk) {
-                long gap = transcript.words.get(i).startMs - transcript.words.get(i - 1).endMs;
-                brk = gap > 550 || (i - start) >= 6
-                        || transcript.words.get(i - 1).forceLineBreakAfter;
-            }
-            if (brk) {
-                int phraseIdx = phrases.size();
-                phrases.add(new int[]{start, i - 1});
-                for (int j = start; j < i; j++) wp[j] = phraseIdx;
-                start = i;
-            }
-        }
-        return wp;
+    /**
+     * The clip's text-animation settings, as stored names. Must be set from the SAME Clip
+     * fields the preview reads, or the two paths animate differently again.
+     */
+    public void setCaptionAnimation(String presetName, String granularityName,
+                                    long inMs, long outMs) {
+        animPreset = com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(presetName);
+        animGran = com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .parseGranularity(granularityName);
+        animInMs = Math.max(0L, inMs);
+        animOutMs = Math.max(0L, outMs);
     }
 
     private float emphasisFor(int activeWordIdx, long sourceMs) {
@@ -121,14 +128,24 @@ public class CaptionExportRenderer {
 
     private void drawPhrase(int activeWordIdx, float emphasisValue) {
         RectF r = new RectF(0, 0, outW, outH);
-        int[] phrase = phrases.get(wordPhrase[activeWordIdx]);
+        int phraseIdx = grouping.phraseOf(activeWordIdx);
 
-        // Struck (removed) words should not appear in captions.
-        List<Integer> visible = new ArrayList<>();
-        for (int i = phrase[0]; i <= phrase[1]; i++) {
-            if (!transcript.words.get(i).struck) visible.add(i);
-        }
+        // Struck (removed) words are not drawn, so they hold no animation slot either.
+        List<Integer> visible = grouping.visibleWords(phraseIdx);
         if (visible.isEmpty()) return;
+
+        // The PHRASE is the animating object, matching the preview exactly.
+        animWords.clear();
+        for (int i : visible) animWords.add(transcript.words.get(i).text);
+        long[] span = grouping.spanMs(phraseIdx);
+        animUnitCount = com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .unitCount(animWords, animGran);
+        animSpanStart = span != null ? span[0] : 0L;
+        animSpanEnd = span != null ? span[1] : 1L;
+        animInEff = com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .zoneForSpan(animInMs, animSpanEnd - animSpanStart);
+        animOutEff = com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .zoneForSpan(animOutMs, animSpanEnd - animSpanStart);
 
         float fontPx = sizeFraction * r.height();
         textPaint.setTextSize(fontPx);
@@ -175,6 +192,7 @@ public class CaptionExportRenderer {
         }
 
         float baseY = top - fm.ascent;
+        int unitPos = 0;
         for (List<Integer> ln : lines) {
             float w = 0;
             for (int k = 0; k < ln.size(); k++) {
@@ -185,7 +203,7 @@ public class CaptionExportRenderer {
                 int wi = ln.get(k);
                 String word = transcript.words.get(wi).text;
                 float ww = textPaint.measureText(word);
-                drawWord(word, x, baseY, ww, wi == activeWordIdx, emphasisValue, fontPx);
+                drawWord(word, x, baseY, ww, wi == activeWordIdx, emphasisValue, fontPx, unitPos++);
                 x += ww + space;
             }
             baseY += lineH;
@@ -204,36 +222,88 @@ public class CaptionExportRenderer {
         return widest;
     }
 
+    /** Progress of one animating unit of the current phrase, from the ONE authority. */
+    private float unitProgress(int wordPos, int charIdx) {
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.unitProgress(
+                frameSourceMs, animSpanStart, animSpanEnd, animInEff, animOutEff,
+                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .unitIndexOf(animWords, animGran, wordPos, charIdx),
+                animUnitCount);
+    }
+
     private void drawWord(String word, float x, float baseY, float ww,
-                          boolean active, float emphasisValue, float fontPx) {
-        if (!active) {
-            paintWord(word, x, baseY, style.baseColor, fontPx);
+                          boolean active, float emphasisValue, float fontPx, int wordPos) {
+        int color = active ? style.activeColor : style.baseColor;
+
+        // LETTER granularity is the one case that cannot draw the word as a single run: each
+        // glyph carries its own transform, so it is measured and placed individually. Mirrors
+        // CaptionOverlayView exactly - the two must lay glyphs out the same way or the export
+        // will not match what the editor showed.
+        if (animPreset != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                && animGran == com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .Granularity.LETTER) {
+            float gx = x;
+            for (int i = 0; i < word.length(); i++) {
+                String ch = word.substring(i, i + 1);
+                float cw = textPaint.measureText(ch);
+                drawUnit(ch, gx, baseY, cw, color, fontPx, unitProgress(wordPos, i),
+                        active, emphasisValue);
+                gx += cw;
+            }
             return;
         }
-        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform tf =
-                com.fadcam.ui.faditor.transcript.CaptionAnimator.transform(
-                        style, emphasisValue, fontPx);
-        float dy = tf.dy;
-        float wordCx = x + ww / 2f;
-        float wordCy = baseY - (textPaint.getFontMetrics().descent
+
+        drawUnit(word, x, baseY, ww, color, fontPx,
+                animPreset == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                        ? 1f : unitProgress(wordPos, 0),
+                active, emphasisValue);
+    }
+
+    /**
+     * Draw one unit with both transforms composed: the PRESET (entrance/exit, driven by the
+     * tape handles) and, for the active word only, the style's active-word EMPHASIS.
+     */
+    private void drawUnit(String text, float x, float baseY, float w, int color, float fontPx,
+                          float progress, boolean active, float emphasisValue) {
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform pre =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .presetTransform(animPreset, progress, fontPx);
+        float scaleX = pre.scaleX, scaleY = pre.scaleY, dx = pre.dx, dy = pre.dy;
+        if (active) {
+            com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform emp =
+                    com.fadcam.ui.faditor.transcript.CaptionAnimator
+                            .transform(style, emphasisValue, fontPx);
+            scaleX *= emp.scaleX;
+            scaleY *= emp.scaleY;
+            dy += emp.dy;
+        }
+        if (pre.alpha <= 0.004f) return;
+
+        float ucx = x + w / 2f;
+        float ucy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
         canvas.save();
-        canvas.translate(0, dy);
-        canvas.scale(tf.scaleX, tf.scaleY, wordCx, wordCy);
-        paintWord(word, x, baseY, style.activeColor, fontPx);
+        canvas.translate(dx, dy);
+        canvas.scale(scaleX, scaleY, ucx, ucy);
+        paintWord(text, x, baseY, color, fontPx, pre.alpha);
         canvas.restore();
     }
 
     /** Fill pass plus optional stroke-outline pass — mirrors CaptionOverlayView. */
-    private void paintWord(String word, float x, float baseY, int fillColor, float fontPx) {
+    private void paintWord(String word, float x, float baseY, int fillColor, float fontPx,
+                           float animAlpha) {
         if (style.outline) {
             textPaint.setStyle(Paint.Style.STROKE);
             textPaint.setStrokeWidth(Math.max(1f, fontPx * 0.08f));
-            textPaint.setColor(style.outlineColor);
+            // BOTH passes fade. Fading only the fill leaves the outline at full opacity, so a
+            // departing word reads as an empty outline of itself instead of as text going away.
+            textPaint.setColor(com.fadcam.ui.faditor.transcript.CaptionAnimator
+                    .applyAlpha(style.outlineColor, animAlpha));
             canvas.drawText(word, x, baseY, textPaint);
             textPaint.setStyle(Paint.Style.FILL);
         }
-        textPaint.setColor(fillColor);
+        textPaint.setColor(com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .applyAlpha(fillColor, animAlpha));
         canvas.drawText(word, x, baseY, textPaint);
     }
 

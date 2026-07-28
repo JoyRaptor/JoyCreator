@@ -20116,6 +20116,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (captionOverlay == null) return;
         captionClipId = clip.getId();
         highlightActiveCaptionChip(clip.getCaptionStyleId());
+        // Text animation (SPEC_TEXT_ANIMATION): the SAME four values the export path reads off
+        // this clip, so preview and export animate identically. Set before setData so the very
+        // first frame drawn after a bind already has them.
+        captionOverlay.setCaptionAnimation(clip.getCaptionAnimPreset(),
+                clip.getCaptionAnimGranularity(),
+                clip.getCaptionAnimInMs(), clip.getCaptionAnimOutMs());
         captionOverlay.setData(windowedCaptionsFor(clip),
                 com.fadcam.ui.faditor.transcript.CaptionStyle.byId(clip.getCaptionStyleId()),
                 new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {

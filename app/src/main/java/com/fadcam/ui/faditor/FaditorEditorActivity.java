@@ -701,8 +701,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // isPlaying() drops (STATE_ENDED at a file-end seam, a buffering blip, or a
             // user pause mid-blend) — if the ticker dies here the transition freezes with
             // no completion path (sandbox repro 2026-07-18).
+            // imagePlaybackActive belongs here for the SAME reason transitionPlaybackActive
+            // does. A legacy-path IMAGE clip is driven by its own timer (startImagePlayback),
+            // not by the player — but this condition only kept ticking while the PLAYER said it
+            // was playing, and advanceToSegment's image branch neither pauses nor re-speeds the
+            // outgoing video player. So an image clip only kept advancing by accident, on the
+            // back of the previous clip still running underneath it; the moment that source hit
+            // STATE_ENDED the ticker died and the image froze mid-clip with a dead transport.
+            // Reproduced on the Note 9 (project aeb0517e, clip 0 = 2x video, clip 1 = 10s
+            // image): head advanced 1.014x while playerPos advanced 1.98x — the stale player
+            // racing at the previous clip's speed — then "Playback state: ENDED" 4.8s in and the
+            // readout stuck at 00:04 of 00:14. Note isPlayingAnything() at ~:7325 ALREADY counts
+            // imagePlaybackActive as playing; this ticker was the one place that did not.
             if ((playerManager != null && playerManager.isPlaying()) || audioTailActive
-                    || transitionPlaybackActive) {
+                    || transitionPlaybackActive || imagePlaybackActive) {
                 playheadHandler.postDelayed(this, PLAYHEAD_UPDATE_INTERVAL_MS);
             }
         }

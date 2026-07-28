@@ -4,6 +4,37 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~07:15 — IMAGE-CLIP PLAYBACK FREEZE: found and FIXED (`f8c07b3`).
+The `aeb0517e` "wedge" from the last wake was not a fixture quirk — it is a real bug in any
+legacy-path project where a video clip is followed by an IMAGE clip. Playback stops dead
+partway through the image and the transport goes unresponsive.
+
+**Chain, from the trace.** `advanceToSegment`'s image branch (`:9588`) shows the image and
+starts its own timer but — unlike the video branch immediately below it — **never touches the
+player**. So the OUTGOING clip's ExoPlayer keeps running underneath the image at the OUTGOING
+clip's speed. PHDIAG shows precisely that: `head` at **1.014×** while `playerPos` runs at
+**1.98×** (clip 0 is a 2× clip). The stale player then exhausts its source → `Playback state:
+ENDED` → `isPlaying()` false → the playhead ticker's re-post condition
+(`isPlaying || audioTailActive || transitionPlaybackActive`) is false → **the ticker dies and
+takes the image clip's own timer with it.** An image clip was only ever advancing by accident,
+riding on the previous clip still playing underneath it.
+
+**Fix:** add `imagePlaybackActive` to that condition — the same repair
+`transitionPlaybackActive` got after the 2026-07-18 transition-freeze repro. A consistency fix,
+not a new idea: `isPlayingAnything()` (~`:7325`) already counts `imagePlaybackActive` as
+playing; the ticker was the one place that did not. **The obvious alternative is worse** —
+pausing the player on entering an image clip would drop `isPlaying()` immediately and kill the
+ticker on the spot.
+
+**Proved before/after on the same fixture:** two independent runs froze at `head=4593` in
+segment 1 (UI readout stuck at 00:04/00:14 across three samples, so a real stop and not a
+logging artifact); after the change, two runs play through with the head advancing
+**750 → 13264ms** across segments 1→2→3 of a 14092ms timeline.
+
+**NOT fixed, deliberately, worth its own look:** the stale player should not be running under an
+image clip at all — it decodes the previous clip at the wrong speed and may still be audible.
+This commit only stops the freeze.
+
 ### 2026-07-28 ~06:45 — SEAM STALL SOLVED IN ONE LINE — but the line asserts something UNTRUE.
 **NEEDS A USER DECISION.** The cause is now proven all the way down, and a one-line change makes
 the stall vanish completely. It is NOT shipped, because it works by telling media3 something

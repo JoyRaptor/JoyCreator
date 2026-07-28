@@ -4,6 +4,59 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~03:05 — DATA-LOSS BUG FOUND AND FIXED (`34b4297`): one undo could eat a session.
+Found by MEASURING, not reading, while checking whether the v12 pool shrank the 22MB sidecar:
+after eight edits across two app sessions, `project.json` had been rewritten twice and
+`undo_history.json` still carried the PREVIOUS DAY's mtime. Cause: the debounced
+`autoSaveRunnable` called `projectStorage.saveAsync(project)` directly instead of going
+through `saveProjectNow`, so it advanced project.json and never wrote the sidecar — and an
+edit that only schedules an autosave (the rotate button) never wrote undo history at all.
+`UNDO_HISTORY_SAVE_THROTTLE_MS`'s own comment already claimed the sidecar is written on the
+ordinary edit path; that path had quietly stopped honouring it.
+
+**The consequence was REPRODUCED, not argued.** project.json sits at edit N while the sidecar
+describes edit M ≪ N. Any death skipping `onPause` (crash, LMK, `am force-stop`) leaves that
+pair on disk, and on reload ONE undo press restores edit M's PRE-state:
+`v12 rot=180` → **`v11 rot=90`, 441 fields reverted to the previous day**, under a row labelled
+`"Reorder clip 3 → 2"` — an edit from that day, so the label actively misdescribes it.
+Note rotation ALONE could not discriminate (a correct one-step undo also lands on 90), so the
+test compared whole documents against both candidate outcomes and asserted the candidates
+differ from each other. This app has an OOM-crash history, so the window is real.
+
+**Fixed + proved with the old build as the control:** the identical action (select clip,
+rotate, wait 3s) left the sidecar at 07-27 15:17 TWICE before the fix; after it, 622,949 →
+658,527 bytes in the same second as `Project auto-saved`. Re-running crash-then-undo:
+`Undone (snapshot): Rotate 90° → 180°` and a whole-document comparison shows exactly one step
+reverted, with a paired control confirming a wrong rotation would have been caught.
+
+**Second fix in the same commit — a gap MY OWN v12 pool introduced.** A snapshot restore
+deserializes a fresh `NamedTranscript` per clip, so the restored project holds forks, not one
+shared instance; the pool writer keys on identity, so pooling stopped paying the moment a
+snapshot was restored and the next save rewrote the old duplicated shape (measured 31,945 →
+37,684 bytes after ONE cross-session undo, snapshots growing back with it). `fromJson` now
+re-shares exactly as `load()` does, beside the `TranscriptDedup` pass already there for the
+same reason. Device log: `re-shared transcripts in snapshot — collapsed=1 recovered=0
+shared=2` (recovered=0 ⇒ identical forks collapsed, no words moved); file now holds at
+31,945 → 31,944 across the undo (1 byte = `180`→`90`).
+
+**NEEDS A USER DECISION — the window is narrowed, NOT closed.** A death inside the 15s
+throttle still desynchronises the pair. Closing it means detecting staleness at load and
+refusing to restore an incoherent undo stack. The detection is straightforward (the sidecar
+has no stamp today; write the project's `lastModified` into it and compare on load — the
+sidecar is currently a bare JSON list, so this needs a header shape with list = legacy). What
+is NOT mine to choose is the behaviour: **after a crash, is it better to have NO undo history,
+or one that may silently over-revert?** There is a precedent for discarding — the schema-
+downgrade drill already refuses to restore a read-only project's undo history on the grounds
+that "an undo stack whose snapshots can never be saved is incoherent" — but this trades away
+real functionality after exactly the event where a user most wants undo. Ask before building.
+
+**Also noticed, not acted on:** `BlendMode`'s javadoc says non-NORMAL modes "are treated as
+NORMAL by preview/export for now". That is now HALF FALSE — export implements MULTIPLY/SCREEN/
+OVERLAY/ADD via `BlendModeGlEffect` (M-EXPORT-2 landed); preview still does not
+(`LayerImageOverlayView:141`). Inert either way: `setBlendMode` has NO UI call site, only the
+deserializer, so a user cannot currently produce a non-NORMAL value. Stale-comment cleanup,
+not a bug.
+
 ### 2026-07-28 ~02:30 — OUTSTANDING ITEM 2 DONE: transcripts are stored ONCE per file (`9c59d0e`).
 The undo-snapshot cost item from `NEXT_SESSION_PROMPT_20260727.md` §2 is implemented and
 proved. Schema **v12** adds a project-level `transcriptPool` + per-clip `transcriptRefs`;

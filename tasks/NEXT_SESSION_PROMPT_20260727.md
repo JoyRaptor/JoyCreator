@@ -86,6 +86,19 @@ timeline time; there are no real gaps. The display-only inter-clip inset from `1
 OUT by reading the code (applied at draw time only, costs no playback time). The user says perf
 "was better than I remembered" but wants it as smooth as possible without removing features.
 
+### 3b. Undo sidecar staleness after a crash — NEEDS A USER DECISION
+`34b4297` fixed the big half (autosave now writes the undo sidecar, so one undo after a crash
+no longer reverts a whole session — reproduced and proved on the Note 9; see handoff §0z
+2026-07-28 ~03:05). But a death inside the 15s throttle still leaves `project.json` ahead of
+`undo_history.json`, and a stale sidecar's newest snapshot is a pre-state for an edit that is
+no longer the last one.
+Detection is easy (stamp the sidecar with the project's `lastModified`, compare on load; the
+sidecar is a bare JSON list today so this needs a header shape, list = legacy). **The
+behaviour is the user's call: after a crash, no undo history at all, or one that might
+over-revert?** Precedent for discarding exists (the downgrade drill refuses to restore a
+read-only project's history as "incoherent"), but it removes undo right after the event where
+it is most wanted. Ask, don't guess.
+
 ### 4. AI reorder drops unlisted clips — NEEDS A USER DECISION
 `EditScriptApplier.applyReorderClips` silently deletes any clip missing from the AI's `newOrder`.
 Deliberate for a well-formed script, but a truncated or hallucinated response deletes clips with

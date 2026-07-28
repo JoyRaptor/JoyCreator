@@ -1348,7 +1348,16 @@ public class EditorTimelineView extends View {
         audioLaneGapPx = AUDIO_LANE_GAP_DP * density;
         audioCornerPx = AUDIO_CORNER_DP * density;
         audioWaveBarGapPx = AUDIO_WAVEFORM_BAR_GAP_DP * density;
-        layerRowRenderer = new com.fadcam.ui.faditor.layers.LayerRowRenderer(density);
+        // §3b: hand the renderer the app's Material Symbols font so the lane mute control can
+        // be a REAL speaker glyph. Null-tolerant — the renderer keeps its hand-drawn fallback.
+        android.graphics.Typeface iconFont = null;
+        try {
+            iconFont = androidx.core.content.res.ResourcesCompat.getFont(
+                    getContext(), com.fadcam.R.font.materialicons);
+        } catch (Exception e) {
+            FLog.w(TAG, "Icon font unavailable for lane rows; using drawn glyphs", e);
+        }
+        layerRowRenderer = new com.fadcam.ui.faditor.layers.LayerRowRenderer(density, iconFont);
         // W2 HD zoom tier: zoom-tiered span-limited waveform data for the audio rows,
         // extracted via the shared WaveformExtractor pipeline. The renderer pulls per
         // item; a landed extraction just invalidates this view to swap the bars in.

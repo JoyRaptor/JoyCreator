@@ -46,7 +46,16 @@ import java.util.List;
 public final class LayerRowRenderer {
 
     // ── Row geometry (dp) ───────────────────────────────────────────
-    private static final float HEADER_WIDTH_DP = 92f;
+    /**
+     * Width of the left gutter on every lane row. Sized to exactly what it holds — caret,
+     * gap, mute, gap — after §3b moved mute flush against the caret. It was 92dp back when
+     * the gutter also carried a track name, a kind badge and eye/lock glyphs; those all
+     * retired to the object drawer and the width never followed them down, so ~58dp of every
+     * lane was empty space.
+     */
+    private static final float HEADER_WIDTH_DP =
+            /* caret left inset */ 2.4f + /* caret */ 12f + /* gap */ 4f + /* mute */ 12f
+            + /* trailing gap */ 4f;
     private static final float ROW_HEIGHT_EXPANDED_DP = 34f;
     private static final float ROW_HEIGHT_COLLAPSED_DP = 14f;
     /** AV3: expanded AUDIO rows are taller so the two-lane quad-band tape (and the volume
@@ -78,6 +87,9 @@ public final class LayerRowRenderer {
     private static final int COLOR_ROW_NAME       = 0xFFEDEDED;
     private static final int COLOR_ICON_ON        = 0xFFFFFFFF;
     private static final int COLOR_ICON_OFF       = 0x66FFFFFF;
+    /** Muted lane: dimmed but still clearly PRESENT — it is a state, not a disabled control.
+     *  (Nothing draws a disabled mute any more; a lane with no audio has no icon at all.) */
+    private static final int COLOR_ICON_MUTED     = 0xB3FF6B6B;
     // Per-item hues moved to ObjectPalette (F-COLOR) — one table for the whole editor.
     private static final int COLOR_ITEM_HIDDEN    = 0x552A2A2A;   // dimmed/ghosted
     private static final int COLOR_STRIP          = 0x99CC27FF;   // collapsed summary strip
@@ -141,6 +153,9 @@ public final class LayerRowRenderer {
     private final Paint barPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path caretPath = new Path();
     private final Path mutePath = new Path();
+    /** Material Symbols ligature paint for the lane mute glyph; null → hand-drawn fallback. */
+    @Nullable
+    private Paint iconFontPaint;
 
     /** Rows laid out on the last {@link #layout} call, top-to-bottom, for draw/hit-test. */
     private final List<RowLayout> rows = new ArrayList<>();
@@ -211,6 +226,8 @@ public final class LayerRowRenderer {
         }
         final RectF caretRect = new RectF();
         final RectF muteRect = new RectF();
+        /** Touch box for {@link #muteRect} — bigger than the glyph, see layoutHeaderIcons. */
+        final RectF muteHitRect = new RectF();
         RowLayout(Track t, boolean floatingBand) { track = t; this.floatingBand = floatingBand; }
     }
 
@@ -320,8 +337,18 @@ public final class LayerRowRenderer {
                 half, half, stripPaint);
     }
 
-    public LayerRowRenderer(float density) {
+    /**
+     * @param iconFont the app's Material Symbols ligature font, or null to fall back to the
+     *                 hand-drawn glyph primitives. Passed in rather than loaded here so this
+     *                 renderer keeps needing no Context (§3b).
+     */
+    public LayerRowRenderer(float density, @Nullable Typeface iconFont) {
         this.density = density;
+        if (iconFont != null) {
+            iconFontPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            iconFontPaint.setTypeface(iconFont);
+            iconFontPaint.setTextAlign(Paint.Align.CENTER);
+        }
         headerBgPaint.setStyle(Paint.Style.FILL);
         rowBodyBgPaint.setStyle(Paint.Style.FILL);
         namePaint.setColor(COLOR_ROW_NAME);
@@ -643,12 +670,20 @@ public final class LayerRowRenderer {
         float caretCx = row.headerRect.left + iconSize * 0.7f;
         row.caretRect.set(caretCx - iconSize / 2f, cy - iconSize / 2f,
                 caretCx + iconSize / 2f, cy + iconSize / 2f);
-        // §4.5: eye/lock are PER-OBJECT now (object drawer) — the gutter keeps only
-        // mute (audio-ish rows), right-aligned. (The retired header hide/lock hit zones and
-        // their always-empty rects have been removed — per-layer SOLO is the one remaining
-        // future control.)
-        float right = row.headerRect.right - gap;
-        row.muteRect.set(right - iconSize, cy - iconSize / 2f, right, cy + iconSize / 2f);
+        // §3b (2026-07-28): mute sits FLUSH AGAINST THE CARET, not right-aligned in a wide
+        // gutter. The header used to be 92dp because it once held a name, a kind badge and
+        // eye/lock; all of those retired, leaving mute stranded ~62dp from the caret with
+        // nothing in between — a centimetre of every lane spent on empty space. The header is
+        // now sized to exactly caret + gap + mute + gap, and the ~58dp that frees up goes back
+        // to the lane body where the objects actually live.
+        row.muteRect.set(row.caretRect.right + gap, cy - iconSize / 2f,
+                row.caretRect.right + gap + iconSize, cy + iconSize / 2f);
+        // A 12dp glyph is a 12dp target, which is far below anything a finger can hit
+        // reliably. The DRAWN box stays 12dp; the TOUCH box is the full row height and runs
+        // from just left of the glyph to the header's edge. The caret is hit-tested first, so
+        // the small overlap on the left cannot steal a caret tap.
+        row.muteHitRect.set(row.muteRect.left - gap / 2f, row.headerRect.top,
+                row.headerRect.right, row.headerRect.top + rowH);
     }
 
     private void drawRow(@NonNull Canvas canvas, @NonNull RowLayout row,
@@ -670,7 +705,14 @@ public final class LayerRowRenderer {
 
         // §4.5: per-layer eye/lock glyphs RETIRED (drawEyeIcon/drawLockIcon calls gone) —
         // hidden/locked live on objects, toggled in the drawer, ghosted on item bodies.
-        drawMuteIcon(canvas, row.muteRect, !t.isMuted(), rowCarriesAudio(t));
+        // §3b: ABSENT, not greyed out. A lane with no audio has nothing to mute, so the
+        // control simply is not there — "that way things aren't cluttered when you don't
+        // actually have need for it" (user, 2026-07-28). The greyed-out version drew an
+        // affordance on every text/sticker/image lane in the project that could never do
+        // anything. hitTestHeader already refuses the tap on these rows; now the icon agrees.
+        if (rowCarriesAudio(t)) {
+            drawMuteIcon(canvas, row.muteRect, !t.isMuted());
+        }
 
         if (collapsed) {
             drawCollapsedStrip(canvas, row, totalMs, timeToX);
@@ -955,9 +997,28 @@ public final class LayerRowRenderer {
         return false;
     }
 
-    private void drawMuteIcon(@NonNull Canvas canvas, @NonNull RectF r, boolean unmuted,
-                               boolean applicable) {
-        iconPaint.setColor(!applicable ? COLOR_ICON_OFF : (unmuted ? COLOR_ICON_ON : COLOR_ICON_OFF));
+    /**
+     * §3b: a REAL speaker — the Material Symbols {@code volume_up} glyph when the lane is
+     * audible, {@code volume_off} (speaker with a cross through it) when it is muted. The app
+     * already speaks this vocabulary elsewhere ({@code VolumeControlBottomSheet}), so the lane
+     * row now matches it instead of approximating a speaker out of a rectangle and a trapezoid,
+     * which read as a flag at 12dp and gave no hint that it was a toggle.
+     *
+     * <p>The hand-drawn primitives remain as the fallback for a missing/unloadable icon font:
+     * a glyph that silently fails to render would leave a lane with audio looking exactly like
+     * a lane without it, which is the one state this control must never be confused with.</p>
+     */
+    private void drawMuteIcon(@NonNull Canvas canvas, @NonNull RectF r, boolean unmuted) {
+        if (iconFontPaint != null) {
+            iconFontPaint.setColor(unmuted ? COLOR_ICON_ON : COLOR_ICON_MUTED);
+            iconFontPaint.setTextSize(r.height() * 1.15f);
+            Paint.FontMetrics fm = iconFontPaint.getFontMetrics();
+            float baseline = r.centerY() - (fm.ascent + fm.descent) / 2f;
+            canvas.drawText(unmuted ? "volume_up" : "volume_off", r.centerX(), baseline,
+                    iconFontPaint);
+            return;
+        }
+        iconPaint.setColor(unmuted ? COLOR_ICON_ON : COLOR_ICON_MUTED);
         float midY = r.centerY();
         canvas.drawRect(r.left, midY - r.height() * 0.18f, r.left + r.width() * 0.4f,
                 midY + r.height() * 0.18f, iconPaint);
@@ -971,7 +1032,7 @@ public final class LayerRowRenderer {
         iconPaint.setStyle(Paint.Style.STROKE);
         canvas.drawPath(mutePath, iconPaint);
         iconPaint.setStyle(prev);
-        if (!unmuted && applicable) {
+        if (!unmuted) {
             canvas.drawLine(r.left, r.bottom, r.right, r.top, iconPaint);
         }
     }
@@ -2141,14 +2202,13 @@ public final class LayerRowRenderer {
             if (row.caretRect.contains(x, localY)) return new HeaderHit(row.track, HitZone.CARET);
             // (Retired: the HIDE/LOCK header zones were always-empty rects that could never
             // fire — hide/lock are per-object now, in the object drawer. Dead branches removed.)
-            if (row.muteRect.contains(x, localY)) {
-                // The mute glyph is drawn DISABLED (COLOR_ICON_OFF, no strike) on any row
-                // that carries no audio — see drawMuteIcon's `applicable` arg = rowCarriesAudio(t).
-                // The hit-test must agree with that visual: tapping a disabled mute used to
-                // still flip TrackFlags.muted, push a "Mute track" undo step and schedule an
-                // autosave, all with zero audible effect. Only report MUTE when it can do
-                // something; otherwise consume as NONE (same as an empty-header tap) so the
-                // touch is swallowed rather than falling through to the body.
+            if (row.muteHitRect.contains(x, localY)) {
+                // §3b: the icon is now ABSENT on a row that carries no audio, so there is
+                // nothing there to tap — but the touch box still has to agree with the
+                // picture, or the empty space would flip TrackFlags.muted, push a "Mute
+                // track" undo step and schedule an autosave with zero audible effect.
+                // Consume as NONE (same as an empty-header tap) rather than falling through
+                // to the body.
                 return new HeaderHit(row.track,
                         rowCarriesAudio(row.track) ? HitZone.MUTE : HitZone.NONE);
             }

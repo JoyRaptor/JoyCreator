@@ -71,18 +71,23 @@ public final class TranscriptMerge {
     }
 
     /**
-     * The words of {@code source} that fall inside a clip's {@code [inMs, outMs)} window.
-     * Mirrors what the timeline/caption renderers already do, so a clip keeps behaving as a
-     * window over the source transcript rather than an owner of a private copy.
+     * A clip's view of the source transcript — delegates to {@link Transcript#windowed} and
+     * therefore SHARES the word objects.
+     *
+     * <p>Deliberately not a copy. A clip is a window over one ground-truth transcript, so an
+     * edit made through the window (striking a word, forcing a line break) must land on the
+     * source word itself. Copying here would fork the text again — the exact defect
+     * {@code TranscriptSharing} exists to clean up after — and would make edits vanish when a
+     * trim moved. Sharing is also what makes lengthening a trim REVEAL more words rather than
+     * needing a re-run: the words were always there, the window just widened.</p>
+     *
+     * <p>An earlier version of this method copied, and the harness asserted the copying as
+     * correct. Kept as a named method rather than inlining {@code windowed()} so that intent
+     * has somewhere to live.</p>
      */
     @NonNull
     public static Transcript window(@NonNull Transcript source, long inMs, long outMs) {
-        Transcript out = new Transcript();
-        for (TranscriptWord w : source.words) {
-            if (w.startMs < inMs || w.startMs >= outMs) continue;
-            out.words.add(copyWord(w));
-        }
-        return out;
+        return source.windowed(inMs, outMs);
     }
 
     /** Ranges of {@code [fromMs,toMs)} still to run, given what is already covered. */

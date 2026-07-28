@@ -160,11 +160,22 @@ public class TranscriptMergeTest {
             eq("5b a different clip over the same source sees different words",
                     "[a]", TranscriptMerge.texts(TranscriptMerge.window(src, 0, 5000)).toString());
             eq("5c control: the source itself is unchanged by windowing", 4, src.words.size());
-            // Windowed copies must not alias — editing a window must not mutate the source.
+            // A window SHARES its word objects with the source. This is the whole point: the
+            // clip is a view over one ground-truth transcript, so an edit made through the view
+            // must land on the source word. Copying here would fork the text again -- exactly
+            // the defect TranscriptSharing exists to clean up after -- and edits would vanish
+            // whenever a trim moved. An earlier version of window() copied and THIS ASSERTION
+            // WAS WRITTEN BACKWARDS, passing green while encoding the wrong requirement.
             Transcript w = TranscriptMerge.window(src, 5000, 13000);
             w.words.get(0).struck = true;
-            check("5d a window is a COPY (striking it does not touch the source)",
-                    !src.words.get(1).struck, "");
+            check("5d striking a word through a window PROPAGATES to the source",
+                    src.words.get(1).struck, "");
+            // Positive control: it is the right word that changed, not all of them.
+            check("5e control: a word outside the window was NOT struck",
+                    !src.words.get(0).struck, "");
+            // Widening the window reveals more words with no re-run -- the trim-extension case.
+            eq("5f widening the window reveals more words", "[a, b, c]",
+                    TranscriptMerge.texts(TranscriptMerge.window(src, 0, 13000)).toString());
         }
 
         // ── 6. BOUNDARY: engine output straying outside the requested span ───────────────

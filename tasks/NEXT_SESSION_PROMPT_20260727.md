@@ -156,6 +156,21 @@ timeline time; there are no real gaps. The display-only inter-clip inset from `1
 OUT by reading the code (applied at draw time only, costs no playback time). The user says perf
 "was better than I remembered" but wants it as smooth as possible without removing features.
 
+### 3c. Seam stall — SOLVED, but the fix asserts something untrue — NEEDS A USER DECISION
+Root cause proven (`DefaultMediaSourceFactory:589`:
+`setEnableInitialDiscontinuity(!clippingConfiguration.startsAtKeyFrame)`): the engine leaves
+`startsAtKeyFrame` false on every clipped window, so ExoPlayer resets the video renderer at
+every cut. Flipping it to true removed **all** renderer teardowns and decoder flushes and took
+the whole-playthrough rate from **0.887×/0.890×/0.894× to 0.999×/0.993×** — an ~11% deficit to
+~0, with content duration preserved (see handoff §0z 2026-07-28 ~06:45 for the table).
+**NOT shipped:** the flag ASSERTS the clip start is a key frame; FadCam's in-points are
+arbitrary user trims, so on a non-keyframe start the decoder can begin mid-GOP. My fixture
+looked clean but I did NOT verify pixels.
+**Your call:** (1) snap trim in-points to keyframes — free fix, costs sub-GOP trim precision;
+(2) pre-cut/re-encode at the trim point — exact trims and no stall, costs a transcode per clip;
+(3) accept the deficit; or (4) hybrid — set the flag only for windows already keyframe-aligned,
+so most seams win and none lie. Any of 1/2/4 needs a pixel check right after a seam first.
+
 ### 3b. Undo sidecar staleness after a crash — NEEDS A USER DECISION
 `34b4297` fixed the big half (autosave now writes the undo sidecar, so one undo after a crash
 no longer reverts a whole session — reproduced and proved on the Note 9; see handoff §0z

@@ -4,6 +4,51 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~06:45 — SEAM STALL SOLVED IN ONE LINE — but the line asserts something UNTRUE.
+**NEEDS A USER DECISION.** The cause is now proven all the way down, and a one-line change makes
+the stall vanish completely. It is NOT shipped, because it works by telling media3 something
+FadCam cannot guarantee. The decision is a product one.
+
+**THE CAUSE, exactly.** `DefaultMediaSourceFactory:589`:
+`.setEnableInitialDiscontinuity(!mediaItem.clippingConfiguration.startsAtKeyFrame)`.
+The engine builds every window with a `ClippingConfiguration` and never sets `startsAtKeyFrame`,
+so it defaults FALSE → an initial discontinuity on EVERY clipped period → `ClippingMediaPeriod`
+reports it at `startUs` → ExoPlayer resets the video renderer at every cut. That is the
+`videoDisabled → videoEnabled → renderedFirstFrame` sequence and the twin decoder flushes.
+
+**PROVEN by flipping it** (`setStartsAtKeyFrame(true)`, project `74e36000`, same fixture and
+metric as all week):
+
+| | renderer teardowns | decoder flushes | overall rate |
+|---|---|---|---|
+| before | 3 (one per seam), 250/271/330ms | 6 (two per seam) | 0.887× / 0.890× / 0.894× |
+| after | **0** | **0** | **0.999× / 0.993×** |
+
+All three seams still cross (engine log confirms `seam -> window 1/2/3`). Seam-to-seam wall time
+drops by exactly one stall (3.318s → 3.062s), i.e. content duration is preserved and only the
+stall is gone. **An ~11% whole-playthrough deficit goes to ~0.**
+
+**WHY IT IS NOT SHIPPED.** media3's own doc: *"Sets whether the start point is **guaranteed to
+be a key frame**. If false, the playback transition into the clip may not be seamless."* The
+flag is an ASSERTION BY THE APP, not a request. FadCam's in-points are arbitrary user trim
+positions, so asserting it is untrue in general — on a non-keyframe start the decoder can begin
+mid-GOP and show wrong or broken frames until the next keyframe. My fixture played clean, but
+its in-points may simply be keyframe-aligned, and **I did not verify pixels** — so "looked fine
+on one 4-clip project" is not evidence it is safe.
+
+**THE DECISION, for the user.** Three real options, all with costs:
+1. **Snap trim in-points to keyframes.** Makes the assertion true and the stall disappears for
+   free. Cost: trims lose sub-GOP precision (up to ~1–2s on these recordings) — an edit-semantics
+   change users would feel.
+2. **Pre-cut / re-encode each clip at its trim point** so starts really are keyframes. Exact
+   trims AND no stall. Cost: a transcode per clip on edit.
+3. **Accept the ~11% deficit** and leave playback as it is.
+A fourth, cheaper hybrid worth considering: set `startsAtKeyFrame(true)` ONLY for windows whose
+in-point is already keyframe-aligned (detectable at playlist-build time), leaving the rest
+as-is — most seams get the win, none of them lie.
+
+**Do not ship option 1 or the hybrid without a pixel check at the first frames after a seam.**
+
 ### 2026-07-28 ~06:15 — SEAM MECHANISM FOUND (renderer teardown per cut). One fix tried, REJECTED.
 The seam item now has a mechanism, not just a location — and the obvious fix for it was tested
 and does not work. Nothing shipped; the tree carries only a comment warning off the dead end.

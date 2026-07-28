@@ -4,6 +4,43 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~08:05 — POLISH PASS: no code change, and one of MY OWN earlier notes was WRONG.
+A deliberate no-change wake. The two polish targets I had queued turned out not to exist, and
+checking that is the result.
+
+**CORRECTION — I mis-stated this on 2026-07-28 ~03:35.** That entry says `BlendMode`'s javadoc
+("non-NORMAL modes are treated as NORMAL by preview/export") is "now HALF FALSE" because export
+implements the modes via `BlendModeGlEffect`. **That was wrong, and the javadoc is accurate.**
+There are TWO unrelated blend-mode fields:
+- `TimedItem.getBlendMode()` → the `BlendMode` ENUM. Its only non-serialization use anywhere is
+  a capability check (`ExportManager:2227`, inside a boolean "does this project need the
+  compositor" scan). **It never selects a blend, in preview or export.** So the javadoc is right.
+- `Clip.getOverlayBlendMode()` → a **String**, PiP-only, and genuinely wired: `BlendModeGlEffect`
+  maps it (`modeCode`, `:61`) to shader modes 1–4 for MULTIPLY/SCREEN/OVERLAY/ADD.
+I conflated the two. Had I "corrected" the comment I would have introduced an error into a file
+that was right. **The real observation** is the smell underneath: two parallel representations
+of one concept, only one of them wired — exactly the "two sources of truth will drift" hazard
+this codebase has already been bitten by (`ModelType` labels vs `strings.xml`). Worth
+consolidating some day; not a bug today, and nothing can currently set the enum anyway (no UI
+call site, only the deserializer).
+
+**Second sweep run (priority 3, different phrase set)** — `temporarily|workaround|until we|
+revisit|placeholder|not implemented|unimplemented|coming soon|stub` over `ui/faditor`. Nothing
+new. Everything of substance is ALREADY TRACKED — recording them by name so they are not
+re-investigated a third time:
+- **CLEARED** `FaditorEditorActivity:5442/5445` "Move layer up/down (coming soon)" toasts — the
+  move-drawer stubs, already in §0z (#6 scrubber work) and in the outstanding list.
+- **CLEARED** `FaditorEditorActivity:5183` + `Clip.java:234` — the ping-pong chip is a
+  deliberately disabled "coming soon" affordance, marked PARKED at the call site.
+- **CLEARED** `AIToolExecutor:2424` — "per-word zoom keyframes coming soon" is a USER-FACING
+  string that honestly states what the tool does today (clip-wide zoom). Not a hidden gap.
+- Every other hit is an ordinary use of the word "placeholder" (MISSING-clip overlay, waveform
+  placeholders, Glide placeholder colours).
+
+**Honest note on where this run is:** the polish seam is now thin. What remains is either
+user-gated (five decisions queued — see `NEXT_SESSION_PROMPT_20260727.md` items 3b, 3c, 4, 5,
+plus the one-pinch stranded-latch test) or diminishing-return sweeps.
+
 ### 2026-07-28 ~07:40 — the stale player under an image clip is STOPPED too. Both halves done.
 Closes the half `8a3acaf` deliberately scoped out. `startImagePlayback` is documented as
 "internal timer, no ExoPlayer", but nothing on the `advanceToSegment` path enforced it: the

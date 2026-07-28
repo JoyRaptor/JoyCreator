@@ -4,6 +4,29 @@
 
 ## 0z. PROGRESS LOG (newest first) — updated as work lands this session
 
+### 2026-07-28 ~07:40 — the stale player under an image clip is STOPPED too. Both halves done.
+Closes the half `8a3acaf` deliberately scoped out. `startImagePlayback` is documented as
+"internal timer, no ExoPlayer", but nothing on the `advanceToSegment` path enforced it: the
+OUTGOING clip's player kept decoding underneath the still at the OUTGOING clip's speed.
+
+**It was audible, not just wasteful.** During the image, `playerPos` ran **1338 → 9714ms at
+~2×** while `head` advanced at 1× — ~8.4s of a clip the user is not watching — and clip 0 is
+**not muted** (`volumeLevel 0.26`), so its audio played under the still.
+
+**Fix:** pause the player in the image branch (before `startImagePlayback`, so its
+`updatePlayPauseButton(true)` still wins). The transport toggle already did this for the same
+reason — the audio-tail branch even carries the note *"the image branch below restarted image
+playback and never paused the audio players, so the music kept going"*. This path never got it.
+
+**Sequencing worth noting:** this is only safe BECAUSE of `8a3acaf`. Before the ticker counted
+`imagePlaybackActive`, pausing here would have killed the ticker the instant it ran — the same
+trap flagged last wake. The freeze fix had to land first; then this became a two-line change.
+
+**Proved before/after on the same fixture:** before, `playerPos` 1338 → 9714 across the image;
+after, **flat at 487** for the whole image clip, `head` advancing normally 748 → 5838, and
+playback still reaching `segAtHead=4, head=13607` of a 14092ms timeline — stale decode gone,
+nothing downstream broken.
+
 ### 2026-07-28 ~07:15 — IMAGE-CLIP PLAYBACK FREEZE: found and FIXED (`8a3acaf`).
 The `aeb0517e` "wedge" from the last wake was not a fixture quirk — it is a real bug in any
 legacy-path project where a video clip is followed by an IMAGE clip. Playback stops dead

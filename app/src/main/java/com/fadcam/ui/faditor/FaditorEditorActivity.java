@@ -9600,6 +9600,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (nextClip.isImageClip()) {
             // Image clip: show image preview and start timer
             showImagePreview(nextClip.getSourceUri());
+            // Stop the OUTGOING clip's player. startImagePlayback is documented as "internal
+            // timer, no ExoPlayer", but nothing on this path enforced that: the previous clip's
+            // player kept decoding underneath the still, at the PREVIOUS clip's speed, until it
+            // ran out of source. Measured on the Note 9 (aeb0517e, clip 0 = 2x): playerPos ran
+            // 1338 -> 9714ms at ~2x across the image while head advanced at 1x — ~8.4s of a clip
+            // the user is not watching, and its audio is not muted by anything here either. The
+            // transport toggle already pauses for this exact reason (see the audio-tail branch
+            // ~:4056, "the music kept going"); this path just never did.
+            //
+            // Safe to pause only because the playhead ticker no longer depends on isPlaying()
+            // for image clips (imagePlaybackActive was added to its re-post condition, 8a3acaf).
+            // Before that, pausing here would have killed the ticker instantly. Pause BEFORE
+            // startImagePlayback so its updatePlayPauseButton(true) wins the button state.
+            if (playerManager != null) playerManager.pause();
             if (autoPlay) {
                 startImagePlayback(0);
             }

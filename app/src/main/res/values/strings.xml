@@ -1345,13 +1345,17 @@
     <string name="faditor_transcript_break">Toggle line break after highlighted word</string>
     <string name="faditor_transcript_pick_model">Choose a speech model</string>
     <string name="faditor_transcript_pick_model_sub">Runs fully offline on your phone. Downloaded once.</string>
-    <string name="faditor_transcript_model_fast">Fast</string>
-    <string name="faditor_transcript_model_fast_sub">~40 MB · quick, lower accuracy</string>
-    <string name="faditor_transcript_model_accurate">Accurate</string>
-    <string name="faditor_transcript_model_accurate_sub">~128 MB · slower download, much better words</string>
-    <string name="faditor_transcript_model_whisper">High accuracy</string>
-    <string name="faditor_transcript_model_whisper_sub">~57 MB · Whisper · best words, slower to run</string>
-    <string name="faditor_transcript_model_whisper_note">High accuracy uses Whisper — much better words, but slower to run. Best for final captions; the faster models are fine for rough editing.</string>
+    <!-- Model names describe the TRADE-OFF, not the model. Keep in step with
+         TranscriptionEngine.ModelType's label/detail — the picker reads these strings while
+         a generated transcript is named from the enum, so if the two drift apart the drawer
+         offers "Fast" and produces a track called "Fast timing" (it did, 2026-07-28). -->
+    <string name="faditor_transcript_model_fast">Fast timing</string>
+    <string name="faditor_transcript_model_fast_sub">~40 MB · quickest · best word TIMING, rougher words</string>
+    <string name="faditor_transcript_model_accurate">Balanced</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 MB · good timing AND good words · ~realtime to run</string>
+    <string name="faditor_transcript_model_whisper">Best wording</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 MB · best WORDS, looser timing · slowest to run</string>
+    <string name="faditor_transcript_model_whisper_note">Best wording uses Whisper: the best words, but its timing drifts on long clips. Fast timing and Balanced are Vosk — their word timings are tighter, which is what caption sync and edit-by-text rely on. Running one of each lets the two be merged into a track with good words AND good timing.</string>
     <string name="faditor_transcribe_prompt_title">Transcribe this video?</string>
     <string name="faditor_transcribe_prompt_message">Generate a searchable, editable transcript for the clip you just added. Runs fully offline.</string>
     <string name="faditor_transcribe_prompt_dont_ask">Don\'t ask me again</string>

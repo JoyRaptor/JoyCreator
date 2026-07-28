@@ -42,6 +42,13 @@ public class TranscriptionEngine {
     private static final String TAG = "TranscriptionEngine";
 
     private static final int SAMPLE_RATE = 16000;
+    /**
+     * How far BEFORE the requested start the coarse input seek aims, so the exact output seek
+     * always has room to land forwards. Must comfortably exceed the container's fragment/GOP
+     * spacing — the measured error on the user's fragmented-MP4 recording was ~5.6s, so 15s
+     * leaves margin without decoding a meaningful amount of extra audio.
+     */
+    private static final double SEEK_SAFETY_S = 15.0;
 
     /** Which recognition backend a {@link ModelType} runs on. */
     public enum Engine { VOSK, WHISPER }
@@ -465,11 +472,28 @@ public class TranscriptionEngine {
             input = FFmpegKitConfig.getSafParameterForRead(context, sourceUri);
         }
 
-        double ss = inMs / 1000.0;
+        // SEEK ACCURACY (device-proven 2026-07-27). This used to be a single `-ss` BEFORE `-i`,
+        // an INPUT seek, and then every word was stamped `inMs + engineRelativeTime` on the
+        // assumption that the extracted audio begins exactly at inMs. It does not: FadCam
+        // records fragmented MP4, where an input seek lands on a fragment boundary rather than
+        // the requested time. Measured on the user's project — clip 7 (inPoint 506760) produced
+        // audio starting ~5.63s LATE, so every word was stamped ~5.63s EARLY and the captions
+        // ran ahead of the speech. Both Vosk and Whisper were off by the same amount to within
+        // 22ms, which is what proves it is the shared audio and not either engine.
+        //
+        // Fix is the standard fast-then-exact idiom: a coarse INPUT seek to a safe margin before
+        // the target (cheap, and its inaccuracy no longer matters), then an exact OUTPUT seek
+        // for the remainder, which decodes and discards to land on the precise sample. Cost is
+        // decoding at most SEEK_SAFETY_S of extra audio.
+        double target = inMs / 1000.0;
+        double coarse = Math.max(0.0, target - SEEK_SAFETY_S);
+        double fine = target - coarse;          // 0 when the clip starts near the file head
         double dur = Math.max(0.1, (outMs - inMs) / 1000.0);
         String cmd = String.format(java.util.Locale.US,
-                "-y -ss %.3f -i \"%s\" -t %.3f -vn -ac 1 -ar %d -f s16le \"%s\"",
-                ss, input, dur, SAMPLE_RATE, outPcm.getAbsolutePath());
+                "-y -ss %.3f -i \"%s\" -ss %.3f -t %.3f -vn -ac 1 -ar %d -f s16le \"%s\"",
+                coarse, input, fine, dur, SAMPLE_RATE, outPcm.getAbsolutePath());
+        FLog.d(TAG, "extractPcm: target=" + target + "s coarse=" + coarse + "s fine=" + fine
+                + "s dur=" + dur + "s");
 
         FFmpegSession session = FFmpegKit.execute(cmd);
         if (!ReturnCode.isSuccess(session.getReturnCode())) {

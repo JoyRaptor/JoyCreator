@@ -311,8 +311,11 @@ What is left, in order:
 
 **What is actually left, in order:**
 
-1. **Make the preset tiles legible at 60dp.** Measured above. They are static poses; animating
-   them, or exaggerating the pose, is the obvious fix and neither is built.
+~~1. Make the preset tiles legible at 60dp.~~ **CLOSED, twice over.** The static-pose half was
+   fixed in `4a1ea41` (tiles now animate, driven by the evaluator). The residual freeze-frame gap
+   was then **accepted by the user, 2026-07-30** — *"the animations you have, I think, look great"*
+   — as motion-only distinction. **Do not "fix" it with a decorative cue:** the tiles are
+   trustworthy precisely because they can only advertise motion the renderers actually produce.
 2. **The text-box path into this panel** — the other half of the user's 2026-07-29 direction, and
    a BUILD rather than a context branch: `TextOverlayItem` has no `CaptionStyle` and no animation
    zones, and nothing opens `caption_drawer` for a text box. The `▶` `◀` carets are parked intact
@@ -320,9 +323,73 @@ What is left, in order:
 3. **Measure the EXPORT path's per-glyph cost.** Only the preview has been measured.
 4. **Decide GHOST's blur** — see "KNOWN GAP" above. A real decision with a performance price, not
    a bug to fix in passing.
-5. Only then add more presets, one at a time, as data driven by `unitProgress` — and never any
-   easing arithmetic outside `CaptionAnimator`. The five unimplemented ones each name what they
-   need; **which to build next is the reporter's call.**
+5. Add more presets, one at a time, as data driven by `unitProgress` — and never any easing
+   arithmetic outside `CaptionAnimator`. ~~which to build next is the reporter's call~~ —
+   **ANSWERED: MATRIX, UNSCRAMBLE, ODOMETER, MASK_WIPE, NEON_FLICKER** (user, 2026-07-30).
+   **MATRIX shipped `c85a7c5`; UNSCRAMBLE shipped 2026-07-29. ODOMETER is next and is designed
+   below.**
+
+## ODOMETER — design, derived 2026-07-29, NOT yet built
+
+Written down before coding because the last two presets both had blocker notes that were wrong in
+opposite directions, and because this one has a **scope question that belongs to the user**.
+
+**What it is.** Each character slot is a wheel. As the unit arrives the wheel spins down through
+filler characters and lands on the real one — a mechanical odometer. The half-rolled state, where
+the outgoing character is sliding out of the top of the slot while the incoming one rises into the
+bottom, is the whole look.
+
+**Re-derived blocker (the ledger's note was right this time, unlike UNSCRAMBLE's).** It needs two
+things a `Transform` plus `substituteUnit` cannot give:
+1. **Two draws per unit.** At any instant a rolling slot shows TWO characters at different vertical
+   offsets. `substituteUnit` returns one string and `Transform` is one geometry, so neither can
+   express it. **This is a genuine third channel** — unlike UNSCRAMBLE's, which turned out to be a
+   parameter.
+2. **A clip rect per slot**, or the outgoing character bleeds into the line above. Caption lines are
+   stacked at `1.15 × (descent − ascent)`, so there is not enough leading to hide it, and on a
+   single-line phrase it would spill outside the pill.
+
+**Why the caption half is nevertheless straightforward.** Both caption renderers already draw
+per-glyph at LETTER granularity, and `drawUnit` already receives `x`, `baseY` and `w` — so the slot
+rect is computable at the draw site today, and both methods already `save()`/`restore()` around each
+unit. Adding `clipRect` + a second `drawText` inside that existing bracket is a small, symmetric
+change at the two caption sites. `Canvas.clipRect` on a rect is cheap, and ~30 glyphs is the worst
+case by construction (a phrase is capped at six words).
+
+**Proposed channel**, mirroring `substituteUnit`'s shape and determinism rules:
+```java
+/** What a slot shows mid-roll: two characters and how far through the step the wheel is. */
+public static Roll rollUnit(Preset p, String text, float progress, int unitIndex)
+// Roll { String incoming; String outgoing; float phase; }  // phase 0..1
+```
+with the wheel position `wheel = (1 − decelerate(progress)) × ROLL_STEPS`, `incoming = charAtWheel(
+floor(wheel))`, `outgoing = charAtWheel(floor(wheel) + 1)`, `phase = wheel − floor(wheel)`. The
+renderer draws `incoming` at `dy = phase × slotH` and `outgoing` at `dy = (phase − 1) × slotH`, both
+clipped to the slot. `charAtWheel(0)` is the REAL character, so at `progress = 1` the wheel is at 0,
+the real character sits at `dy = 0` and its neighbour is clipped fully out of view — it lands
+exactly, with no special case. Filler characters come from the same deterministic `mix` as MATRIX,
+for the same reason: `Math.random()` per frame would make the preview and the export roll different
+characters. Same length in, same length out, so layout cannot reflow.
+
+**THE SCOPE QUESTION — the user's call, do not guess it.** **The text-box preview is a `TextView`**
+(`TextOverlayLayer:211` sets a string on it). One view, one string: it cannot draw two glyph rows
+clipped to a slot. So ODOMETER cannot run on a text box in preview, while the export
+(`CompositeExportOverlay`, `canvas.drawText`) could — which is the exact preview/export divergence
+this whole area exists to prevent. Three ways out:
+- **(a) Gate it, and ship captions-only.** Cheapest and follows an existing precedent: the picker
+  already takes `allowedGrans` for exactly this reason ("this picker never offers a control that
+  provably will not do what it says"), so an `allowedPresets` parameter is the same shape, one
+  argument away. Cost: ODOMETER is simply absent from the text-box picker.
+- **(b) Give text boxes a canvas renderer in preview first.** **This is NOT new work — it is the
+  SAME work already recorded as the reason text boxes are BLOCK-only** (`TextOverlayItem
+  .textAnimGranularitySupported`). Doing it unlocks ODOMETER on text boxes AND WORD/LETTER
+  granularity there, in one go. Much larger, and it touches the surface the user actually looks at.
+- **(c) Defer ODOMETER** and take MASK_WIPE / NEON_FLICKER first.
+
+**Recommendation: (a) now, (b) later as its own funded piece** — it keeps the agreed build order
+moving without quietly committing a session to the text-box renderer rewrite. But (b) is where the
+real value is, because it collapses two open items into one, so it deserves a deliberate decision
+rather than being reached by default.
 6. The retrigger-on-value-change requirement (a timer wanting a pop on each TICK) is **still not
    addressed in `CaptionAnimator`** — it is an event, not a function of elapsed time, and the
    spec warns it is painful to retrofit. It is untouched by this work.

@@ -806,8 +806,30 @@ entrance without hunting.
   `p.name()` and read a bare **`MATRIX`** instead of `Matrix · word`. UNSCRAMBLE would have landed
   in the same hole. Both cases added; the row now reads `Matrix · word` on the phone, which doubles
   as an independent behavioural check that the new build is the one running.
-- **Three presets remain declared but NOT implemented** — ODOMETER (glyph substitution plus a
-  per-slot roll clip), MASK_WIPE (a clip rect), NEON_FLICKER (stroke/glow). Each names its blocker
+- **ODOMETER IS DESIGNED, NOT BUILT — and it has a SCOPE QUESTION THAT IS THE USER'S.** Full design
+  in `SPEC_TEXT_ANIMATION.md` ("ODOMETER — design"). Two findings from re-deriving it against the
+  drawing loops, which is now the rule:
+  1. **Its blocker note is CORRECT** (unlike UNSCRAMBLE's). It genuinely needs a third channel: a
+     rolling slot shows TWO characters at once at different offsets, which neither one `Transform`
+     nor one `substituteUnit` string can express — plus a clip rect, or the outgoing character
+     bleeds into the line above (caption leading is only `1.15 ×` the line box). **The caption half
+     is nevertheless small:** both renderers already draw per-glyph at LETTER with `x`/`baseY`/`w`
+     in hand and already `save()`/`restore()` per unit, so it is `clipRect` + a second `drawText`
+     inside an existing bracket, at two symmetric sites.
+  2. **The text-box half is BLOCKED, and it collapses into work already on the books.** The text-box
+     preview is a `TextView` (`TextOverlayLayer:211`) — one view, one string, so it cannot draw two
+     clipped glyph rows, while the export could. That is the preview/export divergence this area
+     exists to prevent. **Giving text boxes a canvas renderer in preview is the SAME item already
+     recorded as the reason they are BLOCK-only** (`textAnimGranularitySupported`), so doing it
+     would unlock ODOMETER-on-text-boxes AND WORD/LETTER granularity there together.
+  **The call the user owns:** ship ODOMETER captions-only behind a new `allowedPresets` gate on the
+  picker (cheap, and the picker already takes `allowedGrans` for exactly this reason, so it is one
+  argument away) — or fund the text-box canvas renderer first and get both. **Not started, so that
+  nothing is left half-built:** a captions-only ODOMETER without the surface gate would put a dead
+  tile on the text-box picker, which is the one thing this picker is designed never to do, so the
+  gate is not optional and the whole thing is one unit of work.
+- **Two presets remain declared, NOT implemented and NOT designed** — MASK_WIPE (a clip rect),
+  NEON_FLICKER (stroke/glow). Each names its blocker
   in `CaptionAnimator.unsupportedReason` and returns identity, never an approximation. The picker
   filters on `Preset.implemented`. **Treat each remaining blocker note as a hypothesis to re-derive
   from the drawing loops, not as a specification** — UNSCRAMBLE's was materially wrong.

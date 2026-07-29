@@ -333,23 +333,67 @@ public class CaptionAnimatorTest {
                 CaptionAnimator.unitCount(java.util.Arrays.asList("costs", "3.50", "today"),
                         SENTENCE) == 1);
 
-        System.out.println("\n── zoneForSpan: the centre is a saturation point, not an overlap ──");
-        ok("a zone shorter than half the span is untouched",
-                CaptionAnimator.zoneForSpan(200, 1000) == 200);
-        ok("a zone at exactly half saturates", CaptionAnimator.zoneForSpan(500, 1000) == 500);
-        ok("a zone past half is capped at half, never overlapping",
-                CaptionAnimator.zoneForSpan(9999, 1000) == 500);
-        ok("zero stays zero (the off state survives)", CaptionAnimator.zoneForSpan(0, 1000) == 0);
-        ok("a zero-length span yields no zone", CaptionAnimator.zoneForSpan(500, 0) == 0);
+        System.out.println("\n── zoneForSpan: a FRACTION of each line, and 0.5 is the model ──");
+        ok("a fifth of the line", CaptionAnimator.zoneForSpan(0.2f, 1000) == 200);
+        ok("half the line is full travel", CaptionAnimator.zoneForSpan(0.5f, 1000) == 500);
+        ok("past half is capped at half, never overlapping",
+                CaptionAnimator.zoneForSpan(0.9f, 1000) == 500);
+        ok("zero stays zero (the off state survives)",
+                CaptionAnimator.zoneForSpan(0f, 1000) == 0);
+        ok("a negative fraction is the off state, not a reversed zone",
+                CaptionAnimator.zoneForSpan(-0.3f, 1000) == 0);
+        ok("NaN collapses to the off state rather than poisoning the span",
+                CaptionAnimator.zoneForSpan(Float.NaN, 1000) == 0);
+        ok("a zero-length span yields no zone", CaptionAnimator.zoneForSpan(0.5f, 0) == 0);
         // The property the cap exists to protect: capped in + capped out never exceed the span,
         // so unitProgress is never asked to resolve an overlap it has no good answer for.
         boolean neverOverlaps = true;
         for (long span = 1; span <= 400; span += 7) {
-            long in = CaptionAnimator.zoneForSpan(100_000, span);
-            long out = CaptionAnimator.zoneForSpan(100_000, span);
+            long in = CaptionAnimator.zoneForSpan(5f, span);
+            long out = CaptionAnimator.zoneForSpan(5f, span);
             if (in + out > span) neverOverlaps = false;
         }
         ok("capped zones never overlap, at any span", neverOverlaps);
+
+        // ── The two properties the change from ms to a fraction was MADE for ──
+        //
+        // (1) THE AUTHORING PROPERTY. One value, set once in the style panel, must mean the same
+        //     thing on every caption line of a thirty-minute video — that is the user's whole
+        //     objection to dragging a caret per line. A duration cannot do this: 300ms is most of
+        //     a short phrase and a flicker on a long one. A fraction is the same share of every
+        //     line by definition, so pin exactly that, across a 150× range of line lengths.
+        boolean sameShareEverywhere = true;
+        for (long span = 200; span <= 30_000; span += 137) {
+            long zone = CaptionAnimator.zoneForSpan(0.25f, span);
+            // Rounding is the only permitted deviation: at most half a millisecond.
+            if (Math.abs(zone - span * 0.25) > 0.5) sameShareEverywhere = false;
+        }
+        ok("one stored value is the SAME share of every line, from 0.2s to 30s",
+                sameShareEverywhere);
+
+        // (2) THE UNITS PROPERTY. The ms form had to be held in SOURCE ms by hand so a
+        //     speed-adjusted clip would not animate over the wrong span — the exact mistake
+        //     LEDGER §3g originally was. A fraction has no units, so it is correct in BOTH bases
+        //     by construction: rebasing a span (here 2x speed, halving it) rescales the zone by
+        //     exactly the same factor, leaving the proportion untouched. There is nothing left
+        //     for a caller to remember, which is the point.
+        boolean baseInvariant = true;
+        for (long span = 100; span <= 12_000; span += 71) {
+            long inSource = CaptionAnimator.zoneForSpan(0.3f, span);
+            long inTimeline = CaptionAnimator.zoneForSpan(0.3f, span / 2);
+            if (Math.abs(inSource / (double) span - inTimeline / (double) (span / 2)) > 1e-2) {
+                baseInvariant = false;
+            }
+        }
+        ok("the same value is correct in source AND timeline ms (no base to get wrong)",
+                baseInvariant);
+
+        System.out.println("\n── clampZonePct ──");
+        eqF("the cap is exactly half a line", 0.5f, CaptionAnimator.MAX_ZONE_PCT);
+        eqF("in range is untouched", 0.3f, CaptionAnimator.clampZonePct(0.3f));
+        eqF("above the cap saturates", 0.5f, CaptionAnimator.clampZonePct(12f));
+        eqF("below zero is the off state", 0f, CaptionAnimator.clampZonePct(-1f));
+        eqF("NaN is the off state", 0f, CaptionAnimator.clampZonePct(Float.NaN));
     }
 
     static void unitSplitting() {
@@ -391,58 +435,85 @@ public class CaptionAnimatorTest {
         return t;
     }
 
+    /** Strike every word out — the "edited away, still on file" state. */
+    static Transcript struck(Transcript t) {
+        for (TranscriptWord w : t.words) w.struck = true;
+        return t;
+    }
+
     static void caretMapping() {
-        System.out.println("\n── maxUsefulZoneMs: the caret's travel covers what actually changes ──");
+        System.out.println("\n── hasAnimatableSpan: is there anything here to time at all ──");
         // One phrase, 0..1000ms (words are within the 550ms gap rule and under the 6-word cap).
         CaptionPhrases one = CaptionPhrases.of(t(new long[]{0, 400}, new long[]{500, 1000}));
-        ok("one phrase -> half its span", one.maxUsefulZoneMs() == 500);
+        ok("a phrase with a span can be animated", one.hasAnimatableSpan());
 
-        // Two phrases split by a >550ms gap. The LONGER one sets the travel: a zone that still
-        // changes the longest phrase must remain reachable, even though it saturates the shorter.
+        // Two phrases split by a >550ms gap.
         CaptionPhrases two = CaptionPhrases.of(t(
                 new long[]{0, 200},          // phrase 0: span 200
                 new long[]{2000, 4000}));    // phrase 1: span 2000
-        ok("two phrases -> half the LONGEST span", two.maxUsefulZoneMs() == 1000);
+        ok("several phrases likewise", two.hasAnimatableSpan());
 
-        ok("nothing drawn -> no travel, so no carets are offered",
-                CaptionPhrases.of(new Transcript()).maxUsefulZoneMs() == 0);
-        ok("a null transcript does not throw", CaptionPhrases.of(null).maxUsefulZoneMs() == 0);
+        ok("nothing drawn -> no timing control is offered",
+                !CaptionPhrases.of(new Transcript()).hasAnimatableSpan());
+        ok("a null transcript does not throw",
+                !CaptionPhrases.of(null).hasAnimatableSpan());
+        // A zero-length word still counts: spanMs floors every phrase at 1ms precisely so a
+        // degenerate timestamp still DRAWS. Withholding the timing control from it would mean a
+        // caption the user can see and cannot style. Pinned so the floor and the predicate stay
+        // in agreement if either moves.
+        ok("a zero-length word still draws, so it still gets a timing control",
+                CaptionPhrases.of(t(new long[]{700, 700})).hasAnimatableSpan());
+        ok("a struck-out word draws nothing, so it earns no timing control",
+                !CaptionPhrases.of(struck(t(new long[]{0, 400}))).hasAnimatableSpan());
 
-        System.out.println("\n── caret fraction <-> zone round-trips ──");
-        long max = 1000;
-        eqF("caret at the end is the off state", 0f,
-                CaptionAnimator.caretFractionForZone(0, max));
-        eqF("caret at the centre is full travel", 1f,
-                CaptionAnimator.caretFractionForZone(max, max));
-        eqF("a zone past the useful range still pins the caret at the centre", 1f,
-                CaptionAnimator.caretFractionForZone(99_999, max));
-        ok("zero stored is zero back", CaptionAnimator.zoneFromCaretFraction(0f, max) == 0);
-        ok("full travel stores the whole useful range",
-                CaptionAnimator.zoneFromCaretFraction(1f, max) == max);
-        ok("a fraction past 1 is clamped, not extrapolated",
-                CaptionAnimator.zoneFromCaretFraction(5f, max) == max);
-        ok("a negative fraction is clamped to the off state",
-                CaptionAnimator.zoneFromCaretFraction(-3f, max) == 0);
-        ok("no useful range -> every caret position stores nothing",
-                CaptionAnimator.zoneFromCaretFraction(1f, 0) == 0);
+        System.out.println("\n── travel fraction <-> stored fraction round-trips ──");
+        // Same mapping for the text-box caret and the caption range control: both hand a 0..1
+        // travel fraction to ONE conversion, so they cannot disagree about what "halfway" stores.
+        eqF("resting at the end is the off state", 0f,
+                CaptionAnimator.caretFractionForZone(0f));
+        eqF("full travel is half a line", 1f,
+                CaptionAnimator.caretFractionForZone(CaptionAnimator.MAX_ZONE_PCT));
+        eqF("a stored value past the cap still pins the control at full travel", 1f,
+                CaptionAnimator.caretFractionForZone(9f));
+        eqF("halfway along the travel stores a quarter of a line", 0.25f,
+                CaptionAnimator.zoneFromCaretFraction(0.5f));
+        eqF("zero stored is zero back", 0f, CaptionAnimator.zoneFromCaretFraction(0f));
+        eqF("full travel stores the cap", CaptionAnimator.MAX_ZONE_PCT,
+                CaptionAnimator.zoneFromCaretFraction(1f));
+        eqF("a fraction past 1 is clamped, not extrapolated", CaptionAnimator.MAX_ZONE_PCT,
+                CaptionAnimator.zoneFromCaretFraction(5f));
+        eqF("a negative fraction is clamped to the off state", 0f,
+                CaptionAnimator.zoneFromCaretFraction(-3f));
+        eqF("NaN travel is the off state", 0f, CaptionAnimator.zoneFromCaretFraction(Float.NaN));
 
-        // The property that matters: a caret dragged and then redrawn must land back where the
+        // The property that matters: a control dragged and then redrawn must land back where the
         // finger left it. A drift here would make a zone creep every time the view is rebuilt.
         boolean roundTrips = true;
         for (int i = 0; i <= 100; i++) {
             float f = i / 100f;
-            long zone = CaptionAnimator.zoneFromCaretFraction(f, max);
-            float back = CaptionAnimator.caretFractionForZone(zone, max);
+            float zone = CaptionAnimator.zoneFromCaretFraction(f);
+            float back = CaptionAnimator.caretFractionForZone(zone);
             if (Math.abs(back - f) > 1e-3f) roundTrips = false;
         }
-        ok("caret -> zone -> caret is stable across the whole travel", roundTrips);
+        ok("travel -> stored -> travel is stable across the whole range", roundTrips);
 
-        // And the model's headline property, end to end: full travel on BOTH carets means every
-        // phrase finishes arriving exactly as it starts leaving.
-        long span = two.spanMs(1)[1] - two.spanMs(1)[0];
-        long full = CaptionAnimator.zoneFromCaretFraction(1f, two.maxUsefulZoneMs());
-        ok("both carets at the centre: entrance ends exactly where the exit begins",
-                CaptionAnimator.zoneForSpan(full, span)
-                        + CaptionAnimator.zoneForSpan(full, span) == span);
+        // And the model's headline property, end to end: full travel on BOTH controls means every
+        // phrase finishes arriving exactly as it starts leaving. Unlike the ms model, which could
+        // only be checked on one clip's longest phrase, this now holds at EVERY line length —
+        // which is precisely why the control can be set once for a whole video.
+        float full = CaptionAnimator.zoneFromCaretFraction(1f);
+        boolean meetsEverywhere = true;
+        boolean neverExceeds = true;
+        for (long span = 2; span <= 20_000; span += 39) {
+            long sum = CaptionAnimator.zoneForSpan(full, span)
+                    + CaptionAnimator.zoneForSpan(full, span);
+            if (sum > span) neverExceeds = false;
+            // Exact on an even span; one millisecond short on an odd one, because the floor cap
+            // in zoneForSpan spends that millisecond on never overlapping rather than on meeting.
+            if (sum != span - (span % 2)) meetsEverywhere = false;
+        }
+        ok("both controls at full travel: entrance ends where the exit begins, "
+                + "at EVERY line length (to the odd millisecond)", meetsEverywhere);
+        ok("and the two zones never exceed the line, at any length", neverExceeds);
     }
 }

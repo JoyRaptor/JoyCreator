@@ -1300,13 +1300,14 @@ public class EditorTimelineView extends View {
          * Caption text-animation caret drag finished (SPEC_TEXT_ANIMATION): how long the caption
          * takes to animate in, and how long to animate out.
          *
-         * <p><b>Values are SOURCE ms</b>, already clamped — the same base
+         * <p><b>Values are a FRACTION OF EACH LINE</b> (0…0.5), already clamped — the same base
          * {@code Clip.setCaptionAnimZones} stores and both caption renderers evaluate against.
-         * They are NOT timeline ms: a zone measured on the timeline would cover the wrong span on
-         * any speed-adjusted clip, which is the exact class of mistake LEDGER §3g was.</p>
+         * They are not a duration in either base: a zone measured in timeline ms would cover the
+         * wrong span on any speed-adjusted clip, which is the exact class of mistake LEDGER §3g
+         * was, and a fraction removes the units rather than pinning them down.</p>
          */
         default void onCaptionAnimZonesChanged(int segmentIndex,
-                long inSourceMs, long outSourceMs) {}
+                float inPct, float outPct) {}
         /** Double-tap on a generated-slide clip → its code editor sheet. */
         default void onSlideDoubleTapped(int segmentIndex) {}
         /** Called when playhead is seeked. isDragging=true means user is actively dragging,
@@ -7360,42 +7361,41 @@ public class EditorTimelineView extends View {
         if (selectedIndex < 0 || selectedIndex >= segments.size()) return null;
         Clip c = segments.get(selectedIndex).clip;
         if (c == null || c.isGeneratedSlide() || !c.hasTranscript()) return null;
-        return captionAnimMaxZoneMs(c) > 0 ? c : null;
+        return captionAnimHasSpan(c) ? c : null;
     }
 
-    // Cache for the phrase grouping's max useful zone: recomputing it windows the transcript and
-    // walks every word, and both the hit-test and the draw want it on every frame of a drag. The
-    // key carries everything the answer depends on — the clip, its trim, and the word count — so
-    // a trim drag or a strike edit recomputes rather than being served a stale scale.
+    // Cache for "is there anything here to animate": answering it windows the transcript and walks
+    // every word, and both the hit-test and the draw ask on every frame of a drag. The key carries
+    // everything the answer depends on — the clip, its trim, and the word count — so a trim drag
+    // or a strike edit recomputes rather than being served a stale answer.
     private String captionAnimCacheKey;
-    private long captionAnimCacheMaxZoneMs;
+    private boolean captionAnimCacheHasSpan;
 
     /**
-     * The largest zone that still changes anything on this clip, in SOURCE ms. 0 = no carets.
+     * Whether this clip has any phrase long enough to animate on. False = no carets.
      *
      * <p>Measured on the TRIMMED window, matching what the caption renderers draw: a phrase
-     * outside the trim is not on screen, so letting it set the caret's travel would scale the
-     * handle against text the user cannot see.</p>
+     * outside the trim is not on screen, so it must not be what earns the clip a timing control.</p>
      */
-    private long captionAnimMaxZoneMs(@NonNull Clip clip) {
+    private boolean captionAnimHasSpan(@NonNull Clip clip) {
         com.fadcam.ui.faditor.transcript.Transcript full = clip.getTranscript();
-        if (full == null || full.isEmpty()) return 0L;
+        if (full == null || full.isEmpty()) return false;
         String key = clip.getId() + '|' + clip.getInPointMs() + '|' + clip.getOutPointMs()
                 + '|' + full.words.size();
-        if (key.equals(captionAnimCacheKey)) return captionAnimCacheMaxZoneMs;
-        long max = com.fadcam.ui.faditor.transcript.CaptionPhrases
+        if (key.equals(captionAnimCacheKey)) return captionAnimCacheHasSpan;
+        boolean has = com.fadcam.ui.faditor.transcript.CaptionPhrases
                 .of(full.windowed(clip.getInPointMs(), clip.getOutPointMs()))
-                .maxUsefulZoneMs();
+                .hasAnimatableSpan();
         captionAnimCacheKey = key;
-        captionAnimCacheMaxZoneMs = max;
-        return max;
+        captionAnimCacheHasSpan = has;
+        return has;
     }
 
     /**
      * Where a caret's full inward travel ends: the tape's centre, which is the user's stated
      * "brought all the way into the centre" — every phrase finishing its entrance exactly as it
-     * begins its exit. See {@code CaptionPhrases.maxUsefulZoneMs} for why the travel between the
-     * end and the centre is compressed against the tape rather than measured on it.
+     * begins its exit. The travel is compressed against the tape rather than measured on it
+     * because the stored value is a fraction of a LINE, not a position on the clip.
      */
     private float captionAnimTravelPx(@NonNull RectF seg) {
         return Math.max(1f, (seg.width() - 2 * handleWidthPx) / 2f);
@@ -7404,14 +7404,14 @@ public class EditorTimelineView extends View {
     /** Visual x of the entrance caret: inset from the left trim bar by the stored in-zone. */
     private float captionAnimInX(@NonNull RectF seg, @NonNull Clip clip) {
         float frac = com.fadcam.ui.faditor.transcript.CaptionAnimator.caretFractionForZone(
-                clip.getCaptionAnimInMs(), captionAnimMaxZoneMs(clip));
+                clip.getCaptionAnimInPct());
         return seg.left + handleWidthPx + captionAnimTravelPx(seg) * frac;
     }
 
     /** Visual x of the exit caret: inset from the right trim bar by the stored out-zone. */
     private float captionAnimOutX(@NonNull RectF seg, @NonNull Clip clip) {
         float frac = com.fadcam.ui.faditor.transcript.CaptionAnimator.caretFractionForZone(
-                clip.getCaptionAnimOutMs(), captionAnimMaxZoneMs(clip));
+                clip.getCaptionAnimOutPct());
         return seg.right - handleWidthPx - captionAnimTravelPx(seg) * frac;
     }
 
@@ -7455,28 +7455,28 @@ public class EditorTimelineView extends View {
     }
 
     /**
-     * Commit the caret drag: px → SOURCE ms, then notify the listener.
+     * Commit the caret drag: px → a FRACTION OF EACH LINE, then notify the listener.
      *
-     * <p><b>The unit conversion is the whole point of this method.</b> The travel maps onto the
-     * clip's usable zone range, which is already in source ms, so — unlike the freeze carets,
-     * which are clip-window (timeline) ms — there is no speed division anywhere here. Dividing by
-     * the speed multiplier would halve every zone on a 2x clip and put the preview and the export
-     * back on different scales.</p>
+     * <p>There is no unit conversion left to get wrong. This method used to map travel onto the
+     * clip's usable zone range in source ms, and carried a note about why it must NOT divide by
+     * the speed multiplier the way the freeze carets do. The stored value is now a fraction of
+     * each line's own duration, which has no units at all — full travel is
+     * {@code CaptionAnimator.MAX_ZONE_PCT} on every clip at every speed — so the hazard is gone
+     * rather than merely handled.</p>
      */
     private void finishCaptionAnimDrag() {
         Clip clip = selectedCaptionAnimClip();
         if (clip == null || selectedIndex >= segRects.size() || listener == null) return;
         RectF seg = segRects.get(selectedIndex);
-        long maxZone = captionAnimMaxZoneMs(clip);
         float travel = captionAnimTravelPx(seg);
-        long in = clip.getCaptionAnimInMs();
-        long out = clip.getCaptionAnimOutMs();
+        float in = clip.getCaptionAnimInPct();
+        float out = clip.getCaptionAnimOutPct();
         if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE) {
             in = com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretFraction(
-                    (captionAnimDragX - seg.left - handleWidthPx) / travel, maxZone);
+                    (captionAnimDragX - seg.left - handleWidthPx) / travel);
         } else {
             out = com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretFraction(
-                    (seg.right - handleWidthPx - captionAnimDragX) / travel, maxZone);
+                    (seg.right - handleWidthPx - captionAnimDragX) / travel);
         }
         listener.onCaptionAnimZonesChanged(selectedIndex, in, out);
         invalidate();

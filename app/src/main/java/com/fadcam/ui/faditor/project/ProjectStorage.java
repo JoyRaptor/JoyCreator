@@ -1339,11 +1339,11 @@ public class ProjectStorage {
         if (!"WORD".equals(clip.getCaptionAnimGranularity())) {
             clipJson.addProperty("captionAnimGranularity", clip.getCaptionAnimGranularity());
         }
-        if (clip.getCaptionAnimInMs() != 0L) {
-            clipJson.addProperty("captionAnimInMs", clip.getCaptionAnimInMs());
+        if (clip.getCaptionAnimInPct() != 0f) {
+            clipJson.addProperty("captionAnimInPct", clip.getCaptionAnimInPct());
         }
-        if (clip.getCaptionAnimOutMs() != 0L) {
-            clipJson.addProperty("captionAnimOutMs", clip.getCaptionAnimOutMs());
+        if (clip.getCaptionAnimOutPct() != 0f) {
+            clipJson.addProperty("captionAnimOutPct", clip.getCaptionAnimOutPct());
         }
         // Audio ducking and punch-in zoom (schema v2)
         if (clip.getDuckAmount() > 0f) {
@@ -1582,15 +1582,22 @@ public class ProjectStorage {
         if (hasValue(clipObj, "captionAnimGranularity")) {
             clip.setCaptionAnimGranularity(clipObj.get("captionAnimGranularity").getAsString());
         }
-        // Both zones through the one setter: it clamps them against each other and against the
-        // clip's trimmed length, and it can only do that if it sees both. This runs AFTER the
-        // trim points are read above, so getTrimmedDurationMs() is already correct here.
-        if (hasValue(clipObj, "captionAnimInMs") || hasValue(clipObj, "captionAnimOutMs")) {
+        // Both zones through the one setter, which clamps each to [0, 0.5].
+        //
+        // The older keys "captionAnimInMs"/"captionAnimOutMs" are deliberately READ AND IGNORED.
+        // They held a source-ms duration; the model is now a fraction of each caption LINE, and
+        // there is no honest conversion — the ms value would have to be divided by the length of
+        // a line that varies phrase to phrase, so any migration would pick one phrase's length
+        // and be wrong for every other. Nothing is lost: those keys only ever existed in the
+        // 2026-07-29 sandbox build and were never shipped to a real project, so the worst case is
+        // that a sandbox clip's animation returns to its default "off" and is set again in one
+        // tap. Documented here rather than silently dropped so the absence is a decision.
+        if (hasValue(clipObj, "captionAnimInPct") || hasValue(clipObj, "captionAnimOutPct")) {
             clip.setCaptionAnimZones(
-                    hasValue(clipObj, "captionAnimInMs")
-                            ? clipObj.get("captionAnimInMs").getAsLong() : 0L,
-                    hasValue(clipObj, "captionAnimOutMs")
-                            ? clipObj.get("captionAnimOutMs").getAsLong() : 0L);
+                    hasValue(clipObj, "captionAnimInPct")
+                            ? clipObj.get("captionAnimInPct").getAsFloat() : 0f,
+                    hasValue(clipObj, "captionAnimOutPct")
+                            ? clipObj.get("captionAnimOutPct").getAsFloat() : 0f);
         }
         // Audio ducking and punch-in zoom (schema v2)
         if (hasValue(clipObj, "duckAmount")) {

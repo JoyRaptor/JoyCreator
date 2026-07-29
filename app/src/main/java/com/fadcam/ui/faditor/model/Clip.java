@@ -232,18 +232,16 @@ public class Clip {
     private String captionAnimGranularity = "WORD";
 
     /**
-     * Entrance-zone length in SOURCE ms — the distance the {@code >} tape handle has been
-     * dragged in from the head. 0 (handle at the end) is the natural "off", which is why the
-     * animation needs no separate enable switch. Mirrors {@code GeneratedSource.freezeStartMs}.
+     * Entrance zone as a FRACTION OF EACH LINE's own display duration, 0…0.5. 0 is the natural
+     * "off", which is why the animation needs no separate enable switch.
      *
-     * <p>Source ms, not timeline ms: the caption renderers evaluate against source time, so a
-     * zone measured in timeline ms would cover the wrong span on any speed-adjusted clip. See
-     * {@link #setCaptionAnimZones}.</p>
+     * <p><b>Not milliseconds.</b> See {@link #setCaptionAnimZones} for why the units were taken
+     * away entirely rather than pinned down.</p>
      */
-    private long captionAnimInMs = 0L;
+    private float captionAnimInPct = 0f;
 
-    /** Exit-zone length in SOURCE ms — the {@code <} handle, dragged in from the tail. */
-    private long captionAnimOutMs = 0L;
+    /** Exit zone as a fraction of each line's own display duration, 0…0.5. */
+    private float captionAnimOutPct = 0f;
 
     // ── Loop / Ping-pong ─────────────────────────────────────────────
 
@@ -538,8 +536,8 @@ public class Clip {
         this.captionSizeFraction = other.captionSizeFraction;
         this.captionAnimPreset = other.captionAnimPreset;
         this.captionAnimGranularity = other.captionAnimGranularity;
-        this.captionAnimInMs = other.captionAnimInMs;
-        this.captionAnimOutMs = other.captionAnimOutMs;
+        this.captionAnimInPct = other.captionAnimInPct;
+        this.captionAnimOutPct = other.captionAnimOutPct;
         this.effectStack = new EffectStack(other.effectStack);
         this.duckAmount = other.duckAmount;
         this.zoomLevel = other.zoomLevel;
@@ -596,8 +594,8 @@ public class Clip {
         c.captionSizeFraction = captionSizeFraction;
         c.captionAnimPreset = captionAnimPreset;
         c.captionAnimGranularity = captionAnimGranularity;
-        c.captionAnimInMs = captionAnimInMs;
-        c.captionAnimOutMs = captionAnimOutMs;
+        c.captionAnimInPct = captionAnimInPct;
+        c.captionAnimOutPct = captionAnimOutPct;
         c.effectStack = new EffectStack(effectStack);
         c.pitchCompensation = pitchCompensation;
         c.overlayAudioEnabled = overlayAudioEnabled;
@@ -1152,37 +1150,34 @@ public class Clip {
         this.captionAnimGranularity = granularityName;
     }
 
-    public long getCaptionAnimInMs() { return captionAnimInMs; }
+    public float getCaptionAnimInPct() { return captionAnimInPct; }
 
-    public long getCaptionAnimOutMs() { return captionAnimOutMs; }
+    public float getCaptionAnimOutPct() { return captionAnimOutPct; }
 
     /**
-     * Set both animation zones at once, clamped so they cannot be negative and cannot overlap.
+     * Set both animation zones at once, each clamped to {@code [0, 0.5]}.
      *
-     * <p>Both zones go through this ONE setter deliberately. They are not independent: the
-     * constraint is on their SUM against the clip's own trimmed length, so a setter that could
-     * only see one of them would have to trust the caller about the other. Dragging the
-     * handles past each other is otherwise reachable — the evaluator resolves the overlap by
-     * letting the entrance win, which is a defined behaviour rather than a good one, and the
-     * fix belongs at the funnel so the timeline drag, an AI edit and a future preset picker all
-     * inherit it rather than each remembering to clamp.</p>
+     * <p>Both zones go through this ONE setter deliberately, so the range control, an AI edit and
+     * a future text-box caret all inherit the clamp rather than each remembering it.</p>
      *
-     * <p>The excess is taken off the EXIT zone, because the user is dragging one handle at a
-     * time: the one they are moving should keep the value they asked for.</p>
+     * <p><b>These are FRACTIONS OF ONE LINE, not durations.</b> The previous form was source ms,
+     * and had to be held in source ms by hand so a speed-adjusted clip would not animate over the
+     * wrong span — the exact class of mistake LEDGER §3g originally was. A fraction has no units,
+     * so it is correct in both bases by construction and there is nothing left to get wrong. It
+     * is also the only form that can be authored once for a whole video: a duration means "most
+     * of the line" on a short phrase and "a flicker" on a long one, whereas 50% means 50% at
+     * every line length.</p>
      *
-     * <p><b>Units are SOURCE ms, not timeline ms.</b> Both caption renderers evaluate against
-     * source time ({@code inPointMs + clipLocalMs * speedMultiplier}), so the zones must be
-     * measured in the same base or a speed-adjusted clip would animate over the wrong span —
-     * which is the exact class of mistake LEDGER §3g was. Hence {@code outPointMs - inPointMs}
-     * here and NOT {@link #getTrimmedDurationMs()}, which divides by the speed multiplier.</p>
+     * <p>The 0.5 cap is the model rather than a safety rail: at 0.5/0.5 the entrance ends exactly
+     * where the exit begins, at every line length, which is the user's own description of full
+     * travel. Because each is capped at 0.5 independently, their sum can never exceed 1 — so
+     * unlike the ms form there is no cross-constraint and no excess to take off the exit.</p>
      */
-    public void setCaptionAnimZones(long inMs, long outMs) {
-        long span = Math.max(0L, outPointMs - inPointMs);
-        long in = Math.max(0L, Math.min(inMs, span));
-        long out = Math.max(0L, Math.min(outMs, span));
-        if (in + out > span) out = span - in;
-        this.captionAnimInMs = in;
-        this.captionAnimOutMs = out;
+    public void setCaptionAnimZones(float inPct, float outPct) {
+        this.captionAnimInPct =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(inPct);
+        this.captionAnimOutPct =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(outPct);
     }
 
     // ── Caption style keyframes ───────────────────────────────────────

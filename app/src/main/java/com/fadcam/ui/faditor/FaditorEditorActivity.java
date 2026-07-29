@@ -1691,9 +1691,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onCaptionAnimZonesChanged(int segmentIndex, long inSourceMs,
-                    long outSourceMs) {
-                applyCaptionAnimZones(inSourceMs, outSourceMs);
+            public void onCaptionAnimZonesChanged(int segmentIndex, float inPct,
+                    float outPct) {
+                applyCaptionAnimZones(inPct, outPct);
             }
 
             @Override
@@ -15715,30 +15715,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Largest in/out zone that still changes anything on this clip, in source ms.
-     *
-     * <p>Measured on the TRIMMED window, not the whole source transcript, because that is what
-     * the caption renderers actually draw — words outside the trim are not on screen and must not
-     * stretch the caret's travel to cover a phrase nobody sees.</p>
+     * Commit an in/out zone change. Values arrive as a FRACTION OF EACH LINE (0…0.5) and go
+     * through {@code setCaptionAnimZones}, the one setter, which clamps them.
      */
-    private long captionAnimMaxZoneMs(@NonNull Clip clip) {
-        com.fadcam.ui.faditor.transcript.Transcript t = windowedCaptionsFor(clip);
-        if (t == null || t.isEmpty()) return 0L;
-        return com.fadcam.ui.faditor.transcript.CaptionPhrases.of(t).maxUsefulZoneMs();
-    }
-
-    /**
-     * Commit an in/out zone change from the tape carets. Values arrive in SOURCE ms and go
-     * through {@code setCaptionAnimZones}, the one setter, because the clamp is on their SUM.
-     */
-    private void applyCaptionAnimZones(long inSourceMs, long outSourceMs) {
+    private void applyCaptionAnimZones(float inPct, float outPct) {
         final Clip cc = captionAnimTarget();
         if (cc == null) return;
-        final long beforeIn = cc.getCaptionAnimInMs();
-        final long beforeOut = cc.getCaptionAnimOutMs();
-        cc.setCaptionAnimZones(inSourceMs, outSourceMs);
-        final long afterIn = cc.getCaptionAnimInMs();
-        final long afterOut = cc.getCaptionAnimOutMs();
+        final float beforeIn = cc.getCaptionAnimInPct();
+        final float beforeOut = cc.getCaptionAnimOutPct();
+        cc.setCaptionAnimZones(inPct, outPct);
+        final float afterIn = cc.getCaptionAnimInPct();
+        final float afterOut = cc.getCaptionAnimOutPct();
         if (beforeIn == afterIn && beforeOut == afterOut) return;
         // TODO(strings)
         undoManager.recordAction(new EditActions.LambdaAction("Text animation timing",
@@ -15752,35 +15739,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /**
      * Choose a preset.
      *
-     * <p><b>Picking a preset with both carets at the ends seeds an entrance zone.</b> Zero-length
-     * zones ARE the off state — that is the timing model and it is why there is no enable switch
-     * — but it means that on a fresh clip every tile in the picker would apply cleanly and change
-     * nothing on screen, and the user would reasonably conclude the feature is broken. Choosing a
-     * preset is an explicit request to animate, so it seeds half the usable entrance range and
-     * leaves the exit at zero. It is one undo step with the preset, and the carets then say
-     * exactly what happened.</p>
+     * <p><b>Picking a preset with both zones at zero seeds an entrance.</b> Zero-length zones ARE
+     * the off state — that is the timing model and it is why there is no enable switch — but it
+     * means that on a fresh clip every tile in the picker would apply cleanly and change nothing
+     * on screen, and the user would reasonably conclude the feature is broken. Choosing a preset
+     * is an explicit request to animate, so it seeds half the usable entrance range and leaves the
+     * exit at zero. It is one undo step with the preset, and the range control then says exactly
+     * what happened.</p>
      */
     private void applyCaptionAnimPreset(
             @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset preset) {
         final Clip cc = captionAnimTarget();
         if (cc == null) return;
         final String before = cc.getCaptionAnimPreset();
-        final long beforeIn = cc.getCaptionAnimInMs();
-        final long beforeOut = cc.getCaptionAnimOutMs();
+        final float beforeIn = cc.getCaptionAnimInPct();
+        final float beforeOut = cc.getCaptionAnimOutPct();
         final String after = preset.name();
 
-        long seedIn = beforeIn;
+        float seedIn = beforeIn;
         if (preset != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
-                && beforeIn <= 0 && beforeOut <= 0) {
-            seedIn = Math.max(1L, captionAnimMaxZoneMs(cc) / 2);
+                && beforeIn <= 0f && beforeOut <= 0f) {
+            seedIn = com.fadcam.ui.faditor.transcript.CaptionAnimator.MAX_ZONE_PCT / 2f;
         }
-        final long afterIn = seedIn;
+        final float afterIn = seedIn;
         if (before.equals(after) && beforeIn == afterIn) return;
 
         cc.setCaptionAnimPreset(after);
         cc.setCaptionAnimZones(afterIn, beforeOut);
-        final long clampedIn = cc.getCaptionAnimInMs();
-        final long clampedOut = cc.getCaptionAnimOutMs();
+        final float clampedIn = cc.getCaptionAnimInPct();
+        final float clampedOut = cc.getCaptionAnimOutPct();
         // TODO(strings)
         undoManager.recordAction(new EditActions.LambdaAction("Text animation",
                 () -> {
@@ -20391,7 +20378,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // first frame drawn after a bind already has them.
         captionOverlay.setCaptionAnimation(clip.getCaptionAnimPreset(),
                 clip.getCaptionAnimGranularity(),
-                clip.getCaptionAnimInMs(), clip.getCaptionAnimOutMs());
+                clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
         captionOverlay.setData(windowedCaptionsFor(clip),
                 com.fadcam.ui.faditor.transcript.CaptionStyle.byId(clip.getCaptionStyleId()),
                 new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {

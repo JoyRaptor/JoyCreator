@@ -62,8 +62,8 @@ public class CaptionOverlayView extends View {
     // Text animation (SPEC_TEXT_ANIMATION). Defaults are the off state.
     @NonNull private CaptionAnimator.Preset animPreset = CaptionAnimator.Preset.NONE;
     @NonNull private CaptionAnimator.Granularity animGran = CaptionAnimator.Granularity.WORD;
-    private long animInMs = 0L;
-    private long animOutMs = 0L;
+    private float animInPct = 0f;
+    private float animOutPct = 0f;
     // Per-phrase animation state, recomputed at the top of each onDraw. Fields rather than
     // locals only so drawWord can see them without a six-argument signature; onDraw is the sole
     // writer, and allocating these per frame is what a caption overlay cannot afford.
@@ -167,11 +167,11 @@ public class CaptionOverlayView extends View {
      * build degrades to the default here instead of throwing.
      */
     public void setCaptionAnimation(@Nullable String presetName, @Nullable String granularityName,
-                                    long inMs, long outMs) {
+                                    float inPct, float outPct) {
         animPreset = CaptionAnimator.parsePreset(presetName);
         animGran = CaptionAnimator.parseGranularity(granularityName);
-        animInMs = Math.max(0L, inMs);
-        animOutMs = Math.max(0L, outMs);
+        animInPct = CaptionAnimator.clampZonePct(inPct);
+        animOutPct = CaptionAnimator.clampZonePct(outPct);
         invalidate();
     }
 
@@ -220,8 +220,8 @@ public class CaptionOverlayView extends View {
         animUnitCount = CaptionAnimator.unitCount(animWords, animGran);
         animSpanStart = span != null ? span[0] : 0L;
         animSpanEnd = span != null ? span[1] : 1L;
-        animInEff = CaptionAnimator.zoneForSpan(animInMs, animSpanEnd - animSpanStart);
-        animOutEff = CaptionAnimator.zoneForSpan(animOutMs, animSpanEnd - animSpanStart);
+        animInEff = CaptionAnimator.zoneForSpan(animInPct, animSpanEnd - animSpanStart);
+        animOutEff = CaptionAnimator.zoneForSpan(animOutPct, animSpanEnd - animSpanStart);
 
         float fontPx = sizeFraction * r.height();
         textPaint.setTextSize(fontPx);

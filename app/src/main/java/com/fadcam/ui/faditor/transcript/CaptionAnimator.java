@@ -480,21 +480,47 @@ public final class CaptionAnimator {
     }
 
     /**
-     * The in/out zone actually usable on an object of {@code spanMs}.
-     *
-     * <p>The zones are stored as DURATIONS on the clip, but each caption phrase is its own
-     * animating object and phrases are short. Capping each zone at half the span is what keeps
-     * the user's stated property true at every phrase length: at the cap the entrance ends
-     * exactly where the exit begins, which is "everything animates in, and as soon as it's in it
-     * starts animating out" — so a zone dragged beyond the midpoint saturates there instead of
-     * overlapping into the undefined region.</p>
+     * The largest fraction of a line either zone may occupy. At {@code 0.5} the entrance ends
+     * exactly where the exit begins — the user's own description of full travel — so this is the
+     * MODEL, not a safety rail: there is no defined behaviour past it to protect.
      */
-    public static long zoneForSpan(long storedZoneMs, long spanMs) {
-        if (storedZoneMs <= 0 || spanMs <= 0) return 0L;
-        return Math.min(storedZoneMs, spanMs / 2);
+    public static final float MAX_ZONE_PCT = 0.5f;
+
+    /** Clamp a stored zone fraction into {@code [0, MAX_ZONE_PCT]}. NaN collapses to 0. */
+    public static float clampZonePct(float pct) {
+        if (Float.isNaN(pct) || pct <= 0f) return 0f;
+        return Math.min(MAX_ZONE_PCT, pct);
     }
 
-    // ── The tape carets ──────────────────────────────────────────────────────────────────────
+    /**
+     * The in/out zone in ms actually usable on an animating object of {@code spanMs}.
+     *
+     * <p>The zones are stored as a FRACTION OF EACH LINE, not as a duration. That is the whole
+     * point of the fraction: the ms form had to be held in SOURCE ms by hand so a speed-adjusted
+     * clip would not animate over the wrong span — the exact mistake LEDGER §3g originally was.
+     * <b>A fraction has no units, so it is correct in both bases by construction</b> and there is
+     * nothing left to get wrong. It also solves the authoring problem it was changed for: one
+     * value set once applies to every caption line as a share of that line's own duration, rather
+     * than a duration that means "most of the line" on a short phrase and "a flicker" on a long
+     * one.</p>
+     *
+     * <p>Capping at {@link #MAX_ZONE_PCT} keeps the user's stated property true at every phrase
+     * length: at the cap the entrance ends exactly where the exit begins, which is "everything
+     * animates in, and as soon as it's in it starts animating out".</p>
+     */
+    public static long zoneForSpan(float storedZonePct, long spanMs) {
+        if (spanMs <= 0) return 0L;
+        float pct = clampZonePct(storedZonePct);
+        if (pct <= 0f) return 0L;
+        // The floor cap is not redundant with clampZonePct. Rounding half an ODD span up gives
+        // (span+1)/2, so two such zones would sum to one millisecond MORE than the line they sit
+        // on — a one-frame overlap that unitProgress has no defined answer for. Flooring keeps
+        // "in + out never exceeds the span" exact at every length, which is the invariant the cap
+        // exists to hold.
+        return Math.min(Math.round(spanMs * (double) pct), spanMs / 2);
+    }
+
+    // ── The carets (text boxes) and the range control (captions) ─────────────────────────────
 
     /**
      * Where a caret sits, as a fraction of its inward travel: 0 = resting at the end of the tape
@@ -504,22 +530,21 @@ public final class CaptionAnimator {
      * <p>This pair and its inverse live HERE rather than in the timeline view for the same reason
      * the easing does: it is the mapping between what the user drags and what gets stored, and a
      * mapping that exists in one place cannot round-trip differently from itself. The view owns
-     * pixels; this owns milliseconds.</p>
+     * pixels; this owns the model.</p>
      *
-     * @param maxUsefulZoneMs {@code CaptionPhrases.maxUsefulZoneMs()} — full inward travel. Zero
-     *                        means nothing is drawn, so every caret position means the same thing
-     *                        and the fraction collapses to 0.
+     * <p>Since the change to fractions there is no scale factor left in this mapping — full
+     * travel is {@link #MAX_ZONE_PCT} at every line length, so the caret no longer has to be
+     * scaled against the longest visible phrase to keep its travel meaningful.</p>
      */
-    public static float caretFractionForZone(long zoneMs, long maxUsefulZoneMs) {
-        if (maxUsefulZoneMs <= 0 || zoneMs <= 0) return 0f;
-        return Math.min(1f, zoneMs / (float) maxUsefulZoneMs);
+    public static float caretFractionForZone(float zonePct) {
+        return clampZonePct(zonePct) / MAX_ZONE_PCT;
     }
 
-    /** The inverse: a caret's travel fraction back to a stored zone in SOURCE ms. */
-    public static long zoneFromCaretFraction(float fraction, long maxUsefulZoneMs) {
-        if (maxUsefulZoneMs <= 0) return 0L;
+    /** The inverse: a caret's (or slider's) travel fraction back to a stored zone fraction. */
+    public static float zoneFromCaretFraction(float fraction) {
+        if (Float.isNaN(fraction)) return 0f;
         float f = Math.max(0f, Math.min(1f, fraction));
-        return Math.round(maxUsefulZoneMs * (double) f);
+        return f * MAX_ZONE_PCT;
     }
 
     // ── Resolving stored values ──────────────────────────────────────────────────────────────

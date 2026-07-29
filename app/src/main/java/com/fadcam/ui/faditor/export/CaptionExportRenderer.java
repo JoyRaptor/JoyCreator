@@ -53,8 +53,8 @@ public class CaptionExportRenderer {
             com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE;
     @NonNull private com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity animGran =
             com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity.WORD;
-    private long animInMs = 0L;
-    private long animOutMs = 0L;
+    private float animInPct = 0f;
+    private float animOutPct = 0f;
     // Per-phrase animation state, recomputed at the top of each drawPhrase.
     private final List<String> animWords = new ArrayList<>();
     private int animUnitCount = 1;
@@ -110,12 +110,12 @@ public class CaptionExportRenderer {
      * fields the preview reads, or the two paths animate differently again.
      */
     public void setCaptionAnimation(String presetName, String granularityName,
-                                    long inMs, long outMs) {
+                                    float inPct, float outPct) {
         animPreset = com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(presetName);
         animGran = com.fadcam.ui.faditor.transcript.CaptionAnimator
                 .parseGranularity(granularityName);
-        animInMs = Math.max(0L, inMs);
-        animOutMs = Math.max(0L, outMs);
+        animInPct = com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(inPct);
+        animOutPct = com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(outPct);
     }
 
     private float emphasisFor(int activeWordIdx, long sourceMs) {
@@ -143,9 +143,9 @@ public class CaptionExportRenderer {
         animSpanStart = span != null ? span[0] : 0L;
         animSpanEnd = span != null ? span[1] : 1L;
         animInEff = com.fadcam.ui.faditor.transcript.CaptionAnimator
-                .zoneForSpan(animInMs, animSpanEnd - animSpanStart);
+                .zoneForSpan(animInPct, animSpanEnd - animSpanStart);
         animOutEff = com.fadcam.ui.faditor.transcript.CaptionAnimator
-                .zoneForSpan(animOutMs, animSpanEnd - animSpanStart);
+                .zoneForSpan(animOutPct, animSpanEnd - animSpanStart);
 
         float fontPx = sizeFraction * r.height();
         textPaint.setTextSize(fontPx);

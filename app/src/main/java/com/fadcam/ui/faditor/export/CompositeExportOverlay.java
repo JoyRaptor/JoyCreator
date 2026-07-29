@@ -591,7 +591,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                     // per frame because they cannot change during an export.
                     captionRenderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
                             clip.getCaptionAnimGranularity(),
-                            clip.getCaptionAnimInMs(), clip.getCaptionAnimOutMs());
+                            clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
                 }
                 long sourceMs = clip.getInPointMs() + clipSourceLocalMs;
                 Bitmap captionBmp = captionRenderer.render(sourceMs);

@@ -92,33 +92,27 @@ public final class CaptionPhrases {
     }
 
     /**
-     * The largest in/out zone that still CHANGES anything, in source ms — half the longest
-     * phrase, because {@link CaptionAnimator#zoneForSpan} caps every phrase's zone at half its
-     * own span.
+     * True when at least one phrase has a non-zero span, i.e. there is something on screen long
+     * enough for an entrance or an exit to be visible on. False means there is nothing to time,
+     * so the timing control should not be offered at all.
      *
-     * <h3>Why the tape handles need this</h3>
-     * The zones are stored as absolute durations on the CLIP but spent against each PHRASE, and
-     * phrases are short (six words, capped) while clips are long. So a handle that mapped its
-     * travel linearly onto the clip's tape would put its entire useful range in the first few
-     * percent: on a 60s clip every position from ~3% to the centre stores a zone that saturates
-     * every phrase, and the handle would feel broken for 94% of its travel.
+     * <p>This replaces {@code maxUsefulZoneMs()}, which returned half the longest phrase in source
+     * ms. That number existed for exactly one reason: to scale a tape caret's travel, because the
+     * zones used to be absolute durations stored on the CLIP but spent against each PHRASE, and
+     * phrases are short while clips are long — a caret mapped linearly onto a 60s tape put its
+     * whole useful range in the first ~3% of its travel and felt broken for the other 94%.</p>
      *
-     * <p>Mapping full inward travel to THIS value instead keeps both endpoints of the user's
-     * stated model exactly true — handle at the end is zero and therefore off; handle at the
-     * centre makes every phrase finish arriving exactly as it starts leaving — and makes every
-     * position in between distinct. The travel is compressed relative to the tape; the meaning
-     * is not.</p>
-     *
-     * @return 0 when nothing is drawn, in which case there is no animation to time and the
-     *         handles should not be offered at all
+     * <p>Zones are now a FRACTION of each line, so full travel is 0.5 at every phrase length and
+     * there is no scale factor left to compute. What survived was a {@code > 0} existence check
+     * wearing the name of a measurement, which is how a helper starts lying about what it is for.
+     * Hence a predicate.</p>
      */
-    public long maxUsefulZoneMs() {
-        long longest = 0L;
+    public boolean hasAnimatableSpan() {
         for (int i = 0; i < phrases.size(); i++) {
             long[] s = spanMs(i);
-            if (s != null) longest = Math.max(longest, s[1] - s[0]);
+            if (s != null && s[1] - s[0] > 0) return true;
         }
-        return longest / 2;
+        return false;
     }
 
     /**

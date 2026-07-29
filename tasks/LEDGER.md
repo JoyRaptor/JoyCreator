@@ -294,7 +294,37 @@ verified untouched. Note `project.json.bak` is the APP's own backup — it exist
 too. Do not "clean it up".
 
 **What this does NOT prove:** that the picker UI writes those fields. That is a separate claim
-with a separate path, and it is still open.
+with a separate path, and it is **STILL OPEN — attempted 2026-07-29 and not reached.** The MOTION
+row itself was SEEN (a screenshot of the "Edit text" dialog shows `MOTION` / `≡A` / state "None"),
+so the entry point exists and renders. What defeated the attempt was getting back INTO that dialog
+for an existing box. Recorded so the next session does not re-derive it:
+
+- **`showTextOverlayEditor` has two reachable callers**: `onItemDoubleTapped` on a LAYER-ROW item
+  (`:12409`) and the object menu's "More…" (`:18110`, non-image overlays only).
+- **A scripted double-tap on the timeline chip SEEKS instead of opening the editor** — two
+  `input tap`s in one shell are apparently too fast, or land on the row rather than the item.
+  Long-press gives an Opacity `◀ ◇ ▶` keyframe bar, not the editor. Try the object menu's
+  "More…", or double-tap on the layer item with an explicit ~150ms gap.
+- **The `Text` toolbar button CREATES a new overlay on every tap** — it is not "open the selected
+  box". Its default text is `"Enter text"`, which is NON-EMPTY, so those boxes persist.
+- **Timeline navigation facts that cost time:** the minimap is **CLIP-scoped, not project-scoped**
+  (tapping it seeks within the selected clip, ~5s wide, not across the 30s project); the ruler
+  strip does **not** scroll horizontally; and tapping the `00:0X.XXX` time chip does **not** open a
+  jump-to-time dialog on this build. Reaching an object at 20s is therefore not yet solved.
+
+**A correction to the previous entry's inference.** "The empty box was deleted on OK" is not
+universally true: `bb2a9deb` currently holds **two overlays with `"text": ""`** that survived
+serialization. So the empty-on-OK delete is not a guarantee, and "no `textAnim` keys" was never
+safe to explain by it alone. The serializer proof above stands regardless — it did not rely on
+that inference.
+
+**SANDBOX LITTER I LEFT, deliberately reported rather than silently cleaned.** `bb2a9deb` now has
+**three overlays with text `"Enter text"`** (one per tap of the `Text` tool while I was hunting
+for the editor) plus the two empty ones and the original `"LayerOne"`. I did not remove them: the
+edit is fiddly JSON surgery on a live project and the budget was better spent recording it. **One
+of them is actually useful** — a text box with non-empty text, already on a layer row, is exactly
+the subject the picker test needs. Delete the spares when convenient; they carry no `textAnim`
+keys, so they cannot corrupt the next measurement.
 
 **3g. Text animation presets — BUILT, AND NOW VALIDATED BY THE USER ON THE PHONE.**
 Spec: `SPEC_TEXT_ANIMATION.md`, kept current.

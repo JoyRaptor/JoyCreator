@@ -34,6 +34,7 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 | `ENDED` with clips still ahead parked forever instead of advancing (§2a layer ii) | `d3e3a63` | Net added + its recovery action proved with a temporary switch (advanced `sel=2 → 3`, playback continued); it also fired on a real park at the last clip. See the caveat below. |
 | A clip serving as another's luma matte still rendered as a normal PiP in the PREVIEW, and — worse, because it survived into the exported file — still contributed its AUDIO to the export while its picture was hidden (the two §3a divergences) | see §3a | New `MatteVisibilityTest`, **14 checks against the REAL model classes** (not stubs), `bash tools/jvm-harness/run-matte.sh`. It pins both sides: the peer is still in `visibleOverlayVideoClips` (the export video path resolves peers out of that list) and is NOT in the new `renderableOverlayVideoClips`, including the case where it is opted into audio and unmuted — i.e. it would be audible on its own terms and is excluded before that question is ever asked. Dex-scanned for `renderableOverlayVideoClips` + `servingMatteClipIds`, with `FadCamApplication` and `FaditorEditorActivity` as the positive control |
 | Lane mute icon: drawn on lanes with no audio, fake speaker glyph, stranded 62dp from the caret (§3b) | `a19ee53` | Screenshots: layer lanes now draw a caret only; audio lanes a real `volume_up`, red crossed `volume_off` when muted. `undo_count` unchanged (3) across taps where the glyph sits on no-audio lanes; 3 → 4 → 5 on an audio lane. Gutter 92dp → 34.4dp |
+| The §3g preset tiles were static poses, so a preset's ease could not be seen at all — three glyphs frozen at progress {0, 0.5, 1} (§3g) | `4a1ea41` | 16-frame burst on the real picker in `bb2a9deb`. **Per-tile temporal sd: Type 4.08, Fade 3.92, Rise 6.90, Ghost 7.21, Beam 6.84 — and NONE exactly 0.00.** NONE is the built-in control: it is deliberately left static, so a zero there proves the instrument reads the TILES and not the clock, the timeline or global screen noise. Before, all frames were byte-identical, i.e. 0.00 everywhere. Character is proved too: sampled ink shows TYPEWRITER quantised to 3 discrete values (44.96 / 48.10 / 51.24, one per glyph) while FADE sweeps continuously (41.96 → 51.22) — step vs ramp, exactly what a frozen tile could not express. Removing the 600ms hold (span = 2 × zone) roughly halved the frames where a pair is indistinguishable: Type/Fade 8/16 → 6/16, Rise/Beam 5/16 → 3/16, Type/Ghost 6/16 → 2/16. Freshness control: `javap -constants` shows `TILE_SPAN_MS = 1800` (the old 2400 would survive a stale compile) and the dex has `drawUnits` PRESENT with the deleted `drawSamples` ABSENT, `FadCamApplication` present as the partial-dex control. **Caveat, deliberately not swept under: the FREEZE-FRAME half is not fixed — see §3g outstanding item 1.** |
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
@@ -325,6 +326,8 @@ the same measurement, against a tile that plainly reads differently: **None vs T
 17.7% differing**, i.e. the instrument detects a real difference at ~24× the signal it finds
 between Type and Fade. Zoomed 3× the five presets ARE distinguishable (Rise raises and shrinks
 the first A, Beam narrows it, Fade dims it) but at 60dp the label is doing all the work.
+**→ The static-poses half of this was FIXED in `4a1ea41`; see §1. The freeze-frame half is still
+open and is now a user call — outstanding item 1 below carries the current numbers.**
 **Not yet answered:** the caret-vs-trim-handle grab (the carets are drawn ~10px from the green
 trim handles, so this is the real question, and it needs a drag, not a screenshot), the
 large-amplitude frame, and whether LETTER granularity holds frame rate.
@@ -446,12 +449,15 @@ entrance without hunting.
   mattered, and they do.
 
 **STILL OUTSTANDING FOR §3g — the honest short list, 2026-07-29:**
-1. **The six preset tiles do not read as distinct at 60dp.** Measured, unfixed: Type vs Fade
-   differ by mean **1.08/255** over their glyph area with **2.9%** of pixels differing by >8,
-   against a control (None vs Type) of **26.38 mean / 17.7%** on the same instrument — a real
-   difference at ~24× the signal. At 3× zoom the five ARE distinguishable; at 60dp the label does
-   all the work. Four screenshots 0.4s apart are byte-identical, so the tiles are static poses,
-   not animations — animating them is the obvious fix and it is not built.
+1. **The six preset tiles: the tiles now animate (`4a1ea41`, see §1) but a FREEZE FRAME still
+   cannot separate Type from Fade.** The static-poses half is fixed and measured. What remains
+   is that at any single instant Type vs Fade differ by only **~3.0–3.7 mean / ~4%** of pixels,
+   against **33.90 / 98.5%** for the None-vs-Type control on the same instrument. So the two are
+   now distinguishable *by watching* — Type pops each glyph in at full opacity, Fade ramps it —
+   and still not distinguishable *from a photograph*. **This is a user call, not an engineering
+   one:** accept motion-only distinction, or give the tiles more than 60dp. Do not "fix" it by
+   giving a tile a decorative cue the renderers do not produce — that invariant is the whole
+   reason the tiles are drawn from the evaluator.
 2. **The text-box half of the user's direction** — see the BUILD note above. Carets are parked
    waiting for it.
 3. **The export path's frame cost is unmeasured.** The LETTER result above is the PREVIEW only.
@@ -460,7 +466,13 @@ entrance without hunting.
 
 **Test-project state after this session** — `bb2a9deb` "P0 control no image" now sorts to the TOP
 of Recent Projects (its `lastModified` is the newest), NOT second from the bottom as an earlier
-revision of this file said. Its clip 1 is left at preset FADE, granularity WORD,
+revision of this file said. **Independently re-confirmed 2026-07-29 by dumping every project's
+`lastModified` and sorting** — `bb2a9deb` came out first at "Jul 29, 07:30 AM", and opening the
+top row did land in "P0 control no image". Do not navigate by the remembered date; the date moves
+every time the project is opened. Map ids with
+`adb shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json` — and redirect
+stdin (`< /dev/null`) if you loop over ids, or the inner `adb` swallows the loop's input and you
+silently map only the first project. Its clip 1 is left at preset FADE, granularity WORD,
 `captionAnimInPct`/`OutPct` **0.5 / 0.5** — set deliberately while proving the range control, and
 left there because it demonstrates the feature. Its old `captionAnimInMs` keys are gone, which is
 the read-and-ignore path working as designed, not data loss.

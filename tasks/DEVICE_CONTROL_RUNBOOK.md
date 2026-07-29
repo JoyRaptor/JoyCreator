@@ -122,6 +122,20 @@ adb shell am start -n com.fadcam.beta/com.fadcam.SplashActivity
 launcher. You do **not** need to find the app icon on the home screen. (If you ever do want the icon, that's
 fragile — prefer `am start`.)
 
+> ### ⚠ NEVER launch with `adb shell monkey`. It silently unlocks screen rotation.
+> `monkey` calls `IWindowManager.thawRotation()` on teardown, which writes
+> `accelerometer_rotation = 1` — i.e. it turns the user's rotation LOCK OFF, on their phone, as a
+> side effect of launching an app. There is a standing device rule that treats that setting going
+> to 1 as "a human may have picked the phone up, STOP", so using `monkey` **manufactures the exact
+> alarm that is supposed to protect the user.** It cost at least three sessions of device work
+> before it was diagnosed on 2026-07-29 (LEDGER §5): the flip was blamed on the user, then on a
+> package event, then on Tasker, and it was the launch command every time.
+> Proved by a crossed 2×2 — `monkey` flips it for FadCam **and** for Settings; `am start` flips it
+> for neither. Recognise it in logcat as `WindowManagerService.thawRotation` via
+> `IWindowManager$Stub.onTransact`, a second or two after launch.
+> `monkey` is attractive because it needs no activity name. Use `am start -n` and pay the extra
+> word.
+
 To force-restart cleanly (clears a stuck state):
 ```bash
 adb shell am force-stop com.fadcam.beta

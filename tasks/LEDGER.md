@@ -913,8 +913,35 @@ the read-and-ignore path working as designed, not data loss.
 
 ## 5. UNRESOLVED / needs a human
 
-- **THE AUTO-ROTATE ALARM IS PROBABLY NOT A HUMAN — and the standing device rule should be read
-  with this in hand.** The rule says stop if `accelerometer_rotation` goes to 1 mid-sequence,
+- **THE AUTO-ROTATE ALARM WAS OUR OWN INSTRUMENT. SOLVED 2026-07-29 — `monkey` did it.**
+  **`adb shell monkey` calls `IWindowManager.thawRotation()` on teardown**, and *thaw* is precisely
+  what writes `accelerometer_rotation = 1`. Every flip ever attributed to "a human may have picked
+  the phone up" was the launch command in the step immediately before it.
+  **Proved by a crossed 2×2, which is the only shape that separates the app from the mechanism** —
+  the earlier attempt failed because it launched FadCam with `monkey` but the control app with
+  `am start`, so it varied both at once and "concluded" FadCam-specific:
+
+  | | `am start` | `monkey` |
+  |---|---|---|
+  | FadCam | `0 0 0 0 0` | `1 1 1 1 1` |
+  | Settings (control app) | `0 0 0 0 0` | `1 1 1 1 1` |
+
+  The logcat signature, for recognition: `WindowManagerService.thawRotation:4227` reached via
+  `IWindowManager$Stub.onTransact` a second or two after the launch.
+  **THE FIX IS ONE WORD: launch with `am start -n <pkg>/<activity>`, never `monkey`.** Then the
+  tripwire means something again. **The user's rotation lock was never being disturbed by anything
+  of theirs** — they re-locked it repeatedly and correctly, and only our own launches unlocked it.
+  **Also exonerated, having been suspected on this page: Tasker** (installed, running, and it really
+  does hold `WRITE_SECURE_SETTINGS`, which is what made it plausible) and FadCam itself (its source
+  contains no reference to `thawRotation`, `freezeRotation` or `accelerometer_rotation`). Suspecting
+  an app because it *could* is not evidence; the crossed test is.
+  **This cost at least three sessions** — it ended device work on 2026-07-28, ended the MATRIX
+  capture attempt, and interrupted this one twice — so the standing device rule should keep its
+  human tripwire but drop the false trigger feeding it.
+
+  <details><summary>The WRONG hypothesis this entry first recorded, kept because it shows the trap</summary>
+
+  ~~The rule says stop if `accelerometer_rotation` goes to 1 mid-sequence,
   because that may mean someone picked the phone up; it is what ended device work on 2026-07-28 and
   the MATRIX capture on 2026-07-30. **It fired again on 2026-07-29, at the exact moment the app was
   launched**, and the evidence says no human was involved:
@@ -936,8 +963,16 @@ the read-and-ignore path working as designed, not data loss.
   **What is still the user's call:** whether the rule should be relaxed to "stop only if the setting
   flips WITHOUT a package event in the same step, or if `mLastUserActivityTime` shows touch input we
   did not inject". Do not relax it unilaterally — it is a safety rule about someone else's phone.
-  **Practical note either way: re-lock after every install and every launch**, not just after an
-  adb reconnect, or a later step will trip the alarm on the previous step's leftovers.
+  ~~**Practical note either way: re-lock after every install and every launch**, not just after an
+  adb reconnect, or a later step will trip the alarm on the previous step's leftovers.~~
+
+  **Why it was wrong, and the lesson.** Both observations were real; the inference was not. "It
+  flipped right after a package event" was true twice and still meant nothing, because a `monkey`
+  launch was *inside* both of those steps — the package event and the real cause were perfectly
+  confounded, so no number of repetitions of the same shape could separate them. **Two occurrences
+  of a confounded observation are not two pieces of evidence; they are the same one twice.** The
+  fix was to vary the two factors independently, which took one command.
+  </details>
 
 
 - **BLOCKED 2026-07-28 21:xx: the only phone attached is the Note 20 `REAL_SERIAL`.** The Note 9

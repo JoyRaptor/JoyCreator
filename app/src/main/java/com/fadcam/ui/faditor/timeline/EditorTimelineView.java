@@ -7336,11 +7336,31 @@ public class EditorTimelineView extends View {
         canvas.drawPath(p, freezeMarkerPaint);
     }
 
-    // ── Caption text-animation carets (SPEC_TEXT_ANIMATION) ─────────
+    // ── In/out timing carets (SPEC_TEXT_ANIMATION) ──────────────────
+    //
+    // PARKED, NOT DEAD, and the difference is recorded so this cannot rot the way LEDGER §3c did.
+    //
+    // These carets shipped for CAPTIONS, the user drove them, and they worked — his words were
+    // "carets worked well". He then rejected them for captions anyway, for a reason no amount of
+    // polish would have fixed: "to get a fifty percent fade in, fifty percent fade out, I'm gonna
+    // be having to do a lot of dragging over perhaps a thirty minute clip. And that just won't
+    // do." Captions arrive line after line down a long video; the timing wanted is ONE value for
+    // all of them, so it moved to a range control in the caption style drawer.
+    //
+    // The carets are the right instrument for a TEXT BOX — a single object, one visible span, a
+    // gesture done once — and that is what the user reserved them for. There is no text-box path
+    // into this view yet, so as of 2026-07-29 setCaptionAnimHandlesVisible has NO CALLER and none
+    // of the code below draws. It is left INTACT rather than deleted because it is complete,
+    // harness-covered and about to be wanted; the risk of leaving it is that a later audit finds
+    // machinery nothing calls and cannot tell whether that is a bug. So: it is not a bug, it is
+    // waiting, LEDGER §3g carries it as an open item, and this comment is the receipt. If text
+    // boxes are ever dropped, delete this block with them.
 
     /**
-     * Show or hide the caption in/out carets. Driven by the caption drawer's open state — see
-     * {@link #captionAnimHandlesVisible} for why they are not simply always on.
+     * Show or hide the in/out timing carets.
+     *
+     * <p><b>No caller today</b> — see the block comment above. The caption drawer used to drive
+     * this; text boxes will.</p>
      */
     public void setCaptionAnimHandlesVisible(boolean visible) {
         if (captionAnimHandlesVisible == visible) return;
@@ -7396,9 +7416,32 @@ public class EditorTimelineView extends View {
      * "brought all the way into the centre" — every phrase finishing its entrance exactly as it
      * begins its exit. The travel is compressed against the tape rather than measured on it
      * because the stored value is a fraction of a LINE, not a position on the clip.
+     *
+     * <p>Returns 0 when the segment is too narrow to hold a caret at all — see
+     * {@link #CAPTION_ANIM_MIN_TRAVEL_PX} and {@link #captionAnimUsable}. This used to be
+     * {@code Math.max(1f, …)}, which looked like a divide-by-zero guard and was really a trap: on
+     * a segment narrower than its two trim handles the expression goes NEGATIVE, the floor pins it
+     * to 1px, and the computed "centre" lands to the RIGHT of the exit caret's own minimum. The
+     * exit caret then clamps to that centre no matter where the finger is, yielding a negative
+     * travel fraction that clamps to 0 — so every touch of it silently ERASES a zone the user had
+     * set, while the entrance caret's whole 0…0.5 range is one pixel wide. Found by adversarial
+     * review 2026-07-29 in code that is currently parked; fixed here so the text-box build that
+     * revives these carets does not inherit it.</p>
      */
     private float captionAnimTravelPx(@NonNull RectF seg) {
-        return Math.max(1f, (seg.width() - 2 * handleWidthPx) / 2f);
+        float travel = (seg.width() - 2 * handleWidthPx) / 2f;
+        return travel >= CAPTION_ANIM_MIN_TRAVEL_PX ? travel : 0f;
+    }
+
+    /**
+     * Below this much travel the two carets cannot be told apart or aimed at, so they are not
+     * offered. A caret whose entire range is a few pixels is not a control.
+     */
+    private static final float CAPTION_ANIM_MIN_TRAVEL_PX = 12f;
+
+    /** Whether this segment is wide enough for the carets to be drawn and dragged at all. */
+    private boolean captionAnimUsable(@NonNull RectF seg) {
+        return captionAnimTravelPx(seg) > 0f;
     }
 
     /** Visual x of the entrance caret: inset from the left trim bar by the stored in-zone. */
@@ -7426,6 +7469,7 @@ public class EditorTimelineView extends View {
         if (clip == null || selectedIndex >= segRects.size()) return Drag.NONE;
         RectF seg = segRects.get(selectedIndex);
         if (y < seg.top || y > seg.bottom) return Drag.NONE;
+        if (!captionAnimUsable(seg)) return Drag.NONE;
         float zone = handleWidthPx * 0.9f;
         if (Math.abs(x - captionAnimInX(seg, clip)) <= zone) return Drag.CAPTION_ANIM_IN_HANDLE;
         if (Math.abs(x - captionAnimOutX(seg, clip)) <= zone) return Drag.CAPTION_ANIM_OUT_HANDLE;
@@ -7441,6 +7485,7 @@ public class EditorTimelineView extends View {
         Clip clip = selectedCaptionAnimClip();
         if (clip == null || selectedIndex >= segRects.size()) return;
         RectF seg = segRects.get(selectedIndex);
+        if (!captionAnimUsable(seg)) return;
         float centre = seg.left + handleWidthPx + captionAnimTravelPx(seg);
         float min, max;
         if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE) {
@@ -7469,6 +7514,7 @@ public class EditorTimelineView extends View {
         if (clip == null || selectedIndex >= segRects.size() || listener == null) return;
         RectF seg = segRects.get(selectedIndex);
         float travel = captionAnimTravelPx(seg);
+        if (travel <= 0f) return;
         float in = clip.getCaptionAnimInPct();
         float out = clip.getCaptionAnimOutPct();
         if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE) {
@@ -7491,6 +7537,9 @@ public class EditorTimelineView extends View {
     private void drawCaptionAnimHandles(Canvas canvas, RectF seg) {
         Clip clip = selectedCaptionAnimClip();
         if (clip == null) return;
+        // Not merely a guard: drawing them on a segment too narrow to aim at would advertise a
+        // control the hit-test now (correctly) refuses to give, which is worse than showing none.
+        if (!captionAnimUsable(seg)) return;
         float lx = activeDrag == Drag.CAPTION_ANIM_IN_HANDLE
                 ? captionAnimDragX : captionAnimInX(seg, clip);
         float rx = activeDrag == Drag.CAPTION_ANIM_OUT_HANDLE

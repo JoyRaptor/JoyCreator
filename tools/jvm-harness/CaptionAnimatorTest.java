@@ -457,14 +457,28 @@ public class CaptionAnimatorTest {
                 !CaptionPhrases.of(new Transcript()).hasAnimatableSpan());
         ok("a null transcript does not throw",
                 !CaptionPhrases.of(null).hasAnimatableSpan());
-        // A zero-length word still counts: spanMs floors every phrase at 1ms precisely so a
-        // degenerate timestamp still DRAWS. Withholding the timing control from it would mean a
-        // caption the user can see and cannot style. Pinned so the floor and the predicate stay
-        // in agreement if either moves.
-        ok("a zero-length word still draws, so it still gets a timing control",
-                CaptionPhrases.of(t(new long[]{700, 700})).hasAnimatableSpan());
+        // The case an earlier draft of this test got WRONG, so it is pinned from both sides.
+        // spanMs floors a degenerate word (startMs == endMs, which some ASR backends emit) at 1ms
+        // so it still DRAWS. But on a 1ms span the floor cap in zoneForSpan takes 1/2 = 0, so the
+        // timing control would be offered and then do nothing at every setting. Offering a dead
+        // control is worse than withholding it, so it is withheld — and 2ms, the shortest span
+        // where full travel buys anything at all, is where it starts being offered.
+        ok("a zero-length word draws, but nothing can be timed on 1ms, so no control",
+                !CaptionPhrases.of(t(new long[]{700, 700})).hasAnimatableSpan());
+        ok("2ms is the shortest span a zone can exist on, and it IS offered",
+                CaptionPhrases.of(t(new long[]{700, 702})).hasAnimatableSpan());
         ok("a struck-out word draws nothing, so it earns no timing control",
                 !CaptionPhrases.of(struck(t(new long[]{0, 400}))).hasAnimatableSpan());
+        // The predicate is defined as "full travel buys a non-zero zone" rather than "the span is
+        // non-zero", so it cannot drift away from the evaluator. Swept, not sampled.
+        boolean gateAgreesWithEvaluator = true;
+        for (long span = 1; span <= 300; span++) {
+            boolean offered = CaptionPhrases.of(t(new long[]{0, span})).hasAnimatableSpan();
+            boolean useful = CaptionAnimator.zoneForSpan(CaptionAnimator.MAX_ZONE_PCT, span) > 0;
+            if (offered != useful) gateAgreesWithEvaluator = false;
+        }
+        ok("the control is offered on exactly the spans where it can do something",
+                gateAgreesWithEvaluator);
 
         System.out.println("\n── travel fraction <-> stored fraction round-trips ──");
         // Same mapping for the text-box caret and the caption range control: both hand a 0..1

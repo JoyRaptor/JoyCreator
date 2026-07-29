@@ -14830,9 +14830,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     .withEndAction(() -> drawer.setVisibility(View.GONE)).start();
         }
         captionDrawerOpen = show;
-        // The tape carets are a caption control, so they appear with the caption drawer — see
-        // EditorTimelineView.captionAnimHandlesVisible for why they are not simply always on.
-        if (editorTimeline != null) editorTimeline.setCaptionAnimHandlesVisible(show);
+        // The tape carets used to appear with this drawer. They no longer do, and the call is
+        // deleted rather than passed `false`: the carets are for TEXT BOXES ONLY (user, 2026-07-29)
+        // and captions now time themselves from the range control in the drawer itself. See
+        // addCaptionAnimRangeControl for why, and EditorTimelineView.setCaptionAnimHandlesVisible
+        // for the state of the caret path itself.
     }
 
     /**
@@ -15043,14 +15045,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             motionBtn.setOnClickListener(open);
             motionChip.setOnClickListener(open);
 
-            TextView motionHint = new TextView(this);
-            // The timing lives on the tape, not here — say so once, where the user is looking,
-            // rather than growing a duration control that would contradict the caret model.
-            motionHint.setText("Drag the ▶ ◀ carets on the clip to set timing"); // TODO(strings)
-            motionHint.setTextColor(0xFF777777);
-            motionHint.setTextSize(11);
-            motionHint.setPadding(0, (int)(6*d), 0, 0);
-            root.addView(motionHint);
+            addCaptionAnimRangeControl(root, d);
         }
 
         // ── Rows: colors + box / outline / shadow ──────────────────────
@@ -15715,17 +15710,178 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * The caption timing control: two sliders, In and Out, each 0–50% of every caption line.
+     *
+     * <p><b>Why this is not the tape carets.</b> The carets were the first design and the user
+     * rejected them for captions after driving them: <i>"to get a fifty percent fade in, fifty
+     * percent fade out, I'm gonna be having to do a lot of dragging over perhaps a thirty minute
+     * clip. And that just won't do."</i> Captions ride long videos and arrive line after line, so
+     * a per-line gesture on a timeline is the wrong instrument entirely — the value wanted is one
+     * value for the whole clip, and it belongs where the rest of the caption's look is authored.
+     * The carets remain the right control for a TEXT BOX, which is a single object with a single
+     * span you can actually see.</p>
+     *
+     * <p><b>Why a percentage and not a duration.</b> The same reason the model changed: a
+     * duration set once is most of a short line and a flicker on a long one, so it could not be
+     * set once at all. 40% is 40% of every line, which is what "set it and forget it" requires.
+     * The readout says "% of each line" for that reason — a bare "40%" would invite reading it as
+     * 40% of the clip.</p>
+     *
+     * <p>Dragging previews live but records NOTHING; the undo step is written once on release,
+     * against the value the gesture started from. See {@link #previewCaptionAnimZones}.</p>
+     */
+    private void addCaptionAnimRangeControl(@NonNull LinearLayout root, float d) {
+        final Clip target = captionAnimTarget();
+        if (target == null) return;
+
+        // The slider's travel is 0..MAX_ZONE_PCT, expressed in whole percent so the readout is a
+        // round number and the two ends are exactly 0% and 50%.
+        final int maxPercent = Math.round(
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.MAX_ZONE_PCT * 100f);
+
+        TextView heading = new TextView(this);
+        heading.setText("Timing"); // TODO(strings)
+        heading.setTextColor(0xFFAAAAAA);
+        heading.setTextSize(12);
+        heading.setPadding(0, (int) (8 * d), 0, 0);
+        root.addView(heading);
+
+        TextView hint = new TextView(this);
+        // Named explicitly because the whole feature turns on it: this is per LINE, not per clip.
+        hint.setText("Applied to every caption line, as a share of that line"); // TODO(strings)
+        hint.setTextColor(0xFF777777);
+        hint.setTextSize(11);
+        hint.setPadding(0, (int) (2 * d), 0, (int) (4 * d));
+        root.addView(hint);
+
+        final TextView readout = new TextView(this);
+        readout.setTextColor(0xFFCCCCCC);
+        readout.setTextSize(11);
+
+        // One updater for both sliders so the two readouts can never disagree with the model.
+        final Runnable refresh = () -> {
+            Clip now = captionAnimTarget();
+            if (now == null) return;
+            int in = Math.round(now.getCaptionAnimInPct() * 100f);
+            int out = Math.round(now.getCaptionAnimOutPct() * 100f);
+            // TODO(strings)
+            readout.setText("In " + in + "%   Out " + out + "%   of each line"
+                    + (in + out >= maxPercent * 2 ? "  ·  in ends as out begins" : ""));
+        };
+
+        root.addView(makeCaptionAnimSlider(root, d, "In", maxPercent,
+                Math.round(target.getCaptionAnimInPct() * 100f), true, refresh));
+        root.addView(makeCaptionAnimSlider(root, d, "Out", maxPercent,
+                Math.round(target.getCaptionAnimOutPct() * 100f), false, refresh));
+        readout.setPadding(0, (int) (2 * d), 0, 0);
+        root.addView(readout);
+        refresh.run();
+    }
+
+    /**
+     * One labelled 0–50% slider for {@link #addCaptionAnimRangeControl}.
+     *
+     * @param isIn true for the entrance zone, false for the exit — the ONLY difference between
+     *             the two sliders, so they are one method rather than two that can drift apart.
+     */
+    @NonNull
+    private View makeCaptionAnimSlider(@NonNull LinearLayout parent, float d, @NonNull String label,
+                                       int maxPercent, int startPercent, boolean isIn,
+                                       @NonNull Runnable refresh) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView name = new TextView(this);
+        name.setText(label); // TODO(strings)
+        name.setTextColor(0xFFCCCCCC);
+        name.setTextSize(11);
+        name.setMinEms(2);
+        row.addView(name);
+
+        SeekBar bar = new SeekBar(this);
+        bar.setMax(maxPercent);
+        bar.setProgress(Math.max(0, Math.min(maxPercent, startPercent)));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        lp.setMargins((int) (6 * d), 0, 0, 0);
+        row.addView(bar, lp);
+
+        // Captured on the FIRST touch, not on every change: it is the value the undo step must
+        // return to, and the clip's own value is being overwritten by the live preview.
+        final float[] gestureStart = new float[2];
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
+                if (!fromUser) return;
+                Clip now = captionAnimTarget();
+                if (now == null) return;
+                float pct = p / 100f;
+                previewCaptionAnimZones(
+                        isIn ? pct : now.getCaptionAnimInPct(),
+                        isIn ? now.getCaptionAnimOutPct() : pct);
+                refresh.run();
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {
+                Clip now = captionAnimTarget();
+                if (now == null) return;
+                gestureStart[0] = now.getCaptionAnimInPct();
+                gestureStart[1] = now.getCaptionAnimOutPct();
+            }
+            @Override public void onStopTrackingTouch(SeekBar sb) {
+                Clip now = captionAnimTarget();
+                if (now == null) return;
+                // Hand the model back to where the gesture started, then commit forward through
+                // the one recording path — so the undo step spans the WHOLE drag as one entry
+                // rather than the last pixel of it.
+                float endIn = now.getCaptionAnimInPct();
+                float endOut = now.getCaptionAnimOutPct();
+                now.setCaptionAnimZones(gestureStart[0], gestureStart[1]);
+                applyCaptionAnimZones(gestureStart[0], gestureStart[1], endIn, endOut);
+                refresh.run();
+            }
+        });
+        return row;
+    }
+
+    /**
      * Commit an in/out zone change. Values arrive as a FRACTION OF EACH LINE (0…0.5) and go
      * through {@code setCaptionAnimZones}, the one setter, which clamps them.
+     *
+     * <p>For a caller that has not already moved the clip — a caret drag, which paints its own
+     * ghost and commits once on release. A slider is live, so it must use the four-argument form
+     * and hand over the values from BEFORE its gesture started; by the time it releases, the
+     * clip's current value is its own preview, not the undo target.</p>
      */
     private void applyCaptionAnimZones(float inPct, float outPct) {
         final Clip cc = captionAnimTarget();
         if (cc == null) return;
-        final float beforeIn = cc.getCaptionAnimInPct();
-        final float beforeOut = cc.getCaptionAnimOutPct();
+        applyCaptionAnimZones(cc.getCaptionAnimInPct(), cc.getCaptionAnimOutPct(), inPct, outPct);
+    }
+
+    /**
+     * Live, un-recorded zone update for a control that previews while it is being dragged. No undo
+     * step and no autosave: a slider fires this on every pixel, and one undo entry per pixel would
+     * bury the user's real history under a hundred of its own.
+     */
+    private void previewCaptionAnimZones(float inPct, float outPct) {
+        final Clip cc = captionAnimTarget();
+        if (cc == null) return;
+        cc.setCaptionAnimZones(inPct, outPct);
+        bindCaptionData(cc);
+    }
+
+    /** @see #applyCaptionAnimZones(float, float) */
+    private void applyCaptionAnimZones(float beforeIn, float beforeOut,
+                                       float inPct, float outPct) {
+        final Clip cc = captionAnimTarget();
+        if (cc == null) return;
         cc.setCaptionAnimZones(inPct, outPct);
         final float afterIn = cc.getCaptionAnimInPct();
         final float afterOut = cc.getCaptionAnimOutPct();
+        // Float == is safe here ONLY because every value on either side has been through
+        // CaptionAnimator.clampZonePct, which maps NaN and -0.0f to positive zero. Without that,
+        // NaN != NaN would record a "no-op" undo step on every single commit forever. If the clamp
+        // is ever loosened, this comparison has to change with it.
         if (beforeIn == afterIn && beforeOut == afterOut) return;
         // TODO(strings)
         undoManager.recordAction(new EditActions.LambdaAction("Text animation timing",

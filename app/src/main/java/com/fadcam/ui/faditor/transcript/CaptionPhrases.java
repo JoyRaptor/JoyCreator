@@ -92,9 +92,17 @@ public final class CaptionPhrases {
     }
 
     /**
-     * True when at least one phrase has a non-zero span, i.e. there is something on screen long
-     * enough for an entrance or an exit to be visible on. False means there is nothing to time,
-     * so the timing control should not be offered at all.
+     * True when at least one phrase is long enough that the timing control can actually change
+     * something on it. False means there is nothing to time, so the control should not be offered
+     * at all.
+     *
+     * <p><b>The test is "does full travel buy a non-zero zone", not "is the span non-zero".</b>
+     * Those differ, and the difference is reachable: {@link #spanMs} floors every phrase at 1ms so
+     * a degenerate word still DRAWS (several ASR backends emit {@code startMs == endMs}), and on a
+     * 1ms span {@link CaptionAnimator#zoneForSpan} returns 0 at every setting, because the floor
+     * cap that stops two zones overlapping takes {@code 1/2 = 0}. A "non-zero span" test therefore
+     * offers a control that provably cannot do anything. Asking the evaluator itself is both
+     * correct and drift-proof: if the cap ever changes, this moves with it.</p>
      *
      * <p>This replaces {@code maxUsefulZoneMs()}, which returned half the longest phrase in source
      * ms. That number existed for exactly one reason: to scale a tape caret's travel, because the
@@ -110,7 +118,10 @@ public final class CaptionPhrases {
     public boolean hasAnimatableSpan() {
         for (int i = 0; i < phrases.size(); i++) {
             long[] s = spanMs(i);
-            if (s != null && s[1] - s[0] > 0) return true;
+            if (s == null) continue;
+            if (CaptionAnimator.zoneForSpan(CaptionAnimator.MAX_ZONE_PCT, s[1] - s[0]) > 0) {
+                return true;
+            }
         }
         return false;
     }

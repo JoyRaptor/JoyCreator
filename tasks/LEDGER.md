@@ -107,15 +107,31 @@ is genuinely usable rather than merely present.**
    sprites text etc can wait."* Note `CompositingSpec` lives on `Clip` only — image-overlay
    support needs the spec reachable from the image-track item and honoured by
    `layerImageOverlay` + its export peer.
-   **FOUND 2026-07-29, and it changes the size of this item: there is no image overlay to mask
-   yet.** Two independent paths, both dead ends today. `LayerPreviewController.visibleImageItems`
-   is documented "always empty today — nothing can create an IMAGE track yet", and its own
-   TODO says the hidden-track skip was never mirrored in `ExportManager`. The other candidate —
-   an overlay `Clip` whose source is a still, which the export audio path already anticipates
-   (`isImageClip()` → "a still has no audio") — has no creation path either: the one PiP entry
-   point (`FaditorEditorActivity:16925`) builds its `Clip` from a picked **video** URI.
-   So "images in v1" is not a mask-plumbing task, it is **build the image overlay first**.
-   Flagged rather than absorbed silently — it may change what the user wants v1 to be.
+   ~~**FOUND 2026-07-29: there is no image overlay to mask yet, so "images in v1" is build the
+   image overlay first.**~~ **THAT WAS WRONG, AND CORRECTED 2026-07-29 THE SAME DAY. There IS an
+   image overlay, it ships, and it has a creation path: the STICKER TOOL.**
+   `FaditorEditorActivity:2317` wires `R.id.tool_sticker` → `pickImageOverlay()` →
+   `onOverlayImagePicked()`, which calls **`TextOverlayItem.createImage(uri, 0.5f, 0.5f, 0.30f)`**
+   and adds it via `addTextOverlay`. It is persisted (`ProjectStorage:2548` restores `imageUri`),
+   rendered in export (`CompositeExportOverlay:531` feeds `setImageUri`), and the object menu has a
+   live image branch (`o.isImage() ? "Image" : …`, with "Images: the drawer IS their type editor").
+   **Confirmed against real data, not just code:** `bb2a9deb` holds two such overlays, and their
+   `"sizeFraction": 0.3` matches `createImage`'s hard-coded `0.30f` exactly — they were made by
+   that tool.
+   **What the earlier finding got right, and why it misled.** There are THREE different "image"
+   things here and the previous pass conflated two of them:
+   1. `Clip.isImageClip()` — a still on the MASTER track. Real creation path
+      (`onImageAssetPicked:24634`, 5s still inserted after the selected segment).
+   2. `TextOverlayItem` with `imageUri` — the image OVERLAY on a layer row. **This is the one v1
+      needs, and it exists.**
+   3. `LayerPreviewController.visibleImageItems` — a `TimedItem` of IMAGE payload kind on a layer
+      track. **Still genuinely empty; nothing creates an IMAGE track.** That original claim stands,
+      and so does the note that its hidden-track skip was never mirrored in `ExportManager`.
+   The dead-end conclusion came from checking (1) and (3) and never (2).
+   **Consequence for scoping: §3a v1 does NOT need "build the image overlay first."** The subject
+   already exists. What it needs is `CompositingSpec` reachable from a `TextOverlayItem` (it lives
+   on `Clip` only today) and honoured by the overlay preview + its export peer. That is mask
+   plumbing after all — the original item — not a prerequisite build.
 3. **Capsule is fine — NO true ellipse for now.** `corner=1` on a non-square box gives a stadium,
    not a circle. Accepted. Do not spend engine time on `MaskPathBuilder` shapes.
 4. **A soft-edges (feather) slider IS in v1.** Engine work: `MaskPathBuilder:22-23` records the
@@ -377,13 +393,39 @@ serialization. So the empty-on-OK delete is not a guarantee, and "no `textAnim` 
 safe to explain by it alone. The serializer proof above stands regardless — it did not rely on
 that inference.
 
-**SANDBOX LITTER I LEFT, deliberately reported rather than silently cleaned.** `bb2a9deb` now has
-**three overlays with text `"Enter text"`** (one per tap of the `Text` tool while I was hunting
-for the editor) plus the two empty ones and the original `"LayerOne"`. I did not remove them: the
-edit is fiddly JSON surgery on a live project and the budget was better spent recording it. **One
-of them is actually useful** — a text box with non-empty text, already on a layer row, is exactly
-the subject the picker test needs. Delete the spares when convenient; they carry no `textAnim`
-keys, so they cannot corrupt the next measurement.
+**THE SANDBOX LITTER IS CLEANED — 2026-07-29.** `bb2a9deb` had three `"Enter text"` overlays from
+taps of the `Text` tool during the editor hunt. One of them (`0325f262`) became the picker-test
+subject and is now **`PICKERTEST`**, carrying the proven `textAnimPreset: RISE` /
+`textAnimInPct: 0.25`; it is deliberately KEPT, because a text box with real text, on a layer row,
+spanning the whole project (no `startMs`/`endMs`, so 0 → `Long.MAX_VALUE`) is the ideal subject for
+the next text-box test. The other two were removed.
+
+**The removal also took two DANGLING LAYER ITEMS** whose `payloadId` still pointed at the deleted
+overlays. Deleting the overlays alone would have left exactly the dangling-reference class of bug
+this project has been bitten by before, so the prune walked every `items[]` list as well. Verified
+by deep-equality against the original — the script asserted that nothing outside the two overlays
+and their two layer items changed, and refused to write otherwise.
+
+Round-trip proof of the surgery: wrote 63432 bytes, on-device size matched exactly, the project
+**re-opened with no fatal in logcat**, `PICKERTEST` drew its layer chip, the text was correctly
+absent at t=0 (RISE at progress 0, i.e. the persisted animation still working after a reload from
+the hand-edited file), and a Close & Save let the app's own writer re-emit it at 63143 bytes with
+**zero** remaining references to either removed id.
+
+**Technique, since `run-as` cannot read `/sdcard` directly:** `adb push` to `/sdcard`, then
+`adb shell "cat /sdcard/f.json | run-as com.fadcam.beta sh -c 'cat > files/.../project.json'"`.
+Force-stop the app first so nothing overwrites the edit, and strip CR (`tr -d '\r'`) from anything
+obtained via `run-as cat` before editing it — a pulled copy is NOT byte-identical to the file.
+
+**The two remaining `"text": ""` overlays are NOT litter — they are IMAGE overlays**, and that
+matters to §3a. Both carry an `imageUri` (one `content://…`, one `project://assets/…png`), and the
+object-menu code has a live image branch (`o.isImage() ? "Image" : …`, and "Images: the drawer IS
+their type editor — no More… target left"). This is what led to **correcting the §3a
+claim that "image overlays in v1 has nothing to put a mask on"** — it does. Chased to the source
+the same day: the **Sticker tool** creates these via `TextOverlayItem.createImage`, and the sandbox
+overlays' `sizeFraction 0.3` matches that factory's hard-coded value. **§3a v1 therefore does not
+need "build the image overlay first."** Full correction, including the three different "image"
+concepts that got conflated, is in §3a item 2.
 
 **3g. Text animation presets — BUILT, AND NOW VALIDATED BY THE USER ON THE PHONE.**
 Spec: `SPEC_TEXT_ANIMATION.md`, kept current.

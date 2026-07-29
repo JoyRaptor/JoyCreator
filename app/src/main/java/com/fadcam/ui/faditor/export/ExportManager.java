@@ -1986,7 +1986,10 @@ public class ExportManager {
         List<Track> lanes = timeline.getLayers();
         List<Clip> overlays = new ArrayList<>();
         Map<String, Float> volumes = new HashMap<>();
-        for (Clip c : LayerPreviewController.visibleOverlayVideoClips(timeline)) {
+        // renderable, not merely visible: a clip serving as another's luma matte is hidden
+        // from the exported PIXELS by the video path, and an object excluded from the export
+        // must not keep contributing audio — the same rule that rules out getOverlayClips().
+        for (Clip c : LayerPreviewController.renderableOverlayVideoClips(timeline)) {
             if (c == null || c.isImageClip()) continue; // a still has no audio
             float vol = LayerPreviewController.effectiveOverlayVolume(c, lanes);
             if (vol <= 0f) continue;
@@ -2484,13 +2487,10 @@ public class ExportManager {
                         project.getTimeline().getTotalDurationMs());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
             }
-            java.util.Set<String> servingMatteIds = new java.util.HashSet<>();
-            for (Clip oc : exportOverlayVideoClips) {
-                com.fadcam.ui.faditor.model.CompositingSpec cs = oc.getCompositing();
-                if (cs != null && cs.mattePeerId != null) {
-                    servingMatteIds.add(cs.mattePeerId);
-                }
-            }
+            // Shared with the preview and with the overlay-audio sequence, so a matte peer
+            // cannot be hidden in one place and rendered (or heard) in another.
+            java.util.Set<String> servingMatteIds =
+                    LayerPreviewController.servingMatteClipIds(exportOverlayVideoClips);
             for (Clip oc : exportOverlayVideoClips) {
                 if (servingMatteIds.contains(oc.getId())) continue; // matte source: hidden
                 com.fadcam.ui.faditor.model.CompositingSpec cs = oc.getCompositing();

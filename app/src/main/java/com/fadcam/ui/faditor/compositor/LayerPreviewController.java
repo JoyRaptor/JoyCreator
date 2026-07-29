@@ -345,6 +345,65 @@ public final class LayerPreviewController {
         return result;
     }
 
+    /**
+     * The ids of every visible overlay clip that is currently SERVING as another clip's
+     * luma matte ({@code CompositingSpec.mattePeerId}). A matte peer's pixels exist only
+     * as the recipient's alpha, so it must not also render as a PiP of its own — see
+     * {@code CompositingSpec} B3.
+     *
+     * <p>Derived from {@link #visibleOverlayVideoClips}, so a peer hidden by its lane's
+     * eye stops serving and stops appearing at the same instant. A DANGLING id (the
+     * recipient names a clip that no longer exists) lands in the set harmlessly: nothing
+     * matches it, and the recipient degrades to unmatted rather than to a broken export.</p>
+     */
+    @NonNull
+    public static java.util.Set<String> servingMatteClipIds(@NonNull Timeline timeline) {
+        return servingMatteClipIds(visibleOverlayVideoClips(timeline));
+    }
+
+    /**
+     * List-precomputed overload — the export video path already holds the visible list
+     * (it resolves each peer OUT of it) and must not walk the timeline twice.
+     */
+    @NonNull
+    public static java.util.Set<String> servingMatteClipIds(
+            @NonNull List<com.fadcam.ui.faditor.model.Clip> visibleOverlays) {
+        java.util.Set<String> serving = new java.util.HashSet<>();
+        for (com.fadcam.ui.faditor.model.Clip c : visibleOverlays) {
+            com.fadcam.ui.faditor.model.CompositingSpec cs = c.getCompositing();
+            if (cs != null && cs.mattePeerId != null) serving.add(cs.mattePeerId);
+        }
+        return serving;
+    }
+
+    /**
+     * {@link #visibleOverlayVideoClips} MINUS the clips serving as mattes: the list for
+     * anything that renders a PiP as itself, or that derives from a PiP being rendered —
+     * the preview's {@code OverlayVideoPreviewView} and the export's overlay AUDIO
+     * sequence.
+     *
+     * <p>The video export path deliberately does NOT use this: it needs the peers in
+     * hand to resolve each recipient's matte, and applies {@link #servingMatteClipIds}
+     * itself as it walks. So this is the shared authority for "shows up as a PiP",
+     * while {@link #visibleOverlayVideoClips} stays the authority for "is visible at
+     * all". Two divergences were paid for by conflating them: the preview drew the
+     * stencil clip as a normal PiP, and — worse, because it survived into the exported
+     * file — a matte peer with {@code overlayAudioEnabled} still contributed SOUND to
+     * the export while its picture was hidden.</p>
+     */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.model.Clip> renderableOverlayVideoClips(
+            @NonNull Timeline timeline) {
+        List<com.fadcam.ui.faditor.model.Clip> visible = visibleOverlayVideoClips(timeline);
+        java.util.Set<String> serving = servingMatteClipIds(visible);
+        if (serving.isEmpty()) return visible;   // every project without a track matte
+        List<com.fadcam.ui.faditor.model.Clip> result = new ArrayList<>();
+        for (com.fadcam.ui.faditor.model.Clip c : visible) {
+            if (!serving.contains(c.getId())) result.add(c);
+        }
+        return result;
+    }
+
     // ── Muted AUDIO tracks → per-clip preview-volume gate ──────────────────────────
 
     /**

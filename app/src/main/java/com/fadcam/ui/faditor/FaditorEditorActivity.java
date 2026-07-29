@@ -11135,7 +11135,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (overlayVideoLayer != null) {
                 overlayVideoLayer.setClips(
                         com.fadcam.ui.faditor.compositor.LayerPreviewController
-                                .visibleOverlayVideoClips(tl),
+                                .renderableOverlayVideoClips(tl),
                         overlayVideoCallback());
                 overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
                         playerManager != null && playerManager.isPlaying());

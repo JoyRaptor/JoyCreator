@@ -32,6 +32,7 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 | Seek right after loading a clip landed at the clip's START | `d3e3a63` | `effectiveTrimEnd()` tested `Long.MIN_VALUE`, but media3 reports `C.TIME_UNSET` (= MIN_VALUE+1) and 0 pre-prepare → window collapsed to 0. **14 zero-window seeks → 0** |
 | A transition longer than the clip it hands off to seeks past that clip's end | `d3e3a63` | Caught by `SEEKRANGE` as `rel=600 window=500` from the GL handoff; clamped to B's length |
 | `ENDED` with clips still ahead parked forever instead of advancing (§2a layer ii) | `d3e3a63` | Net added + its recovery action proved with a temporary switch (advanced `sel=2 → 3`, playback continued); it also fired on a real park at the last clip. See the caveat below. |
+| A clip serving as another's luma matte still rendered as a normal PiP in the PREVIEW, and — worse, because it survived into the exported file — still contributed its AUDIO to the export while its picture was hidden (the two §3a divergences) | see §3a | New `MatteVisibilityTest`, **14 checks against the REAL model classes** (not stubs), `bash tools/jvm-harness/run-matte.sh`. It pins both sides: the peer is still in `visibleOverlayVideoClips` (the export video path resolves peers out of that list) and is NOT in the new `renderableOverlayVideoClips`, including the case where it is opted into audio and unmuted — i.e. it would be audible on its own terms and is excluded before that question is ever asked. Dex-scanned for `renderableOverlayVideoClips` + `servingMatteClipIds`, with `FadCamApplication` and `FaditorEditorActivity` as the positive control |
 | Lane mute icon: drawn on lanes with no audio, fake speaker glyph, stranded 62dp from the caret (§3b) | `a19ee53` | Screenshots: layer lanes now draw a caret only; audio lanes a real `volume_up`, red crossed `volume_off` when muted. `undo_count` unchanged (3) across taps where the glyph sits on no-audio lanes; 3 → 4 → 5 on an audio lane. Gutter 92dp → 34.4dp |
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
@@ -72,16 +73,25 @@ User's original ask, still the spec of record (`FEEDBACK_20260702_layers_masking
 
 User's direction 2026-07-28: **do NOT paper over the gaps with an "incompatible" toast** — both
 known limits are fixable, so fix them:
-- preview/export divergence: `LayerPreviewController.visibleOverlayVideoClips` returns matte
-  peers unfiltered, while `ExportManager` correctly hides them → preview would show the stencil
-  clip as a normal PiP. One missing filter, not an architectural limit.
+- ~~preview/export divergence~~ and ~~the export AUDIO leak~~ — **BOTH FIXED 2026-07-28, before
+  any UI can let a user nominate an arbitrary clip as a matte.** Details below.
 - masks on text/sprites: `TextOverlayItem` has no `compositing` field. A model addition.
   *(Deferred by the user 2026-07-28 — not v1.)*
-- **NEW, found 2026-07-28 while surveying:** the export AUDIO path (`ExportManager:1989`) feeds
-  from the same unfiltered `visibleOverlayVideoClips` list, so a matte peer with
-  `overlayAudioEnabled` still contributes **sound** to the export while its picture is hidden.
-  Fix alongside the preview filter, BEFORE any UI lets a user nominate an arbitrary clip as a
-  matte.
+
+**The two divergences, and how they were closed.** Fixed at the funnel, not at the two call
+sites: `LayerPreviewController` keeps `visibleOverlayVideoClips` as the authority for *is this
+overlay visible at all* — the export VIDEO path needs the peers in hand to resolve each
+recipient's matte out of that list — and gains `servingMatteClipIds` + a derived
+`renderableOverlayVideoClips` as the authority for *does this show up as a PiP*. Conflating the
+two is what produced both bugs. Three consumers now agree by construction: the preview surface
+(`FaditorEditorActivity:11136`) and the export overlay-AUDIO sequence (`ExportManager:1989`)
+take the renderable list; the export video path takes the visible list and applies the shared
+`servingMatteClipIds` itself, replacing the inline set it used to build.
+Evidence in the §1 row: `MatteVisibilityTest`, 14 checks, real model classes, no device needed.
+Deliberately mirrored from the export rather than improved on — the peer is hidden for the whole
+clip, not only where the two overlap in time, and a DANGLING `mattePeerId` hides nothing and
+degrades to unmatted. Making preview and export agree was the point; a "better" preview rule
+would have re-opened the same gap from the other side.
 Also asked for: a toolbox icon so it is discoverable, plus entry points "anywhere else that would
 be useful — say, on a layer itself", and explicit instruction to **think hard about the UX so it
 is genuinely usable rather than merely present.**
@@ -179,7 +189,7 @@ Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
 | 3. Persist on `Clip`, round-trip, and RUN in both renderers | DONE | `c7b6359` |
 | 4. Tape `▶` `◀` carets (the visible half of the timing model) | DONE | see below |
 | 5. Preset grid picker + granularity selector in the caption drawer | DONE | see below |
-| 6. **Large-amplitude device frame** | **NOT CAPTURED** | — |
+| 6. **Large-amplitude device frame** | **NOT CAPTURED — attempted 2026-07-28, BLOCKED: only the Note 20 was attached (see §5)** | — |
 
 **The four fields are no longer `project.json`-only**, so this is out of the §3a failure mode.
 It stays in §3 rather than moving to §1 because step 6 is unproven: no device was attached when
@@ -292,6 +302,16 @@ the UI.
 
 ## 5. UNRESOLVED / needs a human
 
+- **BLOCKED 2026-07-28 21:xx: the only phone attached is the Note 20 `REAL_SERIAL`.** The Note 9
+  sandbox `SANDBOX_SERIAL` is absent. Under the standing device rule that is a full stop on
+  device work, so **§3g step 6 (the large-amplitude frame) could not be attempted**, and neither
+  could the thumb/60dp/LETTER-frame-rate walk. Nothing was installed, tapped or captured; the
+  only device command run this session was `adb devices`. §3g therefore stays in §3.
+  To unblock: attach the Note 9 and detach the Note 20.
+  Still outstanding alongside it — the Note 20 was installed at 15:06 on 2026-07-28 from a build
+  dex-scanned for its new symbol but NOT for a positive control. It is attached now, so that can
+  be settled the moment device work is allowed again, but installing kills whatever session is
+  running on it, so it needs the user's word first.
 - **W2 "HD zoom tier" for waveforms** (`FEEDBACK_20260706_audio_and_delineation.md` §2) — the tape
   renderer has been rewritten several times; separating W1 from W2 needs more reading than has
   been done. Flagged rather than guessed.

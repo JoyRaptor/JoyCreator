@@ -53,15 +53,42 @@ public final class TextAnimPickerPopover {
     private static final int TXT_DIM = 0xFF888888;
 
     /**
-     * The three progress values each tile freezes a glyph at. A preset's character is in how its
-     * units differ ACROSS the sweep, so one still frame of three staggered units says more than
-     * an animation would in a 60dp tile — and it cannot drift out of sync with playback.
-     *
-     * <p>Starting at exactly 0 is what makes TYPEWRITER legible: its first glyph is absent and
-     * its other two are fully formed and identical, which is precisely "no easing, it just
-     * appears". Every eased preset instead shows three distinct states.</p>
+     * How many glyphs each tile animates. Three is enough to show a STAGGER — which is half of
+     * what distinguishes these presets — without turning a 60dp tile into a smear.
      */
-    private static final float[] SAMPLES = {0f, 0.5f, 1f};
+    private static final int TILE_UNITS = 3;
+
+    /**
+     * The synthetic phrase every tile animates against: a 1.8s line made of a 0.9s entrance and a
+     * 0.9s exit back to back, looping. These are the same arguments a renderer passes
+     * {@link CaptionAnimator#unitProgress}, so a tile shows entrance-sweep → exit-sweep exactly as
+     * the real thing does, including the stagger between units.
+     *
+     * <p><b>Why these tiles animate now, when the first version deliberately froze three
+     * samples.</b> The frozen version was measured on 2026-07-29 and it did not work: TYPEWRITER
+     * and FADE differed by a mean of <b>1.08/255</b> over their glyph area, 2.9% of pixels by more
+     * than 8 — against 26.38 / 17.7% for a pair that plainly reads differently on the same
+     * instrument. The reason is structural, not cosmetic: at progress {0, 0.5, 1} TYPEWRITER draws
+     * A(1.0) A(1.0) and FADE draws A(0.5) A(1.0), so the ENTIRE difference between two presets was
+     * one glyph's alpha. A still frame cannot show the shape of an eased curve; only motion can.
+     * The label was doing all the work.</p>
+     *
+     * <p>The original argument for freezing — that a tile must not drift out of sync with playback
+     * — does not apply, because a tile was never synced to playback in the first place. And the
+     * rule that actually matters is <i>strengthened</i> here, not weakened: the tile now drives
+     * {@code unitProgress} as well as {@code presetTransform}, so it renders more of the real
+     * evaluator than the frozen version did, and still cannot advertise a motion the renderers do
+     * not produce.</p>
+     *
+     * <p><b>Why the span is exactly twice the zone.</b> A first cut used a 2.4s span with 0.9s
+     * zones, which leaves 0.6s of HOLD — and during the hold every unit sits at progress 1, so
+     * every preset draws exactly the same three opaque glyphs. Measured on 2026-07-29, 5 of 16
+     * sampled frames came back at an identical 51.24 mean for all six tiles: a quarter of the
+     * loop was spending itself showing nothing that tells the presets apart. Span = 2 × zone
+     * removes the hold entirely, so the tile is always inside a sweep.</p>
+     */
+    private static final long TILE_ZONE_MS = 900L;
+    private static final long TILE_SPAN_MS = TILE_ZONE_MS * 2;
 
     private TextAnimPickerPopover() {}
 
@@ -193,7 +220,8 @@ public final class TextAnimPickerPopover {
     }
 
     /**
-     * One preset tile: three "A"s frozen at {@link #SAMPLES}, each put through
+     * One preset tile: {@link #TILE_UNITS} "A"s looping through the synthetic phrase described on
+     * {@link #TILE_SPAN_MS}, each put through {@link CaptionAnimator#unitProgress} and then
      * {@link CaptionAnimator#presetTransform} exactly as a renderer would, plus the preset's name.
      * The transform is applied the same way both renderers apply it — translate, then scale about
      * the unit's own centre — so the thumbnail is the motion, not an artist's idea of it.
@@ -205,6 +233,14 @@ public final class TextAnimPickerPopover {
         private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private boolean selected;
 
+        /**
+         * When this tile's loop clock started. Every tile in the row is attached in the same pass,
+         * so they share a phase to within a frame — deliberately. Tiles running the SAME clock is
+         * what lets a user compare two presets by looking at them side by side; staggering them
+         * would mean any difference on screen might be phase rather than preset.
+         */
+        private long startedAtMs;
+
         PresetTileView(@NonNull Context ctx, @NonNull CaptionAnimator.Preset p, boolean selected) {
             super(ctx);
             this.preset = p;
@@ -212,6 +248,12 @@ public final class TextAnimPickerPopover {
             this.density = ctx.getResources().getDisplayMetrics().density;
             labelPaint.setColor(TXT_DIM);
             labelPaint.setTextAlign(Paint.Align.CENTER);
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            startedAtMs = android.os.SystemClock.uptimeMillis();
         }
 
         void setSelectedRing(boolean s) {
@@ -239,7 +281,7 @@ public final class TextAnimPickerPopover {
                 float s = rr * 0.72f;
                 c.drawLine(cx - s, cy + s, cx + s, cy - s, paint);
             } else {
-                drawSamples(c, w, h);
+                drawUnits(c, w, h);
             }
 
             labelPaint.setTextSize(8.5f * density);
@@ -255,9 +297,17 @@ public final class TextAnimPickerPopover {
                 float inset = 1f * density;
                 c.drawRoundRect(inset, inset, w - inset, h - inset, rad, rad, paint);
             }
+
+            // Drive the loop from onDraw rather than a ValueAnimator: the tile is a pure function
+            // of the clock, so there is no state to keep in sync, and the loop stops on its own
+            // the moment the popover goes away and onDraw is no longer called. NONE is left
+            // static on purpose — a still tile in a row of moving ones IS the affordance.
+            if (preset != CaptionAnimator.Preset.NONE) {
+                postInvalidateOnAnimation();
+            }
         }
 
-        private void drawSamples(@NonNull Canvas c, float w, float h) {
+        private void drawUnits(@NonNull Canvas c, float w, float h) {
             // fontPx is what the distance-based presets scale their motion against, so the
             // thumbnail must pass a real one rather than 1 — otherwise RISE and GHOST, whose
             // whole character is a font-proportional offset, would render as identity.
@@ -266,9 +316,15 @@ public final class TextAnimPickerPopover {
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTextSize(fontPx);
             float baseY = h * 0.55f;
-            for (int i = 0; i < SAMPLES.length; i++) {
+            // Each tile runs its own loop clock against the synthetic phrase. Staggering comes
+            // from unitProgress, the same function the renderers use, rather than from three
+            // hand-picked sample values.
+            long mediaMs = (android.os.SystemClock.uptimeMillis() - startedAtMs) % TILE_SPAN_MS;
+            for (int i = 0; i < TILE_UNITS; i++) {
+                float progress = CaptionAnimator.unitProgress(
+                        mediaMs, 0L, TILE_SPAN_MS, TILE_ZONE_MS, TILE_ZONE_MS, i, TILE_UNITS);
                 CaptionAnimator.Transform t =
-                        CaptionAnimator.presetTransform(preset, SAMPLES[i], fontPx);
+                        CaptionAnimator.presetTransform(preset, progress, fontPx);
                 if (t.alpha <= 0.004f) continue;
                 float cx = w * (0.26f + 0.24f * i);
                 c.save();

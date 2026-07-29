@@ -326,17 +326,19 @@ public class OverlayVideoPreviewView extends FrameLayout {
             float cx = r.left + x * r.width();
             float cy = r.top + y * r.height();
             stillPaint.setAlpha(Math.round(alpha * 255));
-            canvas.save();
             // Compositing masks (§C): same shapes, same authority as export —
-            // clip in content-rect space BEFORE the rotate (a hole stays put
+            // masked in content-rect space BEFORE the rotate (a hole stays put
             // over the frame while the PiP moves under it, mirroring
             // PipFrameOverlay's order exactly).
-            com.fadcam.ui.faditor.model.MaskPathBuilder.clipCanvas(
-                    canvas, c.getCompositing(), r);
+            com.fadcam.ui.faditor.model.CompositingSpec cspec = c.getCompositing();
+            com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope ms =
+                    com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
+                            canvas, cspec, r.width(), r.height(), r.left, r.top);
             if (rot != 0f) canvas.rotate(rot, cx, cy);
             canvas.drawBitmap(sf.bitmap, null, new RectF(
                     cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), stillPaint);
-            canvas.restore();
+            com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(
+                    canvas, cspec, r.width(), r.height(), r.left, r.top, ms);
         }
     }
 
@@ -356,10 +358,12 @@ public class OverlayVideoPreviewView extends FrameLayout {
             if (cs != null && cs.hasMasks()) {
                 RectF r = callback.getVideoContentRect();
                 if (r.width() > 0 && r.height() > 0) {
-                    int save = canvas.save();
-                    com.fadcam.ui.faditor.model.MaskPathBuilder.clipCanvas(canvas, cs, r);
+                    com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope ms =
+                            com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
+                                    canvas, cs, r.width(), r.height(), r.left, r.top);
                     boolean res = super.drawChild(canvas, child, drawingTime);
-                    canvas.restoreToCount(save);
+                    com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(
+                            canvas, cs, r.width(), r.height(), r.left, r.top, ms);
                     return res;
                 }
             }

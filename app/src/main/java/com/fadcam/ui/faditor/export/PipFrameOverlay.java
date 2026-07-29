@@ -112,17 +112,19 @@ final class PipFrameOverlay extends BitmapOverlay {
         float cy = y * frameH;
 
         paint.setAlpha(Math.round(opacity * 255));
-        canvas.save();
-        // Compositing masks (§C family): clip to the spec's visible region in
-        // FRAME space — the same canvas-normalized shapes the preview clips
-        // with, scaled onto this frame. Applied BEFORE the rotate so a hole
-        // stays put over the composed frame while the PiP moves under it.
-        com.fadcam.ui.faditor.model.MaskPathBuilder.clipCanvas(
-                canvas, clip.getCompositing(), frameW, frameH);
+        // Compositing masks (§C family): mask in FRAME space — the same
+        // canvas-normalized shapes the preview masks with, scaled onto this frame.
+        // Opened BEFORE the rotate so a hole stays put over the composed frame while
+        // the PiP moves under it.
+        com.fadcam.ui.faditor.model.CompositingSpec spec = clip.getCompositing();
+        com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope maskSave =
+                com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
+                        canvas, spec, frameW, frameH, 0f, 0f);
         if (rot != 0f) canvas.rotate(rot, cx, cy);
         canvas.drawBitmap(frame, null,
                 new RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), paint);
-        canvas.restore();
+        com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(
+                canvas, spec, frameW, frameH, 0f, 0f, maskSave);
         frame.recycle();
         // NEW instance per frame — BitmapOverlay caches the GL texture keyed on
         // Bitmap identity; returning the reused scratch bitmap would freeze the

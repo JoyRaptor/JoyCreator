@@ -72,6 +72,59 @@ public class CompositingSpecTest {
         // 6. null JSON → empty spec (absent field on old projects).
         check(CompositingSpec.fromJson(null).isEmpty(), "null json → empty spec");
 
+        // 7. FEATHER (soft edges) — the v1 slider's model half.
+        CompositingSpec f = new CompositingSpec();
+        check(f.maskFeather == 0f, "feather defaults to 0 — every shipped project is hard-edged");
+        check(!f.hasFeather(), "no masks, no feather work to do");
+        f.maskFeather = 0.4f;
+        check(!f.hasFeather(), "feather with NO shapes is inert — it must not open a layer");
+        f.masks.add(new CompositingSpec.MaskShape());
+        check(f.hasFeather(), "feather + a shape is the one case that pays for a layer");
+        CompositingSpec fr = CompositingSpec.fromJson(f.toJson());
+        check(Math.abs(fr.maskFeather - 0.4f) < 1e-6, "feather round-trips");
+        check(Math.abs(f.copy().maskFeather - 0.4f) < 1e-6, "feather survives copy()");
+
+        // A feather with no shapes must not make an empty-looking spec non-empty on disk:
+        // it writes inside the masks block, so there is nothing to write.
+        CompositingSpec lonely = new CompositingSpec();
+        lonely.maskFeather = 1f;
+        check(lonely.isEmpty() && lonely.toJson().size() == 0,
+                "feather alone serializes to nothing");
+
+        // Hard edge omits the key entirely (same JSON-diff hygiene as corner/rot/sub).
+        CompositingSpec hard = new CompositingSpec();
+        hard.masks.add(new CompositingSpec.MaskShape());
+        check(!hard.toJson().has("feather"), "feather=0 omits the key");
+
+        check(Math.abs(CompositingSpec.fromJson(JsonParser.parseString(
+                "{\"masks\":[{}],\"feather\":7}").getAsJsonObject()).maskFeather - 1f) < 1e-6,
+                "an out-of-range feather clamps to 1 rather than blurring the whole frame");
+
+        // 8. featherRadiusPx — the units authority. Preview draws into a content rect and
+        //    export into a full frame, so the SAME slider has to mean the same softness in
+        //    both. That only holds if the radius is derived from the frame, which is what
+        //    these pin. (The class of bug: zones in source vs timeline ms, twice.)
+        check(CompositingSpec.featherRadiusPx(0f, 1920, 1080) == 0f,
+                "feather 0 → radius 0 (the hard-edge fast path stays reachable)");
+        check(CompositingSpec.featherRadiusPx(-1f, 1920, 1080) == 0f, "negative feather → 0");
+        check(CompositingSpec.featherRadiusPx(0.5f, 0, 1080) == 0f, "a degenerate frame → 0");
+        check(CompositingSpec.featherRadiusPx(Float.NaN, 1920, 1080) == 0f, "NaN feather → 0");
+        float full = CompositingSpec.featherRadiusPx(1f, 1920, 1080);
+        check(Math.abs(full - 1080 * CompositingSpec.MAX_FEATHER_FRACTION) < 1e-3,
+                "full feather is MAX_FEATHER_FRACTION of the SHORTER side");
+        check(Math.abs(CompositingSpec.featherRadiusPx(1f, 1080, 1920) - full) < 1e-3,
+                "portrait and landscape of the same frame agree — the short side, not width");
+        check(Math.abs(CompositingSpec.featherRadiusPx(2f, 1920, 1080) - full) < 1e-3,
+                "an out-of-range feather clamps at the radius too, not just on read");
+        // The property that makes preview and export agree: radius scales with the surface,
+        // so a half-size preview gets a half-size blur of the same authored value.
+        check(Math.abs(CompositingSpec.featherRadiusPx(0.5f, 960, 540) * 2f
+                        - CompositingSpec.featherRadiusPx(0.5f, 1920, 1080)) < 1e-3,
+                "half-size surface, half-size radius — one slider, one look in both renderers");
+        check(CompositingSpec.featherRadiusPx(0.25f, 1920, 1080)
+                        < CompositingSpec.featherRadiusPx(0.75f, 1920, 1080),
+                "the slider is monotonic");
+
         System.out.println(fails == 0 ? "ALL GREEN" : fails + " FAILURES");
         System.exit(fails == 0 ? 0 : 1);
     }

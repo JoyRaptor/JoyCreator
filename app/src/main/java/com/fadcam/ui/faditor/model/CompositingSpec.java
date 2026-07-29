@@ -70,6 +70,12 @@ public class CompositingSpec {
     @NonNull public final List<MaskShape> masks = new ArrayList<>();
     /** false (default): masks cut holes. true: item visible ONLY inside. */
     public boolean invertMasks = false;
+    /**
+     * Soft edges on the mask stack — 0 (default, a hard {@code clipPath} edge, i.e. exactly
+     * the behaviour every project shipped with) … 1 (the softest edge offered). AUTHORED
+     * units, not pixels: see {@link #featherRadiusPx}.
+     */
+    public float maskFeather = 0f;
 
     // ── Chroma key (null-signaled by keyEnabled; primitives keep gson simple) ──
     public boolean keyEnabled = false;
@@ -93,11 +99,36 @@ public class CompositingSpec {
 
     public boolean hasMasks() { return !masks.isEmpty(); }
 
+    /** True when the mask stack wants a soft edge — the only reason to pay for a layer. */
+    public boolean hasFeather() { return !masks.isEmpty() && maskFeather > 0f; }
+
+    /** {@link #maskFeather} = 1 blurs by this fraction of the frame's SHORTER side. */
+    public static final float MAX_FEATHER_FRACTION = 0.08f;
+
+    /**
+     * The single authority turning authored {@link #maskFeather} into a blur radius in
+     * pixels. It lives here — on the android-free model class — rather than next to the
+     * drawing code, because BOTH renderers must ask the same question: the export draws
+     * into a full-size frame while the preview draws into a much smaller content rect, so
+     * anything that reached for a fixed pixel radius would make the same slider mean two
+     * different softnesses. Scaled off the SHORTER side so the edge stays even on a
+     * letterboxed or portrait frame rather than smearing along one axis.
+     *
+     * <p>This is the same units trap that has been paid for twice already elsewhere in the
+     * editor (animation zones in source vs timeline ms). Pinned in the harness.</p>
+     */
+    public static float featherRadiusPx(float feather, float w, float h) {
+        if (Float.isNaN(feather) || feather <= 0f) return 0f;
+        if (w <= 0f || h <= 0f) return 0f;
+        return clamp01(feather) * MAX_FEATHER_FRACTION * Math.min(w, h);
+    }
+
     @NonNull
     public CompositingSpec copy() {
         CompositingSpec s = new CompositingSpec();
         for (MaskShape m : masks) s.masks.add(m.copy());
         s.invertMasks = invertMasks;
+        s.maskFeather = maskFeather;
         s.keyEnabled = keyEnabled;
         s.keyColor = keyColor;
         s.keyTolerance = keyTolerance;
@@ -127,6 +158,9 @@ public class CompositingSpec {
             }
             j.add("masks", arr);
             if (invertMasks) j.addProperty("invertMasks", true);
+            // Inside the masks block on purpose: feather with no shapes is inert, so it must
+            // not be able to make an otherwise-empty spec look non-empty.
+            if (maskFeather > 0f) j.addProperty("feather", maskFeather);
         }
         if (keyEnabled) {
             JsonObject kj = new JsonObject();
@@ -166,6 +200,7 @@ public class CompositingSpec {
                 }
                 s.invertMasks = j.has("invertMasks")
                         && j.get("invertMasks").getAsBoolean();
+                s.maskFeather = clamp01(optFloat(j, "feather", 0f));
             }
             if (j.has("chromaKey")) {
                 JsonObject kj = j.getAsJsonObject("chromaKey");

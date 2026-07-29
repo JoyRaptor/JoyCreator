@@ -105,12 +105,41 @@ is genuinely usable rather than merely present.**
    sprites text etc can wait."* Note `CompositingSpec` lives on `Clip` only — image-overlay
    support needs the spec reachable from the image-track item and honoured by
    `layerImageOverlay` + its export peer.
+   **FOUND 2026-07-29, and it changes the size of this item: there is no image overlay to mask
+   yet.** Two independent paths, both dead ends today. `LayerPreviewController.visibleImageItems`
+   is documented "always empty today — nothing can create an IMAGE track yet", and its own
+   TODO says the hidden-track skip was never mirrored in `ExportManager`. The other candidate —
+   an overlay `Clip` whose source is a still, which the export audio path already anticipates
+   (`isImageClip()` → "a still has no audio") — has no creation path either: the one PiP entry
+   point (`FaditorEditorActivity:16925`) builds its `Clip` from a picked **video** URI.
+   So "images in v1" is not a mask-plumbing task, it is **build the image overlay first**.
+   Flagged rather than absorbed silently — it may change what the user wants v1 to be.
 3. **Capsule is fine — NO true ellipse for now.** `corner=1` on a non-square box gives a stadium,
    not a circle. Accepted. Do not spend engine time on `MaskPathBuilder` shapes.
 4. **A soft-edges (feather) slider IS in v1.** Engine work: `MaskPathBuilder:22-23` records the
    method — render the mask to an ALPHA_8 bitmap and `DST_OUT` it instead of `clipPath`, which
    is not antialiased. Both the preview and export mask paths go through that one class, so it
    is one change, not two.
+   **ENGINE HALF BUILT 2026-07-29 — the slider itself waits on the panel.** `maskFeather` (0..1)
+   on `CompositingSpec`; `clipCanvas` replaced by a `beginMask`/`endMask` bracket at all three
+   call sites, and DELETED, so there is no second way to apply a mask. Feather 0 — every
+   existing project — takes the identical `clipPath` path; only feather > 0 opens a layer.
+   `featherRadiusPx` lives on the android-free model class because preview draws into a content
+   rect and export into a full frame: a fixed pixel radius would make one slider mean two
+   softnesses. Blur happens inside an ALPHA_8 **Bitmap** (software) precisely because
+   `BlurMaskFilter` is ignored on the preview's hardware canvas — the GHOST trap, avoidable
+   here because the blurred thing is static geometry, not every video frame. Erase bitmap is
+   cached on a shape+size signature, so the export does not re-blur per frame.
+   **Proved off-device: `CompositingSpecTest` 30 checks (was 12), ALL GREEN** — round-trip,
+   clamping, feather-with-no-shapes is inert and serializes to nothing, and the units property
+   that keeps the two renderers honest (half-size surface → half-size radius; portrait and
+   landscape of the same frame agree). Dex-scanned for `MaskScope`/`beginMask`/`endMask`/
+   `maskFeather`/`featherRadiusPx`/`buildErasePath` with `FadCamApplication` +
+   `FaditorEditorActivity` as the positive control, **and for `clipCanvas` as a freshness
+   control — it is now ABSENT, which a stale dex could not show.**
+   **NOT proved: the pixels.** No phone was attached. That a soft edge actually looks soft, that
+   it looks the SAME in preview and export, and that `saveLayer` on the preview's `drawChild`
+   does not cost visible frame rate are all unverified. Do this the moment a Note 9 is attached.
 
 Proposed interaction (drafted 2026-07-28, not yet built): a *Mask & Key* chip in the tool row
 (enabled only with an overlay object selected) **and** the same action in the object's long-press

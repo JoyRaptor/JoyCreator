@@ -101,6 +101,25 @@ public final class TextAnimPickerPopover {
                             @Nullable CaptionAnimator.Preset current,
                             @Nullable CaptionAnimator.Granularity currentGran,
                             @NonNull OnPick onPick) {
+        show(anchor, current, currentGran, null, onPick);
+    }
+
+    /**
+     * @param allowedGrans granularities this OBJECT can actually honour, or null for all of
+     *                     them. A TEXT BOX passes {@code {BLOCK}}: its preview is a
+     *                     {@code TextView}, which cannot transform individual characters, while
+     *                     its export draws with {@code canvas.drawText}, which can — so offering
+     *                     WORD or LETTER there would animate per-unit in the exported file and
+     *                     animate the whole body on screen. Same rule as {@code Preset
+     *                     .implemented} above: this picker never offers a control that provably
+     *                     will not do what it says. A row with one chip is deliberately still
+     *                     drawn, so the setting is visible and its value is not a mystery.
+     */
+    public static void show(@NonNull View anchor,
+                            @Nullable CaptionAnimator.Preset current,
+                            @Nullable CaptionAnimator.Granularity currentGran,
+                            @Nullable java.util.Set<CaptionAnimator.Granularity> allowedGrans,
+                            @NonNull OnPick onPick) {
         Context ctx = anchor.getContext();
         float d = ctx.getResources().getDisplayMetrics().density;
 
@@ -149,8 +168,18 @@ public final class TextAnimPickerPopover {
         LinearLayout granRow = new LinearLayout(ctx);
         granRow.setOrientation(LinearLayout.HORIZONTAL);
         container.addView(granRow);
-        CaptionAnimator.Granularity[] grans = CaptionAnimator.Granularity.values();
-        String[] granNames = {"Letter", "Word", "Sentence", "Block"}; // TODO(strings)
+        CaptionAnimator.Granularity[] allGrans = CaptionAnimator.Granularity.values();
+        String[] allGranNames = {"Letter", "Word", "Sentence", "Block"}; // TODO(strings)
+        java.util.List<CaptionAnimator.Granularity> granList = new java.util.ArrayList<>();
+        java.util.List<String> granNameList = new java.util.ArrayList<>();
+        for (int i = 0; i < allGrans.length; i++) {
+            if (allowedGrans != null && !allowedGrans.contains(allGrans[i])) continue;
+            granList.add(allGrans[i]);
+            granNameList.add(allGranNames[i]);
+        }
+        CaptionAnimator.Granularity[] grans =
+                granList.toArray(new CaptionAnimator.Granularity[0]);
+        String[] granNames = granNameList.toArray(new String[0]);
         final TextView[] granChips = new TextView[grans.length];
         for (int i = 0; i < grans.length; i++) {
             final CaptionAnimator.Granularity g = grans[i];

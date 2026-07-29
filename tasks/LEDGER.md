@@ -209,6 +209,45 @@ player package. The human-facing slider was correctly hidden behind `if (false)`
 saying the feature is unimplemented; the AI copy was missed. User has said ducking is low
 priority, so the fix is to stop the assistant claiming it happened, not to build ducking.
 
+**3g-TEXTBOX. Text-box animation — ENGINE DONE AND AUTHORABLE; the round-trip is NOT yet proved.**
+Commits `b7391e8` (engine) + the UI commit below. The other half of the user's 2026-07-29
+direction.
+
+**What is proved, on the Note 9, 2026-07-29:**
+- The **MOTION row renders in the Edit text dialog** — label, the "A in motion" icon, and a state
+  line — above FONT. Screenshot `16_textdialog.png`.
+- **The picker opens from it with all six presets and `Animate by: Block` ALONE.** Letter, Word
+  and Sentence are correctly absent. Screenshot `17_picker.png`. That gating is the load-bearing
+  part: see below.
+- **Picking RISE reads back `Rise · 25% in / 0% out of this box`** (uiautomator text), so the
+  entrance seed (MAX_ZONE_PCT/2) and the readout both work through a real tap.
+- Off device: harness **160 → 168**, including the property the fractions exist for — the same two
+  numbers animate identically on a 0.4s title and a 300s one — with two controls proving that
+  sweep is not passing vacuously. APK dex-scanned for `textBoxTransformAt`, `textAnimPreset`,
+  `animSpanMs`, `applyTextOverlayAnim`, with `FadCamApplication` as the partial-dex control.
+
+**What is NOT proved, and must not be claimed:**
+- **The persistence round-trip.** After picking RISE and confirming the dialog, `project.json`
+  still contains **zero `textAnim` keys** and is byte-unchanged at 67,599. The likely reason is
+  benign — the overlay was created with EMPTY text and is probably discarded on OK, so there was
+  nothing to save — **but that was not verified.** Redo it on a text box that has text.
+- **That anything actually animates**, in preview or export. Both paths are wired to one
+  evaluator and the harness pins the arithmetic; no pixel has been looked at.
+
+**BLOCK-only is a real constraint, not an unfinished switch.** Preview draws a text overlay as an
+Android `TextView`, which cannot transform individual characters; export draws it with
+`canvas.drawText`, which can. Offering WORD or LETTER would animate per-unit in the exported file
+and animate the whole body on screen — a preview/export divergence in the one place this project
+keeps getting burned, and invisible until someone watches a finished export. Lifting it means
+giving text boxes a canvas renderer in preview, the way captions already have. That is work, not
+a flag. Recorded on `TextOverlayItem.textAnimGranularitySupported`.
+
+**Still owed on this half:** the `▶` `◀` carets. The user's stated instrument for text boxes is
+the carets, not a dialog row; they remain parked and uncalled in `EditorTimelineView`. What
+shipped is the preset picker plus a seeded zone, which makes the feature reachable at all — the
+alternative was an engine with no way in, which is precisely the §3a failure this ledger exists
+to prevent.
+
 **3g. Text animation presets — BUILT, AND NOW VALIDATED BY THE USER ON THE PHONE.**
 Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
 

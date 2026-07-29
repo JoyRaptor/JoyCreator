@@ -15202,6 +15202,77 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Same bespoke-View precedent as {@link #makeCaptionPositionToggle}.
      */
     @NonNull
+    /** One-line summary of a text box's motion, for the row beside the icon. TODO(strings) */
+    private void updateTextMotionState(@NonNull TextView label,
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .parsePreset(o.getTextAnimPreset());
+        if (p == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                || !o.hasTextAnim()) {
+            label.setText("None");
+            return;
+        }
+        int in = Math.round(o.getTextAnimInPct() * 100f);
+        int out = Math.round(o.getTextAnimOutPct() * 100f);
+        String name = p.name().charAt(0) + p.name().substring(1).toLowerCase();
+        // "of this box" rather than a bare percentage, for the same reason the caption readout
+        // says "of each line": a bare 50% invites reading it as half the project.
+        label.setText(name + " · " + in + "% in / " + out + "% out of this box");
+    }
+
+    /**
+     * Apply a preset + granularity to a TEXT BOX, in ONE undo step.
+     *
+     * <p>Seeds an entrance when there is none, exactly as the caption path does: zero zones ARE
+     * the off state, so without this every tile in the picker would apply cleanly and change
+     * nothing on screen, and the feature would read as broken on first use. Choosing a preset is
+     * an explicit request to animate.</p>
+     */
+    private void applyTextOverlayAnim(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset preset,
+            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity gran) {
+        final String beforePreset = o.getTextAnimPreset();
+        final String beforeGran = o.getTextAnimGranularity();
+        final float beforeIn = o.getTextAnimInPct();
+        final float beforeOut = o.getTextAnimOutPct();
+
+        final String afterPreset = preset.name();
+        final String afterGran = gran.name();
+        float seedIn = beforeIn;
+        if (preset != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                && beforeIn <= 0f && beforeOut <= 0f) {
+            seedIn = com.fadcam.ui.faditor.transcript.CaptionAnimator.MAX_ZONE_PCT / 2f;
+        }
+        final float afterIn = seedIn;
+        if (beforePreset.equals(afterPreset) && beforeGran.equals(afterGran)
+                && beforeIn == afterIn) {
+            return;
+        }
+
+        o.setTextAnimPreset(afterPreset);
+        o.setTextAnimGranularity(afterGran);
+        o.setTextAnimZonePct(afterIn, beforeOut);
+        final float clampedIn = o.getTextAnimInPct();
+        final float clampedOut = o.getTextAnimOutPct();
+
+        undoManager.recordAction(new EditActions.LambdaAction("Text animation", // TODO(strings)
+                () -> {
+                    o.setTextAnimPreset(afterPreset);
+                    o.setTextAnimGranularity(afterGran);
+                    o.setTextAnimZonePct(clampedIn, clampedOut);
+                    refreshAfterTimerEdit(o);
+                },
+                () -> {
+                    o.setTextAnimPreset(beforePreset);
+                    o.setTextAnimGranularity(beforeGran);
+                    o.setTextAnimZonePct(beforeIn, beforeOut);
+                    refreshAfterTimerEdit(o);
+                }));
+        refreshAfterTimerEdit(o);
+    }
+
     private View makeTextMotionIcon(float d) {
         View v = new View(this) {
             @Override
@@ -19464,6 +19535,61 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         final String[] chosenFont = {item.getFontFamily()};
+
+        // MOTION — the reporter's "icon in the text dialog, an A in motion". Without this the
+        // text-box animation would be reachable only by hand-editing project.json, which is the
+        // exact shape of the §3a failure the LEDGER exists to prevent: an engine that shipped
+        // with no way in.
+        TextView motionLabel = new TextView(this);
+        motionLabel.setText("MOTION");
+        motionLabel.setTextColor(0xFF888888);
+        motionLabel.setTextSize(12);
+        motionLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        motionLabel.setAllCaps(true);
+        motionLabel.setLetterSpacing(0.06f);
+        motionLabel.setPadding(0, pad, 0, pad / 2);
+        root.addView(motionLabel);
+
+        android.widget.LinearLayout motionRow = new android.widget.LinearLayout(this);
+        motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        final float dens = getResources().getDisplayMetrics().density;
+        final TextView motionState = new TextView(this);
+        motionState.setTextColor(0xFFCCCCCC);
+        motionState.setTextSize(13);
+        motionState.setPadding(pad, 0, 0, 0);
+        View motionIcon = makeTextMotionIcon(dens);
+        motionRow.addView(motionIcon);
+        motionRow.addView(motionState);
+        root.addView(motionRow);
+        updateTextMotionState(motionState, item);
+        motionIcon.setOnClickListener(v -> com.fadcam.ui.faditor.TextAnimPickerPopover.show(
+                v,
+                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .parsePreset(item.getTextAnimPreset()),
+                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .parseGranularity(item.getTextAnimGranularity()),
+                java.util.Collections.singleton(
+                        com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity.BLOCK),
+                new com.fadcam.ui.faditor.TextAnimPickerPopover.OnPick() {
+                    @Override
+                    public void onPreset(
+                            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p) {
+                        applyTextOverlayAnim(item, p,
+                                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                        .parseGranularity(item.getTextAnimGranularity()));
+                        updateTextMotionState(motionState, item);
+                    }
+
+                    @Override
+                    public void onGranularity(
+                            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
+                        applyTextOverlayAnim(item,
+                                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                        .parsePreset(item.getTextAnimPreset()), g);
+                        updateTextMotionState(motionState, item);
+                    }
+                }));
 
         TextView fontLabel = new TextView(this);
         fontLabel.setText("FONT");

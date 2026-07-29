@@ -614,7 +614,21 @@ public class CaptionAnimatorTest {
     // ── MATRIX: the substitution channel ─────────────────────────────────────────────────────
 
     /** The alphabet the implementation declares. Duplicated on purpose — see matrixSubstitution. */
-    static final String GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&@?";
+    /**
+     * Mirror of CaptionAnimator.MATRIX_GLYPHS, which is private. Built the same way it is --
+     * halfwidth katakana U+FF66..U+FF9D then the digits -- rather than pasted, so the two
+     * cannot drift character by character. Built from code points, never from literals: this
+     * harness compiles under the platform default encoding (windows-1252) while the file is
+     * UTF-8, so a literal katakana in a String would decode to mojibake and the test would
+     * pass or fail for the wrong reason.
+     */
+    static final String GLYPHS = buildGlyphs();
+
+    static String buildGlyphs() {
+        StringBuilder sb = new StringBuilder();
+        for (int c = 0xFF66; c <= 0xFF9D; c++) sb.append((char) c);
+        return sb + "0123456789";
+    }
 
     static void matrixSubstitution() {
         System.out.println("\n── MATRIX glyph substitution ──");
@@ -788,7 +802,37 @@ public class CaptionAnimatorTest {
         ok("a 0.4s and a 300s MATRIX box substitute IDENTICALLY at the same fraction of the span",
                 scaleFree);
 
-        // 18. Measured from the box's OWN start, not from zero.
+        // 18b. THE ALPHABET IS HALFWIDTH KATAKANA + DIGITS, and halfwidth is load-bearing: the slot
+        //      width was measured from the real text, so a FULLWIDTH katakana (U+30A2..) would be
+        //      about twice a Latin advance and paint outside the slot it was given. Pin the range
+        //      so a future "let's use nicer katakana" edit has to argue with a test.
+        java.util.Set<Character> seen = new java.util.HashSet<>();
+        for (int u = 0; u < 40; u++) {
+            for (int k = 0; k <= 12; k++) {
+                for (char c : CaptionAnimator.substituteUnit(
+                        M, "XXXXXX", k / 13f, u).toCharArray()) {
+                    seen.add(c);
+                }
+            }
+        }
+        seen.remove('X');   // the real text showing through once a position has settled
+        boolean inRange = true;
+        char offender = 0;
+        for (char c : seen) {
+            boolean katakana = c >= 0xFF66 && c <= 0xFF9D;
+            boolean digit = c >= '0' && c <= '9';
+            if (!katakana && !digit) { inRange = false; offender = c; }
+        }
+        ok("every substituted glyph is halfwidth katakana or a digit"
+                + (inRange ? "" : " (offender U+" + Integer.toHexString(offender) + ")"), inRange);
+        ok("the alphabet actually reaches katakana, not just digits (" + seen.size() + " glyphs)",
+                seen.stream().anyMatch(c -> c >= 0xFF66 && c <= 0xFF9D));
+        ok("no FULLWIDTH katakana leaked in (they would overflow the measured slot)",
+                seen.stream().noneMatch(c -> c >= 0x30A0 && c <= 0x30FF));
+        ok("the combining voiced marks U+FF9E/U+FF9F are excluded",
+                !seen.contains((char) 0xFF9E) && !seen.contains((char) 0xFF9F));
+
+        // 19. Measured from the box's OWN start, not from zero.
         eqS("a box starting at 10s is still scrambling at 10s",
                 CaptionAnimator.textBoxTextAt(M, title, 10_100L, 10_000L, 2000L, 0.25f, 0.25f),
                 CaptionAnimator.textBoxTextAt(M, title, 100L, 0L, 2000L, 0.25f, 0.25f));

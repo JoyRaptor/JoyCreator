@@ -806,6 +806,39 @@ entrance without hunting.
   `p.name()` and read a bare **`MATRIX`** instead of `Matrix · word`. UNSCRAMBLE would have landed
   in the same hole. Both cases added; the row now reads `Matrix · word` on the phone, which doubles
   as an independent behavioural check that the new build is the one running.
+- **MATRIX NOW CHURNS IN JAPANESE — halfwidth katakana + digits, 2026-07-29.** The user asked
+  whether Japanese was possible. It is, and **the old code's reason for refusing it was wrong.**
+  That comment said katakana "would render as tofu in most of" the caption fonts. All six families
+  `CaptionStyle.typeface()` can return are SYSTEM families, so they resolve through Android's font
+  FALLBACK chain, not one file. Verified on the Note 9: `/system/fonts` has `SECCJK-Regular.ttc`
+  and `NotoSerifCJK-Regular.ttc`, and `fonts.xml` lists the latter `fallbackFor="serif"` — sans and
+  serif branches both covered. A custom asset font would have been the tofu risk; there isn't one.
+  **HALFWIDTH (U+FF66…U+FF9D) is load-bearing, not taste** — and it is also the film's actual look.
+  The layout-safety property is that the slot width was measured from the REAL text and reused
+  untouched; fullwidth katakana are ~2× a Latin advance, so they would preserve LENGTH while the ink
+  stopped fitting and collided with the next unit. U+FF9E/U+FF9F are excluded because they are
+  combining marks that would attach to the previous glyph instead of filling a slot.
+  **Proof: harness 209 → 213, 0 failed**, pinning the range, that katakana is actually reached, that
+  no fullwidth leaked in, and that the combining marks are absent. On the Note 9 at the same
+  playhead used for the ASCII proof (`00:01.113`), the caption reads **`thｸﾖ caｸ iｸ veｸﾖ cuｸﾖ shｸ`**
+  — character-for-character what `tasks/matrix_predict.py` predicts, with the BLOCK column
+  fingerprint intact (same glyph at position 2 of every unsettled word). Screenshot
+  `tasks/screenshots/matrix_katakana_tick6.png`.
+  **Two traps paid for here, both worth knowing:**
+  1. **Literal katakana in a CHAR/STRING literal breaks the harness build.** The harness compiles
+     with the platform default encoding (windows-1252) while the files are UTF-8. Both the source
+     and the test now build their alphabet from CODE POINTS, never literals. Note the limit of the
+     rule, which this session first got wrong in a javadoc: the surrounding COMMENTS are full of em
+     dashes and always compiled fine — mojibake in a comment changes nothing. Only literals matter.
+  2. **A failing `javac` leaves the previous `.class` files in place, and the harness then runs the
+     STALE build and reports a confident pass.** It printed `209 passed, 0 failed` off bytecode that
+     predated the change. Delete the output dir, or check the compiler's exit before believing the
+     runner. The clean run then found a real failure the stale one had hidden — the test's own
+     `GLYPHS` mirror still held the ASCII alphabet.
+  **Known limit, stated:** a device with no CJK font in its fallback chain (a stripped or Go ROM)
+  would draw tofu. Digits are kept in the set so such a device still shows something. If it is ever
+  reported, the fix is a `Paint.hasGlyph` probe in ONE shared helper called by both renderers —
+  never two probes, or preview and export could pick different alphabets from the same project.
 - **ODOMETER IS DESIGNED, NOT BUILT — and it has a SCOPE QUESTION THAT IS THE USER'S.** Full design
   in `SPEC_TEXT_ANIMATION.md` ("ODOMETER — design"). Two findings from re-deriving it against the
   drawing loops, which is now the rule:

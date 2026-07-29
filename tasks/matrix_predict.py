@@ -23,7 +23,10 @@ TWO THINGS THAT WILL GIVE YOU A WRONG PREDICTION IF YOU DO NOT KNOW THEM:
 """
 import sys
 
-GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&@?"
+# Halfwidth katakana U+FF66..U+FF9D then the digits - mirrors CaptionAnimator.MATRIX_GLYPHS.
+# HALFWIDTH, not fullwidth: the renderer reuses the slot width it measured from the real
+# text, and a fullwidth katakana is ~2x a Latin advance, so it would paint outside its slot.
+GLYPHS = "".join(chr(c) for c in range(0xFF66, 0xFF9E)) + "0123456789"
 TICKS = 12
 M32 = 0xFFFFFFFF
 

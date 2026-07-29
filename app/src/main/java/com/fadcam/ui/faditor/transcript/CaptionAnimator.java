@@ -421,12 +421,60 @@ public final class CaptionAnimator {
     // ── Second output channel: WHICH CHARACTERS to draw ──────────────────────────────────────
 
     /**
-     * The alphabet MATRIX churns through. Deliberately plain ASCII: the caption fonts are user
-     * choosable and a katakana or box-drawing set would render as tofu in most of them, which
-     * would read as a bug rather than as an effect.
+     * The alphabet MATRIX churns through: <b>HALFWIDTH katakana plus digits</b> — the film's actual
+     * look, and the reason the film used halfwidth too.
+     *
+     * <p><b>This replaced a plain-ASCII set, whose stated reason turned out to be wrong.</b> The old
+     * comment said katakana "would render as tofu in most of" the caption fonts. It would not: all
+     * six families {@code CaptionStyle.typeface()} can return are SYSTEM families
+     * ({@code SANS_SERIF}, {@code SERIF}, {@code MONOSPACE}, {@code sans-serif-condensed/medium/
+     * light}), so they all resolve through Android's font-FALLBACK chain rather than through one
+     * file. Verified on the Note 9: {@code /system/fonts} carries {@code SECCJK-Regular.ttc} and
+     * {@code NotoSerifCJK-Regular.ttc}, and {@code fonts.xml} lists the latter with
+     * {@code fallbackFor="serif"} — so both the sans and the serif branches are covered. A custom
+     * asset font would have been the tofu risk; there is not one.
+     *
+     * <p><b>HALFWIDTH (U+FF66…U+FF9D) rather than fullwidth (U+30A2…) is load-bearing, not taste.</b>
+     * The layout-safety property in {@link #substituteUnit} is that the slot width was measured from
+     * the REAL text and is reused untouched. Fullwidth katakana are about twice the advance of a
+     * Latin letter, so they would paint well outside the slot they were given and collide with the
+     * next unit — length would be preserved while the ink stopped fitting. Halfwidth forms sit in
+     * the same column as Latin, which keeps that property honest.
+     *
+     * <p>The range deliberately stops at U+FF9D and excludes U+FF9E/U+FF9F, the halfwidth voiced and
+     * semi-voiced sound marks. Those are combining marks: they would attach to the preceding glyph
+     * instead of filling their own slot, which is precisely the reflow the same-length rule exists
+     * to prevent.
+     *
+     * <p>Built from a range of unicode ESCAPES rather than written out as literal katakana. That is
+     * not fussiness: the JVM harness compiles with the platform default encoding (windows-1252
+     * here) while the file is stored as UTF-8, so a literal non-ASCII character inside a CHAR OR
+     * STRING LITERAL decodes as several wrong characters and the build breaks. {@code
+     * SENTENCE_TRAILERS} already carries that scar. Escapes are resolved by the lexer before
+     * encoding matters, so they are immune.
+     *
+     * <p>Note the limit of that rule, since it is easy to over-apply — and this javadoc first got
+     * it wrong: the surrounding COMMENTS in this file are full of em dashes and have always
+     * compiled fine. Mojibake in a comment changes nothing. It is only LITERALS that must stay
+     * ASCII.
+     *
+     * <p><b>Known limit, stated rather than hidden:</b> a device with no CJK font in its fallback
+     * chain at all (a stripped or Go-edition ROM) would draw tofu. The digits are kept in the set
+     * partly so such a device still shows something recognisable. If that is ever reported, the fix
+     * is a {@code Paint.hasGlyph} probe in ONE shared helper called by both renderers — never two
+     * probes, or the preview and the export could pick different alphabets from the same project.
      */
-    private static final char[] MATRIX_GLYPHS =
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&@?".toCharArray();
+    private static final char[] MATRIX_GLYPHS = buildMatrixGlyphs();
+
+    private static char[] buildMatrixGlyphs() {
+        StringBuilder sb = new StringBuilder();
+        // U+FF66 HALFWIDTH KATAKANA LETTER WO .. U+FF9D HALFWIDTH KATAKANA LETTER N.
+        // Escapes, not literals: javac resolves them in the lexer regardless of file encoding, so
+        // the windows-1252 harness build reads the right characters.
+        for (char c = '\uFF66'; c <= '\uFF9D'; c++) sb.append(c);
+        sb.append("0123456789");
+        return sb.toString().toCharArray();
+    }
 
     /**
      * How many discrete churn steps a unit passes through across its zone. Quantising is not a

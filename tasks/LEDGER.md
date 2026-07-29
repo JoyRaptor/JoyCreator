@@ -243,10 +243,30 @@ giving text boxes a canvas renderer in preview, the way captions already have. T
 a flag. Recorded on `TextOverlayItem.textAnimGranularitySupported`.
 
 **Still owed on this half:** the `▶` `◀` carets. The user's stated instrument for text boxes is
-the carets, not a dialog row; they remain parked and uncalled in `EditorTimelineView`. What
-shipped is the preset picker plus a seeded zone, which makes the feature reachable at all — the
-alternative was an engine with no way in, which is precisely the §3a failure this ledger exists
-to prevent.
+the carets, not a dialog row. What shipped is the preset picker plus a seeded zone, which makes
+the feature reachable at all — the alternative was an engine with no way in, which is precisely
+the §3a failure this ledger exists to prevent.
+
+**Two corrections to what this ledger said about those carets, both found by reading the code
+2026-07-29 — they change the estimate, so do not plan off the old wording.**
+1. *"Parked, no caller"* was imprecise. `drawCaptionAnimHandles` **is** called every frame
+   (`EditorTimelineView:2376`) and `hitTestCaptionAnimHandle` is wired into the touch path. What
+   is dead is the **gate**: `captionAnimHandlesVisible` (`:832`) is initialised false and its only
+   setter (`:7366`) has **no caller anywhere in the app**. So the carets are one line from
+   drawing again — for a CLIP.
+2. **That is the trap.** The whole block is bound to MASTER-CLIP geometry: it draws into
+   `segRects.get(selectedIndex)`, and `selectedCaptionAnimClip()` reads
+   `segments.get(selectedIndex).clip` and demands `hasTranscript()`. A text box is not a master
+   segment — it is an item on a layer row, with its own rect and its own span. **Pointing these at
+   a text box is not re-pointing a target; it is a second geometry.** Budget it as new work that
+   borrows the marker drawing and the drag-commit discipline, not as flipping a flag.
+
+**The empty-overlay question from the previous entry is ANSWERED, by reading rather than
+assuming.** `showTextOverlayEditor`'s OK handler does `if (txt.trim().isEmpty()) { …
+removeTextOverlay(item) }`. The text box created during the device walk had no text, so it was
+deleted on OK and never reached the serializer — which is exactly why `project.json` held zero
+`textAnim` keys. **The serializer itself is therefore still unproven**, not contradicted. Redo the
+round-trip on a box that HAS text.
 
 **3g. Text animation presets — BUILT, AND NOW VALIDATED BY THE USER ON THE PHONE.**
 Spec: `SPEC_TEXT_ANIMATION.md`, kept current.

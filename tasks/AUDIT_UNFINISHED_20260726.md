@@ -459,8 +459,9 @@ missed twice. **VERIFIED-OPEN.**
 persistence reads as unwired) · `PLAN_LOOP_PINGPONG.md:110-121` (7 unchecked acceptances
 incl. export parity frame-compare; the failure drill was **attempted 0719 and ABORTED at
 ~90% staged** on human presence, recipe recorded, never re-run — failure mode is whole-player
-blackout) · `PLAN_LAYER_GESTURE_CONTRACT.md:136-138` (temp `ROWGESTURE` logging still to be
-stripped) · `feature-visualizer-studio-spec.md:128-170,186` (live-viz draw 4.5-6.25ms vs 4ms
+blackout) · ~~`PLAN_LAYER_GESTURE_CONTRACT.md:136-138` (temp `ROWGESTURE` logging still to be
+stripped)~~ **RESOLVED 2026-07-29 as KEEP — see the note below the list** ·
+`feature-visualizer-studio-spec.md:128-170,186` (live-viz draw 4.5-6.25ms vs 4ms
 budget; `VISUALIZER_STRIP_FRACTION` hardcoded) · `PLAN_G9_LINK_ENGINE.md:175,189,301,310` ·
 `GL_TRANSITIONS_HANDOFF_20260718.md:153` · `PERF_SPEC_LONGFILE_20260718.md:125` ·
 `LONGFILE_FEEDBACK_20260716.md:50,58,141-152` (ANR root-cause owed — evidence captured, never
@@ -469,6 +470,16 @@ diagnosed) · `FEEDBACK_20260620.md` (oldest, some may be stale) · `road_map.md
 video/master rows — not built, own lane) · `SPEC_PIP_AUDIO.md:114-126` (three deliberate
 gaps: preview plays at most ONE PiP's audio; no volume ENVELOPE on export; loop extension not
 reflected).
+
+**`ROWGESTURE` — RESOLVED 2026-07-29 as KEEP, and the item was asking for the wrong thing.**
+Verified against the code: `LayerGestureController.ROWGESTURE_DEBUG` is `false` (`:1031`) and
+every log site is gated behind it (`:895`, `:1037`, `:1042`), so the probe costs nothing when off.
+Its own comment already records it as deliberately "LEFT IN (marked TEMP)" for a
+device-in-the-loop hand-test. Stripping it would delete a re-enableable instrument from
+`LayerGestureController` — the exact subsystem LEDGER §2b's open, self-healing drag-latch bug
+lives in, a bug that has fired in the wild and never been caught. It belongs with the retained
+instruments (`SEEKRANGE`, `ENDEDNET`, `KFALIGN`, `PHDIAG`), not on a cleanup list.
+**Do not re-scope this as work.**
 
 **Do not "fix" the ~34 `TODO(strings)` markers** — `road_map.md:44-48` freezes them behind
 the rebrand / de-politicize decisions.

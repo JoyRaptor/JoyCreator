@@ -265,8 +265,36 @@ the §3a failure this ledger exists to prevent.
 assuming.** `showTextOverlayEditor`'s OK handler does `if (txt.trim().isEmpty()) { …
 removeTextOverlay(item) }`. The text box created during the device walk had no text, so it was
 deleted on OK and never reached the serializer — which is exactly why `project.json` held zero
-`textAnim` keys. **The serializer itself is therefore still unproven**, not contradicted. Redo the
-round-trip on a box that HAS text.
+`textAnim` keys.
+
+**THE SERIALIZER IS NOW PROVEN — 2026-07-29, Note 9, on a box that HAS text.** Done on
+`bb2a9deb`'s existing overlay (text `"LayerOne"`), against a build dex-scanned for
+`textAnimInPct` / `getTextAnimInPct` / `hasTextAnim` / `textAnimGranularitySupported` with
+`FadCamApplication` + `FaditorEditorActivity` + `ProjectStorage` as the positive control and
+`captionAnimInMs` / `maxUsefulZoneMs` as the freshness control (both absent).
+
+*Pass 1 — does it survive at all.* Injected all four keys with the editor closed, opened the
+project, closed it with Save. All four came back identical, **including `0.25` and `0.125`, chosen
+because they are exactly representable in binary float so any drift would be real loss rather than
+a formatting artifact**. Two independent controls prove the serializer actually RAN rather than
+the file merely being left alone: the md5 changed (`0ea99369…` → `12be9e36…`), and the four keys
+were injected INLINE on one line while the writer pretty-prints one key per line — a grep for the
+inline form went **1 → 0**, so every key was re-emitted by the writer.
+
+*Pass 2 — does it go through the MODEL, or only through Gson's tree?* Pass 1 cannot tell those
+apart, so: injected `textAnimInPct: 0.9` and `textAnimOutPct: -0.2`. After the round-trip the
+first came back **`0.5`** and the second was **ABSENT**. That is `clampTextZonePct` capping at 0.5
+and flooring at 0, plus the sparse writer omitting a zero — behaviour that exists only on
+`TextOverlayItem`, and that a JSON pass-through could not produce. **Read path, model, clamp,
+write path and sparse-omission are all proved in one shot.**
+
+The sandbox was left on supported values (preset FADE, 0.25/0.25, granularity BLOCK and therefore
+correctly omitted), re-opened once to confirm it still parses, with the clip's `captionAnim*` keys
+verified untouched. Note `project.json.bak` is the APP's own backup — it exists in other projects
+too. Do not "clean it up".
+
+**What this does NOT prove:** that the picker UI writes those fields. That is a separate claim
+with a separate path, and it is still open.
 
 **3g. Text animation presets — BUILT, AND NOW VALIDATED BY THE USER ON THE PHONE.**
 Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
@@ -276,9 +304,12 @@ Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
 
 That closes the question step 6 existed to answer. The large-amplitude frame was a proxy for
 "does this actually look right", and a human has now answered it directly, across all styles and
-both granularities — better evidence than the frame would have been. **What step 6 would still
-have told us and nobody has measured: whether LETTER granularity holds frame rate on a long
-phrase.** That is the cost centre (per-glyph layout in both paths) and it is still unmeasured.
+both granularities — better evidence than the frame would have been. ~~What step 6 would still
+have told us and nobody has measured: whether LETTER granularity holds frame rate.~~
+**MEASURED 2026-07-29 — LETTER holds frame rate. See the table further down this section; the
+numbers are there and they are not repeated here.** This sentence is struck rather than deleted
+because an earlier revision left it standing while the table below already said the opposite, and
+a file that contradicts itself is worse than one that is merely out of date.
 
 **THE TIMING MODEL IS BEING REPLACED — user direction, 2026-07-29. Binding.**
 The animation itself stays. How it is authored changes, because captions and text boxes turn out

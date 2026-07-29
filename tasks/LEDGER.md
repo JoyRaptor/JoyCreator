@@ -648,7 +648,49 @@ entrance without hunting.
 - **Presets compose with `CaptionStyle.Anim`, they do not replace it.** POP/ZOOM/BOUNCE sit at
   1.15× at rest (an active-word emphasis, not an entrance), so merging the vocabularies would
   silently restyle every existing captioned project.
-- **Five presets are declared but NOT implemented** — MATRIX, UNSCRAMBLE, ODOMETER (glyph
+- **MATRIX IS BUILT AND SHIPPED — `c85a7c5`, 2026-07-30.** First of the five, in the order the user
+  set. Its blocker was expressiveness, not difficulty: a `Transform` is geometry and alpha, and
+  MATRIX animates WHICH CHARACTER is drawn, which no scale/offset/opacity expresses. So it needed a
+  **second output channel**, `CaptionAnimator.substituteUnit`. MATRIX leaves geometry and alpha at
+  identity on purpose, which is why flipping `implemented=true` needed no new `presetTransform`
+  case — the identity return was already correct.
+  Three load-bearing properties, each pinned by a test rather than asserted:
+  **determinism** (a pure function of unit index / char position / tick, with a hand-rolled integer
+  mix rather than `java.util.Random`, because `Math.random()` per frame would make the preview and
+  the export draw different characters from one project — the §3g divergence in a form no
+  preview frame-diff could catch); **layout safety** (the returned string is always the same LENGTH,
+  and both renderers already measured the slot from the REAL text, so substitution cannot reflow a
+  line); and **quantisation** into 12 ticks, which makes substitution MORE robust than alpha across
+  the preview/export sampling difference — pinned with a control asserting alpha over the same
+  interval really does differ, so the comparison is not vacuous.
+  Wired at **four** symmetric call sites: `CaptionOverlayView` + `CaptionExportRenderer` (captions),
+  and `TextOverlayLayer` + `CompositeExportOverlay` (text boxes, via `textBoxTextAt` /
+  `textBoxProgressAt`). Both text-box surfaces already refreshed their string per frame for TIMERS,
+  so MATRIX reuses that hook. Doing the text box mattered — omitting it would have shipped a tile
+  that does nothing on one of the two object types the picker serves. The picker TILE drives the
+  substitution channel too, or MATRIX would have rendered as three static "A"s.
+  **Proof:** harness **168 → 192** checks, 0 failed (before/after measured by stashing, because the
+  count written here previously — 160 — was stale). On the Note 9: a **seventh tile appeared where
+  the previous build had six**, a behavioural freshness proof no symbol scan can fake; its temporal
+  sd over a 12-frame burst is **7.82**, the highest of any tile (Type 4.32) with NONE at exactly
+  0.00 as the control; two sampled frames read **"A A I"** and **"N N 6"**. Its mean-luminance range
+  is LOWER than Type's (3.61 vs 6.28) while spatial variance is higher — the signature substitution
+  should have and no alpha preset can produce: the ink changes without the amount of ink changing.
+  Caption path confirmed to disk: picking MATRIX and dragging In to 50% in the drawer persisted as
+  `"captionAnimPreset": "MATRIX"`, `"captionAnimInPct": 0.5` on the clip.
+  **NOT captured: a screenshot of captions mid-scramble during playback.** With WORD granularity a
+  word's scramble window is only ~200ms (zone/(n+1) staggered), so ~0.4s screencaps miss it by
+  luck, and future words are not drawn at all (phrase windowing), so there is nothing to scramble
+  ahead of the playhead. The intended method was BLOCK granularity, where the whole line churns for
+  half its duration — abandoned mid-sequence when the phone auto-rotated (see the device note
+  below), not because it failed. The model and disk paths ARE proven; only the photograph is
+  missing.
+  **An instrument that lied, worth knowing:** the freshness scan for the deleted string
+  `"needs glyph substitution"` came back PRESENT, which reads as a stale dex. It is not — ODOMETER's
+  blocker is `"needs glyph substitution and a per-slot roll clip"` and CONTAINS it as a substring.
+  Substring collisions make deleted-string controls unreliable; prefer a deleted SYMBOL, or verify
+  the collision before concluding.
+- **Four presets remain declared but NOT implemented** — UNSCRAMBLE, ODOMETER (glyph
   substitution / positional scatter), MASK_WIPE (a clip rect), NEON_FLICKER (stroke/glow). Each
   names its blocker in `CaptionAnimator.unsupportedReason` and returns identity, never an
   approximation. The picker must filter on `Preset.implemented`.

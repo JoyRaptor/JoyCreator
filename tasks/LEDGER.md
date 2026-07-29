@@ -34,6 +34,7 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 | `ENDED` with clips still ahead parked forever instead of advancing (§2a layer ii) | `d3e3a63` | Net added + its recovery action proved with a temporary switch (advanced `sel=2 → 3`, playback continued); it also fired on a real park at the last clip. See the caveat below. |
 | A clip serving as another's luma matte still rendered as a normal PiP in the PREVIEW, and — worse, because it survived into the exported file — still contributed its AUDIO to the export while its picture was hidden (the two §3a divergences) | see §3a | New `MatteVisibilityTest`, **14 checks against the REAL model classes** (not stubs), `bash tools/jvm-harness/run-matte.sh`. It pins both sides: the peer is still in `visibleOverlayVideoClips` (the export video path resolves peers out of that list) and is NOT in the new `renderableOverlayVideoClips`, including the case where it is opted into audio and unmuted — i.e. it would be audible on its own terms and is excluded before that question is ever asked. Dex-scanned for `renderableOverlayVideoClips` + `servingMatteClipIds`, with `FadCamApplication` and `FaditorEditorActivity` as the positive control |
 | Lane mute icon: drawn on lanes with no audio, fake speaker glyph, stranded 62dp from the caret (§3b) | `a19ee53` | Screenshots: layer lanes now draw a caret only; audio lanes a real `volume_up`, red crossed `volume_off` when muted. `undo_count` unchanged (3) across taps where the glyph sits on no-audio lanes; 3 → 4 → 5 on an audio lane. Gutter 92dp → 34.4dp |
+| §3g text-box motion was UNVERIFIED end to end — the serializer was proved but nothing showed the PICKER actually reaching `TextOverlayItem` (§3g) | see §3g | Note 9, `bb2a9deb`, baseline **zero** `textAnim` keys so no leftover could masquerade as success; picked **RISE** because nothing on disk had held it. Three levels agreed: the dialog's MOTION row read **"Rise · 25% in / 0% out of this box"** (25% = `MAX_ZONE_PCT/2`, the seed, so the label reports the model not the tap); the text **vanished from the preview at t=0**, which is RISE at progress 0 — the renderer consuming the new fields; and after Close & Save the disk held `"textAnimPreset":"RISE"` + `"textAnimInPct":0.25`. Controls: a full-file `diff` shows the keys on **exactly one** overlay and none of the other five (not blanket defaults); the same diff shows `"Enter text"` → `"PICKERTEST"`, an independent signal that OK committed, so a missing key could not be blamed on the dialog failing; a no-edit reopen + re-save returned both keys unchanged (full round-trip); undo 17 → 19; and "Animate by" offered only `Block`, i.e. `36a8e3c`'s gate working. `textAnimGranularity`/`textAnimOutPct` correctly ABSENT (default + sparse-omit) |
 | The §3g preset tiles were static poses, so a preset's ease could not be seen at all — three glyphs frozen at progress {0, 0.5, 1} (§3g) | `4a1ea41` | 16-frame burst on the real picker in `bb2a9deb`. **Per-tile temporal sd: Type 4.08, Fade 3.92, Rise 6.90, Ghost 7.21, Beam 6.84 — and NONE exactly 0.00.** NONE is the built-in control: it is deliberately left static, so a zero there proves the instrument reads the TILES and not the clock, the timeline or global screen noise. Before, all frames were byte-identical, i.e. 0.00 everywhere. Character is proved too: sampled ink shows TYPEWRITER quantised to 3 discrete values (44.96 / 48.10 / 51.24, one per glyph) while FADE sweeps continuously (41.96 → 51.22) — step vs ramp, exactly what a frozen tile could not express. Removing the 600ms hold (span = 2 × zone) roughly halved the frames where a pair is indistinguishable: Type/Fade 8/16 → 6/16, Rise/Beam 5/16 → 3/16, Type/Ghost 6/16 → 2/16. Freshness control: `javap -constants` shows `TILE_SPAN_MS = 1800` (the old 2400 would survive a stale compile) and the dex has `drawUnits` PRESENT with the deleted `drawSamples` ABSENT, `FadCamApplication` present as the partial-dex control. **Caveat, deliberately not swept under: the FREEZE-FRAME half is not fixed — see §3g outstanding item 1.** |
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
@@ -293,24 +294,82 @@ correctly omitted), re-opened once to confirm it still parses, with the clip's `
 verified untouched. Note `project.json.bak` is the APP's own backup — it exists in other projects
 too. Do not "clean it up".
 
-**What this does NOT prove:** that the picker UI writes those fields. That is a separate claim
-with a separate path, and it is **STILL OPEN — attempted 2026-07-29 and not reached.** The MOTION
-row itself was SEEN (a screenshot of the "Edit text" dialog shows `MOTION` / `≡A` / state "None"),
-so the entry point exists and renders. What defeated the attempt was getting back INTO that dialog
-for an existing box. Recorded so the next session does not re-derive it:
+**THE PICKER UI IS NOW PROVEN TOO — 2026-07-29, Note 9, `bb2a9deb`. §3g's last open claim is
+closed.** Baseline: the project held **zero** `textAnim` keys, so any key that appeared was written
+by the UI and could not be a leftover masquerading as success. Picked **RISE** specifically because
+nothing on disk had ever held it.
 
+Three independent levels agreed, in order:
+1. **UI label** — the dialog's MOTION row went `None` → **"Rise · 25% in / 0% out of this box"**.
+   25% is `MAX_ZONE_PCT / 2`, the seed `applyTextOverlayAnim` plants when both zones are 0, so the
+   label is reporting the seeded model rather than echoing the tap.
+2. **Preview render** — the text **disappeared** from the preview at t=0. That is not a glitch: the
+   box starts at 0 with a 25% entrance, so progress at t=0 is 0 and RISE draws nothing. The preview
+   renderer is consuming the fields the picker just wrote.
+3. **Disk** — after Close & Save: `"textAnimPreset": "RISE"`, `"textAnimInPct": 0.25`, on overlay
+   `0325f262` and **on no other overlay**. `textAnimGranularity` and `textAnimOutPct` are correctly
+   ABSENT (BLOCK is the default, 0 is sparse-omitted) — matching the serializer proof exactly.
+
+Controls that make the above mean something:
+- **Targeted, not blanket.** A full `diff` of the whole file shows the two keys on exactly one
+  overlay. The other five text overlays gained nothing, so this is not the writer emitting defaults
+  everywhere.
+- **OK really committed.** The box's text went `"Enter text"` → `"PICKERTEST"` in the same save, an
+  independent signal in the same diff — so a missing `textAnim` key could not have been blamed on
+  the dialog silently failing.
+- **Round-trip.** Re-opened and re-saved with no edits: both keys came back unchanged. Picker →
+  model → disk → read → model → disk is now closed end to end.
+- Undo count moved 17 → 19 (one step for the animation, one for the text), consistent with
+  `applyTextOverlayAnim` recording an undo action.
+- **"Animate by" offered ONLY `Block`**, which is `36a8e3c`'s supported-set gate working on the
+  text-box path — visible in the same screenshot.
+
+**The route in, since the last attempt could not find it.** Long-press the overlay **in the
+PREVIEW**, not on the timeline chip — that is `onOverlayHeld` (`:16327`), which opens the object
+menu sheet directly. The sheet opens in PEEK; drag its handle up to EXPAND, scroll the action list
+to the bottom, and **"More…"** is the last entry. The previous session's "long-press gives an
+Opacity `◀ ◇ ▶` bar" was the *timeline chip* — a different gesture on a different target, which is
+why it looked like a dead end.
+
+**A TRAP that will delete your subject if you do not know it** (`:19458`):
+```java
+input.setHint(R.string.faditor_text_hint);
+if (!getString(R.string.faditor_text_hint).equals(item.getText())) { input.setText(item.getText()); }
+```
+A box whose text is **exactly** the hint (`"Enter text"`) opens with an **EMPTY** field. The OK
+handler deletes empty boxes (`txt.trim().isEmpty() → removeTextOverlay`). So tapping OK on an
+untouched "Enter text" box **destroys it** and writes nothing — a false negative that also removes
+the evidence. Type real text before OK. This also retires the older puzzle about empty overlays:
+the placeholder-equals-hint case is why they appear and vanish.
+
+**Navigation was NOT needed and the earlier note was wrong about why.** A handoff said the stray
+boxes "sit at ~0–5s". They do not: `9d7fef2b` has `startMs` **2305843009213693951** (= 2^61−1) and
+`15053d1e` runs 25117–42588. What made the test possible is that `0325f262` has **no** `startMs`
+or `endMs` on disk, and the defaults are `startMs = 0`, `endMs = Long.MAX_VALUE` — so it is visible
+across the ENTIRE project, including t=0, and at t=0 it is the ONLY overlay visible (every other
+one starts at 6s+). Selection was therefore unambiguous without solving the 20s-reach problem.
+**Read the defaults, don't hunt the timeline.**
+
+Still true and still costly (unchanged from the last attempt):
 - **`showTextOverlayEditor` has two reachable callers**: `onItemDoubleTapped` on a LAYER-ROW item
   (`:12409`) and the object menu's "More…" (`:18110`, non-image overlays only).
-- **A scripted double-tap on the timeline chip SEEKS instead of opening the editor** — two
-  `input tap`s in one shell are apparently too fast, or land on the row rather than the item.
-  Long-press gives an Opacity `◀ ◇ ▶` keyframe bar, not the editor. Try the object menu's
-  "More…", or double-tap on the layer item with an explicit ~150ms gap.
+- **A scripted double-tap on the timeline chip SEEKS instead of opening the editor.**
 - **The `Text` toolbar button CREATES a new overlay on every tap** — it is not "open the selected
   box". Its default text is `"Enter text"`, which is NON-EMPTY, so those boxes persist.
 - **Timeline navigation facts that cost time:** the minimap is **CLIP-scoped, not project-scoped**
   (tapping it seeks within the selected clip, ~5s wide, not across the 30s project); the ruler
   strip does **not** scroll horizontally; and tapping the `00:0X.XXX` time chip does **not** open a
-  jump-to-time dialog on this build. Reaching an object at 20s is therefore not yet solved.
+  jump-to-time dialog on this build. Reaching an object at 20s is therefore still not solved.
+
+**DIFF NOISE YOU MUST EXPECT in `project.json`, or you will misread your own experiment.** All
+three `audioClips` ids are **regenerated on every save**, together with the `items[].id` and
+`items[].payloadId` that reference them. Proved to be unconditional by an open → change NOTHING →
+Close & Save cycle, which churned all three again. So id changes in a diff are background noise,
+not something your edit did. **Not filed as a bug:** the rewrite is self-consistent, and the one
+cross-reference that could have broken (`audioSourceRef` on the waveform overlays) resolved to no
+`audioClip` id **before** the churn either (0 of 2 in the baseline, 0 of 2 after) — it points at
+something else entirely. Worth understanding properly if the visualizer ever loses its source, but
+there is no measured breakage to claim today.
 
 **A correction to the previous entry's inference.** "The empty box was deleted on OK" is not
 universally true: `bb2a9deb` currently holds **two overlays with `"text": ""`** that survived
@@ -569,20 +628,26 @@ entrance without hunting.
   mattered, and they do.
 
 **STILL OUTSTANDING FOR §3g — the honest short list, 2026-07-29:**
-1. **The six preset tiles: the tiles now animate (`4a1ea41`, see §1) but a FREEZE FRAME still
-   cannot separate Type from Fade.** The static-poses half is fixed and measured. What remains
-   is that at any single instant Type vs Fade differ by only **~3.0–3.7 mean / ~4%** of pixels,
-   against **33.90 / 98.5%** for the None-vs-Type control on the same instrument. So the two are
-   now distinguishable *by watching* — Type pops each glyph in at full opacity, Fade ramps it —
-   and still not distinguishable *from a photograph*. **This is a user call, not an engineering
-   one:** accept motion-only distinction, or give the tiles more than 60dp. Do not "fix" it by
-   giving a tile a decorative cue the renderers do not produce — that invariant is the whole
-   reason the tiles are drawn from the evaluator.
+1. ~~The six preset tiles / freeze-frame distinction.~~ **CLOSED — not by engineering, by the
+   user's decision. See §4.** The tiles animate (`4a1ea41`); the freeze-frame gap (~3.0–3.7 mean /
+   ~4% Type-vs-Fade against 33.90 / 98.5% for the None-vs-Type control) is real and is ACCEPTED as
+   motion-only. Kept struck-through rather than deleted because the numbers are the reason the
+   decision was a decision. Do not reopen it by giving a tile a decorative cue the renderers do not
+   produce — that invariant is the whole reason the tiles are drawn from the evaluator.
 2. **The text-box half of the user's direction** — see the BUILD note above. Carets are parked
-   waiting for it.
+   waiting for it. **This is now the largest open piece of §3g**, and the two corrections above
+   (`drawCaptionAnimHandles` is called every frame; the dead thing is the gate; and the whole block
+   is bound to MASTER-CLIP geometry) mean it is a SECOND GEOMETRY, not a re-pointed target.
 3. **The export path's frame cost is unmeasured.** The LETTER result above is the PREVIEW only.
 4. **Baseline editor jank is 33.7%** during playback and is NOT caused by §3g (identical in both
    arms). Recorded here because it was measured here, not because it belongs to §3g.
+5. **An unreachable text overlay exists in the sandbox and nothing can select it.** `9d7fef2b` in
+   `bb2a9deb` carries `startMs` = **2305843009213693951** (= 2^61 − 1) with no `endMs`. It is
+   therefore never visible at any playhead position, so no preview long-press and no timeline chip
+   can reach it — it cannot be edited or deleted through the UI at all. Found while picking a
+   subject for the picker test, NOT diagnosed: where that value comes from is unknown, and it may
+   be sandbox-only damage from an earlier probe rather than a live defect. Do not spend a session
+   on it without first checking whether any code path can still produce it.
 
 **Test-project state after this session** — `bb2a9deb` "P0 control no image" now sorts to the TOP
 of Recent Projects (its `lastModified` is the newest), NOT second from the bottom as an earlier

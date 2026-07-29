@@ -344,6 +344,35 @@ public final class CaptionAnimator {
         return presetTransform(preset, p, fontPx);
     }
 
+    /**
+     * The whole-body transform for a TEXT BOX at {@code mediaMs} — one call, from the four
+     * values the box stores to the transform both renderers apply.
+     *
+     * <p>This exists so the preview (which transforms a {@code TextView}) and the export (which
+     * transforms a rasterised {@code Bitmap}) cannot drift: they are two very different drawing
+     * surfaces, and the ONLY thing keeping them agreeing is that neither computes anything. Both
+     * call this and apply the result. The original §3g defect was exactly two implementations of
+     * the same animation, so this is the rule that stops it recurring on the text-box side.</p>
+     *
+     * <p>BLOCK by construction — {@code unitCount = 1}, so there is no stagger and no per-unit
+     * index. See {@code TextOverlayItem.textAnimGranularitySupported} for why a text box gets
+     * only that granularity today.</p>
+     *
+     * @param spanMs the box's own visible span, already resolved against the timeline for an
+     *               open-ended overlay ({@code TextOverlayItem.animSpanMs}). 0 ⇒ identity.
+     */
+    @NonNull
+    public static Transform textBoxTransformAt(@NonNull Preset preset, long mediaMs,
+                                               long startMs, long spanMs,
+                                               float inPct, float outPct, float fontPx) {
+        if (spanMs <= 0L) return new Transform();
+        long inZone = zoneForSpan(inPct, spanMs);
+        long outZone = zoneForSpan(outPct, spanMs);
+        if (inZone <= 0L && outZone <= 0L) return new Transform();
+        return presetTransformAt(preset, mediaMs, startMs, startMs + spanMs,
+                inZone, outZone, 0, 1, fontPx);
+    }
+
     // ── Unit splitting ───────────────────────────────────────────────────────────────────────
 
     /**

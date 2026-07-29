@@ -207,8 +207,26 @@ public class TextOverlayLayer extends FrameLayout {
         // While the user is dragging/scaling this overlay, follow the finger
         // (static transform) rather than the keyframed value at the playhead.
         boolean live = o == manipulating;
+        float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
+
+        // Entrance/exit animation, composed OVER the keyframed values rather than replacing
+        // them — alpha multiplies, scale multiplies, translation adds. A user who keyframed
+        // opacity and then picked an entrance gets both, which is the "compose, don't replace"
+        // constraint in SPEC_TEXT_ANIMATION. Suppressed while the finger is down, for the same
+        // reason the keyframes are: during a drag the object follows the finger, not the tape.
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim = live
+                ? new com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform()
+                : com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
+                        com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                .parsePreset(o.getTextAnimPreset()),
+                        currentTimeMs, o.getStartMs(),
+                        o.animSpanMs(callback.getProjectDurationMs()),
+                        o.getTextAnimInPct(), o.getTextAnimOutPct(),
+                        sizeFraction * r.height());
+
         view.setAlpha(live ? 1f
-                : Math.max(0f, Math.min(1f, o.animatedOpacity(currentTimeMs))));
+                : Math.max(0f, Math.min(1f,
+                        o.animatedOpacity(currentTimeMs) * anim.alpha)));
 
         if (o.isGeneratedSlide()
                 && view instanceof com.fadcam.ui.faditor.slides.GeneratedSlideView) {
@@ -226,7 +244,6 @@ public class TextOverlayLayer extends FrameLayout {
             return;
         }
 
-        float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
         int w, h;
         if (o.isImage() && view instanceof ImageView) {
             // Height = fraction of video height; width derived from image aspect.
@@ -259,6 +276,13 @@ public class TextOverlayLayer extends FrameLayout {
         lp.topMargin = Math.round(cy - h / 2f);
         view.setLayoutParams(lp);
         view.setRotation(live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs));
+        // Always written, never skipped when the animation is off: these are VIEW properties on
+        // a recycled view, so leaving them alone would strand the last frame's scale/offset on
+        // an overlay whose preset was just set back to NONE. Identity is 1/1/0/0.
+        view.setScaleX(anim.scaleX);
+        view.setScaleY(anim.scaleY);
+        view.setTranslationX(anim.dx);
+        view.setTranslationY(anim.dy);
     }
 
     private void attachGestures(@NonNull View tv, @NonNull TextOverlayItem o) {

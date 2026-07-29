@@ -1967,6 +1967,21 @@ public class ProjectStorage {
                 if (!"default".equals(o.getFontFamily())) {
                     oJson.addProperty("fontFamily", o.getFontFamily());
                 }
+                // Entrance/exit animation (SPEC_TEXT_ANIMATION, text-box half). Sparse, like
+                // the clip's caption zones: an overlay that was never animated writes nothing
+                // and stays byte-identical to how every existing project already serialises it.
+                if (!"NONE".equals(o.getTextAnimPreset())) {
+                    oJson.addProperty("textAnimPreset", o.getTextAnimPreset());
+                }
+                if (!"BLOCK".equals(o.getTextAnimGranularity())) {
+                    oJson.addProperty("textAnimGranularity", o.getTextAnimGranularity());
+                }
+                if (o.getTextAnimInPct() != 0f) {
+                    oJson.addProperty("textAnimInPct", o.getTextAnimInPct());
+                }
+                if (o.getTextAnimOutPct() != 0f) {
+                    oJson.addProperty("textAnimOutPct", o.getTextAnimOutPct());
+                }
                 if (o.getImageUri() != null) {
                     oJson.addProperty("imageUri", toStorageUri(projectDir, o.getImageUri()));
                 }
@@ -2540,6 +2555,22 @@ public class ProjectStorage {
                         long endMs = hasValue(oObj, "endMs")
                                 ? oObj.get("endMs").getAsLong() : Long.MAX_VALUE;
                         o.setTimeRange(startMs, endMs);
+                        // Entrance/exit animation. Guarded reads with the model's own defaults,
+                        // so a project written before this existed loads as NONE/BLOCK/0/0 — the
+                        // off state — rather than needing a migration.
+                        if (hasValue(oObj, "textAnimPreset")) {
+                            o.setTextAnimPreset(oObj.get("textAnimPreset").getAsString());
+                        }
+                        if (hasValue(oObj, "textAnimGranularity")) {
+                            o.setTextAnimGranularity(oObj.get("textAnimGranularity").getAsString());
+                        }
+                        if (hasValue(oObj, "textAnimInPct") || hasValue(oObj, "textAnimOutPct")) {
+                            o.setTextAnimZonePct(
+                                    hasValue(oObj, "textAnimInPct")
+                                            ? oObj.get("textAnimInPct").getAsFloat() : 0f,
+                                    hasValue(oObj, "textAnimOutPct")
+                                            ? oObj.get("textAnimOutPct").getAsFloat() : 0f);
+                        }
                         if (hasValue(oObj, "strokeColorInt")) o.setStrokeColorInt(oObj.get("strokeColorInt").getAsInt());
                         if (hasValue(oObj, "strokeWidthPx")) o.setStrokeWidthPx(oObj.get("strokeWidthPx").getAsFloat());
                         if (hasValue(oObj, "shadowColorInt")) o.setShadowColorInt(oObj.get("shadowColorInt").getAsInt());

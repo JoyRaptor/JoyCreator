@@ -89,6 +89,31 @@ public class TextOverlayItem {
     private long startMs = 0;
     private long endMs = Long.MAX_VALUE;
 
+    // ── Entrance / exit animation (SPEC_TEXT_ANIMATION, text-box half) ───────────────
+    //
+    // The same four values a captioned Clip carries, evaluated by the same
+    // CaptionAnimator. A text box is the EASY case of the user's model: captions had to
+    // invent a "line" because a clip holds many phrases, while a text box IS one line —
+    // its own startMs…endMs span. So the carets he asked for map here directly, and this
+    // is the object he reserved them for.
+
+    /** {@code CaptionAnimator.Preset} name. "NONE" = no entrance/exit. */
+    @NonNull
+    private String textAnimPreset = "NONE";
+
+    /**
+     * {@code CaptionAnimator.Granularity} name. **BLOCK is the only honest value here —
+     * see {@link #textAnimGranularitySupported}.**
+     */
+    @NonNull
+    private String textAnimGranularity = "BLOCK";
+
+    /** Entrance zone as a fraction of this box's own visible span, 0…0.5. */
+    private float textAnimInPct = 0f;
+
+    /** Exit zone, same units. */
+    private float textAnimOutPct = 0f;
+
     /**
      * Persistent home for WHICH layer track this item belongs to (M10; PLAN Part 7
      * row M10 track-membership design). {@code null} = the default/auto-migrated
@@ -314,6 +339,92 @@ public class TextOverlayItem {
 
     public long getStartMs() { return startMs; }
     public long getEndMs() { return endMs; }
+
+    // ── Entrance / exit animation ───────────────────────────────────────────────────
+
+    @NonNull
+    public String getTextAnimPreset() { return textAnimPreset; }
+
+    public void setTextAnimPreset(@NonNull String presetName) {
+        this.textAnimPreset = presetName;
+    }
+
+    @NonNull
+    public String getTextAnimGranularity() { return textAnimGranularity; }
+
+    public void setTextAnimGranularity(@NonNull String granularityName) {
+        this.textAnimGranularity = granularityName;
+    }
+
+    public float getTextAnimInPct() { return textAnimInPct; }
+
+    public float getTextAnimOutPct() { return textAnimOutPct; }
+
+    /** True when either zone would animate anything. */
+    public boolean hasTextAnim() { return textAnimInPct > 0f || textAnimOutPct > 0f; }
+
+    /**
+     * Set both zones at once, each 0…0.5 of this box's visible span.
+     *
+     * <p>One setter, because the constraint is on their SUM — the same funnel rule the
+     * caption zones use, so the picker, a caret drag and an AI edit all inherit the clamp
+     * rather than each remembering it. At 0.5/0.5 the entrance ends exactly where the exit
+     * begins, which is the user's stated model and holds at every span length because the
+     * zones are fractions.</p>
+     *
+     * <p>Excess comes off the EXIT zone: one control moves at a time, and the one being
+     * moved keeps the value that was asked for.</p>
+     */
+    public void setTextAnimZonePct(float inPct, float outPct) {
+        float in = clampTextZonePct(inPct);
+        float out = clampTextZonePct(outPct);
+        if (in + out > 1f) out = 1f - in;
+        this.textAnimInPct = in;
+        this.textAnimOutPct = out;
+    }
+
+    private static float clampTextZonePct(float v) {
+        if (Float.isNaN(v)) return 0f;
+        return Math.max(0f, Math.min(0.5f, v));
+    }
+
+    /**
+     * The span the zones are fractions OF, resolved against the timeline.
+     *
+     * <p>{@link #endMs} defaults to {@code Long.MAX_VALUE} ("to the end"), and a fraction of
+     * an unbounded span is not a duration — it would overflow before it animated. So an open
+     * end resolves to the timeline's total, which is what "to the end" already means
+     * everywhere else. Returns 0 when there is nothing to animate over, and every caller
+     * treats 0 as "no animation" rather than dividing by it.</p>
+     */
+    public long animSpanMs(long timelineDurationMs) {
+        long end = (endMs == Long.MAX_VALUE || endMs <= 0) ? timelineDurationMs : endMs;
+        return Math.max(0L, end - startMs);
+    }
+
+    /**
+     * Whether a granularity can actually be honoured for a TEXT BOX.
+     *
+     * <p><b>BLOCK only, and this is a real constraint rather than an unfinished switch.</b>
+     * The preview draws a text overlay as an Android {@code TextView}
+     * ({@code TextOverlayLayer}), which can transform the whole view — alpha, scale,
+     * translation, rotation — but <i>cannot transform individual characters</i>. The export
+     * draws the same overlay with {@code canvas.drawText} ({@code TextOverlayRenderer}),
+     * where per-glyph work IS reachable.</p>
+     *
+     * <p>So offering WORD or LETTER here would animate per-unit in the exported file and
+     * animate the whole body on screen — a preview/export divergence in the one place this
+     * project has been burned by it repeatedly, and invisible until someone watches a
+     * finished export. Whole-body transforms are expressible on BOTH sides identically, so
+     * BLOCK is offered and the rest are not, exactly as {@code Preset.implemented} gates the
+     * five presets that would otherwise be tiles that do nothing.</p>
+     *
+     * <p>Lifting this means giving text boxes a canvas renderer in preview, the way captions
+     * already have. That is a real piece of work, not a flag.</p>
+     */
+    public static boolean textAnimGranularitySupported(@NonNull String granularityName) {
+        return "BLOCK".equals(granularityName);
+    }
 
     public void setTimeRange(long startMs, long endMs) {
         this.startMs = Math.max(0, startMs);

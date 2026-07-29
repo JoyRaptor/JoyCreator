@@ -75,6 +75,7 @@ public class CaptionAnimatorTest {
         unitSplitting();
         phraseUnits();
         caretMapping();
+        textBoxWholeBody();
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
@@ -529,5 +530,82 @@ public class CaptionAnimatorTest {
         ok("both controls at full travel: entrance ends where the exit begins, "
                 + "at EVERY line length (to the odd millisecond)", meetsEverywhere);
         ok("and the two zones never exceed the line, at any length", neverExceeds);
+    }
+
+    // ── The TEXT BOX half: one body, its own span ────────────────────────────────────────────
+
+    /**
+     * {@code textBoxTransformAt} is the single call BOTH text-box renderers make — the preview
+     * transforming a TextView and the export transforming a rasterised Bitmap. They share no
+     * drawing code at all, so the only thing keeping them agreeing is that neither computes
+     * anything itself. These pin what that one call promises.
+     */
+    static void textBoxWholeBody() {
+        final float FONT = 100f;
+        final CaptionAnimator.Preset FADE = CaptionAnimator.Preset.FADE;
+
+        // 1. Zones at zero is the off state — identity at every point of the span, so an
+        //    overlay that was never animated draws exactly as it always did.
+        boolean identityThroughout = true;
+        for (long t = 0; t <= 2000; t += 50) {
+            CaptionAnimator.Transform tr =
+                    CaptionAnimator.textBoxTransformAt(FADE, t, 0L, 2000L, 0f, 0f, FONT);
+            if (tr.alpha != 1f || tr.scaleX != 1f || tr.scaleY != 1f
+                    || tr.dx != 0f || tr.dy != 0f) identityThroughout = false;
+        }
+        ok("text box with no zones is identity at every time (the off state)", identityThroughout);
+
+        // 2. An UNRESOLVED span is identity rather than a divide-by-zero. endMs defaults to
+        //    Long.MAX_VALUE ("to the end"), and animSpanMs resolves it — but a zero-length or
+        //    not-yet-laid-out overlay must not animate rather than must not crash.
+        CaptionAnimator.Transform zeroSpan =
+                CaptionAnimator.textBoxTransformAt(FADE, 500L, 0L, 0L, 0.5f, 0.5f, FONT);
+        ok("a zero-length span is identity, not a division", zeroSpan.alpha == 1f);
+
+        // 3. THE HEADLINE PROPERTY, and the reason the user asked for fractions: the same two
+        //    numbers produce the same animation on a half-second title and a five-minute one.
+        //    Sampled at the same FRACTION of each span, the transforms must match. This is what
+        //    "set it once and it means the same thing on every line" actually asserts.
+        boolean scaleInvariant = true;
+        long[] spans = { 400L, 2_000L, 30_000L, 300_000L };
+        for (float f = 0f; f <= 1f; f += 0.05f) {
+            Float reference = null;
+            for (long span : spans) {
+                long t = (long) (span * f);
+                CaptionAnimator.Transform tr = CaptionAnimator.textBoxTransformAt(
+                        FADE, t, 0L, span, 0.25f, 0.25f, FONT);
+                if (reference == null) reference = tr.alpha;
+                // Tolerance is millisecond quantisation, not slack: t and the zone edges are
+                // both rounded to whole ms, so a 400ms span samples the ease more coarsely
+                // than a 300s one.
+                else if (Math.abs(reference - tr.alpha) > 0.02f) scaleInvariant = false;
+            }
+        }
+        ok("the SAME fractions animate identically on a 0.4s and a 300s text box "
+                + "(what makes one setting work for a whole video)", scaleInvariant);
+
+        // 4. Positive control on that sweep: it is not passing because everything is 1. A
+        //    quarter-in / quarter-out FADE must really be part-way transparent early on.
+        CaptionAnimator.Transform early =
+                CaptionAnimator.textBoxTransformAt(FADE, 100L, 0L, 2000L, 0.25f, 0.25f, FONT);
+        CaptionAnimator.Transform mid =
+                CaptionAnimator.textBoxTransformAt(FADE, 1000L, 0L, 2000L, 0.25f, 0.25f, FONT);
+        ok("control: the same settings really do animate (early alpha < 1)", early.alpha < 1f);
+        ok("control: and reach full presence between the zones", mid.alpha == 1f);
+
+        // 5. The user's model at full travel: fully arrived exactly at the midpoint, and on its
+        //    way out immediately after. Checked on the transform, not on the zone arithmetic.
+        CaptionAnimator.Transform atMid =
+                CaptionAnimator.textBoxTransformAt(FADE, 1000L, 0L, 2000L, 0.5f, 0.5f, FONT);
+        CaptionAnimator.Transform afterMid =
+                CaptionAnimator.textBoxTransformAt(FADE, 1600L, 0L, 2000L, 0.5f, 0.5f, FONT);
+        ok("both zones at full: arrived at the midpoint", atMid.alpha > 0.99f);
+        ok("both zones at full: already leaving after it", afterMid.alpha < atMid.alpha);
+
+        // 6. The span is measured from the box's OWN start, not from zero. A title that appears
+        //    at 10s must animate at 10s, not have already finished before it is visible.
+        CaptionAnimator.Transform offsetStart =
+                CaptionAnimator.textBoxTransformAt(FADE, 10_000L, 10_000L, 2000L, 0.25f, 0.25f, FONT);
+        ok("a box starting at 10s begins its entrance at 10s", offsetStart.alpha < 0.2f);
     }
 }

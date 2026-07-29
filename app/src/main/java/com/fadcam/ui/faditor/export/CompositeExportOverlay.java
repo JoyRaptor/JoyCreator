@@ -539,11 +539,25 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 continue;
             }
             drawnText++;
+            // Entrance/exit animation — the SAME evaluator call the preview's TextOverlayLayer
+            // makes, so the two surfaces cannot drift. fontPx is in OUTPUT pixels here and in
+            // preview pixels there, which is what keeps a preset's dx/dy proportional rather
+            // than correct on one surface and wrong on the other.
+            com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
+                    com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
+                            com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                    .parsePreset(o.getTextAnimPreset()),
+                            timelineMs, o.getStartMs(), o.animSpanMs(projectDurationMs),
+                            o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
             Paint p = new Paint();
-            int alpha = Math.round(opacity * 255);
-            p.setAlpha(alpha);
+            int alpha = Math.round(opacity * anim.alpha * 255);
+            p.setAlpha(Math.max(0, Math.min(255, alpha)));
             canvas.save();
+            // Same composition order the View properties give the preview: scale and rotate
+            // about the object's centre, THEN translate.
+            canvas.translate(anim.dx, anim.dy);
             canvas.rotate(rot, cx, cy);
+            canvas.scale(anim.scaleX, anim.scaleY, cx, cy);
             canvas.drawBitmap(textBmp, cx - textBmp.getWidth() / 2f,
                     cy - textBmp.getHeight() / 2f, p);
             canvas.restore();

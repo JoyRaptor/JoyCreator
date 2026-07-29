@@ -218,7 +218,35 @@ Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
 | 3. Persist on `Clip`, round-trip, and RUN in both renderers | DONE | `c7b6359` |
 | 4. Tape `▶` `◀` carets (the visible half of the timing model) | DONE | see below |
 | 5. Preset grid picker + granularity selector in the caption drawer | DONE | see below |
-| 6. **Large-amplitude device frame** | **NOT CAPTURED — attempted 2026-07-28, BLOCKED: only the Note 20 was attached (see §5)** | — |
+| 6. **Large-amplitude device frame** | **NOT CAPTURED.** 2026-07-28 blocked (only the Note 20 attached). 2026-07-29 05:44 the Note 9 came back and the walk STARTED — see below — then stopped at 05:52 because a human began using the phone | — |
+
+**FIRST SIGHTING, 2026-07-29 05:44–05:52 (Note 9, sole device, verified build installed and
+launched without a crash-loop).** Until now nothing in §3g had been seen by a phone. It has now:
+on `bb2a9deb…` "P0 control no image", with a captioned clip selected and the caption drawer
+open, the drawer draws a **Motion** row (`None` + the `≡A` entry), the hint *"Drag the ▶ ◀ carets
+on the clip to set timing"*, and **the amber carets are really drawn on the clip**. `≡A` opens
+the popover: six tiles — None / Type / Fade / Rise / Ghost / Beam — over an **Animate by** row,
+Letter / Word / Sentence / Block, with Word selected. So steps 4 and 5 are confirmed present and
+reachable by a thumb, which is more than the harness could say.
+
+**Measured answer to "do the six tiles read as distinct at 60dp?" — NO, and here is the number.**
+Four screenshots 0.4s apart are byte-identical, so the tiles are static poses, not animations.
+Comparing the 113×66px glyph area of each tile: **Type vs Fade = mean abs difference 1.08/255,
+with 2.9% of pixels differing by more than 8** — effectively the same image. Positive control on
+the same measurement, against a tile that plainly reads differently: **None vs Type = 26.38 mean,
+17.7% differing**, i.e. the instrument detects a real difference at ~24× the signal it finds
+between Type and Fade. Zoomed 3× the five presets ARE distinguishable (Rise raises and shrinks
+the first A, Beam narrows it, Fade dims it) but at 60dp the label is doing all the work.
+**Not yet answered:** the caret-vs-trim-handle grab (the carets are drawn ~10px from the green
+trim handles, so this is the real question, and it needs a drag, not a screenshot), the
+large-amplitude frame, and whether LETTER granularity holds frame rate.
+
+**Observed in passing and NOT a bug:** opening this 2026-07-07 project migrated it from inline
+`"transcripts"` to `"transcriptPool"` + 3 × `"transcriptRefs"`, and `"words"` went 3 → 2. That is
+the §1 transcript-pool fix doing exactly what it promises — three refs, two unique word lists,
+because two clips share one source file. The project.json also grew 22.7KB → 63.7KB, which is
+pretty-printing, not content. Flagged because "a transcript lost its words" is what it looks like
+at a glance.
 
 **The four fields are no longer `project.json`-only**, so this is out of the §3a failure mode.
 It stays in §3 rather than moving to §1 because step 6 is unproven: no device was attached when

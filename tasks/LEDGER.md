@@ -485,6 +485,19 @@ the read-and-ignore path working as designed, not data loss.
 - **AI edits collapse into ONE undo step**, preserving the history behind them. (User, 2026-07-28.)
 - **Trim precision is non-negotiable**; no keyframe snapping of user trim points.
 - **No apology toasts** for things we can actually build.
+- **The preset tiles are DONE — motion-only distinction is accepted. (User, 2026-07-30.)**
+  Asked whether to accept it or give the tiles more than 60dp, he said: *"I don't know exactly
+  what is at stake. the animations you have, I think, look great."* So the half-open item from
+  `d1a0761` is CLOSED as-is: the tiles are distinguishable by watching and not from a still, and
+  that is fine. **Do not "fix" the freeze-frame half by adding a decorative cue** — the tiles are
+  trustworthy precisely because they can only advertise motion the renderers actually produce,
+  and a badge or a label glyph would trade that away for a screenshot nobody looks at.
+- **Preset build order — MATRIX, then UNSCRAMBLE, ODOMETER, MASK_WIPE, NEON_FLICKER.**
+  (User, 2026-07-30: *"that seems like a good order to build them in."*) Answers the question
+  that had been open across four sessions. Each names its blocker in
+  `CaptionAnimator.unsupportedReason` and returns identity today, never an approximation — so
+  each one is "remove a reason, add a transform", and the picker un-greys it via
+  `Preset.implemented`.
 - Undo-after-crash: the queued question may be moot — the reason the undo sidecar was written
   rarely was its size, and the transcript pool (§1) made it far smaller. **Measure whether it can
   now be written on every edit**, which removes the staleness window entirely, before choosing

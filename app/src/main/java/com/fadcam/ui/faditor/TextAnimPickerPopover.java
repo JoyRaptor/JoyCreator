@@ -352,8 +352,11 @@ public final class TextAnimPickerPopover {
             for (int i = 0; i < TILE_UNITS; i++) {
                 float progress = CaptionAnimator.unitProgress(
                         mediaMs, 0L, TILE_SPAN_MS, TILE_ZONE_MS, TILE_ZONE_MS, i, TILE_UNITS);
+                // `i` is passed on so UNSCRAMBLE's per-unit scatter direction shows in the tile.
+                // Without it the three glyphs would slide in along one shared vector and the tile
+                // would advertise a diagonal wipe the renderers do not produce.
                 CaptionAnimator.Transform t =
-                        CaptionAnimator.presetTransform(preset, progress, fontPx);
+                        CaptionAnimator.presetTransform(preset, progress, fontPx, i);
                 if (t.alpha <= 0.004f) continue;
                 float cx = w * (0.26f + 0.24f * i);
                 c.save();
@@ -386,6 +389,7 @@ public final class TextAnimPickerPopover {
                 case GHOST:      return "Ghost";
                 case BEAM:       return "Beam";
                 case MATRIX:     return "Matrix";
+                case UNSCRAMBLE: return "Unscramble";
                 default:         return preset.name();
             }
         }

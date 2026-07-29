@@ -15191,6 +15191,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             case RISE:       return "Rise · " + gran;
             case GHOST:      return "Ghost · " + gran;
             case BEAM:       return "Beam · " + gran;
+            // MATRIX was missed when it shipped, so this row read a bare "MATRIX" off p.name()
+            // instead of "Matrix · word". Fixed here rather than left, because UNSCRAMBLE would
+            // have landed in the same hole.
+            case MATRIX:     return "Matrix · " + gran;
+            case UNSCRAMBLE: return "Unscramble · " + gran;
             default:         return p.name();
         }
     }

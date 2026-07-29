@@ -270,9 +270,11 @@ public class CaptionExportRenderer {
      */
     private void drawUnit(String text, float x, float baseY, float w, int color, float fontPx,
                           float progress, boolean active, float emphasisValue, int unitIdx) {
+        // unitIdx matters to UNSCRAMBLE, which gives each unit its own scatter direction. Must stay
+        // identical to CaptionOverlayView#drawUnit.
         com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform pre =
                 com.fadcam.ui.faditor.transcript.CaptionAnimator
-                        .presetTransform(animPreset, progress, fontPx);
+                        .presetTransform(animPreset, progress, fontPx, unitIdx);
         float scaleX = pre.scaleX, scaleY = pre.scaleY, dx = pre.dx, dy = pre.dy;
         if (active) {
             com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform emp =

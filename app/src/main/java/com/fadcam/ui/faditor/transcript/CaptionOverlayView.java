@@ -358,7 +358,11 @@ public class CaptionOverlayView extends View {
      */
     private void drawUnit(Canvas canvas, String text, float x, float baseY, float w,
                           int color, float fontPx, float progress, boolean active, int unitIdx) {
-        CaptionAnimator.Transform pre = CaptionAnimator.presetTransform(animPreset, progress, fontPx);
+        // unitIdx matters to UNSCRAMBLE, which gives each unit its own scatter direction. Must stay
+        // identical to CaptionExportRenderer#drawUnit — a preview that scatters a glyph one way
+        // while the export scatters it another is the §3g divergence again.
+        CaptionAnimator.Transform pre =
+                CaptionAnimator.presetTransform(animPreset, progress, fontPx, unitIdx);
         float scaleX = pre.scaleX, scaleY = pre.scaleY, dx = pre.dx, dy = pre.dy;
         if (active) {
             CaptionAnimator.Transform emp = CaptionAnimator.transform(style, emphasisValue, fontPx);

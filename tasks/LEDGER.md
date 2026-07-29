@@ -565,8 +565,9 @@ It stays in §3 rather than moving to §1 because step 6 is unproven: no device 
 the UI landed, so the UI has been verified by build and by harness, **not by a human or a phone
 looking at it.** Nothing here claims otherwise.
 
-**Harness: 131 → 145 → 158 → 160 checks, all passing.** Run it with the command at the end of
-this section. **Dex-scan symbol list, CURRENT — the older list in this file was contradictory and
+**Harness: 131 → 145 → 158 → 160 → 168 → 192 → 209 checks, all passing.** Run it with the command
+at the end of this section. **Measure the count by running it, not by reading this line** — it went
+stale twice, and the MATRIX entry had to correct a figure copied from here. **Dex-scan symbol list, CURRENT — the older list in this file was contradictory and
 is corrected here:** scan for `addCaptionAnimRangeControl`, `makeCaptionAnimSlider`,
 `previewCaptionAnimZones`, `captionAnimUsable`, `CAPTION_ANIM_MIN_TRAVEL_PX`, `clampZonePct`,
 `hasAnimatableSpan`, `captionAnimInPct`; **positive control** `FadCamApplication` +
@@ -745,10 +746,71 @@ entrance without hunting.
   blocker is `"needs glyph substitution and a per-slot roll clip"` and CONTAINS it as a substring.
   Substring collisions make deleted-string controls unreliable; prefer a deleted SYMBOL, or verify
   the collision before concluding.
-- **Four presets remain declared but NOT implemented** — UNSCRAMBLE, ODOMETER (glyph
-  substitution / positional scatter), MASK_WIPE (a clip rect), NEON_FLICKER (stroke/glow). Each
-  names its blocker in `CaptionAnimator.unsupportedReason` and returns identity, never an
-  approximation. The picker must filter on `Preset.implemented`.
+- **UNSCRAMBLE IS BUILT AND SHIPPED — 2026-07-29.** Second of the five, in the user's order.
+  **Its recorded blocker overstated the work, and that is the useful finding.** The ledger said it
+  "needs PER-GLYPH POSITIONAL SCATTER — likely a third channel or a per-glyph Transform array".
+  It needed neither. **At LETTER granularity every glyph is ALREADY its own unit with its own
+  `Transform` and its own progress, in BOTH renderers** (`CaptionOverlayView.drawWord` and
+  `CaptionExportRenderer.drawWord` each loop per character and call `drawUnit` with a `unitIdx` they
+  already have in hand). The one thing missing was that `presetTransform` could not SEE which unit
+  it was transforming, so every glyph would have travelled along the same vector — a diagonal wipe,
+  not a scatter. **The fix was a parameter, not a channel:** a four-argument
+  `presetTransform(preset, progress, fontPx, unitIndex)` overload, with the old three-argument form
+  kept and delegating with `unitIndex = 0`, so no existing caller had to change and no other preset
+  could be disturbed. Contrast MATRIX, which genuinely did need a second output channel — the two
+  look alike in the blocker list and are not alike at all. **Read the drawing loops before believing
+  a blocker note.**
+  Design decisions, so they are not re-litigated: **every unit travels the SAME distance and differs
+  only in DIRECTION** (equal magnitude is what makes it read as one body reassembling rather than
+  letters arriving from arbitrary depths); the direction is a pure function of `unitIndex` built
+  from `mix` and **`Math.sqrt` only** — `sqrt` is the one operation of its kind IEEE 754 requires to
+  be correctly rounded, so it is bit-identical everywhere, which `sin`/`cos` are not, and that is
+  why the vector is drawn-and-normalised rather than an angle put through trigonometry; the settle
+  is `decelerate`, deliberately NOT an overshoot, because at LETTER granularity an overshoot sends
+  letters past their slot and reads as the text scrambling a second time just as it lands; alpha
+  reaches 1 well before the motion ends, or it would be GHOST.
+  **On a single-unit body (a text box, or BLOCK) it resolves to ONE direction and reads as a
+  directional slide.** That is the honest result of scattering one object, not an approximation —
+  but it means UNSCRAMBLE only says what it means at LETTER. Documented on the parameter.
+  **Proof — harness 192 → 209 checks, 0 failed** (17 new). The load-bearing ones: 24 units give **24
+  distinct directions** at equal distance; it is a pure function of (progress, unit); travel is
+  proportional to `fontPx`; distance from home decreases **monotonically** (the no-overshoot
+  property); the 3-arg overload is exactly unit 0; and `presetTransformAt` really passes the index
+  through (8/8 distinct offsets). **The control that makes those mean something: no OTHER
+  implemented preset's output changes with `unitIndex`** — plus a companion check that UNSCRAMBLE's
+  own output DOES change across the same units at the same progresses, so that control is not
+  vacuous.
+  **On the Note 9:** an **eighth tile appeared where the previous build had seven** — the same
+  behavioural freshness proof MATRIX's seventh tile gave, which no symbol scan can fake. Over a
+  12-frame burst its mean-luminance sd is the highest of any tile (6.93) with **NONE at exactly
+  0.00** as the control, and its per-row sd is 9.56 against 7.07 for the next highest (Rise): ink
+  moving across rows is precisely what a scatter does and an alpha preset cannot. Measuring the
+  per-glyph horizontal centroid, **UNSCRAMBLE puts glyphs in MIXED left/right directions in 6 of 7
+  usable frames with a 10.0px spread**, the largest of any preset. **Stated honestly: GHOST scores
+  3/7 on that same measure**, because it has a `dx` too and its per-glyph stagger moves centroids
+  both ways — so the device measurement shows UNSCRAMBLE is the clear outlier, not that it is
+  uniquely mixed. The definitive per-unit-direction property is pinned by the harness, not by the
+  photograph; the photograph shows the tile is real and driven by the evaluator.
+  Dex-scanned on the installed artifact: `scatterAxis` and the `Unscramble` label PRESENT,
+  `FadCamApplication` as the partial-dex control, and the deleted blocker string
+  **`"needs per-glyph positional scatter"` ABSENT** — with MASK_WIPE's and NEON_FLICKER's blocker
+  strings still PRESENT in the same scan, which is the control proving the scan CAN find blocker
+  strings and that this one is genuinely gone. **No substring collision this time** (unlike the
+  MATRIX session's trap), and it was checked rather than assumed.
+  **An instrument that lied, again, differently:** a first dex scan reported 0 hits for EVERY
+  symbol including `FadCamApplication`. Nothing was wrong with the build — the loop split
+  `grep -c` output on `:` and the Windows **drive-letter colon** ate the field. A scan whose
+  positive control also reads zero is a broken scan, not a stale artifact. That is what the positive
+  control is for; read it first.
+  **Fixed in passing:** the caption drawer's Motion row had no `case MATRIX`, so it fell through to
+  `p.name()` and read a bare **`MATRIX`** instead of `Matrix · word`. UNSCRAMBLE would have landed
+  in the same hole. Both cases added; the row now reads `Matrix · word` on the phone, which doubles
+  as an independent behavioural check that the new build is the one running.
+- **Three presets remain declared but NOT implemented** — ODOMETER (glyph substitution plus a
+  per-slot roll clip), MASK_WIPE (a clip rect), NEON_FLICKER (stroke/glow). Each names its blocker
+  in `CaptionAnimator.unsupportedReason` and returns identity, never an approximation. The picker
+  filters on `Preset.implemented`. **Treat each remaining blocker note as a hypothesis to re-derive
+  from the drawing loops, not as a specification** — UNSCRAMBLE's was materially wrong.
 - **Blur is ignored by BOTH renderers**, so GHOST reads as slide+shrink+fade. Consistently
   ignored is safe; approximating it in one path is the divergence this area exists to prevent.
 - **Audio-clip captions have NO animation.** `AudioClip` deliberately did not get the four
@@ -842,9 +904,18 @@ the read-and-ignore path working as designed, not data loss.
   **What was done:** re-locked with `settings put system accelerometer_rotation 0` (the runbook's
   own prescription after an adb reconnect) and continued, re-checking `mCurrentFocus` and the
   rotation setting between steps. It stayed 0 for the rest of the session and the work completed.
+  **IT THEN FIRED A SECOND TIME the same session, on an `adb install`** — again with no human touch
+  (`mLastUserActivityTime` 14 minutes stale, and that last activity was my own injected tap), again
+  with the display still at `rotation 0`. Two independent occurrences, both correlated with a
+  **package-state event** (launch after force-stop; install) and neither with a human. That is a
+  much better hypothesis than the original one: the system restores the user's own auto-rotate
+  preference when the package state changes, overwriting whatever a previous session's
+  `settings put` had forced.
   **What is still the user's call:** whether the rule should be relaxed to "stop only if the setting
-  flips WITHOUT an app launch in the same step, or if `mLastUserActivityTime` shows touch input we
+  flips WITHOUT a package event in the same step, or if `mLastUserActivityTime` shows touch input we
   did not inject". Do not relax it unilaterally — it is a safety rule about someone else's phone.
+  **Practical note either way: re-lock after every install and every launch**, not just after an
+  adb reconnect, or a later step will trip the alarm on the previous step's leftovers.
 
 
 - **BLOCKED 2026-07-28 21:xx: the only phone attached is the Note 20 `REAL_SERIAL`.** The Note 9

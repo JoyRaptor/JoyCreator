@@ -77,6 +77,7 @@ public class CaptionAnimatorTest {
         caretMapping();
         textBoxWholeBody();
         matrixSubstitution();
+        unscrambleScatter();
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
@@ -791,5 +792,140 @@ public class CaptionAnimatorTest {
         eqS("a box starting at 10s is still scrambling at 10s",
                 CaptionAnimator.textBoxTextAt(M, title, 10_100L, 10_000L, 2000L, 0.25f, 0.25f),
                 CaptionAnimator.textBoxTextAt(M, title, 100L, 0L, 2000L, 0.25f, 0.25f));
+    }
+
+    // ── UNSCRAMBLE: per-unit scatter direction ───────────────────────────────────────────────
+
+    /**
+     * UNSCRAMBLE is the first preset whose transform depends on WHICH unit it is. Everything here
+     * pins that dependence and its limits; the properties are chosen so that a plausible wrong
+     * implementation fails at least one of them.
+     */
+    static void unscrambleScatter() {
+        System.out.println("\n── UNSCRAMBLE per-unit scatter ──");
+        final CaptionAnimator.Preset U = CaptionAnimator.Preset.UNSCRAMBLE;
+        final float FONT = 40f;
+
+        // 1. It claims to be shippable and no longer reports a blocker.
+        ok("UNSCRAMBLE is marked implemented", U.implemented);
+        eqS("UNSCRAMBLE no longer reports a blocker", "", CaptionAnimator.unsupportedReason(U));
+
+        // 2. It rests at identity. A preset that has not finished arriving at progress 1 would
+        //    leave every caption permanently displaced.
+        CaptionAnimator.Transform rest = CaptionAnimator.presetTransform(U, 1f, FONT, 7);
+        eqF("UNSCRAMBLE lands exactly on its home x at progress 1", 0f, rest.dx);
+        eqF("UNSCRAMBLE lands exactly on its home y at progress 1", 0f, rest.dy);
+        eqF("UNSCRAMBLE is fully opaque once arrived", 1f, rest.alpha);
+        eqF("UNSCRAMBLE does not scale", 1f, rest.scaleX);
+
+        // 3. THE DEFINING PROPERTY: same progress, different unit -> different DIRECTION but the
+        //    SAME distance. Equal distance is what makes it read as one body reassembling rather
+        //    than as letters arriving from arbitrary depths, and it is the half a naive
+        //    "random offset per glyph" implementation would get wrong.
+        float p = 0.25f;
+        int distinctDirs = 0;
+        java.util.Set<String> dirs = new java.util.HashSet<>();
+        float refLen = -1f;
+        boolean sameLen = true;
+        for (int u = 0; u < 24; u++) {
+            CaptionAnimator.Transform t = CaptionAnimator.presetTransform(U, p, FONT, u);
+            float len = (float) Math.sqrt(t.dx * t.dx + t.dy * t.dy);
+            if (refLen < 0) refLen = len;
+            else if (Math.abs(len - refLen) > 1e-3f) sameLen = false;
+            // Round the direction so two genuinely different vectors are not counted as one.
+            dirs.add(Math.round(t.dx / len * 100) + "," + Math.round(t.dy / len * 100));
+        }
+        distinctDirs = dirs.size();
+        ok("24 units scatter in " + distinctDirs + " distinct directions (want > 20)",
+                distinctDirs > 20);
+        ok("every unit travels the SAME distance at the same progress (" + refLen + "px)", sameLen);
+        ok("that distance is a real displacement, not a rounding artifact", refLen > FONT * 0.5f);
+
+        // 4. Deterministic — the property that keeps the preview and the export agreeing. A
+        //    Math.random() implementation passes test 3 and fails this one.
+        boolean stable = true;
+        for (int u = 0; u < 12; u++) {
+            CaptionAnimator.Transform a = CaptionAnimator.presetTransform(U, 0.4f, FONT, u);
+            CaptionAnimator.Transform b = CaptionAnimator.presetTransform(U, 0.4f, FONT, u);
+            if (a.dx != b.dx || a.dy != b.dy) stable = false;
+        }
+        ok("UNSCRAMBLE is a pure function: same (progress, unit) -> same offset", stable);
+
+        // 5. Font-relative, like every other distance in this class: doubling the type size
+        //    doubles the travel, so the effect looks the same on a caption and on a title.
+        CaptionAnimator.Transform small = CaptionAnimator.presetTransform(U, 0.3f, 20f, 3);
+        CaptionAnimator.Transform big = CaptionAnimator.presetTransform(U, 0.3f, 40f, 3);
+        eqF("travel is proportional to fontPx (x)", small.dx * 2f, big.dx);
+        eqF("travel is proportional to fontPx (y)", small.dy * 2f, big.dy);
+
+        // 6. Monotone settle: the glyph gets closer to home as progress rises. A curve that
+        //    overshoots would send letters PAST their slot, which at LETTER granularity reads as
+        //    the text scrambling a second time just as it lands.
+        boolean closing = true;
+        float prev = Float.MAX_VALUE;
+        for (int k = 0; k <= 10; k++) {
+            CaptionAnimator.Transform t = CaptionAnimator.presetTransform(U, k / 10f, FONT, 5);
+            float len = (float) Math.sqrt(t.dx * t.dx + t.dy * t.dy);
+            if (len > prev + 1e-4f) closing = false;
+            prev = len;
+        }
+        ok("distance from home decreases monotonically — letters settle, never overshoot", closing);
+
+        // 7. THE CONTROL. Every other implemented preset must be unaffected by unitIndex, or this
+        //    change leaked into presets it had no business touching. Without this the tests above
+        //    would pass just as well if presetTransform scattered EVERYTHING.
+        boolean othersUnchanged = true;
+        String leaked = "";
+        for (CaptionAnimator.Preset q : CaptionAnimator.Preset.values()) {
+            if (q == U || !q.implemented) continue;
+            for (float pr : new float[]{0f, 0.25f, 0.5f, 0.75f, 1f}) {
+                CaptionAnimator.Transform u0 = CaptionAnimator.presetTransform(q, pr, FONT, 0);
+                CaptionAnimator.Transform u9 = CaptionAnimator.presetTransform(q, pr, FONT, 9);
+                if (u0.dx != u9.dx || u0.dy != u9.dy
+                        || u0.scaleX != u9.scaleX || u0.alpha != u9.alpha) {
+                    othersUnchanged = false;
+                    leaked = q.name();
+                }
+            }
+        }
+        ok("no other preset reads unitIndex" + (leaked.isEmpty() ? "" : " (leaked into " + leaked + ")"),
+                othersUnchanged);
+
+        // 8. ...and the control is not vacuous: UNSCRAMBLE itself DOES differ across units at the
+        //    same progresses the loop above just swept. If this fails, test 7 proves nothing.
+        boolean unscrambleDoesDiffer = false;
+        for (float pr : new float[]{0f, 0.25f, 0.5f, 0.75f}) {
+            CaptionAnimator.Transform u0 = CaptionAnimator.presetTransform(U, pr, FONT, 0);
+            CaptionAnimator.Transform u9 = CaptionAnimator.presetTransform(U, pr, FONT, 9);
+            if (u0.dx != u9.dx || u0.dy != u9.dy) unscrambleDoesDiffer = true;
+        }
+        ok("...and UNSCRAMBLE does differ across units, so that control is not vacuous",
+                unscrambleDoesDiffer);
+
+        // 9. The three-argument overload every other caller still uses must keep meaning unit 0,
+        //    or the change silently re-pointed callers that were never updated.
+        CaptionAnimator.Transform viaOld = CaptionAnimator.presetTransform(U, 0.3f, FONT);
+        CaptionAnimator.Transform viaNew = CaptionAnimator.presetTransform(U, 0.3f, FONT, 0);
+        eqF("the 3-arg overload is exactly unit 0 (x)", viaNew.dx, viaOld.dx);
+        eqF("the 3-arg overload is exactly unit 0 (y)", viaNew.dy, viaOld.dy);
+
+        // 10. A single-unit body resolves to ONE direction rather than to no motion. This is the
+        //     documented degradation on a text box / BLOCK, and it must be a slide, not identity —
+        //     an identity here would be a tile and a preset that visibly do nothing.
+        CaptionAnimator.Transform block = CaptionAnimator.presetTransform(U, 0.2f, FONT, 0);
+        ok("a single-unit body still moves (unit 0 is not a degenerate zero vector)",
+                Math.abs(block.dx) + Math.abs(block.dy) > 1f);
+
+        // 11. Through the real entry point both renderers call, with a staggered phrase: distinct
+        //     units at one media time must sit in distinct places. presetTransformAt is where the
+        //     unitIndex could most easily have been dropped on the floor.
+        java.util.Set<String> placed = new java.util.HashSet<>();
+        for (int u = 0; u < 8; u++) {
+            CaptionAnimator.Transform t = CaptionAnimator.presetTransformAt(
+                    U, 300L, 0L, 2000L, 1000L, 1000L, u, 8, FONT);
+            placed.add(Math.round(t.dx * 10) + "," + Math.round(t.dy * 10));
+        }
+        ok("presetTransformAt passes unitIndex through: " + placed.size() + "/8 distinct offsets",
+                placed.size() == 8);
     }
 }

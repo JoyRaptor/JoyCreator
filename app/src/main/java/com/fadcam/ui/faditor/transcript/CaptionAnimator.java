@@ -249,9 +249,25 @@ public final class CaptionAnimator {
          */
         MATRIX(true),
 
+        /**
+         * Letters start displaced in their OWN direction and settle into place. Second of the five
+         * declared-but-blocked presets, implemented 2026-07-29.
+         *
+         * <p>Unlike {@link #MATRIX} this needed no new output channel. Its blocker was recorded as
+         * "per-glyph positional scatter", which reads like a missing per-glyph {@code Transform}
+         * ARRAY — but at {@link Granularity#LETTER} every glyph is ALREADY its own unit with its own
+         * {@code Transform} and its own progress, in both renderers. The one thing actually missing
+         * was that {@link #presetTransform} could not see WHICH unit it was transforming, so every
+         * glyph would have scattered along the same vector — a diagonal wipe, not a scatter. The fix
+         * was therefore a parameter, not a channel.</p>
+         *
+         * <p><b>On a single-unit body it degrades to one directional slide</b> (see
+         * {@link #presetTransform}), which is the honest result of scattering one thing rather than
+         * an approximation.</p>
+         */
+        UNSCRAMBLE(true),
+
         // Declared, NOT implemented. Each needs more than a Transform:
-        /** Needs PER-GLYPH POSITIONAL SCATTER — letters displaced then settling into place. */
-        UNSCRAMBLE(false),
         /** Needs GLYPH SUBSTITUTION plus a vertical roll clip per slot. */
         ODOMETER(false),
         /** Needs a CLIP RECT per unit — revealed by masking, not by opacity. */
@@ -272,7 +288,9 @@ public final class CaptionAnimator {
     public static String unsupportedReason(@NonNull Preset p) {
         switch (p) {
             // MATRIX is no longer here: substituteUnit is the channel it was waiting for.
-            case UNSCRAMBLE:  return "needs per-glyph positional scatter";
+            // UNSCRAMBLE is no longer here either: the unitIndex parameter on presetTransform was
+            // the whole of what it needed. Its old reason read "needs per-glyph positional
+            // scatter", which overstated the work — see the enum constant.
             case ODOMETER:    return "needs glyph substitution and a per-slot roll clip";
             case MASK_WIPE:   return "needs a per-unit clip rect";
             case NEON_FLICKER:return "needs stroke/glow modulation";
@@ -301,6 +319,35 @@ public final class CaptionAnimator {
      */
     @NonNull
     public static Transform presetTransform(@NonNull Preset preset, float progress, float fontPx) {
+        return presetTransform(preset, progress, fontPx, 0);
+    }
+
+    /**
+     * The transform for one unit, told WHICH unit it is.
+     *
+     * <p>{@link Preset#UNSCRAMBLE} is the reason this overload exists: a scatter needs every glyph
+     * to travel along its OWN vector, and a function that cannot tell one unit from another can
+     * only produce a single shared direction — which is a diagonal wipe, not a scatter. Every other
+     * preset ignores {@code unitIndex} entirely, so the three-argument form above stays exactly
+     * correct for them and no existing caller had to change.</p>
+     *
+     * <p>The direction is a pure function of {@code unitIndex}, for the same reason
+     * {@link #substituteUnit} is: the preview and the export must displace a given glyph the same
+     * way, and {@code Math.random()} per frame would guarantee they do not. It is built from
+     * {@link #mix} and {@code Math.sqrt} only — {@code sqrt} is the one transcendental-looking
+     * operation IEEE 754 requires to be correctly rounded, so unlike {@code sin}/{@code cos} it is
+     * bit-identical on every implementation. That is why the direction is drawn as a random vector
+     * and normalised rather than as an angle put through trigonometry.</p>
+     *
+     * @param unitIndex the unit's index within its object. On a single-unit body (a text box, or
+     *                  {@link Granularity#BLOCK}) this is always 0, so UNSCRAMBLE resolves to ONE
+     *                  fixed direction and reads as a directional slide. That is the honest result
+     *                  of scattering a single object, not a degraded approximation of the effect —
+     *                  but it does mean UNSCRAMBLE only says what it means at LETTER granularity.
+     */
+    @NonNull
+    public static Transform presetTransform(@NonNull Preset preset, float progress, float fontPx,
+                                            int unitIndex) {
         float p = Math.max(0f, Math.min(1f, progress));
         Transform out = new Transform();
         if (!preset.implemented || preset == Preset.NONE) return out;
@@ -333,6 +380,27 @@ public final class CaptionAnimator {
                 out.alpha = Math.min(1f, p * 3f);
                 break;
             }
+            case UNSCRAMBLE: {
+                // Every unit travels the SAME distance and differs only in DIRECTION. That is what
+                // separates a scatter from per-glyph noise: the text reads as one body coming
+                // together, rather than as letters arriving from arbitrary depths.
+                float e = decelerate(p);
+                float r = (1f - e) * fontPx * SCATTER_RADIUS;
+                float ux = scatterAxis(unitIndex, SCATTER_SALT_X);
+                float uy = scatterAxis(unitIndex, SCATTER_SALT_Y);
+                float len = (float) Math.sqrt(ux * ux + uy * uy);
+                if (len < 1e-4f) {   // the vanishingly rare near-origin draw, which has no direction
+                    ux = 1f;
+                    uy = 0f;
+                    len = 1f;
+                }
+                out.dx = ux / len * r;
+                out.dy = uy / len * r;
+                // Opaque well before it lands, like RISE: a glyph that is still fading while it is
+                // still moving reads as GHOST, and the two would stop being distinguishable.
+                out.alpha = Math.min(1f, p * 2.5f);
+                break;
+            }
             default:
                 break;
         }
@@ -347,7 +415,7 @@ public final class CaptionAnimator {
                                               int unitIndex, int unitCount, float fontPx) {
         float p = unitProgress(mediaMs, itemStartMs, itemEndMs, inZoneMs, outZoneMs,
                 unitIndex, unitCount);
-        return presetTransform(preset, p, fontPx);
+        return presetTransform(preset, p, fontPx, unitIndex);
     }
 
     // ── Second output channel: WHICH CHARACTERS to draw ──────────────────────────────────────
@@ -435,6 +503,27 @@ public final class CaptionAnimator {
      * fixed by the arithmetic alone — no seeding, no instance state, nothing that could differ
      * between the preview process and an export pass.
      */
+    /**
+     * How far a scattered glyph starts from its home, as a multiple of the type size. Font-relative
+     * for the same reason every other distance here is: a fixed pixel count that looks right on a
+     * caption is invisible on a title card.
+     */
+    private static final float SCATTER_RADIUS = 1.6f;
+
+    /**
+     * Two arbitrary constants that make the X and Y draws independent. They must simply DIFFER;
+     * with one salt both axes would return the same number and every glyph would sit on the
+     * 45-degree diagonal. Non-zero so that unit 0 — the only unit a single-unit body has — does not
+     * fall out of {@link #mix}(0,0,0) as a degenerate zero vector.
+     */
+    private static final int SCATTER_SALT_X = 0x5CA77E7;
+    private static final int SCATTER_SALT_Y = 0x1D1EC70;
+
+    /** One axis of a unit's scatter direction, in {@code [-1, 1]}. */
+    private static float scatterAxis(int unitIndex, int salt) {
+        return (Math.floorMod(mix(unitIndex, salt, 0), 2001) - 1000) / 1000f;
+    }
+
     private static int mix(int a, int b, int c) {
         int h = a * 0x27D4EB2D ^ b * 0x165667B1 ^ c * 0x9E3779B1;
         h ^= (h >>> 15);

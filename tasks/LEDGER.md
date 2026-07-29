@@ -678,13 +678,68 @@ entrance without hunting.
   should have and no alpha preset can produce: the ink changes without the amount of ink changing.
   Caption path confirmed to disk: picking MATRIX and dragging In to 50% in the drawer persisted as
   `"captionAnimPreset": "MATRIX"`, `"captionAnimInPct": 0.5` on the clip.
-  **NOT captured: a screenshot of captions mid-scramble during playback.** With WORD granularity a
-  word's scramble window is only ~200ms (zone/(n+1) staggered), so ~0.4s screencaps miss it by
-  luck, and future words are not drawn at all (phrase windowing), so there is nothing to scramble
-  ahead of the playhead. The intended method was BLOCK granularity, where the whole line churns for
-  half its duration — abandoned mid-sequence when the phone auto-rotated (see the device note
-  below), not because it failed. The model and disk paths ARE proven; only the photograph is
-  missing.
+  ~~**NOT captured: a screenshot of captions mid-scramble during playback.**~~ **CAPTURED AND
+  VERIFIED 2026-07-29 — this was the last open item on MATRIX and it is closed.** The old wording is
+  struck rather than deleted because one of its two stated reasons was WRONG and the correction
+  matters (see below).
+
+  **What was done, and why it is stronger than a photograph.** MATRIX is deterministic by
+  construction — a pure function of (unit index, char position, tick) — so the exact string on
+  screen at a given media time is PREDICTABLE. That turns "did I catch it" into a falsifiable
+  prediction. The arithmetic was mirrored in Python (`tasks/matrix_predict.py`, written BEFORE any
+  capture), the sandbox clip `50d1cf46` was switched on disk to MATRIX + **BLOCK**, and each
+  screencap was checked character-for-character against the prediction computed from the on-screen
+  `00:0X.XXX` time chip — the chip and the caption are in the SAME framebuffer grab, so they cannot
+  disagree.
+  **11 of 11 samples matched EXACTLY**: 6 paused (playhead parked) and **5 during real playback**,
+  across BOTH phrases of the clip, in BOTH the entrance and the exit zone, at five distinct ticks
+  (0, 2, 3, 5, 6, 7, 8). Examples — `thG4 caG i4 veG4 cuG4 shG` at tick 6, `%H wHNRK aHN flNRKX hHN
+  nHNR` at tick 3, `AL AL$L4 AL$ AL$L49 AL$ AL$L` at tick 0.
+  **The controls are built in, not added on.** Two of the eleven are frames where progress has
+  passed 1 and the prediction is the REAL text — and the render is the real text, at
+  `00:01.440` / `00:03.519`. Same clip, same preset, same phrase, ~300ms apart: scrambled then
+  correct. So the scramble is time-dependent, not a font fault, not a layout fault, and not the
+  instrument seeing what it wants. The exit sample (`p` falling back to 0.05) proves the exit really
+  is the entrance reversed in the substitution channel, which until now was only asserted.
+  Evidence: `tasks/screenshots/matrix_paused_tick6_full.png` (full screen),
+  `matrix_playback_5frames.png` (the five playback frames with their time chips),
+  and three magnified line crops.
+  **A reading trap, since it nearly produced a false mismatch:** at caption size the substituted
+  glyphs of adjacent words visibly OVERLAP, because the active word carries the style's 1.15x
+  emphasis and scales about its own centre without reflowing. At low resolution `N41 N41B` reads as
+  `N4 N41B` and a lowercase `n` reads as `h`. Both "mismatches" dissolved under a 3x crop. The
+  overlap itself is pre-existing emphasis behaviour common to every preset, not a MATRIX defect —
+  noted, not filed.
+
+  **CORRECTION to the old entry: "future words are not drawn at all (phrase windowing)" is FALSE,
+  and specifically false for MATRIX.** `CaptionOverlayView.onDraw` lays out and draws EVERY visible
+  word of the current phrase; what hides a not-yet-arrived word for the other presets is
+  `pre.alpha <= 0.004f` skipping the draw. **MATRIX returns identity from `presetTransform`, so its
+  alpha is always 1 and every word of the phrase is always drawn, scrambled.** The photograph was
+  therefore never as hard as the entry claimed — the only real obstacle was placing the playhead.
+  Worth keeping in mind when the remaining four presets are built: a preset that animates a channel
+  OTHER than the transform is not subject to the alpha gate, so it is visible where the others are
+  not.
+
+  **A FINDING THAT COST A WRONG FIRST PREDICTION — the transcript is WINDOWED TO THE TRIM before it
+  is grouped into phrases.** Grouping restarts at the first word at/after `inPointMs`, so phrase
+  boundaries are NOT those of the pooled transcript. On `50d1cf46` (`inPointMs` 1406) the first
+  phrase is **"this cat is very cute she"**, not the "this is a cat this cat" you get by grouping
+  the whole word list. Predicting from the pooled transcript gives the right GLYPHS against the
+  wrong WORDS. Recorded in `matrix_predict.py` as well, because that is where the next person will
+  hit it.
+
+  **The BLOCK signature, useful for reading any future MATRIX screenshot:** at BLOCK every word is
+  substituted independently with `unitIndex = 0` using its own length, so character position *i* of
+  every unsettled word shows the SAME glyph (tick 6 → `G` at index 2, `4` at index 3). That column
+  fingerprint cannot arise by chance and is the fastest way to confirm a capture is genuine.
+
+  **Sandbox restored, and proved restored.** `50d1cf46` was returned to preset FADE with no
+  `captionAnimGranularity` key — **md5 `eb3d16b8…`, byte-identical to the pre-edit pull**, and the
+  project re-opened with no fatal afterwards. Clip 0 still carries the deliberate MATRIX / In 0.5
+  from the previous session, so MATRIX remains demonstrated in the sandbox without clip 1 having to
+  hold it. Note the app wrote NOTHING to disk across the whole session despite being open and
+  playing (md5 unchanged before the restore) — scrubbing and playback do not save.
   **An instrument that lied, worth knowing:** the freshness scan for the deleted string
   `"needs glyph substitution"` came back PRESENT, which reads as a stale dex. It is not — ODOMETER's
   blocker is `"needs glyph substitution and a per-slot roll clip"` and CONTAINS it as a substring.
@@ -773,6 +828,24 @@ the read-and-ignore path working as designed, not data loss.
   between "discard stale history" and "warn the user".
 
 ## 5. UNRESOLVED / needs a human
+
+- **THE AUTO-ROTATE ALARM IS PROBABLY NOT A HUMAN — and the standing device rule should be read
+  with this in hand.** The rule says stop if `accelerometer_rotation` goes to 1 mid-sequence,
+  because that may mean someone picked the phone up; it is what ended device work on 2026-07-28 and
+  the MATRIX capture on 2026-07-30. **It fired again on 2026-07-29, at the exact moment the app was
+  launched**, and the evidence says no human was involved:
+  `dumpsys power` put the last user activity 30s earlier (my own `monkey` launch injection),
+  the display was still `rotation 0`, and **`com.fadcam.beta` holds no `WRITE_SETTINGS` and has no
+  appops entry for it, so the app cannot have written the setting either.** Most likely the system
+  restoring the user's own auto-rotate preference after the force-stop/relaunch that a previous
+  session had overridden with `settings put`.
+  **What was done:** re-locked with `settings put system accelerometer_rotation 0` (the runbook's
+  own prescription after an adb reconnect) and continued, re-checking `mCurrentFocus` and the
+  rotation setting between steps. It stayed 0 for the rest of the session and the work completed.
+  **What is still the user's call:** whether the rule should be relaxed to "stop only if the setting
+  flips WITHOUT an app launch in the same step, or if `mLastUserActivityTime` shows touch input we
+  did not inject". Do not relax it unilaterally — it is a safety rule about someone else's phone.
+
 
 - **BLOCKED 2026-07-28 21:xx: the only phone attached is the Note 20 `REAL_SERIAL`.** The Note 9
   sandbox `SANDBOX_SERIAL` is absent. Under the standing device rule that is a full stop on

@@ -208,8 +208,51 @@ player package. The human-facing slider was correctly hidden behind `if (false)`
 saying the feature is unimplemented; the AI copy was missed. User has said ducking is low
 priority, so the fix is to stop the assistant claiming it happened, not to build ducking.
 
-**3g. Text animation presets — BUILT AND AUTHORABLE. One piece of EVIDENCE is still outstanding.**
+**3g. Text animation presets — BUILT, AND NOW VALIDATED BY THE USER ON THE PHONE.**
 Spec: `SPEC_TEXT_ANIMATION.md`, kept current.
+
+> **User, 2026-07-29, after driving it himself:** *"animations per word and per letter look great!
+> i tried all styles carets worked well."*
+
+That closes the question step 6 existed to answer. The large-amplitude frame was a proxy for
+"does this actually look right", and a human has now answered it directly, across all styles and
+both granularities — better evidence than the frame would have been. **What step 6 would still
+have told us and nobody has measured: whether LETTER granularity holds frame rate on a long
+phrase.** That is the cost centre (per-glyph layout in both paths) and it is still unmeasured.
+
+**THE TIMING MODEL IS BEING REPLACED — user direction, 2026-07-29. Binding.**
+The animation itself stays. How it is authored changes, because captions and text boxes turn out
+to be two different beasts sharing one panel:
+
+1. **The caption style panel must become context-aware** — it is used to style closed captions
+   AND text boxes, and the timing control must differ between them.
+2. **The timeline `▶` `◀` carets are for TEXT BOXES ONLY.** Remove them for captions.
+3. **For a text box the carets are relative to THAT LINE's display duration.** Both dragged to
+   the middle means: take the length of that line, halve it — half the time the words/letters are
+   coming in, half the time they are going out. New lines arrive constantly, so a per-line
+   fraction is the only thing that means anything.
+4. **For captions: no caret, no range finder on the timeline. A range control lives IN THE STYLE
+   PANEL** (user's choice when asked, 2026-07-29), set once and applied to every caption line as
+   a percentage of that line's own duration.
+   *Why:* captions ride long videos. *"To get a fifty percent fade in, fifty percent fade out,
+   I'm gonna be having to do a lot of dragging over perhaps a thirty minute clip. And that just
+   won't do."*
+
+**The model change this implies, started and deliberately REVERTED so the tree stays green
+(`b3bd093` is the last good commit):** `Clip.captionAnimInMs`/`OutMs` become
+`captionAnimInPct`/`OutPct`, floats 0…0.5, a fraction of each LINE rather than absolute source
+ms. Keep the reasoning, it is the good part: the ms version had to be held in SOURCE ms by hand
+so a speed-adjusted clip would not animate over the wrong span — the exact mistake §3g originally
+was. **A fraction has no units, so it is correct in both bases by construction and there is
+nothing left to get wrong.** The 0.5 cap is the model, not a safety rail: at 0.5/0.5 the entrance
+ends exactly where the exit begins, at every line length, which is the user's own description.
+
+**FOUND while scoping this, and it changes the size of the job:** there is **no text-box path
+into the caption style panel today.** `caption_drawer` is opened only by `toggleCaptions()`;
+`tweakCaptionStyle` (`FaditorEditorActivity:15407`) targets a video clip or an audio clip and
+nothing else; `TextOverlayItem` carries its own `colorInt`/`fontFamily` and a keyframed
+transform, with no `CaptionStyle` and no animation zones. So "we are using the caption styles to
+edit text boxes as well" is the thing to BUILD, not a context branch to add.
 
 | Step | State | Commit |
 |---|---|---|

@@ -517,6 +517,16 @@ public class CompositeExportOverlay extends BitmapOverlay {
                         o.getTimerSpec(), timelineMs, o.getStartMs(), o.getEndMs(),
                         projectDurationMs, com.fadcam.ui.faditor.model.TimerText.DEFAULT_FPS);
                 if (t != null) frameText = t;
+            } else {
+                // MATRIX substitutes CHARACTERS, so the string is per-frame here exactly as a
+                // timer's is. Same authority the preview's TextOverlayLayer calls, so the two
+                // cannot churn differently. Inert for every other preset.
+                frameText = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTextAt(
+                        com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                .parsePreset(o.getTextAnimPreset()),
+                        frameText, timelineMs, o.getStartMs(),
+                        o.animSpanMs(projectDurationMs),
+                        o.getTextAnimInPct(), o.getTextAnimOutPct());
             }
             TextOverlayItem frameOverlay = new TextOverlayItem(frameText, o.getColorInt(),
                     cx / outW, cy / outH, sizeFrac, rot);

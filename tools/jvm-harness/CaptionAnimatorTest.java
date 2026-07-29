@@ -76,6 +76,7 @@ public class CaptionAnimatorTest {
         phraseUnits();
         caretMapping();
         textBoxWholeBody();
+        matrixSubstitution();
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
@@ -607,5 +608,188 @@ public class CaptionAnimatorTest {
         CaptionAnimator.Transform offsetStart =
                 CaptionAnimator.textBoxTransformAt(FADE, 10_000L, 10_000L, 2000L, 0.25f, 0.25f, FONT);
         ok("a box starting at 10s begins its entrance at 10s", offsetStart.alpha < 0.2f);
+    }
+
+    // ── MATRIX: the substitution channel ─────────────────────────────────────────────────────
+
+    /** The alphabet the implementation declares. Duplicated on purpose — see matrixSubstitution. */
+    static final String GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&@?";
+
+    static void matrixSubstitution() {
+        System.out.println("\n── MATRIX glyph substitution ──");
+        final CaptionAnimator.Preset M = CaptionAnimator.Preset.MATRIX;
+        final String word = "hello";
+
+        // 1. Nothing else in the app can change behaviour. Every other preset is a pass-through,
+        //    so wiring substituteUnit into both renderers is inert until MATRIX is chosen.
+        boolean othersUntouched = true;
+        for (CaptionAnimator.Preset p : CaptionAnimator.Preset.values()) {
+            if (p == M) continue;
+            for (float pr = 0f; pr <= 1f; pr += 0.05f) {
+                if (!word.equals(CaptionAnimator.substituteUnit(p, word, pr, 0))) {
+                    othersUntouched = false;
+                }
+            }
+        }
+        ok("every preset except MATRIX returns the text untouched, at every progress",
+                othersUntouched);
+
+        // 2. It settles EXACTLY. Not "close to" the real text — the real text.
+        eqS("MATRIX at progress 1 is the real text", word,
+                CaptionAnimator.substituteUnit(M, word, 1f, 0));
+        eqS("MATRIX past 1 (clamped) is the real text", word,
+                CaptionAnimator.substituteUnit(M, word, 1.4f, 0));
+
+        // 3. Length is invariant. This is what makes the effect layout-safe: both renderers
+        //    measured the slot from the REAL text, so a different-length return would reflow the
+        //    line and the caption would jitter horizontally as it churned.
+        boolean lenOk = true;
+        for (float pr = -0.5f; pr <= 1.5f; pr += 0.01f) {
+            if (CaptionAnimator.substituteUnit(M, word, pr, 3).length() != word.length()) {
+                lenOk = false;
+            }
+        }
+        ok("MATRIX preserves length at every progress (layout cannot reflow)", lenOk);
+
+        // 4. THE property that matters: determinism. If this fails, the preview and the export
+        //    draw different characters from the same project — the §3g divergence, in a form a
+        //    frame-diff of the preview alone could never catch.
+        boolean deterministic = true;
+        for (float pr = 0f; pr < 1f; pr += 0.013f) {
+            for (int u = 0; u < 5; u++) {
+                String a = CaptionAnimator.substituteUnit(M, word, pr, u);
+                String b = CaptionAnimator.substituteUnit(M, word, pr, u);
+                if (!a.equals(b)) deterministic = false;
+            }
+        }
+        ok("MATRIX is a pure function: same (text, progress, unit) -> same characters",
+                deterministic);
+
+        // 5. Quantisation, which is the javadoc's claim that substitution is MORE robust than
+        //    alpha across the preview/export sampling difference. Two progresses inside one tick
+        //    must produce IDENTICAL characters, or that claim is false.
+        eqS("two progresses within one tick give identical characters",
+                CaptionAnimator.substituteUnit(M, word, 0.50f, 2),
+                CaptionAnimator.substituteUnit(M, word, 0.505f, 2));
+        ok("...while alpha over the same interval is NOT identical (control: the two "
+                        + "channels really do differ in robustness)",
+                CaptionAnimator.presetTransform(CaptionAnimator.Preset.FADE, 0.50f, 40f).alpha
+                        != CaptionAnimator.presetTransform(
+                                CaptionAnimator.Preset.FADE, 0.505f, 40f).alpha);
+
+        // 6. It actually animates. A deterministic function that returns one value would pass
+        //    every check above and be a static effect.
+        java.util.Set<String> distinct = new java.util.HashSet<>();
+        for (float pr = 0f; pr < 1f; pr += 0.02f) {
+            distinct.add(CaptionAnimator.substituteUnit(M, word, pr, 0));
+        }
+        ok("MATRIX churns: many distinct renderings across one sweep (" + distinct.size() + ")",
+                distinct.size() > 5);
+
+        // 7. Settles left-to-right. Checked on the SETTLED prefix by exact equality rather than
+        //    by asserting the tail differs — a scrambled glyph can coincide with the real one, and
+        //    a test that flakes on a coincidence is worse than no test.
+        int len = word.length();
+        float mid = 0.5f;
+        int settled = 0;
+        while (settled < len && mid >= (settled + 1) / (float) (len + 1)) settled++;
+        String at = CaptionAnimator.substituteUnit(M, word, mid, 0);
+        eqS("at progress 0.5 the settled prefix is exactly the real text",
+                word.substring(0, settled), at.substring(0, settled));
+        ok("...and " + settled + " of " + len + " have settled, so it is a sweep not a switch",
+                settled > 0 && settled < len);
+
+        // 8. Unsettled characters come from the declared alphabet. Guards against an indexing bug
+        //    emitting a control character or tofu, which would look like a font failure on device.
+        boolean inAlphabet = true;
+        for (float pr = 0f; pr < 1f; pr += 0.01f) {
+            String s = CaptionAnimator.substituteUnit(M, word, pr, 7);
+            for (int i = 0; i < s.length(); i++) {
+                char c = s.charAt(i);
+                if (word.indexOf(c) < 0 && GLYPHS.indexOf(c) < 0) inAlphabet = false;
+            }
+        }
+        ok("every substituted character is from the declared alphabet (no tofu, no controls)",
+                inAlphabet);
+
+        // 9. Two units do not churn in lockstep, or a word of repeated letters would show the
+        //    same nonsense character in every slot.
+        boolean unitsDiffer = false;
+        for (float pr = 0.05f; pr < 0.95f; pr += 0.01f) {
+            if (!CaptionAnimator.substituteUnit(M, word, pr, 0)
+                    .equals(CaptionAnimator.substituteUnit(M, word, pr, 1))) {
+                unitsDiffer = true;
+            }
+        }
+        ok("different unit indices churn differently (no lockstep across slots)", unitsDiffer);
+
+        // 10. Whitespace is never given ink, at any position or progress.
+        String spaced = "a b  c";
+        boolean spacesKept = true;
+        for (float pr = 0f; pr <= 1f; pr += 0.01f) {
+            String s = CaptionAnimator.substituteUnit(M, spaced, pr, 0);
+            for (int i = 0; i < spaced.length(); i++) {
+                if (Character.isWhitespace(spaced.charAt(i)) && s.charAt(i) != spaced.charAt(i)) {
+                    spacesKept = false;
+                }
+            }
+        }
+        ok("whitespace is never substituted (a gap stays a gap)", spacesKept);
+
+        // 11. MATRIX leaves geometry and alpha alone, so the churn is the whole effect and does
+        //     not compound with a slide or a fade the user did not ask for.
+        CaptionAnimator.Transform t = CaptionAnimator.presetTransform(M, 0.3f, 40f);
+        ok("MATRIX is identity in geometry and alpha (the substitution IS the animation)",
+                t.alpha == 1f && t.scaleX == 1f && t.scaleY == 1f && t.dx == 0f && t.dy == 0f);
+
+        // 12. Empty text must not throw or invent ink.
+        eqS("empty text stays empty", "", CaptionAnimator.substituteUnit(M, "", 0.5f, 0));
+
+        // 13. MATRIX now claims to be shippable, and says nothing about being blocked.
+        ok("MATRIX is marked implemented", M.implemented);
+        eqS("MATRIX no longer reports a blocker", "", CaptionAnimator.unsupportedReason(M));
+
+        // ── The TEXT BOX path, which is a different surface pair (TextView vs Bitmap) ──
+        final String title = "Chapter One";
+
+        // 14. Off states hand back the real text, so a box with no animation is never scrambled.
+        eqF("a text box with no span is fully arrived", 1f,
+                CaptionAnimator.textBoxProgressAt(500L, 0L, 0L, 0.25f, 0.25f));
+        eqF("a text box with both zones at zero is fully arrived", 1f,
+                CaptionAnimator.textBoxProgressAt(500L, 0L, 2000L, 0f, 0f));
+        eqS("...so an un-animated MATRIX box draws its real text", title,
+                CaptionAnimator.textBoxTextAt(M, title, 500L, 0L, 2000L, 0f, 0f));
+
+        // 15. Non-substituting presets are untouched on this path too.
+        eqS("a FADE text box is never substituted", title,
+                CaptionAnimator.textBoxTextAt(CaptionAnimator.Preset.FADE, title,
+                        200L, 0L, 2000L, 0.25f, 0.25f));
+
+        // 16. It churns early in the entrance and is exact once arrived.
+        String early = CaptionAnimator.textBoxTextAt(M, title, 100L, 0L, 2000L, 0.25f, 0.25f);
+        ok("a MATRIX text box is scrambled early in its entrance", !early.equals(title));
+        ok("...but still the same length (the box cannot change width mid-animation)",
+                early.length() == title.length());
+        eqS("a MATRIX text box is exact once it has arrived", title,
+                CaptionAnimator.textBoxTextAt(M, title, 1000L, 0L, 2000L, 0.25f, 0.25f));
+
+        // 17. The whole reason the model is a FRACTION: the same setting must behave the same on a
+        //     short box and a long one. Sampled at the same FRACTION of each span.
+        boolean scaleFree = true;
+        for (int k = 1; k < 10; k++) {
+            float f = k / 10f;
+            String shortBox = CaptionAnimator.textBoxTextAt(
+                    M, title, (long) (f * 400L), 0L, 400L, 0.5f, 0.5f);
+            String longBox = CaptionAnimator.textBoxTextAt(
+                    M, title, (long) (f * 300_000L), 0L, 300_000L, 0.5f, 0.5f);
+            if (!shortBox.equals(longBox)) scaleFree = false;
+        }
+        ok("a 0.4s and a 300s MATRIX box substitute IDENTICALLY at the same fraction of the span",
+                scaleFree);
+
+        // 18. Measured from the box's OWN start, not from zero.
+        eqS("a box starting at 10s is still scrambling at 10s",
+                CaptionAnimator.textBoxTextAt(M, title, 10_100L, 10_000L, 2000L, 0.25f, 0.25f),
+                CaptionAnimator.textBoxTextAt(M, title, 100L, 0L, 2000L, 0.25f, 0.25f));
     }
 }

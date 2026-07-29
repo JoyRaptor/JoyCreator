@@ -240,10 +240,16 @@ public final class CaptionAnimator {
         GHOST(true),
         /** Starts 200% tall / 5% wide and normalises, as if written in by a beam. */
         BEAM(true),
+        /**
+         * Ticks through nonsense characters and settles left-to-right. The one preset whose motion
+         * is NOT a {@link Transform}: it animates WHICH CHARACTER is drawn, via
+         * {@link #substituteUnit}, and deliberately leaves geometry and alpha at identity so the
+         * churn is what the eye follows. Implemented 2026-07-30; it was the first of the five
+         * declared-but-blocked presets, and its blocker was the missing substitution channel.
+         */
+        MATRIX(true),
 
         // Declared, NOT implemented. Each needs more than a Transform:
-        /** Needs GLYPH SUBSTITUTION — ticking through nonsense characters before settling. */
-        MATRIX(false),
         /** Needs PER-GLYPH POSITIONAL SCATTER — letters displaced then settling into place. */
         UNSCRAMBLE(false),
         /** Needs GLYPH SUBSTITUTION plus a vertical roll clip per slot. */
@@ -265,7 +271,7 @@ public final class CaptionAnimator {
     @NonNull
     public static String unsupportedReason(@NonNull Preset p) {
         switch (p) {
-            case MATRIX:      return "needs glyph substitution";
+            // MATRIX is no longer here: substituteUnit is the channel it was waiting for.
             case UNSCRAMBLE:  return "needs per-glyph positional scatter";
             case ODOMETER:    return "needs glyph substitution and a per-slot roll clip";
             case MASK_WIPE:   return "needs a per-unit clip rect";
@@ -344,6 +350,99 @@ public final class CaptionAnimator {
         return presetTransform(preset, p, fontPx);
     }
 
+    // ── Second output channel: WHICH CHARACTERS to draw ──────────────────────────────────────
+
+    /**
+     * The alphabet MATRIX churns through. Deliberately plain ASCII: the caption fonts are user
+     * choosable and a katakana or box-drawing set would render as tofu in most of them, which
+     * would read as a bug rather than as an effect.
+     */
+    private static final char[] MATRIX_GLYPHS =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$%&@?".toCharArray();
+
+    /**
+     * How many discrete churn steps a unit passes through across its zone. Quantising is not a
+     * cost saving — see {@link #substituteUnit} for why it is what keeps the preview and the
+     * export showing the same characters.
+     */
+    private static final int MATRIX_TICKS = 12;
+
+    /**
+     * Which characters a unit should DRAW at {@code progress} — the second thing a preset can
+     * animate, alongside {@link #presetTransform}.
+     *
+     * <p><b>Why this cannot be a {@code Transform}.</b> A {@code Transform} is geometry and alpha.
+     * MATRIX is glyph substitution: the ink itself is a different character early on. There is no
+     * scale, offset or opacity that expresses "show a Q where the P will be", so a preset like this
+     * needs its own channel or it cannot exist. This is exactly what
+     * {@code unsupportedReason(MATRIX)} used to name as the blocker.</p>
+     *
+     * <p><b>Layout is NOT affected, by construction.</b> Both renderers measure a unit's advance
+     * from the REAL text and then draw into that slot, so replacing the ink leaves x-positions
+     * untouched. Substituting a narrow character for a wide one therefore cannot reflow or jitter
+     * the line — the returned string is always the SAME LENGTH as the input, and callers keep using
+     * the width they already measured.</p>
+     *
+     * <p><b>Why it is deterministic, and why that is the whole design.</b> The obvious
+     * implementation reaches for {@code Math.random()} per frame. That would make the preview and
+     * the export draw different characters from the same project — the precise divergence this
+     * class exists to prevent, and one no frame-diff of the preview alone would ever catch. So the
+     * churn is a pure function of (unit index, character position, tick): same inputs, same
+     * characters, on any surface, in any process, on any run.</p>
+     *
+     * <p>Quantising progress into {@link #MATRIX_TICKS} steps also makes this MORE robust than the
+     * alpha channel, not less. The preview samples at whatever time a frame lands while the export
+     * samples exact frame times; for alpha those two produce slightly different numbers, but for
+     * substitution they land on the same tick and produce identical characters unless they straddle
+     * a tick boundary.</p>
+     *
+     * <p>Characters settle left-to-right: position {@code i} of a unit of length {@code L} locks to
+     * its real character once progress passes {@code (i+1)/(L+1)}. On the way out progress falls,
+     * so they un-settle right-to-left — the exit is the entrance reversed, the same rule
+     * {@link #presetTransform} follows.</p>
+     *
+     * <p>Whitespace is never substituted. A space carries no ink, and scrambling it would put a
+     * glyph where the layout promised a gap.</p>
+     *
+     * @param unitIndex the unit's index within its object, so two identical letters in different
+     *                  slots churn differently instead of in lockstep
+     * @return a string of the same length as {@code text}; {@code text} itself for every preset
+     *         that does not substitute, so no existing preset can change behaviour
+     */
+    @NonNull
+    public static String substituteUnit(@NonNull Preset preset, @NonNull String text,
+                                        float progress, int unitIndex) {
+        if (preset != Preset.MATRIX || text.isEmpty()) return text;
+        float p = Math.max(0f, Math.min(1f, progress));
+        if (p >= 1f) return text; // settled: the real text, exactly
+        int len = text.length();
+        int tick = (int) (p * MATRIX_TICKS);
+        StringBuilder sb = new StringBuilder(len);
+        for (int i = 0; i < len; i++) {
+            char c = text.charAt(i);
+            if (Character.isWhitespace(c) || p >= (i + 1) / (float) (len + 1)) {
+                sb.append(c);
+            } else {
+                sb.append(MATRIX_GLYPHS[Math.floorMod(mix(unitIndex, i, tick),
+                        MATRIX_GLYPHS.length)]);
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * A small integer avalanche. Hand-rolled rather than {@code java.util.Random} so the result is
+     * fixed by the arithmetic alone — no seeding, no instance state, nothing that could differ
+     * between the preview process and an export pass.
+     */
+    private static int mix(int a, int b, int c) {
+        int h = a * 0x27D4EB2D ^ b * 0x165667B1 ^ c * 0x9E3779B1;
+        h ^= (h >>> 15);
+        h *= 0x85EBCA6B;
+        h ^= (h >>> 13);
+        return h;
+    }
+
     /**
      * The whole-body transform for a TEXT BOX at {@code mediaMs} — one call, from the four
      * values the box stores to the transform both renderers apply.
@@ -371,6 +470,40 @@ public final class CaptionAnimator {
         if (inZone <= 0L && outZone <= 0L) return new Transform();
         return presetTransformAt(preset, mediaMs, startMs, startMs + spanMs,
                 inZone, outZone, 0, 1, fontPx);
+    }
+
+    /**
+     * A text box's own progress at {@code mediaMs} — the same number {@link #textBoxTransformAt}
+     * evaluates internally, exposed because the SUBSTITUTION channel needs it too and neither
+     * surface may compute it for itself.
+     *
+     * <p>Returns 1 (fully arrived, nothing to animate) for the off states — no span, or both zones
+     * at zero — so a caller can hand the result straight to {@link #substituteUnit} and get the
+     * real text back.</p>
+     */
+    public static float textBoxProgressAt(long mediaMs, long startMs, long spanMs,
+                                          float inPct, float outPct) {
+        if (spanMs <= 0L) return 1f;
+        long inZone = zoneForSpan(inPct, spanMs);
+        long outZone = zoneForSpan(outPct, spanMs);
+        if (inZone <= 0L && outZone <= 0L) return 1f;
+        return unitProgress(mediaMs, startMs, startMs + spanMs, inZone, outZone, 0, 1);
+    }
+
+    /**
+     * What a TEXT BOX should draw at {@code mediaMs} — one call, so the preview's {@code TextView}
+     * and the export's rasterised {@code Bitmap} cannot substitute differently.
+     *
+     * <p>A text box is BLOCK by construction (one unit), so the whole string settles
+     * left-to-right as its entrance runs. Returns {@code text} unchanged for every preset that
+     * does not substitute, which is every preset but MATRIX.</p>
+     */
+    @NonNull
+    public static String textBoxTextAt(@NonNull Preset preset, @NonNull String text, long mediaMs,
+                                       long startMs, long spanMs, float inPct, float outPct) {
+        if (preset != Preset.MATRIX) return text;
+        return substituteUnit(preset, text,
+                textBoxProgressAt(mediaMs, startMs, spanMs, inPct, outPct), 0);
     }
 
     // ── Unit splitting ───────────────────────────────────────────────────────────────────────

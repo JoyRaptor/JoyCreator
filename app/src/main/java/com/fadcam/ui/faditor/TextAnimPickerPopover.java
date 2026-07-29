@@ -365,7 +365,12 @@ public final class TextAnimPickerPopover {
                 // so blurring here would make GHOST's tile advertise a softness the app never
                 // draws — the one thing a thumbnail rendered from the evaluator exists to rule
                 // out. When a renderer gains blur, this line is where the tile follows it.
-                c.drawText("A", cx, baseY, paint);
+                // Also drive the SUBSTITUTION channel, not just the transform. MATRIX is identity
+                // in geometry and alpha on purpose — its whole motion is which character is drawn
+                // — so a tile that only applied presetTransform would render MATRIX as three
+                // static "A"s, i.e. exactly the dead tile this file was rewritten to stop.
+                String glyph = CaptionAnimator.substituteUnit(preset, "A", progress, i);
+                c.drawText(glyph, cx, baseY, paint);
                 c.restore();
             }
         }
@@ -380,6 +385,7 @@ public final class TextAnimPickerPopover {
                 case RISE:       return "Rise";
                 case GHOST:      return "Ghost";
                 case BEAM:       return "Beam";
+                case MATRIX:     return "Matrix";
                 default:         return preset.name();
             }
         }

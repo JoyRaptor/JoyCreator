@@ -313,11 +313,13 @@ public class CaptionOverlayView extends View {
      * Progress of one animating unit of the current phrase, from the ONE authority.
      * {@code charIdx} matters only at LETTER granularity.
      */
-    private float unitProgress(int wordPos, int charIdx) {
+    private int unitIndex(int wordPos, int charIdx) {
+        return CaptionAnimator.unitIndexOf(animWords, animGran, wordPos, charIdx);
+    }
+
+    private float unitProgress(int unitIdx) {
         return CaptionAnimator.unitProgress(sourceMs, animSpanStart, animSpanEnd,
-                animInEff, animOutEff,
-                CaptionAnimator.unitIndexOf(animWords, animGran, wordPos, charIdx),
-                animUnitCount);
+                animInEff, animOutEff, unitIdx, animUnitCount);
     }
 
     private void drawWord(Canvas canvas, String word, float x, float baseY,
@@ -333,16 +335,18 @@ public class CaptionOverlayView extends View {
             for (int i = 0; i < word.length(); i++) {
                 String ch = word.substring(i, i + 1);
                 float cw = textPaint.measureText(ch);
+                int uidx = unitIndex(wordPos, i);
                 drawUnit(canvas, ch, gx, baseY, cw, color, fontPx,
-                        unitProgress(wordPos, i), active);
+                        unitProgress(uidx), active, uidx);
                 gx += cw;
             }
             return;
         }
 
+        int uidx = unitIndex(wordPos, 0);
         drawUnit(canvas, word, x, baseY, ww, color, fontPx,
-                animPreset == CaptionAnimator.Preset.NONE ? 1f : unitProgress(wordPos, 0),
-                active);
+                animPreset == CaptionAnimator.Preset.NONE ? 1f : unitProgress(uidx),
+                active, uidx);
     }
 
     /**
@@ -353,7 +357,7 @@ public class CaptionOverlayView extends View {
      * silently restyle the emphasis.
      */
     private void drawUnit(Canvas canvas, String text, float x, float baseY, float w,
-                          int color, float fontPx, float progress, boolean active) {
+                          int color, float fontPx, float progress, boolean active, int unitIdx) {
         CaptionAnimator.Transform pre = CaptionAnimator.presetTransform(animPreset, progress, fontPx);
         float scaleX = pre.scaleX, scaleY = pre.scaleY, dx = pre.dx, dy = pre.dy;
         if (active) {
@@ -368,10 +372,18 @@ public class CaptionOverlayView extends View {
         float ucx = x + w / 2f;
         float ucy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
+        // The SECOND animated channel: which characters to draw. MATRIX is the only preset that
+        // uses it; everything else returns `text` unchanged, so this is inert for them. The slot
+        // width `w` was measured from the REAL text and is passed through untouched, which is what
+        // stops substitution reflowing the line. Must stay identical to
+        // CaptionExportRenderer#drawUnit — a preview that substitutes differently from the export
+        // is the §3g divergence wearing a new hat.
+        String shown = CaptionAnimator.substituteUnit(animPreset, text, progress, unitIdx);
+
         canvas.save();
         canvas.translate(dx, dy);
         canvas.scale(scaleX, scaleY, ucx, ucy);
-        paintWord(canvas, text, x, baseY, color, fontPx, pre.alpha);
+        paintWord(canvas, shown, x, baseY, color, fontPx, pre.alpha);
         canvas.restore();
     }
 

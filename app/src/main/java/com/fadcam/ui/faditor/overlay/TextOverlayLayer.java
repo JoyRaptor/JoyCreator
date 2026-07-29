@@ -204,6 +204,21 @@ public class TextOverlayLayer extends FrameLayout {
                 ((TextView) view).setText(t);
             }
         }
+        // MATRIX substitutes CHARACTERS rather than transforming them, so like a timer its string
+        // depends on the playhead and is refreshed here. Every other preset returns the text
+        // unchanged, so this costs one comparison for them. Suppressed while the finger is down
+        // for the same reason the transform below is: during a drag the object follows the finger.
+        if (!(o == manipulating) && !o.isTimer() && view instanceof TextView) {
+            String shown = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTextAt(
+                    com.fadcam.ui.faditor.transcript.CaptionAnimator
+                            .parsePreset(o.getTextAnimPreset()),
+                    o.getText(), currentTimeMs, o.getStartMs(),
+                    o.animSpanMs(callback.getProjectDurationMs()),
+                    o.getTextAnimInPct(), o.getTextAnimOutPct());
+            if (!shown.contentEquals(((TextView) view).getText())) {
+                ((TextView) view).setText(shown);
+            }
+        }
         // While the user is dragging/scaling this overlay, follow the finger
         // (static transform) rather than the keyframed value at the playhead.
         boolean live = o == manipulating;

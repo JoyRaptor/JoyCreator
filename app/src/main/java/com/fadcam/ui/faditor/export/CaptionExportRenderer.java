@@ -223,12 +223,15 @@ public class CaptionExportRenderer {
     }
 
     /** Progress of one animating unit of the current phrase, from the ONE authority. */
-    private float unitProgress(int wordPos, int charIdx) {
+    private int unitIndex(int wordPos, int charIdx) {
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .unitIndexOf(animWords, animGran, wordPos, charIdx);
+    }
+
+    private float unitProgress(int unitIdx) {
         return com.fadcam.ui.faditor.transcript.CaptionAnimator.unitProgress(
                 frameSourceMs, animSpanStart, animSpanEnd, animInEff, animOutEff,
-                com.fadcam.ui.faditor.transcript.CaptionAnimator
-                        .unitIndexOf(animWords, animGran, wordPos, charIdx),
-                animUnitCount);
+                unitIdx, animUnitCount);
     }
 
     private void drawWord(String word, float x, float baseY, float ww,
@@ -246,17 +249,19 @@ public class CaptionExportRenderer {
             for (int i = 0; i < word.length(); i++) {
                 String ch = word.substring(i, i + 1);
                 float cw = textPaint.measureText(ch);
-                drawUnit(ch, gx, baseY, cw, color, fontPx, unitProgress(wordPos, i),
-                        active, emphasisValue);
+                int uidx = unitIndex(wordPos, i);
+                drawUnit(ch, gx, baseY, cw, color, fontPx, unitProgress(uidx),
+                        active, emphasisValue, uidx);
                 gx += cw;
             }
             return;
         }
 
+        int uidx = unitIndex(wordPos, 0);
         drawUnit(word, x, baseY, ww, color, fontPx,
                 animPreset == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
-                        ? 1f : unitProgress(wordPos, 0),
-                active, emphasisValue);
+                        ? 1f : unitProgress(uidx),
+                active, emphasisValue, uidx);
     }
 
     /**
@@ -264,7 +269,7 @@ public class CaptionExportRenderer {
      * tape handles) and, for the active word only, the style's active-word EMPHASIS.
      */
     private void drawUnit(String text, float x, float baseY, float w, int color, float fontPx,
-                          float progress, boolean active, float emphasisValue) {
+                          float progress, boolean active, float emphasisValue, int unitIdx) {
         com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform pre =
                 com.fadcam.ui.faditor.transcript.CaptionAnimator
                         .presetTransform(animPreset, progress, fontPx);
@@ -282,10 +287,17 @@ public class CaptionExportRenderer {
         float ucx = x + w / 2f;
         float ucy = baseY - (textPaint.getFontMetrics().descent
                 - textPaint.getFontMetrics().ascent) * 0.35f;
+        // The SECOND animated channel — mirrors CaptionOverlayView#drawUnit exactly. Because
+        // substituteUnit is a pure function of (text, progress, unitIdx) and both surfaces derive
+        // progress from media time, the export cannot draw a different character than the preview
+        // showed. That is the whole reason the churn is not random.
+        String shown = com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .substituteUnit(animPreset, text, progress, unitIdx);
+
         canvas.save();
         canvas.translate(dx, dy);
         canvas.scale(scaleX, scaleY, ucx, ucy);
-        paintWord(text, x, baseY, color, fontPx, pre.alpha);
+        paintWord(shown, x, baseY, color, fontPx, pre.alpha);
         canvas.restore();
     }
 

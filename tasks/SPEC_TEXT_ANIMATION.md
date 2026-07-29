@@ -49,8 +49,12 @@ so any future wall-clock term fails the harness instead of failing quietly in an
   durations and applied against each phrase's own span, capped at half of it
   (`zoneForSpan`). Otherwise continuous speech would animate its first phrase and let every
   later one simply appear.
-- **Zones are SOURCE ms.** Both renderers evaluate against source time; timeline ms would halve
-  the zones on a 2× clip.
+- ~~**Zones are SOURCE ms.**~~ **SUPERSEDED 2026-07-29 (`d71b614`): zones are a FRACTION of each
+  LINE, 0…0.5, and have no units at all.** The old note read "both renderers evaluate against
+  source time; timeline ms would halve the zones on a 2× clip" — true, and it required every call
+  site to remember which base it was in. A fraction is correct in both bases by construction, so
+  the hazard is removed rather than managed. It is also the only form that can be authored ONCE
+  for a whole video, which is why the user asked for it.
 - **Presets compose with `CaptionStyle.Anim` rather than replacing it** — those three are an
   active-word emphasis (1.15× at rest), not an entrance.
 
@@ -58,45 +62,68 @@ so any future wall-clock term fails the harness instead of failing quietly in an
 
 | Piece | Where |
 |---|---|
-| Tape `▶` `◀` carets + zone tint (amber) | `EditorTimelineView.drawCaptionAnimHandles` / `hitTestCaptionAnimHandle` |
-| Caret ↔ zone mapping, as pure math | `CaptionAnimator.caretFractionForZone` / `zoneFromCaretFraction` |
-| The caret's meaningful range | `CaptionPhrases.maxUsefulZoneMs` |
+| **Caption timing: In/Out sliders, 0–50% of every line** | `FaditorEditorActivity.addCaptionAnimRangeControl` / `makeCaptionAnimSlider` |
+| Live preview during a drag; ONE undo step on release | `previewCaptionAnimZones` + 4-arg `applyCaptionAnimZones` |
+| Travel ↔ stored fraction, as pure math (shared by slider and caret) | `CaptionAnimator.caretFractionForZone` / `zoneFromCaretFraction` |
+| Is there anything here to time at all | `CaptionPhrases.hasAnimatableSpan` |
+| Tape `▶` `◀` carets + zone tint (amber) — **PARKED, no caller; for TEXT BOXES** | `EditorTimelineView.drawCaptionAnimHandles` / `hitTestCaptionAnimHandle` |
 | Preset grid + granularity, tiles drawn from the evaluator | `TextAnimPickerPopover` |
 | "A in motion" entry point + Motion row | `FaditorEditorActivity.makeTextMotionIcon`, `buildCaptionDrawerContent` |
 | Undo for zones / preset / granularity | `applyCaptionAnimZones`, `applyCaptionAnimPreset`, `applyCaptionAnimGranularity` |
-| 145 off-device checks (was 131) | `tools/jvm-harness/CaptionAnimatorTest.java` |
+| 160 off-device checks (131 → 145 → 158 → 160) | `tools/jvm-harness/CaptionAnimatorTest.java` |
 
-The carets copy the slide freeze-zone precedent exactly — tight hit-test, checked BEFORE the
-outer trim handles, `LambdaAction` undo — with ONE deliberate departure: **the freeze carets
-convert px through `getTrimmedDurationMs()` (timeline ms), and these must not.** The caption
-zones are SOURCE ms, so `finishCaptionAnimDrag` never divides by the speed multiplier. Copying
-that line unchanged would have halved every zone on a 2× clip, which is precisely the §3g class
-of defect one level over.
+**Captions are timed from the style drawer, not the tape** (user, 2026-07-29). He drove the carets
+and they worked; he rejected them for captions anyway, because captions ride long videos and
+arrive line after line: *"to get a fifty percent fade in, fifty percent fade out, I'm gonna be
+having to do a lot of dragging over perhaps a thirty minute clip. And that just won't do."*
+The carets remain the right instrument for a TEXT BOX — one object, one visible span, one gesture
+— and are kept intact and uncalled until that path exists.
+
+The freeze-caret precedent had ONE deliberate departure that is now **moot**: the freeze carets
+convert px through `getTrimmedDurationMs()` (timeline ms) and the caption zones must not, because
+they were source ms. A fraction has no base, so `finishCaptionAnimDrag` has nothing to divide by
+and the warning was deleted rather than restated.
 
 Strings are HARDCODED with `// TODO(strings)` — the extraction is frozen behind the rebrand
 (`road_map.md:49`). Follow that, do not "fix" it.
 
 ### DONE — decisions forced while building the UI, each with its reasoning
 
-- **The caret's travel is scaled to what actually changes, not to the tape.** The zones are
-  absolute durations on the CLIP but spent against each PHRASE, and phrases are short while clips
-  are long. A caret mapped linearly onto the tape would put its whole useful range in the first
-  few percent — on a 60s clip every position from ~3% to the centre saturates every phrase, so
-  94% of the travel would be dead and the control would feel broken. Full inward travel therefore
-  maps to `CaptionPhrases.maxUsefulZoneMs()` (half the longest VISIBLE phrase). Both endpoints of
-  the reporter's model stay exactly true — caret at the end is off, caret at the centre means
-  every phrase finishes arriving as it starts leaving — and every position between them is
-  distinct. Pinned by `caretMapping()` in the harness.
+- ~~**The caret's travel is scaled to what actually changes, not to the tape.**~~ **OBSOLETE
+  (`d71b614`).** That scaling — full travel mapping to `CaptionPhrases.maxUsefulZoneMs()`, half
+  the longest visible phrase — existed only because the zones were absolute durations on the CLIP
+  spent against each PHRASE, so a linear map onto a 60s tape left ~94% of the travel dead. A
+  fraction is already per-line: full travel is 0.5 at every phrase length, there is no scale
+  factor, and `maxUsefulZoneMs` is deleted. Both endpoints of the user's model still hold exactly,
+  and now they hold at EVERY line length rather than one clip's longest phrase — which is what
+  makes "set it once for the whole video" possible.
+- **Whether to offer the control at all asks the EVALUATOR, not the span.**
+  `hasAnimatableSpan()` tests "does full travel buy a non-zero zone". `spanMs` floors every phrase
+  at 1ms so a degenerate ASR word (`startMs == endMs`) still draws, and on a 1ms span the floor
+  cap in `zoneForSpan` returns 0 at every setting — a "span > 0" test would offer a control that
+  provably cannot do anything. Swept over spans 1…300 in the harness.
 - **Measured on the TRIMMED window, not the whole source transcript.** A phrase outside the trim
-  is not drawn, so it must not scale a handle against text the user cannot see.
-- **Picking a preset with both carets at the ends seeds an entrance.** Zero zones ARE the off
-  state — that is the timing model and why there is no enable switch — but it means every tile in
-  the picker would apply cleanly and change nothing on a fresh clip. Choosing a preset is an
-  explicit request to animate, so it seeds half the usable entrance range, in the SAME undo step,
-  and the carets then show what happened.
-- **The carets appear only while the caption drawer is open.** A captioned clip is commonly
-  selected for reasons unrelated to animating it, and two extra carets competing with the trim
-  handles for the tape edges is clutter the rest of the time.
+  is not drawn, so it must not be what earns a clip a timing control.
+- **Picking a preset with both zones at zero seeds an entrance** (0.25, half of full travel).
+  Zero zones ARE the off state — that is the timing model and why there is no enable switch — but
+  it means every tile in the picker would apply cleanly and change nothing on a fresh clip.
+  Choosing a preset is an explicit request to animate, so it seeds, in the SAME undo step, and the
+  Timing sliders then show what happened.
+- ~~**The carets appear only while the caption drawer is open.**~~ **They no longer appear for
+  captions at all** (`665d543`). The reasoning behind the original rule — a captioned clip is
+  commonly selected for reasons unrelated to animating it, and two extra carets competing with the
+  trim handles for the tape edges is clutter — is why they should stay opt-in when text boxes
+  revive them.
+- **The slider previews live but records one undo step per GESTURE.** A `SeekBar` fires on every
+  pixel; one undo entry per pixel would bury the user's real history under a hundred of its own.
+  Hence `previewCaptionAnimZones` (no undo, no autosave) plus a four-argument
+  `applyCaptionAnimZones` that is handed the value from BEFORE the gesture — by release, the
+  clip's own value is the preview, not the undo target. Proved on device: undo count 10 → 13
+  across exactly three slider gestures.
+- **The readout says "of each line", not a bare percentage.** A bare "50%" invites reading it as
+  half the clip, which is the exact misunderstanding the model change exists to prevent. At 50/50
+  it appends "· in ends as out begins", stating the model's headline property where the user
+  actually arrives at it.
 - **The emphasis row is relabelled "Highlight".** Pop/Zoom/Bounce are the active-word emphasis;
   the new row is the entrance/exit. Both being called "Animation" read as if one were redundant.
 
@@ -264,22 +291,38 @@ undocumented `GeneratedSource.freezeStartMs`/`freezeEndMs` all landed with the U
 
 What is left, in order:
 
-1. **Capture the large-amplitude device frame the evidence is still missing.** This is the ONLY
-   unfinished item from the previous handoff. It could not be done when the UI landed because no
-   device was attached. It is now much easier than it was: open the caption drawer, drag the `▶`
-   caret well in, and the entrance is a known span at a known place instead of something to hunt
-   for. The existing proof (2901 px changed, bounding box exactly the caption text, zero pixels
-   elsewhere) shows the plumbing works; it does not show the LOOK, because the sampled frame sat
-   at the zone saturation point where progress is 1 by construction.
-2. **Walk the UI once on-device for the things a harness cannot see:** that the amber carets are
-   grabbable without stealing edge grabs from the trim handles, that the popover's tiles read as
-   distinct at 60dp, and that LETTER granularity on a long phrase does not drop frames (it is the
-   cost centre — per-glyph layout in both paths).
-3. **Decide GHOST's blur** — see "KNOWN GAP" above. It is a real decision with a performance
-   price, not a bug to fix in passing.
-4. Only then add more presets, one at a time, as data driven by `unitProgress` — and never any
+~~1. Capture the large-amplitude device frame.~~ **SUPERSEDED.** The user drove the whole feature
+   himself on 2026-07-29 — *"animations per word and per letter look great! i tried all styles"* —
+   which answers the question the frame was a proxy for, better than the frame would have.
+~~2. Walk the UI on-device.~~ **DONE 2026-07-29**, with two of its three questions closed:
+   - **LETTER granularity holds frame rate. CLOSED.** Matched 5s preview runs over the same
+     captioned span, changing only `captionAnimGranularity`: LETTER 270 frames / **33.70%** janky
+     / 12ms median / 27ms p95; BLOCK 273 / **33.70%** / 12ms / 30ms. Identical, with LETTER
+     marginally faster at the tail. The conditions really differed — under BLOCK the whole phrase
+     is drawn at once, under LETTER only the last few glyphs were on screen — which is the
+     positive control. Residual 33.7% jank is the editor's baseline, identical in both arms.
+     Caveats: PREVIEW only, and a phrase is capped at six words so ~30 glyphs is the worst case
+     by construction.
+   - ~~Are the carets grabbable without stealing trim-handle grabs?~~ **Moot for captions** — they
+     no longer draw. It returns when text boxes do.
+   - **The tiles still do NOT read as distinct at 60dp.** Type vs Fade: mean **1.08/255**, 2.9% of
+     pixels differing by >8; control None vs Type **26.38 / 17.7%** on the same instrument. The
+     tiles are static poses (four screenshots 0.4s apart are byte-identical). **Still open.**
+
+**What is actually left, in order:**
+
+1. **Make the preset tiles legible at 60dp.** Measured above. They are static poses; animating
+   them, or exaggerating the pose, is the obvious fix and neither is built.
+2. **The text-box path into this panel** — the other half of the user's 2026-07-29 direction, and
+   a BUILD rather than a context branch: `TextOverlayItem` has no `CaptionStyle` and no animation
+   zones, and nothing opens `caption_drawer` for a text box. The `▶` `◀` carets are parked intact
+   waiting for exactly this.
+3. **Measure the EXPORT path's per-glyph cost.** Only the preview has been measured.
+4. **Decide GHOST's blur** — see "KNOWN GAP" above. A real decision with a performance price, not
+   a bug to fix in passing.
+5. Only then add more presets, one at a time, as data driven by `unitProgress` — and never any
    easing arithmetic outside `CaptionAnimator`. The five unimplemented ones each name what they
    need; **which to build next is the reporter's call.**
-5. The retrigger-on-value-change requirement (a timer wanting a pop on each TICK) is **still not
+6. The retrigger-on-value-change requirement (a timer wanting a pop on each TICK) is **still not
    addressed in `CaptionAnimator`** — it is an event, not a function of elapsed time, and the
    spec warns it is painful to retrofit. It is untouched by this work.

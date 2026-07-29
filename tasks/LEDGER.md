@@ -238,30 +238,75 @@ to be two different beasts sharing one panel:
    I'm gonna be having to do a lot of dragging over perhaps a thirty minute clip. And that just
    won't do."*
 
-**The model change this implies, started and deliberately REVERTED so the tree stays green
-(`b3bd093` is the last good commit):** `Clip.captionAnimInMs`/`OutMs` become
-`captionAnimInPct`/`OutPct`, floats 0…0.5, a fraction of each LINE rather than absolute source
-ms. Keep the reasoning, it is the good part: the ms version had to be held in SOURCE ms by hand
-so a speed-adjusted clip would not animate over the wrong span — the exact mistake §3g originally
-was. **A fraction has no units, so it is correct in both bases by construction and there is
-nothing left to get wrong.** The 0.5 cap is the model, not a safety rail: at 0.5/0.5 the entrance
-ends exactly where the exit begins, at every line length, which is the user's own description.
+**BOTH HALVES OF THAT DIRECTION ARE NOW BUILT AND PROVED ON THE PHONE — `d71b614`, `665d543`.**
 
-**FOUND while scoping this, and it changes the size of the job:** there is **no text-box path
-into the caption style panel today.** `caption_drawer` is opened only by `toggleCaptions()`;
-`tweakCaptionStyle` (`FaditorEditorActivity:15407`) targets a video clip or an audio clip and
-nothing else; `TextOverlayItem` carries its own `colorInt`/`fontFamily` and a keyframed
-transform, with no `CaptionStyle` and no animation zones. So "we are using the caption styles to
-edit text boxes as well" is the thing to BUILD, not a context branch to add.
+**1. The model change — DONE, `d71b614`.** `Clip.captionAnimInMs`/`OutMs` are now
+`captionAnimInPct`/`OutPct`, floats 0…0.5, a fraction of each LINE. The reasoning was the good
+part and it survived: the ms version had to be held in SOURCE ms by hand so a speed-adjusted clip
+would not animate over the wrong span — the exact mistake §3g originally was. **A fraction has no
+units, so it is correct in both bases by construction.** The 0.5 cap is the model, not a safety
+rail: at 0.5/0.5 the entrance ends exactly where the exit begins, at every line length.
+Every consumer followed through; `CaptionPhrases.maxUsefulZoneMs` was DELETED (it existed only to
+scale a caret's travel, which a fraction makes unnecessary) and replaced by `hasAnimatableSpan()`.
+Old `captionAnimInMs`/`OutMs` keys are read and IGNORED, documented at the read site — there is no
+honest conversion, and they only ever existed in the 2026-07-29 sandbox build.
+`zoneForSpan` keeps a floor cap next to the clamp: rounding half an ODD span up would let two
+zones sum to one ms more than the line they sit on.
+
+**2. The caption range control — DONE, `665d543`.** The caption drawer has a **Timing** section:
+In and Out sliders, 0–50% of every caption line, reading *"Applied to every caption line, as a
+share of that line"* and *"In n%  Out n%  of each line"*, which at 50/50 gains *"· in ends as out
+begins"*. Dragging previews live and records NOTHING; one undo step is written on release against
+the value the gesture started from. **Captions no longer draw carets** — `toggleCaptions` no
+longer turns them on, and the call was deleted rather than passed `false`.
+
+**The carets are PARKED, not dead, and that distinction is the whole point of this file.**
+They are for TEXT BOXES (user's reservation), there is no text-box path into this panel yet, so
+`EditorTimelineView.setCaptionAnimHandlesVisible` currently has **NO CALLER**. The code is left
+intact because it is complete and about to be wanted. A block comment at the code says so, and
+this entry is the other half of the receipt — the difference from §3c, whose dead code was
+undocumented and unrecorded. **If text boxes are dropped, delete that block with them.**
+
+**Still to build for the text-box half — and it is a BUILD, not a context branch.** There is **no
+text-box path into the caption style panel.** `caption_drawer` is opened only by
+`toggleCaptions()`; `tweakCaptionStyle` targets a video clip or an audio clip and nothing else;
+`TextOverlayItem` carries its own `colorInt`/`fontFamily` and a keyframed transform, with no
+`CaptionStyle` and no animation zones. **Tell the user the size of this before sinking a session
+into it.**
 
 | Step | State | Commit |
 |---|---|---|
 | 1. One evaluator (`CaptionAnimator`), preview and export on the same clock | DONE | `95dc7e2` |
 | 2. Presets + granularity + unit splitting, with a harness | DONE | `5cc34fd` |
 | 3. Persist on `Clip`, round-trip, and RUN in both renderers | DONE | `c7b6359` |
-| 4. Tape `▶` `◀` carets (the visible half of the timing model) | DONE | see below |
+| 4. Tape `▶` `◀` carets | BUILT, then RETIRED for captions and PARKED for text boxes | `665d543` |
 | 5. Preset grid picker + granularity selector in the caption drawer | DONE | see below |
-| 6. **Large-amplitude device frame** | **NOT CAPTURED.** 2026-07-28 blocked (only the Note 20 attached). 2026-07-29 05:44 the Note 9 came back and the walk STARTED — see below — then stopped at 05:52 because a human began using the phone | — |
+| 6. **Large-amplitude device frame** | **SUPERSEDED.** The user drove the whole thing and approved it, which is better evidence than the frame. The one question the frame stood in for that a human could NOT answer — does LETTER hold frame rate — is now measured, below | — |
+| 7. Timing model → per-line fraction | DONE | `d71b614` |
+| 8. Caption range control in the style panel; carets off for captions | DONE | `665d543` |
+
+**LETTER GRANULARITY HOLDS FRAME RATE. Measured 2026-07-29, and this closes the cost centre.**
+Matched 5s runs on the Note 9 over the SAME captioned span of `bb2a9deb`, changing only
+`captionAnimGranularity` on disk with the editor closed, `dumpsys gfxinfo` reset before each:
+
+| | LETTER | BLOCK (control) |
+|---|---|---|
+| Frames | 270 | 273 |
+| Janky | 91 (**33.70%**) | 92 (**33.70%**) |
+| 50th | 12ms | 12ms |
+| 90th | 24ms | 25ms |
+| 95th | 27ms | 30ms |
+
+**Identical jank rate to two decimal places, identical median, and LETTER is marginally FASTER at
+the 90th/95th.** Per-glyph layout costs nothing measurable. **The conditions genuinely differed —
+that is the positive control, and it is a picture, not an assumption:** mid-playback under BLOCK
+the whole phrase "this cat is very cute she" is drawn at once; under LETTER only "e she" is on
+screen, the rest still arriving. Two runs of the same condition could not look different.
+The residual 33.7% jank is IDENTICAL in both, so it is the editor's baseline (video decode +
+waveform), not the animation — flagged as its own question, not attributed to §3g.
+**Limits, stated:** this is the PREVIEW path only, not the export renderer; and "a long phrase"
+cannot get longer than this, because `CaptionPhrases` caps a phrase at six words — so ~30 glyphs
+IS the worst case by construction, not a sample of it.
 
 **FIRST SIGHTING, 2026-07-29 05:44–05:52 (Note 9, sole device, verified build installed and
 launched without a crash-loop).** Until now nothing in §3g had been seen by a phone. It has now:
@@ -296,16 +341,16 @@ It stays in §3 rather than moving to §1 because step 6 is unproven: no device 
 the UI landed, so the UI has been verified by build and by harness, **not by a human or a phone
 looking at it.** Nothing here claims otherwise.
 
-**How steps 4–5 were verified, and the limit of that verification.** The harness grew from 131 to
-**145 checks**, all passing, with the new ones (`caretMapping`) pinning the caret↔zone round-trip
-across its whole travel and the model's headline property end to end — both carets at full travel
-means entrance ends exactly where exit begins. The APK was dex-scanned for the new symbols
-(`TextAnimPickerPopover`, `CAPTION_ANIM_IN_HANDLE`, `zoneFromCaretFraction`, `maxUsefulZoneMs`,
-`applyCaptionAnimPreset`) **and for `FadCamApplication` + `FaditorEditorActivity` as the positive
-control** — the check the 2026-07-28 partial-dex trap defeated. Class files and APK both postdate
-the last source edit. **What none of that proves:** that the carets are grabbable in a real
-thumb's-width without stealing edge grabs from the trim handles, that the tiles read as distinct
-at 60dp, or that LETTER granularity holds frame rate. Those need the phone.
+**Harness: 131 → 145 → 158 → 160 checks, all passing.** Run it with the command at the end of
+this section. **Dex-scan symbol list, CURRENT — the older list in this file was contradictory and
+is corrected here:** scan for `addCaptionAnimRangeControl`, `makeCaptionAnimSlider`,
+`previewCaptionAnimZones`, `captionAnimUsable`, `CAPTION_ANIM_MIN_TRAVEL_PX`, `clampZonePct`,
+`hasAnimatableSpan`, `captionAnimInPct`; **positive control** `FadCamApplication` +
+`FaditorEditorActivity` + `EditorTimelineView` (the 2026-07-28 partial-dex trap); **freshness
+control — these must be ABSENT:** `captionAnimInMs`, `getCaptionAnimInMs`, `maxUsefulZoneMs`.
+A stale dex cannot show a deleted symbol missing, which is why the absent list is the strong half.
+**Do not scan for `maxUsefulZoneMs` as PRESENT** — an earlier revision of this file said to, and
+following it would make a correct dex look stale.
 
 **Two defects found and fixed by reviewing this work before believing it:**
 - `captionAnimTarget()` used `getSelectedClip()` alone, so with an AUDIO clip's captions selected
@@ -317,19 +362,32 @@ at 60dp, or that LETTER granularity holds frame rate. Those need the phone.
   so words outside the trim — which are never drawn — could stretch the handle's travel.
 
 **New decisions, with their reasoning, so they are not re-litigated:**
-- **Caret travel is scaled to `CaptionPhrases.maxUsefulZoneMs()`, not to the tape.** Zones are
-  absolute durations on the clip but spent per PHRASE, and phrases are short while clips are long,
-  so a linear map onto the tape would leave ~94% of a 60s clip's travel dead. Full travel now
-  means "half the longest visible phrase", which keeps both endpoints of the user's model exactly
-  true and makes every position between them distinct.
-- **Choosing a preset with both carets at the ends seeds an entrance zone**, in the same undo
-  step. Zero zones ARE off by design — but without this, every tile in the picker would apply
-  correctly and change nothing on screen, and the feature would read as broken on first use.
-- **The carets show only while the caption drawer is open.** Otherwise every captioned clip
-  carries two extra carets competing with the trim handles for its edges.
-- **`finishCaptionAnimDrag` does NOT divide by the speed multiplier**, unlike the freeze-caret
-  precedent it otherwise copies line for line. The freeze zones are timeline ms; these are source
-  ms. Copying that one line unchanged would have halved every zone on a 2× clip.
+- ~~Caret travel is scaled to `CaptionPhrases.maxUsefulZoneMs()`~~ — **OBSOLETE, `d71b614`.** That
+  scaling existed because zones were absolute durations spent per PHRASE, so a linear map onto a
+  60s tape left ~94% of the travel dead. A fraction is already per-line, so full travel is 0.5 at
+  every length and there is no scale factor at all. `maxUsefulZoneMs` is deleted.
+- ~~`finishCaptionAnimDrag` does NOT divide by the speed multiplier~~ — **OBSOLETE, `d71b614`,
+  and this is the good kind of obsolete.** That warning existed because zones were source ms while
+  the freeze carets it copies are timeline ms. A fraction has no base, so the hazard is gone rather
+  than handled, and the warning was deleted with it.
+- **Choosing a preset with both zones at zero seeds an entrance** (0.25 = half of full travel), in
+  the same undo step. Zero zones ARE off by design — but without this, every tile in the picker
+  would apply correctly and change nothing on screen, and the feature would read as broken on
+  first use.
+- **The timing control lives in the style drawer, not on the tape** — see the user's quote above.
+- **`hasAnimatableSpan` asks the evaluator, not the span.** It tests "does full travel buy a
+  non-zero zone", NOT "is the span non-zero". Those differ and the difference is reachable:
+  `spanMs` floors every phrase at 1ms so a degenerate ASR word (`startMs == endMs`) still DRAWS,
+  and on a 1ms span the floor cap makes every setting return 0 — so a "non-zero span" test offers
+  a control that provably cannot do anything. Caught by adversarial review 2026-07-29 **after the
+  harness had already pinned the wrong behaviour as intended**; the harness now sweeps spans
+  1…300 and pins that the control appears on exactly the spans where it works.
+- **`captionAnimTravelPx` returns 0, not `Math.max(1f, …)`.** The old floor looked like a
+  divide-by-zero guard and was a trap: on a segment narrower than its two trim handles the
+  expression goes negative, the floor pins it to 1px, and the computed centre lands to the RIGHT
+  of the exit caret's minimum — so every touch of the exit caret silently ERASED a zone the user
+  had set, while the entrance caret's whole range was one pixel wide. Inherited, not caused;
+  unreachable today because the carets are parked; fixed so the text-box build cannot inherit it.
 
 **How step 1 was verified** (the handoff asked for it before anything was built on top):
 preview computes `inPoint + positionInCurrentSegmentMs * speed` (`FaditorEditorActivity:8121`),
@@ -353,13 +411,16 @@ entrance without hunting.
 **Decisions taken while building, so they are not re-litigated:**
 - **The PHRASE is the animating object, not the clip.** Taking "the item's tape drives the timing"
   literally as the clip would animate a clip's first phrase and let every later phrase simply
-  appear — continuous speech would animate once a minute. Zones are stored on the clip as
-  DURATIONS and applied against each phrase's own span. Every stated property survives: zero is
-  off, and capping each zone at half the span (`CaptionAnimator.zoneForSpan`) makes the entrance
-  end exactly where the exit begins at EVERY phrase length.
-- **Zones are SOURCE ms, not timeline ms.** `getTrimmedDurationMs()` divides by the speed
-  multiplier; clamping against it would have halved the zones on a 2× clip — the same units
-  confusion that WAS §3g.
+  appear — continuous speech would animate once a minute. Zones are stored on the clip and applied
+  against each phrase's own span. Every stated property survives: zero is off, and capping each
+  zone at half the span (`CaptionAnimator.zoneForSpan`) makes the entrance end exactly where the
+  exit begins at EVERY phrase length.
+- ~~Zones are SOURCE ms, not timeline ms~~ — **SUPERSEDED by `d71b614`: zones are a FRACTION of
+  each line and have no base at all.** The original note read: "`getTrimmedDurationMs()` divides
+  by the speed multiplier; clamping against it would have halved the zones on a 2× clip — the same
+  units confusion that WAS §3g." Kept struck-through rather than deleted because it names the
+  hazard the fraction was chosen to remove, and a future reader who sees a duration creeping back
+  into this area should recognise it.
 - **Presets compose with `CaptionStyle.Anim`, they do not replace it.** POP/ZOOM/BOUNCE sit at
   1.15× at rest (an active-word emphasis, not an entrance), so merging the vocabularies would
   silently restyle every existing captioned project.
@@ -384,8 +445,25 @@ entrance without hunting.
   an entrance instead of multiplying into it — but the two paths agreeing was the part that
   mattered, and they do.
 
-**Still outstanding for §3g:** step 6, the large-amplitude device frame — and a human's eyes on
-the UI.
+**STILL OUTSTANDING FOR §3g — the honest short list, 2026-07-29:**
+1. **The six preset tiles do not read as distinct at 60dp.** Measured, unfixed: Type vs Fade
+   differ by mean **1.08/255** over their glyph area with **2.9%** of pixels differing by >8,
+   against a control (None vs Type) of **26.38 mean / 17.7%** on the same instrument — a real
+   difference at ~24× the signal. At 3× zoom the five ARE distinguishable; at 60dp the label does
+   all the work. Four screenshots 0.4s apart are byte-identical, so the tiles are static poses,
+   not animations — animating them is the obvious fix and it is not built.
+2. **The text-box half of the user's direction** — see the BUILD note above. Carets are parked
+   waiting for it.
+3. **The export path's frame cost is unmeasured.** The LETTER result above is the PREVIEW only.
+4. **Baseline editor jank is 33.7%** during playback and is NOT caused by §3g (identical in both
+   arms). Recorded here because it was measured here, not because it belongs to §3g.
+
+**Test-project state after this session** — `bb2a9deb` "P0 control no image" now sorts to the TOP
+of Recent Projects (its `lastModified` is the newest), NOT second from the bottom as an earlier
+revision of this file said. Its clip 1 is left at preset FADE, granularity WORD,
+`captionAnimInPct`/`OutPct` **0.5 / 0.5** — set deliberately while proving the range control, and
+left there because it demonstrates the feature. Its old `captionAnimInMs` keys are gone, which is
+the read-and-ignore path working as designed, not data loss.
 
 **Harness command (updated — it now compiles the phrase grouping and transcript too):**
 `javac -nowarn -d tools/jvm-harness/out-caption tools/jvm-harness/stubs/androidx/annotation/*.java tools/jvm-harness/stubs-caption/com/fadcam/ui/faditor/transcript/CaptionStyle.java app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionPhrases.java app/src/main/java/com/fadcam/ui/faditor/transcript/Transcript.java app/src/main/java/com/fadcam/ui/faditor/transcript/TranscriptWord.java tools/jvm-harness/CaptionAnimatorTest.java && java -cp tools/jvm-harness/out-caption CaptionAnimatorTest`

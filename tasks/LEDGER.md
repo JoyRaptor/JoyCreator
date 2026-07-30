@@ -247,6 +247,63 @@ which is the exact signature of the corrupt APK `d29e8bf` warned about. The APK 
 before it was trusted; it was in fact fresh. **A spurious failure does not excuse skipping the
 artifact check — it is precisely when to do it.**
 
+## 1e. MATRIX REWORKED — it RESOLVES across the message now, 2026-07-30, `debaf60`
+
+**The user rejected the shipped MATRIX on sight**, and was right:
+
+> *"Matrix has all the text — spaghetti garbage starting out on the screen. when what it should be
+> is each letter goes through a bunch of glyph nonsense and then resolves on a letter… there's a
+> bit of a gradient of nonsense as the message reads across."*
+
+**The arithmetic agreed before any code changed.** The old rule inked EVERY character as a glyph
+from progress 0 and locked position *i* once progress passed `(i+1)/(L+1)`. Modelled in
+`tasks/matrix2_predict.py`, `PICKERTEST` at p=0.00 rendered as a full ten-character body of
+katakana. That is a block of noise CLEARING, not a message ARRIVING — a legible effect, but not the
+one the preset is named for.
+
+**Now each character has a three-stage life: BLANK → churning glyphs → its real letter.** At any
+instant there is settled text on the left, two-to-four characters churning, and nothing yet on the
+right.
+
+| p | rendered (`x` = a churning katakana/digit) |
+|---|---|
+| 0.35 | `THE Mxxx1` |
+| 0.50 | `THE MxTxxx xxx` |
+| 0.65 | `THE MATRIX xAS xxx` |
+| 0.80 | `THE MATRIX HAS Yxx` |
+
+**Two parameters, and the reasoning is the part worth keeping:**
+- **Reveal time is strictly left-to-right, with NO jitter.** An earlier draft jittered the reveal as
+  well as the duration. That makes reveal non-monotonic and opens **HOLES** mid-message — a
+  character drawn while one to its left is still blank, which reads as dropped text. **Caught in the
+  model, not on the phone.** All jitter now lives in the DURATION.
+- **Duration varies per character** (0.18–0.42 of the unit's progress) — the user's *"it takes
+  different durations for different letters to resolve"*. One fixed duration makes every letter
+  resolve a fixed distance behind the last, which reads as a mechanical wipe.
+- **The reveal spread is scaled by `1 - CHURN_MAX`** so the LAST character's churn still fits inside
+  the zone. Without it the tail characters clamp to 1 and snap together on the final frame —
+  measured at **3/10 and 4/18 before the scaling, 0 after**.
+
+The blank is a **SPACE**, so the string is still the same length and the layout-safety property is
+untouched. Determinism is untouched: the duration is keyed on `(unitIndex, i)` through the same
+hand-rolled `mix`, so preview and export resolve each letter at the same instant.
+
+**Harness 295 → 300.** Four new checks pin what the user asked for and the property the draft broke:
+a leading edge exists at p=0; settled/churning/blank zones coexist in that order mid-entrance; **no
+holes at any progress**; characters resolve at differing offsets.
+
+**A PRE-EXISTING HARNESS FAILURE THE HANDOFF DID NOT KNOW ABOUT — the number was wrong.** The
+harness at `06dc5f2` was **295 passed / 1 FAILED**, not the recorded 298/0. NEON_FLICKER shipped a
+deliberately unit-keyed flicker, which broke a control asserting that only UNSCRAMBLE varies with
+`unitIndex` — and that session had REVERTED its own harness test over an encoding problem, so
+nobody re-ran it and the stale figure was copied into the handoff. **This is the third time a
+harness count in a doc has been wrong; measure it by running it.** The control is now a **pinned
+SET** rather than a blanket rule: a preset that reads `unitIndex` must be declared, and one that
+starts reading it by accident still fails.
+
+**NOT YET SEEN ON A PHONE.** The Note 9 is unplugged (`adb devices` empty; the Note 20 is NOT
+attached, so this is a cable, not a safety stop).
+
 ## 1c. BUGS A, A2 AND B ARE FIXED AND MEASURED — 2026-07-30, `9b03bdc` (on `d29e8bf`)
 
 `d29e8bf` was committed **uncompiled and untested**. It has now been built, corrected and proved.
@@ -470,6 +527,46 @@ false** (`reorder/minimapDrag/scaling/marquee/postPinchPan/audioDrag` all false,
 `PHDIAG` + the `lastUp:` snapshot until this is closed.
 
 ## 3. PROMISED — on the docket, must not be lost again
+
+**3h. THE TEXT-BOX TIMING CARETS — THE USER HAS ANSWERED. BINDING, 2026-07-30.**
+
+The question this ledger has carried open longest is closed. The user's words:
+
+> *"The carets should work just exactly like they did on the very first iteration with the closed
+> captions before we decided to change it for the closed captions. That actually worked really well
+> as far as text is concerned. Closed captions was a different story, and it needed something
+> different. But originally, those carets were expected to be put on text in the first place. And
+> how they were operating in the closed captions worked perfectly well for text."*
+
+**So: revive the PARKED caret behaviour verbatim, aimed at a TEXT BOX.** Drag `▶` / `◀` inward on
+the item's tape to set the in/out zones, with the zone tinted — the exact interaction that shipped
+for captions in `665d543` and was retired there. **Do not redesign it**, and do not substitute a
+slider pair in the Edit-text dialog: that was offered as a cheaper alternative and the user has now
+chosen the carets explicitly, for the second time.
+
+**What it costs, re-derived by reading rather than estimated.** The machinery is complete and
+harness-covered, and its MATH is already target-agnostic — `caretFractionForZone`,
+`captionAnimTravelPx`, the `CAPTION_ANIM_MIN_TRAVEL_PX` floor and the fixed negative-travel trap all
+take a `RectF` and a fraction. Three things are genuinely clip-shaped and must be replaced:
+1. `selectedCaptionAnimClip()` resolves the target from `segments.get(selectedIndex).clip` and
+   demands `hasTranscript()`. A text box is a `TimedItem` on a layer row.
+2. The draw site is `segRects.get(selectedIndex)` — a MASTER-CLIP rect.
+3. The zone getters read `Clip.getCaptionAnimInPct()`; a text box stores `textAnimInPct`.
+
+**THE REAL OBSTACLE, AND IT IS NOT THE ONE THE OLD NOTE NAMED.** The note called it "a second
+geometry" and left it there. Reading it out: an item's rect is **content-x for left/right but
+SCREEN-y for top/bottom** (`LayerRowRenderer.hitTestItem` maps x through `timeToX` and y through
+`bandLocalY`), and the layer band carries **its own vertical scroll**, independent of the timeline's
+horizontal one. So reviving the carets needs a public `itemBodyRect(itemId, …)` on
+`LayerRowRenderer` that MIRRORS `hitTestItem`'s geometry — one derivation, or the caret will draw
+where the finger cannot grab it, which is the classic two-derivations bug this project keeps paying
+for.
+
+**DO NOT BUILD THIS WITHOUT A PHONE ATTACHED.** It is a DRAG on a tape whose carets sit ~10px from
+the green trim handles, and this ledger already records that the caret-vs-trim grab "needs a drag,
+not a screenshot". It is the one open item whose correctness cannot be established off-device at
+all. **Not started 2026-07-30 for exactly that reason** — the Note 9 was unplugged, and blind-
+building a two-coordinate-system drag is how `d29e8bf` happened.
 
 **3a. Masking / chroma-key / track-matte AUTHORING UI. — the thing that got lost once already.**
 The engine is BUILT, device-proven, and used by export: `CompositingSpec`, `MaskPathBuilder`,

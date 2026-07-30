@@ -37,6 +37,8 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 | §3g text-box motion was UNVERIFIED end to end — the serializer was proved but nothing showed the PICKER actually reaching `TextOverlayItem` (§3g) | see §3g | Note 9, `bb2a9deb`, baseline **zero** `textAnim` keys so no leftover could masquerade as success; picked **RISE** because nothing on disk had held it. Three levels agreed: the dialog's MOTION row read **"Rise · 25% in / 0% out of this box"** (25% = `MAX_ZONE_PCT/2`, the seed, so the label reports the model not the tap); the text **vanished from the preview at t=0**, which is RISE at progress 0 — the renderer consuming the new fields; and after Close & Save the disk held `"textAnimPreset":"RISE"` + `"textAnimInPct":0.25`. Controls: a full-file `diff` shows the keys on **exactly one** overlay and none of the other five (not blanket defaults); the same diff shows `"Enter text"` → `"PICKERTEST"`, an independent signal that OK committed, so a missing key could not be blamed on the dialog failing; a no-edit reopen + re-save returned both keys unchanged (full round-trip); undo 17 → 19; and "Animate by" offered only `Block`, i.e. `36a8e3c`'s gate working. `textAnimGranularity`/`textAnimOutPct` correctly ABSENT (default + sparse-omit) |
 | The §3g preset tiles were static poses, so a preset's ease could not be seen at all — three glyphs frozen at progress {0, 0.5, 1} (§3g) | `4a1ea41` | 16-frame burst on the real picker in `bb2a9deb`. **Per-tile temporal sd: Type 4.08, Fade 3.92, Rise 6.90, Ghost 7.21, Beam 6.84 — and NONE exactly 0.00.** NONE is the built-in control: it is deliberately left static, so a zero there proves the instrument reads the TILES and not the clock, the timeline or global screen noise. Before, all frames were byte-identical, i.e. 0.00 everywhere. Character is proved too: sampled ink shows TYPEWRITER quantised to 3 discrete values (44.96 / 48.10 / 51.24, one per glyph) while FADE sweeps continuously (41.96 → 51.22) — step vs ramp, exactly what a frozen tile could not express. Removing the 600ms hold (span = 2 × zone) roughly halved the frames where a pair is indistinguishable: Type/Fade 8/16 → 6/16, Rise/Beam 5/16 → 3/16, Type/Ghost 6/16 → 2/16. Freshness control: `javap -constants` shows `TILE_SPAN_MS = 1800` (the old 2400 would survive a stale compile) and the dex has `drawUnits` PRESENT with the deleted `drawSamples` ABSENT, `FadCamApplication` present as the partial-dex control. **Caveat, deliberately not swept under: the FREEZE-FRAME half is not fixed — see §3g outstanding item 1.** |
 
+| The text-box timing carets (§3h) existed but were PARKED with no caller, and the one question that mattered — can a caret be grabbed without stealing a trim grab — could not be answered off-device | see §1f | Six scripted drags on the Note 9. Three caret drags landed on **predicted** stored values (0.1241798 vs 0.1243; 0.359678; 0.20713 vs 0.204±0.004), each moving undo by **exactly one** (32→33→34→35→36, `Recorded: Text animation timing`). Two grabs at the trim cap — including its exact drawn centre — recorded `Overlay time range` instead, i.e. **the trim was NOT stolen**. Neither caret erased the other's zone. Harness 303 → **326, 0 failed**, and the new checks were shown to discriminate by reintroducing the old negative-travel floor (4 fail, then restored). Dex: 7 new symbols present, 2 deleted ones ABSENT, `FadCamApplication`=3 |
+
 ## 1b. THE EXPORT IS PROVED — 2026-07-30, and it found two real bugs on the way
 
 **The oldest gap in §3g is closed: a file has been exported and its PIXELS checked.** Every prior
@@ -527,6 +529,82 @@ never filled because `TextBoxView`s are recreated constantly; a cyan probe glow 
 a teal carpet; and non-ASCII in a Java string literal broke the harness build, costing the
 NEON_FLICKER invariant test, which was written and reverted. Harness unchanged at 298/0.
 
+## 1f. THE TEXT-BOX TIMING CARETS ARE BUILT, AND THE DRAG QUESTION IS ANSWERED — 2026-07-30
+
+**§3h is closed.** The carets parked since `665d543` now ride a TEXT BOX's tape on its layer row:
+drag `▶`/`◀` inward, the zone tints, release commits. The interaction is the one the user drove
+and approved for captions, unchanged — no redesign, no slider pair.
+
+**The open question since 2026-07-29 — "are the carets grabbable without stealing trim-handle
+grabs" — is ANSWERED, by scripted drags, which is the only thing that could answer it.** Six real
+gestures on the Note 9 (`bb2a9deb`, PICKERTEST, preset RISE):
+
+| Gesture | Result |
+|---|---|
+| entrance caret → x=625 | `textAnimInPct` **0.1241798**, predicted **0.1243** |
+| entrance caret → x=750 | **0.359678**, predicted 0.3634 (2-point fit: travel 265.4px, x0 559.1) |
+| exit caret → x=750 | `textAnimOutPct` **0.20713**, predicted **0.204 ± 0.004** |
+| entrance caret → far left | in = 0 (sparse-omitted), **carets STILL DRAWN** |
+| **trim cap at x=305** | **"Overlay time range"** — the TRIM, not the caret |
+| **trim cap CENTRE x=380** | **"Overlay time range"** — the trim again |
+
+**Undo moved by exactly ONE per gesture: 32 → 33 → 34 → 35 → 36**, each `Recorded: Text
+animation timing`, and the trim grabs recorded `Overlay time range` instead. The drag previews
+live (`onTextAnimZonesPreviewed`, no undo, no autosave) and commits once on release against the
+value captured at DOWN — the before-values travel WITH the callback, because by release the model
+already holds the gesture's own preview and an implementer reading "the current value" would undo
+to the last pixel of the drag.
+
+**Neither caret erases the other's zone.** The exit drag left `textAnimInPct` at 0.359678
+untouched, and the entrance-to-zero drag left the out-zone at 0.20713. That is precisely the
+symptom of the negative-travel trap (§3g), so it is now pinned on a real device as well as in the
+harness.
+
+**Geometry, measured rather than assumed.** Item tape L=316.4, R=877.8, inset 19.69px (10dp at
+density 1.96875), travel 261px. All three caret positions match the model within ~1.5px. The
+tape's right edge was CONFIRMED by scrolling until the exit caret came into view — before that,
+the item body was clipped at the row's right edge (1063.5) and the screen could not distinguish an
+item ending at 1109 from one ending at 3449.
+
+**The trade-off, stated honestly because it is real.** The caret is hit-tested BEFORE the row's
+trim handles (it must be — the row handler swallows the touch otherwise), with the tighter zone:
+caret ±0.9×inset against trim ±inset. So the band `[L+2, L+19.7]` — about 18px immediately right
+of the trim cap's centre — belongs to the caret. The DRAWN cap spans `L±3.9`, so its centre and
+left side are trim (proved twice above) and only its rightmost ~2px are not. This is the same
+relationship the caption carets had with the master trim bar, i.e. the version the user drove.
+
+**What changed, and where the maths now lives.** The px half of the mapping moved OUT of the view
+into `CaptionAnimator` (`caretTravelPx` / `caretInX` / `caretOutX` / `zoneFromCaretInX` /
+`zoneFromCaretOutX`), where the harness can reach it: **303 → 326 checks, 0 failed**, including
+the negative-travel trap from both sides and a sweep asserting every tape width that offers carets
+can reach the cap. **The new checks were proved to DISCRIMINATE:** reintroducing the old
+`Math.max(1f, …)` floor fails exactly 4 of them, and the file was restored after.
+
+`LayerRowRenderer.itemBodyRect` is the one derivation of an item's tape — content-x for left/right,
+SCREEN-y for top/bottom, written to mirror `hitTestItem` line for line (same 6dp minimum width,
+same 3dp inset, same `itemsBottom()`, same band mapping inverted). Draw and hit-test both call it,
+so they cannot drift. `rowContentXRange` was added alongside it and the caret draw clips to it —
+without that, an item scrolled partly off-screen left would paint its tint and caret over the
+PINNED row headers, since `itemBodyRect` deliberately reports the true tape rather than a clipped
+one. Found by reading the geometry, not on screen.
+
+Freshness controls on the APK: `itemBodyRect`/`caretTravelPx`/`zoneFromCaretInX`/
+`onTextAnimZonesPreviewed`/`drawTextAnimHandles`/`itemHandleHalfWidthPx`/`rowContentXRange` all
+PRESENT, the deleted `hitTestCaptionAnimHandle` and `drawCaptionAnimHandles` both **ABSENT** (a
+stale dex could not show that), `FadCamApplication` = 3 as the partial-dex control. Gradle
+reported `compileDefaultDebugJavaWithJavac UP-TO-DATE` on a build that had in fact recompiled —
+the artifact was trusted, not the report.
+
+Sandbox `bb2a9deb` restored and verified at **`82d8342d`**, 11 projects, rotation lock 0. The
+restore used a device-local byte-exact copy (`cp` inside `run-as`), never an `adb push`, so the
+truncation hazard was not in the path at all.
+
+**Incidental finding, NOT caused by this work: audio clip IDs are regenerated on every
+load/save.** A full deep-diff of the project before and after the test showed the three
+`audioClips[].id` values (and their mirrored `items[].id`/`payloadId`) all changed, alongside the
+intended caret edits. It is the same class as the §3 rig-driven sprite drift — opening a project
+mutates data the user never touched — and it belongs on that list.
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**
@@ -551,7 +629,23 @@ false** (`reorder/minimapDrag/scaling/marquee/postPinchPan/audioDrag` all false,
 `pointers=1`), which eliminates the entire original suspect list including the pinch path. Keep
 `PHDIAG` + the `lastUp:` snapshot until this is closed.
 
+**2c. Audio clip IDs are regenerated on every load/save. FOUND 2026-07-30, not yet diagnosed.**
+A full deep-diff of `bb2a9deb` across one open-edit-save cycle showed all three
+`timeline/audioClips[].id` values changed, along with the `items[].id` and `items[].payloadId`
+that mirror them — while everything else outside the intended edit stayed byte-identical. Nothing
+in the caret work touches audio; this fires on the ordinary load/save path.
+**It is the same class as the rig-driven sprite drift (§3, item 3): opening a project silently
+mutates data the user never touched.** Two reasons it matters beyond tidiness: an id that is not
+stable across a save cannot be referenced by anything that outlives the session (undo history on
+disk, links, mattes), and it makes "did this edit change only what I meant" unanswerable by diff
+without knowing to ignore these fields — which is how a real mutation would hide. Found only
+because the caret verification diffed the whole file rather than grepping the keys it cared about.
+
 ## 3. PROMISED — on the docket, must not be lost again
+
+**3h. ~~THE TEXT-BOX TIMING CARETS~~ — BUILT AND PROVED ON DEVICE, 2026-07-30. Moved to §1.**
+See the §1 row and §1f below. The decision record that follows is kept intact because it is why
+the carets were built rather than a slider pair; do not re-litigate it.
 
 **3h. THE TEXT-BOX TIMING CARETS — THE USER HAS ANSWERED. BINDING, 2026-07-30.**
 

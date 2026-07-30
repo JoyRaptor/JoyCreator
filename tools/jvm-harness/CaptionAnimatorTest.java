@@ -75,6 +75,7 @@ public class CaptionAnimatorTest {
         unitSplitting();
         phraseUnits();
         caretMapping();
+        caretPixels();
         textBoxWholeBody();
         matrixSubstitution();
         unscrambleScatter();
@@ -540,6 +541,130 @@ public class CaptionAnimatorTest {
         ok("both controls at full travel: entrance ends where the exit begins, "
                 + "at EVERY line length (to the odd millisecond)", meetsEverywhere);
         ok("and the two zones never exceed the line, at any length", neverExceeds);
+    }
+
+    // ── The caret's PIXELS ───────────────────────────────────────────────────────────────────
+
+    /**
+     * The px half of the caret mapping — where a caret is DRAWN on a tape, and what a finger at a
+     * given x stores. It lived in {@code EditorTimelineView} until the text-box build, where no
+     * test could reach it; the one bug it ever had (the negative-travel trap, LEDGER §3g) was
+     * caught by reading code, which is not a method that scales. Now it is here.
+     *
+     * <p>Two tapes are used deliberately: a MASTER-CLIP-shaped one (wide, big inset) and a LAYER-
+     * ITEM-shaped one (narrow, small inset, and offset far to the right the way a scrolled
+     * content-x rect actually is). The same functions must serve both — that is the whole claim
+     * behind reviving the caption carets on a text box, so it is asserted rather than assumed.</p>
+     */
+    static void caretPixels() {
+        System.out.println("\n── caret pixels: draw position and the inverse ──");
+        final float MAXZ = CaptionAnimator.MAX_ZONE_PCT;
+
+        // A master-clip-shaped tape: 400px wide, 14px trim bars.
+        final float ML = 100f, MR = 500f, MI = 14f;
+        // A layer-item-shaped tape: 120px wide, 10dp*2.75 ≈ 27.5px caps, at a scrolled offset.
+        final float LL = 3400f, LR = 3520f, LI = 27.5f;
+
+        eqF("master tape: travel is half of what the trim bars leave", 186f,
+                CaptionAnimator.caretTravelPx(ML, MR, MI));
+        eqF("layer tape: same formula, different numbers", 32.5f,
+                CaptionAnimator.caretTravelPx(LL, LR, LI));
+
+        // Zone 0 rests the caret exactly on the inside edge of the trim inset — not on the trim
+        // grab itself. This is the position the "can it be grabbed without stealing a trim grab"
+        // question is about, so it is pinned rather than eyeballed.
+        eqF("entrance caret at zone 0 sits just inboard of the left trim", ML + MI,
+                CaptionAnimator.caretInX(ML, MR, MI, 0f));
+        eqF("exit caret at zone 0 sits just inboard of the right trim", MR - MI,
+                CaptionAnimator.caretOutX(ML, MR, MI, 0f));
+        eqF("layer tape: entrance caret at zone 0 likewise", LL + LI,
+                CaptionAnimator.caretInX(LL, LR, LI, 0f));
+        eqF("layer tape: exit caret at zone 0 likewise", LR - LI,
+                CaptionAnimator.caretOutX(LL, LR, LI, 0f));
+
+        // Full travel puts BOTH carets on the same pixel — the tape's centre. That is the model's
+        // headline property expressed in pixels, and it is what makes "in ends as out begins"
+        // legible on screen rather than only true in the maths.
+        float mCentre = CaptionAnimator.caretInX(ML, MR, MI, MAXZ);
+        eqF("master: full travel lands on the tape centre", (ML + MR) / 2f, mCentre);
+        eqF("master: and the exit caret lands on the same pixel", mCentre,
+                CaptionAnimator.caretOutX(ML, MR, MI, MAXZ));
+        float lCentre = CaptionAnimator.caretInX(LL, LR, LI, MAXZ);
+        eqF("layer: full travel lands on the tape centre", (LL + LR) / 2f, lCentre);
+        eqF("layer: and the exit caret lands on the same pixel", lCentre,
+                CaptionAnimator.caretOutX(LL, LR, LI, MAXZ));
+
+        // px -> stored -> px, on both tapes, across the whole travel. A drift here would make a
+        // zone creep every time the timeline is redrawn.
+        boolean pxRoundTrips = true;
+        float worst = 0f;
+        for (int i = 0; i <= 100; i++) {
+            float pct = (i / 100f) * MAXZ;
+            for (float[] tape : new float[][]{{ML, MR, MI}, {LL, LR, LI}}) {
+                float xi = CaptionAnimator.caretInX(tape[0], tape[1], tape[2], pct);
+                float bi = CaptionAnimator.zoneFromCaretInX(tape[0], tape[1], tape[2], xi);
+                float xo = CaptionAnimator.caretOutX(tape[0], tape[1], tape[2], pct);
+                float bo = CaptionAnimator.zoneFromCaretOutX(tape[0], tape[1], tape[2], xo);
+                worst = Math.max(worst, Math.max(Math.abs(bi - pct), Math.abs(bo - pct)));
+                if (Math.abs(bi - pct) > 1e-4f || Math.abs(bo - pct) > 1e-4f) pxRoundTrips = false;
+            }
+        }
+        ok("stored -> px -> stored is stable on both tape shapes (worst drift " + worst + ")",
+                pxRoundTrips);
+
+        // A finger outside the travel does not extrapolate: past the centre is the cap, outside
+        // the tape is the off state. The view clamps the drag too, but a control that depends on
+        // its caller clamping is a control that will one day not be clamped.
+        eqF("a finger past the centre stores the cap, not more", MAXZ,
+                CaptionAnimator.zoneFromCaretInX(ML, MR, MI, 9999f));
+        eqF("a finger left of the tape stores the off state, not a negative", 0f,
+                CaptionAnimator.zoneFromCaretInX(ML, MR, MI, -9999f));
+        eqF("exit caret: a finger past the centre stores the cap", MAXZ,
+                CaptionAnimator.zoneFromCaretOutX(ML, MR, MI, -9999f));
+        eqF("exit caret: a finger right of the tape stores the off state", 0f,
+                CaptionAnimator.zoneFromCaretOutX(ML, MR, MI, 9999f));
+
+        System.out.println("\n── the negative-travel trap stays fixed ──");
+        // LEDGER §3g. On a tape narrower than its two insets the old Math.max(1f, …) floor made
+        // every touch of the EXIT caret silently erase a zone the user had set. The fix is that
+        // travel is 0 there and the carets are not offered at all. Both halves are pinned: the
+        // travel is zero, AND the inverse refuses to invent a value from it.
+        eqF("a tape narrower than its own trim insets has no travel", 0f,
+                CaptionAnimator.caretTravelPx(0f, 20f, 14f));
+        eqF("a zero-width tape has no travel", 0f, CaptionAnimator.caretTravelPx(50f, 50f, 14f));
+        eqF("an inverted tape has no travel", 0f, CaptionAnimator.caretTravelPx(500f, 100f, 14f));
+        eqF("no travel -> the exit caret cannot erase a stored zone", 0f,
+                CaptionAnimator.zoneFromCaretOutX(0f, 20f, 14f, 10f));
+        eqF("no travel -> nor can the entrance caret", 0f,
+                CaptionAnimator.zoneFromCaretInX(0f, 20f, 14f, 10f));
+
+        // The threshold itself, from both sides, so the gate cannot drift silently. Travel is
+        // half the tape less the insets, so the boundary width is 2*(MIN + inset).
+        float boundary = 2f * (CaptionAnimator.CARET_MIN_TRAVEL_PX + MI);
+        eqF("exactly at the minimum travel the carets ARE offered",
+                CaptionAnimator.CARET_MIN_TRAVEL_PX,
+                CaptionAnimator.caretTravelPx(0f, boundary, MI));
+        eqF("one pixel narrower and they are withheld", 0f,
+                CaptionAnimator.caretTravelPx(0f, boundary - 1f, MI));
+
+        // A control that is offered must be able to reach a zone worth having. This is the px
+        // analogue of hasAnimatableSpan's "offered exactly where it can do something", swept over
+        // every tape width rather than sampled: wherever travel is non-zero, full travel stores
+        // the cap; wherever it is zero, nothing is offered and nothing can be stored.
+        boolean offeredMeansUsable = true;
+        for (float w = 0f; w <= 400f; w += 0.5f) {
+            float travel = CaptionAnimator.caretTravelPx(0f, w, MI);
+            if (travel > 0f) {
+                float x = CaptionAnimator.caretInX(0f, w, MI, MAXZ);
+                if (Math.abs(CaptionAnimator.zoneFromCaretInX(0f, w, MI, x) - MAXZ) > 1e-4f) {
+                    offeredMeansUsable = false;
+                }
+            } else if (CaptionAnimator.zoneFromCaretInX(0f, w, MI, w / 2f) != 0f) {
+                offeredMeansUsable = false;
+            }
+        }
+        ok("every tape width that offers carets can reach the cap; the rest offer nothing",
+                offeredMeansUsable);
     }
 
     // ── The TEXT BOX half: one body, its own span ────────────────────────────────────────────

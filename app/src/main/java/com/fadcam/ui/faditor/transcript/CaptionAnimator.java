@@ -1173,6 +1173,69 @@ public final class CaptionAnimator {
         return f * MAX_ZONE_PCT;
     }
 
+    // ── Caret PIXELS ─────────────────────────────────────────────────────────────────────────
+    //
+    // The px half of the caret mapping lives here, beside the fraction half, for one reason: it
+    // used to live in EditorTimelineView, where it could not be tested at all, and the ONE bug it
+    // ever had (the negative-travel trap below) was found by reading rather than by running. These
+    // take a tape's edges and an inset instead of a RectF and a density, so they are android-free
+    // and the harness covers them. The view owns only which rect to hand in.
+    //
+    // "Inset" is whatever the tape's own trim handles occupy on each side: the master clip's green
+    // bar width for a clip, the item trim-cap half-width for a layer item. Travel is measured
+    // INSIDE those, so a caret at zone 0 rests just inboard of the trim grab and never on it.
+
+    /**
+     * Below this much travel the two carets cannot be told apart or aimed at, so they are not
+     * offered at all. A caret whose entire range is a few pixels is not a control.
+     */
+    public static final float CARET_MIN_TRAVEL_PX = 12f;
+
+    /**
+     * Each caret's full inward travel in px: half the tape left after both insets — so full travel
+     * lands on the tape's CENTRE, the user's "brought all the way into the centre", where the
+     * entrance finishes exactly as the exit begins. Returns 0 when the tape is too narrow to hold
+     * a caret at all ({@link #CARET_MIN_TRAVEL_PX}), which callers must read as "offer none".
+     *
+     * <p><b>The zero is load-bearing, not a divide-by-zero guard.</b> This was once
+     * {@code Math.max(1f, …)}. On a tape narrower than its two insets the expression goes NEGATIVE,
+     * that floor pins it to 1px, and the computed "centre" then lands to the RIGHT of the exit
+     * caret's own minimum — so the exit caret clamps to that centre wherever the finger is, yields
+     * a negative travel fraction, and clamps to 0. Every touch of it silently ERASED a zone the
+     * user had set, while the entrance caret's whole 0…0.5 range was one pixel wide. Found by
+     * adversarial review 2026-07-29 while this code was parked; the harness now pins it.</p>
+     */
+    public static float caretTravelPx(float tapeLeft, float tapeRight, float insetPx) {
+        float travel = ((tapeRight - tapeLeft) - 2f * insetPx) / 2f;
+        return travel >= CARET_MIN_TRAVEL_PX ? travel : 0f;
+    }
+
+    /** Visual x of the entrance caret: inset from the tape's left edge by the stored in-zone. */
+    public static float caretInX(float tapeLeft, float tapeRight, float insetPx, float inPct) {
+        return tapeLeft + insetPx
+                + caretTravelPx(tapeLeft, tapeRight, insetPx) * caretFractionForZone(inPct);
+    }
+
+    /** Visual x of the exit caret: inset from the tape's right edge by the stored out-zone. */
+    public static float caretOutX(float tapeLeft, float tapeRight, float insetPx, float outPct) {
+        return tapeRight - insetPx
+                - caretTravelPx(tapeLeft, tapeRight, insetPx) * caretFractionForZone(outPct);
+    }
+
+    /** Entrance caret x → stored zone fraction. 0 on a tape too narrow to have offered one. */
+    public static float zoneFromCaretInX(float tapeLeft, float tapeRight, float insetPx, float x) {
+        float travel = caretTravelPx(tapeLeft, tapeRight, insetPx);
+        if (travel <= 0f) return 0f;
+        return zoneFromCaretFraction((x - tapeLeft - insetPx) / travel);
+    }
+
+    /** Exit caret x → stored zone fraction. 0 on a tape too narrow to have offered one. */
+    public static float zoneFromCaretOutX(float tapeLeft, float tapeRight, float insetPx, float x) {
+        float travel = caretTravelPx(tapeLeft, tapeRight, insetPx);
+        if (travel <= 0f) return 0f;
+        return zoneFromCaretFraction((tapeRight - insetPx - x) / travel);
+    }
+
     // ── Resolving stored values ──────────────────────────────────────────────────────────────
 
     /**

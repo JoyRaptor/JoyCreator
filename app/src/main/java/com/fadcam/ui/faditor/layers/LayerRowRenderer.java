@@ -2374,6 +2374,91 @@ public final class LayerRowRenderer {
         return null;
     }
 
+    /**
+     * Half-width (px) of an item's trim-handle hit zone, for a caller that must place a control
+     * INSIDE those handles rather than on top of them (the text-box timing carets).
+     *
+     * <p>Exposed rather than re-derived at the call site on purpose: the carets sit roughly a
+     * finger's width from the trim caps, so a caller working from its own idea of the handle width
+     * would put them where the trim grab already is — and "the drawn thing and the grabbable thing
+     * came from two derivations" is the bug class this file has paid for more than once.</p>
+     */
+    public float itemHandleHalfWidthPx() {
+        return ITEM_HANDLE_HALF_WIDTH_DP * density;
+    }
+
+    /**
+     * The content-x span row bodies occupy ({@code {left, right}}), or null when nothing is laid
+     * out. Every row shares it — it is the pinned header's right edge to the viewport's right edge.
+     *
+     * <p>For a caller that draws its own decoration on an item and must not spill outside the row:
+     * {@link #drawRow} clips items to this span, so a decoration drawn from {@link #itemBodyRect}
+     * — which reports the item's TRUE tape, extending past the viewport when it must — has to clip
+     * to the same span or it will paint over the pinned row headers.</p>
+     */
+    @Nullable
+    public float[] rowContentXRange() {
+        if (rows.isEmpty()) return null;
+        RectF b = rows.get(0).bodyRect;
+        return new float[]{b.left, b.right};
+    }
+
+    /**
+     * The on-screen body of one item from the last {@link #layout} pass, or null when it is not
+     * addressable: no such item, a collapsed/locked/hidden row, or a row scrolled out of the
+     * floating band's viewport.
+     *
+     * <p><b>Coordinate space, which is the whole reason this method exists:</b> left/right are
+     * CONTENT-x (the axis {@code timeToX} maps into, the same one {@link #hitTestItem} takes) and
+     * top/bottom are SCREEN-y. That mixture is not a convenience — it is what an item's geometry
+     * genuinely IS here, because the horizontal axis scrolls with the timeline while the vertical
+     * one scrolls with the layer band's OWN independent scroll ({@code scrollOffsetPx} on this
+     * class is a different field from the timeline view's identically-named one). A caller drawing
+     * inside the view's {@code translate(-scrollOffsetPx, 0)} is in exactly this space.</p>
+     *
+     * <p>Every number below is taken from {@link #hitTestItem} rather than recomputed: the same
+     * {@code x0}/{@code x1} including its 6dp minimum width, the same 3dp vertical inset, the same
+     * {@code itemsBottom()} so an open audio drawer shortens the body identically, and the same
+     * band mapping inverted ({@code bandLocalY}'s {@code y - topPx + scrollOffsetPx}). A caret
+     * drawn from a second derivation would land where the finger cannot grab it.</p>
+     *
+     * <p>Floating rows are clamped to the band viewport, matching {@code bandLocalY}'s NaN guard:
+     * a touch above or below the viewport misses every row, so a body drawn outside it would be
+     * visible and dead. Clamping (rather than returning the unclamped rect) keeps draw and
+     * hit-test reading the same rect.</p>
+     */
+    @Nullable
+    public RectF itemBodyRect(@NonNull String itemId, float topPx, long totalMs,
+                              @NonNull TimeToX timeToX) {
+        for (RowLayout row : rows) {
+            Track t = row.track;
+            if (t.isCollapsed() || t.isLocked() || t.isHidden()) continue;
+            for (TimedItem item : t.getItems()) {
+                if (!itemId.equals(item.getId())) continue;
+                float x0 = timeToX.map(item.getTimelineStartMs());
+                long dur = item.getDisplayDurationMs(totalMs);
+                float x1 = Math.max(x0 + 6f * density,
+                        timeToX.map(item.getTimelineStartMs() + dur));
+                float localTop = row.bodyRect.top + 3f * density;
+                float localBottom = row.itemsBottom() - 3f * density;
+                if (row.floatingBand) {
+                    // Inverse of bandLocalY: local = screen - topPx + scrollOffsetPx. topPx is the
+                    // PARAMETER, not the stored lastTopPx, because that is what bandLocalY uses —
+                    // mirroring it exactly is the point, even though today's single caller passes
+                    // the same value to both.
+                    float top = localTop + topPx - scrollOffsetPx;
+                    float bottom = localBottom + topPx - scrollOffsetPx;
+                    float vTop = topPx;
+                    float vBot = topPx + viewportHeightPx;
+                    if (bottom <= vTop || top >= vBot) return null; // scrolled out of the band
+                    return new RectF(x0, Math.max(top, vTop), x1, Math.min(bottom, vBot));
+                }
+                return new RectF(x0, localTop + lastAudioTopPx, x1, localBottom + lastAudioTopPx);
+            }
+        }
+        return null;
+    }
+
     // ── G8 marquee multi-select ─────────────────────────────────────
 
     /**

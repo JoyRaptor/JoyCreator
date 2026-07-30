@@ -1691,9 +1691,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onCaptionAnimZonesChanged(int segmentIndex, float inPct,
+            public void onTextAnimZonesPreviewed(@NonNull String itemId, float inPct,
                     float outPct) {
-                applyCaptionAnimZones(inPct, outPct);
+                previewTextAnimZones(itemId, inPct, outPct);
+            }
+
+            @Override
+            public void onTextAnimZonesChanged(@NonNull String itemId, float beforeIn,
+                    float beforeOut, float inPct, float outPct) {
+                applyTextAnimZones(itemId, beforeIn, beforeOut, inPct, outPct);
             }
 
             @Override
@@ -15296,6 +15302,78 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     refreshAfterTimerEdit(o);
                 }));
         refreshAfterTimerEdit(o);
+    }
+
+    /** The text overlay behind a timeline item id, or null if it is gone (an undo mid-gesture). */
+    @Nullable
+    private com.fadcam.ui.faditor.model.TextOverlayItem textOverlayById(@NonNull String itemId) {
+        if (project == null) return null;
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o
+                : project.getTimeline().getTextOverlays()) {
+            if (itemId.equals(o.getId())) return o;
+        }
+        return null;
+    }
+
+    /**
+     * Live, un-recorded zone update while a timing caret is being dragged (LEDGER §3h).
+     *
+     * <p>No undo step and no autosave — a drag fires this on every frame, and one entry per frame
+     * would bury the user's real history under the gesture's own. The commit is
+     * {@link #applyTextAnimZones}, once, on release. Exactly the split the caption sliders use.</p>
+     *
+     * <p>Re-seats the playhead rather than rebuilding the overlay views: the zones are read when a
+     * view is POSITIONED, not when it is created, so this is the cheap call that actually shows
+     * the change. {@code rebuild()} would tear down and recreate every overlay view on every
+     * frame of the drag.</p>
+     */
+    private void previewTextAnimZones(@NonNull String itemId, float inPct, float outPct) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = textOverlayById(itemId);
+        if (o == null) return;
+        o.setTextAnimZonePct(inPct, outPct);
+        setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+    }
+
+    /**
+     * Commit a caret gesture: ONE undo step spanning the whole drag.
+     *
+     * <p>The before-values arrive from the view, captured on the DOWN that grabbed the caret. They
+     * cannot be read here instead: by the time this runs the model holds the gesture's own live
+     * preview, so "the current value" would undo to the last pixel of the drag rather than to
+     * where the drag began.</p>
+     */
+    private void applyTextAnimZones(@NonNull String itemId, float beforeIn, float beforeOut,
+                                    float inPct, float outPct) {
+        final com.fadcam.ui.faditor.model.TextOverlayItem o = textOverlayById(itemId);
+        if (o == null) return;
+        o.setTextAnimZonePct(inPct, outPct);
+        final float afterIn = o.getTextAnimInPct();
+        final float afterOut = o.getTextAnimOutPct();
+        // Put the BEFORE values through the same clamp before comparing, so a gesture that only
+        // moved within the clamp's dead zone is recognised as the no-op it is. Float == is safe
+        // only because both sides have been through clampZonePct, which maps NaN and -0.0f to
+        // positive zero; if that clamp is ever loosened this comparison has to change with it.
+        final float clampedBeforeIn =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(beforeIn);
+        final float clampedBeforeOut =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(beforeOut);
+        if (clampedBeforeIn == afterIn && clampedBeforeOut == afterOut) {
+            // Nothing changed, but the live preview may have moved and come back — put the model
+            // where the caller believes it is and refresh, without writing history.
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+            return;
+        }
+        undoManager.recordAction(new EditActions.LambdaAction("Text animation timing", // TODO(strings)
+                () -> {
+                    o.setTextAnimZonePct(afterIn, afterOut);
+                    refreshAfterTimerEdit(o);
+                },
+                () -> {
+                    o.setTextAnimZonePct(clampedBeforeIn, clampedBeforeOut);
+                    refreshAfterTimerEdit(o);
+                }));
+        refreshAfterTimerEdit(o);
+        editorTimeline.invalidate();
     }
 
     private View makeTextMotionIcon(float d) {

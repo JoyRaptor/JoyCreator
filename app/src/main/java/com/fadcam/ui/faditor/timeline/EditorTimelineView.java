@@ -189,8 +189,8 @@ public class EditorTimelineView extends View {
     // Caption text-animation in/out zone carets + zone tint (SPEC_TEXT_ANIMATION). Amber rather
     // than the freeze markers' cyan: the two never appear on the same clip, but they sit in the
     // same place on the tape, so a glance has to say WHICH kind of zone this is.
-    private final Paint captionAnimMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint captionAnimZonePaint   = new Paint();
+    private final Paint textAnimMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint textAnimZonePaint   = new Paint();
 
     // Audio track paints
     private final Paint audioTrackBgPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -813,23 +813,19 @@ public class EditorTimelineView extends View {
         TRANSITION_RIGHT_HANDLE,
         FREEZE_LEFT_HANDLE,
         FREEZE_RIGHT_HANDLE,
-        CAPTION_ANIM_IN_HANDLE,
-        CAPTION_ANIM_OUT_HANDLE
+        TEXT_ANIM_IN_HANDLE,
+        TEXT_ANIM_OUT_HANDLE
     }
     private Drag activeDrag = Drag.NONE;
     /** Finger x (scrolled space) while dragging a slide freeze-zone handle. */
     private float freezeDragX;
-    /** Finger x (scrolled space) while dragging a caption text-animation zone caret. */
-    private float captionAnimDragX;
+    /** Finger x (content space) while dragging a text-box timing caret. */
+    private float textAnimDragX;
     /**
-     * Whether the caption in/out carets are offered at all — true only while the caption drawer
-     * is open. They are a text-animation control, and a captioned clip is a common thing to
-     * select for reasons that have nothing to do with animating it; showing two extra grabbable
-     * carets on the tape every one of those times is clutter that also competes with the trim
-     * handles for the edges. Scoping them to the drawer makes them appear exactly when the user
-     * is looking at caption controls.
+     * The zones the grabbed item held when the caret was GRABBED, so the release can hand the
+     * listener an undo target that the gesture's own live preview has not already overwritten.
      */
-    private boolean captionAnimHandlesVisible = false;
+    private float textAnimBeforeIn, textAnimBeforeOut;
     private float downX, downY;
     private long downTime;
     private int downSegIndex = -1;
@@ -1297,16 +1293,34 @@ public class EditorTimelineView extends View {
         default void onSlideFreezeChanged(int segmentIndex,
                 long freezeStartMs, long freezeEndMs) {}
         /**
-         * Caption text-animation caret drag finished (SPEC_TEXT_ANIMATION): how long the caption
-         * takes to animate in, and how long to animate out.
+         * A text box's timing caret was RELEASED (SPEC_TEXT_ANIMATION, LEDGER §3h): how much of
+         * the box's span it takes to animate in, and how much to animate out.
          *
-         * <p><b>Values are a FRACTION OF EACH LINE</b> (0…0.5), already clamped — the same base
-         * {@code Clip.setCaptionAnimZones} stores and both caption renderers evaluate against.
-         * They are not a duration in either base: a zone measured in timeline ms would cover the
-         * wrong span on any speed-adjusted clip, which is the exact class of mistake LEDGER §3g
-         * was, and a fraction removes the units rather than pinning them down.</p>
+         * <p><b>Values are a FRACTION OF THE BOX'S SPAN</b> (0…0.5), already clamped — the same
+         * base {@code TextOverlayItem.setTextAnimZonePct} stores and both text-box renderers
+         * evaluate against. They are not a duration: a zone measured in timeline ms would cover
+         * the wrong span on any speed-adjusted content, the exact class of mistake LEDGER §3g was,
+         * and a fraction removes the units rather than pinning them down.</p>
+         *
+         * <p>Fires ONCE per gesture, on release, and carries the values from BEFORE the gesture as
+         * well as after. The before-values travel with the callback rather than being remembered
+         * by the implementer, because by release the model already holds this gesture's own live
+         * preview — an implementer reading "the current value" as its undo target would record a
+         * step that undoes to the last pixel of the drag instead of to where the drag started. The
+         * view captures them on the DOWN that grabbed the caret, which is the only moment they are
+         * unambiguously available. See {@link #onTextAnimZonesPreviewed}.</p>
          */
-        default void onCaptionAnimZonesChanged(int segmentIndex,
+        default void onTextAnimZonesChanged(@NonNull String itemId,
+                float beforeIn, float beforeOut, float inPct, float outPct) {}
+        /**
+         * The same values, live, on every frame of a caret drag — so the preview canvas follows
+         * the finger instead of jumping on release.
+         *
+         * <p>Records NOTHING: no undo step and no autosave. One undo entry per pixel would bury
+         * the user's real history under a hundred of the gesture's own, which is why the caption
+         * sliders split preview from commit the same way.</p>
+         */
+        default void onTextAnimZonesPreviewed(@NonNull String itemId,
                 float inPct, float outPct) {}
         /** Double-tap on a generated-slide clip → its code editor sheet. */
         default void onSlideDoubleTapped(int segmentIndex) {}
@@ -1464,8 +1478,8 @@ public class EditorTimelineView extends View {
         trimOverlayPaint.setColor(0x80000000);
         freezeMarkerPaint.setColor(0xFFFFFFFF);
         freezeZonePaint.setColor(0x3300E5FF);
-        captionAnimMarkerPaint.setColor(0xFFFFC107);
-        captionAnimZonePaint.setColor(0x40FFC107);
+        textAnimMarkerPaint.setColor(0xFFFFC107);
+        textAnimZonePaint.setColor(0x40FFC107);
         trimOverlayPaint.setStyle(Paint.Style.FILL);
         trimRecoverPaint.setColor(0x404CAF50);
         trimRecoverPaint.setStyle(Paint.Style.FILL);
@@ -2373,7 +2387,6 @@ public class EditorTimelineView extends View {
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
             drawSlideFreezeHandles(canvas, segRects.get(selectedIndex));
-            drawCaptionAnimHandles(canvas, segRects.get(selectedIndex));
         }
 
         // Draw audio clips — LEGACY path only. When audio rides the unified renderer rows
@@ -2402,6 +2415,12 @@ public class EditorTimelineView extends View {
                 scrollOffsetPx, totalEffectiveMs, this::timeToX,
                 layerGestureController != null && layerGestureController.isMoveDragActive(),
                 layerGestureController != null ? layerGestureController.getSelectedItemId() : null);
+
+        // Text-box timing carets — AFTER layout(), because layout() is what establishes the row
+        // geometry itemBodyRect reads, and because they must paint over the item body rather than
+        // under it. Still inside the translate: the carets are content-x / screen-y, which is
+        // exactly this space (see the block comment on drawTextAnimHandles).
+        drawTextAnimHandles(canvas);
 
         // G8: marquee multi-selection highlights + the live selection box — content-x
         // space, so they ride the same translate as the rows themselves.
@@ -6489,6 +6508,27 @@ public class EditorTimelineView extends View {
         float scrolledX = x + scrollOffsetPx;
         if (VLOG) FLog.d(TAG, "onDown: scrolledX=" + scrolledX + " scrollOffset=" + scrollOffsetPx);
 
+        // Text-box timing carets. These MUST be tested before handleM6RowTouch, because that is
+        // where the item's own trim handles are claimed and the carets live ~a finger's width
+        // inboard of them — after it, a caret grab would always be swallowed by the row. Same rule
+        // as the freeze carets against the master trim bar: the caret's zone is the TIGHTER of the
+        // two (0.9 of the inset against the trim's full inset), so a true edge grab still lands on
+        // the trim cap while a caret resting at zone 0 is grabbable at all.
+        {
+            Drag ch = hitTestTextAnimHandle(scrolledX, y);
+            if (ch != Drag.NONE) {
+                FLog.d(TAG, "onDown: hit text anim caret " + ch);
+                activeDrag = ch;
+                textAnimDragX = scrolledX;
+                // Read BEFORE the first preview mutates them — this is the undo target.
+                com.fadcam.ui.faditor.model.TextOverlayItem grabbed = selectedTextAnimItem();
+                textAnimBeforeIn = grabbed != null ? grabbed.getTextAnimInPct() : 0f;
+                textAnimBeforeOut = grabbed != null ? grabbed.getTextAnimOutPct() : 0f;
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+        }
+
         // M6 hook: touch dispatch into the multi-row Track UI. Header icon taps
         // (caret/hide/lock/mute) are handled entirely here; a tap elsewhere in a
         // LOCKED track's row is swallowed (locked = taps/gestures ignored at the
@@ -6533,19 +6573,6 @@ public class EditorTimelineView extends View {
             }
         }
 
-        // Caption text-animation carets: same rule as the freeze carets above — tight zone,
-        // checked BEFORE the outer trim handles so a caret resting at zone 0 (just inside the
-        // green bar) is grabbable at all, while a true edge grab still lands on the trim bar.
-        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
-            Drag ch = hitTestCaptionAnimHandle(scrolledX, y);
-            if (ch != Drag.NONE) {
-                FLog.d(TAG, "onDown: hit caption anim caret " + ch);
-                activeDrag = ch;
-                captionAnimDragX = scrolledX;
-                getParent().requestDisallowInterceptTouchEvent(true);
-                return true;
-            }
-        }
 
         // Check trim handles first
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
@@ -6838,9 +6865,9 @@ public class EditorTimelineView extends View {
             return true;
         }
 
-        if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE
-                || activeDrag == Drag.CAPTION_ANIM_OUT_HANDLE) {
-            doCaptionAnimDrag(scrolledX);
+        if (activeDrag == Drag.TEXT_ANIM_IN_HANDLE
+                || activeDrag == Drag.TEXT_ANIM_OUT_HANDLE) {
+            doTextAnimDrag(scrolledX);
             return true;
         }
 
@@ -7067,9 +7094,9 @@ public class EditorTimelineView extends View {
             loopChangedDuringDrag = false;
         } else if (last == Drag.FREEZE_LEFT_HANDLE || last == Drag.FREEZE_RIGHT_HANDLE) {
             finishFreezeDrag();
-        } else if (last == Drag.CAPTION_ANIM_IN_HANDLE
-                || last == Drag.CAPTION_ANIM_OUT_HANDLE) {
-            finishCaptionAnimDrag();
+        } else if (last == Drag.TEXT_ANIM_IN_HANDLE
+                || last == Drag.TEXT_ANIM_OUT_HANDLE) {
+            finishTextAnimDrag();
         } else if (last == Drag.AUDIO_LEFT_HANDLE || last == Drag.AUDIO_RIGHT_HANDLE) {
             // Audio trim finished — data was already applied during drag
             if (listener != null) {
@@ -7336,143 +7363,132 @@ public class EditorTimelineView extends View {
         canvas.drawPath(p, freezeMarkerPaint);
     }
 
-    // ── In/out timing carets (SPEC_TEXT_ANIMATION) ──────────────────
+    // ── In/out timing carets (SPEC_TEXT_ANIMATION, LEDGER §3h) ──────────────────────────────
     //
-    // PARKED, NOT DEAD, and the difference is recorded so this cannot rot the way LEDGER §3c did.
+    // These shipped for CAPTIONS first, the user drove them, and his verdict was "carets worked
+    // well". He then rejected them FOR CAPTIONS anyway, for a reason no amount of polish would
+    // have fixed: "to get a fifty percent fade in, fifty percent fade out, I'm gonna be having to
+    // do a lot of dragging over perhaps a thirty minute clip. And that just won't do." Captions
+    // arrive line after line down a long video and the timing wanted is ONE value for all of
+    // them, so captions moved to a range control in the caption style drawer, which is still
+    // where they are authored.
     //
-    // These carets shipped for CAPTIONS, the user drove them, and they worked — his words were
-    // "carets worked well". He then rejected them for captions anyway, for a reason no amount of
-    // polish would have fixed: "to get a fifty percent fade in, fifty percent fade out, I'm gonna
-    // be having to do a lot of dragging over perhaps a thirty minute clip. And that just won't
-    // do." Captions arrive line after line down a long video; the timing wanted is ONE value for
-    // all of them, so it moved to a range control in the caption style drawer.
+    // A TEXT BOX is the case the carets were designed for and the one the user reserved them for,
+    // in his words: "those carets were expected to be put on text in the first place. And how they
+    // were operating in the closed captions worked perfectly well for text." A single object, one
+    // visible span on the tape, a gesture done once. So the machinery below was parked rather than
+    // deleted, and this is it revived — aimed at a text box, with the INTERACTION unchanged: drag
+    // the caret inward, the zone it covers tints, release commits one undo step.
     //
-    // The carets are the right instrument for a TEXT BOX — a single object, one visible span, a
-    // gesture done once — and that is what the user reserved them for. There is no text-box path
-    // into this view yet, so as of 2026-07-29 setCaptionAnimHandlesVisible has NO CALLER and none
-    // of the code below draws. It is left INTACT rather than deleted because it is complete,
-    // harness-covered and about to be wanted; the risk of leaving it is that a later audit finds
-    // machinery nothing calls and cannot tell whether that is a bug. So: it is not a bug, it is
-    // waiting, LEDGER §3g carries it as an open item, and this comment is the receipt. If text
-    // boxes are ever dropped, delete this block with them.
+    // The maths moved to CaptionAnimator (caretTravelPx / caretInX / caretOutX / zoneFromCaretX)
+    // where the harness can reach it. What stays here is what is genuinely about this view: which
+    // rect the carets ride, and which finger owns which grab.
+    //
+    // ⚠ TWO COORDINATE SYSTEMS, and they are not the obvious ones. An item's body is CONTENT-x
+    // (it scrolls with the timeline) but SCREEN-y (the layer band has its OWN vertical scroll, in
+    // a field that happens to share this view's field NAME — LayerRowRenderer.scrollOffsetPx is a
+    // different variable on a different axis). Rather than reconstruct that here, the rect comes
+    // from LayerRowRenderer.itemBodyRect, which is written to mirror hitTestItem line for line.
+    // One derivation. Two would put the caret where the finger cannot reach it.
+
+    /** Whether the carets are offered at all. Text boxes drive this; captions no longer do. */
+    private boolean textAnimHandlesVisible = true;
 
     /**
      * Show or hide the in/out timing carets.
      *
-     * <p><b>No caller today</b> — see the block comment above. The caption drawer used to drive
-     * this; text boxes will.</p>
+     * <p>Default ON: the carets ARE the timing control for a text box, and they appear only on a
+     * SELECTED animated item anyway, so there is nothing for an off state to protect against.
+     * Kept as a switch so a future mode that needs the tape for something else can take it.</p>
      */
-    public void setCaptionAnimHandlesVisible(boolean visible) {
-        if (captionAnimHandlesVisible == visible) return;
-        captionAnimHandlesVisible = visible;
+    public void setTextAnimHandlesVisible(boolean visible) {
+        if (textAnimHandlesVisible == visible) return;
+        textAnimHandlesVisible = visible;
         invalidate();
     }
 
     /**
-     * The selected segment's clip when the caption carets apply to it, else null.
+     * The selected layer item's text overlay when the timing carets apply to it, else null.
      *
-     * <p>Generated slides are excluded even when captioned: the slide freeze carets already own
-     * that tape, and two pairs of carets in the same place — one cyan, one amber, with different
-     * meanings and different units — is worse than not offering the second pair there.</p>
+     * <p>Gated on the item having a PRESET, not on it having a zone. Zero zones are the off state
+     * of the timing, not of the control — an item whose zones the user has just dragged to zero
+     * must keep its carets, or the gesture would delete its own instrument and there would be no
+     * way back. Conversely an item with no preset has nothing to time, and carets on it would be a
+     * control that visibly does nothing.</p>
      */
     @Nullable
-    private Clip selectedCaptionAnimClip() {
-        if (!captionAnimHandlesVisible) return null;
-        if (selectedIndex < 0 || selectedIndex >= segments.size()) return null;
-        Clip c = segments.get(selectedIndex).clip;
-        if (c == null || c.isGeneratedSlide() || !c.hasTranscript()) return null;
-        return captionAnimHasSpan(c) ? c : null;
+    private com.fadcam.ui.faditor.model.TextOverlayItem selectedTextAnimItem() {
+        if (!textAnimHandlesVisible || layerGestureController == null) return null;
+        String id = layerGestureController.getSelectedItemId();
+        if (id == null) return null;
+        for (com.fadcam.ui.faditor.layers.Track t : layerTracks) {
+            for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
+                if (!id.equals(item.getId())) continue;
+                com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+                if (o == null) return null;
+                return com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .parsePreset(o.getTextAnimPreset())
+                        == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                        ? null : o;
+            }
+        }
+        return null;
     }
 
-    // Cache for "is there anything here to animate": answering it windows the transcript and walks
-    // every word, and both the hit-test and the draw ask on every frame of a drag. The key carries
-    // everything the answer depends on — the clip, its trim, and the word count — so a trim drag
-    // or a strike edit recomputes rather than being served a stale answer.
-    private String captionAnimCacheKey;
-    private boolean captionAnimCacheHasSpan;
+    /**
+     * The selected item's tape, in the space this view draws layer content in (content-x,
+     * screen-y). Null whenever the carets cannot be placed — no selection, no preset, the row
+     * collapsed/locked/hidden, or the row scrolled out of the layer band.
+     */
+    @Nullable
+    private RectF textAnimRect() {
+        if (layerRowRenderer == null || layerGestureController == null) return null;
+        String id = layerGestureController.getSelectedItemId();
+        if (id == null) return null;
+        return layerRowRenderer.itemBodyRect(id, getM6RowsTopPx(), totalEffectiveMs, this::timeToX);
+    }
 
     /**
-     * Whether this clip has any phrase long enough to animate on. False = no carets.
+     * How far in from each end of the tape the carets' travel starts: the item's own trim-handle
+     * half-width, taken FROM the renderer rather than guessed, so a caret at zone 0 rests just
+     * inboard of the trim grab instead of on top of it.
+     */
+    private float textAnimInsetPx() {
+        return layerRowRenderer.itemHandleHalfWidthPx();
+    }
+
+    /** Whether this tape is wide enough for the carets to be drawn and dragged at all. */
+    private boolean textAnimUsable(@NonNull RectF r) {
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .caretTravelPx(r.left, r.right, textAnimInsetPx()) > 0f;
+    }
+
+    /**
+     * Hit-test the timing carets. Deliberately TIGHT and checked BEFORE the item's own trim
+     * handles, exactly as the slide freeze carets are against the master trim bar: at zone 0 a
+     * caret sits just inboard of the trim cap, and the tight zone is what lets it be grabbed at
+     * all while the cap's fuller slop still owns a true edge grab.
      *
-     * <p>Measured on the TRIMMED window, matching what the caption renderers draw: a phrase
-     * outside the trim is not on screen, so it must not be what earns the clip a timing control.</p>
+     * <p>The zone is 0.9 of the inset against the trim's full inset, so the caret is the narrower
+     * of the two claims on that neighbourhood — the same relationship the caption carets had with
+     * the master trim bar, which is the version the user drove and approved.</p>
      */
-    private boolean captionAnimHasSpan(@NonNull Clip clip) {
-        com.fadcam.ui.faditor.transcript.Transcript full = clip.getTranscript();
-        if (full == null || full.isEmpty()) return false;
-        String key = clip.getId() + '|' + clip.getInPointMs() + '|' + clip.getOutPointMs()
-                + '|' + full.words.size();
-        if (key.equals(captionAnimCacheKey)) return captionAnimCacheHasSpan;
-        boolean has = com.fadcam.ui.faditor.transcript.CaptionPhrases
-                .of(full.windowed(clip.getInPointMs(), clip.getOutPointMs()))
-                .hasAnimatableSpan();
-        captionAnimCacheKey = key;
-        captionAnimCacheHasSpan = has;
-        return has;
-    }
-
-    /**
-     * Where a caret's full inward travel ends: the tape's centre, which is the user's stated
-     * "brought all the way into the centre" — every phrase finishing its entrance exactly as it
-     * begins its exit. The travel is compressed against the tape rather than measured on it
-     * because the stored value is a fraction of a LINE, not a position on the clip.
-     *
-     * <p>Returns 0 when the segment is too narrow to hold a caret at all — see
-     * {@link #CAPTION_ANIM_MIN_TRAVEL_PX} and {@link #captionAnimUsable}. This used to be
-     * {@code Math.max(1f, …)}, which looked like a divide-by-zero guard and was really a trap: on
-     * a segment narrower than its two trim handles the expression goes NEGATIVE, the floor pins it
-     * to 1px, and the computed "centre" lands to the RIGHT of the exit caret's own minimum. The
-     * exit caret then clamps to that centre no matter where the finger is, yielding a negative
-     * travel fraction that clamps to 0 — so every touch of it silently ERASES a zone the user had
-     * set, while the entrance caret's whole 0…0.5 range is one pixel wide. Found by adversarial
-     * review 2026-07-29 in code that is currently parked; fixed here so the text-box build that
-     * revives these carets does not inherit it.</p>
-     */
-    private float captionAnimTravelPx(@NonNull RectF seg) {
-        float travel = (seg.width() - 2 * handleWidthPx) / 2f;
-        return travel >= CAPTION_ANIM_MIN_TRAVEL_PX ? travel : 0f;
-    }
-
-    /**
-     * Below this much travel the two carets cannot be told apart or aimed at, so they are not
-     * offered. A caret whose entire range is a few pixels is not a control.
-     */
-    private static final float CAPTION_ANIM_MIN_TRAVEL_PX = 12f;
-
-    /** Whether this segment is wide enough for the carets to be drawn and dragged at all. */
-    private boolean captionAnimUsable(@NonNull RectF seg) {
-        return captionAnimTravelPx(seg) > 0f;
-    }
-
-    /** Visual x of the entrance caret: inset from the left trim bar by the stored in-zone. */
-    private float captionAnimInX(@NonNull RectF seg, @NonNull Clip clip) {
-        float frac = com.fadcam.ui.faditor.transcript.CaptionAnimator.caretFractionForZone(
-                clip.getCaptionAnimInPct());
-        return seg.left + handleWidthPx + captionAnimTravelPx(seg) * frac;
-    }
-
-    /** Visual x of the exit caret: inset from the right trim bar by the stored out-zone. */
-    private float captionAnimOutX(@NonNull RectF seg, @NonNull Clip clip) {
-        float frac = com.fadcam.ui.faditor.transcript.CaptionAnimator.caretFractionForZone(
-                clip.getCaptionAnimOutPct());
-        return seg.right - handleWidthPx - captionAnimTravelPx(seg) * frac;
-    }
-
-    /**
-     * Hit-test the caption animation carets. Deliberately TIGHT and checked BEFORE the outer trim
-     * handles, exactly as the slide freeze carets are: at zone 0 a caret sits just inside the
-     * green trim bar, and the tight zone is what lets it be grabbed at all while the bar's
-     * generous slop still owns a true edge grab.
-     */
-    private Drag hitTestCaptionAnimHandle(float x, float y) {
-        Clip clip = selectedCaptionAnimClip();
-        if (clip == null || selectedIndex >= segRects.size()) return Drag.NONE;
-        RectF seg = segRects.get(selectedIndex);
-        if (y < seg.top || y > seg.bottom) return Drag.NONE;
-        if (!captionAnimUsable(seg)) return Drag.NONE;
-        float zone = handleWidthPx * 0.9f;
-        if (Math.abs(x - captionAnimInX(seg, clip)) <= zone) return Drag.CAPTION_ANIM_IN_HANDLE;
-        if (Math.abs(x - captionAnimOutX(seg, clip)) <= zone) return Drag.CAPTION_ANIM_OUT_HANDLE;
+    private Drag hitTestTextAnimHandle(float x, float y) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedTextAnimItem();
+        if (o == null) return Drag.NONE;
+        RectF r = textAnimRect();
+        if (r == null || !textAnimUsable(r)) return Drag.NONE;
+        if (y < r.top || y > r.bottom) return Drag.NONE;
+        float inset = textAnimInsetPx();
+        float zone = inset * 0.9f;
+        if (Math.abs(x - com.fadcam.ui.faditor.transcript.CaptionAnimator.caretInX(
+                r.left, r.right, inset, o.getTextAnimInPct())) <= zone) {
+            return Drag.TEXT_ANIM_IN_HANDLE;
+        }
+        if (Math.abs(x - com.fadcam.ui.faditor.transcript.CaptionAnimator.caretOutX(
+                r.left, r.right, inset, o.getTextAnimOutPct())) <= zone) {
+            return Drag.TEXT_ANIM_OUT_HANDLE;
+        }
         return Drag.NONE;
     }
 
@@ -7480,86 +7496,125 @@ public class EditorTimelineView extends View {
      * Live caret drag. Each caret is clamped to its own half of the tape: at full travel both sit
      * ON the centre, which is the intended "animates in, and starts animating out the instant it
      * is in" state rather than a collision to be prevented.
+     *
+     * <p>Previews through the listener on every move but records NOTHING — one undo entry per
+     * pixel would bury the user's history under the gesture's own. The single entry is written on
+     * release by {@link #finishTextAnimDrag}.</p>
      */
-    private void doCaptionAnimDrag(float x) {
-        Clip clip = selectedCaptionAnimClip();
-        if (clip == null || selectedIndex >= segRects.size()) return;
-        RectF seg = segRects.get(selectedIndex);
-        if (!captionAnimUsable(seg)) return;
-        float centre = seg.left + handleWidthPx + captionAnimTravelPx(seg);
+    private void doTextAnimDrag(float x) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedTextAnimItem();
+        if (o == null) return;
+        RectF r = textAnimRect();
+        if (r == null || !textAnimUsable(r)) return;
+        float inset = textAnimInsetPx();
+        float centre = r.left + inset
+                + com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .caretTravelPx(r.left, r.right, inset);
         float min, max;
-        if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE) {
-            min = seg.left + handleWidthPx;
+        if (activeDrag == Drag.TEXT_ANIM_IN_HANDLE) {
+            min = r.left + inset;
             max = centre;
         } else {
             min = centre;
-            max = seg.right - handleWidthPx;
+            max = r.right - inset;
         }
-        captionAnimDragX = Math.max(min, Math.min(x, max));
+        textAnimDragX = Math.max(min, Math.min(x, max));
+        if (listener != null) {
+            listener.onTextAnimZonesPreviewed(o.getId(),
+                    textAnimZoneIn(o, r), textAnimZoneOut(o, r));
+        }
         invalidate();
     }
 
+    /** The in-zone this gesture currently implies: the dragged value, or the stored one. */
+    private float textAnimZoneIn(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                 @NonNull RectF r) {
+        if (activeDrag != Drag.TEXT_ANIM_IN_HANDLE) return o.getTextAnimInPct();
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretInX(
+                r.left, r.right, textAnimInsetPx(), textAnimDragX);
+    }
+
+    /** The out-zone this gesture currently implies: the dragged value, or the stored one. */
+    private float textAnimZoneOut(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                  @NonNull RectF r) {
+        if (activeDrag != Drag.TEXT_ANIM_OUT_HANDLE) return o.getTextAnimOutPct();
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretOutX(
+                r.left, r.right, textAnimInsetPx(), textAnimDragX);
+    }
+
     /**
-     * Commit the caret drag: px → a FRACTION OF EACH LINE, then notify the listener.
+     * Commit the caret drag: px → a FRACTION OF THE BOX'S SPAN, then notify the listener ONCE.
      *
-     * <p>There is no unit conversion left to get wrong. This method used to map travel onto the
-     * clip's usable zone range in source ms, and carried a note about why it must NOT divide by
-     * the speed multiplier the way the freeze carets do. The stored value is now a fraction of
-     * each line's own duration, which has no units at all — full travel is
-     * {@code CaptionAnimator.MAX_ZONE_PCT} on every clip at every speed — so the hazard is gone
-     * rather than merely handled.</p>
+     * <p>There is no unit conversion left to get wrong. This method used to map travel onto a
+     * clip's usable zone range in source ms and carried a note about why it must NOT divide by the
+     * speed multiplier the way the freeze carets do. The stored value is a fraction, which has no
+     * units at all — full travel is {@code CaptionAnimator.MAX_ZONE_PCT} on every box at every
+     * length — so the hazard is gone rather than merely handled.</p>
      */
-    private void finishCaptionAnimDrag() {
-        Clip clip = selectedCaptionAnimClip();
-        if (clip == null || selectedIndex >= segRects.size() || listener == null) return;
-        RectF seg = segRects.get(selectedIndex);
-        float travel = captionAnimTravelPx(seg);
-        if (travel <= 0f) return;
-        float in = clip.getCaptionAnimInPct();
-        float out = clip.getCaptionAnimOutPct();
-        if (activeDrag == Drag.CAPTION_ANIM_IN_HANDLE) {
-            in = com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretFraction(
-                    (captionAnimDragX - seg.left - handleWidthPx) / travel);
-        } else {
-            out = com.fadcam.ui.faditor.transcript.CaptionAnimator.zoneFromCaretFraction(
-                    (seg.right - handleWidthPx - captionAnimDragX) / travel);
-        }
-        listener.onCaptionAnimZonesChanged(selectedIndex, in, out);
+    private void finishTextAnimDrag() {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedTextAnimItem();
+        if (o == null || listener == null) return;
+        RectF r = textAnimRect();
+        if (r == null || !textAnimUsable(r)) return;
+        listener.onTextAnimZonesChanged(o.getId(), textAnimBeforeIn, textAnimBeforeOut,
+                textAnimZoneIn(o, r), textAnimZoneOut(o, r));
         invalidate();
     }
 
     /**
-     * The caption in/out carets plus a tint over the two zones — the user's "dragging them inward
-     * darkens those regions to show the in/out zones". A ▶ where the entrance runs, a ◀ where the
-     * exit does; carets resting at the ends mean zero-length zones, which IS the off state and is
-     * why there is no separate enable switch.
+     * The in/out carets plus a tint over the two zones — the user's "dragging them inward darkens
+     * those regions to show the in/out zones". A ▶ where the entrance runs, a ◀ where the exit
+     * does; carets resting at the ends mean zero-length zones, which IS the off state and is why
+     * there is no separate enable switch.
      */
-    private void drawCaptionAnimHandles(Canvas canvas, RectF seg) {
-        Clip clip = selectedCaptionAnimClip();
-        if (clip == null) return;
-        // Not merely a guard: drawing them on a segment too narrow to aim at would advertise a
-        // control the hit-test now (correctly) refuses to give, which is worse than showing none.
-        if (!captionAnimUsable(seg)) return;
-        float lx = activeDrag == Drag.CAPTION_ANIM_IN_HANDLE
-                ? captionAnimDragX : captionAnimInX(seg, clip);
-        float rx = activeDrag == Drag.CAPTION_ANIM_OUT_HANDLE
-                ? captionAnimDragX : captionAnimOutX(seg, clip);
-        if (lx > seg.left + handleWidthPx + 1f) {
-            canvas.drawRect(seg.left + handleWidthPx, seg.top, lx, seg.bottom,
-                    captionAnimZonePaint);
+    private void drawTextAnimHandles(Canvas canvas) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedTextAnimItem();
+        if (o == null) return;
+        RectF r = textAnimRect();
+        // Not merely a guard: drawing on a tape too narrow to aim at would advertise a control the
+        // hit-test now (correctly) refuses to give, which is worse than showing none.
+        if (r == null || !textAnimUsable(r)) return;
+        // An item's tape can start left of the viewport or run past its right edge — itemBodyRect
+        // reports the TRUE tape, because the caret maths needs both real ends. The rows clip their
+        // item bodies to the row's content span; without the same clip here the zone tint and a
+        // caret would paint over the PINNED row headers, which is where the lane caret/mute icons
+        // live. Same span, taken from the renderer rather than reconstructed.
+        float[] span = layerRowRenderer.rowContentXRange();
+        if (span == null) return;
+        canvas.save();
+        canvas.clipRect(span[0], r.top, span[1], r.bottom);
+        try {
+            drawTextAnimHandlesClipped(canvas, r, o);
+        } finally {
+            canvas.restore();
         }
-        if (rx < seg.right - handleWidthPx - 1f) {
-            canvas.drawRect(rx, seg.top, seg.right - handleWidthPx, seg.bottom,
-                    captionAnimZonePaint);
-        }
-        drawCaptionAnimMarker(canvas, lx, seg, true);
-        drawCaptionAnimMarker(canvas, rx, seg, false);
     }
 
-    private void drawCaptionAnimMarker(Canvas canvas, float x, RectF seg, boolean pointsRight) {
-        float cy = seg.centerY();
-        float h = handleNotchHeightPx * 1.2f;
-        float w = handleWidthPx * 0.8f;
+    private void drawTextAnimHandlesClipped(Canvas canvas, @NonNull RectF r,
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        float inset = textAnimInsetPx();
+        float lx = activeDrag == Drag.TEXT_ANIM_IN_HANDLE ? textAnimDragX
+                : com.fadcam.ui.faditor.transcript.CaptionAnimator.caretInX(
+                        r.left, r.right, inset, o.getTextAnimInPct());
+        float rx = activeDrag == Drag.TEXT_ANIM_OUT_HANDLE ? textAnimDragX
+                : com.fadcam.ui.faditor.transcript.CaptionAnimator.caretOutX(
+                        r.left, r.right, inset, o.getTextAnimOutPct());
+        if (lx > r.left + inset + 1f) {
+            canvas.drawRect(r.left + inset, r.top, lx, r.bottom, textAnimZonePaint);
+        }
+        if (rx < r.right - inset - 1f) {
+            canvas.drawRect(rx, r.top, r.right - inset, r.bottom, textAnimZonePaint);
+        }
+        drawTextAnimMarker(canvas, lx, r, true);
+        drawTextAnimMarker(canvas, rx, r, false);
+    }
+
+    private void drawTextAnimMarker(Canvas canvas, float x, RectF r, boolean pointsRight) {
+        float cy = r.centerY();
+        // Sized against the ITEM's body, not the master clip's notch: a layer row is a fraction of
+        // the master track's height, and a marker scaled for the big tape would overflow it.
+        float h = Math.min(r.height() * 0.7f, handleNotchHeightPx * 1.2f);
+        float w = textAnimInsetPx() * 0.8f;
         android.graphics.Path p = new android.graphics.Path();
         if (pointsRight) {
             p.moveTo(x - w / 2f, cy - h / 2f);
@@ -7571,7 +7626,7 @@ public class EditorTimelineView extends View {
             p.lineTo(x - w / 2f, cy);
         }
         p.close();
-        canvas.drawPath(p, captionAnimMarkerPaint);
+        canvas.drawPath(p, textAnimMarkerPaint);
     }
 
     /**

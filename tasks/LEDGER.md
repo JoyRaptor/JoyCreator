@@ -259,6 +259,27 @@ keeps getting burned, and invisible until someone watches a finished export. Lif
 giving text boxes a canvas renderer in preview, the way captions already have. That is work, not
 a flag. Recorded on `TextOverlayItem.textAnimGranularitySupported`.
 
+**~~…the way captions already have.~~ CORRECTION, 2026-07-30, and it roughly DOUBLES the estimate
+above — verified by reading, prompted by the user asking what per-letter text boxes would take.**
+The paragraph above is right about the PRIMITIVE and wrong about the STATE. It reads as "preview
+can't, export already does", i.e. one side to build. **Neither side does it today.** The export
+does not draw a text box per glyph either: `CompositeExportOverlay:542` calls
+`TextOverlayRenderer.render`, which draws WHOLE LINES (`canvas.drawText(line, x, y, paint)`,
+`TextOverlayRenderer:100/106/112`) into a bitmap, and then `CompositeExportOverlay:556-573` applies
+the animation to that **whole bitmap** — one transform, one alpha, one clip. Confirmed from the
+other direction too: **`CaptionAnimator.splitUnits` and `unitIndexOf` have NO caller outside the
+caption path**, so nothing anywhere cuts a text box into units. `textBoxTransformAt` /
+`textBoxTextAt` are documented as BLOCK-by-construction (`unitCount = 1`) and their only four
+callers are the two whole-body surfaces.
+**So per-letter/word text boxes is: per-glyph drawing on BOTH surfaces, plus a shared layout
+authority so the two agree on where glyph *i* sits.** That third piece is the one the old wording
+hides entirely, and it is the part that matters — captions only stay honest because
+`CaptionOverlayView.drawWord` and `CaptionExportRenderer.drawWord` are deliberate mirrors of each
+other, and two independently-written text-box layouts would re-open §3g from a new angle.
+The MASK_WIPE session's finding still stands and is unaffected: **a text box can be CLIPPED without
+any of this** (`View.setClipBounds`), which is why MASK_WIPE ships on text boxes today. Clipping one
+body is not the same problem as laying out N.
+
 **Still owed on this half:** the `▶` `◀` carets. The user's stated instrument for text boxes is
 the carets, not a dialog row. What shipped is the preset picker plus a seeded zone, which makes
 the feature reachable at all — the alternative was an engine with no way in, which is precisely

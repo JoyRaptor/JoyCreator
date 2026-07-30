@@ -358,6 +358,7 @@ public final class TextAnimPickerPopover {
                 CaptionAnimator.Transform t =
                         CaptionAnimator.presetTransform(preset, progress, fontPx, i);
                 if (t.alpha <= 0.004f) continue;
+                if (!CaptionAnimator.revealDrawsAnything(t.revealFrac)) continue;
                 float cx = w * (0.26f + 0.24f * i);
                 c.save();
                 c.translate(t.dx, t.dy);
@@ -373,25 +374,33 @@ public final class TextAnimPickerPopover {
                 // — so a tile that only applied presetTransform would render MATRIX as three
                 // static "A"s, i.e. exactly the dead tile this file was rewritten to stop.
                 String glyph = CaptionAnimator.substituteUnit(preset, "A", progress, i);
+                // ...and the THIRD channel, for the same reason. MASK_WIPE is identity in geometry
+                // and alpha exactly as MATRIX is, so a tile that applied only presetTransform would
+                // advertise it as three static "A"s. The tile draws CENTRED, so its slot is the
+                // glyph's measured advance about cx — the renderers pass a left edge and a measured
+                // width, which is the same rect described from the other end.
+                if (t.revealFrac < 1f) {
+                    float gw = paint.measureText(glyph);
+                    CaptionAnimator.revealClip(cx - gw / 2f, baseY, gw, fontPx, t.revealFrac,
+                            revealTmp);
+                    c.clipRect(revealTmp[0], revealTmp[1], revealTmp[2], revealTmp[3]);
+                }
                 c.drawText(glyph, cx, baseY, paint);
                 c.restore();
             }
         }
 
-        /** TODO(strings) — the extraction is frozen behind the rebrand (road_map.md:49). */
+        /** Scratch for {@link CaptionAnimator#revealClip} — onDraw runs on every frame. */
+        private final float[] revealTmp = new float[4];
+
+        /**
+         * From the ONE authority, not a fourth private copy. This switch used to live here and
+         * fall back to {@code preset.name()}, which is how the caption drawer shipped a bare
+         * "MATRIX" for a session.
+         */
         @NonNull
         private String label() {
-            switch (preset) {
-                case NONE:       return "None";
-                case TYPEWRITER: return "Type";
-                case FADE:       return "Fade";
-                case RISE:       return "Rise";
-                case GHOST:      return "Ghost";
-                case BEAM:       return "Beam";
-                case MATRIX:     return "Matrix";
-                case UNSCRAMBLE: return "Unscramble";
-                default:         return preset.name();
-            }
+            return CaptionAnimator.presetLabel(preset);
         }
     }
 }

@@ -568,6 +568,25 @@ public class CompositeExportOverlay extends BitmapOverlay {
             canvas.translate(anim.dx, anim.dy);
             canvas.rotate(rot, cx, cy);
             canvas.scale(anim.scaleX, anim.scaleY, cx, cy);
+            // MASK_WIPE's reveal — the third animated channel, and the export half of what
+            // TextOverlayLayer#applyReveal does with View.setClipBounds. Clipped AFTER the matrix,
+            // which is the same thing the preview gets by clipping in the view's local space and
+            // then transforming: in both cases the mask is carried by the object's own transform
+            // rather than standing still in frame space.
+            //
+            // The wipe runs across the INK, not across the bitmap. TextOverlayRenderer leaves a
+            // 0.35em transparent margin so shadows and outlines are not clipped by the bitmap
+            // edge, and the preview's TextView has no equivalent margin — so wiping the raw bitmap
+            // width would put the mask edge somewhere the preview never puts it.
+            if (anim.revealFrac < 1f) {
+                float bw = textBmp.getWidth(), bh = textBmp.getHeight();
+                int pad = com.fadcam.ui.faditor.overlay.TextOverlayRenderer
+                        .padPxFor(frameOverlay, outH);
+                float inkL = cx - bw / 2f + pad;
+                float inkW = Math.max(1f, bw - pad * 2f);
+                canvas.clipRect(inkL, cy - bh / 2f,
+                        inkL + inkW * Math.max(0f, anim.revealFrac), cy + bh / 2f);
+            }
             canvas.drawBitmap(textBmp, cx - textBmp.getWidth() / 2f,
                     cy - textBmp.getHeight() / 2f, p);
             canvas.restore();

@@ -285,6 +285,12 @@ public class CaptionExportRenderer {
             dy += emp.dy;
         }
         if (pre.alpha <= 0.004f) return;
+        // MASK_WIPE keeps alpha at 1, so the test above never fires for it — mirrors
+        // CaptionOverlayView#drawUnit.
+        if (!com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .revealDrawsAnything(pre.revealFrac)) {
+            return;
+        }
 
         float ucx = x + w / 2f;
         float ucy = baseY - (textPaint.getFontMetrics().descent
@@ -299,9 +305,21 @@ public class CaptionExportRenderer {
         canvas.save();
         canvas.translate(dx, dy);
         canvas.scale(scaleX, scaleY, ucx, ucy);
+        // The THIRD animated channel — mirrors CaptionOverlayView#drawUnit exactly, including
+        // being applied INSIDE the transform so the mask travels with the glyph. Both surfaces
+        // derive revealFrac from the same evaluator and turn it into a rect with the same shared
+        // helper, so neither can wipe from a different edge or to a different depth.
+        if (pre.revealFrac < 1f) {
+            com.fadcam.ui.faditor.transcript.CaptionAnimator
+                    .revealClip(x, baseY, w, fontPx, pre.revealFrac, revealTmp);
+            canvas.clipRect(revealTmp[0], revealTmp[1], revealTmp[2], revealTmp[3]);
+        }
         paintWord(shown, x, baseY, color, fontPx, pre.alpha);
         canvas.restore();
     }
+
+    /** Scratch for {@code CaptionAnimator.revealClip} — see CaptionOverlayView#revealTmp. */
+    private final float[] revealTmp = new float[4];
 
     /** Fill pass plus optional stroke-outline pass — mirrors CaptionOverlayView. */
     private void paintWord(String word, float x, float baseY, int fillColor, float fontPx,

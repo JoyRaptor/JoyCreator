@@ -15184,20 +15184,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             case BLOCK:    gran = "block"; break;
             default:       gran = "word"; break;
         }
-        switch (p) {
-            case NONE:       return "None";
-            case TYPEWRITER: return "Type · " + gran;
-            case FADE:       return "Fade · " + gran;
-            case RISE:       return "Rise · " + gran;
-            case GHOST:      return "Ghost · " + gran;
-            case BEAM:       return "Beam · " + gran;
-            // MATRIX was missed when it shipped, so this row read a bare "MATRIX" off p.name()
-            // instead of "Matrix · word". Fixed here rather than left, because UNSCRAMBLE would
-            // have landed in the same hole.
-            case MATRIX:     return "Matrix · " + gran;
-            case UNSCRAMBLE: return "Unscramble · " + gran;
-            default:         return p.name();
-        }
+        // The per-preset names come from CaptionAnimator.presetLabel, the ONE authority. This
+        // switch used to spell them out with a `default: p.name()` fallback, and MATRIX shipped a
+        // session reading a bare "MATRIX" because a case was missed. NONE is special-cased because
+        // it is a state, not a style — "None · word" would read as an animation with a granularity.
+        if (p == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE) return "None";
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.presetLabel(p) + " · " + gran;
     }
 
     /**
@@ -15220,7 +15212,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         int in = Math.round(o.getTextAnimInPct() * 100f);
         int out = Math.round(o.getTextAnimOutPct() * 100f);
-        String name = p.name().charAt(0) + p.name().substring(1).toLowerCase();
+        // From the ONE authority. This used to title-case the enum constant, which would have
+        // rendered MASK_WIPE as "Mask_wipe" — the same class of defect as the bare "MATRIX" the
+        // caption row shipped, and the reason presetLabel exists.
+        String name = com.fadcam.ui.faditor.transcript.CaptionAnimator.presetLabel(p);
         // "of this box" rather than a bare percentage, for the same reason the caption readout
         // says "of each line": a bare 50% invites reading it as half the project.
         label.setText(name + " · " + in + "% in / " + out + "% out of this box");

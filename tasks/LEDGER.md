@@ -565,7 +565,7 @@ It stays in §3 rather than moving to §1 because step 6 is unproven: no device 
 the UI landed, so the UI has been verified by build and by harness, **not by a human or a phone
 looking at it.** Nothing here claims otherwise.
 
-**Harness: 131 → 145 → 158 → 160 → 168 → 192 → 209 checks, all passing.** Run it with the command
+**Harness: 131 → 145 → 158 → 160 → 168 → 192 → 209 → 213 → 298 checks, all passing.** Run it with the command
 at the end of this section. **Measure the count by running it, not by reading this line** — it went
 stale twice, and the MATRIX entry had to correct a figure copied from here. **Dex-scan symbol list, CURRENT — the older list in this file was contradictory and
 is corrected here:** scan for `addCaptionAnimRangeControl`, `makeCaptionAnimSlider`,
@@ -855,17 +855,138 @@ entrance without hunting.
      exists to prevent. **Giving text boxes a canvas renderer in preview is the SAME item already
      recorded as the reason they are BLOCK-only** (`textAnimGranularitySupported`), so doing it
      would unlock ODOMETER-on-text-boxes AND WORD/LETTER granularity there together.
+  **NARROWED 2026-07-30 by the MASK_WIPE build, though the call is still the user's.** Finding (2)
+  stands and is now sharper: the text-box wall is about **drawing two things, not about clipping**.
+  MASK_WIPE needed a clip on the text box and got one from `View.setClipBounds` with no canvas
+  renderer at all. ODOMETER still needs two clipped glyph rows in one slot, which one `TextView`
+  holding one string genuinely cannot do — so the wall is real for ODOMETER specifically.
+  Consequence: since NEON_FLICKER modulates paint and should not touch the wall either, **ODOMETER
+  is likely the ONLY remaining preset that requires the text-box canvas renderer**, which makes
+  option (b) a decision about one preset rather than about the whole remaining set.
   **The call the user owns:** ship ODOMETER captions-only behind a new `allowedPresets` gate on the
   picker (cheap, and the picker already takes `allowedGrans` for exactly this reason, so it is one
   argument away) — or fund the text-box canvas renderer first and get both. **Not started, so that
   nothing is left half-built:** a captions-only ODOMETER without the surface gate would put a dead
   tile on the text-box picker, which is the one thing this picker is designed never to do, so the
   gate is not optional and the whole thing is one unit of work.
-- **Two presets remain declared, NOT implemented and NOT designed** — MASK_WIPE (a clip rect),
-  NEON_FLICKER (stroke/glow). Each names its blocker
+- **MASK_WIPE IS BUILT AND SHIPPED — 2026-07-30.** Taken out of turn (ODOMETER is third in the
+  agreed order) only because the user declined ODOMETER's scope question and the handoff's standing
+  instruction was to take MASK_WIPE in that case. **ODOMETER was NOT started and its scope question
+  is still the user's.** Full design in `SPEC_TEXT_ANIMATION.md` ("MASK_WIPE — BUILT AND SHIPPED").
+  **Its blocker note was CORRECT about the requirement and misleading about the cost.** "Needs a
+  per-unit clip rect" named something genuinely absent — a clip is neither geometry nor alpha, so
+  it really did need a THIRD channel (`Transform.revealFrac`), unlike UNSCRAMBLE. But the clip
+  turned out cheap at all four surfaces. **So a blocker note can understate the cost as easily as
+  overstate it; it is a hypothesis in both directions.**
+  **THE FINDING THAT MATTERS, and it contradicts what the handoff predicted: MASK_WIPE does NOT hit
+  the text-box `TextView` wall.** The wall blocks ODOMETER because ODOMETER needs TWO clipped glyph
+  rows in one slot, and one view holding one string cannot draw two things. MASK_WIPE needs ONE
+  thing shown IN PART, and `View.setClipBounds` does that in the view's own coordinate space —
+  i.e. before its scale/translation, which is the same order the export gets by clipping after its
+  matrix, so the two agree by construction. **The wall is about drawing two things, not about
+  clipping.** Consequence for planning: **NEON_FLICKER should not touch it either** (it modulates
+  paint), which would leave ODOMETER as the only remaining preset that actually needs the text-box
+  canvas renderer — so the ODOMETER scope question is narrower than it looked.
+  Design decisions, so they are not re-litigated: geometry and alpha stay at IDENTITY (a wipe with
+  a fade on top is a fade with extra steps, and would stop being distinguishable from FADE);
+  left-to-right, i.e. reading order, with the exit needing no rule of its own because progress
+  falls back through the same number; the mask clips HORIZONTALLY only with a generous
+  font-relative vertical reach, since an over-tall mask clips nothing while an under-tall one crops
+  ascenders and reads as a font bug on tall letters only; `revealFrac` is a FRACTION because the
+  four consumers measure their slot in four different units and a pixel radius would mean four
+  different wipes from one project; and it is a FIELD ON `Transform` rather than a fourth function
+  precisely so a surface cannot consume the transform and miss the reveal — `blurPx` is the
+  standing example of what a separate, easily-forgotten channel becomes.
+  **Proof — harness 213 → 298 checks, 0 failed** (85 new; before/after measured by stashing, not
+  read off this file). Load-bearing ones: alpha and geometry stay at identity at EVERY progress, so
+  it cannot have been quietly backed by alpha; the reveal is font-size independent and
+  unitIndex-independent (the stagger is `unitProgress`'s job); it is monotonic; out-of-range
+  fractions cannot invert the rect (an inverted `clipRect` clips EVERYTHING, which would show up as
+  text vanishing rather than as a wrong wipe); the exit re-masks exactly as the entrance uncovered;
+  and `textBoxTransformAt` carries the channel, without which the preset would ship working on
+  captions and dead on text boxes. **The control: no OTHER preset returns `revealFrac != 1` at any
+  progress or unit — plus the companion check that MASK_WIPE itself varies it across 11 distinct
+  values, so the control is not vacuous.**
+  **A test that was WRONG and the code that was right:** a first version asserted 6/6 distinct
+  reveal depths across a staggered phrase and failed at 4/6. Each unit's sweep is two slices wide
+  while units are spaced one slice apart, so **at most TWO units are ever strictly mid-sweep** —
+  a property of `unitProgress` shared by every preset. The assertion is now "a sweep is in
+  progress", not "everything is mid-flight".
+  **On the Note 9:** a **ninth tile appeared where the previous build had eight** — the same
+  behavioural freshness proof MATRIX's seventh and UNSCRAMBLE's eighth gave, which no symbol scan
+  can fake — labelled **"Mask wipe"**, with a space, which is the `presetLabel` fix arriving in the
+  UI (the old code would have shown a bare `MASK_WIPE` here). Screenshot
+  `tasks/screenshots/maskwipe_picker_9tiles.png`.
+  **The measurement that separates a MASK from a FADE, over a 14-frame tile burst
+  (`tasks/maskwipe_tiles.py`):** for each tile, the width of its ink and the brightness of its
+  brightest ink.
+
+  | tile | ink extent sd | extent range | peak ink sd | peak range |
+  |---|---|---|---|---|
+  | **Mask wipe** | **22.56** | **4–68 px** | **0.00** | **179–179** |
+  | Fade | 19.33 | 29–77 px | 26.20 | 81–156 |
+  | None (control) | **0.00** | 46–46 | **0.00** | 180–180 |
+
+  **MASK_WIPE's ink appears and disappears in COLUMNS while never once dimming**; FADE's peak
+  provably dims and never reaches full. **NONE is the built-in control and is the only tile reading
+  0.00 on every measure**, so the instrument is reading the tiles rather than the clock or screen
+  noise. Type and Matrix also hold peak at 179 (a step and a substitution — correctly not alpha
+  ramps), so peak alone does not isolate MASK_WIPE; what does is the PAIR — peak sd 0.00 **and** a
+  minimum extent of 4px. Type's minimum is 23px and Matrix's 36px, i.e. whole glyphs, because
+  neither can show a sliver. Magnified: `tasks/screenshots/maskwipe_tile_x3.png` shows a single
+  diagonal stroke of an "A", then a whole "A" plus the left stroke of the next.
+  **On a REAL caption, paused and during playback:** at `00:02.407` the phrase "this cat is very
+  cute she" drew as **`cu    she`** — the left half of "cute", cut by a hard vertical edge at full
+  white, in the slot "cute" would occupy, with the other four words absent
+  (`maskwipe_caption_cu_x3.png`). **The control is two playback frames of the SAME phrase 800ms
+  apart** (`maskwipe_caption_pair.png`): `00:03.513` draws "her name" complete, `00:04.326` draws
+  it masked down to a bare "h" stem and "nam" plus a sliver of "e" — same words, same x positions,
+  so it is not a font fault, not a layout fault and not a clipped view. A partial glyph at full ink
+  is the one thing no alpha channel can produce.
+  **Persisted, and TARGETED:** picking the tile wrote `"captionAnimPreset": "MASK_WIPE"` to disk on
+  its own (no Close & Save needed — worth knowing, since a previous session recorded that scrubbing
+  and playback do NOT save; it is the PICK that writes). A structural deep-diff of the whole
+  project against the app's own backup, ignoring only the documented id churn, found **exactly ONE
+  difference in the entire file** — that preset, on that clip.
+  **THE TEXT-BOX HALF IS PROVED TOO, quantitatively, and this is the strongest single piece of
+  evidence.** `PICKERTEST` has no `startMs`/`endMs`, so its span resolves to the whole 30s project
+  and `textAnimInPct 0.25` gives a 7500ms entrance — which makes the visible fraction predictable
+  in closed form (`decelerate(local/7500)`). `tasks/maskwipe_predict.py` computes it per frame from
+  the `00:0X.XXX` chip in the SAME framebuffer grab as the text. Over **12 playback frames the
+  measured ink extent tracked the prediction with a worst deviation of 0.060 and most under 0.03**,
+  reading `P` → `PIC` → `PICKE` → `PICKER` → `PICKERT` → `PICKERTES` → full
+  (`maskwipe_textbox_12frames.png`). Both ends are controls: 0.002 predicted / 0.000 measured at
+  `00:00.009`, and 1.000 / 1.000 from `00:07.520`. **The measured curve is also visibly the
+  `decelerate` ease and not a linear ramp** — at `00:01.929` linear would predict 0.257 and the
+  measurement is 0.467. The residual is one-directional and explained: the measured "full extent"
+  is the last glyph's rightmost stem while the reveal is a fraction of the VIEW's width, which
+  includes the trailing side bearing.
+  Dex-scanned on the installed artifact: `revealFrac`, `revealClip`, `revealDrawsAnything`,
+  `presetLabel`, `padPxFor`, `fontPxFor`, `setClipBounds` and the string `Mask wipe` all PRESENT,
+  with `FadCamApplication` + `FaditorEditorActivity` as the positive control; **freshness control —
+  the deleted blocker string `"needs a per-unit clip rect"` ABSENT, and `Mask_wipe` (the old
+  title-caser's output) ABSENT**, while NEON_FLICKER's and ODOMETER's blocker strings are still
+  found by the SAME scan, which is the control proving it can find that class of string. Substring
+  collision checked, not assumed (the MATRIX session's trap).
+  **An instrument that lied, a third time and a third way:** the first scan reported 0 for every
+  symbol INCLUDING the positive controls — `strings` is not installed in this Git Bash. Same
+  lesson, new cause: **read the positive control first; a scan whose control reads zero is a broken
+  scan.** Two prior sessions hit this with a drive-letter colon and with a partial dex.
+  **Fixed in passing — preset labels now have ONE authority.** Three switches spelled out preset
+  names with a `default: Preset.name()` fallback; MATRIX shipped a session showing a bare `MATRIX`,
+  and the text-box row's title-caser would have shown `Mask_wipe`. All three now call
+  `CaptionAnimator.presetLabel`, and the harness fails any label containing an underscore, equal to
+  the enum constant, or fully upper-case — so the NEXT omission is caught rather than shipped.
+  **NOT proved, stated rather than hidden: the EXPORT path.** No file was exported. The export
+  renderers were written to mirror the preview through the same evaluator and the same shared
+  `revealClip`, and the harness pins the arithmetic, but no exported pixel has been looked at —
+  which is the same limit every preset in this section carries.
+- **One preset remains declared, NOT implemented and NOT designed** — NEON_FLICKER (stroke/glow).
+  ODOMETER is designed but deliberately not built (see below). Each names its blocker
   in `CaptionAnimator.unsupportedReason` and returns identity, never an approximation. The picker
   filters on `Preset.implemented`. **Treat each remaining blocker note as a hypothesis to re-derive
-  from the drawing loops, not as a specification** — UNSCRAMBLE's was materially wrong.
+  from the drawing loops, not as a specification** — UNSCRAMBLE's overstated the work and
+  MASK_WIPE's understated it.
 - **Blur is ignored by BOTH renderers**, so GHOST reads as slide+shrink+fade. Consistently
   ignored is safe; approximating it in one path is the divergence this area exists to prevent.
 - **Audio-clip captions have NO animation.** `AudioClip` deliberately did not get the four
@@ -905,12 +1026,27 @@ entrance without hunting.
    be sandbox-only damage from an earlier probe rather than a live defect. Do not spend a session
    on it without first checking whether any code path can still produce it.
 
+**Sandbox restored and PROVED restored, 2026-07-30.** `bb2a9deb`'s `project.json` is back at md5
+**`eb3d16b8…`**, byte-identical to the handoff's reference, and it re-opened with **0 fatal
+exceptions** and the md5 unchanged by the open. Two things worth carrying forward:
+`project.json.bak` **was** the pre-session state at `eb3d16b8` — the app rotates it on write, so it
+is a free byte-exact restore target and another reason not to "clean it up"; and **`MSYS_NO_PATHCONV=1`
+must be set for the `/sdcard` argument but then breaks the `/c/...` LOCAL argument, so `adb push`
+needs a WINDOWS-style local path in the same command.** Getting that wrong truncated `project.json`
+to 0 bytes mid-session (the redirect ran before the failing `cat`); the `.bak` is what made it a
+non-event. Also observed: rotation stayed `0` across an install, a force-stop and three `am start`
+launches, which independently agrees with §5 — `monkey` was the cause, package events are not.
+
 **Test-project state after this session** — `bb2a9deb` "P0 control no image" now sorts to the TOP
 of Recent Projects (its `lastModified` is the newest), NOT second from the bottom as an earlier
 revision of this file said. **Independently re-confirmed 2026-07-29 by dumping every project's
 `lastModified` and sorting** — `bb2a9deb` came out first at "Jul 29, 07:30 AM", and opening the
 top row did land in "P0 control no image". Do not navigate by the remembered date; the date moves
-every time the project is opened. Map ids with
+every time the project is opened. **And a navigation fact that nearly caused a mis-open on
+2026-07-30: the Recent Projects rows are labelled with the SOURCE MEDIA FILENAME, not the
+project's `name`.** `bb2a9deb` shows as "FadCam_20260621_145132", and three other rows show the
+same string, so the list cannot be read for the project you want. Identify the row by matching its
+displayed timestamp against the `lastModified` you dumped — that is what confirmed it. Map ids with
 `adb shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json` — and redirect
 stdin (`< /dev/null`) if you loop over ids, or the inner `adb` swallows the loop's input and you
 silently map only the first project. Its clip 1 is left at preset FADE, granularity WORD,

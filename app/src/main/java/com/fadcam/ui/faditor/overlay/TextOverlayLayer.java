@@ -298,7 +298,47 @@ public class TextOverlayLayer extends FrameLayout {
         view.setScaleY(anim.scaleY);
         view.setTranslationX(anim.dx);
         view.setTranslationY(anim.dy);
+        applyReveal(view, anim.revealFrac, w, h);
     }
+
+    /**
+     * The THIRD animated channel on the text-box path: MASK_WIPE's reveal, as a clip on the view.
+     *
+     * <p><b>This is why MASK_WIPE reaches text boxes when ODOMETER cannot.</b> The recorded wall
+     * for the text-box preview is that it draws an overlay as one {@code TextView} holding one
+     * string, so it cannot draw two clipped glyph rows the way the export's {@code canvas.drawText}
+     * could — that is a divergence, and it is what keeps text boxes BLOCK-only and blocks ODOMETER
+     * here. MASK_WIPE asks for something different: not two things drawn, but one thing shown in
+     * part. {@code View.setClipBounds} does exactly that, in the view's own coordinate space and
+     * therefore BEFORE its scale/translation are applied — which is the same order
+     * {@code CompositeExportOverlay} gets by clipping after its matrix, so the two agree. No canvas
+     * renderer, no per-glyph layout, and no preview/export divergence.</p>
+     *
+     * <p>The bounds are the view's full measured box: a text box is one unit (BLOCK), so the wipe
+     * runs across the whole body rather than per word. The preview's box is the text's own measured
+     * extent while the export's bitmap carries a 0.35em pad, so the export insets by that pad to
+     * wipe across the same ink — see {@code TextOverlayRenderer.padPxFor}.</p>
+     *
+     * <p>Written on EVERY call, never skipped when the animation is off, for exactly the reason the
+     * scale and translation above are: these are properties on a RECYCLED view, so a preset set
+     * back to NONE would otherwise strand the last frame's mask and leave the box permanently
+     * half-drawn. {@code null} is the identity.</p>
+     */
+    private void applyReveal(@NonNull View view, float revealFrac, int w, int h) {
+        if (revealFrac >= 1f) {
+            view.setClipBounds(null);
+            return;
+        }
+        float f = Math.max(0f, revealFrac);
+        clipTmp.set(0, 0, Math.round(Math.max(1, w) * f), Math.max(1, h));
+        view.setClipBounds(clipTmp);
+    }
+
+    /**
+     * Scratch for {@link #applyReveal}. Safe to reuse: {@code setClipBounds} copies into the
+     * view's own rect rather than retaining this one.
+     */
+    private final android.graphics.Rect clipTmp = new android.graphics.Rect();
 
     private void attachGestures(@NonNull View tv, @NonNull TextOverlayItem o) {
         ScaleGestureDetector scaleDetector = new ScaleGestureDetector(getContext(),

@@ -393,3 +393,83 @@ rather than being reached by default.
 6. The retrigger-on-value-change requirement (a timer wanting a pop on each TICK) is **still not
    addressed in `CaptionAnimator`** — it is an event, not a function of elapsed time, and the
    spec warns it is painful to retrofit. It is untouched by this work.
+
+---
+
+## MASK_WIPE — BUILT AND SHIPPED, 2026-07-30
+
+Third of the five, in the user's order — taken out of turn only because the user declined to
+answer ODOMETER's scope question (*"skip odometer for now i dont know how to answer"*), and the
+handoff's standing instruction was to take MASK_WIPE next in that case. **ODOMETER was not
+started; its scope question is still the user's.**
+
+### Its blocker note was CORRECT about the requirement and MISLEADING about the cost
+
+`unsupportedReason(MASK_WIPE)` read *"needs a per-unit clip rect"*. That was accurate: a clip is
+neither geometry nor alpha, so no existing `Transform` field could express it, and no amount of
+cleverness with the two existing channels would have got there. Unlike UNSCRAMBLE — whose note
+overstated the work by describing a per-glyph `Transform` array that already existed — this one
+named something genuinely absent.
+
+What the note did not say, and what re-deriving it against the drawing loops showed, is that
+**the clip is cheap at every surface that needs it.** The rule from the UNSCRAMBLE session
+("read the drawing loops before believing a blocker note") cuts both ways: a note can understate
+the cost as easily as overstate it, so it is a hypothesis either way.
+
+### THE FINDING THAT MATTERS: MASK_WIPE does NOT hit the text-box `TextView` wall
+
+The handoff predicted it would, and said to check that first and say so early. It does not, and
+the distinction is worth keeping because it decides which of the remaining presets are cheap.
+
+The recorded wall is that the text-box preview draws an overlay as one `TextView` holding one
+string, while the export draws with `canvas.drawText`. That blocks **ODOMETER**, which needs TWO
+clipped glyph rows in one slot — one view with one string genuinely cannot draw two things. It
+does not block MASK_WIPE, which needs ONE thing shown IN PART, and `View.setClipBounds` does
+exactly that. So the wall is about **drawing two things, not about clipping**, and the earlier
+wording ("cannot draw two clipped glyph rows") already contained the distinction — it was simply
+read as "cannot clip".
+
+`setClipBounds` applies in the view's own coordinate space and therefore BEFORE its
+scale/translation, which is the same order the export gets by clipping AFTER its matrix. The two
+surfaces agree by construction rather than by care. **NEON_FLICKER, the last one, modulates paint
+and should not touch this wall either** — which would leave ODOMETER as the only preset that
+actually needs the text-box canvas renderer.
+
+### The third output channel
+
+`Transform.revealFrac` (0..1, default 1). It is a field on `Transform` rather than a fourth
+function because every renderer already holds a `Transform` at the draw site, so a surface cannot
+consume the transform and silently miss the reveal — which is what a separate function would have
+invited, and what `blurPx` is the standing example of.
+
+It is a **fraction, not pixels**, and that is load-bearing: the four consumers measure their slot
+in four different units (preview caption px, export frame px, a `TextView`'s measured width, a
+60dp thumbnail). A pixel radius would mean four different wipes from one project.
+`CaptionAnimator.revealClip` turns it into a rect in ONE place, so "which edge, and how tall"
+cannot be answered twice.
+
+Decisions, so they are not re-litigated:
+- **Geometry and alpha stay at identity**, exactly as MATRIX does. A wipe with a fade on top is a
+  fade with extra steps, and it would stop being distinguishable from FADE.
+- **Left-to-right**, i.e. reading order. A direction control would be a second setting on a picker
+  whose whole design is one tap, and text uncovering against its reading direction reads as an
+  exit. The exit needs no rule of its own: progress falls back through the same number.
+- **The mask clips horizontally only**, with a generous font-relative vertical reach (2em up, 1em
+  down). An over-tall mask clips nothing; an under-tall one crops ascenders and reads as a font
+  bug on tall letters only.
+- **`revealDrawsAnything` is a separate skip predicate** because MASK_WIPE holds alpha at 1, so the
+  renderers' existing `alpha <= 0.004f` early-out never fires for it.
+- **The export insets by `TextOverlayRenderer.padPxFor`** before wiping. The export bitmap carries
+  a 0.35em transparent margin for shadows; the preview's `TextView` has no equivalent. Wiping the
+  raw bitmap would spend the first and last few percent uncovering empty padding and put the mask
+  edge where the preview never puts it.
+
+### Fixed in passing: preset labels now have ONE authority
+
+Three switches spelled out preset names, each with a `default: Preset.name()` fallback. MATRIX
+shipped a session with the caption drawer reading a bare **`MATRIX`**; the text box's
+`name().charAt(0) + name().substring(1).toLowerCase()` would have rendered this preset as
+**`Mask_wipe`**. Both are the same defect — a fallback that produces something plausible instead
+of failing. All three now call `CaptionAnimator.presetLabel`, and the harness fails on any label
+containing an underscore, equal to the enum constant, or fully upper-case, so the NEXT omission is
+caught rather than shipped.

@@ -23,6 +23,31 @@ public final class TextOverlayRenderer {
     private TextOverlayRenderer() {}
 
     /**
+     * The type size this overlay rasterises at, in output pixels.
+     *
+     * <p>Exposed because MASK_WIPE's caller needs to know where the INK sits inside the returned
+     * bitmap, not just how big the bitmap is. Derived here rather than recomputed at the call site
+     * so the two cannot drift apart the way a copied formula would.</p>
+     */
+    public static float fontPxFor(@NonNull TextOverlayItem o, int outH) {
+        return Math.max(8f, o.getSizeFraction() * outH);
+    }
+
+    /**
+     * The transparent margin this renderer leaves around the text, in output pixels.
+     *
+     * <p>It exists so a shadow or an outline is not clipped by the bitmap edge. It also means the
+     * bitmap is WIDER than the ink, which matters to a reveal mask: wiping across the bitmap would
+     * spend the first and last few percent of the animation uncovering empty padding, and would
+     * put the mask edge in a different place than the preview does — the preview's
+     * {@code TextView} is measured to the text itself and carries no such margin. So the export
+     * insets by this before wiping. See {@code TextOverlayLayer#applyReveal}.</p>
+     */
+    public static int padPxFor(@NonNull TextOverlayItem o, int outH) {
+        return (int) (fontPxFor(o, outH) * 0.35f);
+    }
+
+    /**
      * @param o       the overlay to render
      * @param outW    output frame width in pixels
      * @param outH    output frame height in pixels
@@ -30,7 +55,7 @@ public final class TextOverlayRenderer {
      */
     @NonNull
     public static Bitmap render(@NonNull TextOverlayItem o, int outW, int outH) {
-        float fontPx = Math.max(8f, o.getSizeFraction() * outH);
+        float fontPx = fontPxFor(o, outH);
 
         TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(o.getColorInt());
@@ -49,7 +74,7 @@ public final class TextOverlayRenderer {
         }
         Paint.FontMetrics fm = paint.getFontMetrics();
         float lineH = fm.descent - fm.ascent;
-        int pad = (int) (fontPx * 0.35f);
+        int pad = padPxFor(o, outH);
 
         int w = (int) Math.ceil(maxLineW) + pad * 2;
         int h = (int) Math.ceil(lineH * lines.length) + pad * 2;

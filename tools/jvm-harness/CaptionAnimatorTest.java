@@ -78,6 +78,8 @@ public class CaptionAnimatorTest {
         textBoxWholeBody();
         matrixSubstitution();
         unscrambleScatter();
+        maskWipeReveal();
+        presetLabels();
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
@@ -226,7 +228,12 @@ public class CaptionAnimatorTest {
             ok(p + " is identity at progress=1",
                     Math.abs(t.scaleX - 1f) <= EPS && Math.abs(t.scaleY - 1f) <= EPS
                             && Math.abs(t.dx) <= EPS && Math.abs(t.dy) <= EPS
-                            && Math.abs(t.alpha - 1f) <= EPS && Math.abs(t.blurPx) <= EPS);
+                            && Math.abs(t.alpha - 1f) <= EPS && Math.abs(t.blurPx) <= EPS
+                            // The third channel is part of "identity" too: a preset that rests at
+                            // revealFrac < 1 would leave the text permanently half-masked for the
+                            // whole middle of the clip, which is the same defect as resting at
+                            // alpha < 1 and would look like a rendering fault rather than a preset.
+                            && Math.abs(t.revealFrac - 1f) <= EPS);
         }
 
         System.out.println("\n── unimplemented presets return identity, never an approximation ──");
@@ -234,7 +241,8 @@ public class CaptionAnimatorTest {
             if (p.implemented) continue;
             CaptionAnimator.Transform t = CaptionAnimator.presetTransform(p, 0f, 100f);
             ok(p + " (unimplemented) is identity even at progress=0",
-                    Math.abs(t.scaleX - 1f) <= EPS && Math.abs(t.alpha - 1f) <= EPS);
+                    Math.abs(t.scaleX - 1f) <= EPS && Math.abs(t.alpha - 1f) <= EPS
+                            && Math.abs(t.revealFrac - 1f) <= EPS);
             ok(p + " states why it cannot ship", !CaptionAnimator.unsupportedReason(p).isEmpty());
         }
         ok("NONE is implemented (it is the off state, not a gap)",
@@ -971,5 +979,235 @@ public class CaptionAnimatorTest {
         }
         ok("presetTransformAt passes unitIndex through: " + placed.size() + "/8 distinct offsets",
                 placed.size() == 8);
+    }
+
+    // ── MASK_WIPE: the third output channel ──────────────────────────────────────────────────
+
+    /**
+     * MASK_WIPE is the first preset that animates neither geometry/alpha nor the string, but HOW
+     * MUCH OF THE SLOT IS UNCOVERED. Everything here is about the properties that let four
+     * different surfaces — preview captions, export captions, a TextView, a 60dp tile — consume
+     * one number and produce the same wipe.
+     */
+    static void maskWipeReveal() {
+        System.out.println("\n── MASK_WIPE reveal channel ──");
+        final CaptionAnimator.Preset M = CaptionAnimator.Preset.MASK_WIPE;
+        final float FONT = 40f;
+
+        ok("MASK_WIPE is marked implemented", M.implemented);
+        eqS("MASK_WIPE no longer reports a blocker", "", CaptionAnimator.unsupportedReason(M));
+
+        // 1. Fully masked at the start, fully uncovered once arrived. If the first were non-zero
+        //    the text would pop into existence partly drawn; if the second were < 1 the tail of
+        //    every unit would stay clipped forever.
+        eqF("MASK_WIPE is fully masked at progress 0",
+                0f, CaptionAnimator.presetTransform(M, 0f, FONT).revealFrac);
+        eqF("MASK_WIPE is fully uncovered at progress 1",
+                1f, CaptionAnimator.presetTransform(M, 1f, FONT).revealFrac);
+
+        // 2. It is a MASK, not a fade — and this is the load-bearing one. If revealFrac were
+        //    quietly backed by alpha, MASK_WIPE would be FADE with a different label and the
+        //    renderers could "support" it by doing nothing.
+        boolean identityElsewhere = true;
+        for (float p = 0f; p <= 1f; p += 0.05f) {
+            CaptionAnimator.Transform t = CaptionAnimator.presetTransform(M, p, FONT);
+            if (Math.abs(t.alpha - 1f) > EPS || Math.abs(t.scaleX - 1f) > EPS
+                    || Math.abs(t.scaleY - 1f) > EPS || Math.abs(t.dx) > EPS
+                    || Math.abs(t.dy) > EPS || Math.abs(t.blurPx) > EPS) {
+                identityElsewhere = false;
+            }
+        }
+        ok("MASK_WIPE leaves alpha and geometry at identity at EVERY progress "
+                + "(it is a mask, not a fade)", identityElsewhere);
+
+        // 3. Monotonic: a mask edge that ever retreats mid-entrance reads as a flicker.
+        boolean monotonic = true;
+        float prev = -1f;
+        for (float p = 0f; p <= 1f; p += 0.02f) {
+            float r = CaptionAnimator.presetTransform(M, p, FONT).revealFrac;
+            if (r < prev - EPS) monotonic = false;
+            prev = r;
+        }
+        ok("MASK_WIPE uncovers monotonically", monotonic);
+
+        // 4. Independent of type size. The reveal is a FRACTION, so unlike every distance-based
+        //    preset it must NOT scale with fontPx — that is what makes one number correct on a
+        //    caption, a 4K export frame and a 60dp thumbnail at once.
+        boolean fontFree = true;
+        for (float p = 0f; p <= 1f; p += 0.1f) {
+            if (Math.abs(CaptionAnimator.presetTransform(M, p, 12f).revealFrac
+                    - CaptionAnimator.presetTransform(M, p, 900f).revealFrac) > EPS) {
+                fontFree = false;
+            }
+        }
+        ok("MASK_WIPE's reveal is font-size independent (a fraction, not pixels)", fontFree);
+
+        // 5. THE CONTROL: no other preset touches this channel. Without it every check above
+        //    could pass on a channel nothing actually distinguishes.
+        boolean othersInert = true;
+        for (CaptionAnimator.Preset p : CaptionAnimator.Preset.values()) {
+            if (p == M) continue;
+            for (float pr = 0f; pr <= 1f; pr += 0.05f) {
+                for (int u = 0; u < 4; u++) {
+                    if (Math.abs(CaptionAnimator.presetTransform(p, pr, FONT, u).revealFrac - 1f)
+                            > EPS) {
+                        othersInert = false;
+                    }
+                }
+            }
+        }
+        ok("no OTHER preset returns revealFrac != 1, so the channel is inert for them",
+                othersInert);
+
+        // 6. ...and that control is not vacuous: MASK_WIPE itself really does vary it.
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        for (float p = 0f; p <= 1f; p += 0.05f) {
+            seen.add(Math.round(CaptionAnimator.presetTransform(M, p, FONT).revealFrac * 100));
+        }
+        ok("...and MASK_WIPE does vary it (" + seen.size() + " distinct values), so test 5 "
+                + "is not vacuous", seen.size() > 10);
+
+        // 7. The exit is the entrance reversed, in this channel too — the same model every other
+        //    preset follows, so a departing unit re-masks the way it uncovered.
+        //     Mirrored times on mirrored zones must give the SAME mask depth: 300ms into a
+        //     full-tape entrance is as uncovered as 300ms before the end of a full-tape exit.
+        float mirrorIn = CaptionAnimator.presetTransformAt(
+                M, 300L, 0L, 1000L, 1000L, 0L, 0, 1, FONT).revealFrac;
+        float mirrorOut = CaptionAnimator.presetTransformAt(
+                M, 700L, 0L, 1000L, 0L, 1000L, 0, 1, FONT).revealFrac;
+        eqF("the exit re-masks exactly as the entrance uncovered", mirrorIn, mirrorOut);
+        ok("...and that mirror is a real mid-wipe value, not two 1s (" + mirrorIn + ")",
+                mirrorIn > 0f && mirrorIn < 1f);
+
+        // 8. Independent of unitIndex — unlike UNSCRAMBLE. The stagger between units comes from
+        //    unitProgress, exactly as it does for every other non-scatter preset; if the reveal
+        //    also varied by index the two staggers would compound into something no renderer
+        //    could reproduce from progress alone.
+        boolean indexFree = true;
+        for (float p = 0.1f; p < 1f; p += 0.1f) {
+            float u0 = CaptionAnimator.presetTransform(M, p, FONT, 0).revealFrac;
+            for (int u = 1; u < 12; u++) {
+                if (Math.abs(CaptionAnimator.presetTransform(M, p, FONT, u).revealFrac - u0)
+                        > EPS) {
+                    indexFree = false;
+                }
+            }
+        }
+        ok("MASK_WIPE's reveal does not depend on unitIndex (the stagger is unitProgress's job)",
+                indexFree);
+
+        System.out.println("\n── revealClip: the shared geometry the four surfaces agree on ──");
+        float[] r = new float[4];
+
+        // 9. The mask sweeps from the LEFT edge and grows rightwards. Both renderers hand this
+        //    helper the same (x, w) they measured for the slot, so this is the single place that
+        //    decides which edge — the one thing a preview and an export must not answer twice.
+        CaptionAnimator.revealClip(100f, 200f, 60f, FONT, 0f, r);
+        eqF("clip at 0%: left edge is the slot's left", 100f, r[0]);
+        eqF("clip at 0%: right edge has not moved off the left", 100f, r[2]);
+        CaptionAnimator.revealClip(100f, 200f, 60f, FONT, 0.5f, r);
+        eqF("clip at 50%: left edge is unchanged (it wipes, it does not slide)", 100f, r[0]);
+        eqF("clip at 50%: right edge is halfway across the slot", 130f, r[2]);
+        CaptionAnimator.revealClip(100f, 200f, 60f, FONT, 1f, r);
+        eqF("clip at 100%: right edge is the slot's right", 160f, r[2]);
+
+        // 10. Vertically it must CONTAIN the glyph, not crop it. A mask that clipped ascenders
+        //     would read as a font bug rather than an effect, and the failure would only be
+        //     visible on letters that happen to be tall.
+        CaptionAnimator.revealClip(100f, 200f, 60f, FONT, 0.5f, r);
+        ok("the mask reaches well above the baseline (ascenders survive)", r[1] <= 200f - FONT);
+        ok("the mask reaches below the baseline (descenders survive)", r[3] >= 200f + FONT * 0.5f);
+        ok("the mask is taller than the type size in both directions",
+                (200f - r[1]) > FONT && (r[3] - 200f) >= FONT * 0.5f);
+
+        // 11. Out-of-range fractions are clamped rather than producing an inverted rect. An
+        //     inverted clipRect silently clips EVERYTHING on a Canvas, so this would show up as
+        //     text vanishing, not as a wrong wipe.
+        CaptionAnimator.revealClip(100f, 200f, 60f, FONT, -5f, r);
+        ok("a negative fraction cannot invert the rect", r[2] >= r[0]);
+        CaptionAnimator.revealClip(100f, 200f, 60f, FONT, 9f, r);
+        eqF("a fraction above 1 clamps to the full slot", 160f, r[2]);
+
+        // 12. The skip predicate. MASK_WIPE holds alpha at 1, so the renderers' existing
+        //     `alpha <= 0.004f` early-out never fires for it; without this one a fully-masked unit
+        //     is laid out and drawn into an empty clip on every frame of its entrance.
+        ok("nothing to draw when fully masked",
+                !CaptionAnimator.revealDrawsAnything(0f));
+        ok("there IS something to draw once the mask has moved at all",
+                CaptionAnimator.revealDrawsAnything(0.01f));
+        ok("a fully uncovered unit draws", CaptionAnimator.revealDrawsAnything(1f));
+
+        // 13. Through the real entry point, on a staggered phrase: at one media time the units
+        //     must be at DIFFERENT reveal depths, or the whole phrase wipes as one block-wide edge
+        //     and the granularity setting does nothing. This is where the unitIndex could be
+        //     dropped on the floor.
+        //
+        //     A first version of this asserted 6/6 distinct depths and FAILED at 4/6 — and the
+        //     test was wrong, not the code. Each unit's sweep is two slices wide while the units
+        //     are spaced one slice apart, so at any instant AT MOST TWO units are strictly
+        //     mid-sweep; the rest are saturated at 0 or 1. That is a property of unitProgress and
+        //     it is shared by every preset, so the honest assertion is "a sweep is in progress",
+        //     not "everything is mid-flight".
+        java.util.List<Float> depths = new java.util.ArrayList<>();
+        for (int u = 0; u < 6; u++) {
+            depths.add(CaptionAnimator.presetTransformAt(
+                    M, 400L, 0L, 2000L, 1000L, 1000L, u, 6, FONT).revealFrac);
+        }
+        int arrived = 0, waiting = 0, midWipe = 0;
+        for (float d : depths) {
+            if (d >= 1f - EPS) arrived++;
+            else if (d <= EPS) waiting++;
+            else midWipe++;
+        }
+        ok("presetTransformAt staggers the wipe: " + depths + " -> " + arrived
+                        + " uncovered, " + midWipe + " mid-wipe, " + waiting + " still masked",
+                arrived >= 1 && midWipe >= 1 && waiting >= 1);
+        ok("...and the mid-wipe units are at DIFFERENT depths, so the index really reaches the "
+                        + "reveal", new java.util.HashSet<>(depths).size() >= 4);
+
+        // 14. The text-box entry point carries the channel too. Both text-box surfaces read the
+        //     Transform from textBoxTransformAt, so if it dropped revealFrac the preset would ship
+        //     working on captions and dead on text boxes — the exact half-shipped state MATRIX was
+        //     careful to avoid.
+        CaptionAnimator.Transform box = CaptionAnimator.textBoxTransformAt(
+                M, 250L, 0L, 2000L, 0.5f, 0.5f, FONT);
+        ok("textBoxTransformAt carries the reveal (" + box.revealFrac + ")",
+                box.revealFrac > 0f && box.revealFrac < 1f);
+        eqF("a text box with no animation is fully uncovered", 1f,
+                CaptionAnimator.textBoxTransformAt(M, 250L, 0L, 2000L, 0f, 0f, FONT).revealFrac);
+        eqF("a text box with no span is fully uncovered", 1f,
+                CaptionAnimator.textBoxTransformAt(M, 250L, 0L, 0L, 0.5f, 0.5f, FONT).revealFrac);
+
+        // 15. MASK_WIPE must not also substitute characters. Two channels at once on one preset
+        //     would make it impossible to tell which one the eye is following, and the tile would
+        //     be advertising something the name does not say.
+        eqS("MASK_WIPE does not touch the substitution channel", "Hello",
+                CaptionAnimator.substituteUnit(M, "Hello", 0.2f, 0));
+    }
+
+    // ── Preset labels: one authority, and a rule that catches the next omission ──────────────
+
+    /**
+     * The caption drawer shipped a bare "MATRIX" for a session because one switch was missed, and
+     * the text-box row's title-caser would have produced "Mask_wipe". Both are now
+     * {@code CaptionAnimator.presetLabel}. Centralising alone would not stop the NEXT omission —
+     * this does, by failing on any label that still looks like an enum constant.
+     */
+    static void presetLabels() {
+        System.out.println("\n── preset labels never leak an enum spelling ──");
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (CaptionAnimator.Preset p : CaptionAnimator.Preset.values()) {
+            String l = CaptionAnimator.presetLabel(p);
+            ok(p + " has a label", !l.isEmpty());
+            ok(p + " label has no underscore -> " + l, l.indexOf('_') < 0);
+            ok(p + " label is not the enum constant -> " + l, !l.equals(p.name()));
+            ok(p + " label is not SHOUTED -> " + l, !l.equals(l.toUpperCase()));
+            ok(p + " label starts with a capital -> " + l,
+                    Character.isUpperCase(l.charAt(0)));
+            seen.add(l);
+        }
+        ok("every preset's label is distinct (" + seen.size() + " of "
+                        + CaptionAnimator.Preset.values().length + ")",
+                seen.size() == CaptionAnimator.Preset.values().length);
     }
 }

@@ -372,6 +372,9 @@ public class CaptionOverlayView extends View {
         }
         // Fully transparent: skip the draw entirely rather than paint nothing expensively.
         if (pre.alpha <= 0.004f) return;
+        // MASK_WIPE keeps alpha at 1, so the test above never fires for it. A fully-masked unit
+        // would otherwise be laid out and drawn into an empty clip on every frame of its entrance.
+        if (!CaptionAnimator.revealDrawsAnything(pre.revealFrac)) return;
 
         float ucx = x + w / 2f;
         float ucy = baseY - (textPaint.getFontMetrics().descent
@@ -387,9 +390,24 @@ public class CaptionOverlayView extends View {
         canvas.save();
         canvas.translate(dx, dy);
         canvas.scale(scaleX, scaleY, ucx, ucy);
+        // The THIRD animated channel: how much of the slot is uncovered. Clipped INSIDE the
+        // transform on purpose — the mask then scales and moves with the glyph, so the active
+        // word's 1.15x emphasis does not slide the ink out from under its own mask. Inert for
+        // every preset but MASK_WIPE, which is the only one that returns revealFrac < 1. Must stay
+        // identical to CaptionExportRenderer#drawUnit.
+        if (pre.revealFrac < 1f) {
+            CaptionAnimator.revealClip(x, baseY, w, fontPx, pre.revealFrac, revealTmp);
+            canvas.clipRect(revealTmp[0], revealTmp[1], revealTmp[2], revealTmp[3]);
+        }
         paintWord(canvas, shown, x, baseY, color, fontPx, pre.alpha);
         canvas.restore();
     }
+
+    /**
+     * Scratch for {@link CaptionAnimator#revealClip}. A field rather than a local because at
+     * LETTER granularity {@code drawUnit} runs once per glyph per frame.
+     */
+    private final float[] revealTmp = new float[4];
 
     /**
      * Fill pass plus optional stroke-outline pass, sharing one paint.

@@ -80,6 +80,34 @@ public final class CaptionAnimator {
          */
         public float blurPx = 0f;
 
+        /**
+         * How much of the unit's own slot is REVEALED, 0..1, wiped in from the leading (left)
+         * edge. 1 = the whole unit, i.e. no clip at all, which is what every preset but
+         * {@link Preset#MASK_WIPE} returns — so this channel is inert for all of them.
+         *
+         * <p><b>Why this is a field on {@code Transform} rather than a fourth function.</b> It is
+         * the THIRD output channel, after geometry/alpha and {@link #substituteUnit}'s string, and
+         * like them it is per-unit and per-frame. Every renderer already has a {@code Transform}
+         * in hand at the draw site, so folding it in here costs no new call and — more to the
+         * point — makes it impossible for a surface to consume the transform and silently miss the
+         * reveal. A separate function would have been a fourth thing four call sites must remember
+         * to call.</p>
+         *
+         * <p><b>It is a FRACTION, not pixels, and that is load-bearing.</b> The four surfaces that
+         * consume it measure their slot in four different units — preview caption pixels, export
+         * frame pixels, a {@code TextView}'s measured width, and a 60dp thumbnail. A pixel radius
+         * would mean four different wipes from one project; a fraction of whatever slot the caller
+         * already measured is correct on all four by construction. Same reasoning as
+         * {@code CompositingSpec.featherRadiusPx} being derived rather than stored.</p>
+         *
+         * <p>Callers turn it into a clip with {@link #revealClip}, which is shared precisely so
+         * that "which edge, and how tall" cannot be answered differently by the preview and the
+         * export. <b>A renderer that cannot clip must ignore this and NOT approximate it with
+         * alpha</b> — a wipe faked as a fade is the preview/export divergence this class exists to
+         * prevent, and it would also make MASK_WIPE indistinguishable from FADE.</p>
+         */
+        public float revealFrac = 1f;
+
         /** Set both axes at once — the common case. */
         void scale(float s) {
             scaleX = s;
@@ -267,11 +295,35 @@ public final class CaptionAnimator {
          */
         UNSCRAMBLE(true),
 
+        /**
+         * The unit is UNCOVERED left-to-right by a moving mask rather than faded in: full-strength
+         * ink, partially present. Third of the five declared-but-blocked presets, implemented
+         * 2026-07-30.
+         *
+         * <p>Its blocker note — "needs a per-unit clip rect" — was CORRECT, unlike
+         * {@link #UNSCRAMBLE}'s. A clip is not geometry and not alpha, so no {@code Transform}
+         * field then existing could express it. What the note did not say, and what re-deriving it
+         * against the drawing loops showed, is that the clip is CHEAP at all four surfaces: the two
+         * caption renderers already have {@code x}/{@code baseY}/{@code w} at the draw site inside
+         * an existing {@code save()}/{@code restore()} bracket, and the two text-box surfaces
+         * animate one whole body, which is one rect.</p>
+         *
+         * <p><b>It does NOT hit the text-box {@code TextView} wall that blocks
+         * {@link #ODOMETER}</b>, and the difference is worth understanding rather than assuming.
+         * ODOMETER needs TWO clipped glyph rows inside one slot, which one {@code TextView} holding
+         * one string genuinely cannot draw. MASK_WIPE needs ONE clip over the whole body — and a
+         * view can be clipped without being re-rendered, via {@code View.setClipBounds}. So the
+         * wall is about drawing two things, not about clipping.</p>
+         *
+         * <p>Deliberately leaves geometry and alpha at identity, for the same reason
+         * {@link #MATRIX} does: the reveal is the motion, and adding a fade on top would make it
+         * read as FADE with extra steps.</p>
+         */
+        MASK_WIPE(true),
+
         // Declared, NOT implemented. Each needs more than a Transform:
         /** Needs GLYPH SUBSTITUTION plus a vertical roll clip per slot. */
         ODOMETER(false),
-        /** Needs a CLIP RECT per unit — revealed by masking, not by opacity. */
-        MASK_WIPE(false),
         /** Needs the renderer to modulate STROKE/GLOW, which is not a geometric transform. */
         NEON_FLICKER(false);
 
@@ -291,8 +343,11 @@ public final class CaptionAnimator {
             // UNSCRAMBLE is no longer here either: the unitIndex parameter on presetTransform was
             // the whole of what it needed. Its old reason read "needs per-glyph positional
             // scatter", which overstated the work — see the enum constant.
+            // MASK_WIPE is no longer here either. Its reason ("needs a per-unit clip rect") was
+            // ACCURATE about what was missing and misleading about the size of it: the clip rect
+            // was genuinely a new channel, but Transform#revealFrac plus one shared revealClip
+            // helper covered all four surfaces. A blocker note names a requirement, not a cost.
             case ODOMETER:    return "needs glyph substitution and a per-slot roll clip";
-            case MASK_WIPE:   return "needs a per-unit clip rect";
             case NEON_FLICKER:return "needs stroke/glow modulation";
             default:          return "";
         }
@@ -401,6 +456,14 @@ public final class CaptionAnimator {
                 out.alpha = Math.min(1f, p * 2.5f);
                 break;
             }
+            case MASK_WIPE:
+                // Geometry and alpha stay at IDENTITY on purpose, exactly as MATRIX does. The ink
+                // is at full strength from the first frame and simply is not there yet to the
+                // right of the mask edge, which is what separates a wipe from a fade. Easing is
+                // `decelerate` for the same reason FADE/GHOST/BEAM use it — the mask edge arrives
+                // and settles rather than stopping dead.
+                out.revealFrac = decelerate(p);
+                break;
             default:
                 break;
         }
@@ -416,6 +479,69 @@ public final class CaptionAnimator {
         float p = unitProgress(mediaMs, itemStartMs, itemEndMs, inZoneMs, outZoneMs,
                 unitIndex, unitCount);
         return presetTransform(preset, p, fontPx, unitIndex);
+    }
+
+    // ── Third output channel: HOW MUCH of the slot is uncovered ──────────────────────────────
+
+    /**
+     * How far above and below the baseline a caption's reveal mask must reach, as a multiple of
+     * the type size.
+     *
+     * <p>The mask clips HORIZONTALLY only — vertically it must contain every pixel the unit could
+     * paint, or a wipe would silently crop tall glyphs and descenders and read as a defect rather
+     * than an effect. These are deliberately generous: the tallest thing a unit draws is its
+     * ascent (~0.8em) multiplied by the active-word emphasis (1.15x) and by BEAM's 2.0x vertical
+     * scale if the two ever compose, plus an outline stroke (0.08em) and a shadow (0.10em offset
+     * 0.04em). 2em up and 1em down clears all of that with room to spare, and costs nothing —
+     * an over-tall mask clips nothing, while an under-tall one clips ink.
+     */
+    private static final float REVEAL_ABOVE_EM = 2.0f;
+    private static final float REVEAL_BELOW_EM = 1.0f;
+
+    /**
+     * The clip rectangle for a unit that is {@code revealFrac} uncovered — the geometry half of
+     * {@link Transform#revealFrac}, in ONE place so the four surfaces that consume the channel
+     * cannot disagree about which edge the mask sweeps from or how tall it is.
+     *
+     * <p>Written into a caller-supplied array rather than returned, because at LETTER granularity
+     * this runs once per glyph per frame and a returned {@code float[]} would be ~1800
+     * allocations a second on a captioned line. The array is {@code {left, top, right, bottom}} —
+     * a {@code RectF} would drag {@code android.graphics} into a class that is deliberately
+     * android-free so the JVM harness can exercise it.</p>
+     *
+     * <p>The mask sweeps from the LEFT edge, i.e. reading order. That is a v1 decision, not a
+     * limitation of the channel: a direction control would be a second setting on a picker whose
+     * whole design is one tap, and text that uncovers against its reading direction reads as an
+     * exit rather than an entrance. The EXIT needs no separate rule — progress falls back through
+     * the same number, so the mask retreats the way it came, which is the "exit is the entrance
+     * reversed" model every other preset here follows.</p>
+     *
+     * @param x       the slot's left edge, in whatever units the caller measured it in
+     * @param baseY   the text baseline
+     * @param w       the slot's advance width, measured from the REAL text — the same width
+     *                {@link #substituteUnit} relies on being untouched
+     * @param fontPx  type size, which sets the mask's vertical reach
+     * @param out     a length-4 array to fill with {@code {left, top, right, bottom}}
+     */
+    public static void revealClip(float x, float baseY, float w, float fontPx,
+                                  float revealFrac, @NonNull float[] out) {
+        float f = Math.max(0f, Math.min(1f, revealFrac));
+        out[0] = x;
+        out[1] = baseY - fontPx * REVEAL_ABOVE_EM;
+        out[2] = x + w * f;
+        out[3] = baseY + fontPx * REVEAL_BELOW_EM;
+    }
+
+    /**
+     * Whether a unit at {@code revealFrac} is worth drawing at all.
+     *
+     * <p>MASK_WIPE keeps alpha at 1, so the {@code alpha <= 0.004f} skip both caption renderers
+     * already have never fires for it — without this a fully-masked unit would be laid out,
+     * transformed and drawn into an empty clip on every frame of its entrance. Kept next to
+     * {@link #revealClip} so the two halves of the channel are read together.</p>
+     */
+    public static boolean revealDrawsAnything(float revealFrac) {
+        return revealFrac > 0.0005f;
     }
 
     // ── Second output channel: WHICH CHARACTERS to draw ──────────────────────────────────────
@@ -865,6 +991,41 @@ public final class CaptionAnimator {
         } catch (IllegalArgumentException e) {
             return Preset.NONE;
         }
+    }
+
+    /**
+     * The human name of a preset — one authority, because the ad-hoc ones kept going stale.
+     *
+     * <p>This exists as a fix for a bug that has now happened twice. Three separate switches
+     * spelled these out (the picker tile, the caption drawer's Motion row and the text box's
+     * Motion row), each with a {@code default:} falling back to {@code Preset.name()}. MATRIX
+     * shipped and the caption row read a bare <b>{@code MATRIX}</b> for a session; the text-box
+     * row's {@code name().charAt(0) + name().substring(1).toLowerCase()} would have rendered this
+     * preset as <b>{@code Mask_wipe}</b>. Both are the same defect: a fallback that produces
+     * something plausible-looking instead of failing. Centralising it does not by itself prevent
+     * the next omission, so the harness pins that no preset's label leaks an enum spelling —
+     * see {@code CaptionAnimatorTest.presetLabels}. TODO(strings) — extraction is frozen behind
+     * the rebrand (road_map.md:49), same as every other literal on this path.</p>
+     */
+    @NonNull
+    public static String presetLabel(@NonNull Preset p) {
+        switch (p) {
+            case NONE:         return "None";
+            case TYPEWRITER:   return "Type";
+            case FADE:         return "Fade";
+            case RISE:         return "Rise";
+            case GHOST:        return "Ghost";
+            case BEAM:         return "Beam";
+            case MATRIX:       return "Matrix";
+            case UNSCRAMBLE:   return "Unscramble";
+            case MASK_WIPE:    return "Mask wipe";
+            case ODOMETER:     return "Odometer";
+            case NEON_FLICKER: return "Neon flicker";
+            // No default that invents a name. A new constant must be added above; the harness
+            // fails on any label that still looks like an enum constant, which is what makes that
+            // a rule rather than a hope.
+        }
+        return p.name();
     }
 
     /** Resolve a stored granularity NAME, defaulting to {@link Granularity#WORD}. */

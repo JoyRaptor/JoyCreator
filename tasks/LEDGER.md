@@ -82,11 +82,40 @@ divergence, and does not weaken the proof above), but it is close to certainly n
 means by "animate this title in". It is arguably downstream of BUG A: if the visual duration drove
 the span, the entrance would fit.
 
-**Could not be tested here, and the handoff's claim must NOT be marked confirmed either way:**
-"image overlays do not export at all". The sandbox's two image overlays live at 6009–11009ms and
-23497–23747ms — both **past the 5743ms end of the video track**, so ffmpeg encodes nothing at those
-times. The question needs an image overlay moved inside 0–5.7s. Recorded so the next reader does
-not mistake "no frame" for "no image".
+**BUG C — IMAGE OVERLAYS DO NOT EXPORT. CONFIRMED BY MEASUREMENT, and the root cause is exact.**
+The handoff found this by reading and asked for it to be confirmed before anyone spent a session on
+it. It is confirmed. It could not be tested with the sandbox as it stood — both image overlays live
+at 6009–11009ms and 23497–23747ms, i.e. **past the 5743ms end of the video track**, where ffmpeg
+encodes nothing, and "no frame" must not be mistaken for "no image". So one was **moved to
+1000–5000ms** (the overlay's `startMs`/`endMs` and its layer item's `timelineStartMs` together, with
+a deep-equality guard asserting nothing else changed) and the project re-exported.
+
+*Result:* **0 of 409,920 pixels differ**, at 2.5s **and** at 3.5s, between the export with the image
+inside the rendered window and the export with it outside. Not faint, not misplaced — absent.
+Three controls make that mean something:
+- **The preview DOES draw it** at the same playhead (`tasks/screenshots/
+  imageoverlay_preview_shows_it.png`) — and at its original position it would not have been visible
+  there at all, which also proves the app really loaded the edited project.
+- **The differ works:** the same comparison between 2.5s and 3.5s of one file reports 383,976
+  differing pixels.
+- **The exporter is not simply ignoring overlays:** the same run exports the text box, the captions,
+  the sticker and the waveform visualizer. And the two mp4s have different md5s, so the export
+  genuinely re-ran rather than a cached file being re-read.
+
+*Root cause, read after measuring.* `CompositeExportOverlay:524` sends **non-image** overlays to the
+shared `TextBoxRenderer` and `continue`s. Image overlays therefore fall through to the older path
+below it, which builds a throwaway `TextOverlayItem`, calls `setImageUri` on it (`:570`) and hands
+it to `TextOverlayRenderer.render`. **`TextOverlayRenderer` contains zero references to images** — a
+grep for `imageUri` in it returns nothing; it is a text rasteriser, and at `:68` it substitutes
+`" "` when the text is empty. An image overlay's text IS empty, so it renders one blank space.
+**`setImageUri` at `:570` is a call into a void.** This is precisely the §3a failure mode this
+ledger exists for: a setter call that looks like function. ~~§3a item 2 inferred that image
+overlays were "rendered in export (`CompositeExportOverlay:531` feeds `setImageUri`)"~~ — **that
+inference was wrong, and is corrected here rather than in place so the reasoning survives.**
+*Scope of the fix:* an image branch in the export that loads the URI and draws the bitmap into the
+overlay's rect. The preview already does it, so the geometry is settled; this is the export half
+only. **Not attempted this session** — it is a feature, not a one-liner, and the session's job was
+to establish whether it was real.
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 

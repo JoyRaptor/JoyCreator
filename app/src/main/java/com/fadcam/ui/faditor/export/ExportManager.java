@@ -1032,6 +1032,46 @@ public class ExportManager {
             }
         }
 
+        // ── TAIL FILLER: a project can be LONGER than its master track ────────────────────────
+        // Everything above builds the video sequence out of MASTER clips only, so the video
+        // stream ends when they do. Anything living past that point — a PiP overlay, a text or
+        // image overlay, a sprite, or simply audio — was silently dropped from the exported file
+        // while the editor happily showed it. Measured on the sandbox 2026-07-30: video
+        // duration 5.743s / 177 frames against an audio duration of 30.912s, i.e. 25 seconds of
+        // the project missing, including a 5.6s PiP clip. See LEDGER "the export is PROVED".
+        //
+        // Overlays are composited per HOST CLIP (assembleClipVideoEffects runs off the item the
+        // frame belongs to), so a span with no clip under it has nothing to draw them onto. The
+        // fix is therefore a real item rather than a muxer duration hint: a black image clip for
+        // the remainder, pushed through the SAME buildClipItem path so it picks up the overlay
+        // pipeline exactly as any other clip does. That is also why this reuses the black spacer
+        // the "Gap" feature already relies on — that feature is the existing proof that overlays
+        // render correctly over a synthetic image clip.
+        long projectTotalMs = timeline.getTotalDurationMs();
+        long tailMs = projectTotalMs - timelineCursorMs;
+        if (tailMs >= MIN_EXPORT_SEGMENT_MS) {
+            Uri blackUri = ensureBlackFillerUri();
+            if (blackUri != null) {
+                Clip filler = new Clip(blackUri, tailMs);
+                filler.setImageClip(true);
+                filler.setAudioMuted(true);
+                filler.setDisplayName("Tail filler"); // TODO(strings)
+                EditedMediaItem fillItem = buildClipItem(project, filler, 0L, tailMs,
+                        timelineCursorMs, outW, outH, canvasDims, waveformSlots);
+                items.add(fillItem);
+                FLog.i(TAG, "buildComposition: project runs to " + projectTotalMs
+                        + "ms but the master track ends at " + timelineCursorMs
+                        + "ms — appended a " + tailMs + "ms black filler so overlays and audio"
+                        + " past the last clip are still rendered");
+                timelineCursorMs += fillItem.durationUs / 1000;
+            } else {
+                // Say so loudly rather than silently shipping a short file.
+                FLog.w(TAG, "buildComposition: needed a " + tailMs + "ms tail filler but could"
+                        + " not create the black spacer — the exported video will END EARLY at "
+                        + timelineCursorMs + "ms while its audio runs to " + projectTotalMs + "ms");
+            }
+        }
+
         EditedMediaItemSequence videoSequence =
                 new EditedMediaItemSequence.Builder(items).build();
 
@@ -1242,6 +1282,45 @@ public class ExportManager {
 
 
     @NonNull
+    /**
+     * The shared 16x16 black PNG the tail filler references, created on first use.
+     *
+     * <p>Deliberately the SAME file the editor's "Gap" spacer uses
+     * ({@code files/images/faditor_gap_black.png}, written by
+     * {@code FaditorEditorActivity.ensureBlackSpacerUri}), so there is one black frame in the
+     * project rather than two that could drift in size or colour. Either side may create it;
+     * both write identical bytes, and the export must not depend on the editor having run first.
+     * It lives in the same {@code images} directory as imported image assets so project bundling
+     * and asset resolution treat it like any other image.</p>
+     *
+     * @return the file URI, or null if it could not be created — the caller must treat that as a
+     *         loud failure rather than silently exporting a short file.
+     */
+    @Nullable
+    private Uri ensureBlackFillerUri() {
+        try {
+            java.io.File dir = new java.io.File(context.getFilesDir(), "images");
+            if (!dir.exists() && !dir.mkdirs()) {
+                FLog.w(TAG, "ensureBlackFillerUri: could not create " + dir);
+                return null;
+            }
+            java.io.File f = new java.io.File(dir, "faditor_gap_black.png");
+            if (!f.exists() || f.length() == 0) {
+                android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(
+                        16, 16, android.graphics.Bitmap.Config.ARGB_8888);
+                bmp.eraseColor(0xFF000000);
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                    bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out);
+                }
+                bmp.recycle();
+            }
+            return Uri.fromFile(f);
+        } catch (Exception e) {
+            FLog.e(TAG, "ensureBlackFillerUri failed", e);
+            return null;
+        }
+    }
+
     private EditedMediaItem buildClipItem(@NonNull FaditorProject project,
                                            @NonNull Clip clip,
                                            long clipInMs, long clipOutMs,

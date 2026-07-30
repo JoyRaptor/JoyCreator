@@ -301,8 +301,33 @@ harness count in a doc has been wrong; measure it by running it.** The control i
 SET** rather than a blanket rule: a preset that reads `unitIndex` must be declared, and one that
 starts reading it by accident still fails.
 
-**NOT YET SEEN ON A PHONE.** The Note 9 is unplugged (`adb devices` empty; the Note 20 is NOT
-attached, so this is a cable, not a safety stop).
+**~~NOT YET SEEN ON A PHONE.~~ PROVED ON THE NOTE 9 the same day, and character-for-character.**
+`PICKERTEST` set to MATRIX with the picker's seeded 25% zone; predicted from
+`tasks/matrix2_predict.py` BEFORE looking:
+
+| | |
+|---|---|
+| media 2556ms → progress | 0.3323 |
+| predicted | `cmV8Vﾓ` + 4 blanks |
+| on screen | `cmV8Vﾓ` + 4 blanks |
+
+Exact, including the count of drawn characters and the blank tail. **The screenshot carries its own
+clock** — the `00:02.556` chip and the text are in the SAME framebuffer grab, so they cannot
+disagree. **Six drawn, four blank IS the leading edge** — the precise thing the user objected to
+being absent, and the old build would have inked all ten from frame one. Evidence:
+`tasks/screenshots/matrix2_resolve_wave_full.png`, `matrix2_resolve_wave_zoom.png` (3× crop
+settling the katakana as U+FF93).
+
+**THE CHURN POOL IS NOW WEIGHTED TOWARDS ASCII — user direction, same day.**
+*"it should have a higher ratio of english letters and numbers in the nonsense pool so it is clear
+we're not trying to spell anything in any specific language. also `*&^%$#@!{}?<>` should be in the
+pool of jibberish."* It was 56 katakana against 10 digits — **85% katakana**, which read as
+scrambled Japanese rather than as machine noise. Now A–Z, a–z, 0–9 and that symbol run, listed
+**twice** against the katakana range: **75% ASCII measured from real output**, katakana still fully
+reached. Weighted by REPEATING the ASCII block rather than by thinning the katakana, so every
+existing range invariant holds unchanged. **Harness 300 → 303**, and the ratio is pinned as a ratio
+sampled from real output rather than as a character list — thinning the ASCII back out fails the
+test even if every character is still "declared".
 
 ## 1c. BUGS A, A2 AND B ARE FIXED AND MEASURED — 2026-07-30, `9b03bdc` (on `d29e8bf`)
 

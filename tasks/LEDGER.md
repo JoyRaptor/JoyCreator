@@ -37,6 +37,57 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 | §3g text-box motion was UNVERIFIED end to end — the serializer was proved but nothing showed the PICKER actually reaching `TextOverlayItem` (§3g) | see §3g | Note 9, `bb2a9deb`, baseline **zero** `textAnim` keys so no leftover could masquerade as success; picked **RISE** because nothing on disk had held it. Three levels agreed: the dialog's MOTION row read **"Rise · 25% in / 0% out of this box"** (25% = `MAX_ZONE_PCT/2`, the seed, so the label reports the model not the tap); the text **vanished from the preview at t=0**, which is RISE at progress 0 — the renderer consuming the new fields; and after Close & Save the disk held `"textAnimPreset":"RISE"` + `"textAnimInPct":0.25`. Controls: a full-file `diff` shows the keys on **exactly one** overlay and none of the other five (not blanket defaults); the same diff shows `"Enter text"` → `"PICKERTEST"`, an independent signal that OK committed, so a missing key could not be blamed on the dialog failing; a no-edit reopen + re-save returned both keys unchanged (full round-trip); undo 17 → 19; and "Animate by" offered only `Block`, i.e. `36a8e3c`'s gate working. `textAnimGranularity`/`textAnimOutPct` correctly ABSENT (default + sparse-omit) |
 | The §3g preset tiles were static poses, so a preset's ease could not be seen at all — three glyphs frozen at progress {0, 0.5, 1} (§3g) | `4a1ea41` | 16-frame burst on the real picker in `bb2a9deb`. **Per-tile temporal sd: Type 4.08, Fade 3.92, Rise 6.90, Ghost 7.21, Beam 6.84 — and NONE exactly 0.00.** NONE is the built-in control: it is deliberately left static, so a zero there proves the instrument reads the TILES and not the clock, the timeline or global screen noise. Before, all frames were byte-identical, i.e. 0.00 everywhere. Character is proved too: sampled ink shows TYPEWRITER quantised to 3 discrete values (44.96 / 48.10 / 51.24, one per glyph) while FADE sweeps continuously (41.96 → 51.22) — step vs ramp, exactly what a frozen tile could not express. Removing the 600ms hold (span = 2 × zone) roughly halved the frames where a pair is indistinguishable: Type/Fade 8/16 → 6/16, Rise/Beam 5/16 → 3/16, Type/Ghost 6/16 → 2/16. Freshness control: `javap -constants` shows `TILE_SPAN_MS = 1800` (the old 2400 would survive a stale compile) and the dex has `drawUnits` PRESENT with the deleted `drawSamples` ABSENT, `FadCamApplication` present as the partial-dex control. **Caveat, deliberately not swept under: the FREEZE-FRAME half is not fixed — see §3g outstanding item 1.** |
 
+## 1b. THE EXPORT IS PROVED — 2026-07-30, and it found two real bugs on the way
+
+**The oldest gap in §3g is closed: a file has been exported and its PIXELS checked.** Every prior
+§3g proof was preview-only or model-only; the shared-renderer rewrite (`a247b5c`) rested on an
+argument from construction. It now rests on a measurement.
+
+**Method — predicted, not eyeballed.** `PICKERTEST` (text box, open-ended, no `startMs`/`endMs`)
+was set to **RISE + LETTER** on disk, the project exported through the real UI, the file pulled and
+frames extracted with ffmpeg. A text box's per-letter state is a closed-form function of the
+playhead, so the expected number of drawn letters and their alphas were computed first:
+
+| media time | predicted | export shows | preview shows |
+|---|---|---|---|
+| 0.000s | 0 letters | nothing | nothing |
+| 1.318s | 2, alphas 1.00 / 0.88 | `PI`, I faint | `PI`, I faint |
+| 2.500s | 4, last alpha 0.56 | `PICK`, K faint | — |
+| 4.000s | 6, last alpha 0.69 | `PICKER`, R faint | — |
+
+**Preview and export agree at the same media time** (`tasks/screenshots/
+textbox_export_vs_preview_1318.png` is the side-by-side; `textbox_export_letter_progression.png`
+is the four-frame sweep). The staggered LETTER entrance, the arrival order and the part-risen
+newest letter all match the arithmetic. **The shared renderer does what its one-renderer-two-callers
+design claimed.** Captions, the sticker and the waveform visualizer are all present in the exported
+frames too — also never previously pixel-confirmed.
+
+**BUG A — the exported file has 5.7s of VIDEO and 30.9s of AUDIO.** Measured, not inferred:
+`ffprobe` gives video `duration=5.743844`, `nb_frames=177`, last packet `pts_time=5.710`; audio
+`duration=30.912`, `nb_frames=1449`. 5743ms is exactly the master track's length. **So a player
+shows ~25 seconds of frozen or blank picture while the audio keeps going.** The cause is visible in
+the project: audio clips sit at `offsetMs` 20608 and 13709, far past the last video clip, and the
+muxer writes them out while the video track simply stops. Whether audio may extend past video is a
+design question; 25s of no picture is not a good answer to it either way.
+**BUG A2, the same thing from the other side:** the export dialog announces **`00:05`** while the
+file it produces is **30.9s**. The dialog is reporting the video length and the muxer is writing the
+audio length. One of the two is wrong and they should not disagree.
+
+**BUG B — an open-ended text box paces its animation against the PROJECT duration, which a trailing
+AUDIO clip can stretch.** `TextOverlayItem.animSpanMs` resolves a missing `endMs` to the timeline
+duration, which here is 30.9s *because of the audio*, so the 25% entrance is 7.7s long — but only
+5.7s of video is ever rendered. **The exported file therefore never shows the finished word**: it
+reaches `PICKER` and the video ends. This is consistent between preview and export (so it is NOT a
+divergence, and does not weaken the proof above), but it is close to certainly not what a user
+means by "animate this title in". It is arguably downstream of BUG A: if the visual duration drove
+the span, the entrance would fit.
+
+**Could not be tested here, and the handoff's claim must NOT be marked confirmed either way:**
+"image overlays do not export at all". The sandbox's two image overlays live at 6009–11009ms and
+23497–23747ms — both **past the 5743ms end of the video track**, so ffmpeg encodes nothing at those
+times. The question needs an image overlay moved inside 0–5.7s. Recorded so the next reader does
+not mistake "no frame" for "no image".
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

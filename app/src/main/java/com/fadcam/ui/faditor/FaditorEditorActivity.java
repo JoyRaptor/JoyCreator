@@ -9815,7 +9815,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         Timeline tl = project.getTimeline();
         int clipCount = tl.getClipCount();
-        long totalDurationMs = totalEffectiveMs();
+        // The PROJECT duration, not the video-track duration. totalEffectiveMs() sums master
+        // clips only, so this dialog used to announce 00:05 for a file the exporter wrote at
+        // 30.9s — the export's own length is getTotalDurationMs(), and since the tail filler
+        // (ExportManager.buildComposition) the video really does cover all of it. The other
+        // totalEffectiveMs() callers mean "where does the video track end" and are correct.
+        long totalDurationMs = tl.getTotalDurationMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
         String audioInfo = hasAudio
@@ -10337,7 +10342,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         Timeline tl = project.getTimeline();
         int clipCount = tl.getClipCount();
-        long totalDurationMs = totalEffectiveMs();
+        // Project duration, for the same reason as showExportConfirmation() above — this is the
+        // length of the file the export actually writes.
+        long totalDurationMs = tl.getTotalDurationMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
         String audioInfo = hasAudio

@@ -1281,7 +1281,6 @@ public class ExportManager {
     }
 
 
-    @NonNull
     /**
      * The shared 16x16 black PNG the tail filler references, created on first use.
      *
@@ -1321,6 +1320,7 @@ public class ExportManager {
         }
     }
 
+    @NonNull
     private EditedMediaItem buildClipItem(@NonNull FaditorProject project,
                                            @NonNull Clip clip,
                                            long clipInMs, long clipOutMs,

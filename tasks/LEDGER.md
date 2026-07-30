@@ -208,10 +208,36 @@ is exactly why this read as "the time is 20.8s but the overlay is missing".
 clip can be seen, positioned or keyframed in the editor, although the export now renders it
 correctly (`9b03bdc`, `5a6cb4c`) — so the preview and the export disagree about a whole region of
 the timeline, in the direction that hides work the user has already done.
-**The fix has an obvious source of truth**: the timeline view already holds the absolute ms and
-already draws it. What is missing is a timeline-absolute playhead notification and overlay surfaces
-driven from it rather than from a segment. **Touches the §2a-hardened seek path — read those
-comments before editing it.**
+**FIXED AND PROVED ON THE NOTE 9, 2026-07-30.** One helper,
+`FaditorEditorActivity.overlayClockMs(segmentDerivedMs)`: past the master track it returns the
+timeline's own `playheadPositionMs`; inside it, it returns the segment-derived value **unchanged**.
+Applied in `setTextOverlayPlayhead` (so all ~20 of its callers are covered in one place) and once
+in `updateCurrentTimeDisplay` for the image-track, sprite and PiP surfaces, which had the identical
+blindness.
+
+**A refinement to the mechanism, found by reading the emitter rather than assuming the early
+return fires.** `onPlayheadSeeked` IS called past the last clip — `updatePlayheadFromX` clamps
+`targetSegment` to `segments.size() - 1` **and** clamps `posInSegmentMs` to that segment's end
+before reporting. So the overlays were not merely un-ticked; they were actively told the wrong
+time, 5743ms, on every drag frame. The early return exists but is not what bites.
+
+**The audio tail was a second, separate hole.** It is the only path that advances the playhead past
+the last clip during PLAYBACK, and it updated the tape and the clock and then `return`ed, never
+ticking any overlay surface — the same omission the "below" surface had, in a different path. Now
+ticks all four.
+
+**Proved with four positives and two controls:**
+- past the master track, **text (`LayerOne` at 20.750s), image overlay (8.529s), sprite (the
+  pangolin, `startMs` 12645) and the PiP video panel** all now draw where none of them did before —
+  `tasks/screenshots/preview_past_master_before_after.png` is the before/after at both times;
+- **control 1, spans are still respected:** at 5.898s — past the master end but before the image
+  overlay's 6009ms start — the image is correctly still absent. The fix is "use the honest clock",
+  not "switch everything on past the end";
+- **control 2, nothing inside the master track changed:** at 00:00.023 the preview is
+  frame-for-frame what it was before the fix — rug, star sprite, waveform, and no PICKERTEST
+  (RISE at progress 0 draws nothing). That is the property the conditional was written to
+  guarantee, and it is why this could be done safely inside the §2a-hardened path;
+- 0 `FATAL EXCEPTION` in logcat across the whole walk.
 
 **A GRADLE SPURIOUS FAILURE, and the artifact check that had to follow it.** `assembleDefaultDebug`
 failed once with `cannot find symbol` across ExportManager's imports, then succeeded on an immediate

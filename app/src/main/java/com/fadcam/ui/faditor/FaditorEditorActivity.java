@@ -8090,19 +8090,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Drive overlay time-ranges + keyframe animation from the playhead (both surfaces;
         // the helper gates each on its own visibility).
         setTextOverlayPlayhead(absoluteMs);
+        // Every surface below is time-range driven, so each one had the same past-the-last-clip
+        // blindness — see overlayClockMs. Corrected once here rather than four times.
+        long overlayMs = overlayClockMs(absoluteMs);
         // M-COMP-1: same playhead tick drives the IMAGE-track preview surface (scrub +
         // live playback both flow through this one method — PLAN §3.2 scope item 5).
         if (layerImageOverlay != null) {
-            layerImageOverlay.setPlayheadMs(absoluteMs);
+            layerImageOverlay.setPlayheadMs(overlayMs);
         }
         // S4: same tick drives sprite frame resolution + keyframed transforms.
         if (spriteOverlayView != null && !spriteOverlayView.isEmpty()) {
-            setSpriteOverlayPlayhead(absoluteMs);
+            setSpriteOverlayPlayhead(overlayMs);
         }
         // M-COMP-2: same tick drives the live PiP layer — time-range visibility,
         // keyframed transform, and overlay-decoder sync against the master clock.
         if (overlayVideoLayer != null && !overlayVideoLayer.isEmpty()) {
-            overlayVideoLayer.setPlayheadMs(absoluteMs,
+            overlayVideoLayer.setPlayheadMs(overlayMs,
                     playerManager != null && playerManager.isPlaying());
         }
         // S3: live cell indicator in the palette panel's transport row.
@@ -8464,6 +8467,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             editorTimeline.setPlayheadPositionMs(playheadMs);
             timeCurrent.setText(TimeFormatter.formatAuto(playheadMs));
+            // The audio tail is the ONLY path that advances the playhead past the last video
+            // clip during playback, and it used to update the tape and the clock and then
+            // return — so the overlay surfaces were never ticked here and every overlay living
+            // in the tail simply never appeared while the audio played over it. Same omission
+            // the "below" surface had (see setTextOverlayPlayhead's note), in a different path.
+            // These take playheadMs directly: it is already the absolute timeline position, and
+            // there is no segment here for overlayClockMs to prefer.
+            setTextOverlayPlayhead(playheadMs);
+            if (layerImageOverlay != null) layerImageOverlay.setPlayheadMs(playheadMs);
+            if (spriteOverlayView != null && !spriteOverlayView.isEmpty()) {
+                setSpriteOverlayPlayhead(playheadMs);
+            }
+            if (overlayVideoLayer != null && !overlayVideoLayer.isEmpty()) {
+                overlayVideoLayer.setPlayheadMs(playheadMs, true);
+            }
             return;
         }
 
@@ -17777,6 +17795,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * would simply never count.</p>
      */
     private void setTextOverlayPlayhead(long ms) {
+        ms = overlayClockMs(ms);
         // Each surface gates on its OWN visibility. The per-tick caller used to gate both
         // on the ABOVE layer's, which would starve the below one whenever the above was
         // hidden — the same starvation in a different disguise.
@@ -17786,6 +17805,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (overlayLayerBelow != null && overlayLayerBelow.getVisibility() == View.VISIBLE) {
             overlayLayerBelow.setPlayheadMs(ms);
         }
+    }
+
+    /**
+     * The playhead in TIMELINE ms, corrected so it stays honest PAST THE LAST VIDEO CLIP.
+     *
+     * <p><b>The bug this exists for.</b> Every overlay surface was driven by
+     * {@link #getAbsolutePlayheadMs}, which is <i>clips-before-selected</i> +
+     * <i>position-within-clip</i> and therefore <b>cannot exceed the master track's length by
+     * construction</b>. The timeline's scrub emitter makes that worse rather than better: when the
+     * playhead goes past the last clip, {@code EditorTimelineView.updatePlayheadFromX} clamps
+     * {@code targetSegment} to the last segment AND clamps {@code posInSegmentMs} to that
+     * segment's end, then reports it — so the overlays are told "5743ms" while the timeline's own
+     * {@code playheadPositionMs} (which is what the on-screen time chip draws) says 20872ms.</p>
+     *
+     * <p>The visible result was that <b>nothing whose time range begins past the last video clip
+     * was drawn, positioned or keyframable in the editor at all</b>, while the export renders it
+     * correctly since {@code 9b03bdc}/{@code 5a6cb4c} — preview and export disagreeing about a
+     * whole region of the timeline, in the direction that hides work the user has already done.
+     * Measured on the Note 9: at 20.872s, inside {@code LayerOne}'s 20556–25117 span, the preview
+     * drew the always-visible PICKERTEST box and not {@code LayerOne}. See LEDGER §1.</p>
+     *
+     * <p><b>Why it is written as a conditional rather than "just use the timeline's value".</b>
+     * Inside the master track the segment-derived number is the AUTHORITATIVE one — it comes from
+     * the player, so it is what keeps the preview frame and the overlays on the same clock during
+     * playback, and the whole §2a playhead/clip-mapping fix is built on it. So this changes
+     * nothing there: it only takes over in the region where the segment-derived value is a clamp
+     * rather than a measurement. That is deliberately the smallest possible blast radius in a
+     * method the §2a work hardened.</p>
+     */
+    private long overlayClockMs(long segmentDerivedMs) {
+        if (editorTimeline == null || project == null) return segmentDerivedMs;
+        // Same rule Timeline#getTotalDurationMs uses for the video half, loop extensions included.
+        long masterEndMs = project.getTimeline().getVideoTrackDurationMs();
+        long absoluteMs = editorTimeline.getPlayheadPositionMs();
+        return absoluteMs > masterEndMs ? absoluteMs : segmentDerivedMs;
     }
 
     /** Sprite twin of {@link #setTextOverlayPlayhead} — same frozen-below-surface bug. */

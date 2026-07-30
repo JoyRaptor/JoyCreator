@@ -259,6 +259,73 @@ keeps getting burned, and invisible until someone watches a finished export. Lif
 giving text boxes a canvas renderer in preview, the way captions already have. That is work, not
 a flag. Recorded on `TextOverlayItem.textAnimGranularitySupported`.
 
+**TEXT BOXES NOW ANIMATE PER LETTER / WORD / SENTENCE — BUILT 2026-07-30, PREVIEW PROVED ON THE
+NOTE 9, EXPORT NOT YET PROVED.** The user's reason for wanting it, on record: *"really that was
+the only point in doing animate text in the first place."*
+**How it was done, and the one decision that matters:** captions keep preview and export in step
+with TWO deliberate mirrors (`CaptionOverlayView.drawWord` / `CaptionExportRenderer.drawWord`),
+which only works while someone maintains them by hand. Text boxes got the stronger version —
+**ONE renderer, two callers**: `TextBoxRenderer` owns measurement, line layout, unit splitting,
+all three animated channels and the three paint passes; the preview's new `TextBoxView.onDraw`
+and `CompositeExportOverlay` both call it. There is nothing to keep in sync because there is only
+one of it. Agreeing about WHERE GLYPH *i* SITS is a far finer-grained agreement than "is this
+visible", and two hand-maintained layouts would not have held it.
+Pieces: `TextBoxRenderer` + `TextBoxView` are new; `TextOverlayLayer` builds a `TextBoxView`
+instead of a `TextView`; `CompositeExportOverlay` draws straight onto the frame canvas instead of
+rasterising the box to a bitmap and transforming the bitmap; `textAnimGranularitySupported` now
+returns true for every granularity and the text-box picker is passed `null` (= all).
+**Decisions, so they are not re-litigated:**
+- **The excursion margin.** The old `TextView` was moved by VIEW properties, so it could never clip
+  itself. Now the motion happens inside `onDraw`, and a view's drawing IS clipped to its bounds —
+  a RISE starting 0.9em low, or an UNSCRAMBLE starting 1.6em away, would be sliced off for the
+  whole entrance and would read as a rendering bug. So `TextBoxView` is deliberately larger than
+  its box by `EXCURSION_EM = 1.8f` (sized from UNSCRAMBLE, the furthest traveller) and draws the
+  box inset. It is NOT computed per preset — a margin that resized on every pick would re-layout
+  the box, and transparent slack costs nothing.
+- **The view is not the box, and three places had to learn that.** Layout centres the BOX, not the
+  view; and `FaditorEditorActivity.textHandlesTarget.frame()` insets by `boxInsetPx()` — without
+  that the dashed selection frame and its corner handles stood ~2 type sizes clear of the text on
+  every side. Caught on device, fixed, `tasks/screenshots/textbox_selection_hugs_box.png`.
+- **Object opacity is passed INTO the renderer** rather than applied with `setAlpha` on the view,
+  because the export has no view and would otherwise composite it at a different stage. The view is
+  therefore left fully opaque for text; setting both would darken every semi-transparent box.
+- **`blurPx` is still not applied** — see the GHOST decision below, which the user has now made.
+- Padding is now `0.35em` on BOTH surfaces. The preview previously had none, which is the mismatch
+  MASK_WIPE's export path had to inset around.
+**A crash this caused, and the rule it paid for:** the first build died on `onDraw` with
+`ArrayIndexOutOfBoundsException: length=0; index=0`. `splitLines` substituted `" "` for an empty
+box while the unit map was still sized from the raw zero-length string, so a one-character line
+indexed into a zero-length array. **Any two derivations of "the text" that can disagree eventually
+will** — there is now one `normalise()` at the top of both entry points and everything is built
+from its result, plus a bounds guard because the cost of being wrong inside `onDraw` is the editor
+dying rather than one glyph being misplaced.
+**PROVED on the Note 9, preview only:** `PICKERTEST` set to RISE + **LETTER** on disk, 10 playback
+frames (`tasks/screenshots/textbox_letter_12frames.png`). At `00:01.054` the **P** has arrived
+while the **I** is still below the baseline AND semi-transparent — two letters of one box at
+different geometry and different alpha in the same frame, which BLOCK cannot produce by
+construction. At `00:03.553` an **R** sits visibly below the line, which is also the excursion
+margin working: without it that glyph would be sliced off. Editor opened with **0 fatals** after
+the fix, harness still **298 passed, 0 failed**, matte harness ALL PASS.
+**NOT PROVED, AND NOT CLAIMED:**
+1. **The EXPORT.** No file has been exported since the rewrite. This is the one that matters —
+   the whole justification for a shared renderer is that both sides agree, and that is currently
+   an argument from construction, not a measurement. **Do this first next session.**
+2. **The text-box picker showing all four granularities.** The gate is open in code
+   (`textAnimGranularitySupported` → true, picker passed `null`) but the deep route into the
+   text-box picker (preview long-press → sheet → expand → More… → Edit text → MOTION) was not
+   completed before the session ended. The CAPTION picker was confirmed working.
+3. **Frame rate.** LETTER on captions was measured and holds; the text-box path is a different
+   renderer and is unmeasured.
+**FOUND IN PASSING, NOT FIXED — IMAGE OVERLAYS DO NOT EXPORT.** `CompositeExportOverlay:541` sets
+`frameOverlay.setImageUri(...)` and **nothing reads it**: `TextOverlayRenderer.render` is text-only
+and `getImageUri` has no other reader in the export package. So a sticker drawn by the Sticker tool
+shows in the preview (an `ImageView`) and is absent from the exported file — a §3a-class
+preview/export divergence. **This contradicts §3a item 2 of this ledger**, which states image
+overlays are "rendered in export (`CompositeExportOverlay:531` feeds `setImageUri`)" — that
+inferred function from a setter call. Behaviour was left exactly as it was by this session's
+change (images still take the old bitmap path). **Verify with an actual export before acting on
+it**, since the claim above is from reading, not from a rendered frame.
+
 **~~…the way captions already have.~~ CORRECTION, 2026-07-30, and it roughly DOUBLES the estimate
 above — verified by reading, prompted by the user asking what per-letter text boxes would take.**
 The paragraph above is right about the PRIMITIVE and wrong about the STATE. It reads as "preview
@@ -1080,6 +1147,19 @@ the read-and-ignore path working as designed, not data loss.
 
 ## 4. DECIDED — settled, do not re-litigate
 
+- **GHOST's blur MAY diverge: export-only is authorised. (User, 2026-07-30.)** Asked whether to
+  leave blur off on both surfaces or pay the preview's frame-rate cost, the user said: *"this is
+  an exception where export can diverge for the better render… if ghost preview would cause
+  noticeable lag in working but look much better in export i think the divergence in this specific
+  instance is warranted."* **This is the ONLY sanctioned preview/export divergence in the project**
+  and it is sanctioned because the alternative is a real cost to editing, not because the
+  divergence is harmless. Note the condition attached to it: it is warranted *if* the preview
+  blur actually costs frame rate. **So MEASURE the preview cost first** (`dumpsys gfxinfo`, the
+  method that settled LETTER captions, against the known 33.7% editor baseline) — if software
+  layer rendering turns out cheap, blur BOTH and no divergence is needed, which is the user's
+  intent met more cheaply. Only if it is expensive should export blur alone.
+  **NOT STARTED as of 2026-07-30.** `Transform.blurPx` is still consumed by nobody, and
+  `TextBoxRenderer.drawUnit` documents why it does not apply it.
 - **AI edits collapse into ONE undo step**, preserving the history behind them. (User, 2026-07-28.)
 - **Trim precision is non-negotiable**; no keyframe snapping of user trim points.
 - **No apology toasts** for things we can actually build.

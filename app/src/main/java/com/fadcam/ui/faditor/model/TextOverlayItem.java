@@ -405,25 +405,27 @@ public class TextOverlayItem {
     /**
      * Whether a granularity can actually be honoured for a TEXT BOX.
      *
-     * <p><b>BLOCK only, and this is a real constraint rather than an unfinished switch.</b>
-     * The preview draws a text overlay as an Android {@code TextView}
-     * ({@code TextOverlayLayer}), which can transform the whole view — alpha, scale,
-     * translation, rotation — but <i>cannot transform individual characters</i>. The export
-     * draws the same overlay with {@code canvas.drawText} ({@code TextOverlayRenderer}),
-     * where per-glyph work IS reachable.</p>
+     * <p><b>ALL of them, since 2026-07-30.</b> Both surfaces now draw a text box glyph by glyph
+     * through ONE shared renderer, {@code TextBoxRenderer} — the preview via
+     * {@code TextBoxView.onDraw} and the export via {@code CompositeExportOverlay}, which no
+     * longer rasterises the box to a bitmap first. There is one layout and one set of per-unit
+     * transforms, so a granularity cannot mean different things on the two sides.</p>
      *
-     * <p>So offering WORD or LETTER here would animate per-unit in the exported file and
-     * animate the whole body on screen — a preview/export divergence in the one place this
-     * project has been burned by it repeatedly, and invisible until someone watches a
-     * finished export. Whole-body transforms are expressible on BOTH sides identically, so
-     * BLOCK is offered and the rest are not, exactly as {@code Preset.implemented} gates the
-     * five presets that would otherwise be tiles that do nothing.</p>
+     * <p><b>What this used to say, and why the correction matters more than the fix.</b> It read:
+     * the preview draws a {@code TextView} which cannot transform individual characters, while the
+     * export "draws the same overlay with {@code canvas.drawText}, where per-glyph work IS
+     * reachable" — i.e. one side to build. That was true of the primitive and false about the
+     * state: the export rasterised the whole box and animated the bitmap, so it was every bit as
+     * BLOCK-only as the preview. Anyone planning from the old wording would have estimated half
+     * the work and discovered the other half at the end. <b>Do not describe a capability by the
+     * API that could provide it; describe it by what the code does.</b></p>
      *
-     * <p>Lifting this means giving text boxes a canvas renderer in preview, the way captions
-     * already have. That is a real piece of work, not a flag.</p>
+     * <p>Kept as a method rather than deleted because it is the gate the picker asks, and a
+     * future surface that genuinely cannot do per-unit work (a widget, a thumbnail) should have
+     * somewhere to say so.</p>
      */
     public static boolean textAnimGranularitySupported(@NonNull String granularityName) {
-        return "BLOCK".equals(granularityName);
+        return true;
     }
 
     public void setTimeRange(long startMs, long endMs) {

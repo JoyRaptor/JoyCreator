@@ -157,20 +157,13 @@ public class TextOverlayLayer extends FrameLayout {
             } catch (Exception ignored) { }
             view = iv;
         } else {
-            TextView tv = new TextView(getContext());
-            tv.setText(o.getText());
-            tv.setTextColor(o.getColorInt());
-            tv.setTypeface(o.getTypeface());
-            tv.setGravity(Gravity.CENTER);
-            tv.setIncludeFontPadding(false);
-            tv.getPaint().setStrokeWidth(o.getStrokeWidthPx());
-            if (o.getStrokeWidthPx() > 0f && o.getStrokeColorInt() != android.graphics.Color.TRANSPARENT) {
-                tv.getPaint().setStyle(android.graphics.Paint.Style.FILL);
-                tv.getPaint().setColor(o.getStrokeColorInt());
-            }
-            tv.setShadowLayer(o.getShadowRadiusPx() > 0f ? o.getShadowRadiusPx() : 8f,
-                    0f, 3f, o.getShadowColorInt());
-            view = tv;
+            // A TextBoxView, not a TextView: one view holding one string cannot move individual
+            // characters, which is the whole reason text boxes were BLOCK-only. Every visual
+            // property that used to be set here now lives in TextBoxRenderer, which the EXPORT
+            // calls too — so "the preview styles it slightly differently" is no longer possible.
+            // It previously was: this branch set no glow and no background pill at all, and set
+            // the FILL colour to the stroke colour instead of stroking.
+            view = new TextBoxView(getContext(), o);
         }
         view.setLayoutParams(new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
@@ -192,56 +185,44 @@ public class TextOverlayLayer extends FrameLayout {
             return;
         }
         view.setVisibility(VISIBLE);
-        // SPEC_TIMER_OBJECT: a timer's string depends on the PLAYHEAD, so it is refreshed
-        // here (position() runs on every tick) rather than in createOverlayView(), which
-        // only runs on rebuild. Same authority the export calls.
-        if (o.isTimer() && view instanceof TextView) {
-            String t = com.fadcam.ui.faditor.model.TimerText.format(
-                    o.getTimerSpec(), currentTimeMs, o.getStartMs(), o.getEndMs(),
-                    callback.getProjectDurationMs(),
-                    com.fadcam.ui.faditor.model.TimerText.DEFAULT_FPS);
-            if (t != null && !t.contentEquals(((TextView) view).getText())) {
-                ((TextView) view).setText(t);
-            }
-        }
-        // MATRIX substitutes CHARACTERS rather than transforming them, so like a timer its string
-        // depends on the playhead and is refreshed here. Every other preset returns the text
-        // unchanged, so this costs one comparison for them. Suppressed while the finger is down
-        // for the same reason the transform below is: during a drag the object follows the finger.
-        if (!(o == manipulating) && !o.isTimer() && view instanceof TextView) {
-            String shown = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTextAt(
-                    com.fadcam.ui.faditor.transcript.CaptionAnimator
-                            .parsePreset(o.getTextAnimPreset()),
-                    o.getText(), currentTimeMs, o.getStartMs(),
-                    o.animSpanMs(callback.getProjectDurationMs()),
-                    o.getTextAnimInPct(), o.getTextAnimOutPct());
-            if (!shown.contentEquals(((TextView) view).getText())) {
-                ((TextView) view).setText(shown);
-            }
-        }
         // While the user is dragging/scaling this overlay, follow the finger
         // (static transform) rather than the keyframed value at the playhead.
         boolean live = o == manipulating;
         float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
 
-        // Entrance/exit animation, composed OVER the keyframed values rather than replacing
-        // them — alpha multiplies, scale multiplies, translation adds. A user who keyframed
-        // opacity and then picked an entrance gets both, which is the "compose, don't replace"
-        // constraint in SPEC_TEXT_ANIMATION. Suppressed while the finger is down, for the same
-        // reason the keyframes are: during a drag the object follows the finger, not the tape.
-        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim = live
-                ? new com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform()
-                : com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
+        // ── TEXT: the whole animation happens INSIDE the view ────────────────────────────────
+        // A TextBoxView draws per unit through the shared TextBoxRenderer, so it applies the
+        // preset's geometry, alpha, substitution and reveal itself, per glyph. The view-level
+        // anim transform that used to live here would therefore DOUBLE-APPLY — at BLOCK it is
+        // the same transform twice, and at LETTER it is a whole-body motion layered on top of a
+        // per-glyph one. So for text the view keeps only the object's own keyframed opacity and
+        // rotation, and the renderer owns everything the tape drives.
+        boolean isTextBox = view instanceof TextBoxView;
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
+                new com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform();
+        if (!isTextBox) {
+            // Images and slides have no glyphs, so their entrance is still a whole-body view
+            // transform, composed OVER the keyframed values rather than replacing them — alpha
+            // multiplies, scale multiplies, translation adds ("compose, don't replace").
+            // Suppressed while the finger is down, for the same reason the keyframes are.
+            if (!live) {
+                anim = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
                         com.fadcam.ui.faditor.transcript.CaptionAnimator
                                 .parsePreset(o.getTextAnimPreset()),
                         currentTimeMs, o.getStartMs(),
                         o.animSpanMs(callback.getProjectDurationMs()),
                         o.getTextAnimInPct(), o.getTextAnimOutPct(),
                         sizeFraction * r.height());
+            }
+        }
 
-        view.setAlpha(live ? 1f
-                : Math.max(0f, Math.min(1f,
-                        o.animatedOpacity(currentTimeMs) * anim.alpha)));
+        // A text box composites BOTH its keyframed opacity and the preset's per-unit alpha inside
+        // TextBoxRenderer, because the export has no view to set alpha on. Setting it here too
+        // would apply the object's opacity twice and darken every semi-transparent text box.
+        view.setAlpha(isTextBox ? 1f
+                : (live ? 1f
+                        : Math.max(0f, Math.min(1f,
+                                o.animatedOpacity(currentTimeMs) * anim.alpha))));
 
         if (o.isGeneratedSlide()
                 && view instanceof com.fadcam.ui.faditor.slides.GeneratedSlideView) {
@@ -260,7 +241,25 @@ public class TextOverlayLayer extends FrameLayout {
         }
 
         int w, h;
-        if (o.isImage() && view instanceof ImageView) {
+        // The box's own centre, before the view's excursion margin is added around it. A text
+        // box's VIEW is deliberately larger than its box (see TextBoxView.EXCURSION_EM), so the
+        // two are not the same rectangle and the layout below must place the BOX's centre.
+        float boxInset = 0f;
+        if (view instanceof TextBoxView) {
+            TextBoxView tb = (TextBoxView) view;
+            float fontPx = Math.max(1f, sizeFraction * r.height());
+            String shown = TextBoxRenderer.textAt(o, currentTimeMs,
+                    callback.getProjectDurationMs());
+            // One call, so the time and the string cannot be updated independently — a timer or
+            // MATRIX would otherwise draw this frame's clock with last frame's text.
+            tb.bind(o, shown, fontPx, currentTimeMs, callback.getProjectDurationMs(), !live,
+                    live ? 1f : o.animatedOpacity(currentTimeMs));
+            float[] size = new float[2];
+            tb.measureView(size);
+            w = Math.max(1, Math.round(size[0]));
+            h = Math.max(1, Math.round(size[1]));
+            boxInset = tb.boxInsetPx();
+        } else if (o.isImage() && view instanceof ImageView) {
             // Height = fraction of video height; width derived from image aspect.
             float aspect = 1f;
             android.graphics.drawable.Drawable d = ((ImageView) view).getDrawable();
@@ -270,15 +269,10 @@ public class TextOverlayLayer extends FrameLayout {
             h = Math.round(sizeFraction * r.height());
             w = Math.round(h * aspect);
         } else {
-            TextView tv = (TextView) view;
-            float fontPx = sizeFraction * r.height();
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_PX, fontPx);
-            tv.setShadowLayer(o.getShadowRadiusPx() > 0f ? o.getShadowRadiusPx() : fontPx * 0.10f,
-                    0f, fontPx * 0.04f, o.getShadowColorInt());
-            tv.measure(MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED),
-                    MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
-            w = tv.getMeasuredWidth();
-            h = tv.getMeasuredHeight();
+            // Neither a text box nor an image with a drawable — keep whatever it measured to
+            // rather than collapsing it to nothing.
+            w = Math.max(1, view.getWidth());
+            h = Math.max(1, view.getHeight());
         }
 
         float cx = r.left + (live ? o.getCenterX() : o.animatedCenterX(currentTimeMs)) * r.width();
@@ -287,8 +281,12 @@ public class TextOverlayLayer extends FrameLayout {
         LayoutParams lp = (LayoutParams) view.getLayoutParams();
         lp.width = Math.max(1, w);
         lp.height = Math.max(1, h);
-        lp.leftMargin = Math.round(cx - w / 2f);
-        lp.topMargin = Math.round(cy - h / 2f);
+        // Centring the VIEW would centre the box plus its excursion margin — which is the same
+        // point only because the margin is symmetric. Written as an explicit subtraction of the
+        // inset from a box-sized centring so it stays correct if the margin ever becomes
+        // asymmetric, and so the intent is legible: it is the BOX the user positioned.
+        lp.leftMargin = Math.round(cx - (w - boxInset * 2f) / 2f - boxInset);
+        lp.topMargin = Math.round(cy - (h - boxInset * 2f) / 2f - boxInset);
         view.setLayoutParams(lp);
         view.setRotation(live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs));
         // Always written, never skipped when the animation is off: these are VIEW properties on
@@ -298,7 +296,9 @@ public class TextOverlayLayer extends FrameLayout {
         view.setScaleY(anim.scaleY);
         view.setTranslationX(anim.dx);
         view.setTranslationY(anim.dy);
-        applyReveal(view, anim.revealFrac, w, h);
+        // Text boxes clip per unit inside TextBoxRenderer, so a view-level clip would be a second,
+        // coarser mask over the top — identical at BLOCK and simply wrong at LETTER.
+        if (!isTextBox) applyReveal(view, anim.revealFrac, w, h);
     }
 
     /**

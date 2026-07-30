@@ -17670,6 +17670,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (lp.width <= 0 || lp.height <= 0) return false; // pre-layout
                         outRect.set(lp.leftMargin, lp.topMargin,
                                 lp.leftMargin + lp.width, lp.topMargin + lp.height);
+                        // A TextBoxView is deliberately LARGER than the text box it draws, so a
+                        // glyph animating outside the box is not clipped by the view edge
+                        // (TextBoxView.EXCURSION_EM). The selection frame must hug the BOX — the
+                        // thing the user placed — not the view. Without this the dashed rect and
+                        // its corner handles stand about two type-sizes clear of the text on
+                        // every side, which reads as a broken selection rather than as slack.
+                        if (v instanceof com.fadcam.ui.faditor.overlay.TextBoxView) {
+                            float in = ((com.fadcam.ui.faditor.overlay.TextBoxView) v).boxInsetPx();
+                            outRect.inset(in, in);
+                        }
                         return true;
                     }
                 }
@@ -19569,8 +19579,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         .parsePreset(item.getTextAnimPreset()),
                 com.fadcam.ui.faditor.transcript.CaptionAnimator
                         .parseGranularity(item.getTextAnimGranularity()),
-                java.util.Collections.singleton(
-                        com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity.BLOCK),
+                // null = every granularity. Text boxes were restricted to {BLOCK} because neither
+                // surface could animate them per glyph; both now do, through the one shared
+                // TextBoxRenderer, so the restriction is gone rather than merely relaxed.
+                null,
                 new com.fadcam.ui.faditor.TextAnimPickerPopover.OnPick() {
                     @Override
                     public void onPreset(

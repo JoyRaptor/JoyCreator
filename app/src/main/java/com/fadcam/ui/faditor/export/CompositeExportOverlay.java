@@ -507,6 +507,35 @@ public class CompositeExportOverlay extends BitmapOverlay {
             float cy = o.animatedCenterY(timelineMs) * outH;
             float sizeFrac = o.animatedSizeFraction(timelineMs);
             float rot = o.animatedRotation(timelineMs);
+
+            // ── TEXT: draw through the SHARED renderer the preview uses ─────────────────────
+            // This replaced "rasterise the whole box to a bitmap, then transform the bitmap".
+            // That approach could only ever animate the box as ONE body, which is why text boxes
+            // were BLOCK-only — the recorded reason blamed the preview's TextView, but this side
+            // could not do it either. Drawing straight onto the frame canvas, through the same
+            // TextBoxRenderer the preview's TextBoxView calls, is what makes WORD and LETTER
+            // honest here: there is one layout and one set of per-unit transforms, not two that
+            // have to be kept in agreement.
+            //
+            // Note there is no excursion margin on this side, unlike the preview's TextBoxView:
+            // a glyph that animates outside its box simply lands elsewhere on the frame canvas,
+            // which has no bounds to be clipped by. The margin is a View artefact, not a
+            // property of the animation, which is why it does not belong in the renderer.
+            if (!o.isImage()) {
+                String shown = com.fadcam.ui.faditor.overlay.TextBoxRenderer.textAt(
+                        o, timelineMs, projectDurationMs);
+                float fontPx = Math.max(1f, sizeFrac * outH);
+                float[] size = new float[2];
+                com.fadcam.ui.faditor.overlay.TextBoxRenderer.measure(o, shown, fontPx, size);
+                canvas.save();
+                canvas.rotate(rot, cx, cy);
+                com.fadcam.ui.faditor.overlay.TextBoxRenderer.draw(canvas, o, shown,
+                        cx - size[0] / 2f, cy - size[1] / 2f, fontPx, timelineMs,
+                        projectDurationMs, true, opacity);
+                canvas.restore();
+                drawnText++;
+                continue;
+            }
             // SPEC_TIMER_OBJECT: a timer overlay draws a COMPUTED string for this frame;
             // everything else about it (style, transform, keyframes) is unchanged, which
             // is what makes a timer inherit the caption look. Same authority the preview

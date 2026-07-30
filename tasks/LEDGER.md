@@ -62,6 +62,10 @@ newest letter all match the arithmetic. **The shared renderer does what its one-
 design claimed.** Captions, the sticker and the waveform visualizer are all present in the exported
 frames too — also never previously pixel-confirmed.
 
+**~~BUG A~~ / ~~BUG A2~~ / ~~BUG B~~ — ALL THREE FIXED AND PROVED, 2026-07-30, `9b03bdc`.
+See §1c below for the measurement. The three paragraphs that follow are kept as the original
+diagnosis, because the reasoning is what made the fix a one-shot.**
+
 **BUG A — the exported file has 5.7s of VIDEO and 30.9s of AUDIO.** Measured, not inferred:
 `ffprobe` gives video `duration=5.743844`, `nb_frames=177`, last packet `pts_time=5.710`; audio
 `duration=30.912`, `nb_frames=1449`. 5743ms is exactly the master track's length. **So a player
@@ -116,6 +120,107 @@ inference was wrong, and is corrected here rather than in place so the reasoning
 overlay's rect. The preview already does it, so the geometry is settled; this is the export half
 only. **Not attempted this session** — it is a feature, not a one-liner, and the session's job was
 to establish whether it was real.
+
+## 1c. BUGS A, A2 AND B ARE FIXED AND MEASURED — 2026-07-30, `9b03bdc` (on `d29e8bf`)
+
+`d29e8bf` was committed **uncompiled and untested**. It has now been built, corrected and proved.
+
+**BUG A — the export dropped everything past the master track.** Per-stream `ffprobe` on the
+sandbox, same project, before → after:
+
+| | before | after |
+|---|---|---|
+| video `duration` | 5.743844 | **30.776333** |
+| video `nb_frames` | 177 | **928** |
+| last video packet | 5.710 | **30.743** |
+| audio `duration` | 30.912 | 30.912 (unchanged, as intended) |
+
+**Predicted, then looked at.** `getTotalDurationMs` = max(video 5743, audio end 30771) was computed
+from `project.json` BEFORE the run, so 25028ms of filler was the prediction; the app then logged
+`project runs to 30771ms but the master track ends at 5743ms — appended a 25028ms black filler`.
+The arithmetic matched to the millisecond.
+
+**THE TAIL IS REAL PICTURE, NOT A BLACK PAD — this is the load-bearing half.** A duration hint
+would have produced 25s of nothing. Frames pulled from the exported file, each checked against the
+spans on disk:
+
+| media time | drawn | why that is right |
+|---|---|---|
+| 8.0s / 10.0s | PiP clip, star sprite, PICKERTEST | PiP spans 7948–13507 |
+| 21.0s | LayerOne, 2nd sprite, PICKERTEST | LayerOne 20556–25117; sprite starts 12645 |
+| 28.0s | sprite + PICKERTEST, LayerOne gone | LayerOne ended at 25117 |
+
+**Every appearance AND disappearance matches its on-disk span** — the disappearances matter as much
+as the appearances, since a stuck last frame would show everything forever. **The star sprite's face
+CHANGES between frames**, so the filler carries the live per-frame overlay pipeline rather than one
+frozen composite. Non-black pixel counts move 95.6k → 63.8k → 58.3k across the tail, i.e. the
+picture is genuinely varying. None of this was in the file before.
+
+**BUG A2 — the dialog announced `00:05` for a 30.9s file. FIXED.** Root cause: both export-facing
+call sites used `totalEffectiveMs()`, which sums **master clips only**. They now use
+`Timeline.getTotalDurationMs()` — the length the exporter actually writes, now that the filler makes
+the video cover it. **The other eight `totalEffectiveMs()` callers genuinely mean "where does the
+video track END"** (`audioTailStartMs`, `videoEndMs`) and were deliberately left alone; changing
+them would have moved where audio-tail handling begins. Proved on the phone: the dialog now reads
+`00:30 • 4 clip(s) • 3 audio`, matching both the timeline and the 30.776s file. That reading also
+doubles as a behavioural freshness proof of the installed build.
+
+**BUG B resolved as a CONSEQUENCE, exactly as the handoff predicted.** PICKERTEST's 25% entrance
+against a 30.9s project is 7.7s, which a 5.7s video cut off. In the new file it is faint at 1.318s
+and fully opaque by 8.0s, so the finished word is now shown for the remaining 23 seconds. No
+separate work was needed. (The sandbox is at BLOCK granularity, so the whole body fades together —
+that is the default state it was restored to, not a regression of the LETTER work.)
+
+**A DEFECT IN `d29e8bf` FOUND BY READING BEFORE BUILDING:** it left `buildClipItem`'s `@NonNull`
+stranded above the new method's javadoc, so `ensureBlackFillerUri` carried **both** `@NonNull` and
+`@Nullable` while `buildClipItem` carried none. Legal Java, so a green build would never have said
+so. Moved back.
+
+**BUG C is still open and the evidence is CONSISTENT with that**, which is itself a control: image
+overlay `edff4a88` spans 6009–11009, now inside the rendered window, and it is **absent** from the
+t=8 and t=10 frames while both sprites and both text boxes draw in the same frames. So the tail
+filler renders overlays generally, and images specifically are still broken at
+`CompositeExportOverlay`. Untouched by this change.
+
+**Verification:** harness **298 passed, 0 failed** (unchanged from `b01ad53`), matte harness ALL
+PASS, both from a clean compile. APK dex-scanned with `FadCamApplication` as the positive control —
+**3 hits, where the corrupt APK `d29e8bf` warned about read 0** — alongside `ensureBlackFillerUri`
+(3) and the new-path strings `"ms black filler"`, `"Tail filler"`. Editor opened with 0 fatals.
+
+**Residual, stated rather than hidden:** the video now runs 30.776s against 30.912s of audio, so it
+is still ~136ms short — `getTotalDurationMs` (30771ms) is itself slightly under the audio stream's
+encoded length. 99.6% coverage against 18.6% before. Also, `getTotalDurationMs` is max(video, AUDIO)
+and does not consider OVERLAY ends, so a text box extending past the last audio clip would still be
+clipped. Neither was worth chasing today; both are recorded so nobody rediscovers them as new.
+
+**A GRADLE LIE, CAUGHT BY MTIME — new instance of the standing rule.** The build reported
+`compileDefaultDebugJavaWithJavac UP-TO-DATE` **immediately after an edit to that very file**, while
+the `.class` mtime was 4 seconds AFTER the edit and the APK 4 seconds after that. The artifact had
+in fact been rebuilt; the task-state line was simply not trustworthy. **Read mtimes and dex symbols,
+never the task states** — and note this is the opposite failure from the ledger's usual one (here
+`UP-TO-DATE` under-reported real work, rather than masking a stale artifact).
+
+**A NEW FINDING, NOT CAUSED BY THIS CHANGE — A RIG-DRIVEN SPRITE DRIFTS ON EVERY OPEN/CLOSE.**
+Opening the sandbox and closing it **without touching the preview** moved sprite `8850f07c`:
+`centerX` 0.9237256 → 0.8064244, `centerY` 0.1685828 → 0.1312584, `sizeFraction` 0.25 → 0.2584466.
+**The control is in the same file and the same save:** sprite `81563c97` did NOT move. The
+difference is that `8850f07c`'s `sheetId` (`08c2e885`) is the sheet the `a6-smoke-rig` drives with
+`dangle: true` — so the DANGLE SIMULATION's settled state is being written back into the document.
+Merely viewing a project silently edits it, and it **accumulates across sessions**. Filed here, not
+fixed — it is a real bug but it was not this session's job. Sandbox restored to `82d8342d`.
+
+**A CORRECTION TO THE HANDOFF: the sandbox md5 is `82d8342d`, NOT `eb3d16b8`.** Measured on device
+with `run-as … md5sum`. The content is otherwise exactly as documented (PICKERTEST present, both
+image overlays back at their original spans), so this is a stale figure in the handoff rather than a
+changed project. **`eb3d16b8` should not be used as a restore target.**
+
+**A NEAR-MISS WORTH THE WARNING — I TRUNCATED `project.json` TO ZERO BYTES.** The restore used
+`MSYS_NO_PATHCONV=1 adb push sandbox.json /sdcard/…` with a POSIX-ish LOCAL path; the push failed
+(mangled to `C:/Program Files/Git/sdcard/…`) but **the `cat > …` half of the pipeline still ran and
+emptied the file** (md5 `d41d8cd9…`, the empty-file md5). Recovered immediately from the local pull.
+The ledger already says local paths must be WINDOWS-style under `MSYS_NO_PATHCONV=1`; the new part
+is that **the write half executes even when the push half fails**, so a failed push is not a safe
+no-op. Verify the push line before trusting the pipeline, or split it into two commands.
 
 **THE TEXT-BOX PICKER IS CONFIRMED ON A PHONE — 2026-07-30.** The four-granularity gate was open in
 code (`textAnimGranularitySupported` returns true, the picker is passed `null`) but had never been

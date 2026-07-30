@@ -709,6 +709,21 @@ public final class CaptionAnimator {
     private static final int MATRIX_TICKS = 12;
 
     /**
+     * The shortest and longest a single character churns before settling, as a fraction of its
+     * unit's progress. The SPREAD between them is the point: with one fixed duration every
+     * character resolves a fixed distance behind the one before it, which reads as a mechanical
+     * wipe rather than as code resolving.
+     *
+     * <p>~0.18–0.42 puts roughly two to four characters mid-churn at any instant on a ten-character
+     * title, which is the band the effect is named for.</p>
+     */
+    private static final float MATRIX_CHURN_MIN = 0.18f;
+    private static final float MATRIX_CHURN_MAX = 0.42f;
+
+    /** Keeps the per-character churn DURATION independent of the per-tick glyph CHOICE. */
+    private static final int MATRIX_JITTER_SALT = 0x3A7C19;
+
+    /**
      * Which characters a unit should DRAW at {@code progress} — the second thing a preset can
      * animate, alongside {@link #presetTransform}.
      *
@@ -737,10 +752,21 @@ public final class CaptionAnimator {
      * substitution they land on the same tick and produce identical characters unless they straddle
      * a tick boundary.</p>
      *
-     * <p>Characters settle left-to-right: position {@code i} of a unit of length {@code L} locks to
-     * its real character once progress passes {@code (i+1)/(L+1)}. On the way out progress falls,
-     * so they un-settle right-to-left — the exit is the entrance reversed, the same rule
-     * {@link #presetTransform} follows.</p>
+     * <p><b>The message READS ACROSS; it does not start as a full body of nonsense.</b> Each
+     * character has its own three-stage life: BLANK before it arrives, then churning glyphs, then
+     * its real letter. Reveal times are strictly increasing left-to-right
+     * ({@link #matrixRevealAt}) while churn durations vary per character
+     * ({@link #matrixChurnFor}), so at any instant there is settled text on the left, a band of two
+     * to four characters churning, and nothing yet on the right — the gradient the film's effect is
+     * actually made of. On the way out progress falls, so it un-resolves right-to-left: the exit is
+     * the entrance reversed, the same rule {@link #presetTransform} follows.</p>
+     *
+     * <p><b>This replaced a version that drew every character as a glyph from progress 0</b>, so
+     * the whole body appeared as nonsense at once and then resolved left-to-right in place. That
+     * is a legible effect but it is not this one, and the user rejected it on sight: the leading
+     * edge is what makes it read as a message arriving rather than as a block of noise clearing.
+     * The blank is a SPACE, so the returned string is still the same length and the layout-safety
+     * property below is untouched.</p>
      *
      * <p>Whitespace is never substituted. A space carries no ink, and scrambling it would put a
      * glyph where the layout promised a gap.</p>
@@ -761,14 +787,56 @@ public final class CaptionAnimator {
         StringBuilder sb = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
             char c = text.charAt(i);
-            if (Character.isWhitespace(c) || p >= (i + 1) / (float) (len + 1)) {
+            if (Character.isWhitespace(c)) {
                 sb.append(c);
+                continue;
+            }
+            float reveal = matrixRevealAt(i, len);
+            if (p < reveal) {
+                sb.append(' ');                 // has not arrived yet — the leading edge
+            } else if (p >= reveal + matrixChurnFor(unitIndex, i)) {
+                sb.append(c);                   // settled on its real character
             } else {
                 sb.append(MATRIX_GLYPHS[Math.floorMod(mix(unitIndex, i, tick),
                         MATRIX_GLYPHS.length)]);
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * When character {@code i} of a unit of length {@code len} first appears, as a fraction of the
+     * unit's progress.
+     *
+     * <p><b>Strictly increasing in {@code i}, and that is a requirement rather than a
+     * side-effect.</b> An earlier draft jittered the reveal time as well as the churn duration,
+     * which made the reveal non-monotonic and opened HOLES in the middle of the message — a
+     * character further right appearing while one to its left was still blank. It reads as dropped
+     * text, not as a wave. So the jitter lives entirely in {@link #matrixChurnFor}: every character
+     * arrives in reading order, and only how long it churns varies.</p>
+     *
+     * <p>The spread is scaled by {@code 1 - MATRIX_CHURN_MAX} so that the LAST character's churn
+     * still fits inside the zone: its reveal is at {@code 1 - MATRIX_CHURN_MAX} and its resolve is
+     * therefore at most exactly 1. Without that scaling the tail characters all clamp to 1 and snap
+     * to their real letters together on the final frame, which is the one moment the effect must
+     * not draw attention to itself.</p>
+     */
+    private static float matrixRevealAt(int i, int len) {
+        return len <= 1 ? 0f : (i / (float) (len - 1)) * (1f - MATRIX_CHURN_MAX);
+    }
+
+    /**
+     * How long character {@code i} spends churning before it settles, as a fraction of the unit's
+     * progress — the "different letters take different times to resolve" half of the effect.
+     *
+     * <p>Deterministic for the same reason the glyph choice is: {@code Math.random()} here would
+     * make the preview and the export resolve the same letter at different moments from one
+     * project. Keyed on the unit index too, so the same letter in two slots does not share a
+     * schedule.</p>
+     */
+    private static float matrixChurnFor(int unitIndex, int i) {
+        float jitter = Math.floorMod(mix(unitIndex, i, MATRIX_JITTER_SALT), 1000) / 1000f;
+        return MATRIX_CHURN_MIN + (MATRIX_CHURN_MAX - MATRIX_CHURN_MIN) * jitter;
     }
 
     /**

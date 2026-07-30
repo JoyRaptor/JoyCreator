@@ -709,18 +709,56 @@ public class CaptionAnimatorTest {
         ok("MATRIX churns: many distinct renderings across one sweep (" + distinct.size() + ")",
                 distinct.size() > 5);
 
-        // 7. Settles left-to-right. Checked on the SETTLED prefix by exact equality rather than
-        //    by asserting the tail differs — a scrambled glyph can coincide with the real one, and
-        //    a test that flakes on a coincidence is worse than no test.
+        // 7. THE MESSAGE READS ACROSS. The effect is three-stage per character — blank, churning,
+        //    real — with a settled prefix on the left and a blank tail on the right. The version
+        //    this replaced drew EVERY character as a glyph from progress 0, so the whole body was
+        //    nonsense at once; the user rejected that on sight. These pin the leading edge so it
+        //    cannot regress to a block of noise.
         int len = word.length();
-        float mid = 0.5f;
+        String at0 = CaptionAnimator.substituteUnit(M, word, 0f, 0);
+        ok("at progress 0 exactly ONE character has arrived (there is a leading edge)",
+                at0.charAt(0) != ' ' && at0.substring(1).trim().isEmpty());
+        ok("...and the version this replaced would have inked all " + len
+                + ", which is what made it read as noise rather than as a message",
+                at0.trim().length() == 1);
+
+        // The three zones exist simultaneously and in the right order, mid-entrance.
+        String at5 = CaptionAnimator.substituteUnit(M, word, 0.5f, 0);
         int settled = 0;
-        while (settled < len && mid >= (settled + 1) / (float) (len + 1)) settled++;
-        String at = CaptionAnimator.substituteUnit(M, word, mid, 0);
+        while (settled < len && at5.charAt(settled) == word.charAt(settled)) settled++;
+        int blankTail = 0;
+        while (blankTail < len && at5.charAt(len - 1 - blankTail) == ' ') blankTail++;
         eqS("at progress 0.5 the settled prefix is exactly the real text",
-                word.substring(0, settled), at.substring(0, settled));
-        ok("...and " + settled + " of " + len + " have settled, so it is a sweep not a switch",
-                settled > 0 && settled < len);
+                word.substring(0, settled), at5.substring(0, settled));
+        ok("...with " + settled + " settled, " + blankTail + " not yet arrived, and "
+                + (len - settled - blankTail) + " churning between them",
+                settled > 0 && blankTail > 0 && (len - settled - blankTail) > 0);
+
+        // Reveal order is strictly left-to-right: a blank may never sit LEFT of a drawn character,
+        // or the message grows holes instead of a wave. This is the property an earlier draft
+        // broke by jittering the reveal time as well as the churn duration.
+        boolean noHoles = true;
+        for (float pr = 0f; pr < 1f; pr += 0.005f) {
+            String s = CaptionAnimator.substituteUnit(M, word, pr, 0);
+            boolean seenBlank = false;
+            for (int i = 0; i < len; i++) {
+                if (s.charAt(i) == ' ') seenBlank = true;
+                else if (seenBlank) noHoles = false;   // ink to the right of a gap
+            }
+        }
+        ok("characters arrive in reading order — no holes open mid-message", noHoles);
+
+        // Characters do NOT all resolve after the same delay, or the wave reads as a rigid wipe.
+        java.util.Set<Integer> resolveTicks = new java.util.HashSet<>();
+        for (int i = 0; i < len; i++) {
+            for (int k = 0; k <= 200; k++) {
+                float pr = k / 200f;
+                if (CaptionAnimator.substituteUnit(M, word, pr, 0).charAt(i) == word.charAt(i)
+                        && pr > 0.01f) { resolveTicks.add(k - i * 1000); break; }
+            }
+        }
+        ok("characters take DIFFERENT durations to resolve (" + resolveTicks.size()
+                + " distinct offsets), so it is a gradient not a wipe", resolveTicks.size() > 1);
 
         // 8. Unsettled characters come from the declared alphabet. Guards against an indexing bug
         //    emitting a control character or tofu, which would look like a font failure on device.
@@ -729,7 +767,8 @@ public class CaptionAnimatorTest {
             String s = CaptionAnimator.substituteUnit(M, word, pr, 7);
             for (int i = 0; i < s.length(); i++) {
                 char c = s.charAt(i);
-                if (word.indexOf(c) < 0 && GLYPHS.indexOf(c) < 0) inAlphabet = false;
+                // ' ' is the not-yet-arrived blank (the leading edge), not a substituted glyph.
+                if (c != ' ' && word.indexOf(c) < 0 && GLYPHS.indexOf(c) < 0) inAlphabet = false;
             }
         }
         ok("every substituted character is from the declared alphabet (no tofu, no controls)",
@@ -824,6 +863,7 @@ public class CaptionAnimatorTest {
             }
         }
         seen.remove('X');   // the real text showing through once a position has settled
+        seen.remove(' ');   // a position that has not arrived yet — the leading edge, not a glyph
         boolean inRange = true;
         char offender = 0;
         for (char c : seen) {
@@ -923,25 +963,30 @@ public class CaptionAnimatorTest {
         }
         ok("distance from home decreases monotonically — letters settle, never overshoot", closing);
 
-        // 7. THE CONTROL. Every other implemented preset must be unaffected by unitIndex, or this
-        //    change leaked into presets it had no business touching. Without this the tests above
-        //    would pass just as well if presetTransform scattered EVERYTHING.
-        boolean othersUnchanged = true;
-        String leaked = "";
+        // 7. THE CONTROL, as a PINNED SET rather than a blanket "only UNSCRAMBLE".
+        //    Originally this asserted that no preset except UNSCRAMBLE varies with unitIndex.
+        //    NEON_FLICKER then shipped a deliberately unit-keyed flicker (so two glyphs do not
+        //    strike in lockstep) and this control began FAILING — unnoticed, because the handoff
+        //    recorded the count from before it landed. A blanket rule cannot express "these two
+        //    legitimately do, nothing else may", so it is now the exact set: adding a preset that
+        //    reads unitIndex fails here until it is declared, and a preset that starts reading it
+        //    by accident still fails. That is what the control was for.
+        java.util.Set<String> expectUnitKeyed = new java.util.TreeSet<>(
+                java.util.Arrays.asList("UNSCRAMBLE", "NEON_FLICKER"));
+        java.util.Set<String> actualUnitKeyed = new java.util.TreeSet<>();
         for (CaptionAnimator.Preset q : CaptionAnimator.Preset.values()) {
-            if (q == U || !q.implemented) continue;
+            if (!q.implemented) continue;
             for (float pr : new float[]{0f, 0.25f, 0.5f, 0.75f, 1f}) {
                 CaptionAnimator.Transform u0 = CaptionAnimator.presetTransform(q, pr, FONT, 0);
                 CaptionAnimator.Transform u9 = CaptionAnimator.presetTransform(q, pr, FONT, 9);
                 if (u0.dx != u9.dx || u0.dy != u9.dy
                         || u0.scaleX != u9.scaleX || u0.alpha != u9.alpha) {
-                    othersUnchanged = false;
-                    leaked = q.name();
+                    actualUnitKeyed.add(q.name());
                 }
             }
         }
-        ok("no other preset reads unitIndex" + (leaked.isEmpty() ? "" : " (leaked into " + leaked + ")"),
-                othersUnchanged);
+        eqS("exactly the declared presets read unitIndex — no leaks, no undeclared additions",
+                expectUnitKeyed.toString(), actualUnitKeyed.toString());
 
         // 8. ...and the control is not vacuous: UNSCRAMBLE itself DOES differ across units at the
         //    same progresses the loop above just swept. If this fails, test 7 proves nothing.

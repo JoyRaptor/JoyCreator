@@ -151,6 +151,33 @@ two arms looked different. That they do is established elsewhere in the session 
 1.318s under LETTER draws only `PI`), but not inside these two runs. A future repeat should capture
 one frame per arm.
 
+**THE ENGLISH UI WAS FULL OF MOJIBAKE. FIXED 2026-07-30.** Spotted in passing while exporting: the
+export dialog read `00:05 â€¢ 4 clip(s) â€¢ 3 audio` and `background service â€" you can…`. It was
+not a compile-encoding problem — `gradle.properties` already sets `-Dfile.encoding=UTF-8`. **The
+corruption was committed into the file itself:** `app/src/main/res/values/strings.xml` literally
+contained the characters `â€¢`, `â€”`, `â€¦`, `â€“`, `â€™`, `Â·`, `Â©`, `Â°` — a UTF-8 → cp1252 →
+UTF-8 round-trip that had been saved at some point. **122 sequences across 108 lines**, i.e. every
+em dash, bullet, ellipsis, en dash and curly apostrophe in the DEFAULT locale.
+**The control that made it unambiguous: the translations were clean.** `values-fr` and `values-in`
+carry the correct `•` and `—` on the very same string, so this was damage to one file, not a
+project-wide convention.
+**Repaired 120 of 122**, by decoding each sequence back through cp1252 rather than by hand-listing
+replacements. Verified: the XML still parses, `<string>` count identical **2673 → 2673**, elements
+2694 → 2694, and the diff is **107 lines changed 1-for-1 with zero replacement characters
+introduced**. One line looked like it had been damaged by the fix; a codepoint dump proved the
+opposite (`U+00E2 U+20AC U+00A2` → `U+2022`) and the "damage" was the terminal's own rendering —
+**a reminder that a console is not evidence about encodings.**
+**The 2 left alone are EMOJI whose bytes are genuinely lost** (they now hold U+FFFD replacement
+characters), e.g. `watch_status_recording`, `shape_picker_title`, `rename_dialog_toast_success` and
+three `stream_notes_*`/`remote_battery_low_warning` strings that were probably ⚠️. They were already
+broken before this change and cannot be recovered mechanically — **guessing which emoji belonged
+there would be inventing UI copy**, so they are left for a human. Listed here so they are findable.
+**Proved end to end:** the em dash is `e2 80 94` in the built `resources.arsc`, and the installed
+app now draws `00:05 • 4 clip(s) • 3 audio` / `service — you can close the app`.
+Before/after: `tasks/screenshots/strings_mojibake_before.png`, `strings_mojibake_after.png`.
+*Not covered by the `// TODO(strings)` freeze — that is about un-extracted hardcoded Java strings;
+this is corrupted characters inside a resource file that already exists.*
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

@@ -98,7 +98,7 @@
     <string name="fadrec_screen_recording_paused">Screen recording paused</string>
     <string name="fadrec_screen_recording_resumed">Screen recording resumed</string>
     <string name="fadrec_notification_title">Screen Recording</string>
-    <string name="fadrec_notification_recording">Recording screenâ€¦</string>
+    <string name="fadrec_notification_recording">Recording screen…</string>
     <string name="fadrec_notification_paused">Recording paused</string>
     <string name="floating_controls_title">Menu</string>
     <string name="floating_controls_permission_needed">Overlay permission required</string>
@@ -130,7 +130,7 @@
     <string name="fadrec_recording_flash">Recording!</string>
     <string name="fadrec_ready_to_record_subtitle">Tap to begin</string>
     <string name="fadrec_permission_denied">Screen recording permission denied</string>
-    <string name="fadrec_mode_title">FadRec â€¢ Screen Recording</string>
+    <string name="fadrec_mode_title">FadRec • Screen Recording</string>
     <string name="fadrec_mute_audio">Mute recording audio</string>
     <string name="fadrec_unmute_audio">Unmute recording audio</string>
     <string name="fadrec_mic_permission_needed_title">Microphone Permission Needed</string>
@@ -149,7 +149,7 @@
     <string name="video_recording_paused">Recording paused</string>
     <string name="video_recording_resumed">Recording resumed</string>
     <string name="current_camera">Current camera</string>
-    <string name="recording_controls_title">AF Â· Exposure Â· Zoom</string>
+    <string name="recording_controls_title">AF · Exposure · Zoom</string>
     <string name="mainpage_camera_front">Front Camera</string>
     <string name="mainpage_camera_back">Back Camera</string>
     <string name="storage_available_space">Available space</string>
@@ -186,9 +186,9 @@
     <string name="home_elapsed_font_option_desc">Choose the font used by the elapsed timer value</string>
     <string name="home_elapsed_font_helper">Pick the font used by the elapsed timer numbers.</string>
     <string name="home_elapsed_font_ubuntu">Ubuntu (Default)</string>
-    <string name="home_elapsed_font_ubuntu_desc">Uses the appâ€™s default Ubuntu font for the timer</string>
+    <string name="home_elapsed_font_ubuntu_desc">Uses the app’s default Ubuntu font for the timer</string>
     <string name="home_elapsed_font_monospace">Monospace</string>
-    <string name="home_elapsed_font_monospace_desc">Uses Androidâ€™s built-in monospace font for clearer fixed-width digits</string>
+    <string name="home_elapsed_font_monospace_desc">Uses Android’s built-in monospace font for clearer fixed-width digits</string>
     <string name="home_elapsed_font_doto">Doto</string>
     <string name="home_elapsed_font_doto_desc">Uses the Doto font for a more distinctive digital timer look</string>
     <string name="home_elapsed_flag_option">Timer accent</string>
@@ -288,16 +288,16 @@
     <string name="file_operation_processed">%1$s processed</string>
 
     <!-- Background Operation Progress Messages -->
-    <string name="background_delete_progress">Deleting %1$s in backgroundâ€¦</string>
-    <string name="background_restore_progress">Restoring %1$s in backgroundâ€¦</string>
+    <string name="background_delete_progress">Deleting %1$s in background…</string>
+    <string name="background_restore_progress">Restoring %1$s in background…</string>
     <string name="records_delete_notification_channel_name">Deletion Progress</string>
     <string name="records_delete_notification_channel_desc">Progress and results for background deletion in Records.</string>
     <string name="records_delete_notification_title">Deleting recordings</string>
-    <string name="records_delete_notification_progress_text">%1$d of %2$d complete â€¢ %3$s</string>
-    <string name="records_delete_notification_summary_text">Deleted %1$d â€¢ Failed %2$d</string>
-    <string name="records_save_notification_summary_text_copy">Saved %1$d â€¢ Failed %2$d</string>
-    <string name="records_save_notification_summary_text_move">Moved %1$d â€¢ Failed %2$d</string>
-    <string name="records_save_notification_summary_text_export">Exported %1$d â€¢ Failed %2$d</string>
+    <string name="records_delete_notification_progress_text">%1$d of %2$d complete • %3$s</string>
+    <string name="records_delete_notification_summary_text">Deleted %1$d • Failed %2$d</string>
+    <string name="records_save_notification_summary_text_copy">Saved %1$d • Failed %2$d</string>
+    <string name="records_save_notification_summary_text_move">Moved %1$d • Failed %2$d</string>
+    <string name="records_save_notification_summary_text_export">Exported %1$d • Failed %2$d</string>
     <string name="records_delete_notification_complete_success">Deletion complete</string>
     <string name="records_delete_notification_complete_partial">Deletion finished with issues</string>
     <string name="records_delete_notification_complete_failed">Deletion failed</string>
@@ -325,19 +325,19 @@
     <string name="records_delete_header_done_partial">Deletion finished with issues</string>
     <string name="records_delete_header_done_failed">Deletion failed</string>
     <string name="records_delete_header_done_body_success">%1$d item(s) removed.</string>
-    <string name="records_delete_header_done_body_partial">%1$d removed â€¢ %2$d failed.</string>
+    <string name="records_delete_header_done_body_partial">%1$d removed • %2$d failed.</string>
     <string name="records_delete_header_done_body_failed">%1$d item(s) failed.</string>
-    <string name="records_delete_header_preparing">Preparing deletionâ€¦</string>
-    <string name="records_save_header_preparing_copy">Preparing saveâ€¦</string>
-    <string name="records_save_header_preparing_move">Preparing moveâ€¦</string>
-    <string name="records_save_header_preparing_export">Preparing exportâ€¦</string>
-    <string name="records_delete_header_working">Workingâ€¦</string>
-    <string name="records_delete_header_finishing">Finishingâ€¦</string>
+    <string name="records_delete_header_preparing">Preparing deletion…</string>
+    <string name="records_save_header_preparing_copy">Preparing save…</string>
+    <string name="records_save_header_preparing_move">Preparing move…</string>
+    <string name="records_save_header_preparing_export">Preparing export…</string>
+    <string name="records_delete_header_working">Working…</string>
+    <string name="records_delete_header_finishing">Finishing…</string>
     <string name="records_delete_header_dismiss_hint">Tap OK to dismiss</string>
     <string name="records_delete_header_eta_seconds">ETA %1$ds</string>
     <string name="records_delete_header_eta_minutes">ETA %1$dm %2$02ds</string>
-    <string name="records_delete_header_summary">%1$d of %2$d complete â€¢ %3$d failed</string>
-    <string name="records_delete_header_running_summary">%1$d done â€¢ %2$d failed</string>
+    <string name="records_delete_header_summary">%1$d of %2$d complete • %3$d failed</string>
+    <string name="records_delete_header_running_summary">%1$d done • %2$d failed</string>
     <string name="records_delete_header_issue_prefix">Issue: %1$s</string>
     <string name="records_save_header_done_success_copy">Save complete</string>
     <string name="records_save_header_done_success_move">Move complete</string>
@@ -347,7 +347,7 @@
     <string name="records_save_header_done_body_success_copy">%1$d item(s) saved to gallery.</string>
     <string name="records_save_header_done_body_success_move">%1$d item(s) moved to gallery.</string>
     <string name="records_save_header_done_body_success_export">%1$d item(s) exported.</string>
-    <string name="records_save_header_done_body_partial">%1$d done â€¢ %2$d failed.</string>
+    <string name="records_save_header_done_body_partial">%1$d done • %2$d failed.</string>
     <string name="records_save_header_done_body_failed">%1$d item(s) failed.</string>
     <plurals name="records_delete_header_running_title">
         <item quantity="one">Deleting %d item</item>
@@ -466,9 +466,9 @@
     <string name="records_batch_save_move_helper">Moves selected videos to %1$s and removes originals after successful save.</string>
     <string name="records_batch_save_custom_location">Export to New Location</string>
     <string name="records_batch_save_custom_location_desc">Pick one folder for all selected videos in this run.</string>
-    <string name="records_batch_custom_export_started">Exporting %1$d videos to selected folderâ€¦</string>
+    <string name="records_batch_custom_export_started">Exporting %1$d videos to selected folder…</string>
     <string name="records_batch_custom_export_invalid_folder">Selected folder is not writable.</string>
-    <string name="records_batch_custom_export_done">Export finished. Success: %1$d â€¢ Failed: %2$d</string>
+    <string name="records_batch_custom_export_done">Export finished. Success: %1$d • Failed: %2$d</string>
     <string name="records_batch_faditor_sheet_title">Batch Faditor Actions</string>
     <string name="records_batch_faditor_export_standard">Export to Standard MP4</string>
     <string name="records_batch_faditor_export_standard_desc">Converts fragmented MP4 to seekable standard MP4 for external players.</string>
@@ -478,10 +478,10 @@
     <string name="records_batch_completed">Batch operation completed.</string>
     <string name="records_batch_notif_channel_name">Batch Media Actions</string>
     <string name="records_batch_notif_channel_desc">Progress and results for Records batch save and Faditor automation tasks.</string>
-    <string name="records_batch_starting">Preparing batch operationâ€¦</string>
+    <string name="records_batch_starting">Preparing batch operation…</string>
     <string name="records_batch_progress_item">Processing %1$d of %2$d</string>
-    <string name="records_batch_progress_counts">Completed %1$d â€¢ Skipped %2$d â€¢ Failed %3$d</string>
-    <string name="records_batch_summary">Batch completed. Done: %1$d â€¢ Skipped: %2$d â€¢ Failed: %3$d</string>
+    <string name="records_batch_progress_counts">Completed %1$d • Skipped %2$d • Failed %3$d</string>
+    <string name="records_batch_summary">Batch completed. Done: %1$d • Skipped: %2$d • Failed: %3$d</string>
     <string name="records_batch_export_done_title">Standard MP4 Export Finished</string>
     <string name="records_batch_merge_done_title">Batch Merge Finished</string>
     <string name="records_hide_thumbnails_row_title">Hide</string>
@@ -521,24 +521,24 @@
     <string name="dual_cam_round_corners_title">Rounded Corners</string>
     <string name="dual_cam_round_corners_helper">Apply rounded corners to the PiP overlay for a modern look.</string>
     <string name="dual_cam_pip_margin_title">PiP Margin</string>
-    <string name="dual_cam_pip_margin_hint">0 â€“ 48 dp</string>
+    <string name="dual_cam_pip_margin_hint">0 – 48 dp</string>
     <string name="dual_cam_layout_helper">Configure the position, size and primary camera for the Picture-in-Picture overlay during dual camera recording.</string>
     <string name="dual_cam_appearance_helper">Customise the visual appearance of the PiP overlay including border, corners and spacing.</string>
 
-    <!-- Dual Camera â€“ Preview section -->
+    <!-- Dual Camera – Preview section -->
     <string name="dual_cam_section_preview">Preview</string>
     <string name="dual_cam_preview_primary">Main Camera</string>
     <string name="dual_cam_preview_pip">PiP</string>
     <string name="dual_cam_preview_helper">This is how the PiP mode will look like in landscape mode for example.</string>
 
-    <!-- Dual Camera â€“ Compatibility banner -->
-    <string name="dual_cam_banner_checking">Checking device compatibilityâ€¦</string>
+    <!-- Dual Camera – Compatibility banner -->
+    <string name="dual_cam_banner_checking">Checking device compatibility…</string>
     <string name="dual_cam_banner_supported">Both cameras detected, but concurrent support is not confirmed. Tap for details.</string>
     <string name="dual_cam_banner_supported_confirmed">Dual camera is fully supported and confirmed by your device.</string>
     <string name="dual_cam_banner_unsupported">Dual camera is not supported on this device.</string>
     <string name="dual_cam_banner_tap_details">Details</string>
 
-    <!-- Dual Camera â€“ Info bottom sheet content -->
+    <!-- Dual Camera – Info bottom sheet content -->
     <string name="dual_cam_info_title">Device Compatibility</string>
     <string name="dual_cam_info_device_label">Device</string>
     <string name="dual_cam_info_processor_label">Processor</string>
@@ -552,7 +552,7 @@
     <string name="dual_cam_info_supported_unconfirmed">âš  Your device has both cameras, but concurrent support is not confirmed. It may or may not work.</string>
     <string name="dual_cam_info_unsupported_status">âœ— Your device does not support dual camera recording.</string>
     <string name="dual_cam_info_why_unsupported">Why is dual camera not supported?</string>
-    <string name="dual_cam_info_unsupported_explanation">Dual camera recording requires your device to operate both front and back cameras simultaneously. This is a hardware capability that depends on your device\'s processor and camera hardware. Most flagship phones from 2020 onwards support this feature. Mid-range and older devices typically do not.\n\nThis is NOT a bug â€” it\'s a hardware limitation of your device.</string>
+    <string name="dual_cam_info_unsupported_explanation">Dual camera recording requires your device to operate both front and back cameras simultaneously. This is a hardware capability that depends on your device\'s processor and camera hardware. Most flagship phones from 2020 onwards support this feature. Mid-range and older devices typically do not.\n\nThis is NOT a bug — it\'s a hardware limitation of your device.</string>
     <string name="dual_cam_info_which_devices">Which devices support it?</string>
     <string name="dual_cam_info_devices_explanation">Devices with Qualcomm Snapdragon 855 or newer, Google Tensor, Samsung Exynos 990 or newer, and MediaTek Dimensity 1000 or newer typically support concurrent camera access.</string>
 
@@ -686,7 +686,7 @@
     <string name="rename_dialog_negative">Cancel</string>
     <string name="rename_dialog_error_empty">Name cannot be empty</string>
     <string name="rename_dialog_toast_success">âœï¸ Renamed to: %1$s</string>
-    <string name="project_meta_format">%1$s â€¢ %2$s</string>
+    <string name="project_meta_format">%1$s • %2$s</string>
     <string name="project_meta_unknown_size">Size unknown</string>
     <string name="project_meta_unknown_date">Date unknown</string>
     <string name="project_description_placeholder">No description added</string>
@@ -728,7 +728,7 @@
     <string name="camera_permission_denied">Camera permission denied.</string>
     <string name="up_to_date">Up To Date</string>
     <string name="up_to_date_description">You are already using the latest version.</string>
-    <string name="up_to_date_loading">Checking for updatesâ€¦</string>
+    <string name="up_to_date_loading">Checking for updates…</string>
     <string name="update_available_title">New Version Available</string>
     <string name="update_available_message">A freshly baked update is ready! You\'re on v%1$s, latest is v%2$s. Enjoy new features and improvements.</string>
     <string name="visit_fdroid">Visit F-Droid</string>
@@ -769,7 +769,7 @@
     <string name="torch_both">Both Torches</string>
     <string name="setting_debug_title">Debug Logging</string>
     <string name="note_debug">Enable debug log file generation \n(Default: Disabled)</string>
-    <string name="note_debug_detailed">When enabled, Joy Creator writes a debug log HTML file (FADCAM_debug.html) into the public Downloads/FadCam/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording â€” keep it off unless you are troubleshooting.</string>
+    <string name="note_debug_detailed">When enabled, Joy Creator writes a debug log HTML file (FADCAM_debug.html) into the public Downloads/FadCam/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
     <string name="note_debug_extra">When enabled, a debug log file will be created in the Downloads/FadCam folder. This can help diagnose app issues.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Preview</string>
@@ -807,7 +807,7 @@
     <string name="widgets_helper_text">Pin quick actions to your home screen for instant access.</string>
     <string name="widgets_pin_unsupported">Pinning widgets is not supported by your launcher.</string>
     <string name="widget_clock_title">Clock widget</string>
-    <string name="widgets_pin_fallback">If no prompt appears, longâ€‘press your Home screen, open Widgets, and drag the Joy Creator Clock widget.</string>
+    <string name="widgets_pin_fallback">If no prompt appears, long‑press your Home screen, open Widgets, and drag the Joy Creator Clock widget.</string>
 
     <!-- Widget Customization -->
     <string name="widget_customize_title">Customize Clock Widget</string>
@@ -899,7 +899,7 @@
     <string name="af_picker_helper">Default option is Continuous Auto Focus.</string>
     <!-- Keep screen awake setting -->
     <string name="keep_screen_on_title">Keep screen awake</string>
-    <string name="keep_screen_on_helper_picker">When enabled, the screen wonâ€™t sleep while playing a video.</string>
+    <string name="keep_screen_on_helper_picker">When enabled, the screen won’t sleep while playing a video.</string>
     <!-- Background playback setting -->
     <string name="background_playback_title">Play in background</string>
     <string name="background_playback_helper_picker">When enabled, audio continues playing even if you leave the app or turn the screen off.</string>
@@ -921,14 +921,14 @@
     <string name="timer_custom_label">Custom...</string>
     <string name="timer_custom_title">Custom background timer</string>
     <string name="number_input_default_helper">Enter a number and press OK to save.</string>
-    <string name="number_input_ok_helper">Looks good â€” press OK to save.</string>
+    <string name="number_input_ok_helper">Looks good — press OK to save.</string>
     <string name="timer_custom_low_hint">Very short timers may stop playback sooner than expected.</string>
     <string name="timer_custom_high_hint">Very long timers may remain active for a long time. Max 24 hours.</string>
     <string name="timer_custom_description">Enter number of minutes. Examples: 5 = 5 minutes (300 seconds). The timer will stop playback after this many minutes.</string>
     <string name="timer_custom_placeholder">e.g. 5 (minutes)</string>
     <string name="timer_custom_helper_static">Enter minutes (whole number). Use the calculator below to see hours/minutes.</string>
     <string name="timer_custom_calc_format">Will stop playback after %1$s (%2$.2f hours)</string>
-    <string name="timer_disabled_hint">Background playback is disabled â€” enable "Play in background" to use the timer.</string>
+    <string name="timer_disabled_hint">Background playback is disabled — enable "Play in background" to use the timer.</string>
     <!-- Shortcuts customization UI -->
     <string name="shortcuts_customize_title">Customize</string>
     <string name="shortcuts_customize_subtitle">Name and icon</string>
@@ -1042,11 +1042,11 @@
     <string name="remote_toast_coming_soon">Coming soon! In Sha Allah</string>
     <string name="coming_soon_toast">Coming soon! In Sha Allah</string>
     <string name="remote_coming_soon">Remote control for Joy Creator is coming soon.</string>
-    <string name="remote_feature_description">Pair Joy Creator clients using a QR code for secure, local-network remote control: start/stop recording, preview, zoom, switch camera, and moreâ€”all with end-to-end encryption.</string>
+    <string name="remote_feature_description">Pair Joy Creator clients using a QR code for secure, local-network remote control: start/stop recording, preview, zoom, switch camera, and more—all with end-to-end encryption.</string>
     <string name="faditor_mini_title">Faditor Mini</string>
-    <string name="faditor_mini_coming_soon">Coming soon â€” lightweight editor</string>
+    <string name="faditor_mini_coming_soon">Coming soon — lightweight editor</string>
     <string name="faditor_mini_subtitle">Trim and export your videos with precision</string>
-    <string name="faditor_mini_toast">Faditor Mini â€” coming soon</string>
+    <string name="faditor_mini_toast">Faditor Mini — coming soon</string>
     <string name="faditor_select_video">Select Video</string>
     <string name="faditor_editor_title">Faditor Mini</string>
     <string name="faditor_close">Close editor</string>
@@ -1056,13 +1056,13 @@
     <string name="faditor_timeline_resize_handle">Drag to resize timeline and preview</string>
     <string name="faditor_export">Export</string>
     <string name="faditor_cancel">Cancel</string>
-    <string name="faditor_exporting">Exportingâ€¦</string>
-    <string name="faditor_exporting_percent">Exportingâ€¦ %1$d%%</string>
+    <string name="faditor_exporting">Exporting…</string>
+    <string name="faditor_exporting_percent">Exporting… %1$d%%</string>
     <string name="faditor_export_success">Video exported successfully</string>
     <string name="faditor_export_error">Export failed: %1$s</string>
     <string name="faditor_export_in_progress">Export already in progress</string>
-    <string name="faditor_remuxing">Optimizing for previewâ€¦</string>
-    <string name="faditor_remuxing_percent">Optimizingâ€¦ %1$ds processed</string>
+    <string name="faditor_remuxing">Optimizing for preview…</string>
+    <string name="faditor_remuxing_percent">Optimizing… %1$ds processed</string>
     <string name="faditor_error_no_video">No video selected</string>
     <string name="faditor_error_picker">Could not open file picker</string>
     <string name="faditor_tool_speed">1x</string>
@@ -1086,7 +1086,7 @@
     <string name="faditor_tool_audio">Extract Audio</string>
     <string name="faditor_audio_extract_current">Extract from video</string>
     <string name="faditor_audio_extract_current_desc">Extract the audio track from the current video</string>
-    <string name="faditor_audio_extracting">Extracting audioâ€¦</string>
+    <string name="faditor_audio_extracting">Extracting audio…</string>
     <string name="faditor_audio_extracted">Audio extracted and added to timeline</string>
     <string name="faditor_audio_extract_failed">Could not extract audio</string>
     <string name="faditor_audio_added">Audio added to timeline</string>
@@ -1381,7 +1381,7 @@
     <string name="faditor_split_success">Segment split into two</string>
     <!-- Undo-history label for the AI assistant's work when it did not describe itself. -->
     <string name="faditor_undo_ai_edits">AI edits</string>
-    <string name="faditor_split_error">Cannot split here â€” too close to edge</string>
+    <string name="faditor_split_error">Cannot split here — too close to edge</string>
     <string name="faditor_heal_success">Gap healed non-destructively</string>
     <string name="faditor_heal_error">Cannot heal here - too close to edge</string>
     <string name="faditor_heal_title">Heal gap around playhead?</string>
@@ -1426,17 +1426,17 @@
     <string name="faditor_export_confirm_title">Export Video</string>
     <string name="faditor_export_confirm_action">Export Now</string>
     <string name="faditor_export_confirm_subtitle">Export will continue in background</string>
-    <string name="faditor_export_confirm_helper">%1$s â€¢ %2$d clip(s)%3$s\nExport runs as a background service â€” you can close the app and it will keep exporting.</string>
+    <string name="faditor_export_confirm_helper">%1$s • %2$d clip(s)%3$s\nExport runs as a background service — you can close the app and it will keep exporting.</string>
     <string name="faditor_export_filename_label">File name</string>
 
     <!-- Export notification -->
     <string name="faditor_export_notif_channel">Faditor Export</string>
     <string name="faditor_export_notif_channel_desc">Notifications for ongoing video exports</string>
-    <string name="faditor_export_notif_title">Exporting videoâ€¦</string>
+    <string name="faditor_export_notif_title">Exporting video…</string>
     <string name="faditor_export_notif_error_title">Export Failed</string>
 
     <!-- Export dock (Faditor Mini tab) -->
-    <string name="faditor_export_progress">Exportingâ€¦</string>
+    <string name="faditor_export_progress">Exporting…</string>
     <string name="faditor_export_completed">Export Complete</string>
     <string name="faditor_export_cancelled">Export Cancelled</string>
     <string name="faditor_export_failed">Export Failed</string>
@@ -1449,7 +1449,7 @@
     <string name="export_status">Export Status</string>
 
     <!-- Export info on export screen -->
-    <string name="faditor_export_info">%1$s â€¢ %2$d clip(s)%3$s â€¢ H.264 + AAC</string>
+    <string name="faditor_export_info">%1$s • %2$d clip(s)%3$s • H.264 + AAC</string>
     <string name="faditor_flip_title">Flip</string>
     <string name="faditor_home_tagline">Lightweight video editor</string>
     <string name="faditor_new_project">New Project</string>
@@ -1463,7 +1463,7 @@
     <string name="faditor_feature_preview">Live Preview</string>
     <string name="faditor_feature_preview_desc">Instant playback of your trimmed clips</string>
     <string name="faditor_feature_privacy">100% Offline</string>
-    <string name="faditor_feature_privacy_desc">All editing happens locally â€” no uploads, no cloud</string>
+    <string name="faditor_feature_privacy_desc">All editing happens locally — no uploads, no cloud</string>
     <string name="faditor_feature_convert">Smart Convert</string>
     <string name="faditor_feature_convert_desc">Auto-converts crash-safe recordings to seekable MP4 for smooth playback everywhere</string>
     <string name="faditor_select_items">Select items</string>
@@ -1471,7 +1471,7 @@
     <string name="faditor_delete_projects_title">Delete projects?</string>
     <string name="faditor_delete_projects_message">Delete %1$d project(s)? This cannot be undone.</string>
     <string name="faditor_delete_confirm">Delete</string>
-    <string name="faditor_version_info">Faditor Mini Â· Phase 1 Â· Trim + Export</string>
+    <string name="faditor_version_info">Faditor Mini · Phase 1 · Trim + Export</string>
 
     <!-- Faditor Info Bottom Sheet -->
     <string name="faditor_empty_title">No projects yet</string>
@@ -1479,15 +1479,15 @@
     <string name="faditor_info_title">About Faditor Mini</string>
     <string name="faditor_info_subtitle">Everything you need to know about the built-in editor</string>
     <string name="faditor_info_how_title">How it works</string>
-    <string name="faditor_info_how_desc">Pick any video from your device or your Joy Creator recordings. Trim it frame-by-frame using the timeline, then export. All processing happens locally on your device â€” nothing is uploaded.\n\nYour editing progress is auto-saved every few seconds and whenever you leave the editor, so no work is lost if the app closes unexpectedly.</string>
+    <string name="faditor_info_how_desc">Pick any video from your device or your Joy Creator recordings. Trim it frame-by-frame using the timeline, then export. All processing happens locally on your device — nothing is uploaded.\n\nYour editing progress is auto-saved every few seconds and whenever you leave the editor, so no work is lost if the app closes unexpectedly.</string>
     <string name="faditor_info_convert_title">Smart conversion</string>
-    <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug â€” it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator â€” on Google Drive, a computer, or any other location â€” you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless â€” no re-encoding or quality loss.</string>
+    <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
     <string name="faditor_info_export_title">Exported files</string>
     <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"Faditor_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
     <string name="faditor_info_temp_title">Temporary files and cache</string>
-    <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Faditor detects if the file needs \"remuxing\" â€” a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
+    <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Faditor detects if the file needs \"remuxing\" — a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
     <string name="faditor_info_projects_title">Recent projects</string>
-    <string name="faditor_info_projects_desc">All your editing sessions are shown for quick access. Each project is stored as a small JSON file on your device containing the video URI, trim points, and timestamps â€” no copies of your videos are made. Projects are auto-saved every few seconds, so your progress is never lost.\n\nYou can delete projects you no longer need using the multi-select checklist icon. Deleting a project only removes the editing session data; your original video files remain untouched.</string>
+    <string name="faditor_info_projects_desc">All your editing sessions are shown for quick access. Each project is stored as a small JSON file on your device containing the video URI, trim points, and timestamps — no copies of your videos are made. Projects are auto-saved every few seconds, so your progress is never lost.\n\nYou can delete projects you no longer need using the multi-select checklist icon. Deleting a project only removes the editing session data; your original video files remain untouched.</string>
     <string name="faditor_your_recordings">Your Recordings</string>
     <string name="faditor_browse_device">Browse Device</string>
     <string name="faditor_no_recordings">No recordings found yet. Start recording with Joy Creator to see your videos here.</string>
@@ -1495,7 +1495,7 @@
     <string name="faditor_fadcam_source">Joy Creator</string>
     <string name="faditor_fadrec_source">FadRec</string>
     <string name="faditor_browse_device_desc">Select any video from your device</string>
-    <string name="faditor_scanning">Scanning recordingsâ€¦</string>
+    <string name="faditor_scanning">Scanning recordings…</string>
     <string name="faditor_source_chooser_desc">Choose a video from your gallery or pick one from your Joy Creator recordings</string>
     <string name="faditor_recordings_helper">Videos recorded with Joy Creator from your active storage location</string>
     <string name="setting_audio_title">Audio Recording</string>
@@ -1510,8 +1510,8 @@
     <string name="dialog_audio_invalid_bitrate">Invalid bitrate. Enter a value between 64000 and 384000.</string>
     <string name="dialog_audio_invalid_sampling_rate">Invalid sampling rate. Enter 44100 or 48000.</string>
     <string name="dialog_audio_settings_summary">Configure audio bitrate and sampling rate for best quality. Default: 192000 bps, 48000 Hz, Stereo.</string>
-    <string name="dialog_audio_info_text">â€¢ Bitrate (bps) controls audio quality and file size. Higher values mean better quality but larger files. 192000 is a good default for most uses.
-â€¢ Sampling Rate (Hz) is how many times per second audio is captured. 48000 Hz is standard for video, 44100 Hz is common for audio.
+    <string name="dialog_audio_info_text">• Bitrate (bps) controls audio quality and file size. Higher values mean better quality but larger files. 192000 is a good default for most uses.
+• Sampling Rate (Hz) is how many times per second audio is captured. 48000 Hz is standard for video, 44100 Hz is common for audio.
 
 Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- Helper subtitles for new Audio rows -->
@@ -1519,7 +1519,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="helper_audio_input_source">Select which connected microphone/input to use.</string>
     <string name="helper_noise_suppression">Experimental filter to reduce background noise.</string>
     <string name="helper_audio_advanced">Customize bitrate &amp; sampling rate for quality/size balance.</string>
-    <string name="helper_audio_bitrate_detail">Recommended: 192000 bps for high-quality stereo. Lower values reduce file size but may reduce clarity. Range 64000â€“384000 bps.</string>
+    <string name="helper_audio_bitrate_detail">Recommended: 192000 bps for high-quality stereo. Lower values reduce file size but may reduce clarity. Range 64000–384000 bps.</string>
     <string name="helper_audio_sampling_detail">Select 48000 Hz for video (recommended) or 44100 Hz for general audio compatibility.</string>
     <string name="helper_audio_sampling_recommended">Recommended: 48000 Hz</string>
     <string name="universal_reset">Reset</string>
@@ -1580,7 +1580,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- Strings for RecordsFragment - Batch Delete Action -->
     <string name="delete_videos_success_toast">All %1$d videos deleted.</string>
     <string name="delete_videos_partial_success_toast">%1$d video(s) deleted. Failed to delete %2$d.</string>
-    <string name="delete_videos_log">Deleting %1$d selected videosâ€¦</string>
+    <string name="delete_videos_log">Deleting %1$d selected videos…</string>
 
     <!-- Strings for TrashFragment -->
     <string name="trash_auto_deleted_toast">%1$d old item(s) auto-deleted.</string>
@@ -1629,7 +1629,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="trash_empty_icon_description">Trash is empty icon</string>
     <string name="trash_empty_text">Trash is empty.</string>
     <string name="essential_permissions_missing">Essential permissions are missing. Please grant them to proceed.</string>
-    <string name="records_search_hint">Search recordingsâ€¦</string>
+    <string name="records_search_hint">Search recordings…</string>
     <string name="saf_permission_missing_dialog_instructions">SAF permission missing. Please grant access to the chosen folder.</string>
     <string name="saf_permission_missing_dialog_title">SAF Permission Required</string>
     <string name="saf_permission_missing_dialog_message_for_start_recording">To save recordings to a custom location, Joy Creator needs permission to access the selected folder. Please grant access when prompted.</string>
@@ -1667,7 +1667,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="auto_delete_90_days">After 90 Days</string>
     <string name="auto_delete_never">Never (Manual Deletion)</string>
     <string name="auto_delete_save_setting">Save</string>
-    <string name="trash_auto_delete_picker_helper">Choose when items in Trash should be autoâ€‘deleted.</string>
+    <string name="trash_auto_delete_picker_helper">Choose when items in Trash should be auto‑deleted.</string>
     <!-- End Strings for Trash Auto-Delete Feature -->
 
     <string name="video_split_size_summary_mb">Current: %1$d MB</string>
@@ -1750,7 +1750,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="applock_pin_removed">PIN successfully removed</string>
     <!-- Enhanced Tab Lock UX strings -->
     <string name="applock_set_pin_enable">Set PIN &amp; Enable</string>
-    <string name="applock_helper_create">Create protection for the Records tab using a 4â€‘digit PIN, password, or fingerprint. It will autoâ€‘lock when the app goes to background.</string>
+    <string name="applock_helper_create">Create protection for the Records tab using a 4‑digit PIN, password, or fingerprint. It will auto‑lock when the app goes to background.</string>
     <string name="applock_helper_manage_disabled">Tab Lock PIN is set. Toggle it on to require the PIN when returning to the app.</string>
     <string name="applock_helper_enabled">Tab Lock is active. You will need the PIN when opening the Records tab after leaving the app.</string>
 
@@ -1773,8 +1773,8 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- Update variations -->
     <string name="update_variation_1">Still on &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>? That\'s... nostalgic.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is out there making waves. Time to catch up!</string>
     <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> is so last season.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is ready to impress with new features and bug fixes. Upgrade for a better ride!</string>
-    <string name="update_variation_3">Your app is living in the past with &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is the futureâ€”faster, smarter, and shinier. Why not join in?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> has served you well, but &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is calling!&lt;br>Enjoy the latest improvements and a smoother experienceâ€”just a tap away.</string>
+    <string name="update_variation_3">Your app is living in the past with &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is the future—faster, smarter, and shinier. Why not join in?</string>
+    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> has served you well, but &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is calling!&lt;br>Enjoy the latest improvements and a smoother experience—just a tap away.</string>
 
 
 
@@ -1937,7 +1937,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="forensics_source_label">Source: %1$s</string>
     <string name="forensics_gallery_title">Snapshot Gallery</string>
     <string name="forensics_gallery_selected_count">%1$d selected</string>
-    <string name="forensics_gallery_deleted_toast">%1$d moved to trash â€¢ %2$d removed</string>
+    <string name="forensics_gallery_deleted_toast">%1$d moved to trash • %2$d removed</string>
     <plurals name="forensics_gallery_selected_count_plural">
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
@@ -1969,10 +1969,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="forensics_export_subtitle">Creates JSON metadata + snapshots package from saved snapshots.</string>
     <string name="forensics_export_source_warning">Source video links are included for traceability. If media is moved or deleted from original location, playback links may fail and snapshots remain as the primary record.</string>
     <string name="forensics_export_done">Snapshot export saved to: %1$s</string>
-    <string name="forensics_export_running">Building snapshot exportâ€¦</string>
+    <string name="forensics_export_running">Building snapshot export…</string>
     <string name="forensics_gallery_source_missing">Video missing: snapshot is still available.</string>
-    <string name="forensics_gallery_stats">Items: %1$d â€¢ Snapshot storage: %2$s</string>
-    <string name="forensics_export_stats">Ready to export: %1$d snapshots â€¢ %2$s</string>
+    <string name="forensics_gallery_stats">Items: %1$d • Snapshot storage: %2$s</string>
+    <string name="forensics_export_stats">Ready to export: %1$d snapshots • %2$s</string>
     <string name="forensics_export_pick_path">Choose export destination</string>
     <string name="forensics_export_pick_path_first">Choose export destination first.</string>
     <string name="forensics_export_no_path">No export destination selected yet.</string>
@@ -2039,7 +2039,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="onboarding_or">OR</string>
     <string name="onboarding_and">AND</string>
     <string name="onboarding_open_settings">Open Settings</string>
-    <string name="onboarding_intro_line1">a multimedia recorderâ€”</string>
+    <string name="onboarding_intro_line1">a multimedia recorder—</string>
     <string name="onboarding_intro_line2">background video, screen &amp; live stream,</string>
     <string name="onboarding_intro_line3">remote camera control,</string>
     <string name="onboarding_intro_line4">open-source. ad-free. yours.</string>
@@ -2167,7 +2167,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- duplicate removed: row_record_audio_title already defined above -->
 
     <string name="fix_video_menu_title">Fix Video (Repair Playback)</string>
-    <string name="fix_video_repairing">Repairingâ€¦ This may take a few seconds.</string>
+    <string name="fix_video_repairing">Repairing… This may take a few seconds.</string>
     <string name="fix_video_success">Video repaired! Saved as: %1$s</string>
     <string name="fix_video_fail">Repair failed. See logs for details.</string>
     <string name="fix_video_invalid">Invalid video file.</string>
@@ -2182,14 +2182,14 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- Debug Log Tools -->
     <string name="debug_log_tools_title">Debug Log</string>
     <string name="debug_log_tools_subtitle">Preview, search, share or delete FADCAM_debug.html</string>
-    <string name="debug_log_tools_helper">Shows the debug log file (FADCAM_debug.html). Enabling debug logging may add performance overheadâ€”donâ€™t enable it unless youâ€™re facing a bug and need to share the log. Use the search box to filter.</string>
+    <string name="debug_log_tools_helper">Shows the debug log file (FADCAM_debug.html). Enabling debug logging may add performance overhead—don’t enable it unless you’re facing a bug and need to share the log. Use the search box to filter.</string>
     <string name="debug_log_share_title">Share Debug Log</string>
     <string name="debug_log_share_subtitle">Open the system share sheet</string>
     <string name="debug_log_delete_title">Delete Debug Log</string>
     <string name="debug_log_delete_subtitle">Remove the log file from storage</string>
     <string name="debug_log_open_title">Open Externally</string>
     <string name="debug_log_open_subtitle">View in a browser or HTML viewer</string>
-    <string name="debug_log_search_hint">Search logâ€¦</string>
+    <string name="debug_log_search_hint">Search log…</string>
     <string name="debug_log_empty">No debug log yet</string>
     <string name="debug_log_share_fail">Share failed</string>
     <string name="debug_log_open_fail">Open failed</string>
@@ -2246,13 +2246,13 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="fadcam_pro_lab_label">Lab</string>
     <string name="fadcam_pro_plus_label">Pro</string>
     <string name="fadcam_pro_early_bird">ðŸŽ‰ Free until December 23, 2025! After that, get lifetime access for just $15.</string>
-    <string name="fadcam_pro_paid_offer">After December 23, 2025, get Lifetime Access for $15 â€” one-time payment, forever updates.</string>
+    <string name="fadcam_pro_paid_offer">After December 23, 2025, get Lifetime Access for $15 — one-time payment, forever updates.</string>
     <string name="fadcam_pro_benefit_early_access">Early access: Get the latest version before public release</string>
     <string name="fadcam_pro_benefit_lifetime_updates">Lifetime updates: Always receive new features, improvements, and bug fixes</string>
     <string name="fadcam_pro_benefit_support">Instant support: Direct help through tickets via Discord</string>
     <string name="fadcam_pro_coming_soon">Pro+ and Lab features coming soon with custom icon uploads, custom app names, and FadDrive cloud sync.</string>
-    <string name="fadcam_pro_support_message">Joy Creator will always remain free, with no ads and no tracking. I handle the entire project on my own, and it takes ongoing time and work. Upgrading to Pro (currently free) helps support development, and in return Iâ€™m able to offer additional value through the Pro features on top of the full free version. Thank you for supporting the project :)</string>
-    <string name="fadcam_pro_separate_apk">Standalone app â€¢ Works alongside Joy Creator</string>
+    <string name="fadcam_pro_support_message">Joy Creator will always remain free, with no ads and no tracking. I handle the entire project on my own, and it takes ongoing time and work. Upgrading to Pro (currently free) helps support development, and in return I’m able to offer additional value through the Pro features on top of the full free version. Thank you for supporting the project :)</string>
+    <string name="fadcam_pro_separate_apk">Standalone app • Works alongside Joy Creator</string>
     <string name="fadcam_pro_feature_everything_icon">Everything</string>
     <string name="fadcam_pro_feature_everything">Everything</string>
     <string name="fadcam_pro_feature_custom_icon">Custom App Icon</string>
@@ -2267,9 +2267,9 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="player_info_content"><![CDATA[
 <b>Fragmented MP4 Format</b><br/><br/>
 Joy Creator uses a fragmented MP4 format for recordings. This means videos are saved in small segments instead of one complete file. The benefit is that if something goes wrong during recording, you only lose the last few seconds instead of the entire video.<br/><br/>
-If the last few seconds of your video appear frozen or stale, don\'t worry â€” it\'s not a bug! When you stop recording, the current fragment may still complete its cycle (~3 seconds), which can leave a brief stale frame at the end.<br/><br/>
+If the last few seconds of your video appear frozen or stale, don\'t worry — it\'s not a bug! When you stop recording, the current fragment may still complete its cycle (~3 seconds), which can leave a brief stale frame at the end.<br/><br/>
 <b>Player Limitations</b><br/><br/>
-The built-in video player has some Android system limitations. You may notice the progress bar or waveform appearing slightly snappy â€” this is normal behavior and not a bug.<br/><br/>
+The built-in video player has some Android system limitations. You may notice the progress bar or waveform appearing slightly snappy — this is normal behavior and not a bug.<br/><br/>
 For the smoothest playback experience, you can use an external player like VLC. That said, the integrated player works well for everyday use!
     ]]></string>
 
@@ -2327,7 +2327,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Specs -->
     <string name="stream_specs">Stream Specs</string>
     <string name="stream_quality_preset">Stream Quality Preset</string>
-    <string name="stream_fps_resolution">FPS: %1$d â€¢ Resolution: %2$dx%3$d</string>
+    <string name="stream_fps_resolution">FPS: %1$d • Resolution: %2$dx%3$d</string>
     <string name="stream_bitrate">Bitrate: %1$s</string>
     <string name="stream_codec">Codec: H.264</string>
     
@@ -2362,10 +2362,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Auto-Lock -->
     <string name="remote_security_auto_lock_never">Never</string>
     
-    <string name="stream_notes_wifi">â€¢ Clients must be on the same WiFi network to access the stream</string>
-    <string name="stream_notes_quality">â€¢ Stream quality (LOW/MEDIUM/HIGH/ULTRA) controls FPS cap and bitrate to prevent network issues</string>
-    <string name="stream_notes_resolution">â€¢ Stream orientation and resolution are taken from your normal recording settings (Video Settings â†’ Resolution &amp; Orientation). Adjust those if you want to change stream dimensions</string>
-    <string name="stream_notes_cellular">âš ï¸ WiFi-only limitation: Cellular networks block incoming connections. For seamless streaming from any network (WiFi, LTE, anywhere), upgrade to Joy Creator Pro+. Stream from anywhere globally with a private generated linkâ€”no port forwarding, no router changes, no network restrictions</string>
+    <string name="stream_notes_wifi">• Clients must be on the same WiFi network to access the stream</string>
+    <string name="stream_notes_quality">• Stream quality (LOW/MEDIUM/HIGH/ULTRA) controls FPS cap and bitrate to prevent network issues</string>
+    <string name="stream_notes_resolution">• Stream orientation and resolution are taken from your normal recording settings (Video Settings â†’ Resolution &amp; Orientation). Adjust those if you want to change stream dimensions</string>
+    <string name="stream_notes_cellular">âš ï¸ WiFi-only limitation: Cellular networks block incoming connections. For seamless streaming from any network (WiFi, LTE, anywhere), upgrade to Joy Creator Pro+. Stream from anywhere globally with a private generated link—no port forwarding, no router changes, no network restrictions</string>
     <string name="stream_notes_android14_screen">âš ï¸ Android 14+: System restriction prevents recording when screen is off. Workarounds: (1) Enable "Black Screen Mode" in Settings â†’ Security, or (2) Disable screen lock (no PIN/password/fingerprint). Both allow seamless remote recording</string>
     
     <!-- Joy Creator Cloud / Remote Streaming -->
@@ -2375,7 +2375,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="cloud_account_title">Joy Creator Cloud</string>
     <string name="cloud_account_link">Link Device</string>
     <string name="cloud_account_unlink">Unlink Device</string>
-    <string name="cloud_account_connecting">Connectingâ€¦</string>
+    <string name="cloud_account_connecting">Connecting…</string>
     <string name="cloud_account_linked">Device Linked</string>
     <string name="cloud_account_not_linked">Not Linked</string>
     <string name="cloud_account_device_name_hint">Enter device name (e.g., My Phone)</string>
@@ -2398,8 +2398,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
 
     <!-- E2E Stream Encryption -->
     <string name="e2e_encryption_title">E2E Stream Encryption</string>
-    <string name="e2e_encryption_not_configured">Not configured â€” configure to enable cloud streaming</string>
-    <string name="e2e_encryption_configured">Configured â€” segments are encrypted end-to-end</string>
+    <string name="e2e_encryption_not_configured">Not configured — configure to enable cloud streaming</string>
+    <string name="e2e_encryption_configured">Configured — segments are encrypted end-to-end</string>
     <string name="e2e_encryption_setup_title">Set E2E Encryption Password</string>
     <string name="e2e_encryption_setup_hint">Enter your Joy Creator ID password</string>
     <string name="e2e_encryption_setup_desc">Your Joy Creator ID password is used to derive the stream encryption key. This must match the password you use on the Joy Creator dashboard to view streams.</string>
@@ -2485,7 +2485,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="motion_lab_debug_no_snapshot">No motion snapshot is available yet.</string>
     <string name="motion_lab_debug_score_value">Score raw/smoothed: %1$.3f / %2$.3f</string>
     <string name="motion_lab_debug_threshold_value">Threshold start/stop: %1$.3f / %2$.3f</string>
-    <string name="motion_lab_debug_person_value">Detected: %1$s (%2$.3f) â€¢ Person: %3$s (%4$.3f)</string>
+    <string name="motion_lab_debug_person_value">Detected: %1$s (%2$.3f) • Person: %3$s (%4$.3f)</string>
     <string name="motion_lab_debug_metrics_value">Area %1$.3f, Strong %2$.3f, Mean %3$.3f, BG %4$.3f, Max %5$.3f, Global %6$s</string>
     <string name="motion_lab_info_cd">Motion Lab info</string>
     <string name="motion_lab_info_title">Auto Record on Motion</string>
@@ -2496,7 +2496,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="motion_lab_seconds_value">%1$d s</string>
     <string name="motion_lab_footer">Customize the controls above only if you need special behavior. For most setups, defaults are the safest and most reliable choice.</string>
 
-    <!-- Lab sidebar â€“ Hide Thumbnails -->
+    <!-- Lab sidebar – Hide Thumbnails -->
     <string name="lab_hide_thumbnails_title">Hidden Thumbnails</string>
     <string name="lab_hide_thumbnails_redacted">Hidden</string>
     <string name="lab_section_about">About</string>
@@ -2504,7 +2504,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Home sidebar branding -->
     <string name="home_sidebar_discord">Discord</string>
     <string name="home_sidebar_discord_sub">Join the community</string>
-    <string name="home_sidebar_copyright" translatable="false">Â© Joy Creator 2024 â€“ 2026</string>
+    <string name="home_sidebar_copyright" translatable="false">© Joy Creator 2024 – 2026</string>
 
     <!-- Privacy Black Mode Settings -->
     <string name="privacy_black_mode_title">Privacy Black Screen</string>
@@ -2580,33 +2580,33 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Extended Watermark Features -->
     <string name="watermark_speed_title">Speed (km/h)</string>
     <string name="watermark_speed_off">Off</string>
-    <string name="watermark_speed_on">On â€” Speed from GPS satellite data</string>
+    <string name="watermark_speed_on">On — Speed from GPS satellite data</string>
     <string name="watermark_altitude_title">Altitude (m)</string>
     <string name="watermark_altitude_off">Off</string>
-    <string name="watermark_altitude_on">On â€” Altitude from GPS satellites</string>
+    <string name="watermark_altitude_on">On — Altitude from GPS satellites</string>
     <string name="watermark_accuracy_title">GPS Accuracy (m)</string>
     <string name="watermark_accuracy_off">Off</string>
-    <string name="watermark_accuracy_on">On â€” Horizontal accuracy from GPS satellites</string>
+    <string name="watermark_accuracy_on">On — Horizontal accuracy from GPS satellites</string>
     <string name="watermark_compass_title">Compass Direction</string>
     <string name="watermark_compass_off">Off</string>
-    <string name="watermark_compass_on_sensor">On â€” Direction from device compass sensor</string>
-    <string name="watermark_compass_no_sensor">No compass sensor â€” Direction from GPS movement only (works while moving)</string>
+    <string name="watermark_compass_on_sensor">On — Direction from device compass sensor</string>
+    <string name="watermark_compass_no_sensor">No compass sensor — Direction from GPS movement only (works while moving)</string>
     <string name="watermark_noise_title">Noise Level (dB)</string>
     <string name="watermark_noise_off">Off</string>
-    <string name="watermark_noise_on">On â€” Ambient sound level from microphone</string>
+    <string name="watermark_noise_on">On — Ambient sound level from microphone</string>
     <string name="watermark_weather_title">Weather</string>
     <string name="watermark_weather_off">Off</string>
-    <string name="watermark_weather_on">On â€” Weather from Open-Meteo API (requires internet)</string>
+    <string name="watermark_weather_on">On — Weather from Open-Meteo API (requires internet)</string>
     <string name="watermark_network_warning_title">Network Warning</string>
     <string name="watermark_network_warning_message">This feature requires network requests which could potentially be traced. Disable if you need full anonymity. Continue?</string>
     <string name="watermark_network_warning_enable">Enable</string>
     <string name="watermark_audio_permission_required">Microphone permission required for noise monitoring</string>
-    <string name="watermark_gps_disabled_warning">âš  GPS is off â€” enable device location for this feature to work</string>
+    <string name="watermark_gps_disabled_warning">âš  GPS is off — enable device location for this feature to work</string>
     <string name="watermark_gps_disabled_home_toast">Location-dependent watermark features enabled but GPS is off. Enable device location for them to work.</string>
     <string name="watermark_gps_disabled_banner_message">Location-dependent watermark features will not appear until device location is enabled</string>
     <string name="watermark_timezone_title">Timezone</string>
     <string name="watermark_timezone_off">Off</string>
-    <string name="watermark_timezone_on_gmt">On â€” GMT offset in watermark</string>
+    <string name="watermark_timezone_on_gmt">On — GMT offset in watermark</string>
     <string name="watermark_timezone_format_title">Timezone Format</string>
     <string name="watermark_timezone_format_gmt_only">GMT Offset Only</string>
     <string name="watermark_timezone_format_gmt_name">GMT Offset + Name</string>
@@ -2655,7 +2655,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- Compass Tool -->
     <string name="mini_app_compass_title">Compass</string>
     <string name="mini_app_compass_desc">Digital compass with bearing display and navigation features</string>
-    <string name="mini_app_compass_feature_bearing">Real-time bearing (0-360Â°)</string>
+    <string name="mini_app_compass_feature_bearing">Real-time bearing (0-360°)</string>
     <string name="mini_app_compass_feature_cardinal">Cardinal directions (N, S, E, W)</string>
     <string name="mini_app_compass_feature_mag_true">Magnetic vs True North</string>
 
@@ -2750,8 +2750,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
 
     <string name="watermark_utm_title">UTM Coordinates</string>
     <string name="watermark_utm_off">Off</string>
-    <string name="watermark_utm_on">On â€” Universal Transverse Mercator grid coordinates</string>
-    <string name="watermark_utm_helper">UTM divides Earth into 60 zones and converts lat/lon to easting &amp; northing in meters. Used by military, surveyors, and topographic maps for precise grid positioning.\n\nHow to read: &quot;Zone 42N â€” 372,684m E, 3,512,334m N&quot; = Zone 42 in Northern hemisphere, 372,684 meters Easting (east-west), 3,512,334 meters Northing (north-south).</string>
+    <string name="watermark_utm_on">On — Universal Transverse Mercator grid coordinates</string>
+    <string name="watermark_utm_helper">UTM divides Earth into 60 zones and converts lat/lon to easting &amp; northing in meters. Used by military, surveyors, and topographic maps for precise grid positioning.\n\nHow to read: &quot;Zone 42N — 372,684m E, 3,512,334m N&quot; = Zone 42 in Northern hemisphere, 372,684 meters Easting (east-west), 3,512,334 meters Northing (north-south).</string>
     <string name="mini_app_speedometer_title">Speedometer</string>
     <string name="mini_app_speedometer_desc">Real-time car speedometer with GPS speed tracking</string>
     <string name="mini_app_clinometer_title">Clinometer</string>
@@ -2776,7 +2776,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
 
     <!-- Mini Apps Info Sheet -->
     <string name="mini_apps_planned_shortcuts_title">Planned: Shortcuts &amp; Automation</string>
-    <string name="mini_apps_planned_shortcuts_desc">Home screen shortcuts for instant access to any Mini App without opening Joy Creator first.\n\nIntent-based automation support (Tasker, MacroDroid, etc.) for triggering Mini Apps programmatically â€” use QR scanning, torch, and more from your automated workflows.</string>
+    <string name="mini_apps_planned_shortcuts_desc">Home screen shortcuts for instant access to any Mini App without opening Joy Creator first.\n\nIntent-based automation support (Tasker, MacroDroid, etc.) for triggering Mini Apps programmatically — use QR scanning, torch, and more from your automated workflows.</string>
 
     <!-- Lab Tab -->
     <string name="export_center">Export Center</string>
@@ -3121,7 +3121,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="records_share_error">Unable to share this file</string>
     <string name="records_open_error">Unable to open this file</string>
     <string name="records_trash_error">Unable to move file to trash</string>
-    <string name="records_saf_warning">You selected a SAF custom directory â€” external file managers may not see recordings. To make them visible, switch storage mode back to \'Internal\'.</string>
+    <string name="records_saf_warning">You selected a SAF custom directory — external file managers may not see recordings. To make them visible, switch storage mode back to \'Internal\'.</string>
 
     <!-- RecordsFragment -->
     <string name="records_processing">Processing...</string>

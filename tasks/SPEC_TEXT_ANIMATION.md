@@ -329,6 +329,45 @@ What is left, in order:
    **MATRIX shipped `c85a7c5`; UNSCRAMBLE shipped 2026-07-29. ODOMETER is next and is designed
    below.**
 
+## NEON_FLICKER — the recorded blocker is MISLEADING. Read this before estimating it.
+
+Derived 2026-07-30 by reading the painters, not by trusting the note. **Not built.**
+
+Its blocker says *"needs the renderer to modulate STROKE/GLOW, which is not a geometric transform."*
+That is true and it is not the problem. **The problem is that stroke and glow are OPTIONAL
+PER-OBJECT properties that most objects do not have**, so a preset which merely modulates the
+existing ones renders as nothing:
+
+- `TextBoxRenderer.paintRun` draws its glow pass only `if (o.getGlowRadiusPx() > 0f &&
+  o.getGlowColorInt() != TRANSPARENT)`, and its outline pass only if a stroke width and colour are
+  set. A default text box has neither.
+- **Captions have no per-object glow at all.** `CaptionOverlayView` sets a fixed
+  `setShadowLayer(fontPx * 0.12f, …)` from `style.shadow` and a fixed outline width; there is no
+  user glow to modulate.
+
+So "modulate stroke/glow" would produce a tile that does nothing on a plain text box and nothing on
+any caption — **exactly what `Preset.implemented` exists to prevent**, and the same trap MATRIX
+would have fallen into had it only been given a Transform.
+
+**Therefore NEON_FLICKER must SUPPLY its own glow**, derived from the unit's own colour, rather than
+scale someone else's. A preset owns its feel and must not depend on unrelated user styling to be
+visible. Concretely that means a glow RADIUS (and probably a colour) on
+`CaptionAnimator.Transform`, plus a glow pass in the two caption painters that do not currently have
+one. The precedent for the shape is MASK_WIPE, which added `revealFrac` to `Transform` and had all
+three renderers consume it.
+
+**Good news, and it retires the handoff's worry: this does NOT walk into the GHOST-blur question.**
+That question exists because `BlurMaskFilter` is ignored on a hardware canvas. `setShadowLayer` is
+not `BlurMaskFilter` — it is honoured for TEXT on a hardware canvas, and `TextBoxRenderer` already
+relies on exactly that for its glow pass in the live preview today. So a glow can be drawn on both
+surfaces from one code path with no divergence and no `LAYER_TYPE_SOFTWARE`. *Strongly indicated by
+the code; worth one on-device confirmation (give a text box a glow and look) before building.*
+
+**The cheap alternative, recorded so it is a choice rather than a discovery:** flicker ALPHA only.
+It works on every object with no new channel at all — a neon tube's flicker really is mostly a
+brightness stutter — but without a glow it will read as a stutter rather than as neon. Whether that
+is enough is a taste call for the user.
+
 ## ODOMETER — design, derived 2026-07-29, NOT yet built
 
 Written down before coding because the last two presets both had blocker notes that were wrong in

@@ -1068,6 +1068,22 @@ entrance without hunting.
   would draw tofu. Digits are kept in the set so such a device still shows something. If it is ever
   reported, the fix is a `Paint.hasGlyph` probe in ONE shared helper called by both renderers —
   never two probes, or preview and export could pick different alphabets from the same project.
+- **NEON_FLICKER — ITS RECORDED BLOCKER IS MISLEADING. Designed 2026-07-30, NOT built.** Full
+  reasoning in `SPEC_TEXT_ANIMATION.md` ("NEON_FLICKER — the recorded blocker is MISLEADING").
+  The note says it "needs the renderer to modulate stroke/glow". True, and not the problem.
+  **Stroke and glow are OPTIONAL PER-OBJECT properties that most objects do not have:**
+  `TextBoxRenderer.paintRun` draws a glow pass only when `getGlowRadiusPx() > 0` and a non-transparent
+  colour, and **captions have no per-object glow at all** — `CaptionOverlayView` uses a fixed
+  `setShadowLayer` from `style.shadow`. So "modulate what is there" is a tile that does nothing on a
+  default text box and nothing on any caption — the exact thing `Preset.implemented` exists to stop.
+  **So it must SUPPLY its own glow**, derived from the unit's colour: a glow radius (and colour) on
+  `Transform`, plus a glow pass in the two caption painters that lack one. Same shape as MASK_WIPE's
+  `revealFrac`. **It does NOT hit the GHOST-blur wall** — that wall is `BlurMaskFilter`, which a
+  hardware canvas ignores; `setShadowLayer` is honoured for TEXT and `TextBoxRenderer` already
+  depends on it in the live preview. So no `LAYER_TYPE_SOFTWARE` and no divergence. Confirm that
+  with one on-device look before building. Cheap alternative on record: flicker ALPHA only — works
+  everywhere with no new channel, but reads as a stutter rather than as neon. **That last one is a
+  taste call for the user; everything above it is not.**
 - **ODOMETER IS DESIGNED, NOT BUILT — and it has a SCOPE QUESTION THAT IS THE USER'S.** Full design
   in `SPEC_TEXT_ANIMATION.md` ("ODOMETER — design"). Two findings from re-deriving it against the
   drawing loops, which is now the rule:

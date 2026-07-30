@@ -127,7 +127,50 @@ Strings are HARDCODED with `// TODO(strings)` — the extraction is frozen behin
 - **The emphasis row is relabelled "Highlight".** Pop/Zoom/Bounce are the active-word emphasis;
   the new row is the entrance/exit. Both being called "Animation" read as if one were redundant.
 
-### KNOWN GAP — GHOST ships without its blur
+### ~~KNOWN GAP — GHOST ships without its blur~~ — CLOSED 2026-07-30, blur SHIPS on text boxes
+
+**The decision resolved to "blur both surfaces, no divergence", because the price was measured
+and it is small.** The user's condition was *"if ghost preview would cause noticeable lag in
+working but look much better in export i think the divergence in this specific instance is
+warranted"* — the measurement says there is no noticeable lag, so the sanctioned divergence was
+not needed and was not taken.
+
+**The recorded blocker was pessimistic on two counts, both found by reading the painters.**
+It said blurring the preview "costs every frame of playback". In fact the preview draws each text
+box in its OWN `TextBoxView`, so (i) only a blurring box pays, not the whole overlay, and (ii) a
+project with no GHOST box pays exactly nothing. `TextBoxView.applyBlurLayerPolicy` switches that
+one view to `LAYER_TYPE_SOFTWARE` only when `CaptionAnimator.presetBlurs` is true.
+
+**The measurement** (Note 9, one build, layer type chosen from a flag file so build-to-build
+variance could not contaminate the delta; driver = 48 sustained scrubs; n = 54–62 windows of 30
+draws per arm):
+
+| box | HARDWARE median | SOFTWARE median | delta |
+|---|---|---|---|
+| 1041x564 | 193.5 us | 591.0 us | **+397.5 us (+205%)** |
+| 1080x1031 | 201.0 us | 566.0 us | +365.0 us (+182%) |
+
+Large relatively, **~0.4 ms absolutely — about 2.4% of a 16.7 ms frame, per animating box.**
+It is a LOWER BOUND: it times the inside of `onDraw` and so excludes the layer's own bitmap
+allocation and upload.
+
+**Device-proof that it draws** (`tasks/screenshots/ghost_blur_preview_ramp.png`): recording
+playback of a GHOST box, the glyphs are soft early in the entrance and sharpen as it settles,
+exactly as `blurPx = (1-e) * fontPx * 0.18` with `alpha = e` predicts. The frame carries its own
+control — `PICKERTEST`, a non-GHOST text box in the SAME frame, stays sharp throughout, so the
+softness is the preset and not a frame-wide artefact.
+
+**SCOPE, stated precisely: this ships for TEXT BOXES only.** Both of their surfaces go through
+`TextBoxRenderer`, so preview and export agree by construction. **Captions still do not consume
+`blurPx`** — `CaptionOverlayView` and `CaptionExportRenderer` ignore it, and the caption preview
+is ONE shared view for all words rather than a view per object, so its cost profile is different
+and its decision is genuinely separate. Do not assume this entry settled it.
+**Also still true: the picker thumbnail omits the blur** (`TextAnimPickerPopover`), which now
+under-advertises GHOST for text boxes. Small follow-up.
+
+<details><summary>The original entry, kept because its reasoning was right and only its cost model was wrong</summary>
+
+#### (original) KNOWN GAP — GHOST ships without its blur
 
 `Transform.blurPx` is computed by GHOST and **consumed by no renderer**, so GHOST is currently
 slide + shrink + fade. The picker's thumbnail deliberately omits the blur to match, because a

@@ -7,6 +7,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 /**
  * The live-preview surface for one TEXT overlay — a plain {@link View} that draws its glyphs
@@ -86,6 +87,7 @@ public class TextBoxView extends View {
         this.projectDurationMs = projectDurationMs;
         this.animate = animate;
         this.objectAlpha = objectAlpha;
+        applyBlurLayerPolicy();
         invalidate();
         return resized;
     }
@@ -106,6 +108,32 @@ public class TextBoxView extends View {
         float m = boxInsetPx() * 2f;
         out[0] += m;
         out[1] += m;
+    }
+
+    /**
+     * The preview's half of the GHOST-blur decision.
+     *
+     * <p>{@code BlurMaskFilter} is ignored on a hardware-accelerated canvas and honoured on a
+     * software one, so a box whose preset blurs has to be drawn through a software layer or the
+     * export would blur and the preview would not — the exact divergence
+     * {@code TextBoxRenderer} exists to prevent.
+     *
+     * <p><b>Why it is safe to just do this, rather than an export-only divergence.</b> The cost
+     * was measured rather than assumed (numbers on {@link CaptionAnimator#presetBlurs}): about
+     * +0.4ms per draw, ~2.4% of a 16.7ms frame. The spec had recorded the price as "every frame
+     * of playback", which was pessimistic on two counts — the preview draws each text box in its
+     * OWN view, so only a blurring box pays, and it pays only while it is on screen. A project
+     * with no GHOST box pays exactly nothing.
+     *
+     * <p>Applied on every {@link #bind} because the preset can change under a live view when the
+     * user picks in the animation popover; {@link View#setLayerType} is a no-op when the type is
+     * already what is asked for, so this is not a per-frame cost.
+     */
+    private void applyBlurLayerPolicy() {
+        boolean blurs = CaptionAnimator.presetBlurs(
+                animate ? CaptionAnimator.parsePreset(item.getTextAnimPreset())
+                        : CaptionAnimator.Preset.NONE);
+        setLayerType(blurs ? LAYER_TYPE_SOFTWARE : LAYER_TYPE_HARDWARE, null);
     }
 
     @Override

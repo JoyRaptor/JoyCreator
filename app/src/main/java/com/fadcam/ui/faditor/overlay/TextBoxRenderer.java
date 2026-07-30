@@ -268,7 +268,18 @@ public final class TextBoxRenderer {
             CaptionAnimator.revealClip(x, baseY, w, fontPx, t.revealFrac, clip);
             c.clipRect(clip[0], clip[1], clip[2], clip[3]);
         }
+        // GHOST's blur. Set on the paint for this unit only and cleared straight after, so it
+        // cannot leak onto the next unit or onto a later frame through the shared TextPaint.
+        // BlurMaskFilter is a no-op on a hardware canvas, which is why TextBoxView switches the
+        // view to a software layer for a blurring preset — see CaptionAnimator#presetBlurs for
+        // the measured price of doing so.
+        boolean blurred = t.blurPx > 0.25f;
+        if (blurred) {
+            p.setMaskFilter(new android.graphics.BlurMaskFilter(
+                    t.blurPx, android.graphics.BlurMaskFilter.Blur.NORMAL));
+        }
         paintRun(c, p, o, shown, x, baseY, fontPx, t.alpha * clamp01(objectAlpha));
+        if (blurred) p.setMaskFilter(null);
         c.restore();
     }
 

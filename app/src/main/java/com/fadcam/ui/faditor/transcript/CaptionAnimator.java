@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.transcript;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
  * THE authority for caption/text animation: a pure {@code (style, mediaTime) -> transform}
@@ -542,6 +543,29 @@ public final class CaptionAnimator {
      */
     public static boolean revealDrawsAnything(float revealFrac) {
         return revealFrac > 0.0005f;
+    }
+
+    /**
+     * Whether this preset ever produces a non-zero {@link Transform#blurPx}.
+     *
+     * <p>A surface that wants to honour the blur must render through a SOFTWARE canvas —
+     * {@code BlurMaskFilter} is ignored on a hardware-accelerated one — and that has a price, so
+     * a surface needs to know in advance whether to pay it. Answering here rather than at the
+     * call sites keeps it with the switch that assigns {@code blurPx}: add a blurring preset and
+     * this is in the same file, three screens away, instead of in a view that never mentions it.
+     *
+     * <p><b>Measured, 2026-07-30, so the price is not guesswork.</b> On a Note 9, forcing
+     * {@code LAYER_TYPE_SOFTWARE} on a text box took its {@code onDraw} from a median 193.5us to
+     * 591.0us on a 1041x564 box (+205%), and 201.0us to 566.0us on a 1080x1031 one (+182%);
+     * n = 54-62 windows of 30 draws per arm, same build, layer type chosen from a flag file so
+     * build variance could not contaminate the delta. Large in RELATIVE terms and about
+     * <b>0.4ms in absolute terms — roughly 2.4% of a 16.7ms frame, per animating box</b>, which
+     * is why the blur is drawn in the preview rather than being an export-only divergence.
+     * The figure is a LOWER BOUND: it times the inside of {@code onDraw} and so excludes the
+     * layer's own bitmap allocation and upload, which happen outside it.
+     */
+    public static boolean presetBlurs(@Nullable Preset preset) {
+        return preset == Preset.GHOST;
     }
 
     // ── Second output channel: WHICH CHARACTERS to draw ──────────────────────────────────────

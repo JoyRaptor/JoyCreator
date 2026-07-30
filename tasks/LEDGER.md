@@ -412,6 +412,39 @@ Before/after: `tasks/screenshots/strings_mojibake_before.png`, `strings_mojibake
 *Not covered by the `// TODO(strings)` freeze — that is about un-extracted hardcoded Java strings;
 this is corrupted characters inside a resource file that already exists.*
 
+## 1e. GHOST'S BLUR SHIPS, AND NEON_FLICKER IS BUILT-BUT-UNSEEN — 2026-07-30
+
+**GHOST's blur — `17a6254`, DONE and device-proved.** A recorded user decision with a condition
+attached ("if ghost preview would cause noticeable lag... the divergence is warranted"), so the
+answer was a number. Measured with the layer type read from a flag file, one build, both arms:
+**193.5us -> 591.0us** on a 1041x564 box (+205%) and **201.0us -> 566.0us** on a 1080x1031 one
+(+182%); n = 54-62 windows of 30 draws each. ~0.4ms absolute, **2.4% of a 16.7ms frame** — not
+noticeable lag, so the sanctioned divergence was NOT taken and both surfaces blur.
+The spec's premise was wrong twice over: the preview draws each text box in its OWN view, so
+only a blurring box pays, and only while on screen. Recorded as a LOWER BOUND (times the inside
+of onDraw, excludes the layer's bitmap allocation/upload).
+Evidence: `tasks/screenshots/ghost_blur_preview_ramp.png` — soft early, sharpening as it
+settles, with `PICKERTEST` in the same frame staying sharp as a free positive control.
+**Scope: TEXT BOXES only.** Captions still ignore `blurPx` — one shared view for all words, so a
+different cost profile and a separate decision.
+
+**NEON_FLICKER — `e66d5b7`, BUILT AND NEVER SEEN. Do not mark it verified.** In the installed
+APK (control 3, `NEON_FLICKER`=1, `glowPx`=3), but the Note 9 was unplugged immediately after the
+install, so the look, the flicker rhythm and the entire caption-side glow are unobserved.
+Its recorded blocker named the wrong obstacle — modulation was never the hard part, HAVING
+something to modulate was, since stroke and glow are optional per-object properties a default
+text box lacks and a caption has no per-object form of. The preset supplies its own glow
+(`Transform.glowPx`) in the unit's own fill colour. One assumption WAS checked on device first:
+`setShadowLayer` is honoured for text on a hardware canvas (30px magenta halo, seen live), which
+is why this needs no software layer and no divergence.
+
+**Five harness errors this session, each of which read as a finding first:** a JSON-injected
+preset is inert without `textAnimInPct`/`OutPct` (the picker seeds them, the model does not);
+whole-window jank measured the wrong thing and its arms alternated state; a per-instance counter
+never filled because `TextBoxView`s are recreated constantly; a cyan probe glow vanished against
+a teal carpet; and non-ASCII in a Java string literal broke the harness build, costing the
+NEON_FLICKER invariant test, which was written and reverted. Harness unchanged at 298/0.
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

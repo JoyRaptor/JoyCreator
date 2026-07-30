@@ -86,6 +86,9 @@ divergence, and does not weaken the proof above), but it is close to certainly n
 means by "animate this title in". It is arguably downstream of BUG A: if the visual duration drove
 the span, the entrance would fit.
 
+**~~BUG C~~ — FIXED AND PROVED, 2026-07-30, `5a6cb4c`. See §1d below. The paragraph that follows
+is the original diagnosis, kept because its root cause was exact and made the fix a one-shot.**
+
 **BUG C — IMAGE OVERLAYS DO NOT EXPORT. CONFIRMED BY MEASUREMENT, and the root cause is exact.**
 The handoff found this by reading and asked for it to be confirmed before anyone spent a session on
 it. It is confirmed. It could not be tested with the sandbox as it stood — both image overlays live
@@ -120,6 +123,68 @@ inference was wrong, and is corrected here rather than in place so the reasoning
 overlay's rect. The preview already does it, so the geometry is settled; this is the export half
 only. **Not attempted this session** — it is a feature, not a one-liner, and the session's job was
 to establish whether it was real.
+
+## 1d. BUG C IS FIXED — IMAGE OVERLAYS EXPORT, 2026-07-30, `5a6cb4c`
+
+The cheapest real win on the docket, and it was cheap for the reason the ledger predicted: the
+root cause was exact and the geometry was already settled by the preview.
+
+**The fix.** An image branch in `CompositeExportOverlay` that decodes the URI and draws the bitmap.
+Geometry is **MIRRORED from `TextOverlayLayer.position`, not re-derived** — height is a fraction of
+the frame height, width follows the bitmap's own aspect, centred on the animated centre, FIT_XY into
+that rect. Preset transform, opacity composition and MASK_WIPE reveal follow the same order the text
+path and the preview's View properties use. **The dead `setImageUri` call is DELETED**, not left in
+place — a setter nobody reads is the exact §3a failure mode, and leaving it would re-arm the trap.
+Bitmaps are decoded once per overlay, cached for the clip's lifetime, and downsampled against the
+OUTPUT frame (a 12MP photo on a 480p export would otherwise be held at full size for all 928
+frames). A failed decode is cached as a null so it logs once, not 900 times; `release()` recycles.
+
+**Measured, with the control that makes it mean something:**
+
+| sample | pixels differing vs the previous export |
+|---|---|
+| t=8.0s | **129,563** of 409,920 |
+| t=10.0s | **124,529** |
+| t=2.5s — outside the 6009–11009 span | **0** |
+
+The ledger's original measurement of this overlay was **0 differing pixels**. The zero at t=2.5s is
+the control: the differ works on these exact files, and the change touched only the image.
+
+**GEOMETRY PROVED AGAINST THE MODEL, NOT EYEBALLED.** Predicted from `project.json` (`centerY`
+0.68915164, `sizeFraction` 0.30, asset 2734×737) BEFORE looking: export rect y **460.4 … 716.6**;
+measured **460 … 716**. The top edge is unambiguous — a pure black gap at y=456–459 separates the
+image from PICKERTEST's white text, and `brightfrac` jumps to 1.000 exactly at y=460.
+
+**PREVIEW AND EXPORT AGREE, and the proof is stronger than a diff:** each independently matches the
+same model. With the overlay temporarily moved inside the master-track window (deep-equality guard —
+only `startMs`/`endMs`/`timelineStartMs` differed, the script refused to write otherwise), the
+preview at 00:02.954 draws it at y **666…974** against a predicted **666.4…975.9** — with the video
+content rect measured INDEPENDENTLY (x 250…829, top y=110, via a grey-vs-colour test) rather than
+derived from the answer, which would have been circular. Two surfaces, two scales, one authority,
+both within ~2px.
+
+**Both image overlays work, and they exercise DIFFERENT paths:** `edff4a88` is a `project://assets`
+PNG, `37b215f3` is a `content://` URI — and the latter sits at 23497–23747, i.e. inside the tail
+filler from `9b03bdc`, so **images render over the filler too**.
+
+**Verified:** harness **298 passed, 0 failed**, matte ALL PASS, both from a clean compile. APK
+dex-scanned with `FadCamApplication` as the positive control (3) alongside `imageOverlayBitmap`.
+Sandbox restored to `82d8342d`.
+
+**FOUND, NOT FIXED — a PREVIEW-side gap, now the mirror image of the old bug.** At 7.743s, past the
+master track, the preview did **not** draw this image overlay while the export now does — yet the
+preview **does** draw the PICKERTEST text box at that same time, so it is not a blanket
+"nothing past the master track" rule. Moved inside the master window, both surfaces agree. Recorded
+as an observation with its evidence, **not diagnosed** — the mechanism was not established, and
+guessing one is what produced the wrong §3a inference this ledger had to correct.
+
+**A GRADLE SPURIOUS FAILURE, and the artifact check that had to follow it.** `assembleDefaultDebug`
+failed once with `cannot find symbol` across ExportManager's imports, then succeeded on an immediate
+re-run with **no source change** — the documented re-run rule. But the successful run had javac
+EXECUTE while `dexBuilder`, `mergeProjectDex` and `packageDefaultDebug` all reported `UP-TO-DATE`,
+which is the exact signature of the corrupt APK `d29e8bf` warned about. The APK was dex-scanned
+before it was trusted; it was in fact fresh. **A spurious failure does not excuse skipping the
+artifact check — it is precisely when to do it.**
 
 ## 1c. BUGS A, A2 AND B ARE FIXED AND MEASURED — 2026-07-30, `9b03bdc` (on `d29e8bf`)
 

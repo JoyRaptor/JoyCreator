@@ -22,7 +22,10 @@ def mix(a, b, c):
     h = i32(h * 0x85EBCA6B)
     return i32(h ^ ushr(h, 13))
 
-GLYPHS = [chr(c) for c in range(0xFF66, 0xFF9E)] + list("0123456789")
+ASCII_GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789*&^%$#@!{}?<>"
+# Weighted x2, mirroring CaptionAnimator.MATRIX_ASCII_WEIGHT: the user asked for a higher
+# ratio of English letters and numbers so the churn does not read as one language.
+GLYPHS = [chr(c) for c in range(0xFF66, 0xFF9E)] + list(ASCII_GLYPHS) * 2
 TICKS = 12
 CHURN_SPAN = 0.30
 JITTER_SALT = 0x3A7C19

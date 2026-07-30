@@ -691,15 +691,44 @@ public final class CaptionAnimator {
      */
     private static final char[] MATRIX_GLYPHS = buildMatrixGlyphs();
 
+    /**
+     * The churn alphabet, deliberately WEIGHTED towards ASCII.
+     *
+     * <p>User direction, 2026-07-30: <i>"it should have a higher ratio of english letters and
+     * numbers in the nonsense pool so it is clear we're not trying to spell anything in any
+     * specific language"</i>, plus an explicit request for the symbol run below. The original pool
+     * was 56 katakana against 10 digits \u2014 85% katakana \u2014 which read as scrambled JAPANESE rather
+     * than as machine noise. Weighting is done by listing the ASCII block twice rather than by
+     * thinning the katakana, so the katakana range stays intact (the harness pins that it is fully
+     * reached, that no fullwidth leaked in, and that the combining marks are excluded) while its
+     * share of the pool drops to roughly a quarter.</p>
+     *
+     * <p>Every added character is ASCII in the SOURCE, which matters here: a literal non-ASCII
+     * character in a Java string breaks the windows-1252 harness build, so the katakana stays as
+     * {@code \\uXXXX} escapes \u2014 javac resolves those in the lexer regardless of file encoding.</p>
+     *
+     * <p>Layout safety is unaffected: every glyph is one char, the returned string keeps the input
+     * length, and both renderers measure the slot from the REAL text.</p>
+     */
     private static char[] buildMatrixGlyphs() {
         StringBuilder sb = new StringBuilder();
         // U+FF66 HALFWIDTH KATAKANA LETTER WO .. U+FF9D HALFWIDTH KATAKANA LETTER N.
-        // Escapes, not literals: javac resolves them in the lexer regardless of file encoding, so
-        // the windows-1252 harness build reads the right characters.
         for (char c = '\uFF66'; c <= '\uFF9D'; c++) sb.append(c);
-        sb.append("0123456789");
+        // Listed TWICE \u2014 this is the weighting, and it is the whole point of the block above.
+        for (int rep = 0; rep < MATRIX_ASCII_WEIGHT; rep++) sb.append(MATRIX_ASCII_GLYPHS);
         return sb.toString().toCharArray();
     }
+
+    /**
+     * The ASCII half of the churn alphabet. Letters and digits carry the "this is not a language"
+     * reading; the symbol run is the user's own list and is what makes it read as code rather than
+     * as a failed font.
+     */
+    private static final String MATRIX_ASCII_GLYPHS =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789*&^%$#@!{}?<>";
+
+    /** How many times {@link #MATRIX_ASCII_GLYPHS} is repeated in the pool \u2014 see the builder. */
+    private static final int MATRIX_ASCII_WEIGHT = 2;
 
     /**
      * How many discrete churn steps a unit passes through across its zone. Quantising is not a

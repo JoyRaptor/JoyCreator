@@ -635,8 +635,17 @@ public class CaptionAnimatorTest {
     static String buildGlyphs() {
         StringBuilder sb = new StringBuilder();
         for (int c = 0xFF66; c <= 0xFF9D; c++) sb.append((char) c);
-        return sb + "0123456789";
+        return sb + ASCII_GLYPHS + ASCII_GLYPHS;   // weighted x2, mirroring the implementation
     }
+
+    /**
+     * The ASCII half of the pool. User direction 2026-07-30: more English letters and numbers so
+     * the churn does not read as an attempt to spell something in a specific language, plus this
+     * exact symbol run. Pure ASCII here for the same encoding reason the katakana is built from
+     * code points.
+     */
+    static final String ASCII_GLYPHS =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789*&^%$#@!{}?<>";
 
     static void matrixSubstitution() {
         System.out.println("\n── MATRIX glyph substitution ──");
@@ -868,11 +877,43 @@ public class CaptionAnimatorTest {
         char offender = 0;
         for (char c : seen) {
             boolean katakana = c >= 0xFF66 && c <= 0xFF9D;
-            boolean digit = c >= '0' && c <= '9';
-            if (!katakana && !digit) { inRange = false; offender = c; }
+            if (!katakana && ASCII_GLYPHS.indexOf(c) < 0) { inRange = false; offender = c; }
         }
-        ok("every substituted glyph is halfwidth katakana or a digit"
+        ok("every substituted glyph is halfwidth katakana or a declared ASCII glyph"
                 + (inRange ? "" : " (offender U+" + Integer.toHexString(offender) + ")"), inRange);
+
+        // The POOL IS WEIGHTED TOWARDS ASCII, per the user's "higher ratio of english letters and
+        // numbers ... so it is clear we're not trying to spell anything in any specific language".
+        // Pinned as a ratio rather than as a character list, so the intent survives an edit to the
+        // alphabet: thinning the ASCII block back out fails here even if every character is still
+        // "declared". Sampled from real output, not from the constant, so it measures what a
+        // viewer actually sees.
+        int asciiSeen = 0, kataSeen = 0;
+        for (int u = 0; u < 60; u++) {
+            for (int k = 0; k <= 12; k++) {
+                for (char c : CaptionAnimator.substituteUnit(
+                        M, "XXXXXXXX", k / 13f, u).toCharArray()) {
+                    if (c == 'X' || c == ' ') continue;
+                    if (c >= 0xFF66 && c <= 0xFF9D) kataSeen++;
+                    else asciiSeen++;
+                }
+            }
+        }
+        float asciiShare = asciiSeen / (float) Math.max(1, asciiSeen + kataSeen);
+        ok("the churn pool is majority ASCII (" + Math.round(asciiShare * 100)
+                + "% of drawn glyphs), so it does not read as one language", asciiShare > 0.6f);
+        ok("...and katakana is still genuinely reached, so it still reads as code not as a typo",
+                kataSeen > 0);
+
+        // The user's symbol run specifically. Listed out so a future "let's tidy the alphabet"
+        // edit has to argue with a test rather than quietly dropping them.
+        boolean symbolsReachable = true;
+        String missing = "";
+        for (char c : "*&^%$#@!{}?<>".toCharArray()) {
+            if (GLYPHS.indexOf(c) < 0) { symbolsReachable = false; missing += c; }
+        }
+        ok("the requested symbol run is in the pool"
+                + (symbolsReachable ? "" : " (missing " + missing + ")"), symbolsReachable);
         ok("the alphabet actually reaches katakana, not just digits (" + seen.size() + " glyphs)",
                 seen.stream().anyMatch(c -> c >= 0xFF66 && c <= 0xFF9D));
         ok("no FULLWIDTH katakana leaked in (they would overflow the measured slot)",

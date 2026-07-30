@@ -117,6 +117,40 @@ overlay's rect. The preview already does it, so the geometry is settled; this is
 only. **Not attempted this session** — it is a feature, not a one-liner, and the session's job was
 to establish whether it was real.
 
+**THE TEXT-BOX PICKER IS CONFIRMED ON A PHONE — 2026-07-30.** The four-granularity gate was open in
+code (`textAnimGranularitySupported` returns true, the picker is passed `null`) but had never been
+seen on a device. It has now: long-press PICKERTEST in the PREVIEW → sheet in PEEK → drag the handle
+up → scroll the action list → **More…** → Edit text → the MOTION row's `≡A`. The popover draws
+**NINE preset tiles** (None / Type / Fade / Rise / Ghost / Beam / Matrix / Unscramble / Mask wipe)
+over an **"Animate by" row offering all four: Letter, Word, Sentence, Block** — where a text box used
+to be offered Block alone. Screenshot `tasks/screenshots/textbox_picker_nine_tiles_four_grans.png`.
+The nine tiles are also the behavioural freshness proof for the installed build. Dismissed with BACK
+rather than by picking, and `project.json` verified still `eb3d16b8` afterwards — **picking a preset
+writes immediately, so observing must not become editing.**
+
+**TEXT BOXES HOLD FRAME RATE AT LETTER — measured 2026-07-30.** Matched 6s playback runs from t=0
+over the same span, changing ONLY `textAnimGranularity` on disk with the app force-stopped,
+`dumpsys gfxinfo` reset after load and before play:
+
+| | LETTER | BLOCK (control) |
+|---|---|---|
+| Frames | 273 | 278 |
+| Janky | 89 (**32.60%**) | 99 (**35.61%**) |
+| 50th | 12ms | 11ms |
+| 90th | 24ms | 24ms |
+| 95th | 29ms | 30ms |
+| 99th | 89ms | 97ms |
+
+**Per-glyph layout on the new `TextBoxRenderer` costs nothing measurable** — the same conclusion the
+caption path reached, now established for the second renderer. **Read the direction honestly: LETTER
+scoring BETTER than BLOCK is noise, not a speedup**; the point is that the difference is small and
+pointing the wrong way to be a cost. Both arms bracket the known ~33.7% editor baseline (video
+decode + waveform), so the jank is the editor's, not the animation's.
+**Stated weakness:** unlike the caption measurement, this run has no in-run screenshot proving the
+two arms looked different. That they do is established elsewhere in the session (the preview at
+1.318s under LETTER draws only `PI`), but not inside these two runs. A future repeat should capture
+one frame per arm.
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

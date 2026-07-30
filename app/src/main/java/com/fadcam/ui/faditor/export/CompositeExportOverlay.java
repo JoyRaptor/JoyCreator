@@ -85,6 +85,66 @@ public class CompositeExportOverlay extends BitmapOverlay {
      * neighbor.
      */
     @Nullable
+    /**
+     * Decoded image-overlay bitmaps, keyed by overlay id, decoded once and reused for every frame.
+     *
+     * <p>A null VALUE is a cached failure: an overlay whose URI cannot be decoded must not be
+     * re-attempted 900 times, and must not log 900 times either. Presence of the key is the
+     * "already tried" flag, so {@code containsKey} — not {@code get() != null} — is the test.</p>
+     */
+    private final java.util.Map<String, Bitmap> imageOverlayBitmaps = new java.util.HashMap<>();
+
+    /**
+     * The bitmap for an image overlay, decoded on first use and cached for the clip's lifetime.
+     *
+     * <p>Downsampled so the decode is bounded by the OUTPUT frame rather than by the source file:
+     * a 12-megapixel photo dropped on a 480p export would otherwise be held at full size for every
+     * frame of the clip. The bound is the frame's larger dimension, so an overlay scaled up to fill
+     * the frame still has pixels to spare.</p>
+     *
+     * @return the bitmap, or null if it could not be decoded (logged once per overlay).
+     */
+    @Nullable
+    private Bitmap imageOverlayBitmap(@NonNull TextOverlayItem o) {
+        String key = o.getId();
+        if (imageOverlayBitmaps.containsKey(key)) {
+            Bitmap cached = imageOverlayBitmaps.get(key);
+            return (cached != null && !cached.isRecycled()) ? cached : null;
+        }
+        Bitmap out = null;
+        String uriStr = o.getImageUri();
+        try {
+            android.net.Uri uri = android.net.Uri.parse(uriStr);
+            android.graphics.BitmapFactory.Options bounds =
+                    new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+            }
+            int maxEdge = Math.max(outW, outH);
+            int sample = 1;
+            while (bounds.outHeight / (sample * 2) >= maxEdge
+                    && bounds.outWidth / (sample * 2) >= 1) {
+                sample *= 2;
+            }
+            android.graphics.BitmapFactory.Options opts =
+                    new android.graphics.BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                out = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+            }
+        } catch (Throwable t) {
+            FLog.w(TAG, "image overlay " + key + " could not be decoded from " + uriStr
+                    + " — it will be absent from the exported file", t);
+        }
+        if (out == null) {
+            FLog.w(TAG, "image overlay " + key + " decoded to null from " + uriStr
+                    + " — it will be absent from the exported file");
+        }
+        imageOverlayBitmaps.put(key, out);
+        return out;
+    }
+
     private Bitmap generatedOverlayFrame(@NonNull TextOverlayItem o, long timelineMs) {
         com.fadcam.ui.faditor.model.GeneratedSource gs = o.getGeneratedSource();
         if (gs == null || gs.renderSequenceDir == null) return null;
@@ -536,6 +596,56 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 drawnText++;
                 continue;
             }
+
+            // ── IMAGE: draw the bitmap. Until 2026-07-30 this fell through to the text path ──────
+            // below, which called setImageUri() on a throwaway item and handed it to
+            // TextOverlayRenderer — a text rasteriser with ZERO references to images, which
+            // substitutes " " for empty text. An image overlay's text IS empty, so every image
+            // overlay exported as one blank space: measured at 0 of 409,920 pixels changed. The
+            // setter call looked like function and was a call into a void. See LEDGER "BUG C".
+            //
+            // Geometry is MIRRORED from the preview (TextOverlayLayer.position), not re-derived:
+            // height is a fraction of the frame height, width follows the bitmap's own aspect,
+            // and the rect is centred on the object's animated centre. The preview's ImageView is
+            // FIT_XY, so drawing into that dst rect stretches identically.
+            if (o.isImage()) {
+                Bitmap img = imageOverlayBitmap(o);
+                if (img == null) continue; // already logged once
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform ianim =
+                        com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
+                                com.fadcam.ui.faditor.transcript.CaptionAnimator
+                                        .parsePreset(o.getTextAnimPreset()),
+                                timelineMs, o.getStartMs(), o.animSpanMs(projectDurationMs),
+                                o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
+                float aspect = img.getHeight() > 0
+                        ? img.getWidth() / (float) img.getHeight() : 1f;
+                float ih = Math.max(1f, sizeFrac * outH);
+                float iw = Math.max(1f, ih * aspect);
+                Paint ip = new Paint(Paint.FILTER_BITMAP_FLAG);
+                // The preview composes the preset's alpha OVER the keyframed opacity
+                // ("compose, don't replace"), so this multiplies rather than picking one.
+                int ia = Math.round(opacity * ianim.alpha * 255f);
+                ip.setAlpha(Math.max(0, Math.min(255, ia)));
+                canvas.save();
+                // Same order as the text path and as the preview's View properties.
+                canvas.translate(ianim.dx, ianim.dy);
+                canvas.rotate(rot, cx, cy);
+                canvas.scale(ianim.scaleX, ianim.scaleY, cx, cy);
+                // MASK_WIPE's reveal. No ink-pad inset here, unlike the text path: that pad is a
+                // TextOverlayRenderer artefact (transparent margin round the glyphs), and an
+                // image's drawn rect IS its bounds — which is also what the preview clips.
+                if (ianim.revealFrac < 1f) {
+                    canvas.clipRect(cx - iw / 2f, cy - ih / 2f,
+                            cx - iw / 2f + iw * Math.max(0f, ianim.revealFrac), cy + ih / 2f);
+                }
+                canvas.drawBitmap(img,
+                        new android.graphics.Rect(0, 0, img.getWidth(), img.getHeight()),
+                        new android.graphics.RectF(cx - iw / 2f, cy - ih / 2f,
+                                cx + iw / 2f, cy + ih / 2f), ip);
+                canvas.restore();
+                drawnText++;
+                continue;
+            }
             // SPEC_TIMER_OBJECT: a timer overlay draws a COMPUTED string for this frame;
             // everything else about it (style, transform, keyframes) is unchanged, which
             // is what makes a timer inherit the caption look. Same authority the preview
@@ -567,7 +677,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
             frameOverlay.setGlowRadiusPx(o.getGlowRadiusPx());
             frameOverlay.setBackgroundColorInt(o.getBackgroundColorInt());
             frameOverlay.setFontFamily(o.getFontFamily());
-            frameOverlay.setImageUri(o.getImageUri());
+            // NOTE: setImageUri() used to be called here. It was a CALL INTO A VOID —
+            // TextOverlayRenderer has no image support whatsoever — and it is what made BUG C
+            // look implemented for months. Images are now handled by the branch above and can
+            // never reach this point, so there is no image URI to pass on. Deleted rather than
+            // left in place, because a setter nobody reads is the exact §3a failure mode.
             Bitmap textBmp = TextOverlayRenderer.render(frameOverlay, outW, outH);
             if (textBmp == null || textBmp.isRecycled()) {
                 if (!loggedNullTextWarning) {
@@ -819,6 +933,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (r != null) r.recycle();
         }
         spriteRenderers.clear();
+        for (Bitmap b : imageOverlayBitmaps.values()) {
+            if (b != null && !b.isRecycled()) b.recycle();
+        }
+        imageOverlayBitmaps.clear();
         if (lastReturnedBitmap != null && !lastReturnedBitmap.isRecycled()) {
             lastReturnedBitmap.recycle();
         }

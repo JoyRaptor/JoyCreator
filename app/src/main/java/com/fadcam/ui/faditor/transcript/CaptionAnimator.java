@@ -65,21 +65,54 @@ public final class CaptionAnimator {
         /**
          * Gaussian blur radius in px, 0 = sharp. GHOST is the only preset that sets it.
          *
-         * <p><b>NO RENDERER CONSUMES THIS TODAY (2026-07-28).</b> Neither {@code
-         * CaptionOverlayView} nor {@code CaptionExportRenderer} applies it, so GHOST currently
-         * ships as slide + shrink + fade with no softening, and the preset picker's thumbnail
-         * deliberately omits the blur to match. This is recorded rather than quietly fixed
-         * because the obvious fix is a trap: {@code BlurMaskFilter} is ignored on a
-         * hardware-accelerated canvas, so adding it to the preview alone would do nothing on
-         * screen while the export — which draws into a {@code Bitmap}, i.e. software — really
-         * would blur. That is the preview/export divergence this class exists to prevent, in a
-         * form no frame-diff of the preview would catch. Blurring the preview needs
-         * {@code LAYER_TYPE_SOFTWARE} on the overlay, which costs every frame of playback, so it
-         * is a decision with a price rather than an oversight to patch.</p>
+         * <p><b>CONSUMED BY TEXT BOXES since 2026-07-30</b> ({@code TextBoxRenderer#drawUnit},
+         * which both the preview and the export call), so GHOST really softens on a text box.
+         * The trap it was held back for is real and was solved rather than dodged:
+         * {@code BlurMaskFilter} is ignored on a hardware-accelerated canvas, so blurring the
+         * preview needs {@code LAYER_TYPE_SOFTWARE} — {@code TextBoxView} switches to it only
+         * for a preset that actually blurs, which is why the price is one box while it animates
+         * rather than "every frame of playback" as first recorded. Measured at ~0.4ms per draw,
+         * about 2.4% of a 16.7ms frame; see {@link #presetBlurs}.
+         *
+         * <p><b>Captions still ignore it</b> — {@code CaptionOverlayView} and
+         * {@code CaptionExportRenderer} do not apply it, and the picker thumbnail still omits it.
+         * The caption preview is ONE shared view for all words rather than a view per object, so
+         * its cost profile is different and its decision is genuinely separate. Do not assume the
+         * text-box answer settles it.</p>
          *
          * <p>Renderers that cannot blur must ignore this rather than approximate it.</p>
          */
         public float blurPx = 0f;
+
+        /**
+         * A glow radius in px that the PRESET supplies, drawn in the unit's own fill colour.
+         * 0 = none, which is what every preset but {@link Preset#NEON_FLICKER} returns.
+         *
+         * <p><b>Why the preset supplies its own glow instead of modulating the object's.</b>
+         * Stroke and glow are OPTIONAL per-object properties: {@code TextBoxRenderer.paintRun}
+         * draws its glow pass only when the user set a radius and colour, and captions have no
+         * per-object glow at all — {@code CaptionOverlayView} sets a fixed shadow from
+         * {@code style.shadow} and there is nothing of the user's to scale. So a preset that
+         * merely multiplied an existing glow would render as NOTHING on a default text box and
+         * nothing on any caption, which is precisely the failure {@link Preset#implemented}
+         * exists to prevent. A preset owns its feel and must not depend on unrelated user
+         * styling to be visible.
+         *
+         * <p><b>It is a RADIUS, not a colour+radius pair, deliberately.</b> The colour is the
+         * unit's own fill at the draw site, so the glow tracks a recoloured caption or text box
+         * for free and cannot be left pointing at a stale colour. A neon tube glows the colour
+         * it burns.
+         *
+         * <p><b>This does NOT hit the {@link #blurPx} problem.</b> That one needs a software
+         * layer because {@code BlurMaskFilter} is ignored on a hardware canvas. This uses
+         * {@code Paint.setShadowLayer}, which IS honoured for text on a hardware canvas —
+         * confirmed on a Note 9 on 2026-07-30 by giving a text box a 30px magenta glow and
+         * seeing the halo in the live preview. So one code path serves both surfaces with no
+         * divergence and no {@code LAYER_TYPE_SOFTWARE}.
+         *
+         * <p>Renderers that cannot draw a glow must ignore this rather than approximate it.</p>
+         */
+        public float glowPx = 0f;
 
         /**
          * How much of the unit's own slot is REVEALED, 0..1, wiped in from the leading (left)
@@ -325,8 +358,23 @@ public final class CaptionAnimator {
         // Declared, NOT implemented. Each needs more than a Transform:
         /** Needs GLYPH SUBSTITUTION plus a vertical roll clip per slot. */
         ODOMETER(false),
-        /** Needs the renderer to modulate STROKE/GLOW, which is not a geometric transform. */
-        NEON_FLICKER(false);
+
+        /**
+         * A tube striking: the unit stutters between lit and nearly-dark on an irregular but
+         * DETERMINISTIC schedule, with a glow that swells as it strikes and settles away as the
+         * tube steadies. Fourth of the five declared-but-blocked presets, implemented
+         * 2026-07-30.
+         *
+         * <p>Its old blocker read "needs the renderer to modulate STROKE/GLOW, which is not a
+         * geometric transform". True, and not the problem — see {@link Transform#glowPx}: the
+         * real obstacle was that there is usually no stroke or glow to modulate, so the fix was
+         * for the preset to SUPPLY one rather than for the renderers to scale one.
+         *
+         * <p>Both channels return to identity at {@code p = 1} — alpha to 1, glow to 0 — so the
+         * unit lands exactly on its un-animated appearance and the zone boundary is continuous.
+         * A residual glow would pop off the instant the in-zone ended.</p>
+         */
+        NEON_FLICKER(true);
 
         /** True when {@link #presetTransform} fully expresses this preset. */
         public final boolean implemented;
@@ -348,8 +396,13 @@ public final class CaptionAnimator {
             // ACCURATE about what was missing and misleading about the size of it: the clip rect
             // was genuinely a new channel, but Transform#revealFrac plus one shared revealClip
             // helper covered all four surfaces. A blocker note names a requirement, not a cost.
+            // NEON_FLICKER is no longer here. Its reason ("needs stroke/glow modulation") named
+            // the wrong obstacle: modulation was never the hard part, HAVING something to
+            // modulate was — stroke and glow are optional per-object properties that a default
+            // text box lacks and a caption has no per-object form of at all. The preset supplies
+            // its own glow instead (Transform#glowPx), which is one new channel and four
+            // consuming surfaces, the same shape MASK_WIPE's revealFrac took.
             case ODOMETER:    return "needs glyph substitution and a per-slot roll clip";
-            case NEON_FLICKER:return "needs stroke/glow modulation";
             default:          return "";
         }
     }
@@ -419,6 +472,28 @@ public final class CaptionAnimator {
                 float e = overshoot(p);
                 out.dy = (1f - e) * fontPx * 0.9f;
                 out.alpha = Math.min(1f, p * 2f); // opaque well before it settles
+                break;
+            }
+            case NEON_FLICKER: {
+                // A tube striking. Closed-form in p and unitIdx — no clock, no RNG state — so
+                // preview, export and thumbnail all compute the identical frame, which is the
+                // rule the whole class exists to keep ("PREDICT, THEN LOOK").
+                //
+                // settle rises quadratically so the stutter is concentrated EARLY and the last
+                // third is essentially steady; a uniformly random flicker reads as a fault
+                // rather than as a tube warming up.
+                float settle = p * p;
+                int slot = (int) (p * NEON_SLOTS);
+                // 0..1 from the shared integer mix, keyed by unit so adjacent glyphs strike out
+                // of step with each other rather than blinking in unison.
+                float h = Math.floorMod(mix(unitIndex, slot, NEON_SALT), 1000) / 1000f;
+                boolean lit = h < 0.30f + 0.70f * settle;
+                // Dropouts get shallower as it settles, reaching exactly 1 at p = 1.
+                out.alpha = lit ? 1f : 0.18f + 0.82f * settle;
+                // The glow swells and dies within the zone: 0 at both ends, peak mid-strike.
+                // Ending at 0 is what makes the zone boundary continuous.
+                float envelope = 4f * p * (1f - p);
+                out.glowPx = (lit ? 1f : 0.35f) * fontPx * 0.45f * envelope;
                 break;
             }
             case GHOST: {
@@ -716,6 +791,11 @@ public final class CaptionAnimator {
      */
     private static final int SCATTER_SALT_X = 0x5CA77E7;
     private static final int SCATTER_SALT_Y = 0x1D1EC70;
+
+    /** How many flicker slots NEON_FLICKER cuts its entrance into. */
+    private static final int NEON_SLOTS = 14;
+    /** Keeps NEON_FLICKER's hash from colliding with UNSCRAMBLE's scatter for the same unit. */
+    private static final int NEON_SALT = 0x4E30F1;
 
     /** One axis of a unit's scatter direction, in {@code [-1, 1]}. */
     private static float scatterAxis(int unitIndex, int salt) {

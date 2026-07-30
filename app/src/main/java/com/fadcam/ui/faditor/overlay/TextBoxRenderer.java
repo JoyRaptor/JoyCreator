@@ -278,7 +278,7 @@ public final class TextBoxRenderer {
             p.setMaskFilter(new android.graphics.BlurMaskFilter(
                     t.blurPx, android.graphics.BlurMaskFilter.Blur.NORMAL));
         }
-        paintRun(c, p, o, shown, x, baseY, fontPx, t.alpha * clamp01(objectAlpha));
+        paintRun(c, p, o, shown, x, baseY, fontPx, t.alpha * clamp01(objectAlpha), t.glowPx);
         if (blurred) p.setMaskFilter(null);
         c.restore();
     }
@@ -292,7 +292,19 @@ public final class TextBoxRenderer {
      */
     private static void paintRun(@NonNull Canvas c, @NonNull TextPaint p,
                                  @NonNull TextOverlayItem o, @NonNull String run,
-                                 float x, float baseY, float fontPx, float animAlpha) {
+                                 float x, float baseY, float fontPx, float animAlpha,
+                                 float presetGlowPx) {
+        // The PRESET's own glow (NEON_FLICKER), in the unit's own fill colour. Drawn before the
+        // object's optional passes so the user's stroke and glow still sit on top of it, and
+        // cleared by the applyShadow below, which every path already reaches.
+        if (presetGlowPx > 0.25f) {
+            p.setShadowLayer(presetGlowPx, 0f, 0f,
+                    CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
+            c.drawText(run, x, baseY, p);
+            p.clearShadowLayer();
+        }
         if (o.getStrokeWidthPx() > 0f && o.getStrokeColorInt() != Color.TRANSPARENT) {
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(o.getStrokeWidthPx());

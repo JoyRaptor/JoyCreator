@@ -314,7 +314,7 @@ public class CaptionExportRenderer {
                     .revealClip(x, baseY, w, fontPx, pre.revealFrac, revealTmp);
             canvas.clipRect(revealTmp[0], revealTmp[1], revealTmp[2], revealTmp[3]);
         }
-        paintWord(shown, x, baseY, color, fontPx, pre.alpha);
+        paintWord(shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
         canvas.restore();
     }
 
@@ -322,8 +322,31 @@ public class CaptionExportRenderer {
     private final float[] revealTmp = new float[4];
 
     /** Fill pass plus optional stroke-outline pass — mirrors CaptionOverlayView. */
+    /** The style's own shadow, as the per-frame setup applies it — mirror of the preview's. */
+    private void applyStyleShadow(float fontPx) {
+        if (style.shadow) {
+            textPaint.setShadowLayer(fontPx * 0.12f, 0, fontPx * 0.05f, 0xDD000000);
+        } else {
+            textPaint.clearShadowLayer();
+        }
+    }
+
     private void paintWord(String word, float x, float baseY, int fillColor, float fontPx,
-                           float animAlpha) {
+                           float animAlpha, float presetGlowPx) {
+        // The PRESET's own glow (NEON_FLICKER), in the word's own fill colour. Captions have
+        // no per-object glow to modulate, which is exactly why the preset supplies one — see
+        // CaptionAnimator.Transform#glowPx. Drawn before the outline/fill passes and cleared
+        // straight after, then the style's shadow is restored so the next word is unaffected.
+        if (presetGlowPx > 0.25f) {
+            textPaint.setStyle(Paint.Style.FILL);
+            textPaint.setColor(com.fadcam.ui.faditor.transcript.CaptionAnimator
+                    .applyAlpha(fillColor, animAlpha));
+            textPaint.setShadowLayer(presetGlowPx, 0, 0,
+                    com.fadcam.ui.faditor.transcript.CaptionAnimator
+                            .applyAlpha(fillColor, animAlpha));
+            canvas.drawText(word, x, baseY, textPaint);
+            applyStyleShadow(fontPx);
+        }
         if (style.outline) {
             textPaint.setStyle(Paint.Style.STROKE);
             textPaint.setStrokeWidth(Math.max(1f, fontPx * 0.08f));

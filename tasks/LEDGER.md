@@ -193,6 +193,9 @@ encoded length. 99.6% coverage against 18.6% before. Also, `getTotalDurationMs` 
 and does not consider OVERLAY ends, so a text box extending past the last audio clip would still be
 clipped. Neither was worth chasing today; both are recorded so nobody rediscovers them as new.
 
+Evidence: `tasks/screenshots/export_tailfiller_4frames.png` (the four tail frames side by side),
+`export_dialog_00_05_before.png` and `export_dialog_00_30_after.png` (bug A2 on the phone).
+
 **A GRADLE LIE, CAUGHT BY MTIME — new instance of the standing rule.** The build reported
 `compileDefaultDebugJavaWithJavac UP-TO-DATE` **immediately after an edit to that very file**, while
 the `.class` mtime was 4 seconds AFTER the edit and the APK 4 seconds after that. The artifact had

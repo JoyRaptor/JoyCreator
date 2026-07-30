@@ -171,12 +171,47 @@ filler from `9b03bdc`, so **images render over the filler too**.
 dex-scanned with `FadCamApplication` as the positive control (3) alongside `imageOverlayBitmap`.
 Sandbox restored to `82d8342d`.
 
-**FOUND, NOT FIXED — a PREVIEW-side gap, now the mirror image of the old bug.** At 7.743s, past the
-master track, the preview did **not** draw this image overlay while the export now does — yet the
-preview **does** draw the PICKERTEST text box at that same time, so it is not a blanket
-"nothing past the master track" rule. Moved inside the master window, both surfaces agree. Recorded
-as an observation with its evidence, **not diagnosed** — the mechanism was not established, and
-guessing one is what produced the wrong §3a inference this ledger had to correct.
+~~**FOUND, NOT FIXED — a PREVIEW-side gap, now the mirror image of the old bug.**~~ **DIAGNOSED
+2026-07-30, and it IS a blanket rule after all — the reasoning that said otherwise was wrong.**
+The observation was: at 7.743s, past the master track, the preview did not draw this image overlay
+while the export now does — yet it *does* draw the PICKERTEST text box at the same time, "so it is
+not a blanket 'nothing past the master track' rule."
+
+**That inference was the trap, and it is worth keeping visible.** PICKERTEST has no `startMs` or
+`endMs`, so its span is `0 … Long.MAX_VALUE` — it is visible at EVERY clock value, including a
+frozen or clamped one. **Its being drawn therefore carries no information about what time the
+overlay surface thinks it is.** It looked like a control and was not one.
+
+**The discriminating test, run on the Note 9:** scrub past the master end and ask whether a TEXT
+overlay whose span also lies past it is drawn. At **20.872s**, inside `LayerOne`'s 20556–25117
+span, the preview draws PICKERTEST and **not** `LayerOne`. So it is not image-specific at all:
+**the preview draws NOTHING whose span begins past the end of the master track.**
+
+**Mechanism, read afterwards and consistent with all three observations.** The overlay clock is
+structurally SEGMENT-based:
+- the only playhead callback the timeline emits is
+  `EditorTimelineView.Listener.onPlayheadSeeked(int segmentIndex, float fractionInSegment, boolean)`
+  — there is no timeline-absolute one;
+- its handler (`FaditorEditorActivity:1733`) begins
+  `if (segmentIndex < 0 || segmentIndex >= tl.getClipCount()) return;`
+- everything downstream hangs off that early return: `updateCurrentTimeDisplay` →
+  `getAbsolutePlayheadMs()` (which is *clips-before-selected* + *position-within-clip*, so it
+  **cannot exceed the master total by construction**) → `setTextOverlayPlayhead`.
+
+Past the last clip there is no segment, so the overlay surfaces are never ticked and freeze.
+**The blue time chip disagrees because it is a different widget** — `EditorTimelineView` draws it
+from its own `playheadPositionMs` (`:698`, "Absolute playhead position in timeline"), which is
+genuinely absolute. Two clocks, one honest, one segment-derived; the honest one is on screen, which
+is exactly why this read as "the time is 20.8s but the overlay is missing".
+
+**Scope, stated plainly: this is bigger than an overlay bug.** Nothing placed past the last video
+clip can be seen, positioned or keyframed in the editor, although the export now renders it
+correctly (`9b03bdc`, `5a6cb4c`) — so the preview and the export disagree about a whole region of
+the timeline, in the direction that hides work the user has already done.
+**The fix has an obvious source of truth**: the timeline view already holds the absolute ms and
+already draws it. What is missing is a timeline-absolute playhead notification and overlay surfaces
+driven from it rather than from a segment. **Touches the §2a-hardened seek path — read those
+comments before editing it.**
 
 **A GRADLE SPURIOUS FAILURE, and the artifact check that had to follow it.** `assembleDefaultDebug`
 failed once with `cannot find symbol` across ExportManager's imports, then succeeded on an immediate

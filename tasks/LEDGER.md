@@ -1494,7 +1494,26 @@ entrance without hunting.
    waiting for it. **This is now the largest open piece of §3g**, and the two corrections above
    (`drawCaptionAnimHandles` is called every frame; the dead thing is the gate; and the whole block
    is bound to MASTER-CLIP geometry) mean it is a SECOND GEOMETRY, not a re-pointed target.
-3. **The export path's frame cost is unmeasured.** The LETTER result above is the PREVIEW only.
+3. ~~The export path's frame cost is unmeasured.~~ **MEASURED 2026-07-30 — and unlike the preview,
+   LETTER is NOT free here.** Same project, same output settings, changing only granularity on disk
+   (both the captioned clips and the `PICKERTEST` text box, together), timed from the exporter's own
+   `Export started` / `Export completed` log lines rather than by wall clock around the UI:
+
+   | | LETTER | BLOCK (control) |
+   |---|---|---|
+   | export wall time | **81.05s** | **56.08s** |
+
+   **+44.5%.** Worth having because it is the exact opposite of the preview result, where LETTER
+   was free at both the caption renderer (33.70% vs 33.70% janky) and the text-box renderer (32.60%
+   vs 35.61%). Per-glyph layout is cheap when you are drawing one frame at the playhead and
+   expensive when you are drawing every frame of the file.
+   **Read it with its limits, which are real:** single runs, not repeated; the two arms move caption
+   AND text-box granularity together, so this is their combined cost, not an attribution; and it is
+   closer to a WORST case than a typical one, because the export is now 30.9s long (tail filler) and
+   `PICKERTEST` is open-ended, so per-glyph work runs across the entire file while the captions only
+   exist in the first 5.7s. A short title on a long video will cost far less than 44%.
+   **Not a reason to discourage LETTER** — a 30s export taking 81s instead of 56s is a background
+   service the user is told they can leave. Recorded so the number exists.
 4. **Baseline editor jank is 33.7%** during playback and is NOT caused by §3g (identical in both
    arms). Recorded here because it was measured here, not because it belongs to §3g.
 5. **An unreachable text overlay exists in the sandbox and nothing can select it.** `9d7fef2b` in

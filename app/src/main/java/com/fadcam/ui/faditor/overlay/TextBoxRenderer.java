@@ -278,10 +278,68 @@ public final class TextBoxRenderer {
             p.setMaskFilter(new android.graphics.BlurMaskFilter(
                     t.blurPx, android.graphics.BlurMaskFilter.Blur.NORMAL));
         }
-        paintRun(c, p, o, shown, x, baseY, fontPx, t.alpha * clamp01(objectAlpha), t.glowPx);
+        // The FOURTH animated channel: ODOMETER's wheel — two glyph rows inside one clipped slot.
+        // Mirrors CaptionOverlayView#drawUnit / CaptionExportRenderer#drawUnit, and here ONE call
+        // site serves both surfaces, so the preview and the export cannot disagree by
+        // construction rather than by care. Inert for every other preset.
+        //
+        // This is the preset whose old blocker note said a text box could not host it at all,
+        // because the preview was a TextView holding one string. It is drawn here, on a canvas,
+        // with two drawText calls — the wall came down when this class replaced that TextView.
+        float animAlpha = t.alpha * clamp01(objectAlpha);
+        CaptionAnimator.Roll roll = ROLL.get();
+        float[] rollClip = ROLL_CLIP.get();
+        CaptionAnimator.rollUnit(preset, shown, progress, roll);
+        if (roll.rolling) {
+            CaptionAnimator.rollClip(x, baseY, w, fontPx, rollClip);
+            c.clipRect(rollClip[0], rollClip[1], rollClip[2], rollClip[3]);
+            // The travel is the WINDOW HEIGHT, read off the rect rather than recomputed from
+            // fontPx, so the distance and the window cannot drift: the outgoing row is exactly
+            // hidden at the instant the incoming row is exactly in place.
+            float slotH = rollClip[3] - rollClip[1];
+            c.save();
+            c.translate(0f, roll.phase * slotH);
+            paintRun(c, p, o, roll.incoming, x, baseY, fontPx, animAlpha, t.glowPx);
+            c.restore();
+            c.save();
+            c.translate(0f, (roll.phase - 1f) * slotH);
+            paintRun(c, p, o, roll.outgoing, x, baseY, fontPx, animAlpha, t.glowPx);
+            c.restore();
+        } else {
+            paintRun(c, p, o, shown, x, baseY, fontPx, animAlpha, t.glowPx);
+        }
         if (blurred) p.setMaskFilter(null);
         c.restore();
     }
+
+    /**
+     * Scratch for the roll channel, reused rather than allocated because at LETTER granularity
+     * {@code drawUnit} runs once per glyph per frame.
+     *
+     * <p><b>THREAD-LOCAL, not static, and that is the point.</b> Every method on this class is
+     * static and stateless, so a plain {@code static} scratch buffer would have looked consistent
+     * with the rest of it — and would have been a data race. This one class is called from TWO
+     * threads: the main thread draws the preview through {@code TextBoxView.onDraw}, and the
+     * export draws through {@code CompositeExportOverlay} on its own worker while the editor is
+     * still on screen behind the progress UI. Two threads sharing one {@code Roll} would tear a
+     * glyph row between them — intermittently, in exported video only, which is close to the
+     * worst failure this area can produce. Sharing ONE renderer between the two surfaces is the
+     * whole design; it also means anything mutable in it has to survive being called twice at
+     * once.</p>
+     */
+    // NOT ThreadLocal.withInitial: that overload is API 26 and this module's minSdk is 24, so it
+    // would be a NoSuchMethodError on 24-25 — a crash on exactly the devices least likely to be
+    // tested. The anonymous-subclass form has worked since API 1.
+    private static final ThreadLocal<CaptionAnimator.Roll> ROLL =
+            new ThreadLocal<CaptionAnimator.Roll>() {
+                @Override protected CaptionAnimator.Roll initialValue() {
+                    return new CaptionAnimator.Roll();
+                }
+            };
+    private static final ThreadLocal<float[]> ROLL_CLIP =
+            new ThreadLocal<float[]>() {
+                @Override protected float[] initialValue() { return new float[4]; }
+            };
 
     /**
      * The three paint passes — outline, glow, fill — in the order the export has always used.

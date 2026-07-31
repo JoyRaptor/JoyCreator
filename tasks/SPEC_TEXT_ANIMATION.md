@@ -411,10 +411,31 @@ It works on every object with no new channel at all — a neon tube's flicker re
 brightness stutter — but without a glow it will read as a stutter rather than as neon. Whether that
 is enough is a taste call for the user.
 
-## ODOMETER — design, derived 2026-07-29, NOT yet built
+## ODOMETER — design, derived 2026-07-29, CORRECTED 2026-07-31, then BUILT
+
+> **⚠ TWO THINGS BELOW WERE WRONG AND ARE CORRECTED IN PLACE. Read the corrections first.**
+>
+> **1. THE FILLERS MUST ROLL A SEQUENCE, NOT A SCRAMBLE — the user caught this.** The design
+> below originally said the filler characters "come from the same deterministic `mix` as MATRIX".
+> That is wrong, and not by a detail: **a wheel is an ordered ring, and the whole point of an
+> odometer is that you can READ the roll** — …5, 6, 7, settling on 8. Random glyphs sliding
+> vertically is MATRIX with extra motion; it would be a second scramble preset, and this project
+> has already paid once for two presets that a viewer cannot tell apart (LEDGER §1, the tile
+> discriminability work). The determinism argument the old text made was sound and is retained —
+> it just argues for a deterministic ORDER, which a ring gives for free and more cheaply than a
+> hash. So: `charAtWheel(k)` is **the real character stepped BACK `k` places along its own ring**,
+> never a pool draw.
+>
+> **2. THE SCOPE QUESTION IS MOOT. Do not ask it.** It asked whether to ship captions-only (a),
+> build a text-box canvas renderer first (b), or defer (c). **(b) already happened**, for other
+> reasons: both text-box surfaces now draw glyph by glyph through one shared `TextBoxRenderer`
+> (preview via `TextBoxView.onDraw`, export via `CompositeExportOverlay`, which no longer
+> rasterises the box to a bitmap). `TextOverlayItem.textAnimGranularitySupported` returns `true`
+> for every granularity as a result. **There is no `TextView` wall left to gate around**, so
+> ODOMETER ships everywhere, and the user never has to answer a question the code has answered.
 
 Written down before coding because the last two presets both had blocker notes that were wrong in
-opposite directions, and because this one has a **scope question that belongs to the user**.
+opposite directions.
 
 **What it is.** Each character slot is a wheel. As the unit arrives the wheel spins down through
 filler characters and lands on the real one — a mechanical odometer. The half-rolled state, where
@@ -449,29 +470,50 @@ floor(wheel))`, `outgoing = charAtWheel(floor(wheel) + 1)`, `phase = wheel − f
 renderer draws `incoming` at `dy = phase × slotH` and `outgoing` at `dy = (phase − 1) × slotH`, both
 clipped to the slot. `charAtWheel(0)` is the REAL character, so at `progress = 1` the wheel is at 0,
 the real character sits at `dy = 0` and its neighbour is clipped fully out of view — it lands
-exactly, with no special case. Filler characters come from the same deterministic `mix` as MATRIX,
-for the same reason: `Math.random()` per frame would make the preview and the export roll different
-characters. Same length in, same length out, so layout cannot reflow.
+exactly, with no special case. Same length in, same length out, so layout cannot reflow.
 
-**THE SCOPE QUESTION — the user's call, do not guess it.** **The text-box preview is a `TextView`**
+**`charAtWheel(k)` steps the ring, it does NOT draw from a pool** (correction 1 at the top of this
+section). Each character sits on the ring its own kind belongs to — `0–9`, `a–z`, `A–Z` — and
+`charAtWheel(k)` is that character moved back `k` places, wrapping. `'8'` at k=3 is `'5'`; `'c'` at
+k=4 is `'y'`. Because the wheel counts DOWN to 0 as the unit settles, the slot shows
+target−k … target−2, target−1, target: **it counts UP into place**, which is what a mechanical
+odometer does and what makes the roll readable. This is also strictly MORE deterministic than the
+MATRIX `mix` it replaces — there is no hash for two surfaces to agree on, only arithmetic — so the
+preview/export agreement the old text argued for gets stronger, not weaker.
+
+**A character with no ring does not roll.** Punctuation, spaces, CJK, emoji: there is no "previous"
+glyph that means anything, and inventing one would put an unreadable character in a slot the user
+is being invited to read. Those slots show the real character throughout and simply arrive with the
+rest. The stillness is deliberate: an odometer with a fixed `:` between two spinning fields looks
+like an odometer; one whose `:` also spins looks broken.
+
+**At WORD or BLOCK granularity the whole run rolls as one wheel** — every character in the run
+steps together. That falls out of applying the ring per character of the run, needs no special
+case, and is the honest reading of the granularity the user picked: the unit IS the thing being
+animated, so a unit-sized wheel is right. LETTER gives the classic per-slot look.
+
+**~~THE SCOPE QUESTION~~ — ANSWERED BY THE CODE, 2026-07-31. Superseded, kept for the record.**
+It asked which of three ways out to take, because "the text-box preview is a `TextView`
 (`TextOverlayLayer:211` sets a string on it). One view, one string: it cannot draw two glyph rows
-clipped to a slot. So ODOMETER cannot run on a text box in preview, while the export
-(`CompositeExportOverlay`, `canvas.drawText`) could — which is the exact preview/export divergence
-this whole area exists to prevent. Three ways out:
-- **(a) Gate it, and ship captions-only.** Cheapest and follows an existing precedent: the picker
-  already takes `allowedGrans` for exactly this reason ("this picker never offers a control that
-  provably will not do what it says"), so an `allowedPresets` parameter is the same shape, one
-  argument away. Cost: ODOMETER is simply absent from the text-box picker.
-- **(b) Give text boxes a canvas renderer in preview first.** **This is NOT new work — it is the
-  SAME work already recorded as the reason text boxes are BLOCK-only** (`TextOverlayItem
-  .textAnimGranularitySupported`). Doing it unlocks ODOMETER on text boxes AND WORD/LETTER
-  granularity there, in one go. Much larger, and it touches the surface the user actually looks at.
-- **(c) Defer ODOMETER** and take MASK_WIPE / NEON_FLICKER first.
+clipped to a slot." **That is no longer true.** Option (b) — give text boxes a canvas renderer —
+was built for other reasons: `TextBoxRenderer.drawUnit` now draws each unit with `canvas.drawText`
+and BOTH surfaces call it, the preview through `TextBoxView.onDraw` and the export through
+`CompositeExportOverlay`. The three options were:
+- ~~**(a) Gate it, and ship captions-only**~~ via an `allowedPresets` parameter. Not needed; there
+  is nothing to gate.
+- **(b) Give text boxes a canvas renderer in preview first.** **DONE**, and it did collapse two
+  open items into one exactly as predicted — `textAnimGranularitySupported` now returns `true` for
+  every granularity, so WORD/LETTER on a text box came free with it.
+- ~~**(c) Defer ODOMETER**~~. MASK_WIPE and NEON_FLICKER were taken first and are shipped, so
+  there is nothing left to defer behind.
 
-**Recommendation: (a) now, (b) later as its own funded piece** — it keeps the agreed build order
-moving without quietly committing a session to the text-box renderer rewrite. But (b) is where the
-real value is, because it collapses two open items into one, so it deserves a deliberate decision
-rather than being reached by default.
+**The lesson worth keeping is the one about the note, not the note.** This scope question was
+escalated to the user twice and declined once (*"skip odometer for now i dont know how to
+answer"*) — and the correct answer was never a preference at all. It was a fact about the code
+that changed while the question sat open. **Re-derive a blocker against the code before asking
+anyone to arbitrate it**; that rule has now been paid for four times in this one spec (UNSCRAMBLE
+overstated, MASK_WIPE understated, NEON_FLICKER named the wrong obstacle, ODOMETER outlived its).
+
 6. The retrigger-on-value-change requirement (a timer wanting a pop on each TICK) is **still not
    addressed in `CaptionAnimator`** — it is an event, not a function of elapsed time, and the
    spec warns it is painful to retrofit. It is untouched by this work.

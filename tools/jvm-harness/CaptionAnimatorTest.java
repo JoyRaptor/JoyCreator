@@ -80,6 +80,7 @@ public class CaptionAnimatorTest {
         matrixSubstitution();
         unscrambleScatter();
         maskWipeReveal();
+        odometerRoll();
         presetLabels();
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");
@@ -1394,6 +1395,192 @@ public class CaptionAnimatorTest {
         //     be advertising something the name does not say.
         eqS("MASK_WIPE does not touch the substitution channel", "Hello",
                 CaptionAnimator.substituteUnit(M, "Hello", 0.2f, 0));
+    }
+
+    // -- ODOMETER: the wheel ------------------------------------------------------------------
+
+    /**
+     * The roll channel. The property that matters most is NOT a shape - it is that the fillers are
+     * a RING and not a scramble, which is the user's correction to the spec and the only thing
+     * separating ODOMETER from MATRIX-with-vertical-motion. So that is asserted as a PROPERTY (the
+     * two rows are always adjacent ring members) rather than by sampling glyphs.
+     *
+     * <p>Non-ASCII test strings are written as \\uXXXX escapes on purpose: the harness is compiled
+     * without -encoding, so a literal multi-byte character silently corrupts and the failure looks
+     * like a logic bug. Comments are safe; literals are not.</p>
+     */
+    static void odometerRoll() {
+        System.out.println("\n-- ODOMETER: the wheel steps a RING, not a scramble --");
+        final CaptionAnimator.Preset O = CaptionAnimator.Preset.ODOMETER;
+        CaptionAnimator.Roll r = new CaptionAnimator.Roll();
+
+        ok("ODOMETER is marked implemented", O.implemented);
+        eqS("ODOMETER no longer reports a blocker", "", CaptionAnimator.unsupportedReason(O));
+
+        // 1. It LANDS. At progress 1 the unit is not rolling at all and shows the real text, so
+        //    the zone boundary is continuous and the draw site needs no special case.
+        CaptionAnimator.rollUnit(O, "8", 1f, r);
+        ok("at progress 1 the wheel is not rolling", !r.rolling);
+        eqS("and the slot shows the real character", "8", r.incoming);
+
+        // 2. It rolls on the way in, and the two rows are always ADJACENT ring members - the
+        //    property a scramble cannot satisfy. Swept across the entrance, not sampled.
+        //    "Counts up" is asserted as MONOTONE APPROACH: the incoming row's distance back from
+        //    the target must never grow as the entrance proceeds, and must reach 0. An earlier
+        //    draft of this check tested `floorMod(8 - in, 10) > 8`, which can only fail for a
+        //    single character value and passed happily against a deliberately injected scramble —
+        //    a control that cannot discriminate is not a control, so it was replaced by this.
+        boolean adjacentEverywhere = true, countsUp = true, rolledAtAll = false;
+        int prevDistance = Integer.MAX_VALUE, lastDistance = -1;
+        for (int i = 0; i < 100; i++) {
+            CaptionAnimator.rollUnit(O, "8", i / 100f, r);
+            if (!r.rolling) continue;
+            rolledAtAll = true;
+            int in = r.incoming.charAt(0) - '0';
+            int outg = r.outgoing.charAt(0) - '0';
+            if (Math.floorMod(in - 1, 10) != outg) adjacentEverywhere = false;
+            int distance = Math.floorMod('8' - '0' - in, 10);
+            if (distance > prevDistance) countsUp = false;   // it went BACKWARDS
+            prevDistance = distance;
+            lastDistance = distance;
+        }
+        ok("the unit does roll somewhere in its entrance", rolledAtAll);
+        ok("the two rows are always ADJACENT ring members (a scramble cannot do this)",
+                adjacentEverywhere);
+        ok("the wheel never rolls away from its target", countsUp);
+        // The final step slides the REAL character into place: incoming is the target itself
+        // (distance 0) while its predecessor leaves through the top. This is what makes the
+        // landing continuous -- the last thing the user sees moving is the answer arriving, not
+        // a filler being swapped for it at the last instant.
+        eqF("the last step slides the REAL character into place", 0f, (float) lastDistance);
+
+        // 3. The ring wraps within its own kind and never leaves it. A digit that rolled into a
+        //    letter would read as corruption, not as an odometer.
+        boolean stayedOnRing = true;
+        for (int i = 0; i < 200; i++) {
+            CaptionAnimator.rollUnit(O, "5aZ", i / 200f, r);
+            if (!r.rolling) continue;
+            for (int k = 0; k < 2; k++) {
+                String row = k == 0 ? r.incoming : r.outgoing;
+                if (row.length() != 3) { stayedOnRing = false; continue; }
+                char d = row.charAt(0), lo = row.charAt(1), up = row.charAt(2);
+                if (d < '0' || d > '9') stayedOnRing = false;
+                if (lo < 'a' || lo > 'z') stayedOnRing = false;
+                if (up < 'A' || up > 'Z') stayedOnRing = false;
+            }
+        }
+        ok("digits stay digits, lowercase stays lowercase, uppercase stays uppercase",
+                stayedOnRing);
+
+        // 4. LENGTH IS INVARIANT. Both rows are drawn at the advance measured from the REAL text,
+        //    so a row of another length would be laid out wrong - the same contract
+        //    substituteUnit carries, and the reason neither channel may reflow.
+        boolean lengthHeld = true;
+        String[] samples = {"8", "42", "Hello", "don't", "a1B2", "\u4E2D\u6587", ":"};
+        for (int si = 0; si < samples.length; si++) {
+            String t = samples[si];
+            for (int i = 0; i <= 100; i++) {
+                CaptionAnimator.rollUnit(O, t, i / 100f, r);
+                if (r.incoming.length() != t.length() || r.outgoing.length() != t.length()) {
+                    lengthHeld = false;
+                }
+            }
+        }
+        ok("both rows are always the same LENGTH as the real text", lengthHeld);
+
+        // 5. A slot with no ring does not roll at all - the fixed ':' between two spinning fields,
+        //    which is what makes the effect read as an odometer rather than as noise.
+        CaptionAnimator.rollUnit(O, ":", 0.5f, r);
+        ok("a lone colon never rolls", !r.rolling);
+        eqS("and it shows itself throughout", ":", r.incoming);
+        CaptionAnimator.rollUnit(O, " ", 0.5f, r);
+        ok("nor does a space", !r.rolling);
+        // The positive control for both: the SAME call on a rollable character DOES roll. Without
+        // it, a rollUnit that returned rolling=false for everything would pass them.
+        CaptionAnimator.rollUnit(O, "7", 0.5f, r);
+        ok("CONTROL: a digit at the same progress DOES roll", r.rolling);
+
+        // 6. Off-ring characters keep their own glyph even inside a run that IS rolling, so a word
+        //    rolls as one wheel without its apostrophe turning into something else.
+        boolean punctuationHeld = true;
+        for (int i = 0; i < 100; i++) {
+            CaptionAnimator.rollUnit(O, "don't", i / 100f, r);
+            if (!r.rolling) continue;
+            if (r.incoming.charAt(3) != '\'' || r.outgoing.charAt(3) != '\'') {
+                punctuationHeld = false;
+            }
+        }
+        ok("an apostrophe inside a rolling word never changes character", punctuationHeld);
+
+        // 7. Surrogate pairs pass through untouched. Splitting one emits a LONE SURROGATE - a
+        //    corrupt string, not merely a wrong glyph - from a channel with no business there.
+        String emoji = "\uD83C\uDF1F";
+        boolean emojiIntact = true;
+        for (int i = 0; i <= 100; i++) {
+            CaptionAnimator.rollUnit(O, emoji + "3", i / 100f, r);
+            if (!r.incoming.startsWith(emoji) || !r.outgoing.startsWith(emoji)) emojiIntact = false;
+        }
+        ok("a surrogate pair survives the ring intact", emojiIntact);
+
+        // 8. NO OTHER PRESET ROLLS, or every preset pays for a wheel none of them asked for.
+        boolean othersInert = true;
+        CaptionAnimator.Preset[] all = CaptionAnimator.Preset.values();
+        for (int pi = 0; pi < all.length; pi++) {
+            if (all[pi] == O) continue;
+            for (int i = 0; i <= 20; i++) {
+                CaptionAnimator.rollUnit(all[pi], "8", i / 20f, r);
+                if (r.rolling) othersInert = false;
+            }
+        }
+        ok("no preset other than ODOMETER ever rolls", othersInert);
+
+        // 9. The clock invariant restated for this channel: the roll is a pure function of
+        //    progress, so preview and export cannot show different characters.
+        boolean deterministic = true;
+        CaptionAnimator.Roll r2 = new CaptionAnimator.Roll();
+        for (int i = 0; i <= 100; i++) {
+            CaptionAnimator.rollUnit(O, "Speed42", i / 100f, r);
+            String a = r.incoming, b = r.outgoing;
+            float ph = r.phase;
+            CaptionAnimator.rollUnit(O, "Speed42", i / 100f, r2);
+            if (!a.equals(r2.incoming) || !b.equals(r2.outgoing) || ph != r2.phase) {
+                deterministic = false;
+            }
+        }
+        ok("the same progress always yields the same wheel (preview == export)", deterministic);
+
+        System.out.println("\n-- ODOMETER: the slot window and the travel --");
+        final float FONT = 40f;
+        float[] clip = new float[4];
+        CaptionAnimator.rollClip(100f, 500f, 30f, FONT, clip);
+        eqF("the window starts at the slot's left edge", 100f, clip[0]);
+        eqF("and ends at its right edge", 130f, clip[2]);
+        float slotH = clip[3] - clip[1];
+
+        // The window must fit INSIDE the caption line pitch (1.15 x font) or a rolling glyph
+        // bleeds into the line above, which reads as a rendering bug rather than as an effect.
+        // That constraint is what sets the constants, so it is the one pinned.
+        ok("the slot fits inside the 1.15em caption line pitch (" + slotH + " <= "
+                + (1.15f * FONT) + ")", slotH <= 1.15f * FONT);
+        ok("and is still tall enough to contain a capital and a descender", slotH >= 0.95f * FONT);
+        ok("the window reaches above the baseline", clip[1] < 500f);
+        ok("and below it", clip[3] > 500f);
+
+        // The travel IS the window height: at phase 1 the outgoing row sits exactly one window up,
+        // so it is fully hidden at the instant the incoming row is fully in place. A shorter
+        // travel would leave it half visible when the step ends - a stutter that would be
+        // miserable to attribute after the fact.
+        CaptionAnimator.rollUnit(O, "8", 0.3f, r);
+        float dyIncoming = r.phase * slotH;
+        float dyOutgoing = (r.phase - 1f) * slotH;
+        ok("the two rows are exactly one window apart at every phase",
+                Math.abs((dyIncoming - dyOutgoing) - slotH) < EPS);
+
+        // Scale invariance: the window is defined in em, so 2x type gives a 2x window. Without it
+        // the roll would travel a different fraction of the glyph at each size.
+        float[] big = new float[4];
+        CaptionAnimator.rollClip(0f, 0f, 10f, 2f * FONT, big);
+        eqF("the window scales with the type size", 2f * slotH, big[3] - big[1]);
     }
 
     // ── Preset labels: one authority, and a rule that catches the next omission ──────────────

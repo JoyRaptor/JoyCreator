@@ -355,9 +355,27 @@ public final class CaptionAnimator {
          */
         MASK_WIPE(true),
 
-        // Declared, NOT implemented. Each needs more than a Transform:
-        /** Needs GLYPH SUBSTITUTION plus a vertical roll clip per slot. */
-        ODOMETER(false),
+        /**
+         * Each slot is a WHEEL. It spins down through the characters before the real one and
+         * lands on it, showing two glyph rows mid-step through a clipped window. Last of the five
+         * declared-but-blocked presets, implemented 2026-07-31.
+         *
+         * <p>Its blocker note ("needs glyph substitution and a per-slot roll clip") named the
+         * requirement correctly, and the SCOPE question attached to it outlived its own premise:
+         * it asked how to cope with the text-box preview being a {@code TextView} that cannot draw
+         * two clipped glyph rows. By the time it was built, both text-box surfaces had moved to
+         * one shared canvas renderer for unrelated reasons, so there was nothing to cope with.
+         * A blocker is a claim about the code, and code moves — re-derive it before acting on it.
+         *
+         * <p><b>The fillers are a RING, not a scramble</b> — the user's correction to the spec.
+         * A wheel steps to adjacent characters so the roll can be read; drawing from a pool would
+         * make this MATRIX with vertical motion. See {@link #rollUnit}.
+         *
+         * <p>Geometry and alpha stay at identity, for the reason {@link #MATRIX} and
+         * {@link #MASK_WIPE} do: the roll IS the motion, and a fade on top would blur the one
+         * thing the preset exists to show.
+         */
+        ODOMETER(true),
 
         /**
          * A tube striking: the unit stutters between lit and nearly-dark on an irregular but
@@ -402,7 +420,13 @@ public final class CaptionAnimator {
             // text box lacks and a caption has no per-object form of at all. The preset supplies
             // its own glow instead (Transform#glowPx), which is one new channel and four
             // consuming surfaces, the same shape MASK_WIPE's revealFrac took.
-            case ODOMETER:    return "needs glyph substitution and a per-slot roll clip";
+            // ODOMETER is no longer here either. Its reason ("needs glyph substitution and a
+            // per-slot roll clip") was ACCURATE, and it is the only one of the five that was.
+            // What went wrong with it was the scope question bolted onto it, which described a
+            // TextView wall that had been demolished by other work while the question waited for
+            // a human to arbitrate it. Nothing is unimplemented now; this method is kept because
+            // the picker asks it, and the next preset will want somewhere to say why it cannot
+            // ship yet.
             default:          return "";
         }
     }
@@ -540,6 +564,13 @@ public final class CaptionAnimator {
                 // and settles rather than stopping dead.
                 out.revealFrac = decelerate(p);
                 break;
+            case ODOMETER:
+                // Identity, and NOT an oversight — the same choice MATRIX and MASK_WIPE make. The
+                // roll is the whole effect and it lives in a channel a Transform cannot carry
+                // (rollUnit); adding a fade or a slide on top would compete with the one thing the
+                // user is meant to be able to read. The deceleration this preset does have is
+                // inside the wheel, where it belongs.
+                break;
             default:
                 break;
         }
@@ -606,6 +637,173 @@ public final class CaptionAnimator {
         out[1] = baseY - fontPx * REVEAL_ABOVE_EM;
         out[2] = x + w * f;
         out[3] = baseY + fontPx * REVEAL_BELOW_EM;
+    }
+
+    // ── Fourth output channel: a SLOT showing TWO glyphs mid-roll (ODOMETER) ─────────────────
+    //
+    // This is the one channel that is genuinely not a Transform. Everything else here answers
+    // "how is this unit drawn" with numbers a single draw can consume; a wheel mid-step is TWO
+    // draws at two offsets inside one clipped window, and no amount of geometry or alpha
+    // expresses that. It is the third such channel (after substituteUnit's glyphs and
+    // Transform#revealFrac's clip) and, on present evidence, the last one any preset needs.
+
+    /**
+     * How many characters the wheel passes through on its way to the real one.
+     *
+     * <p>Eight is a look, not an arbitrary constant, and both ends of the range were considered:
+     * too few and the slot reads as a single jump rather than a roll; too many and — because the
+     * wheel decelerates — the early steps blur past faster than a 60Hz frame can show, so the user
+     * pays for motion they cannot see. At eight, a ~500ms entrance spends roughly four frames on
+     * the final step and progressively fewer on the earlier ones, which is what makes an odometer
+     * read as *settling* rather than as *stopping*.</p>
+     */
+    private static final int ROLL_STEPS = 8;
+
+    /**
+     * The slot window, as multiples of the type size above and below the baseline.
+     *
+     * <p><b>Deliberately TIGHTER than {@link #REVEAL_ABOVE_EM}, and for the opposite reason.</b>
+     * The reveal mask clips horizontally, so its vertical reach is made generous — an over-tall
+     * mask crops nothing while an under-tall one crops ink. Here the vertical clip IS the effect:
+     * it is the window the outgoing glyph disappears through, so it has to hug the line.</p>
+     *
+     * <p>The number is set by the LINE PITCH, not by the glyphs. Caption lines are stacked at
+     * {@code 1.15 x (descent - ascent)}, so a slot taller than 1.15em would let a rolling glyph
+     * bleed into the line above — which reads as a rendering bug, not as an effect. 0.88 + 0.22 =
+     * <b>1.10em</b> fits inside that pitch with margin to spare. The cost is honest and accepted:
+     * an unusually tall accented capital can be cropped by a hair at the top of its travel. That
+     * is what an odometer window does to a digit that does not fit, and it is strictly better than
+     * painting over the neighbouring line.</p>
+     */
+    private static final float ROLL_ABOVE_EM = 0.88f;
+    private static final float ROLL_BELOW_EM = 0.22f;
+
+    /**
+     * What one slot shows at an instant: two glyph rows and how far the wheel is through its step.
+     *
+     * <p>Filled into a caller-owned instance rather than returned, for the reason
+     * {@link #revealClip} takes an array: at LETTER granularity this runs once per glyph per
+     * frame, and a fresh object per glyph per frame is ~1800 allocations a second on a captioned
+     * line. The two strings are still allocated — a rolling glyph genuinely is a different string
+     * each step — but that is the same per-unit cost {@link #substituteUnit} has shipped with
+     * since MATRIX, and it stops as soon as the unit settles.</p>
+     */
+    public static final class Roll {
+        /** The glyph row rising INTO the slot; at {@code phase = 0} it is the real text. */
+        @NonNull public String incoming = "";
+        /** The glyph row leaving through the TOP of the slot. */
+        @NonNull public String outgoing = "";
+        /** 0..1 through the current step. 0 = incoming exactly in place. */
+        public float phase;
+        /**
+         * False = this unit is not rolling; draw it the ordinary way and ignore every other
+         * field. True for ODOMETER only, and only while the unit is still arriving.
+         */
+        public boolean rolling;
+    }
+
+    /**
+     * Fill {@code out} with the state of one slot's wheel.
+     *
+     * <p>The wheel runs from {@link #ROLL_STEPS} down to 0 through {@code decelerate}, so the
+     * glyph shown is the target stepped BACK by the wheel position: the slot counts UP into place
+     * (…, target−2, target−1, target), which is what a mechanical odometer does. At
+     * {@code progress = 1} the wheel is at 0 with phase 0, so {@code incoming} is the real text
+     * sitting exactly where an un-animated unit would sit and {@code outgoing} is clipped
+     * entirely out of the window. The preset lands on identity with no special case — the same
+     * property every other preset here is required to have, so the zone boundary is continuous.</p>
+     *
+     * <p><b>The fillers are a RING, not a scramble, and this is the design's whole point</b> (the
+     * user's correction, SPEC_TEXT_ANIMATION): each character steps along its own ring — 0–9, a–z,
+     * A–Z — so the roll can be READ. Random glyphs rolling vertically would be MATRIX with extra
+     * motion, and two presets a viewer cannot tell apart is a defect this project has already paid
+     * for once. It is also more deterministic than the hash MATRIX uses, not less: there is no
+     * {@link #mix} for the preview and the export to agree on, only arithmetic.</p>
+     *
+     * <p><b>A character with no ring keeps its own glyph.</b> Punctuation, spaces, CJK and emoji
+     * (including surrogate pairs, which pass through untouched) have no meaningful "previous"
+     * character, so they show themselves in both rows. Note what this does and does not say: at
+     * LETTER granularity such a unit does not roll at all — a {@code :} between two spinning
+     * fields stays put, which is what makes the effect read as an odometer. At WORD or BLOCK the
+     * whole run is ONE wheel and slides as one, and the punctuation inside it slides with its
+     * neighbours without ever changing character. Both are the same rule seen at two scales.</p>
+     */
+    public static void rollUnit(@NonNull Preset preset, @NonNull String text, float progress,
+                                @NonNull Roll out) {
+        out.rolling = false;
+        out.phase = 0f;
+        out.incoming = text;
+        out.outgoing = text;
+        if (preset != Preset.ODOMETER || text.isEmpty()) return;
+        float p = Math.max(0f, Math.min(1f, progress));
+        if (p >= 1f) return;              // settled: the real text, exactly, drawn the normal way
+        if (!hasAnyRing(text)) return;    // nothing here can roll, so nothing here moves
+        float wheel = (1f - decelerate(p)) * ROLL_STEPS;
+        int step = (int) wheel;           // wheel >= 0, so a cast is floor
+        out.phase = wheel - step;
+        out.incoming = ringText(text, step);
+        out.outgoing = ringText(text, step + 1);
+        out.rolling = true;
+    }
+
+    /**
+     * The clip window for a rolling slot — {@code {left, top, right, bottom}}.
+     *
+     * <p>Its HEIGHT is also the roll distance: a glyph travels exactly one window, so the outgoing
+     * row is fully hidden at the instant the incoming row is fully in place. Callers must take the
+     * travel from this rect rather than recomputing it from {@code fontPx}, so the window and the
+     * distance cannot drift apart — the failure mode being a glyph that is still half visible when
+     * the step ends, which reads as a stutter and would be maddening to attribute.</p>
+     *
+     * @param x      the slot's left edge, in whatever units the caller measured in
+     * @param baseY  the text baseline
+     * @param w      the slot's advance width, measured from the REAL text — unchanged by the roll,
+     *               since a ring step never changes the character COUNT and both rows are laid out
+     *               from the same string length
+     * @param fontPx type size
+     * @param out    a length-4 array to fill
+     */
+    public static void rollClip(float x, float baseY, float w, float fontPx,
+                                @NonNull float[] out) {
+        out[0] = x;
+        out[1] = baseY - fontPx * ROLL_ABOVE_EM;
+        out[2] = x + w;
+        out[3] = baseY + fontPx * ROLL_BELOW_EM;
+    }
+
+    /** Whether any character in {@code text} sits on a ring and can therefore roll. */
+    private static boolean hasAnyRing(@NonNull String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (hasRing(text.charAt(i))) return true;
+        }
+        return false;
+    }
+
+    private static boolean hasRing(char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+    }
+
+    /** Every character of {@code text}, stepped {@code back} places along its own ring. */
+    @NonNull
+    private static String ringText(@NonNull String text, int back) {
+        if (back == 0) return text;
+        int n = text.length();
+        StringBuilder sb = new StringBuilder(n);
+        for (int i = 0; i < n; i++) sb.append(ringStep(text.charAt(i), back));
+        return sb.toString();
+    }
+
+    /**
+     * One character, {@code back} places earlier on its ring, wrapping. Off-ring characters —
+     * punctuation, whitespace, and either half of a surrogate pair — are returned unchanged, which
+     * is what keeps emoji from being corrupted into a lone surrogate by a channel that has no
+     * business touching them.
+     */
+    private static char ringStep(char c, int back) {
+        if (c >= '0' && c <= '9') return (char) ('0' + Math.floorMod(c - '0' - back, 10));
+        if (c >= 'a' && c <= 'z') return (char) ('a' + Math.floorMod(c - 'a' - back, 26));
+        if (c >= 'A' && c <= 'Z') return (char) ('A' + Math.floorMod(c - 'A' - back, 26));
+        return c;
     }
 
     /**

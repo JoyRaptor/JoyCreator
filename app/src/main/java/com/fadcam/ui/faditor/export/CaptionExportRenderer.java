@@ -314,12 +314,38 @@ public class CaptionExportRenderer {
                     .revealClip(x, baseY, w, fontPx, pre.revealFrac, revealTmp);
             canvas.clipRect(revealTmp[0], revealTmp[1], revealTmp[2], revealTmp[3]);
         }
-        paintWord(shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+        // The FOURTH animated channel — mirrors CaptionOverlayView#drawUnit exactly. ODOMETER is
+        // the only preset that rolls; for the rest this is one call and a branch. Both surfaces
+        // take the two glyph rows AND the travel distance from the same two helpers, so neither
+        // can roll to a different character or by a different distance than the other showed.
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.rollUnit(animPreset, shown, progress,
+                rollTmp);
+        if (rollTmp.rolling) {
+            com.fadcam.ui.faditor.transcript.CaptionAnimator
+                    .rollClip(x, baseY, w, fontPx, rollClipTmp);
+            canvas.clipRect(rollClipTmp[0], rollClipTmp[1], rollClipTmp[2], rollClipTmp[3]);
+            float slotH = rollClipTmp[3] - rollClipTmp[1];
+            canvas.save();
+            canvas.translate(0f, rollTmp.phase * slotH);
+            paintWord(rollTmp.incoming, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            canvas.restore();
+            canvas.save();
+            canvas.translate(0f, (rollTmp.phase - 1f) * slotH);
+            paintWord(rollTmp.outgoing, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            canvas.restore();
+        } else {
+            paintWord(shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+        }
         canvas.restore();
     }
 
     /** Scratch for {@code CaptionAnimator.revealClip} — see CaptionOverlayView#revealTmp. */
     private final float[] revealTmp = new float[4];
+
+    /** Scratch for the roll channel — see CaptionOverlayView#rollTmp. */
+    private final com.fadcam.ui.faditor.transcript.CaptionAnimator.Roll rollTmp =
+            new com.fadcam.ui.faditor.transcript.CaptionAnimator.Roll();
+    private final float[] rollClipTmp = new float[4];
 
     /** Fill pass plus optional stroke-outline pass — mirrors CaptionOverlayView. */
     /** The style's own shadow, as the per-frame setup applies it — mirror of the preview's. */

@@ -399,9 +399,41 @@ public class CaptionOverlayView extends View {
             CaptionAnimator.revealClip(x, baseY, w, fontPx, pre.revealFrac, revealTmp);
             canvas.clipRect(revealTmp[0], revealTmp[1], revealTmp[2], revealTmp[3]);
         }
-        paintWord(canvas, shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+        // The FOURTH animated channel: a slot showing TWO glyph rows mid-roll. ODOMETER is the
+        // only preset that uses it; for everything else `rolling` is false and this is one method
+        // call and a branch. Clipped inside the transform for the same reason the reveal is — the
+        // window has to travel with the glyph, or the emphasis scale would slide the ink out of
+        // its own slot. Must stay identical to CaptionExportRenderer#drawUnit and
+        // TextBoxRenderer#drawUnit.
+        CaptionAnimator.rollUnit(animPreset, shown, progress, rollTmp);
+        if (rollTmp.rolling) {
+            CaptionAnimator.rollClip(x, baseY, w, fontPx, rollClipTmp);
+            canvas.clipRect(rollClipTmp[0], rollClipTmp[1], rollClipTmp[2], rollClipTmp[3]);
+            // The travel is the WINDOW HEIGHT, taken from the rect rather than recomputed, so the
+            // two cannot drift: the outgoing row is exactly hidden at the instant the incoming
+            // row is exactly in place.
+            float slotH = rollClipTmp[3] - rollClipTmp[1];
+            canvas.save();
+            canvas.translate(0f, rollTmp.phase * slotH);
+            paintWord(canvas, rollTmp.incoming, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            canvas.restore();
+            canvas.save();
+            canvas.translate(0f, (rollTmp.phase - 1f) * slotH);
+            paintWord(canvas, rollTmp.outgoing, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            canvas.restore();
+        } else {
+            paintWord(canvas, shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+        }
         canvas.restore();
     }
+
+    /**
+     * Scratch for {@link CaptionAnimator#rollUnit} / {@link CaptionAnimator#rollClip}. Fields for
+     * the same reason {@link #revealTmp} is: at LETTER granularity this runs once per glyph per
+     * frame, and a fresh object there is ~1800 allocations a second.
+     */
+    private final CaptionAnimator.Roll rollTmp = new CaptionAnimator.Roll();
+    private final float[] rollClipTmp = new float[4];
 
     /**
      * Scratch for {@link CaptionAnimator#revealClip}. A field rather than a local because at

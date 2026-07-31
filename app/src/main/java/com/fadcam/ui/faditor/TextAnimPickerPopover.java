@@ -385,13 +385,39 @@ public final class TextAnimPickerPopover {
                             revealTmp);
                     c.clipRect(revealTmp[0], revealTmp[1], revealTmp[2], revealTmp[3]);
                 }
-                c.drawText(glyph, cx, baseY, paint);
+                // ...and the FOURTH channel, for the third time and the same reason. ODOMETER is
+                // identity in geometry and alpha exactly as MATRIX and MASK_WIPE are — its entire
+                // motion is two glyph rows moving through a slot — so a tile that stopped at the
+                // three channels above would advertise it as three static "A"s. "A" is on the
+                // uppercase ring, so the sample glyph genuinely rolls rather than sitting still
+                // for want of a ring.
+                CaptionAnimator.rollUnit(preset, glyph, progress, rollTmp);
+                if (rollTmp.rolling) {
+                    float gw = paint.measureText(glyph);
+                    CaptionAnimator.rollClip(cx - gw / 2f, baseY, gw, fontPx, rollClipTmp);
+                    c.clipRect(rollClipTmp[0], rollClipTmp[1], rollClipTmp[2], rollClipTmp[3]);
+                    float slotH = rollClipTmp[3] - rollClipTmp[1];
+                    c.save();
+                    c.translate(0f, rollTmp.phase * slotH);
+                    c.drawText(rollTmp.incoming, cx, baseY, paint);
+                    c.restore();
+                    c.save();
+                    c.translate(0f, (rollTmp.phase - 1f) * slotH);
+                    c.drawText(rollTmp.outgoing, cx, baseY, paint);
+                    c.restore();
+                } else {
+                    c.drawText(glyph, cx, baseY, paint);
+                }
                 c.restore();
             }
         }
 
         /** Scratch for {@link CaptionAnimator#revealClip} — onDraw runs on every frame. */
         private final float[] revealTmp = new float[4];
+
+        /** Scratch for the roll channel — same reason as {@link #revealTmp}. */
+        private final CaptionAnimator.Roll rollTmp = new CaptionAnimator.Roll();
+        private final float[] rollClipTmp = new float[4];
 
         /**
          * From the ONE authority, not a fourth private copy. This switch used to live here and

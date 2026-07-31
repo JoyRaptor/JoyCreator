@@ -106,19 +106,50 @@ public final class TextAnimPickerPopover {
 
     /**
      * @param allowedGrans granularities this OBJECT can actually honour, or null for all of
-     *                     them. A TEXT BOX passes {@code {BLOCK}}: its preview is a
-     *                     {@code TextView}, which cannot transform individual characters, while
-     *                     its export draws with {@code canvas.drawText}, which can — so offering
-     *                     WORD or LETTER there would animate per-unit in the exported file and
-     *                     animate the whole body on screen. Same rule as {@code Preset
-     *                     .implemented} above: this picker never offers a control that provably
-     *                     will not do what it says. A row with one chip is deliberately still
-     *                     drawn, so the setting is visible and its value is not a mystery.
+     *                     them. Same rule as {@code Preset.implemented} above: this picker never
+     *                     offers a control that provably will not do what it says. A row with one
+     *                     chip is deliberately still drawn, so the setting is visible and its
+     *                     value is not a mystery.
+     *                     <p><b>Both call sites pass null today.</b> This javadoc used to say "A
+     *                     TEXT BOX passes {@code {BLOCK}}: its preview is a {@code TextView},
+     *                     which cannot transform individual characters" — that wall was
+     *                     demolished when both surfaces moved onto the one shared
+     *                     {@code TextBoxRenderer}, and the restriction was removed rather than
+     *                     merely relaxed. The parameter is kept because the RULE it enforces is
+     *                     still the right one; it simply has no restricted caller at the moment.
      */
     public static void show(@NonNull View anchor,
                             @Nullable CaptionAnimator.Preset current,
                             @Nullable CaptionAnimator.Granularity currentGran,
                             @Nullable java.util.Set<CaptionAnimator.Granularity> allowedGrans,
+                            @NonNull OnPick onPick) {
+        // false = a CAPTION. Captions still ignore blurPx (one shared view for all words, so a
+        // different cost profile and a separate decision), so GHOST's tile must not advertise a
+        // softness they never draw.
+        show(anchor, current, currentGran, allowedGrans, false, onPick);
+    }
+
+    /**
+     * @param targetBlursGhost whether the target's renderer actually draws
+     *                         {@link CaptionAnimator.Transform#blurPx}. <b>TEXT BOX: true</b>
+     *                         ({@code TextBoxRenderer} blurs, and {@code TextBoxView} switches to
+     *                         a software layer so the filter is honoured). <b>CAPTION: false</b>
+     *                         (still ignored — a separate decision, see the ledger).
+     *                         <p>It is a parameter rather than a constant because BOTH errors are
+     *                         real. Blurring for a caption advertises softness the app never
+     *                         draws; not blurring for a text box under-advertises GHOST, which is
+     *                         the entire reason a user would pick it. A thumbnail rendered from
+     *                         the real evaluator exists to make the tile a promise the app keeps,
+     *                         and "keeps" is target-dependent here.
+     *                         <p>Mirror this against the renderer when it changes. It is a
+     *                         deliberate duplication of a fact — the alternative was for the
+     *                         picker to reach into two unrelated renderer classes to ask.
+     */
+    public static void show(@NonNull View anchor,
+                            @Nullable CaptionAnimator.Preset current,
+                            @Nullable CaptionAnimator.Granularity currentGran,
+                            @Nullable java.util.Set<CaptionAnimator.Granularity> allowedGrans,
+                            boolean targetBlursGhost,
                             @NonNull OnPick onPick) {
         Context ctx = anchor.getContext();
         float d = ctx.getResources().getDisplayMetrics().density;
@@ -152,7 +183,7 @@ public final class TextAnimPickerPopover {
                 container.addView(gridRow);
             }
             shown++;
-            final PresetTileView view = new PresetTileView(ctx, p, p == current);
+            final PresetTileView view = new PresetTileView(ctx, p, p == current, targetBlursGhost);
             view.setOnClickListener(v -> {
                 view.setSelectedRing(true);
                 onPick.onPreset(p);
@@ -263,6 +294,14 @@ public final class TextAnimPickerPopover {
         private boolean selected;
 
         /**
+         * Whether the TARGET this picker was opened for actually draws
+         * {@link CaptionAnimator.Transform#blurPx}. Passed in rather than assumed, because the
+         * honest answer differs by target: a TEXT BOX blurs ({@code TextBoxRenderer}), a CAPTION
+         * does not. See {@link #show} for why that is a parameter and not a constant.
+         */
+        private final boolean targetBlursGhost;
+
+        /**
          * When this tile's loop clock started. Every tile in the row is attached in the same pass,
          * so they share a phase to within a frame — deliberately. Tiles running the SAME clock is
          * what lets a user compare two presets by looking at them side by side; staggering them
@@ -270,13 +309,25 @@ public final class TextAnimPickerPopover {
          */
         private long startedAtMs;
 
-        PresetTileView(@NonNull Context ctx, @NonNull CaptionAnimator.Preset p, boolean selected) {
+        PresetTileView(@NonNull Context ctx, @NonNull CaptionAnimator.Preset p, boolean selected,
+                       boolean targetBlursGhost) {
             super(ctx);
             this.preset = p;
             this.selected = selected;
+            this.targetBlursGhost = targetBlursGhost;
             this.density = ctx.getResources().getDisplayMetrics().density;
             labelPaint.setColor(TXT_DIM);
             labelPaint.setTextAlign(Paint.Align.CENTER);
+            // A BlurMaskFilter is a NO-OP on a hardware canvas, and a popover's window is hardware
+            // accelerated — so without this the blur below would be a call into a void that looks
+            // like function, which is the exact failure mode this project has already shipped once
+            // (a setter nobody read). Mirrors TextBoxView.applyBlurLayerPolicy.
+            //
+            // Decided ONCE in the constructor rather than per frame because a tile's preset is
+            // final, unlike a text box's: only GHOST's tile pays, and only while the popover is up.
+            if (targetBlursGhost && CaptionAnimator.presetBlurs(p)) {
+                setLayerType(LAYER_TYPE_SOFTWARE, null);
+            }
         }
 
         @Override
@@ -364,11 +415,24 @@ public final class TextAnimPickerPopover {
                 c.translate(t.dx, t.dy);
                 c.scale(t.scaleX, t.scaleY, cx, baseY - fontPx * 0.35f);
                 paint.setColor(CaptionAnimator.applyAlpha(0xFF000000 | (GLYPH & 0xFFFFFF), t.alpha));
-                // NOTE: t.blurPx is deliberately NOT applied. Neither CaptionOverlayView nor
-                // CaptionExportRenderer consumes it today (see CaptionAnimator.Transform#blurPx),
-                // so blurring here would make GHOST's tile advertise a softness the app never
-                // draws — the one thing a thumbnail rendered from the evaluator exists to rule
-                // out. When a renderer gains blur, this line is where the tile follows it.
+                // The tile's own FIFTH channel: GHOST's blur, applied only when the TARGET's
+                // renderer actually draws it.
+                //
+                // This comment used to read "t.blurPx is deliberately NOT applied. Neither
+                // CaptionOverlayView nor CaptionExportRenderer consumes it today… When a renderer
+                // gains blur, this line is where the tile follows it." A renderer HAS since gained
+                // blur — TextBoxRenderer — so this is that line following it.
+                //
+                // It is a PARAMETER and not a constant because the answer is genuinely different
+                // per target, and both errors are real: blurring for a caption would advertise a
+                // softness captions never draw (the thing the old note correctly guarded against),
+                // and not blurring for a text box under-advertises GHOST, which is the whole
+                // reason a user picks it. One picker, two truths.
+                boolean blurTile = targetBlursGhost && t.blurPx > 0.25f;
+                if (blurTile) {
+                    paint.setMaskFilter(new android.graphics.BlurMaskFilter(
+                            t.blurPx, android.graphics.BlurMaskFilter.Blur.NORMAL));
+                }
                 // Also drive the SUBSTITUTION channel, not just the transform. MATRIX is identity
                 // in geometry and alpha on purpose — its whole motion is which character is drawn
                 // — so a tile that only applied presetTransform would render MATRIX as three
@@ -409,6 +473,11 @@ public final class TextAnimPickerPopover {
                     c.drawText(glyph, cx, baseY, paint);
                 }
                 c.restore();
+                // Cleared per unit, not once after the loop: `paint` is shared with the tile's
+                // background round-rect and with the NONE glyph, so a filter left set would blur
+                // the next frame's chrome as well as the next unit. Same discipline
+                // TextBoxRenderer.drawUnit uses on its own shared TextPaint.
+                if (blurTile) paint.setMaskFilter(null);
             }
         }
 

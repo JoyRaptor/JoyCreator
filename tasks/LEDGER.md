@@ -775,6 +775,93 @@ Two further facts from the same cycle, both useful:
   cleaner reproduction than the one §2c was found with (which was tangled up with real caret
   edits), and it is now a one-command repro for whoever fixes it.
 
+## 1j. THE PICKER NO LONGER UNDER-ADVERTISES GHOST — and a doc that contradicted its own body
+
+Docket item 2, both halves. **Two stale javadocs and one stale behaviour, all the same root fact:**
+GHOST's blur shipped in `17a6254` (§1e) and three places were never told.
+
+**THE DOC CONTRADICTION — found by the previous session, confirmed and fixed.** The handoff spotted
+that `TextBoxRenderer.drawUnit`'s javadoc said *"blurPx is not applied, and that is a decision"*
+while the body sets a `BlurMaskFilter`. It is worse than one stale paragraph: the **class-level**
+doc said the same thing (*"deliberately NOT applied here… the one channel whose two surfaces
+genuinely cannot match"*). The inline comment five lines below the contradiction was correct and
+current the whole time, which is exactly how this survives review.
+
+**The old text's PREMISE was right and its CONCLUSION was wrong**, which is the interesting part
+and why it is corrected in place rather than deleted: a hardware canvas really does ignore
+`BlurMaskFilter`. It assumed the preview's canvas had to STAY hardware. It does not —
+`TextBoxView.applyBlurLayerPolicy` switches to `LAYER_TYPE_SOFTWARE` exactly when
+`CaptionAnimator.presetBlurs(preset)`, so both surfaces honour the filter and there is no
+divergence to avoid. **This is the fourth time a note in this feature has been wrong, and the
+third time the wrongness was a stale claim about a wall that had already been demolished.**
+
+**THE PICKER TILE — fixed, and the fix is a PARAMETER, not a constant.** The tile's comment read
+*"t.blurPx is deliberately NOT applied. Neither CaptionOverlayView nor CaptionExportRenderer
+consumes it today… When a renderer gains blur, this line is where the tile follows it."* A renderer
+has since gained blur. **But "always blur now" would have been wrong**, because ONE picker serves
+TWO targets and the honest answer differs:
+
+- **TEXT BOX → blurs.** `TextBoxRenderer` draws `blurPx`. Not blurring under-advertises GHOST,
+  which is the entire reason a user picks it.
+- **CAPTION → does not.** Captions still ignore `blurPx` (one shared view for all words — a
+  separate decision, still open as docket item 3). Blurring would advertise softness the app never
+  draws, which is precisely what the old comment correctly guarded against.
+
+So `show(...)` gained `targetBlursGhost`; the text-box call site passes `true`, the caption
+overloads pass `false`. **The tile also switches to `LAYER_TYPE_SOFTWARE` when it blurs** — without
+that the `BlurMaskFilter` would be a no-op on the popover's hardware window, i.e. a call into a
+void that looks like function, the exact §3a failure mode. The filter is cleared per unit, since
+`paint` is shared with the tile's background and the NONE glyph.
+
+**MEASURED ON THE NOTE 9, with an alpha-invariant instrument — and the first instrument was WRONG,
+which is worth more than the result.** The obvious measure (max edge gradient) gave GHOST 22 in the
+text-box picker against 162 in the caption picker, and that comparison is **worthless**: both tiles
+run their own loop clock and GHOST's blur RAMPS, so those were two unmatched phases. Repeating it
+across frames proved it — the text-box tile also produced 331 (settled) and the caption tile 67
+(nearly transparent). **A single-frame comparison of an animating tile is not a control.**
+
+The sound measure is **`maxGradient / peakContrast`**: a sharp edge's gradient tracks its own
+contrast, so the ratio stays ~1.8 however faint the glyph gets; blur drops the gradient without
+dropping the peak. It was **verified to be alpha-invariant before being trusted** — a caption frame
+with peak contrast of just **15** (all but invisible) still scored **1.73**.
+
+| GHOST tile, left glyph, 12 frames each | ratios |
+|---|---|
+| **TEXT BOX picker** (`targetBlursGhost=true`) | 0.28 0.29 0.43 0.45 0.47 0.94 0.94 1.85 1.85 1.85 1.85 |
+| **CAPTION picker** (`targetBlursGhost=false`) | 1.24 1.53 1.59 1.73 1.79 1.87 1.87 1.87 1.87 1.87 |
+
+**Visibly blurred frames (ratio < 1.2): text box 7 of 11, caption 0 of 10.**
+
+**The overlap at the top is not a weakness, it is a required property.** GHOST's blur returns to
+zero as the unit settles, so the settled phase MUST look identical in both pickers — the four
+text-box frames at 1.85 are that landing. The claim being made is "a blurred frame occurs only for
+the text box", and that separates cleanly.
+
+Two further controls: **in the same tile and the same frame**, the blurring glyph is soft while its
+neighbour is crisp (paint, canvas and clock all identical, so phase cannot explain it); and the
+caption tile's faint glyph is **dim but crisp-edged**, which is what makes "soft" distinguishable
+from "faint" by eye as well as by number. Evidence:
+`tasks/screenshots/ghost_tile_target_aware.png` (the three-panel comparison),
+`ghost_tile_row_zoom.png` (the whole tile row, Fade/Type/Rise/Beam all crisp).
+
+**Verified:** harness **350 passed, 0 failed**, from a clean out dir with the test class confirmed
+present. Gradle again reported `compileDefaultDebugJavaWithJavac UP-TO-DATE` on a build that had in
+fact recompiled — every `.class` postdates its source and the APK postdates every `.class`, so the
+artifact was trusted and the task states were not. **Fourth instance of that lie.** `javap` confirms
+the new 6-arg `show(..., boolean, OnPick)` overload exists in the compiled class. Both pickers were
+dismissed with BACK and `project.json` re-verified at `82d8342d` each time — picking a preset writes
+immediately, so observing must not become editing.
+
+**AN ACCIDENTAL EDIT, CAUGHT AND REVERTED — and the rule it sharpens.** A `Trim [535–1035] →
+[495–1035]` was recorded (undo 39 → 40) and autosaved. Cause: the "drag the sheet handle up" swipe
+was replayed when **no sheet was in PEEK** — I had just closed the caption drawer — so it went
+straight through to the timeline and grabbed the master clip's trim handle. The ledger's existing
+rule is *"scripted swipes aimed at the timeline are unsafe while a bottom sheet is OPEN"*; the
+sharper form is **a sheet-relative gesture is unsafe whenever the sheet is not actually there, and
+that is the more common mistake, because the coordinates still look right.** Screenshot between
+steps instead of chaining swipes. Recovery was the device-local byte-exact backup (`cp` inside
+`run-as`, app force-stopped first), **not undo** — verified back to `82d8342d`.
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

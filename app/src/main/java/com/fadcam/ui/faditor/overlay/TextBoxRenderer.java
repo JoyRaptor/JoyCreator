@@ -45,8 +45,15 @@ import com.fadcam.ui.faditor.transcript.CaptionAnimator;
  * ({@link CaptionAnimator#substituteUnit}, MATRIX) and the reveal mask
  * ({@link CaptionAnimator.Transform#revealFrac}, MASK_WIPE).
  *
- * <p><b>Blur ({@link CaptionAnimator.Transform#blurPx}) is deliberately NOT applied here.</b> It
- * is the one channel whose two surfaces genuinely cannot match — see {@link #drawUnit}.
+ * <p><b>There is a FOURTH channel: blur ({@link CaptionAnimator.Transform#blurPx}), GHOST's.</b>
+ * It IS applied here, on both surfaces — see {@link #drawUnit}. This sentence used to read
+ * "deliberately NOT applied here… the one channel whose two surfaces genuinely cannot match",
+ * which stopped being true when GHOST's blur shipped and was left stale; it is corrected rather
+ * than quietly rewritten because a doc that contradicts its own method body is how a blocker note
+ * gets believed without being re-derived.
+ *
+ * <p>(A fifth channel, ODOMETER's wheel, arrived later still: {@link CaptionAnimator#rollUnit}
+ * and {@code rollClip}, also applied in {@link #drawUnit}.)
  */
 public final class TextBoxRenderer {
 
@@ -237,12 +244,28 @@ public final class TextBoxRenderer {
      * {@code CaptionOverlayView.drawUnit} / {@code CaptionExportRenderer.drawUnit}, except that
      * there is only ONE of it and both surfaces call it.
      *
-     * <p><b>{@link CaptionAnimator.Transform#blurPx} is not applied, and that is a decision.</b>
-     * This method runs on a hardware-accelerated canvas in the preview and a software one in the
-     * export. {@code BlurMaskFilter} is ignored on the former and honoured on the latter, so
-     * applying it here would produce a blur in the exported file and nothing on screen from the
-     * same code — a divergence that would be invisible until someone watched a finished export.
-     * See {@code TextOverlayLayer} for where the preview's half of the GHOST-blur decision lives.
+     * <p><b>{@link CaptionAnimator.Transform#blurPx} IS applied, on both surfaces.</b> See the
+     * {@code BlurMaskFilter} in the body below.
+     *
+     * <p><b>This paragraph used to say the exact opposite, and the correction is worth keeping.</b>
+     * It read: "blurPx is not applied, and that is a decision… {@code BlurMaskFilter} is ignored on
+     * a hardware canvas and honoured on a software one, so applying it here would produce a blur in
+     * the exported file and nothing on screen." The PREMISE was right — a hardware canvas really
+     * does ignore {@code BlurMaskFilter} — and the CONCLUSION was wrong, because it assumed the
+     * preview's canvas had to stay hardware. It does not: {@code TextBoxView.applyBlurLayerPolicy}
+     * switches the view to {@code LAYER_TYPE_SOFTWARE} exactly when the preset blurs
+     * ({@link CaptionAnimator#presetBlurs}), so both surfaces honour the filter and there is no
+     * divergence to avoid. The price of that switch was MEASURED rather than assumed — about
+     * +0.4ms on a full-screen box, ~2.4% of a 16.7ms frame — which is why the sanctioned
+     * divergence was declined.
+     *
+     * <p>Left as a correction rather than a clean rewrite because this file shipped for a while
+     * carrying a javadoc that contradicted its own body, and that is precisely how a stale blocker
+     * note survives long enough to be planned around. If a doc here and the code here disagree,
+     * the code is the fact.
+     *
+     * <p><b>Scope: TEXT BOXES only.</b> Captions still ignore {@code blurPx} — one shared view for
+     * all words, so a different cost profile and a separate decision.
      */
     private static void drawUnit(@NonNull Canvas c, @NonNull TextPaint p,
                                  @NonNull TextOverlayItem o, @NonNull String run,

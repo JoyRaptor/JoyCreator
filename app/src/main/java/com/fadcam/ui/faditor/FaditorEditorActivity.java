@@ -19722,6 +19722,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // surface could animate them per glyph; both now do, through the one shared
                 // TextBoxRenderer, so the restriction is gone rather than merely relaxed.
                 null,
+                // true = this target BLURS. A text box draws GHOST's blurPx (TextBoxRenderer, with
+                // TextBoxView on a software layer so the filter is honoured), so GHOST's tile must
+                // show the softness the box will actually have. The tile omitted it while nothing
+                // drew it; something does now. Captions still pass false.
+                true,
                 new com.fadcam.ui.faditor.TextAnimPickerPopover.OnPick() {
                     @Override
                     public void onPreset(

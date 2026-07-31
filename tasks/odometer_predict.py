@@ -87,14 +87,35 @@ def predict(media_ms, text, start_ms, end_ms, in_pct, out_pct, granularity='BLOC
 if __name__ == '__main__' or True:
     # The sandbox case: PICKERTEST on bb2a9deb, BLOCK granularity, 25% in-zone, no out-zone.
     TEXT = 'PICKERTEST'
-    START, END = 0, 5820          # span measured from the item's tape on the Note 9
+    #
+    # SPAN CORRECTED 2026-07-31 — it was 5820, read off the item's TAPE, and that was wrong.
+    #
+    # PICKERTEST carries NO startMs and NO endMs on disk. `TextOverlayItem.animSpanMs` resolves an
+    # open end to `timelineDurationMs`, and the preview feeds it the SAME value the export does
+    # (`FaditorEditorActivity.getProjectDurationMs` -> `Timeline.getTotalDurationMs()`), so there is
+    # no preview/export ambiguity to worry about here.
+    #
+    # `getTotalDurationMs` = max(sum of trimmed clip durations, latest audio end), computed from
+    # bb2a9deb's project.json:
+    #     video  250 + 4566 + 427 + 500                       =  5743ms
+    #     audio  max(30771, 13709, 20608)                     = 30771ms
+    #     max                                                 = 30771ms
+    # Both halves reproduce the ledger's independently-measured figures (5743 master track,
+    # 30771 project duration, and the export dialog's "00:30"), so this is triangulated, not
+    # asserted.
+    #
+    # The item's tape reading ~5.8s is a DIFFERENT quantity — the timeline draws items against the
+    # master track — and is not what the animation is paced by. Reading a span off the tape was the
+    # error; it is the editor header (00:30) that agrees with the model.
+    START, END = 0, 30771
     IN_PCT, OUT_PCT = 0.25, 0.0
 
     in_zone, out_zone, _ = predict(0, TEXT, START, END, IN_PCT, OUT_PCT)
     print('span=%dms  in-zone=%dms  out-zone=%dms  (BLOCK: one unit)' % (END - START, in_zone, out_zone))
     print()
     print('%8s  %8s  %6s  %-12s  %-12s' % ('mediaMs', 'progress', 'phase', 'incoming', 'outgoing'))
-    for ms in (0, 100, 200, 300, 400, 500, 700, 900, 1100, 1300, 1400, 1455, 1500, 2000):
+    for ms in (0, 250, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000, 6000,
+               7000, 7693, 8000):
         _, _, rows = predict(ms, TEXT, START, END, IN_PCT, OUT_PCT)
         u, p, rolling, inc, out, phase = rows[0]
         print('%8d  %8.4f  %6.3f  %-12s  %-12s%s'

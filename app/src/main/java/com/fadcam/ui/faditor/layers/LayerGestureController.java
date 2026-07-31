@@ -420,6 +420,7 @@ public final class LayerGestureController {
     @NonNull
     public DownResult onRowBodyDown(float x, float y, float topPx, long totalMs,
                                     @NonNull LayerRowRenderer.TimeToX timeToX) {
+        lastTotalMs = totalMs;
         LayerRowRenderer.ItemHit hit = rowRenderer.hitTestItem(x, y, topPx, totalMs, timeToX, selectedItemId);
         if (hit == null) {
             boolean hadSelection = selectedItemId != null;
@@ -715,6 +716,7 @@ public final class LayerGestureController {
      *              PLAN Part 7 row M10 scope 1). Ignored for TRIM (no cross-row concept).
      */
     public void onRowBodyMove(float x, float y, float topPx, long totalMs, @NonNull XToTime xToTime) {
+        lastTotalMs = totalMs;
         if (kfShiftActive) { doKeyframeShiftMove(x, xToTime); return; }
         if (!active || activeItem == null) return;
         // Redesign gate (PLAN TARGET CONTRACT): a MOVE only happens AFTER a pick-up
@@ -1367,6 +1369,11 @@ public final class LayerGestureController {
                 long newStart = Math.max(0, Math.min(targetTimeMs, maxStart));
                 // No-overlap law on trims (dragux_v3 A8 hardening 2026-07-04): the
                 // left edge may not cross into a same-row sibling.
+                // MAX/4 is CORRECT here and is not the stranding bug: `ourEnd` is only ever a
+                // comparison bound ("does this sibling start before our end"), and for an
+                // open-ended item the honest answer is "before anything". No value derived from
+                // it is stored. The stranding came from feeding this constant to
+                // getDisplayDurationMs as a fallback LENGTH — see trimSiblingFloor.
                 long ourEnd = dragStartTextEndMs == Long.MAX_VALUE
                         ? Long.MAX_VALUE / 4 : dragStartTextEndMs;
                 newStart = Math.max(newStart, trimSiblingFloor(newStart, ourEnd));
@@ -1619,27 +1626,45 @@ public final class LayerGestureController {
         return true;
     }
 
-    /** Lowest legal start for a row-system LEFT trim (may not cross a same-row sibling). */
+    /**
+     * Lowest legal start for a row-system LEFT trim (may not cross a same-row sibling).
+     *
+     * <p><b>The sibling length resolves against {@link #effectiveTotalMs()}, not
+     * Long.MAX_VALUE / 4.</b> This is the SECOND path that stranded items at
+     * 2305843009213693951ms — see {@code resolveOverlapOnRow} for the mechanism and the ledger
+     * for the three projects carrying the damage. Here the escape was subtler: with an
+     * open-ended sibling the floor became MAX/4, and the clamp on the next line
+     * ({@code maxStart == Long.MAX_VALUE ? newStart : maxStart}) is a NO-OP for exactly the
+     * items at risk, because an open-ended item's {@code maxStart} IS Long.MAX_VALUE. So the
+     * one guard that looked like it would catch this could not.</p>
+     */
     private long trimSiblingFloor(long proposedStart, long ourEnd) {
         if (activeTrack == null || activeItem == null) return proposedStart;
         long floor = proposedStart;
         for (TimedItem sib : activeTrack.getItems()) {
             if (sib.getId().equals(activeItem.getId())) continue;
             long ss = sib.getTimelineStartMs();
-            long se = ss + Math.max(0, sib.getDisplayDurationMs(Long.MAX_VALUE / 4));
+            long se = ss + Math.max(0, sib.getDisplayDurationMs(effectiveTotalMs()));
             if (ss < ourEnd && se > proposedStart) floor = Math.max(floor, se);
         }
         return floor;
     }
 
-    /** Highest legal end for a row-system RIGHT trim (may not cross a same-row sibling). */
+    /**
+     * Highest legal end for a row-system RIGHT trim (may not cross a same-row sibling).
+     *
+     * <p>Uses {@link #effectiveTotalMs()} for consistency with {@link #trimSiblingFloor}. This
+     * direction was never able to strand an item — it narrows to a sibling's START (`ss`), never
+     * to the computed end (`se`) — but leaving one call site on the old sentinel would leave the
+     * trap armed for the next edit.</p>
+     */
     private long trimSiblingCeil(long ourStart, long proposedEnd) {
         if (activeTrack == null || activeItem == null) return proposedEnd;
         long ceil = proposedEnd;
         for (TimedItem sib : activeTrack.getItems()) {
             if (sib.getId().equals(activeItem.getId())) continue;
             long ss = sib.getTimelineStartMs();
-            long se = ss + Math.max(0, sib.getDisplayDurationMs(Long.MAX_VALUE / 4));
+            long se = ss + Math.max(0, sib.getDisplayDurationMs(effectiveTotalMs()));
             if (se > ourStart && ss < proposedEnd) ceil = Math.min(ceil, ss);
         }
         return ceil;
@@ -1658,8 +1683,48 @@ public final class LayerGestureController {
         // Same side preference as the live preview (S5) so the commit can never land on
         // a different side than the WYSIWYG outline forecast (the guard normally no-ops:
         // the live position is already legal, so the resolver returns it unchanged).
-        return nearestFreeStart(row, moved.getId(), desiredStart, dur, Long.MAX_VALUE / 4,
+        //
+        // `lastTotalMs`, NOT Long.MAX_VALUE / 4 — and that constant was a real bug, not a
+        // harmless over-estimate. `totalMs` is what an OPEN-ENDED item's length resolves
+        // against (TimedItem#getDisplayDurationMs returns `fallbackMs - start` when endMs is
+        // Long.MAX_VALUE), so passing MAX/4 made any open-ended sibling occupy the row out to
+        // 2305843009213693951ms. nearestFreeStart's "after the last block" branch then returned
+        // exactly that, and applyCommittedStart wrote it to the item as its startMs — putting it
+        // ~73 million years down the timeline, where no playhead can reach it and no UI can
+        // select it. Three sandbox projects carry a text overlay stranded at precisely
+        // Long.MAX_VALUE / 4 (see the ledger); this is where they came from.
+        //
+        // The irony is the point: this guard exists to stop an overlap reaching DISK, and it was
+        // the only path corrupting what reached disk. Using the same total the LIVE resolver was
+        // given also makes the commit agree with the preview the user actually saw, which is what
+        // this method was for in the first place.
+        return nearestFreeStart(row, moved.getId(), desiredStart, dur, effectiveTotalMs(),
                 fingerSidePref);
+    }
+
+    /**
+     * The last timeline total this controller was handed, for the commit path — which, unlike
+     * every live path, is not given one ({@link #onRowBodyUp} takes only a boolean).
+     *
+     * <p>Set on DOWN and on every MOVE, so a drop is always preceded by at least one write. The
+     * 0 default only survives if a commit somehow runs without either, and
+     * {@link #effectiveTotalMs()} is what decides what that means.</p>
+     */
+    private long lastTotalMs = 0;
+
+    /**
+     * A sane timeline total for the commit-time resolver.
+     *
+     * <p>Falls back to 0 rather than to a large sentinel, deliberately. With 0, an open-ended
+     * sibling's {@code getDisplayDurationMs} clamps to 0 via its own {@code Math.max(0, …)}, the
+     * sibling contributes no block, and the resolver returns the desired start unchanged — the
+     * item stays where the user dropped it. A large fallback does the opposite: it invents an
+     * enormous occupied region and flings the item to the end of it. <b>When this value is
+     * unknown the right failure is to leave the item alone, not to move it somewhere no one can
+     * reach.</b></p>
+     */
+    private long effectiveTotalMs() {
+        return Math.max(0, lastTotalMs);
     }
 
     /** Apply a commit-time corrected start to {@code item}, preserving duration + open end. */

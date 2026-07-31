@@ -933,6 +933,70 @@ could not fake: `blurEnabled` is ABSENT from the compiled class** (the measureme
 and `show` has 2 overloads with 0 `boolean` parameters. Sandbox restored to `82d8342d`, scratch
 files removed from the device, 11 projects, rotation lock 0.
 
+## 1l. THE 2^61−1 STRANDING IS A LIVE BUG, DIAGNOSED AND FIXED — 2026-07-31
+
+§3 item 5 recorded an unreachable text overlay in the sandbox carrying `startMs`
+**2305843009213693951**, said *"where that value comes from is unknown, and it may be sandbox-only
+damage from an earlier probe"*, and asked that nobody spend a session on it **without first
+checking whether any code path can still produce it.** That check was done. **One can. Two, in
+fact.**
+
+**IT IS NOT SANDBOX DAMAGE.** The value appears in **three separate projects** — `bdd51919`,
+`a2025388`, `aeb0517e` — plus `bb2a9deb`'s undo history. In every case it sits on a text overlay
+whose text is `"Enter text"`, i.e. one made by the Text toolbar button, which creates items with
+**no `endMs`** (open-ended). One project could be a probe; four instances with one signature is a
+code path.
+
+**THE ARITHMETIC NAMES THE CULPRIT.** 2305843009213693951 is exactly `Long.MAX_VALUE / 4`, and
+that constant occurs in only a handful of places in the codebase. The chain:
+
+1. `TimedItem.getDisplayDurationMs(fallbackMs)` returns **`fallbackMs - start`** for an item whose
+   `endMs` is `Long.MAX_VALUE` — an open end resolves its length against the timeline total.
+2. `LayerGestureController.resolveOverlapOnRow` passed **`Long.MAX_VALUE / 4`** as that total.
+3. So an open-ended sibling's occupied block ran to `start + (MAX/4 − start)` = **exactly MAX/4**.
+4. `nearestFreeStart`'s *"after the last block"* branch — commented **"always feasible, so a legal
+   spot ALWAYS exists"** — returns `max(tailLo, desiredStart)` = **MAX/4**.
+5. `applyCommittedStart` writes it via `setTimeRange`.
+
+**The result is an item ~73 million years down the timeline: no playhead reaches it, no long-press
+finds it, no timeline chip shows it. It cannot be edited or deleted through the UI at all.**
+
+**THE IRONY IS THE FINDING.** This is the **commit-time guard**, whose own comment calls it *"the
+LAST line of defence that guarantees the PERSISTED state never overlaps, whatever the live preview
+showed."* The **live** resolver is handed a real `totalEffectiveMs` and is fine. The guard that
+exists to protect what reaches disk was the only thing corrupting what reached disk.
+
+**A SECOND PATH, found by checking the other uses of the same constant rather than stopping at the
+first hit.** `trimSiblingFloor` also resolved sibling lengths against `Long.MAX_VALUE / 4`, so
+LEFT-trimming an open-ended text item on a row with an open-ended sibling sets `floor` = MAX/4 and
+strands it the same way. **Its guard could not catch it:** the very next line clamps with
+`maxStart == Long.MAX_VALUE ? newStart : maxStart`, and an open-ended item's `maxStart` **is**
+`Long.MAX_VALUE` — so for exactly the items at risk the clamp is a no-op. `trimSiblingCeil` was
+never able to strand anything (it narrows to a sibling's START, never the computed end) but was
+moved onto the same helper so the trap is not left half-armed.
+
+**THE FIX.** `lastTotalMs` is captured on DOWN and on every MOVE — the commit path is the only one
+not handed a total, since `onRowBodyUp` takes just a boolean — and `effectiveTotalMs()` feeds all
+three sites. **Its fallback is 0, not a large sentinel, and that direction is deliberate:** with 0
+an open-ended sibling's length clamps to 0 through its own `Math.max(0, …)`, contributes no block,
+and the resolver returns the drop position unchanged. **When the total is unknown the right failure
+is to leave the item where the user put it, not to fling it somewhere unreachable.** A large
+fallback is what caused this in the first place.
+`Long.MAX_VALUE / 4` survives in two places on purpose, both now commented: `applyTrim`'s `ourEnd`
+(a comparison bound only — nothing derived from it is stored) and `breakthroughMs()` (a
+push-through threshold whose sibling `maxStartMs()` already clamps to the real total).
+
+**PROOF STATE, STATED HONESTLY: traced by reading and corroborated by data — NOT device-proved.**
+The mechanism is complete and every step is a named line; the predicted value matches the damage in
+three real projects to the digit; the fix compiles, `effectiveTotalMs` is in the built class, and
+harness **350/0** + matte ALL PASS are unchanged. **But no drag has been performed on a phone to
+watch a sane value land where MAX/4 used to.** That is the missing half and it should be the next
+session's cheap win: put two open-ended text items on one layer row, drop one past the other, read
+`startMs`. **Do not mark this verified until that is done.** The three damaged projects are also
+still damaged — the fix stops new stranding, it does not repair existing items, and repairing them
+needs a migration decision (their `startMs` is unrecoverable, so the honest repair is to reset it
+to 0 rather than guess).
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

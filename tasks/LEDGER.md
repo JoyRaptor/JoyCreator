@@ -641,7 +641,13 @@ filtered out by `!p.implemented`), **its tile rolls**, "Animate by" offers all f
 selecting it records **ONE** undo step (38 → 39, `Recorded: Text animation`), the MOTION row reads
 *"Odometer · 25% in / 0% out of this box"*, and `"textAnimPreset": "ODOMETER"` lands on disk.
 
-**⚠ NOT PROVED: THE RENDER. Do not mark this verified.** `tasks/odometer_predict.py` was written
+**~~⚠ NOT PROVED: THE RENDER. Do not mark this verified.~~ THE PREVIEW RENDER IS NOW PROVED —
+2026-07-31, ten frames, character for character. See §1h.** The paragraph below is kept intact
+because its refusal to claim the stale frame as evidence was correct, and because the reason the
+capture was hard is recorded there: the span in the predictor was wrong (5820ms, read off the
+tape; it is really 30771ms), which made the roll look ~1.5s long instead of ~7.7s.
+**The EXPORT half of ODOMETER is still unproved.**
+`tasks/odometer_predict.py` was written
 BEFORE any device work and models `unitProgress` → `decelerate` → wheel → ring. One captured frame
 showed the box mid-roll reading `HAUCWJLW…`, which is exactly the model's **progress-0** row
 (`HAUCWJLWKL`) — but the time chip in that same grab read 72ms, so the preview render was STALE
@@ -656,6 +662,118 @@ undo of an "Add text overlay" step is not necessarily inverse to what the label 
 stack has been disturbed. Recovery was the device-local byte-exact backup, not undo.
 **Scripted swipes aimed at the timeline are unsafe while a bottom sheet is open** — the sheet owns
 that region. Close it first, or move the playhead with the PLAY button, which cannot edit.
+
+## 1h. ODOMETER'S RENDER IS PROVED — character for character, 2026-07-31
+
+**§1g's one open claim is closed for the PREVIEW.** The handoff's first job was a frame whose
+playhead and glyphs provably come from the same instant. Ten of them were taken.
+
+**FIRST, THE BLOCKER THAT WAS NOT A PREFERENCE: the span was wrong, and it was wrong in the
+predictor, not on the phone.** `tasks/odometer_predict.py` assumed **5820ms**, read off the item's
+TAPE, and the handoff recorded the contradiction with the editor's `00:30` header as unresolved.
+Settled by reading the code rather than by looking harder at the screen:
+
+- PICKERTEST carries **no `startMs` and no `endMs`** on disk (verified in `project.json`).
+- `TextOverlayItem` defaults are `startMs = 0`, `endMs = Long.MAX_VALUE`, and `animSpanMs`
+  resolves an open end to `timelineDurationMs`.
+- The preview feeds it the **same value the export does** — `getProjectDurationMs()` delegates to
+  `Timeline.getTotalDurationMs()` — so there was no preview/export ambiguity underneath it.
+- `getTotalDurationMs` = max(sum of trimmed clip durations, latest audio end). From `bb2a9deb`:
+  video `250 + 4566 + 427 + 500` = **5743ms**, audio end **30771ms**, max = **30771ms**.
+
+Both halves reproduce figures this ledger measured independently in §1c (5743 master track, 30771
+project duration, export dialog `00:30`), so the number is triangulated rather than asserted. **The
+tape is simply a different quantity** — items are drawn against the master track — and it was the
+editor header that agreed with the model all along. The correction is committed at `80a18f1`,
+**deliberately BEFORE any device work, so the model was frozen ahead of the capture.**
+Confirmed a third time on screen afterwards: playback ran to a playhead of **`00:30.771`**.
+
+**Consequence, and it is why this capture was easy where the last one was not:** the in-zone is
+**7693ms**, not ~1455ms. The roll is readable for nearly eight seconds. The previous session was
+hunting a frame inside a 1.5s window and caught a stale one.
+
+**THE MEASUREMENT.** Preset set to ODOMETER entirely on-device (`sed` + `cp` inside `run-as`, no
+`adb push` in the path), guarded by a **whole-file deep-equality diff that reported exactly ONE
+difference**, `textAnimPreset: RISE -> ODOMETER`. Byte sizes reconciled independently: 63215 ->
+63219 is exactly +4, the length of `RISE` -> `ODOMETER`. The playhead was moved with the **PLAY
+button only** — it cannot edit — and ten `screencap` frames were taken during playback, each
+carrying the time chip and the glyph row in the SAME framebuffer.
+
+| chip | predicted upper (outgoing) | predicted lower (incoming) | on screen |
+|---|---|---|---|
+| 00:00.009 | — | `HAUCWJLWKL` | `HAUCWJLWK…` |
+| 00:00.295 | `HAUCWJLWKL` | `IBVDXKMXLM` | both, as predicted |
+| 00:01.043 | — | `JCWEYLNYMN` | `JCWEYLNYM…` |
+| 00:01.818 | `KDXFZMOZNO` | `LEYGANPAOP` | both |
+| 00:02.644 | `LEYGANPAOP` | `MFZHBOQBPQ` | both |
+| 00:03.454 | `MFZHBOQBPQ` | `NGAICPRCQR` | both |
+| 00:04.271 | `NGAICPRCQR` | `OHBJDQSDRS` | both |
+| 00:05.028 | — | `OHBJDQSDRS` | `OHBJDQSDR…` |
+| 00:05.570 | `OHBJDQSDRS` | `PICKERTEST` | both |
+| 00:06.576 | — | `PICKERTEST` | `PICKERTEST` |
+
+**10 of 10 match.** The trailing character is clipped by the preview's right edge on the
+single-row frames, so nine glyphs are read rather than ten; the nine that are legible match
+exactly. Evidence: `tasks/screenshots/odometer_roll_proof.png` (all ten, each with its own chip),
+`odometer_frame_1043_JCWEYLNYM.png` (one full untouched frame).
+
+**THE SPEC CORRECTION IS VISIBLE IN THE DATA, which is the point of the preset.** The first
+character steps **H → I → J → K → L → M → N → O → P** across the ten frames — monotone, adjacent on
+its own ring, counting **UP** into `PICKERTEST`'s real `P`. That is a wheel that can be READ, not a
+scramble. The upper/lower assignment is also confirmed rather than assumed: `TextBoxRenderer`
+translates incoming DOWN by `phase*slotH` and outgoing UP by `(1-phase)*slotH`, so incoming is the
+LOWER row — and on every two-row frame the lower row is the model's `incoming`.
+
+**THE CONTROLS DISCRIMINATE, and they were checked rather than asserted** — the house rule that
+caught a vacuous test last session:
+
+| model fed the same ten frames | frames matched |
+|---|---|
+| **true model, span 30771** | **10 / 10** |
+| ring, span 5820 (the OLD wrong span) | 2 / 10 |
+| ring, span 15000 (arbitrary wrong span) | 2 / 10 |
+| **SCRAMBLE fillers (hash pool), span 30771** | **0 / 10** |
+
+So the test can fail, and it fails for exactly the two defects it exists to detect: a wrong span
+and a scramble-instead-of-a-ring. The scramble arm scoring **zero** is the strongest of these — a
+hash pool cannot produce these glyph rows at all.
+
+**The staleness trap that ruined the last attempt is closed by construction:** ten different clocks
+produced ten different glyph rows advancing monotonically with the clock. A frozen preview shows
+one row. Note also that the progress-0 row `HAUCWJLWKL` — the row the previous session caught at a
+72ms chip — is reproduced here at a **00:00.009** chip, so that observation was right about the
+model and right to be refused as evidence.
+
+**SCOPE, STATED PLAINLY: this is the PREVIEW only.** No file has been exported with ODOMETER set.
+The shared-renderer design says the export must agree — `rollUnit`/`rollClip` live in
+`CaptionAnimator` and both surfaces reach them through the one `TextBoxRenderer` — but that is an
+argument from construction, which is precisely what this ledger does not accept as proof. **The
+export half of ODOMETER remains unproved and must not be claimed.**
+
+Sandbox restored to **`82d8342d`** from the device-local byte-exact backup and verified; 11
+projects; rotation lock 0; 0 `FATAL EXCEPTION` across the walk.
+
+## 1i. THE RIG-DRIVEN SPRITE DRIFT DID NOT REPRODUCE — a NEGATIVE result, 2026-07-31
+
+Docket item 1 was the sprite drift (§1c). **A clean open → play-to-end → Close & Save cycle on
+`bb2a9deb`, with no edit of any kind, did NOT move sprite `8850f07c`.** It is still at exactly the
+values §1c recorded as its BEFORE state: `centerX` 0.9237256, `centerY` 0.16858277,
+`sizeFraction` 0.25.
+
+This is recorded rather than quietly dropped, because it changes the shape of the investigation:
+the drift is **not** a property of merely opening and closing a project, so §1c's wording
+("opening and closing a project silently moves…") is too strong. Something else in that session
+was a necessary condition and has not been identified yet. **Do not go looking for it in the plain
+load/save path** — this run is the control that rules that path out.
+
+Two further facts from the same cycle, both useful:
+- The file was **byte-identical after open + full playback** (md5 unchanged) and only changed on
+  **Close & Save**. So the write is on the save path, not the load path.
+- **§2c REPRODUCED, and now minimally.** The same no-edit cycle regenerated all three
+  `audioClips[].id` values and their mirrored `items[].id` / `payloadId` — **10 diffs total, of
+  which 9 are these ids and 1 is `lastModified`.** Nothing else in the file moved. That is a
+  cleaner reproduction than the one §2c was found with (which was tangled up with real caret
+  edits), and it is now a one-command repro for whoever fixes it.
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 

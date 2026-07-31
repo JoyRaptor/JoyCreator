@@ -986,6 +986,48 @@ fallback is what caused this in the first place.
 (a comparison bound only — nothing derived from it is stored) and `breakthroughMs()` (a
 push-through threshold whose sibling `maxStartMs()` already clamps to the real total).
 
+**DEVICE PROOF ATTEMPTED 2026-07-31 AND NOT ACHIEVED. The attempt is written up because the
+NEXT attempt should not repeat it.** Four scripted drags across two builds (fixed, and a
+deliberately reverted before-arm) all produced sane values, and **the before-arm produced sane
+values too** — so the test did not discriminate and proves nothing in either direction. **The fix
+is not disproved; the experiment is invalid.** What went wrong, from a temporary `STRANDPROBE` log
+inside the guard:
+
+| probe output | what it means |
+|---|---|
+| `newLayerZone=true, commitDur=5743` | the long-press grabbed the WRONG item — the open-ended sibling, not the small one — because they overlapped, and the drop landed in the new-layer zone, skipping the guard entirely |
+| `cur=500 fixed=500` | **`cur` at guard time is the item's PRE-drag start, not where the drag left it.** A setup whose pre-drag position does not already overlap the block can never reach the stranding branch |
+| `guard: cur=2000 fixed=2000 items=1` | **the killer: `dest.getItems()` was 1** — the destination row held only the dragged item, so `nearestFreeStart` skipped it as self, found `n == 0`, and returned the desired start unchanged. No sibling, no block, no bug |
+
+**So the necessary conditions for a repro, now known and each learned the hard way:**
+1. The dragged item's **pre-drag** `startMs` must already overlap the open-ended sibling's block
+   (`cur` is what the guard resolves, not the drop point).
+2. The drop must leave the item on a row that **still contains the sibling** — assert
+   `items >= 2` in a probe before believing anything.
+3. The two must not overlap at the grab point, or the hit-test takes the sibling (`commitDur`
+   identifies which item was actually grabbed — the sibling's is its full display duration).
+4. Release with the finger in the RIGHT half of the panel (`fingerSidePref = +1`), or the resolver
+   escapes to the *before* side and returns a sane value legitimately.
+5. Avoid the new-layer zone (`newLayerZone=false` in the probe).
+
+**A CORRECTION TO THE PREDICTION, confirmed by the probe: the relevant total is `totalEffectiveMs`
+(the MASTER TRACK, 5743ms), not `getTotalDurationMs` (30771ms).** `EditorTimelineView` passes
+`totalEffectiveMs` to the gesture controller, and the probe logged `lastTotalMs=5743`. One
+observed drag landed at exactly **5743 / 5993** — an item butted against the open-ended sibling's
+block end, dur 250 preserved — which is the arithmetic working, just not through the stranding
+branch. **§1h's 30771 is right for the ANIMATION span and wrong for the drag system; they are
+different totals and this ledger should not conflate them again.**
+
+**The environment fought back, twice:** the Note 9 dropped off USB mid-run and the adb daemon died
+a second time later. Both were recovered (`kill-server`/`start-server`), and neither corrupted
+anything, but a long scripted repro on this rig should checkpoint state rather than assume a run
+completes.
+
+**Left clean:** the temporary probe and the reverted constant were removed via `git checkout`, the
+built class was re-scanned to confirm `STRANDPROBE` is **absent** from the artifact, the clean fixed
+build is installed, sandbox restored to `82d8342d`, device scratch files deleted, 11 projects,
+rotation lock 0.
+
 **PROOF STATE, STATED HONESTLY: traced by reading and corroborated by data — NOT device-proved.**
 The mechanism is complete and every step is a named line; the predicted value matches the damage in
 three real projects to the digit; the fix compiles, `effectiveTotalMs` is in the built class, and

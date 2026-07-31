@@ -30,9 +30,21 @@ Note 9 attached, rotation lock 0, sandbox `bb2a9deb` verified at md5 **`82d8342d
 `§1l` traced the mechanism completely by reading and the fix compiles, but **no drag has been done
 on a phone.** The ledger's own rule is that a drag cannot be replaced by reasoning.
 
-**The repro is cheap:** put TWO open-ended text items on ONE layer row (a text box made by the Text
-tool has no `endMs`, so it is open-ended by default — `PICKERTEST` in `bb2a9deb` already is one),
-then drag the second one onto that row past the first and drop it. Read its `startMs`.
+**⚠ THE OBVIOUS REPRO DOES NOT WORK — I tried it four times across two builds on 2026-07-31 and
+the BEFORE-arm produced sane values too, so it discriminated nothing. Read §1l's probe table
+before designing another one.** The five conditions that must ALL hold:
+
+1. The dragged item's **pre-drag** `startMs` must already overlap the open-ended sibling's block —
+   the guard resolves `cur`, the position *before* the drag, not where you dropped it.
+2. The drop must leave the item on a row that **still contains the sibling**. My drags kept landing
+   it on a row where it was the only member (`items=1`), so there was no sibling and no block.
+3. They must not overlap **at the grab point**, or the long-press takes the sibling instead.
+4. Release with the finger in the RIGHT half of the panel, or the resolver escapes to the *before*
+   side and returns a sane value legitimately.
+5. The drop must not land in the new-layer zone.
+
+**Put a `STRANDPROBE`-style log in the guard FIRST and assert `items >= 2` before believing any
+result** — that one line is what turned four blind failures into a diagnosis.
 
 - **Before the fix:** exactly `2305843009213693951` (= `Long.MAX_VALUE / 4`), and the item becomes
   permanently unreachable — no playhead, no long-press, no timeline chip.

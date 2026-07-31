@@ -605,6 +605,58 @@ load/save.** A full deep-diff of the project before and after the test showed th
 intended caret edits. It is the same class as the §3 rig-driven sprite drift — opening a project
 mutates data the user never touched — and it belongs on that list.
 
+## 1g. ODOMETER IS BUILT — the last of the five presets, 2026-07-31, `4145938`
+
+**The user's spec correction IS the design.** The written design said the fillers came from
+MATRIX's deterministic `mix`. Wrong: a wheel is an ORDERED ring and the point of an odometer is
+that the roll can be READ. `charAtWheel(k)` is now the real character stepped BACK `k` places
+along its own ring (`0-9`, `a-z`, `A-Z`), counting UP into place. That is also strictly MORE
+deterministic than the hash it replaces — no `mix` for preview and export to agree on, only
+arithmetic. A character with no ring keeps its own glyph and, alone, does not roll.
+
+**Its scope question was moot, and THAT is the lesson.** It asked how to cope with the text-box
+preview being a `TextView`. It was escalated to the user twice and declined once
+(*"skip odometer for now i dont know how to answer"*) — and the answer was never a preference.
+Option (b) had already been built for unrelated reasons: both text-box surfaces draw through one
+shared `TextBoxRenderer`, so there was nothing to gate around. **Re-derive a blocker against the
+code before asking a human to arbitrate it** — paid for four times in this one spec now.
+
+**Fourth output channel:** `CaptionAnimator.rollUnit` + `rollClip`, android-free so the harness
+reaches them. The travel IS the clip's height, read off the rect rather than recomputed, so window
+and distance cannot drift. Four consumers: both caption renderers, the shared text-box renderer,
+and the picker tile — which must drive it or ODOMETER would advertise three static "A"s.
+
+**Harness 326 → 350, 0 failed, and the checks DISCRIMINATE:** injecting a hash into the digit ring
+fails exactly the two asserting ring adjacency and monotone approach. One of those two only became
+a real check *because* that injection exposed the first draft as vacuous — it could fail for a
+single character value only. A control that cannot discriminate is not a control.
+
+**`TextBoxRenderer`'s roll scratch is THREAD-LOCAL, not static.** Every method on that class is
+static and stateless, so a plain `static` buffer would have looked consistent and been a data
+race — the main thread draws the preview while the export draws on its own worker. It also avoids
+`ThreadLocal.withInitial`, which is API 26 against this module's minSdk 24.
+
+**PROVED ON THE NOTE 9 — the authoring half only.** ODOMETER now APPEARS in the picker (it was
+filtered out by `!p.implemented`), **its tile rolls**, "Animate by" offers all four granularities,
+selecting it records **ONE** undo step (38 → 39, `Recorded: Text animation`), the MOTION row reads
+*"Odometer · 25% in / 0% out of this box"*, and `"textAnimPreset": "ODOMETER"` lands on disk.
+
+**⚠ NOT PROVED: THE RENDER. Do not mark this verified.** `tasks/odometer_predict.py` was written
+BEFORE any device work and models `unitProgress` → `decelerate` → wheel → ring. One captured frame
+showed the box mid-roll reading `HAUCWJLW…`, which is exactly the model's **progress-0** row
+(`HAUCWJLWKL`) — but the time chip in that same grab read 72ms, so the preview render was STALE
+rather than agreeing, and a match against the wrong clock is not evidence. The character-for-
+character proof MATRIX got still has to be taken. The model is ready; what is missing is a frame
+whose playhead and glyphs provably come from the same instant.
+
+**Two accidental edits were made to the sandbox during this session and both were caught**: a
+scrub swipe landed on the object sheet and recorded `Add text overlay`, and another trimmed a
+master clip (`Trim [535–1035] → [0–1035]`). Undoing the first **deleted PICKERTEST itself** — so
+undo of an "Add text overlay" step is not necessarily inverse to what the label suggests when the
+stack has been disturbed. Recovery was the device-local byte-exact backup, not undo.
+**Scripted swipes aimed at the timeline are unsafe while a bottom sheet is open** — the sheet owns
+that region. Close it first, or move the playhead with the PLAY button, which cannot edit.
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

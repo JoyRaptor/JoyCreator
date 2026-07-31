@@ -172,7 +172,34 @@ public class CaptionOverlayView extends View {
         animGran = CaptionAnimator.parseGranularity(granularityName);
         animInPct = CaptionAnimator.clampZonePct(inPct);
         animOutPct = CaptionAnimator.clampZonePct(outPct);
+        applyBlurLayerPolicy();
         invalidate();
+    }
+
+    /**
+     * Put this view on a SOFTWARE layer exactly when the preset blurs, and back on a hardware one
+     * when it does not.
+     *
+     * <p>{@code BlurMaskFilter} is a no-op on a hardware-accelerated canvas, so GHOST's
+     * {@code blurPx} would silently do nothing here — a setter call into a void, the failure mode
+     * this project has already shipped once. Mirrors {@code TextBoxView.applyBlurLayerPolicy}.
+     *
+     * <p><b>Why this is safe to switch on the PRESET rather than per frame.</b> The layer type is
+     * a property of the view, and {@code setLayerType} with the value it already holds is a no-op
+     * in the framework, so calling it from the one setter costs nothing on the common path. It
+     * cannot be decided inside {@code onDraw} — a view cannot change its own layer type while it
+     * is drawing.
+     *
+     * <p><b>The cost profile here is genuinely different from a text box's, and the difference is
+     * DURATION, not the "one shared view" the old note named.</b> Either way it is ONE software
+     * layer; a text box's is box-sized and a caption's is caption-view-sized. What differs is that
+     * a text box's entrance happens once, while captions re-animate line after line for as long as
+     * anyone is speaking — so the honest question was never peak per-draw cost but sustained frame
+     * rate, and that is what was measured before this shipped. See the ledger.
+     */
+    private void applyBlurLayerPolicy() {
+        setLayerType(CaptionAnimator.presetBlurs(animPreset)
+                ? LAYER_TYPE_SOFTWARE : LAYER_TYPE_HARDWARE, null);
     }
 
     /**
@@ -415,14 +442,16 @@ public class CaptionOverlayView extends View {
             float slotH = rollClipTmp[3] - rollClipTmp[1];
             canvas.save();
             canvas.translate(0f, rollTmp.phase * slotH);
-            paintWord(canvas, rollTmp.incoming, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            paintWord(canvas, rollTmp.incoming, x, baseY, color, fontPx, pre.alpha, pre.glowPx,
+                    pre.blurPx);
             canvas.restore();
             canvas.save();
             canvas.translate(0f, (rollTmp.phase - 1f) * slotH);
-            paintWord(canvas, rollTmp.outgoing, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            paintWord(canvas, rollTmp.outgoing, x, baseY, color, fontPx, pre.alpha, pre.glowPx,
+                    pre.blurPx);
             canvas.restore();
         } else {
-            paintWord(canvas, shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            paintWord(canvas, shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx, pre.blurPx);
         }
         canvas.restore();
     }
@@ -459,7 +488,17 @@ public class CaptionOverlayView extends View {
     }
 
     private void paintWord(Canvas canvas, String word, float x, float baseY,
-                           int fillColor, float fontPx, float animAlpha, float presetGlowPx) {
+                           int fillColor, float fontPx, float animAlpha, float presetGlowPx,
+                           float presetBlurPx) {
+        // GHOST's blur. Set for this word only and cleared straight after, so it cannot leak onto
+        // the next word or onto the pill through the shared TextPaint. This is honoured because
+        // applyBlurLayerPolicy has already put the view on a software layer for a blurring preset;
+        // on a hardware canvas a BlurMaskFilter is silently ignored.
+        boolean blurred = presetBlurPx > 0.25f;
+        if (blurred) {
+            textPaint.setMaskFilter(new android.graphics.BlurMaskFilter(
+                    presetBlurPx, android.graphics.BlurMaskFilter.Blur.NORMAL));
+        }
         // The PRESET's own glow (NEON_FLICKER), in the word's own fill colour. Captions have
         // no per-object glow to modulate, which is exactly why the preset supplies one — see
         // CaptionAnimator.Transform#glowPx. Drawn before the outline/fill passes and cleared
@@ -481,6 +520,7 @@ public class CaptionOverlayView extends View {
         }
         textPaint.setColor(CaptionAnimator.applyAlpha(fillColor, animAlpha));
         canvas.drawText(word, x, baseY, textPaint);
+        if (blurred) textPaint.setMaskFilter(null);
     }
 
 

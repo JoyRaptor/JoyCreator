@@ -327,14 +327,16 @@ public class CaptionExportRenderer {
             float slotH = rollClipTmp[3] - rollClipTmp[1];
             canvas.save();
             canvas.translate(0f, rollTmp.phase * slotH);
-            paintWord(rollTmp.incoming, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            paintWord(rollTmp.incoming, x, baseY, color, fontPx, pre.alpha, pre.glowPx,
+                    pre.blurPx);
             canvas.restore();
             canvas.save();
             canvas.translate(0f, (rollTmp.phase - 1f) * slotH);
-            paintWord(rollTmp.outgoing, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            paintWord(rollTmp.outgoing, x, baseY, color, fontPx, pre.alpha, pre.glowPx,
+                    pre.blurPx);
             canvas.restore();
         } else {
-            paintWord(shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx);
+            paintWord(shown, x, baseY, color, fontPx, pre.alpha, pre.glowPx, pre.blurPx);
         }
         canvas.restore();
     }
@@ -358,7 +360,17 @@ public class CaptionExportRenderer {
     }
 
     private void paintWord(String word, float x, float baseY, int fillColor, float fontPx,
-                           float animAlpha, float presetGlowPx) {
+                           float animAlpha, float presetGlowPx, float presetBlurPx) {
+        // GHOST's blur — mirrors CaptionOverlayView#paintWord exactly. No layer switch is needed
+        // on this side: the export already draws into a software Bitmap canvas, where
+        // BlurMaskFilter is honoured. That asymmetry is the whole reason the preview needed
+        // LAYER_TYPE_SOFTWARE and this does not, and it is why blurring only ONE of the two
+        // surfaces would have been a preview/export divergence rather than a saving.
+        boolean blurred = presetBlurPx > 0.25f;
+        if (blurred) {
+            textPaint.setMaskFilter(new android.graphics.BlurMaskFilter(
+                    presetBlurPx, android.graphics.BlurMaskFilter.Blur.NORMAL));
+        }
         // The PRESET's own glow (NEON_FLICKER), in the word's own fill colour. Captions have
         // no per-object glow to modulate, which is exactly why the preset supplies one — see
         // CaptionAnimator.Transform#glowPx. Drawn before the outline/fill passes and cleared
@@ -386,6 +398,7 @@ public class CaptionExportRenderer {
         textPaint.setColor(com.fadcam.ui.faditor.transcript.CaptionAnimator
                 .applyAlpha(fillColor, animAlpha));
         canvas.drawText(word, x, baseY, textPaint);
+        if (blurred) textPaint.setMaskFilter(null);
     }
 
 }

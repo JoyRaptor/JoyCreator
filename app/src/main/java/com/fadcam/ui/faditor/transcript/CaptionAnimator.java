@@ -74,11 +74,19 @@ public final class CaptionAnimator {
          * rather than "every frame of playback" as first recorded. Measured at ~0.4ms per draw,
          * about 2.4% of a 16.7ms frame; see {@link #presetBlurs}.
          *
-         * <p><b>Captions still ignore it</b> — {@code CaptionOverlayView} and
-         * {@code CaptionExportRenderer} do not apply it, and the picker thumbnail still omits it.
-         * The caption preview is ONE shared view for all words rather than a view per object, so
-         * its cost profile is different and its decision is genuinely separate. Do not assume the
-         * text-box answer settles it.</p>
+         * <p><b>~~Captions still ignore it~~ — CAPTIONS CONSUME IT TOO since 2026-07-31.</b> Both
+         * {@code CaptionOverlayView#paintWord} and {@code CaptionExportRenderer#paintWord} apply
+         * it, and the picker tile advertises it for whichever target it was opened for.
+         *
+         * <p>The old text said the caption decision was separate because "the caption preview is
+         * ONE shared view for all words rather than a view per object, so its cost profile is
+         * different". The conclusion was right — it WAS a separate decision, and it was taken on
+         * its own measurement — but the stated reason was not the real asymmetry. One shared view
+         * is still exactly ONE software layer, the same count a text box needs; only its size
+         * differs. **What actually differs is DURATION**: a text box's entrance happens once,
+         * while captions re-animate line after line for as long as anyone is speaking. So the
+         * question was never peak per-draw cost but sustained frame rate, and that is what was
+         * measured. See the ledger for the numbers.</p>
          *
          * <p>Renderers that cannot blur must ignore this rather than approximate it.</p>
          */

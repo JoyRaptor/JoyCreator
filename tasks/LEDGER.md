@@ -862,6 +862,77 @@ that is the more common mistake, because the coordinates still look right.** Scr
 steps instead of chaining swipes. Recovery was the device-local byte-exact backup (`cp` inside
 `run-as`, app force-stopped first), **not undo** — verified back to `82d8342d`.
 
+## 1k. CAPTIONS BLUR TOO — the last GHOST surface, 2026-07-31
+
+Docket item 3, and the decision the user attached a condition to: *"if ghost preview would cause
+noticeable lag… the divergence is warranted."* So the answer had to be a number, and it is.
+
+**THE OLD REASON FOR DEFERRING IT WAS NOT THE REAL ASYMMETRY.** The note said the caption decision
+was separate because *"the caption preview is ONE shared view for all words rather than a view per
+object, so its cost profile is different."* The conclusion was right — it WAS a separate decision —
+but the stated reason does not survive reading. **One shared view is still exactly ONE software
+layer, the same count a text box needs**; only its size differs. What actually differs is
+**DURATION**: a text box's entrance happens once, while captions re-animate line after line for as
+long as anyone is speaking. So the question was never peak per-draw cost (already known, ~0.4ms
+from §1e) but **sustained frame rate**. That is what was measured.
+
+**THE INSTRUMENT.** GHOST-with-blur against GHOST-without — the decision-relevant comparison. A
+FADE control would have confounded the blur with GHOST's `dx`/`scale`. Both arms came from **ONE
+build**, with the blur and the layer type read from a flag file (`files/nocaptionblur`), because
+rebuilding between arms restarts the process and changes the thing being measured. The flag logged
+which arm was live and both arms were confirmed in logcat (`caption blur enabled = true|false`).
+Clip 1 of `bb2a9deb` (4566ms, `captionAnimInPct` 0.5 — a half-length zone, i.e. the worst case) was
+switched `FADE → GHOST` on disk, guarded by a whole-file deep diff reporting **exactly one**
+difference. Six runs, ~6s of playback each, `dumpsys gfxinfo` reset after load and before play:
+
+| arm | janky | 50th | 90th | 95th | 99th |
+|---|---|---|---|---|---|
+| blur ON | 44.24% / 43.94% / 43.96% | 14 / 13 / 13 | 29 / 29 / 30 | 32 / 31 / 32 | 81 / 93 / 81 |
+| blur OFF | 42.91% / 43.30% / **36.74%** | 13 / 12 / 12 | 28 / 27 / 27 | 32 / 30 / 32 | 85 / 89 / 105 |
+
+**The between-arm difference is 3.06pp. The OFF arm's own within-arm spread is 6.56pp.** The
+difference is comfortably inside the measurement's own noise floor, and the 99th percentile points
+the WRONG way (blur ON is better in two of three runs) — the same signature the ledger already
+recorded for LETTER-vs-BLOCK. **Read honestly: there IS a consistent small shift at the median
+(+1ms) and the 90th (+2ms), and it is not claimed to be zero — but the median stays under the
+16.7ms budget and the 90th was already over it in both arms.** Not noticeable lag, so the
+sanctioned divergence was NOT taken and both surfaces blur, exactly as the text-box decision went.
+
+**THE CONTROL THAT MAKES THE MEASUREMENT MEAN ANYTHING: the blur actually renders.** A no-op would
+also have cost nothing, which would have produced the same table. Matched-clock frames from the two
+arms (the bursts landed within ~17ms of each other, so this is not the unmatched-phase mistake made
+earlier the same day):
+
+| playhead | blur ON | blur OFF |
+|---|---|---|
+| 00:00.997 / 00:00.980 | `is` a smear | `is` sharp |
+| 00:04.148 / 00:04.162 | `fluffy` heavily blurred | `fluffy` sharp |
+
+**And the in-frame control is the good one:** at 00:00.997 the settled words `this` and `cat` are
+SHARP in the blur-ON frame too, because a settled unit has `blurPx` 0. Only the entering word
+blurs. A whole-view softness or a layer artifact would have blurred all three.
+Evidence: `tasks/screenshots/caption_ghost_blur_ab.png`.
+
+**What shipped.** `CaptionOverlayView.paintWord` and `CaptionExportRenderer.paintWord` both apply
+the filter, cleared per word so it cannot leak through the shared `TextPaint`.
+`CaptionOverlayView.applyBlurLayerPolicy` mirrors `TextBoxView`'s — the preview needs
+`LAYER_TYPE_SOFTWARE`, the export does not, because it already draws into a software Bitmap canvas.
+**That asymmetry is why blurring only one surface would have been a divergence rather than a
+saving.** The measurement flag was removed before commit.
+
+**`targetBlursGhost` IS GONE AGAIN, one commit after §1j added it.** With captions blurring, every
+consumer of `Transform#blurPx` blurs, so the parameter had exactly one value. Removed rather than
+left as always-true: **a flag with one value is dead flexibility that reads as a real choice**, and
+the next reader would delete it without knowing why it existed. The reason it existed is recorded
+at the draw site instead. §1j's reasoning was correct for the four hours it was true.
+
+**Verified:** harness **350 passed, 0 failed** from a clean out dir, matte harness ALL PASS. Gradle
+reported `UP-TO-DATE` on builds that recompiled for the fifth and sixth time; every `.class`
+postdates its source and the APK postdates every `.class`. **Freshness control that a stale build
+could not fake: `blurEnabled` is ABSENT from the compiled class** (the measurement flag, deleted),
+and `show` has 2 overloads with 0 `boolean` parameters. Sandbox restored to `82d8342d`, scratch
+files removed from the device, 11 projects, rotation lock 0.
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

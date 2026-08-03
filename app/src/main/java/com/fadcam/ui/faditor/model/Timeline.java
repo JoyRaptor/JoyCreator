@@ -1429,6 +1429,44 @@ public class Timeline {
      * (loop-extended → visual duration, else trimmed duration), so caption spans line up exactly
      * with the master tape. Mirrors {@code EditorTimelineView#getSegmentStartTime}.
      */
+    /**
+     * Absolute on-timeline start (ms) of the master clip at {@code index} — the PUBLIC form of
+     * {@link #segmentStartMs}, added for rider attachment (PLAN_TIMELINE_MANIPULATION_V1 §2.0).
+     *
+     * <p>Exists because the only other implementation of this sum lives on
+     * {@code EditorTimelineView}, and an anchor hook must not depend on a View — the AI and undo
+     * paths mutate the clip list with no editor attached at all.</p>
+     */
+    public long getClipStartMs(int index) {
+        return segmentStartMs(index);
+    }
+
+    /**
+     * Snapshot of every master clip's start, keyed by clip id — the "before" half of the
+     * capture → mutate → diff cycle that drives every anchored rider.
+     *
+     * <p><b>Why a snapshot rather than a hook on the mutators.</b> There is no clip start FIELD to
+     * observe; a start is a prefix sum, so it changes whenever any earlier clip changes membership,
+     * order, in/out point, speed or loop extent. And one user action calls several primitives — a
+     * split is {@code remove + add + add} — so a per-primitive hook would fire on a half-mutated
+     * list and shift a rider two or three times. Capture at the ACTION boundary, diff after.</p>
+     *
+     * <p>Keyed by ID, not index, because the AI reorder path clears and rebuilds the whole list
+     * ({@code EditScriptApplier.applyReorderClips}) and split mints fresh UUIDs — an index-keyed
+     * diff silently mis-pairs riders in both cases.</p>
+     */
+    @NonNull
+    public Map<String, Long> captureClipStarts() {
+        Map<String, Long> out = new LinkedHashMap<>();
+        for (int i = 0; i < clips.size(); i++) out.put(clips.get(i).getId(), segmentStartMs(i));
+        return out;
+    }
+
+    /** On-timeline span of a master clip — public form of {@link #clipSpanMs}. */
+    public long getClipSpanMs(int index) {
+        return (index < 0 || index >= clips.size()) ? 0L : clipSpanMs(clips.get(index));
+    }
+
     private long segmentStartMs(int index) {
         long t = 0;
         int upto = Math.min(index, clips.size());

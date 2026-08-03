@@ -1467,6 +1467,87 @@ public class Timeline {
         return (index < 0 || index >= clips.size()) ? 0L : clipSpanMs(clips.get(index));
     }
 
+    /**
+     * Attach {@code o} to the master clip under its own start, capturing the host-relative offset.
+     * No-op with no clips. Returns the host id, or null if the overlay sits past the last clip
+     * (which stays UNANCHORED — absolute time — per §4A).
+     *
+     * <p>Deliberately unlike {@code attachVisualizerToHostUnderStart}, which falls back to the LAST
+     * clip for an item past the end. That divergence is a policy difference, not an inconsistency:
+     * a visualizer is bound to a clip's audio and must have one, while a layer item beyond the
+     * timeline is legitimately free-floating. Both behaviours are pinned in their harnesses so
+     * neither gets "corrected" into the other.</p>
+     */
+    @Nullable
+    public String attachOverlayToHostUnderStart(@NonNull TextOverlayItem o) {
+        int idx = hostIndexForTime(o.getStartMs());
+        if (idx < 0) {
+            o.setHostAnchor(null, 0L);
+            return null;
+        }
+        long hostStart = segmentStartMs(idx);
+        o.setHostAnchor(clips.get(idx).getId(),
+                AnchorMath.offsetWithinHost(o.getStartMs(), hostStart, clipSpanMs(clips.get(idx))));
+        return clips.get(idx).getId();
+    }
+
+    /**
+     * Index of the master clip covering {@code timeMs} under the HALF-OPEN rule, or -1.
+     * Delegates to {@link AnchorMath} so the editor, the export and the harness cannot drift
+     * into three different answers about which clip owns a seam.
+     */
+    public int hostIndexForTime(long timeMs) {
+        int n = clips.size();
+        long[] spans = new long[n];
+        for (int i = 0; i < n; i++) spans[i] = clipSpanMs(clips.get(i));
+        return AnchorMath.hostIndexForStart(AnchorMath.startsFromSpans(spans), spans, timeMs);
+    }
+
+    /**
+     * Apply the consequences of a structural master edit to every anchored rider — the "after"
+     * half of {@link #captureClipStarts()}.
+     *
+     * <p>Riders whose host survived are shifted by THAT host's delta, per policy. Riders whose
+     * host is GONE are returned in {@link AnchorShiftResult#orphanedOverlayIds} and are NOT
+     * touched: §4A makes that a user-facing choice (re-anchor vs delete), and this method must not
+     * pre-empt it. Unanchored riders are untouched by definition.</p>
+     *
+     * <p>Returns what moved so the caller can build ONE undo step and — per §4A's no-silent-repair
+     * rule — tell the user when the editor moved something they did not.</p>
+     */
+    @NonNull
+    public AnchorShiftResult applyAnchorShift(@NonNull Map<String, Long> beforeStarts) {
+        Map<String, Long> after = captureClipStarts();
+        AnchorShiftResult res = new AnchorShiftResult();
+        for (TextOverlayItem o : textOverlays) {
+            String host = o.getHostClipId();
+            if (host == null) continue;
+            Long newStart = after.get(host);
+            if (newStart == null) { res.orphanedOverlayIds.add(o.getId()); continue; }
+            Long oldStart = beforeStarts.get(host);
+            if (oldStart == null) continue;           // host is new; nothing to shift relative to
+            long delta = newStart - oldStart;
+            if (delta == 0) continue;
+            int idx = indexOfMasterClipId(host);
+            long[] win = AnchorMath.shiftRider(o.getStartMs(), o.getEndMs(), delta,
+                    RiderPolicy.SHIFT_ONLY, newStart,
+                    idx < 0 ? 0L : clipSpanMs(clips.get(idx)));
+            o.setTimeRange(win[0], win[1]);
+            res.movedOverlayIds.add(o.getId());
+        }
+        return res;
+    }
+
+    /** What {@link #applyAnchorShift} did — the input to one undo step and to the user-facing notice. */
+    public static final class AnchorShiftResult {
+        /** Riders that moved with their host. */
+        @NonNull public final List<String> movedOverlayIds = new ArrayList<>();
+        /** Riders whose host no longer exists. UNRESOLVED — §4A's prompt decides their fate. */
+        @NonNull public final List<String> orphanedOverlayIds = new ArrayList<>();
+
+        public boolean isEmpty() { return movedOverlayIds.isEmpty() && orphanedOverlayIds.isEmpty(); }
+    }
+
     private long segmentStartMs(int index) {
         long t = 0;
         int upto = Math.min(index, clips.size());

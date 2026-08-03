@@ -142,6 +142,44 @@ public class AnchorShiftTest {
         eq(onFirst.getStartMs(), 200,
                 "trim: a rider on the TRIMMED clip itself does not move (clip 0's start never changed)");
 
+        // ── SPLIT: both halves get FRESH ids, so anchors must be re-homed in the model ────
+        // Without reanchorAfterSplit every rider on the split clip silently orphans.
+        Timeline tl4 = new Timeline();
+        tl4.addClip(clip("a", 1000));
+        tl4.addClip(clip("b", 4000));            // clip 1 spans 1000..5000
+        TextOverlayItem early = overlay(1500, 1800);   // falls in the LEFT half
+        TextOverlayItem late  = overlay(4000, 4500);   // falls in the RIGHT half
+        tl4.addTextOverlay(early);
+        tl4.addTextOverlay(late);
+        tl4.attachOverlayToHostUnderStart(early);
+        tl4.attachOverlayToHostUnderStart(late);
+        String preSplitHost = early.getHostClipId();
+        check(preSplitHost != null && preSplitHost.equals(late.getHostClipId()),
+                "split setup: both riders share one host");
+
+        // Split clip 1 at source 2000 → halves cover timeline 1000..3000 and 3000..5000.
+        int a2 = tl4.splitAt(1, 2000);
+        check(a2 >= 0, "split: performed (index " + a2 + ")");
+        String idA = tl4.getClip(a2).getId(), idB = tl4.getClip(a2 + 1).getId();
+        check(!idA.equals(preSplitHost) && !idB.equals(preSplitHost),
+                "split: BOTH halves really do get fresh ids (this is why re-homing is needed)");
+        eq(early.getStartMs(), 1500, "split: a rider's TIME is untouched by the split");
+        check(idA.equals(early.getHostClipId()),
+                "split: the rider before the cut re-homed to the LEFT half");
+        check(idB.equals(late.getHostClipId()),
+                "split: the rider after the cut re-homed to the RIGHT half");
+        eq(early.getHostOffsetMs(), 500, "split: left rider's offset recaptured against its half");
+        eq(late.getHostOffsetMs(), 1000, "split: right rider's offset recaptured against ITS half");
+
+        // And the re-homing must survive a subsequent ripple — the real point of doing it.
+        Map<String, Long> before5 = tl4.captureClipStarts();
+        tl4.removeClip(0);                              // drop the 1000ms clip in front
+        Timeline.AnchorShiftResult res5 = tl4.applyAnchorShift(before5);
+        check(res5.orphanedOverlayIds.isEmpty(),
+                "split then ripple: no orphans — re-homing held");
+        eq(early.getStartMs(), 500, "split then ripple: left rider moved with its half");
+        eq(late.getStartMs(), 3000, "split then ripple: right rider moved with ITS half");
+
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")
                                       : (fails + " FAILED of " + checks));

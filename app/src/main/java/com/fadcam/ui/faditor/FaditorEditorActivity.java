@@ -1611,8 +1611,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 preTrimInMs = -1;
                 preTrimOutMs = -1;
 
+                java.util.Map<String, Long> anchorsBeforeTrim = beginStructuralEdit();
                 clip.setInPointMs(newIn);
                 clip.setOutPointMs(newOut);
+                endStructuralEdit(anchorsBeforeTrim, "trim");
                 editorTimeline.setTrimFromClip(clip);
                 if (!clip.isImageClip()) {
                     // RANK-1c: trim-edge drag rebuilds the playlist — advance the generation so a
@@ -1974,7 +1976,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 Timeline tl = project.getTimeline();
                 undoManager.recordAction(new EditActions.ReorderClipAction(
                         tl, fromIndex, toIndex));
+                java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
                 tl.moveClip(fromIndex, toIndex);
+                endStructuralEdit(anchorsBefore, "reorder");
                 selectSegment(toIndex);
                 syncTimelineOverlays();
                 editorTimeline.invalidate();
@@ -4017,6 +4021,74 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * @param clipLocalMs 0-based visual position within {@code homeClipId}.
      * @param playAfter   resume playback after the rebuild (false = park paused).
      */
+    // ── Rider anchoring (M11 §4A) ───────────────────────────────────────────────────────────
+    // Layer objects anchored to a master clip travel with it. There is NO clip start FIELD to
+    // hook — a start is a prefix sum — so every structural edit must bracket itself:
+    //
+    //     Map<String,Long> before = beginStructuralEdit();
+    //     …mutate the clip list / trim / speed / loop…
+    //     endStructuralEdit(before, "whatDidIt");
+    //
+    // Bracket at the USER-ACTION boundary, never per primitive: one split is remove+add+add, and
+    // a per-primitive bracket would shift each rider two or three times.
+
+    /** Snapshot clip starts before a structural master edit. Cheap: one pass, ids → longs. */
+    @NonNull
+    private java.util.Map<String, Long> beginStructuralEdit() {
+        return project == null ? java.util.Collections.emptyMap()
+                : project.getTimeline().captureClipStarts();
+    }
+
+    /**
+     * Apply the anchor consequences of the edit that {@code before} bracketed.
+     *
+     * <p>Orphans (host deleted) are LOGGED, not resolved — §4A makes re-anchor-vs-delete the
+     * user's choice, and the prompt that asks it is a separate slice. Until it lands an orphan
+     * simply stops tracking, which is the status quo for every project today, not a regression.</p>
+     */
+    private void endStructuralEdit(@NonNull java.util.Map<String, Long> before,
+                                   @NonNull String where) {
+        if (project == null || before.isEmpty()) return;
+        Timeline.AnchorShiftResult r = project.getTimeline().applyAnchorShift(before);
+        if (!r.isEmpty()) {
+            FLog.d(TAG, "ANCHOR[" + where + "] moved=" + r.movedOverlayIds.size()
+                    + " orphaned=" + r.orphanedOverlayIds.size());
+        }
+        assertAnchorsConsistent(where);
+    }
+
+    /**
+     * DEBUG PROBE — every anchored rider's start must still equal {@code hostStart + offset}.
+     *
+     * <p>This exists because the bracket above has to be applied at ~49 call sites across the
+     * activity, the undo actions and the AI appliers, and "we got them all" is not a claim anyone
+     * can verify by reading. A missed site shows up here as a drifted rider within one session,
+     * instead of silently in someone's export weeks later. Same intent as the {@code SEEKRANGE} /
+     * {@code PHDIAG} probes already in this codebase.</p>
+     *
+     * <p>Debug builds only — it is O(riders) and buys nothing in release.</p>
+     */
+    private void assertAnchorsConsistent(@NonNull String where) {
+        if (!com.fadcam.BuildConfig.DEBUG || project == null) return;
+        Timeline tl = project.getTimeline();
+        for (TextOverlayItem o : tl.getTextOverlays()) {
+            String host = o.getHostClipId();
+            if (host == null) continue;
+            int idx = -1;
+            for (int i = 0; i < tl.getClipCount(); i++) {
+                if (tl.getClip(i).getId().equals(host)) { idx = i; break; }
+            }
+            if (idx < 0) continue;                       // orphan; reported by endStructuralEdit
+            long expected = tl.getClipStartMs(idx) + o.getHostOffsetMs();
+            if (o.getStartMs() != expected) {
+                FLog.w(TAG, "ANCHORDRIFT[" + where + "] overlay=" + o.getId()
+                        + " start=" + o.getStartMs() + " expected=" + expected
+                        + " (host=" + host + " off=" + o.getHostOffsetMs() + ")"
+                        + " — a structural edit did not bracket itself");
+            }
+        }
+    }
+
     private void resyncGaplessAfterStructuralEdit(@Nullable String homeClipId, long clipLocalMs,
                                                   boolean playAfter) {
         if (playerManager == null || !playerManager.isGapless()) return;
@@ -10481,7 +10553,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void performUndo() {
         if (!undoManager.canUndo()) return;
+        java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         undoManager.undo();
+        endStructuralEdit(anchorsBefore, "undo");
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
     }
@@ -10491,7 +10565,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void performRedo() {
         if (!undoManager.canRedo()) return;
+        java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         undoManager.redo();
+        endStructuralEdit(anchorsBefore, "redo");
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
     }
@@ -10802,11 +10878,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void jumpUndoRedoBy(int steps, boolean isRedo) {
         if (steps <= 0) return;
         boolean changed = false;
+        java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         for (int i = 0; i < steps; i++) {
             boolean ok = isRedo ? undoManager.redo() : undoManager.undo();
             if (!ok) break;
             changed = true;
         }
+        endStructuralEdit(anchorsBefore, isRedo ? "jumpRedo" : "jumpUndo");
         if (!changed) return;
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -25467,8 +25545,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             undoManager.recordAction(new EditActions.DeleteClipAction(
                     timeline, deletedClip, deletedIndex));
 
+            java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
             timeline.removeClip(selectedClipIndex);
             timeline.removeTransitionsForDeletedClip(deletedIndex);
+            endStructuralEdit(anchorsBefore, "delete");
 
             int newIndex = Math.min(selectedClipIndex, timeline.getClipCount() - 1);
             selectSegment(newIndex);

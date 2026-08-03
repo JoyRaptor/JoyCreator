@@ -329,11 +329,38 @@ public class Timeline {
         partitionAfterSplit(original, clipA, clipB, splitPointMs);
 
         // Replace original with the two parts
+        String originalId = clips.get(clipIndex).getId();
         clips.remove(clipIndex);
         clips.add(clipIndex, clipB);
         clips.add(clipIndex, clipA); // A goes first
 
+        reanchorAfterSplit(originalId, clipIndex);
+
         return clipIndex;
+    }
+
+    /**
+     * Re-home riders anchored to a clip that has just been split into halves at
+     * {@code indexA} / {@code indexA + 1} (§4A).
+     *
+     * <p><b>Why this is not the orphan case.</b> A split mints a fresh {@code UUID} on BOTH halves
+     * ({@code new Clip(other)}), so every anchor to the original would dangle — but the clip has
+     * not gone anywhere, it is merely two clips now. The user's intent is unambiguous, so this
+     * repairs silently and correctly, where a DELETE must stop and ask.</p>
+     *
+     * <p>A rider re-homes to whichever half its own START falls in, under the same half-open rule
+     * everything else uses, and its offset is recaptured against that half.</p>
+     */
+    private void reanchorAfterSplit(@NonNull String originalId, int indexA) {
+        if (indexA < 0 || indexA + 1 >= clips.size()) return;
+        for (TextOverlayItem o : textOverlays) {
+            if (!originalId.equals(o.getHostClipId())) continue;
+            int half = (o.getStartMs() >= segmentStartMs(indexA + 1)) ? indexA + 1 : indexA;
+            long hostStart = segmentStartMs(half);
+            o.setHostAnchor(clips.get(half).getId(),
+                    AnchorMath.offsetWithinHost(o.getStartMs(), hostStart,
+                            clipSpanMs(clips.get(half))));
+        }
     }
 
     /**

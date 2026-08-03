@@ -1162,6 +1162,29 @@ public class ExportManager {
         return result;
     }
 
+    /**
+     * Composition-time → editor-time correction for {@code clip} (LEDGER §2d).
+     *
+     * <p>The editor's timeline is a plain sum of clip spans and ignores transitions; the export
+     * Composition is compressed by them. Overlays are authored against the former and rendered
+     * against the latter, so without this every overlay after a seam lands early in the file by
+     * the cumulative transition duration. Returns {@code editorStart - compressedStart}.</p>
+     *
+     * <p>Returns <b>0</b> when the clip is not on the master track or the project has no
+     * transitions — so a project without transitions is bit-for-bit unaffected.</p>
+     */
+    private static long editorTimeOffsetFor(@NonNull Timeline timeline,
+                                            @NonNull Clip clip,
+                                            long compressedStartMs) {
+        int idx = -1;
+        for (int i = 0; i < timeline.getClipCount(); i++) {
+            if (timeline.getClip(i) == clip
+                    || timeline.getClip(i).getId().equals(clip.getId())) { idx = i; break; }
+        }
+        if (idx < 0) return 0L;
+        return timeline.getClipStartMs(idx) - compressedStartMs;
+    }
+
     private static long effectiveTransitionMs(@NonNull Timeline timeline,
                                               @NonNull Transition trans, int seam) {
         long d = Math.max(0L, trans.durationMs);
@@ -2563,7 +2586,8 @@ public class ExportManager {
                         belowSprites,
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
-                        project.getTimeline().getTotalDurationMs());
+                        project.getTimeline().getTotalDurationMs(),
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs));
                 videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
             }
             // Shared with the preview and with the overlay-audio sequence, so a matte peer
@@ -2579,7 +2603,8 @@ public class ExportManager {
                         if (peer.getId().equals(cs.mattePeerId)) { matte = peer; break; }
                     }
                 }
-                videoEffects.add(new BlendModeGlEffect(context, oc, matte));
+                videoEffects.add(new BlendModeGlEffect(context, oc, matte,
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)));
             }
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
@@ -2597,7 +2622,8 @@ public class ExportManager {
                         exportSpriteItems,
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
-                        project.getTimeline().getTotalDurationMs());
+                        project.getTimeline().getTotalDurationMs(),
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs));
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

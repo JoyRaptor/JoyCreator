@@ -46,7 +46,18 @@ final class PipFrameOverlay extends BitmapOverlay {
     private int frameW = 1, frameH = 1;
     private boolean loggedError = false;
 
-    PipFrameOverlay(@NonNull Context context, @NonNull Clip clip) {
+    /** Composition→editor time correction; see {@link #editorTimeOffsetMs}. */
+    private final long editorTimeOffsetMs;
+
+    /**
+     * @param editorTimeOffsetMs LEDGER §2d — the cumulative transition duration before this
+     *        clip's window. {@code getOverlayStartMs()} is authored in EDITOR time, which
+     *        ignores transitions, while {@code presentationTimeUs} is Composition time, which
+     *        is compressed by them. Without this every PiP after a seam renders late by one
+     *        transition. Zero when the project has no transitions.
+     */
+    PipFrameOverlay(@NonNull Context context, @NonNull Clip clip, long editorTimeOffsetMs) {
+        this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.context = context.getApplicationContext();
         this.clip = clip;
     }
@@ -65,7 +76,7 @@ final class PipFrameOverlay extends BitmapOverlay {
      * time"), and the shader cannot tell an inactive matte from a black one.
      */
     boolean activeAt(long presentationTimeUs) {
-        long timelineMs = presentationTimeUs / 1000;
+        long timelineMs = presentationTimeUs / 1000 + editorTimeOffsetMs;
         long start = clip.getOverlayStartMs();
         long end = start + Math.max(0, clip.getTrimmedDurationMs());
         return timelineMs >= start && timelineMs <= end;
@@ -81,7 +92,7 @@ final class PipFrameOverlay extends BitmapOverlay {
         }
         canvas.drawColor(0, PorterDuff.Mode.CLEAR);
 
-        long timelineMs = presentationTimeUs / 1000; // composition-absolute (see CompositeExportOverlay)
+        long timelineMs = presentationTimeUs / 1000 + editorTimeOffsetMs; // →editor time (§2d)
         long start = clip.getOverlayStartMs();
         long end = start + Math.max(0, clip.getTrimmedDurationMs());
         // Empty paths return the IDENTITY-STABLE transparent bitmap: BitmapOverlay

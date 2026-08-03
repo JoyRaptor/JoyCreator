@@ -70,6 +70,14 @@ public class CompositeExportOverlay extends BitmapOverlay {
      */
     private final long projectDurationMs;
 
+    /**
+     * Composition-time → editor-time correction for this clip (LEDGER §2d): the cumulative
+     * transition duration preceding it, i.e. {@code editorClipStart - compressedClipStart}.
+     * <b>Zero whenever the project has no transitions</b>, which is what makes this change a
+     * provable no-op for those projects rather than a behavioural risk to every export.
+     */
+    private final long editorTimeOffsetMs;
+
     private Bitmap bitmap;
     private Canvas canvas;
 
@@ -263,7 +271,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> allSpriteItems,
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets,
                                    @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs,
-                                   long projectDurationMs) {
+                                   long projectDurationMs,
+                                   long editorTimeOffsetMs) {
+        this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.projectDurationMs = projectDurationMs;
         this.context = context.getApplicationContext();
         // Custom caption styles resolve through the store; the :export process is
@@ -444,9 +454,21 @@ public class CompositeExportOverlay extends BitmapOverlay {
 
         canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
 
-        // Media3 Transformer passes presentationTimeUs as absolute timeline time
-        // across the whole Composition, not reset to 0 per EditedMediaItem.
-        long timelineMs = presentationTimeUs / 1000;
+        // Media3 Transformer passes presentationTimeUs as absolute timeline time across the whole
+        // Composition, not reset to 0 per EditedMediaItem.
+        //
+        // ⚠ LEDGER §2d — THE COMPOSITION CLOCK IS NOT THE EDITOR CLOCK. A transition SHORTENS the
+        // two clips it straddles (ExportManager:923-940), so Composition time runs ahead of the
+        // editor's by the cumulative transition duration. Every overlay start/end below was
+        // authored against the EDITOR's timeline, which ignores transitions entirely
+        // (EditorTimelineView.getSegmentStartTime). Comparing the two directly is what made every
+        // overlay after a seam render late by exactly one transition — measured on device
+        // 2026-08-03: a PiP authored at 5501ms appeared at 5.50s where it belonged at 4.90s.
+        //
+        // Converting HERE fixes every consumer at once, because all of them — text, sprites,
+        // captions, waveforms — compare against editor-authored values. With no transitions the
+        // offset is exactly 0, so this is a no-op for any project that has none.
+        long timelineMs = presentationTimeUs / 1000 + editorTimeOffsetMs;
         long clipLocalMs = ExportManager.clipMsFor(presentationTimeUs, clipTimelineStartMs);
 
         frameCount++;

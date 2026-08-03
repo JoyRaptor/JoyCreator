@@ -70,19 +70,21 @@ public final class BlendModeGlEffect implements GlEffect {
 
     private final Context context;
     private final Clip clip;
+    private final long editorTimeOffsetMs;
     @Nullable private final Clip matteClip;
 
     public BlendModeGlEffect(@NonNull Context context, @NonNull Clip clip) {
-        this(context, clip, null);
+        this(context, clip, null, 0L);
     }
 
     /** @param matteClip the resolved matte peer (from {@code compositing.mattePeerId}),
      *                   or null. Resolution + peer-hiding is ExportManager's job. */
     public BlendModeGlEffect(@NonNull Context context, @NonNull Clip clip,
-                             @Nullable Clip matteClip) {
+                             @Nullable Clip matteClip, long editorTimeOffsetMs) {
         this.context = context.getApplicationContext();
         this.clip = clip;
         this.matteClip = matteClip;
+        this.editorTimeOffsetMs = editorTimeOffsetMs;
     }
 
     @NonNull
@@ -92,7 +94,7 @@ public final class BlendModeGlEffect implements GlEffect {
         if (useHdr) {
             throw new VideoFrameProcessingException("HDR blend modes are not supported");
         }
-        return new Program(context, clip, matteClip);
+        return new Program(context, clip, matteClip, editorTimeOffsetMs);
     }
 
     private static final class Program extends BaseGlShaderProgram {
@@ -170,11 +172,13 @@ public final class BlendModeGlEffect implements GlEffect {
         private final float[] keyColor = new float[3];
         private final float[] keyParams = new float[4];
 
-        Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip)
+        Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip,
+                long editorTimeOffsetMs)
                 throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
-            this.overlay = new PipFrameOverlay(context, clip);
-            this.matteOverlay = matteClip != null ? new PipFrameOverlay(context, matteClip) : null;
+            this.overlay = new PipFrameOverlay(context, clip, editorTimeOffsetMs);
+            this.matteOverlay = matteClip != null
+                    ? new PipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
             this.mode = modeCode(clip.getOverlayBlendMode());
             CompositingSpec spec = clip.getCompositing();
             boolean keyOn = spec != null && spec.keyEnabled;

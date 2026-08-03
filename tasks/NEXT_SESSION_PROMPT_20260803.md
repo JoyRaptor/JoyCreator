@@ -108,3 +108,28 @@ of this session.
 
 Work as autonomously as you can. Prove things rather than asserting them. Update the ledger as you
 go — it is the only thing that survives between sessions.
+
+---
+
+## ⚠ ADDENDUM (end of session) — THE §2d FIX IS **NOT** DONE. TWO ATTEMPTS, BOTH INERT.
+
+`editorTimeOffsetMs` was threaded into **`CompositeExportOverlay`** (attempt 1) and then into
+**`BlendModeGlEffect` → `PipFrameOverlay`** (attempt 2). Measured after each, same fixture, same
+method: PiP onset stayed at **5.50s** both times. Target 4.90s. **Neither attempt moved it.**
+
+**Do not assume the plumbing is wrong — it is more likely UNREACHED.** The measurement says the
+patched code never ran for this PiP. The ledger's own M-EXPORT-2 note says PiP export "rides
+`CompositeExportOverlay`" via an overlay-video pass, while `ExportManager:2606` ALSO builds a
+`BlendModeGlEffect` per overlay clip. **Find out which one actually draws the PiP before changing
+anything else** — add a one-line log to each and export; the path that prints is the real one.
+That single log is worth more than another round of reasoning.
+
+The offset is 0 when a project has no transitions, so both edits are inert for such projects and
+safe to leave in place while this is settled. **They are NOT a fix and must not be recorded as one.**
+
+Verification recipe, ready to re-run:
+1. Fixture `302da9ac` (transition 600ms at editor 3200; PiP `overlayStartMs` 5501).
+2. **Identify the project by logcat `Editor loaded saved project:`, never by row position** — the
+   export bumps `lastModified`, which RE-SORTS the list and moved the fixture to the top mid-session.
+3. Export, pull, then: `ffmpeg -ss 4.4 -t 1.6 -i x.mp4 -vf "fps=20,scale=48:27,format=rgb24"
+   -f rawvideo -` and find the R−G step. 5.50 = broken, 4.90 = fixed.

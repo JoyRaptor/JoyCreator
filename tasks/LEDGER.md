@@ -1121,9 +1121,54 @@ not a screenshot". It is the one open item whose correctness cannot be establish
 all. **Not started 2026-07-30 for exactly that reason** — the Note 9 was unplugged, and blind-
 building a two-coordinate-system drag is how `d29e8bf` happened.
 
-**2d. SUSPECTED LIVE BUG — OVERLAYS DRIFT IN EXPORT WHENEVER A TRANSITION EXISTS.**
-FOUND BY READING 2026-08-03, while mapping structural-edit call sites for §4A. **NOT YET PROVED
-BY AN EXPORT — do not record it as fixed, or as real, until a frame check says so.**
+**2d. ✅ CONFIRMED ON DEVICE 2026-08-03 — OVERLAYS DRIFT IN EXPORT WHENEVER A TRANSITION EXISTS.**
+Found by reading while mapping §4A call sites, then **PROVED BY EXPORT on the Note 9**. Model was
+frozen in `1030037` (`tasks/PREDICT_transition_overlay_drift.md`) BEFORE the capture.
+
+**THE MEASUREMENT.** Fixture `302da9ac`, unmodified: 600ms `tangentMotionBlur` at the seam
+(editor 3200ms), PiP `6126e8b4` at `overlayStartMs` **5501**. Two hypotheses, frozen, 600ms apart:
+
+| | PiP onset predicted | observed |
+|---|---|---|
+| drift (§2d right) | **5501 ms** | **5.50 s** ✅ |
+| compensated (§2d wrong) | 4901 ms | nothing — baseline flat through 4.90 |
+
+Measured as a redness step (the PiP is carpet, the bed is a child's room) at 50ms resolution:
+`R−G` holds **3.8** from 4.55 through 5.45, jumps to **9.8** at **5.50**, and keeps climbing.
+No step anywhere near 4.90. **The control discriminated**; the two arms were 12 samples apart.
+Corroborating in the same file: the transition itself shows as the largest frame-to-frame change at
+**2.7–3.0s**, exactly where compression puts it (clip0 solo 2600 + 600 transition), against an
+editor seam of 3200.
+
+**So the mechanism is confirmed end to end:** editor time is uncompressed
+(`getSegmentStartTime:2063`), export time is compressed (`timelineCursorMs:904` + `:923-940`), and
+`CompositeExportOverlay:449` compares the compressed clock against a start authored in the
+uncompressed one. **Every overlay after a seam lands late by the cumulative transition duration.**
+
+**Not yet decided: WHICH TIMEBASE IS AUTHORITATIVE.** Mapping overlay times through the compression
+the export already computes is far smaller than making the editor compress. Decide deliberately —
+and note §2a (terminal playhead short of the clip sum) and the 20260726 handoff's backward playhead
+jumps are very likely the same root cause, so a fix should be checked against all three symptoms.
+
+**2e. IMAGE CLIP ON THE MASTER TRACK FAILS THE EXPORT — found incidentally 2026-08-03.**
+The §2d export **threw** rather than completing:
+`IllegalStateException: The asset loader has no audio or video track to output.` →
+`ExportException: Asset loader error`. Clips 0+1 muxed (8126ms, matching 3200+5526−600), then
+clip 2 — a 5000ms IMAGE — killed it.
+
+- **The UI does report it** (`FaditorEditor: Export failed: Asset loader error`), so it is not
+  silent to the user.
+- **But a plausible-looking 8.1s partial MP4 is left in the output folder**, indistinguishable at a
+  glance from a good export. That is the part likely to bite someone.
+- The asset is NOT missing or empty: `files/images/asset_1785180024028_image:127376`, 1,442,861 bytes.
+- **LEADING HYPOTHESIS, UNPROVEN: the literal COLON in the filename.** The name is derived from a
+  content-URI id (`image:127376`) and keeps the `:`; the stored `sourceUri` percent-encodes it
+  (`...image%3A127376`). A mismatch between the encoded URI and the on-disk name — or media3
+  refusing the path — would produce exactly this "no track to output". **Test before believing:**
+  copy the asset to a colon-free name, point a clip at it, export. A second control worth running is
+  a freshly-added image, to establish whether this is every image or only these legacy assets.
+- Do NOT conflate with §1d (image OVERLAYS export — fixed) — this is an image CLIP on the master
+  spine, a different path.
 
 The editor and the export run on **two different timebases**, and overlay start times are authored
 in one and consumed in the other:

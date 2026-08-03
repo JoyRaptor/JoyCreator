@@ -1121,7 +1121,22 @@ not a screenshot". It is the one open item whose correctness cannot be establish
 all. **Not started 2026-07-30 for exactly that reason** — the Note 9 was unplugged, and blind-
 building a two-coordinate-system drag is how `d29e8bf` happened.
 
-**2d. ✅ CONFIRMED ON DEVICE 2026-08-03 — OVERLAYS DRIFT IN EXPORT WHENEVER A TRANSITION EXISTS.**
+**2d. ✅ FIXED AND PROVED ON DEVICE 2026-08-03 — overlays no longer drift. Moved from OPEN.**
+**THE FIX:** `ExportManager.editorTimeOffsetFor` → `CompositeExportOverlay` and
+`BlendModeGlEffect`/`PipFrameOverlay`. **A/B on the same fixture: PiP onset 5.50s → 4.90s**, the
+target, sharp step against a flat baseline.
+
+**⚠ THE FORMULA THAT LOOKS RIGHT AND IS NOT — two attempts died here.** The offset is NOT
+`editorStart - compressedStart`. Measured: for the clip immediately AFTER a seam those are
+**EQUAL** (both 3200 in the fixture) — a transition does not push that clip later, it eats 600ms
+off its **HEAD** by advancing its in-point. So a start-comparison returns **0 for exactly the clip
+that needs the correction**, and is coincidentally correct for the NEXT one (600), which is what
+made two rounds of plumbing look wired-but-inert. The real quantity is the cumulative content the
+export has already swallowed: **the sum of every transition at a seam BEFORE this clip.**
+**A one-line `DRIFTDIAG` log settled in one export what two rounds of reading did not.**
+
+<details><summary>Original entry — how it was found and first proved</summary>
+
 Found by reading while mapping §4A call sites, then **PROVED BY EXPORT on the Note 9**. Model was
 frozen in `1030037` (`tasks/PREDICT_transition_overlay_drift.md`) BEFORE the capture.
 
@@ -1149,6 +1164,8 @@ uncompressed one. **Every overlay after a seam lands late by the cumulative tran
 the export already computes is far smaller than making the editor compress. Decide deliberately —
 and note §2a (terminal playhead short of the clip sum) and the 20260726 handoff's backward playhead
 jumps are very likely the same root cause, so a fix should be checked against all three symptoms.
+
+</details>
 
 **2e. IMAGE CLIP ON THE MASTER TRACK FAILS THE EXPORT — found incidentally 2026-08-03.**
 The §2d export **threw** rather than completing:

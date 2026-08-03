@@ -1182,7 +1182,20 @@ public class ExportManager {
                     || timeline.getClip(i).getId().equals(clip.getId())) { idx = i; break; }
         }
         if (idx < 0) return 0L;
-        return timeline.getClipStartMs(idx) - compressedStartMs;
+        // ⚠ NOT (editorStart - compressedStart). Measured on device 2026-08-03: for the clip
+        // immediately AFTER a seam those two are EQUAL (both 3200 in the fixture), because a
+        // transition does not push that clip later — it consumes 600ms off its HEAD by advancing
+        // its in-point. Comparing starts therefore returns 0 for precisely the clip that needs the
+        // correction most, and happens to be right for the one after it, which is what made the
+        // first two attempts look plumbed-but-inert.
+        //
+        // The real quantity is the cumulative content the export has swallowed before this clip:
+        // the sum of every transition at a seam BEFORE it.
+        long off = 0L;
+        for (Transition t : timeline.getTransitions()) {
+            if (t.clipIndex < idx) off += effectiveTransitionMs(timeline, t, t.clipIndex);
+        }
+        return off;
     }
 
     private static long effectiveTransitionMs(@NonNull Timeline timeline,

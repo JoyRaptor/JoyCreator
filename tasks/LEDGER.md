@@ -1121,6 +1121,56 @@ not a screenshot". It is the one open item whose correctness cannot be establish
 all. **Not started 2026-07-30 for exactly that reason** — the Note 9 was unplugged, and blind-
 building a two-coordinate-system drag is how `d29e8bf` happened.
 
+**2d. SUSPECTED LIVE BUG — OVERLAYS DRIFT IN EXPORT WHENEVER A TRANSITION EXISTS.**
+FOUND BY READING 2026-08-03, while mapping structural-edit call sites for §4A. **NOT YET PROVED
+BY AN EXPORT — do not record it as fixed, or as real, until a frame check says so.**
+
+The editor and the export run on **two different timebases**, and overlay start times are authored
+in one and consumed in the other:
+- **Editor time is UNCOMPRESSED.** `EditorTimelineView.getSegmentStartTime` (`:2063`) is a prefix
+  sum of `SegmentData.effectiveMs` and **ignores transitions entirely**.
+- **Export time IS COMPRESSED.** `ExportManager.timelineCursorMs` (`:904`) advances by each
+  emitted item's real duration, and a transition SHORTENS the items it straddles (`:923-940`,
+  clamped by `effectiveTransitionMs` `:1165`).
+- **The consumer mixes them.** `CompositeExportOverlay:449` takes
+  `timelineMs = presentationTimeUs / 1000` — Composition-absolute, i.e. compressed — and compares
+  it against `o.getStartMs()`, authored in uncompressed editor time (`:341`, `:398`, `:618`, `:656`).
+
+Predicted symptom: every overlay after a seam appears EARLY in the export by the cumulative
+transition duration up to that seam, drifting further with each transition. A 1s cross-dissolve
+therefore desyncs every downstream title, sticker, sprite and PiP by 1s — silently, and only in
+the exported file. **This is exactly the failure shape §1b's export proof was built to catch, and
+it slipped past because that proof's fixture had no transition.**
+
+Corroborating, already on this page: §2a records that "the terminal playhead sits short of
+`getTimelineEndMs()`'s sum-of-clips **whenever transitions overlap clips**" — i.e. the two
+timebases are already known to disagree on total length. `HANDOFF_20260726` also names transitions
+as the likely explanation for that run's backward playhead jumps. Same root, three symptoms.
+
+**To prove it:** one project, two clips, ONE transition, an overlay starting after the seam at a
+known time. Export, extract frames, compare the overlay's first frame against its authored start.
+The control that discriminates: the SAME project with the transition removed — the overlay must
+land on time there, or the instrument is measuring something else.
+**Do not fix it before proving it**, and when fixing, decide deliberately which timebase is
+authoritative — making the editor compress is a much larger change than mapping overlay times
+through the same compression the export already computes.
+
+**3i. SPINE DRAG (M12) + LAYER ANCHORING (M11 §4) — SPEC IS BINDING AS OF 2026-08-03.**
+The user's highest-priority want: CapCut-style dragging of clips INTO and OUT OF the main layer.
+**Full interaction spec written into `PLAN_LAYERS_UX_ADDENDUM.md` §3A and §4A** — screen-relative
+drop zones, dwell-armed split, content-aware pan (no jump-to-limit), the colour table, the one
+anchor rule and its edge cases, and the ask-the-user prompt for orphaned anchors. Read those two
+sections before writing any code; the decisions in them are settled and must not be re-litigated.
+**Order: §4A anchoring FIRST (2–3 sessions), then M12 (4–6).** Nothing is built yet.
+Three corrections this pass, each of which changes the cost:
+- **A PiP overlay and a master clip are the SAME CLASS** (`Clip`, two lists, `layerId != null`).
+  **M12 needs no schema change** — an earlier claim that it needs a type conversion was wrong.
+- **Edge auto-pan (A1) and minimap drag-nav (A2) ALREADY SHIP** for layer-item drags. M12 extends
+  them to master clips; it does not build them.
+- **The ripple/gap toggle ALREADY SHIPS** (`toggleRippleMode()`). `PLAN_LAYERS_V2.md`'s unchecked
+  M11 box is stale on that point — what M11 still owes is anchoring, which is unbuilt
+  (`anchorClipId` appears nowhere in the source).
+
 **3a. Masking / chroma-key / track-matte AUTHORING UI. — the thing that got lost once already.**
 The engine is BUILT, device-proven, and used by export: `CompositingSpec`, `MaskPathBuilder`,
 `BlendModeGlEffect`, `PipFrameOverlay`. **Nothing in the app can create one** — the only writer

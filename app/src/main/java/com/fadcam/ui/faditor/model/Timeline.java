@@ -339,6 +339,73 @@ public class Timeline {
         return clipIndex;
     }
 
+    // ── M12: moving a clip between the SPINE and a floating LAYER ───────────────────────────
+    //
+    // A master clip and a PiP are the SAME CLASS in two lists, discriminated by
+    // isOverlayClip() → layerId != null. So the move itself is a list transfer. What is NOT
+    // trivial — and is the actual work — is that several fields CHANGE MEANING across the
+    // boundary. The audit of 2026-08-03 found four that would otherwise break silently:
+    //
+    //   audio    overlayAudioEnabled defaults FALSE and only opted-in PiPs get an audio
+    //            sequence, so a demoted clip would go SILENT. Carried explicitly below.
+    //   captions clip-owned but MASTER-ONLY (getCaptionTracks iterates `clips`). Data survives
+    //            the round trip; RENDERING does not, until the caption-attach slice lands.
+    //   hidden/  honoured for PiPs only ("master tape clips ignore both"), so a hidden object
+    //   locked   would REAPPEAR on promote. Cleared on the way up.
+    //   transform overlayTransform/overlayBlendMode are serialized ONLY when layerId != null,
+    //            so promote-then-save would drop the keyframe envelope permanently.
+    //
+    // Both directions preserve the clip's ABSOLUTE timeline position, which is what makes the
+    // gesture feel like a move rather than a reset.
+
+    /**
+     * Move master clip {@code clipIndex} onto floating layer {@code layerId} (spine → layer),
+     * keeping its absolute timeline position. The spine ripple-closes behind it.
+     *
+     * @return the demoted clip, or null if the index is invalid.
+     */
+    @Nullable
+    public Clip demoteToLayer(int clipIndex, @NonNull String layerId) {
+        if (clipIndex < 0 || clipIndex >= clips.size()) return null;
+        Clip c = clips.get(clipIndex);
+        long absStart = segmentStartMs(clipIndex);
+
+        clips.remove(clipIndex);
+        removeTransitionsForDeletedClip(clipIndex);
+
+        // layerId is what MAKES it an overlay; it must never be null in overlayClips.
+        c.setLayerId(layerId);
+        c.setOverlayStartMs(absStart);
+        // Keep it audible. A PiP is silent unless opted in, so without this the clip's sound
+        // vanishes the moment it leaves the spine — a silent data loss the user did not ask for.
+        c.setOverlayAudioEnabled(true);
+        overlayClips.add(c);
+        return c;
+    }
+
+    /**
+     * Move a floating clip onto the spine at {@code insertIndex} (layer → spine), pushing later
+     * clips right. The inverse of {@link #demoteToLayer}.
+     *
+     * @return true if the clip was found among the overlays and moved.
+     */
+    public boolean promoteToMaster(@NonNull Clip overlayClip, int insertIndex) {
+        if (!overlayClips.remove(overlayClip)) return false;
+        int idx = Math.max(0, Math.min(insertIndex, clips.size()));
+
+        // Overlay-only state, cleared deliberately rather than left to rot:
+        //  • hidden/locked mean nothing on the spine and would silently un-hide the object.
+        //  • layerId null IS the master-clip signal (isOverlayClip()).
+        overlayClip.setHiddenObject(false);
+        overlayClip.setLockedObject(false);
+        overlayClip.setLayerId(null);
+        overlayClip.setOverlayStartMs(0L);
+
+        clips.add(idx, overlayClip);
+        shiftTransitionsAfterInsert(idx);
+        return true;
+    }
+
     /**
      * Re-home riders anchored to a clip that has just been split into halves at
      * {@code indexA} / {@code indexA + 1} (§4A).

@@ -132,6 +132,47 @@ public class AnchorMathTest {
         check(roundTripStable,
                 "offsetWithinHost: a stored offset ALWAYS re-resolves to the same host (no walk-forward)");
 
+        // ── 7. shiftRider — the one place a policy is applied ─────────────────────────────
+        // Host moved +1000. Rider was 1500..2500 inside a host at 1000 spanning 2000.
+        long[] so = AnchorMath.shiftRider(1500, 2500, 1000,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_ONLY, 2000, 2000);
+        check(so[0] == 2500 && so[1] == 3500, "shiftRider SHIFT_ONLY: window moves, duration kept");
+
+        // The SAME inputs under TRUNCATE clamp to the host's end (2000+2000 = 4000) — here that
+        // does not bite, so the two policies agree and the case proves nothing on its own...
+        long[] st = AnchorMath.shiftRider(1500, 2500, 1000,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_TRUNCATE, 2000, 2000);
+        check(st[0] == 2500 && st[1] == 3500, "shiftRider SHIFT_TRUNCATE: inside the host, identical to SHIFT_ONLY");
+
+        // ...so here is the case that SEPARATES them: a rider outrunning a short host.
+        long[] po = AnchorMath.shiftRider(1500, 9000, 0,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_ONLY, 1000, 2000);
+        long[] pt = AnchorMath.shiftRider(1500, 9000, 0,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_TRUNCATE, 1000, 2000);
+        eq(po[1], 9000, "shiftRider SHIFT_ONLY: a rider may outrun its host (duration is the user's)");
+        eq(pt[1], 3000, "shiftRider SHIFT_TRUNCATE: the same rider is clamped to the host's end");
+        check(po[1] != pt[1], "CONTROL: the two policies genuinely differ on this input");
+
+        // Open-ended riders under each policy.
+        long[] oo = AnchorMath.shiftRider(1500, AnchorMath.OPEN_END, -500,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_ONLY, 500, 2000);
+        eq(oo[1], AnchorMath.OPEN_END, "shiftRider SHIFT_ONLY: an open end stays open through a negative delta");
+        long[] ot = AnchorMath.shiftRider(1500, AnchorMath.OPEN_END, -500,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_TRUNCATE, 500, 2000);
+        eq(ot[1], 2500, "shiftRider SHIFT_TRUNCATE: an open end resolves to the host's end");
+
+        // Degenerate: host shorter than the rider's offset into it. Must not emit end < start,
+        // which setTimeRange would silently reinterpret as OPEN_END — a closed window becoming
+        // infinite is exactly the corruption this class exists to prevent.
+        long[] dg = AnchorMath.shiftRider(5000, 6000, 0,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_TRUNCATE, 0, 100);
+        check(dg[1] >= dg[0], "shiftRider: truncation never inverts the window (end >= start)");
+
+        // SHIFT_RESOURCE is documented to move like SHIFT_ONLY until the caption slice lands.
+        long[] sr = AnchorMath.shiftRider(1500, 9000, 250,
+                com.fadcam.ui.faditor.model.RiderPolicy.SHIFT_RESOURCE, 1250, 2000);
+        check(sr[0] == 1750 && sr[1] == 9250, "shiftRider SHIFT_RESOURCE: moves as SHIFT_ONLY (interim, documented)");
+
         System.out.println();
         System.out.println(fails == 0
                 ? ("ALL PASS — " + checks + " checks")

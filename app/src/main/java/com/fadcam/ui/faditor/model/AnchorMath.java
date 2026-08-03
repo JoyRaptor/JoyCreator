@@ -114,6 +114,35 @@ public final class AnchorMath {
     }
 
     /**
+     * A rider's new {@code [start, end]} after its host moved by {@code hostDeltaMs} — the one
+     * place a {@link RiderPolicy} is applied.
+     *
+     * <p>Returns a 2-element array rather than allocating a holder: this runs once per rider per
+     * structural edit, and a ripple on a busy project touches every rider at once.</p>
+     *
+     * <p><b>Orphans are NOT handled here.</b> A rider whose host was deleted has no delta to apply,
+     * and choosing between re-anchoring and deleting is a user-facing decision (addendum §4A's
+     * prompt). Callers must resolve the host first; passing a fabricated delta would turn a
+     * question into a silent answer.</p>
+     */
+    public static long[] shiftRider(long startMs, long endMs, long hostDeltaMs,
+                                    RiderPolicy policy, long newHostStartMs, long hostSpanMs) {
+        long s = shiftStart(startMs, hostDeltaMs);
+        long e = shiftEnd(endMs, hostDeltaMs);
+        // SHIFT_RESOURCE re-reads its host's content but moves identically to SHIFT_ONLY; the
+        // re-sourcing half belongs to the caption-attach slice, which has no code yet. Treating it
+        // as SHIFT_ONLY here is the documented interim, not an oversight.
+        if (policy == RiderPolicy.SHIFT_TRUNCATE) {
+            e = truncatedEnd(e, newHostStartMs, hostSpanMs);
+            // Truncation can only shorten. If it would invert the window (host shorter than the
+            // rider's own start offset), collapse to a zero-length window at the start rather than
+            // emitting end < start, which setTimeRange would silently reinterpret as OPEN_END.
+            if (e < s) e = s;
+        }
+        return new long[]{s, e};
+    }
+
+    /**
      * Offset of a rider within its host, clamped to stay inside the host's span.
      *
      * <p>Clamped to {@code span - 1} rather than {@code span} so the stored offset always resolves

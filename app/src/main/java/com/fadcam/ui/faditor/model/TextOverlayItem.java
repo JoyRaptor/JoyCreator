@@ -97,6 +97,38 @@ public class TextOverlayItem {
     // its own startMs…endMs span. So the carets he asked for map here directly, and this
     // is the object he reserved them for.
 
+    // ── Rider attachment (PLAN_TIMELINE_MANIPULATION_V1 §2.0, addendum §4A) ──────────────
+    // This overlay's tether to a master clip. Its policy is SHIFT_ONLY: it travels when its
+    // host moves and its DURATION never changes, because the user chose that duration and a
+    // ripple is not an edit to it. The visualizer's equivalent pair lives on
+    // WaveformOverlayInstance (attachedClipId/attachOffsetMs) under SHIFT_TRUNCATE — same
+    // concept, different policy; converge the naming only alongside a behaviour test, since
+    // that one ships today.
+
+    /** Host master-clip id, or null = unanchored (absolute time). */
+    @Nullable
+    private String hostClipId;
+
+    /**
+     * Offset from the host clip's START. Stored rather than derived so a save/load cycle cannot
+     * re-derive a different host: {@code AnchorMath.offsetWithinHost} clamps it to
+     * {@code span - 1}, which is what keeps an attachment from walking forward one clip each time.
+     */
+    private long hostOffsetMs;
+
+    /** @see #hostClipId */
+    @Nullable
+    public String getHostClipId() { return hostClipId; }
+
+    /** @see #hostOffsetMs */
+    public long getHostOffsetMs() { return hostOffsetMs; }
+
+    /** Attach to {@code clipId} at {@code offsetMs}, or pass null to detach (absolute time). */
+    public void setHostAnchor(@Nullable String clipId, long offsetMs) {
+        this.hostClipId = clipId;
+        this.hostOffsetMs = clipId == null ? 0L : Math.max(0L, offsetMs);
+    }
+
     /** {@code CaptionAnimator.Preset} name. "NONE" = no entrance/exit. */
     @NonNull
     private String textAnimPreset = "NONE";

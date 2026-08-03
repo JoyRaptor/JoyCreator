@@ -1970,6 +1970,15 @@ public class ProjectStorage {
                 // Entrance/exit animation (SPEC_TEXT_ANIMATION, text-box half). Sparse, like
                 // the clip's caption zones: an overlay that was never animated writes nothing
                 // and stays byte-identical to how every existing project already serialises it.
+                // Rider attachment (§4A). Sparse for the same reason as the animation block: an
+                // unanchored overlay — i.e. every overlay in every project written before this —
+                // writes nothing and round-trips byte-identically.
+                if (o.getHostClipId() != null) {
+                    oJson.addProperty("hostClipId", o.getHostClipId());
+                    if (o.getHostOffsetMs() != 0L) {
+                        oJson.addProperty("hostOffsetMs", o.getHostOffsetMs());
+                    }
+                }
                 if (!"NONE".equals(o.getTextAnimPreset())) {
                     oJson.addProperty("textAnimPreset", o.getTextAnimPreset());
                 }
@@ -2558,6 +2567,15 @@ public class ProjectStorage {
                         // Entrance/exit animation. Guarded reads with the model's own defaults,
                         // so a project written before this existed loads as NONE/BLOCK/0/0 — the
                         // off state — rather than needing a migration.
+                        // Rider attachment. A DANGLING host id (its clip was deleted by a build
+                        // that did not know about anchors) is read as-is and resolved at use time
+                        // rather than dropped here — the orphan decision belongs to §4A's prompt,
+                        // and silently detaching on load would answer it without asking.
+                        if (hasValue(oObj, "hostClipId")) {
+                            o.setHostAnchor(oObj.get("hostClipId").getAsString(),
+                                    hasValue(oObj, "hostOffsetMs")
+                                            ? oObj.get("hostOffsetMs").getAsLong() : 0L);
+                        }
                         if (hasValue(oObj, "textAnimPreset")) {
                             o.setTextAnimPreset(oObj.get("textAnimPreset").getAsString());
                         }

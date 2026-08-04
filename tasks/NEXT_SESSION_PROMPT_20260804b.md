@@ -34,12 +34,12 @@ Harnesses (run all five, they take seconds):
 - **§3i M12** clips move spine ⇄ layer via the Move drawer ↑/↓. Proven from `project.json`.
 - **M11 anchoring** proven end to end: attach on creation → persist → load → shift → save.
 - **Doors** on: text outline/glow/shadow/plate, PiP Mask, PiP blend mode, orphan-anchor policy.
-- ~~Tap-to-seek latency~~ **ATTEMPTED AND REVERTED — it made the delay WORSE.**
-  `seekToTimelineMs` calls `onPlayheadSeeked` and then `onPlayheadDragFinished` on the next line,
-  and that does an UNCONDITIONAL exact seek with no did-a-drag-happen guard; `onUp` fires it a
-  second time. A tap therefore already costs TWO exact decodes and the "fix" made it four.
-  **THE REAL FIX: give `onPlayheadDragFinished` a did-a-drag guard** — that removes two decodes at
-  the source. Do that before re-attempting any settle.
+- **Tap-to-seek latency — FIXED, second attempt.** The first (fast-seek + delayed settle) was
+  reverted for making it WORSE. Real cause: `onPlayheadDragFinished` had no did-a-drag guard, and
+  `seekToTimelineMs` calls it right after `onPlayheadSeeked` with `onUp` firing it again — so a
+  plain tap ran the frame-accurate SETTLE built for drag-scrubbing, paying two extra exact decodes
+  on top of its own already-exact seek. Now gated on `wasRealDrag`. **Removes** decodes rather than
+  adding them. Not yet felt on the Note 20 — ask JoyRaptor.
 - **Caption picker** is opt-in (LEDGER §5's open question, answered by JoyRaptor 2026-08-04).
 
 ### Built but NOT device-verified — THE HAND TESTS
@@ -85,13 +85,8 @@ drag over the spine yet, so there is nothing to highlight into. The right order 
   mid-flight — a reviewer holding line references makes it painful.
 - The stacked-PiP-bands render JoyRaptor saw after two "Move PiP" actions — captured, unexplained,
   not investigated.
-- **`exitReorderMode`'s playhead restore moves the MARKER but not the PICTURE** —
-  `setPlayheadPositionMs` only assigns + invalidates; it does not seek the player (contrast
-  `seekToTimelineMs`, which does both).
-- **Two new `onUp` early-returns skip `listener.onPlayheadDragFinished()`** — the stranded-latch
-  class the `PHDIAG` probe exists to hunt.
-- **`textOverlayCreatedHere` keeps committed ids for the session**, so if the text input is ever
-  pre-populated with the literal hint string, a later reopen+Cancel could still delete it.
+(The three fourth-review findings previously listed here — the marker-only reorder restore, the
+two silent `onUp` early-returns, and the session-lifetime id set — are all FIXED in `2785d7b`.)
 
 ## HOW TO WORK HERE
 

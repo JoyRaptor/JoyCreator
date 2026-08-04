@@ -1198,7 +1198,19 @@ public class ExportManager {
             if (timeline.getClip(i) == clip
                     || timeline.getClip(i).getId().equals(clip.getId())) { idx = i; break; }
         }
-        if (idx < 0) return 0L;
+        if (idx < 0) {
+            // Not on the master track. The only such caller is the TAIL FILLER (:1055 builds a
+            // Clip that is deliberately not in the timeline), which represents time PAST the
+            // master track — i.e. after every transition has already been applied. Returning 0
+            // here left the filler on raw composition time while every clip before it was on
+            // editor time, so an overlay spanning the last-clip→filler seam jumped backwards by
+            // the whole transition total. The correct extrapolation is that total.
+            long all = 0L;
+            for (Transition t : timeline.getTransitions()) {
+                all += effectiveTransitionMs(timeline, t, t.clipIndex);
+            }
+            return all;
+        }
         // ⚠ NOT (editorStart - compressedStart). Measured on device 2026-08-03: for the clip
         // immediately AFTER a seam those two are EQUAL (both 3200 in the fixture), because a
         // transition does not push that clip later — it consumes 600ms off its HEAD by advancing

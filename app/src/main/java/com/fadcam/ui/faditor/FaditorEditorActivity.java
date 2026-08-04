@@ -20308,6 +20308,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return;
                     }
                     decorCommitted = true;
+                    // Decoration edits were unundoable. Record ONE step for the whole dialog's
+                    // worth of style changes, using the snapshot taken when it opened — the same
+                    // values Cancel would have restored, so undo and cancel cannot disagree.
+                    recordDecorationUndo(item);
                     item.setText(txt);
                     item.setColorInt(chosen[0]);
                     item.setFontFamily(chosenFont[0]);
@@ -20411,6 +20415,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
         decorSnapshotColors = new int[]{
                 item.getStrokeColorInt(), item.getGlowColorInt(),
                 item.getShadowColorInt(), item.getBackgroundColorInt()};
+    }
+
+    /**
+     * One undo step covering every style change made while the text editor was open.
+     *
+     * <p>Built from the SAME snapshot {@link #restoreDecoration} uses, so "undo" and "cancel"
+     * can never disagree about what the previous state was. Recorded only when the values
+     * actually changed — an OK that touched nothing must not push a no-op onto the stack and
+     * make the user press undo twice.</p>
+     */
+    private void recordDecorationUndo(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        if (decorSnapshotSizes == null || decorSnapshotColors == null) return;
+        final float[] beforeSizes = decorSnapshotSizes.clone();
+        final int[] beforeColors = decorSnapshotColors.clone();
+        final float[] afterSizes = {
+                item.getStrokeWidthPx(), item.getGlowRadiusPx(), item.getShadowRadiusPx()};
+        final int[] afterColors = {
+                item.getStrokeColorInt(), item.getGlowColorInt(),
+                item.getShadowColorInt(), item.getBackgroundColorInt()};
+        if (java.util.Arrays.equals(beforeSizes, afterSizes)
+                && java.util.Arrays.equals(beforeColors, afterColors)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_text_decor_section),
+                () -> applyDecoration(item, afterSizes, afterColors),
+                () -> applyDecoration(item, beforeSizes, beforeColors)));
+    }
+
+    private void applyDecoration(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                                 @NonNull float[] sizes, @NonNull int[] colors) {
+        item.setStrokeWidthPx(sizes[0]);
+        item.setGlowRadiusPx(sizes[1]);
+        item.setShadowRadiusPx(sizes[2]);
+        item.setStrokeColorInt(colors[0]);
+        item.setGlowColorInt(colors[1]);
+        item.setShadowColorInt(colors[2]);
+        item.setBackgroundColorInt(colors[3]);
+        refreshOverlayPreview();
     }
 
     private void restoreDecoration(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {

@@ -45,14 +45,11 @@ this?" — an unreachable feature passes every test it has.
   (one box + feather, previews live); PiP **blend mode** (export-only, labelled as such).
 - **M11 anchoring is now actually wired** (creation + gesture-finish) — but see UNVERIFIED below.
 
-## ⚠ UNVERIFIED — do these first
+## ⚠ UNVERIFIED — do these first (one of the three is now closed)
 
-1. ~~That anchoring works~~ **PROVED end to end on device — see LEDGER §1n.** A seeded anchor
-   survived load, shifted correctly on a structural edit (3700 → 500, exactly predicted) and was
-   written back. **Only the ATTACH is still unproved**: that a NEW overlay gets an anchor without
-   one being seeded. **HAND TEST:** add a text overlay via the Text tool, then
-   `run-as com.fadcam.beta cat …/project.json` and expect `"hostClipId"` on it. (Everything
-   downstream of that is now known to work.)
+1. ~~That anchoring works~~ **FULLY PROVED end to end on device — LEDGER §1n. Nothing owed.**
+   Attach fires on creation (`hostClipId` written by the autosave), survives load, shifts
+   correctly on a structural edit (3700 → 500, exactly predicted) and is written back.
 2. **The text Style controls end to end.** The dialog renders and does not crash (screenshotted),
    but no value has been round-tripped through the UI to `project.json`. Scripted taps kept losing
    the dialog (the keyboard shifts it; ESCAPE dismisses it; the bottom tool row is

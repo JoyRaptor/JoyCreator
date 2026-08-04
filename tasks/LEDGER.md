@@ -1059,8 +1059,18 @@ and scripted double-taps do not register). So the anchor was **seeded directly i
    intact. Logcat: `ANCHOR[demoteToLayer] moved=1 orphaned=0`.
 
 **So the whole chain is proved:** persisted anchor → read on load → structural edit → shift →
-written back to disk. **What is still unproved is only the ATTACH** — that a NEW overlay gets an
-anchor without one being seeded. Both call sites are in the dex; nothing has driven them.
+written back to disk.
+
+**AND THE ATTACH IS PROVED TOO — the last link, closed the same session.** The Text tool WAS
+reachable after all: the bottom tool row has a pinned group left of a divider and a
+usage-sorted SCROLLING group right of it, and `Text` had simply scrolled out of view. Two
+horizontal swipes on the right group brought it back. Creating an overlay produced
+`hostClipId = 1decc7fa` — the clip under the playhead — written to `project.json` by the
+autosave that `addTextOverlay` schedules before it even opens the editor dialog.
+(`startMs`/`hostOffsetMs` are absent because both are 0 and the serializer is sparse.)
+
+**M11 is therefore verified end to end: attach → persist → load → shift → save.** No link is
+taken on faith.
 
 Sandbox restored byte-exact afterwards (md5 `a74cd91c…`), seed file removed from `/data/local/tmp`.
 

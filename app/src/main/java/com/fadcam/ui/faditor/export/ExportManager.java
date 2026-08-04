@@ -635,7 +635,14 @@ public class ExportManager {
             // video-only crossfade), so total audio length still matches the video export.
             Transition prevTrans = ci > 0 ? findTransitionAtSeam(timeline, ci - 1) : null;
             if (prevTrans != null) {
-                long overlapSourceMs = Math.round(prevTrans.durationMs * clip.getSpeedMultiplier());
+                // ⚠ effectiveTransitionMs, NOT prevTrans.durationMs. The VIDEO path clamps a
+                // transition to what the two clips at that seam can actually give it (:926); this
+                // path used the raw authored value. Whenever a transition IS clamped — a short
+                // clip, or a long dissolve — the master audio was trimmed by MORE than the video,
+                // so a clip's own sound ran ahead of its own picture for the rest of the export.
+                // Same seam, two different lengths. (Adversarial review 2026-08-03.)
+                long effMs = effectiveTransitionMs(timeline, prevTrans, ci - 1);
+                long overlapSourceMs = Math.round(effMs * clip.getSpeedMultiplier());
                 clipInMs = Math.min(clipOutMs, clipInMs + overlapSourceMs);
             }
 

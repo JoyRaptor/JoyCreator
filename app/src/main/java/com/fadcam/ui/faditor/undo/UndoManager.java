@@ -224,6 +224,37 @@ public class UndoManager {
      *
      * @param action the action that was just performed
      */
+    /**
+     * Fold {@code extra} into the action already on top of the stack, so ONE user gesture stays
+     * ONE undo press.
+     *
+     * <p>Needed when part of a gesture's consequence is decided ASYNCHRONOUSLY — the clip delete
+     * records immediately, but what happens to the layer objects anchored to that clip is a
+     * question the user answers in a dialog a moment later. Recording that answer as its own entry
+     * made a single delete cost two undo presses, with the first one restoring objects that are
+     * invisible because their clip is still gone.</p>
+     *
+     * <p>Order matters and is the obvious one: redo applies the original then the extra, undo
+     * reverses the extra then the original. Keeps the top entry's cross-session snapshot, which is
+     * still the correct pre-state for the whole gesture.</p>
+     *
+     * @return false if there is nothing on the stack to amend (caller should record normally).
+     */
+    public boolean amendTopAction(@NonNull EditAction extra) {
+        HistoryEntry top = undoStack.peek();
+        if (top == null) return false;
+        final EditAction original = top.action;
+        EditAction combined = new EditAction() {
+            @Override public void execute() { original.execute(); extra.execute(); }
+            @Override public void undo() { extra.undo(); original.undo(); }
+            @NonNull @Override public String getDescription() { return original.getDescription(); }
+        };
+        undoStack.pop();
+        undoStack.push(new HistoryEntry(combined, top.description, top.snapshotBefore));
+        notifyListener();
+        return true;
+    }
+
     public void recordAction(@NonNull EditAction action) {
         // The snapshot for cross-session undo is the state BEFORE this edit. We do NOT capture
         // it here — the model is usually already mutated by now (audit 1.6). Instead we hand

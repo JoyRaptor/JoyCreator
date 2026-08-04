@@ -277,6 +277,45 @@ public class UndoManagerTest {
             eq("6f state is NOT the orphan-replay H2", "H1", m.state);
         }
 
+        // ── amendTopAction: ONE gesture must stay ONE undo press ─────────────────────────
+        // Added for the delete-with-anchored-objects case, where part of the gesture's outcome is
+        // decided in a dialog AFTER the delete is already recorded.
+        {
+            UndoManager um = new UndoManager();
+            StringBuilder log = new StringBuilder();
+            um.recordAction(new EditAction() {
+                @Override public void execute() { log.append("A"); }
+                @Override public void undo() { log.append("a"); }
+                @Override public String getDescription() { return "first"; }
+            });
+            boolean amended = um.amendTopAction(new EditAction() {
+                @Override public void execute() { log.append("B"); }
+                @Override public void undo() { log.append("b"); }
+                @Override public String getDescription() { return "extra"; }
+            });
+            eqB("amend: reported success when a top entry exists", true, amended);
+            log.setLength(0);
+            um.undo();
+            eq("amend: undo reverses the EXTRA first, then the original", "ba", log.toString());
+            eqB("amend: ONE press emptied the stack, not two", false, um.canUndo());
+            log.setLength(0);
+            um.redo();
+            eq("amend: redo applies original then extra", "AB", log.toString());
+            eqB("amend: still amendable after redo", true, um.amendTopAction(new EditAction() {
+                @Override public void execute() {}
+                @Override public void undo() {}
+                @Override public String getDescription() { return "x"; }
+            }));
+
+            UndoManager empty = new UndoManager();
+            eqB("amend: refuses on an EMPTY stack so the caller can record normally", false,
+                    empty.amendTopAction(new EditAction() {
+                        @Override public void execute() {}
+                        @Override public void undo() {}
+                        @Override public String getDescription() { return "x"; }
+                    }));
+        }
+
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
     }

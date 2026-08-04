@@ -4282,10 +4282,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             afterOff.put(o.getId(), o.getHostOffsetMs());
         }
         if (afterHost.isEmpty()) return;
-        undoManager.recordAction(new EditActions.LambdaAction(
+        EditActions.LambdaAction keep = new EditActions.LambdaAction(
                 getString(R.string.faditor_orphan_keep),
                 () -> applyAnchors(tl, afterHost, afterOff),
-                () -> applyAnchors(tl, beforeHost, beforeOff)));
+                () -> applyAnchors(tl, beforeHost, beforeOff));
+        if (!undoManager.amendTopAction(keep)) undoManager.recordAction(keep);
         saveProjectNow();
     }
 
@@ -4308,10 +4309,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (ids.contains(o.getId())) { removed.add(o); tl.removeTextOverlay(o); }
         }
         if (removed.isEmpty()) return;
-        undoManager.recordAction(new EditActions.LambdaAction(
+        // FOLD into the delete that caused it, so one press of Delete stays one press of Undo.
+        // Recorded separately this cost two, and the first press restored objects that were
+        // invisible because their clip was still gone.
+        EditActions.LambdaAction act = new EditActions.LambdaAction(
                 getString(R.string.faditor_orphan_undo),
                 () -> { for (TextOverlayItem o : removed) tl.removeTextOverlay(o); syncTimelineOverlays(); },
-                () -> { for (TextOverlayItem o : removed) tl.addTextOverlay(o); syncTimelineOverlays(); }));
+                () -> { for (TextOverlayItem o : removed) tl.addTextOverlay(o); syncTimelineOverlays(); });
+        if (!undoManager.amendTopAction(act)) undoManager.recordAction(act);
         syncTimelineOverlays();
         saveProjectNow();
         if (announce) {

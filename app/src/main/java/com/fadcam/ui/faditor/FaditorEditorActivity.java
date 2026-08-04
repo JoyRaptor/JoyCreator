@@ -2059,7 +2059,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onClipCarriedToLayer(int segmentIndex, long atMs) {
+            public void onClipCarriedToLayer(int segmentIndex, long atMs, String laneId,
+                                             long trimToMs, boolean newLane) {
                 // ONE mutation for the whole gesture. moveSelectedClipToLayer already records its
                 // own undo entry, so this needs no merge — which is the point of committing at
                 // release instead of at pull-up.
@@ -2070,7 +2071,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (id == null) return;
                 // Land it where the card was, not where the clip happened to sit on the spine.
                 for (Clip oc : project.getTimeline().getOverlayClips()) {
-                    if (oc.getId().equals(id)) { oc.setOverlayStartMs(Math.max(0L, atMs)); break; }
+                    if (!oc.getId().equals(id)) continue;
+                    oc.setOverlayStartMs(Math.max(0L, atMs));
+                    if (trimToMs >= 0) {
+                        // TRIM TO FIT. The card was drawn narrowed to exactly this length and
+                        // outlined in red with scissors, so the user chose this knowingly. Undo
+                        // restores the full clip in one press, because the whole gesture is one
+                        // recorded action.
+                        oc.setOutPointMs(Math.min(oc.getOutPointMs(),
+                                oc.getInPointMs() + Math.max(1L, trimToMs)));
+                    }
+                    if (newLane) {
+                        // NO ROOM. Timeline documents the invariant for text lanes — "it must be
+                        // IMPOSSIBLE for two items to overlap on one lane" — and packs overflow
+                        // onto a fresh sub-lane. Clips get the same treatment rather than silently
+                        // stacking, which is what this drop used to do. Deterministic id so undo
+                        // and redo land on the same lane instead of minting a new one each time.
+                        oc.setLayerId("video-" + oc.getId());
+                    } else if (laneId != null) {
+                        oc.setLayerId(laneId);
+                    }
+                    break;
                 }
                 syncTimelineOverlays();
                 if (editorTimeline != null) editorTimeline.invalidate();

@@ -862,6 +862,19 @@ public class EditorTimelineView extends View {
      * the drop changes nothing visually; the card is already the size of the thing it becomes.
      */
     private float carryTargetH;
+    // How a release onto a LANE would resolve. Keyed on the free hole under the finger, so the
+    // rule is monotonic: the more room there is, the less drastic the outcome. Pointing at open
+    // space places; pointing at a partly-blocked span trims; pointing INSIDE an existing item
+    // opens a lane. That ordering is what makes it predictable without being explained.
+    private static final int CARRY_FIT = 0, CARRY_TRIM = 1, CARRY_NEWLANE = 2;
+    /** A hole shorter than this is not a placement, it is a sliver — treat it as no room at all. */
+    private static final long CARRY_MIN_HOLE_MS = 200L;
+    private int carryDropState = CARRY_FIT;
+    private long carryHoleMs = -1;
+    @Nullable private String carryTargetLaneId;
+    private final Paint carryWarnPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint carryNewLanePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     /** Set when the carried object came from a LANE rather than the spine (the reverse direction). */
     private boolean carryFromLayer;
     private String carryLayerItemId;
@@ -1423,7 +1436,13 @@ public class EditorTimelineView extends View {
          */
         default void onItemDroppedOnMasterTrack(int insertIndex) {}
         /** A carried spine clip was released over the layer band: demote it, landing at {@code atMs}. */
-        default void onClipCarriedToLayer(int segmentIndex, long atMs) {}
+        /**
+         * @param laneId   lane the card was over, or null
+         * @param trimToMs if &gt;= 0, shorten the clip to this length so it fits the hole
+         * @param newLane  true when there was no room — mint a fresh lane rather than overlap
+         */
+        default void onClipCarriedToLayer(int segmentIndex, long atMs, @Nullable String laneId,
+                                          long trimToMs, boolean newLane) {}
         /** A carried spine clip was released over a different seam: reorder it there. */
         default void onClipCarriedToSeam(int fromIndex, int toIndex) {}
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
@@ -1622,6 +1641,19 @@ public class EditorTimelineView extends View {
         // recognise WHICH clip left, and an empty slot looks like the clip was deleted.
         carryGhostPaint.setColor(0xB0101010);
         carryLayerBandPaint.setColor(0x338C3DFA);
+        // RED = the only destructive state in the drag language (§3A.4). Trimming to fit loses
+        // content, which is the same promise as the cut, so it reuses the same colour rather than
+        // teaching a second warning vocabulary. The scissors glyph is REQUIRED, not decoration:
+        // colour alone fails for colourblind users.
+        carryWarnPaint.setColor(0xFFE53935);
+        carryWarnPaint.setStyle(Paint.Style.STROKE);
+        carryWarnPaint.setStrokeWidth(2.5f * density);
+        // Light purple, dashed = "creates a new layer" — already shipped, already learned.
+        carryNewLanePaint.setColor(0xFFC9A6FF);
+        carryNewLanePaint.setStyle(Paint.Style.STROKE);
+        carryNewLanePaint.setStrokeWidth(2.5f * density);
+        carryNewLanePaint.setPathEffect(new android.graphics.DashPathEffect(
+                new float[]{8f * density, 6f * density}, 0f));
 
         // §3A.4: solid purple = "insert at this seam". Purple ALREADY means "this is where it
         // lands" everywhere else in the drag language, so the seam insert inherits it rather than
@@ -6983,6 +7015,7 @@ public class EditorTimelineView extends View {
             carryDropSeam = getInsertIndexAtX(x);
             carryTargetH = trackHeightPx;            // becoming a master clip: full height
         } else if (y < bandTop - touchSlopPx && y > rulerHeightPx) {
+            resolveLaneDrop(x, y);
             float want = layerRowRenderer != null
                     ? layerRowRenderer.expandedRowHeightPx() : trackHeightPx;
             if (want != carryTargetH) {
@@ -7017,6 +7050,12 @@ public class EditorTimelineView extends View {
         invalidate();
         android.util.Log.d("CARRY", "end commit=" + commit + " seg=" + seg + " seam=" + seam
                 + " toLayer=" + toLayer);
+        int state = carryDropState;
+        long hole = carryHoleMs;
+        String laneId = carryTargetLaneId;
+        carryDropState = CARRY_FIT;
+        carryHoleMs = -1;
+        carryTargetLaneId = null;
         if (!commit || seg < 0 || listener == null) return;
         if (toLayer) {
             // Land it at the time the CARD's left edge is over, not the finger's — the card is
@@ -7026,7 +7065,15 @@ public class EditorTimelineView extends View {
             // conversion and takes a SCREEN x. Two neighbouring helpers, opposite conventions.
             // Passing the screen x here is correct only at scroll 0, i.e. correct in exactly the
             // state a fresh test starts in and wrong the moment the user scrolls.
-            listener.onClipCarriedToLayer(seg, Math.max(0L, xToTime(cardLeft + scrollOffsetPx)));
+            //
+            // Honour EXACTLY what the card showed. An outcome here that differs from the one
+            // drawn is the worst failure an indicator can have — worse than no indicator, because
+            // by then the user has been taught to trust it.
+            long trimTo = state == CARRY_TRIM ? Math.max(CARRY_MIN_HOLE_MS, hole) : -1L;
+            android.util.Log.d("CARRY", "drop lane state=" + state + " hole=" + hole
+                    + " lane=" + laneId + " trimTo=" + trimTo);
+            listener.onClipCarriedToLayer(seg, Math.max(0L, xToTime(cardLeft + scrollOffsetPx)),
+                    laneId, trimTo, state == CARRY_NEWLANE);
         } else if (seam >= 0) {
             // Dropping a clip back where it already is is a no-op, not a reorder. moveClip's
             // target index is measured in the list WITHOUT the clip, so a seam to the right of the
@@ -7063,10 +7110,26 @@ public class EditorTimelineView extends View {
         }
         float left = carryFingerX - carryGrabDx;
         float top = carryFingerY - carryGrabDy;
-        RectF card = new RectF(left, top, left + carryCardW, top + carryCardH);
+        // TRIM: the card narrows to the hole it will actually occupy, so the shape under the
+        // finger IS the result. Telling the user "this will be trimmed" in words, or in colour
+        // alone, still leaves them guessing HOW MUCH.
+        float drawW = carryCardW;
+        if (carryOverLayerBand && carryDropState == CARRY_TRIM && carryHoleMs > 0) {
+            float holeW = (carryHoleMs / 1000f) * dpPerSecondPx;
+            drawW = Math.max(6f * density, Math.min(carryCardW, holeW));
+        }
+        RectF card = new RectF(left, top, left + drawW, top + carryCardH);
         canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, carryCardPaint);
         drawCarryThumb(canvas, card);
-        canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, spineDropPaint2());
+        Paint outline;
+        if (!carryOverLayerBand) outline = spineDropPaint2();
+        else if (carryDropState == CARRY_TRIM) outline = carryWarnPaint;
+        else if (carryDropState == CARRY_NEWLANE) outline = carryNewLanePaint;
+        else outline = spineDropPaint2();
+        canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, outline);
+        if (carryOverLayerBand && carryDropState == CARRY_TRIM) {
+            drawScissorsGlyph(canvas, card.right, card.centerY());
+        }
     }
 
     /**
@@ -7124,6 +7187,75 @@ public class EditorTimelineView extends View {
         // the origin lane still shows where it came from — but the body itself is now the card.
         if (layerRowRenderer != null) layerRowRenderer.setCarriedItemId(carryLayerItemId);
         android.util.Log.d("CARRY", "beginLayer item=" + carryLayerItemId + " w=" + carryCardW);
+    }
+
+    /**
+     * Free room on {@code lane} starting at {@code startMs}: the distance from startMs to the next
+     * item's start, or {@link Long#MAX_VALUE} when nothing follows. Returns 0 when startMs is
+     * INSIDE an existing item — there is no hole there at all, which is what selects the new-lane
+     * outcome.
+     *
+     * <p>Excludes the carried item itself. Without that, dragging a clip a few hundred ms along
+     * its OWN lane measures the hole against the item being moved and reports zero room, so
+     * nudging a clip sideways would spawn a lane every time.</p>
+     */
+    private long freeHoleMs(@Nullable com.fadcam.ui.faditor.layers.Track lane, long startMs,
+                            @Nullable String ignoreItemId) {
+        if (lane == null) return Long.MAX_VALUE;
+        long next = Long.MAX_VALUE;
+        for (com.fadcam.ui.faditor.layers.TimedItem it : lane.getItems()) {
+            if (ignoreItemId != null && ignoreItemId.equals(it.getId())) continue;
+            long s = it.getTimelineStartMs();
+            long e = s + Math.max(0L, it.getDisplayDurationMs(totalEffectiveMs));
+            if (startMs >= s && startMs < e) return 0L;      // pointing inside an item
+            if (s > startMs && s < next) next = s;
+        }
+        return next == Long.MAX_VALUE ? Long.MAX_VALUE : next - startMs;
+    }
+
+    /**
+     * Decide what a release onto the lane band would do, and shape the card to match. Called every
+     * move while the card is over the lanes.
+     */
+    private void resolveLaneDrop(float x, float y) {
+        long durMs = carriedDurationMs();
+        long startMs = Math.max(0L, xToTime(carryFingerX - carryGrabDx + scrollOffsetPx));
+        com.fadcam.ui.faditor.layers.Track lane =
+                layerRowRenderer != null ? layerRowRenderer.rowTrackAt(y, getM6RowsTopPx()) : null;
+        carryTargetLaneId = lane != null ? lane.getId() : null;
+        long hole = freeHoleMs(lane, startMs, carryFromLayer ? carryLayerItemId : null);
+        carryHoleMs = hole;
+        if (hole == Long.MAX_VALUE || hole >= durMs) {
+            carryDropState = CARRY_FIT;
+        } else if (hole >= CARRY_MIN_HOLE_MS) {
+            carryDropState = CARRY_TRIM;
+        } else {
+            carryDropState = CARRY_NEWLANE;
+        }
+    }
+
+    /** Duration of whatever is riding the card, in timeline ms. */
+    private long carriedDurationMs() {
+        if (carryFromLayer) {
+            return Math.max(1L, (long) ((carryCardW / Math.max(1f, dpPerSecondPx)) * 1000f));
+        }
+        return carrySegIndex >= 0 && carrySegIndex < segments.size()
+                ? Math.max(1L, segments.get(carrySegIndex).effectiveMs) : 1L;
+    }
+
+    /**
+     * The scissors at the cut edge. REQUIRED by §3A.4 rather than decorative: red alone does not
+     * survive colourblindness, and "this will be shortened" is exactly the message that must not
+     * depend on hue. Drawn as two crossed blades and two rings — cheap, and unmistakable at a
+     * glance even at 12dp.
+     */
+    private void drawScissorsGlyph(@NonNull Canvas canvas, float x, float cy) {
+        float r = 3f * density, arm = 7f * density;
+        carryWarnPaint.setStyle(Paint.Style.STROKE);
+        canvas.drawLine(x - arm, cy - arm, x + arm * 0.4f, cy + arm * 0.4f, carryWarnPaint);
+        canvas.drawLine(x - arm, cy + arm, x + arm * 0.4f, cy - arm * 0.4f, carryWarnPaint);
+        canvas.drawCircle(x + arm * 0.7f, cy - arm * 0.7f, r, carryWarnPaint);
+        canvas.drawCircle(x + arm * 0.7f, cy + arm * 0.7f, r, carryWarnPaint);
     }
 
     /** Outline stroke for the carried card — purple, matching "this is where it lands". */
@@ -7286,6 +7418,7 @@ public class EditorTimelineView extends View {
             if (carryActive && carryFromLayer) {
                 carryFingerX = x;
                 carryFingerY = y;
+                if (!overSpine) resolveLaneDrop(x, y); else carryDropState = CARRY_FIT;
                 carryTargetH = overSpine ? trackHeightPx
                         : (layerRowRenderer != null ? layerRowRenderer.expandedRowHeightPx()
                                                     : trackHeightPx);

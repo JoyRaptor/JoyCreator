@@ -16729,6 +16729,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the DESERIALIZER also calls — attaching there would overwrite every persisted anchor
         // on load.
         project.getTimeline().attachOverlayToHostUnderStart(item);
+        textOverlayCreatedHere.add(item.getId());   // only THIS one may be auto-cleaned on cancel
         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                 overlayLayerCallback());
         syncTimelineOverlays();
@@ -20256,6 +20257,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *  content of their own — their type editor IS the general drawer, so they
      *  delegate there (D1, JoyRaptor 2026-07-17: the modal image dialog is retired —
      *  it dimmed the preview and blocked scrubbing, killing "End here"). */
+    /**
+     * Overlays this editor session created, and may therefore clean up if abandoned.
+     *
+     * <p>The placeholder cleanup used to fire for ANY overlay whose text was still "Enter text" —
+     * so opening an EXISTING one you had already positioned and timed, then backing out, DELETED
+     * it. And that path deliberately records no undo, so targeted undo could not bring it back;
+     * only walking far enough to hit a whole-project snapshot did. Reported by JoyRaptor 2026-08-04
+     * ("I clicked End here… the text was gone… undo did not bring back the text layer").</p>
+     */
+    private final java.util.Set<String> textOverlayCreatedHere = new java.util.HashSet<>();
+
     private void showTextOverlayEditor(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         if (item.isImage()) {
@@ -20551,11 +20563,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // half the dialog's edits. NOTE: the button is not the only way out — see the
                     // setOnDismissListener below, which covers BACK, outside-tap and rotation.
                     restoreDecoration(item);
-                    // Clean up a never-filled placeholder so it can't get stuck.
+                    // Clean up a never-filled placeholder so it can't get stuck — but ONLY one
+                    // this session actually created. An existing overlay the user never renamed
+                    // is still THEIR object; deleting it on cancel is destroying work.
                     String cur = item.getText();
-                    if (cur == null || cur.trim().isEmpty()
-                            || cur.equals(getString(R.string.faditor_text_hint))) {
+                    if (textOverlayCreatedHere.contains(item.getId())
+                            && (cur == null || cur.trim().isEmpty()
+                                || cur.equals(getString(R.string.faditor_text_hint)))) {
                         project.getTimeline().removeTextOverlay(item);
+                        textOverlayCreatedHere.remove(item.getId());
+                        // Record it even though it is "just a placeholder". Nothing the user can
+                        // see disappearing should be unrecoverable by undo — that is what made
+                        // this bug feel like data loss rather than a tidy-up.
+                        undoManager.recordAction(new EditActions.LambdaAction(
+                                getString(R.string.faditor_text_delete),
+                                () -> { project.getTimeline().removeTextOverlay(item);
+                                        syncTimelineOverlays(); },
+                                () -> { project.getTimeline().addTextOverlay(item);
+                                        syncTimelineOverlays(); }));
                         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                                 overlayLayerCallback());
                         syncTimelineOverlays();

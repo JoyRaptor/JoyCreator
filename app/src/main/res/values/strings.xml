@@ -3229,4 +3229,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_m12_moved_to_main">Moved to the main track</string>
     <string name="faditor_m12_undo_to_layer">Move to layer</string>
     <string name="faditor_m12_undo_to_main">Move to main track</string>
+    <!-- Text decoration (access-point audit: rendered in preview AND export, never settable) -->
+    <string name="faditor_text_decor_section">Style</string>
+    <string name="faditor_text_decor_stroke">Outline</string>
+    <string name="faditor_text_decor_glow">Glow</string>
+    <string name="faditor_text_decor_shadow">Shadow</string>
+    <string name="faditor_text_decor_plate">Background plate</string>
 </resources>

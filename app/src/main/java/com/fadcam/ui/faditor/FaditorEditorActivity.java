@@ -20005,6 +20005,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         fontScroll.addView(fontRow);
         root.addView(fontScroll);
+        root.addView(buildOverlayDecorationControls(item));
         root.addView(buildOverlayAnimationControls(item));
 
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
@@ -20054,6 +20055,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     scheduleAutoSave();
                 })
                 .setNegativeButton(android.R.string.cancel, (d, w) -> {
+                    // Decoration controls write the model LIVE (so the sliders can be tuned
+                    // against the preview), so Cancel has to put them back or it silently keeps
+                    // half the dialog's edits.
+                    restoreDecoration(item);
                     // Clean up a never-filled placeholder so it can't get stuck.
                     String cur = item.getText();
                     if (cur == null || cur.trim().isEmpty()
@@ -20075,6 +20080,190 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * "Add keyframe"; do it again at another time to animate between them.
      */
     @NonNull
+    /**
+     * Stroke / glow / shadow / background-plate controls for a text overlay.
+     *
+     * <p><b>Why this exists.</b> All four already render in BOTH the preview
+     * ({@code TextBoxRenderer:389-431}) and the export ({@code CompositeExportOverlay:672-678})
+     * and have done for some time — but the only writer in the codebase was the JSON
+     * deserializer, so no user could ever set them. The engine was complete and had no door
+     * (access-point audit, 2026-08-03). This is the door; no renderer changes were needed.</p>
+     *
+     * <p>Each control writes the model directly and refreshes the preview, so the value is tuned
+     * against what it will actually look like rather than blind.</p>
+     */
+    /**
+     * The decoration values as they were when the editor opened, so CANCEL can put them back.
+     *
+     * <p>These controls write the model LIVE — that is the point, since a glow radius tuned
+     * without seeing it is guesswork. But the dialog's other fields (colour, font) are staged and
+     * only committed on OK, so live-writing alone would make Cancel a lie for half the dialog.
+     * Snapshot on open, restore on cancel: live preview kept, Cancel honest.</p>
+     */
+    private float[] decorSnapshotSizes;
+    private int[] decorSnapshotColors;
+
+    private void snapshotDecoration(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        decorSnapshotSizes = new float[]{
+                item.getStrokeWidthPx(), item.getGlowRadiusPx(), item.getShadowRadiusPx()};
+        decorSnapshotColors = new int[]{
+                item.getStrokeColorInt(), item.getGlowColorInt(),
+                item.getShadowColorInt(), item.getBackgroundColorInt()};
+    }
+
+    private void restoreDecoration(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        if (decorSnapshotSizes == null || decorSnapshotColors == null) return;
+        item.setStrokeWidthPx(decorSnapshotSizes[0]);
+        item.setGlowRadiusPx(decorSnapshotSizes[1]);
+        item.setShadowRadiusPx(decorSnapshotSizes[2]);
+        item.setStrokeColorInt(decorSnapshotColors[0]);
+        item.setGlowColorInt(decorSnapshotColors[1]);
+        item.setShadowColorInt(decorSnapshotColors[2]);
+        item.setBackgroundColorInt(decorSnapshotColors[3]);
+        refreshOverlayPreview();
+    }
+
+    private View buildOverlayDecorationControls(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        snapshotDecoration(item);
+        float density = getResources().getDisplayMetrics().density;
+        int gap = (int) (8 * density);
+
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setPadding(0, gap * 2, 0, 0);
+
+        TextView header = new TextView(this);
+        header.setText(R.string.faditor_text_decor_section);
+        header.setTextColor(0xFF888888);
+        header.setTextSize(12);
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setAllCaps(true);
+        header.setLetterSpacing(0.06f);
+        box.addView(header);
+
+        // One row = a label, a swatch strip that sets the colour, and a 0..N slider for size.
+        // "Off" is size 0 rather than a separate toggle: one control, one mental model, and it
+        // matches how the renderers already gate each effect (radius/width > 0).
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_stroke, 12,
+                item::getStrokeWidthPx, item::setStrokeWidthPx,
+                item::getStrokeColorInt, item::setStrokeColorInt);
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 24,
+                item::getGlowRadiusPx, item::setGlowRadiusPx,
+                item::getGlowColorInt, item::setGlowColorInt);
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_shadow, 24,
+                item::getShadowRadiusPx, item::setShadowRadiusPx,
+                item::getShadowColorInt, item::setShadowColorInt);
+
+        // Background plate is colour-only — its "size" is the text box itself.
+        TextView bgLabel = new TextView(this);
+        bgLabel.setText(R.string.faditor_text_decor_plate);
+        bgLabel.setTextColor(0xFFAAAAAA);
+        bgLabel.setTextSize(12);
+        bgLabel.setPadding(0, gap, 0, gap / 2);
+        box.addView(bgLabel);
+        box.addView(buildSwatchStrip(gap, item::getBackgroundColorInt, c -> {
+            item.setBackgroundColorInt(c);
+            refreshOverlayPreview();
+        }, true));
+
+        return box;
+    }
+
+    /** One decoration row: swatch strip + a size slider whose 0 means "off". */
+    private void addDecorRow(@NonNull android.widget.LinearLayout parent,
+                             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                             int gap, int labelRes, int maxPx,
+                             @NonNull java.util.function.Supplier<Float> getSize,
+                             @NonNull java.util.function.Consumer<Float> setSize,
+                             @NonNull java.util.function.Supplier<Integer> getColor,
+                             @NonNull java.util.function.Consumer<Integer> setColor) {
+        TextView label = new TextView(this);
+        label.setTextColor(0xFFAAAAAA);
+        label.setTextSize(12);
+        label.setPadding(0, gap, 0, gap / 2);
+        parent.addView(label);
+
+        android.widget.SeekBar bar = new android.widget.SeekBar(this);
+        bar.setMax(maxPx);
+        bar.setProgress(Math.round(Math.max(0f, Math.min(maxPx, getSize.get()))));
+        label.setText(getString(labelRes) + "  ·  " + bar.getProgress() + "px");
+        bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean u) {
+                setSize.accept((float) p);
+                label.setText(getString(labelRes) + "  ·  " + p + "px");
+                refreshOverlayPreview();
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar s) { scheduleAutoSave(); }
+        });
+        parent.addView(bar);
+        parent.addView(buildSwatchStrip(gap, getColor, c -> {
+            setColor.accept(c);
+            refreshOverlayPreview();
+        }, false));
+    }
+
+    /** Horizontal colour swatches. {@code allowNone} adds a transparent "no plate" chip first. */
+    private View buildSwatchStrip(int gap,
+                                  @NonNull java.util.function.Supplier<Integer> get,
+                                  @NonNull java.util.function.Consumer<Integer> set,
+                                  boolean allowNone) {
+        final int[] COLORS = {
+                0xFF000000, 0xFFFFFFFF, 0xFFE53935, 0xFFFB8C00, 0xFFFDD835,
+                0xFF43A047, 0xFF1E88E5, 0xFF8E24AA, 0xFF00ACC1,
+        };
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setPadding(0, gap / 2, 0, 0);
+        int size = (int) (28 * getResources().getDisplayMetrics().density);
+
+        java.util.List<Integer> palette = new ArrayList<>();
+        if (allowNone) palette.add(0x00000000);
+        for (int c : COLORS) palette.add(c);
+
+        for (int c : palette) {
+            final int color = c;
+            View chip = new View(this);
+            android.widget.LinearLayout.LayoutParams lp =
+                    new android.widget.LinearLayout.LayoutParams(size, size);
+            lp.setMarginEnd(gap / 2);
+            chip.setLayoutParams(lp);
+            android.graphics.drawable.GradientDrawable d =
+                    new android.graphics.drawable.GradientDrawable();
+            d.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            d.setColor(color);
+            // A transparent chip needs an outline or it is an invisible button.
+            d.setStroke((int) getResources().getDisplayMetrics().density * 2,
+                    color == get.get() ? 0xFF4CAF50 : 0xFF555555);
+            chip.setBackground(d);
+            chip.setOnClickListener(v -> {
+                set.accept(color);
+                for (int i = 0; i < row.getChildCount(); i++) {
+                    View other = row.getChildAt(i);
+                    ((android.graphics.drawable.GradientDrawable) other.getBackground())
+                            .setStroke((int) getResources().getDisplayMetrics().density * 2,
+                                    other == v ? 0xFF4CAF50 : 0xFF555555);
+                }
+                scheduleAutoSave();
+            });
+            row.addView(chip);
+        }
+        android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.addView(row);
+        return scroll;
+    }
+
+    /** Push text-overlay model changes into the live preview. */
+    private void refreshOverlayPreview() {
+        if (project == null || overlayLayer == null) return;
+        overlayLayer.setData(
+                com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .visibleTextOverlaysAboveVideo(project.getTimeline()),
+                overlayLayerCallback());
+    }
+
     private View buildOverlayAnimationControls(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         float density = getResources().getDisplayMetrics().density;

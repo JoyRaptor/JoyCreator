@@ -5813,10 +5813,20 @@ public class EditorTimelineView extends View {
             if (listener != null) {
                 int seg = getSegmentAtPlayhead();
                 if (seg >= 0 && seg < segments.size()) {
-                    long segStart = getSegmentStartTimeMs(seg);
-                    long within = Math.max(0, reorderEntryPlayheadMs - segStart);
-                    float frac = segments.get(seg).effectiveMs > 0
-                            ? (float) within / segments.get(seg).effectiveMs : 0f;
+                    SegmentData sd = segments.get(seg);
+                    long within = Math.max(0, reorderEntryPlayheadMs - getSegmentStartTimeMs(seg));
+                    // ⚠ onPlayheadSeeked's fraction is of the FULL SOURCE duration, not of the
+                    // effective (trimmed, speed-scaled) segment. The first version of this used
+                    // within/effectiveMs, which on any trimmed clip resolved to a source time past
+                    // the out-point and clamped the player to the clip's END — and the consumer's
+                    // setPlayheadFraction then wrote that back over the marker too, clobbering the
+                    // restore this block exists to perform. Worse than the bug it fixed, and
+                    // invisible on an untrimmed 1x clip, i.e. invisible in a smoke test.
+                    // Same expression as updatePlayheadFromX.
+                    long sourceMs = sd.inPointMs + (long) (within * sd.speed);
+                    float frac = sd.sourceDurationMs > 0
+                            ? Math.max(0f, Math.min(1f, (float) sourceMs / sd.sourceDurationMs))
+                            : 0f;
                     listener.onPlayheadSeeked(seg, frac, false);
                 }
             }
@@ -6781,7 +6791,9 @@ public class EditorTimelineView extends View {
                 // the whole gesture: this touch has done its job.
                 downSegIndex = -1;
                 activeDrag = Drag.NONE;
-                if (listener != null) listener.onPlayheadDragFinished();
+                // Same reasoning as the reorder branch: nothing latched, and notifying here
+                // re-introduced the post-dislodge selection jump that retiring downSegIndex
+                // (two lines up) was written to prevent — the same jump through another door.
                 invalidate();
                 return true;
             }
@@ -7063,10 +7075,11 @@ public class EditorTimelineView extends View {
             if (isUp && !isReorderMode && activeDrag == Drag.NONE
                     && downSegIndex >= 0 && segments.size() > 1) {
                 enterReorderMode();
-                // Notify before returning: an early-return that skips this is the stranded
-                // userDragging latch the PHDIAG probe exists to hunt (playhead and overlays freeze
-                // while audio keeps playing).
-                if (listener != null) listener.onPlayheadDragFinished();
+                // Deliberately NOT notifying onPlayheadDragFinished here. It was added as
+                // stranded-latch insurance, but `userDragging` is provably never set on this
+                // branch (activeDrag == NONE, no scrub) — so it cleared nothing and instead ran
+                // the handler's clip-swap block, forcing a loadClipForPlayback + seekInClip at the
+                // instant the reorder UI opens.
                 invalidate();
                 return true;
             }

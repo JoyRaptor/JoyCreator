@@ -20570,6 +20570,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // No text entered → don't leave an empty "Enter text" ghost.
                         String emptiedLane3 = item.getLayerId();
                         project.getTimeline().removeTextOverlay(item);
+                        textOverlayCreatedHere.remove(item.getId());
                         if (emptiedLane3 != null) maybeRemoveEmptyLayerTrack(emptiedLane3);
                         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                                 overlayLayerCallback());
@@ -20608,6 +20609,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     boolean wasCommitted = textOverlayAddRecorded.remove(item);
                     String emptiedLane2 = item.getLayerId();
                     project.getTimeline().removeTextOverlay(item);
+                    textOverlayCreatedHere.remove(item.getId());
                     final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane2 =
                             pruneEmptyLayerTrack(emptiedLane2);
                     overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),

@@ -1173,6 +1173,23 @@ public class ExportManager {
      * <p>Returns <b>0</b> when the clip is not on the master track or the project has no
      * transitions — so a project without transitions is bit-for-bit unaffected.</p>
      */
+    /**
+     * The transition consuming the HEAD of {@code clip} (0 if none) — see
+     * {@code CompositeExportOverlay.headTransitionMs}.
+     */
+    private static long headTransitionMsFor(@NonNull Timeline timeline, @NonNull Clip clip) {
+        int idx = -1;
+        for (int i = 0; i < timeline.getClipCount(); i++) {
+            if (timeline.getClip(i) == clip
+                    || timeline.getClip(i).getId().equals(clip.getId())) { idx = i; break; }
+        }
+        if (idx <= 0) return 0L;
+        for (Transition t : timeline.getTransitions()) {
+            if (t.clipIndex == idx - 1) return effectiveTransitionMs(timeline, t, t.clipIndex);
+        }
+        return 0L;
+    }
+
     private static long editorTimeOffsetFor(@NonNull Timeline timeline,
                                             @NonNull Clip clip,
                                             long compressedStartMs) {
@@ -2643,7 +2660,8 @@ public class ExportManager {
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(),
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs));
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs),
+                        headTransitionMsFor(project.getTimeline(), clip));
                 videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
             }
             // Shared with the preview and with the overlay-audio sequence, so a matte peer
@@ -2679,7 +2697,8 @@ public class ExportManager {
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(),
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs));
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs),
+                        headTransitionMsFor(project.getTimeline(), clip));
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

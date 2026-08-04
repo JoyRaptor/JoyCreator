@@ -78,6 +78,18 @@ public class CompositeExportOverlay extends BitmapOverlay {
      */
     private final long editorTimeOffsetMs;
 
+    /**
+     * This clip's HEAD transition (ms), i.e. how much of its front the export handed to the
+     * transition item (LEDGER §2d, second half).
+     *
+     * <p>Distinct from {@link #editorTimeOffsetMs}, which is the CUMULATIVE figure for placing
+     * overlays on the timeline. This one is about the clip's own SOURCE position: the main item's
+     * first frame is not {@code inPoint}, it is {@code inPoint + headTransition}, so anything
+     * resolved against clip-local time — caption text, caption style keyframes — lands early by
+     * this much unless it is added back.</p>
+     */
+    private final long headTransitionMs;
+
     private Bitmap bitmap;
     private Canvas canvas;
 
@@ -272,8 +284,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets,
                                    @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs,
                                    long projectDurationMs,
-                                   long editorTimeOffsetMs) {
+                                   long editorTimeOffsetMs,
+                                   long headTransitionMs) {
         this.editorTimeOffsetMs = editorTimeOffsetMs;
+        this.headTransitionMs = headTransitionMs;
         this.projectDurationMs = projectDurationMs;
         this.context = context.getApplicationContext();
         // Custom caption styles resolve through the store; the :export process is
@@ -781,7 +795,13 @@ public class CompositeExportOverlay extends BitmapOverlay {
             // keyframes (and a "hidden" pseudo-style) are evaluated against the
             // SOURCE-local position (0-based within the trimmed region), exactly as
             // the preview does via captionStyleAtClipMs(positionInCurrentSegmentMs).
-            long clipSourceLocalMs = (long) (clipLocalMs * clip.getSpeedMultiplier());
+            // + headTransitionMs: composition-local 0 is the main item's first frame, which sits
+            // headTransition INTO the trimmed region because the transition item consumed the
+            // front. Without this the burned-in captions lag the picture by exactly the transition
+            // on every clip after a seam — and after §2d fixed the text overlays, captions were
+            // the only thing still wrong, which is a worse failure than both being wrong together.
+            long clipSourceLocalMs =
+                    (long) ((clipLocalMs + headTransitionMs) * clip.getSpeedMultiplier());
             String styleId = clip.hasCaptionStyleKeyframes()
                     ? clip.captionStyleAtClipMs(clipSourceLocalMs)
                     : clip.getCaptionStyleId();

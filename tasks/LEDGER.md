@@ -1039,6 +1039,43 @@ still damaged — the fix stops new stranding, it does not repair existing items
 needs a migration decision (their `startMs` is unrecoverable, so the honest repair is to reset it
 to 0 rather than guess).
 
+## 1o. THE DISLODGE GESTURE — BUILT 2026-08-04, HAND TEST OWED
+
+JoyRaptor's scheme (§3A.5b): **hold ARMS, a vertical pull COMMITS.** It replaces long-press-goes-
+straight-to-reorder, which fired on a plain timer with no stillness or intent test — so pausing to
+think, or holding steady for a precision horizontal move, dropped you into reorder uninvited. That
+was his actual complaint and it is now impossible.
+
+- Hold → purple halo + up-chevron (`drawDislodgeArmedLift`). Hold alone does nothing functional,
+  so without the cue "now pull up" is unlearnable and the gesture reads as broken.
+- Vertical pull past ~24dp AND vertically dominant → dislodge, routed through the SAME
+  `moveSelectedClipToLayer` the Move drawer's ↑ uses. One model op, two entry points, so gesture
+  and button cannot drift apart.
+- Deliberate horizontal move → DISARMS. Without this, holding then sliding sideways left the arm
+  live and RELEASING opened reorder — the same interruption the scheme exists to prevent,
+  reintroduced one level down. Caught by reading my own code, not by testing.
+- Release without moving → reorder dialog, unchanged. **Double-tap** is a fast path to the same
+  dialog; its first tap seeks and is NOT undone (see below).
+
+**THE SEEK DECISION (JoyRaptor + agent, 2026-08-04).** He proposed seek-then-undo for instant feedback.
+Rejected in favour of simply KEEPING the seek: you tapped that clip, so the playhead being there is
+what you meant, and undoing it would cost TWO exact decodes inside 250ms on a path that is already
+the slow one. Backing out of reorder restores the prior playhead **before the mode flips**, so the
+nudge happens behind the reorder UI and is never seen — his own refinement, and the reason the
+whole problem disappears.
+
+**⚠ NOT DEVICE-VERIFIED.** `adb`'s `input swipe` interpolates movement over its whole duration, so
+it cannot express hold-still-THEN-move: the long-press timer never survives to arm. One scripted
+attempt was made per the house rule. The hand test is four steps and is written into
+`NEXT_SESSION_PROMPT_20260804b.md`.
+
+**NOT DONE: the insertion highlight.** §3A.4 specifies it, but the dislodge is currently DISCRETE
+(vertical pull demotes immediately at the clip's own time) so there is no continuous drag to
+highlight into. Correct order is recorded in §3A.5b: hand the in-flight touch to
+`LayerGestureController` FIRST so a dislodged clip becomes an ordinary picked-up layer item and
+inherits A9, WYSIWYG, edge-pan, minimap nav, the overlap resolver and the undo merge — all already
+built. A second drag engine would rebuild every one of them worse.
+
 ## 1n. ✅ ANCHORING IS PROVED IN THE APP — end to end on device, 2026-08-03
 
 The feature §1m records as INERT is now **verified working in the running app**, not just in the

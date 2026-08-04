@@ -2004,6 +2004,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onClipDislodgeRequested(int segmentIndex) {
+                // §3A.5b — hold armed it, a vertical pull committed it. Reuses the SAME model op
+                // and undo path as the Move drawer's ↑ button, so the gesture and the button can
+                // never drift apart in behaviour.
+                if (project == null) return;
+                if (segmentIndex < 0 || segmentIndex >= project.getTimeline().getClipCount()) return;
+                selectSegment(segmentIndex);
+                moveSelectedClipToLayer();
+            }
+
+            @Override
             public void onReorderModeChanged(boolean entering) {
                 // Hide/show bottom toolbar during reorder mode
                 // Skip timeline_scroll (first HorizontalScrollView) — target the bottom toolbar

@@ -836,6 +836,14 @@ public class EditorTimelineView extends View {
     private long downTime;
     private int downSegIndex = -1;
     private boolean longPressTriggered;
+
+    // ── §3A.5b dislodge arming ──────────────────────────────────────────────────────────────
+    /** True between the long-press firing and the touch ending: a vertical move now dislodges. */
+    private boolean dislodgeArmed;
+    /** Which segment armed, so a dislodge cannot act on a different clip than the one held. */
+    private int dislodgeArmedSegIndex = -1;
+    /** Vertical travel (px) that turns an armed hold into a dislodge. One finger-width-ish. */
+    private float dislodgeThresholdPx = 0f;
     private long dragStartInMs, dragStartOutMs;
     private float dragStartSegLeft, dragStartSegRight;
     private float trimDragX;                  // Timeline-space x of handle during trim drag
@@ -919,9 +927,18 @@ public class EditorTimelineView extends View {
         public void run() {
             if (activeDrag == Drag.NONE && downSegIndex >= 0 && segments.size() > 1
                     && !isScaling) {
+                // §3A.5b — HOLD ARMS, VERTICAL COMMITS. Holding no longer drops you straight
+                // into reorder: it arms, shows that it armed, and waits. A vertical move then
+                // dislodges the clip; releasing without one opens the reorder dialog as before.
+                //
+                // The old behaviour fired on a plain timer with no stillness or intent test, so
+                // pausing to think — or holding steady for a precision horizontal move — put you
+                // in reorder mode uninvited. That is the exact complaint this closes.
                 longPressTriggered = true;
+                dislodgeArmed = true;
+                dislodgeArmedSegIndex = downSegIndex;
                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                enterReorderMode();
+                invalidate();   // draw the armed lift so "now move up" is discoverable
             }
         }
     };
@@ -1336,6 +1353,12 @@ public class EditorTimelineView extends View {
         void onPlayheadDragFinished();
         void onSegmentReordered(int fromIndex, int toIndex);
         void onReorderModeChanged(boolean entering);
+
+        /**
+         * §3A.5b — an ARMED master clip was pulled vertically: dislodge it from the spine.
+         * The activity performs the demote (and its undo); the view only reports intent.
+         */
+        default void onClipDislodgeRequested(int segmentIndex) {}
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
         default void onReorderLinkRequested(int segmentIndex) {}
         void onAudioClipSelected(int audioIndex);
@@ -6509,6 +6532,11 @@ public class EditorTimelineView extends View {
         downY = y;
         downTime = System.currentTimeMillis();
         longPressTriggered = false;
+        dislodgeArmed = false;
+        dislodgeArmedSegIndex = -1;
+        if (dislodgeThresholdPx <= 0f) {
+            dislodgeThresholdPx = 24f * getResources().getDisplayMetrics().density;
+        }
 
         // Adjust x for scroll offset
         float scrolledX = x + scrollOffsetPx;
@@ -6653,6 +6681,22 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onMove(float x, float y) {
+        // §3A.5b — HOLD ARMS, VERTICAL COMMITS. Checked before every other branch so a dislodge
+        // cannot be swallowed by scrub/pan, and gated on VERTICAL DOMINANCE so a precision
+        // horizontal move (the thing the user explicitly asked not to interrupt) never triggers it.
+        if (dislodgeArmed && !isReorderMode && activeDrag == Drag.NONE) {
+            float dy = y - downY, dx = x - downX;
+            if (Math.abs(dy) > dislodgeThresholdPx && Math.abs(dy) > Math.abs(dx)) {
+                int seg = dislodgeArmedSegIndex;
+                dislodgeArmed = false;
+                dislodgeArmedSegIndex = -1;
+                longPressTriggered = false;   // do NOT also open the reorder dialog on UP
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                if (listener != null && seg >= 0) listener.onClipDislodgeRequested(seg);
+                invalidate();
+                return true;
+            }
+        }
         if (pendingHeaderHit != null) {
             // PHASE-P P1: a header press that wanders past slop is neither a tap nor a
             // long-press — cancel both. Headers have no drag behavior; keep consuming.
@@ -6909,6 +6953,21 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
+        // §3A.5b — released while ARMED without ever moving vertically: that is the reorder
+        // request. Kept on hold-release (as well as double-tap) because long-press is the more
+        // discoverable of the two, and the reorder window has virtues the user has said he does
+        // not want to lose. Reversible: delete this block if hold-release should do nothing.
+        if (dislodgeArmed) {
+            dislodgeArmed = false;
+            dislodgeArmedSegIndex = -1;
+            if (isUp && !isReorderMode && activeDrag == Drag.NONE
+                    && downSegIndex >= 0 && segments.size() > 1) {
+                enterReorderMode();
+                invalidate();
+                return true;
+            }
+            invalidate();
+        }
         if (pendingHeaderHit != null) {
             // PHASE-P P1: header press resolved. A quick tap (long-press didn't fire,
             // real UP) fires the same icon action the old on-DOWN path did; after a

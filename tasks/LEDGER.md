@@ -1039,6 +1039,42 @@ still damaged — the fix stops new stranding, it does not repair existing items
 needs a migration decision (their `startMs` is unrecoverable, so the honest repair is to reset it
 to 0 rather than guess).
 
+## 1m. THE ADVERSARIAL PASS — 21 CONFIRMED DEFECTS IN ONE NIGHT'S WORK, 2026-08-03
+
+**Keep this entry. It is the strongest argument in this ledger for how to work here.**
+
+Everything built on 2026-08-03 was handed to two review agents with one instruction: BREAK IT.
+They confirmed **21 defects** in code that was compile-green, harness-green and committed with
+confident messages.
+
+**The one that matters most: M11 anchoring was completely INERT.** It shipped with 35 passing
+checks against the REAL model classes, a debug invariant probe, and a commit message reading "the
+shift lands, proved against the REAL model classes". Every word was true and the feature did
+nothing: `attachOverlayToHostUnderStart` had **zero call sites**, so `hostClipId` was null for
+every overlay in every project and `applyAnchorShift` returned on its first line, every time.
+**An unreachable feature passes every test it has.** The question no test asked was "who CALLS
+this?"
+
+Others worth remembering as shapes:
+- **A dialog that damaged data merely by being OPENED.** The mask sheet seeded a default box and
+  applied it before `show()`, with no dismiss handling — BACK left a permanent hole in the PiP.
+- **Fixing half a divergence made it worse.** §2d corrected text overlays; burned-in captions
+  stayed wrong, so instead of everything drifting together (readable as "the export is offset")
+  the user would see captions sliding against titles that were now right.
+- **Two of four new sliders were dead on arrival** — both renderers gate on size AND colour, and
+  the colours defaulted to transparent. The commit message asserted the gate was size-only.
+- **"0 = off" was false for shadow** — the renderers read `radius > 0 ? radius : fontPx * 0.10f`,
+  so 0 is the default shadow and dragging 0→1 makes it SMALLER.
+- **A Cancel button is not a dismissal handler.** BACK, outside-tap and rotation all bypassed it
+  and kept every live-written edit — and the stale snapshot then became the next "original".
+- **A convenience constructor was a trap**: the 2-arg `BlendModeGlEffect` hard-coded the §2d
+  offset to 0, so any future caller would silently reintroduce the drift with no failing test.
+
+**RULE EARNED: after building anything, run an adversarial pass before believing it.** The two
+reviews cost about twenty minutes and were worth more than the code they reviewed. A green
+harness proves the logic; it says nothing about whether the logic is reached, whether the dialog
+that drives it is safe to open, or whether the field it writes is ever read back.
+
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
 **2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**

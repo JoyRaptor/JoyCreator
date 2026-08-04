@@ -73,9 +73,10 @@ public final class BlendModeGlEffect implements GlEffect {
     private final long editorTimeOffsetMs;
     @Nullable private final Clip matteClip;
 
-    public BlendModeGlEffect(@NonNull Context context, @NonNull Clip clip) {
-        this(context, clip, null, 0L);
-    }
+    // NOTE: the old 2-arg constructor was DELETED rather than kept for convenience. It
+    // hard-coded editorTimeOffsetMs = 0, so any future caller would have silently reintroduced
+    // the §2d drift with no compile error and no test failure — a trap left lying in the road.
+    // Callers must state the offset.
 
     /** @param matteClip the resolved matte peer (from {@code compositing.mattePeerId}),
      *                   or null. Resolution + peer-hiding is ExportManager's job. */

@@ -47,11 +47,12 @@ this?" — an unreachable feature passes every test it has.
 
 ## ⚠ UNVERIFIED — do these first
 
-1. **That the anchor attach FIRES at runtime.** Both call sites are in the dex and the logic has
-   35 harness checks, but no device run has confirmed an overlay gets a `hostClipId`.
-   **HAND TEST:** add a text overlay over clip 2 → `run-as com.fadcam.beta cat …/project.json` →
-   expect `"hostClipId"` on it. Then delete clip 1 and confirm the overlay's `startMs` moved left
-   by clip 1's duration. If it does, M11 is real; if not, it is still inert.
+1. ~~That anchoring works~~ **PROVED end to end on device — see LEDGER §1n.** A seeded anchor
+   survived load, shifted correctly on a structural edit (3700 → 500, exactly predicted) and was
+   written back. **Only the ATTACH is still unproved**: that a NEW overlay gets an anchor without
+   one being seeded. **HAND TEST:** add a text overlay via the Text tool, then
+   `run-as com.fadcam.beta cat …/project.json` and expect `"hostClipId"` on it. (Everything
+   downstream of that is now known to work.)
 2. **The text Style controls end to end.** The dialog renders and does not crash (screenshotted),
    but no value has been round-tripped through the UI to `project.json`. Scripted taps kept losing
    the dialog (the keyboard shifts it; ESCAPE dismisses it; the bottom tool row is

@@ -1039,6 +1039,35 @@ still damaged — the fix stops new stranding, it does not repair existing items
 needs a migration decision (their `startMs` is unrecoverable, so the honest repair is to reset it
 to 0 rather than guess).
 
+## 1n. ✅ ANCHORING IS PROVED IN THE APP — end to end on device, 2026-08-03
+
+The feature §1m records as INERT is now **verified working in the running app**, not just in the
+harness. This closes the loop that entry opens.
+
+**Method — the interesting part, because the obvious test was unreachable.** Creating an overlay
+through the Text tool could not be driven (the bottom tool row is context-sensitive and scrolls,
+and scripted double-taps do not register). So the anchor was **seeded directly into
+`project.json`** and the app asked to honour it:
+
+1. Seeded the existing overlay with `hostClipId` = clip 1, `hostOffsetMs` = 500, `startMs` = 3700
+   (clip 1 started at 3200). Written via `adb push` to `/data/local/tmp` then `run-as cp` — never
+   a push straight onto `project.json`, per the standing rule.
+2. Opened the project and **demoted clip 0 to a layer** (M12's ↑). That removes clip 0 from the
+   spine, which is structurally the same event as a delete — and it is a button that CAN be
+   driven reliably, where the delete tool could not be reached.
+3. **Result: `startMs` 3700 → 500**, exactly as predicted, with `hostClipId` and `hostOffsetMs`
+   intact. Logcat: `ANCHOR[demoteToLayer] moved=1 orphaned=0`.
+
+**So the whole chain is proved:** persisted anchor → read on load → structural edit → shift →
+written back to disk. **What is still unproved is only the ATTACH** — that a NEW overlay gets an
+anchor without one being seeded. Both call sites are in the dex; nothing has driven them.
+
+Sandbox restored byte-exact afterwards (md5 `a74cd91c…`), seed file removed from `/data/local/tmp`.
+
+**Reusable trick worth keeping: when a UI path cannot be driven, seed the STATE and drive a
+DIFFERENT action that produces the same event.** A demote and a delete are the same structural
+change to the spine; one was reachable and the other was not.
+
 ## 1m. THE ADVERSARIAL PASS — 21 CONFIRMED DEFECTS IN ONE NIGHT'S WORK, 2026-08-03
 
 **Keep this entry. It is the strongest argument in this ledger for how to work here.**

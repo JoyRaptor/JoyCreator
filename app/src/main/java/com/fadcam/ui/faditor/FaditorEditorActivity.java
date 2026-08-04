@@ -2059,6 +2059,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onClipCarriedToLayer(int segmentIndex, long atMs) {
+                // ONE mutation for the whole gesture. moveSelectedClipToLayer already records its
+                // own undo entry, so this needs no merge — which is the point of committing at
+                // release instead of at pull-up.
+                if (project == null) return;
+                if (segmentIndex < 0 || segmentIndex >= project.getTimeline().getClipCount()) return;
+                selectSegment(segmentIndex);
+                String id = moveSelectedClipToLayer();
+                if (id == null) return;
+                // Land it where the card was, not where the clip happened to sit on the spine.
+                for (Clip oc : project.getTimeline().getOverlayClips()) {
+                    if (oc.getId().equals(id)) { oc.setOverlayStartMs(Math.max(0L, atMs)); break; }
+                }
+                syncTimelineOverlays();
+                if (editorTimeline != null) editorTimeline.invalidate();
+                saveProjectNow();
+            }
+
+            @Override
+            public void onClipCarriedToSeam(int fromIndex, int toIndex) {
+                if (project == null) return;
+                Timeline tl = project.getTimeline();
+                if (fromIndex < 0 || fromIndex >= tl.getClipCount()) return;
+                if (toIndex < 0 || toIndex >= tl.getClipCount()) return;
+                // Deliberately the SAME path as the reorder dialog's commit, rather than a second
+                // implementation of "move a clip along the spine". Two paths for one operation is
+                // how the gesture and the button drift apart.
+                onSegmentReordered(fromIndex, toIndex);
+                saveProjectNow();
+            }
+
+            @Override
             public void onDislodgeAdopted() {
                 // The demote is already on the undo stack; fold the coming drop into it so the
                 // whole dislodge-and-place is one press. §3A.5b.

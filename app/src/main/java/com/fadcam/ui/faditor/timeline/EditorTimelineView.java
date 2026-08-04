@@ -842,6 +842,26 @@ public class EditorTimelineView extends View {
     /** Playhead at the moment reorder mode opened, restored if the user backs out. */
     private long reorderEntryPlayheadMs = -1L;
 
+    // ── CARRY: the dislodge as ONE continuous motion (PLAN_CARRY_V1) ─────────────────
+    // The clip is NOT removed from the spine when you pull up. It stays put, drawn dimmed as an
+    // "origin ghost", while a floating card follows the finger. The model changes once, on
+    // RELEASE. Before this, the demote ran mid-gesture and the clip visibly teleported to a layer
+    // while the finger was still down — JoyRaptor: "it moves off and then suddenly appears at another
+    // layer. Now I'm not exactly sure where it is."
+    private boolean carryActive;
+    /** Index on the spine the carried clip came FROM. Its ghost stays drawn there. */
+    private int carrySegIndex = -1;
+    private float carryFingerX, carryFingerY;
+    /** Finger offset inside the clip rect at pick-up, so the card does not jump under the thumb. */
+    private float carryGrabDx, carryGrabDy;
+    private float carryCardW, carryCardH;
+    /** Resolved destination, recomputed every move. */
+    private int carryDropSeam = -1;
+    private boolean carryOverLayerBand;
+    private final Paint carryCardPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint carryGhostPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint carryLayerBandPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     // ── §3A.4 SPINE DROP INDICATOR ───────────────────────────────────────────────────
     // A picked-up layer item hovering over the master track: show WHERE it will land before the
     // finger lifts. JoyRaptor's ask, verbatim: "highlighted area where they're going to be inserted so
@@ -1391,6 +1411,10 @@ public class EditorTimelineView extends View {
          * {@code insertIndex}, the seam the §3A.4 indicator was pointing at.
          */
         default void onItemDroppedOnMasterTrack(int insertIndex) {}
+        /** A carried spine clip was released over the layer band: demote it, landing at {@code atMs}. */
+        default void onClipCarriedToLayer(int segmentIndex, long atMs) {}
+        /** A carried spine clip was released over a different seam: reorder it there. */
+        default void onClipCarriedToSeam(int fromIndex, int toIndex) {}
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
         default void onReorderLinkRequested(int segmentIndex) {}
         void onAudioClipSelected(int audioIndex);
@@ -1581,6 +1605,13 @@ public class EditorTimelineView extends View {
         reorderBtnTextPaint.setColor(COLOR_HANDLE);
         reorderBtnTextPaint.setTextSize(14f * density);
         reorderBtnTextPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        carryCardPaint.setColor(0xFF1E1E1E);
+        carryCardPaint.setShadowLayer(8f * density, 0f, 4f * density, 0xAA000000);
+        // The ghost is a WASH over the clip's own pixels rather than a hole: the user must still
+        // recognise WHICH clip left, and an empty slot looks like the clip was deleted.
+        carryGhostPaint.setColor(0xB0101010);
+        carryLayerBandPaint.setColor(0x338C3DFA);
+
         // §3A.4: solid purple = "insert at this seam". Purple ALREADY means "this is where it
         // lands" everywhere else in the drag language, so the seam insert inherits it rather than
         // teaching the user a second colour. Green/amber were rejected outright -- they are
@@ -2431,7 +2462,6 @@ public class EditorTimelineView extends View {
         // UNDER the segments so it reads as the clip lifting off the track rather than as an
         // overlay on top of it.
         drawDislodgeArmedLift(canvas);
-        drawSpineDropIndicator(canvas);
 
         // Ghost trim: drawn first so neighbouring segments cover it
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
@@ -2510,6 +2540,18 @@ public class EditorTimelineView extends View {
         drawMarqueeBox(canvas);
 
         canvas.restore();
+
+        // ⚠ BOTH of these draw in SCREEN space and must be OUTSIDE the scroll translate, and
+        // AFTER it, for two independent reasons found by screenshotting a live drag:
+        //   1. Inside the translate the canvas is already shifted by -scrollOffsetPx, and both
+        //      helpers convert content→screen themselves — so everything was offset TWICE and
+        //      landed correctly only at scroll 0.
+        //   2. They were drawn BEFORE the segments, so the filmstrip painted straight over them.
+        //      The §3A.4 seam line was therefore invisible in every real drag; the drop LOGIC was
+        //      right, the probe agreed with it, and nobody was looking at the pixels. A feature
+        //      can be verified end-to-end by its data and still not exist on screen.
+        drawSpineDropIndicator(canvas);
+        drawCarry(canvas);
 
         // Draw fixed center playhead (NOT affected by scroll)
         float playheadBot = !audioClips.isEmpty() ? audioBot : tBot;
@@ -6887,6 +6929,133 @@ public class EditorTimelineView extends View {
         canvas.drawCircle(x, bot, capR, spineDropPaint);
     }
 
+    /**
+     * Pick a spine clip UP without changing the model (PLAN_CARRY_V1). The grab offset is taken
+     * from the ORIGINAL touch-down point, not from the current finger position: by the time the
+     * vertical threshold is crossed the finger has already travelled, and using the current point
+     * would snap the card so its grab point jumped to wherever the finger got to.
+     */
+    private void beginCarry(int segIndex, float x, float y) {
+        if (segIndex < 0 || segIndex >= segRects.size()) return;
+        RectF r = segRects.get(segIndex);
+        carryActive = true;
+        carrySegIndex = segIndex;
+        carryFingerX = x;
+        carryFingerY = y;
+        carryGrabDx = Math.max(0f, Math.min(r.width(), (downX + scrollOffsetPx) - r.left));
+        carryGrabDy = Math.max(0f, Math.min(r.height(), downY - r.top));
+        // A very long clip would produce a card wider than the screen, which reads as a smear
+        // rather than an object. Cap it and keep the grab point inside the capped width.
+        carryCardW = Math.min(r.width(), getWidth() * 0.55f);
+        carryCardH = r.height();
+        if (carryGrabDx > carryCardW) carryGrabDx = carryCardW * 0.5f;
+        carryDropSeam = -1;
+        carryOverLayerBand = false;
+        getParent().requestDisallowInterceptTouchEvent(true);
+        android.util.Log.d("CARRY", "begin seg=" + segIndex + " grab=" + carryGrabDx + "," + carryGrabDy
+                + " bandTop=" + masterContentTopPx() + " h=" + trackHeightPx);
+    }
+
+    /** Track the finger and re-resolve where a release would put the clip. */
+    private void updateCarry(float x, float y) {
+        carryFingerX = x;
+        carryFingerY = y;
+        float bandTop = masterContentTopPx();
+        float bandBot = bandTop + trackHeightPx;
+        if (y >= bandTop - touchSlopPx && y <= bandBot + touchSlopPx) {
+            carryOverLayerBand = false;
+            carryDropSeam = getInsertIndexAtX(x);
+        } else if (y < bandTop - touchSlopPx && y > rulerHeightPx) {
+            // Above the spine and below the ruler = the layer band: this becomes a PiP.
+            carryOverLayerBand = true;
+            carryDropSeam = -1;
+        } else {
+            carryOverLayerBand = false;
+            carryDropSeam = -1;
+        }
+        invalidate();
+    }
+
+    /**
+     * Release. Exactly ONE model mutation, so exactly one undo press — which is what makes the
+     * whole gesture read as a single action rather than a sequence of things that happened to you.
+     */
+    private void endCarry(boolean commit) {
+        int seg = carrySegIndex;
+        int seam = carryDropSeam;
+        boolean toLayer = carryOverLayerBand;
+        float cardLeft = carryFingerX - carryGrabDx;
+        carryActive = false;
+        carrySegIndex = -1;
+        carryDropSeam = -1;
+        carryOverLayerBand = false;
+        getParent().requestDisallowInterceptTouchEvent(false);
+        invalidate();
+        android.util.Log.d("CARRY", "end commit=" + commit + " seg=" + seg + " seam=" + seam
+                + " toLayer=" + toLayer);
+        if (!commit || seg < 0 || listener == null) return;
+        if (toLayer) {
+            // Land it at the time the CARD's left edge is over, not the finger's — the card is
+            // what the user was aiming, and its left edge is the clip's start.
+            // ⚠ xToTime compares against segRects, which are CONTENT coordinates — so it takes a
+            // CONTENT x, not a screen one. getInsertIndexAtX (used just below) does its own
+            // conversion and takes a SCREEN x. Two neighbouring helpers, opposite conventions.
+            // Passing the screen x here is correct only at scroll 0, i.e. correct in exactly the
+            // state a fresh test starts in and wrong the moment the user scrolls.
+            listener.onClipCarriedToLayer(seg, Math.max(0L, xToTime(cardLeft + scrollOffsetPx)));
+        } else if (seam >= 0) {
+            // Dropping a clip back where it already is is a no-op, not a reorder. moveClip's
+            // target index is measured in the list WITHOUT the clip, so a seam to the right of the
+            // origin shifts down by one; seam == seg and seam == seg + 1 are both "same place".
+            if (seam != seg && seam != seg + 1) {
+                listener.onClipCarriedToSeam(seg, seam > seg ? seam - 1 : seam);
+            }
+        }
+    }
+
+    /** The carried clip: a dimmed ghost where it came from, and a card under the finger. */
+    private void drawCarry(@NonNull Canvas canvas) {
+        if (!carryActive) return;
+        if (carrySegIndex >= 0 && carrySegIndex < segRects.size()) {
+            RectF g = segRects.get(carrySegIndex);
+            float l = g.left - scrollOffsetPx, r = g.right - scrollOffsetPx;
+            canvas.drawRect(l, g.top, r, g.bottom, carryGhostPaint);
+        }
+        // Destination projection.
+        if (carryOverLayerBand) {
+            canvas.drawRect(0, rulerHeightPx, getWidth(), masterContentTopPx() - touchSlopPx,
+                    carryLayerBandPaint);
+        } else if (carryDropSeam >= 0) {
+            drawCarrySeamLine(canvas, carryDropSeam);
+        }
+        float left = carryFingerX - carryGrabDx;
+        float top = carryFingerY - carryGrabDy;
+        RectF card = new RectF(left, top, left + carryCardW, top + carryCardH);
+        canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, carryCardPaint);
+        drawReorderBlockThumbnail(canvas, card, carrySegIndex);
+        canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, spineDropPaint2());
+    }
+
+    /** Outline stroke for the carried card — purple, matching "this is where it lands". */
+    private Paint spineDropPaint2() {
+        spineDropPaint.setStyle(Paint.Style.STROKE);
+        spineDropPaint.setStrokeWidth(2f * density);
+        return spineDropPaint;
+    }
+
+    private void drawCarrySeamLine(@NonNull Canvas canvas, int seam) {
+        if (segRects.isEmpty()) return;
+        float contentX = seam < segRects.size()
+                ? segRects.get(seam).left : segRects.get(segRects.size() - 1).right;
+        float x = contentX - scrollOffsetPx;
+        float top = masterContentTopPx(), bot = top + trackHeightPx;
+        spineDropPaint.setStyle(Paint.Style.FILL);
+        canvas.drawRect(x - 5f * density, top, x + 5f * density, bot, spineDropGlowPaint);
+        canvas.drawRect(x - 1.75f * density, top, x + 1.75f * density, bot, spineDropPaint);
+        canvas.drawCircle(x, top, 4f * density, spineDropPaint);
+        canvas.drawCircle(x, bot, 4f * density, spineDropPaint);
+    }
+
     private boolean adoptDislodgedDrag(@Nullable String itemId) {
         if (itemId == null || layerGestureController == null) return false;
         for (com.fadcam.ui.faditor.layers.Track t : layerTracks) {
@@ -6900,6 +7069,12 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onMove(float x, float y) {
+        // CARRY owns the touch outright once it starts — checked before everything else so no
+        // scrub, pan or item branch can steal a finger that is holding a clip.
+        if (carryActive) {
+            updateCarry(x, y);
+            return true;
+        }
         // §3A.5b — HOLD ARMS, VERTICAL COMMITS. Checked before every other branch so a dislodge
         // cannot be swallowed by scrub/pan, and gated on VERTICAL DOMINANCE so a precision
         // horizontal move (the thing the user explicitly asked not to interrupt) never triggers it.
@@ -6920,33 +7095,18 @@ public class EditorTimelineView extends View {
                 dislodgeArmedSegIndex = -1;
                 longPressTriggered = false;   // do NOT also open the reorder dialog on UP
                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                String liftedId = (listener != null && seg >= 0)
-                        ? listener.onClipDislodgeRequested(seg) : null;
+                // CARRY: pick the clip UP. No model mutation here — see PLAN_CARRY_V1. The clip
+                // stays on the spine as a ghost and a card follows the finger until release.
+                beginCarry(seg, x, y);
                 // ⚠ The spine is now one clip SHORTER, so downSegIndex points at whatever slid
                 // into that slot. Leaving it set made the following ACTION_UP select and SEEK the
                 // wrong clip — a visible jump straight after every successful dislodge. Retire
                 // the whole gesture: this touch has done its job.
+                // The spine is UNCHANGED (that is the point), but this touch is no longer a
+                // segment interaction — retire it so the following ACTION_UP cannot also select
+                // or seek the clip under it.
                 downSegIndex = -1;
                 activeDrag = Drag.NONE;
-                // §3A.5b HAND-OVER: the clip is now an ordinary layer item and the finger is
-                // still down, so give the rest of this touch to the layer drag engine. From here
-                // it IS a normal picked-up item — it inherits magnet suppression, WYSIWYG drop,
-                // edge auto-pan, minimap nav, the overlap resolver and the undo merge, none of
-                // which would exist in a bespoke spine-drag path. If adoption fails the dislodge
-                // still stands (the clip is on a layer); the user simply lifts and drags again,
-                // which is the pre-handover behaviour rather than a broken state.
-                if (adoptDislodgedDrag(liftedId)) {
-                    m7ItemGestureActive = true;
-                    // ONE gesture, ONE undo. The demote has already recorded an action; tell the
-                    // activity to FOLD the coming drop into it. Without this, pulling a clip off
-                    // the spine and dropping it cost two presses, and the first press left the
-                    // clip on a layer at a position the user never chose -- a state that existed
-                    // at no point during the gesture.
-                    if (listener != null) listener.onDislodgeAdopted();
-                }
-                // Same reasoning as the reorder branch: nothing latched, and notifying here
-                // re-introduced the post-dislodge selection jump that retiring downSegIndex
-                // (two lines up) was written to prevent — the same jump through another door.
                 invalidate();
                 return true;
             }
@@ -7213,6 +7373,13 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
+        if (carryActive) {
+            // ACTION_CANCEL must NOT commit: the system took the gesture away, the user did not
+            // choose a destination. The card disappears and the clip stays where it was, which is
+            // the only outcome that cannot surprise anyone.
+            endCarry(isUp);
+            return true;
+        }
         // §3A.5b — released while ARMED without ever moving vertically: that is the reorder
         // request. Kept on hold-release (as well as double-tap) because long-press is the more
         // discoverable of the two, and the reorder window has virtues the user has said he does

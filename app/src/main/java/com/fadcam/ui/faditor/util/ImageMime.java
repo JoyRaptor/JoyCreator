@@ -34,6 +34,20 @@ public final class ImageMime {
     private ImageMime() {}
 
     /**
+     * uri → sniffed type. The PREVIEW resolves this on the MAIN thread
+     * ({@code MasterPlaybackEngine.prepareTimeline}), where the export resolved it on a background
+     * one — so a slow {@code content://} provider could stall opening the editor. One 12-byte read
+     * per distinct image for the process's life is a better trade than re-reading per prepare.
+     *
+     * <p>Keyed by the URI string and never invalidated: an asset's BYTES do not change under a
+     * stable URI in this app (picked images are copied into {@code files/images/} once), and a
+     * wrong entry would at worst mis-route to another image type, which
+     * {@code BitmapFactory} re-detects on decode anyway.</p>
+     */
+    private static final java.util.Map<String, String> CACHE =
+            java.util.Collections.synchronizedMap(new java.util.HashMap<>());
+
+    /**
      * @return an {@code image/*} MIME type for {@code uri}, defaulting to JPEG when the bytes
      *         cannot be read or are unrecognised. Never null, because null is precisely the value
      *         that causes the misrouting this class exists to prevent.
@@ -41,6 +55,16 @@ public final class ImageMime {
     @NonNull
     public static String of(@NonNull Context context, @Nullable Uri uri) {
         if (uri == null) return MimeTypes.IMAGE_JPEG;
+        String key = uri.toString();
+        String hit = CACHE.get(key);
+        if (hit != null) return hit;
+        String out = sniff(context, uri);
+        CACHE.put(key, out);
+        return out;
+    }
+
+    @NonNull
+    private static String sniff(@NonNull Context context, @NonNull Uri uri) {
         byte[] h = new byte[12];
         try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
             if (in == null) return MimeTypes.IMAGE_JPEG;

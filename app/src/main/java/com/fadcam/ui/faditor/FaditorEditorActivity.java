@@ -323,6 +323,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.transcript.CaptionOverlayView captionOverlay;
     private com.fadcam.ui.faditor.transcript.CaptionOverlayView audioCaptionOverlay;
     private View captionStyleBar;
+    /**
+     * True once the user has explicitly asked for captions this session — tapped the CC tool,
+     * picked a style, or selected a caption span.
+     *
+     * <p>LEDGER §5 shipped option (a): the chooser appeared whenever a captioned clip sat under
+     * the playhead, which on a fully captioned project means ALWAYS, permanently occupying the
+     * bottom of the preview. JoyRaptor had leaned option (b) at the time and confirmed it on
+     * 2026-08-04 after living with (a) on the Note 20: *"it should only be when I am tapping on
+     * the closed captions in the preview window or when I have tapped or selected the closed
+     * captions in the lane timeline."* This flag is (b): the auto-hide rule still hides it when no
+     * caption is in play, but it no longer SHOWS itself uninvited.</p>
+     */
+    private boolean captionStyleBarRequested;
     private boolean captionsActive;
     /** Clip the active caption overlay is bound to (for persisting its settings). */
     private String captionClipId;
@@ -1842,7 +1855,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         updateCurrentTimeDisplay(seekPosition);
                         return;
                     }
-                    playerManager.setExactSeek(!isDragging);
+                    // ⚠ TAP LATENCY (JoyRaptor, 2026-08-04: "tap to seek has a markedly long delay").
+                    // A discrete tap used to seek EXACTly, which makes ExoPlayer decode forward
+                    // from the previous keyframe — and this project measured keyframes ~1.0s apart
+                    // on a standard camera GOP (LEDGER §3d). So every tap could cost up to a
+                    // second of decoding before anything appeared, and the cost scales with how
+                    // heavy the source is, which is why a 45-minute project feels far worse than a
+                    // 13-second sandbox one. It was never "one device is faster".
+                    //
+                    // Fix is the pattern drag-scrubbing already uses: seek FAST (nearest keyframe)
+                    // for instant feedback, then settle EXACT a beat later so frame accuracy — the
+                    // thing taps are FOR — still lands. Same two-stage shape, applied to taps.
+                    playerManager.setExactSeek(false);
+                    if (!isDragging) scheduleExactSeekSettle(clip, seekPosition);
                     // Pause FIRST so ExoPlayer renders the decoded frame to TextureView
                     // (frame only becomes visible when playWhenReady=false and seek completes)
                     playerManager.pause();
@@ -8534,7 +8559,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     (captionOverlay != null && captionOverlay.getVisibility() == View.VISIBLE)
                     || (audioCaptionOverlay != null
                         && audioCaptionOverlay.getVisibility() == View.VISIBLE);
-            int wantCaptionBarVis = captionInPlay ? View.VISIBLE : View.GONE;
+            // (b): in-play is necessary but no longer SUFFICIENT — the user must have asked.
+            int wantCaptionBarVis = (captionInPlay && captionStyleBarRequested)
+                    ? View.VISIBLE : View.GONE;
             if (captionStyleBar.getVisibility() != wantCaptionBarVis) {
                 captionStyleBar.setVisibility(wantCaptionBarVis);
             }
@@ -16136,7 +16163,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 bindAudioCaptionData(ac);
                 audioCaptionOverlay.setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
                 audioCaptionOverlay.setVisibility(View.VISIBLE);
-                if (captionStyleBar != null) captionStyleBar.setVisibility(View.VISIBLE);
+                if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
                 if (!styleId.equals(beforeStyle) || !beforeEnabled) {
                     undoManager.recordAction(new EditActions.LambdaAction("Caption style",
                             () -> { ac.setCaptionStyleId(styleId); ac.setCaptionsEnabled(true);
@@ -16157,7 +16184,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 cc.setCaptionsEnabled(true);
                 bindCaptionData(cc);
                 captionOverlay.setVisibility(View.VISIBLE);
-                if (captionStyleBar != null) captionStyleBar.setVisibility(View.VISIBLE);
+                if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
                 if (!styleId.equals(beforeStyle) || !beforeEnabled) {
                     undoManager.recordAction(new EditActions.LambdaAction("Caption style",
                             () -> { cc.setCaptionStyleId(styleId); cc.setCaptionsEnabled(true);
@@ -20822,6 +20849,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Push text-overlay model changes into the live preview. */
+    /** Pending exact re-seek after a fast tap seek; cancelled if another tap lands first. */
+    private Runnable pendingExactSettle;
+
+    /**
+     * Re-seek EXACTly a moment after a fast tap seek, so a tap feels instant but still ends on the
+     * precise frame. Debounced: a rapid series of taps only pays for the last one's exact decode.
+     */
+    private void scheduleExactSeekSettle(@NonNull Clip clip, long seekPositionMs) {
+        if (pendingExactSettle != null) playheadHandler.removeCallbacks(pendingExactSettle);
+        final String clipId = clip.getId();
+        pendingExactSettle = () -> {
+            pendingExactSettle = null;
+            if (playerManager == null || project == null) return;
+            // Only settle if the SAME clip is still loaded — otherwise this would seek the wrong
+            // clip's coordinate space, the exact defect LEDGER §2a was opened for.
+            if (!clipId.equals(playerManager.getLoadedClipId())) return;
+            playerManager.setExactSeek(true);
+            playerManager.seekInClip(clip, seekPositionMs);
+            playerManager.setExactSeek(false);
+        };
+        playheadHandler.postDelayed(pendingExactSettle, EXACT_SEEK_SETTLE_MS);
+    }
+
+    /** How long after a tap the exact re-seek runs. Long enough to feel instant, short enough
+     *  that a user lining up a cut is on the true frame before they look. */
+    private static final long EXACT_SEEK_SETTLE_MS = 180L;
+
     private void refreshOverlayPreview() {
         if (project == null || overlayLayer == null) return;
         overlayLayer.setData(
@@ -21281,7 +21335,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         bindAudioCaptionData(ac);
                         audioCaptionOverlay.setStyle(s);
                         audioCaptionOverlay.setVisibility(View.VISIBLE);
-                        if (captionStyleBar != null) captionStyleBar.setVisibility(View.VISIBLE);
+                        if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
                         scheduleAutoSave();
                     }
                 } else {
@@ -21672,6 +21726,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         captionsActive = true;
         bindCaptionData(clip);
         captionOverlay.setVisibility(View.VISIBLE);
+        captionStyleBarRequested = true;
         captionStyleBar.setVisibility(View.VISIBLE);
     }
 
@@ -21782,7 +21837,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     public void onTapped() {
                         activeCaptionIsAudio = false;
                         if (captionStyleBar != null) {
-                            captionStyleBar.setVisibility(View.VISIBLE);
+                            captionStyleBarRequested = true;
+        captionStyleBar.setVisibility(View.VISIBLE);
                         }
                     }
 
@@ -21792,7 +21848,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // (style bar + the Caption Keyframes drawer).
                         activeCaptionIsAudio = false;
                         if (captionStyleBar != null) {
-                            captionStyleBar.setVisibility(View.VISIBLE);
+                            captionStyleBarRequested = true;
+        captionStyleBar.setVisibility(View.VISIBLE);
                         }
                         openCaptionKeyframeDrawer();
                     }
@@ -21853,14 +21910,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     public void onTapped() {
                         activeCaptionIsAudio = true;
                         if (captionStyleBar != null) {
-                            captionStyleBar.setVisibility(View.VISIBLE);
+                            captionStyleBarRequested = true;
+        captionStyleBar.setVisibility(View.VISIBLE);
                         }
                     }
                     @Override
                     public void onDoubleTapped() {
                         activeCaptionIsAudio = true;
                         if (captionStyleBar != null) {
-                            captionStyleBar.setVisibility(View.VISIBLE);
+                            captionStyleBarRequested = true;
+        captionStyleBar.setVisibility(View.VISIBLE);
                         }
                         openCaptionKeyframeDrawer();
                     }

@@ -839,6 +839,9 @@ public class EditorTimelineView extends View {
 
     // ── §3A.5b dislodge arming ──────────────────────────────────────────────────────────────
     /** True between the long-press firing and the touch ending: a vertical move now dislodges. */
+    /** Playhead at the moment reorder mode opened, restored if the user backs out. */
+    private long reorderEntryPlayheadMs = -1L;
+
     private boolean dislodgeArmed;
     /** Which segment armed, so a dislodge cannot act on a different clip than the one held. */
     private int dislodgeArmedSegIndex = -1;
@@ -5744,11 +5747,26 @@ public class EditorTimelineView extends View {
         reorderMaxScrollPx = 0f;
         reorderMinimapDragging = false;
         reorderSegmentIndex = downSegIndex;
+        // §3A.5b — remember where the playhead was, so BACKING OUT can put it back. Captured on
+        // entry rather than at the tap, because that is the last moment it is still the user's
+        // chosen position regardless of how reorder was reached (hold-release today, double-tap
+        // later, where the first tap will have seeked).
+        reorderEntryPlayheadMs = playheadPositionMs;
         if (listener != null) listener.onReorderModeChanged(true);
         invalidate();
     }
 
     private void exitReorderMode(boolean commit) {
+        // ⚠ ORDER MATTERS (user, 2026-08-04): put the playhead back BEFORE isReorderMode flips
+        // and before anything repaints, so the move happens while the reorder UI is still
+        // covering it. Restoring after the mode exits produces a visible jog the instant the
+        // normal view returns — "that would ruin the illusion of smoothness".
+        // Only on BACK-OUT: a committed reorder has rearranged the clips, and forcing the
+        // playhead back to a time that now shows different footage would be worse than leaving it.
+        if (!commit && reorderEntryPlayheadMs >= 0) {
+            setPlayheadPositionMs(reorderEntryPlayheadMs);
+        }
+        reorderEntryPlayheadMs = -1L;
         isReorderMode = false;
         if (commit && listener != null) {
             // Apply the permutation using a sequence of moveClip operations
@@ -6686,7 +6704,16 @@ public class EditorTimelineView extends View {
         // horizontal move (the thing the user explicitly asked not to interrupt) never triggers it.
         if (dislodgeArmed && !isReorderMode && activeDrag == Drag.NONE) {
             float dy = y - downY, dx = x - downX;
-            if (Math.abs(dy) > dislodgeThresholdPx && Math.abs(dy) > Math.abs(dx)) {
+            // DISARM on a deliberate horizontal move. Without this, holding and then sliding
+            // sideways — a precision horizontal move, the exact thing the user said must never be
+            // interrupted — left the arm live, so RELEASING opened the reorder dialog uninvited.
+            // Same complaint the whole scheme exists to fix, reintroduced one level down.
+            if (Math.abs(dx) > dislodgeThresholdPx && Math.abs(dx) > Math.abs(dy)) {
+                dislodgeArmed = false;
+                dislodgeArmedSegIndex = -1;
+                longPressTriggered = false;
+                invalidate();
+            } else if (Math.abs(dy) > dislodgeThresholdPx && Math.abs(dy) > Math.abs(dx)) {
                 int seg = dislodgeArmedSegIndex;
                 dislodgeArmed = false;
                 dislodgeArmedSegIndex = -1;

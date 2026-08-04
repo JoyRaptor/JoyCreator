@@ -34,8 +34,12 @@ Harnesses (run all five, they take seconds):
 - **§3i M12** clips move spine ⇄ layer via the Move drawer ↑/↓. Proven from `project.json`.
 - **M11 anchoring** proven end to end: attach on creation → persist → load → shift → save.
 - **Doors** on: text outline/glow/shadow/plate, PiP Mask, PiP blend mode, orphan-anchor policy.
-- **Tap-to-seek latency** — was exact-seeking every tap (≈1s keyframe decode). Now fast-seek +
-  180ms exact settle.
+- ~~Tap-to-seek latency~~ **ATTEMPTED AND REVERTED — it made the delay WORSE.**
+  `seekToTimelineMs` calls `onPlayheadSeeked` and then `onPlayheadDragFinished` on the next line,
+  and that does an UNCONDITIONAL exact seek with no did-a-drag-happen guard; `onUp` fires it a
+  second time. A tap therefore already costs TWO exact decodes and the "fix" made it four.
+  **THE REAL FIX: give `onPlayheadDragFinished` a did-a-drag guard** — that removes two decodes at
+  the source. Do that before re-attempting any settle.
 - **Caption picker** is opt-in (LEDGER §5's open question, answered by JoyRaptor 2026-08-04).
 
 ### Built but NOT device-verified — THE HAND TESTS
@@ -44,7 +48,8 @@ need fingers:
 1. **Hold a master clip → it should show a purple halo + up-chevron. Then pull UP → it leaves the
    spine and becomes a layer.** Release without moving → reorder dialog (unchanged).
    Hold then slide SIDEWAYS → must disarm and do nothing.
-2. **Double-tap a master clip → reorder dialog.** First tap seeks (deliberate, not a bug).
+2. ~~Double-tap → reorder~~ **REMOVED** — collided with the master clip's existing double-tap
+   (the clip-audio drawer), and behaved differently on long vs short clips. Hold-release covers it.
 3. **Mask dialog on a PiP → press BACK → NO hole must be left.**
 4. **Text Style controls** round-trip a value to `project.json`.
 
@@ -80,6 +85,13 @@ drag over the spine yet, so there is nothing to highlight into. The right order 
   mid-flight — a reviewer holding line references makes it painful.
 - The stacked-PiP-bands render JoyRaptor saw after two "Move PiP" actions — captured, unexplained,
   not investigated.
+- **`exitReorderMode`'s playhead restore moves the MARKER but not the PICTURE** —
+  `setPlayheadPositionMs` only assigns + invalidates; it does not seek the player (contrast
+  `seekToTimelineMs`, which does both).
+- **Two new `onUp` early-returns skip `listener.onPlayheadDragFinished()`** — the stranded-latch
+  class the `PHDIAG` probe exists to hunt.
+- **`textOverlayCreatedHere` keeps committed ids for the session**, so if the text input is ever
+  pre-populated with the literal hint string, a later reopen+Cancel could still delete it.
 
 ## HOW TO WORK HERE
 

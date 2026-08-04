@@ -4256,20 +4256,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int pad = (int) (20 * getResources().getDisplayMetrics().density);
         remember.setPadding(pad, pad / 2, pad, 0);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        final boolean[] answered = {false};
+        androidx.appcompat.app.AlertDialog dlg =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_orphan_title)
                 .setMessage(getString(R.string.faditor_orphan_body, ids.size()))
                 .setView(remember)
                 .setPositiveButton(R.string.faditor_orphan_keep, (d, w) -> {
+                    answered[0] = true;
                     if (remember.isChecked()) prefs.setFaditorOrphanAnchorPolicy("reanchor");
                     reanchorOrphans(ids);
                 })
                 .setNegativeButton(R.string.faditor_orphan_delete, (d, w) -> {
+                    answered[0] = true;
                     if (remember.isChecked()) prefs.setFaditorOrphanAnchorPolicy("delete");
                     deleteOrphans(ids, true);
                 })
                 .setCancelable(false)   // an unanswered question must not silently pick a side
-                .show();
+                .create();
+        // ⚠ setCancelable(false) stops BACK, but it cannot stop the activity being destroyed by a
+        // config change this manifest does not declare (locale, density, dark mode). The clip
+        // delete is already saved by then, so losing the dialog would leave the riders dangling
+        // with no question ever asked — the silent outcome §4A forbids. Default to the
+        // NON-DESTRUCTIVE side if the dialog dies unanswered.
+        dlg.setOnDismissListener(d -> { if (!answered[0]) reanchorOrphans(ids); });
+        dlg.show();
     }
 
     /** Re-home orphans onto whatever clip now occupies their time; unanchored if none does. */
@@ -20469,10 +20480,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return;
                     }
                     decorCommitted = true;
-                    // Decoration edits were unundoable. Record ONE step for the whole dialog's
-                    // worth of style changes, using the snapshot taken when it opened — the same
-                    // values Cancel would have restored, so undo and cancel cannot disagree.
-                    recordDecorationUndo(item);
                     item.setText(txt);
                     item.setColorInt(chosen[0]);
                     item.setFontFamily(chosenFont[0]);
@@ -20488,6 +20495,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 () -> project.getTimeline().addTextOverlay(item),
                                 () -> project.getTimeline().removeTextOverlay(item)));
                     }
+                    // AFTER the add, so it can FOLD INTO it: creating a styled overlay is one
+                    // gesture and must be one undo press. Recorded before, it was a separate
+                    // entry — undo #1 deleted the overlay, undo #2 then "restyled" an item that
+                    // was no longer in the timeline (a visible no-op), and undo #3 destroyed an
+                    // unrelated earlier edit. Same rule the delete path now follows.
+                    recordDecorationUndo(item);
                     scheduleAutoSave();
                 })
                 .setNeutralButton(R.string.faditor_text_delete, (d, w) -> {
@@ -20604,10 +20617,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 item.getShadowColorInt(), item.getBackgroundColorInt()};
         if (java.util.Arrays.equals(beforeSizes, afterSizes)
                 && java.util.Arrays.equals(beforeColors, afterColors)) return;
-        undoManager.recordAction(new EditActions.LambdaAction(
+        EditActions.LambdaAction act = new EditActions.LambdaAction(
                 getString(R.string.faditor_text_decor_section),
                 () -> applyDecoration(item, afterSizes, afterColors),
-                () -> applyDecoration(item, beforeSizes, beforeColors)));
+                () -> applyDecoration(item, beforeSizes, beforeColors));
+        // Fold into whatever this dialog already recorded (the "Add text overlay" entry when the
+        // overlay is new), so one trip through the editor is one undo press.
+        if (!undoManager.amendTopAction(act)) undoManager.recordAction(act);
     }
 
     private void applyDecoration(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,

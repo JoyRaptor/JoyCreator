@@ -4206,15 +4206,92 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * user's choice, and the prompt that asks it is a separate slice. Until it lands an orphan
      * simply stops tracking, which is the status quo for every project today, not a regression.</p>
      */
-    private void endStructuralEdit(@NonNull java.util.Map<String, Long> before,
-                                   @NonNull String where) {
-        if (project == null || before.isEmpty()) return;
+    @Nullable
+    private Timeline.AnchorShiftResult endStructuralEdit(
+            @NonNull java.util.Map<String, Long> before, @NonNull String where) {
+        if (project == null || before.isEmpty()) return null;
         Timeline.AnchorShiftResult r = project.getTimeline().applyAnchorShift(before);
         if (!r.isEmpty()) {
             FLog.d(TAG, "ANCHOR[" + where + "] moved=" + r.movedOverlayIds.size()
                     + " orphaned=" + r.orphanedOverlayIds.size());
         }
         assertAnchorsConsistent(where);
+        return r;
+    }
+
+    /**
+     * §4A — a deleted clip's riders: re-anchor them, or delete them with it?
+     *
+     * <p>Genuinely ambiguous, so it ASKS, unlike a split (where the clip still exists as two
+     * halves and re-homing is unambiguous). The remembered answer is TRI-STATE — "ask" /
+     * "reanchor" / "delete" — because a boolean cannot record WHICH choice was remembered.</p>
+     *
+     * <p>Silent when there is nothing to decide. Note this runs only on the one path where a
+     * human pressed delete; the AI and undo paths take the policy without a dialog, which is why
+     * the repair itself lives in {@code Timeline} rather than here.</p>
+     */
+    private void handleOrphanedAnchors(@Nullable Timeline.AnchorShiftResult r) {
+        if (r == null || r.orphanedOverlayIds.isEmpty() || project == null) return;
+        final java.util.List<String> ids = new java.util.ArrayList<>(r.orphanedOverlayIds);
+        com.fadcam.SharedPreferencesManager prefs =
+                com.fadcam.SharedPreferencesManager.getInstance(this);
+        String policy = prefs.getFaditorOrphanAnchorPolicy();
+        if ("reanchor".equals(policy)) { reanchorOrphans(ids); return; }
+        if ("delete".equals(policy)) { deleteOrphans(ids, true); return; }
+
+        android.widget.CheckBox remember = new android.widget.CheckBox(this);
+        remember.setText(R.string.faditor_orphan_remember);
+        remember.setTextColor(0xFFCCCCCC);
+        int pad = (int) (20 * getResources().getDisplayMetrics().density);
+        remember.setPadding(pad, pad / 2, pad, 0);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.faditor_orphan_title)
+                .setMessage(getString(R.string.faditor_orphan_body, ids.size()))
+                .setView(remember)
+                .setPositiveButton(R.string.faditor_orphan_keep, (d, w) -> {
+                    if (remember.isChecked()) prefs.setFaditorOrphanAnchorPolicy("reanchor");
+                    reanchorOrphans(ids);
+                })
+                .setNegativeButton(R.string.faditor_orphan_delete, (d, w) -> {
+                    if (remember.isChecked()) prefs.setFaditorOrphanAnchorPolicy("delete");
+                    deleteOrphans(ids, true);
+                })
+                .setCancelable(false)   // an unanswered question must not silently pick a side
+                .show();
+    }
+
+    /** Re-home orphans onto whatever clip now occupies their time; unanchored if none does. */
+    private void reanchorOrphans(@NonNull java.util.List<String> ids) {
+        if (project == null) return;
+        Timeline tl = project.getTimeline();
+        for (TextOverlayItem o : tl.getTextOverlays()) {
+            if (ids.contains(o.getId())) tl.attachOverlayToHostUnderStart(o);
+        }
+        saveProjectNow();
+    }
+
+    /** Delete orphans, as ONE undo step alongside nothing else — the user asked for exactly this. */
+    private void deleteOrphans(@NonNull java.util.List<String> ids, boolean announce) {
+        if (project == null) return;
+        Timeline tl = project.getTimeline();
+        final java.util.List<TextOverlayItem> removed = new java.util.ArrayList<>();
+        for (TextOverlayItem o : new java.util.ArrayList<>(tl.getTextOverlays())) {
+            if (ids.contains(o.getId())) { removed.add(o); tl.removeTextOverlay(o); }
+        }
+        if (removed.isEmpty()) return;
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_orphan_undo),
+                () -> { for (TextOverlayItem o : removed) tl.removeTextOverlay(o); syncTimelineOverlays(); },
+                () -> { for (TextOverlayItem o : removed) tl.addTextOverlay(o); syncTimelineOverlays(); }));
+        syncTimelineOverlays();
+        saveProjectNow();
+        if (announce) {
+            // A remembered "delete" makes this silent otherwise, and silently removing the user's
+            // objects is exactly the kind of thing §4A forbids.
+            Toast.makeText(this, getString(R.string.faditor_orphan_removed, removed.size()),
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     /**
@@ -26218,7 +26295,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
             timeline.removeClip(selectedClipIndex);
             timeline.removeTransitionsForDeletedClip(deletedIndex);
-            endStructuralEdit(anchorsBefore, "delete");
+            handleOrphanedAnchors(endStructuralEdit(anchorsBefore, "delete"));
 
             int newIndex = Math.min(selectedClipIndex, timeline.getClipCount() - 1);
             selectSegment(newIndex);

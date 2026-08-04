@@ -6,6 +6,7 @@ import static android.content.ContentValues.TAG;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Size;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable; // Import Nullable
 import com.fadcam.CameraType; // Ensure CameraType is imported
 import java.util.HashSet;
@@ -817,6 +818,20 @@ public class SharedPreferencesManager {
             .edit()
             .putBoolean(Constants.PREF_FULLSCREEN_TAP_TO_FOCUS_ENABLED, enabled)
             .apply();
+    }
+
+    /** Orphan-anchor policy: "ask" (default), "reanchor" or "delete". See §4A. */
+    @NonNull
+    public String getFaditorOrphanAnchorPolicy() {
+        return sharedPreferences.getString(
+                Constants.PREF_FADITOR_ORPHAN_ANCHOR_POLICY, "ask");
+    }
+
+    /** @param policy one of "ask", "reanchor", "delete". */
+    public void setFaditorOrphanAnchorPolicy(@NonNull String policy) {
+        sharedPreferences.edit()
+                .putString(Constants.PREF_FADITOR_ORPHAN_ANCHOR_POLICY, policy)
+                .apply();
     }
 
     /** Returns whether Faditor should offer to transcribe a newly added video clip. Default: true. */

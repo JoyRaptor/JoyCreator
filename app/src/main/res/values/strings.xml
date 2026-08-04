@@ -3256,4 +3256,12 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_blend_screen">Screen</string>
     <string name="faditor_blend_overlay">Overlay</string>
     <string name="faditor_blend_add">Add</string>
+    <!-- 4A: orphaned layer anchors when a clip is deleted -->
+    <string name="faditor_orphan_title">Objects on this clip</string>
+    <string name="faditor_orphan_body">%1$d layer object(s) start on the clip you deleted. Keep them and attach them to the next clip, or delete them too?</string>
+    <string name="faditor_orphan_keep">Keep them</string>
+    <string name="faditor_orphan_delete">Delete them</string>
+    <string name="faditor_orphan_remember">Remember my choice</string>
+    <string name="faditor_orphan_undo">Delete layer objects</string>
+    <string name="faditor_orphan_removed">Removed %1$d layer object(s)</string>
 </resources>

@@ -643,6 +643,14 @@ public abstract class Constants {
     // Faditor: whether adding a new video clip offers to transcribe it. Turned off
     // permanently when the user checks "Don't ask me again" on the prompt; can be
     // re-enabled from the editor's Settings sheet.
+    /**
+     * What to do with layer objects anchored to a master clip the user deletes (addendum §4A).
+     * TRI-STATE, not a boolean: "ask" (default) / "reanchor" / "delete". A boolean cannot say
+     * WHICH choice was remembered.
+     */
+    public static final String PREF_FADITOR_ORPHAN_ANCHOR_POLICY =
+            "pref_faditor_orphan_anchor_policy";
+
     public static final String PREF_FADITOR_ASK_TO_TRANSCRIBE =
         "pref_faditor_ask_to_transcribe";
     // Faditor: preview-only 9:16 safe-zone guide overlay toggle (social-media safe

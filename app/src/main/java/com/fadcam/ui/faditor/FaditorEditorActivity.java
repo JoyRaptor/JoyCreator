@@ -1855,19 +1855,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         updateCurrentTimeDisplay(seekPosition);
                         return;
                     }
-                    // ⚠ TAP LATENCY (JoyRaptor, 2026-08-04: "tap to seek has a markedly long delay").
-                    // A discrete tap used to seek EXACTly, which makes ExoPlayer decode forward
-                    // from the previous keyframe — and this project measured keyframes ~1.0s apart
-                    // on a standard camera GOP (LEDGER §3d). So every tap could cost up to a
-                    // second of decoding before anything appeared, and the cost scales with how
-                    // heavy the source is, which is why a 45-minute project feels far worse than a
-                    // 13-second sandbox one. It was never "one device is faster".
+                    // ⚠ TAP LATENCY IS REAL BUT NOT FIXED HERE — a first attempt was
+                    // REVERTED on 2026-08-04 because it made the problem WORSE.
                     //
-                    // Fix is the pattern drag-scrubbing already uses: seek FAST (nearest keyframe)
-                    // for instant feedback, then settle EXACT a beat later so frame accuracy — the
-                    // thing taps are FOR — still lands. Same two-stage shape, applied to taps.
-                    playerManager.setExactSeek(false);
-                    if (!isDragging) scheduleExactSeekSettle(clip, seekPosition);
+                    // The measurement stands: a tap seeks EXACTly, which decodes forward from the
+                    // previous keyframe, and this project measured keyframes ~1.0s apart. But the
+                    // fix (fast seek + a delayed exact settle) does not help, because
+                    // seekToTimelineMs calls onPlayheadSeeked and then onPlayheadDragFinished on
+                    // the very next line, and THAT does an unconditional exact seek — with onUp
+                    // firing it a second time. A tap therefore already costs TWO exact decodes;
+                    // adding a settle made it four.
+                    //
+                    // THE REAL FIX is to stop onPlayheadDragFinished running for a gesture that
+                    // was never a drag (it has no did-a-drag-happen guard), which removes two of
+                    // the three decodes at the source. Do that before re-attempting any settle.
+                    playerManager.setExactSeek(!isDragging);
                     // Pause FIRST so ExoPlayer renders the decoded frame to TextureView
                     // (frame only becomes visible when playWhenReady=false and seek completes)
                     playerManager.pause();
@@ -8567,6 +8569,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // (b): in-play is necessary but no longer SUFFICIENT — the user must have asked.
             int wantCaptionBarVis = (captionInPlay && captionStyleBarRequested)
                     ? View.VISIBLE : View.GONE;
+            // ⚠ And RESET the request once no caption is in play. Without this the flag was
+            // one-way: a single tap on a caption — easy to hit by accident while tapping the
+            // preview — restored the permanent bottom bar for the rest of the session, which is
+            // the annoyance this was meant to remove, merely deferred.
+            if (!captionInPlay) captionStyleBarRequested = false;
             if (captionStyleBar.getVisibility() != wantCaptionBarVis) {
                 captionStyleBar.setVisibility(wantCaptionBarVis);
             }
@@ -13257,6 +13264,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * exist) AND it no longer has any items pointing at it. Called after every move/
      * delete that could have emptied a track.
      */
+    /**
+     * Prune an emptied lane and return its definition so the CALLER can restore it on undo.
+     *
+     * <p>{@link #maybeRemoveEmptyLayerTrack} deletes the lane and tells nobody, which is fine for
+     * paths that already snapshot the whole track list — but the text-overlay removal paths do
+     * not, so an undo re-added the item into a track id that no longer existed. The codebase's own
+     * pattern (see the drag-to-new-lane undo) captures the def and restores it; this is that,
+     * packaged for the one-line call sites.</p>
+     *
+     * @return the removed definition, or null if nothing was pruned.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.layers.LayerTrackDef pruneEmptyLayerTrack(@Nullable String trackId) {
+        if (trackId == null || project == null) return null;
+        com.fadcam.ui.faditor.layers.LayerTrackDef def =
+                project.getTimeline().getLayerTrackDef(trackId);
+        if (def == null) return null;
+        maybeRemoveEmptyLayerTrack(trackId);
+        // Only report it as removed if it actually went.
+        return project.getTimeline().getLayerTrackDef(trackId) == null ? def : null;
+    }
+
+    /** Put back a lane pruned by {@link #pruneEmptyLayerTrack}. */
+    private void restorePrunedLane(@Nullable com.fadcam.ui.faditor.layers.LayerTrackDef def) {
+        if (def == null || project == null) return;
+        if (project.getTimeline().getLayerTrackDef(def.getId()) == null) {
+            project.getTimeline().restoreLayerTrackDefAt(def, -1);
+        }
+    }
+
     private void maybeRemoveEmptyLayerTrack(@NonNull String trackId) {
         if (project == null) return;
         if ("text".equals(trackId) || "audio".equals(trackId)) return;
@@ -20553,7 +20590,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     boolean wasCommitted = textOverlayAddRecorded.remove(item);
                     String emptiedLane2 = item.getLayerId();
                     project.getTimeline().removeTextOverlay(item);
-                    if (emptiedLane2 != null) maybeRemoveEmptyLayerTrack(emptiedLane2);
+                    final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane2 =
+                            pruneEmptyLayerTrack(emptiedLane2);
                     overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                             overlayLayerCallback());
                     syncTimelineOverlays();
@@ -20562,7 +20600,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (wasCommitted) {
                         undoManager.recordAction(new EditActions.LambdaAction("Delete text overlay",
                                 () -> project.getTimeline().removeTextOverlay(item),
-                                () -> project.getTimeline().addTextOverlay(item)));
+                                () -> { restorePrunedLane(prunedLane2);
+                                        project.getTimeline().addTextOverlay(item); }));
                     }
                     scheduleAutoSave();
                 })
@@ -20586,7 +20625,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // (assignTextOverlayToFreeLane). Removing the overlay must take that lane
                         // with it, or an empty row is left behind forever — §4.5b says lanes
                         // vanish when empty, and JoyRaptor saw exactly this orphan on 2026-08-04.
-                        if (emptiedLane != null) maybeRemoveEmptyLayerTrack(emptiedLane);
+                        final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane =
+                                pruneEmptyLayerTrack(emptiedLane);
                         // Record it even though it is "just a placeholder". Nothing the user can
                         // see disappearing should be unrecoverable by undo — that is what made
                         // this bug feel like data loss rather than a tidy-up.
@@ -20594,7 +20634,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 getString(R.string.faditor_text_delete),
                                 () -> { project.getTimeline().removeTextOverlay(item);
                                         syncTimelineOverlays(); },
-                                () -> { project.getTimeline().addTextOverlay(item);
+                                () -> { restorePrunedLane(prunedLane);
+                                        project.getTimeline().addTextOverlay(item);
+                                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
+                                                overlayLayerCallback());
                                         syncTimelineOverlays(); }));
                         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                                 overlayLayerCallback());
@@ -20889,33 +20932,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Push text-overlay model changes into the live preview. */
-    /** Pending exact re-seek after a fast tap seek; cancelled if another tap lands first. */
-    private Runnable pendingExactSettle;
-
-    /**
-     * Re-seek EXACTly a moment after a fast tap seek, so a tap feels instant but still ends on the
-     * precise frame. Debounced: a rapid series of taps only pays for the last one's exact decode.
-     */
-    private void scheduleExactSeekSettle(@NonNull Clip clip, long seekPositionMs) {
-        if (pendingExactSettle != null) playheadHandler.removeCallbacks(pendingExactSettle);
-        final String clipId = clip.getId();
-        pendingExactSettle = () -> {
-            pendingExactSettle = null;
-            if (playerManager == null || project == null) return;
-            // Only settle if the SAME clip is still loaded — otherwise this would seek the wrong
-            // clip's coordinate space, the exact defect LEDGER §2a was opened for.
-            if (!clipId.equals(playerManager.getLoadedClipId())) return;
-            playerManager.setExactSeek(true);
-            playerManager.seekInClip(clip, seekPositionMs);
-            playerManager.setExactSeek(false);
-        };
-        playheadHandler.postDelayed(pendingExactSettle, EXACT_SEEK_SETTLE_MS);
-    }
-
-    /** How long after a tap the exact re-seek runs. Long enough to feel instant, short enough
-     *  that a user lining up a cut is on the true frame before they look. */
-    private static final long EXACT_SEEK_SETTLE_MS = 180L;
-
     private void refreshOverlayPreview() {
         if (project == null || overlayLayer == null) return;
         overlayLayer.setData(

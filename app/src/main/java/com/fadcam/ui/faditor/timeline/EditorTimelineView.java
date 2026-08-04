@@ -839,12 +839,6 @@ public class EditorTimelineView extends View {
 
     // ── §3A.5b dislodge arming ──────────────────────────────────────────────────────────────
     /** True between the long-press firing and the touch ending: a vertical move now dislodges. */
-    // ── §3A.5b double-tap → reorder (the fast path) ─────────────────────────────────────────
-    /** When the previous tap on a master clip landed, for double-tap detection. */
-    private long lastClipTapMs = 0L;
-    /** Which segment that tap was on — a double-tap must be on the SAME clip. */
-    private int lastClipTapSeg = -1;
-
     /** Playhead at the moment reorder mode opened, restored if the user backs out. */
     private long reorderEntryPlayheadMs = -1L;
 
@@ -6768,6 +6762,12 @@ public class EditorTimelineView extends View {
                 longPressTriggered = false;   // do NOT also open the reorder dialog on UP
                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
                 if (listener != null && seg >= 0) listener.onClipDislodgeRequested(seg);
+                // ⚠ The spine is now one clip SHORTER, so downSegIndex points at whatever slid
+                // into that slot. Leaving it set made the following ACTION_UP select and SEEK the
+                // wrong clip — a visible jump straight after every successful dislodge. Retire
+                // the whole gesture: this touch has done its job.
+                downSegIndex = -1;
+                activeDrag = Drag.NONE;
                 invalidate();
                 return true;
             }
@@ -7032,26 +7032,17 @@ public class EditorTimelineView extends View {
         // request. Kept on hold-release (as well as double-tap) because long-press is the more
         // discoverable of the two, and the reorder window has virtues the user has said he does
         // not want to lose. Reversible: delete this block if hold-release should do nothing.
-        // §3A.5b — DOUBLE-TAP on a master clip is the fast path to reorder. The first tap is
-        // allowed to seek normally and is NOT undone: you tapped that clip, so the playhead being
-        // there is what you meant, and swallowing it would tax every precision scrub with the
-        // double-tap window. Backing out of reorder restores the prior playhead anyway, behind
-        // the reorder UI, so the nudge is never seen (user, 2026-08-04).
-        if (isUp && !dislodgeArmed && !isReorderMode && activeDrag == Drag.NONE
-                && downSegIndex >= 0 && segments.size() > 1
-                && Math.abs(x - downX) <= touchSlopPx && Math.abs(y - downY) <= touchSlopPx) {
-            long now = System.currentTimeMillis();
-            if (downSegIndex == lastClipTapSeg
-                    && now - lastClipTapMs <= android.view.ViewConfiguration.getDoubleTapTimeout()) {
-                lastClipTapMs = 0L;
-                lastClipTapSeg = -1;
-                enterReorderMode();
-                invalidate();
-                return true;
-            }
-            lastClipTapMs = now;
-            lastClipTapSeg = downSegIndex;
-        }
+        // §3A.5b — DOUBLE-TAP to reorder was BUILT AND REMOVED on 2026-08-04. Master clips
+        // ALREADY have a double-tap (the clip-audio drawer, gesture contract §1), and mine ran
+        // first, so on long clips it made the audio drawer unreachable — while on short clips the
+        // first tap's auto-centering shifts the second tap onto a different segment index, so the
+        // drawer opened instead. The same gesture did two different things depending on clip
+        // length, which is the exact bug the existing detector's clipId-based resolution was
+        // written to fix. Reintroducing it one branch above was a straight regression.
+        //
+        // Hold-release already opens reorder, so nothing was lost. If a fast path is still wanted,
+        // it has to go THROUGH the existing detector (share its window and its clipId matching),
+        // not race it.
         if (dislodgeArmed) {
             dislodgeArmed = false;
             dislodgeArmedSegIndex = -1;
@@ -8566,6 +8557,12 @@ public class EditorTimelineView extends View {
         
         @Override
         public boolean onScaleBegin(ScaleGestureDetector detector) {
+            // A pinch swallows the terminal UP (isScaling early-returns, then postPinchPan does
+            // too), so an armed clip kept its halo and chevron painted through the whole pinch —
+            // a lie about gesture state. Cosmetic, but the affordance must never claim to be
+            // armed when it is not.
+            dislodgeArmed = false;
+            dislodgeArmedSegIndex = -1;
             FLog.d(TAG, "ScaleListener.onScaleBegin: zoom=" + zoomLevel);
             isScaling = true;  // Set flag to block other touches
             // Cancel any pending reorder/audio-drag long-press — this is a pinch.

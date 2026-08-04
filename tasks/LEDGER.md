@@ -1217,7 +1217,27 @@ land on time there, or the instrument is measuring something else.
 authoritative — making the editor compress is a much larger change than mapping overlay times
 through the same compression the export already computes.
 
-**3i. SPINE DRAG (M12) + LAYER ANCHORING (M11 §4) — SPEC IS BINDING AS OF 2026-08-03.**
+**3i. ✅ SPINE ⇄ LAYER MOVE SHIPS — DEVICE-PROVEN 2026-08-03. The long-standing want is MET.**
+JoyRaptor's headline ask ('drag layers like clips into and out of the main layer, like CapCut') now
+WORKS, via the **reliable button path** the dragux_v3 decision (2026-07-05, user-proposed and
+endorsed) said to build FIRST: the Move drawer's ↑/↓ — which until now showed "coming soon"
+toasts — lift a spine clip onto a layer and drop a floating clip into the main track.
+
+**Device evidence (Note 9, project `302da9ac`, read from `project.json`, not from the screen):**
+- ↑ : `clips 3 → 2`, `overlayClips 1 → 2`. The moved clip `1decc7fa` carries
+  `layerId=video`, `overlayStartMs=0` (its exact prior absolute position) and
+  **`overlayAudioEnabled=true`** — the carry that stops a demoted clip going silent.
+- Visually: the spine closed up (00:13 → 00:10), a new layer row appeared, and the clip renders
+  as a PiP in the preview.
+- ↓ : full ROUND TRIP restores `clips=3` with **byte-identical id order** to the original.
+- One undo step each (`Recorded: Move to layer`, `Recorded: Move to main track`).
+- Project restored byte-exact from a device-local backup afterwards (md5 verified).
+
+**STILL OPEN on M12:** the DRAG gesture (§3A) — the spine is not in the row-gesture pipeline, so
+that is a new gesture path, not an extension. The buttons are the shipped capability; the drag is
+the delight layer on top, exactly as the 2026-07-05 decision sequenced it.
+
+**3i-spec. THE SPEC BEHIND IT — BINDING AS OF 2026-08-03.**
 The user's highest-priority want: CapCut-style dragging of clips INTO and OUT OF the main layer.
 **Full interaction spec written into `PLAN_LAYERS_UX_ADDENDUM.md` §3A and §4A** — screen-relative
 drop zones, dwell-armed split, content-aware pan (no jump-to-limit), the colour table, the one

@@ -2066,6 +2066,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onItemDroppedOnMasterTrack(int insertIndex) {
+                // The indicator promised this seam; land there and nowhere else. Runs BEFORE
+                // onItemDragEnded (which disarms the undo merge), so a dislodge that ends up back
+                // on the spine still folds into a single undo press.
+                moveSelectedItemToMainTrack(insertIndex);
+            }
+
+            @Override
             public void onItemDragEnded() {
                 if (undoManager != null) undoManager.clearMergeNextIntoTop();
             }
@@ -4164,7 +4172,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>Only VIDEO/IMAGE payloads are legal on the spine (§3A.5). A text or sticker selection is
      * refused with a reason rather than ignored — a silent no-op reads as a broken button.</p>
      */
-    private void moveSelectedItemToMainTrack() {
+    private void moveSelectedItemToMainTrack() { moveSelectedItemToMainTrack(-1); }
+
+    /**
+     * @param insertIndexOverride spine index to land at, or -1 to derive it from the object's own
+     *        time (the Move-drawer button's behaviour). The DRAG passes an explicit index because
+     *        the user is pointing at a seam -- deriving it from time would land the clip somewhere
+     *        other than the place the indicator promised, which is the whole thing §3A.4 exists to
+     *        prevent.
+     */
+    private void moveSelectedItemToMainTrack(int insertIndexOverride) {
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
         String itemId = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
@@ -4185,7 +4202,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final long wasAt = promoting.getOverlayStartMs();
         // Land it where its own time says it belongs; past the end appends.
         int hostIdx = timeline.hostIndexForTime(wasAt);
-        final int insertAt = hostIdx < 0 ? timeline.getClipCount() : hostIdx;
+        final int insertAt = insertIndexOverride >= 0
+                ? Math.min(insertIndexOverride, timeline.getClipCount())
+                : (hostIdx < 0 ? timeline.getClipCount() : hostIdx);
 
         // Everything promoteToMaster clears or overwrites has to be captured, or undo returns a
         // DIFFERENT object: wrong lane, wrong time, and audibly unmuted.

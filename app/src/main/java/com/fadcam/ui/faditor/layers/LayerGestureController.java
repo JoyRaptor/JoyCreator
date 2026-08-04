@@ -602,6 +602,14 @@ public final class LayerGestureController {
         return true;
     }
 
+    /**
+     * The item currently being dragged, or null. §3A.4 needs it to answer "is this payload even
+     * legal on the spine?" before promising a landing spot — a text overlay must never be offered
+     * an insertion the drop would then refuse.
+     */
+    @Nullable
+    public TimedItem getActiveItem() { return activeItem; }
+
     /** True while a PENDING body touch is still awaiting the caller's tap/scrub/scroll/pickup decision. */
     public boolean isPendingBodyDown() { return active && pendingBodyDown; }
 

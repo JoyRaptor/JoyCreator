@@ -842,6 +842,15 @@ public class EditorTimelineView extends View {
     /** Playhead at the moment reorder mode opened, restored if the user backs out. */
     private long reorderEntryPlayheadMs = -1L;
 
+    // ── §3A.4 SPINE DROP INDICATOR ───────────────────────────────────────────────────
+    // A picked-up layer item hovering over the master track: show WHERE it will land before the
+    // finger lifts. JoyRaptor's ask, verbatim: "highlighted area where they're going to be inserted so
+    // that everything is cleanly projected [to] the user so that they don't have to guess."
+    /** Seam index the hovering item would insert at, or -1 when it is not over the spine. */
+    private int spineDropIndex = -1;
+    private final Paint spineDropPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint spineDropGlowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     private boolean dislodgeArmed;
     /** Which segment armed, so a dislodge cannot act on a different clip than the one held. */
     private int dislodgeArmedSegIndex = -1;
@@ -1377,6 +1386,11 @@ public class EditorTimelineView extends View {
          * {@link #onDislodgeAdopted} so the undo merge can never outlive its gesture.
          */
         default void onItemDragEnded() {}
+        /**
+         * A held layer item was released over the master track: promote it into the spine at
+         * {@code insertIndex}, the seam the §3A.4 indicator was pointing at.
+         */
+        default void onItemDroppedOnMasterTrack(int insertIndex) {}
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
         default void onReorderLinkRequested(int segmentIndex) {}
         void onAudioClipSelected(int audioIndex);
@@ -1567,6 +1581,17 @@ public class EditorTimelineView extends View {
         reorderBtnTextPaint.setColor(COLOR_HANDLE);
         reorderBtnTextPaint.setTextSize(14f * density);
         reorderBtnTextPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        // §3A.4: solid purple = "insert at this seam". Purple ALREADY means "this is where it
+        // lands" everywhere else in the drag language, so the seam insert inherits it rather than
+        // teaching the user a second colour. Green/amber were rejected outright -- they are
+        // ripple/gap mode and are on screen simultaneously.
+        spineDropPaint.setColor(0xFF8C3DFA);
+        spineDropPaint.setStrokeWidth(3.5f * density);
+        spineDropPaint.setStrokeCap(Paint.Cap.ROUND);
+        spineDropPaint.setStyle(Paint.Style.FILL);
+        spineDropGlowPaint.setColor(0x338C3DFA);
+        spineDropGlowPaint.setStyle(Paint.Style.FILL);
+
         reorderDropIndicatorPaint.setColor(COLOR_HANDLE);
         reorderDropIndicatorPaint.setStrokeWidth(3f * density);
         reorderDropIndicatorPaint.setStrokeCap(Paint.Cap.ROUND);
@@ -2406,6 +2431,7 @@ public class EditorTimelineView extends View {
         // UNDER the segments so it reads as the clip lifting off the track rather than as an
         // overlay on top of it.
         drawDislodgeArmedLift(canvas);
+        drawSpineDropIndicator(canvas);
 
         // Ghost trim: drawn first so neighbouring segments cover it
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
@@ -6787,6 +6813,75 @@ public class EditorTimelineView extends View {
      * {@code afterSpineLayerMove} has already rebuilt {@link #layerTracks} synchronously by the
      * time the listener returns, so the new item is present here.</p>
      */
+    /**
+     * §3A.4 — while a layer item is held over the MASTER track, work out which seam it would
+     * insert at and remember it for {@link #drawSpineDropIndicator}. Returns true if the spine is
+     * currently a legal target.
+     *
+     * <p><b>Seam-only by design.</b> The spec also describes a red + scissors state for dropping
+     * mid-clip, which CUTS the clip underneath. That is deliberately not built yet: the model has
+     * no split-and-insert-in-one-gesture op, so the honest choice was to snap every hover to a
+     * seam and show exactly that, rather than draw a scissors the drop would not honour. An
+     * indicator that promises something the release does not do is worse than no indicator — it
+     * teaches the user to distrust all of them.</p>
+     */
+    private boolean updateSpineDropTarget(float screenX, float screenY) {
+        int prev = spineDropIndex;
+        spineDropIndex = -1;
+        if (layerGestureController == null || segRects.isEmpty()) {
+            if (prev != -1) invalidate();
+            return false;
+        }
+        // §3A.5 PAYLOAD LEGALITY: only video/image objects may live on the spine. Text, stickers
+        // and sprites are refused, so they must never be OFFERED a landing spot either.
+        com.fadcam.ui.faditor.layers.TimedItem it = layerGestureController.getActiveItem();
+        boolean legal = it != null && it.getClip() != null && it.getClip().isOverlayClip();
+        if (!legal) {
+            if (prev != -1) invalidate();
+            return false;
+        }
+        RectF band = segRects.get(0);
+        // Vertical hit band, generous by a touch slop on each side: the finger is dragging a whole
+        // clip body, so requiring the fingertip itself to be inside the strip reads as finicky.
+        if (screenY < band.top - touchSlopPx || screenY > band.bottom + touchSlopPx) {
+            if (prev != -1) invalidate();
+            return false;
+        }
+        spineDropIndex = getInsertIndexAtX(screenX);
+        if (spineDropIndex != prev) {
+            // SPINEDROP probe: the hand test cannot screenshot a moving finger, so leave a trace
+            // that says what the indicator CLAIMED. Pair it with the DROP line below and a
+            // mismatch between promised and actual seam is visible in logcat instead of being an
+            // argument about what someone thought they saw.
+            android.util.Log.d("SPINEDROP", "hover seam=" + spineDropIndex + " of " + segRects.size());
+            invalidate();
+        }
+        return true;
+    }
+
+    /** §3A.4 — solid purple line at the seam the held item will insert at. */
+    private void drawSpineDropIndicator(@NonNull Canvas canvas) {
+        if (spineDropIndex < 0 || segRects.isEmpty()) return;
+        RectF band = segRects.get(0);
+        // The seam's x: the LEFT edge of the clip we would insert before, or the right edge of the
+        // last clip when appending past the end.
+        float contentX = spineDropIndex < segRects.size()
+                ? segRects.get(spineDropIndex).left
+                : segRects.get(segRects.size() - 1).right;
+        float x = contentX - scrollOffsetPx;
+        float top = band.top;
+        float bot = band.bottom;
+        // A soft halo behind the line so it reads against both light thumbnails and dark ones —
+        // a 3.5dp line alone disappears on a busy frame, which is exactly when it matters.
+        canvas.drawRect(x - 5f * density, top, x + 5f * density, bot, spineDropGlowPaint);
+        canvas.drawRect(x - 1.75f * density, top, x + 1.75f * density, bot, spineDropPaint);
+        // Caps top and bottom: they turn a line that could be mistaken for a clip border into a
+        // deliberate marker.
+        float capR = 4f * density;
+        canvas.drawCircle(x, top, capR, spineDropPaint);
+        canvas.drawCircle(x, bot, capR, spineDropPaint);
+    }
+
     private boolean adoptDislodgedDrag(@Nullable String itemId) {
         if (itemId == null || layerGestureController == null) return false;
         for (com.fadcam.ui.faditor.layers.Track t : layerTracks) {
@@ -6919,6 +7014,8 @@ public class EditorTimelineView extends View {
             // no-ops a MOVE that hasn't been picked up, so this only moves after pickup.
             float scrolledX = x + scrollOffsetPx;
             layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
+            // §3A.4: project the landing spot while the finger is still down.
+            updateSpineDropTarget(x, y);
             // A1 EDGE AUTO-PAN for a held item (dragux_v3, slice 3): sustained hold near
             // the screen's left/right edge pans the timeline continuously to open more
             // room. PRECEDENCE vs the off-screen butt reveal (S5): edge-pan = deliberate
@@ -7175,9 +7272,19 @@ public class EditorTimelineView extends View {
                 itemDragMinimapNav = false;
                 layerGestureController.setSuppressMoveMapping(false);
             }
+            // §3A.4 SPINE DROP. Taken BEFORE onRowBodyUp, because that call clears the gesture.
+            int spineDrop = isUp ? spineDropIndex : -1;
+            spineDropIndex = -1;
             // isUp==false is an ACTION_CANCEL — the controller ABORTS (reverts the item,
             // fires no drop callbacks) instead of committing (review fix 2026-07-03).
-            layerGestureController.onRowBodyUp(isUp);
+            // A spine drop deliberately takes the ABORT path too: the item is about to leave the
+            // layer entirely, so committing a layer-position change first would record an edit to
+            // a lane the object no longer lives on, and undo would walk back through it.
+            layerGestureController.onRowBodyUp(spineDrop >= 0 ? false : isUp);
+            if (spineDrop >= 0 && listener != null) {
+                android.util.Log.d("SPINEDROP", "DROP seam=" + spineDrop);
+                listener.onItemDroppedOnMasterTrack(spineDrop);
+            }
             // Disarm the undo merge unconditionally. onRowBodyUp above has already run
             // onGestureFinished on the commit path (which consumes it), but a CANCEL fires no
             // drop callback at all -- and a commit that happens to record NOTHING consumes

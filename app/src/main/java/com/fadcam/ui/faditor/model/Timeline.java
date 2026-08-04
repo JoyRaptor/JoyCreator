@@ -425,7 +425,30 @@ public class Timeline {
      * which is the same defect {@code splitAt} already guards against.
      */
     public void reanchorAfterManualSplit(@NonNull String originalId, int indexA) {
-        reanchorAfterSplit(originalId, indexA);
+        reanchorAfterManualSplit(originalId, indexA, 2);
+    }
+
+    /**
+     * As above, for a split that produced {@code partCount} clips rather than two — the AI's
+     * b-roll cutaway replaces one clip with THREE ({@code before, broll, after}).
+     *
+     * <p>Re-homing such a split with the two-way form put every rider whose start fell in the
+     * LAST part onto the middle clip, with its offset then clamped to that clip's much shorter
+     * span. Generalised rather than special-cased, so a four-way split later cannot repeat it.</p>
+     */
+    public void reanchorAfterManualSplit(@NonNull String originalId, int indexA, int partCount) {
+        if (indexA < 0 || partCount < 2 || indexA + partCount > clips.size()) return;
+        for (TextOverlayItem o : textOverlays) {
+            if (!originalId.equals(o.getHostClipId())) continue;
+            int part = indexA;
+            for (int i = indexA; i < indexA + partCount; i++) {
+                if (o.getStartMs() >= segmentStartMs(i)) part = i; else break;
+            }
+            long hostStart = segmentStartMs(part);
+            o.setHostAnchor(clips.get(part).getId(),
+                    AnchorMath.offsetWithinHost(o.getStartMs(), hostStart,
+                            clipSpanMs(clips.get(part))));
+        }
     }
 
     private void reanchorAfterSplit(@NonNull String originalId, int indexA) {

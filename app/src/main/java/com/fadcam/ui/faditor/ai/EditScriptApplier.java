@@ -975,9 +975,10 @@ public class EditScriptApplier {
         // Two clips were inserted after the original's position → push later seams by 2.
         tl.shiftTransitionsAfterSplit(clipIndex);
         tl.shiftTransitionsAfterSplit(clipIndex);
-        // Same fresh-id orphaning as the plain split: riders anchored to the original clip must
-        // re-home, here onto the BEFORE/b-roll pair that now occupies its time.
-        tl.reanchorAfterManualSplit(cutawayOriginalId, clipIndex);
+        // Same fresh-id orphaning as the plain split — but this one produced THREE clips
+        // (before / b-roll / after), and re-homing it as a two-way split dumped every rider from
+        // the last part onto the b-roll. Pass the real part count.
+        tl.reanchorAfterManualSplit(cutawayOriginalId, clipIndex, 3);
 
         tl.addAudioClip(narration);
         lastGeneratedClipId = brollClip.getId();

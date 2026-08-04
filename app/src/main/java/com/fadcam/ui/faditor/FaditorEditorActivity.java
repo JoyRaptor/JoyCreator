@@ -10792,8 +10792,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void performUndo() {
         if (!undoManager.canUndo()) return;
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
+        java.util.List<String> idsBefore = masterClipIds();
         undoManager.undo();
         endStructuralEdit(anchorsBefore, "undo");
+        clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
     }
@@ -10804,8 +10806,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void performRedo() {
         if (!undoManager.canRedo()) return;
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
+        java.util.List<String> idsBefore = masterClipIds();
         undoManager.redo();
         endStructuralEdit(anchorsBefore, "redo");
+        clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
     }
@@ -11117,12 +11121,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (steps <= 0) return;
         boolean changed = false;
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
+        java.util.List<String> idsBefore = masterClipIds();
         for (int i = 0; i < steps; i++) {
             boolean ok = isRedo ? undoManager.redo() : undoManager.undo();
             if (!ok) break;
             changed = true;
         }
         endStructuralEdit(anchorsBefore, isRedo ? "jumpRedo" : "jumpUndo");
+        clipMembershipChanged = !idsBefore.equals(masterClipIds());
         if (!changed) return;
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -11152,6 +11158,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Syncs timeline, toolbar, player state, and preview transforms with the current model.
      * Handles both action-based (same objects) and snapshot-based (new objects) restoration.
      */
+    /** Snapshot of master clip ids, so undo/redo can tell a membership change from a field edit. */
+    @NonNull
+    private java.util.List<String> masterClipIds() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        if (project == null) return out;
+        for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+            out.add(project.getTimeline().getClip(i).getId());
+        }
+        return out;
+    }
+
+    /** Set by the undo/redo entry points around the actual undo call. */
+    private boolean clipMembershipChanged;
+
     private void refreshEditorAfterUndoRedo() {
         // Clamp selected index in case clip count changed (e.g. after snapshot restore)
         int clipCount = project.getTimeline().getClipCount();
@@ -11166,8 +11186,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ⚠ An undo can change master-clip MEMBERSHIP (M12's spine⇄layer move is the first
         // action that does so through a bare LambdaAction), which leaves the gapless playlist
         // describing the pre-undo clip order — the 2026-07-18 seam bug, reached from the other
-        // side. The forward paths all resync; undo/redo did not. (Adversarial review 2026-08-03.)
-        resyncGaplessAfterStructuralEdit(clip.getId(), 0L, false);
+        // side. The forward paths all resync; undo/redo did not.
+        //
+        // ⚠⚠ BUT ONLY WHEN MEMBERSHIP ACTUALLY CHANGED. The first version of this fix resynced
+        // unconditionally, which bumps rebuildGeneration (killing in-flight reverse bakes) and
+        // rebuilds the playlist — so undoing a VOLUME or a TEXT COLOUR while playing at 0:42
+        // stopped playback and snapped to the clip head. A fix for one action applied to all of
+        // them. The caller records the id list beforehand; a plain equality test is enough.
+        if (clipMembershipChanged) {
+            resyncGaplessAfterStructuralEdit(clip.getId(), 0L, false);
+        }
 
         // Rebuild timeline view completely (handles both action and snapshot changes)
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
@@ -19312,6 +19340,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             if (overlayVideoLayer != null) overlayVideoLayer.invalidate();
             if (editorTimeline != null) editorTimeline.invalidate();
+            // Same reason as the decoration revert: apply() schedules autosaves while the dialog
+            // is open, so a memory-only revert leaves the punched-in box on disk.
+            saveProjectNow();
         };
         final boolean[] committed = {false};
 
@@ -19321,8 +19352,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setView(scroll)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
                     committed[0] = true;
-                    final com.fadcam.ui.faditor.model.CompositingSpec after =
-                            spec.isEmpty() ? null : spec;
+                    // DEEP COPY, not the live object. `spec` IS c.getCompositing() when one
+                    // existed, and a later dialog mutates it in place — so an undo action holding
+                    // a reference would, on redo, resurrect whatever the NEXT dialog did,
+                    // including values the user explicitly cancelled.
+                    final com.fadcam.ui.faditor.model.CompositingSpec after = spec.isEmpty()
+                            ? null
+                            : com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
+                                    com.google.gson.JsonParser
+                                            .parseString(spec.toJson().toString())
+                                            .getAsJsonObject());
                     c.setCompositing(after);
                     // Mask edits were entirely unundoable — the surrounding code records undo for
                     // far smaller things. One step, restoring the whole spec either way.
@@ -20541,6 +20580,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         item.setShadowColorInt(decorSnapshotColors[2]);
         item.setBackgroundColorInt(decorSnapshotColors[3]);
         refreshOverlayPreview();
+        // ⚠ The controls call scheduleAutoSave() on every slider release, and the debounce is
+        // 3s — so an edit made and then cancelled has usually ALREADY been written to disk.
+        // Reverting memory alone left the cancelled value in the file, which is the same failure
+        // the dismiss listener was added to close, one layer down. Persist the revert.
+        saveProjectNow();
     }
 
     private View buildOverlayDecorationControls(
@@ -20575,7 +20619,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // and the colour defaults to opaque, so a text box ALWAYS has a shadow and 0 means the
         // 10%-of-font default. The only way to actually remove it is a transparent colour, which
         // is why this row's swatch strip carries the "none" chip.
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_shadow, 40, 0xCC000000,
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_shadow, 40, 0xFF000000,
                 item::getShadowRadiusPx, item::setShadowRadiusPx,
                 item::getShadowColorInt, item::setShadowColorInt);
 

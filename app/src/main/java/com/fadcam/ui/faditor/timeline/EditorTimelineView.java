@@ -6862,6 +6862,11 @@ public class EditorTimelineView extends View {
     /** §3A.4 — solid purple line at the seam the held item will insert at. */
     private void drawSpineDropIndicator(@NonNull Canvas canvas) {
         if (spineDropIndex < 0 || segRects.isEmpty()) return;
+        // Belt and braces: the indicator is meaningless without a live drag, and a single
+        // drag-end path that forgot to clear the index would otherwise paint this line onto the
+        // timeline permanently. Ask the authority (is an item actually being moved?) rather than
+        // trusting every exit to have tidied up.
+        if (layerGestureController == null || !layerGestureController.isMoveDragActive()) return;
         RectF band = segRects.get(0);
         // The seam's x: the LEFT edge of the clip we would insert before, or the right edge of the
         // last clip when appending past the end.
@@ -7013,9 +7018,13 @@ public class EditorTimelineView extends View {
             // ARMED: a trim, or a picked-up move — drive the item gesture. onRowBodyMove
             // no-ops a MOVE that hasn't been picked up, so this only moves after pickup.
             float scrolledX = x + scrollOffsetPx;
+            // §3A.4: decide the spine hover BEFORE onRowBodyMove, not after. onRowBodyMove is what
+            // runs updateDragTarget, so suppressing afterwards would apply to the NEXT move event
+            // — leaving one frame in which both indicators are drawn every time the finger crosses
+            // onto the spine.
+            boolean overSpine = updateSpineDropTarget(x, y);
+            layerGestureController.setSpineHoverSuppressed(overSpine);
             layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
-            // §3A.4: project the landing spot while the finger is still down.
-            updateSpineDropTarget(x, y);
             // A1 EDGE AUTO-PAN for a held item (dragux_v3, slice 3): sustained hold near
             // the screen's left/right edge pans the timeline continuously to open more
             // room. PRECEDENCE vs the off-screen butt reveal (S5): edge-pan = deliberate

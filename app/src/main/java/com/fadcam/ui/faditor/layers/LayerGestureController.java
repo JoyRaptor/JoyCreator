@@ -610,6 +610,14 @@ public final class LayerGestureController {
     @Nullable
     public TimedItem getActiveItem() { return activeItem; }
 
+    /**
+     * §3A.4 — while true, this controller claims NO drop target: the master track owns the
+     * gesture and is drawing the seam indicator itself. Set per move event by the view.
+     */
+    public void setSpineHoverSuppressed(boolean s) { spineHoverSuppressed = s; }
+
+    private boolean spineHoverSuppressed;
+
     /** True while a PENDING body touch is still awaiting the caller's tap/scrub/scroll/pickup decision. */
     public boolean isPendingBodyDown() { return active && pendingBodyDown; }
 
@@ -976,6 +984,28 @@ public final class LayerGestureController {
         lastMoveY = y;
         lastMoveTopPx = topPx;
         boolean sourceIsFloatingBand = rowRenderer.isFloatingBandRow(activeTrack);
+
+        // §3A.4: the finger is over the MASTER TRACK, where the view is already drawing a seam
+        // indicator. Without this the gap below the last layer row also matches down there, so the
+        // user got a new-layer insertion line AND a spine seam line simultaneously — two different
+        // promises about where one clip is going, which is the exact guessing the indicator exists
+        // to remove. Clear every hover state rather than merely hiding the line, because an armed
+        // gap would also COMMIT a new-lane drop on release.
+        if (spineHoverSuppressed) {
+            hoverGapIndex = -1;
+            hoverCrossBandNewLane = false;
+            hoveringHomeRow = false;
+            lastRejectedRowId = null;
+            hoverTargetTrack = null;
+            clearBookend();
+            rowRenderer.setDragTargetTrackId(null);
+            rowRenderer.setProxyRowTrackId(null);
+            rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
+            rowRenderer.setHoverGapIndex(-1);
+            rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_SAME_ROW);
+            logHoverTarget("spine-suppressed");
+            return;
+        }
 
         // Slice 2 (dragux_v3, BINDING): the GAP is the new-layer target. Checked FIRST
         // so line-in-gap and row-highlight are mutually exclusive by construction.
@@ -1568,6 +1598,7 @@ public final class LayerGestureController {
         boolean commitWasOpenEnded = dragStartDurationMs == Long.MAX_VALUE;
         boolean commitHomeSnapped = homeSnapArmed;
         pendingDeleteBadge = false;
+        spineHoverSuppressed = false;   // §3A.4: never let it leak into the next gesture
         active = false;
         activeItem = null;
         activeTrack = null;

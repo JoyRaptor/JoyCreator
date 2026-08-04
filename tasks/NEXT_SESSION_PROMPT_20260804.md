@@ -73,6 +73,14 @@ this?" — an unreachable feature passes every test it has.
   has `addSwitchRow` and a tri-state needs a new row helper, so the preference is currently
   reachable only by answering the dialog.
 - **The trap constructor** on `BlendModeGlEffect` deleted.
+- **Loop-BEFORE items** now carry one transition term less (they are emitted ahead of the
+  head-trimmed main item and are themselves untrimmed).
+- **Decoration sizes are now a % of TEXT SIZE**, converted by the single authority
+  `TextOverlayItem.decorRadiusPx` that both renderers call — the same shape as
+  `CompositingSpec.featherRadiusPx`, and for the same reason. Preview and export finally agree.
+  Safe as a semantic change because nothing could ever write those fields.
+- **The orphan preference has its settings row** (button row + three-choice dialog, including
+  "Always ask" so a remembered choice can be un-remembered).
 
 **FINAL REGRESSION EXPORT after all of the above:** 13.726s, zero errors, PiP onset **4.90** —
 both export fixes intact. App smoke-tested: launches, editor opens, zero `FATAL EXCEPTION`.
@@ -80,11 +88,6 @@ Sandbox `302da9ac` restored byte-exact (md5 `a74cd91c…`), rotation lock `0`.
 
 ## STILL OPEN — from the adversarial reviews, recorded not fixed
 
-- **Loop-BEFORE extension items are over-corrected by one term** — they are emitted before the
-  head-trimmed main item, so their correct offset is `Σ head_j for j < idx`, not `≤ idx`.
-- **Decoration values are raw pixels**, unscaled between preview (a few hundred px) and export
-  (1080p), while `fontPx` does scale — so a glow tuned in the preview is ~2–3× thinner on export.
-  Fix by expressing them as a fraction of font size, like the shadow default already is.
 - **Degenerate skipped items** (`MIN_EXPORT_SEGMENT_MS`) compress the composition by more than
   `Σ effectiveTransitionMs`, so the offset is a MODEL of the cursor rather than the cursor. Exact
   fix: have `buildComposition` record the real `editorStart − cursor` per clip.

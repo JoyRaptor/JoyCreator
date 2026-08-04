@@ -60,30 +60,42 @@ this?" — an unreachable feature passes every test it has.
 3. **The mask dialog on device.** Open it on a PiP, press BACK, and confirm **no hole is left** —
    that is the fix for the worst defect found tonight.
 
+## CLOSED AFTER THE HANDOFF WAS FIRST WRITTEN (same session, later)
+
+- **Preview had the §2e twin** — `MasterPlaybackEngine.addImageWindow` built its image MediaItem
+  with no MIME either, so the still that now exports could still fail to DISPLAY. Sniffer lifted
+  to `util/ImageMime` with both callers on it; the short-read bug in the sniff fixed too.
+- **Tail-filler overlays** now take the full transition total instead of 0.
+- **Captions** no longer lag by the head transition.
+- **Undo for text decoration** added (mask already had it).
+- **The AI's two hand-rolled splits** (`EditScriptApplier` plain split + b-roll cutaway) now
+  re-anchor via `Timeline.reanchorAfterManualSplit`.
+- **The orphan-anchor prompt** (§4A's last piece) is BUILT: tri-state pref, `setCancelable(false)`,
+  announces a remembered silent delete, one undo step. **Its SETTINGS ROW is not** — the sheet only
+  has `addSwitchRow` and a tri-state needs a new row helper, so the preference is currently
+  reachable only by answering the dialog.
+- **The trap constructor** on `BlendModeGlEffect` deleted.
+
+**FINAL REGRESSION EXPORT after all of the above:** 13.726s, zero errors, PiP onset **4.90** —
+both export fixes intact. App smoke-tested: launches, editor opens, zero `FATAL EXCEPTION`.
+Sandbox `302da9ac` restored byte-exact (md5 `a74cd91c…`), rotation lock `0`.
+
 ## STILL OPEN — from the adversarial reviews, recorded not fixed
 
-- **Tail-filler overlays get offset 0** (`ExportManager:1055` builds a filler `Clip` that is not in
-  the timeline, so `editorTimeOffsetFor` returns 0) → a jump at the last-clip→filler seam in
-  projects with transitions AND content past the master track.
 - **Loop-BEFORE extension items are over-corrected by one term** — they are emitted before the
   head-trimmed main item, so their correct offset is `Σ head_j for j < idx`, not `≤ idx`.
 - **Decoration values are raw pixels**, unscaled between preview (a few hundred px) and export
   (1080p), while `fontPx` does scale — so a glow tuned in the preview is ~2–3× thinner on export.
   Fix by expressing them as a fraction of font size, like the shadow default already is.
-- **No undo for text decoration edits** (mask edits now have one).
 - **Degenerate skipped items** (`MIN_EXPORT_SEGMENT_MS`) compress the composition by more than
   `Σ effectiveTransitionMs`, so the offset is a MODEL of the cursor rather than the cursor. Exact
   fix: have `buildComposition` record the real `editorStart − cursor` per clip.
   `editorTimeOffsetFor` already takes `compressedStartMs` and ignores it.
 - **Master audio trims with `durationMs`, not `effectiveTransitionMs`** (`ExportManager:638`) —
   when a transition is clamped, a clip's own audio desyncs from its own picture. Pre-existing.
-- **Preview may have the §2e bug too** — `MasterPlaybackEngine:564` builds the image `MediaItem`
-  with no `setMimeType`. If so, the image that now exports fine still fails to DISPLAY. Lift
-  `imageMimeTypeOf` somewhere both callers can use it.
-- **The orphan-anchor prompt** (§4A) is still unbuilt: deleting a clip that layer objects are
-  anchored to currently just stops tracking them. Tri-state pref, new row helper needed, must
-  MERGE with the existing `confirmDeleteLinkedPair` dialog.
-- **`EditScriptApplier`'s two hand-rolled splits bypass `reanchorAfterSplit`** (`:740`, `:966`).
+- **The orphan prompt's SETTINGS ROW** — pref and accessors exist; needs a tri-state row helper in
+  `FaditorSettingsBottomSheet` (its own comment anticipates one). Also still to do: merge with the
+  existing `confirmDeleteLinkedPair` dialog when both would fire on one delete.
 
 ## HOW TO WORK HERE
 

@@ -92,6 +92,32 @@ public class PromoteDemoteTest {
         check(tl2.promoteToMaster(d3, 999), "promote: an out-of-range insert index is clamped");
         eq(tl2.getClipCount(), 3, "promote: clamped insert still lands exactly one clip");
 
+        // ── What happens to a clip's ANCHORED RIDERS when that clip leaves the spine? ────
+        // Pinning the behaviour rather than assuming it, because it is easy to get backwards.
+        Timeline tl3 = new Timeline();
+        tl3.addClip(clip(1000));
+        tl3.addClip(clip(2000));
+        com.fadcam.ui.faditor.model.TextOverlayItem rider =
+                new com.fadcam.ui.faditor.model.TextOverlayItem("t", 0xFFFFFFFF, .5f, .5f, .1f, 0f);
+        rider.setTimeRange(1200, 1800);
+        tl3.addTextOverlay(rider);
+        tl3.attachOverlayToHostUnderStart(rider);        // hosts on clip 1
+
+        java.util.Map<String, Long> b = tl3.captureClipStarts();
+        tl3.demoteToLayer(1, "video");                    // its HOST leaves the spine
+        Timeline.AnchorShiftResult res = tl3.applyAnchorShift(b);
+
+        eq(rider.getStartMs(), 1200,
+                "demote: a rider on the demoted clip does NOT move — correct, because demote "
+                        + "preserves the clip's absolute position, so the rider is still over it");
+        check(res.orphanedOverlayIds.contains(rider.getId()),
+                "demote: but the rider IS reported orphaned — its host is no longer a master clip");
+        // The consequence, stated so nobody is surprised later: the rider now holds a dangling
+        // host id, so a LATER ripple will not move it. Immediate behaviour right, future
+        // behaviour degraded. Re-anchoring it to whatever clip now occupies its time is the
+        // obvious follow-up and is deliberately NOT done here — it is a product decision about
+        // whether objects should follow a clip onto a layer, which is §3A territory.
+
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")
                                       : (fails + " FAILED of " + checks));

@@ -1367,6 +1367,16 @@ public class EditorTimelineView extends View {
          * refused. §3A.5b.
          */
         default String onClipDislodgeRequested(int segmentIndex) { return null; }
+        /**
+         * The dislodged clip was successfully adopted by the layer drag engine, so the demote and
+         * the coming drop are ONE gesture and must cost ONE undo press. §3A.5b.
+         */
+        default void onDislodgeAdopted() {}
+        /**
+         * A picked-up layer item's drag ended — commit OR cancel. Paired with
+         * {@link #onDislodgeAdopted} so the undo merge can never outlive its gesture.
+         */
+        default void onItemDragEnded() {}
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
         default void onReorderLinkRequested(int segmentIndex) {}
         void onAudioClipSelected(int audioIndex);
@@ -6827,6 +6837,12 @@ public class EditorTimelineView extends View {
                 // which is the pre-handover behaviour rather than a broken state.
                 if (adoptDislodgedDrag(liftedId)) {
                     m7ItemGestureActive = true;
+                    // ONE gesture, ONE undo. The demote has already recorded an action; tell the
+                    // activity to FOLD the coming drop into it. Without this, pulling a clip off
+                    // the spine and dropping it cost two presses, and the first press left the
+                    // clip on a layer at a position the user never chose -- a state that existed
+                    // at no point during the gesture.
+                    if (listener != null) listener.onDislodgeAdopted();
                 }
                 // Same reasoning as the reorder branch: nothing latched, and notifying here
                 // re-introduced the post-dislodge selection jump that retiring downSegIndex
@@ -7162,6 +7178,12 @@ public class EditorTimelineView extends View {
             // isUp==false is an ACTION_CANCEL — the controller ABORTS (reverts the item,
             // fires no drop callbacks) instead of committing (review fix 2026-07-03).
             layerGestureController.onRowBodyUp(isUp);
+            // Disarm the undo merge unconditionally. onRowBodyUp above has already run
+            // onGestureFinished on the commit path (which consumes it), but a CANCEL fires no
+            // drop callback at all -- and a commit that happens to record NOTHING consumes
+            // nothing either. Either way an armed merge must not survive into the next edit,
+            // where it would silently swallow an unrelated action into this gesture's entry.
+            if (listener != null) listener.onItemDragEnded();
             // A drop (or cancel) during an excursion: glide home so the playhead is
             // re-centered again (the normal invariant) — the user sees the result land
             // at the bookend, then the view returns to where they were.

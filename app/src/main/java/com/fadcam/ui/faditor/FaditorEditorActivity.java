@@ -2059,6 +2059,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onDislodgeAdopted() {
+                // The demote is already on the undo stack; fold the coming drop into it so the
+                // whole dislodge-and-place is one press. §3A.5b.
+                if (undoManager != null) undoManager.mergeNextIntoTop();
+            }
+
+            @Override
+            public void onItemDragEnded() {
+                if (undoManager != null) undoManager.clearMergeNextIntoTop();
+            }
+
+            @Override
             public void onReorderModeChanged(boolean entering) {
                 // Hide/show bottom toolbar during reorder mode
                 // Skip timeline_scroll (first HorizontalScrollView) — target the bottom toolbar

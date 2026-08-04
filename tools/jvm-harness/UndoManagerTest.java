@@ -40,6 +40,16 @@ public class UndoManagerTest {
         else { fail++; System.out.println("FAIL  " + what + "\n      want=" + want + " got=" + got); }
     }
     static void eqB(String what, boolean want, boolean got) { eq(what, "" + want, "" + got); }
+
+    /** An action that appends {@code onDo} when applied and {@code onUndo} when reversed, so a
+     *  test can assert the ORDER several actions ran in, not merely that they ran. */
+    static EditAction act(StringBuilder log, String onDo, String onUndo, String desc) {
+        return new EditAction() {
+            @Override public void execute() { log.append(onDo); }
+            @Override public void undo() { log.append(onUndo); }
+            @Override public String getDescription() { return desc; }
+        };
+    }
     static void eqI(String what, int want, int got) { eq(what, "" + want, "" + got); }
 
     /** The whole "project" is one string. */
@@ -314,6 +324,50 @@ public class UndoManagerTest {
                         @Override public void undo() {}
                         @Override public String getDescription() { return "x"; }
                     }));
+        }
+
+        // ── mergeNextIntoTop: the DISLODGE case (§3A.5b) ─────────────────────────────────
+        // Pulling a clip off the spine and dragging it is ONE gesture but TWO recorded mutations
+        // (the demote, then the drop). Without the merge it cost two undo presses, and the FIRST
+        // press left the clip on a layer at a position the user never chose — a state that existed
+        // at no instant during the gesture.
+        {
+            UndoManager um = new UndoManager();
+            StringBuilder log = new StringBuilder();
+            um.recordAction(act(log, "D", "d", "demote"));     // the dislodge's own action
+            um.mergeNextIntoTop();
+            um.recordAction(act(log, "P", "p", "place"));      // the drop
+            eqB("merge: the drop did NOT push a second entry", true, um.canUndo());
+            log.setLength(0);
+            um.undo();
+            eq("merge: one press reverses the drop THEN the demote", "pd", log.toString());
+            eqB("merge: ONE press emptied the stack — one gesture, one undo", false, um.canUndo());
+
+            // The flag is ONE-SHOT. A second unrelated edit must not be swallowed too.
+            UndoManager um2 = new UndoManager();
+            um2.recordAction(act(log, "A", "a", "first"));
+            um2.mergeNextIntoTop();
+            um2.recordAction(act(log, "B", "b", "merged"));
+            um2.recordAction(act(log, "C", "c", "separate"));
+            um2.undo();
+            eqB("merge: is one-shot — the NEXT action still records normally", true, um2.canUndo());
+
+            // Cancelled drag: armed, then disarmed without ever recording. The next unrelated
+            // edit must stand alone. This is the leak that made me clear it on ACTION_CANCEL.
+            UndoManager um3 = new UndoManager();
+            um3.recordAction(act(log, "A", "a", "first"));
+            um3.mergeNextIntoTop();
+            um3.clearMergeNextIntoTop();                       // drag cancelled, nothing recorded
+            um3.recordAction(act(log, "B", "b", "later"));
+            um3.undo();
+            eqB("merge: a cancelled drag does not swallow the next edit", true, um3.canUndo());
+
+            // Arming with nothing beneath must not throw away the action.
+            UndoManager um4 = new UndoManager();
+            um4.mergeNextIntoTop();
+            um4.recordAction(act(log, "A", "a", "orphan"));
+            eqB("merge: with an EMPTY stack it records normally instead of vanishing",
+                    true, um4.canUndo());
         }
 
         System.out.println("\n" + pass + " passed, " + fail + " failed");

@@ -255,7 +255,34 @@ public class UndoManager {
         return true;
     }
 
+    /**
+     * One-shot: fold the NEXT {@link #recordAction} into the entry already on top instead of
+     * pushing a new one, so a single physical gesture costs a single undo press.
+     *
+     * <p>The dislodge is the case this exists for. Pulling a clip off the spine and dragging it
+     * somewhere is ONE gesture to the user, but two mutations to the model — the demote records
+     * an action, then the drop records another — so it cost TWO undo presses, and the first press
+     * left the clip on a layer at a position the user never chose. Worse than either end state.</p>
+     *
+     * <p>Set at the point of adoption rather than at the drop, because only the gesture's START
+     * knows the two mutations belong together. Consumed by the next record; cleared unconditionally
+     * when the drag ends, so a drop that records NOTHING cannot leave it armed for an unrelated
+     * later edit.</p>
+     */
+    public void mergeNextIntoTop() { mergeNextIntoTop = true; }
+
+    /** Disarm {@link #mergeNextIntoTop} — always called when the drag ends, commit or cancel. */
+    public void clearMergeNextIntoTop() { mergeNextIntoTop = false; }
+
+    private boolean mergeNextIntoTop;
+
     public void recordAction(@NonNull EditAction action) {
+        if (mergeNextIntoTop) {
+            mergeNextIntoTop = false;
+            // amendTopAction returns false only if the stack is EMPTY, in which case there is
+            // nothing to merge into and a normal push is exactly right — fall through.
+            if (amendTopAction(action)) return;
+        }
         // The snapshot for cross-session undo is the state BEFORE this edit. We do NOT capture
         // it here — the model is usually already mutated by now (audit 1.6). Instead we hand
         // this entry the rolling baseline (the state captured on the tick after the PREVIOUS

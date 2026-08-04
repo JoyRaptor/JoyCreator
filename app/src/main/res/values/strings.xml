@@ -3220,4 +3220,13 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="toast_failed_open_file">Failed to open file for writing</string>
     <string name="toast_cannot_write_custom_dir">Cannot write to selected custom directory</string>
     <string name="toast_failed_create_file">Failed to create file for writing</string>
+    <!-- M12: spine <-> layer move (reliable button path) -->
+    <string name="faditor_m12_select_clip_first">Select a clip on the main track first</string>
+    <string name="faditor_m12_select_object_first">Select an object on a layer first</string>
+    <string name="faditor_m12_only_video_images">Only videos and images can go on the main track</string>
+    <string name="faditor_m12_need_one_clip">The main track needs at least one clip</string>
+    <string name="faditor_m12_moved_to_layer">Moved to a layer</string>
+    <string name="faditor_m12_moved_to_main">Moved to the main track</string>
+    <string name="faditor_m12_undo_to_layer">Move to layer</string>
+    <string name="faditor_m12_undo_to_main">Move to main track</string>
 </resources>

@@ -551,6 +551,12 @@ public class EditorTimelineView extends View {
      * passes two empty lists, which {@link com.fadcam.ui.faditor.layers.LayerRowRenderer}
      * renders as zero rows — no visual change (PLAN Part 7 M6 scope item 6).
      */
+    /** Id of the currently-selected layer-row item, or null. Used by M12's move controls. */
+    @Nullable
+    public String getSelectedLayerItemId() {
+        return layerGestureController != null ? layerGestureController.getSelectedItemId() : null;
+    }
+
     public void setLayerTracks(@NonNull List<com.fadcam.ui.faditor.layers.Track> layers,
                                @NonNull List<com.fadcam.ui.faditor.layers.Track> audioTracks) {
         layerTracks.clear();

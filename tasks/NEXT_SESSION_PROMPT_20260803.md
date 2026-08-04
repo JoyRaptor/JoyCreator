@@ -111,7 +111,16 @@ go — it is the only thing that survives between sessions.
 
 ---
 
-## ⚠ ADDENDUM (end of session) — THE §2d FIX IS **NOT** DONE. TWO ATTEMPTS, BOTH INERT.
+## ✅ ADDENDUM — SUPERSEDED. §2d IS **FIXED AND PROVED** (2026-08-03, `ccf2b06`).
+
+PiP onset **5.50s → 4.90s** on the same fixture. The formula was the problem, not the plumbing:
+the offset is the **cumulative transition duration at seams BEFORE the clip**, NOT
+`editorStart - compressedStart` — for the clip right after a seam those two are EQUAL, because a
+transition eats its HEAD rather than moving its start. A one-line `DRIFTDIAG` log settled in one
+export what two rounds of reading did not. Kept below for the lesson.
+
+<details><summary>The two inert attempts, and why they looked right</summary>
+
 
 `editorTimeOffsetMs` was threaded into **`CompositeExportOverlay`** (attempt 1) and then into
 **`BlendModeGlEffect` → `PipFrameOverlay`** (attempt 2). Measured after each, same fixture, same
@@ -133,3 +142,4 @@ Verification recipe, ready to re-run:
    export bumps `lastModified`, which RE-SORTS the list and moved the fixture to the top mid-session.
 3. Export, pull, then: `ffmpeg -ss 4.4 -t 1.6 -i x.mp4 -vf "fps=20,scale=48:27,format=rgb24"
    -f rawvideo -` and find the R−G step. 5.50 = broken, 4.90 = fixed.
+</details>

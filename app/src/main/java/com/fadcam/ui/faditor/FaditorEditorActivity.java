@@ -4021,6 +4021,109 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * @param clipLocalMs 0-based visual position within {@code homeClipId}.
      * @param playAfter   resume playback after the rebuild (false = park paused).
      */
+    // ── M12: the spine ⇄ layer move, button-driven ──────────────────────────────────────────
+
+    /** Default landing lane for a demoted clip — the seeded video lane (neutral substrate). */
+    private static final String M12_DEFAULT_LAYER_ID = "video";
+
+    /**
+     * Lift the SELECTED MASTER CLIP off the spine onto a floating layer, keeping its absolute
+     * timeline position. The spine ripple-closes behind it. ONE undo step.
+     */
+    private void moveSelectedClipToLayer() {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        final int idx = selectedClipIndex;
+        if (idx < 0 || idx >= timeline.getClipCount()) {
+            Toast.makeText(this, R.string.faditor_m12_select_clip_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (timeline.getClipCount() <= 1) {
+            // The spine cannot become empty: with no master clip there is no timeline to hang a
+            // layer off, and the editor's whole coordinate system is the master tape.
+            Toast.makeText(this, R.string.faditor_m12_need_one_clip, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final Clip moving = timeline.getClip(idx);
+
+        java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
+        Clip demoted = timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID);
+        if (demoted == null) return;
+        endStructuralEdit(anchorsBefore, "demoteToLayer");
+
+        final long landedAt = demoted.getOverlayStartMs();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_m12_undo_to_layer),
+                () -> { timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID); },
+                () -> { timeline.promoteToMaster(moving, idx); }));
+
+        selectSegment(Math.min(idx, timeline.getClipCount() - 1));
+        afterSpineLayerMove(landedAt);
+        Toast.makeText(this, R.string.faditor_m12_moved_to_layer, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Drop the SELECTED FLOATING CLIP into the main track at the spine position matching its own
+     * time, pushing later clips right. ONE undo step.
+     *
+     * <p>Only VIDEO/IMAGE payloads are legal on the spine (§3A.5). A text or sticker selection is
+     * refused with a reason rather than ignored — a silent no-op reads as a broken button.</p>
+     */
+    private void moveSelectedItemToMainTrack() {
+        if (project == null) return;
+        final Timeline timeline = project.getTimeline();
+        String itemId = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
+        if (itemId == null) {
+            Toast.makeText(this, R.string.faditor_m12_select_object_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Clip overlay = null;
+        for (Clip oc : timeline.getOverlayClips()) {
+            if (oc.getId().equals(itemId)) { overlay = oc; break; }
+        }
+        if (overlay == null) {
+            // Selected object exists but is not an overlay CLIP — i.e. text/sticker/sprite.
+            Toast.makeText(this, R.string.faditor_m12_only_video_images, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final Clip promoting = overlay;
+        final long wasAt = promoting.getOverlayStartMs();
+        // Land it where its own time says it belongs; past the end appends.
+        int hostIdx = timeline.hostIndexForTime(wasAt);
+        final int insertAt = hostIdx < 0 ? timeline.getClipCount() : hostIdx;
+
+        java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
+        if (!timeline.promoteToMaster(promoting, insertAt)) return;
+        endStructuralEdit(anchorsBefore, "promoteToMaster");
+
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_m12_undo_to_main),
+                () -> { timeline.promoteToMaster(promoting, insertAt); },
+                () -> { timeline.demoteToLayer(insertAt, M12_DEFAULT_LAYER_ID); }));
+
+        selectSegment(insertAt);
+        afterSpineLayerMove(timeline.getClipStartMs(insertAt));
+        Toast.makeText(this, R.string.faditor_m12_moved_to_main, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Shared tail for both directions: the clip list changed structurally, so the gapless
+     * playlist, the layer rows and the persisted project all need to catch up.
+     */
+    private void afterSpineLayerMove(long homeMs) {
+        Clip home = selectedClipIndex >= 0 && project != null
+                && selectedClipIndex < project.getTimeline().getClipCount()
+                ? project.getTimeline().getClip(selectedClipIndex) : null;
+        resyncGaplessAfterStructuralEdit(home != null ? home.getId() : null, 0L, false);
+        syncTimelineOverlays();
+        if (editorTimeline != null) {
+            editorTimeline.setTransitions(project.getTimeline().getTransitions());
+            editorTimeline.invalidate();
+        }
+        refreshTotalTimeDisplay();
+        saveProjectNow();
+    }
+
     // ── Rider anchoring (M11 §4A) ───────────────────────────────────────────────────────────
     // Layer objects anchored to a master clip travel with it. There is NO clip start FIELD to
     // hook — a start is a prefix sum — so every structural edit must bracket itself:
@@ -5618,13 +5721,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         View header = findViewById(R.id.move_drawer_header);
         if (header != null) header.setOnTouchListener(swipeUp);
 
-        // Layer up/down (future layer implementation)
-        moveLayerUp.setOnClickListener(v -> {
-            Toast.makeText(this, "Move layer up (coming soon)", Toast.LENGTH_SHORT).show();
-        });
-        moveLayerDown.setOnClickListener(v -> {
-            Toast.makeText(this, "Move layer down (coming soon)", Toast.LENGTH_SHORT).show();
-        });
+        // M12 — the RELIABLE path (dragux_v3 design decision 2026-07-05, user-proposed and
+        // endorsed): explicit buttons for the spine ⇄ layer move, built BEFORE the drag because
+        // they are tap-testable and work every time. The drag is the delight layer on top.
+        // Direction follows the stacking convention (addendum §1): master is the foundation at
+        // the bottom, layers stack upward — so UP lifts a spine clip onto a layer, DOWN drops a
+        // floating clip into the main track.
+        moveLayerUp.setOnClickListener(v -> moveSelectedClipToLayer());
+        moveLayerDown.setOnClickListener(v -> moveSelectedItemToMainTrack());
 
         // Go button: parse input and seek to position
         moveGo.setOnClickListener(v -> performMoveToInput());

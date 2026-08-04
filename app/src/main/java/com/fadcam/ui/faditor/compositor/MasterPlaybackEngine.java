@@ -561,8 +561,13 @@ public class MasterPlaybackEngine {
     private void addImageWindow(int clipIndex, @NonNull Clip clip, @NonNull List<MediaItem> items) {
         long visualLenMs = Math.max(1L, clip.hasLoopExtension()
                 ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs());
+        // ⚠ LEDGER §2e, preview half. Without an explicit MIME the extension-less asset name is
+        // unresolvable, ExoPlayer routes the still to the progressive/video path, and the image
+        // simply never displays in the editor — the same root cause that killed the EXPORT. Fixed
+        // in both surfaces from one authority so they cannot diverge.
         MediaItem item = new MediaItem.Builder()
                 .setUri(clip.getSourceUri())
+                .setMimeType(com.fadcam.ui.faditor.util.ImageMime.of(context, clip.getSourceUri()))
                 .setImageDurationMs(visualLenMs)
                 .build();
         items.add(item);

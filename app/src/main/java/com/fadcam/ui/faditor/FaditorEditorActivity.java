@@ -2046,14 +2046,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onClipDislodgeRequested(int segmentIndex) {
+            public String onClipDislodgeRequested(int segmentIndex) {
                 // §3A.5b — hold armed it, a vertical pull committed it. Reuses the SAME model op
                 // and undo path as the Move drawer's ↑ button, so the gesture and the button can
                 // never drift apart in behaviour.
-                if (project == null) return;
-                if (segmentIndex < 0 || segmentIndex >= project.getTimeline().getClipCount()) return;
+                if (project == null) return null;
+                if (segmentIndex < 0 || segmentIndex >= project.getTimeline().getClipCount()) {
+                    return null;
+                }
                 selectSegment(segmentIndex);
-                moveSelectedClipToLayer();
+                return moveSelectedClipToLayer();
             }
 
             @Override
@@ -4083,19 +4085,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Lift the SELECTED MASTER CLIP off the spine onto a floating layer, keeping its absolute
      * timeline position. The spine ripple-closes behind it. ONE undo step.
      */
-    private void moveSelectedClipToLayer() {
-        if (project == null) return;
+    /**
+     * @return the demoted clip's id, so a DISLODGE GESTURE can hand its still-live touch to the
+     *         layer drag engine (§3A.5b). The Move drawer's button ignores it. Null on every
+     *         refusal path, which the caller must treat as "no adoption" rather than falling back
+     *         to a guess — adopting the wrong item would drag a clip the user never touched.
+     */
+    private String moveSelectedClipToLayer() {
+        if (project == null) return null;
         final Timeline timeline = project.getTimeline();
         final int idx = selectedClipIndex;
         if (idx < 0 || idx >= timeline.getClipCount()) {
             Toast.makeText(this, R.string.faditor_m12_select_clip_first, Toast.LENGTH_SHORT).show();
-            return;
+            return null;
         }
         if (timeline.getClipCount() <= 1) {
             // The spine cannot become empty: with no master clip there is no timeline to hang a
             // layer off, and the editor's whole coordinate system is the master tape.
             Toast.makeText(this, R.string.faditor_m12_need_one_clip, Toast.LENGTH_SHORT).show();
-            return;
+            return null;
         }
         final Clip moving = timeline.getClip(idx);
 
@@ -4110,7 +4118,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         Clip demoted = timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID);
-        if (demoted == null) return;
+        if (demoted == null) return null;
         endStructuralEdit(anchorsBefore, "demoteToLayer");
 
         final long landedAt = demoted.getOverlayStartMs();
@@ -4134,6 +4142,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         selectSegment(Math.min(idx, timeline.getClipCount() - 1));
         afterSpineLayerMove(landedAt);
         Toast.makeText(this, R.string.faditor_m12_moved_to_layer, Toast.LENGTH_SHORT).show();
+        return demoted.getId();
     }
 
     /**

@@ -555,6 +555,53 @@ public final class LayerGestureController {
         return true;
     }
 
+    /**
+     * §3A.5b — ADOPT an in-flight touch that began on the MASTER TRACK, after a dislodge has
+     * already demoted that clip into {@code track} as {@code item}.
+     *
+     * <p><b>Why adoption rather than a second drag engine.</b> The dislodge starts life as a spine
+     * gesture, so it never went through {@link #onRowBodyDown} and has no pending body touch for
+     * {@link #beginPickup} to promote — but the finger is still down and the user is still moving.
+     * Everything that should happen from here (magnet suppression, WYSIWYG drop, edge auto-pan,
+     * minimap nav, the overlap resolver, the undo merge) already exists on this path and only on
+     * this path. Duplicating it for dislodged clips would mean two implementations of the same
+     * interaction, diverging on the first bug fixed in one of them.</p>
+     *
+     * <p>Deliberately does NOT go through {@code beginPickup}'s lock check: a clip that just left
+     * the spine cannot be a locked overlay object — it was not an overlay object a moment ago.</p>
+     *
+     * <p>{@code moveGrabOffsetMs} is left at its armed −1 so the FIRST move after adoption
+     * establishes the grab point from where the finger actually is. Seeding it here from the
+     * dislodge's touch-down x would grab at the point the press STARTED, and the finger has since
+     * travelled the vertical commit distance — the clip would visibly jump sideways on adoption.</p>
+     *
+     * @return true if the drag was adopted and the caller should now route MOVEs to
+     *         {@link #onRowBodyMove}; false if the arguments do not describe a live item.
+     */
+    public boolean adoptDrag(@Nullable Track track, @Nullable TimedItem item) {
+        if (track == null || item == null) return false;
+        active = true;
+        pendingBodyDown = false;
+        pickupArmed = true;
+        lockedHoldRefused = false;
+        activeKind = GestureKind.MOVE;
+        activeTrack = track;
+        activeItem = item;
+        selectedItemId = item.getId();
+        // The gesture is ALREADY a move — the vertical pull that dislodged it was the movement.
+        // Leaving this false makes onRowBodyUp treat the release as a TAP and open the drawer
+        // instead of committing the drop.
+        movedDuringGesture = true;
+        armMove(item);
+        rowRenderer.setLiftedItemId(item.getId());
+        rowRenderer.setProxyItem(item);
+        rowRenderer.setProxyRowTrackId(null);
+        rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_SAME_ROW);
+        rowGestureLog("adopt item=" + item.getId() + " row=" + track.getId()
+                + " startMs=" + dragStartTimelineMs);
+        return true;
+    }
+
     /** True while a PENDING body touch is still awaiting the caller's tap/scrub/scroll/pickup decision. */
     public boolean isPendingBodyDown() { return active && pendingBodyDown; }
 

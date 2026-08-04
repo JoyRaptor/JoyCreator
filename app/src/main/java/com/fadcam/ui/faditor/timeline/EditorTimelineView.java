@@ -1361,7 +1361,12 @@ public class EditorTimelineView extends View {
          * §3A.5b — an ARMED master clip was pulled vertically: dislodge it from the spine.
          * The activity performs the demote (and its undo); the view only reports intent.
          */
-        default void onClipDislodgeRequested(int segmentIndex) {}
+        /**
+         * A master clip was pulled off the spine. Returns the id of the resulting LAYER item so
+         * the still-live touch can be handed to the layer drag engine, or null if the demote was
+         * refused. §3A.5b.
+         */
+        default String onClipDislodgeRequested(int segmentIndex) { return null; }
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
         default void onReorderLinkRequested(int segmentIndex) {}
         void onAudioClipSelected(int audioIndex);
@@ -6763,6 +6768,27 @@ public class EditorTimelineView extends View {
         return true;
     }
 
+    /**
+     * Resolve the just-demoted clip to its layer row and hand the in-flight touch to
+     * {@link com.fadcam.ui.faditor.layers.LayerGestureController#adoptDrag}.
+     *
+     * <p>Safe to call before the next layout: adoption reads the item's MODEL time only, so it
+     * does not depend on row rectangles that {@code layout()} has not computed yet. The activity's
+     * {@code afterSpineLayerMove} has already rebuilt {@link #layerTracks} synchronously by the
+     * time the listener returns, so the new item is present here.</p>
+     */
+    private boolean adoptDislodgedDrag(@Nullable String itemId) {
+        if (itemId == null || layerGestureController == null) return false;
+        for (com.fadcam.ui.faditor.layers.Track t : layerTracks) {
+            for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
+                if (itemId.equals(it.getId())) {
+                    return layerGestureController.adoptDrag(t, it);
+                }
+            }
+        }
+        return false;
+    }
+
     private boolean onMove(float x, float y) {
         // §3A.5b — HOLD ARMS, VERTICAL COMMITS. Checked before every other branch so a dislodge
         // cannot be swallowed by scrub/pan, and gated on VERTICAL DOMINANCE so a precision
@@ -6784,13 +6810,24 @@ public class EditorTimelineView extends View {
                 dislodgeArmedSegIndex = -1;
                 longPressTriggered = false;   // do NOT also open the reorder dialog on UP
                 performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                if (listener != null && seg >= 0) listener.onClipDislodgeRequested(seg);
+                String liftedId = (listener != null && seg >= 0)
+                        ? listener.onClipDislodgeRequested(seg) : null;
                 // ⚠ The spine is now one clip SHORTER, so downSegIndex points at whatever slid
                 // into that slot. Leaving it set made the following ACTION_UP select and SEEK the
                 // wrong clip — a visible jump straight after every successful dislodge. Retire
                 // the whole gesture: this touch has done its job.
                 downSegIndex = -1;
                 activeDrag = Drag.NONE;
+                // §3A.5b HAND-OVER: the clip is now an ordinary layer item and the finger is
+                // still down, so give the rest of this touch to the layer drag engine. From here
+                // it IS a normal picked-up item — it inherits magnet suppression, WYSIWYG drop,
+                // edge auto-pan, minimap nav, the overlap resolver and the undo merge, none of
+                // which would exist in a bespoke spine-drag path. If adoption fails the dislodge
+                // still stands (the clip is on a layer); the user simply lifts and drags again,
+                // which is the pre-handover behaviour rather than a broken state.
+                if (adoptDislodgedDrag(liftedId)) {
+                    m7ItemGestureActive = true;
+                }
                 // Same reasoning as the reorder branch: nothing latched, and notifying here
                 // re-introduced the post-dislodge selection jump that retiring downSegIndex
                 // (two lines up) was written to prevent — the same jump through another door.

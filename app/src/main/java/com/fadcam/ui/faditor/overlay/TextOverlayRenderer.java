@@ -62,7 +62,8 @@ public final class TextOverlayRenderer {
         paint.setTextSize(fontPx);
         paint.setTypeface(o.getTypeface());
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setShadowLayer(o.getShadowRadiusPx() > 0f ? o.getShadowRadiusPx() : fontPx * 0.10f,
+        paint.setShadowLayer(o.getShadowRadiusPx() > 0f
+                        ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx) : fontPx * 0.10f,
                 0f, fontPx * 0.04f, o.getShadowColorInt());
 
         String text = o.getText() == null || o.getText().isEmpty() ? " " : o.getText();
@@ -95,17 +96,18 @@ public final class TextOverlayRenderer {
         for (String line : lines) {
             if (o.getStrokeWidthPx() > 0f && o.getStrokeColorInt() != android.graphics.Color.TRANSPARENT) {
                 paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(o.getStrokeWidthPx());
+                paint.setStrokeWidth(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getStrokeWidthPx(), fontPx));
                 paint.setColor(o.getStrokeColorInt());
                 canvas.drawText(line, x, y, paint);
             }
             if (o.getGlowRadiusPx() > 0f && o.getGlowColorInt() != android.graphics.Color.TRANSPARENT) {
-                paint.setShadowLayer(o.getGlowRadiusPx(), 0f, 0f, o.getGlowColorInt());
+                paint.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getGlowRadiusPx(), fontPx), 0f, 0f, o.getGlowColorInt());
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(o.getColorInt());
                 canvas.drawText(line, x, y, paint);
             }
-            paint.setShadowLayer(o.getShadowRadiusPx() > 0f ? o.getShadowRadiusPx() : fontPx * 0.10f,
+            paint.setShadowLayer(o.getShadowRadiusPx() > 0f
+                        ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx) : fontPx * 0.10f,
                     0f, fontPx * 0.04f, o.getShadowColorInt());
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(o.getColorInt());

@@ -388,12 +388,12 @@ public final class TextBoxRenderer {
         }
         if (o.getStrokeWidthPx() > 0f && o.getStrokeColorInt() != Color.TRANSPARENT) {
             p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(o.getStrokeWidthPx());
+            p.setStrokeWidth(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getStrokeWidthPx(), fontPx));
             p.setColor(CaptionAnimator.applyAlpha(o.getStrokeColorInt(), animAlpha));
             c.drawText(run, x, baseY, p);
         }
         if (o.getGlowRadiusPx() > 0f && o.getGlowColorInt() != Color.TRANSPARENT) {
-            p.setShadowLayer(o.getGlowRadiusPx(), 0f, 0f, o.getGlowColorInt());
+            p.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getGlowRadiusPx(), fontPx), 0f, 0f, o.getGlowColorInt());
             p.setStyle(Paint.Style.FILL);
             p.setColor(CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
             c.drawText(run, x, baseY, p);
@@ -428,7 +428,8 @@ public final class TextBoxRenderer {
 
     private static void applyShadow(@NonNull TextPaint p, @NonNull TextOverlayItem o,
                                     float fontPx) {
-        p.setShadowLayer(o.getShadowRadiusPx() > 0f ? o.getShadowRadiusPx() : fontPx * 0.10f,
+        p.setShadowLayer(o.getShadowRadiusPx() > 0f
+                ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx) : fontPx * 0.10f,
                 0f, fontPx * 0.04f, o.getShadowColorInt());
     }
 

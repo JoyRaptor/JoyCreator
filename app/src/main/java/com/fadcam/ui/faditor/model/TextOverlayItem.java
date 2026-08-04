@@ -116,6 +116,30 @@ public class TextOverlayItem {
      */
     private long hostOffsetMs;
 
+    /**
+     * THE single authority turning an authored decoration size into a pixel radius.
+     *
+     * <p><b>The stored value is a PERCENTAGE OF FONT SIZE, not pixels</b>, despite the historical
+     * {@code ...Px} field names (kept so the JSON keys stay stable). It has to be, for exactly the
+     * reason {@link com.fadcam.ui.faditor.model.CompositingSpec#featherRadiusPx} exists: the
+     * preview draws into a view a few hundred pixels tall while the export draws into a full
+     * frame, and {@code fontPx} scales with the surface while a raw pixel radius does not. A glow
+     * authored as "6px" against the preview therefore came out two to three times thinner in the
+     * exported file — same slider, two different looks, which is the divergence this project
+     * treats as a defect in itself.</p>
+     *
+     * <p>Expressing it as a fraction of the text's own size also matches what a user means by
+     * "outline thickness", and it makes the renderers' existing built-in default —
+     * {@code fontPx * 0.10f} for the shadow — expressible as the value 10.</p>
+     *
+     * <p>Safe to introduce as a semantic change because nothing could ever WRITE these fields:
+     * the access-point audit found the only writer was the deserializer, and the one other
+     * source, {@code TextStyleIO}, belongs to a subsystem that is never instantiated.</p>
+     */
+    public static float decorRadiusPx(float authoredPercent, float fontPx) {
+        return Math.max(0f, authoredPercent) / 100f * Math.max(0f, fontPx);
+    }
+
     /** @see #hostClipId */
     @Nullable
     public String getHostClipId() { return hostClipId; }

@@ -20565,17 +20565,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // One row = a label, a swatch strip that sets the colour, and a 0..N slider for size.
         // "Off" is size 0 rather than a separate toggle: one control, one mental model, and it
         // matches how the renderers already gate each effect (radius/width > 0).
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_stroke, 12, 0xFF000000,
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_stroke, 25, 0xFF000000,
                 item::getStrokeWidthPx, item::setStrokeWidthPx,
                 item::getStrokeColorInt, item::setStrokeColorInt);
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 24, 0xFFFFFFFF,
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 40, 0xFFFFFFFF,
                 item::getGlowRadiusPx, item::setGlowRadiusPx,
                 item::getGlowColorInt, item::setGlowColorInt);
         // ⚠ SHADOW IS NOT "0 = off": both renderers read `radius > 0 ? radius : fontPx * 0.10f`
         // and the colour defaults to opaque, so a text box ALWAYS has a shadow and 0 means the
         // 10%-of-font default. The only way to actually remove it is a transparent colour, which
         // is why this row's swatch strip carries the "none" chip.
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_shadow, 24, 0xCC000000,
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_shadow, 40, 0xCC000000,
                 item::getShadowRadiusPx, item::setShadowRadiusPx,
                 item::getShadowColorInt, item::setShadowColorInt);
 
@@ -20613,7 +20613,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.SeekBar bar = new android.widget.SeekBar(this);
         bar.setMax(maxPx);
         bar.setProgress(Math.round(Math.max(0f, Math.min(maxPx, getSize.get()))));
-        label.setText(getString(labelRes) + "  ·  " + bar.getProgress() + "px");
+        label.setText(getString(labelRes) + "  ·  " + bar.getProgress() + "%");
         bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean u) {
                 setSize.accept((float) p);
@@ -20625,7 +20625,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     setColor.accept(defaultColor);
                     refreshSwatchRings.run();
                 }
-                label.setText(getString(labelRes) + "  ·  " + p + "px");
+                label.setText(getString(labelRes) + "  ·  " + p + "%");
                 refreshOverlayPreview();
             }
             @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}

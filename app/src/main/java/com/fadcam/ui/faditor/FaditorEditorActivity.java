@@ -12574,6 +12574,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 positionChanged ? () -> o.restoreTransform(before) : null,
                                 trackChange));
                     }
+                    // ⚠ THE ANCHOR ATTACH. Without a call here the whole M11 feature is inert:
+                    // hostClipId stays null forever, applyAnchorShift `continue`s on its first
+                    // line, and an overlay never travels with its clip no matter how many harness
+                    // checks pass. A move or a trim is precisely when an overlay's host changes,
+                    // so re-resolve it here. (Adversarial review 2026-08-03 — the feature was
+                    // "proved" only in the harness.)
+                    project.getTimeline().attachOverlayToHostUnderStart(o);
                     if (overlayLayer != null) {
                         setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                         overlayLayer.rebuild();
@@ -16530,6 +16537,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // lane, creating a new lane if every existing one is occupied.
         assignTextOverlayToFreeLane(item);
         project.getTimeline().addTextOverlay(item);
+        // Anchor it to whatever master clip it was born over, so it travels with that clip from
+        // the moment it exists. Deliberately here and NOT inside Timeline.addTextOverlay, which
+        // the DESERIALIZER also calls — attaching there would overwrite every persisted anchor
+        // on load.
+        project.getTimeline().attachOverlayToHostUnderStart(item);
         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                 overlayLayerCallback());
         syncTimelineOverlays();

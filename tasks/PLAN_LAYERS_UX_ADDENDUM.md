@@ -134,6 +134,61 @@ Do **NOT** add `MASTER` to `TrackKind.isLane()` — that whitelist is a delibera
 Use a separate narrow predicate. Text/sticker/sprite drops are REFUSED WITH A VISIBLE REASON, never
 silently ignored.
 
+### 3A.5b THE DISLODGE GESTURE — BINDING (JoyRaptor, 2026-08-04)
+
+JoyRaptor's scheme, with one amendment he was asked about but was asleep for; the amendment is
+flagged as reversible.
+
+**HOLD ARMS, VERTICAL COMMITS.**
+- **Hold** on a master clip ARMS the dislodge and shows it: the clip lifts/glows, with the haptic
+  that already fires. Hold alone changes nothing.
+- **A vertical move while armed** dislodges the clip from the spine.
+- **Horizontal movement is navigation** and must never be interrupted — scrub, pan, precision
+  positioning. This is the whole point of the scheme.
+- **Release while armed WITHOUT moving vertically → the reorder dialog** (⚠ AMENDMENT — JoyRaptor
+  proposed moving reorder to double-tap and freeing hold entirely; kept on hold-release as well
+  because long-press is the more discoverable of the two and he has previously said the reorder
+  window "has nice things that get lost". **Double-tap remains a fast path to the same dialog.**
+  Reversible: if hold-release doing nothing is preferred for unambiguity, delete that branch.)
+
+**THE PROBLEM IT SOLVES, in his words:** *"sometimes people might leave their finger for a little
+bit while thinking or trying to make precision horizontal moves. So we don't want that to be
+interrupted."* This is real and CURRENTLY BROKEN: `EditorTimelineView.longPressRunnable` fires on
+a plain timer guarded only by `activeDrag == NONE` — it requires neither stillness nor intent, so
+a thinking pause drops you into reorder mode today.
+
+**IT UNIFIES THE TWO DIALECTS.** Layer items already work this way (horizontal-dominant → scrub,
+vertical-dominant → row action, pickup → move). Applying it to the spine makes the timeline speak
+one language, which is §3A.7's back-propagation arriving early.
+
+**CONFLICTS, ALL RESOLVED OR NAMED:**
+1. **Double-tap costs every tap a delay.** A tap on the timeline SEEKS, so a double-tap seeks twice
+   before opening the dialog. Swallowing the first tap for the double-tap window (~250ms) fixes the
+   jump but makes every precision scrub that much laggier. **This is why hold-release keeps the
+   dialog** — the fast path can stay unswallowed and simply seek-then-open, since anyone using it
+   has learned it.
+2. **A9's tug-of-war.** Making vertical the PRIMARY signal means the diagonal pull JoyRaptor reported
+   on 2026-07-04 stops being an annoyance and becomes the thing that breaks the feature.
+   **Already implemented for layer items** (`LayerGestureController:803-838`: full magnet
+   suppression in the time-lock, plus re-engage rule (b)). The spine path must inherit it — see
+   the implementation note below, which is how it does so for free.
+3. **"Hold" now means two things.** Hold BEFORE a drag = arm the dislodge; hold DURING a drag over
+   a clip = arm the split (§3A.2). Different phases, never simultaneous. Written down so nobody
+   later "unifies" them into one behaviour.
+
+**IMPLEMENTATION NOTE — the cheap way, and the reason it is also the correct one.** Do NOT build a
+second drag engine for the spine. Once a clip is dislodged it should become an ORDINARY picked-up
+layer item, so it inherits, at no cost: A9's magnet suppression, the WYSIWYG drop preview, edge
+auto-pan (A1), minimap drag-nav (A2), the no-overlap resolver, and the one-undo-step merge. The
+only genuinely new code is the ARM state, its visual, and the vertical-threshold test that hands
+the in-flight gesture over.
+
+**Sequencing:** the hand-over of an IN-FLIGHT touch from the spine's touch machine to
+`LayerGestureController` is the risky part and is worth doing as its own slice. A discrete
+first version — vertical move demotes the clip to the lane above at its current time, then the
+user drags it normally as a second gesture — delivers the capability and is testable by tapping,
+which the continuous version is not.
+
 ### 3A.6 Build order — the testable thing arrives at step 2
 1. **Model ops + JVM harness.** promote/demote pair, spine repair, transition snapshot, gapless
    resync, one undo step. No UI, no split. Correctness is bought here because it is cheapest here.

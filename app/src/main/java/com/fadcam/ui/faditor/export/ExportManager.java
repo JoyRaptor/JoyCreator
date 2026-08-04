@@ -1218,6 +1218,18 @@ public class ExportManager {
             }
             return all;
         }
+        // ⚠ KNOWN LIMIT — this is a MODEL of the composition cursor, not the cursor itself.
+        // It sums transitions, but the cursor is also compressed by DEGENERATE items that get
+        // skipped without advancing it (a main body or transition item shorter than
+        // MIN_EXPORT_SEGMENT_MS, :980-988 and :1004-1011). Every clip after such a skip drifts by
+        // the un-modelled residual — bounded at 40ms per occurrence, so small, but real.
+        //
+        // EXACT FIX, when someone wants it: have buildComposition accumulate the true dropped
+        // content as it emits (cursor delta per clip) and pass THAT in. Note this function already
+        // takes compressedStartMs and never uses it — that parameter is the hook. Do not be
+        // tempted by (editorStart - compressedStart); see immediately below for why that is zero
+        // exactly where it matters.
+        //
         // ⚠ NOT (editorStart - compressedStart). Measured on device 2026-08-03: for the clip
         // immediately AFTER a seam those two are EQUAL (both 3200 in the fixture), because a
         // transition does not push that clip later — it consumes 600ms off its HEAD by advancing

@@ -4265,10 +4265,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void reanchorOrphans(@NonNull java.util.List<String> ids) {
         if (project == null) return;
         Timeline tl = project.getTimeline();
+        // Capture the PRIOR anchors so this is undoable. Without it, undoing the clip deletion
+        // afterwards brought the clip back while its riders stayed anchored to a DIFFERENT clip,
+        // and every later structural edit then moved them by the wrong delta — a silent, growing
+        // wrongness from a button labelled "keep them".
+        final java.util.Map<String, String> beforeHost = new java.util.HashMap<>();
+        final java.util.Map<String, Long> beforeOff = new java.util.HashMap<>();
+        final java.util.Map<String, String> afterHost = new java.util.HashMap<>();
+        final java.util.Map<String, Long> afterOff = new java.util.HashMap<>();
         for (TextOverlayItem o : tl.getTextOverlays()) {
-            if (ids.contains(o.getId())) tl.attachOverlayToHostUnderStart(o);
+            if (!ids.contains(o.getId())) continue;
+            beforeHost.put(o.getId(), o.getHostClipId());
+            beforeOff.put(o.getId(), o.getHostOffsetMs());
+            tl.attachOverlayToHostUnderStart(o);
+            afterHost.put(o.getId(), o.getHostClipId());
+            afterOff.put(o.getId(), o.getHostOffsetMs());
         }
+        if (afterHost.isEmpty()) return;
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_orphan_keep),
+                () -> applyAnchors(tl, afterHost, afterOff),
+                () -> applyAnchors(tl, beforeHost, beforeOff)));
         saveProjectNow();
+    }
+
+    private void applyAnchors(@NonNull Timeline tl,
+                              @NonNull java.util.Map<String, String> host,
+                              @NonNull java.util.Map<String, Long> off) {
+        for (TextOverlayItem o : tl.getTextOverlays()) {
+            if (!host.containsKey(o.getId())) continue;
+            Long v = off.get(o.getId());
+            o.setHostAnchor(host.get(o.getId()), v == null ? 0L : v);
+        }
     }
 
     /** Delete orphans, as ONE undo step alongside nothing else — the user asked for exactly this. */
@@ -20409,7 +20437,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(buildOverlayDecorationControls(item));
         root.addView(buildOverlayAnimationControls(item));
 
-        textEditorDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        androidx.appcompat.app.AlertDialog textEditorDialog =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_text_edit_title)
                 .setView(root)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
@@ -20491,9 +20520,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         textEditorDialog.show();
     }
 
-    /** True once an explicit dialog button handled the text editor's outcome. */
+    /**
+     * True once an explicit dialog button handled the text editor's outcome.
+     *
+     * <p>NOTE on what the dismiss listener does and does NOT cover: BACK and outside-tap, yes.
+     * ROTATION, no — this activity declares orientation in {@code android:configChanges}, so it is
+     * never recreated for a rotation and the listener simply does not fire. An earlier comment
+     * here claimed rotation was covered; it was wrong in both directions and this path is
+     * load-bearing for a destructive revert, so the correction stays visible.</p>
+     */
     private boolean decorCommitted;
-    private androidx.appcompat.app.AlertDialog textEditorDialog;
 
     /**
      * Build the keyframe-animation controls for an overlay: add a keyframe at the

@@ -51,7 +51,10 @@ public final class ImageMime {
             int got = 0;
             while (got < h.length) {
                 int n = in.read(h, got, h.length - got);
-                if (n < 0) break;
+                // n < 0 is EOF. n == 0 is contractually impossible for len > 0, but a
+                // misbehaving ContentProvider pipe can return it, and treating that as
+                // "keep asking" is an infinite loop. Bail on anything non-positive.
+                if (n <= 0) break;
                 got += n;
             }
             if (got < 12) return MimeTypes.IMAGE_JPEG;

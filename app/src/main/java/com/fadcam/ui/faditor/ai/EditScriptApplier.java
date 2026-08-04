@@ -736,6 +736,7 @@ public class EditScriptApplier {
         String idB = getParamString(op, "secondClipId");
         if (idB == null) idB = UUID.randomUUID().toString();
 
+        String originalId = original.getId();
         Clip[] parts = splitClip(original, at, idA, idB);
         tl.removeClip(index);
         tl.addClip(index, parts[1]);
@@ -743,6 +744,9 @@ public class EditScriptApplier {
         // The seam that sat after the original now sits after part B — push it (and
         // any later seam) right by one. The new A|B seam carries no transition.
         tl.shiftTransitionsAfterSplit(index);
+        // Both halves carry FRESH ids, so every layer object anchored to the original would be
+        // orphaned. Timeline.splitAt guards this internally; this hand-rolled split has to ask.
+        tl.reanchorAfterManualSplit(originalId, index);
         lastGeneratedClipId = parts[0].getId();
     }
 
@@ -963,6 +967,7 @@ public class EditScriptApplier {
         Clip brollClip = new Clip(span.getId(), broll, 0, brollOut, brollSourceDur,
                 1.0f, true, 1.0f, 0, false, false, "none", 0f, 0f, 1f, 1f);
 
+        String cutawayOriginalId = tl.getClip(clipIndex).getId();
         tl.removeClip(clipIndex);
         tl.addClip(clipIndex, after);
         tl.addClip(clipIndex, brollClip);
@@ -970,6 +975,9 @@ public class EditScriptApplier {
         // Two clips were inserted after the original's position → push later seams by 2.
         tl.shiftTransitionsAfterSplit(clipIndex);
         tl.shiftTransitionsAfterSplit(clipIndex);
+        // Same fresh-id orphaning as the plain split: riders anchored to the original clip must
+        // re-home, here onto the BEFORE/b-roll pair that now occupies its time.
+        tl.reanchorAfterManualSplit(cutawayOriginalId, clipIndex);
 
         tl.addAudioClip(narration);
         lastGeneratedClipId = brollClip.getId();

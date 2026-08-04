@@ -418,6 +418,16 @@ public class Timeline {
      * <p>A rider re-homes to whichever half its own START falls in, under the same half-open rule
      * everything else uses, and its offset is recaptured against that half.</p>
      */
+    /**
+     * Public form, for split implementations that build the halves by hand instead of calling
+     * {@link #splitAt} — {@code EditScriptApplier} has two of them (plain split and b-roll
+     * cutaway). Without this they mint fresh UUIDs and silently orphan every rider on the clip,
+     * which is the same defect {@code splitAt} already guards against.
+     */
+    public void reanchorAfterManualSplit(@NonNull String originalId, int indexA) {
+        reanchorAfterSplit(originalId, indexA);
+    }
+
     private void reanchorAfterSplit(@NonNull String originalId, int indexA) {
         if (indexA < 0 || indexA + 1 >= clips.size()) return;
         for (TextOverlayItem o : textOverlays) {

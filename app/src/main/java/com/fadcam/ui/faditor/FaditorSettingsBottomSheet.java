@@ -174,12 +174,56 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                     dismiss();
                 });
 
+        // §4A: what happens to layer objects anchored to a clip you delete. A BUTTON row opening a
+        // three-choice dialog rather than a new tri-state widget — addButtonRow already exists,
+        // and a bespoke control for one preference is bloat.
+        addButtonRow(content, dp,
+                getString(R.string.faditor_settings_orphan_title),
+                getString(R.string.faditor_settings_orphan_desc,
+                        orphanPolicyLabel(prefs.getFaditorOrphanAnchorPolicy())),
+                () -> showOrphanPolicyChooser(prefs));
+
         // NOTE (v2): the old "Tool order" manual/recent switch was removed. The
         // carousel now uses the divider model — pinned home row left of the
         // divider (manual order), usage-sorted right of it — controlled directly
         // by drag-and-drop in the carousel's edit mode.
 
         return root;
+    }
+
+    /** Human label for a stored orphan-anchor policy value. */
+    @NonNull
+    private String orphanPolicyLabel(@NonNull String policy) {
+        switch (policy) {
+            case "reanchor": return getString(R.string.faditor_orphan_keep);
+            case "delete":   return getString(R.string.faditor_orphan_delete);
+            default:         return getString(R.string.faditor_settings_orphan_ask);
+        }
+    }
+
+    /**
+     * Three-choice picker for the orphan-anchor policy. "Always ask" is offered explicitly so a
+     * remembered choice can be UNDONE — a "remember my preference" checkbox that cannot be
+     * un-remembered is a trap, which is the whole reason this row exists.
+     */
+    private void showOrphanPolicyChooser(@NonNull com.fadcam.SharedPreferencesManager prefs) {
+        final String[] values = {"ask", "reanchor", "delete"};
+        String[] labels = new String[values.length];
+        int current = 0;
+        String cur = prefs.getFaditorOrphanAnchorPolicy();
+        for (int i = 0; i < values.length; i++) {
+            labels[i] = orphanPolicyLabel(values[i]);
+            if (values[i].equals(cur)) current = i;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.faditor_settings_orphan_title)
+                .setSingleChoiceItems(labels, current, (d, which) -> {
+                    prefs.setFaditorOrphanAnchorPolicy(values[which]);
+                    d.dismiss();
+                    dismiss();   // reopen shows the updated summary line
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /** Simple callback for a row's switch toggling. */

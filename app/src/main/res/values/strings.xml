@@ -3264,4 +3264,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_orphan_remember">Remember my choice</string>
     <string name="faditor_orphan_undo">Delete layer objects</string>
     <string name="faditor_orphan_removed">Removed %1$d layer object(s)</string>
+    <string name="faditor_settings_orphan_title">Objects on a deleted clip</string>
+    <string name="faditor_settings_orphan_desc">What happens to layer objects when you delete the clip they sit on. Currently: %1$s</string>
+    <string name="faditor_settings_orphan_ask">Always ask</string>
 </resources>

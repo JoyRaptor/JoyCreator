@@ -1683,7 +1683,8 @@ public class ExportManager {
                 clip, project, timelineCursorMs, outW, outH,
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
-                /* preOverlayExtra = */ null);
+                /* preOverlayExtra = */ null,
+                /* isLoopBeforeItem = */ isBefore);
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             eb.setEffects(new Effects(audioProcessors, videoEffects));
@@ -1736,7 +1737,8 @@ public class ExportManager {
                 clip, project, timelineCursorMs, outW, outH,
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
-                /* preOverlayExtra = */ null);
+                /* preOverlayExtra = */ null,
+                /* isLoopBeforeItem = */ isBefore);
 
         if (!videoEffects.isEmpty()) {
             eb.setEffects(new Effects(Collections.emptyList(), videoEffects));
@@ -2419,6 +2421,28 @@ public class ExportManager {
                                                   @NonNull List<CompositeExportOverlay.WaveformSlot> allWaveformSlots,
                                                   boolean isTransitionItem,
                                                   @Nullable Effect preOverlayExtra) {
+        return assembleClipVideoEffects(clip, project, timelineCursorMs, outW, outH, canvasDims,
+                allWaveformSlots, isTransitionItem, preOverlayExtra,
+                /* isLoopBeforeItem = */ false);
+    }
+
+    /**
+     * @param isLoopBeforeItem true for a loop-BEFORE extension, which is emitted AHEAD of the
+     *        head-trimmed main item and is itself untrimmed. Its content therefore has NOT had
+     *        this clip's head transition taken out of it, so it must carry one term less of the
+     *        §2d correction than the main item does — otherwise overlays over a loop-before
+     *        extension on a post-seam clip render early by that transition. (Adversarial review
+     *        2026-08-03.)
+     */
+    private List<Effect> assembleClipVideoEffects(@NonNull Clip clip,
+                                                  @NonNull FaditorProject project,
+                                                  long timelineCursorMs,
+                                                  int outW, int outH,
+                                                  @Nullable int[] canvasDims,
+                                                  @NonNull List<CompositeExportOverlay.WaveformSlot> allWaveformSlots,
+                                                  boolean isTransitionItem,
+                                                  @Nullable Effect preOverlayExtra,
+                                                  boolean isLoopBeforeItem) {
         List<Effect> videoEffects = new ArrayList<>();
         boolean isVideo = !clip.isImageClip();
 
@@ -2632,8 +2656,10 @@ public class ExportManager {
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(),
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs),
-                        headTransitionMsFor(project.getTimeline(), clip));
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                                - (isLoopBeforeItem
+                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
+                        isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
                 videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
             }
             // Shared with the preview and with the overlay-audio sequence, so a matte peer
@@ -2650,7 +2676,9 @@ public class ExportManager {
                     }
                 }
                 videoEffects.add(new BlendModeGlEffect(context, oc, matte,
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)));
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                                - (isLoopBeforeItem
+                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
             }
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
@@ -2669,8 +2697,10 @@ public class ExportManager {
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(),
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs),
-                        headTransitionMsFor(project.getTimeline(), clip));
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                                - (isLoopBeforeItem
+                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
+                        isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

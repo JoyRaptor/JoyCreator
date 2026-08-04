@@ -4046,6 +4046,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         final Clip moving = timeline.getClip(idx);
 
+        // ⚠ demoteToLayer runs removeTransitionsForDeletedClip, which is DESTRUCTIVE and
+        // renumbers in place — re-inserting the clip does NOT undo it. Snapshot first, exactly as
+        // DeleteClipAction does, or undo silently loses the dissolves on both seams.
+        final java.util.List<com.fadcam.ui.faditor.model.Transition> transBefore =
+                timeline.snapshotTransitions();
+        final boolean prevHidden = moving.isHiddenObject();
+        final boolean prevLocked = moving.isLockedObject();
+        final boolean prevAudio = moving.isOverlayAudioEnabled();
+
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         Clip demoted = timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID);
         if (demoted == null) return;
@@ -4054,8 +4063,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final long landedAt = demoted.getOverlayStartMs();
         undoManager.recordAction(new EditActions.LambdaAction(
                 getString(R.string.faditor_m12_undo_to_layer),
-                () -> { timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID); },
-                () -> { timeline.promoteToMaster(moving, idx); }));
+                () -> {
+                    timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID);
+                    afterSpineLayerMove(0L);
+                },
+                () -> {
+                    timeline.promoteToMaster(moving, idx);
+                    // promoteToMaster clears these by design; the ORIGINAL values are what undo
+                    // owes the user, not the cleared ones.
+                    moving.setHiddenObject(prevHidden);
+                    moving.setLockedObject(prevLocked);
+                    moving.setOverlayAudioEnabled(prevAudio);
+                    timeline.restoreTransitions(transBefore);
+                    afterSpineLayerMove(0L);
+                }));
 
         selectSegment(Math.min(idx, timeline.getClipCount() - 1));
         afterSpineLayerMove(landedAt);
@@ -4092,14 +4113,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int hostIdx = timeline.hostIndexForTime(wasAt);
         final int insertAt = hostIdx < 0 ? timeline.getClipCount() : hostIdx;
 
+        // Everything promoteToMaster clears or overwrites has to be captured, or undo returns a
+        // DIFFERENT object: wrong lane, wrong time, and audibly unmuted.
+        final String prevLayerId = promoting.getLayerId();
+        final boolean prevHidden = promoting.isHiddenObject();
+        final boolean prevLocked = promoting.isLockedObject();
+        final boolean prevAudio = promoting.isOverlayAudioEnabled();
+        final java.util.List<com.fadcam.ui.faditor.model.Transition> transBefore =
+                timeline.snapshotTransitions();
+
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         if (!timeline.promoteToMaster(promoting, insertAt)) return;
         endStructuralEdit(anchorsBefore, "promoteToMaster");
 
         undoManager.recordAction(new EditActions.LambdaAction(
                 getString(R.string.faditor_m12_undo_to_main),
-                () -> { timeline.promoteToMaster(promoting, insertAt); },
-                () -> { timeline.demoteToLayer(insertAt, M12_DEFAULT_LAYER_ID); }));
+                () -> {
+                    timeline.promoteToMaster(promoting, insertAt);
+                    afterSpineLayerMove(0L);
+                },
+                () -> {
+                    // NOT demoteToLayer(insertAt, …): that demotes whatever now sits at the
+                    // index, to the DEFAULT lane, at the SPINE's start time — three ways to
+                    // return the wrong object. Restore the captured state instead.
+                    if (timeline.getClips().contains(promoting)) {
+                        timeline.removeClip(promoting);
+                    }
+                    promoting.setLayerId(prevLayerId != null ? prevLayerId : M12_DEFAULT_LAYER_ID);
+                    promoting.setOverlayStartMs(wasAt);
+                    promoting.setHiddenObject(prevHidden);
+                    promoting.setLockedObject(prevLocked);
+                    promoting.setOverlayAudioEnabled(prevAudio);
+                    timeline.addOverlayClip(promoting);
+                    timeline.restoreTransitions(transBefore);
+                    afterSpineLayerMove(0L);
+                }));
 
         selectSegment(insertAt);
         afterSpineLayerMove(timeline.getClipStartMs(insertAt));
@@ -4111,10 +4159,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * playlist, the layer rows and the persisted project all need to catch up.
      */
     private void afterSpineLayerMove(long homeMs) {
-        Clip home = selectedClipIndex >= 0 && project != null
+        if (project == null) return;
+        Clip home = selectedClipIndex >= 0
                 && selectedClipIndex < project.getTimeline().getClipCount()
                 ? project.getTimeline().getClip(selectedClipIndex) : null;
-        resyncGaplessAfterStructuralEdit(home != null ? home.getId() : null, 0L, false);
+        // homeMs is where the move landed; pass it through as the clip-local resume position so
+        // the playhead follows the clip instead of snapping to its head. (It was computed at both
+        // call sites and then discarded — adversarial review 2026-08-03.)
+        long localMs = 0L;
+        if (home != null && selectedClipIndex >= 0) {
+            localMs = Math.max(0L,
+                    homeMs - project.getTimeline().getClipStartMs(selectedClipIndex));
+        }
+        resyncGaplessAfterStructuralEdit(home != null ? home.getId() : null, localMs, false);
         syncTimelineOverlays();
         if (editorTimeline != null) {
             editorTimeline.setTransitions(project.getTimeline().getTransitions());
@@ -11028,6 +11085,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         Clip clip = getSelectedClip();
         if (clip == null) return;
+
+        // ⚠ An undo can change master-clip MEMBERSHIP (M12's spine⇄layer move is the first
+        // action that does so through a bare LambdaAction), which leaves the gapless playlist
+        // describing the pre-undo clip order — the 2026-07-18 seam bug, reached from the other
+        // side. The forward paths all resync; undo/redo did not. (Adversarial review 2026-08-03.)
+        resyncGaplessAfterStructuralEdit(clip.getId(), 0L, false);
 
         // Rebuild timeline view completely (handles both action and snapshot changes)
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
@@ -19099,6 +19162,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 c.getCompositing() != null ? c.getCompositing()
                         : new com.fadcam.ui.faditor.model.CompositingSpec();
         // Snapshot for Cancel — these controls write live so the preview can be trusted.
+        final boolean hadSpec = c.getCompositing() != null;
         final String before = spec.toJson().toString();
 
         float density = getResources().getDisplayMetrics().density;
@@ -19147,28 +19211,110 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.addView(root);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        // Restoring the EXACT prior state, including "there was no spec at all". fromJson is
+        // @NonNull, so a naive restore would leave a non-null empty spec behind and quietly break
+        // the "compositing != null means the user configured something" reading.
+        final Runnable revert = () -> {
+            if (!hadSpec) {
+                c.setCompositing(null);
+            } else {
+                c.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
+                        com.google.gson.JsonParser.parseString(before).getAsJsonObject()));
+            }
+            if (overlayVideoLayer != null) overlayVideoLayer.invalidate();
+            if (editorTimeline != null) editorTimeline.invalidate();
+        };
+        final boolean[] committed = {false};
+
+        androidx.appcompat.app.AlertDialog dlg =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_mask_title)
                 .setView(scroll)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
-                    c.setCompositing(spec.isEmpty() ? null : spec);
+                    committed[0] = true;
+                    final com.fadcam.ui.faditor.model.CompositingSpec after =
+                            spec.isEmpty() ? null : spec;
+                    c.setCompositing(after);
+                    // Mask edits were entirely unundoable — the surrounding code records undo for
+                    // far smaller things. One step, restoring the whole spec either way.
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.faditor_mask_title),
+                            () -> { c.setCompositing(after);
+                                    if (overlayVideoLayer != null) overlayVideoLayer.invalidate(); },
+                            () -> { revert.run(); }));
                     scheduleAutoSave();
                 })
                 .setNeutralButton(R.string.faditor_mask_remove, (d, w) -> {
-                    spec.masks.clear();
-                    spec.maskFeather = 0f;
-                    spec.invertMasks = false;
-                    c.setCompositing(spec.isEmpty() ? null : spec);
+                    committed[0] = true;
+                    c.setCompositing(null);
                     if (overlayVideoLayer != null) overlayVideoLayer.invalidate();
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.faditor_mask_remove),
+                            () -> { c.setCompositing(null);
+                                    if (overlayVideoLayer != null) overlayVideoLayer.invalidate(); },
+                            () -> { revert.run(); }));
                     scheduleAutoSave();
                 })
-                .setNegativeButton(android.R.string.cancel, (d, w) -> {
-                    // Live-written, so Cancel must put the whole spec back.
-                    c.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
-                            com.google.gson.JsonParser.parseString(before).getAsJsonObject()));
-                    if (overlayVideoLayer != null) overlayVideoLayer.invalidate();
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        // ⚠ THE IMPORTANT LINE. These controls write live so the preview can be trusted, and the
+        // dialog seeds a default box on open — so WITHOUT this, merely opening the menu item and
+        // pressing BACK (or tapping outside, or rotating the device) left a 30%x20% hole punched
+        // in the user's PiP, persisted by the next autosave. A destructive edit triggered by
+        // looking. Dismissal of ANY kind now reverts unless a button committed.
+        dlg.setOnDismissListener(d -> { if (!committed[0]) revert.run(); });
+        dlg.show();
+    }
+
+    /**
+     * Blend-mode picker for a PiP (access-point audit item 2).
+     *
+     * <p>{@code BlendModeGlEffect} has rendered MULTIPLY/SCREEN/OVERLAY/ADD in the export for some
+     * time; the only writer of {@code Clip.setOverlayBlendMode} was the deserializer, so the modes
+     * were unreachable. A single-choice list, one undo step.</p>
+     *
+     * <p><b>The preview composites NORMAL only</b> — that is a documented, long-standing tradeoff
+     * (PLAN_LAYERS_V2 M-COMP-2: the preview layers a TextureView rather than running a GL
+     * compositor, and blend-mode preview is the one thing that would force that rewrite). The
+     * chosen mode is therefore labelled as applying on export, so the user is told rather than
+     * left wondering why the preview does not change.</p>
+     */
+    private void showBlendModeDialog(@NonNull Clip c) {
+        final com.fadcam.ui.faditor.layers.BlendMode[] modes =
+                com.fadcam.ui.faditor.layers.BlendMode.values();
+        String[] labels = new String[modes.length];
+        int current = 0;
+        String cur = c.getOverlayBlendMode();
+        for (int i = 0; i < modes.length; i++) {
+            labels[i] = getString(blendLabelRes(modes[i]));
+            if (modes[i].name().equals(cur)) current = i;
+        }
+        final String before = cur;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.faditor_blend_title)
+                .setMessage(R.string.faditor_blend_export_note)
+                .setSingleChoiceItems(labels, current, (d, which) -> {
+                    final String after = modes[which].name();
+                    c.setOverlayBlendMode(after);
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.faditor_blend_title),
+                            () -> c.setOverlayBlendMode(after),
+                            () -> c.setOverlayBlendMode(before)));
+                    scheduleAutoSave();
+                    d.dismiss();
                 })
+                .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    private int blendLabelRes(@NonNull com.fadcam.ui.faditor.layers.BlendMode m) {
+        switch (m) {
+            case MULTIPLY: return R.string.faditor_blend_multiply;
+            case SCREEN:   return R.string.faditor_blend_screen;
+            case OVERLAY:  return R.string.faditor_blend_overlay;
+            case ADD:      return R.string.faditor_blend_add;
+            default:       return R.string.faditor_blend_normal;
+        }
     }
 
     /** One labelled 0..max slider row for the mask dialog. */
@@ -19231,6 +19377,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // writer, i.e. reachable solely by hand-editing project.json.
         actions.add(new ObjectMenuSheet.Action(getString(R.string.faditor_mask_action), false,
                 () -> showMaskDialog(c)));
+        // Blend modes: BlendModeGlEffect renders MULTIPLY/SCREEN/OVERLAY/ADD in the export today;
+        // setOverlayBlendMode had no caller but the deserializer (access-point audit).
+        actions.add(new ObjectMenuSheet.Action(getString(R.string.faditor_blend_action), false,
+                () -> showBlendModeDialog(c)));
         actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
                 () -> clearAllPipKeyframes(c)));
 
@@ -20131,7 +20281,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(buildOverlayDecorationControls(item));
         root.addView(buildOverlayAnimationControls(item));
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        textEditorDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_text_edit_title)
                 .setView(root)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
@@ -20145,6 +20295,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         scheduleAutoSave();
                         return;
                     }
+                    decorCommitted = true;
                     item.setText(txt);
                     item.setColorInt(chosen[0]);
                     item.setFontFamily(chosenFont[0]);
@@ -20180,7 +20331,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setNegativeButton(android.R.string.cancel, (d, w) -> {
                     // Decoration controls write the model LIVE (so the sliders can be tuned
                     // against the preview), so Cancel has to put them back or it silently keeps
-                    // half the dialog's edits.
+                    // half the dialog's edits. NOTE: the button is not the only way out — see the
+                    // setOnDismissListener below, which covers BACK, outside-tap and rotation.
                     restoreDecoration(item);
                     // Clean up a never-filled placeholder so it can't get stuck.
                     String cur = item.getText();
@@ -20192,9 +20344,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         syncTimelineOverlays();
                         scheduleAutoSave();
                     }
+                    decorCommitted = true;   // handled; the dismiss listener must not re-revert
                 })
-                .show();
+                .create();
+        // Any non-button dismissal (BACK, tap outside, rotation) previously KEPT every live
+        // decoration write while skipping the placeholder cleanup — Cancel was only honest if
+        // the user happened to press the button. Adversarial review 2026-08-03.
+        decorCommitted = false;
+        textEditorDialog.setOnDismissListener(d -> {
+            if (!decorCommitted) restoreDecoration(item);
+            decorSnapshotSizes = null;   // never let a stale snapshot become the next "original"
+            decorSnapshotColors = null;
+        });
+        textEditorDialog.show();
     }
+
+    /** True once an explicit dialog button handled the text editor's outcome. */
+    private boolean decorCommitted;
+    private androidx.appcompat.app.AlertDialog textEditorDialog;
 
     /**
      * Build the keyframe-animation controls for an overlay: add a keyframe at the
@@ -20268,13 +20435,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // One row = a label, a swatch strip that sets the colour, and a 0..N slider for size.
         // "Off" is size 0 rather than a separate toggle: one control, one mental model, and it
         // matches how the renderers already gate each effect (radius/width > 0).
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_stroke, 12,
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_stroke, 12, 0xFF000000,
                 item::getStrokeWidthPx, item::setStrokeWidthPx,
                 item::getStrokeColorInt, item::setStrokeColorInt);
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 24,
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 24, 0xFFFFFFFF,
                 item::getGlowRadiusPx, item::setGlowRadiusPx,
                 item::getGlowColorInt, item::setGlowColorInt);
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_shadow, 24,
+        // ⚠ SHADOW IS NOT "0 = off": both renderers read `radius > 0 ? radius : fontPx * 0.10f`
+        // and the colour defaults to opaque, so a text box ALWAYS has a shadow and 0 means the
+        // 10%-of-font default. The only way to actually remove it is a transparent colour, which
+        // is why this row's swatch strip carries the "none" chip.
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_shadow, 24, 0xCC000000,
                 item::getShadowRadiusPx, item::setShadowRadiusPx,
                 item::getShadowColorInt, item::setShadowColorInt);
 
@@ -20296,11 +20467,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** One decoration row: swatch strip + a size slider whose 0 means "off". */
     private void addDecorRow(@NonNull android.widget.LinearLayout parent,
                              @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
-                             int gap, int labelRes, int maxPx,
+                             int gap, int labelRes, int maxPx, int defaultColor,
                              @NonNull java.util.function.Supplier<Float> getSize,
                              @NonNull java.util.function.Consumer<Float> setSize,
                              @NonNull java.util.function.Supplier<Integer> getColor,
                              @NonNull java.util.function.Consumer<Integer> setColor) {
+        final Runnable[] ringRefresh = {() -> {}};
+        final Runnable refreshSwatchRings = () -> ringRefresh[0].run();
         TextView label = new TextView(this);
         label.setTextColor(0xFFAAAAAA);
         label.setTextSize(12);
@@ -20314,6 +20487,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean u) {
                 setSize.accept((float) p);
+                // ⚠ Both renderers gate on radius AND colour, and stroke/glow default to
+                // TRANSPARENT — so dragging the slider on a fresh overlay changed nothing at all
+                // and the control read as broken. Give it a visible colour the moment it is
+                // turned on, so the slider always does something.
+                if (p > 0 && getColor.get() == android.graphics.Color.TRANSPARENT) {
+                    setColor.accept(defaultColor);
+                    refreshSwatchRings.run();
+                }
                 label.setText(getString(labelRes) + "  ·  " + p + "px");
                 refreshOverlayPreview();
             }
@@ -20321,10 +20502,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void onStopTrackingTouch(android.widget.SeekBar s) { scheduleAutoSave(); }
         });
         parent.addView(bar);
-        parent.addView(buildSwatchStrip(gap, getColor, c -> {
+        View strip = buildSwatchStrip(gap, getColor, c -> {
             setColor.accept(c);
             refreshOverlayPreview();
-        }, false));
+        }, true);
+        ringRefresh[0] = () -> restyleSwatchRings(strip, getColor.get());
+        parent.addView(strip);
+    }
+
+    /** Re-mark the selected chip after the model's colour changed from outside the strip. */
+    private void restyleSwatchRings(@NonNull View strip, int selected) {
+        if (!(strip instanceof android.widget.HorizontalScrollView)) return;
+        View inner = ((android.widget.HorizontalScrollView) strip).getChildAt(0);
+        if (!(inner instanceof android.widget.LinearLayout)) return;
+        android.widget.LinearLayout row = (android.widget.LinearLayout) inner;
+        int px = (int) getResources().getDisplayMetrics().density * 2;
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View chip = row.getChildAt(i);
+            Object tag = chip.getTag();
+            if (!(chip.getBackground() instanceof android.graphics.drawable.GradientDrawable)) continue;
+            boolean on = (tag instanceof Integer) && ((Integer) tag) == selected;
+            ((android.graphics.drawable.GradientDrawable) chip.getBackground())
+                    .setStroke(px, on ? 0xFF4CAF50 : 0xFF555555);
+        }
     }
 
     /** Horizontal colour swatches. {@code allowNone} adds a transparent "no plate" chip first. */
@@ -20360,6 +20560,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             d.setStroke((int) getResources().getDisplayMetrics().density * 2,
                     color == get.get() ? 0xFF4CAF50 : 0xFF555555);
             chip.setBackground(d);
+            chip.setTag(color);
             chip.setOnClickListener(v -> {
                 set.accept(color);
                 for (int i = 0; i < row.getChildCount(); i++) {

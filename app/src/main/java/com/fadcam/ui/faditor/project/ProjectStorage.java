@@ -1407,11 +1407,24 @@ public class ProjectStorage {
         if (comp != null && !comp.isEmpty()) {
             clipJson.add("compositing", comp.toJson());
         }
-        // ── Floating overlay-video fields (M-COMP-2) — never present on a master
-        // clip (layerId is null there), so pre-existing JSON stays byte-identical.
+        // ── Floating overlay-video fields (M-COMP-2).
+        //
+        // ⚠ These used to be gated ENTIRELY on `layerId != null`, which was safe only while a
+        // clip could never move between the spine and a layer. M12 makes that move a one-tap
+        // action, and the gate then becomes silent PERMANENT data loss: promote a keyframed PiP
+        // to the spine and the very next autosave drops its whole transform envelope, its blend
+        // mode and its audio opt-in — with no undo able to bring them back after the save.
+        // Found by adversarial review 2026-08-03.
+        //
+        // So only `layerId`/`overlayStartMs` — which genuinely mean nothing on the spine — stay
+        // gated. The rest are written whenever they hold a NON-DEFAULT value, which keeps every
+        // pre-existing project byte-identical (a master clip that never was a PiP has all
+        // defaults and still writes nothing) while making the round trip lossless.
         if (clip.getLayerId() != null) {
             clipJson.addProperty("layerId", clip.getLayerId());
             clipJson.addProperty("overlayStartMs", clip.getOverlayStartMs());
+        }
+        {
             // SPEC_PIP_AUDIO: opt-in PiP audio. Written ONLY when true so every existing
             // project's JSON (and its export) stays byte-identical; absent => false.
             if (clip.isOverlayAudioEnabled()) {
@@ -1698,6 +1711,12 @@ public class ProjectStorage {
             if (hasValue(clipObj, "overlayStartMs")) {
                 clip.setOverlayStartMs(clipObj.get("overlayStartMs").getAsLong());
             }
+        }
+        // ⚠ blend mode and the transform envelope are read OUTSIDE the layerId gate, mirroring
+        // the writer. Gating the READ as well would make the widened writer pointless: a clip
+        // promoted to the spine would persist its transform and then silently fail to load it
+        // back, which is the same data loss one save later. (Adversarial review 2026-08-03.)
+        {
             if (hasValue(clipObj, "overlayBlendMode")) {
                 clip.setOverlayBlendMode(clipObj.get("overlayBlendMode").getAsString());
             }

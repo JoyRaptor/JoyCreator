@@ -422,6 +422,13 @@ public final class LayerRowRenderer {
         return total;
     }
 
+    /**
+     * Height of a normal expanded lane row. The CARRY animation needs it so a clip lifted off the
+     * (taller) master track can shrink to lane height WHILE being dragged, instead of snapping to
+     * a new shape the instant the finger lifts.
+     */
+    public float expandedRowHeightPx() { return ROW_HEIGHT_EXPANDED_DP * density; }
+
     private float rowHeightPx(@NonNull Track t) {
         if (t.isCollapsed()) return ROW_HEIGHT_COLLAPSED_DP * density;
         if (t.getKind() == TrackKind.AUDIO) return ROW_HEIGHT_AUDIO_EXPANDED_DP * density;
@@ -785,6 +792,14 @@ public final class LayerRowRenderer {
      *  a row it is not (yet) a member of — model membership only changes at DROP. */
     @Nullable private TimedItem proxyItem;
 
+    /**
+     * The item currently riding the CARRY card. While set, no row draws its body — the card is
+     * the single representation. Null clears it.
+     */
+    public void setCarriedItemId(@Nullable String id) { this.carriedItemId = id; }
+
+    @Nullable private String carriedItemId;
+
     /** Set the lifted item whose proxy body renders on {@link #proxyRowTrackId}. */
     public void setProxyItem(@Nullable TimedItem item) { this.proxyItem = item; }
 
@@ -1079,6 +1094,12 @@ public final class LayerRowRenderer {
             // target row (proxyRowTrackId), NOT here on its source row, whenever the proxy
             // has moved to another row. On its home row (proxyRowTrackId == null or ==
             // this row) it still draws here so a same-row move tracks under the finger.
+            // CARRY: the object is riding a floating card drawn by EditorTimelineView, free of
+            // the row grid. Drawing it here too put TWO bodies on screen — the card under the
+            // finger AND the item still sitting in its lane — which is precisely the "will it
+            // stay in its original lane?" ambiguity the lift exists to remove. The passive home
+            // ghost (drawn above) still marks where it came from.
+            if (carriedItemId != null && carriedItemId.equals(item.getId())) continue;
             if (lifted && proxyRowTrackId != null && !proxyRowTrackId.equals(t.getId())) {
                 // The moving object left this row; leave only the passive home-ghost gap
                 // marker (drawn above) — do NOT draw a second copy of the item here.

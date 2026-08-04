@@ -855,6 +855,17 @@ public class EditorTimelineView extends View {
     /** Finger offset inside the clip rect at pick-up, so the card does not jump under the thumb. */
     private float carryGrabDx, carryGrabDy;
     private float carryCardW, carryCardH;
+    /**
+     * Height the card is EASING TOWARDS. The master track is taller than a lane row, so without
+     * this the clip changed shape at the instant of release — JoyRaptor: "there isn't that part that
+     * happens from one aspect ratio to another in the tape". Animating it during the hover means
+     * the drop changes nothing visually; the card is already the size of the thing it becomes.
+     */
+    private float carryTargetH;
+    /** Set when the carried object came from a LANE rather than the spine (the reverse direction). */
+    private boolean carryFromLayer;
+    private String carryLayerItemId;
+    private String carryThumbKey;
     /** Resolved destination, recomputed every move. */
     private int carryDropSeam = -1;
     private boolean carryOverLayerBand;
@@ -6949,11 +6960,16 @@ public class EditorTimelineView extends View {
         carryCardW = Math.min(r.width(), getWidth() * 0.55f);
         carryCardH = r.height();
         if (carryGrabDx > carryCardW) carryGrabDx = carryCardW * 0.5f;
+        carryTargetH = carryCardH;
+        carryFromLayer = false;
+        carryLayerItemId = null;
+        carryThumbKey = segIndex < segments.size() ? segments.get(segIndex).thumbKey : null;
         carryDropSeam = -1;
         carryOverLayerBand = false;
         getParent().requestDisallowInterceptTouchEvent(true);
         android.util.Log.d("CARRY", "begin seg=" + segIndex + " grab=" + carryGrabDx + "," + carryGrabDy
-                + " bandTop=" + masterContentTopPx() + " h=" + trackHeightPx);
+                + " bandTop=" + masterContentTopPx() + " spineH=" + trackHeightPx
+                + " laneH=" + (layerRowRenderer != null ? layerRowRenderer.expandedRowHeightPx() : -1f));
     }
 
     /** Track the finger and re-resolve where a release would put the clip. */
@@ -6965,7 +6981,15 @@ public class EditorTimelineView extends View {
         if (y >= bandTop - touchSlopPx && y <= bandBot + touchSlopPx) {
             carryOverLayerBand = false;
             carryDropSeam = getInsertIndexAtX(x);
+            carryTargetH = trackHeightPx;            // becoming a master clip: full height
         } else if (y < bandTop - touchSlopPx && y > rulerHeightPx) {
+            float want = layerRowRenderer != null
+                    ? layerRowRenderer.expandedRowHeightPx() : trackHeightPx;
+            if (want != carryTargetH) {
+                android.util.Log.d("CARRY", "targetH " + carryTargetH + " -> " + want
+                        + " (cardH now " + carryCardH + ")");
+            }
+            carryTargetH = want;
             // Above the spine and below the ruler = the layer band: this becomes a PiP.
             carryOverLayerBand = true;
             carryDropSeam = -1;
@@ -7028,12 +7052,78 @@ public class EditorTimelineView extends View {
         } else if (carryDropSeam >= 0) {
             drawCarrySeamLine(canvas, carryDropSeam);
         }
+        // Ease toward the destination's height. The grab offset is scaled with it so the finger
+        // keeps holding the SAME POINT of the clip as it shrinks — without this the card slides
+        // out from under the thumb while it resizes, which reads as the app losing your grip.
+        if (carryTargetH > 0 && Math.abs(carryCardH - carryTargetH) > 0.5f) {
+            float prevH = carryCardH;
+            carryCardH += (carryTargetH - carryCardH) * 0.25f;
+            if (prevH > 0) carryGrabDy *= carryCardH / prevH;
+            postInvalidateOnAnimation();
+        }
         float left = carryFingerX - carryGrabDx;
         float top = carryFingerY - carryGrabDy;
         RectF card = new RectF(left, top, left + carryCardW, top + carryCardH);
         canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, carryCardPaint);
-        drawReorderBlockThumbnail(canvas, card, carrySegIndex);
+        drawCarryThumb(canvas, card);
         canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, spineDropPaint2());
+    }
+
+    /**
+     * The carried clip's picture. Keyed by thumbKey rather than by spine index, because the same
+     * cache serves lane items: thumbKey is {@code sourceUri.hashCode() + "_src"}, so a PiP of a
+     * clip that is (or was) on the spine already has its filmstrip decoded. Draws nothing when the
+     * source was never on screen — the card still reads as a card, just an empty one.
+     */
+    private void drawCarryThumb(@NonNull Canvas canvas, @NonNull RectF rect) {
+        if (carryThumbKey == null) return;
+        List<Bitmap> thumbs = thumbnailsCache.get(carryThumbKey);
+        if (thumbs == null || thumbs.isEmpty()) return;
+        Bitmap thumb = thumbs.get(0);
+        if (thumb == null || thumb.isRecycled()) return;
+        canvas.save();
+        clipPath.reset();
+        clipPath.addRoundRect(rect, reorderBlockCornerPx, reorderBlockCornerPx, Path.Direction.CW);
+        canvas.clipPath(clipPath);
+        float scale = Math.max(rect.width() / thumb.getWidth(), rect.height() / thumb.getHeight());
+        float dw = thumb.getWidth() * scale, dh = thumb.getHeight() * scale;
+        canvas.drawBitmap(thumb, null,
+                new RectF(rect.centerX() - dw / 2f, rect.centerY() - dh / 2f,
+                        rect.centerX() + dw / 2f, rect.centerY() + dh / 2f), null);
+        canvas.restore();
+    }
+
+    /**
+     * THE REVERSE DIRECTION. A lane item being dragged used to stay drawn in its own row, sliding
+     * side to side — JoyRaptor: "the user might think that if he leaves his finger up that it's going
+     * to just stay in its original lane." So it now lifts out of the lane onto the same floating
+     * card the spine uses, leaving the home ghost behind, and grows to master height as it nears
+     * the spine.
+     */
+    private void beginLayerCarry(@NonNull com.fadcam.ui.faditor.layers.TimedItem item, float x, float y) {
+        Clip c = item.getClip();
+        if (c == null) return;                    // pictures only; text/stickers keep their row
+        carryActive = true;
+        carryFromLayer = true;
+        carrySegIndex = -1;
+        carryLayerItemId = item.getId();
+        carryThumbKey = c.getSourceUri() != null ? (c.getSourceUri().hashCode() + "_src") : null;
+        float durMs = Math.max(1f, item.getDisplayDurationMs(totalEffectiveMs));
+        carryCardW = Math.min((durMs / 1000f) * dpPerSecondPx, getWidth() * 0.55f);
+        carryCardH = layerRowRenderer != null
+                ? layerRowRenderer.expandedRowHeightPx() : trackHeightPx;
+        carryTargetH = carryCardH;
+        // Held at the point the finger is already on horizontally, centred vertically: the row is
+        // short enough that any other vertical anchor looks arbitrary.
+        float itemLeft = timeToX(item.getTimelineStartMs()) - scrollOffsetPx;
+        carryGrabDx = Math.max(0f, Math.min(carryCardW, x - itemLeft));
+        carryGrabDy = carryCardH / 2f;
+        carryFingerX = x;
+        carryFingerY = y;
+        // One representation only. The renderer keeps drawing the HOME GHOST (set on pickup), so
+        // the origin lane still shows where it came from — but the body itself is now the card.
+        if (layerRowRenderer != null) layerRowRenderer.setCarriedItemId(carryLayerItemId);
+        android.util.Log.d("CARRY", "beginLayer item=" + carryLayerItemId + " w=" + carryCardW);
     }
 
     /** Outline stroke for the carried card — purple, matching "this is where it lands". */
@@ -7071,7 +7161,9 @@ public class EditorTimelineView extends View {
     private boolean onMove(float x, float y) {
         // CARRY owns the touch outright once it starts — checked before everything else so no
         // scrub, pan or item branch can steal a finger that is holding a clip.
-        if (carryActive) {
+        // Only the SPINE carry owns the touch. A lane carry is a visual skin over the layer drag
+        // engine, which must keep receiving moves or the model never follows the finger.
+        if (carryActive && !carryFromLayer) {
             updateCarry(x, y);
             return true;
         }
@@ -7185,6 +7277,20 @@ public class EditorTimelineView extends View {
             boolean overSpine = updateSpineDropTarget(x, y);
             layerGestureController.setSpineHoverSuppressed(overSpine);
             layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
+            // Lift the lane item onto the floating card the first time it actually moves, then
+            // track the finger and grow toward master height as it nears the spine.
+            if (!carryActive && layerGestureController.isMoveDragActive()) {
+                com.fadcam.ui.faditor.layers.TimedItem li = layerGestureController.getActiveItem();
+                if (li != null) beginLayerCarry(li, x, y);
+            }
+            if (carryActive && carryFromLayer) {
+                carryFingerX = x;
+                carryFingerY = y;
+                carryTargetH = overSpine ? trackHeightPx
+                        : (layerRowRenderer != null ? layerRowRenderer.expandedRowHeightPx()
+                                                    : trackHeightPx);
+                invalidate();
+            }
             // A1 EDGE AUTO-PAN for a held item (dragux_v3, slice 3): sustained hold near
             // the screen's left/right edge pans the timeline continuously to open more
             // room. PRECEDENCE vs the off-screen butt reveal (S5): edge-pan = deliberate
@@ -7373,7 +7479,7 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
-        if (carryActive) {
+        if (carryActive && !carryFromLayer) {
             // ACTION_CANCEL must NOT commit: the system took the gesture away, the user did not
             // choose a destination. The card disappears and the clip stays where it was, which is
             // the only outcome that cannot surprise anyone.
@@ -7466,6 +7572,13 @@ public class EditorTimelineView extends View {
             // drop callback at all -- and a commit that happens to record NOTHING consumes
             // nothing either. Either way an armed merge must not survive into the next edit,
             // where it would silently swallow an unrelated action into this gesture's entry.
+            if (carryFromLayer) {
+                carryActive = false;
+                carryFromLayer = false;
+                carryLayerItemId = null;
+                carryThumbKey = null;
+                if (layerRowRenderer != null) layerRowRenderer.setCarriedItemId(null);
+            }
             if (listener != null) listener.onItemDragEnded();
             // A drop (or cancel) during an excursion: glide home so the playhead is
             // re-centered again (the normal invariant) — the user sees the result land

@@ -1198,6 +1198,47 @@ public class ExportManager {
         return off;
     }
 
+    /**
+     * Explicit MIME type for an image clip's source (LEDGER §2e).
+     *
+     * <p><b>Why this must be stated rather than inferred.</b> media3 routes an item to the IMAGE
+     * asset loader only when {@code TransformerUtil.isImage()} is true, and for a {@code file://}
+     * URI that resolves the MIME purely from the FILE EXTENSION
+     * ({@code uriPath.lastIndexOf(".")}). Faditor copies picked images into {@code files/images/}
+     * under names derived from a content-URI id — e.g. {@code asset_1785180024028_image:127376} —
+     * which have <b>no extension at all</b>. So the lookup returns null, {@code isImage()} is
+     * false, and the still is handed to the VIDEO loader, which dies with "the asset loader has no
+     * audio or video track to output" and kills the whole export. Measured on device 2026-08-03.</p>
+     *
+     * <p>Sniffed from the file's magic bytes rather than assumed, because the declared type also
+     * decides nothing else — {@code BitmapFactory} re-detects the real format when decoding — so
+     * the only cost of being accurate is a 12-byte read, and the only cost of being wrong is a
+     * confusing log line later.</p>
+     */
+    @Nullable
+    private static String imageMimeTypeOf(@NonNull Context context, @Nullable Uri uri) {
+        if (uri == null) return null;
+        byte[] head = new byte[12];
+        try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+            if (in == null || in.read(head) < 12) return MimeTypes.IMAGE_JPEG;
+        } catch (Exception e) {
+            return MimeTypes.IMAGE_JPEG;   // unreadable here surfaces later with a better message
+        }
+        if ((head[0] & 0xFF) == 0x89 && head[1] == 'P' && head[2] == 'N' && head[3] == 'G') {
+            return MimeTypes.IMAGE_PNG;
+        }
+        if ((head[0] & 0xFF) == 0xFF && (head[1] & 0xFF) == 0xD8) return MimeTypes.IMAGE_JPEG;
+        if (head[0] == 'G' && head[1] == 'I' && head[2] == 'F') return "image/gif";
+        if (head[0] == 'R' && head[1] == 'I' && head[2] == 'F' && head[3] == 'F'
+                && head[8] == 'W' && head[9] == 'E' && head[10] == 'B' && head[11] == 'P') {
+            return MimeTypes.IMAGE_WEBP;
+        }
+        if (head[4] == 'f' && head[5] == 't' && head[6] == 'y' && head[7] == 'p') {
+            return MimeTypes.IMAGE_HEIF;   // HEIC/AVIF share the ISO-BMFF box header
+        }
+        return MimeTypes.IMAGE_JPEG;
+    }
+
     private static long effectiveTransitionMs(@NonNull Timeline timeline,
                                               @NonNull Transition trans, int seam) {
         long d = Math.max(0L, trans.durationMs);
@@ -1372,6 +1413,7 @@ public class ExportManager {
             sourceDurationMs = Math.max(1L, clipOutMs - clipInMs);
             mediaItem = new MediaItem.Builder()
                     .setUri(clip.getSourceUri())
+                    .setMimeType(imageMimeTypeOf(context, clip.getSourceUri()))
                     .setImageDurationMs(sourceDurationMs)
                     .build();
         } else {
@@ -1485,6 +1527,7 @@ public class ExportManager {
         if (clip.isImageClip()) {
             mediaItem = new MediaItem.Builder()
                     .setUri(clip.getSourceUri())
+                    .setMimeType(imageMimeTypeOf(context, clip.getSourceUri()))
                     .setImageDurationMs(timelineDurMs)
                     .build();
             eb = new EditedMediaItem.Builder(mediaItem);

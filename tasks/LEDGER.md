@@ -1167,7 +1167,29 @@ jumps are very likely the same root cause, so a fix should be checked against al
 
 </details>
 
-**2e. IMAGE CLIP ON THE MASTER TRACK FAILS THE EXPORT — found incidentally 2026-08-03.**
+**2e. ✅ FIXED AND PROVED 2026-08-03 — image clips on the spine no longer kill the export.**
+**ROOT CAUSE (read from media3's own source, not guessed — and the COLON was a red herring):**
+`DefaultAssetLoaderFactory:187` routes to the IMAGE loader only when `TransformerUtil.isImage()`
+is true AND `imageDurationMs` is set. We set the duration; `isImage()` was the failure. For a
+`file://` URI `getImageMimeType()` resolves the type **purely from the FILE EXTENSION**
+(`uriPath.lastIndexOf(".")`). Faditor copies picked images into `files/images/` under names
+derived from a content-URI id — `asset_1785180024028_image:127376` — which have **no extension
+at all**, so the lookup returns null, the still is handed to the VIDEO loader, and the export dies
+with "the asset loader has no audio or video track to output".
+
+**THE FIX:** `ExportManager.imageMimeTypeOf()` sniffs the file's magic bytes (PNG/JPEG/GIF/WEBP/
+HEIF) and declares the type via `MediaItem.Builder.setMimeType()` at BOTH image build sites.
+Sniffed rather than assumed because the declared type only decides ROUTING — `BitmapFactory`
+re-detects the real format when decoding — so accuracy costs a 12-byte read.
+
+**PROVED on device:** the same fixture that died at 8126ms now exports clean — no
+`ExportException`, video **13.726s**, the image included. Regression-checked in the SAME file:
+the §2d PiP onset is still **4.90s** and the transition still shows at 2.9s, so neither fix
+disturbed the other. (Content compresses to 13126; the file is padded to the editor's declared
+13726 by the existing tail-fill, `ExportManager:1051-1066`.)
+
+<details><summary>Original entry — how it was found</summary>
+
 The §2d export **threw** rather than completing:
 `IllegalStateException: The asset loader has no audio or video track to output.` →
 `ExportException: Asset loader error`. Clips 0+1 muxed (8126ms, matching 3200+5526−600), then
@@ -1216,6 +1238,8 @@ land on time there, or the instrument is measuring something else.
 **Do not fix it before proving it**, and when fixing, decide deliberately which timebase is
 authoritative — making the editor compress is a much larger change than mapping overlay times
 through the same compression the export already computes.
+
+</details>
 
 **3i. ✅ SPINE ⇄ LAYER MOVE SHIPS — DEVICE-PROVEN 2026-08-03. The long-standing want is MET.**
 JoyRaptor's headline ask ('drag layers like clips into and out of the main layer, like CapCut') now

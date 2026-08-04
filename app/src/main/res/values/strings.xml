@@ -3235,4 +3235,16 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_text_decor_glow">Glow</string>
     <string name="faditor_text_decor_shadow">Shadow</string>
     <string name="faditor_text_decor_plate">Background plate</string>
+    <!-- 3a: the masking engine's first access point -->
+    <string name="faditor_mask_action">Mask</string>
+    <string name="faditor_mask_title">Mask</string>
+    <string name="faditor_mask_remove">Remove</string>
+    <string name="faditor_mask_x">Center X</string>
+    <string name="faditor_mask_y">Center Y</string>
+    <string name="faditor_mask_w">Width</string>
+    <string name="faditor_mask_h">Height</string>
+    <string name="faditor_mask_round">Roundness</string>
+    <string name="faditor_mask_rotate">Rotation</string>
+    <string name="faditor_mask_soften">Soften edges</string>
+    <string name="faditor_mask_only_inside">Show only inside the box</string>
 </resources>

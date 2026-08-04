@@ -1902,6 +1902,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onPlayheadDragFinished() {
+                // Was this actually a drag? userDragging is set only by the real drag path
+                // (onPlayheadDragStarted), so a plain tap arrives here with it FALSE. Read it
+                // before clearing, and use it to skip the exact-seek settle below — see the note
+                // there for why a tap paid for two extra keyframe decodes without this.
+                final boolean wasRealDrag = userDragging;
                 userDragging = false;
                 
                 // Now that drag is finished, check if we crossed into a different segment
@@ -1980,6 +1985,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // when the finger lifts the preview is sitting on the nearest keyframe,
                 // not the exact frame — which made it impossible to line a cut/transition
                 // up to a music beat by eye. Re-seek EXACTly to the final playhead frame.
+                //
+                // ⚠ ONLY AFTER A REAL DRAG. This handler runs on plain TAPS too — seekToTimelineMs
+                // calls onPlayheadSeeked and then this on the very next line, and onUp fires it
+                // again — so a tap that had ALREADY seeked exactly then paid for two MORE exact
+                // decodes. With keyframes ~1.0s apart that is most of the tap latency JoyRaptor
+                // reported on the Note 20. A tap needs no settle: its own seek was already exact.
+                if (!wasRealDrag) {
+                    seekAudioPlayersToPlayhead();
+                    return;
+                }
                 if (playerManager != null
                         && selectedClipIndex >= 0 && selectedClipIndex < tl.getClipCount()) {
                     Clip fc = tl.getClip(selectedClipIndex);
@@ -20563,6 +20578,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return;
                     }
                     decorCommitted = true;
+                    // Committed: this overlay is the user's now, never again a placeholder the
+                    // cancel path may delete. Leaving the id in the set kept that door open.
+                    textOverlayCreatedHere.remove(item.getId());
                     item.setText(txt);
                     item.setColorInt(chosen[0]);
                     item.setFontFamily(chosenFont[0]);

@@ -5806,7 +5806,20 @@ public class EditorTimelineView extends View {
         // Only on BACK-OUT: a committed reorder has rearranged the clips, and forcing the
         // playhead back to a time that now shows different footage would be worse than leaving it.
         if (!commit && reorderEntryPlayheadMs >= 0) {
+            // setPlayheadPositionMs only assigns + invalidates — it does NOT seek the player, so
+            // on its own this left the marker at A and the picture at B, and the play button then
+            // resumed from B. Seek as well, so the restore is real.
             setPlayheadPositionMs(reorderEntryPlayheadMs);
+            if (listener != null) {
+                int seg = getSegmentAtPlayhead();
+                if (seg >= 0 && seg < segments.size()) {
+                    long segStart = getSegmentStartTimeMs(seg);
+                    long within = Math.max(0, reorderEntryPlayheadMs - segStart);
+                    float frac = segments.get(seg).effectiveMs > 0
+                            ? (float) within / segments.get(seg).effectiveMs : 0f;
+                    listener.onPlayheadSeeked(seg, frac, false);
+                }
+            }
         }
         reorderEntryPlayheadMs = -1L;
         isReorderMode = false;
@@ -6768,6 +6781,7 @@ public class EditorTimelineView extends View {
                 // the whole gesture: this touch has done its job.
                 downSegIndex = -1;
                 activeDrag = Drag.NONE;
+                if (listener != null) listener.onPlayheadDragFinished();
                 invalidate();
                 return true;
             }
@@ -7049,6 +7063,10 @@ public class EditorTimelineView extends View {
             if (isUp && !isReorderMode && activeDrag == Drag.NONE
                     && downSegIndex >= 0 && segments.size() > 1) {
                 enterReorderMode();
+                // Notify before returning: an early-return that skips this is the stranded
+                // userDragging latch the PHDIAG probe exists to hunt (playhead and overlays freeze
+                // while audio keeps playing).
+                if (listener != null) listener.onPlayheadDragFinished();
                 invalidate();
                 return true;
             }

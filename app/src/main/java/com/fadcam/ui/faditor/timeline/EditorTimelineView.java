@@ -839,6 +839,12 @@ public class EditorTimelineView extends View {
 
     // ── §3A.5b dislodge arming ──────────────────────────────────────────────────────────────
     /** True between the long-press firing and the touch ending: a vertical move now dislodges. */
+    // ── §3A.5b double-tap → reorder (the fast path) ─────────────────────────────────────────
+    /** When the previous tap on a master clip landed, for double-tap detection. */
+    private long lastClipTapMs = 0L;
+    /** Which segment that tap was on — a double-tap must be on the SAME clip. */
+    private int lastClipTapSeg = -1;
+
     /** Playhead at the moment reorder mode opened, restored if the user backs out. */
     private long reorderEntryPlayheadMs = -1L;
 
@@ -2386,6 +2392,12 @@ public class EditorTimelineView extends View {
         
         drawRuler(canvas, w);
 
+        // §3A.5b — THE ARMED LIFT. Hold alone changes nothing functionally, so without a visible
+        // cue the user has no way to learn "now pull up" and the gesture reads as broken. Drawn
+        // UNDER the segments so it reads as the clip lifting off the track rather than as an
+        // overlay on top of it.
+        drawDislodgeArmedLift(canvas);
+
         // Ghost trim: drawn first so neighbouring segments cover it
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimGhosts(canvas, selectedIndex);
@@ -3470,6 +3482,42 @@ public class EditorTimelineView extends View {
         float frac = Math.max(0f, Math.min(1f, (screenX - margin) / stripW));
         long time = (long) (frac * totalEffectiveMs);
         updatePlayheadFromX(timeToX(time));
+    }
+
+    /**
+     * Halo under an ARMED master clip: the affordance that makes "hold, then pull up" learnable.
+     *
+     * <p>Purple, because that is already this timeline's "this is where it lands" colour (§3A.4)
+     * and the armed clip is about to become a layer item. Steady, not pulsing — §3A.2's rule is
+     * that animation means "still deciding" and steady means "committed"; the arm IS committed,
+     * it is only waiting for a direction.</p>
+     */
+    private void drawDislodgeArmedLift(@NonNull Canvas canvas) {
+        if (!dislodgeArmed) return;
+        int i = dislodgeArmedSegIndex;
+        if (i < 0 || i >= segRects.size()) return;
+        RectF r = segRects.get(i);
+        float d = getResources().getDisplayMetrics().density;
+        RectF halo = new RectF(r.left - 6f * d, r.top - 6f * d, r.right + 6f * d, r.bottom + 6f * d);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(0x558C3DFA);
+        canvas.drawRoundRect(halo, 6f * d, 6f * d, p);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(2f * d);
+        p.setColor(0xFF8C3DFA);
+        canvas.drawRoundRect(halo, 6f * d, 6f * d, p);
+
+        // An upward chevron above the clip: says WHICH WAY, which a halo alone does not.
+        float cx = (r.left + r.right) / 2f;
+        float cyTop = halo.top - 4f * d;
+        float armW = 9f * d;
+        Path chev = new Path();
+        chev.moveTo(cx - armW, cyTop);
+        chev.lineTo(cx, cyTop - armW);
+        chev.lineTo(cx + armW, cyTop);
+        p.setStrokeWidth(3f * d);
+        canvas.drawPath(chev, p);
     }
 
     private void drawRuler(Canvas canvas, int viewW) {
@@ -6984,6 +7032,26 @@ public class EditorTimelineView extends View {
         // request. Kept on hold-release (as well as double-tap) because long-press is the more
         // discoverable of the two, and the reorder window has virtues the user has said he does
         // not want to lose. Reversible: delete this block if hold-release should do nothing.
+        // §3A.5b — DOUBLE-TAP on a master clip is the fast path to reorder. The first tap is
+        // allowed to seek normally and is NOT undone: you tapped that clip, so the playhead being
+        // there is what you meant, and swallowing it would tax every precision scrub with the
+        // double-tap window. Backing out of reorder restores the prior playhead anyway, behind
+        // the reorder UI, so the nudge is never seen (user, 2026-08-04).
+        if (isUp && !dislodgeArmed && !isReorderMode && activeDrag == Drag.NONE
+                && downSegIndex >= 0 && segments.size() > 1
+                && Math.abs(x - downX) <= touchSlopPx && Math.abs(y - downY) <= touchSlopPx) {
+            long now = System.currentTimeMillis();
+            if (downSegIndex == lastClipTapSeg
+                    && now - lastClipTapMs <= android.view.ViewConfiguration.getDoubleTapTimeout()) {
+                lastClipTapMs = 0L;
+                lastClipTapSeg = -1;
+                enterReorderMode();
+                invalidate();
+                return true;
+            }
+            lastClipTapMs = now;
+            lastClipTapSeg = downSegIndex;
+        }
         if (dislodgeArmed) {
             dislodgeArmed = false;
             dislodgeArmedSegIndex = -1;

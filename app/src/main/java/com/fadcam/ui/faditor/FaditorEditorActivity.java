@@ -4353,7 +4353,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline tl = project.getTimeline();
         final java.util.List<TextOverlayItem> removed = new java.util.ArrayList<>();
         for (TextOverlayItem o : new java.util.ArrayList<>(tl.getTextOverlays())) {
-            if (ids.contains(o.getId())) { removed.add(o); tl.removeTextOverlay(o); }
+            if (ids.contains(o.getId())) {
+                String lane = o.getLayerId();
+                removed.add(o);
+                tl.removeTextOverlay(o);
+                if (lane != null) maybeRemoveEmptyLayerTrack(lane);
+            }
         }
         if (removed.isEmpty()) return;
         // FOLD into the delete that caused it, so one press of Delete stays one press of Undo.
@@ -20511,7 +20516,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     String txt = input.getText().toString();
                     if (txt.trim().isEmpty()) {
                         // No text entered → don't leave an empty "Enter text" ghost.
+                        String emptiedLane3 = item.getLayerId();
                         project.getTimeline().removeTextOverlay(item);
+                        if (emptiedLane3 != null) maybeRemoveEmptyLayerTrack(emptiedLane3);
                         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                                 overlayLayerCallback());
                         syncTimelineOverlays();
@@ -20544,7 +20551,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 })
                 .setNeutralButton(R.string.faditor_text_delete, (d, w) -> {
                     boolean wasCommitted = textOverlayAddRecorded.remove(item);
+                    String emptiedLane2 = item.getLayerId();
                     project.getTimeline().removeTextOverlay(item);
+                    if (emptiedLane2 != null) maybeRemoveEmptyLayerTrack(emptiedLane2);
                     overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
                             overlayLayerCallback());
                     syncTimelineOverlays();
@@ -20570,8 +20579,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (textOverlayCreatedHere.contains(item.getId())
                             && (cur == null || cur.trim().isEmpty()
                                 || cur.equals(getString(R.string.faditor_text_hint)))) {
+                        String emptiedLane = item.getLayerId();
                         project.getTimeline().removeTextOverlay(item);
                         textOverlayCreatedHere.remove(item.getId());
+                        // Creating a text overlay can auto-create a lane
+                        // (assignTextOverlayToFreeLane). Removing the overlay must take that lane
+                        // with it, or an empty row is left behind forever — §4.5b says lanes
+                        // vanish when empty, and JoyRaptor saw exactly this orphan on 2026-08-04.
+                        if (emptiedLane != null) maybeRemoveEmptyLayerTrack(emptiedLane);
                         // Record it even though it is "just a placeholder". Nothing the user can
                         // see disappearing should be unrecoverable by undo — that is what made
                         // this bug feel like data loss rather than a tidy-up.

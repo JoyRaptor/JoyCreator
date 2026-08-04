@@ -1039,6 +1039,38 @@ still damaged — the fix stops new stranding, it does not repair existing items
 needs a migration decision (their `startMs` is unrecoverable, so the honest repair is to reset it
 to 0 rather than guess).
 
+## 1p. TAP LATENCY — FIXED ON THE SECOND ATTEMPT. The first attempt made it WORSE.
+
+**Keep this entry for the shape of the mistake, not the fix.**
+
+JoyRaptor, on a Note 20 holding his real 45-minute project: *"the tap to seek has a markedly long
+delay… it seems to not be the same on the Note 9."* Correct observation, and not a device
+difference.
+
+**ATTEMPT 1 (REVERTED, `9ef6c29` → reverted in `917d06d`).** Diagnosis: a tap calls
+`setExactSeek(true)`, so ExoPlayer decodes forward from the previous keyframe, and §3d measured
+keyframes ~1.0s apart. Fix: seek FAST, then settle EXACT 180ms later — the two-stage shape
+drag-scrubbing already used. **It did not help, and made the count worse.** A review found that
+`EditorTimelineView.seekToTimelineMs` calls `onPlayheadSeeked` and then `onPlayheadDragFinished`
+on the very NEXT line, and `onUp` fires the latter again — and its body did an unconditional
+`setExactSeek(true) + pause + seekInClip`. So a tap ALREADY cost two exact decodes beyond its own,
+and adding a settle made it four.
+
+**ATTEMPT 2 (`2785d7b`, shipped).** The settle is drag-scrubbing's: when the finger lifts mid-scrub
+the preview sits on a keyframe, so it re-seeks precisely. **A tap has no such problem — its own
+seek was already exact.** `onPlayheadDragFinished` simply had no did-a-drag guard. Gated on
+`wasRealDrag`, captured before `userDragging` is cleared (`userDragging = true` appears in exactly
+one place, the drag-start path). This REMOVES decodes where attempt 1 added them.
+
+**THE LESSON.** Attempt 1 was a plausible fix for a correctly-diagnosed cause, and it was still
+wrong, because the diagnosis stopped one call too early. **Before optimising a path, read what
+runs immediately AFTER the thing you are changing** — the cost was not in the seek I was looking
+at, it was in the handler on the next line. And: a performance change that is not MEASURED is not
+a fix. Attempt 1 shipped on reasoning alone and moved the number in the wrong direction.
+
+**Not yet confirmed by the user on the Note 20.** Ask whether it feels faster AND whether it still
+feels accurate when lining up a cut — the second question is the one a wrong fix here would break.
+
 ## 1o. THE DISLODGE GESTURE — BUILT 2026-08-04, HAND TEST OWED
 
 JoyRaptor's scheme (§3A.5b): **hold ARMS, a vertical pull COMMITS.** It replaces long-press-goes-

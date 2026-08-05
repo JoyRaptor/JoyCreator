@@ -872,6 +872,9 @@ public class EditorTimelineView extends View {
     private int carryDropState = CARRY_FIT;
     private long carryHoleMs = -1;
     @Nullable private String carryTargetLaneId;
+    /** Animated height of the lane-opening preview, and which row index it opens before. */
+    private float laneOpenPx = 0f;
+    private int laneOpenIndex = -1;
     private final Paint carryWarnPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint carryNewLanePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -2562,6 +2565,7 @@ public class EditorTimelineView extends View {
         // "drop here to create a new layer" zone below the last row.
         // Stage 2 (PLAN §6): pass the gesture controller's selectedItemId through so
         // layout() can draw the selection stroke on the tapped/dragged item's body.
+        tickLaneOpen();
         layerRowRenderer.layout(canvas, layerTracks, audioLayerTracks, getM6RowsTopPx(),
                 audioBandTopPx(), w,
                 scrollOffsetPx, totalEffectiveMs, this::timeToX,
@@ -7126,7 +7130,12 @@ public class EditorTimelineView extends View {
         else if (carryDropState == CARRY_TRIM) outline = carryWarnPaint;
         else if (carryDropState == CARRY_NEWLANE) outline = carryNewLanePaint;
         else outline = spineDropPaint2();
-        canvas.drawRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, outline);
+        // Same hardware-acceleration caveat as the lane slot: the NEW-LANE outline is dashed, and
+        // a dashed rect primitive does not dash on an HW canvas. Route every outline through a
+        // path so the three states are actually distinguishable.
+        clipPath.reset();
+        clipPath.addRoundRect(card, reorderBlockCornerPx, reorderBlockCornerPx, Path.Direction.CW);
+        canvas.drawPath(clipPath, outline);
         if (carryOverLayerBand && carryDropState == CARRY_TRIM) {
             drawScissorsGlyph(canvas, card.right, card.centerY());
         }
@@ -7231,6 +7240,36 @@ public class EditorTimelineView extends View {
             carryDropState = CARRY_TRIM;
         } else {
             carryDropState = CARRY_NEWLANE;
+        }
+        // Which row the lane opens BEFORE. Opening it right at the lane the finger is over (rather
+        // than appending at the bottom) is the whole point: the lane arrives where the user is
+        // pointing, not somewhere they then have to go and find.
+        laneOpenIndex = 0;
+        if (lane != null) {
+            for (int i = 0; i < layerTracks.size(); i++) {
+                if (layerTracks.get(i).getId().equals(lane.getId())) { laneOpenIndex = i; break; }
+            }
+        } else {
+            laneOpenIndex = layerTracks.size();
+        }
+    }
+
+    /**
+     * Ease the lane-opening preview toward open (a carried clip has nowhere to go) or shut.
+     * Driven from the draw pass so it animates with the rows it displaces rather than on its own
+     * timer, which would let the slot and the rows disagree mid-flight.
+     */
+    private void tickLaneOpen() {
+        float target = (carryActive && carryOverLayerBand && carryDropState == CARRY_NEWLANE
+                && layerRowRenderer != null) ? layerRowRenderer.expandedRowHeightPx() : 0f;
+        if (Math.abs(laneOpenPx - target) > 0.5f) {
+            laneOpenPx += (target - laneOpenPx) * 0.22f;
+            postInvalidateOnAnimation();
+        } else {
+            laneOpenPx = target;
+        }
+        if (layerRowRenderer != null) {
+            layerRowRenderer.setPendingLaneGap(laneOpenPx > 0.5f ? laneOpenIndex : -1, laneOpenPx);
         }
     }
 

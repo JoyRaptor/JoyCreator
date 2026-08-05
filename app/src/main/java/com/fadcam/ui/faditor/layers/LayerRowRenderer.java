@@ -349,6 +349,13 @@ public final class LayerRowRenderer {
             iconFontPaint.setTypeface(iconFont);
             iconFontPaint.setTextAlign(Paint.Align.CENTER);
         }
+        // The opening slot: light purple dashed = "creates a new layer", the meaning already
+        // shipped for the gap-drop insertion line. Same colour, same promise, no new vocabulary.
+        pendingLaneSlotPaint.setStyle(Paint.Style.STROKE);
+        pendingLaneSlotPaint.setColor(0xFFC9A6FF);
+        pendingLaneSlotPaint.setStrokeWidth(2f * density);
+        pendingLaneSlotPaint.setPathEffect(new android.graphics.DashPathEffect(
+                new float[]{8f * density, 6f * density}, 0f));
         headerBgPaint.setStyle(Paint.Style.FILL);
         rowBodyBgPaint.setStyle(Paint.Style.FILL);
         namePaint.setColor(COLOR_ROW_NAME);
@@ -383,6 +390,9 @@ public final class LayerRowRenderer {
         float rowGap = ROW_GAP_DP * density;
         float total = 0f;
         for (Track t : layers) total += rowHeightPx(t) + rowGap;
+        // The opening gap is real height: leaving it out clips the bottom row while the lane
+        // animates in, so the rows appear to slide UNDER the master track instead of apart.
+        if (pendingLaneGapPx > 0.5f) total += pendingLaneGapPx + rowGap;
         float capped = Math.min(total, effectiveViewportCapPx());
         return TOP_GAP_DP * density + capped;
     }
@@ -509,7 +519,39 @@ public final class LayerRowRenderer {
         // ── Band 1: FLOATING rows (visual — text/sticker/sprite/PiP/CC/viz) ABOVE master,
         // in their own content space (0 = band top), scrollable within the capped viewport.
         float y = TOP_GAP_DP * density;
-        for (Track t : layers) y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, true);
+        // CARRY new-lane preview: open a real gap in the layout so the rows below SLIDE DOWN and
+        // the lane is seen arriving, rather than materialising after the finger lifts. Inserting
+        // space into the same loop that positions the rows is what makes the shift free — a
+        // separately-animated overlay would drift out of step with the rows it sits between.
+        int rowIdx = 0;
+        float gapTopY = -1f;
+        for (Track t : layers) {
+            if (pendingLaneGapIndex == rowIdx && pendingLaneGapPx > 0.5f) {
+                gapTopY = y;
+                y += pendingLaneGapPx + rowGap;
+            }
+            y = addRow(t, y, hScrollOffsetPx, widthPx, rowGap, true);
+            rowIdx++;
+        }
+        if (pendingLaneGapIndex >= layers.size() && pendingLaneGapPx > 0.5f) {
+            gapTopY = y;
+            y += pendingLaneGapPx + rowGap;
+        }
+        if (gapTopY >= 0f) {
+            float l = hScrollOffsetPx + HEADER_WIDTH_DP * density;
+            pendingLaneGapRect.set(l, gapTopY, hScrollOffsetPx + widthPx, gapTopY + pendingLaneGapPx);
+            // Via a PATH, not drawRoundRect: DashPathEffect is not honoured for rect primitives
+            // on a hardware-accelerated canvas, so the dashes silently render solid or not at all.
+            // drawPath is the supported route for path effects.
+            pendingLaneSlotPath.reset();
+            pendingLaneSlotPath.addRoundRect(pendingLaneGapRect, 6f * density, 6f * density,
+                    android.graphics.Path.Direction.CW);
+            canvas.drawPath(pendingLaneSlotPath, pendingLaneSlotPaint);
+            android.util.Log.d("CARRY", "laneGap idx=" + pendingLaneGapIndex
+                    + " px=" + pendingLaneGapPx + " y=" + gapTopY);
+        } else {
+            pendingLaneGapRect.setEmpty();
+        }
         int floatingRowCount = rows.size();
         floatingRowCountAtLayout = floatingRowCount;
         // Rows-only content height; the viewport caps at maxVisibleRowsDp and the extra
@@ -797,6 +839,25 @@ public final class LayerRowRenderer {
      * the single representation. Null clears it.
      */
     public void setCarriedItemId(@Nullable String id) { this.carriedItemId = id; }
+
+    /**
+     * Open an animated gap before row {@code index} (or at the end when index >= row count) to
+     * preview the lane a carried clip will land in. {@code px} is the current animated height;
+     * 0 closes it.
+     */
+    public void setPendingLaneGap(int index, float px) {
+        this.pendingLaneGapIndex = index;
+        this.pendingLaneGapPx = Math.max(0f, px);
+    }
+
+    /** True while a lane-opening preview is on screen. */
+    public boolean hasPendingLaneGap() { return pendingLaneGapPx > 0.5f; }
+
+    private int pendingLaneGapIndex = -1;
+    private float pendingLaneGapPx = 0f;
+    private final RectF pendingLaneGapRect = new RectF();
+    private final Paint pendingLaneSlotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Path pendingLaneSlotPath = new android.graphics.Path();
 
     @Nullable private String carriedItemId;
 

@@ -385,3 +385,13 @@ Export:
 > (y≈1791 here). Measure the rows from a screenshot before choosing the target.
 >
 > **Item 5 remains** — it needs a sprite, and this fixture has none.
+
+> **Item 5 — attempted 2026-08-05, BLOCKED on a fixture, not on the gesture.** The gesture side is
+> no longer the problem (6 and 7 both ran with `input draganddrop`). What is missing is a sprite:
+> `302da9ac` has none, and the Sprites tool opens a "Sprite sheets" palette whose only routes are
+> **+ New sprite sheet**, **Avatar Studio…** and **+ Load sprite sheet** — all of which need an
+> image asset authored first. Hand-writing a sprite into `project.json` was considered and
+> REJECTED: this spec's own method note records a "fixture artifact masquerading as a dropped
+> sprite" wasting a previous run, and an invalid sprite would test nothing while looking like it
+> tested something. **Next runner: author one real sprite sheet, save that project as the reusable
+> mixed-payload fixture, and item 5 is then a two-minute drag.**

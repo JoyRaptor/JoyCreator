@@ -184,6 +184,29 @@ public final class ProjectConsolidator {
         if (tail == null) tail = "media";
         tail = tail.replaceAll("[^A-Za-z0-9._-]", "_");
         if (tail.length() > 40) tail = tail.substring(tail.length() - 40);
-        return Integer.toHexString(s.hashCode()) + "_" + tail;
+        return digest16(s) + "_" + tail;
+    }
+
+    /**
+     * 64 bits of SHA-256, hex. NOT {@code String.hashCode()}, which was the first version and is a
+     * silent-corruption hazard here: it is 32 bits, so two different sources can collide, and on a
+     * collision the second one finds {@code dest.exists()} and REPOINTS AT THE FIRST FILE'S BYTES.
+     * The user would get the wrong video in their project with no error anywhere — the copy
+     * "succeeded", the reference is valid, and only watching it reveals the swap. Cheap insurance
+     * against an expensive, undebuggable failure.
+     */
+    @NonNull
+    private static String digest16(@NonNull String s) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] h = md.digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(16);
+            for (int i = 0; i < 8; i++) sb.append(String.format("%02x", h[i]));
+            return sb.toString();
+        } catch (Exception e) {
+            // SHA-256 is mandated on every Android device; if it is somehow absent, a longer
+            // non-crypto fallback still beats a bare 32-bit hash.
+            return Long.toHexString(((long) s.hashCode() << 32) ^ (long) s.length() * 0x9E3779B9L);
+        }
     }
 }

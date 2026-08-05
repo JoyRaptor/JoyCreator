@@ -555,3 +555,36 @@ Two separate worries, both answered by reading the code:
   undone from the WHOLE-PROJECT snapshot history, which serializes transitions with everything
   else. `snapshotTransitions()`/`restoreTransitions()` exists for the in-memory EditAction paths
   and would be redundant here.
+
+## RUN 2026-08-05 (continued) — more stale items, and 3.4 CLOSED
+
+**Also stale-closed, verified against the code today: 2.1, 2.2, 2.3, 2.4.**
+- 2.1 `CaptionOverlayView.setSizeFraction` exists and its own doc cites this audit item.
+- 2.2 the audio serializer writes `captionSizeFraction` (`ProjectStorage:1966`) and reads it (`:2535`).
+- 2.3 `GlTransitionFrameOverlay:216` now reads "Named presets count too, not just custom".
+- 2.4 preview binds `windowedCaptionsFor(clip)` → `full.windowed(in,out)`, the SAME call export
+  makes. No asymmetry left, for clip and audio-clip paths both.
+
+Running total of items in this audit that read as open and are not: **1.2, 1.3, 1.4, 2.1, 2.2,
+2.3, 2.4, 3.3.** Eight. **Grep for the fix before scoping anything from this file.**
+
+**3.4 — CLOSED today.** Both halves now exist: `ProjectIntegrity` (detect, `f163ee7`) and
+`ProjectConsolidator` + a Settings row (fix, `2420349`, hardened in `35a8d06`). Device-proven:
+4 files / 55MB copied, every reference rewritten to `project://media/…`, reopen reports
+"INTEGRITY ok". Note the storage layer normalises to `project://` on save, so a consolidated
+project is PORTABLE, not merely self-contained.
+
+**3.6 — do NOT treat as dead code.** `AudioClip.waveform int[]` is still SERIALIZED
+(`ProjectStorage:1928` write, `:2489` read). Removing it is a schema change with a migration,
+not a cleanup. The audit's "inert" is true of the render path only.
+
+**3.1 — confirmed genuinely open**, and it is a deliberate v1 limitation, not an oversight:
+`WebcamEncoderPipeline`'s own class doc states segment rollover is intentionally not implemented
+for the webcam file while `ScreenRecordingPipeline` does roll over. Fixing it is encoder work
+(muxer recreation + timestamp continuity), not a patch.
+
+### Genuinely open after today
+3.1 / 3.2 dual-stream · 3.5 (**68** `getSelectedAudioIndex` sites, not "~9") · 3.6 (needs a
+migration plan) · 2.5 / 2.6 / 2.7 (verification tasks — listening and export A/B frame diffs,
+not code changes) · Tier 4 tail, incl. the long-file ANR root cause that was captured and never
+diagnosed · loop/ping-pong, deliberately last per JoyRaptor.

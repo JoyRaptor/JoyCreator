@@ -340,3 +340,25 @@ Export:
 8. Absolute-geometry A/B frame diff (memory: ab-export-frame-diff-proof) vs the same project
    with items on their own-type lanes — item pixels must be IDENTICAL (lane membership must
    not move pixels), and an eye-hidden lane must export without any of its payloads.
+
+> **DONE 2026-08-05 — item 6 PASSES.** The blocker recorded above ("drag-and-drop injection
+> drifts on this device… these want either a human or the temp-widen-a-constant trick") is
+> **obsolete**: `adb shell input draganddrop x1 y1 x2 y2 duration` sends DOWN, waits the
+> long-press timeout, then moves — the hold-then-move gesture the injection notes assumed was
+> impossible. It is present on Android 10; `input motionevent` is not.
+>
+> Ran on `302da9ac`: PiP `6126e8b4` dragged from its `video` lane up onto the text-holding lane.
+> - **accepted** — `layerId` becomes the literal `"text"` (not merged away, not dropped).
+> - **undo returns it literally** — back to `"video"`, a literal string. **Invariant 2 holds:
+>   never null, on either leg.** One press.
+>
+> ⚠ **Method warning that nearly produced a false bug report.** The first two undo taps used
+> coordinates that had been correct in an earlier layout and silently MISSED. The project still
+> read `layerId:"text"`, which looks exactly like "undo does not restore the lane" — a defect I
+> was one step from writing up. What caught it: **the on-screen undo/redo counters had not moved
+> (50/0).** Assert that undo actually fired (counter decrements, redo increments) before
+> concluding anything about what undo did. Locate the button from the uiautomator bounds of its
+> counter label, not from a remembered coordinate.
+>
+> Items **5 and 7 remain** — 5 needs a sprite (this fixture has none) and 7 needs a lane-NAME
+> read, which is canvas-drawn and therefore wants the `getLayers()` Log probe described above.

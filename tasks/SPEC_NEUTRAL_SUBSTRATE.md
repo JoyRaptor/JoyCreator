@@ -395,3 +395,26 @@ Export:
 > sprite" wasting a previous run, and an invalid sprite would test nothing while looking like it
 > tested something. **Next runner: author one real sprite sheet, save that project as the reusable
 > mixed-payload fixture, and item 5 is then a two-minute drag.**
+
+> **DONE 2026-08-05 — item 5 PASSES. The validation queue (1–8) is now COMPLETE.**
+> Ran on JoyRaptor's own mixed fixture `129d8643` "bisect C long 2x" (2 sprites, 3 texts on separate
+> lanes, a PiP, 2 waveforms) using `input draganddrop` + the `LANEPROBE` flag.
+>
+> Sprite `8850f07c` dragged from its own lane onto the row holding text `d44c5b3e`:
+> - **accepted** — `layerId` goes `None` → `f9f540d2-…`, the TEXT lane's id, literally.
+> - **it lands** — probe reads `[f9f540d2… name=Text 7 kind=TEXT items=2]`: one lane now holding
+>   a TEXT and a SPRITE. Lane count 6 → 5 as the sprite's emptied lane disappears.
+>
+> ⚠ **Two ways to waste an hour here, both of which I did.**
+> 1. **The project list does NOT show `project.json`'s `name`.** It shows a source-derived label
+>    (`FadCam_20260621_145132`), so searching the list for "bisect C long 2x" finds nothing and
+>    scrolling looks like the project is absent. **Match on the row's DATE**, which is
+>    `lastModified` and is unique. `am start … --es faditor_project_id <id>` does NOT work as a
+>    shortcut (the activity refuses the direct launch).
+> 2. **Aim at a row's CENTRE, not its edge.** A drop at the text row's bottom edge (y=1490 where
+>    the body was 1436..1490) was claimed by the GAP zone and minted a new `Lane N` instead — which
+>    reads exactly like "sprites are rejected on text rows", the very thing item 5 tests. Measure
+>    the row band off a screenshot and target its middle.
+>
+> Fixture note: `74e36000` "bisect B 1x clip0" is a sibling of this project but its sprite does not
+> render correctly — do not use it for sprite work.

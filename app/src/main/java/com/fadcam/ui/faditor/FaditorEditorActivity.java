@@ -2117,11 +2117,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     oc.setOverlayStartMs(Math.max(0L, atMs));
                     if (trimToMs >= 0) {
                         // TRIM TO FIT. The card was drawn narrowed to exactly this length and
-                        // outlined in red with scissors, so the user chose this knowingly. Undo
-                        // restores the full clip in one press, because the whole gesture is one
-                        // recorded action.
-                        oc.setOutPointMs(Math.min(oc.getOutPointMs(),
-                                oc.getInPointMs() + Math.max(1L, trimToMs)));
+                        // outlined in red with scissors, so the user chose this knowingly.
+                        //
+                        // ⚠ This mutation happens AFTER moveSelectedClipToLayer() recorded its
+                        // undo entry, so it is outside that entry. Device-verified failure before
+                        // this fix: trim a 5526ms clip to 1000ms, press undo — the clip returned
+                        // to the spine STILL 1000ms. Undo moved it back and silently kept the cut,
+                        // so the only destructive path here was also the only unrecoverable one.
+                        // (The comment that used to sit here asserted the opposite. It was wrong,
+                        // and asserting it is presumably why nobody checked.)
+                        //
+                        // amendTopAction folds the restore into the demote's entry, so it stays
+                        // ONE press — the same mechanism, and the same reasoning, as the dislodge
+                        // merge in 4caa631.
+                        final Clip trimmed = oc;
+                        final long beforeOut = oc.getOutPointMs();
+                        final long afterOut = Math.min(beforeOut,
+                                oc.getInPointMs() + Math.max(1L, trimToMs));
+                        oc.setOutPointMs(afterOut);
+                        undoManager.amendTopAction(new EditActions.LambdaAction(
+                                "Trim to fit",
+                                () -> trimmed.setOutPointMs(afterOut),
+                                () -> trimmed.setOutPointMs(beforeOut)));
                     }
                     if (newLane) {
                         // NO ROOM. Timeline documents the invariant for text lanes — "it must be

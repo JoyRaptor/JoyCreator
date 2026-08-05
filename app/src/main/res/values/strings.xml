@@ -3247,6 +3247,18 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_mask_rotate">Rotation</string>
     <string name="faditor_mask_soften">Soften edges</string>
     <string name="faditor_mask_only_inside">Show only inside the box</string>
+    <string name="faditor_mask_section_shape">Shape</string>
+    <!-- 3a: chroma key. The engine keyed in export for months; this is its first authoring UI,
+         shipped only once the preview could key too so the sliders are tuned against the truth. -->
+    <string name="faditor_key_section">Chroma key</string>
+    <string name="faditor_key_enable">Key out a colour</string>
+    <string name="faditor_key_color">Key colour</string>
+    <string name="faditor_key_eyedropper">Pick from video</string>
+    <string name="faditor_key_eyedropper_failed">Couldn\'t read that pixel — try again while the clip is showing</string>
+    <string name="faditor_key_tap_prompt">Tap the colour to remove</string>
+    <string name="faditor_key_tolerance">Tolerance</string>
+    <string name="faditor_key_softness">Edge softness</string>
+    <string name="faditor_key_spill">Choke / spread</string>
     <!-- Blend modes: export shader shipped long ago, no UI until now -->
     <string name="faditor_blend_action">Blend mode</string>
     <string name="faditor_blend_title">Blend mode</string>

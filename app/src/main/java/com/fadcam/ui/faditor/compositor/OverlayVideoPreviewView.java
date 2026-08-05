@@ -7,6 +7,7 @@ import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
+import android.view.Surface;
 import android.view.TextureView;
 import android.widget.FrameLayout;
 
@@ -92,6 +93,26 @@ public class OverlayVideoPreviewView extends FrameLayout {
     }
 
     private final TextureView textureView;
+    /**
+     * §3a live key tier — created ONLY when a clip on screen actually keys
+     * ({@link com.fadcam.ui.faditor.model.ChromaKey#isActive}). A project that never touched
+     * the key never allocates an EGL context, and runs the plain {@link #textureView} path
+     * exactly as it always did.
+     */
+    @Nullable private ChromaKeyTextureView keyedView;
+    /** True while the decoder is rendering into {@link #keyedView} rather than the plain one. */
+    private boolean keyedRouted;
+    /**
+     * The player instance {@link #keyedRouted} actually describes. A decoder error releases the
+     * player and a later clip builds a NEW one wired to the plain view; without this, the stale
+     * "already routed" flag would match, {@code routeFor} would early-return, and the keyed PiP
+     * would render nothing at all. Comparing identity makes the cache self-invalidating.
+     */
+    @Nullable private ExoPlayer routedPlayer;
+    /** The keyed tier's decoder-facing surface, once its GL thread has published one. */
+    @Nullable private Surface keyedInputSurface;
+    /** One-shot eyedropper sink, set by {@link #armEyedropper} and cleared by the next tap. */
+    @Nullable private ChromaKeyTextureView.ColorSink pendingDropper;
     private final List<Clip> clips = new ArrayList<>();
     @Nullable private Callback callback;
     @Nullable private ExoPlayer player;
@@ -174,6 +195,139 @@ public class OverlayVideoPreviewView extends FrameLayout {
         if (player != null) player.pause();
     }
 
+    // ── §3a live chroma key ──────────────────────────────────────────────────────────────
+
+    /**
+     * The view the decoder is currently painting into — the plain {@link TextureView}, or the
+     * keyed one while a key is live. Everything that positions, scales, clips or hides the PiP
+     * asks THIS rather than naming a field, so the two tiers cannot end up transformed
+     * differently. Getting that wrong would look exactly like "the key moves my PiP".
+     */
+    @NonNull
+    private TextureView videoHost() {
+        return (keyedRouted && keyedView != null) ? keyedView : textureView;
+    }
+
+    /**
+     * Decide which tier renders {@code clip} and move the decoder if that changed.
+     *
+     * <p>Switching is DEFERRED until the keyed tier has published a surface: the GL thread and
+     * its EGL context come up asynchronously, and pointing the player at a surface that does
+     * not exist yet is a black frame at best. Until it is ready the plain path keeps running,
+     * so the worst case of a device that cannot make an EGL context is the OLD behaviour —
+     * unkeyed preview — rather than a broken one.</p>
+     */
+    private void routeFor(@NonNull Clip clip) {
+        boolean wantKeyed = com.fadcam.ui.faditor.model.ChromaKey.isActive(clip.getCompositing());
+        if (wantKeyed && keyedView == null) {
+            ChromaKeyTextureView kv = new ChromaKeyTextureView(getContext());
+            kv.setVisibility(GONE);
+            kv.setSurfaceListener(new ChromaKeyTextureView.SurfaceListener() {
+                @Override public void onKeyedInputSurfaceReady(@NonNull Surface s) {
+                    keyedInputSurface = s;
+                    // Re-run the decision now that the surface exists — this is the moment the
+                    // deferred switch above actually happens.
+                    if (active != null) routeFor(active);
+                    requestLayout();
+                }
+                @Override public void onKeyedInputSurfaceLost() {
+                    keyedInputSurface = null;
+                    if (keyedRouted) {
+                        keyedRouted = false;
+                        if (player != null) player.setVideoTextureView(textureView);
+                        applyHostVisibility(true);
+                    }
+                }
+            });
+            // Match the plain view's layout slot so updateBaseLayout can size either one.
+            addView(kv, new LayoutParams(Math.max(1, baseW), Math.max(1, baseH), Gravity.CENTER));
+            keyedView = kv;
+        }
+        if (keyedView != null) {
+            // Push the authored key every sync, not only on change: a slider drag must show up
+            // live, and this is cheap (two array reads).
+            keyedView.setSpec(clip.getCompositing());
+        }
+        boolean canKey = wantKeyed && keyedInputSurface != null;
+        if (canKey == keyedRouted && routedPlayer == player) return;
+        keyedRouted = canKey;
+        routedPlayer = player;
+        if (player != null) {
+            if (canKey) {
+                player.setVideoSurface(keyedInputSurface);
+            } else {
+                player.setVideoTextureView(textureView);
+            }
+        }
+        // The tier that is not rendering must be hidden, or the stale one sits on top showing
+        // the last frame it ever drew.
+        applyHostVisibility(true);
+        updateBaseLayout();
+        applyTransform(clip);
+    }
+
+    /**
+     * The compositing spec changed under the panel — re-push it and repaint. Separate from a
+     * plain {@code invalidate()} because turning the key ON has to be able to CREATE the GL
+     * tier: an invalidate alone would repaint the unkeyed view forever and the panel's sliders
+     * would appear to do nothing, which is the exact "looks trustworthy, is not" failure the
+     * key's UI was withheld for.
+     */
+    public void refreshCompositing() {
+        if (active != null) routeFor(active);
+        invalidate();
+    }
+
+    /**
+     * Arm the eyedropper. The NEXT tap on a keyed PiP samples its raw colour and fires
+     * {@code sink} once; the dropper then disarms itself whether or not the tap landed on the
+     * PiP, so it can never eat a second gesture.
+     */
+    public void armEyedropper(@NonNull ChromaKeyTextureView.ColorSink sink) {
+        pendingDropper = sink;
+    }
+
+    /**
+     * Consume a tap while the dropper is armed. Returns true if the touch was taken.
+     *
+     * <p>Reported as a FAILURE (null) rather than silently ignored when there is no keyed tier
+     * or the tap missed the PiP — the panel toasts on null, so the user is told why instead of
+     * concluding the dropper is broken.</p>
+     */
+    private boolean consumeEyedropper(float x, float y) {
+        ChromaKeyTextureView.ColorSink sink = pendingDropper;
+        if (sink == null) return false;
+        pendingDropper = null;
+        Clip top = hitTest(x, y);
+        ChromaKeyTextureView kv = keyedView;
+        if (top == null || kv == null || !keyedRouted) {
+            sink.onColorSampled(null);
+            return true;
+        }
+        // View coords → the PiP's own normalised surface coords. The inverse of applyTransform:
+        // undo the centre translation, then the scale. Rotation is deliberately NOT undone —
+        // sampleRawColor reads the unrotated decoder frame, and the PiP's rotation is a VIEW
+        // property applied after it, so a rotated PiP would sample the wrong pixel. Guarded
+        // below rather than silently returning a wrong colour.
+        float scale = Math.max(0.0001f, readValue(top, KeyframeSet.SCALE, DEFAULT_SCALE));
+        float rot = readValue(top, KeyframeSet.ROTATION, 0f);
+        if (Math.abs(rot) > 0.5f) { sink.onColorSampled(null); return true; }
+        float cx = getWidth() / 2f + videoHost().getTranslationX();
+        float cy = getHeight() / 2f + videoHost().getTranslationY();
+        float u = (x - cx) / (baseW * scale) + 0.5f;
+        float v = (y - cy) / (baseH * scale) + 0.5f;
+        if (u < 0f || u > 1f || v < 0f || v > 1f) { sink.onColorSampled(null); return true; }
+        kv.sampleRawColor(u, v, sink);
+        return true;
+    }
+
+    /** Show the routed tier and hide the other; {@code false} hides both. */
+    private void applyHostVisibility(boolean visible) {
+        TextureView host = videoHost();
+        if (keyedView != null) keyedView.setVisibility(visible && host == keyedView ? VISIBLE : GONE);
+        textureView.setVisibility(visible && host == textureView ? VISIBLE : GONE);
+    }
+
     /** Release the overlay decoder entirely (activity onDestroy / export start). */
     public void releasePlayer() {
         if (player != null) {
@@ -183,7 +337,9 @@ public class OverlayVideoPreviewView extends FrameLayout {
         active = null;
         videoW = 0;
         videoH = 0;
-        textureView.setVisibility(GONE);
+        keyedRouted = false;
+        routedPlayer = null;
+        applyHostVisibility(false);
     }
 
     public boolean isEmpty() { return clips.isEmpty(); }
@@ -195,13 +351,16 @@ public class OverlayVideoPreviewView extends FrameLayout {
         Clip top = topVisibleAt(currentTimeMs);
         refreshStills(top);
         if (top == null) {
-            textureView.setVisibility(GONE);
+            applyHostVisibility(false);
             if (player != null) player.pause();
             return;
         }
         ensureActive(top);
         if (player == null) return;
-        textureView.setVisibility(VISIBLE);
+        // Route BEFORE showing: routeFor decides which tier is the host, and applyHostVisibility
+        // reads that decision.
+        routeFor(top);
+        applyHostVisibility(true);
         applyTransform(top);
 
         long want = top.getInPointMs() + Math.max(0, currentTimeMs - top.getOverlayStartMs());
@@ -353,7 +512,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Override
     protected boolean drawChild(@NonNull android.graphics.Canvas canvas,
                                 @NonNull android.view.View child, long drawingTime) {
-        if (child == textureView && active != null && callback != null) {
+        // videoHost(), not textureView: with a key live the decoder paints into the keyed tier,
+        // and a mask that only clipped the plain view would silently stop masking the moment
+        // the key was switched on — two features that must compose, not cancel.
+        if (child == videoHost() && active != null && callback != null) {
             com.fadcam.ui.faditor.model.CompositingSpec cs = active.getCompositing();
             if (cs != null && cs.hasMasks()) {
                 RectF r = callback.getVideoContentRect();
@@ -448,11 +610,20 @@ public class OverlayVideoPreviewView extends FrameLayout {
         if (w == baseW && h == baseH) return;
         baseW = w;
         baseH = h;
-        LayoutParams lp = (LayoutParams) textureView.getLayoutParams();
+        // BOTH tiers are sized, not just the routed one: the keyed view can be created while a
+        // size is already settled, and a switch must not have to wait for the next size change
+        // to stop being 1x1.
+        sizeHost(textureView, w, h);
+        if (keyedView != null) sizeHost(keyedView, w, h);
+    }
+
+    private void sizeHost(@NonNull TextureView v, int w, int h) {
+        LayoutParams lp = (LayoutParams) v.getLayoutParams();
+        if (lp == null) return;
         lp.width = w;
         lp.height = h;
         lp.gravity = Gravity.CENTER;
-        textureView.setLayoutParams(lp);
+        v.setLayoutParams(lp);
     }
 
     private void applyTransform(@NonNull Clip clip) {
@@ -468,12 +639,15 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 readValue(clip, KeyframeSet.OPACITY, 1f)));
         // Base box is centered in this layer; content rect is centered too (resize_mode=fit),
         // so translation maps the normalized centre into content-rect pixels directly.
-        textureView.setScaleX(scale);
-        textureView.setScaleY(scale);
-        textureView.setRotation(rot);
-        textureView.setAlpha(alpha);
-        textureView.setTranslationX((x - 0.5f) * r.width());
-        textureView.setTranslationY((y - 0.5f) * r.height());
+        // Applied to the ROUTED host — a keyed PiP is positioned by exactly the same maths as
+        // an unkeyed one, because turning the key on must not move anything.
+        TextureView host = videoHost();
+        host.setScaleX(scale);
+        host.setScaleY(scale);
+        host.setRotation(rot);
+        host.setAlpha(alpha);
+        host.setTranslationX((x - 0.5f) * r.width());
+        host.setTranslationY((y - 0.5f) * r.height());
         // Export clips the PiP at the canvas; the preview must not show pixels
         // the export can't have (M-EXPORT-2 review note: preview-honesty clamp).
         setClipBounds(new android.graphics.Rect(
@@ -503,6 +677,12 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         if (callback == null) return false;
+        // The dropper is checked FIRST and only on DOWN: it must not be routed through the
+        // scale detector or the move gesture, or arming it and tapping the PiP would ALSO
+        // start dragging the PiP — sampling a colour would move the user's composition.
+        if (pendingDropper != null && e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            return consumeEyedropper(e.getX(), e.getY());
+        }
         if (manipulating != null) scaleDetector.onTouchEvent(e);
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
@@ -563,11 +743,14 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Nullable
     private Clip hitTest(float x, float y) {
         Clip top = topVisibleAt(currentTimeMs);
-        if (top == null || textureView.getVisibility() != VISIBLE || baseW <= 0) return null;
+        // The ROUTED host again: hit-testing the plain view while the keyed one is on screen
+        // would make a keyed PiP ungrabbable — the drag would silently do nothing.
+        TextureView host = videoHost();
+        if (top == null || host.getVisibility() != VISIBLE || baseW <= 0) return null;
         RectF r = callback.getVideoContentRect();
         if (r.width() <= 0 || r.height() <= 0) return null;
-        float cx = getWidth() / 2f + textureView.getTranslationX();
-        float cy = getHeight() / 2f + textureView.getTranslationY();
+        float cx = getWidth() / 2f + host.getTranslationX();
+        float cy = getHeight() / 2f + host.getTranslationY();
         float scale = readValue(top, KeyframeSet.SCALE, DEFAULT_SCALE);
         float minHalf = 24f * getResources().getDisplayMetrics().density / 2f;
         float hw = Math.max(baseW * scale / 2f, minHalf);

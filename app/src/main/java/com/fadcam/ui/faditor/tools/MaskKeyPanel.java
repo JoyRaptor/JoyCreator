@@ -1,0 +1,357 @@
+package com.fadcam.ui.faditor.tools;
+
+import android.app.Activity;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.SeekBar;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.fadcam.R;
+import com.fadcam.ui.faditor.model.ChromaKey;
+import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.CompositingSpec;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.gson.JsonParser;
+
+/**
+ * §3a — the *Mask &amp; Key* panel: the authoring UI for {@link CompositingSpec}.
+ *
+ * <p><b>Why this is its own class.</b> The mask half of this panel used to be ~120 lines inside
+ * {@code FaditorEditorActivity}, which is 27,000 lines and still growing — the pattern this
+ * project keeps paying for. Adding the key half there would have made it worse, so the whole
+ * panel moved out instead: the activity now hands over a {@link Host} and gets smaller, matching
+ * {@code ObjectMenuSheet} / {@code FilterBottomSheet}. Nothing here knows about the editor
+ * beyond that interface, which is also what makes the revert/undo contract legible in one
+ * screenful instead of interleaved with unrelated dialog code.</p>
+ *
+ * <p><b>The live-write contract, kept verbatim from the mask dialog.</b> Every control writes
+ * straight through to the model so the preview is the truth being tuned — and therefore ANY
+ * dismissal that is not an explicit button reverts. The panel seeds a default box on open, so
+ * without that rule merely opening the panel and pressing BACK punched a permanent hole in the
+ * user's PiP. Read {@link #revert} before changing how this closes.</p>
+ *
+ * <p><b>The key is tuned against a keyed preview, never blind.</b> That was the binding
+ * condition on shipping this UI at all: the export has keyed for months, but a tolerance slider
+ * judged against an unkeyed preview is guesswork that looks like control. The live tier
+ * ({@code ChromaKeyTextureView}) renders the same shader the export runs, so what this panel
+ * shows is what the file will contain.</p>
+ */
+public final class MaskKeyPanel {
+
+    /** Everything the panel needs from the editor, and nothing more. */
+    public interface Host {
+        /** Repaint the preview + timeline after a live write. */
+        void onCompositingChanged();
+        /** Persist immediately (revert paths — autosave may already have written the edit). */
+        void saveNow();
+        /** Debounced save (commit paths). */
+        void scheduleSave();
+        /** Record ONE undo step for the whole panel session. */
+        void recordCompositingUndo(@NonNull String label, @NonNull Runnable redo,
+                                   @NonNull Runnable undo);
+        /**
+         * Arm the eyedropper: the next tap on the PiP samples its RAW (un-keyed) colour and
+         * calls back with 0xRRGGBB, or null if it could not be read. Implementations must
+         * disarm after one tap — a dropper that stays armed eats the next drag.
+         */
+        void pickColorFromPreview(@NonNull ColorPicked cb);
+    }
+
+    public interface ColorPicked { void onPicked(@Nullable Integer rgb); }
+
+    /** Swatches offered before the dropper — the three keys people actually shoot against. */
+    private static final int[] SWATCHES = {0x00FF00, 0x0000FF, 0x000000, 0xFFFFFF};
+
+    private final Activity activity;
+    private final Clip clip;
+    private final Host host;
+    private final CompositingSpec spec;
+    private final boolean hadSpec;
+    private final String before;
+    private final boolean[] committed = {false};
+
+    @Nullable private View swatchRow;
+    @Nullable private TextView keyColorLabel;
+    /**
+     * Held so the eyedropper can step out of the way. The panel is a MODAL dialog: it covers
+     * the preview and eats every touch, so an armed dropper could never receive the tap it is
+     * waiting for. Hiding (not dismissing) keeps every slider position and the revert contract
+     * intact — {@code hide()} does not fire {@code setOnDismissListener}, so stepping aside to
+     * sample a colour must not be mistaken for cancelling the panel.
+     */
+    @Nullable private androidx.appcompat.app.AlertDialog dialog;
+
+    public MaskKeyPanel(@NonNull Activity activity, @NonNull Clip clip, @NonNull Host host) {
+        this.activity = activity;
+        this.clip = clip;
+        this.host = host;
+        this.spec = clip.getCompositing() != null ? clip.getCompositing() : new CompositingSpec();
+        this.hadSpec = clip.getCompositing() != null;
+        this.before = spec.toJson().toString();
+    }
+
+    public void show() {
+        float density = activity.getResources().getDisplayMetrics().density;
+        int pad = (int) (16 * density);
+
+        LinearLayout root = new LinearLayout(activity);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(pad, pad / 2, pad, 0);
+
+        if (spec.masks.isEmpty()) spec.masks.add(new CompositingSpec.MaskShape());
+        final CompositingSpec.MaskShape shape = spec.masks.get(0);
+
+        final Runnable apply = () -> {
+            clip.setCompositing(spec.isEmpty() ? null : spec);
+            host.onCompositingChanged();
+        };
+        apply.run();
+
+        // ── SHAPE ────────────────────────────────────────────────────────────────────────
+        addHeader(root, R.string.faditor_mask_section_shape, density);
+        slider(root, R.string.faditor_mask_x, 100, Math.round(shape.cx * 100),
+                v -> { shape.cx = v / 100f; apply.run(); });
+        slider(root, R.string.faditor_mask_y, 100, Math.round(shape.cy * 100),
+                v -> { shape.cy = v / 100f; apply.run(); });
+        slider(root, R.string.faditor_mask_w, 100, Math.round(shape.w * 100),
+                v -> { shape.w = Math.max(0.02f, v / 100f); apply.run(); });
+        slider(root, R.string.faditor_mask_h, 100, Math.round(shape.h * 100),
+                v -> { shape.h = Math.max(0.02f, v / 100f); apply.run(); });
+        slider(root, R.string.faditor_mask_round, 100, Math.round(shape.corner * 100),
+                v -> { shape.corner = v / 100f; apply.run(); });
+        slider(root, R.string.faditor_mask_rotate, 360, Math.round(shape.rotationDeg),
+                v -> { shape.rotationDeg = v; apply.run(); });
+        slider(root, R.string.faditor_mask_soften, 100, Math.round(spec.maskFeather * 100),
+                v -> { spec.maskFeather = v / 100f; apply.run(); });
+
+        CheckBox invert = new CheckBox(activity);
+        invert.setText(R.string.faditor_mask_only_inside);
+        invert.setTextColor(0xFFCCCCCC);
+        invert.setChecked(spec.invertMasks);
+        invert.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
+        root.addView(invert);
+
+        // ── KEY ──────────────────────────────────────────────────────────────────────────
+        addHeader(root, R.string.faditor_key_section, density);
+
+        CheckBox keyOn = new CheckBox(activity);
+        keyOn.setText(R.string.faditor_key_enable);
+        keyOn.setTextColor(0xFFCCCCCC);
+        keyOn.setChecked(spec.keyEnabled);
+        root.addView(keyOn);
+
+        // The key controls are built once and shown/hidden as a block: rebuilding them on
+        // toggle would reset every slider the user had already set, which reads as the panel
+        // throwing away their work each time they compare keyed against unkeyed.
+        LinearLayout keyBody = new LinearLayout(activity);
+        keyBody.setOrientation(LinearLayout.VERTICAL);
+        root.addView(keyBody);
+
+        keyColorLabel = new TextView(activity);
+        keyColorLabel.setTextColor(0xFFAAAAAA);
+        keyColorLabel.setTextSize(12);
+        keyBody.addView(keyColorLabel);
+        refreshKeyColorLabel();
+
+        swatchRow = buildSwatchRow(density, apply);
+        keyBody.addView(swatchRow);
+
+        slider(keyBody, R.string.faditor_key_tolerance, 100, Math.round(spec.keyTolerance * 100),
+                v -> { spec.keyTolerance = v / 100f; apply.run(); });
+        slider(keyBody, R.string.faditor_key_softness, 100, Math.round(spec.keyFuzziness * 100),
+                v -> { spec.keyFuzziness = v / 100f; apply.run(); });
+        // Spill/choke is signed, so the bar is 0..200 with 100 meaning zero — a SeekBar cannot
+        // start negative and a second control for "which direction" would be worse.
+        slider(keyBody, R.string.faditor_key_spill, 200, Math.round(spec.keyOffset * 100) + 100,
+                v -> { spec.keyOffset = (v - 100) / 100f; apply.run(); });
+
+        keyBody.setVisibility(spec.keyEnabled ? View.VISIBLE : View.GONE);
+        keyOn.setOnCheckedChangeListener((b, on) -> {
+            spec.keyEnabled = on;
+            keyBody.setVisibility(on ? View.VISIBLE : View.GONE);
+            apply.run();
+        });
+
+        ScrollView scroll = new ScrollView(activity);
+        scroll.addView(root);
+
+        androidx.appcompat.app.AlertDialog dlg = new MaterialAlertDialogBuilder(activity)
+                .setTitle(R.string.faditor_mask_title)
+                .setView(scroll)
+                .setPositiveButton(android.R.string.ok, (d, w) -> commit())
+                .setNeutralButton(R.string.faditor_mask_remove, (d, w) -> removeAll())
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        // ⚠ THE IMPORTANT LINE — see the class note. Dismissal of ANY kind (BACK, tap-outside,
+        // rotation) reverts unless a button committed, because the controls write live and the
+        // panel seeds a default box merely by opening.
+        dlg.setOnDismissListener(d -> { if (!committed[0]) revert(); });
+        dialog = dlg;
+        dlg.show();
+    }
+
+    // ── Key colour ───────────────────────────────────────────────────────────────────────
+
+    @NonNull
+    private View buildSwatchRow(float density, @NonNull Runnable apply) {
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        int sz = (int) (34 * density);
+        int gap = (int) (8 * density);
+
+        for (int rgb : SWATCHES) {
+            View sw = new View(activity);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.OVAL);
+            bg.setColor(0xFF000000 | rgb);
+            // A stroke so the black and white swatches are visible on a dark dialog at all.
+            bg.setStroke(Math.max(1, (int) (1.5f * density)), 0xFF888888);
+            sw.setBackground(bg);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sz, sz);
+            lp.rightMargin = gap;
+            sw.setLayoutParams(lp);
+            sw.setOnClickListener(v -> {
+                spec.keyColor = rgb;
+                refreshKeyColorLabel();
+                apply.run();
+            });
+            row.addView(sw);
+        }
+
+        TextView dropper = new TextView(activity);
+        dropper.setText(R.string.faditor_key_eyedropper);
+        dropper.setTextColor(0xFF8C3DFA);
+        dropper.setTextSize(14);
+        dropper.setPadding(gap, gap / 2, gap, gap / 2);
+        dropper.setOnClickListener(v -> {
+            // Step aside so the tap can actually reach the preview, then come back either way.
+            // "Either way" is the important half: an early return on failure that forgot to
+            // re-show would strand the user with their panel gone and their edits pending.
+            if (dialog != null) dialog.hide();
+            final boolean[] resolved = {false};
+            // SAFETY NET, not the mechanism. The dropper resolves on the next tap ON THE
+            // PREVIEW; a tap anywhere else — the timeline, a system gesture — never reaches it,
+            // and the panel would stay hidden with live edits pending and no way back. This
+            // guarantees the panel always comes home. It is deliberately long enough not to
+            // race a user who is lining up a careful tap.
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                if (resolved[0]) return;
+                resolved[0] = true;
+                if (dialog != null && !activity.isFinishing()) dialog.show();
+            }, 15000L);
+            host.pickColorFromPreview(rgb -> {
+                if (resolved[0]) return;   // the net already restored us; do not double-show
+                resolved[0] = true;
+                if (rgb != null) {
+                    spec.keyColor = rgb;
+                    refreshKeyColorLabel();
+                    clip.setCompositing(spec.isEmpty() ? null : spec);
+                    host.onCompositingChanged();
+                } else {
+                    // Say so rather than silently doing nothing — a dropper that appears to
+                    // work and does not is how a user concludes the feature is broken.
+                    android.widget.Toast.makeText(activity,
+                            R.string.faditor_key_eyedropper_failed,
+                            android.widget.Toast.LENGTH_SHORT).show();
+                }
+                if (dialog != null && !activity.isFinishing()) dialog.show();
+            });
+        });
+        row.addView(dropper);
+        return row;
+    }
+
+    private void refreshKeyColorLabel() {
+        if (keyColorLabel == null) return;
+        keyColorLabel.setText(activity.getString(R.string.faditor_key_color)
+                + "  ·  " + String.format("#%06X", spec.keyColor & 0xFFFFFF));
+    }
+
+    // ── Commit / revert ──────────────────────────────────────────────────────────────────
+
+    private void commit() {
+        committed[0] = true;
+        // DEEP COPY, not the live object. `spec` IS clip.getCompositing() when one existed, and
+        // a later panel mutates it in place — so an undo action holding a reference would, on
+        // redo, resurrect whatever the NEXT session did, including values explicitly cancelled.
+        final CompositingSpec after = spec.isEmpty() ? null
+                : CompositingSpec.fromJson(
+                        JsonParser.parseString(spec.toJson().toString()).getAsJsonObject());
+        clip.setCompositing(after);
+        host.recordCompositingUndo(activity.getString(R.string.faditor_mask_title),
+                () -> { clip.setCompositing(after); host.onCompositingChanged(); },
+                this::revert);
+        host.scheduleSave();
+    }
+
+    private void removeAll() {
+        committed[0] = true;
+        clip.setCompositing(null);
+        host.onCompositingChanged();
+        host.recordCompositingUndo(activity.getString(R.string.faditor_mask_remove),
+                () -> { clip.setCompositing(null); host.onCompositingChanged(); },
+                this::revert);
+        host.scheduleSave();
+    }
+
+    /**
+     * Restore the EXACT prior state, including "there was no spec at all". {@code fromJson} is
+     * {@code @NonNull}, so a naive restore would leave a non-null empty spec behind and quietly
+     * break the "compositing != null means the user configured something" reading.
+     */
+    private void revert() {
+        if (!hadSpec) {
+            clip.setCompositing(null);
+        } else {
+            clip.setCompositing(CompositingSpec.fromJson(
+                    JsonParser.parseString(before).getAsJsonObject()));
+        }
+        host.onCompositingChanged();
+        // Live writes schedule autosaves while the panel is open, so a memory-only revert
+        // leaves the abandoned edit on disk.
+        host.saveNow();
+    }
+
+    // ── Small builders ───────────────────────────────────────────────────────────────────
+
+    private void addHeader(@NonNull LinearLayout parent, int labelRes, float density) {
+        TextView t = new TextView(activity);
+        t.setText(labelRes);
+        t.setTextColor(0xFFEEEEEE);
+        t.setTextSize(13);
+        t.setPadding(0, (int) (12 * density), 0, (int) (2 * density));
+        t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
+        parent.addView(t);
+    }
+
+    private void slider(@NonNull LinearLayout parent, int labelRes, int max, int initial,
+                        @NonNull java.util.function.Consumer<Integer> onChange) {
+        TextView label = new TextView(activity);
+        label.setTextColor(0xFFAAAAAA);
+        label.setTextSize(12);
+        label.setText(activity.getString(labelRes) + "  ·  " + initial);
+        parent.addView(label);
+
+        SeekBar bar = new SeekBar(activity);
+        bar.setMax(max);
+        bar.setProgress(Math.max(0, Math.min(max, initial)));
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean u) {
+                label.setText(activity.getString(labelRes) + "  ·  " + p);
+                onChange.accept(p);
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+        });
+        parent.addView(bar);
+    }
+}

@@ -19681,140 +19681,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * the diamond helpers run with itemStart=0. Undo reuses {@link #restoreOverlayTransform}.
      */
     /**
-     * §3a MASK dialog — one rounded-rect mask over a PiP, with a soft-edge slider.
+     * §3a MASK &amp; KEY — the authoring UI for {@code CompositingSpec}.
      *
-     * <p>This is the engine's first access point. {@code CompositingSpec} + {@code MaskPathBuilder}
-     * were built, export-proven and preview-wired long ago, but the ONLY writer of
-     * {@code Clip.setCompositing} in the whole codebase was {@code ProjectStorage}'s deserializer —
-     * so the feature was reachable only by hand-editing {@code project.json}.</p>
+     * <p>The panel itself lives in {@link com.fadcam.ui.faditor.tools.MaskKeyPanel}; this method
+     * is only the {@code Host} wiring. It USED to be ~120 lines of dialog inline here, and the
+     * key half would have added as many again to a file that is already 27,000 lines — so it
+     * moved out rather than growing, matching {@code ObjectMenuSheet}/{@code FilterBottomSheet}.
      *
-     * <p><b>Scope is deliberately ONE box, and deliberately NO chroma key yet.</b> The mask half
-     * renders live in the preview through the same {@code MaskPathBuilder} authority the export
-     * uses, so every slider here is tuned against the truth. The KEY half is still export-only,
-     * and the binding decision (2026-07-28) is that a tolerance slider tuned blind is not
-     * acceptable — so it waits for preview parity rather than shipping as guesswork. Sliders
-     * rather than on-canvas drag handles for the same reason the spine move shipped as buttons
-     * first: reliable and tap-testable now, direct manipulation as the delight pass.</p>
+     * <p><b>Both halves now render live in the preview.</b> The mask goes through
+     * {@code MaskPathBuilder} and the key through {@code ChromaKeyTextureView}, which compiles
+     * the same {@code ChromaKey.GLSL_KEY_FN} the export effect does — so every slider is tuned
+     * against what the file will actually contain. That was the binding condition (2026-07-28)
+     * on the key getting a UI at all.</p>
      */
     private void showMaskDialog(@NonNull Clip c) {
         if (project == null) return;
-        final com.fadcam.ui.faditor.model.CompositingSpec spec =
-                c.getCompositing() != null ? c.getCompositing()
-                        : new com.fadcam.ui.faditor.model.CompositingSpec();
-        // Snapshot for Cancel — these controls write live so the preview can be trusted.
-        final boolean hadSpec = c.getCompositing() != null;
-        final String before = spec.toJson().toString();
-
-        float density = getResources().getDisplayMetrics().density;
-        int pad = (int) (16 * density);
-        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
-        root.setOrientation(android.widget.LinearLayout.VERTICAL);
-        root.setPadding(pad, pad / 2, pad, 0);
-
-        if (spec.masks.isEmpty()) {
-            com.fadcam.ui.faditor.model.CompositingSpec.MaskShape m =
-                    new com.fadcam.ui.faditor.model.CompositingSpec.MaskShape();
-            spec.masks.add(m);
-        }
-        final com.fadcam.ui.faditor.model.CompositingSpec.MaskShape shape = spec.masks.get(0);
-
-        Runnable apply = () -> {
-            c.setCompositing(spec.isEmpty() ? null : spec);
-            if (overlayVideoLayer != null) overlayVideoLayer.invalidate();
-            if (editorTimeline != null) editorTimeline.invalidate();
-        };
-        apply.run();
-
-        addMaskSlider(root, R.string.faditor_mask_x, 100, Math.round(shape.cx * 100),
-                v -> { shape.cx = v / 100f; apply.run(); });
-        addMaskSlider(root, R.string.faditor_mask_y, 100, Math.round(shape.cy * 100),
-                v -> { shape.cy = v / 100f; apply.run(); });
-        addMaskSlider(root, R.string.faditor_mask_w, 100, Math.round(shape.w * 100),
-                v -> { shape.w = Math.max(0.02f, v / 100f); apply.run(); });
-        addMaskSlider(root, R.string.faditor_mask_h, 100, Math.round(shape.h * 100),
-                v -> { shape.h = Math.max(0.02f, v / 100f); apply.run(); });
-        addMaskSlider(root, R.string.faditor_mask_round, 100, Math.round(shape.corner * 100),
-                v -> { shape.corner = v / 100f; apply.run(); });
-        addMaskSlider(root, R.string.faditor_mask_rotate, 360, Math.round(shape.rotationDeg),
-                v -> { shape.rotationDeg = v; apply.run(); });
-        addMaskSlider(root, R.string.faditor_mask_soften, 100, Math.round(spec.maskFeather * 100),
-                v -> { spec.maskFeather = v / 100f; apply.run(); });
-
-        // "Show only inside" flips the whole stack from cutting a hole to being a window.
-        android.widget.CheckBox invert = new android.widget.CheckBox(this);
-        invert.setText(R.string.faditor_mask_only_inside);
-        invert.setTextColor(0xFFCCCCCC);
-        invert.setChecked(spec.invertMasks);
-        invert.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
-        root.addView(invert);
-
-        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
-        scroll.addView(root);
-
-        // Restoring the EXACT prior state, including "there was no spec at all". fromJson is
-        // @NonNull, so a naive restore would leave a non-null empty spec behind and quietly break
-        // the "compositing != null means the user configured something" reading.
-        final Runnable revert = () -> {
-            if (!hadSpec) {
-                c.setCompositing(null);
-            } else {
-                c.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
-                        com.google.gson.JsonParser.parseString(before).getAsJsonObject()));
+        new com.fadcam.ui.faditor.tools.MaskKeyPanel(this, c,
+                new com.fadcam.ui.faditor.tools.MaskKeyPanel.Host() {
+            @Override public void onCompositingChanged() {
+                if (overlayVideoLayer != null) overlayVideoLayer.refreshCompositing();
+                if (editorTimeline != null) editorTimeline.invalidate();
             }
-            if (overlayVideoLayer != null) overlayVideoLayer.invalidate();
-            if (editorTimeline != null) editorTimeline.invalidate();
-            // Same reason as the decoration revert: apply() schedules autosaves while the dialog
-            // is open, so a memory-only revert leaves the punched-in box on disk.
-            saveProjectNow();
-        };
-        final boolean[] committed = {false};
-
-        androidx.appcompat.app.AlertDialog dlg =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.faditor_mask_title)
-                .setView(scroll)
-                .setPositiveButton(android.R.string.ok, (d, w) -> {
-                    committed[0] = true;
-                    // DEEP COPY, not the live object. `spec` IS c.getCompositing() when one
-                    // existed, and a later dialog mutates it in place — so an undo action holding
-                    // a reference would, on redo, resurrect whatever the NEXT dialog did,
-                    // including values the user explicitly cancelled.
-                    final com.fadcam.ui.faditor.model.CompositingSpec after = spec.isEmpty()
-                            ? null
-                            : com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
-                                    com.google.gson.JsonParser
-                                            .parseString(spec.toJson().toString())
-                                            .getAsJsonObject());
-                    c.setCompositing(after);
-                    // Mask edits were entirely unundoable — the surrounding code records undo for
-                    // far smaller things. One step, restoring the whole spec either way.
-                    undoManager.recordAction(new EditActions.LambdaAction(
-                            getString(R.string.faditor_mask_title),
-                            () -> { c.setCompositing(after);
-                                    if (overlayVideoLayer != null) overlayVideoLayer.invalidate(); },
-                            () -> { revert.run(); }));
-                    scheduleAutoSave();
-                })
-                .setNeutralButton(R.string.faditor_mask_remove, (d, w) -> {
-                    committed[0] = true;
-                    c.setCompositing(null);
-                    if (overlayVideoLayer != null) overlayVideoLayer.invalidate();
-                    undoManager.recordAction(new EditActions.LambdaAction(
-                            getString(R.string.faditor_mask_remove),
-                            () -> { c.setCompositing(null);
-                                    if (overlayVideoLayer != null) overlayVideoLayer.invalidate(); },
-                            () -> { revert.run(); }));
-                    scheduleAutoSave();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .create();
-        // ⚠ THE IMPORTANT LINE. These controls write live so the preview can be trusted, and the
-        // dialog seeds a default box on open — so WITHOUT this, merely opening the menu item and
-        // pressing BACK (or tapping outside, or rotating the device) left a 30%x20% hole punched
-        // in the user's PiP, persisted by the next autosave. A destructive edit triggered by
-        // looking. Dismissal of ANY kind now reverts unless a button committed.
-        dlg.setOnDismissListener(d -> { if (!committed[0]) revert.run(); });
-        dlg.show();
+            @Override public void saveNow() { saveProjectNow(); }
+            @Override public void scheduleSave() { scheduleAutoSave(); }
+            @Override public void recordCompositingUndo(@NonNull String label,
+                                                        @NonNull Runnable redo,
+                                                        @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+            @Override public void pickColorFromPreview(
+                    @NonNull com.fadcam.ui.faditor.tools.MaskKeyPanel.ColorPicked cb) {
+                if (overlayVideoLayer == null) { cb.onPicked(null); return; }
+                android.widget.Toast.makeText(FaditorEditorActivity.this,
+                        R.string.faditor_key_tap_prompt,
+                        android.widget.Toast.LENGTH_SHORT).show();
+                overlayVideoLayer.armEyedropper(cb::onPicked);
+            }
+        }).show();
     }
 
     /**
@@ -19866,30 +19769,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             case ADD:      return R.string.faditor_blend_add;
             default:       return R.string.faditor_blend_normal;
         }
-    }
-
-    /** One labelled 0..max slider row for the mask dialog. */
-    private void addMaskSlider(@NonNull android.widget.LinearLayout parent, int labelRes,
-                               int max, int initial,
-                               @NonNull java.util.function.Consumer<Integer> onChange) {
-        TextView label = new TextView(this);
-        label.setTextColor(0xFFAAAAAA);
-        label.setTextSize(12);
-        label.setText(getString(labelRes) + "  ·  " + initial);
-        parent.addView(label);
-
-        android.widget.SeekBar bar = new android.widget.SeekBar(this);
-        bar.setMax(max);
-        bar.setProgress(Math.max(0, Math.min(max, initial)));
-        bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean u) {
-                label.setText(getString(labelRes) + "  ·  " + p);
-                onChange.accept(p);
-            }
-            @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
-            @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
-        });
-        parent.addView(bar);
     }
 
     private void showObjectMenuSheetForPipClip(@NonNull Clip c) {

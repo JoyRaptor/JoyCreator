@@ -1398,9 +1398,15 @@ public final class LayerRowRenderer {
             // image thumb (drawPinnedThumb) — so a long text item stays identifiable
             // while its body spans the screen; it parks at the right end as it leaves.
             float pad = 5f * density;
+            // JoyRaptor 2026-08-05: the label used to start at x0 + pad, which sat directly ON
+            // TOP of the kind badge drawn just below (T-in-a-box under "Text", the bars
+            // under "VIZ", …). When the badge is drawn, the label's LEFT bound clears it
+            // instead; the pinned-scroll bound is untouched, because once the item start
+            // scrolls off-screen the badge has gone with it and only the label is left.
+            float leftBound = x0 + (kindBadgeVisible(x0, x1) ? KIND_BADGE_LABEL_INSET_DP * density : pad);
             float labelW = itemLabelPaint.measureText(label);
             float viewLeft = lastHScrollOffsetPx + HEADER_WIDTH_DP * density;
-            float labelX = Math.max(x0 + pad, Math.min(viewLeft + pad, x1 - labelW - pad));
+            float labelX = Math.max(leftBound, Math.min(viewLeft + pad, x1 - labelW - pad));
             canvas.drawText(label, labelX,
                     centerY + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
             canvas.restore();
@@ -1408,8 +1414,8 @@ public final class LayerRowRenderer {
         // JoyRaptor 2026-07-19 (neutral substrate): the KIND badge belongs to the OBJECT,
         // not the lane — small glyph at the item's left inside edge, payload-derived
         // so it stays correct when any-object-on-any-lane lands. Skipped on slivers.
-        if (x1 - x0 > 40f * density) {
-            drawKindBadge(canvas, x0 + 3f * density, (top + bottom) / 2f,
+        if (kindBadgeVisible(x0, x1)) {
+            drawKindBadge(canvas, x0 + KIND_BADGE_INSET_DP * density, (top + bottom) / 2f,
                     payloadKindOf(item, rowKind));
         }
 
@@ -2144,9 +2150,30 @@ public final class LayerRowRenderer {
         return ObjectPalette.payloadKindOf(item, rowKind);
     }
 
+    /** Left inset of the kind badge from the item block's left edge. */
+    private static final float KIND_BADGE_INSET_DP = 3f;
+    /** Badge box size — {@code s} in {@link #drawKindBadge}. */
+    private static final float KIND_BADGE_SIZE_DP = 12f;
+    /** Widest badge is the boxed glyph at {@code s * 1.25}; the bars/ring variants are narrower. */
+    private static final float KIND_BADGE_WIDTH_DP = KIND_BADGE_SIZE_DP * 1.25f;
+    /**
+     * Where an item's text label may start when the kind badge is drawn: past the badge's
+     * right edge plus a breathing gap. Keep this derived from the badge geometry — the
+     * overlap this fixes came from the label and the badge each carrying their own literal.
+     */
+    private static final float KIND_BADGE_LABEL_INSET_DP =
+            KIND_BADGE_INSET_DP + KIND_BADGE_WIDTH_DP + 4f;
+    /** Minimum item width that earns a kind badge — below this the block is a sliver. */
+    private static final float KIND_BADGE_MIN_ITEM_DP = 40f;
+
+    /** Whether {@link #drawKindBadge} will paint for an item block spanning {@code [x0, x1]}. */
+    private boolean kindBadgeVisible(float x0, float x1) {
+        return x1 - x0 > KIND_BADGE_MIN_ITEM_DP * density;
+    }
+
     private void drawKindBadge(@NonNull Canvas canvas, float leftX, float cy,
                                @NonNull TrackKind kind) {
-        float s = 12f * density;          // badge box size
+        float s = KIND_BADGE_SIZE_DP * density;   // badge box size
         float l = leftX, t = cy - s / 2f, r = leftX + s * 1.25f, b = cy + s / 2f;
         int color = 0xFFB9BdC4;
         Paint.Style prevStyle = iconPaint.getStyle();

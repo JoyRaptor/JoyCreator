@@ -1219,6 +1219,25 @@ disk, links, mattes), and it makes "did this edit change only what I meant" unan
 without knowing to ignore these fields — which is how a real mutation would hide. Found only
 because the caret verification diffed the whole file rather than grepping the keys it cared about.
 
+**ROOT CAUSE FOUND 2026-08-05 — it is a WRITE with no matching READ, and the reason is that the
+setter does not exist.** Read out of the code, not inferred:
+- `ProjectStorage:1907` writes `acJson.addProperty("id", ac.getId())` — the id IS serialized.
+- `ProjectStorage:2460` loads it as `AudioClip ac = new AudioClip(acUri, acDuration)`, and both
+  `AudioClip` constructors (`:141`, `:153`) do `this.id = UUID.randomUUID().toString()`.
+- The load block that follows restores `inPointMs`, `outPointMs`, `offsetMs`, `layerId`,
+  `volumeLevel`, keyframes, waveform and transcripts — **but never `id`**.
+- **`AudioClip` has no `setId` at all** (grep returns nothing), so the load path could not have
+  restored it even if someone had written the line. That is why this survived: it does not read
+  like a forgotten field, it reads like a field that was never meant to round-trip.
+
+So every load mints a fresh UUID and every save writes the new one — the value on disk is
+write-only, which is the §3a failure mode this ledger exists for, in its other direction.
+**Fix shape: add `setId` and restore it at `:2460`, and do it in the SAME change as the
+`items[].payloadId` mirror** — the item's `payloadId` is what points at the audio clip, so
+restoring one without the other swaps a silent id churn for a real dangling reference. Anything
+that outlives a session and names an audio clip (on-disk undo history, links, mattes) is
+unreliable until this lands. Not fixed here; diagnosed so the next session starts at the fix.
+
 ## 3. PROMISED — on the docket, must not be lost again
 
 **3h. ~~THE TEXT-BOX TIMING CARETS~~ — BUILT AND PROVED ON DEVICE, 2026-07-30. Moved to §1.**
@@ -1420,6 +1439,85 @@ Three corrections this pass, each of which changes the cost:
 - **The ripple/gap toggle ALREADY SHIPS** (`toggleRippleMode()`). `PLAN_LAYERS_V2.md`'s unchecked
   M11 box is stale on that point — what M11 still owes is anchoring, which is unbuilt
   (`anchorClipId` appears nowhere in the source).
+
+## 3a-KEY. THE CHROMA KEY HAS A UI, AND THE PREVIEW KEYS — 2026-08-05. ⚠ NOT YET SEEN ON A PHONE.
+
+**The binding condition is met: the sliders are tuned against a keyed preview, not blind.** §3a
+scope item 1 (*"get it all working in preview too for v1"*) was the reason the key had no UI while
+the export had keyed for months. It now keys live.
+
+**ONE key, not two.** `model/ChromaKey.java` holds the GLSL as a single string and BOTH renderers
+compile it: `BlendModeGlEffect`'s fragment shader lost its hand-written key block and now calls
+`fadKeyAlpha` from that constant, and the new preview tier concatenates the same constant. The
+uniform packing (`packParams`/`packColor`) is shared too, so a clamp added on one side cannot be
+missing on the other. This is the `featherRadiusPx` discipline applied to the key — and it is
+enforced at COMPILE time, since the GLSL is a compile-time constant inlined into both shaders.
+
+**Why a whole GL tier and not a filter — three cheaper routes were checked and all are closed on
+this project's floor (minSdk 24, sandbox on API 29):** `RenderEffect` is API 31+ and AGSL
+`RuntimeShader` API 33+ (which is why `applyPreviewColorGrade` previews colour only on new
+phones); media3's `setVideoEffects` is recorded in that same method's javadoc as **not rendering
+in this preview path**; and a per-frame `getBitmap()` + CPU loop cannot hold frame rate. A key is
+a per-pixel ALPHA decision from a distance test, which no `ColorMatrix` can express at any API
+level. `ChromaKeyTextureView` takes the decoder on an external-OES surface and presents keyed
+RGBA — the tier `GlTransitionPreviewView` already proved on this device.
+
+**Cost is opt-in.** Nothing constructs the GL tier unless `ChromaKey.isActive` is true for the
+clip on screen — and `isActive` is false at offset +1, where the key cannot change a pixel. A
+project that never touched the key allocates no EGL context and runs the old `TextureView` path
+unchanged.
+
+**THE ACTIVITY GOT SMALLER WHILE GAINING A FEATURE — 26,975 → 26,854 lines.** The mask dialog was
+~120 lines inline in `FaditorEditorActivity`; adding the key half there would have added as many
+again. Instead the whole panel moved to `tools/MaskKeyPanel.java` behind a `Host` interface, and
+the now-dead `addMaskSlider` and the superseded dialog were **deleted, not parked** — a dead copy
+left "just in case" is the exact §3a trap (`setImageUri` into a void). Both are ABSENT from the
+dex, which is the freshness control.
+
+**Harness: `bash tools/jvm-harness/run-key.sh` — 37 checks, ALL GREEN**, and they DISCRIMINATE.
+The first draft did not: every offset case chosen (keep=0 with offset +1, keep=1 with offset −1)
+summed to exactly 0 or 1, so **deleting the clamp entirely still passed all three**. That is the
+handoff's own lesson — *when two quantities coincide on the default case, the default case cannot
+test them* — reproduced verbatim in fresh code. Three cases that go PAST the rail were added;
+removing the clamp now fails exactly those three, verified by injection and restore.
+The premultiplication trap is pinned with a CONTROL that proves the test can tell the two apart.
+
+**Three defects found by reviewing my own work, all fixed:**
+1. `sampleRawColor` with `surfaceW==0` computed NEGATIVE pixel coords; `glReadPixels` fails
+   quietly and the untouched buffer reads as pure black — the dropper would have "succeeded" and
+   keyed out black. A wrong colour is worse than a reported failure.
+2. `onSurfaceTextureDestroyed` returned true (handing the SurfaceTexture to the framework) while
+   the GL thread still held an EGL window on it — a driver use-after-free presenting as a crash
+   on rotation with a stack naming neither this class nor GL. Now a bounded join; on timeout it
+   returns false and leaks one SurfaceTexture rather than crashing.
+3. **The eyedropper could never have worked.** The panel is a MODAL dialog: it covers the preview
+   and eats every touch, so an armed dropper could not receive the tap it waits for. It now
+   `hide()`s (which does not fire the dismiss/revert listener) and returns on either outcome,
+   with a 15s net so a tap that lands off the preview cannot strand the user with a hidden panel
+   and live edits pending.
+
+**The dropper samples the UN-KEYED frame, deliberately.** If it sampled what is on screen, then
+as soon as the key half-works that pixel is already transparent and the dropper returns the colour
+BEHIND it — each tap drifting further from the answer the harder you try. Reading upstream of the
+key makes it idempotent. Implemented by drawing unkeyed into the BACK buffer, reading one pixel,
+then drawing keyed and swapping — so nothing unkeyed ever reaches the screen. A rotated PiP is
+refused (and toasts) rather than sampling the wrong pixel, because the rotation is a View property
+applied after the frame the sampler reads.
+
+**Verified:** `assembleDefaultDebug` green; all six harnesses green (key 37 · anchor 35 ·
+promote 24 · matte 14 · anchor-math 39 · undo 46); APK dex-scanned with `FadCamApplication` as the
+positive control and the two deleted symbols as freshness controls.
+
+**⚠ WHAT IS NOT PROVED — do not mark this verified.** No phone was attached, so **the GL tier has
+never executed**. Unknown until it runs on the Note 9: whether the shader compiles on that driver
+at all; whether `setOpaque(false)` + `EGL_ALPHA_SIZE 8` really composites the keyed alpha over the
+master video rather than over black; whether the key and a MASK still compose (both were re-pointed
+at `videoHost()`, by reading); what the tier costs in frame rate; and whether preview and export
+agree on real pixels. The A/B frame-diff method in §1d is the instrument for that last one, and an
+absolute-geometry diff is required — this ledger already records that symmetric proofs miss flips.
+**The panel is reachable at the PiP object menu's Mask action.**
+
+---
 
 **3a. Masking / chroma-key / track-matte AUTHORING UI. — the thing that got lost once already.**
 The engine is BUILT, device-proven, and used by export: `CompositingSpec`, `MaskPathBuilder`,

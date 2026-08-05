@@ -118,9 +118,13 @@ public final class BlendModeGlEffect implements GlEffect {
                 + "uniform sampler2D uMatteTexSampler0;\n"
                 + "uniform float uBlendMode;\n" // float: ES2 int uniforms are patchy on old drivers
                 + "uniform vec3 uKeyColor;\n"
-                // x=enabled(0/1), y=tolerance, z=fuzziness, w=offset
+                // x=enabled(0/1), y=tolerance, z=fuzziness, w=offset — packed by ChromaKey
                 + "uniform vec4 uKeyParams;\n"
                 + "uniform float uMatteOn;\n"
+                // The key itself is NOT written here. It is compiled from the one shared source
+                // so the live preview tier and this export effect cannot drift apart — see
+                // ChromaKey's class note for why that mattered enough to centralise.
+                + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN
                 + "vec3 blendPix(vec3 b, vec3 s) {\n"
                 + "  if (uBlendMode < 0.5) return s;\n" // NORMAL: mix-by-alpha below = SRC_OVER
                 + "  if (uBlendMode < 1.5) return b * s;\n"
@@ -148,13 +152,9 @@ public final class BlendModeGlEffect implements GlEffect {
                 + "  vec4 src = texture2D(uOverlayTexSampler0, ovc);\n"
                 + "  vec3 sc = src.rgb / max(src.a, 0.001);\n" // unpremultiply
                 + "  float a = src.a;\n"
-                + "  if (uKeyParams.x > 0.5) {\n"
-                // Chroma key on the STRAIGHT color: distance → soft matte.
-                + "    float d = distance(sc, uKeyColor);\n"
-                + "    float keep = smoothstep(uKeyParams.y,\n"
-                + "                            uKeyParams.y + uKeyParams.z + 0.0001, d);\n"
-                + "    a *= clamp(keep + uKeyParams.w, 0.0, 1.0);\n"
-                + "  }\n"
+                // Chroma key on the STRAIGHT color: distance → soft matte. The enabled test
+                // lives inside the shared function, so there is no second place to forget it.
+                + "  a = fadKeyAlpha(sc, a, uKeyColor, uKeyParams);\n"
                 + "  if (uMatteOn > 0.5) {\n"
                 // Luma matte: the matte frame is premultiplied; luma of its
                 // straight color × its alpha (empty regions matte to 0).
@@ -170,8 +170,8 @@ public final class BlendModeGlEffect implements GlEffect {
         private final PipFrameOverlay overlay;
         @Nullable private final PipFrameOverlay matteOverlay;
         private final float mode;
-        private final float[] keyColor = new float[3];
-        private final float[] keyParams = new float[4];
+        private final float[] keyColor;
+        private final float[] keyParams;
 
         Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip,
                 long editorTimeOffsetMs)
@@ -181,17 +181,12 @@ public final class BlendModeGlEffect implements GlEffect {
             this.matteOverlay = matteClip != null
                     ? new PipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
             this.mode = modeCode(clip.getOverlayBlendMode());
+            // Packed by the shared authority, not unpacked by hand here — the preview tier
+            // packs the identical uniforms from the identical spec, so a clamp added on one
+            // side can never be missing on the other.
             CompositingSpec spec = clip.getCompositing();
-            boolean keyOn = spec != null && spec.keyEnabled;
-            keyParams[0] = keyOn ? 1f : 0f;
-            if (keyOn) {
-                keyColor[0] = ((spec.keyColor >> 16) & 0xFF) / 255f;
-                keyColor[1] = ((spec.keyColor >> 8) & 0xFF) / 255f;
-                keyColor[2] = (spec.keyColor & 0xFF) / 255f;
-                keyParams[1] = spec.keyTolerance;
-                keyParams[2] = spec.keyFuzziness;
-                keyParams[3] = spec.keyOffset;
-            }
+            this.keyColor = com.fadcam.ui.faditor.model.ChromaKey.packColor(spec);
+            this.keyParams = com.fadcam.ui.faditor.model.ChromaKey.packParams(spec);
             try {
                 this.glProgram = new GlProgram(VERTEX_SHADER, FRAGMENT_SHADER);
                 this.glProgram.setBufferAttribute("aFramePosition",

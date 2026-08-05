@@ -51,6 +51,10 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
      *  separate setter (not a Callback method) so the existing method-reference wiring of
      *  {@link Callback} stays intact. */
     @Nullable private Runnable onOpenWaveformVisualizer;
+    @Nullable private Runnable onConsolidateProject;
+
+    /** Wire the "Make project self-contained" row (audit 3.4's packaging half). */
+    public void setOnConsolidateProject(@Nullable Runnable action) { this.onConsolidateProject = action; }
 
     /** Factory method. */
     @NonNull
@@ -182,6 +186,19 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                 getString(R.string.faditor_settings_orphan_desc,
                         orphanPolicyLabel(prefs.getFaditorOrphanAnchorPolicy())),
                 () -> showOrphanPolicyChooser(prefs));
+
+        // 3.4: copy every referenced file INTO the project so it stops depending on media it does
+        // not own. A BUTTON row, not a switch — it is an action with a cost (disk, time), not a
+        // preference, and doing it automatically on open would copy gigabytes nobody asked for.
+        addButtonRow(content, dp,
+                "Make project self-contained",
+                "Copy every video, image and audio file this project uses into the project itself, "
+                        + "so it keeps working if the originals are moved or deleted. "
+                        + "Originals are never changed or removed.",
+                () -> {
+                    if (onConsolidateProject != null) onConsolidateProject.run();
+                    dismiss();
+                });
 
         // NOTE (v2): the old "Tool order" manual/recent switch was removed. The
         // carousel now uses the divider model — pinned home row left of the

@@ -2530,6 +2530,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance();
             sheet.setCallback(this::setSafeZoneOverlayEnabled);
             sheet.setOnOpenWaveformVisualizer(this::openWaveformVisualizerSheet);
+            sheet.setOnConsolidateProject(this::consolidateProjectMedia);
             sheet.show(getSupportFragmentManager(), "faditorSettings");
         });
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
@@ -4228,6 +4229,58 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Paragraph break for dialog copy. A literal escape here keeps tripping the
      *  heredoc-based edit tooling, and a named constant reads better at the call site. */
     private static final String BLANK_LINE = System.lineSeparator() + System.lineSeparator();
+
+    /**
+     * Audit 3.4's packaging half: copy every referenced file into the project so it stops depending
+     * on media it does not own. Confirms first, because it costs disk and time proportional to the
+     * footage — silently duplicating gigabytes would be its own bug.
+     */
+    private void consolidateProjectMedia() {
+        if (project == null) return;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Make project self-contained?")
+                .setMessage("Every video, image and audio file this project uses will be COPIED "
+                        + "into the project. It will then keep working even if the originals are "
+                        + "moved or deleted." + BLANK_LINE
+                        + "This uses extra storage — roughly the size of the footage. Your original "
+                        + "files are never changed or removed.")
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton("Copy files", (d, w) -> runConsolidation())
+                .show();
+    }
+
+    private void runConsolidation() {
+        final com.fadcam.ui.faditor.model.FaditorProject target = project;
+        if (target == null) return;
+        Toast.makeText(this, "Copying files…", Toast.LENGTH_SHORT).show();
+        // Off the main thread: this copies whole video files and would ANR for any real project.
+        new Thread(() -> {
+            java.io.File mediaDir = new java.io.File(
+                    new com.fadcam.ui.faditor.project.ProjectStorage(getApplicationContext())
+                            .projectDir(target.getId()), "media");
+            com.fadcam.ui.faditor.project.ProjectConsolidator.Result r =
+                    com.fadcam.ui.faditor.project.ProjectConsolidator.consolidate(
+                            getApplicationContext(), target, mediaDir);
+            FLog.i(TAG, "CONSOLIDATE copied=" + r.copied + " alreadyLocal=" + r.alreadyLocal
+                    + " failed=" + r.failed + " bytes=" + r.bytesCopied);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (r.changed()) saveProjectNow();
+                String msg = r.failed > 0
+                        ? ("Copied " + r.copied + ", but " + r.failed + " could not be read. "
+                                + "Those still point at the original files.")
+                        : (r.copied == 0
+                                ? "Already self-contained — nothing to copy."
+                                : "Copied " + r.copied + " file(s). This project no longer depends "
+                                        + "on anything outside itself.");
+                new androidx.appcompat.app.AlertDialog.Builder(FaditorEditorActivity.this)
+                        .setTitle("Consolidate")
+                        .setMessage(msg)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+            });
+        }, "project-consolidate").start();
+    }
 
     /** The missing-media warning (see ProjectIntegrity). Reports; never repairs. */
     private void showIntegrityWarning(int n, @NonNull String body) {

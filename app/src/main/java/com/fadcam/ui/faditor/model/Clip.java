@@ -653,6 +653,24 @@ public class Clip {
         this.sourceUri = uri;
     }
 
+    /**
+     * The SECOND sanctioned source rewrite: consolidation copied this clip's media into the
+     * project's own directory, and the model must now point at the copy.
+     *
+     * <p>Deliberately a separate, explicitly-named method rather than a general
+     * {@code setSourceUri}. The guard above exists so "nothing else can ever silently rewrite a
+     * source", and that property is worth keeping — a generic setter would dissolve it for every
+     * future caller. Two named doors, each with a stated reason, is the point.</p>
+     *
+     * <p>Safe by construction at the call site: {@link
+     * com.fadcam.ui.faditor.project.ProjectConsolidator} only calls this AFTER the bytes are on
+     * disk and verified, and it never deletes the original — so this can move the reference from a
+     * good file to another good file, and nowhere else.</p>
+     */
+    public void repointConsolidatedSource(@NonNull Uri uri) {
+        this.sourceUri = uri;
+    }
+
     public long getInPointMs() {
         return inPointMs;
     }

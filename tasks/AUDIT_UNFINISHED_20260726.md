@@ -624,3 +624,30 @@ numbers as a divergence — they are a bad instrument, not a finding.
 Export tooling on the host: `ffmpeg`/`ffprobe` (winget Gyan build) and PIL are installed.
 Exports land in `/storage/emulated/0/Android/data/com.fadcam.beta/files/FadCam/Faditor/` — the
 logcat path is redacted, so find it by mtime there rather than grepping the log.
+
+## 2.7 NEUTRAL SUBSTRATE — CLOSED 2026-08-05. All 8 validation items done.
+
+The audit lists "7 of 8 never run". That was already wrong when written (1/4 done 07-25, 2/3/8
+done 07-26) and is now fully stale. Items **5, 6, 7** ran today and all PASS — see
+`SPEC_NEUTRAL_SUBSTRATE.md` for each result.
+
+**The blocker recorded against 5/6/7 was wrong, not just stale.** It said drag-and-drop injection
+"drifts on this device… these want either a human or the temp-widen-a-constant trick".
+`adb shell input draganddrop` sends DOWN, waits the long-press timeout, then moves — the exact
+hold-then-move gesture assumed impossible. Present on Android 10. Combined with a `LANEPROBE` log
+in `getLayers()` (lane headers are canvas-drawn and unreadable any other way), the whole
+gesture-level queue is scriptable.
+
+### Running tally of items in this file that read OPEN and are NOT
+**1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 2.6, 2.7, 3.3** — ten.
+**Grep for the fix before scoping anything from this file.**
+
+### Actually open
+- **2.5** PiP audio preview leg — needs a human to listen. Export leg already proved.
+- **3.1 / 3.2** dual-stream (3.1 is a documented deliberate v1 limitation, not an oversight).
+- **3.5** — **68** `getSelectedAudioIndex` sites, not the "~9" the doc estimates.
+- **3.6** — `AudioClip.waveform int[]` is still SERIALIZED; removing it is a migration, not a
+  cleanup. Needs a plan and an owner.
+- Tier 4 tail, incl. the long-file ANR (now instrumented by `ExitDiagnostics`, so the next
+  occurrence is diagnosable rather than owed).
+- loop/ping-pong — LAST, per JoyRaptor.

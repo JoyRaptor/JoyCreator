@@ -362,3 +362,26 @@ Export:
 >
 > Items **5 and 7 remain** — 5 needs a sprite (this fixture has none) and 7 needs a lane-NAME
 > read, which is canvas-drawn and therefore wants the `getLayers()` Log probe described above.
+
+> **DONE 2026-08-05 — item 7 PASSES, both halves.** Uses the `LANEPROBE` flag added to
+> `Timeline.getLayers()` for exactly this purpose (off by default; flip it to `true` to run
+> items 5/6/7). Lane names and kinds are canvas-drawn, so this probe is the only way to assert
+> what a drop actually produced.
+>
+> Baseline: `2 rows [text name=Text kind=TEXT items=1][video name=PiP kind=VIDEO items=1]`.
+>
+> 1. **PiP dragged into the between-rows gap ⇒ a NEUTRAL lane.**
+>    `[d23d97f8… name=Lane 3 kind=LAYER items=1]` — `kind=LAYER`, not TEXT and not VIDEO, which
+>    is the substantive requirement. ⚠ The name is **"Lane N"**, not the "Layer n" this spec
+>    predicted; the kind is what matters, but update the expectation so the next runner does not
+>    read a passing result as a failure.
+> 2. **A DIFFERENT payload type then lands on it.** Text dragged onto that lane ⇒
+>    `1 rows [d23d97f8… name=Lane 3 kind=LAYER items=2]`, and BOTH payloads persist the same
+>    literal `layerId`. One lane, two payload types — the substrate doing the thing it exists for.
+>
+> **Gap geometry matters more than it sounds.** The between-rows gap is ~13px on this device.
+> A drop aimed above the first row (y=1700) silently did nothing — it is not a gap, and it looks
+> exactly like "gap drops are broken". The gap that works sits between the two row bodies
+> (y≈1791 here). Measure the rows from a screenshot before choosing the target.
+>
+> **Item 5 remains** — it needs a sprite, and this fixture has none.

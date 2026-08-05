@@ -1256,6 +1256,9 @@ public class Timeline {
      * Freshly rebuilt on every call; persisted flags (M6) are re-applied per track.</p>
      */
     @NonNull
+    /** SPEC_NEUTRAL_SUBSTRATE validation 5/6/7 only — see the probe at the end of getLayers(). */
+    private static final boolean LANEPROBE = false;
+
     public List<Track> getLayers() {
         // NEUTRAL SUBSTRATE (SPEC_NEUTRAL_SUBSTRATE): EVERY floating row is a lane that
         // holds ANY visual payload. Routing is layerId-FIRST — a row is the set of items
@@ -1328,6 +1331,19 @@ public class Timeline {
         }
 
         sortBandByZIndex(layers); // PHASE-P P2: row order follows persisted zIndex
+        // LANEPROBE (SPEC_NEUTRAL_SUBSTRATE validation 5/6/7): lane headers are CANVAS-drawn, so
+        // row names and kinds are invisible to uiautomator and unreadable from a screenshot. This
+        // is the only way to assert what a drop actually produced. Debug-gated and off by default;
+        // flip LANEPROBE to true when running those items.
+        if (LANEPROBE) {
+            StringBuilder sb = new StringBuilder();
+            for (Track t : layers) {
+                sb.append('[').append(t.getId()).append(" name=").append(t.getName())
+                  .append(" kind=").append(t.getKind())
+                  .append(" items=").append(t.getItems().size()).append(']');
+            }
+            android.util.Log.d("LANEPROBE", layers.size() + " rows " + sb);
+        }
         return layers;
     }
 

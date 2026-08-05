@@ -1508,14 +1508,65 @@ applied after the frame the sampler reads.
 promote 24 · matte 14 · anchor-math 39 · undo 46); APK dex-scanned with `FadCamApplication` as the
 positive control and the two deleted symbols as freshness controls.
 
-**⚠ WHAT IS NOT PROVED — do not mark this verified.** No phone was attached, so **the GL tier has
-never executed**. Unknown until it runs on the Note 9: whether the shader compiles on that driver
-at all; whether `setOpaque(false)` + `EGL_ALPHA_SIZE 8` really composites the keyed alpha over the
-master video rather than over black; whether the key and a MASK still compose (both were re-pointed
-at `videoHost()`, by reading); what the tier costs in frame rate; and whether preview and export
-agree on real pixels. The A/B frame-diff method in §1d is the instrument for that last one, and an
-absolute-geometry diff is required — this ledger already records that symmetric proofs miss flips.
-**The panel is reachable at the PiP object menu's Mask action.**
+### PROVED ON THE NOTE 9 — and the device found a bug everything else called green
+
+**THE GREEN-HARNESS LESSON AGAIN, EXACTLY AS THE HANDOFF WARNS IT.** 37 harness checks, a clean
+`assembleDefaultDebug`, a dex scan with controls — and the live tier **never executed once**. The
+keyed view was created `GONE`, and a `GONE` TextureView is never laid out, so it never receives
+`onSurfaceTextureAvailable` and never publishes a decoder surface — while the routing that would
+make it VISIBLE was waiting for exactly that surface. **A deadlock between two of my own
+conditions**, invisible to every off-device instrument, and it presents on screen as "the key
+does nothing" — identical to a shader bug, a serializer bug, or a spec that never loaded.
+
+**One log line separated four hypotheses in a single run** — the `DRIFTDIAG` lesson, reproduced:
+```
+KEYDIAG: clip=6126e8b4 spec=on=true tol=1.0 col=808080 wantKeyed=true surfaceReady=false routed=false
+```
+The spec HAD loaded and `isActive` HAD said yes; only the surface never arrived. `KEYDIAG` is
+**retained** (`OverlayVideoPreviewView.KEYDIAG`), like `SEEKRANGE`/`ENDEDNET`/`PHDIAG`: the tier
+has no other observable, so without it a regression that stops it routing looks exactly like a
+shader that stopped keying.
+
+**THE MEASUREMENT — three arms, and the control shares the render path.** Fixture `302da9ac`,
+PiP `6126e8b4` (centred, scale 1.32), seeded on disk with a deep-equality guard asserting nothing
+but that one clip's `compositing` differed. Key colour mid-grey `#808080`, whose distance to ANY
+colour is at most 0.866 — so tolerance 1.0 must remove every pixel and tolerance 0.0 almost none.
+Both arms run through the GL tier; **they differ by one number.**
+
+| arm | tolerance | `routed` | at | result |
+|---|---|---|---|---|
+| C (control) | 0.0 | true (GL) | 00:06.069 | **PiP present, renders faithfully** |
+| B | 1.0 | true (GL) | 00:06.090 | **PiP GONE — the master video shows through** |
+
+**Arm C is what makes arm B mean anything.** Had the control been "key off" it would have run the
+PLAIN TextureView path, and a blank arm B could equally have meant the GL tier simply fails to
+draw. Routing both arms through the tier and varying only the tolerance rules that out — and
+21ms apart, they are effectively the same instant of the same clip.
+**It also proves the alpha composites over the MASTER, not over black:** in arm B the child is
+visible where the carpet PiP was, which is `setOpaque(false)` + `EGL_ALPHA_SIZE 8` working end to
+end. Zero `FATAL EXCEPTION`; no shader-compile or program-link failures from this tier (the two
+`shader compile failed` lines in that logcat are `GlTransitionCardBaker`'s, pre-existing and
+unrelated — filter by tag or you will read someone else's failure as yours).
+
+**A METHOD TRAP, PAID FOR HERE:** arm C was first run on the build where the tier never engaged,
+so that pass measured the plain path while *reporting* "control passes". It was re-run on the
+fixed build before being believed. **A control taken on a different build is not a control.**
+
+Sandbox restored byte-exact (`aac2ba5c`, verified after) from a device-local `run-as cp` backup;
+rotation lock 0. The editor DOES save the seeded spec back on exit (md5 `d11b224b` before the
+restore), so seeding a project is an edit, not an observation — restore, do not assume.
+
+**⚠ STILL NOT PROVED — do not mark these verified.**
+1. **Export parity on real pixels.** Both renderers compile the same string, which is an argument
+   from construction — the same kind §1b replaced with a measurement. Needs the §1d A/B frame
+   diff, absolute-geometry (symmetric proofs miss flips).
+2. **The eyedropper has never been tapped.** Its hide/show dance, the raw-frame read and the
+   rotation refusal are all unexercised on device.
+3. **The panel was never opened on screen.** Reaching it needs the PiP's object menu; two
+   long-press attempts hit the TEXT overlay and then the project list's multi-select instead.
+   The panel is reachable at the PiP object menu's Mask action — that path wants confirming.
+4. **Mask + key composing.** Both were re-pointed at `videoHost()` by reading, not by looking.
+5. **Frame-rate cost of the tier** (`dumpsys gfxinfo`, against the ~33.7% editor baseline).
 
 ---
 

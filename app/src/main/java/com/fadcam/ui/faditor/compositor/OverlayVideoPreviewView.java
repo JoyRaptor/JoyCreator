@@ -102,6 +102,8 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Nullable private ChromaKeyTextureView keyedView;
     /** True while the decoder is rendering into {@link #keyedView} rather than the plain one. */
     private boolean keyedRouted;
+    /** True while the clip on screen WANTS keying, whether or not the tier is ready yet. */
+    private boolean keyedWanted;
     /**
      * The player instance {@link #keyedRouted} actually describes. A decoder error releases the
      * player and a later clip builds a NEW one wired to the plain view; without this, the stale
@@ -113,6 +115,12 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Nullable private Surface keyedInputSurface;
     /** One-shot eyedropper sink, set by {@link #armEyedropper} and cleared by the next tap. */
     @Nullable private ChromaKeyTextureView.ColorSink pendingDropper;
+    /**
+     * KEYDIAG probe. Retained (like SEEKRANGE / ENDEDNET / PHDIAG) rather than deleted after
+     * the first bring-up: the live key tier has no other observable, so without this a
+     * regression that stops it routing is indistinguishable on screen from a shader bug.
+     */
+    private static final boolean KEYDIAG = true;
     private final List<Clip> clips = new ArrayList<>();
     @Nullable private Callback callback;
     @Nullable private ExoPlayer player;
@@ -219,9 +227,30 @@ public class OverlayVideoPreviewView extends FrameLayout {
      */
     private void routeFor(@NonNull Clip clip) {
         boolean wantKeyed = com.fadcam.ui.faditor.model.ChromaKey.isActive(clip.getCompositing());
+        keyedWanted = wantKeyed;
+        // KEYDIAG: the live tier is invisible to every other instrument — a keyed PiP that
+        // looks unkeyed could be a missing spec, a tier that never routed, or a shader that
+        // ran and did nothing, and those need different fixes. One line separates them.
+        if (KEYDIAG) {
+            com.fadcam.ui.faditor.model.CompositingSpec cs = clip.getCompositing();
+            android.util.Log.d("KEYDIAG", "clip=" + clip.getId().substring(0, 8)
+                    + " spec=" + (cs == null ? "null"
+                            : "on=" + cs.keyEnabled + " tol=" + cs.keyTolerance
+                              + " col=" + Integer.toHexString(cs.keyColor))
+                    + " wantKeyed=" + wantKeyed
+                    + " surfaceReady=" + (keyedInputSurface != null)
+                    + " routed=" + keyedRouted);
+        }
         if (wantKeyed && keyedView == null) {
             ChromaKeyTextureView kv = new ChromaKeyTextureView(getContext());
-            kv.setVisibility(GONE);
+            // VISIBLE from birth, and this is load-bearing. A GONE TextureView is never laid
+            // out, so it never receives onSurfaceTextureAvailable and never publishes a
+            // decoder surface — while the routing that would make it visible waits for exactly
+            // that surface. Created GONE, the two conditions deadlock and the key silently
+            // never engages (KEYDIAG: wantKeyed=true surfaceReady=false, forever).
+            // Showing it early costs nothing visually: it is transparent until it has frames,
+            // and the plain tier stays visible underneath until the switch actually happens.
+            kv.setVisibility(VISIBLE);
             kv.setSurfaceListener(new ChromaKeyTextureView.SurfaceListener() {
                 @Override public void onKeyedInputSurfaceReady(@NonNull Surface s) {
                     keyedInputSurface = s;
@@ -321,11 +350,19 @@ public class OverlayVideoPreviewView extends FrameLayout {
         return true;
     }
 
-    /** Show the routed tier and hide the other; {@code false} hides both. */
+    /**
+     * Show the routed tier and hide the other; {@code false} hides both.
+     *
+     * <p>The keyed tier stays laid out whenever keying is WANTED, not merely once it is routed —
+     * see the note in {@code routeFor}: hiding it before its surface exists is what deadlocks
+     * the handover. During that gap both are visible; the keyed one is transparent until it has
+     * frames, so the plain one shows through and there is no flicker at the switch.</p>
+     */
     private void applyHostVisibility(boolean visible) {
-        TextureView host = videoHost();
-        if (keyedView != null) keyedView.setVisibility(visible && host == keyedView ? VISIBLE : GONE);
-        textureView.setVisibility(visible && host == textureView ? VISIBLE : GONE);
+        if (keyedView != null) {
+            keyedView.setVisibility(visible && (keyedRouted || keyedWanted) ? VISIBLE : GONE);
+        }
+        textureView.setVisibility(visible && !keyedRouted ? VISIBLE : GONE);
     }
 
     /** Release the overlay decoder entirely (activity onDestroy / export start). */

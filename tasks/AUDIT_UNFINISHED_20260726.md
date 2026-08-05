@@ -588,3 +588,39 @@ for the webcam file while `ScreenRecordingPipeline` does roll over. Fixing it is
 migration plan) · 2.5 / 2.6 / 2.7 (verification tasks — listening and export A/B frame diffs,
 not code changes) · Tier 4 tail, incl. the long-file ANR root cause that was captured and never
 diagnosed · loop/ping-pong, deliberately last per JoyRaptor.
+
+## 2.6 CROSS-TYPE Z — the absolute A/B was finally RUN (2026-08-05)
+
+The audit's complaint was that Z1/Z2 were simulation-proven over 11 projects but the
+**absolute-geometry A/B frame diff was never run**, and that their own recorded lesson is that
+symmetric proofs miss flips. So it was run, on real pixels.
+
+**Fixture:** no new project needed — `302da9ac`'s PiP `6126e8b4` sits at x=0.529 y=0.476
+scale=1.32, i.e. essentially CENTRED, and the text overlay is at centerX/centerY 0.5. They already
+overlap spatially, which is the condition the test needs and which I had wrongly assumed no
+sandbox project met. **Check the transform before building a fixture.**
+
+**Method:** play to a frame where master + PiP + text are all live (t=7.531s, read off the editor's
+own timecode), screenshot the preview; export 720p/Low; `ffmpeg -ss 7.531 -frames:v 1`; compare.
+
+**RESULT — parity confirmed.**
+
+| measure | preview | export | delta |
+|---|---|---|---|
+| PiP band top (normalised) | 0.268 | 0.278 | 0.009 |
+| PiP band bottom | 0.688 | 0.674 | 0.015 |
+| text centroid y | 0.493 | 0.498 | 0.005 |
+| **text renders INSIDE the PiP band** | **yes** | **yes** | — |
+
+Paint order is identical in both paths: **master < PiP < text**. That is the flip the item was
+worried about, and it does not happen.
+
+**Honest limit of this run.** Text HORIZONTAL position could not be measured: the underlying rug is
+white-patterned at exactly the text's height, so a white-pixel detector picks up rug as glyphs
+(4419 vs 1388 "text" pixels for the same three words). Z-order and PiP geometry are solid; text
+centring is not measured here and wants a flat-background fixture. Do not read the discarded x
+numbers as a divergence — they are a bad instrument, not a finding.
+
+Export tooling on the host: `ffmpeg`/`ffprobe` (winget Gyan build) and PIL are installed.
+Exports land in `/storage/emulated/0/Android/data/com.fadcam.beta/files/FadCam/Faditor/` — the
+logcat path is redacted, so find it by mtime there rather than grepping the log.

@@ -869,6 +869,8 @@ public class EditorTimelineView extends View {
     private static final int CARRY_FIT = 0, CARRY_TRIM = 1, CARRY_NEWLANE = 2;
     /** A hole shorter than this is not a placement, it is a sliver — treat it as no room at all. */
     private static final long CARRY_MIN_HOLE_MS = 200L;
+    /** Mirrors FaditorEditorActivity.M12_DEFAULT_LAYER_ID — the lane a demote lands on. */
+    private static final String CARRY_FALLBACK_LANE_ID = "video";
     private int carryDropState = CARRY_FIT;
     private long carryHoleMs = -1;
     @Nullable private String carryTargetLaneId;
@@ -7231,6 +7233,15 @@ public class EditorTimelineView extends View {
         long startMs = Math.max(0L, xToTime(carryFingerX - carryGrabDx + scrollOffsetPx));
         com.fadcam.ui.faditor.layers.Track lane =
                 layerRowRenderer != null ? layerRowRenderer.rowTrackAt(y, getM6RowsTopPx()) : null;
+        if (lane == null) {
+            // The finger is between rows, or the layout shifted under it mid-drag. Falling through
+            // with a null lane made freeHoleMs answer Long.MAX_VALUE — "infinite room" — so an
+            // UNKNOWN target was treated as an EMPTY one and the preview promised a clean drop
+            // onto an occupied lane. Resolve against the lane the drop will actually use instead.
+            for (com.fadcam.ui.faditor.layers.Track t : layerTracks) {
+                if (CARRY_FALLBACK_LANE_ID.equals(t.getId())) { lane = t; break; }
+            }
+        }
         carryTargetLaneId = lane != null ? lane.getId() : null;
         long hole = freeHoleMs(lane, startMs, carryFromLayer ? carryLayerItemId : null);
         carryHoleMs = hole;

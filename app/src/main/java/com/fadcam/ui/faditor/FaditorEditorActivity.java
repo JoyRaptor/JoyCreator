@@ -2093,6 +2093,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     break;
                 }
+                // ENFORCE THE INVARIANT IN-SESSION, not just on load. enforceNoOverlapVideoLanes
+                // already runs at open (:1276), so a stacked pair silently repaired itself the
+                // NEXT time the project was opened — meaning the whole editing session showed a
+                // state the model says is impossible. The gesture's own resolution is a PREVIEW
+                // and can be wrong (it resolved against a null lane when the row layout shifted
+                // mid-drag); this is the authority, and it is idempotent, so calling it here costs
+                // nothing when the drop was already clean.
+                int separated = project.getTimeline().enforceNoOverlapVideoLanes();
+                if (separated > 0) {
+                    FLog.i(TAG, "carry drop: separated " + separated
+                            + " overlapping PiP(s) onto their own lane");
+                }
                 syncTimelineOverlays();
                 if (editorTimeline != null) editorTimeline.invalidate();
                 saveProjectNow();

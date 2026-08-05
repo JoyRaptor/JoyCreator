@@ -593,8 +593,22 @@ public class FaditorMiniFragment extends BaseFragment {
         textSection.setLayoutParams(new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        // Display name: extract filename from video URI
-        String displayName = extractDisplayName(summary.videoUri);
+        // The PROJECT'S OWN NAME wins; the source filename is only a fallback.
+        //
+        // This row used to call extractDisplayName(videoUri) unconditionally, ignoring
+        // summary.name entirely — even though it is right there and is populated from
+        // project.json. Two consequences, both bad:
+        //   • Renaming a project looked like it did nothing. The new name showed in the editor's
+        //     title bar and nowhere else, so the list still read the old filename.
+        //   • Projects cut from ONE source were indistinguishable. On the sandbox, five separate
+        //     projects all rendered as "FadCam_20260621_145132" — the date column was the only
+        //     way to tell them apart, and two shared a date to the minute.
+        // "Untitled" is treated as absent, so a project the user never named keeps the helpful
+        // filename it has always shown; only deliberate names take over.
+        String displayName = (summary.name != null && !summary.name.trim().isEmpty()
+                && !"Untitled".equals(summary.name.trim()))
+                ? summary.name.trim()
+                : extractDisplayName(summary.videoUri);
         TextView name = new TextView(requireContext());
         name.setText(displayName);
         name.setTextColor(0xFFFFFFFF);

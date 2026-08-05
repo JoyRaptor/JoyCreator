@@ -2163,11 +2163,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // and can be wrong (it resolved against a null lane when the row layout shifted
                 // mid-drag); this is the authority, and it is idempotent, so calling it here costs
                 // nothing when the drop was already clean.
-                int separated = project.getTimeline().enforceNoOverlapVideoLanes();
-                if (separated > 0) {
-                    FLog.i(TAG, "carry drop: separated " + separated
-                            + " overlapping PiP(s) onto their own lane");
-                }
+                enforceLaneInvariantUndoably();
                 syncTimelineOverlays();
                 if (editorTimeline != null) editorTimeline.invalidate();
                 saveProjectNow();
@@ -2324,6 +2320,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
                     overlayLayer.rebuild();
                 }
+                // The drag may have dropped a PiP or a text on top of another object on the same
+                // lane. enforceNoOverlapVideoLanes ran only at OPEN, so the overlap survived the
+                // whole session and the two objects drew stacked on one row — the "stacked PiP
+                // bands after two Move PiP actions" that was reported, captured and never
+                // explained. Enforced here too, and undoably.
+                enforceLaneInvariantUndoably();
                 syncTimelineOverlays();
                 scheduleAutoSave();
             }
@@ -4284,6 +4286,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         .show();
             });
         }, "project-consolidate").start();
+    }
+
+    /**
+     * Re-assert the one-lane-one-item invariant after an edit that could have created an overlap,
+     * and fold any repair into the undo entry that edit just recorded.
+     *
+     * <p><b>Why it must be undoable.</b> The repair moves OTHER objects onto fresh lanes. Running
+     * it outside the undo entry means pressing undo restores the dragged item but leaves the
+     * bystander on a lane it was moved to — the user undoes one thing and a second, unrelated
+     * thing stays moved. Same shape as the trim bug: mutate after recording, and undo cannot see
+     * it.</p>
+     *
+     * <p>Idempotent, so calling it on every drop costs nothing when the drop was already legal.</p>
+     */
+    private void enforceLaneInvariantUndoably() {
+        if (project == null || undoManager == null) return;
+        final Timeline tl = project.getTimeline();
+        final java.util.Map<String, String> before = new java.util.HashMap<>();
+        for (Clip oc : tl.getOverlayClips()) before.put(oc.getId(), oc.getLayerId());
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            before.put(o.getId(), o.getLayerId());
+        }
+        int moved = tl.enforceNoOverlapVideoLanes() + tl.enforceNoOverlapTextLanes();
+        if (moved <= 0) return;
+        final java.util.Map<String, String> after = new java.util.HashMap<>();
+        for (Clip oc : tl.getOverlayClips()) after.put(oc.getId(), oc.getLayerId());
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            after.put(o.getId(), o.getLayerId());
+        }
+        FLog.i(TAG, "lane invariant: separated " + moved + " overlapping object(s)");
+        undoManager.amendTopAction(new EditActions.LambdaAction("Separate overlapping objects",
+                () -> applyLaneMap(after), () -> applyLaneMap(before)));
+    }
+
+    private void applyLaneMap(@NonNull java.util.Map<String, String> map) {
+        if (project == null) return;
+        Timeline tl = project.getTimeline();
+        for (Clip oc : tl.getOverlayClips()) {
+            if (map.containsKey(oc.getId())) oc.setLayerId(map.get(oc.getId()));
+        }
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            if (map.containsKey(o.getId())) o.setLayerId(map.get(o.getId()));
+        }
     }
 
     /** The missing-media warning (see ProjectIntegrity). Reports; never repairs. */

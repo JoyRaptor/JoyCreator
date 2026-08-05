@@ -90,10 +90,10 @@ public final class ProjectIntegrity {
     }
 
     /**
-     * Open each distinct source briefly. Opening is the only honest test: a {@code content://} URI
-     * can be listed by a provider and still fail to open because the persisted permission grant was
-     * dropped, which is one of the most common ways a project breaks and is invisible to an
-     * existence check.
+     * Ask each distinct source whether it is still there and still ours. Deliberately NOT a
+     * {@code File.exists()}: a {@code content://} URI can point at a document that still exists
+     * while the persisted permission grant has been dropped, which is one of the most common ways
+     * a project breaks and is completely invisible to an existence check.
      */
     @NonNull
     public static Report scan(@NonNull Context context, @Nullable FaditorProject project) {
@@ -115,8 +115,23 @@ public final class ProjectIntegrity {
                 String path = uri.getPath();
                 return path != null && new java.io.File(path).canRead();
             }
-            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
-                return in != null;
+            // QUERY, not openInputStream. The first version opened a stream on every source at
+            // every project open, and for a cloud-backed document that can trigger an actual
+            // DOWNLOAD — so a check meant to be reassuring could quietly pull gigabytes over
+            // mobile data every time the editor opened. A metadata query answers the same
+            // question: a provider that no longer holds the document, or a grant that has been
+            // revoked, fails here exactly as it would on open (SecurityException / null cursor),
+            // which is the failure this is looking for.
+            try (android.database.Cursor c = context.getContentResolver()
+                    .query(uri, null, null, null, null)) {
+                if (c != null) return c.moveToFirst();
+            }
+            // Some providers legitimately refuse to be queried. For those, fall back to opening a
+            // FILE DESCRIPTOR rather than a stream: it still proves the grant and the document
+            // exist, without asking for the bytes.
+            try (android.os.ParcelFileDescriptor pfd =
+                         context.getContentResolver().openFileDescriptor(uri, "r")) {
+                return pfd != null;
             }
         } catch (Exception e) {
             // SecurityException (grant revoked), FileNotFoundException (deleted), and a provider

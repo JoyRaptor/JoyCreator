@@ -1279,6 +1279,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "Slice F: separated " + movedVideo
                             + " overlapping PiP/video overlay(s) onto their own lanes");
                 }
+                // Why did we die last time? Reads the OS's own post-mortem (PSS/RSS + the ANR
+                // trace) and saves it where it survives. The long-file ANR has been "root-cause
+                // owed" since 2026-07-16 purely because nobody was holding a cable when it fired.
+                com.fadcam.ui.faditor.project.ExitDiagnostics.report(getApplicationContext());
                 // INTEGRITY: does everything this project points at still OPEN? Nothing asked
                 // before, so a project whose source was deleted, moved, or had its permission
                 // grant revoked opened looking perfectly normal — right clips, right lengths,

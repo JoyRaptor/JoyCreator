@@ -540,3 +540,18 @@ nothing.
 **Related fix in the same commit:** a lane-occupancy check answered `Long.MAX_VALUE` ("infinite
 room") when it could not identify the target lane. An UNKNOWN target must never resolve to an EMPTY
 one in a check whose job is stopping data landing on other data.
+
+**3.3 EditScriptApplier — RE-VERIFIED 2026-08-05, NOT A DEFECT. Do not re-scope.**
+Two separate worries, both answered by reading the code:
+- *Transition indices.* The applier IS disciplined. Insert calls
+  `shiftTransitionsAfterInsert` (`EditScriptApplier:537`), split calls
+  `shiftTransitionsAfterSplit` (`:744`), the b-roll span calls it TWICE because it inserts two
+  clips (`:976-977`), replace-in-place correctly does NOT shift because the clip count is
+  unchanged, and reorder hand-rolls a seam-pair remap with a full restore on failure
+  (`:869-900`). `Timeline.addClip/removeClip` are raw list ops by design; the helpers are the
+  caller's job and this caller does call them.
+- *Snapshot discipline.* AI edits are not in-editor `EditAction`s. They apply, then
+  `storage.save(proj)` + `AIChatState.signalModified` (`AIToolExecutor:526-528`), so they are
+  undone from the WHOLE-PROJECT snapshot history, which serializes transitions with everything
+  else. `snapshotTransitions()`/`restoreTransitions()` exists for the in-memory EditAction paths
+  and would be redundant here.

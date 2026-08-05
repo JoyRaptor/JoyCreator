@@ -1279,6 +1279,48 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "Slice F: separated " + movedVideo
                             + " overlapping PiP/video overlay(s) onto their own lanes");
                 }
+                // INTEGRITY: does everything this project points at still OPEN? Nothing asked
+                // before, so a project whose source was deleted, moved, or had its permission
+                // grant revoked opened looking perfectly normal — right clips, right lengths,
+                // right thumbnails (they live in the project dir, not the source) — and the user
+                // found out at preview, or at export after paying the render. The answer was
+                // available at open the whole time. Reports only; see ProjectIntegrity's class doc
+                // for why repairing would be worse than reporting.
+                //
+                // Off the main thread: it opens every distinct source, and a sleeping cloud
+                // provider can take seconds to answer. Blocking here would turn a broken
+                // reference into an ANR, which is a worse bug than the one being detected.
+                final com.fadcam.ui.faditor.model.FaditorProject scanTarget = project;
+                new Thread(() -> {
+                    com.fadcam.ui.faditor.project.ProjectIntegrity.Report rep =
+                            com.fadcam.ui.faditor.project.ProjectIntegrity.scan(
+                                    getApplicationContext(), scanTarget);
+                    if (rep.isClean()) {
+                        FLog.i(TAG, "INTEGRITY ok: " + rep.distinctSources + " source(s) readable");
+                        return;
+                    }
+                    StringBuilder sb = new StringBuilder();
+                    for (com.fadcam.ui.faditor.project.ProjectIntegrity.Missing m : rep.missing) {
+                        FLog.w(TAG, "INTEGRITY missing: " + m.label + " -> " + m.uri);
+                        if (sb.length() > 0) sb.append(System.lineSeparator());
+                        sb.append("• ").append(m.label);
+                    }
+                    final String body = sb.toString();
+                    final int n = rep.missing.size();
+                    // DELAYED, not immediate. Fired straight from the load path the dialog was
+                    // lost: the editor is still opening its own sheets at that moment (the Media
+                    // Catalog among them) and the warning never reached the screen — verified by
+                    // a uiautomator dump finding no dialog while the log showed the scan had found
+                    // the missing file. A warning the user never sees is the same as no warning,
+                    // and worse than none because it reads as covered.
+                    runOnUiThread(() -> {
+                        if (isFinishing() || isDestroyed()) return;
+                        View host = editorTimeline != null ? editorTimeline
+                                : findViewById(android.R.id.content);
+                        if (host == null) return;
+                        host.postDelayed(() -> showIntegrityWarning(n, body), 1500L);
+                    });
+                }, "project-integrity").start();
                 // DURABILITY (road_map Tier-1): rescue any extracted-audio clips still pointing at the
                 // OS-cleanable cache dir by copying them into the durable files/ dir + rewriting the URI.
                 migrateAudioClipsToDurableStorage();
@@ -4165,6 +4207,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Default landing lane for a demoted clip — the seeded video lane (neutral substrate). */
     private static final String M12_DEFAULT_LAYER_ID = "video";
+
+    /** Paragraph break for dialog copy. A literal escape here keeps tripping the
+     *  heredoc-based edit tooling, and a named constant reads better at the call site. */
+    private static final String BLANK_LINE = System.lineSeparator() + System.lineSeparator();
+
+    /** The missing-media warning (see ProjectIntegrity). Reports; never repairs. */
+    private void showIntegrityWarning(int n, @NonNull String body) {
+        if (isFinishing() || isDestroyed()) return;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(n == 1 ? "1 file is missing" : n + " files are missing")
+                .setMessage("These will play black and will not export correctly:"
+                        + BLANK_LINE + body + BLANK_LINE
+                        + "If they are on an SD card or in cloud storage, reconnect it and reopen "
+                        + "the project — nothing has been changed or removed.")
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
+    }
 
     /**
      * Lift the SELECTED MASTER CLIP off the spine onto a floating layer, keeping its absolute

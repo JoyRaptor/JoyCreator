@@ -512,3 +512,31 @@ the rebrand / de-politicize decisions.
 4. **1.4 downgrade drill**, then the standing device-verify block (2.5, 2.6, 2.7).
 5. **2.3 preset crop** — read the F12 RE-SCOPED block, not the older note.
 6. **1.3** — four `isJsonNull()` guards.
+
+---
+
+## OVERNIGHT RUN 2026-08-04/05 — items re-verified and closed
+
+**1.2, 1.3, 1.4 are STALE-OPEN in the headings above and were already closed.** Re-verified
+2026-08-05: schema is now **v12** (not 10), the LAYER stamp is wired, `hasValue()` guards every
+`layerId` read, and `DRILL_SCHEMA_DOWNGRADE.md` records a 7/7 PASS run on 2026-07-26 that found
+and fixed the undo-history sidecar gap. **Do not re-scope.** The tier headings were not struck
+through, only the body text, which is how they read as open.
+
+**NEW — device survey, 2026-08-05.** All 11 sandbox projects carry **zero `trackDefs`**. Lanes are
+entirely implicit from `layerId`, so the v11/v12 LAYER stamp path has never been exercised by a
+real project. Not a defect — the orphan-lane branch in `getLayers()` is the supported path and
+legacy ids already rely on it — but it means item 1.2's fix is unproven in the field rather than
+proven safe. Worth one hand-made LAYER-def fixture before trusting it.
+
+**NEW — FIXED `b524c1c`: the no-overlap invariant was enforced on LOAD only.**
+`enforceNoOverlapVideoLanes()` runs at open but nowhere else, so an overlap created mid-session
+survived the whole session and repaired itself silently on the NEXT open — which reads to the user
+as the app moving their clip by itself. This is the concrete, in-the-wild instance of **3.7**
+(legacy overlaps in a state the resolver assumes impossible): the resolver was right, it just was
+not consulted after edits. Now enforced after a carry drop as well; idempotent, so clean drops pay
+nothing.
+
+**Related fix in the same commit:** a lane-occupancy check answered `Long.MAX_VALUE` ("infinite
+room") when it could not identify the target lane. An UNKNOWN target must never resolve to an EMPTY
+one in a check whose job is stopping data landing on other data.

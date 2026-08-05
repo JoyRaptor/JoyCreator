@@ -1095,6 +1095,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent ev) {
+        // §3a eyedropper — one-shot, and it must be taken HERE. Five sibling overlay layers
+        // sit above the PiP view in the layout and the text layer swallows preview taps, so a
+        // dropper armed inside that view is never called at all. Disarms whatever the outcome:
+        // an armed dropper surviving a miss would eat the user's next real gesture. The event
+        // is swallowed so sampling a colour cannot also drag the PiP.
+        if (pendingEyedropper != null && ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            com.fadcam.ui.faditor.tools.MaskKeyPanel.ColorPicked cb = pendingEyedropper;
+            pendingEyedropper = null;
+            if (overlayVideoLayer == null) { cb.onPicked(null); return true; }
+            int[] loc = new int[2];
+            overlayVideoLayer.getLocationOnScreen(loc);
+            overlayVideoLayer.sampleAt(ev.getRawX() - loc[0], ev.getRawY() - loc[1],
+                    cb::onPicked);
+            return true;
+        }
         if (assetDragActive) {
             switch (ev.getActionMasked()) {
                 case MotionEvent.ACTION_MOVE:
@@ -19681,6 +19696,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * the diamond helpers run with itemStart=0. Undo reuses {@link #restoreOverlayTransform}.
      */
     /**
+     * §3a eyedropper — armed by the Mask &amp; Key panel, consumed by the NEXT tap anywhere in
+     * the editor. Held here rather than on {@code overlayVideoLayer} because five sibling
+     * overlay layers (waveform, layer image, sprite, TEXT, captions) sit above it in
+     * {@code activity_faditor_editor.xml}, and the text layer swallows preview taps — so a
+     * dropper armed inside the PiP view never receives a touch at all. Only
+     * {@link #dispatchTouchEvent} is above every sibling.
+     */
+    @Nullable private com.fadcam.ui.faditor.tools.MaskKeyPanel.ColorPicked pendingEyedropper;
+
+    /**
      * §3a MASK &amp; KEY — the authoring UI for {@code CompositingSpec}.
      *
      * <p>The panel itself lives in {@link com.fadcam.ui.faditor.tools.MaskKeyPanel}; this method
@@ -19715,7 +19740,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 android.widget.Toast.makeText(FaditorEditorActivity.this,
                         R.string.faditor_key_tap_prompt,
                         android.widget.Toast.LENGTH_SHORT).show();
-                overlayVideoLayer.armEyedropper(cb::onPicked);
+                pendingEyedropper = cb;
             }
         }).show();
     }

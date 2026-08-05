@@ -129,6 +129,8 @@ public class ChromaKeyTextureView extends TextureView
     private final float[] texMatrix = new float[16];
     private FloatBuffer quadBuf, uvBuf;
     private int surfaceW, surfaceH;
+    /** Offscreen target for {@link #sampleRawColor} — see the note there for why. */
+    private int sampleFbo, sampleTex, sampleW, sampleH;
 
     /**
      * Key uniforms, written on the main thread and read on the GL thread. Volatile rather than
@@ -193,6 +195,10 @@ public class ChromaKeyTextureView extends TextureView
      */
     public void sampleRawColor(float u, float v, @NonNull ColorSink sink) {
         Handler h = glHandler;
+        android.util.Log.d("KEYDIAG", "sampleRawColor u=" + u + " v=" + v
+                + " glHandler=" + (h != null) + " surf=" + surfaceW + "x" + surfaceH
+                + " eglOk=" + (eglSurface != EGL14.EGL_NO_SURFACE)
+                + " tex=" + (inputTexture != null));
         if (h == null) { main.post(() -> sink.onColorSampled(null)); return; }
         h.post(() -> {
             Integer result = null;
@@ -203,23 +209,34 @@ public class ChromaKeyTextureView extends TextureView
                 // key out black. A wrong colour is far worse than a reported failure.
                 if (eglSurface != EGL14.EGL_NO_SURFACE && inputTexture != null
                         && surfaceW > 0 && surfaceH > 0) {
-                    // Draw the frame with the key OFF into the back buffer, read one pixel,
-                    // then draw it again keyed. Only the second draw is swapped/presented.
-                    drawInternal(new float[]{0f, 0f, 0f, 0f}, false);
+                    // Render the UNKEYED frame into an OFFSCREEN FBO and read THAT.
+                    //
+                    // The obvious version — draw into the window's back buffer, read it, then
+                    // redraw keyed before swapping — returned rgba=0,0,0,255 with glErr=0 for
+                    // every point sampled: the draw plainly ran (alpha 255) but the read came
+                    // back black. After eglSwapBuffers the window's back buffer is undefined
+                    // (EGL_BUFFER_DESTROYED), and on this Adreno the buffer glReadPixels sees
+                    // is not the one the draw just landed in. An FBO is storage we own, so
+                    // "draw then read" means what it says. It also removes the need to redraw
+                    // the keyed frame afterwards — the window was never touched.
+                    ensureSampleFbo();
+                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, sampleFbo);
+                    GLES20.glViewport(0, 0, surfaceW, surfaceH);
+                    drawInternal(new float[]{0f, 0f, 0f, 0f}, false, /* ownFramebuffer= */ true);
                     int px = Math.round(Math.max(0f, Math.min(1f, u)) * (surfaceW - 1));
                     // GL's origin is bottom-left; the caller thinks in top-down view coords.
                     int py = Math.round((1f - Math.max(0f, Math.min(1f, v))) * (surfaceH - 1));
                     ByteBuffer buf = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder());
                     GLES20.glReadPixels(px, py, 1, 1, GLES20.GL_RGBA,
                             GLES20.GL_UNSIGNED_BYTE, buf);
+                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
                     buf.position(0);
                     int r = buf.get() & 0xFF, g = buf.get() & 0xFF, b = buf.get() & 0xFF;
+                    int a = buf.get() & 0xFF;
+                    android.util.Log.d("KEYDIAG", "readPixels px=" + px + " py=" + py
+                            + " rgba=" + r + "," + g + "," + b + "," + a
+                            + " glErr=" + GLES20.glGetError());
                     result = (r << 16) | (g << 8) | b;
-                    // Restore WITHOUT advancing: the sample and the picture presented back to
-                    // the user must be the same frame, or on a moving subject the dropper
-                    // reports a colour from a frame that was never on screen when it was tapped.
-                    drawInternal(keyParams, false);
-                    EGL14.eglSwapBuffers(eglDisplay, eglSurface);
                 }
             } catch (Exception e) {
                 com.fadcam.FLog.w(TAG, "eyedropper sample failed: " + e.getMessage());
@@ -355,7 +372,7 @@ public class ChromaKeyTextureView extends TextureView
     private void drawFrame() {
         if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
         try {
-            drawInternal(keyParams, true);
+            drawInternal(keyParams, true, false);
             EGL14.eglSwapBuffers(eglDisplay, eglSurface);
         } catch (Exception e) {
             com.fadcam.FLog.w(TAG, "keyed draw failed: " + e.getMessage());
@@ -368,14 +385,16 @@ public class ChromaKeyTextureView extends TextureView
      * new decoder frame; the eyedropper's second pass must NOT, or it would skip a frame and
      * the sample would describe a picture the user never saw.
      */
-    private void drawInternal(@NonNull float[] params, boolean advance) {
+    private void drawInternal(@NonNull float[] params, boolean advance,
+                              boolean ownFramebuffer) {
             EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
             if (advance) {
                 inputTexture.updateTexImage();
                 inputTexture.getTransformMatrix(texMatrix);
             }
 
-            GLES20.glViewport(0, 0, surfaceW, surfaceH);
+            // The offscreen sampling path has already bound its FBO and viewport.
+            if (!ownFramebuffer) GLES20.glViewport(0, 0, surfaceW, surfaceH);
             // Transparent clear, not black: every pixel the key removes must let the master
             // video through, and anything the quad does not cover is outside the PiP.
             GLES20.glClearColor(0f, 0f, 0f, 0f);
@@ -399,6 +418,38 @@ public class ChromaKeyTextureView extends TextureView
             GLES20.glUniform1i(uTexture, 0);
 
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    /** Lazily (re)build the sampling FBO; recreated when the surface size changes. */
+    private void ensureSampleFbo() {
+        if (sampleFbo != 0 && sampleW == surfaceW && sampleH == surfaceH) return;
+        if (sampleFbo != 0) {
+            GLES20.glDeleteFramebuffers(1, new int[]{sampleFbo}, 0);
+            GLES20.glDeleteTextures(1, new int[]{sampleTex}, 0);
+        }
+        int[] t = new int[1];
+        GLES20.glGenTextures(1, t, 0);
+        sampleTex = t[0];
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, sampleTex);
+        GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, surfaceW, surfaceH, 0,
+                GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        int[] f = new int[1];
+        GLES20.glGenFramebuffers(1, f, 0);
+        sampleFbo = f[0];
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, sampleFbo);
+        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
+                GLES20.GL_TEXTURE_2D, sampleTex, 0);
+        int st = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+        if (st != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+            com.fadcam.FLog.w(TAG, "sampling FBO incomplete: " + st);
+            sampleFbo = 0;
+            return;
+        }
+        sampleW = surfaceW;
+        sampleH = surfaceH;
     }
 
     private int buildProgram() {

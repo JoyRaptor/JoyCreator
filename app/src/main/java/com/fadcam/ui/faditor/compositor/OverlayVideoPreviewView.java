@@ -113,8 +113,6 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Nullable private ExoPlayer routedPlayer;
     /** The keyed tier's decoder-facing surface, once its GL thread has published one. */
     @Nullable private Surface keyedInputSurface;
-    /** One-shot eyedropper sink, set by {@link #armEyedropper} and cleared by the next tap. */
-    @Nullable private ChromaKeyTextureView.ColorSink pendingDropper;
     /**
      * KEYDIAG probe. Retained (like SEEKRANGE / ENDEDNET / PHDIAG) rather than deleted after
      * the first bring-up: the live key tier has no other observable, so without this a
@@ -287,6 +285,14 @@ public class OverlayVideoPreviewView extends FrameLayout {
             } else {
                 player.setVideoTextureView(textureView);
             }
+            // A newly attached surface gets NO frame until something makes the renderer produce
+            // one, and while PAUSED nothing does — so turning the key on from the panel (which
+            // is always done paused) left the tier black and the PiP vanished. It reads exactly
+            // like "the key deleted my video", and the eyedropper faithfully sampled the black.
+            // A zero-distance seek forces the frame at the current position to be re-rendered
+            // without moving the playhead. Only on a real switch: this sits after the
+            // already-routed early return, so it costs nothing per tick.
+            player.seekTo(player.getCurrentPosition());
         }
         // The tier that is not rendering must be hidden, or the stale one sits on top showing
         // the last frame it ever drew.
@@ -308,30 +314,31 @@ public class OverlayVideoPreviewView extends FrameLayout {
     }
 
     /**
-     * Arm the eyedropper. The NEXT tap on a keyed PiP samples its raw colour and fires
-     * {@code sink} once; the dropper then disarms itself whether or not the tap landed on the
-     * PiP, so it can never eat a second gesture.
-     */
-    public void armEyedropper(@NonNull ChromaKeyTextureView.ColorSink sink) {
-        pendingDropper = sink;
-    }
-
-    /**
-     * Consume a tap while the dropper is armed. Returns true if the touch was taken.
+     * Sample the raw colour under a point in THIS view's coordinates — the eyedropper.
+     *
+     * <p><b>Called by the activity's {@code dispatchTouchEvent}, not by this view's own
+     * {@code onTouchEvent}, and that is not incidental.</b> Five sibling layers sit ABOVE this
+     * one in {@code activity_faditor_editor.xml} — waveform, layer image, sprite, text and
+     * caption overlays — and the text layer in particular consumes taps in the preview. An
+     * eyedropper armed inside this view therefore never receives the tap at all: it is not that
+     * the guards reject it, it is that {@code onTouchEvent} is never called. Interception has
+     * to happen above every sibling, which means the activity.</p>
      *
      * <p>Reported as a FAILURE (null) rather than silently ignored when there is no keyed tier
-     * or the tap missed the PiP — the panel toasts on null, so the user is told why instead of
-     * concluding the dropper is broken.</p>
+     * or the point missed the PiP — the panel toasts on null, so the user is told why instead
+     * of concluding the dropper is broken.</p>
      */
-    private boolean consumeEyedropper(float x, float y) {
-        ChromaKeyTextureView.ColorSink sink = pendingDropper;
-        if (sink == null) return false;
-        pendingDropper = null;
+    public void sampleAt(float x, float y, @NonNull ChromaKeyTextureView.ColorSink sink) {
         Clip top = hitTest(x, y);
         ChromaKeyTextureView kv = keyedView;
+        if (KEYDIAG) {
+            android.util.Log.d("KEYDIAG", "dropper tap=(" + x + "," + y + ")"
+                    + " hit=" + (top != null) + " kv=" + (kv != null)
+                    + " routed=" + keyedRouted + " baseW=" + baseW + " baseH=" + baseH);
+        }
         if (top == null || kv == null || !keyedRouted) {
             sink.onColorSampled(null);
-            return true;
+            return;
         }
         // View coords → the PiP's own normalised surface coords. The inverse of applyTransform:
         // undo the centre translation, then the scale. Rotation is deliberately NOT undone —
@@ -340,14 +347,17 @@ public class OverlayVideoPreviewView extends FrameLayout {
         // below rather than silently returning a wrong colour.
         float scale = Math.max(0.0001f, readValue(top, KeyframeSet.SCALE, DEFAULT_SCALE));
         float rot = readValue(top, KeyframeSet.ROTATION, 0f);
-        if (Math.abs(rot) > 0.5f) { sink.onColorSampled(null); return true; }
+        if (Math.abs(rot) > 0.5f) { sink.onColorSampled(null); return; }
         float cx = getWidth() / 2f + videoHost().getTranslationX();
         float cy = getHeight() / 2f + videoHost().getTranslationY();
         float u = (x - cx) / (baseW * scale) + 0.5f;
         float v = (y - cy) / (baseH * scale) + 0.5f;
-        if (u < 0f || u > 1f || v < 0f || v > 1f) { sink.onColorSampled(null); return true; }
+        if (KEYDIAG) {
+            android.util.Log.d("KEYDIAG", "dropper uv=(" + u + "," + v + ") rot=" + rot
+                    + " scale=" + scale);
+        }
+        if (u < 0f || u > 1f || v < 0f || v > 1f) { sink.onColorSampled(null); return; }
         kv.sampleRawColor(u, v, sink);
-        return true;
     }
 
     /**
@@ -714,12 +724,6 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         if (callback == null) return false;
-        // The dropper is checked FIRST and only on DOWN: it must not be routed through the
-        // scale detector or the move gesture, or arming it and tapping the PiP would ALSO
-        // start dragging the PiP — sampling a colour would move the user's composition.
-        if (pendingDropper != null && e.getActionMasked() == MotionEvent.ACTION_DOWN) {
-            return consumeEyedropper(e.getX(), e.getY());
-        }
         if (manipulating != null) scaleDetector.onTouchEvent(e);
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {

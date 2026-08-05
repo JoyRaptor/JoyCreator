@@ -1556,17 +1556,68 @@ Sandbox restored byte-exact (`aac2ba5c`, verified after) from a device-local `ru
 rotation lock 0. The editor DOES save the seeded spec back on exit (md5 `d11b224b` before the
 restore), so seeding a project is an edit, not an observation — restore, do not assume.
 
+### THE PANEL AND THE EYEDROPPER ARE PROVED ON SCREEN — 2026-08-05, and both were BROKEN first
+
+**Reaching the panel:** hold-and-release the PiP's TIMELINE LAYER ITEM → the object sheet opens
+in PEEK → **TAP the grip pill** (it toggles; dragging it is not needed) → the expanded
+*Video overlay* menu lists **Mask**. Pos X 53% / Pos Y 48% / Scale 132% match `project.json`
+exactly, which is the check that the right clip is in hand. The panel draws both sections, and
+the Chroma-key body is correctly collapsed until *Key out a colour* is ticked, then shows the
+four swatches, **Pick from video**, Tolerance, Edge softness and Choke/spread.
+
+**BUG 4 — THE EYEDROPPER'S TAP COULD NEVER ARRIVE, and the guards were innocent.** Arming inside
+`OverlayVideoPreviewView` cannot work: **five sibling layers sit ABOVE it** in
+`activity_faditor_editor.xml` (waveform, layer image, sprite, TEXT, captions) and the text layer
+swallows preview taps. `consumeEyedropper` was never called at all — the diagnostic printed
+nothing, which is a different signature from "a guard rejected it" and is what identified it.
+Interception moved to the activity's existing `dispatchTouchEvent`, the only place above every
+sibling; it disarms on any outcome and swallows the event so sampling cannot also drag the PiP.
+
+**BUG 5 — TURNING THE KEY ON WHILE PAUSED MADE THE PiP VANISH.** The worst bug of the session and
+the most user-visible: `setVideoSurface` hands the renderer a NEW surface, and nothing produces a
+frame for it while paused — so the tier rendered black, the PiP disappeared, and it reads exactly
+like *"the key deleted my video"*. Since the panel is always opened paused, **every first use of
+this feature would have hit it.** Fixed with a zero-distance `seekTo(getCurrentPosition())` after
+a real switch, which re-renders the current frame without moving the playhead.
+
+**The eyedropper was the instrument that found bug 5, by being honest.** It kept returning
+`rgba=0,0,0,255 glErr=0` — alpha 255 proving the draw RAN while the colour was black, i.e. the
+texture genuinely held black. That ruled out the read and pointed upstream at the tier. Two wrong
+fixes were tried against that evidence first (a back-buffer ordering theory, then an offscreen
+FBO); **both were kept** — the FBO is the correct way to read a pixel you just drew regardless,
+since a window back buffer is undefined after `eglSwapBuffers` — but neither changed the symptom,
+which is what finally moved the search off the reader and onto the writer.
+
+**PROVED, with the control that makes it mean something.** Sampling a point on the PiP now returns
+`rgba=122,66,169` and the panel's Key colour reads **`#7A42A9`** — the same number, so the value
+travelled GL → model → UI intact. **The earlier all-black samples are the control**: the same code
+path returned exactly `0,0,0` at two different UVs before the fix and a real colour after, so this
+is a live read of the frame and not a constant.
+
 **⚠ STILL NOT PROVED — do not mark these verified.**
 1. **Export parity on real pixels.** Both renderers compile the same string, which is an argument
    from construction — the same kind §1b replaced with a measurement. Needs the §1d A/B frame
    diff, absolute-geometry (symmetric proofs miss flips).
-2. **The eyedropper has never been tapped.** Its hide/show dance, the raw-frame read and the
-   rotation refusal are all unexercised on device.
-3. **The panel was never opened on screen.** Reaching it needs the PiP's object menu; two
-   long-press attempts hit the TEXT overlay and then the project list's multi-select instead.
-   The panel is reachable at the PiP object menu's Mask action — that path wants confirming.
-4. **Mask + key composing.** Both were re-pointed at `videoHost()` by reading, not by looking.
-5. **Frame-rate cost of the tier** (`dumpsys gfxinfo`, against the ~33.7% editor baseline).
+2. **Mask + key composing.** Both were re-pointed at `videoHost()` by reading, not by looking.
+   Note the panel SEEDS a 30%×20% mask box on open, so the two features are already interacting
+   the moment it is used — this wants a deliberate look, not an assumption.
+3. **Frame-rate cost of the tier** (`dumpsys gfxinfo`, against the ~33.7% editor baseline).
+4. **The rotation refusal** (a rotated PiP toasts rather than sampling the wrong pixel) is
+   unexercised.
+5. **OK / Cancel / Remove round-trip.** The revert-on-dismiss contract is unchanged from the
+   shipped mask dialog, but it has not been re-exercised through the new panel.
+
+**METHOD NOTES PAID FOR THIS SESSION.**
+- **`uiautomator dump` returned 67 bytes / 0 nodes** — the documented "reports success while
+  measuring nothing" trap. Element positions were found by scanning the SCREENSHOT for the grip
+  pill's exact colour (`0xFF555555`) instead, which located it at y=2090 when tapping y=2031 had
+  been silently missing.
+- **The project list re-sorts by `lastModified`, and MY OWN restore changed the order.** Restoring
+  the backup reverted the timestamp, moved the fixture back down the list, and the next run opened
+  `AudioExportVerify` instead — the runbook's rule (identify by the logcat line, never by row
+  position) exists for exactly this and was worth obeying every time.
+- Two accidental edits, both caught and undone: a swipe aimed at the sheet dragged **Opacity to
+  3%**, and a long-press on the project list opened multi-select.
 
 ---
 

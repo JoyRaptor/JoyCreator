@@ -103,6 +103,56 @@ the other.
 
 ---
 
+## Adversarial review — 8 defects found, 7 fixed (commit `6267fc0`)
+
+A read-only agent reviewed the whole session diff. Fixed: a resize on a
+"continues" object being silently reverted (and keeping the new fps — a 60s object
+playing a 10s run); every dope-sheet edit destroying the frame selection; `makePresetFromKeys`
+deleting keys it refused to include; the AI resolving open-ends across all lanes where the
+editor resolves per lane; "clipped by neighbour" being reported when the PROJECT END stopped
+it; the two entry points of the one evaluator disagreeing about fps clamping; avatar rigs
+blitting frame 0 for every part of a sequence sheet; and the sheet manager offering Edit/Relink
+on sequences (both no-ops or worse) plus placing them as a static cell.
+
+### ⚠ NOT fixed — the one that needs a daylight decision
+
+**fps is SHEET-scoped, but a RELATIVE resize derives it from ONE placed item's span.** Place a
+sheet twice, resize one, and the other silently retimes: same span, but its frames now play at
+the dragged item's cadence and it holds the last frame for the remainder. No cue on its row, and
+no undo entry of its own — undo happens to restore it only because the sheet's fps is captured
+in the dragged item's step.
+
+The honest fix is **copy-on-write**: a RELATIVE resize on a sheet with more than one placement
+clones the sheet (frameUris are just strings), repoints this item, and sets fps on the clone —
+with the sheetId swap inside the same undo step. That is a real change and I would not land it
+at 4am unreviewed. `cycleSequenceLoopMode` has the same shape and is slightly worse: it writes
+sheet-scoped `preset.type` AND item-scoped `endBehavior`, so cycling on one placement leaves the
+other with mismatched halves.
+
+### Also open, lower severity
+
+- **Multi-select import silently drops non-matching files.** Selecting `shot_001.png…040.png`
+  plus `shot_041.jpg…045.jpg` imports 40 and says nothing about the 5. Detection filters to the
+  first pick's stem+extension and the activity builds only from that. The single-pick case gets
+  a dialog; the partial-drop case gets nothing.
+- **ABSOLUTE resize does not actually differ from RELATIVE in the model.** The ABSOLUTE branch
+  does nothing (fps is left alone and the span just ends early), so the documented left-vs-right
+  asymmetry — "trimming from the left decides WHICH frames survive" — does not exist, and
+  `SequenceTiming.framesFittingIn` is only ever called by the readout. The red "cuts frames"
+  comb handle advertises a destructive difference the gesture does not deliver.
+- **The MISSING-frame affordance has no callers.** `isCellMissing` / `clearMissingCache` /
+  `SequenceFrameCache.isMissing` / `clearFailures` form a chain nothing consumes, so an
+  unreadable frame draws as a gap with no placeholder, and `isSpriteSheetMissing` returns false
+  for a sequence with 239 of 240 frames gone (`loadSequence` succeeds if ANY frame decodes).
+  `ProjectIntegrity` *does* check all N — the detection is right, the surfacing is missing.
+- **`SequenceFrameCache`'s 24MB budget is per-cache**, and there are up to three caches per
+  sheet (editor, timeline, export). Three sequences with the timeline open is a 144MB ceiling.
+  Per-consumer caches are deliberate; the constant was reasoned about as if global.
+- **`frameChangesIn` rounds where `resolveCellAt` floors**, so scrubbing exactly onto a tape mark
+  can show the previous frame (sub-frame, cosmetic). `Math.ceil` is the correct inverse.
+- **Dead code:** `MaskKeyPanel` (357 lines, no callers — left in place deliberately, see
+  `c6ab9f3`), `SpritePalettePanel.openDopeSheet()`, `SequenceImportDialog.showFor()`.
+
 ## Genuinely open
 
 1. **The mask panel has not been opened on device this session.** `MaskKeyPanel` gained the two

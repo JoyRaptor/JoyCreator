@@ -20105,7 +20105,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.videoTab(ctx, props, tabHost)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
-                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(ctx, c, spec, applyComp)));
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
+                        ctx, c, spec, applyComp,
+                        () -> Math.max(0, lastPlayheadAbsoluteMs))));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(

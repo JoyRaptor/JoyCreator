@@ -18,6 +18,7 @@ import com.fadcam.ui.faditor.KeyframeDiamondControl;
 import com.fadcam.ui.faditor.ObjectMenuSheet;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.CompositingSpec;
+import com.fadcam.ui.faditor.model.MaskAnimator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -195,6 +196,18 @@ public final class PipDrawerTabs {
     @NonNull
     public static View maskTab(@NonNull Context ctx, @NonNull Clip clip,
                                @NonNull CompositingSpec spec, @NonNull Runnable apply) {
+        return maskTab(ctx, clip, spec, apply, () -> 0L);
+    }
+
+    /**
+     * @param playheadMs ABSOLUTE timeline ms — the base mask keyframes share with a PiP's
+     *                   {@code overlayTransform}, deliberately, so one clip does not carry two
+     *                   time conventions.
+     */
+    @NonNull
+    public static View maskTab(@NonNull Context ctx, @NonNull Clip clip,
+                               @NonNull CompositingSpec spec, @NonNull Runnable apply,
+                               @NonNull PlayheadSource playheadMs) {
         LinearLayout root = column(ctx);
         if (spec.masks.isEmpty()) spec.masks.add(new CompositingSpec.MaskShape());
         CompositingSpec.MaskShape m = spec.masks.get(0);
@@ -215,7 +228,109 @@ public final class PipDrawerTabs {
         CheckBox inv = check(ctx, R.string.faditor_mask_only_inside, spec.invertMasks);
         inv.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
         root.addView(inv);
+
+        // ── The writers for MaskAnimator ────────────────────────────────────────────────
+        // Inline literals: strings.xml is another agent's live file under the working protocol
+        // noted in FaditorEditorActivity.
+
+        float d = ctx.getResources().getDisplayMetrics().density;
+
+        // Built directly rather than via check(): that helper takes a STRING RESOURCE id,
+        // and passing 0 for an inline literal would throw at inflate time.
+        CheckBox link = new CheckBox(ctx);
+        link.setText("Move with the object");
+        link.setTextColor(TXT);
+        link.setTextSize(12);
+        link.setChecked(m.linkedToObject);
+        link.setOnCheckedChangeListener((b, on) -> {
+            m.linkedToObject = on;
+            if (on) {
+                // CAPTURE the object's pose now: "relative to the object" has no origin
+                // otherwise, and the mask would jump the first time the object sat anywhere
+                // but its default pose.
+                com.fadcam.ui.faditor.keyframe.KeyframeSet kf = clip.getOverlayTransform();
+                long t = playheadMs.get();
+                m.linkBaseX = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, t, 0.5f);
+                m.linkBaseY = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, t, 0.5f);
+                m.linkBaseScale = Math.max(0.001f,
+                        poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, t, 1f));
+                m.linkBaseRotDeg =
+                        poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, t, 0f);
+            }
+            apply.run();
+        });
+        root.addView(link);
+
+        TextView hint = new TextView(ctx);
+        hint.setText("Off: the mask stays put and the object moves under it. "
+                + "On: the mask travels with the object.");
+        hint.setTextColor(0xFF8A8A8A);
+        hint.setTextSize(11.5f);
+        hint.setPadding((int) (8 * d), 0, (int) (8 * d), (int) (6 * d));
+        root.addView(hint);
+
+        LinearLayout keyRow = new LinearLayout(ctx);
+        keyRow.setOrientation(LinearLayout.HORIZONTAL);
+        final TextView state = new TextView(ctx);
+        state.setTextColor(0xFF8A8A8A);
+        state.setTextSize(11.5f);
+        state.setPadding((int) (8 * d), (int) (8 * d), 0, 0);
+        final Runnable refresh = () ->
+                state.setText(spec.hasMaskKeys() ? "animated" : "not animated");
+
+        TextView addKey = chip(ctx, "◆ Key at playhead", d);
+        addKey.setOnClickListener(v -> {
+            long t = playheadMs.get();
+            if (spec.maskKeys == null) {
+                spec.maskKeys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+            }
+            com.fadcam.ui.faditor.keyframe.Easing ease =
+                    com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+            // All SEVEN at once. Half-arming would animate some parameters and snap the rest,
+            // which reads as the shape tearing rather than as an incomplete keyframe.
+            spec.maskKeys.getOrCreate(MaskAnimator.CX).put(t, m.cx, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.CY).put(t, m.cy, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.W).put(t, m.w, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.H).put(t, m.h, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.CORNER).put(t, m.corner, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.ROTATION).put(t, m.rotationDeg, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.FEATHER).put(t, spec.maskFeather, ease);
+            refresh.run();
+            apply.run();
+            android.widget.Toast.makeText(ctx, "Mask keyed at " + (t / 1000f) + "s",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        });
+        TextView clearKeys = chip(ctx, "Clear", d);
+        clearKeys.setOnClickListener(v -> { spec.maskKeys = null; refresh.run(); apply.run(); });
+        keyRow.addView(addKey);
+        keyRow.addView(clearKeys);
+        keyRow.addView(state);
+        root.addView(keyRow);
+        refresh.run();
         return root;
+    }
+
+    /** Supplies the current playhead without this class knowing about the editor. */
+    public interface PlayheadSource { long get(); }
+
+    private static float poseAt(@Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet kf,
+                                @NonNull String property, long t, float fallback) {
+        return kf == null ? fallback : kf.valueAt(property, t, fallback);
+    }
+
+    private static TextView chip(@NonNull Context ctx, @NonNull String label, float d) {
+        TextView t = new TextView(ctx);
+        t.setText(label);
+        t.setTextColor(0xFFFFFFFF);
+        t.setTextSize(12.5f);
+        int px = (int) (10 * d), py = (int) (6 * d);
+        t.setPadding(px, py, px, py);
+        t.setBackgroundColor(0x22FFFFFF);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = (int) (8 * d);
+        t.setLayoutParams(lp);
+        return t;
     }
 
     // ── Tab 2: CHROMA KEY ────────────────────────────────────────────────────────────────

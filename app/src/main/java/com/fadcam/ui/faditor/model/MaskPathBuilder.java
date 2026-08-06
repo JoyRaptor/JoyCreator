@@ -99,6 +99,9 @@ public final class MaskPathBuilder {
     public static final class MaskScope {
         private final int outer;        // canvas state to return to when the bracket closes
         private final int content;      // state holding the caller's transforms, or -1
+        /** What beginMask actually clipped with — the RESOLVED spec for a time-aware bracket. */
+        @Nullable private CompositingSpec resolved;
+        private float w, h, dx, dy;
         private MaskScope(int outer, int content) { this.outer = outer; this.content = content; }
     }
 
@@ -119,6 +122,47 @@ public final class MaskPathBuilder {
      *           frame, the content rect's left for the preview
      * @param dy the same, vertically
      */
+    /**
+     * Resolve a spec's mask geometry for {@code timelineMs} — animated parameters and the object
+     * link — and hand back what the geometry methods below should be given.
+     *
+     * <p><b>Both renderers are FORCED through this</b> by the {@code timelineMs} overloads of
+     * {@link #beginMask} / {@link #endMask}: there is no way to obtain mask geometry at a time
+     * without resolving it at that time, so preview and export cannot animate a mask differently
+     * — the parity is structural rather than a rule someone has to remember. Same discipline as
+     * {@code ChromaKey.GLSL_KEY_FN} being compiled by both shaders.</p>
+     */
+    @Nullable
+    public static CompositingSpec resolve(@Nullable CompositingSpec spec,
+                                          @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet objectKf,
+                                          long timelineMs, float w, float h) {
+        return MaskAnimator.resolve(spec, objectKf, timelineMs, w, h);
+    }
+
+    /**
+     * Time-aware {@link #beginMask}: resolves animated / linked mask geometry at
+     * {@code timelineMs} first. The returned scope carries the RESOLVED spec, so
+     * {@link #endMask(Canvas, MaskScope)} softens exactly the shape that was clipped — passing
+     * the authored spec to the close of the bracket would feather a different shape than the one
+     * drawn, which reads as the soft edge sliding off the mask as it animates.
+     */
+    @NonNull
+    public static MaskScope beginMask(@NonNull Canvas canvas, @Nullable CompositingSpec spec,
+                                      @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet objectKf,
+                                      long timelineMs,
+                                      float w, float h, float dx, float dy) {
+        CompositingSpec resolved = resolve(spec, objectKf, timelineMs, w, h);
+        MaskScope scope = beginMask(canvas, resolved, w, h, dx, dy);
+        scope.resolved = resolved;
+        scope.w = w; scope.h = h; scope.dx = dx; scope.dy = dy;
+        return scope;
+    }
+
+    /** Close a bracket opened by the time-aware {@link #beginMask}. */
+    public static void endMask(@NonNull Canvas canvas, @NonNull MaskScope scope) {
+        endMask(canvas, scope.resolved, scope.w, scope.h, scope.dx, scope.dy, scope);
+    }
+
     @NonNull
     public static MaskScope beginMask(@NonNull Canvas canvas, @Nullable CompositingSpec spec,
                                       float w, float h, float dx, float dy) {

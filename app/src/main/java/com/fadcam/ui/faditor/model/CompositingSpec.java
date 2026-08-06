@@ -58,11 +58,34 @@ public class CompositingSpec {
          *  (protects its region — the user's "notch" case). */
         public boolean subtract = false;
 
+        /**
+         * LINKED to the object (user, 2026-08-05). {@code false} (default, and what every
+         * existing project means) = the mask is authored against the FRAME and stays put while
+         * the item animates under it — the "window in the screen" reading the masks shipped
+         * with. {@code true} = the mask keeps its position relative to the object, so a mask cut
+         * over someone's face travels with them.
+         *
+         * <p>Both are useful and that is exactly the point: unlinked is how you reveal what is
+         * behind a moving PiP, linked is how you cut a shape OUT of it.</p>
+         */
+        public boolean linkedToObject = false;
+
+        /**
+         * The object's pose at the moment {@link #linkedToObject} was switched on — the frame
+         * the relative offset is measured FROM. Captured rather than assumed: without it,
+         * "relative to the object" has no origin, and the mask would jump the first time the
+         * object is anywhere but its default pose. Meaningless while unlinked.
+         */
+        public float linkBaseX = 0.5f, linkBaseY = 0.5f, linkBaseScale = 1f, linkBaseRotDeg = 0f;
+
         @NonNull
         MaskShape copy() {
             MaskShape m = new MaskShape();
             m.cx = cx; m.cy = cy; m.w = w; m.h = h;
             m.corner = corner; m.rotationDeg = rotationDeg; m.subtract = subtract;
+            m.linkedToObject = linkedToObject;
+            m.linkBaseX = linkBaseX; m.linkBaseY = linkBaseY;
+            m.linkBaseScale = linkBaseScale; m.linkBaseRotDeg = linkBaseRotDeg;
             return m;
         }
     }
@@ -76,6 +99,32 @@ public class CompositingSpec {
      * units, not pixels: see {@link #featherRadiusPx}.
      */
     public float maskFeather = 0f;
+
+    /**
+     * Animation for the mask's seven authored numbers, in ABSOLUTE timeline ms — the same base
+     * a PiP's {@code overlayTransform} uses, deliberately, so one clip does not carry two
+     * conventions and the drawer can hand both the same playhead.
+     *
+     * <p>Applies to {@code masks.get(0)} plus the spec-level {@link #maskFeather}. That is not a
+     * shortcut: shape 0 is the ONLY shape any authoring UI can create, and pretending otherwise
+     * would mean seven tracks per shape that nothing can reach — dead structure the serializer
+     * would then have to keep forever.</p>
+     *
+     * <p>{@code null} for every project that has never keyed a mask, which is the whole cost of
+     * this feature to them: {@link MaskAnimator#resolve} returns the input spec untouched.</p>
+     */
+    @Nullable public com.fadcam.ui.faditor.keyframe.KeyframeSet maskKeys;
+
+    /** True when any mask parameter animates — the only reason to resolve per frame. */
+    public boolean hasMaskKeys() {
+        return maskKeys != null && !maskKeys.isEmpty();
+    }
+
+    /** True when the mask travels with the item rather than staying put in the frame. */
+    public boolean hasLinkedMask() {
+        for (MaskShape m : masks) if (m.linkedToObject) return true;
+        return false;
+    }
 
     // ── Chroma key (null-signaled by keyEnabled; primitives keep gson simple) ──
     public boolean keyEnabled = false;
@@ -129,6 +178,7 @@ public class CompositingSpec {
         for (MaskShape m : masks) s.masks.add(m.copy());
         s.invertMasks = invertMasks;
         s.maskFeather = maskFeather;
+        s.maskKeys = maskKeys == null ? null : maskKeys.copy();
         s.keyEnabled = keyEnabled;
         s.keyColor = keyColor;
         s.keyTolerance = keyTolerance;
@@ -154,6 +204,15 @@ public class CompositingSpec {
                 if (m.corner != 0f) mj.addProperty("corner", m.corner);
                 if (m.rotationDeg != 0f) mj.addProperty("rot", m.rotationDeg);
                 if (m.subtract) mj.addProperty("sub", true);
+                // Omitted while false, so every project that predates linking stays
+                // byte-identical — the same additive-schema rule the rest of this class follows.
+                if (m.linkedToObject) {
+                    mj.addProperty("link", true);
+                    mj.addProperty("linkBaseX", m.linkBaseX);
+                    mj.addProperty("linkBaseY", m.linkBaseY);
+                    mj.addProperty("linkBaseScale", m.linkBaseScale);
+                    if (m.linkBaseRotDeg != 0f) mj.addProperty("linkBaseRot", m.linkBaseRotDeg);
+                }
                 arr.add(mj);
             }
             j.add("masks", arr);
@@ -161,6 +220,9 @@ public class CompositingSpec {
             // Inside the masks block on purpose: feather with no shapes is inert, so it must
             // not be able to make an otherwise-empty spec look non-empty.
             if (maskFeather > 0f) j.addProperty("feather", maskFeather);
+            // Same reasoning: mask keyframes with no shape to animate are inert.
+            JsonObject mk = com.fadcam.ui.faditor.keyframe.KeyframeCodec.toJson(maskKeys);
+            if (mk != null) j.add("maskKeys", mk);
         }
         if (keyEnabled) {
             JsonObject kj = new JsonObject();
@@ -196,11 +258,20 @@ public class CompositingSpec {
                     m.corner = clamp01(optFloat(mj, "corner", 0f));
                     m.rotationDeg = optFloat(mj, "rot", 0f);
                     m.subtract = mj.has("sub") && mj.get("sub").getAsBoolean();
+                    m.linkedToObject = mj.has("link") && mj.get("link").getAsBoolean();
+                    m.linkBaseX = optFloat(mj, "linkBaseX", 0.5f);
+                    m.linkBaseY = optFloat(mj, "linkBaseY", 0.5f);
+                    // Never 0: the base scale is a DIVISOR in the link maths, and a hand-edited
+                    // 0 would turn every linked mask into NaN geometry.
+                    m.linkBaseScale = Math.max(0.001f, optFloat(mj, "linkBaseScale", 1f));
+                    m.linkBaseRotDeg = optFloat(mj, "linkBaseRot", 0f);
                     s.masks.add(m);
                 }
                 s.invertMasks = j.has("invertMasks")
                         && j.get("invertMasks").getAsBoolean();
                 s.maskFeather = clamp01(optFloat(j, "feather", 0f));
+                s.maskKeys = com.fadcam.ui.faditor.keyframe.KeyframeCodec.fromJson(
+                        j.has("maskKeys") ? j.getAsJsonObject("maskKeys") : null);
             }
             if (j.has("chromaKey")) {
                 JsonObject kj = j.getAsJsonObject("chromaKey");

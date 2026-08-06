@@ -542,12 +542,11 @@ public class OverlayVideoPreviewView extends FrameLayout {
             com.fadcam.ui.faditor.model.CompositingSpec cspec = c.getCompositing();
             com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope ms =
                     com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
-                            canvas, cspec, r.width(), r.height(), r.left, r.top);
+                            canvas, cspec, kf, t, r.width(), r.height(), r.left, r.top);
             if (rot != 0f) canvas.rotate(rot, cx, cy);
             canvas.drawBitmap(sf.bitmap, null, new RectF(
                     cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), stillPaint);
-            com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(
-                    canvas, cspec, r.width(), r.height(), r.left, r.top, ms);
+            com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(canvas, ms);
         }
     }
 
@@ -572,10 +571,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 if (r.width() > 0 && r.height() > 0) {
                     com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope ms =
                             com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
-                                    canvas, cs, r.width(), r.height(), r.left, r.top);
+                                    canvas, cs, active.getOverlayTransform(), currentTimeMs,
+                                    r.width(), r.height(), r.left, r.top);
                     boolean res = super.drawChild(canvas, child, drawingTime);
-                    com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(
-                            canvas, cs, r.width(), r.height(), r.left, r.top, ms);
+                    com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(canvas, ms);
                     return res;
                 }
             }

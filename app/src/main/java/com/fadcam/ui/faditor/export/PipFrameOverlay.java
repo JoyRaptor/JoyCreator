@@ -128,14 +128,16 @@ final class PipFrameOverlay extends BitmapOverlay {
         // Opened BEFORE the rotate so a hole stays put over the composed frame while
         // the PiP moves under it.
         com.fadcam.ui.faditor.model.CompositingSpec spec = clip.getCompositing();
+        // Time-aware: mask keyframes and the object LINK resolve here, through the same
+        // MaskAnimator the preview goes through. Passing timelineMs (not the presentation time)
+        // because mask keys share the ABSOLUTE timeline base a PiP's transform keys use.
         com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope maskSave =
                 com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
-                        canvas, spec, frameW, frameH, 0f, 0f);
+                        canvas, spec, kf, timelineMs, frameW, frameH, 0f, 0f);
         if (rot != 0f) canvas.rotate(rot, cx, cy);
         canvas.drawBitmap(frame, null,
                 new RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), paint);
-        com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(
-                canvas, spec, frameW, frameH, 0f, 0f, maskSave);
+        com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(canvas, maskSave);
         frame.recycle();
         // NEW instance per frame — BitmapOverlay caches the GL texture keyed on
         // Bitmap identity; returning the reused scratch bitmap would freeze the

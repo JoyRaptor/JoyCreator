@@ -1,3 +1,13 @@
+# ✅ 2026-08-06 — FAST-FOLLOW A IS BUILT. The dope sheet owed since 2026-07-06 shipped with
+#   SPEC_IMAGE_SEQUENCE (commit 960744a), built ONCE for sprites AND image sequences per that
+#   spec's §0. It is the palette's third detent, where S3 always drew it. A sequence strips its
+#   frames and edits their weights; a grid sprite strips its frame-track KEYS and can turn a
+#   selection into a preset ("Make preset"). Read tasks/HANDOFF_20260806_IMAGE_SEQUENCES.md.
+#   FF-B is partly there too: describe_sprite_sheet already existed; describe_sequence and
+#   edit_sequence landed beside it. STILL MISSING from FF-B: set_sprite_grid, label_sprite_cells,
+#   author_sprite_animation, apply_sprite_proposal.
+#   ⚠ The "REMAINING" line further down this file is STALE about FF-A. Trust the code.
+#
 # 📊 BUILD-1 STATUS 2026-07-06 ~13:20 (Fable — DEVICE-VERIFIED this session, watcher live/green):
 #   • Picked up opencode (out of credits): finished the audio-overlap P0 + committed a52965b —
 #     addAudioClip(clip) auto-resolves; undo/redo/split-restore/deserialize routed to (clip,false)

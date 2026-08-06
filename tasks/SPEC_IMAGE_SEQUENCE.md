@@ -1,7 +1,32 @@
 # SPEC — Image sequences (and the dope sheet)
 
-Status: **DESIGN, not started.** Written 2026-08-05 with the user.
+Status: **BUILT and DEVICE-VERIFIED, 2026-08-06.** Written 2026-08-05 with the user.
 Companion to `PLAN_SPRITE_ANIMATION.md` — read that first; this deliberately reuses it.
+
+> ## ✅ 2026-08-06 — SHIPPED. See `tasks/HANDOFF_20260806_IMAGE_SEQUENCES.md`.
+>
+> Commits `66f2ed7` (model + import), `7712a8f` (tape + the Gradle unblock), `960744a`
+> (dope sheet + resize modes + looping), `4ddcb6d` (AI tools + export bound + verification).
+>
+> **The load-bearing proof:** a 12-frame sequence at 2 fps with all weights ×2 was exported and
+> its frames extracted with ffmpeg. Every sampled timestamp (0.5 / 1.5 / 4.5 / 8.5 / 11.5s)
+> showed EXACTLY the frame the weight model predicts, and 12.5s — past the sequence's end —
+> drew nothing. Preview == export, on pixels.
+>
+> Also device-verified: run detection ("We found 12 images"), `1/6 min` parsed live into
+> 1.2 fps, the tape's uniform thumbnails at each change, "On twos" taking 6.00s → 12.00s with
+> ×2 badges, the §5b vertical drag taking frame 3 to ×5 (12.00s → 13.50s, exactly
+> (11×2+5)/2fps), and undo/redo.
+>
+> **What is NOT verified on device** — stated here so this file cannot become the stale status
+> line §0 complains about: the AI tools (no API key in the sandbox), the §2a edge-drag and its
+> §9c readout, the §6 continues/loop chips, and §3d convert-to-sprite-sheet. All are built,
+> type-checked and harness-pinned where the logic is pure.
+>
+> **§2d does not exist in this document** despite §0.3 pointing at it. The decision it was
+> meant to hold was made during implementation: weights ride `SpriteSheet.Preset` and the tick
+> domain is the one `SpriteFrameResolver` already computed, so an unweighted preset resolves
+> down the identical path. `SequenceTimingTest` pins that against the old arithmetic.
 
 ---
 

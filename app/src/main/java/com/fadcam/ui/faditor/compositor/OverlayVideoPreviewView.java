@@ -167,7 +167,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     @Override public boolean onScale(ScaleGestureDetector d) {
                         if (manipulating != null) {
-                            float s = Math.max(0.05f, Math.min(3f,
+                            // 4.0 matches the Scale slider's max exactly (user, 2026-08-05).
+                            // They used to disagree — 3.0 here against 1.5 there — so a pinch
+                            // could reach a size the slider could not display or restore.
+                            float s = Math.max(0.05f, Math.min(4f,
                                     readValue(manipulating, KeyframeSet.SCALE, DEFAULT_SCALE)
                                             * d.getScaleFactor()));
                             putStatic(manipulating, KeyframeSet.SCALE, s);

@@ -2213,8 +2213,31 @@ public class ExportManager {
                 if (c.isPitchCompensationEnabled()) sonic.setPitch(1.0f);
                 processors.add(sonic);
             }
+            // PiP volume: ENVELOPE when the clip has keyframes, flat level otherwise.
+            //
+            // This sequence used to only ever call setVolume(), i.e. a constant — which is why
+            // the PiP's Volume row shipped as a STATIC prop with no keyframe diamond. That was
+            // the honest choice at the time: a diamond the export ignores is a control that
+            // lies. Now that the envelope is wired, the diamond can exist.
+            //
+            // Deliberately MIRRORS the master-clip path (:1474) rather than inventing a second
+            // envelope shape — same VolumeAudioProcessor, same times[]/vols[] pair — so PiP and
+            // master audio cannot drift apart in how they read the same keyframe list.
             float volume = volumes.get(c.getId());
-            if (Math.abs(volume - 1.0f) >= 0.01f) {
+            if (c.hasVolumeKeyframes()) {
+                List<Clip.VolumeKeyframe> kfs = c.getVolumeKeyframes();
+                long[] times = new long[kfs.size()];
+                float[] vols = new float[kfs.size()];
+                for (int i = 0; i < kfs.size(); i++) {
+                    times[i] = kfs.get(i).timeMs;
+                    // The per-clip level still scales the envelope, so muting or ducking a PiP
+                    // does not silently discard an authored fade.
+                    vols[i] = kfs.get(i).volume * volume;
+                }
+                VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                vp.setVolumeEnvelope(times, vols);
+                processors.add(vp);
+            } else if (Math.abs(volume - 1.0f) >= 0.01f) {
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
                 vp.setVolume(volume);
                 processors.add(vp);

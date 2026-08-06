@@ -479,10 +479,24 @@ public final class LayerPreviewController {
     /** Lane-precomputed overload — see {@link #isOverlayClipLaneMuted(Clip, List)}. */
     public static float effectiveOverlayVolume(@NonNull com.fadcam.ui.faditor.model.Clip clip,
             @NonNull List<Track> lanes) {
+        return effectiveOverlayVolumeAt(clip, lanes, Long.MIN_VALUE);
+    }
+
+    /**
+     * Playhead-aware overload: the same mute/lane gates, but the LEVEL is sampled from the
+     * clip's volume envelope at {@code clipLocalMs} so a PiP fade is audible while editing and
+     * not only after export. Pass {@link Long#MIN_VALUE} for "no particular time", which reads
+     * the envelope's first key — the flat level when there is no envelope.
+     *
+     * <p>The gates are checked BEFORE the envelope on purpose: a muted clip is silent at every
+     * time, and asking the envelope first would make mute depend on where the playhead is.</p>
+     */
+    public static float effectiveOverlayVolumeAt(@NonNull com.fadcam.ui.faditor.model.Clip clip,
+            @NonNull List<Track> lanes, long clipLocalMs) {
         if (!clip.isOverlayAudioEnabled()) return 0f;
         if (clip.isAudioMuted()) return 0f;
         if (isOverlayClipLaneMuted(clip, lanes)) return 0f;
-        return clip.getVolumeLevel();
+        return clip.volumeAt(clipLocalMs);
     }
 
     /**

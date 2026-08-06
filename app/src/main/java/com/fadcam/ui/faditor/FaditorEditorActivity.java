@@ -19805,8 +19805,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Pos X", 0f, 1f, pct));      // TODO(strings)
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
                 "Pos Y", 0f, 1f, pct));      // TODO(strings)
+        // Scale to 400% (user, 2026-08-05). The pinch gesture already clamped at 300% while
+        // this slider stopped at 150%, so the two disagreed about the maximum — the slider
+        // could not express a size the fingers could reach. Both are 4.0 now; see
+        // OverlayVideoPreviewView's pinch clamp, which was raised in the same change.
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
-                "Scale", 0.05f, 1.5f, pct)); // TODO(strings)
+                "Scale", 0.05f, 4.0f, pct)); // TODO(strings)
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
                 "Rotate", -180f, 180f, deg)); // TODO(strings)
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
@@ -19815,13 +19819,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // audio at all, so the slider appears only for an opted-in clip (static — a PiP
         // volume ENVELOPE is not wired through the export sequence yet).
         if (c.isOverlayAudioEnabled()) {
-            props.add(ObjectMenuSheet.Prop.staticProp("pipVolume", "Volume", 0f, 2f, pct, // TODO(strings)
-                    ms -> c.getVolumeLevel(),
-                    (v, ms) -> {
-                        c.setVolumeLevel(v);
-                        if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
-                        scheduleAutoSave();
-                    }));
+            props.add(pipVolumeProp(c));
         }
 
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
@@ -19899,6 +19897,110 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 open ? "Hide audio waveform" : "Show audio waveform", false, () -> { // TODO(strings)
             if (editorTimeline != null) editorTimeline.setLaneAudioDrawerOpen(laneId, !open);
         }));
+    }
+
+    /**
+     * The PiP's Volume row, WITH a keyframe diamond (user, 2026-08-05: "the ability for
+     * keyframes… just like the other options").
+     *
+     * <p><b>Why it was static before, and why it is not now.</b> It shipped as
+     * {@code staticProp} — no diamond — because {@code buildOverlayAudioSequence} only ever
+     * called {@code setVolume()}, a constant. A diamond over an export that ignores it is a
+     * control that lies, so leaving it off was correct at the time. The envelope is now wired
+     * through that sequence, so the diamond can exist honestly.</p>
+     *
+     * <p><b>It does NOT ride the transform {@code KeyframeSet}.</b> Volume keys live in
+     * {@code Clip.volumeKeyframes}, which the serializer already persists and the export
+     * already reads. Mirroring them into the KeyframeSet as well would create two sources of
+     * truth for one quantity — the failure this project keeps paying for — so this adapter
+     * reads and writes the list directly.</p>
+     *
+     * <p><b>Time domain, stated because it is the classic units trap.</b> Key times are
+     * CLIP-LOCAL output ms — {@code absoluteMs - overlayStartMs} — which is the same clock the
+     * export's {@code VolumeAudioProcessor} measures in (its item timeline starts at 0 and is
+     * post-Sonic, i.e. after any speed change). Authoring in absolute timeline ms would put
+     * every fade at the wrong place on any PiP that does not start at 0.</p>
+     */
+    @NonNull
+    private ObjectMenuSheet.Prop pipVolumeProp(@NonNull Clip c) {
+        final ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        final java.util.function.LongUnaryOperator toLocal =
+                absMs -> Math.max(0L, absMs - c.getOverlayStartMs());
+        // "On a key" / delete need a tolerance: the playhead lands on arbitrary ms while keys
+        // sit on the ms the user dropped them at. Same slop the transform rows use.
+        final long SLOP = 40L;
+        final java.util.function.LongFunction<Clip.VolumeKeyframe> keyAt = local -> {
+            for (Clip.VolumeKeyframe k : c.getVolumeKeyframes()) {
+                if (Math.abs(k.timeMs - local) <= SLOP) return k;
+            }
+            return null;
+        };
+        ObjectMenuSheet.Getter get = ms -> c.volumeAt(toLocal.applyAsLong(ms));
+        ObjectMenuSheet.Setter set = (v, ms) -> {
+            long local = toLocal.applyAsLong(ms);
+            if (c.hasVolumeKeyframes()) {
+                java.util.List<Clip.VolumeKeyframe> kfs =
+                        new java.util.ArrayList<>(c.getVolumeKeyframes());
+                Clip.VolumeKeyframe on = keyAt.apply(local);
+                // The level multiplies the envelope (Clip.volumeAt), so store the value
+                // DIVIDED by it or dragging the slider would compound the two.
+                float lvl = Math.max(0.01f, c.getVolumeLevel());
+                if (on != null) kfs.remove(on);
+                kfs.add(new Clip.VolumeKeyframe(local, v / lvl));
+                java.util.Collections.sort(kfs, (a, b) -> Long.compare(a.timeMs, b.timeMs));
+                c.setVolumeKeyframes(kfs);
+            } else {
+                c.setVolumeLevel(v);
+            }
+            if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+            scheduleAutoSave();
+        };
+        ObjectMenuSheet.OnKeyQuery onKey =
+                ms -> keyAt.apply(toLocal.applyAsLong(ms)) != null;
+        Runnable dropKey = () -> {
+            long local = toLocal.applyAsLong(lastPlayheadAbsoluteMs);
+            java.util.List<Clip.VolumeKeyframe> kfs =
+                    new java.util.ArrayList<>(c.getVolumeKeyframes());
+            float lvl = Math.max(0.01f, c.getVolumeLevel());
+            // The FIRST diamond converts the flat level into an envelope by seeding a key at
+            // the playhead holding the value the clip already had — so arming never changes
+            // what you hear, it only makes the value animatable from here.
+            Clip.VolumeKeyframe on = keyAt.apply(local);
+            if (on != null) kfs.remove(on);
+            kfs.add(new Clip.VolumeKeyframe(local, c.volumeAt(local) / lvl));
+            java.util.Collections.sort(kfs, (a, b) -> Long.compare(a.timeMs, b.timeMs));
+            c.setVolumeKeyframes(kfs);
+            if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+            scheduleAutoSave();
+        };
+        Runnable deleteKey = () -> {
+            long local = toLocal.applyAsLong(lastPlayheadAbsoluteMs);
+            Clip.VolumeKeyframe on = keyAt.apply(local);
+            if (on == null) return;
+            java.util.List<Clip.VolumeKeyframe> kfs =
+                    new java.util.ArrayList<>(c.getVolumeKeyframes());
+            kfs.remove(on);
+            c.setVolumeKeyframes(kfs);
+            if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+            scheduleAutoSave();
+        };
+        java.util.function.IntConsumer jump = dir -> {
+            long local = toLocal.applyAsLong(lastPlayheadAbsoluteMs);
+            Clip.VolumeKeyframe best = null;
+            for (Clip.VolumeKeyframe k : c.getVolumeKeyframes()) {
+                if (dir > 0 && k.timeMs > local + SLOP
+                        && (best == null || k.timeMs < best.timeMs)) best = k;
+                if (dir < 0 && k.timeMs < local - SLOP
+                        && (best == null || k.timeMs > best.timeMs)) best = k;
+            }
+            if (best != null && editorTimeline != null) {
+                editorTimeline.seekToTimelineMs(c.getOverlayStartMs() + best.timeMs);
+            }
+        };
+        return new ObjectMenuSheet.Prop("pipVolume", "Volume", 0f, 2f, pct,   // TODO(strings)
+                get, set, onKey, dropKey,
+                () -> jump.accept(-1), () -> jump.accept(1), deleteKey,
+                c::hasVolumeKeyframes, null, null);
     }
 
     @NonNull

@@ -1307,6 +1307,28 @@ public class Clip {
 
     public boolean hasVolumeKeyframes() { return !volumeKeyframes.isEmpty(); }
 
+    /**
+     * Gain at {@code clipLocalMs}, honouring the envelope when there is one and falling back to
+     * the flat {@link #getVolumeLevel()} when there is not.
+     *
+     * <p>Reads through {@link VolumeEnvelope}, the same curve the export's audio processor
+     * runs, so a fade heard in the preview is the fade written to the file. The per-clip level
+     * MULTIPLIES the envelope rather than replacing it — muting or ducking a clip must not
+     * silently discard an authored fade, and that is also exactly how the export composes the
+     * two.</p>
+     */
+    public float volumeAt(long clipLocalMs) {
+        if (volumeKeyframes.isEmpty()) return volumeLevel;
+        int n = volumeKeyframes.size();
+        long[] times = new long[n];
+        float[] vols = new float[n];
+        for (int i = 0; i < n; i++) {
+            times[i] = volumeKeyframes.get(i).timeMs;
+            vols[i] = volumeKeyframes.get(i).volume * volumeLevel;
+        }
+        return VolumeEnvelope.gainAt(times, vols, clipLocalMs, volumeLevel);
+    }
+
     /** Replace all keyframes (used on project load). Sorts and clamps. */
     public void setVolumeKeyframes(@NonNull List<VolumeKeyframe> kfs) {
         volumeKeyframes.clear();

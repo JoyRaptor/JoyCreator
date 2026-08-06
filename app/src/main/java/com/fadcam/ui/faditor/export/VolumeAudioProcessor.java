@@ -58,21 +58,13 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
         }
     }
 
+    /**
+     * Delegates to {@link com.fadcam.ui.faditor.model.VolumeEnvelope} — the curve moved to the
+     * model when the live preview gained an envelope too, so the file and the preview cannot
+     * fade at different rates. The interpolation is unchanged from what shipped here.
+     */
     private float gainAtMs(long ms) {
-        if (kfTimes == null) return volume;
-        if (kfTimes.length == 1) return kfVols[0];
-        if (ms <= kfTimes[0]) return kfVols[0];
-        int last = kfTimes.length - 1;
-        if (ms >= kfTimes[last]) return kfVols[last];
-        for (int i = 0; i < last; i++) {
-            if (ms >= kfTimes[i] && ms <= kfTimes[i + 1]) {
-                long span = kfTimes[i + 1] - kfTimes[i];
-                if (span <= 0) return kfVols[i + 1];
-                float frac = (ms - kfTimes[i]) / (float) span;
-                return kfVols[i] + (kfVols[i + 1] - kfVols[i]) * frac;
-            }
-        }
-        return kfVols[last];
+        return com.fadcam.ui.faditor.model.VolumeEnvelope.gainAt(kfTimes, kfVols, ms, volume);
     }
 
     @Override

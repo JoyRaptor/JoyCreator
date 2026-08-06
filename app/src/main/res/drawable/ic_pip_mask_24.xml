@@ -1,0 +1,9 @@
+<!-- Mask tab: a frame with a soft-edged ellipse knocked out of it — the shape the
+     mask engine actually draws (rounded rect + feather), not a generic "crop" glyph. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path android:fillColor="@android:color/white" android:fillType="evenOdd"
+        android:pathData="M3,4h18v16h-18zM5,6v12h14v-12zM12,8.2c2.1,0 3.8,1.7 3.8,3.8c0,2.1 -1.7,3.8 -3.8,3.8c-2.1,0 -3.8,-1.7 -3.8,-3.8c0,-2.1 1.7,-3.8 3.8,-3.8z"/>
+</vector>

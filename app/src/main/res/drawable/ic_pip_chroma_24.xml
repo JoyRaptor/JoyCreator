@@ -1,0 +1,9 @@
+<!-- Chroma key tab: the eyedropper, because "pick the colour to remove" is the
+     action the tab is named for. Mirrors Material's colorize glyph. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path android:fillColor="@android:color/white"
+        android:pathData="M17.66,5.41l0.92,0.92 -2.69,2.69 -0.92,-0.92 2.69,-2.69M17.67,3c-0.26,0 -0.51,0.1 -0.71,0.29l-3.12,3.12 -1.93,-1.91 -1.41,1.41 1.42,1.42L3,16.34V21h4.66l8.99,-8.99 1.42,1.42 1.41,-1.41 -1.92,-1.92 3.12,-3.12c0.4,-0.4 0.4,-1.03 0.01,-1.42l-2.34,-2.34C18.16,3.1 17.91,3 17.67,3zM6.83,19L5,17.17l8.14,-8.14 1.83,1.83L6.83,19z"/>
+</vector>

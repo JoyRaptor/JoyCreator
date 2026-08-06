@@ -1481,6 +1481,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
+        // Files can change while we are backgrounded (the user goes to a file manager, or to the
+        // sprite-sheet editor and relinks). Missing-frame state is cached to keep it off the draw
+        // path, so this is the moment to let it be re-asked — lazily, on the next thing that needs
+        // it, not by re-statting anything here.
+        invalidateSpriteMissingState();
+
         playheadHandler.post(playheadUpdater);
     }
 
@@ -23412,11 +23418,54 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return missing;
     }
 
-    /** Memoised per sheet id — the manager list rebuilds often and this touches the filesystem. */
+    /**
+     * Memoised per sheet id — the manager list rebuilds often and this touches the filesystem.
+     * Invalidated by {@link #invalidateSpriteMissingState()}; without that the memo answered the
+     * question once per Activity lifetime and both directions of the fact went stale.
+     */
     private final java.util.Map<String, Integer> sequenceMissingCounts =
             new java.util.HashMap<>();
 
+    /**
+     * Re-ask the filesystem, once, about every sheet's missing frames.
+     *
+     * <p>Three caches answer "is this frame missing?" and all three were write-once: the
+     * {@link #sequenceMissingCounts} memo above, each renderer's per-frame failure set, and the
+     * timeline tape's copy of the same. So a frame renamed away stayed invisible until the
+     * process died, and a frame RESTORED stayed marked missing just as long.</p>
+     *
+     * <p><b>Why here and not on the draw path:</b> the per-frame check is a
+     * {@code openFileDescriptor} per frame — a 240-frame sequence re-statted every draw pass or
+     * every played frame is file I/O on the hottest path there is. So this invalidates only at
+     * the two coarse moments where the files can actually have changed underneath us — the user
+     * opening the sprite-sheet manager (the screen that reports the fact) and the editor
+     * resuming (the user has been away, possibly in a file manager) — and lets the existing lazy
+     * per-frame detection repopulate from there.</p>
+     *
+     * <p>Decoded bitmaps survive: this clears FAILURE state only. Entries holding a null renderer
+     * are dropped though — they cache "this sheet would not load at all", cost no pixels, and are
+     * the only way a fully-restored sheet comes back.</p>
+     */
+    private void invalidateSpriteMissingState() {
+        sequenceMissingCounts.clear();
+        java.util.Iterator<java.util.Map.Entry<String,
+                android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
+                        com.fadcam.ui.faditor.sprite.SpriteSheetRenderer>>> it =
+                spriteRendererCache.entrySet().iterator();
+        while (it.hasNext()) {
+            android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
+                    com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> p = it.next().getValue();
+            if (p == null || p.second == null) { it.remove(); continue; }
+            p.second.clearMissingCache();
+        }
+        if (editorTimeline != null) editorTimeline.clearSpriteMissingCache();
+        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+    }
+
     private void openSpriteSheetManager() {
+        // The list below is the screen that REPORTS missing frames, so it must re-check rather
+        // than serve the answer it computed the first time it was opened.
+        invalidateSpriteMissingState();
         java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = project.getSpriteSheets();
         final int newIdx = sheets.size();
         final int seqFolderIdx = sheets.size() + 1;
@@ -23578,6 +23627,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> cached =
                 spriteRendererCache.remove(sheetId);
         if (cached != null && cached.second != null) cached.second.recycle();
+        // The relink is precisely a change to which files exist — the memo's answer is now stale.
+        sequenceMissingCounts.remove(sheetId);
         if (spriteOverlayView != null) spriteOverlayView.invalidate();
         if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
             spritePalettePanel.rebuild();
@@ -24036,6 +24087,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> cached =
                 spriteRendererCache.remove(sheetId);
         if (cached != null && cached.second != null) cached.second.recycle();
+        // Frames changed under a stable id, so the memoised missing-count no longer describes it.
+        sequenceMissingCounts.remove(sheetId);
         if (editorTimeline != null) editorTimeline.invalidateSpriteRenderer(sheetId);
     }
 

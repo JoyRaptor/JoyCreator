@@ -4623,6 +4623,28 @@ public class EditorTimelineView extends View {
         invalidate();
     }
 
+    /**
+     * Forget which frames were unreadable, WITHOUT dropping the decoded bitmaps.
+     *
+     * <p>A sequence frame that failed to open is remembered so it is not retried on every draw
+     * (see {@code SequenceFrameCache#failed}) — correct for a hot path, wrong forever after the
+     * user fixes the file, because the tape kept drawing the dashed MISSING slash on a cell that
+     * had come back. The editor calls this at the coarse moments where files may have changed
+     * under us; the lazy per-frame probe then repopulates whatever is still genuinely gone.</p>
+     *
+     * <p>Deliberately NOT {@link #invalidateSpriteRenderer}: that recycles the renderer, which
+     * throws away every decoded frame to fix a boolean.</p>
+     */
+    public void clearSpriteMissingCache() {
+        for (com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r : spriteRendererCache.values()) {
+            if (r != null) r.clearMissingCache();
+        }
+        // A sheet that failed to LOAD outright is also retried — restoring the file is exactly
+        // the case this set would otherwise pin as broken for the life of the view.
+        spriteRendererFailed.clear();
+        invalidate();
+    }
+
     /** §2 sprite-cell provider: decode-once sheet renderer + STEP/HOLD cell resolution. */
     private final com.fadcam.ui.faditor.layers.LayerRowRenderer.SpriteCellProvider spriteCellProvider =
             new com.fadcam.ui.faditor.layers.LayerRowRenderer.SpriteCellProvider() {

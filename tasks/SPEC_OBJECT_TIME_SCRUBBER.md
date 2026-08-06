@@ -296,10 +296,12 @@ Validated: the object-menu scrubber works + is "very smooth".
 - [x] **B-OVERSHOOT** — push-past now steps flush just past the obstacle, no shoot-past (`9a7a0a4`).
 - [x] diagonal hand-drag loosened — small side-move breaks the lane time-lock (`699937b`).
 - [x] terminology — rows="lanes", object move="Move layer", kept "object" (`1395738`).
+- [x] **B-ENDHERE FIXED (status corrected 2026-08-06 by code audit)** — "End here" does NOTHING
+  was a real logic bug in `setOverlayRangeEdgeAtPlayhead`'s end case; both edges now validate and
+  set symmetrically (`ph <= o.getStartMs()` guard, `afterEnd = ph`) — see
+  `FaditorEditorActivity.setOverlayRangeEdgeAtPlayhead` (~line 19450).
 
 **OPEN BUGS:**
-- [ ] **B-ENDHERE** "End here" does NOTHING (Start here works) — a real logic bug in
-  `setOverlayRangeEdgeAtPlayhead`'s end case, SEPARATE from the (now-fixed) scaling precision.
 - [ ] **B-CLAMP** the scrub can push an object off past the timeline end forever (have to scroll
   back from infinity) — clamp so its start stops at the timeline end.
 - [ ] **B-PREVIEW** during a move the preview isn't always clear; want a stable same-size box

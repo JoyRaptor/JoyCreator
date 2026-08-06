@@ -480,6 +480,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** Send a multimodal vision message to the AI with an image (base64 JPEG). */
     private void sendVisionMessage(@NonNull String base64Image, int imgW, int imgH) {
+        // View state must be read on the main thread — capture the prompt here,
+        // before the work is handed to the background executor.
+        final String userText = inputField.getText().toString().trim();
+
         addBotMessage("Thinking...");
 
         aiExecutor.execute(() -> {
@@ -489,12 +493,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 body.put("max_tokens", 1024);
                 body.put("temperature", 0.7);
 
-                // Build multimodal content: text + image
+                // Build multimodal content: text + image (text part first —
+                // OpenRouter parses the parts in order).
                 JSONArray content = new JSONArray();
 
                 JSONObject textPart = new JSONObject();
                 textPart.put("type", "text");
-                textPart.put("text", inputField.getText().toString().trim());
+                textPart.put("text", userText);
                 content.put(textPart);
 
                 JSONObject imagePart = new JSONObject();
@@ -504,14 +509,26 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 imagePart.put("image_url", imageUrl);
                 content.put(imagePart);
 
-                JSONObject userMsg = new JSONObject();
-                userMsg.put("role", "user");
-                userMsg.put("content", content);
-                conversationHistory.add(userMsg);
+                // The image travels in THIS turn's outgoing request only. What is
+                // retained in the static history is a compact textual placeholder —
+                // keeping the data URL would re-send megabytes of base64 on every
+                // subsequent turn (cost, bandwidth and memory).
+                JSONObject outgoingUserMsg = new JSONObject();
+                outgoingUserMsg.put("role", "user");
+                outgoingUserMsg.put("content", content);
 
-                // Build the request body with messages including the system prompt
+                JSONObject retainedUserMsg = new JSONObject();
+                retainedUserMsg.put("role", "user");
+                retainedUserMsg.put("content", userText
+                        + "\n[image attached: " + imgW + "x" + imgH + " JPEG, not retained in history]");
+                conversationHistory.add(retainedUserMsg);
+
+                // Build the request body: prior history (with placeholders) plus
+                // this turn's full multimodal message.
                 JSONArray messages = new JSONArray();
-                for (JSONObject msg : conversationHistory) messages.put(msg);
+                for (JSONObject msg : conversationHistory) {
+                    messages.put(msg == retainedUserMsg ? outgoingUserMsg : msg);
+                }
 
                 body.put("messages", messages);
 

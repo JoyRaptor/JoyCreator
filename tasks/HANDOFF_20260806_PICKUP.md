@@ -1,5 +1,13 @@
 # PICKUP HANDOFF — 2026-08-06
 
+> # ⚠ SUPERSEDED — read `tasks/START_HERE_20260806b.md` instead.
+> Kept for its §3, which is still the best reference for the OpenRouter API (capability
+> fields, the free-vs-auto router distinction, the multimodal request shape). Everything
+> else here is out of date: the vision feature it calls "next" is BUILT and
+> device-verified, and the todo lists have been recounted against the code since.
+
+
+
 **Read this first, then `HANDOFF_20260806_IMAGE_SEQUENCES.md` for detail.**
 
 Branch `joy-creator`. HEAD `ed206a8`. Tree clean, all harnesses green, APK installed and

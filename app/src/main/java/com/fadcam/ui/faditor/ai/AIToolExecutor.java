@@ -137,6 +137,8 @@ public class AIToolExecutor {
                 case "describe_clip": return toolDescribeClip(args);
                 case "tag_broll_assets": return toolTagBrollAssets(args);
                 case "describe_sprite_sheet": return toolDescribeSpriteSheet(args);
+                case "describe_sequence": return toolDescribeSequence(args);
+                case "edit_sequence": return toolEditSequence(args);
                 case "author_avatar_rig": return toolAuthorAvatarRig(args);
                 case "apply_avatar_rig": return toolApplyAvatarRig(args);
                 default: return "Error: unknown tool '" + toolName + "'";
@@ -326,6 +328,37 @@ public class AIToolExecutor {
                 author_avatar_rig to understand what art is on the sheet. Deterministic,
                 no network. Omit both args to list the project's sheets.
                 args: {"sheetId":"..."}  OR  {"imageUri":"file://…|content://…"}
+
+            33c. describe_sequence — Read-only. An IMAGE SEQUENCE's timing: frameCount,
+                the WEIGHT array, fps, run length, loop mode, resize mode, and whether a
+                neighbour is cutting it short. Omit objectId to list the project's
+                sequences. Timing model: every frame has a weight (default 1) and
+                frame_duration = total x weight / sum(weights); fps = sum(weights) /
+                totalSeconds. Frame indices are 0-based. Speak in FRAMES and WEIGHTS,
+                never pixels or per-frame ms.
+                args: {"objectId":"..."}   (or {} to list)
+
+            33d. edit_sequence — Change an image sequence's timing. One op per call.
+                Reports the state it finds AFTER the edit, so trust the returned numbers
+                rather than assuming your arguments applied.
+                args: {"objectId":"...","op":"<one of below>", …}
+                  setWeights       {"weights":[1,1,5,1,…]}  — must be EXACTLY frameCount
+                                   long; a mismatch is refused, not padded.
+                  applyStride      {"start":0,"every":6,"weight":5}
+                                   "every 6th frame holds for five". "On twos" is
+                                   {"start":0,"every":1,"weight":2}.
+                  applyRamp        {"fromIdx":0,"toIdx":40,"w0":4,"w1":1,
+                                   "ease":"EASE_IN_OUT"} — "gradually getting faster".
+                  setTotalDuration {"ms":8000}  (or {"duration":"2m30s"})
+                  setFrameRate     {"fps":12}
+                  setLoop          {"mode":"NONE|LOOP|PING_PONG"}  — ping-pong preserves
+                                   each frame's weight when it mirrors.
+                  setResizeMode    {"mode":"RELATIVE|ABSOLUTE"} — what dragging the
+                                   object's edge MEANS: retime everything (RELATIVE) or
+                                   add/remove frames (ABSOLUTE).
+                  reorder          {"order":"REVERSE|SHUFFLE"} — weights travel with
+                                   their frames.
+                Adding holds LENGTHENS the object; it does not speed the other frames up.
 
             39. author_avatar_rig — Propose an AVATAR PUPPET RIG (Avatar Studio) for the
                 user to confirm. Emit rig JSON against the BUILT-IN BIPED TEMPLATE:
@@ -1253,6 +1286,60 @@ public class AIToolExecutor {
      * geometry is the single authority ({@link com.fadcam.ui.faditor.sprite.SpriteSheetRenderer#cellRectSource});
      * a raw image gets an auto-detected grid ({@link com.fadcam.ui.faditor.sprite.SpriteGridDetector}).
      */
+    /**
+     * SPEC_IMAGE_SEQUENCE §7a — read a sequence's timing. Deterministic, no network.
+     * Omit {@code objectId} to list the project's sequences.
+     */
+    private String toolDescribeSequence(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String id = args.optString("objectId", "");
+        if (id.isEmpty()) return SequenceAiOps.listSequences(proj);
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem item = SequenceAiOps.itemById(proj, id);
+        if (item == null) {
+            return "Error: no object with id '" + id + "'.\n" + SequenceAiOps.listSequences(proj);
+        }
+        try {
+            return SequenceAiOps.describe(proj, item);
+        } catch (Exception e) {
+            FLog.e(TAG, "describe_sequence failed", e);
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * SPEC_IMAGE_SEQUENCE §7b — edit a sequence's timing.
+     *
+     * <p>Saves and signals exactly like the other mutating tools, which is this app's ONE-undo-
+     * step granularity for AI edits: the editor reloads the whole project on
+     * {@code signalModified}, so an AI edit reverses in a single press with the history behind
+     * it intact (LEDGER §4). The audit re-verified in 2026-08-05 that AI edits already undo from
+     * whole-project snapshots, so routing these through a bespoke EditScript operation would add
+     * a second snapshot discipline without adding safety.</p>
+     */
+    private String toolEditSequence(@NonNull JSONObject args) {
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        String id = args.optString("objectId", "");
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem item = SequenceAiOps.itemById(proj, id);
+        if (item == null) {
+            return "Error: no object with id '" + id + "'.\n" + SequenceAiOps.listSequences(proj);
+        }
+        try {
+            String result = SequenceAiOps.edit(proj, item, args);
+            // Only persist when the op actually succeeded. Saving after an error string would
+            // write whatever half-state the failed branch left — and then report the failure,
+            // which is the worst of both.
+            if (result.startsWith("Error:")) return result;
+            storage.save(proj);
+            AIChatState.signalModified(projectId);
+            return result;
+        } catch (Exception e) {
+            FLog.e(TAG, "edit_sequence failed", e);
+            return "Error: " + e.getMessage();
+        }
+    }
+
     private String toolDescribeSpriteSheet(@NonNull JSONObject args) {
         String sheetId = args.optString("sheetId", "");
         String imageUri = args.optString("imageUri", "");

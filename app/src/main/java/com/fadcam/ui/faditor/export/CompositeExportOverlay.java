@@ -368,6 +368,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
         return out;
     }
 
+    /**
+     * Longest edge of the frame currently being composited — the decode bound for image-sequence
+     * frames (§8). Zero until the first frame, where the {@code max(256, …)} floor covers it.
+     */
+    private int lastOutputMaxDim;
+
     /** Lazy decode-once renderer per sheet; null (missing art) cached too. */
     @Nullable
     private com.fadcam.ui.faditor.sprite.SpriteSheetRenderer spriteRendererFor(
@@ -377,8 +383,15 @@ public class CompositeExportOverlay extends BitmapOverlay {
         for (com.fadcam.ui.faditor.sprite.SpriteSheet s : spriteSheets) {
             if (s.getId().equals(sheetId)) { sheet = s; break; }
         }
+        // SPEC_IMAGE_SEQUENCE §8 Memory: bound an image sequence's per-frame decodes against the
+        // OUTPUT size, not a screen-sized default. "A 500-frame 4K sequence must never decode all
+        // frames" — and it must not decode any of them larger than the frame it is drawn into.
+        // lastOutputMaxDim is the composition's own longest edge, so a 1080x1920 export decodes
+        // at most 1920px regardless of how large the source stills are.
         com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r = sheet != null
-                ? com.fadcam.ui.faditor.sprite.SpriteSheetRenderer.load(context, sheet) : null;
+                ? com.fadcam.ui.faditor.sprite.SpriteSheetRenderer.load(context, sheet,
+                        Math.max(256, lastOutputMaxDim))
+                : null;
         spriteRenderers.put(sheetId, r);
         return r;
     }
@@ -507,6 +520,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
         // downstream Presentation then scales frame+overlay together to the canvas.
         int frameW = bitmap.getWidth();
         int frameH = bitmap.getHeight();
+        // Remembered for the sequence decode bound (see spriteRendererFor). Set here rather
+        // than in configure() because this is where the true per-frame size is known.
+        lastOutputMaxDim = Math.max(frameW, frameH);
         canvas.save();
         if (outW > 0 && outH > 0 && (frameW != outW || frameH != outH)) {
             canvas.scale(frameW / (float) outW, frameH / (float) outH);

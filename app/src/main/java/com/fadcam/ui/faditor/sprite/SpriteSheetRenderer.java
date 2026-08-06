@@ -258,15 +258,54 @@ public final class SpriteSheetRenderer {
         Paint p = overridePaint != null ? overridePaint : drawPaint;
         if (frames != null) {
             Bitmap b = frames.frame(cellIndex);
-            // A frame that will not decode draws NOTHING rather than the wrong picture. Falling
-            // back to frame 0 here would be worse than a gap: a missing file would silently look
-            // like an authored hold, which is the one reading the user cannot tell apart from
-            // correct output.
-            if (b == null || b.isRecycled()) return;
+            // A frame that will not decode never draws the WRONG picture — falling back to
+            // frame 0 would make a missing file look like an authored hold, the one reading a
+            // user cannot tell apart from correct output. But drawing nothing at all is barely
+            // better: it reads as a gap in the animation rather than as a broken file. So it
+            // draws a MISSING placeholder (§7 / SPEC_IMAGE_SEQUENCE §8), which is unmistakably
+            // neither.
+            if (b == null || b.isRecycled()) { drawMissingCell(canvas, dest); return; }
             canvas.drawBitmap(b, null, dest, p);
             return;
         }
         canvas.drawBitmap(bitmap, cellRectBitmap(cellIndex), dest, p);
+    }
+
+    /** Paints for the MISSING placeholder — lazily built, since most sheets never need them. */
+    @Nullable private Paint missingFill, missingStroke;
+
+    /**
+     * The MISSING affordance: a dashed amber outline with a diagonal slash, sized to the cell.
+     *
+     * <p>Deliberately not text — this is drawn at timeline-tape sizes as small as a few dp, and
+     * a label would be unreadable exactly where it is most needed. What it has to communicate is
+     * "this frame is broken, and it is broken HERE", which a shape does at any size.</p>
+     */
+    private void drawMissingCell(@NonNull Canvas canvas, @NonNull RectF dest) {
+        if (missingFill == null) {
+            missingFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+            missingFill.setColor(0x33FF7043);
+            missingStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+            missingStroke.setStyle(Paint.Style.STROKE);
+            missingStroke.setColor(0xFFFF7043);
+            // A Path is required for a dash to render at all on a hardware canvas — a dashed
+            // rect primitive is silently ignored (the 2026-08-05 "dashed outlines never dashed"
+            // finding). Strokes below go through drawLine/drawPath for the same reason.
+            missingStroke.setPathEffect(new android.graphics.DashPathEffect(
+                    new float[]{6f, 5f}, 0f));
+        }
+        float inset = Math.min(dest.width(), dest.height()) * 0.06f;
+        RectF r = new RectF(dest.left + inset, dest.top + inset,
+                dest.right - inset, dest.bottom - inset);
+        missingStroke.setStrokeWidth(Math.max(1f, Math.min(r.width(), r.height()) * 0.05f));
+        canvas.drawRect(r, missingFill);
+        android.graphics.Path box = new android.graphics.Path();
+        box.addRect(r, android.graphics.Path.Direction.CW);
+        canvas.drawPath(box, missingStroke);
+        android.graphics.Path slash = new android.graphics.Path();
+        slash.moveTo(r.left, r.bottom);
+        slash.lineTo(r.right, r.top);
+        canvas.drawPath(slash, missingStroke);
     }
 
     public void recycle() {

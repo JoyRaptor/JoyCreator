@@ -67,7 +67,32 @@ public final class AvatarRigTemplates {
         rig.getDomains().add(strip("armR", "angle"));
         rig.getDomains().add(strip("body", "angle"));
 
+        seedVisemeMap(rig);
         return rig;
+    }
+
+    /**
+     * Seed a default {@code visemeClass → mouth cellIndex} map.
+     *
+     * <p><b>Why this is not optional.</b> A3's whole spectral-viseme chain —
+     * {@link SpectralVisemeAnalyzer}, {@code MicVisemeSource}, {@code MicAugmentedSource}, the
+     * {@code viseme} param through {@code TrackingParamPipeline} and {@code AvatarParamTrack} —
+     * terminates in {@link PuppetPoseResolver}'s {@code applyVisemeMap}, which returns
+     * immediately when this map is empty. Nothing in the app ever wrote it, so every one of
+     * those classes was inert: the mic could analyse speech into viseme classes that then drove
+     * nothing. Its own comment ("all shipped rigs today") recorded that as a fact rather than a
+     * bug.</p>
+     *
+     * <p>The mapping is the obvious one — class index to mouth cell index, in
+     * {@link SpectralVisemeAnalyzer#CLASS_NAMES} order — so a mouth sheet drawn in that order
+     * (rest, ah, ee, oo, closed, teeth) works with no authoring at all. It is only a DEFAULT:
+     * the map is per-rig and serialised, so a user or the AI can remap it, and a sheet with
+     * fewer cells simply resolves the out-of-range ones to nothing rather than misbehaving.</p>
+     */
+    public static void seedVisemeMap(@NonNull AvatarRig rig) {
+        for (int i = 0; i < SpectralVisemeAnalyzer.CLASS_NAMES.length; i++) {
+            rig.getVisemeMap().put(SpectralVisemeAnalyzer.CLASS_NAMES[i], i);
+        }
     }
 
     /** The template rig JSON the model authors against (schema == runtime schema). */

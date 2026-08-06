@@ -13203,17 +13203,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // or undoing the drag would restore the length and leave the intent off.
                     boolean beforeContinues = ctrl.getSpriteBeforeContinues();
                     boolean continuesChanged = beforeContinues != s.isContinuesUntilBlocked();
+                    // §2a ABSOLUTE left-trim moves which frame the run starts on.
+                    final int beforeStartFrame = ctrl.getSpriteBeforeStartFrame();
+                    final int afterStartFrame = s.getSequenceStartFrame();
+                    boolean startFrameChanged = beforeStartFrame != afterStartFrame;
+                    // A RELATIVE resize can COPY-ON-WRITE onto a clone sheet. Undo has to put
+                    // the object back on the original, or undoing a drag would leave it on a
+                    // duplicate that keeps the dragged cadence.
+                    final String beforeSheetId = ctrl.getSpriteBeforeSheetId();
+                    final String afterSheetId = s.getSheetId();
+                    boolean sheetChanged = beforeSheetId != null
+                            && !beforeSheetId.equals(afterSheetId);
                     boolean rangeChanged = beforeStart != afterStart || beforeEnd != afterEnd;
                     boolean fpsChanged = sh != null && Math.abs(afterFps - beforeFps) > 1e-4f;
-                    if (rangeChanged || fpsChanged || continuesChanged || trackChange != null) {
+                    if (rangeChanged || fpsChanged || continuesChanged || startFrameChanged
+                            || sheetChanged || trackChange != null) {
                         String desc = trackChange != null ? trackChange.description
                                 : (kind == com.fadcam.ui.faditor.layers.LayerGestureController
                                         .GestureKind.MOVE ? "Move sprite" : "Resize sequence");
                         final com.fadcam.ui.faditor.sprite.SpriteSheet fSheet = sh;
                         undoManager.recordAction(mergedAction(desc,
                                 () -> {
+                                    if (sheetChanged) s.setSheetId(afterSheetId);
                                     s.setContinuesUntilBlocked(false);
                                     s.setTimeRange(afterStart, afterEnd);
+                                    s.setSequenceStartFrame(afterStartFrame);
                                     if (fSheet != null && fpsChanged) fSheet.setFps(afterFps);
                                 },
                                 () -> {
@@ -13221,8 +13235,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     // Setting continues before the range would let the next
                                     // sync re-derive an end from the not-yet-restored one.
                                     s.setTimeRange(beforeStart, beforeEnd);
+                                    s.setSequenceStartFrame(beforeStartFrame);
                                     if (fSheet != null && fpsChanged) fSheet.setFps(beforeFps);
                                     s.setContinuesUntilBlocked(beforeContinues);
+                                    if (sheetChanged) s.setSheetId(beforeSheetId);
                                 },
                                 trackChange));
                     } else {
@@ -13696,7 +13712,58 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * read its before-gesture snapshot. Package-private accessor kept private/local since
      * only this activity's callback needs it.
      */
+    /**
+     * COPY-ON-WRITE for sheet-scoped edits (user decision, 2026-08-06).
+     *
+     * <p>fps, loop type, resize mode and weights live on the SHEET, but the gestures that change
+     * them act on ONE placed object. Place a sequence twice, drag one shorter, and the other
+     * silently played at the new speed and then froze on its last frame — no cue on its row, and
+     * no undo entry of its own. That is the "the app changed something I didn't touch" class this
+     * project's ledger is full of.</p>
+     *
+     * <p>So: if the sheet backs more than one placed object, clone it first and repoint THIS
+     * object at the clone. Sharing survives until the moment it would surprise someone. Frame
+     * URIs are copied by reference, so the clone is cheap and no media is duplicated.</p>
+     *
+     * @return the sheet the caller should edit — the original when it is used once, otherwise a
+     *         fresh clone already registered on the project and already pointed at by
+     *         {@code item}. Null only when the item has no sheet at all.
+     */
     @Nullable
+    private com.fadcam.ui.faditor.sprite.SpriteSheet sheetForExclusiveEdit(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (project == null) return null;
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                project.spriteSheetById(item.getSheetId());
+        if (sheet == null) return null;
+        int users = 0;
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s
+                : project.getTimeline().getSpriteOverlays()) {
+            if (sheet.getId().equals(s.getSheetId())) users++;
+        }
+        if (users <= 1) return sheet;
+        com.fadcam.ui.faditor.sprite.SpriteSheet clone =
+                sheet.copyAsNew(uniqueSheetCopyName(sheet.getName()));
+        project.getSpriteSheets().add(clone);
+        item.setSheetId(clone.getId());
+        return clone;
+    }
+
+    /** "frames" → "frames 2", "frames 3", … so the manager list stays readable. */
+    @NonNull
+    private String uniqueSheetCopyName(@NonNull String base) {
+        String stem = base.replaceAll("\\s+\\d+$", "");
+        for (int n = 2; n < 999; n++) {
+            String candidate = stem + " " + n;
+            boolean taken = false;
+            for (com.fadcam.ui.faditor.sprite.SpriteSheet s : project.getSpriteSheets()) {
+                if (s.getName().equals(candidate)) { taken = true; break; }
+            }
+            if (!taken) return candidate;
+        }
+        return stem + " copy";
+    }
+
     /**
      * The model lookups the gesture controller needs for SPEC_IMAGE_SEQUENCE §2a resizing.
      * Kept as a small interface so the gesture code never learns about project lookup.
@@ -13752,12 +13819,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void setFps(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
                                float fps) {
-                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetOf(item);
+                // COPY-ON-WRITE: a RELATIVE resize derives fps from THIS object's span, so it
+                // must not reach the sheet's other placements.
+                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetForExclusiveEdit(item);
                 if (s != null) s.setFps(fps);
             }
         };
     }
 
+    @Nullable
     private com.fadcam.ui.faditor.layers.LayerGestureController editorTimelineGestureController() {
         return editorTimeline != null ? editorTimeline.getLayerGestureController() : null;
     }
@@ -23310,8 +23380,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     /** S7: true when the sheet's source image can't be decoded (dead/moved URI). */
     private boolean isSpriteSheetMissing(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
-        return spriteRendererFor(sheet.getId()) == null;
+        return spriteRendererFor(sheet.getId()) == null || missingSequenceFrames(sheet) > 0;
     }
+
+    /**
+     * How many of a SEQUENCE's frames cannot be opened. 0 for a grid sheet.
+     *
+     * <p>Needed because a sequence's renderer loads successfully if ANY ONE frame decodes — so
+     * "is the sheet missing" was answering false for a sequence with 239 of 240 frames deleted.
+     * ProjectIntegrity already checks all N; this is the same fact where the user can see it.</p>
+     *
+     * <p>Checks metadata, not pixels: opening 240 images to draw a warning label would be worse
+     * than the warning is worth, and the 2026-08-05 integrity fix established that a metadata
+     * query is the right probe (opening a cloud document can trigger a real download).</p>
+     */
+    private int missingSequenceFrames(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
+        if (!sheet.isSequence()) return 0;
+        Integer cached = sequenceMissingCounts.get(sheet.getId());
+        if (cached != null) return cached;
+        int missing = 0;
+        for (String u : sheet.getFrameUris()) {
+            if (u == null || u.isEmpty()) { missing++; continue; }
+            try (android.os.ParcelFileDescriptor pfd =
+                         getContentResolver().openFileDescriptor(Uri.parse(u), "r")) {
+                if (pfd == null) missing++;
+            } catch (Exception e) {
+                missing++;
+            }
+        }
+        sequenceMissingCounts.put(sheet.getId(), missing);
+        return missing;
+    }
+
+    /** Memoised per sheet id — the manager list rebuilds often and this touches the filesystem. */
+    private final java.util.Map<String, Integer> sequenceMissingCounts =
+            new java.util.HashMap<>();
 
     private void openSpriteSheetManager() {
         java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = project.getSpriteSheets();
@@ -23326,7 +23429,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             missing[i] = isSpriteSheetMissing(s);
             // S7 discoverability: visible "missing" state right in the manager list
             // (inline literal — strings.xml is another agent's live file per protocol).
-            items[i] = missing[i] ? (s.getName() + "  ⚠ missing") : s.getName();
+            // A sequence says HOW MANY frames are gone: "missing" on a 240-frame object that
+            // still mostly works is not actionable, "12 of 240 frames missing" is.
+            int gone = missingSequenceFrames(s);
+            items[i] = !missing[i] ? s.getName()
+                    : gone > 0
+                        ? s.getName() + "  ⚠ " + gone + " of " + s.cellCount() + " frames missing"
+                        : s.getName() + "  ⚠ missing";
         }
         items[newIdx] = getString(R.string.sprite_sheet_picker_new);
         // SPEC_IMAGE_SEQUENCE §3. Inline literals — strings.xml is another agent's live file
@@ -23622,9 +23731,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // inventing one.
             for (Uri u : uris) ordered.add(u.toString());
         }
+        // The detector filters siblings to the first pick's stem AND extension, so a mixed
+        // selection (shot_001..040.png + shot_041..045.jpg, or two different stems) quietly
+        // loses the rest. The user EXPLICITLY chose those files — dropping them without a word
+        // is the silent data loss this path's own comment claims cannot happen here.
+        final int dropped = uris.size() - ordered.size();
+        final java.util.List<String> finalOrdered = ordered;
+        final String name = suggestSequenceName(names.get(0));
+        if (dropped > 0) {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle(dropped + " of " + uris.size() + " files left out")
+                    .setMessage("A sequence is one run of images with the same name and file "
+                            + "type. I kept the " + ordered.size() + " that match \""
+                            + name + "\" and left the rest out.\n\nImport those "
+                            + ordered.size() + "?")
+                    .setPositiveButton("Import " + ordered.size(), (d, w) -> offerSequenceImport(
+                            com.fadcam.ui.faditor.sprite.SequenceImportDialog
+                                    .headlineForPicked(finalOrdered), finalOrdered, name))
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
         offerSequenceImport(
                 com.fadcam.ui.faditor.sprite.SequenceImportDialog.headlineForPicked(ordered),
-                ordered, suggestSequenceName(names.get(0)));
+                ordered, name);
     }
 
     private void onSequenceFolderPicked(@NonNull Uri treeUri) {
@@ -23816,8 +23946,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
             @NonNull java.util.List<Integer> weights, @NonNull String label) {
         if (project == null) return;
-        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
-                project.spriteSheetById(item.getSheetId());
+        // Weights are sheet-scoped too: editing a hold on one placement would otherwise
+        // retime every other copy of the same sequence.
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetForExclusiveEdit(item);
         if (sheet == null || !sheet.isSequence()) return;
         final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset preset = sheet.sequencePreset();
         if (preset == null) return;
@@ -23852,8 +23983,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void applySequenceReorder(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, @NonNull String op) {
         if (project == null) return;
-        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
-                project.spriteSheetById(item.getSheetId());
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetForExclusiveEdit(item);
         if (sheet == null || !sheet.isSequence()) return;
         final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset preset = sheet.sequencePreset();
         if (preset == null) return;
@@ -24066,8 +24196,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void cycleSequenceLoopMode(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
         if (project == null) return;
-        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
-                project.spriteSheetById(item.getSheetId());
+        // Sheet-scoped (preset.type) AND item-scoped (endBehavior) in one action, so without
+        // copy-on-write cycling on one placement left every other copy with a wrap type it
+        // never asked for while keeping its own end behaviour — two halves of one setting out
+        // of step, which is exactly what this method's comment claims to prevent.
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetForExclusiveEdit(item);
         if (sheet == null) return;
         final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset p = sheet.sequencePreset();
         if (p == null) return;
@@ -24147,8 +24280,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void cycleSequenceResizeMode(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
         if (project == null) return;
-        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
-                project.spriteSheetById(item.getSheetId());
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetForExclusiveEdit(item);
         if (sheet == null) return;
         final com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode before = sheet.getResizeMode();
         final com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode after =

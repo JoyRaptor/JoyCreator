@@ -324,9 +324,9 @@ public class AIToolExecutor {
                 dimensions, its grid (cols/rows/margins/spacing — the sheet's stored
                 grid, or an auto-detected suggestion for a raw image), and per-cell
                 bounding boxes + occupancy (fraction of non-transparent pixels) + any
-                existing cell names. Use before author_sprite_animation or
-                author_avatar_rig to understand what art is on the sheet. Deterministic,
-                no network. Omit both args to list the project's sheets.
+                existing cell names. Use before author_avatar_rig to understand what art
+                is on the sheet. Deterministic, no network. Omit both args to list the
+                project's sheets.
                 args: {"sheetId":"..."}  OR  {"imageUri":"file://…|content://…"}
 
             33c. describe_sequence — Read-only. An IMAGE SEQUENCE's timing: frameCount,
@@ -2807,6 +2807,53 @@ public class AIToolExecutor {
         }
         if (tl.hasTextOverlays()) {
             sb.append("Overlays: ").append(tl.getTextOverlays().size()).append("\n");
+        }
+        // Sprite sheets, image sequences and avatar rigs — PLAN_SPRITE_ANIMATION's fast-follow B
+        // and SPEC_IMAGE_SEQUENCE §7a both say these belong here, and neither was emitting them.
+        // Without this the model cannot answer "what animation objects does this project have"
+        // without being told an id it has no way to learn.
+        if (!proj.getSpriteSheets().isEmpty()) {
+            sb.append("Sprite sheets / image sequences:\n");
+            for (com.fadcam.ui.faditor.sprite.SpriteSheet sh : proj.getSpriteSheets()) {
+                sb.append("  - id=").append(sh.getId())
+                        .append(" name=\"").append(sh.getName()).append("\"");
+                if (sh.isSequence()) {
+                    sb.append(" SEQUENCE frames=").append(sh.cellCount())
+                            .append(" fps=").append(sh.getFps())
+                            .append(" resize=").append(sh.getResizeMode().name());
+                } else {
+                    sb.append(" grid=").append(sh.getCols()).append("x").append(sh.getRows())
+                            .append(" fps=").append(sh.getFps());
+                }
+                if (!sh.getPresets().isEmpty()) {
+                    sb.append(" presets=").append(sh.getPresets().size());
+                }
+                sb.append("\n");
+            }
+        }
+        java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> placed =
+                tl.getSpriteOverlays();
+        if (!placed.isEmpty()) {
+            sb.append("Placed animation objects (use these ids with describe_sequence / "
+                    + "edit_sequence):\n");
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem so : placed) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet sh = proj.spriteSheetById(so.getSheetId());
+                sb.append("  - objectId=").append(so.getId())
+                        .append(" sheet=\"").append(sh == null ? "?" : sh.getName()).append("\"")
+                        .append(sh != null && sh.isSequence() ? " (image sequence)" : " (sprite)")
+                        .append(" ").append(so.getStartMs()).append("ms→")
+                        .append(so.getEndMs() == Long.MAX_VALUE ? "open" : so.getEndMs() + "ms");
+                if (so.getAvatarRigId() != null) sb.append(" avatarRig=").append(so.getAvatarRigId());
+                sb.append("\n");
+            }
+        }
+        if (!proj.getAvatarRigs().isEmpty()) {
+            sb.append("Avatar rigs:\n");
+            for (com.fadcam.ui.faditor.avatar.AvatarRig rig : proj.getAvatarRigs()) {
+                sb.append("  - id=").append(rig.getId())
+                        .append(" name=\"").append(rig.getName()).append("\"")
+                        .append(" parts=").append(rig.getParts().size()).append("\n");
+            }
         }
         sb.append("Canvas: ").append(proj.getCanvasPreset()).append("\n");
         return sb.toString();

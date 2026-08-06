@@ -261,6 +261,51 @@ public class SpriteSheet {
         return p;
     }
 
+    /**
+     * A full copy under a NEW id — the copy-on-write half of "editing one placement must not
+     * retime the others" (user decision, 2026-08-06).
+     *
+     * <p>fps, resize mode, presets and weights are all sheet-scoped, so two placements of one
+     * sheet share them. That is right for STORAGE — a 240-frame sequence should not duplicate
+     * its frame list because it was dropped twice — and wrong for EDITING, where dragging one
+     * object's edge would silently retime every other copy with no cue on their rows. Cloning at
+     * the moment of a sheet-scoped edit keeps both: sharing until it would surprise you.</p>
+     *
+     * <p>Frame URIs are copied by reference (they are strings pointing at the same files), so
+     * this is cheap; nothing on disk is duplicated.</p>
+     */
+    @NonNull
+    public SpriteSheet copyAsNew(@NonNull String newName) {
+        SpriteSheet c = new SpriteSheet(UUID.randomUUID().toString(), newName, sheetUri);
+        c.kind = kind;
+        c.frameUris.addAll(frameUris);
+        c.resizeMode = resizeMode;
+        c.cols = cols; c.rows = rows;
+        c.marginX = marginX; c.marginY = marginY;
+        c.spacingX = spacingX; c.spacingY = spacingY;
+        c.order = order;
+        c.fps = fps;
+        c.bgKeyColor = bgKeyColor; c.keyTolerance = keyTolerance;
+        c.pivotX = pivotX; c.pivotY = pivotY;
+        for (Cell cell : cells) {
+            Cell nc = new Cell(cell.index, cell.name);
+            nc.tags.addAll(cell.tags);
+            nc.enabled = cell.enabled;
+            c.cells.add(nc);
+        }
+        for (Preset p : presets) {
+            // Preset IDS are preserved, not regenerated: a placed item's frame-track key
+            // references the preset by id, so a fresh id would leave the copy showing nothing.
+            Preset np = new Preset(p.id, p.name);
+            np.type = p.type;
+            np.fps = p.fps;
+            np.frames.addAll(p.frames);
+            np.weights.addAll(p.weights);
+            c.presets.add(np);
+        }
+        return c;
+    }
+
     public int cellCount() { return isSequence() ? frameUris.size() : cols * rows; }
 
     @Nullable

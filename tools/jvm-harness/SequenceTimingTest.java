@@ -64,6 +64,9 @@ public class SequenceTimingTest {
         continuesReportsWhenANeighbourClippedIt();
         continuesIsIdempotent();
         runningOutOfProjectIsNotBlamedOnANeighbour();
+        // §2a ABSOLUTE left-trim
+        startFrameOffsetsTheRun();
+        startFrameOffsetsTheTapeIdentically();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -536,6 +539,61 @@ public class SequenceTimingTest {
         com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
                 java.util.Arrays.asList(a, b), id -> s, 60000);
         check("a real neighbour IS reported", a.isClippedByNeighbour() && a.getEndMs() == 3000);
+    }
+
+    /**
+     * §2a: ABSOLUTE trimming from the LEFT decides WHICH frames survive — they come off the
+     * front. Before this existed, both handles did the same thing while the tape drew a red
+     * "cuts frames" comb promising otherwise.
+     */
+    static void startFrameOffsetsTheRun() {
+        SpriteSheet s = seq(5, 10f, null, "once");     // 100ms per frame
+        SpriteOverlayItem it = item(s, "hold");
+        // Range outlives the 5-frame run on purpose: the last assertion is about what a "once"
+        // run HOLDS after it finishes, which is only observable inside the item's own range.
+        it.setTimeRange(0, 20000);
+        check("no offset: t=0 is frame 0", SpriteFrameResolver.resolveCellAt(s, it, 0) == 0);
+        it.setSequenceStartFrame(2);
+        check("offset 2: t=0 is now frame 2",
+                SpriteFrameResolver.resolveCellAt(s, it, 0) == 2);
+        check("offset 2: t=100 is frame 3",
+                SpriteFrameResolver.resolveCellAt(s, it, 100) == 3);
+        check("offset 2: 'once' still holds the LAST frame, not a wrapped one",
+                SpriteFrameResolver.resolveCellAt(s, it, 9000) == 4);
+
+        // A held frame must be skipped by its WHOLE hold, not one tick of it.
+        SpriteSheet held = seq(3, 10f, w(1, 5, 1), "once");
+        SpriteOverlayItem hi = item(held, "hold");
+        hi.setTimeRange(0, 700);
+        hi.setSequenceStartFrame(1);
+        check("offset onto a x5 hold starts ON that frame",
+                SpriteFrameResolver.resolveCellAt(held, hi, 0) == 1);
+        check("...and stays there for its whole hold",
+                SpriteFrameResolver.resolveCellAt(held, hi, 400) == 1);
+        check("...then moves on",
+                SpriteFrameResolver.resolveCellAt(held, hi, 500) == 2);
+    }
+
+    /**
+     * The tape must offset by exactly the same amount. A tape drawing frame 0 while the video
+     * shows frame 2 would describe an animation nobody is watching — and the mark times must
+     * resolve to the cell they claim, which is why the tape ceils where the resolver floors.
+     */
+    static void startFrameOffsetsTheTapeIdentically() {
+        SpriteSheet s = seq(5, 10f, null, "once");
+        SpriteOverlayItem it = item(s, "hold");
+        it.setTimeRange(0, 500);
+        it.setSequenceStartFrame(2);
+        List<SpriteFrameResolver.FrameChange> ch =
+                SpriteFrameResolver.frameChangesIn(s, it, 0, 500, 100);
+        check("the tape starts at the offset frame",
+                !ch.isEmpty() && ch.get(0).cellIndex == 2);
+        check("the tape emits only the remaining frames", ch.size() == 3);
+        boolean agrees = true;
+        for (SpriteFrameResolver.FrameChange c : ch) {
+            if (SpriteFrameResolver.resolveCellAt(s, it, c.localMs) != c.cellIndex) agrees = false;
+        }
+        check("every offset tape mark resolves to the cell it claims", agrees);
     }
 
     static boolean nonContinuingUntouched() {

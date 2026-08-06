@@ -100,6 +100,9 @@ public final class SpriteFrameResolver {
         int n = preset.frames.size();
         java.util.List<Integer> w = preset.weights;
         int total = SequenceTiming.totalWeight(w, n);
+        // §2a ABSOLUTE left-trim: start the run some frames in. Added in the TICK domain so a
+        // held frame is skipped by its whole hold, not by one tick of it.
+        frameOrdinal += SequenceTiming.tickAtIndex(w, n, item.getSequenceStartFrame());
         int idx;
         switch (type) {
             case "once":
@@ -204,12 +207,23 @@ public final class SpriteFrameResolver {
             for (int w : weights) cycleTicks += w;
             if (cycleTicks <= 0) continue;
 
+            // Same §2a offset the video applies. If the tape started at frame 0 while the video
+            // started at frame 5, the marks would describe an animation nobody is watching.
+            long startTick = SequenceTiming.tickAtIndex(preset.weights, n,
+                    item.getSequenceStartFrame());
             long tick = 0;
             int pass = 0;
             walk:
             while (true) {
                 for (int i = 0; i < order.length; i++) {
-                    long tMs = k.timeMs + Math.round(tick * 1000.0 / fps);
+                    // Skip the frames the §2a offset starts past. Done here rather than by
+                    // seeking into `order`, because a start frame can land mid-hold and the
+                    // tick domain is the only place that arithmetic is simple.
+                    if (tick < startTick) { tick += weights[i]; continue; }
+                    // ceil, not round: resolveCellAt inverts with floor(elapsed*fps/1000), so a
+                    // mark drawn at a rounded-DOWN time resolves to the PREVIOUS frame and
+                    // scrubbing onto a mark would show the picture before it.
+                    long tMs = k.timeMs + (long) Math.ceil((tick - startTick) * 1000.0 / fps);
                     if (tMs >= spanEnd || tMs > toLocalMs) break walk;
                     if (tMs >= fromLocalMs) {
                         int cell = validCellOrNone(sheet, preset.frames.get(order[i]));

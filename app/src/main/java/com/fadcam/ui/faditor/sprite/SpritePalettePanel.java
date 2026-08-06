@@ -591,6 +591,13 @@ public class SpritePalettePanel extends FrameLayout {
             });
             instRow.addView(ic, chipLp());
         }
+        // ▦ FRAMES — the dope sheet's only DISCOVERABLE entry point.
+        // It was previously reachable solely by dragging the grab handle up TWICE, which no
+        // affordance advertises. A flagship feature behind an undocumented double-drag is, for
+        // most users, not a feature. openDopeSheet() already existed and had no callers.
+        TextView frames = chip("▦");
+        frames.setOnClickListener(v -> openDopeSheet());
+        instRow.addView(frames, chipLp());
         TextView manage = chip("⚙");
         manage.setOnClickListener(v -> callback.onManageSheets());
         instRow.addView(manage, chipLp());

@@ -2145,6 +2145,11 @@ public class ProjectStorage {
                     // resolved concrete number, so only the intent needs persisting —
                     // and only when set, keeping every existing project byte-identical.
                     if (so.isContinuesUntilBlocked()) sj.addProperty("continues", true);
+                    // §2a ABSOLUTE left-trim: which frame the run starts on. Omitted at 0,
+                    // which is every sequence that has never been left-trimmed.
+                    if (so.getSequenceStartFrame() > 0) {
+                        sj.addProperty("startFrame", so.getSequenceStartFrame());
+                    }
                     // Avatar performance (bake-to-keyframes): additive, sparse.
                     // The track self-serializes (schemaVersion + tolerant read).
                     if (so.getAvatarRigId() != null) {
@@ -2836,6 +2841,9 @@ public class ProjectStorage {
                             if (hasValue(sj, "endBehavior")) so.setEndBehavior(sj.get("endBehavior").getAsString());
                             so.setContinuesUntilBlocked(
                                     sj.has("continues") && sj.get("continues").getAsBoolean());
+                            if (sj.has("startFrame")) {
+                                so.setSequenceStartFrame(sj.get("startFrame").getAsInt());
+                            }
                             if (hasValue(sj, "avatarRigId")) {
                                 so.setAvatarRigId(sj.get("avatarRigId").getAsString());
                             }

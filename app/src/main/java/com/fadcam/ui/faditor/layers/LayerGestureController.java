@@ -666,6 +666,8 @@ public final class LayerGestureController {
             dragStartSpriteFps = spriteFpsProvider == null ? 0f
                     : spriteFpsProvider.fpsFor(s);
             dragStartSpriteContinues = s.isContinuesUntilBlocked();
+            dragStartSpriteStartFrame = s.getSequenceStartFrame();
+            dragStartSpriteSheetId = s.getSheetId();
         } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
             clipBeforeStartMs = item.getClip().getOverlayStartMs();
             clipBeforeInMs = item.getClip().getInPointMs();
@@ -680,6 +682,14 @@ public final class LayerGestureController {
     private long dragStartSpriteStartMs, dragStartSpriteEndMs;
     private float dragStartSpriteFps;
     private boolean dragStartSpriteContinues;
+    private int dragStartSpriteStartFrame;
+    @Nullable private String dragStartSpriteSheetId;
+
+    /** Sheet id before the gesture — a RELATIVE resize can copy-on-write onto a clone. */
+    @Nullable public String getSpriteBeforeSheetId() { return dragStartSpriteSheetId; }
+
+    /** First-shown frame before this gesture — §2a ABSOLUTE left-trim moves it, undo restores. */
+    public int getSpriteBeforeStartFrame() { return dragStartSpriteStartFrame; }
 
     /** Whether the item was "continues" before this gesture — the drag clears it, undo restores. */
     public boolean getSpriteBeforeContinues() { return dragStartSpriteContinues; }
@@ -1674,9 +1684,29 @@ public final class LayerGestureController {
                     spriteFpsProvider.weights(s), spriteFpsProvider.frameCount(s),
                     newEnd - newStart);
             spriteFpsProvider.setFps(s, fps);
+            return;
         }
-        // ABSOLUTE: fps stays at its gesture-start value, so fewer/more frames simply fit. The
-        // resolver already holds the last frame past the end, so nothing else is needed.
+
+        // ── ABSOLUTE ──────────────────────────────────────────────────────────────────────
+        // fps is left alone, so a shorter span simply fits fewer frames — the RIGHT handle is
+        // answered by that alone. The LEFT handle has to answer §2a's "trimming from the left
+        // vs the right decides WHICH five": frames come off the FRONT.
+        if (!left) return;
+        float fps = spriteFpsProvider.fpsFor(s);
+        java.util.List<Integer> w = spriteFpsProvider.weights(s);
+        int n = spriteFpsProvider.frameCount(s);
+        // How far into the run the new left edge sits, in ticks, measured from the edge the
+        // gesture STARTED at — so dragging back out restores the frames it dropped.
+        long droppedMs = newStart - dragStartSpriteStartMs;
+        long ticks = (long) Math.floor(droppedMs * com.fadcam.ui.faditor.sprite.SequenceTiming
+                .clampFps(fps) / 1000.0);
+        int baseFrame = dragStartSpriteStartFrame;
+        long baseTick = com.fadcam.ui.faditor.sprite.SequenceTiming.tickAtIndex(w, n, baseFrame);
+        int startFrame = com.fadcam.ui.faditor.sprite.SequenceTiming.indexAtTick(
+                w, n, Math.max(0, baseTick + ticks));
+        // Never past the last frame: an object showing nothing is a delete the gesture did not
+        // ask for.
+        s.setSequenceStartFrame(Math.min(startFrame, Math.max(0, n - 1)));
     }
 
     /** Smallest a sequence may be dragged to. Below this it stops being grabbable. */

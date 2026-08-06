@@ -87,6 +87,27 @@ public class SpriteOverlayItem {
     public boolean isClippedByNeighbour() { return clippedByNeighbour; }
     public void setClippedByNeighbour(boolean v) { this.clippedByNeighbour = v; }
 
+    /**
+     * SPEC_IMAGE_SEQUENCE §2a — the first frame of the run this object shows.
+     *
+     * <p>ABSOLUTE resize "keeps each frame's resolved milliseconds and changes the frame COUNT",
+     * and the spec is specific that <i>"trimming from the left vs the right decides WHICH five"</i>.
+     * Trimming the right edge answers that by itself — the run simply ends early. Trimming the
+     * LEFT has to drop frames off the FRONT, and this is where that lives.</p>
+     *
+     * <p>A non-destructive OFFSET rather than deleting entries from the preset, because the
+     * preset is shared by every placement of the sheet and because dragging an edge back out
+     * should bring the frames back — a drag that permanently destroys content is the one thing
+     * {@code setOutPointMs} taught this project to be careful with (LEDGER, 2026-08-05).</p>
+     *
+     * <p>0 for every sequence that has never been left-trimmed in ABSOLUTE mode, which is what
+     * keeps it free: {@link SpriteFrameResolver} adds a zero tick offset.</p>
+     */
+    private int sequenceStartFrame;
+
+    public int getSequenceStartFrame() { return sequenceStartFrame; }
+    public void setSequenceStartFrame(int f) { this.sequenceStartFrame = Math.max(0, f); }
+
     /** Discrete which-cell-when track (item-local times). Never null. */
     @NonNull private final FrameTrack frameTrack = new FrameTrack();
 

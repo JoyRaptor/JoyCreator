@@ -109,12 +109,29 @@ public final class PuppetPoseResolver {
                                        @NonNull Map<String, Float> params,
                                        @NonNull Map<String, PartState> out) {
         Map<String, Integer> visemeMap = rig.getVisemeMap();
-        if (visemeMap.isEmpty()) return;
         Float visemeIdx = params.get(SpectralVisemeAnalyzer.PARAM_VISEME);
         if (visemeIdx == null) return;
         int idx = Math.round(visemeIdx);
         if (idx < 0 || idx >= SpectralVisemeAnalyzer.CLASS_NAMES.length) return;
-        Integer cell = visemeMap.get(SpectralVisemeAnalyzer.CLASS_NAMES[idx]);
+        // An EMPTY map now means "use the natural order", not "do nothing".
+        //
+        // It used to mean the latter, and nothing in the entire app ever wrote this map — no
+        // studio UI, no AI tool, no template. So the whole A3 spectral chain
+        // (SpectralVisemeAnalyzer -> MicVisemeSource -> the viseme param -> AvatarParamTrack)
+        // analysed speech into classes that drove nothing, and this method's own comment
+        // recorded "all shipped rigs today" as an observation rather than as the bug it was.
+        // Treating the map as an OVERRIDE rather than as required config costs nothing when it
+        // is set and makes the feature work when it is not.
+        //
+        // THE CONTRACT the fallback assumes: a mouth sheet whose cells are in CLASS_NAMES order
+        // (REST, AA, EE, OO, CLOSURE, FRIC). A mouth sheet with fewer than six cells will
+        // resolve the high classes to an index its sheet does not have, and the renderer draws
+        // nothing for an out-of-range cell — so such a rig should set an explicit map. That is
+        // stated here rather than guessed at, because this class cannot see sheets and so
+        // cannot clamp honestly.
+        Integer cell = visemeMap.isEmpty()
+                ? Integer.valueOf(idx)
+                : visemeMap.get(SpectralVisemeAnalyzer.CLASS_NAMES[idx]);
         if (cell == null) return;
         PartState mouth = out.get("mouth"); // canonical biped part id
         if (mouth == null) return;

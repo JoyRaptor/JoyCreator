@@ -44,5 +44,9 @@ STATUS=${PIPESTATUS[0]}
 # fresh APK on the device is worthless, and this session lost ~20 minutes to exactly that when
 # the user's watcher died silently and build.log kept showing an old BUILD SUCCESSFUL.
 echo "--- installed APK ---"
-adb shell dumpsys package com.fadcam.beta 2>/dev/null | grep -E "lastUpdateTime"
+# Explicit serial: a bare `adb shell` here silently produced nothing when a stale offline
+# entry was in the device list, which turned the freshness check into a no-op — the exact
+# false reassurance it exists to prevent.
+adb -s SANDBOX_SERIAL shell dumpsys package com.fadcam.beta 2>/dev/null \
+    | grep -E "lastUpdateTime" || echo "  (could not read lastUpdateTime — CHECK MANUALLY)"
 date '+now                     %Y-%m-%d %H:%M:%S'

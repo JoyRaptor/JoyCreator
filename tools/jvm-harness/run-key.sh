@@ -27,14 +27,16 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/ChromaKeyTest.java tools/jvm-harness/VolumeEnvelopeTest.java tools/jvm-harness/KeyableSpanTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/ChromaKeyTest.java tools/jvm-harness/VolumeEnvelopeTest.java tools/jvm-harness/KeyableSpanTest.java tools/jvm-harness/MaskAnimatorTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which
 # a grep for "error:" would report as success. run-matte.sh was bitten by exactly this.
 [ -f "$OUT/ChromaKeyTest.class" ] || { echo "no class file — the compile did not run"; exit 1; }
 [ -f "$OUT/VolumeEnvelopeTest.class" ] || { echo "no VolumeEnvelopeTest class"; exit 1; }
 [ -f "$OUT/KeyableSpanTest.class" ] || { echo "no KeyableSpanTest class"; exit 1; }
+[ -f "$OUT/MaskAnimatorTest.class" ] || { echo "no MaskAnimatorTest class"; exit 1; }
 
 java @"$RUNARGS" ChromaKeyTest || exit 1
 java @"$RUNARGS" VolumeEnvelopeTest || exit 1
-java @"$RUNARGS" KeyableSpanTest
+java @"$RUNARGS" KeyableSpanTest || exit 1
+java @"$RUNARGS" MaskAnimatorTest

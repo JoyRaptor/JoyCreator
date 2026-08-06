@@ -18,6 +18,7 @@ import com.fadcam.R;
 import com.fadcam.ui.faditor.model.ChromaKey;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.CompositingSpec;
+import com.fadcam.ui.faditor.model.MaskAnimator;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.gson.JsonParser;
 
@@ -63,6 +64,13 @@ public final class MaskKeyPanel {
          * disarm after one tap — a dropper that stays armed eats the next drag.
          */
         void pickColorFromPreview(@NonNull ColorPicked cb);
+
+        /**
+         * The playhead, in ABSOLUTE timeline ms — the base mask keyframes are stored in,
+         * deliberately the same one a PiP's {@code overlayTransform} uses so one clip does not
+         * carry two conventions.
+         */
+        long playheadMs();
     }
 
     public interface ColorPicked { void onPicked(@Nullable Integer rgb); }
@@ -138,6 +146,85 @@ public final class MaskKeyPanel {
         invert.setChecked(spec.invertMasks);
         invert.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
         root.addView(invert);
+
+        // ── MOVE + ANIMATE (the writers for MaskAnimator) ───────────────────────────────
+        // Inline literals: strings.xml is another agent's live file under the working protocol
+        // noted in FaditorEditorActivity.
+
+        CheckBox link = new CheckBox(activity);
+        link.setText("Move with the object");
+        link.setTextColor(0xFFCCCCCC);
+        link.setChecked(shape.linkedToObject);
+        link.setOnCheckedChangeListener((b, on) -> {
+            shape.linkedToObject = on;
+            if (on) {
+                // CAPTURE the object's pose now. "Relative to the object" has no origin
+                // without it, and the mask would jump the first time the object is anywhere
+                // but its default pose.
+                com.fadcam.ui.faditor.keyframe.KeyframeSet kf = clip.getOverlayTransform();
+                long t = host.playheadMs();
+                shape.linkBaseX = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, t, 0.5f);
+                shape.linkBaseY = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, t, 0.5f);
+                shape.linkBaseScale = Math.max(0.001f, poseAt(kf,
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, t, 1f));
+                shape.linkBaseRotDeg = poseAt(kf,
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, t, 0f);
+            }
+            apply.run();
+        });
+        root.addView(link);
+
+        TextView linkHint = new TextView(activity);
+        linkHint.setText("Off: the mask stays put and the object moves under it. "
+                + "On: the mask travels with the object.");
+        linkHint.setTextColor(0xFF8A8A8A);
+        linkHint.setTextSize(11.5f);
+        linkHint.setPadding((int) (8 * density), 0, 0, (int) (6 * density));
+        root.addView(linkHint);
+
+        LinearLayout keyRow = new LinearLayout(activity);
+        keyRow.setOrientation(LinearLayout.HORIZONTAL);
+        final TextView keyState = new TextView(activity);
+        keyState.setTextColor(0xFF8A8A8A);
+        keyState.setTextSize(11.5f);
+        final Runnable refreshKeyState = () ->
+                keyState.setText(spec.hasMaskKeys() ? "  animated" : "  not animated");
+
+        TextView addKey = chipButton("◆ Key at playhead", density);
+        addKey.setOnClickListener(v -> {
+            long t = host.playheadMs();
+            if (spec.maskKeys == null) {
+                spec.maskKeys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+            }
+            com.fadcam.ui.faditor.keyframe.Easing ease =
+                    com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+            // All seven at once, matching how every other object in this app arms keyframes:
+            // a half-armed mask animates some parameters and snaps the rest, which reads as
+            // the shape tearing rather than as an incomplete keyframe.
+            spec.maskKeys.getOrCreate(MaskAnimator.CX).put(t, shape.cx, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.CY).put(t, shape.cy, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.W).put(t, shape.w, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.H).put(t, shape.h, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.CORNER).put(t, shape.corner, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.ROTATION).put(t, shape.rotationDeg, ease);
+            spec.maskKeys.getOrCreate(MaskAnimator.FEATHER).put(t, spec.maskFeather, ease);
+            refreshKeyState.run();
+            apply.run();
+            android.widget.Toast.makeText(activity,
+                    "Mask keyed at " + (t / 1000f) + "s",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        });
+        TextView clearKeys = chipButton("Clear", density);
+        clearKeys.setOnClickListener(v -> {
+            spec.maskKeys = null;
+            refreshKeyState.run();
+            apply.run();
+        });
+        keyRow.addView(addKey);
+        keyRow.addView(clearKeys);
+        keyRow.addView(keyState);
+        root.addView(keyRow);
+        refreshKeyState.run();
 
         // ── KEY ──────────────────────────────────────────────────────────────────────────
         addHeader(root, R.string.faditor_key_section, density);
@@ -322,6 +409,28 @@ public final class MaskKeyPanel {
     }
 
     // ── Small builders ───────────────────────────────────────────────────────────────────
+
+    /** One of the object's transform tracks at {@code t}, or {@code fallback} when unanimated. */
+    private static float poseAt(@Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet kf,
+                                @NonNull String property, long t, float fallback) {
+        return kf == null ? fallback : kf.valueAt(property, t, fallback);
+    }
+
+    /** Small tappable chip, matching the inline-view style the rest of this panel uses. */
+    private TextView chipButton(@NonNull String label, float density) {
+        TextView t = new TextView(activity);
+        t.setText(label);
+        t.setTextColor(0xFFFFFFFF);
+        t.setTextSize(12.5f);
+        int px = (int) (10 * density), py = (int) (6 * density);
+        t.setPadding(px, py, px, py);
+        t.setBackgroundColor(0x22FFFFFF);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = (int) (8 * density);
+        t.setLayoutParams(lp);
+        return t;
+    }
 
     private void addHeader(@NonNull LinearLayout parent, int labelRes, float density) {
         TextView t = new TextView(activity);

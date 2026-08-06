@@ -19925,6 +19925,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         android.widget.Toast.LENGTH_SHORT).show();
                 pendingEyedropper = cb;
             }
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
         }).show();
     }
 

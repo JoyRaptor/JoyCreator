@@ -261,6 +261,10 @@ public class SpritePalettePanel extends FrameLayout {
             selected = items.isEmpty() ? null : items.get(items.size() - 1); // newest
         }
         rebuild();
+        // The dope strip is bound to ONE item and its renderer. Without this it keeps showing a
+        // deleted object's frames — and, worse, keeps a renderer reference that a sheet
+        // invalidation may since have recycled.
+        if (detent == DETENT_DOPE) buildDopeSheet();
     }
 
     @Nullable public SpriteOverlayItem getSelected() { return selected; }

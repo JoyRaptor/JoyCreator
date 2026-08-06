@@ -34,14 +34,39 @@ import java.util.Map;
 public final class SequenceFrameCache {
 
     /**
-     * How many decoded frames stay resident.
+     * RAM the resident frames may occupy, in bytes. The resident COUNT is derived from this and
+     * the decode cap, rather than being a fixed number.
      *
-     * <p>Small on purpose. Playback walks the sequence in order, so the useful working set is
-     * "the frame being shown plus a little slack for scrubbing backwards"; anything larger buys
-     * nothing and costs exactly the RAM this class exists to bound. At the 512px default cap a
-     * frame is ~1MB, so the ceiling here is ~8MB.</p>
+     * <p><b>Why a byte budget and not a frame count</b> (found reviewing this class after it
+     * shipped): a fixed count means the memory this class exists to bound scales with the decode
+     * size, in the wrong direction. The editor decodes at 512px (~1MB a frame) where 8 resident
+     * is 8MB and fine; the EXPORT decodes against the output frame, so at 1080x1920 a frame is
+     * ~8MB and the same 8 residents would be 64MB — on the export path, which is exactly where
+     * this app can least afford it. A byte budget gives the editor a comfortable working set AND
+     * keeps the export bounded, from one number.</p>
      */
-    private static final int MAX_RESIDENT = 8;
+    private static final long RESIDENT_BUDGET_BYTES = 24L * 1024 * 1024;
+
+    /**
+     * Never fewer than this, whatever the size — the frame being drawn plus one to come back to.
+     *
+     * <p><b>This floor can exceed the budget above, and that is deliberate:</b> at a 4K decode
+     * cap even two frames is ~100MB, but a renderer holding zero frames cannot draw. The budget
+     * governs where there is a choice; the floor governs where there is not. In practice the
+     * export caps at the output frame (1080x1920 ≈ 8MB each, so the floor IS the budget) and the
+     * editor at 512px, where the budget gives a comfortable working set.</p>
+     */
+    private static final int MIN_RESIDENT = 2;
+
+    /**
+     * Above this, more residents stop buying anything: playback walks in order, so the useful
+     * working set is the frame being shown plus slack for scrubbing back and for a timeline tape
+     * drawing several change-points at once.
+     */
+    private static final int MAX_RESIDENT_CAP = 24;
+
+    /** Residents allowed at {@link #maxDim}, from the budget above. */
+    private final int maxResident;
 
     /** Default longest-edge cap when a consumer does not state a draw size. */
     public static final int DEFAULT_MAX_DIM = 512;
@@ -55,7 +80,7 @@ public final class SequenceFrameCache {
             new LinkedHashMap<Integer, Bitmap>(16, 0.75f, true) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<Integer, Bitmap> eldest) {
-                    if (size() <= MAX_RESIDENT) return false;
+                    if (size() <= maxResident) return false;
                     Bitmap b = eldest.getValue();
                     if (b != null && !b.isRecycled()) b.recycle();
                     return true;
@@ -74,7 +99,15 @@ public final class SequenceFrameCache {
         this.ctx = ctx.getApplicationContext();
         this.sheet = sheet;
         this.maxDim = Math.max(16, maxDim);
+        // Worst case per frame: a square image at the cap, ARGB_8888. Real frames are usually
+        // smaller, so this errs toward fewer residents — the safe direction.
+        long worstFrameBytes = (long) this.maxDim * this.maxDim * 4L;
+        long fit = RESIDENT_BUDGET_BYTES / Math.max(1L, worstFrameBytes);
+        this.maxResident = (int) Math.max(MIN_RESIDENT, Math.min(MAX_RESIDENT_CAP, fit));
     }
+
+    /** Residents this cache will hold — exposed for diagnostics, not for tuning at runtime. */
+    public int residentLimit() { return maxResident; }
 
     /**
      * Frame {@code index}, decoding it if needed.

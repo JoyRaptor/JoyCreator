@@ -1594,18 +1594,73 @@ travelled GL → model → UI intact. **The earlier all-black samples are the co
 path returned exactly `0,0,0` at two different UVs before the fix and a real colour after, so this
 is a live read of the frame and not a constant.
 
+### MASK + KEY COMPOSE — measured, and timing-independent, 2026-08-05
+
+The panel SEEDS a 30%×20% mask box on open, so these two features interact from the first use.
+The risk was specific: `drawChild` clips `videoHost()`, and if that re-pointing were wrong a keyed
+PiP would draw its FULL frame and the mask would silently stop existing.
+
+**The obvious instrument was invalid and was discarded.** An M1-vs-M2 image diff showed 36,659
+differing samples over the whole video column — but the arms sat at **00:06.639 vs 00:06.226**,
+413ms apart on handheld footage, so the master content differed for reasons having nothing to do
+with masking. *A diff between two arms captured at different playhead times measures the clock,
+not the change.*
+
+**What replaced it: the mask box's own geometry, predicted then measured.** Content rect width
+measured at **342px** — independently confirming `baseW=342` from KEYDIAG — so a 0.30-wide box
+centred is **x 489…591**. Gradient strength at those exact columns, against the null of every
+other column in the band:
+
+| arm | tier | left edge (489) | right edge (591) | median |
+|---|---|---|---|---|
+| M1 | plain TextureView | 12930 — **95th pct** | 16747 — **99th pct** | 4834 |
+| M2 | **GL keyed** | 19389 — **99.3rd pct** | 14943 — **94th pct** | 5917 |
+
+Both edges are 2.5–4× the median in BOTH tiers, at coordinates derived from the model before
+measuring. **The mask survives the reroute.**
+
+### THE EXPORT KEYS — A/B on real pixels, 2026-08-05. §3a-KEY's largest gap is CLOSED.
+
+Two full exports of `302da9ac` at 720p/Low, identical but for the key:
+
+| t | differing pixels (key-off vs key-on) |
+|---|---|
+| **2.0s — before the PiP starts** | **0** of 921,600 |
+| 6.0s | 119,934 (13.0%) |
+| 8.0s | 132,318 (14.4%) |
+
+**The zero at 2.0s is the control** — the differ works on these exact files and the change is
+confined to when the PiP is on screen. Visually at 8.0s: key-off shows the PiP band, key-on shows
+continuous master where it was. **The `Enter text` overlay renders in BOTH arms** — a free
+positive control proving this is the PiP being keyed and not a blanket "drop all overlays".
+Both files are **13.726s / 534 frames**, identical to a pre-change export, so the shader refactor
+did not disturb the export path.
+
+**Honest limit:** this proves the export keys and that preview and export AGREE ON DIRECTION
+(PiP present → PiP removed). It is not a pixel-exact preview-vs-export comparison at one media
+time. Combined with the single shared shader source that is strong, but the §1d-style
+absolute-geometry comparison is still the stronger instrument if the key ever looks wrong.
+
+**TWO SELF-INFLICTED FALSE ALARMS, recorded because both wasted real time and both looked like
+findings.**
+1. **"The export is broken — no `moov` atom."** It was not. These exports take **~4–5 minutes**;
+   every pull caught a file mid-write. `ffprobe` reporting "moov atom not found" means INCOMPLETE,
+   and a size that pauses between samples is not a finished file. Poll for
+   `ExportManager: Export completed`, not for a stable size.
+2. **"The key-on export crashed."** I killed it myself: `am force-stop` to seed the next arm ran
+   while that export was still going, which is what the `Scheduling restart of crashed service
+   ExportService` line was. **The standing rule "never build while an export is running" applies
+   to force-stop and to seeding the project too.**
+   A third near-miss: a grep for "crashed service" matched `AnnotationService` failing at a
+   timestamp BEFORE the export began — the same "filter by tag or you will read someone else's
+   telemetry as your result" trap, this time from another service inside the same app.
+
 **⚠ STILL NOT PROVED — do not mark these verified.**
-1. **Export parity on real pixels.** Both renderers compile the same string, which is an argument
-   from construction — the same kind §1b replaced with a measurement. Needs the §1d A/B frame
-   diff, absolute-geometry (symmetric proofs miss flips).
-2. **Mask + key composing.** Both were re-pointed at `videoHost()` by reading, not by looking.
-   Note the panel SEEDS a 30%×20% mask box on open, so the two features are already interacting
-   the moment it is used — this wants a deliberate look, not an assumption.
-3. **Frame-rate cost of the tier** (`dumpsys gfxinfo`, against the ~33.7% editor baseline).
-4. **The rotation refusal** (a rotated PiP toasts rather than sampling the wrong pixel) is
-   unexercised.
-5. **OK / Cancel / Remove round-trip.** The revert-on-dismiss contract is unchanged from the
-   shipped mask dialog, but it has not been re-exercised through the new panel.
+1. **Frame-rate cost of the tier** (`dumpsys gfxinfo`, against the ~33.7% editor baseline).
+2. **The rotation refusal** (a rotated PiP toasts rather than sampling the wrong pixel).
+3. **OK / Cancel / Remove round-trip.** The revert-on-dismiss contract is unchanged from the
+   shipped mask dialog but has not been re-exercised through the new panel.
+4. A **pixel-exact** preview↔export comparison at one media time (see the honest limit above).
 
 **METHOD NOTES PAID FOR THIS SESSION.**
 - **`uiautomator dump` returned 67 bytes / 0 nodes** — the documented "reports success while

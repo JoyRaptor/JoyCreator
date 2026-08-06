@@ -8795,6 +8795,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
             objectMenuSheet.onPlayheadChanged(absoluteMs);
         }
+        // The PiP drawer tracks it for the SAME reason, and did not until 2026-08-05: without
+        // this its rows are a snapshot of the moment it opened, so scrubbing changed no value
+        // and no diamond ever turned green. The drawer exists to be used WHILE scrubbing —
+        // that is why it is anchored at the top and leaves the timeline clear — so a drawer
+        // that ignores the playhead is the one thing it must not be.
+        if (pipDrawer != null && pipDrawer.isShowing()) {
+            com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(pipDrawer.currentTabContent());
+        }
         // G3: the keyframe ribbon's diamond tracks the scrub too.
         if (ribbonProp != null) refreshKeyframeRibbon();
         // G4: the manipulation-handles box follows keyframed transforms and
@@ -20111,7 +20119,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return new ObjectMenuSheet.Prop("pipVolume", "Volume", 0f, 2f, pct,   // TODO(strings)
                 get, set, onKey, dropKey,
                 () -> jump.accept(-1), () -> jump.accept(1), deleteKey,
-                c::hasVolumeKeyframes, null, null);
+                c::hasVolumeKeyframes, null, null)
+                .withSpan(pipKeyableSpan(c));
     }
 
     @NonNull
@@ -20149,6 +20158,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
             recordPipMenuUndo(c, before, "Add keyframe"); // TODO(strings)
+            android.util.Log.i(TAG, "KFDIAG drop key=" + key
+                    + " clip=" + c.getId()
+                    + " ph=" + ph
+                    + " span=[" + c.getOverlayStartMs() + ","
+                    + (c.getOverlayStartMs() + c.getVisualDurationMs()) + "]"
+                    + " keysBefore=" + pipKfCount(before, key)
+                    + " keysAfter=" + pipKfCount(pipKfCopy(c), key));
             refreshPipAfterMenuWrite();
         };
         Runnable prevKey = () -> jumpToAdjacentKey(pipTrack(c, key), 0, false);
@@ -20167,7 +20183,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.EaseGet easeGet = ms -> segmentEasingAt(pipTrack(c, key), 0, ms);
         ObjectMenuSheet.EaseSet easeSet = (e, ms) -> setSegmentEasingForPip(c, key, ms, e);
         return new ObjectMenuSheet.Prop(key, label, min, max, fmt, get, set, onKey, dropKey,
-                prevKey, nextKey, deleteKey, armed, easeGet, easeSet);
+                prevKey, nextKey, deleteKey, armed, easeGet, easeSet)
+                .withSpan(pipKeyableSpan(c));
+    }
+
+    /**
+     * The span a PiP's keyframes may live in — its own on-screen range, read LIVE so a clip
+     * that is trimmed or moved after the drawer opened is judged by where it is now, not by
+     * where it was.
+     *
+     * <p>{@code getVisualDurationMs()} rather than the trimmed duration, deliberately: a looped
+     * PiP is genuinely on screen for the loop's whole length, and keying inside a loop pad is
+     * a legitimate thing to want.</p>
+     */
+    @NonNull
+    private ObjectMenuSheet.SpanQuery pipKeyableSpan(@NonNull Clip c) {
+        return ms -> com.fadcam.ui.faditor.model.KeyableSpan.contains(
+                c.getOverlayStartMs(), c.getOverlayStartMs() + c.getVisualDurationMs(), ms);
     }
 
     @Nullable
@@ -20232,6 +20264,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** KeyframeTrack.put matches EXACT ms — snap a write to an existing near key first. */
+    /** KFDIAG helper: how many keys one track of a snapshot holds. */
+    private static int pipKfCount(@Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet kf,
+                                  @NonNull String key) {
+        if (kf == null) return -1;
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = kf.get(key);
+        return tr == null ? 0 : tr.keyframes.size();
+    }
+
     private long snapPipKeyTime(
             @Nullable com.fadcam.ui.faditor.keyframe.KeyframeTrack tr, long absMs) {
         if (tr == null) return absMs;

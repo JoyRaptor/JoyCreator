@@ -693,7 +693,12 @@ public final class LayerGestureController {
                 if (k.timeMs < moving.timeMs && k.timeMs > prev) prev = k.timeMs;
                 if (k.timeMs > moving.timeMs && k.timeMs < next) next = k.timeMs;
             }
-            long lo = (prev == Long.MIN_VALUE) ? 0L : prev + 1;               // ≥0, strictly > prev
+            // Floor for the FIRST key of a track. Not a bare 0: a PiP's transform keys are in
+            // ABSOLUTE timeline ms, so "the earliest legal time" for one is its own start, not
+            // the start of the project. Dragging with a 0 floor would let a PiP's first key slide
+            // back before the clip exists — the same off-span state the diamond now refuses.
+            long floor = LayerRowRenderer.earliestLegalKeyTimeMs(hit.item);
+            long lo = (prev == Long.MIN_VALUE) ? floor : prev + 1;            // ≥floor, strictly > prev
             long dMin = lo - moving.timeMs;
             long dMax = (next == Long.MAX_VALUE) ? Long.MAX_VALUE : (next - 1) - moving.timeMs; // strictly < next
             kfShiftKeys.add(new KfMovingKey(t, moving.timeMs, moving.value, moving.easing, dMin, dMax));

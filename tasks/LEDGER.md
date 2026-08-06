@@ -1499,6 +1499,75 @@ Also still open from the earlier chroma work: frame-rate cost of the GL tier, th
 refusal, and the OK/Cancel/Remove round-trip through the new tabs (the drawer writes live like
 the dialog did, so the revert contract needs re-checking in its new home).
 
+### "I TRIED ADDING A KEYFRAME TO POS X AND I WASN'T ABLE TO" — the key was landing all along
+
+**Both leading suspects were wrong, and one log line said so in a single run.** The hypothesis
+was a stale or zero `lastPlayheadAbsoluteMs` reaching the diamond through the new drawer's Host.
+It is neither:
+
+```
+KFDIAG drop key=x clip=6126e8b4 ph=4973 span=[5501,13629] keysBefore=1 keysAfter=2
+```
+
+`ph=4973` matched the on-screen `00:04.973` exactly, and the key was WRITTEN — it round-tripped
+to `project.json` as `"x":[{t:0},{t:4973}]`. So the gesture worked, the model changed, and the
+user was right anyway, because of the second half of that line: **the playhead was 528ms BEFORE
+the clip's own span**, where the evaluator clamps flat and the authored value can never be seen.
+
+**THE MEASUREMENT THAT NAILED IT: a whole-screen pixel diff across the tap.** Before vs after,
+1080×2220, everything: **the only pixels that changed were the undo counter** (`49`→`50`).
+Not the diamond, not the slider, not the timeline. The diff of the FULL screen is its own
+control — something did change, so the differ works and the rest of the screen really was inert.
+*A feature whose only observable is the undo count is indistinguishable from a broken one.*
+
+**Three dead feedback channels, all fixed, none of which was the "keyframe code".**
+1. The drawer had **no playhead subscription at all** — `updateCurrentTimeDisplay` refreshed the
+   object sheet, the ribbon and three other drawers, and had never been taught about this one.
+   Every row was a snapshot of the instant the drawer opened, so scrubbing moved no value and no
+   diamond ever turned green. A drawer whose entire reason for being top-anchored is *"so you can
+   scrub while you keyframe"* was the one panel that ignored the scrub.
+2. The diamond's `onAction` called `host.onChanged()` (preview + timeline + save) and **never
+   re-read its own row**, so the control that dropped the key was the last thing to know.
+3. **PiP transform keys were never drawn on the tape.** `LayerRowRenderer.keyframeSetOf` answered
+   only text and sprite payloads; a clip returned `null`, so `drawItemKeyframeDiamonds` had
+   nothing to draw. Two time bases meet in that method and the trap is silent: text/sprite keys
+   are item-LOCAL, a PiP's `overlayTransform` keys are **ABSOLUTE timeline ms** (that is what
+   `OverlayVideoPreviewView` and `PipFrameOverlay` both read), so the naive `start + t` would
+   have drawn every diamond at double the offset — a plausible wrong time that survives a
+   screenshot. `keyTimeToTimelineMs` converts per item, and `LayerGestureController`'s
+   drag floor (`0`) became `earliestLegalKeyTimeMs`, because for a PiP "time zero" is the clip's
+   start, not the project's.
+
+**THE USER'S RULE IS NOW ENFORCED, in `model/KeyableSpan` — off-model, shared, harness-pinned.**
+Dropping a key only happens when the playhead is over the object's span; outside it the diamond
+**flashes red, shakes, ticks the haptic and toasts** *"Move the playhead over this clip to add a
+keyframe"*. Three channels because the failure it replaces was a SILENT one. Both ends of the
+span are CLOSED (the last frame is a pose people key on purpose) with the same ±40ms slop the
+on-key test uses, or "park on the first frame" would fail about half the time and look random.
+`run-key.sh` grew 18 checks (72 total, all green) and **they discriminate — proven by three
+injections, each failing exactly its own checks and nothing else**: allowing a degenerate span
+fails 2, dropping the negative-slop clamp fails 2, making the end exclusive fails exactly 1.
+
+**PROVED ON THE NOTE 9, two arms through one control, differing only in where the playhead is.**
+
+| arm | playhead | vs span [5501,13629] | KFDIAG | `project.json` | on screen |
+|---|---|---|---|---|---|
+| A (control) | 4973 → 5085 | OUTSIDE | **no line — nothing ran** | unchanged | toast; diamond stays hollow |
+| B | 7859 | inside | `keysBefore=1 keysAfter=2` | `x:[{t:0},{t:7859}]` | **diamond solid green + ×**, green diamond on the PiP tape AT the playhead |
+
+Arm A is what makes arm B mean something: same build, same drawer, same diamond, same finger —
+only the playhead moved. And scrubbing on to 9047 turned the diamond **back to hollow**, which is
+the third proof (the row now tracks the playhead) and could not have happened before this change.
+
+**Left deliberately alone:** the static pose is still encoded as a single key at `t=0`, which for
+a PiP starting at 5501 is itself "outside the span". That is the pre-existing `putStatic` parity
+convention every project on disk already uses, the evaluator clamps flat before the first key so
+it is inert, and changing it is a migration — not something to fold into a bug fix.
+
+Also fixed here (user, small): **"Soften edges" no longer wraps** — the Mask tab's label column
+went 78dp → 94dp, plus `maxLines(1)` + ellipsis so a longer translation moves the problem to
+truncation rather than silently growing the drawer over the preview.
+
 ---
 
 ## 3a-KEY. THE CHROMA KEY HAS A UI, AND THE PREVIEW KEYS — 2026-08-05. ⚠ NOT YET SEEN ON A PHONE.

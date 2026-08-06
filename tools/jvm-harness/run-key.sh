@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Model-layer arithmetic that BOTH renderers share — chroma key + volume envelope.
+# Model-layer arithmetic that BOTH renderers share — chroma key + volume envelope + the
+# keyframe-droppable-span predicate.
 # Off device, seconds to run.
 #
 # ChromaKey and CompositingSpec are android-free apart from androidx.annotation (stubs) and
@@ -26,12 +27,14 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/ChromaKeyTest.java tools/jvm-harness/VolumeEnvelopeTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/ChromaKeyTest.java tools/jvm-harness/VolumeEnvelopeTest.java tools/jvm-harness/KeyableSpanTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which
 # a grep for "error:" would report as success. run-matte.sh was bitten by exactly this.
 [ -f "$OUT/ChromaKeyTest.class" ] || { echo "no class file — the compile did not run"; exit 1; }
 [ -f "$OUT/VolumeEnvelopeTest.class" ] || { echo "no VolumeEnvelopeTest class"; exit 1; }
+[ -f "$OUT/KeyableSpanTest.class" ] || { echo "no KeyableSpanTest class"; exit 1; }
 
 java @"$RUNARGS" ChromaKeyTest || exit 1
-java @"$RUNARGS" VolumeEnvelopeTest
+java @"$RUNARGS" VolumeEnvelopeTest || exit 1
+java @"$RUNARGS" KeyableSpanTest

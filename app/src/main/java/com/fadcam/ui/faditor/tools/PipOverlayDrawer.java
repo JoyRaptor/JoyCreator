@@ -231,6 +231,18 @@ public final class PipOverlayDrawer extends LinearLayout {
 
     public boolean isShowing() { return getVisibility() == VISIBLE; }
 
+    /**
+     * The tab content currently on screen, or {@code null}. The drawer stays ignorant of what a
+     * tab CONTAINS — the caller asks the content to refresh itself — but it is the only thing
+     * that knows which tab is showing, and during a slide there are briefly two children.
+     * The LAST child is the incoming one, which is the one about to be looked at.
+     */
+    @Nullable
+    public View currentTabContent() {
+        int n = contentHost.getChildCount();
+        return n == 0 ? null : contentHost.getChildAt(n - 1);
+    }
+
     public void hide() {
         if (getVisibility() != VISIBLE) return;
         animate().translationY(-dp(120)).alpha(0f).setDuration(SLIDE_MS)

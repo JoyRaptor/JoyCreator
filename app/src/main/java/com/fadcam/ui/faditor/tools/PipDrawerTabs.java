@@ -69,17 +69,43 @@ public final class PipDrawerTabs {
                                 @NonNull List<ObjectMenuSheet.Prop> props,
                                 @NonNull Host host) {
         LinearLayout root = column(ctx);
-        List<Runnable> refreshers = new ArrayList<>();
+        final List<Runnable> refreshers = new ArrayList<>();
         for (ObjectMenuSheet.Prop p : props) {
             refreshers.add(propRow(ctx, root, p, host));
         }
         // One pass so every diamond shows its true on-key state the moment the tab appears,
         // rather than only after the next playhead tick.
         for (Runnable r : refreshers) r.run();
+        // Hang the refresh off the VIEW rather than returning it, so whoever holds the tab (the
+        // drawer, which rebuilds content per tab switch) can re-read the rows without the
+        // activity having to track which tab is on screen. Without this the tab is a snapshot
+        // of the instant it was built: scrubbing changes nothing on it, and a dropped key leaves
+        // its own diamond hollow — the measured "nothing happened" of 2026-08-05.
+        root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
+            for (Runnable r : refreshers) r.run();
+        });
         return root;
     }
 
-    /** @return a refresher that re-reads this row's on-key state. */
+    /**
+     * Re-read every row of a {@link #videoTab} view (values, slider positions and diamond
+     * on-key states) at the CURRENT playhead. No-op for any other view, so the drawer can call
+     * it blindly on whatever tab happens to be showing.
+     */
+    public static void refreshRows(@Nullable View tabRoot) {
+        if (tabRoot == null) return;
+        // The drawer wraps every tab in a ScrollView; look through one level rather than making
+        // the caller know about the wrapper.
+        View v = tabRoot;
+        if (v instanceof android.view.ViewGroup && v.getTag(R.id.faditor_tag_row_refresh) == null
+                && ((android.view.ViewGroup) v).getChildCount() == 1) {
+            v = ((android.view.ViewGroup) v).getChildAt(0);
+        }
+        Object tag = v.getTag(R.id.faditor_tag_row_refresh);
+        if (tag instanceof Runnable) ((Runnable) tag).run();
+    }
+
+    /** @return a refresher that re-reads this row's value, slider and on-key state. */
     private static Runnable propRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                     @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host) {
         float d = ctx.getResources().getDisplayMetrics().density;
@@ -128,12 +154,20 @@ public final class PipDrawerTabs {
         row.addView(value);
 
         final KeyframeDiamondControl diamond;
+        // The row's own refresh — value text, slider position and diamond state, all read back
+        // from the model at the live playhead. Declared before the diamond so the diamond's
+        // onAction can run it: a key that lands must be visible on the very control that
+        // dropped it, or the gesture reads as a no-op (measured, 2026-08-05).
+        final Runnable[] selfRefresh = new Runnable[1];
         if (prop.keyframeable()) {
             diamond = new KeyframeDiamondControl(ctx);
             diamond.bind(prop, new KeyframeDiamondControl.Host() {
                 @Override public long playheadMs() { return host.playheadMs(); }
                 @Override public void onFocus() { }
-                @Override public void onAction() { host.onChanged(); }
+                @Override public void onAction() {
+                    host.onChanged();
+                    if (selfRefresh[0] != null) selfRefresh[0].run();
+                }
             });
             row.addView(diamond);
         } else {
@@ -144,7 +178,16 @@ public final class PipDrawerTabs {
             row.addView(spacer, new LinearLayout.LayoutParams(Math.round(64 * d), 1));
         }
         parent.addView(row);
-        return () -> { if (diamond != null) diamond.refresh(host.playheadMs()); };
+        selfRefresh[0] = () -> {
+            long ph = host.playheadMs();
+            float v = prop.valueAt(ph);
+            value.setText(prop.format(v));
+            // setProgress(..., false) — never animate here. This runs on every playhead tick,
+            // and an animated thumb chasing a scrub lags behind the frame it is describing.
+            bar.setProgress(Math.round((v - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+            if (diamond != null) diamond.refresh(ph);
+        };
+        return selfRefresh[0];
     }
 
     // ── Tab 1: MASK ──────────────────────────────────────────────────────────────────────
@@ -359,7 +402,15 @@ public final class PipDrawerTabs {
         label.setTextColor(TXT_DIM);
         label.setTextSize(11);
         label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        label.setWidth(Math.round(78 * d));
+        // 78dp wrapped "Soften edges" onto two lines, which made that one row taller than every
+        // other and read as a layout fault (user, 2026-08-05). Widened rather than shortened:
+        // the labels are already the shortest honest names for these controls, and at a larger
+        // system font scale a shorter string would only move the wrap to a different row.
+        // maxLines(1) is the belt to the braces — a translation longer than any English label
+        // now ellipsizes instead of silently growing the drawer over the preview.
+        label.setWidth(Math.round(94 * d));
+        label.setMaxLines(1);
+        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
         label.setText(ctx.getString(labelRes));
         row.addView(label);
 

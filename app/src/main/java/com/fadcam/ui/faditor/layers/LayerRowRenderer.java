@@ -1560,7 +1560,43 @@ public final class LayerRowRenderer {
     static KeyframeSet keyframeSetOf(@NonNull TimedItem item) {
         if (item.getTextOverlay() != null) return item.getTextOverlay().getKeyframes();
         if (item.getSprite() != null) return item.getSprite().getKeyframes();
+        // PiP (overlay clip). Read from the CLIP, not from TimedItem#getTransform(): the item is
+        // a snapshot taken when the rows were last synced, and the first keyframe a user drops
+        // CREATES the KeyframeSet — so a snapshot taken before that still holds null and the
+        // key would not appear until something unrelated rebuilt the rows.
+        if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            return item.getClip().getOverlayTransform();
+        }
         return null;
+    }
+
+    /**
+     * Timeline ms of a raw key time from {@link #keyframeSetOf}.
+     *
+     * <p><b>Two time bases meet here.</b> Text and sprite keys are item-LOCAL, while a PiP's
+     * {@code overlayTransform} keys are ABSOLUTE timeline ms — that is the base every reader of
+     * it uses ({@code OverlayVideoPreviewView}, {@code PipFrameOverlay}, the menu adapters), so
+     * this converts rather than trying to change it. Getting it wrong does not crash: it draws
+     * the diamonds at double the offset, which looks like a plausible-but-wrong keyframe time
+     * and is the kind of error that survives a screenshot.</p>
+     */
+    static long keyTimeToTimelineMs(@NonNull TimedItem item, long rawKeyMs) {
+        return absoluteKeyTimeBase(item) ? rawKeyMs : item.getTimelineStartMs() + rawKeyMs;
+    }
+
+    /** True when this item's key times are ABSOLUTE timeline ms (PiP) rather than item-local. */
+    private static boolean absoluteKeyTimeBase(@NonNull TimedItem item) {
+        return item.getClip() != null && item.getClip().isOverlayClip();
+    }
+
+    /**
+     * The earliest key time this item may legally hold, IN ITS OWN BASE — 0 for an item-local
+     * track, the item's timeline start for a PiP's absolute one. Used as the floor when the
+     * first key of a track is dragged, so a PiP key cannot be shoved back before the clip it
+     * belongs to exists.
+     */
+    public static long earliestLegalKeyTimeMs(@NonNull TimedItem item) {
+        return absoluteKeyTimeBase(item) ? item.getTimelineStartMs() : 0L;
     }
 
     /**
@@ -1600,11 +1636,10 @@ public final class LayerRowRenderer {
     Long hitTestKeyframeDiamond(@NonNull TimedItem item, float x, @NonNull TimeToX timeToX) {
         List<Long> buckets = consolidatedKeyTimesLocal(item);
         if (buckets.isEmpty()) return null;
-        long start = item.getTimelineStartMs();
         float best = 12f * density;
         Long hit = null;
         for (long b : buckets) {
-            float dx = Math.abs(timeToX.map(start + b) - x);
+            float dx = Math.abs(timeToX.map(keyTimeToTimelineMs(item, b)) - x);
             if (dx <= best) { best = dx; hit = b; }
         }
         return hit;
@@ -1624,9 +1659,8 @@ public final class LayerRowRenderer {
         float cy = Math.min(bottom - 4f * density, centerY + 5f * density);
         float r = 3.5f * density;
         kfDiamondPaint.setColor(ghosted ? 0x664CAF50 : 0xE64CAF50);
-        long start = item.getTimelineStartMs();
         for (long b : buckets) {
-            float dx = timeToX.map(start + b);
+            float dx = timeToX.map(keyTimeToTimelineMs(item, b));
             if (dx < x0 + 3f || dx > x1 - 3f) continue;
             spriteDiamondPath.rewind();
             spriteDiamondPath.moveTo(dx, cy - r);
@@ -1662,7 +1696,6 @@ public final class LayerRowRenderer {
             kfEnvDotPaint.setStyle(Paint.Style.FILL);
             kfScrimPaint.setStyle(Paint.Style.FILL);
         }
-        long start = item.getTimelineStartMs();
         float h = bottom - top;
         canvas.save();
         canvas.clipRect(x0, top, x1, bottom);
@@ -1672,7 +1705,7 @@ public final class LayerRowRenderer {
         float prevX = 0f, prevY = 0f;
         for (int k = 0; k < ks.size(); k++) {
             Keyframe kf = ks.get(k);
-            float x = timeToX.map(start + kf.timeMs);
+            float x = timeToX.map(keyTimeToTimelineMs(item, kf.timeMs));
             float v = Math.max(0f, Math.min(1f, kf.value));
             float y = bottom - v * h;
             if (k == 0) {

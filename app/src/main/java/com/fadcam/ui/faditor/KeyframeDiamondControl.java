@@ -16,6 +16,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.R;
 import com.fadcam.ui.faditor.keyframe.Easing;
 
 /**
@@ -56,6 +57,7 @@ public final class KeyframeDiamondControl extends LinearLayout {
     private static final int DIM = 0xFF888888;
     private static final int ACCENT = 0xFF4CAF50;
     private static final int SHEET_BG = 0xFF1C1C1E; // the × is carved in the sheet bg color
+    private static final int REFUSED = 0xFFE57373;   // "nowhere to put a key here"
 
     private final float density;
     private final DiamondView diamond;
@@ -99,6 +101,31 @@ public final class KeyframeDiamondControl extends LinearLayout {
                         .scaleX(1f).scaleY(1f).setDuration(140).start())
                 .start();
     }
+
+    /**
+     * "There is nowhere to put a key here" — the playhead is off the object's span.
+     *
+     * <p>Three channels on purpose, because the failure this replaces was a SILENT one and a
+     * silent refusal reads as a broken control: the diamond flashes red and shakes (visible
+     * without reading), a haptic tick (felt with a finger already on the glass), and one toast
+     * naming the reason and the cure. The toast is short and re-shown per tap rather than
+     * queued, so a user jabbing the diamond does not build a five-second backlog of toasts.</p>
+     */
+    private void refuse(@NonNull View v) {
+        v.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+        diamond.flashRefused();
+        float dx = 5f * density;
+        diamond.animate().translationX(-dx).setDuration(50)
+                .withEndAction(() -> diamond.animate().translationX(dx).setDuration(70)
+                        .withEndAction(() -> diamond.animate().translationX(0f)
+                                .setDuration(60).start()).start()).start();
+        if (refusalToast != null) refusalToast.cancel();
+        refusalToast = android.widget.Toast.makeText(getContext(),
+                R.string.faditor_kf_outside_span, android.widget.Toast.LENGTH_SHORT);
+        refusalToast.show();
+    }
+
+    @Nullable private android.widget.Toast refusalToast;
 
     // ── internals ────────────────────────────────────────────────────
 
@@ -171,6 +198,16 @@ public final class KeyframeDiamondControl extends LinearLayout {
                             if (dx > 0) prop.nextKey(); else prop.prevKey();
                         } else if (!moved) {
                             long ph = host != null ? host.playheadMs() : 0L;
+                            // NOTHING TO KEY HERE. Measured 2026-08-05: a tap at ph=4973 wrote
+                            // a key into a PiP spanning [5501,13629] — 528ms before the object
+                            // exists, where the evaluator clamps flat and the value can never
+                            // be seen. Refuse, and SAY SO: a control that silently does nothing
+                            // is indistinguishable from one that is broken, which is exactly how
+                            // this was reported ("I wasn't able to do it").
+                            if (!prop.keyableAt(ph)) {
+                                refuse(v);
+                                return true;
+                            }
                             if (prop.onKeyAt(ph)) prop.deleteKey(); // × = remove THIS key
                             else prop.dropKey();
                         }
@@ -208,6 +245,8 @@ public final class KeyframeDiamondControl extends LinearLayout {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path path = new Path();
         private boolean drawOnKey;
+        /** Set for one short beat by {@link #flashRefused()} — the refusal's visible half. */
+        private boolean refused;
 
         DiamondView(@NonNull Context ctx) { super(ctx); }
 
@@ -215,6 +254,12 @@ public final class KeyframeDiamondControl extends LinearLayout {
             if (on == drawOnKey) return;
             drawOnKey = on;
             invalidate();
+        }
+
+        void flashRefused() {
+            refused = true;
+            invalidate();
+            postDelayed(() -> { refused = false; invalidate(); }, 420);
         }
 
         @Override
@@ -241,8 +286,8 @@ public final class KeyframeDiamondControl extends LinearLayout {
                 c.drawLine(cx - d, cy + d, cx + d, cy - d, paint);
             } else {
                 paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(stroke);
-                paint.setColor(DIM);
+                paint.setStrokeWidth(refused ? stroke * 1.6f : stroke);
+                paint.setColor(refused ? REFUSED : DIM);
                 c.drawPath(path, paint);
             }
         }

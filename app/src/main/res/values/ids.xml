@@ -6,6 +6,10 @@
     <item name="tag_layer_active" type="id"/>
     <item name="tag_page_index" type="id"/>
     <item name="tag_page_active" type="id"/>
+    <!-- Carries a Runnable that re-reads a PiP drawer tab's rows at the live playhead.
+         A tag rather than a returned handle so the drawer, which rebuilds tab content on every
+         switch, always refreshes whatever is actually on screen. -->
+    <item name="faditor_tag_row_refresh" type="id"/>
 
     <!-- Faditor editor bottom tools carousel (data-driven).
          The carousel cells are built programmatically by FaditorToolsAdapter,

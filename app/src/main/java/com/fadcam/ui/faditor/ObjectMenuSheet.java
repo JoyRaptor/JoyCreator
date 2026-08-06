@@ -61,6 +61,12 @@ public final class ObjectMenuSheet extends LinearLayout {
     /** D2a: easing of the segment the playhead is IN (null = no editable segment). */
     public interface EaseGet { @Nullable Easing segmentEasing(long playheadMs); }
     public interface EaseSet { void setSegmentEasing(@NonNull Easing e, long playheadMs); }
+    /**
+     * Is the playhead over the OBJECT's own span, i.e. is there anywhere to put a key?
+     * See {@link com.fadcam.ui.faditor.model.KeyableSpan} for why this is a refusal and not a
+     * clamp.
+     */
+    public interface SpanQuery { boolean keyableAt(long playheadMs); }
 
     /**
      * One general-menu property row (contract §2's diamond rows).
@@ -91,6 +97,15 @@ public final class ObjectMenuSheet extends LinearLayout {
         @Nullable final ArmedQuery armed;
         @Nullable final EaseGet easeGet;
         @Nullable final EaseSet easeSet;
+        /**
+         * The object's droppable span. Attached with {@link #withSpan} rather than taken in the
+         * constructor: it belongs to the OBJECT, not to the property, so every prop of one
+         * object shares one query and the 15-argument constructor does not grow a 16th that
+         * every existing call site would have to repeat identically.
+         * {@code null} = unconstrained (the pre-existing behaviour for props whose owner has
+         * not been taught its own span yet).
+         */
+        @Nullable private SpanQuery span;
 
         public Prop(@NonNull String key, @NonNull String label, float min, float max,
                     @NonNull ValueFormat format, @NonNull Getter get, @NonNull Setter set,
@@ -145,6 +160,19 @@ public final class ObjectMenuSheet extends LinearLayout {
 
         public boolean onKeyAt(long playheadMs) { return onKey.onKeyAt(playheadMs); }
         @NonNull public String label() { return label; }
+
+        /** Attach the owning object's droppable span; returns {@code this} so a builder list
+         *  can chain it. */
+        @NonNull public Prop withSpan(@Nullable SpanQuery span) { this.span = span; return this; }
+
+        /**
+         * May a key be dropped/deleted at {@code playheadMs}? True when no span was attached —
+         * a prop whose owner never declared a span keeps the old, unguarded behaviour rather
+         * than silently refusing every tap.
+         */
+        public boolean keyableAt(long playheadMs) {
+            return span == null || span.keyableAt(playheadMs);
+        }
 
         // Read-only accessors so a renderer OUTSIDE this package (PipDrawerTabs) can draw the
         // same Prop without the adapters being duplicated for it. Deliberately accessors and

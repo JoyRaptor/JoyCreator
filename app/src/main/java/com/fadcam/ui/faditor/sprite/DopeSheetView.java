@@ -184,7 +184,15 @@ public class DopeSheetView extends View {
             }
         } else {
             for (FrameTrack.Key k : item.getFrameTrack().keys()) {
-                cells.add(k.presetId == null ? k.cellIndex : -1);
+                int shown = k.cellIndex;
+                if (k.presetId != null) {
+                    // A preset key drew as an EMPTY box, which tells the user nothing about
+                    // which run it is. Show the preset's FIRST frame — the cell it comes in on,
+                    // and the same one the timeline tape draws at that key.
+                    SpriteSheet.Preset p = sheet.presetById(k.presetId);
+                    shown = (p != null && !p.frames.isEmpty()) ? p.frames.get(0) : -1;
+                }
+                cells.add(shown);
                 weights.add(1);
             }
         }

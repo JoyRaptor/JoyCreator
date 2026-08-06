@@ -78,6 +78,19 @@ public final class ProjectIntegrity {
         for (AudioClip ac : tl.getAudioClips()) {
             put(out, ac != null ? ac.getSourceUri() : null, "Audio " + (n++));
         }
+        // Image-sequence frames (SPEC_IMAGE_SEQUENCE §8 Missing files): ALL N, not just the
+        // sheet's nominal uri. "Sequences break the instant one file is renamed" — and a check
+        // that looked at only the first frame would report a healthy project while 239 of its
+        // frames were gone.
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet sheet : project.getSpriteSheets()) {
+            if (sheet == null || !sheet.isSequence()) continue;
+            java.util.List<String> uris = sheet.getFrameUris();
+            for (int i = 0; i < uris.size(); i++) {
+                String u = uris.get(i);
+                if (u == null || u.isEmpty()) continue;
+                put(out, Uri.parse(u), sheet.getName() + " frame " + (i + 1));
+            }
+        }
         return out;
     }
 

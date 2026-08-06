@@ -1433,24 +1433,12 @@ public class ProjectStorage {
             if (!"NORMAL".equals(clip.getOverlayBlendMode())) {
                 clipJson.addProperty("overlayBlendMode", clip.getOverlayBlendMode());
             }
-            com.fadcam.ui.faditor.keyframe.KeyframeSet ot = clip.getOverlayTransform();
-            if (ot != null && !ot.isEmpty()) {
-                // Same { property: [ {t,v,e}, ... ] } shape as overlay/sprite keyframes.
-                JsonObject tracksJson = new JsonObject();
-                for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : ot.tracks()) {
-                    if (tr.isEmpty()) continue;
-                    JsonArray kfArr = new JsonArray();
-                    for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
-                        JsonObject kj = new JsonObject();
-                        kj.addProperty("t", k.timeMs);
-                        kj.addProperty("v", k.value);
-                        kj.addProperty("e", k.easing.name());
-                        kfArr.add(kj);
-                    }
-                    tracksJson.add(tr.property, kfArr);
-                }
-                clipJson.add("overlayTransform", tracksJson);
-            }
+            // Same { property: [ {t,v,e}, ... ] } shape as overlay/sprite keyframes — and now
+            // literally the same code as the mask keyframes on CompositingSpec, so the two
+            // cannot drift apart (KeyframeCodec).
+            JsonObject tracksJson = com.fadcam.ui.faditor.keyframe.KeyframeCodec
+                    .toJson(clip.getOverlayTransform());
+            if (tracksJson != null) clipJson.add("overlayTransform", tracksJson);
         }
         // Dual-stream pair link (spec §3) — applies to master clips too, so it lives
         // outside the overlay block. Omitted when null so unlinked clips stay byte-identical.
@@ -1722,20 +1710,9 @@ public class ProjectStorage {
             }
             if (hasValue(clipObj, "overlayTransform")) {
                 com.fadcam.ui.faditor.keyframe.KeyframeSet ks =
-                        new com.fadcam.ui.faditor.keyframe.KeyframeSet();
-                JsonObject tracksJson = clipObj.getAsJsonObject("overlayTransform");
-                for (java.util.Map.Entry<String, JsonElement> e : tracksJson.entrySet()) {
-                    com.fadcam.ui.faditor.keyframe.KeyframeTrack tr =
-                            ks.getOrCreate(e.getKey());
-                    JsonArray kfArr = e.getValue().getAsJsonArray();
-                    for (int k = 0; k < kfArr.size(); k++) {
-                        JsonObject kj = kfArr.get(k).getAsJsonObject();
-                        tr.put(kj.get("t").getAsLong(), kj.get("v").getAsFloat(),
-                                com.fadcam.ui.faditor.keyframe.Easing.fromName(
-                                        kj.get("e").getAsString()));
-                    }
-                }
-                if (!ks.isEmpty()) clip.setOverlayTransform(ks);
+                        com.fadcam.ui.faditor.keyframe.KeyframeCodec.fromJson(
+                                clipObj.getAsJsonObject("overlayTransform"));
+                if (ks != null) clip.setOverlayTransform(ks);
             }
         }
         // Dual-stream pair link (spec §3) — master or overlay clip; absent = unlinked.
@@ -2307,6 +2284,15 @@ public class ProjectStorage {
                 for (com.fadcam.ui.faditor.sprite.SpriteSheet sheet : src.getSpriteSheets()) {
                     JsonObject shJson = sheet.toJson();
                     shJson.addProperty("sheetUri", toStorageUri(projectDir, sheet.getSheetUri()));
+                    // An image SEQUENCE's cells are N separate files, and every one of them is
+                    // project media in exactly the way sheetUri is. Relativising only sheetUri
+                    // would make "make project self-contained" copy one frame of a 240-frame
+                    // sequence and leave the rest pointing outside the bundle.
+                    if (sheet.isSequence()) {
+                        JsonArray fu = new JsonArray();
+                        for (String u : sheet.getFrameUris()) fu.add(toStorageUri(projectDir, u));
+                        shJson.add("frameUris", fu);
+                    }
                     sheetsArr.add(shJson);
                 }
                 json.add("spriteSheets", sheetsArr);
@@ -2787,6 +2773,14 @@ public class ProjectStorage {
                         if (!sheet.getSheetUri().isEmpty()) {
                             sheet.setSheetUri(fromStorageUri(projectDir,
                                     sheet.getSheetUri()).toString());
+                        }
+                        if (sheet.isSequence()) {
+                            java.util.List<String> abs = new java.util.ArrayList<>();
+                            for (String u : sheet.getFrameUris()) {
+                                abs.add(u == null || u.isEmpty() ? ""
+                                        : fromStorageUri(projectDir, u).toString());
+                            }
+                            sheet.setSequenceFrames(abs);
                         }
                         project.getSpriteSheets().add(sheet);
                     } catch (Exception ignored) { }

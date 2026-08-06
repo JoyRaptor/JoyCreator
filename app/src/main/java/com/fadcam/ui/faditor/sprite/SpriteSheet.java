@@ -28,6 +28,20 @@ public class SpriteSheet {
     /** Sidecar/project-JSON schema for this object family (independent of the app's project schema). */
     public static final int SPRITE_SCHEMA_VERSION = 1;
 
+    /** {@link #getKind()} — cells are sub-rects of ONE image, addressed by grid arithmetic. */
+    public static final String KIND_GRID = "grid";
+    /**
+     * {@link #getKind()} — cells are N SEPARATE FILES, addressed by URI
+     * (SPEC_IMAGE_SEQUENCE §0.3: <i>"a sheet whose cells are N FILES, not sub-rects of one
+     * bitmap… this is the real structural difference and everything else follows from it"</i>).
+     *
+     * <p>Everything that is not addressing — the frame track, the resolver, presets, end
+     * behaviour, the preview view, the export overlay, the timeline tape, the palette, the
+     * gesture contract — is shared with grid sheets unchanged. That reuse is the entire reason
+     * a sequence is modelled as a KIND of sheet instead of a new object family.</p>
+     */
+    public static final String KIND_SEQUENCE = "sequence";
+
     @NonNull private final String id;
     @NonNull private String name;
     /** Original source image URI (project://-relative in storage; never a cache path). */
@@ -56,6 +70,31 @@ public class SpriteSheet {
 
     @NonNull private final List<Cell> cells = new ArrayList<>();
     @NonNull private final List<Preset> presets = new ArrayList<>();
+
+    // ── Sequence backing (SPEC_IMAGE_SEQUENCE) ───────────────────────────
+    // Additive and inert for every grid sheet that exists: kind defaults to "grid" and
+    // frameUris stays empty, so nothing is written and nothing is read differently.
+
+    @NonNull private String kind = KIND_GRID;
+
+    /**
+     * For {@link #KIND_SEQUENCE}: the ordered frame files, one per cell, project://-relative in
+     * storage exactly like {@link #sheetUri}. Cell index == position in this list.
+     *
+     * <p><b>All N are real project media.</b> §8 requires every one to be registered with
+     * ProjectIntegrity and ProjectConsolidator — a sequence breaks the instant one file is
+     * renamed, and "Consolidate project" that copies only {@code sheetUri} would leave the other
+     * 239 frames pointing at a folder the project no longer owns.</p>
+     */
+    @NonNull private final List<String> frameUris = new ArrayList<>();
+
+    /**
+     * What dragging this object's edge on the timeline MEANS (§2a). Stored on the SHEET rather
+     * than the placed item because it is a property of the material — a rendered animation is a
+     * film strip, a photo set is a slideshow — and because a sheet placed twice should not
+     * retime differently in each spot for reasons the user cannot see.
+     */
+    @NonNull private SequenceTiming.ResizeMode resizeMode = SequenceTiming.ResizeMode.RELATIVE;
 
     public SpriteSheet(@NonNull String id, @NonNull String name, @NonNull String sheetUri) {
         this.id = id;
@@ -92,9 +131,27 @@ public class SpriteSheet {
         public float fps = 0f;
         @NonNull public final List<Integer> frames = new ArrayList<>();
 
+        /**
+         * Per-frame WEIGHTS (SPEC_IMAGE_SEQUENCE §2), parallel to {@link #frames}.
+         *
+         * <p>EMPTY means "every frame weighs 1", which is precisely the behaviour presets had
+         * before weights existed — so an unweighted preset resolves down the identical code path
+         * and serialises byte-identically. See {@link SequenceTiming} for the arithmetic and for
+         * why weights ride the preset instead of becoming a parallel model.</p>
+         */
+        @NonNull public final List<Integer> weights = new ArrayList<>();
+
         public Preset(@NonNull String id, @NonNull String name) {
             this.id = id;
             this.name = name;
+        }
+
+        /** True when any frame is held longer than one tick. */
+        public boolean hasWeights() {
+            for (Integer w : weights) {
+                if (w != null && w != SequenceTiming.DEFAULT_WEIGHT) return true;
+            }
+            return false;
         }
     }
 
@@ -141,7 +198,70 @@ public class SpriteSheet {
     @NonNull public List<Cell> getCells() { return cells; }
     @NonNull public List<Preset> getPresets() { return presets; }
 
-    public int cellCount() { return cols * rows; }
+    // ── Sequence accessors ───────────────────────────────────────────────
+
+    @NonNull public String getKind() { return kind; }
+    public boolean isSequence() { return KIND_SEQUENCE.equals(kind); }
+    @NonNull public List<String> getFrameUris() { return frameUris; }
+
+    @NonNull public SequenceTiming.ResizeMode getResizeMode() { return resizeMode; }
+    public void setResizeMode(@NonNull SequenceTiming.ResizeMode m) { this.resizeMode = m; }
+
+    /** Turn this into a file-backed sequence over {@code uris} (order = cell order). */
+    public void setSequenceFrames(@NonNull List<String> uris) {
+        this.kind = KIND_SEQUENCE;
+        this.frameUris.clear();
+        this.frameUris.addAll(uris);
+    }
+
+    /**
+     * The frame URI for {@code index}, or null when this is a grid sheet or the index is out of
+     * range. Null is the MISSING affordance's input, never a crash — same S7 rule the grid path
+     * follows for an unopenable sheetUri.
+     */
+    @Nullable
+    public String frameUriAt(int index) {
+        if (!isSequence() || index < 0 || index >= frameUris.size()) return null;
+        return frameUris.get(index);
+    }
+
+    /**
+     * The preset that IS this sequence — a sequence's timing lives in exactly one preset holding
+     * every frame in order, which is what lets §7's AI treat the whole thing as one integer
+     * array. Null for a grid sheet or a sequence whose preset has been deleted.
+     */
+    @Nullable
+    public Preset sequencePreset() {
+        if (!isSequence()) return null;
+        for (Preset p : presets) if (SEQUENCE_PRESET_ID.equals(p.id)) return p;
+        return presets.isEmpty() ? null : presets.get(0);
+    }
+
+    /**
+     * Fixed id for the sequence preset. Fixed rather than a UUID so §7's tools, the dope sheet
+     * and a re-import can all find it without threading an id through, and so a hand-written
+     * sidecar can address it.
+     */
+    public static final String SEQUENCE_PRESET_ID = "sequence";
+
+    /** Build (or rebuild) the sequence preset over the current frame list, keeping weights. */
+    @NonNull
+    public Preset ensureSequencePreset() {
+        Preset p = sequencePreset();
+        if (p == null) {
+            p = new Preset(SEQUENCE_PRESET_ID, "Sequence");
+            p.type = "once";
+            presets.add(p);
+        }
+        List<Integer> kept = SequenceTiming.fit(p.weights, frameUris.size());
+        p.frames.clear();
+        for (int i = 0; i < frameUris.size(); i++) p.frames.add(i);
+        p.weights.clear();
+        p.weights.addAll(kept);
+        return p;
+    }
+
+    public int cellCount() { return isSequence() ? frameUris.size() : cols * rows; }
 
     @Nullable
     public Cell cellAt(int index) {
@@ -170,6 +290,17 @@ public class SpriteSheet {
         j.addProperty("id", id);
         j.addProperty("name", name);
         j.addProperty("sheetUri", sheetUri);
+        // Omitted for grid sheets so every project written before sequences existed round-trips
+        // byte-identically — the additive-schema rule the rest of this class already follows.
+        if (isSequence()) {
+            j.addProperty("kind", kind);
+            JsonArray fu = new JsonArray();
+            for (String u : frameUris) fu.add(u);
+            j.add("frameUris", fu);
+            if (resizeMode != SequenceTiming.ResizeMode.RELATIVE) {
+                j.addProperty("resizeMode", resizeMode.name());
+            }
+        }
         j.addProperty("cols", cols);
         j.addProperty("rows", rows);
         if (marginX != 0) j.addProperty("marginX", marginX);
@@ -212,6 +343,15 @@ public class SpriteSheet {
                 JsonArray frames = new JsonArray();
                 for (Integer f : p.frames) frames.add(f);
                 pj.add("frames", frames);
+                // Written only when something is actually held: an all-1s array carries no
+                // information, and omitting it keeps a pre-weights preset byte-identical.
+                if (p.hasWeights()) {
+                    JsonArray ws = new JsonArray();
+                    for (int i = 0; i < p.frames.size(); i++) {
+                        ws.add(SequenceTiming.weightAt(p.weights, i));
+                    }
+                    pj.add("weights", ws);
+                }
                 arr.add(pj);
             }
             j.add("presets", arr);
@@ -225,6 +365,15 @@ public class SpriteSheet {
                 j.has("id") ? j.get("id").getAsString() : UUID.randomUUID().toString(),
                 j.has("name") ? j.get("name").getAsString() : "Sprite",
                 j.has("sheetUri") ? j.get("sheetUri").getAsString() : "");
+        if (KIND_SEQUENCE.equals(j.has("kind") ? j.get("kind").getAsString() : KIND_GRID)) {
+            s.kind = KIND_SEQUENCE;
+            if (j.has("frameUris")) {
+                JsonArray fu = j.getAsJsonArray("frameUris");
+                for (int i = 0; i < fu.size(); i++) s.frameUris.add(fu.get(i).getAsString());
+            }
+            s.resizeMode = SequenceTiming.ResizeMode.fromName(
+                    j.has("resizeMode") ? j.get("resizeMode").getAsString() : null);
+        }
         if (j.has("cols") && j.has("rows")) s.setGrid(j.get("cols").getAsInt(), j.get("rows").getAsInt());
         s.setMargins(j.has("marginX") ? j.get("marginX").getAsInt() : 0,
                 j.has("marginY") ? j.get("marginY").getAsInt() : 0);
@@ -262,6 +411,18 @@ public class SpriteSheet {
                 if (pj.has("frames")) {
                     JsonArray frames = pj.getAsJsonArray("frames");
                     for (int f = 0; f < frames.size(); f++) p.frames.add(frames.get(f).getAsInt());
+                }
+                if (pj.has("weights")) {
+                    JsonArray ws = pj.getAsJsonArray("weights");
+                    for (int w = 0; w < ws.size(); w++) {
+                        p.weights.add(SequenceTiming.clampWeight(ws.get(w).getAsInt()));
+                    }
+                    // Absent/short arrays are legal input (hand-edited JSON, an LLM that emitted
+                    // fewer numbers than frames); normalise once here so no consumer downstream
+                    // has to think about a ragged array.
+                    List<Integer> fitted = SequenceTiming.fit(p.weights, p.frames.size());
+                    p.weights.clear();
+                    p.weights.addAll(fitted);
                 }
                 s.presets.add(p);
             }

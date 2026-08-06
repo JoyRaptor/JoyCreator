@@ -223,6 +223,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *  dedicated launcher), keyed by sheet id instead of timeline index. */
     private ActivityResultLauncher<Intent> spriteRelinkPickerLauncher;
     @Nullable private String spriteRelinkPendingSheetId;
+    /** SPEC_IMAGE_SEQUENCE §3: multi-select frames, and the folder route that enables §3a
+     *  sibling DETECTION (a document picked with OPEN_DOCUMENT cannot enumerate its own
+     *  folder — only a tree grant can). */
+    private ActivityResultLauncher<Intent> sequenceFilesPickerLauncher;
+    private ActivityResultLauncher<Intent> sequenceFolderPickerLauncher;
     /** Visualizer Rolodex: SAF export/import of the effective {@code WaveformStyle} JSON
      *  (mirrors WaveformDebugActivity's debug-host machinery, surfaced in the real drawer). */
     private ActivityResultLauncher<String> visualizerStyleExportLauncher;
@@ -23128,8 +23133,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void openSpriteSheetManager() {
         java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = project.getSpriteSheets();
         final int newIdx = sheets.size();
-        final int avatarsIdx = sheets.size() + 1;
-        final String[] items = new String[sheets.size() + 2];
+        final int seqFolderIdx = sheets.size() + 1;
+        final int seqFilesIdx = sheets.size() + 2;
+        final int avatarsIdx = sheets.size() + 3;
+        final String[] items = new String[sheets.size() + 4];
         final boolean[] missing = new boolean[sheets.size()];
         for (int i = 0; i < sheets.size(); i++) {
             com.fadcam.ui.faditor.sprite.SpriteSheet s = sheets.get(i);
@@ -23139,6 +23146,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             items[i] = missing[i] ? (s.getName() + "  ⚠ missing") : s.getName();
         }
         items[newIdx] = getString(R.string.sprite_sheet_picker_new);
+        // SPEC_IMAGE_SEQUENCE §3. Inline literals — strings.xml is another agent's live file
+        // per the protocol note above. Folder first: it is the route §3a detection needs and
+        // the only one that scales past the persistable-grant limit.
+        items[seqFolderIdx] = "＋ Image sequence from folder…";
+        items[seqFilesIdx] = "＋ Image sequence from files…";
         items[avatarsIdx] = getString(R.string.sprite_sheet_picker_avatars);
 
         android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
@@ -23160,6 +23172,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         openAvatarStudioManager();
                         return;
                     }
+                    if (which == seqFolderIdx) { pickSequenceFolder(); return; }
+                    if (which == seqFilesIdx) { pickSequenceFiles(); return; }
                     if (which < sheets.size()) {
                         showSpriteSheetActions(sheets.get(which));
                         return;
@@ -23306,6 +23320,247 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
         Toast.makeText(this, R.string.sprite_placed, Toast.LENGTH_SHORT).show();
         return item;
+    }
+
+    // ── Image sequences (SPEC_IMAGE_SEQUENCE §3 import) ──────────────────────
+
+    /**
+     * §3 entry A: the user picks the frames themselves.
+     *
+     * <p>No detection is needed or wanted here — an explicit multi-selection IS the answer to
+     * "which files", so §3a's conservatism has already been satisfied by the user's own fingers.
+     * The frames are still ordered NUMERICALLY by name rather than by pick order, because
+     * "select all" in a file picker does not promise an order and {@code frame_9} must still
+     * precede {@code frame_10}.</p>
+     */
+    private void pickSequenceFiles() {
+        Intent it = openDocumentIntent("image/*");
+        it.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        sequenceFilesPickerLauncher.launch(it);
+    }
+
+    /**
+     * §3 entry B: the user points at the FOLDER, and §3a detection runs.
+     *
+     * <p>This is the route the spec's detection rule actually needs: a document URI from
+     * OPEN_DOCUMENT cannot enumerate its own siblings, so "look in the same folder for names that
+     * differ only by a trailing number" is only expressible against a tree grant.</p>
+     *
+     * <p>It is also the route that SCALES. A tree grant is ONE persistable permission covering
+     * every child, where multi-selecting 240 frames would try to persist 240 grants and run into
+     * the per-package limit — losing access to arbitrary frames later, which would look like
+     * random files going missing rather than like a permission problem.</p>
+     */
+    private void pickSequenceFolder() {
+        Intent it = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        it.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        sequenceFolderPickerLauncher.launch(it);
+    }
+
+    private void onSequenceFilesPicked(@NonNull Intent data) {
+        java.util.List<Uri> uris = new java.util.ArrayList<>();
+        android.content.ClipData clip = data.getClipData();
+        if (clip != null) {
+            for (int i = 0; i < clip.getItemCount(); i++) {
+                Uri u = clip.getItemAt(i).getUri();
+                if (u != null) uris.add(u);
+            }
+        } else if (data.getData() != null) {
+            uris.add(data.getData());
+        }
+        if (uris.isEmpty()) return;
+        if (uris.size() == 1) {
+            // One image is a still, not a sequence. Say so and point at the route that can
+            // actually find the rest, rather than silently importing a one-frame "animation".
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Only one image")
+                    .setMessage("A sequence needs more than one frame. Pick the folder your "
+                            + "frames are in and I'll look for the rest.")
+                    .setPositiveButton("Pick folder", (d, w) -> pickSequenceFolder())
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
+        for (Uri u : uris) {
+            try {
+                getContentResolver().takePersistableUriPermission(
+                        u, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (SecurityException | IllegalArgumentException e) {
+                // Non-fatal and expected past the per-package grant limit. The URI still works
+                // for this session; consolidation is what makes it durable.
+                FLog.w(TAG, "sequence: could not persist grant for " + u, e);
+            }
+        }
+        // Sort by display name numerically, using the detector's own comparator via a synthetic
+        // run — one ordering rule for both entry points.
+        java.util.List<String> names = new java.util.ArrayList<>();
+        java.util.Map<String, Uri> byName = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < uris.size(); i++) {
+            String n = displayNameOf(uris.get(i));
+            if (n == null) n = "frame_" + i;
+            // Two files in different folders can share a name; disambiguate so neither is lost.
+            while (byName.containsKey(n)) n = n + "_";
+            names.add(n);
+            byName.put(n, uris.get(i));
+        }
+        com.fadcam.ui.faditor.sprite.SequenceDetector.Candidate cand =
+                com.fadcam.ui.faditor.sprite.SequenceDetector.detect(names.get(0), names);
+        java.util.List<String> ordered = new java.util.ArrayList<>();
+        if (cand != null) {
+            for (String n : cand.names) ordered.add(byName.get(n).toString());
+        } else {
+            // Unnumbered names (photo.jpg, sunset.jpg): keep the picker's order rather than
+            // inventing one.
+            for (Uri u : uris) ordered.add(u.toString());
+        }
+        offerSequenceImport(
+                com.fadcam.ui.faditor.sprite.SequenceImportDialog.headlineForPicked(ordered),
+                ordered, suggestSequenceName(names.get(0)));
+    }
+
+    private void onSequenceFolderPicked(@NonNull Uri treeUri) {
+        try {
+            getContentResolver().takePersistableUriPermission(
+                    treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException | IllegalArgumentException e) {
+            FLog.w(TAG, "sequence: could not persist tree grant", e);
+        }
+        java.util.List<String> names = new java.util.ArrayList<>();
+        java.util.Map<String, Uri> byName = new java.util.LinkedHashMap<>();
+        try {
+            String docId = android.provider.DocumentsContract.getTreeDocumentId(treeUri);
+            Uri children = android.provider.DocumentsContract
+                    .buildChildDocumentsUriUsingTree(treeUri, docId);
+            try (android.database.Cursor c = getContentResolver().query(children, new String[]{
+                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
+                while (c != null && c.moveToNext()) {
+                    String id = c.getString(0), name = c.getString(1);
+                    if (name == null || !com.fadcam.ui.faditor.sprite.SequenceDetector
+                            .isImageName(name)) continue;
+                    names.add(name);
+                    byName.put(name, android.provider.DocumentsContract
+                            .buildDocumentUriUsingTree(treeUri, id));
+                }
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "sequence: could not list folder", e);
+        }
+        if (names.isEmpty()) {
+            Toast.makeText(this, "No images in that folder", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Detect from the FIRST numbered image. §3a is explicit that the result is an OFFER with
+        // a count — the dialog shows it and the user can decline, which is the whole protection
+        // against a holiday folder of IMG_0001…IMG_0400 being read as an animation.
+        String seed = null;
+        for (String n : names) {
+            if (com.fadcam.ui.faditor.sprite.SequenceDetector.isNumbered(n)) {
+                seed = n;
+                break;
+            }
+        }
+        com.fadcam.ui.faditor.sprite.SequenceDetector.Candidate cand = seed == null ? null
+                : com.fadcam.ui.faditor.sprite.SequenceDetector.detect(seed, names);
+        if (cand == null) {
+            Toast.makeText(this, "No numbered image sequence found in that folder",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        java.util.List<String> ordered = new java.util.ArrayList<>();
+        for (String n : cand.names) {
+            Uri u = byName.get(n);
+            if (u != null) ordered.add(u.toString());
+        }
+        offerSequenceImport(cand.describe(), ordered, suggestSequenceName(cand.stem));
+    }
+
+    /** Display name for a SAF document URI, or null. */
+    @Nullable
+    private String displayNameOf(@NonNull Uri uri) {
+        try (android.database.Cursor c = getContentResolver().query(uri, new String[]{
+                android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) return c.getString(0);
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    /** A readable sheet name from a filename stem: {@code "shot_"} → {@code "shot"}. */
+    @NonNull
+    private String suggestSequenceName(@Nullable String stemOrName) {
+        if (stemOrName == null || stemOrName.trim().isEmpty()) return "Sequence";
+        String s = stemOrName;
+        int dot = s.lastIndexOf('.');
+        if (dot > 0) s = s.substring(0, dot);
+        s = s.replaceAll("[0-9]+$", "").replaceAll("[-_. ]+$", "").trim();
+        return s.isEmpty() ? "Sequence" : s;
+    }
+
+    /** Ask §3b's one question, then build the sheet and place it. */
+    private void offerSequenceImport(@NonNull String headline,
+                                     @NonNull java.util.List<String> frameUris,
+                                     @NonNull String name) {
+        if (frameUris.isEmpty()) return;
+        com.fadcam.ui.faditor.sprite.SequenceImportDialog.show(this, headline, frameUris.size(),
+                fps -> createSequenceSheetAndPlace(name, frameUris, fps));
+    }
+
+    /**
+     * Build the sequence sheet, register it on the project, and place an instance at the
+     * playhead spanning its natural length.
+     *
+     * <p>Unlike a sprite, a sequence is placed with a CONCRETE end rather than open-ended: its
+     * whole timing model is "total duration divided by weights", so an object with no end has no
+     * frame durations either. That is also §6's resolution for open-ended playback — keep the
+     * affordance, but always resolve to a real length.</p>
+     */
+    private void createSequenceSheetAndPlace(@NonNull String name,
+                                             @NonNull java.util.List<String> frameUris,
+                                             float fps) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                com.fadcam.ui.faditor.sprite.SpriteSheet.create(name,
+                        frameUris.isEmpty() ? "" : frameUris.get(0));
+        sheet.setSequenceFrames(frameUris);
+        sheet.setFps(fps);
+        sheet.ensureSequencePreset();
+        project.getSpriteSheets().add(sheet);
+
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem item =
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem.create(sheet.getId());
+        item.setLayerId(com.fadcam.ui.faditor.model.Timeline.spriteLayerIdFor(item));
+        // ONE frame-track entry running the whole sequence as a preset — which is what makes
+        // the timing a single integer array the dope sheet and the AI can both reason about.
+        item.getFrameTrack().put(com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(
+                0, com.fadcam.ui.faditor.sprite.SpriteSheet.SEQUENCE_PRESET_ID));
+        long start = Math.max(0, lastPlayheadAbsoluteMs);
+        long span = com.fadcam.ui.faditor.sprite.SequenceTiming.totalMsForFps(
+                sheet.ensureSequencePreset().weights, frameUris.size(), fps);
+        item.setTimeRange(start, start + span);
+        project.getTimeline().addSpriteOverlay(item);
+        syncTimelineOverlays();
+
+        // ONE undo step covers BOTH the sheet registration and the placement. Undoing a placement
+        // and being left with an orphan sheet in the manager would be the user's action only
+        // half-reversed.
+        undoManager.recordAction(new EditActions.LambdaAction("Import image sequence",
+                () -> {
+                    if (!project.getSpriteSheets().contains(sheet)) {
+                        project.getSpriteSheets().add(sheet);
+                    }
+                    project.getTimeline().addSpriteOverlay(item);
+                    syncTimelineOverlays();
+                },
+                () -> {
+                    project.getTimeline().removeSpriteOverlay(item);
+                    project.getSpriteSheets().remove(sheet);
+                    syncTimelineOverlays();
+                }));
+        scheduleAutoSave();
+        Toast.makeText(this, frameUris.size() + " frames · "
+                        + com.fadcam.ui.faditor.sprite.DurationParser.formatMs(span),
+                Toast.LENGTH_SHORT).show();
     }
 
     /** Lowest-index ENABLED cell (cells with no meta default to enabled). */
@@ -25054,6 +25309,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         Uri uri = result.getData().getData();
                         if (uri != null) applySpriteRelink(sheetId, uri);
                     }
+                });
+
+        sequenceFilesPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                    onSequenceFilesPicked(result.getData());
+                });
+
+        sequenceFolderPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                    Uri tree = result.getData().getData();
+                    if (tree != null) onSequenceFolderPicked(tree);
                 });
     }
 

@@ -37,10 +37,25 @@ public final class SpriteSheetRenderer {
     private final float sample;
     private final Paint drawPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
 
-    private SpriteSheetRenderer(@NonNull SpriteSheet sheet, @NonNull Bitmap bitmap, float sample) {
+    /**
+     * Non-null exactly when the sheet is a file-backed SEQUENCE
+     * ({@link SpriteSheet#KIND_SEQUENCE}). In that mode {@link #bitmap} is frame 0 — kept so
+     * aspect and "is there anything here at all" work identically — and every other frame comes
+     * from this bounded cache.
+     *
+     * <p>Branching INSIDE this class rather than adding a second renderer type is the point: the
+     * preview view, the export overlay, the timeline tape, the palette thumbs and the avatar
+     * puppet all call {@link #drawCell}/{@link #cellAspect}, and none of them has to learn that
+     * sequences exist.</p>
+     */
+    @Nullable private final SequenceFrameCache frames;
+
+    private SpriteSheetRenderer(@NonNull SpriteSheet sheet, @NonNull Bitmap bitmap, float sample,
+                                @Nullable SequenceFrameCache frames) {
         this.sheet = sheet;
         this.bitmap = bitmap;
         this.sample = sample;
+        this.frames = frames;
     }
 
     /**
@@ -51,6 +66,22 @@ public final class SpriteSheetRenderer {
      */
     @Nullable
     public static SpriteSheetRenderer load(@NonNull Context ctx, @NonNull SpriteSheet sheet) {
+        return load(ctx, sheet, SequenceFrameCache.DEFAULT_MAX_DIM);
+    }
+
+    /**
+     * As {@link #load(Context, SpriteSheet)}, but with an explicit longest-edge cap for
+     * SEQUENCE frames.
+     *
+     * <p>Exists so the export can bound its decodes against the OUTPUT frame size rather than a
+     * screen-sized default — §8's memory rule, and the reason a 500-frame 4K sequence does not
+     * have to be a 500-frame 4K decode. Ignored for grid sheets, which already bound themselves
+     * at {@link #MAX_DECODE_DIM}.</p>
+     */
+    @Nullable
+    public static SpriteSheetRenderer load(@NonNull Context ctx, @NonNull SpriteSheet sheet,
+                                           int sequenceMaxDim) {
+        if (sheet.isSequence()) return loadSequence(ctx, sheet, sequenceMaxDim);
         try {
             Uri uri = Uri.parse(sheet.getSheetUri());
             BitmapFactory.Options bounds = new BitmapFactory.Options();
@@ -77,14 +108,38 @@ public final class SpriteSheetRenderer {
             }
             // True sample factor from actual decode result (decodeStream may round).
             float sample = (float) bounds.outWidth / bmp.getWidth();
-            return new SpriteSheetRenderer(sheet, bmp, Math.max(1f, sample));
+            return new SpriteSheetRenderer(sheet, bmp, Math.max(1f, sample), null);
         } catch (Exception e) {
             return null;
         }
     }
 
-    /** One-time color→alpha key on the shared bitmap (preview==export pixels). */
-    private static void applyColorKey(@NonNull Bitmap bmp, int keyColor, float tolerance) {
+    /**
+     * Sequence backing: decode frame 0 eagerly (it answers {@link #cellAspect} and proves the
+     * material is readable at all) and leave the rest to the LRU.
+     *
+     * <p>Returns null only when the sequence has NO openable first frame — the same "caller shows
+     * MISSING, never crash" contract the grid path has. A sequence whose frame 47 is missing
+     * still loads; that one frame draws as the placeholder.</p>
+     */
+    @Nullable
+    private static SpriteSheetRenderer loadSequence(@NonNull Context ctx, @NonNull SpriteSheet sheet,
+                                                    int maxDim) {
+        SequenceFrameCache cache = new SequenceFrameCache(ctx, sheet, maxDim);
+        Bitmap first = null;
+        // Not strictly frame 0: an author whose first file went missing should still see the rest
+        // of the sequence rather than an entirely dead object.
+        for (int i = 0; i < sheet.cellCount() && first == null; i++) first = cache.frame(i);
+        if (first == null) { cache.recycle(); return null; }
+        return new SpriteSheetRenderer(sheet, first, 1f, cache);
+    }
+
+    /**
+     * One-time color→alpha key on a decoded bitmap (preview==export pixels).
+     * Package-private rather than private so {@link SequenceFrameCache} applies the identical
+     * key to sequence frames — two implementations of this would be two sets of pixels.
+     */
+    static void applyColorKey(@NonNull Bitmap bmp, int keyColor, float tolerance) {
         int kr = Color.red(keyColor), kg = Color.green(keyColor), kb = Color.blue(keyColor);
         int tol = (int) (Math.max(0f, Math.min(1f, tolerance)) * 255f);
         int w = bmp.getWidth(), h = bmp.getHeight();
@@ -137,29 +192,76 @@ public final class SpriteSheetRenderer {
     public int sourceWidth() { return Math.round(bitmap.getWidth() * sample); }
     public int sourceHeight() { return Math.round(bitmap.getHeight() * sample); }
 
-    /** Cell rect in DECODED-bitmap pixels (source rect scaled by the sample factor). */
+    /**
+     * Cell rect in DECODED-bitmap pixels (source rect scaled by the sample factor).
+     *
+     * <p>For a SEQUENCE the "cell" is the whole of that frame's own file, so this is that
+     * bitmap's full bounds. Grid arithmetic is not merely skipped — it is meaningless, since a
+     * sequence's frames need not even share dimensions.</p>
+     */
     @NonNull
     public Rect cellRectBitmap(int index) {
+        if (frames != null) {
+            Bitmap b = frames.frame(index);
+            if (b == null) b = bitmap;
+            return new Rect(0, 0, b.getWidth(), b.getHeight());
+        }
         Rect src = cellRectSource(sheet, index, sourceWidth(), sourceHeight());
         return new Rect(Math.round(src.left / sample), Math.round(src.top / sample),
                 Math.round(src.right / sample), Math.round(src.bottom / sample));
     }
 
-    /** Width/height ratio of one cell. */
+    /** Width/height ratio of one cell (frame 0 for a sequence). */
     public float cellAspect() {
+        if (frames != null) {
+            return bitmap.getHeight() <= 0 ? 1f
+                    : (float) bitmap.getWidth() / bitmap.getHeight();
+        }
         Rect r = cellRectBitmap(0);
         return r.height() <= 0 ? 1f : (float) r.width() / r.height();
+    }
+
+    /** True when this renderer is backed by N files rather than one sliced image. */
+    public boolean isSequence() { return frames != null; }
+
+    /**
+     * True when cell {@code index} has a URI but no readable file — the S7 MISSING affordance's
+     * input. Always false for a grid sheet, whose missing-ness is all-or-nothing at load time.
+     */
+    public boolean isCellMissing(int index) {
+        return frames != null && frames.isMissing(index);
+    }
+
+    /** Retry frames that previously failed to decode (after a relink). */
+    public void clearMissingCache() {
+        if (frames != null) frames.clearFailures();
     }
 
     /** Blit one cell into {@code dest}. No-op for out-of-range indices. */
     public void drawCell(@NonNull Canvas canvas, int cellIndex, @NonNull RectF dest,
                          @Nullable Paint overridePaint) {
         if (cellIndex < 0 || cellIndex >= sheet.cellCount()) return;
-        canvas.drawBitmap(bitmap, cellRectBitmap(cellIndex), dest,
-                overridePaint != null ? overridePaint : drawPaint);
+        Paint p = overridePaint != null ? overridePaint : drawPaint;
+        if (frames != null) {
+            Bitmap b = frames.frame(cellIndex);
+            // A frame that will not decode draws NOTHING rather than the wrong picture. Falling
+            // back to frame 0 here would be worse than a gap: a missing file would silently look
+            // like an authored hold, which is the one reading the user cannot tell apart from
+            // correct output.
+            if (b == null || b.isRecycled()) return;
+            canvas.drawBitmap(b, null, dest, p);
+            return;
+        }
+        canvas.drawBitmap(bitmap, cellRectBitmap(cellIndex), dest, p);
     }
 
     public void recycle() {
+        if (frames != null) {
+            frames.recycle();
+            // bitmap IS one of the cache's entries in sequence mode, so it is already recycled;
+            // touching it again would be a use-after-recycle on some OEM implementations.
+            return;
+        }
         if (!bitmap.isRecycled()) bitmap.recycle();
     }
 }

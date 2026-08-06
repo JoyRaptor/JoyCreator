@@ -86,6 +86,21 @@ public final class ProjectConsolidator {
             Uri to = localise(context, ac.getSourceUri(), mediaDir, resolved, res);
             if (to != null) ac.setSourceUri(to);
         }
+        // Image-sequence frames (SPEC_IMAGE_SEQUENCE §8): every frame is project media. A
+        // sequence is imported by REFERENCE — copying 240 files at pick time would be a long
+        // silent stall for something the user has not committed to yet — so consolidation is
+        // where it becomes self-contained, and it has to reach all N or the promise is false.
+        for (com.fadcam.ui.faditor.sprite.SpriteSheet sheet : project.getSpriteSheets()) {
+            if (sheet == null || !sheet.isSequence()) continue;
+            java.util.List<String> uris = sheet.getFrameUris();
+            java.util.List<String> out = new java.util.ArrayList<>(uris.size());
+            for (String u : uris) {
+                if (u == null || u.isEmpty()) { out.add(u == null ? "" : u); continue; }
+                Uri to = localise(context, Uri.parse(u), mediaDir, resolved, res);
+                out.add(to != null ? to.toString() : u);
+            }
+            sheet.setSequenceFrames(out);
+        }
         return res;
     }
 

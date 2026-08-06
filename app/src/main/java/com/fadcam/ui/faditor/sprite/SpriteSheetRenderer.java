@@ -225,6 +225,20 @@ public final class SpriteSheetRenderer {
     public boolean isSequence() { return frames != null; }
 
     /**
+     * The decoded bitmap for a SEQUENCE frame, or null (out of range, unreadable, or a grid
+     * sheet). Exists for the one consumer that needs the pixels rather than a blit —
+     * {@code PuppetPreviewView}, which crops parts out of a sheet and would otherwise pair
+     * {@link #cellRectBitmap} with {@link #getBitmap()} and get frame 0 every time.
+     *
+     * <p><b>The returned bitmap belongs to the cache and may be evicted and recycled.</b> Copy it
+     * if you intend to keep it.</p>
+     */
+    @Nullable
+    public Bitmap frameBitmap(int index) {
+        return frames == null ? null : frames.frame(index);
+    }
+
+    /**
      * True when cell {@code index} has a URI but no readable file — the S7 MISSING affordance's
      * input. Always false for a grid sheet, whose missing-ness is all-or-nothing at load time.
      */

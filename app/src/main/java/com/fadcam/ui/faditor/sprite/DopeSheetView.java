@@ -135,12 +135,40 @@ public class DopeSheetView extends View {
      */
     public void bind(@Nullable SpriteSheet sheet, @Nullable SpriteOverlayItem item,
                      @Nullable SpriteSheetRenderer renderer) {
+        bind(sheet, item, renderer, null, 0f);
+    }
+
+    /**
+     * Bind, carrying a previous strip's SELECTION and scroll across.
+     *
+     * <p><b>Why this overload exists.</b> Every weight edit funnels through the activity and back
+     * out through {@code setData}, which rebuilds this view — so without carrying the selection,
+     * selecting frames 4–24 and tapping "On twos" applied the change and then threw the selection
+     * away, leaving you unable to follow it with "Ramp" or "Set ×N" on the same run. The strip
+     * also jumped back to frame 1. That is precisely the tedium §5c exists to remove, reintroduced
+     * by the plumbing.</p>
+     *
+     * <p>The carried selection is filtered to the NEW frame count, so a reorder or a re-import
+     * that shortened the sequence cannot leave a selection pointing past the end.</p>
+     */
+    public void bind(@Nullable SpriteSheet sheet, @Nullable SpriteOverlayItem item,
+                     @Nullable SpriteSheetRenderer renderer,
+                     @Nullable java.util.Collection<Integer> keepSelection, float keepScrollX) {
         this.sheet = sheet;
         this.item = item;
         this.renderer = renderer;
         rebuildStrip();
+        if (keepSelection != null) {
+            for (Integer i : keepSelection) {
+                if (i != null && i >= 0 && i < cells.size()) selection.add(i);
+            }
+        }
+        this.scrollX = Math.max(0f, keepScrollX);
         invalidate();
     }
+
+    /** Horizontal scroll offset, so a rebuild can put the strip back where it was. */
+    public float scrollOffset() { return scrollX; }
 
     private void rebuildStrip() {
         cells.clear();

@@ -71,7 +71,10 @@ public final class OpenEndResolver {
                 clipped = false;
             } else {
                 resolved = hardStop;
-                clipped = true;
+                // Only a NEIGHBOUR counts as clipping. Running out of project is not something
+                // a neighbour did, and saying so names an object that does not exist — the
+                // §6 affordance whose whole job is honesty would be lying about the reason.
+                clipped = blocker != Long.MAX_VALUE;
             }
 
             if (item.getEndMs() != resolved) {

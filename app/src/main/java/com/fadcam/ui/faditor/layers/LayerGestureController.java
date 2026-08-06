@@ -665,6 +665,7 @@ public final class LayerGestureController {
             dragStartSpriteEndMs = s.getEndMs();
             dragStartSpriteFps = spriteFpsProvider == null ? 0f
                     : spriteFpsProvider.fpsFor(s);
+            dragStartSpriteContinues = s.isContinuesUntilBlocked();
         } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
             clipBeforeStartMs = item.getClip().getOverlayStartMs();
             clipBeforeInMs = item.getClip().getInPointMs();
@@ -678,6 +679,10 @@ public final class LayerGestureController {
 
     private long dragStartSpriteStartMs, dragStartSpriteEndMs;
     private float dragStartSpriteFps;
+    private boolean dragStartSpriteContinues;
+
+    /** Whether the item was "continues" before this gesture — the drag clears it, undo restores. */
+    public boolean getSpriteBeforeContinues() { return dragStartSpriteContinues; }
 
     /**
      * Lets this controller ask the model layer about a sprite's sheet without importing project
@@ -1631,6 +1636,16 @@ public final class LayerGestureController {
             long targetTimeMs, boolean left) {
         // MIN_SEQUENCE_SPAN_MS, not zero: an item dragged to nothing would be invisible and
         // un-grabbable, i.e. deleted by a gesture that does not say "delete".
+        // Dragging an edge is the user STATING a length, and "continues" is the user declining
+        // to state one. They cannot both hold, and if the flag survives the drag then
+        // OpenEndResolver re-derives the end on the next sync and throws the drag away — while
+        // the RELATIVE branch below has already committed an fps derived from the length the
+        // user briefly had. The object then plays at the dragged speed at the un-dragged length,
+        // and the undo step records an end that was already stale when it was recorded.
+        // So the gesture clears the intent. The activity folds this into the SAME undo step.
+        s.setContinuesUntilBlocked(false);
+        s.setClippedByNeighbour(false);
+
         final long minSpan = MIN_SEQUENCE_SPAN_MS;
         long newStart = dragStartSpriteStartMs, newEnd = dragStartSpriteEndMs;
         if (newEnd == Long.MAX_VALUE) {

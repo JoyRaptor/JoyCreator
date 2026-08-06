@@ -63,6 +63,7 @@ public class SequenceTimingTest {
         continuesResolvesToAConcreteLength();
         continuesReportsWhenANeighbourClippedIt();
         continuesIsIdempotent();
+        runningOutOfProjectIsNotBlamedOnANeighbour();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -509,6 +510,32 @@ public class SequenceTimingTest {
         // churn — and a churning resync is how "the app moved my clip by itself" starts.
         check("re-resolving is a no-op", !second);
         check("a non-continuing item is never touched", nonContinuingUntouched());
+    }
+
+    /**
+     * §6's marker must say WHY honestly. A sequence that simply outlives the project has not
+     * been clipped by anything — claiming otherwise points the user at an object that does not
+     * exist, in a tape marker, a toast and the AI's report all at once.
+     */
+    static void runningOutOfProjectIsNotBlamedOnANeighbour() {
+        SpriteSheet s = seq(12, 1f, null, "once");   // natural run = 12s
+        SpriteOverlayItem alone = item(s, "hold");
+        alone.setTimeRange(0, Long.MAX_VALUE);
+        alone.setContinuesUntilBlocked(true);
+        com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
+                java.util.Collections.singletonList(alone), id -> s, 5000);  // project shorter
+        check("the end still resolves to the project end", alone.getEndMs() == 5000);
+        check("but nothing is blamed for clipping it", !alone.isClippedByNeighbour());
+
+        // ...and a REAL neighbour is still reported.
+        SpriteOverlayItem a = item(s, "hold");
+        a.setTimeRange(0, Long.MAX_VALUE);
+        a.setContinuesUntilBlocked(true);
+        SpriteOverlayItem b = item(s, "hold");
+        b.setTimeRange(3000, 4000);
+        com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
+                java.util.Arrays.asList(a, b), id -> s, 60000);
+        check("a real neighbour IS reported", a.isClippedByNeighbour() && a.getEndMs() == 3000);
     }
 
     static boolean nonContinuingUntouched() {

@@ -13198,21 +13198,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.sprite.SpriteSheet sh =
                             project.spriteSheetById(s.getSheetId());
                     float afterFps = sh != null ? sh.getFps() : beforeFps;
+                    // A resize CLEARS "continues" (see applySequenceTrim): stating a length and
+                    // declining to state one cannot both hold. It has to ride the same undo step,
+                    // or undoing the drag would restore the length and leave the intent off.
+                    boolean beforeContinues = ctrl.getSpriteBeforeContinues();
+                    boolean continuesChanged = beforeContinues != s.isContinuesUntilBlocked();
                     boolean rangeChanged = beforeStart != afterStart || beforeEnd != afterEnd;
                     boolean fpsChanged = sh != null && Math.abs(afterFps - beforeFps) > 1e-4f;
-                    if (rangeChanged || fpsChanged || trackChange != null) {
+                    if (rangeChanged || fpsChanged || continuesChanged || trackChange != null) {
                         String desc = trackChange != null ? trackChange.description
                                 : (kind == com.fadcam.ui.faditor.layers.LayerGestureController
                                         .GestureKind.MOVE ? "Move sprite" : "Resize sequence");
                         final com.fadcam.ui.faditor.sprite.SpriteSheet fSheet = sh;
                         undoManager.recordAction(mergedAction(desc,
                                 () -> {
+                                    s.setContinuesUntilBlocked(false);
                                     s.setTimeRange(afterStart, afterEnd);
                                     if (fSheet != null && fpsChanged) fSheet.setFps(afterFps);
                                 },
                                 () -> {
+                                    // Order matters: restore the range FIRST, then the intent.
+                                    // Setting continues before the range would let the next
+                                    // sync re-derive an end from the not-yet-restored one.
                                     s.setTimeRange(beforeStart, beforeEnd);
                                     if (fSheet != null && fpsChanged) fSheet.setFps(beforeFps);
+                                    s.setContinuesUntilBlocked(beforeContinues);
                                 },
                                 trackChange));
                     } else {
@@ -23361,13 +23371,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean missing = isSpriteSheetMissing(sheet);
         String relinkLabel = getString(R.string.sprite_sheet_action_relink)
                 + (missing ? "  ⚠" : ""); // inline literal, see class-level protocol note
-        String[] actions = {
-                getString(R.string.sprite_sheet_action_edit),
-                getString(R.string.sprite_sheet_action_place),
-                relinkLabel};
+        // An image SEQUENCE has no grid to edit and no single sheetUri to relink: the grid
+        // editor would lay cols/rows arithmetic over frame 0 and could rewrite the one preset
+        // that carries every authored weight, and "Relink" writes only sheetUri, which
+        // frameUriAt() never reads — a silent no-op the user would read as a failed repair.
+        // Offering neither is the honest state until a sequence-shaped version of each exists.
+        final boolean seq = sheet.isSequence();
+        String[] actions = seq
+                ? new String[]{getString(R.string.sprite_sheet_action_place)}
+                : new String[]{
+                        getString(R.string.sprite_sheet_action_edit),
+                        getString(R.string.sprite_sheet_action_place),
+                        relinkLabel};
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(sheet.getName())
+                .setTitle(sheet.getName() + (seq ? "  ·  " + sheet.cellCount() + " frames" : ""))
                 .setItems(actions, (d, which) -> {
+                    if (seq) { placeSpriteOnVideo(sheet); return; }
                     if (which == 0) {
                         launchSpriteSheetEditor(sheet.getId());
                     } else if (which == 1) {
@@ -23482,9 +23501,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // T8: every placed sprite gets its OWN lane (unique layerId) so two sprites never
         // collapse onto one shared "sprite" track and overlap (FEEDBACK_20260706 #2).
         item.setLayerId(com.fadcam.ui.faditor.model.Timeline.spriteLayerIdFor(item));
-        item.getFrameTrack().put(
-                com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(0, firstEnabledCell(sheet)));
-        item.setTimeRange(Math.max(0, lastPlayheadAbsoluteMs), Long.MAX_VALUE);
+        if (sheet.isSequence()) {
+            // A sequence placed from the manager must ANIMATE. Dropping a cell key here — the
+            // sprite default — pins it to one still, which looks like the import silently
+            // failed. Same single preset key and same natural length the import path uses, so
+            // both routes produce the same object.
+            sheet.ensureSequencePreset();
+            item.getFrameTrack().put(com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(
+                    0, com.fadcam.ui.faditor.sprite.SpriteSheet.SEQUENCE_PRESET_ID));
+            long start = Math.max(0, lastPlayheadAbsoluteMs);
+            com.fadcam.ui.faditor.sprite.SpriteSheet.Preset p = sheet.sequencePreset();
+            long span = com.fadcam.ui.faditor.sprite.SequenceTiming.totalMsForFps(
+                    p == null ? null : p.weights, sheet.cellCount(),
+                    p != null && p.fps > 0f ? p.fps : sheet.getFps());
+            item.setTimeRange(start, start + span);
+        } else {
+            item.getFrameTrack().put(
+                    com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(0, firstEnabledCell(sheet)));
+            item.setTimeRange(Math.max(0, lastPlayheadAbsoluteMs), Long.MAX_VALUE);
+        }
         project.getTimeline().addSpriteOverlay(item);
         syncTimelineOverlays();
         undoManager.recordAction(new EditActions.LambdaAction("Place sprite",
@@ -23901,12 +23936,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         preset.type = "loop";
         long anchor = 0;
         boolean first = true;
+        // CONSUMED, not "selected": a preset key in the selection contributes no frame, so it
+        // must not be collapsed away either. Removing keys this loop skipped would delete the
+        // animation they drove and put it in neither the new preset nor the surviving track —
+        // a silent destructive edit behind a toast that reads like success.
+        final java.util.Set<Integer> consumed = new java.util.HashSet<>();
         for (Integer i : idx) {
             if (i == null || i < 0 || i >= keys.size()) continue;
             com.fadcam.ui.faditor.sprite.FrameTrack.Key k = keys.get(i);
             if (k.presetId != null) continue;      // already a preset run: not a frame
             if (first) { anchor = k.timeMs; first = false; }
             preset.frames.add(k.cellIndex);
+            consumed.add(i);
         }
         if (preset.frames.size() < 2) {
             Toast.makeText(this, "Those keys can't make a preset", Toast.LENGTH_SHORT).show();
@@ -23917,9 +23958,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new java.util.ArrayList<>(keys);
         final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
                 new java.util.ArrayList<>();
-        java.util.Set<Integer> chosen = new java.util.HashSet<>(idx);
         for (int i = 0; i < before.size(); i++) {
-            if (chosen.contains(i)) continue;
+            if (consumed.contains(i)) continue;
             after.add(before.get(i));
         }
         after.add(com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(anchorMs, preset.id));
@@ -24097,20 +24137,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private boolean resolveSequenceOpenEnds() {
         if (project == null || project.getTimeline() == null) return false;
-        java.util.Map<String, java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> byLane =
-                new java.util.LinkedHashMap<>();
-        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s
-                : project.getTimeline().getSpriteOverlays()) {
-            String lane = s.getLayerId() == null ? "sprite" : s.getLayerId();
-            byLane.computeIfAbsent(lane, k -> new java.util.ArrayList<>()).add(s);
-        }
-        long projectEnd = Math.max(1, project.getTimeline().getTotalDurationMs());
-        boolean changed = false;
-        for (java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> lane : byLane.values()) {
-            changed |= com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(lane,
-                    id -> project.spriteSheetById(id), projectEnd);
-        }
-        return changed;
+        // ONE lane-grouping rule, shared with the AI path — see
+        // SequenceAiOps.resolveOpenEndsPerLane for what having two of them cost.
+        com.fadcam.ui.faditor.ai.SequenceAiOps.resolveOpenEndsPerLane(project);
+        return false;
     }
 
     /** §2a: toggle what dragging this sequence's edge MEANS. Also visible on the tape. */

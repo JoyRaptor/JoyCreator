@@ -241,13 +241,32 @@ public final class SequenceAiOps {
         }
 
         // §6: any of the above can change what blocks what.
-        if (proj.getTimeline() != null) {
-            OpenEndResolver.resolve(proj.getTimeline().getSpriteOverlays(),
-                    proj::spriteSheetById,
-                    Math.max(1, proj.getTimeline().getTotalDurationMs()));
-        }
+        resolveOpenEndsPerLane(proj);
 
         return report(proj, item, sheet, before);
+    }
+
+    /**
+     * §6 open-end resolution, PER LANE — the same grouping the editor uses.
+     *
+     * <p>Resolving the flat sprite list as if it were one lane makes an object on a DIFFERENT
+     * lane count as a blocker: the AI would truncate a sequence, honestly report the truncated
+     * length, and honestly add "cut short by the next object in its lane" — about an object that
+     * is not in its lane. The editor would then re-resolve it back on the next sync, so the
+     * number the model reported and the number on screen would disagree. Two implementations of
+     * one rule is the thing §0 exists to prevent, so there is one: this walks the same lanes.</p>
+     */
+    public static void resolveOpenEndsPerLane(@NonNull FaditorProject proj) {
+        if (proj.getTimeline() == null) return;
+        java.util.Map<String, List<SpriteOverlayItem>> byLane = new java.util.LinkedHashMap<>();
+        for (SpriteOverlayItem s : proj.getTimeline().getSpriteOverlays()) {
+            String lane = s.getLayerId() == null ? "sprite" : s.getLayerId();
+            byLane.computeIfAbsent(lane, k -> new ArrayList<>()).add(s);
+        }
+        long end = Math.max(1, proj.getTimeline().getTotalDurationMs());
+        for (List<SpriteOverlayItem> lane : byLane.values()) {
+            OpenEndResolver.resolve(lane, proj::spriteSheetById, end);
+        }
     }
 
     /**

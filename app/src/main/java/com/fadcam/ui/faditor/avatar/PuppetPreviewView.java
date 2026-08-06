@@ -755,10 +755,28 @@ public class PuppetPreviewView extends View {
             return cached != null && !cached.isRecycled() ? cached : null;
         }
         try {
-            android.graphics.Rect src = r.cellRectBitmap(cellIndex);
-            if (src.width() <= 0 || src.height() <= 0) return null;
-            android.graphics.Bitmap cell = android.graphics.Bitmap.createBitmap(
-                    r.getBitmap(), src.left, src.top, src.width(), src.height());
+            android.graphics.Bitmap cell;
+            if (r.isSequence()) {
+                // A sequence's cells are SEPARATE FILES: cellRectBitmap(i) gives frame i's own
+                // bounds but getBitmap() is frame 0, so cropping one against the other yields
+                // frame 0 for every part (or throws when frame i is larger). This is the one
+                // place that bypasses drawCell — which is what lets every other consumer stay
+                // unaware that sequences exist — so it needs the branch drawCell already has.
+                cell = r.frameBitmap(cellIndex);
+                if (cell == null || cell.isRecycled()) {
+                    cellBitmaps.put(key, null);
+                    return null;
+                }
+                // COPY: the frame belongs to a bounded LRU that may evict and recycle it, and
+                // this cache holds its entries for the view's lifetime.
+                cell = cell.copy(android.graphics.Bitmap.Config.ARGB_8888, false);
+                if (cell == null) { cellBitmaps.put(key, null); return null; }
+            } else {
+                android.graphics.Rect src = r.cellRectBitmap(cellIndex);
+                if (src.width() <= 0 || src.height() <= 0) return null;
+                cell = android.graphics.Bitmap.createBitmap(
+                        r.getBitmap(), src.left, src.top, src.width(), src.height());
+            }
             cellBitmaps.put(key, cell);
             return cell;
         } catch (RuntimeException e) {

@@ -251,6 +251,8 @@ public class SpritePalettePanel extends FrameLayout {
     private final LinearLayout dopeArea;
     @Nullable private DopeSheetView dopeSheet;
     @Nullable private TextView dopeSummary;
+    /** Which item {@link #dopeSheet} is currently showing — see the selection carry-over. */
+    @Nullable private SpriteOverlayItem dopeBoundItem;
 
     public void setCallback(@Nullable Callback cb) { this.callback = cb; }
 
@@ -264,7 +266,11 @@ public class SpritePalettePanel extends FrameLayout {
         // The dope strip is bound to ONE item and its renderer. Without this it keeps showing a
         // deleted object's frames — and, worse, keeps a renderer reference that a sheet
         // invalidation may since have recycled.
-        if (detent == DETENT_DOPE) buildDopeSheet();
+        //
+        // POSTED, not immediate: this path is reached from the strip's own ACTION_UP (weight
+        // commit → activity → sync → here), so rebuilding inline would detach the very view
+        // that is still dispatching the touch.
+        if (detent == DETENT_DOPE) post(this::buildDopeSheet);
     }
 
     @Nullable public SpriteOverlayItem getSelected() { return selected; }
@@ -332,9 +338,19 @@ public class SpritePalettePanel extends FrameLayout {
         dopeSummary.setPadding(pad * 2, 0, pad * 2, pad / 2);
         dopeArea.addView(dopeSummary);
 
+        // Carry the outgoing strip's selection and scroll across the rebuild — see the
+        // DopeSheetView.bind overload for why losing them defeats §5c.
+        // Only across a rebuild of the SAME object: frame indices mean nothing on a different
+        // sequence, and carrying them would silently select unrelated frames.
+        boolean sameItem = dopeSheet != null && item == dopeBoundItem;
+        java.util.List<Integer> keptSel = sameItem
+                ? new java.util.ArrayList<>(dopeSheet.selection()) : null;
+        float keptScroll = sameItem ? dopeSheet.scrollOffset() : 0f;
+        dopeBoundItem = item;
+
         final DopeSheetView strip = new DopeSheetView(getContext());
         dopeSheet = strip;
-        strip.bind(sheet, item, callback.lookupRenderer(item.getSheetId()));
+        strip.bind(sheet, item, callback.lookupRenderer(item.getSheetId()), keptSel, keptScroll);
         strip.setPlayheadMs(playheadMs);
         strip.setCallback(new DopeSheetView.Callback() {
             @Override

@@ -74,8 +74,12 @@ public final class SpriteFrameResolver {
         SpriteSheet.Preset preset = sheet.presetById(active.presetId);
         if (preset == null || preset.frames.isEmpty()) return NO_CELL;
 
-        float fps = preset.fps > 0f ? preset.fps : sheet.getFps();
-        if (fps <= 0f) fps = 1f;
+        // clampFps, not a bare > 0 check: frameChangesIn (the tape) clamps, and if the two
+        // entry points of this class disagree about their input then the timeline draws marks
+        // on a different cadence than the video plays — a breach of the one-evaluator rule from
+        // inside the evaluator itself. Only reachable via hand-edited JSON with preset.fps above
+        // MAX_FPS, which is exactly the sort of thing that gets found late.
+        float fps = SequenceTiming.clampFps(preset.fps > 0f ? preset.fps : sheet.getFps());
         long elapsed = localMs - active.timeMs;
         long frameOrdinal = (long) Math.floor(elapsed * fps / 1000.0);
 

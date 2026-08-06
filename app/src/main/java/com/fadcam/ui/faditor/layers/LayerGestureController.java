@@ -655,6 +655,16 @@ public final class LayerGestureController {
             audioBeforeOutMs = ac.getOutPointMs();
             dragStartTrimInMs = ac.getInPointMs();
             dragStartTrimOutMs = ac.getOutPointMs();
+        } else if (item.getSprite() != null) {
+            // SPEC_IMAGE_SEQUENCE §2a: a sequence's edges are draggable, and what the drag MEANS
+            // depends on the sheet's resize mode. Capture both edges plus the cadence, because
+            // RELATIVE recomputes fps from the new span and ABSOLUTE keeps fps and changes how
+            // many frames fit.
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = item.getSprite();
+            dragStartSpriteStartMs = Math.max(0, s.getStartMs());
+            dragStartSpriteEndMs = s.getEndMs();
+            dragStartSpriteFps = spriteFpsProvider == null ? 0f
+                    : spriteFpsProvider.fpsFor(s);
         } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
             clipBeforeStartMs = item.getClip().getOverlayStartMs();
             clipBeforeInMs = item.getClip().getInPointMs();
@@ -662,6 +672,63 @@ public final class LayerGestureController {
             dragStartTrimInMs = item.getClip().getInPointMs();
             dragStartTrimOutMs = item.getClip().getOutPointMs();
         }
+    }
+
+    // ── Sequence resize (SPEC_IMAGE_SEQUENCE §2a / §9c) ──────────────────────
+
+    private long dragStartSpriteStartMs, dragStartSpriteEndMs;
+    private float dragStartSpriteFps;
+
+    /**
+     * Lets this controller ask the model layer about a sprite's sheet without importing project
+     * lookup into the gesture code. Supplied by the activity.
+     */
+    public interface SpriteFpsProvider {
+        /** The sheet cadence for this item, or 0 when it has no sheet / is not a sequence. */
+        float fpsFor(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item);
+        /** True when this item is a file-backed image sequence. */
+        boolean isSequence(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item);
+        /** Frame count and weights, for the §9c readout and the ABSOLUTE mode maths. */
+        int frameCount(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item);
+        @NonNull java.util.List<Integer> weights(
+                @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item);
+        @NonNull com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode resizeMode(
+                @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item);
+        /** RELATIVE commits a new cadence; ABSOLUTE leaves it alone. */
+        void setFps(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, float fps);
+    }
+
+    @Nullable private SpriteFpsProvider spriteFpsProvider;
+
+    public void setSpriteFpsProvider(@Nullable SpriteFpsProvider p) {
+        this.spriteFpsProvider = p;
+    }
+
+    /** Gesture-start range/cadence, for the activity's one-undo-step record. */
+    public long getSpriteBeforeStartMs() { return dragStartSpriteStartMs; }
+    public long getSpriteBeforeEndMs() { return dragStartSpriteEndMs; }
+    public float getSpriteBeforeFps() { return dragStartSpriteFps; }
+
+    /**
+     * The §9c live readout for the item currently being edge-dragged
+     * ({@code "24 frames · 4.0s · 6.0 fps"}), or null when that is not what is happening.
+     *
+     * <p>§9b decided against per-frame absolute pinning partly because the user's own method —
+     * stretch the object over a music section and line the tape previews up by eye — already
+     * serves beat-syncing. This is what makes that eye accurate: it turns "about right" into
+     * "landed on 6 fps exactly", for no model change at all.</p>
+     */
+    @Nullable
+    public String sequenceResizeReadout() {
+        if (!active || activeItem == null || spriteFpsProvider == null) return null;
+        if (activeKind == GestureKind.MOVE) return null;
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = activeItem.getSprite();
+        if (s == null || !spriteFpsProvider.isSequence(s)) return null;
+        long span = Math.max(1, s.getEndMs() - s.getStartMs());
+        return com.fadcam.ui.faditor.sprite.SequenceTiming.readout(
+                spriteFpsProvider.weights(s), spriteFpsProvider.frameCount(s),
+                spriteFpsProvider.resizeMode(s),
+                spriteFpsProvider.fpsFor(s), span);
     }
 
     /**
@@ -1475,6 +1542,8 @@ public final class LayerGestureController {
                 newEnd = Math.max(newEnd, dragStartTextStartMs + MIN_TEXT_DURATION_MS);
                 o.setTimeRange(dragStartTextStartMs, newEnd);
             }
+        } else if (item.getSprite() != null) {
+            applySequenceTrim(item.getSprite(), targetTimeMs, left);
         } else if (item.getAudioClip() != null) {
             AudioClip ac = item.getAudioClip();
             long srcDur = ac.getSourceDurationMs();
@@ -1540,6 +1609,75 @@ public final class LayerGestureController {
                 c.setOutPointMs(newOut);
             }
         }
+    }
+
+    /**
+     * SPEC_IMAGE_SEQUENCE §2a — resize a sequence, in whichever sense the sheet is set to.
+     *
+     * <p><b>RELATIVE (default)</b> keeps the weights and changes the total duration: ten images
+     * squeezed to half the length are still ten images, each half as long. Every authored hold
+     * survives proportionally, which is §9a and which costs nothing because only the cadence
+     * moves.</p>
+     *
+     * <p><b>ABSOLUTE</b> keeps each frame's resolved milliseconds and changes the frame COUNT —
+     * the film-strip reading. Trimming from the LEFT vs the RIGHT decides <i>which</i> frames
+     * survive, so the two handles are not mirror images of one another here.</p>
+     *
+     * <p>Both leave the item's other edge exactly where it was, and neither writes weights: the
+     * authored array is the one thing a resize must never touch.</p>
+     */
+    private void applySequenceTrim(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s,
+            long targetTimeMs, boolean left) {
+        // MIN_SEQUENCE_SPAN_MS, not zero: an item dragged to nothing would be invisible and
+        // un-grabbable, i.e. deleted by a gesture that does not say "delete".
+        final long minSpan = MIN_SEQUENCE_SPAN_MS;
+        long newStart = dragStartSpriteStartMs, newEnd = dragStartSpriteEndMs;
+        if (newEnd == Long.MAX_VALUE) {
+            // §6: an open-ended object has no length to divide, so resolve it to a concrete one
+            // BEFORE resizing rather than doing arithmetic on MAX_VALUE.
+            newEnd = newStart + Math.max(minSpan, resolveOpenEndFallbackMs(s));
+        }
+        if (left) {
+            newStart = Math.max(0, Math.min(targetTimeMs, newEnd - minSpan));
+            newStart = Math.max(newStart, trimSiblingFloor(newStart, newEnd));
+            newStart = Math.min(newStart, newEnd - minSpan);
+        } else {
+            newEnd = Math.max(newStart + minSpan, targetTimeMs);
+            newEnd = Math.min(newEnd, trimSiblingCeil(newStart, newEnd));
+            newEnd = Math.max(newEnd, newStart + minSpan);
+        }
+        s.setTimeRange(newStart, newEnd);
+
+        if (spriteFpsProvider == null || !spriteFpsProvider.isSequence(s)) return;
+        if (spriteFpsProvider.resizeMode(s)
+                == com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.RELATIVE) {
+            // Re-derive the cadence so one forward pass exactly fills the new span. The weights
+            // are untouched — that is the whole reason the model stores weights and not
+            // per-frame milliseconds.
+            float fps = com.fadcam.ui.faditor.sprite.SequenceTiming.fpsForTotalMs(
+                    spriteFpsProvider.weights(s), spriteFpsProvider.frameCount(s),
+                    newEnd - newStart);
+            spriteFpsProvider.setFps(s, fps);
+        }
+        // ABSOLUTE: fps stays at its gesture-start value, so fewer/more frames simply fit. The
+        // resolver already holds the last frame past the end, so nothing else is needed.
+    }
+
+    /** Smallest a sequence may be dragged to. Below this it stops being grabbable. */
+    private static final long MIN_SEQUENCE_SPAN_MS = 200;
+
+    /**
+     * A concrete length for an open-ended sequence, so §6's "resolve it, never leave it
+     * unbounded" holds at the moment of a resize too. One forward pass at the current cadence is
+     * the honest answer: it is what the object would show if nothing stopped it.
+     */
+    private long resolveOpenEndFallbackMs(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+        if (spriteFpsProvider == null) return MIN_SEQUENCE_SPAN_MS;
+        return com.fadcam.ui.faditor.sprite.SequenceTiming.totalMsForFps(
+                spriteFpsProvider.weights(s), spriteFpsProvider.frameCount(s),
+                spriteFpsProvider.fpsFor(s));
     }
 
     /**

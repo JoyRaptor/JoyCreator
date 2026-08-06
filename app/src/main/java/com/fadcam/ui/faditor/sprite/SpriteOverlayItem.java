@@ -56,6 +56,37 @@ public class SpriteOverlayItem {
     /** "hold" (default) | "loop" | "pingpong" — what happens after the last frame entry. */
     @NonNull private String endBehavior = "hold";
 
+    /**
+     * SPEC_IMAGE_SEQUENCE §6 — the object "continues" until something stops it.
+     *
+     * <p><b>This is the one idea in the spec flagged as dangerous, and the flag is deliberately
+     * not the implementation.</b> The user asked for open-ended playback running <i>"until it hits
+     * some other layer in that lane or the end of the project"</i>. Making a duration depend on
+     * NEIGHBOURS means adding an unrelated object silently shortens this one, deleting one
+     * silently extends it, and undo has to restore a length nobody authored — and this codebase
+     * already has a ledger full of "the app moved my clip by itself" incidents that were
+     * expensive to find.</p>
+     *
+     * <p>So the affordance is kept and the semantics are not: this is an INTENT flag, and
+     * {@code endMs} is always a concrete resolved number. Whenever anything changes, the length
+     * is recomputed and — if a neighbour cut it short — that is shown, never silent.</p>
+     */
+    private boolean continuesUntilBlocked;
+
+    public boolean isContinuesUntilBlocked() { return continuesUntilBlocked; }
+    public void setContinuesUntilBlocked(boolean v) { this.continuesUntilBlocked = v; }
+
+    /**
+     * True when the resolved end came from a NEIGHBOUR rather than from the sequence's own
+     * length — i.e. the object was clipped. Transient (never serialised): it is a fact about the
+     * current arrangement, and persisting it would let a stale "clipped" badge outlive the
+     * neighbour that caused it.
+     */
+    private transient boolean clippedByNeighbour;
+
+    public boolean isClippedByNeighbour() { return clippedByNeighbour; }
+    public void setClippedByNeighbour(boolean v) { this.clippedByNeighbour = v; }
+
     /** Discrete which-cell-when track (item-local times). Never null. */
     @NonNull private final FrameTrack frameTrack = new FrameTrack();
 

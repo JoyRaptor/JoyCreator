@@ -444,7 +444,21 @@ public class EditorTimelineView extends View {
             // conventional 8dp touch slop so a hold that doesn't really move opens the menu.
             layerGestureController.setMoveSlopPx(
                     8f * getResources().getDisplayMetrics().density);
+            // Re-apply: this method REPLACES the controller, so a provider set earlier would be
+            // silently dropped and §2a resizing would fall back to RELATIVE-with-no-fps-update
+            // — a resize that looks like it worked and plays at the wrong speed.
+            layerGestureController.setSpriteFpsProvider(spriteFpsProvider);
         }
+    }
+
+    @Nullable private com.fadcam.ui.faditor.layers.LayerGestureController.SpriteFpsProvider
+            spriteFpsProvider;
+
+    /** SPEC_IMAGE_SEQUENCE §2a: model lookups the resize gesture needs. */
+    public void setSpriteFpsProvider(
+            @Nullable com.fadcam.ui.faditor.layers.LayerGestureController.SpriteFpsProvider p) {
+        this.spriteFpsProvider = p;
+        if (layerGestureController != null) layerGestureController.setSpriteFpsProvider(p);
     }
 
     /**
@@ -2623,9 +2637,38 @@ public class EditorTimelineView extends View {
             drawLoopExtensionReadout(canvas, w, tTop, tBot);
         }
 
+        // SPEC_IMAGE_SEQUENCE §9c: live "24 frames · 4.0s · 6.0 fps" while an image sequence's
+        // edge is being dragged. Mirrors the loop-resize readout above, deliberately: §9b
+        // decided AGAINST per-frame absolute pinning partly because eyeballing against the
+        // tape already serves music timing — this is what makes that eye exact.
+        drawSequenceResizeReadout(canvas, w, tTop, tBot);
+
         // Frame-accurate trim-edge preview bubble (screen space, on top of all).
         // (Trim-edge preview now happens in the main video, not as a finger-blocking
         // bubble here — drawTrimEdgePreview is retained but no longer activated.)
+    }
+
+    private final Paint seqReadoutBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint seqReadoutTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /** §9c — the live frame-count / duration / fps readout during a sequence edge drag. */
+    private void drawSequenceResizeReadout(@NonNull Canvas canvas, int viewW,
+                                           float trackTop, float trackBot) {
+        if (layerGestureController == null) return;
+        String text = layerGestureController.sequenceResizeReadout();
+        if (text == null || text.isEmpty()) return;
+        seqReadoutTextPaint.setColor(0xFFFFFFFF);
+        seqReadoutTextPaint.setTextSize(13f * density);
+        seqReadoutTextPaint.setTypeface(Typeface.MONOSPACE);
+        seqReadoutBgPaint.setColor(0xF01A1A22);
+        float padX = 10f * density, padY = 6f * density;
+        float tw = seqReadoutTextPaint.measureText(text);
+        float bw = tw + padX * 2, bh = 15f * density + padY * 2;
+        float left = Math.max(2f * density, Math.min((viewW - bw) / 2f, viewW - bw - 2f * density));
+        float top = Math.max(2f * density, trackTop - bh - 10f * density);
+        RectF box = new RectF(left, top, left + bw, top + bh);
+        canvas.drawRoundRect(box, 6f * density, 6f * density, seqReadoutBgPaint);
+        canvas.drawText(text, left + padX, top + padY + 12f * density, seqReadoutTextPaint);
     }
 
     private final Paint trimPreviewBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -4565,6 +4608,19 @@ public class EditorTimelineView extends View {
             if (s.getId().equals(sheetId)) return s;
         }
         return null;
+    }
+
+    /**
+     * Drop this sheet's cached decoder so the next draw re-reads it. Called when a sheet's
+     * FRAMES change under a stable id (a sequence reorder), where the cache would otherwise
+     * keep serving the old order — a stale tape is indistinguishable from a reorder that
+     * silently did nothing.
+     */
+    public void invalidateSpriteRenderer(@NonNull String sheetId) {
+        com.fadcam.ui.faditor.sprite.SpriteSheetRenderer r = spriteRendererCache.remove(sheetId);
+        if (r != null) r.recycle();
+        spriteRendererFailed.remove(sheetId);
+        invalidate();
     }
 
     /** §2 sprite-cell provider: decode-once sheet renderer + STEP/HOLD cell resolution. */

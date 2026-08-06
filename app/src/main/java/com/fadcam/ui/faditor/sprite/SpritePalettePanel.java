@@ -79,10 +79,56 @@ public class SpritePalettePanel extends FrameLayout {
          *  Generation is delegated to {@link SpritePresetStamper}. */
         default void onPresetStamp(@NonNull SpriteOverlayItem item,
                                    @NonNull SpritePresetStamper.Kind kind) {}
+
+        // ── Dope sheet (SPEC_IMAGE_SEQUENCE §5) ──────────────────────────
+        // The panel stays a pure VIEW: it never touches the model. Every edit below goes to the
+        // activity, which owns undo, persistence and preview refresh — the single write path
+        // this class was built around.
+
+        /** Weights edited (drag or bulk tool). ONE undo step per call. */
+        default void onSequenceWeightsChanged(@NonNull SpriteOverlayItem item,
+                                              @NonNull List<Integer> weights,
+                                              @NonNull String label) {}
+
+        /** §5c.7 order op: {@code "REVERSE"} or {@code "SHUFFLE"}. */
+        default void onSequenceReorder(@NonNull SpriteOverlayItem item, @NonNull String op) {}
+
+        /** Move the real playhead to an item-local time (tapping a dope-sheet frame). */
+        default void onSeekToLocalMs(@NonNull SpriteOverlayItem item, long localMs) {}
+
+        /** §3d: convert this sequence into a packed grid sprite sheet. */
+        default void onConvertToSpriteSheet(@NonNull SpriteOverlayItem item) {}
+
+        /** FF-A: turn the selected frame-track keys into a reusable preset. */
+        default void onMakePresetFromKeys(@NonNull SpriteOverlayItem item,
+                                          @NonNull List<Integer> keyIndices) {}
+
+        /** §6: cycle once → loop → ping-pong (ping-pong preserves weights when it mirrors). */
+        default void onSequenceLoopModeCycled(@NonNull SpriteOverlayItem item) {}
+
+        /** §6: toggle the "continues until blocked" LENGTH intent (always resolved concretely). */
+        default void onSequenceContinuesToggled(@NonNull SpriteOverlayItem item) {}
+
+        /** §2a: toggle RELATIVE ⇄ ABSOLUTE — what dragging this object's edge MEANS. */
+        default void onSequenceResizeModeCycled(@NonNull SpriteOverlayItem item) {}
+    }
+
+    /** Human label for a preset wrap type. */
+    private static String loopLabel(@NonNull String type) {
+        switch (type) {
+            case "loop": return "loop";
+            case "pingpong": return "ping-pong";
+            default: return "once";
+        }
     }
 
     private static final int DETENT_MICRO = 0;
     private static final int DETENT_PALETTE = 1;
+    /**
+     * The DOPE-SHEET detent (SPEC_IMAGE_SEQUENCE §5, PLAN_SPRITE_ANIMATION fast-follow A).
+     * Owed since 2026-07-06 and built ONCE for sequences and sprites together, per §0.
+     */
+    private static final int DETENT_DOPE = 2;
 
     private final float density = getResources().getDisplayMetrics().density;
     private final LinearLayout panel;
@@ -132,9 +178,13 @@ public class SpritePalettePanel extends FrameLayout {
                         return true;
                     case MotionEvent.ACTION_UP:
                         float dy = downY - e.getRawY(); // up = positive
-                        if (dy > 30 * density && detent == DETENT_MICRO) setDetent(DETENT_PALETTE);
-                        else if (dy < -30 * density) {
-                            if (detent == DETENT_PALETTE) setDetent(DETENT_MICRO);
+                        if (dy > 30 * density) {
+                            // micro → palette → dope, the three detents S3 designed.
+                            if (detent == DETENT_MICRO) setDetent(DETENT_PALETTE);
+                            else if (detent == DETENT_PALETTE) setDetent(DETENT_DOPE);
+                        } else if (dy < -30 * density) {
+                            if (detent == DETENT_DOPE) setDetent(DETENT_PALETTE);
+                            else if (detent == DETENT_PALETTE) setDetent(DETENT_MICRO);
                             else collapse();
                         }
                         return true;
@@ -188,7 +238,19 @@ public class SpritePalettePanel extends FrameLayout {
         contentArea.setOrientation(LinearLayout.VERTICAL);
         panel.addView(contentArea, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // Dope-sheet content (§5) — its own container so switching detents does not rebuild
+        // the strip and lose the user's selection mid-edit.
+        dopeArea = new LinearLayout(ctx);
+        dopeArea.setOrientation(LinearLayout.VERTICAL);
+        dopeArea.setVisibility(GONE);
+        panel.addView(dopeArea, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
+
+    private final LinearLayout dopeArea;
+    @Nullable private DopeSheetView dopeSheet;
+    @Nullable private TextView dopeSummary;
 
     public void setCallback(@Nullable Callback cb) { this.callback = cb; }
 
@@ -207,6 +269,7 @@ public class SpritePalettePanel extends FrameLayout {
     public void setPlayheadMs(long timelineMs) {
         this.playheadMs = timelineMs;
         syncIndicator();
+        if (dopeSheet != null && detent == DETENT_DOPE) dopeSheet.setPlayheadMs(timelineMs);
         if (selected != null) {
             long localMs = selected.toLocalMs(timelineMs);
             boolean onKey = false;
@@ -227,6 +290,244 @@ public class SpritePalettePanel extends FrameLayout {
     private void setDetent(int d) {
         this.detent = d;
         contentArea.setVisibility(d == DETENT_PALETTE ? VISIBLE : GONE);
+        dopeArea.setVisibility(d == DETENT_DOPE ? VISIBLE : GONE);
+        if (d == DETENT_DOPE) buildDopeSheet();
+    }
+
+    /** Open straight to the dope sheet (the timeline tape's "edit holds" affordance). */
+    public void openDopeSheet() { setDetent(DETENT_DOPE); }
+
+    // ── The dope sheet (§5) ───────────────────────────────────────────────
+
+    /**
+     * Build the §5 dope-sheet detent: a summary line, the thumbnail strip, and the §5c
+     * anti-tedium toolbar.
+     *
+     * <p>Tedium is the main risk to this feature — the spec says so outright — so the toolbar is
+     * not a nice-to-have. Every tool here is one call into {@link SequenceTiming}, which is what
+     * the weight model buys: "on twos" and "every 6th frame holds five" and "gradually faster"
+     * are all the same kind of edit to the same integer array.</p>
+     */
+    private void buildDopeSheet() {
+        dopeArea.removeAllViews();
+        if (callback == null || selected == null) {
+            dopeArea.addView(hint("Select an object to edit its frames."));
+            return;
+        }
+        final SpriteSheet sheet = callback.lookupSheet(selected.getSheetId());
+        if (sheet == null) {
+            dopeArea.addView(hint("This object's sheet is missing."));
+            return;
+        }
+        final SpriteOverlayItem item = selected;
+        int pad = (int) (8 * density);
+
+        dopeSummary = new TextView(getContext());
+        dopeSummary.setTextColor(0xFFB0BEC5);
+        dopeSummary.setTextSize(11.5f);
+        dopeSummary.setPadding(pad * 2, 0, pad * 2, pad / 2);
+        dopeArea.addView(dopeSummary);
+
+        final DopeSheetView strip = new DopeSheetView(getContext());
+        dopeSheet = strip;
+        strip.bind(sheet, item, callback.lookupRenderer(item.getSheetId()));
+        strip.setPlayheadMs(playheadMs);
+        strip.setCallback(new DopeSheetView.Callback() {
+            @Override
+            public void onWeightsCommitted(@NonNull List<Integer> weights, @NonNull String label) {
+                if (callback != null) callback.onSequenceWeightsChanged(item, weights, label);
+                refreshDopeSummary();
+            }
+            @Override
+            public void onSeekToFrame(int frameIndex, long localMs) {
+                if (callback != null) callback.onSeekToLocalMs(item, localMs);
+            }
+            @Override
+            public void onSelectionChanged(@NonNull java.util.Set<Integer> sel) {
+                refreshDopeSummary();
+            }
+        });
+        dopeArea.addView(strip, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        if (sheet.isSequence()) {
+            dopeArea.addView(buildWeightToolbar(strip, sheet, item));
+        } else {
+            dopeArea.addView(buildSpritePresetToolbar(strip, item));
+        }
+        refreshDopeSummary();
+    }
+
+    private void refreshDopeSummary() {
+        if (dopeSummary == null || dopeSheet == null) return;
+        String s = dopeSheet.summary();
+        int selN = dopeSheet.selection().size();
+        dopeSummary.setText(selN > 0 ? s + "  ·  " + selN + " selected" : s);
+    }
+
+    private TextView hint(@NonNull String text) {
+        TextView t = new TextView(getContext());
+        t.setTextColor(0xFF90A4AE);
+        t.setTextSize(12f);
+        t.setPadding((int) (16 * density), (int) (12 * density),
+                (int) (16 * density), (int) (12 * density));
+        t.setText(text);
+        return t;
+    }
+
+    /** §5c: the anti-tedium toolkit, in one scrolling row of chips. */
+    private View buildWeightToolbar(@NonNull DopeSheetView strip, @NonNull SpriteSheet sheet,
+                                    @NonNull SpriteOverlayItem item) {
+        HorizontalScrollView scroll = new HorizontalScrollView(getContext());
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        int pad = (int) (8 * density);
+        row.setPadding(pad, pad / 2, pad, pad);
+
+        // §5c.4 — the most common animation operation in existence, one tap.
+        row.addView(tool("On ones", () -> strip.applyWeights(
+                SequenceTiming.setWeight(strip.currentWeights(), strip.frameCount(),
+                        selectionList(strip), 1), "On ones")), chipLp());
+        row.addView(tool("On twos", () -> strip.applyWeights(
+                SequenceTiming.setWeight(strip.currentWeights(), strip.frameCount(),
+                        selectionList(strip), 2), "On twos")), chipLp());
+        row.addView(tool("On threes", () -> strip.applyWeights(
+                SequenceTiming.setWeight(strip.currentWeights(), strip.frameCount(),
+                        selectionList(strip), 3), "On threes")), chipLp());
+
+        // §5c.5 ramp — "a walk cycle gradually getting faster" as a single control.
+        row.addView(tool("Ramp ▸", () -> promptRamp(strip)), chipLp());
+        // §5c.2 stride select — "every Nth frame, starting at S".
+        row.addView(tool("Every Nth", () -> promptStride(strip)), chipLp());
+        // §5c.6 numeric entry.
+        row.addView(tool("Set ×N", () -> promptNumeric(strip)), chipLp());
+
+        row.addView(tool("All", strip::selectAll), chipLp());
+        row.addView(tool("None", strip::clearSelection), chipLp());
+
+        // §5c.7 order operations — weights travel with their frames.
+        row.addView(tool("Reverse", () -> {
+            if (callback != null) callback.onSequenceReorder(item, "REVERSE");
+            rebuildDopeAfterModelChange(item);
+        }), chipLp());
+        row.addView(tool("Shuffle", () -> {
+            if (callback != null) callback.onSequenceReorder(item, "SHUFFLE");
+            rebuildDopeAfterModelChange(item);
+        }), chipLp());
+
+        // §6 looping. The preset type is the wrap rule; "Continues" is the LENGTH intent, which
+        // is a different question and so is a different chip.
+        SpriteSheet.Preset p = sheet.sequencePreset();
+        final String loopType = p == null ? "once" : p.type;
+        row.addView(tool("Play: " + loopLabel(loopType), () -> {
+            if (callback != null) callback.onSequenceLoopModeCycled(item);
+            buildDopeSheet();
+        }), chipLp());
+        row.addView(tool(item.isContinuesUntilBlocked() ? "Continues ✓" : "Continues", () -> {
+            if (callback != null) callback.onSequenceContinuesToggled(item);
+            buildDopeSheet();
+        }), chipLp());
+
+        // §2a — the resize MODE. Also drawn on the tape (different handle shape/colour); the
+        // spec insists on that, because one handle with two destructive behaviours based on
+        // invisible state is the trap that bit the caret-vs-trim grab.
+        row.addView(tool("Drag: " + (sheet.getResizeMode()
+                        == SequenceTiming.ResizeMode.ABSOLUTE ? "cuts frames" : "retimes"),
+                () -> {
+                    if (callback != null) callback.onSequenceResizeModeCycled(item);
+                    buildDopeSheet();
+                }), chipLp());
+
+        // §3d — a drawer ACTION, deliberately not an import branch: at import the user cannot
+        // yet know which they want, and as an action it is discoverable later and reversible.
+        row.addView(tool("→ Sprite sheet", () -> {
+            if (callback != null) callback.onConvertToSpriteSheet(item);
+        }), chipLp());
+
+        scroll.addView(row);
+        return scroll;
+    }
+
+    /** Grid sprites get FF-A's other half: turn a run of keys into a reusable preset. */
+    private View buildSpritePresetToolbar(@NonNull DopeSheetView strip,
+                                          @NonNull SpriteOverlayItem item) {
+        HorizontalScrollView scroll = new HorizontalScrollView(getContext());
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        int pad = (int) (8 * density);
+        row.setPadding(pad, pad / 2, pad, pad);
+        row.addView(tool("All", strip::selectAll), chipLp());
+        row.addView(tool("None", strip::clearSelection), chipLp());
+        row.addView(tool("Make preset", () -> {
+            if (callback != null) callback.onMakePresetFromKeys(item, selectionList(strip));
+        }), chipLp());
+        scroll.addView(row);
+        return scroll;
+    }
+
+    private void rebuildDopeAfterModelChange(@NonNull SpriteOverlayItem item) {
+        buildDopeSheet();
+    }
+
+    @NonNull
+    private java.util.List<Integer> selectionList(@NonNull DopeSheetView strip) {
+        return new java.util.ArrayList<>(strip.selection());
+    }
+
+    private TextView tool(@NonNull String label, @NonNull Runnable onTap) {
+        TextView t = chip(label);
+        t.setOnClickListener(v -> onTap.run());
+        return t;
+    }
+
+    // ── Small numeric prompts (§5c.2 / .5 / .6) ───────────────────────────
+    // Built inline rather than as layouts: res/ is another agent's live file per the
+    // FaditorEditorActivity protocol note.
+
+    private void promptNumeric(@NonNull DopeSheetView strip) {
+        numberDialog("Hold for how many frames?", "2", v -> strip.applyWeights(
+                SequenceTiming.setWeight(strip.currentWeights(), strip.frameCount(),
+                        selectionList(strip), v), "Set hold ×" + v));
+    }
+
+    private void promptStride(@NonNull DopeSheetView strip) {
+        numberDialog("Select every Nth frame", "2", n -> strip.selectStride(0, Math.max(1, n)));
+    }
+
+    private void promptRamp(@NonNull DopeSheetView strip) {
+        java.util.List<Integer> sel = selectionList(strip);
+        final int from = sel.isEmpty() ? 0 : java.util.Collections.min(sel);
+        final int to = sel.isEmpty() ? strip.frameCount() - 1 : java.util.Collections.max(sel);
+        numberDialog("Ramp holds: START value", "1", w0 ->
+                numberDialog("Ramp holds: END value", "4", w1 -> strip.applyWeights(
+                        SequenceTiming.applyRamp(strip.currentWeights(), strip.frameCount(),
+                                from, to, w0, w1,
+                                com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT),
+                        "Ramp holds " + w0 + "→" + w1)));
+    }
+
+    private interface IntConsumer { void accept(int value); }
+
+    private void numberDialog(@NonNull String title, @NonNull String initial,
+                              @NonNull IntConsumer onOk) {
+        final android.widget.EditText input = new android.widget.EditText(getContext());
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setText(initial);
+        input.setSelectAllOnFocus(true);
+        int p = (int) (20 * density);
+        input.setPadding(p, p / 2, p, p / 2);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(getContext())
+                .setTitle(title)
+                .setView(input)
+                .setPositiveButton("OK", (d, w) -> {
+                    try {
+                        onOk.accept(Integer.parseInt(input.getText().toString().trim()));
+                    } catch (NumberFormatException ignored) { /* leave unchanged */ }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     // ── Build / refresh ───────────────────────────────────────────────────

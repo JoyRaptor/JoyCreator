@@ -59,6 +59,10 @@ public class SequenceTimingTest {
         changeTimesMarkRepeatsOnLaterPasses();
         changeTimesAreWindowedAndCapped();
         onceDoesNotEmitPhantomChangesAfterItsRun();
+        // §6 open-ended
+        continuesResolvesToAConcreteLength();
+        continuesReportsWhenANeighbourClippedIt();
+        continuesIsIdempotent();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -457,6 +461,63 @@ public class SequenceTimingTest {
         check("a 'once' run stops changing after its last frame", ch.size() == 3);
         check("and the video agrees it is holding",
                 SpriteFrameResolver.resolveCellAt(s, it, 4000) == 2);
+    }
+
+    // ── §6 open-ended ───────────────────────────────────────────────────────
+
+    /**
+     * The spec's danger case. "Continues" must never leave a duration that depends on neighbours
+     * at render time — it must resolve to a real number, so undo restores something the user saw.
+     */
+    static void continuesResolvesToAConcreteLength() {
+        SpriteSheet s = seq(3, 10f, null, "loop");
+        SpriteOverlayItem it = item(s, "loop");
+        it.setTimeRange(0, Long.MAX_VALUE);
+        it.setContinuesUntilBlocked(true);
+        boolean changed = com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
+                java.util.Collections.singletonList(it), id -> s, 8000);
+        check("resolving reports the change", changed);
+        check("end is concrete, not MAX_VALUE", it.getEndMs() == 8000);
+        check("and it was not clipped by anything", !it.isClippedByNeighbour());
+    }
+
+    static void continuesReportsWhenANeighbourClippedIt() {
+        SpriteSheet s = seq(12, 1f, null, "once");   // natural run = 12s
+        SpriteOverlayItem a = item(s, "hold");
+        a.setTimeRange(0, Long.MAX_VALUE);
+        a.setContinuesUntilBlocked(true);
+        SpriteOverlayItem b = item(s, "hold");
+        b.setTimeRange(4000, 6000);                   // blocks a at 4s
+        com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
+                java.util.Arrays.asList(a, b), id -> s, 60000);
+        check("the neighbour sets the end", a.getEndMs() == 4000);
+        check("and being clipped is FLAGGED, not silent", a.isClippedByNeighbour());
+        check("the neighbour itself is untouched",
+                b.getStartMs() == 4000 && b.getEndMs() == 6000);
+    }
+
+    static void continuesIsIdempotent() {
+        SpriteSheet s = seq(3, 10f, null, "loop");
+        SpriteOverlayItem it = item(s, "loop");
+        it.setTimeRange(0, Long.MAX_VALUE);
+        it.setContinuesUntilBlocked(true);
+        com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
+                java.util.Collections.singletonList(it), id -> s, 5000);
+        boolean second = com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
+                java.util.Collections.singletonList(it), id -> s, 5000);
+        // Re-running must report NO change, or the sync that calls it on every edit would
+        // churn — and a churning resync is how "the app moved my clip by itself" starts.
+        check("re-resolving is a no-op", !second);
+        check("a non-continuing item is never touched", nonContinuingUntouched());
+    }
+
+    static boolean nonContinuingUntouched() {
+        SpriteSheet s = seq(3, 10f, null, "loop");
+        SpriteOverlayItem it = item(s, "hold");
+        it.setTimeRange(0, 1234);
+        return !com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(
+                java.util.Collections.singletonList(it), id -> s, 9999)
+                && it.getEndMs() == 1234;
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────

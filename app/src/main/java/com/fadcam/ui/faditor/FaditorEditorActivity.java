@@ -1627,6 +1627,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
         editorTimeline.setOnTrackHeaderLongPressListener(this::onTrackHeaderLongPress);
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
+        editorTimeline.setSpriteFpsProvider(spriteFpsProvider());
         setupTimelineResizeGrabBar();
         editorTimeline.setOnSegmentActionListener(new EditorTimelineView.OnSegmentActionListener() {
             @Override
@@ -11863,9 +11864,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tl.pruneDefaultTrackFlags();
     }
 
+    /** Guard for {@link #resolveSequenceOpenEnds()}, which re-enters through this method. */
+    private boolean resolvingOpenEnds;
+
     private void syncTimelineOverlays() {
         if (editorTimeline != null && project != null) {
             Timeline tl = project.getTimeline();
+            // SPEC_IMAGE_SEQUENCE §6: "resolve it to a concrete length whenever anything
+            // changes". Every edit path funnels through this sync, so this is the one place
+            // that has to know — the same reasoning the visualizer/link resyncs below use.
+            if (!resolvingOpenEnds) {
+                resolvingOpenEnds = true;
+                try { resolveSequenceOpenEnds(); } finally { resolvingOpenEnds = false; }
+            }
             applyDefaultAudioCollapseOnce(tl);
             // G5: attached visualizers re-derive their windows from their hosts' CURRENT
             // spans. Every edit path funnels through this sync, so time-riding is one call.
@@ -13174,6 +13185,40 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             maybeRecordTrackOnlyChange(trackChange);
                         }
                     }
+                } else if (item.getSprite() != null) {
+                    // SPEC_IMAGE_SEQUENCE §2a: a sequence resize changes the item's range and,
+                    // in RELATIVE mode, the sheet's cadence. BOTH have to be in the same undo
+                    // step or undoing a drag would restore the length while leaving the object
+                    // playing at the speed the drag chose.
+                    com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = item.getSprite();
+                    long beforeStart = ctrl.getSpriteBeforeStartMs();
+                    long beforeEnd = ctrl.getSpriteBeforeEndMs();
+                    float beforeFps = ctrl.getSpriteBeforeFps();
+                    long afterStart = s.getStartMs(), afterEnd = s.getEndMs();
+                    com.fadcam.ui.faditor.sprite.SpriteSheet sh =
+                            project.spriteSheetById(s.getSheetId());
+                    float afterFps = sh != null ? sh.getFps() : beforeFps;
+                    boolean rangeChanged = beforeStart != afterStart || beforeEnd != afterEnd;
+                    boolean fpsChanged = sh != null && Math.abs(afterFps - beforeFps) > 1e-4f;
+                    if (rangeChanged || fpsChanged || trackChange != null) {
+                        String desc = trackChange != null ? trackChange.description
+                                : (kind == com.fadcam.ui.faditor.layers.LayerGestureController
+                                        .GestureKind.MOVE ? "Move sprite" : "Resize sequence");
+                        final com.fadcam.ui.faditor.sprite.SpriteSheet fSheet = sh;
+                        undoManager.recordAction(mergedAction(desc,
+                                () -> {
+                                    s.setTimeRange(afterStart, afterEnd);
+                                    if (fSheet != null && fpsChanged) fSheet.setFps(afterFps);
+                                },
+                                () -> {
+                                    s.setTimeRange(beforeStart, beforeEnd);
+                                    if (fSheet != null && fpsChanged) fSheet.setFps(beforeFps);
+                                },
+                                trackChange));
+                    } else {
+                        maybeRecordTrackOnlyChange(trackChange);
+                    }
+                    if (spriteOverlayView != null) spriteOverlayView.invalidate();
                 }
                 syncTimelineOverlays();
                 scheduleAutoSave();
@@ -13642,6 +13687,67 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * only this activity's callback needs it.
      */
     @Nullable
+    /**
+     * The model lookups the gesture controller needs for SPEC_IMAGE_SEQUENCE §2a resizing.
+     * Kept as a small interface so the gesture code never learns about project lookup.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.layers.LayerGestureController.SpriteFpsProvider
+            spriteFpsProvider() {
+        return new com.fadcam.ui.faditor.layers.LayerGestureController.SpriteFpsProvider() {
+            @Nullable
+            private com.fadcam.ui.faditor.sprite.SpriteSheet sheetOf(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                return project == null ? null : project.spriteSheetById(item.getSheetId());
+            }
+
+            @Override
+            public float fpsFor(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetOf(item);
+                return s == null ? 0f : s.getFps();
+            }
+
+            @Override
+            public boolean isSequence(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetOf(item);
+                return s != null && s.isSequence();
+            }
+
+            @Override
+            public int frameCount(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetOf(item);
+                return s == null ? 0 : s.cellCount();
+            }
+
+            @Override
+            @NonNull
+            public java.util.List<Integer> weights(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetOf(item);
+                com.fadcam.ui.faditor.sprite.SpriteSheet.Preset p =
+                        s == null ? null : s.sequencePreset();
+                return p == null ? java.util.Collections.emptyList() : p.weights;
+            }
+
+            @Override
+            @NonNull
+            public com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode resizeMode(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetOf(item);
+                return s == null ? com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.RELATIVE
+                        : s.getResizeMode();
+            }
+
+            @Override
+            public void setFps(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                               float fps) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet s = sheetOf(item);
+                if (s != null) s.setFps(fps);
+            }
+        };
+    }
+
     private com.fadcam.ui.faditor.layers.LayerGestureController editorTimelineGestureController() {
         return editorTimeline != null ? editorTimeline.getLayerGestureController() : null;
     }
@@ -17398,6 +17504,63 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onSweepFromVideo(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
                 sweepPerformanceFromVideo(item);
+            }
+
+            // ── Dope sheet (SPEC_IMAGE_SEQUENCE §5) ──────────────────────
+
+            @Override
+            public void onSequenceWeightsChanged(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                    @NonNull java.util.List<Integer> weights, @NonNull String label) {
+                applySequenceWeights(item, weights, label);
+                p.setPlayheadMs(lastPlayheadAbsoluteMs);
+            }
+
+            @Override
+            public void onSequenceReorder(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                    @NonNull String op) {
+                applySequenceReorder(item, op);
+            }
+
+            @Override
+            public void onSeekToLocalMs(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, long localMs) {
+                if (editorTimeline != null) {
+                    editorTimeline.seekToTimelineMs(
+                            item.getStartMs() + Math.max(0, localMs));
+                }
+            }
+
+            @Override
+            public void onConvertToSpriteSheet(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                convertSequenceToSpriteSheet(item);
+            }
+
+            @Override
+            public void onMakePresetFromKeys(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                    @NonNull java.util.List<Integer> keyIndices) {
+                makePresetFromKeys(item, keyIndices);
+            }
+
+            @Override
+            public void onSequenceLoopModeCycled(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                cycleSequenceLoopMode(item);
+            }
+
+            @Override
+            public void onSequenceContinuesToggled(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                toggleSequenceContinues(item);
+            }
+
+            @Override
+            public void onSequenceResizeModeCycled(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                cycleSequenceResizeMode(item);
             }
 
             @Override
@@ -23593,6 +23756,381 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
         Toast.makeText(this, frameUris.size() + " frames · "
                         + com.fadcam.ui.faditor.sprite.DurationParser.formatMs(span),
+                Toast.LENGTH_SHORT).show();
+    }
+
+    // ── Dope-sheet edits (SPEC_IMAGE_SEQUENCE §5) ────────────────────────────
+
+    /**
+     * Write new weights onto a sequence and re-length the object to match.
+     *
+     * <p><b>Adding a hold makes the object LONGER; it does not speed everything else up.</b>
+     * fps is the stored authority (§2), so Σweights/fps is the run's length and holding frame 3
+     * for five beats adds four beats to the whole thing — the animator's expectation, and the
+     * direction that leaves the cadence they chose alone. The opposite convention would mean
+     * lengthening one hold silently retimed every other frame.</p>
+     *
+     * <p>Note this is the exact INVERSE of dragging the object's edge in RELATIVE mode (§2a),
+     * which keeps the weights and moves fps. Together they are the two things a user can mean,
+     * and each leaves the other's authored value untouched.</p>
+     */
+    private void applySequenceWeights(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+            @NonNull java.util.List<Integer> weights, @NonNull String label) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                project.spriteSheetById(item.getSheetId());
+        if (sheet == null || !sheet.isSequence()) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset preset = sheet.sequencePreset();
+        if (preset == null) return;
+
+        final java.util.List<Integer> before = new java.util.ArrayList<>(preset.weights);
+        final long beforeStart = item.getStartMs(), beforeEnd = item.getEndMs();
+        final java.util.List<Integer> after = com.fadcam.ui.faditor.sprite.SequenceTiming
+                .fit(weights, preset.frames.size());
+
+        Runnable apply = () -> {
+            preset.weights.clear();
+            preset.weights.addAll(after);
+            long span = com.fadcam.ui.faditor.sprite.SequenceTiming.totalMsForFps(
+                    after, preset.frames.size(),
+                    preset.fps > 0f ? preset.fps : sheet.getFps());
+            item.setTimeRange(beforeStart, beforeStart + span);
+            syncTimelineOverlays();
+        };
+        Runnable undo = () -> {
+            preset.weights.clear();
+            preset.weights.addAll(before);
+            item.setTimeRange(beforeStart, beforeEnd);
+            syncTimelineOverlays();
+        };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction(label, apply, undo));
+        scheduleAutoSave();
+        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+    }
+
+    /** §5c.7 order operations. Weights travel WITH their frames, so holds stay on their images. */
+    private void applySequenceReorder(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, @NonNull String op) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                project.spriteSheetById(item.getSheetId());
+        if (sheet == null || !sheet.isSequence()) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset preset = sheet.sequencePreset();
+        if (preset == null) return;
+
+        final java.util.List<String> beforeUris =
+                new java.util.ArrayList<>(sheet.getFrameUris());
+        final java.util.List<Integer> beforeW = new java.util.ArrayList<>(preset.weights);
+
+        java.util.List<String> uris = new java.util.ArrayList<>(beforeUris);
+        java.util.List<Integer> ws = com.fadcam.ui.faditor.sprite.SequenceTiming
+                .fit(preset.weights, uris.size());
+        if ("REVERSE".equals(op)) {
+            com.fadcam.ui.faditor.sprite.SequenceTiming.reverse(uris, ws);
+        } else {
+            // Seeded from the clock: the SHUFFLE itself need not be reproducible (undo restores
+            // the exact previous order), but SequenceTiming takes a seed so the harness can
+            // assert that frames and weights move together.
+            com.fadcam.ui.faditor.sprite.SequenceTiming.shuffle(uris, ws,
+                    System.currentTimeMillis());
+        }
+        final java.util.List<String> afterUris = uris;
+        final java.util.List<Integer> afterW = ws;
+
+        Runnable apply = () -> {
+            sheet.setSequenceFrames(afterUris);
+            sheet.ensureSequencePreset();
+            preset.weights.clear();
+            preset.weights.addAll(afterW);
+            invalidateSpriteRenderer(sheet.getId());
+            syncTimelineOverlays();
+        };
+        Runnable undo = () -> {
+            sheet.setSequenceFrames(beforeUris);
+            sheet.ensureSequencePreset();
+            preset.weights.clear();
+            preset.weights.addAll(beforeW);
+            invalidateSpriteRenderer(sheet.getId());
+            syncTimelineOverlays();
+        };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                "REVERSE".equals(op) ? "Reverse frames" : "Shuffle frames", apply, undo));
+        scheduleAutoSave();
+        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+    }
+
+    /** Drop cached decoders for a sheet whose frames changed, so the next draw re-reads them. */
+    private void invalidateSpriteRenderer(@NonNull String sheetId) {
+        android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
+                com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> cached =
+                spriteRendererCache.remove(sheetId);
+        if (cached != null && cached.second != null) cached.second.recycle();
+        if (editorTimeline != null) editorTimeline.invalidateSpriteRenderer(sheetId);
+    }
+
+    /**
+     * FF-A: turn the selected frame-track keys into a reusable {@link
+     * com.fadcam.ui.faditor.sprite.SpriteSheet.Preset}, and collapse those keys into one preset
+     * key so the timeline shows the run as the single thing it now is.
+     */
+    private void makePresetFromKeys(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+            @NonNull java.util.List<Integer> keyIndices) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                project.spriteSheetById(item.getSheetId());
+        if (sheet == null) return;
+        java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> keys =
+                item.getFrameTrack().keys();
+        java.util.List<Integer> idx = new java.util.ArrayList<>(keyIndices);
+        java.util.Collections.sort(idx);
+        if (idx.size() < 2) {
+            Toast.makeText(this, "Select at least two frames", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset preset =
+                new com.fadcam.ui.faditor.sprite.SpriteSheet.Preset(
+                        java.util.UUID.randomUUID().toString(),
+                        "Preset " + (sheet.getPresets().size() + 1));
+        preset.type = "loop";
+        long anchor = 0;
+        boolean first = true;
+        for (Integer i : idx) {
+            if (i == null || i < 0 || i >= keys.size()) continue;
+            com.fadcam.ui.faditor.sprite.FrameTrack.Key k = keys.get(i);
+            if (k.presetId != null) continue;      // already a preset run: not a frame
+            if (first) { anchor = k.timeMs; first = false; }
+            preset.frames.add(k.cellIndex);
+        }
+        if (preset.frames.size() < 2) {
+            Toast.makeText(this, "Those keys can't make a preset", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final long anchorMs = anchor;
+        final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
+                new java.util.ArrayList<>(keys);
+        final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
+                new java.util.ArrayList<>();
+        java.util.Set<Integer> chosen = new java.util.HashSet<>(idx);
+        for (int i = 0; i < before.size(); i++) {
+            if (chosen.contains(i)) continue;
+            after.add(before.get(i));
+        }
+        after.add(com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(anchorMs, preset.id));
+
+        Runnable apply = () -> {
+            if (sheet.presetById(preset.id) == null) sheet.getPresets().add(preset);
+            restoreFrameKeys(item, after);
+        };
+        Runnable undo = () -> {
+            sheet.getPresets().remove(preset);
+            restoreFrameKeys(item, before);
+        };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction("Make preset", apply, undo));
+        scheduleAutoSave();
+        Toast.makeText(this, preset.name + " · " + preset.frames.size() + " frames",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * §3d — <b>Convert to sprite sheet</b>, as a drawer ACTION rather than an import branch.
+     *
+     * <p>The user originally wanted a second import path that builds a sprite object instead.
+     * The spec moves it here on purpose: <i>"at import the user cannot yet know which they want;
+     * as an action it is discoverable later and reversible."</i></p>
+     *
+     * <p>Packs the N frames into one grid PNG in the project bundle, builds a grid sheet with the
+     * same cadence, and carries the WEIGHTS across on an equivalent preset — so converting does
+     * not quietly throw away the timing the user authored. The original sequence sheet is left in
+     * the project: conversion re-points this item, it does not destroy the source.</p>
+     */
+    private void convertSequenceToSpriteSheet(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet seq =
+                project.spriteSheetById(item.getSheetId());
+        if (seq == null || !seq.isSequence()) {
+            Toast.makeText(this, "Not an image sequence", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final int n = seq.cellCount();
+        if (n <= 0) return;
+        Toast.makeText(this, "Packing " + n + " frames…", Toast.LENGTH_SHORT).show();
+
+        final String seqId = seq.getId();
+        thumbnailExecutorRun(() -> {
+            com.fadcam.ui.faditor.sprite.SpriteSheet packed = null;
+            try {
+                packed = com.fadcam.ui.faditor.sprite.SequencePacker.pack(
+                        this, seq,
+                        new java.io.File(
+                                projectStorage.projectDir(project.getId()), "assets"));
+            } catch (Exception | OutOfMemoryError e) {
+                FLog.w(TAG, "sequence → sheet pack failed", e);
+            }
+            final com.fadcam.ui.faditor.sprite.SpriteSheet result = packed;
+            runOnUiThread(() -> {
+                if (result == null) {
+                    Toast.makeText(this, "Couldn't pack that sequence", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                final String oldSheetId = seqId;
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
+                        java.util.Collections.singletonList(
+                                com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(0,
+                                        com.fadcam.ui.faditor.sprite.SpriteSheet
+                                                .SEQUENCE_PRESET_ID));
+                Runnable apply = () -> {
+                    if (project.spriteSheetById(result.getId()) == null) {
+                        project.getSpriteSheets().add(result);
+                    }
+                    item.setSheetId(result.getId());
+                    restoreFrameKeys(item, after);
+                    syncTimelineOverlays();
+                };
+                Runnable undo = () -> {
+                    item.setSheetId(oldSheetId);
+                    restoreFrameKeys(item, before);
+                    project.getSpriteSheets().remove(result);
+                    syncTimelineOverlays();
+                };
+                apply.run();
+                undoManager.recordAction(
+                        new EditActions.LambdaAction("Convert to sprite sheet", apply, undo));
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                Toast.makeText(this, "Packed into a "
+                        + result.getCols() + "×" + result.getRows() + " sheet",
+                        Toast.LENGTH_SHORT).show();
+            });
+        });
+    }
+
+    /** Run off the UI thread on the shared thumbnail executor (packing decodes N images). */
+    private void thumbnailExecutorRun(@NonNull Runnable r) {
+        new Thread(r, "seq-pack").start();
+    }
+
+    // ── §6 looping / §2a resize mode ─────────────────────────────────────────
+
+    /** Cycle the sequence's wrap: once → loop → ping-pong. Ping-pong preserves weights. */
+    private void cycleSequenceLoopMode(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                project.spriteSheetById(item.getSheetId());
+        if (sheet == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet.Preset p = sheet.sequencePreset();
+        if (p == null) return;
+        final String before = p.type;
+        final String after = "once".equals(before) ? "loop"
+                : ("loop".equals(before) ? "pingpong" : "once");
+        Runnable apply = () -> {
+            p.type = after;
+            // endBehavior is what applies AFTER the last frame-track entry; keeping the two in
+            // step is what makes the chip mean one thing instead of two half-things.
+            item.setEndBehavior("once".equals(after) ? "hold" : after);
+            syncTimelineOverlays();
+        };
+        Runnable undo = () -> {
+            p.type = before;
+            item.setEndBehavior("once".equals(before) ? "hold" : before);
+            syncTimelineOverlays();
+        };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction("Loop mode", apply, undo));
+        scheduleAutoSave();
+        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+    }
+
+    /**
+     * §6: toggle the "continues until blocked" intent, then RESOLVE it immediately.
+     *
+     * <p>Resolution is not deferred to playback: the length is written as a real number now, so
+     * undo restores a number the user saw and nothing depends on neighbours at render time.</p>
+     */
+    private void toggleSequenceContinues(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (project == null) return;
+        final boolean before = item.isContinuesUntilBlocked();
+        final long beforeStart = item.getStartMs(), beforeEnd = item.getEndMs();
+        Runnable apply = () -> {
+            item.setContinuesUntilBlocked(!before);
+            if (!before) {
+                resolveSequenceOpenEnds();
+            } else {
+                item.setClippedByNeighbour(false);
+            }
+            syncTimelineOverlays();
+        };
+        Runnable undo = () -> {
+            item.setContinuesUntilBlocked(before);
+            item.setTimeRange(beforeStart, beforeEnd);
+            item.setClippedByNeighbour(false);
+            syncTimelineOverlays();
+        };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction("Continue to next", apply, undo));
+        scheduleAutoSave();
+        if (item.isClippedByNeighbour()) {
+            // "Never silently" (§6): if a neighbour cut it short, say so at the moment it
+            // happens as well as marking it on the tape.
+            Toast.makeText(this, "Shortened by the next object in this lane",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * §6: give every "continues" sequence a concrete length, per lane.
+     *
+     * <p>Called after edits that can change what blocks what. Cheap and idempotent — it reports
+     * whether anything actually moved, so calling it on every change cannot create churn.</p>
+     */
+    private boolean resolveSequenceOpenEnds() {
+        if (project == null || project.getTimeline() == null) return false;
+        java.util.Map<String, java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> byLane =
+                new java.util.LinkedHashMap<>();
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s
+                : project.getTimeline().getSpriteOverlays()) {
+            String lane = s.getLayerId() == null ? "sprite" : s.getLayerId();
+            byLane.computeIfAbsent(lane, k -> new java.util.ArrayList<>()).add(s);
+        }
+        long projectEnd = Math.max(1, project.getTimeline().getTotalDurationMs());
+        boolean changed = false;
+        for (java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> lane : byLane.values()) {
+            changed |= com.fadcam.ui.faditor.sprite.OpenEndResolver.resolve(lane,
+                    id -> project.spriteSheetById(id), projectEnd);
+        }
+        return changed;
+    }
+
+    /** §2a: toggle what dragging this sequence's edge MEANS. Also visible on the tape. */
+    private void cycleSequenceResizeMode(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (project == null) return;
+        final com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                project.spriteSheetById(item.getSheetId());
+        if (sheet == null) return;
+        final com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode before = sheet.getResizeMode();
+        final com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode after =
+                before == com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.RELATIVE
+                        ? com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.ABSOLUTE
+                        : com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.RELATIVE;
+        Runnable apply = () -> { sheet.setResizeMode(after); syncTimelineOverlays(); };
+        Runnable undo = () -> { sheet.setResizeMode(before); syncTimelineOverlays(); };
+        apply.run();
+        undoManager.recordAction(new EditActions.LambdaAction("Resize mode", apply, undo));
+        scheduleAutoSave();
+        Toast.makeText(this,
+                after == com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.ABSOLUTE
+                        ? "Dragging the edge now adds/removes frames"
+                        : "Dragging the edge now retimes all frames",
                 Toast.LENGTH_SHORT).show();
     }
 

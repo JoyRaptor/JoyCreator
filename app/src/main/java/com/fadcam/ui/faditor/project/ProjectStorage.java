@@ -2141,6 +2141,10 @@ public class ProjectStorage {
                     if (so.getEndMs() != Long.MAX_VALUE) sj.addProperty("endMs", so.getEndMs());
                     if (so.getLayerId() != null) sj.addProperty("layerId", so.getLayerId());
                     if (!"hold".equals(so.getEndBehavior())) sj.addProperty("endBehavior", so.getEndBehavior());
+                    // SPEC_IMAGE_SEQUENCE §6: the INTENT to continue. endMs is always a
+                    // resolved concrete number, so only the intent needs persisting —
+                    // and only when set, keeping every existing project byte-identical.
+                    if (so.isContinuesUntilBlocked()) sj.addProperty("continues", true);
                     // Avatar performance (bake-to-keyframes): additive, sparse.
                     // The track self-serializes (schemaVersion + tolerant read).
                     if (so.getAvatarRigId() != null) {
@@ -2830,6 +2834,8 @@ public class ProjectStorage {
                                 so.setLayerId(sj.get("layerId").getAsString());
                             }
                             if (hasValue(sj, "endBehavior")) so.setEndBehavior(sj.get("endBehavior").getAsString());
+                            so.setContinuesUntilBlocked(
+                                    sj.has("continues") && sj.get("continues").getAsBoolean());
                             if (hasValue(sj, "avatarRigId")) {
                                 so.setAvatarRigId(sj.get("avatarRigId").getAsString());
                             }

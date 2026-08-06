@@ -1490,6 +1490,7 @@ public final class LayerRowRenderer {
             // Captions are clip-owned (no delete semantics) — no trash badge.
             drawItemSelection(canvas, x0, top, x1, bottom, baseColor,
                     item.getCaptionSpan() == null);
+            drawSequenceResizeModeHandles(canvas, item, x0, top, x1, bottom);
         }
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
@@ -2005,6 +2006,19 @@ public final class LayerRowRenderer {
                         sheet, sprite, fromLocal, toLocal, MAX_SEQUENCE_MARKS);
         if (changes.isEmpty()) return;
 
+        // §6: the "continues →" affordance, and the visible admission when a neighbour cut it
+        // short. The spec's requirement is precise — keep the marker, resolve the length, and
+        // "show visibly when a neighbour clipped it. Never silently."
+        if (sprite.isContinuesUntilBlocked()) {
+            seqTickPaint.setColor(sprite.isClippedByNeighbour() ? 0xFFFF7043 : 0xFFFFD54F);
+            seqTickPaint.setTextSize(10f * density);
+            String marker = sprite.isClippedByNeighbour() ? "⊣ clipped" : "continues →";
+            float tw = seqTickPaint.measureText(marker);
+            if (x1 - x0 > tw + 10 * density) {
+                canvas.drawText(marker, x1 - tw - 4 * density, bottom - 4 * density, seqTickPaint);
+            }
+        }
+
         repeatPaint.setAlpha(110);
         seqTickPaint.setColor(0xB3FFFFFF);
         float tickW = Math.max(1f, density);
@@ -2026,6 +2040,52 @@ public final class LayerRowRenderer {
 
     /** Cap on tape marks per row per frame — see {@link #drawSequenceTape}. */
     private static final int MAX_SEQUENCE_MARKS = 400;
+
+    private final android.graphics.Paint seqHandlePaint = new android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+    /**
+     * SPEC_IMAGE_SEQUENCE §2a — <b>the resize mode must be visible ON THE TAPE, not only in the
+     * drawer.</b>
+     *
+     * <p>The spec is blunt about why: <i>"One handle with two different destructive behaviours
+     * based on invisible state is the exact trap that bit the caret-vs-trim grab (LEDGER §1f)."</i>
+     * So the two modes get different handle shapes and colours on the selected item:</p>
+     *
+     * <ul>
+     *   <li><b>RELATIVE</b> — an amber double-headed arrow bar. It stretches; nothing is lost.</li>
+     *   <li><b>ABSOLUTE</b> — a red notched comb. It cuts frames off, and it should look like
+     *       something that cuts.</li>
+     * </ul>
+     */
+    private void drawSequenceResizeModeHandles(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                               float x0, float top, float x1, float bottom) {
+        if (item.getSprite() == null || spriteCellProvider == null) return;
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                spriteCellProvider.sheet(item.getSprite().getSheetId());
+        if (sheet == null || !sheet.isSequence()) return;
+        boolean absolute = sheet.getResizeMode()
+                == com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.ABSOLUTE;
+        seqHandlePaint.setColor(absolute ? 0xFFFF5252 : 0xFFFFB300);
+        seqHandlePaint.setStyle(android.graphics.Paint.Style.FILL);
+        float w = 3.5f * density;
+        float h = (bottom - top) * 0.55f;
+        float cy = (top + bottom) / 2f;
+        for (float ex : new float[]{x0, x1}) {
+            if (absolute) {
+                // Notched comb: three short teeth, reading as "this removes frames".
+                float tooth = h / 5f;
+                for (int i = -1; i <= 1; i++) {
+                    float ty = cy + i * (tooth * 1.6f) - tooth / 2f;
+                    canvas.drawRect(ex - w / 2f, ty, ex + w / 2f, ty + tooth, seqHandlePaint);
+                }
+            } else {
+                // Solid bar: reads as "this stretches".
+                canvas.drawRoundRect(ex - w / 2f, cy - h / 2f, ex + w / 2f, cy + h / 2f,
+                        w / 2f, w / 2f, seqHandlePaint);
+            }
+        }
+    }
 
 
     /**

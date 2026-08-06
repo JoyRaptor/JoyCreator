@@ -149,6 +149,9 @@ public final class ObjectMenuSheet extends LinearLayout {
         // Read-only accessors so a renderer OUTSIDE this package (PipDrawerTabs) can draw the
         // same Prop without the adapters being duplicated for it. Deliberately accessors and
         // not public fields: the drawer may read a Prop and drive it, never redefine one.
+        /** The KeyframeSet property key — lets a renderer give one property special treatment
+         *  (e.g. detents on Scale) without a second list of which row is which. */
+        @NonNull public String key() { return key; }
         public float min() { return min; }
         public float max() { return max; }
         public boolean keyframeable() { return keyframeable; }

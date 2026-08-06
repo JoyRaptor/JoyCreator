@@ -112,7 +112,14 @@ public final class PipOverlayDrawer extends LinearLayout {
         super(ctx);
         density = getResources().getDisplayMetrics().density;
         setOrientation(VERTICAL);
-        setBackgroundColor(SCRIM);
+        // Rounded BOTTOM corners only. A panel that cuts straight across reads as a hard
+        // horizontal slice through the screen; curving the two bottom corners is what makes it
+        // read as something that came DOWN from the top edge (user, 2026-08-05).
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(SCRIM);
+        float r = 18f * density;
+        bg.setCornerRadii(new float[]{0f, 0f, 0f, 0f, r, r, r, r});
+        setBackground(bg);
         // Consume touches so a tap on the drawer never reaches the preview underneath and
         // starts dragging the very PiP being edited.
         setClickable(true);
@@ -151,6 +158,47 @@ public final class PipOverlayDrawer extends LinearLayout {
         contentHost.setClipChildren(true);
         addView(contentHost, new LayoutParams(
                 LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+
+        // Pull-UP dismiss grip, at the BOTTOM edge — the drawer hangs from the top, so the
+        // direction that puts it away is up. Same affordance the bottom sheet had, mirrored.
+        LinearLayout grip = new LinearLayout(ctx);
+        grip.setGravity(Gravity.CENTER);
+        grip.setPadding(0, dp(4), 0, dp(8));
+        View pill = new View(ctx);
+        GradientDrawable pillBg = new GradientDrawable();
+        pillBg.setColor(0x88FFFFFF);
+        pillBg.setCornerRadius(3f * density);
+        pill.setBackground(pillBg);
+        grip.addView(pill, new LayoutParams(dp(38), dp(4)));
+        wireGrip(grip);
+        addView(grip, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+    }
+
+    /** Drag up (or tap) on the grip dismisses. Tap is kept because a 4dp pill is a small drag
+     *  target, and the bottom sheet taught users the grip is tappable. */
+    @SuppressWarnings("ClickableViewAccessibility")
+    private void wireGrip(@NonNull View grip) {
+        final float slop = android.view.ViewConfiguration.get(getContext()).getScaledTouchSlop();
+        grip.setOnTouchListener(new OnTouchListener() {
+            float downY;
+            boolean acted;
+            @Override public boolean onTouch(View v, android.view.MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        downY = e.getRawY();
+                        acted = false;
+                        return true;
+                    case android.view.MotionEvent.ACTION_MOVE:
+                        if (!acted && downY - e.getRawY() > slop * 2) { acted = true; hide(); }
+                        return true;
+                    case android.view.MotionEvent.ACTION_UP:
+                        if (!acted) hide();
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        });
     }
 
     public void setOnClose(@Nullable Runnable r) { this.onClose = r; }
@@ -276,6 +324,39 @@ public final class PipOverlayDrawer extends LinearLayout {
         incoming.setTranslationX(forward ? w : -w);
         contentHost.addView(incoming);
         animating = true;
+
+        // Animate the HEIGHT as well as the slide. The tabs are different lengths (Mask has
+        // eight rows, Chroma collapses to one line), and without this the backdrop jumped to
+        // its new size in a single frame while the content was still sliding — the panel
+        // appeared to resize before its contents arrived. Measure the incoming view against
+        // the host's real width, then tween between the two heights over the same duration.
+        final int fromH = contentHost.getHeight();
+        incoming.measure(
+                MeasureSpec.makeMeasureSpec(contentHost.getWidth(), MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+        final int toH = Math.max(1, incoming.getMeasuredHeight());
+        if (fromH > 0 && Math.abs(toH - fromH) > 1) {
+            android.animation.ValueAnimator va =
+                    android.animation.ValueAnimator.ofInt(fromH, toH);
+            va.setDuration(SLIDE_MS);
+            va.setInterpolator(new DecelerateInterpolator());
+            va.addUpdateListener(anim -> {
+                ViewGroup.LayoutParams p = contentHost.getLayoutParams();
+                p.height = (int) anim.getAnimatedValue();
+                contentHost.setLayoutParams(p);
+            });
+            va.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(android.animation.Animator a) {
+                    // Back to WRAP_CONTENT so the panel keeps tracking its content afterwards
+                    // — a pinned pixel height would go stale the moment a row appears or hides
+                    // (the chroma tab's body does exactly that).
+                    ViewGroup.LayoutParams p = contentHost.getLayoutParams();
+                    p.height = LayoutParams.WRAP_CONTENT;
+                    contentHost.setLayoutParams(p);
+                }
+            });
+            va.start();
+        }
 
         titleView.animate().alpha(0f).translationX(forward ? -dp(16) : dp(16))
                 .setDuration(SLIDE_MS / 2).withEndAction(() -> {

@@ -114,6 +114,7 @@ public final class PipDrawerTabs {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 if (!fromUser) return;
                 float v = min + (max - min) * (p / (float) SLIDER_STEPS);
+                v = snap(prop, v);
                 prop.write(v, host.playheadMs());
                 value.setText(prop.format(v));
                 host.onChanged();
@@ -272,15 +273,32 @@ public final class PipDrawerTabs {
                                 @NonNull Runnable apply) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
+        // HORIZONTAL chips, not a vertical list. Five one-word options stacked vertically made
+        // this the tallest tab while carrying the least information, and the drawer's height is
+        // preview the user cannot see (user, 2026-08-05). Wrapped in a HorizontalScrollView so
+        // a narrow screen or a longer translation scrolls instead of clipping.
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(ctx);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout strip = new LinearLayout(ctx);
+        strip.setOrientation(LinearLayout.HORIZONTAL);
         final List<TextView> rows = new ArrayList<>();
         for (int i = 0; i < BLEND_KEYS.length; i++) {
             final int idx = i;
             TextView tv = new TextView(ctx);
             tv.setText(BLEND_LABELS[i]);
-            tv.setTextSize(13);
+            tv.setTextSize(12);
             tv.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-            tv.setPadding(Math.round(6 * d), Math.round(9 * d),
-                    Math.round(6 * d), Math.round(9 * d));
+            tv.setPadding(Math.round(12 * d), Math.round(7 * d),
+                    Math.round(12 * d), Math.round(7 * d));
+            GradientDrawable chip = new GradientDrawable();
+            chip.setCornerRadius(14f * d);
+            chip.setColor(0x22FFFFFF);
+            tv.setBackground(chip);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.rightMargin = Math.round(7 * d);
+            tv.setLayoutParams(lp);
             tv.setOnClickListener(v -> {
                 clip.setOverlayBlendMode(BLEND_KEYS[idx]);
                 for (int j = 0; j < rows.size(); j++) {
@@ -289,8 +307,10 @@ public final class PipDrawerTabs {
                 apply.run();
             });
             rows.add(tv);
-            root.addView(tv);
+            strip.addView(tv);
         }
+        hs.addView(strip);
+        root.addView(hs);
         String cur = clip.getOverlayBlendMode();
         for (int i = 0; i < BLEND_KEYS.length; i++) {
             rows.get(i).setTextColor(BLEND_KEYS[i].equals(cur) ? ACCENT : TXT);
@@ -371,4 +391,31 @@ public final class PipDrawerTabs {
 
     private static float propMin(@NonNull ObjectMenuSheet.Prop p) { return p.min(); }
     private static float propMax(@NonNull ObjectMenuSheet.Prop p) { return p.max(); }
+
+    /**
+     * Detents on the Scale row: 10/25/50/75/100/150/200/250/300/350/400 %.
+     *
+     * <p>100% is the one that actually matters — "the same size as the frame" is a value people
+     * aim for and a slider is bad at hitting exactly. The rest are the round numbers either
+     * side of it.</p>
+     *
+     * <p><b>A SNAP, not a step.</b> The value is only pulled to a detent when it is already
+     * within {@link #SNAP_PCT} of one, so every intermediate value is still reachable — the
+     * user asked for "just a slight snap", and quantising the whole range would make fine
+     * adjustment near a detent impossible. Scale only: position and rotation have no
+     * privileged numbers, and snapping opacity would fight fades.</p>
+     */
+    private static final float[] SCALE_DETENTS_PCT =
+            {10f, 25f, 50f, 75f, 100f, 150f, 200f, 250f, 300f, 350f, 400f};
+    /** Half-width of a detent's pull, in percent of scale. */
+    private static final float SNAP_PCT = 2.5f;
+
+    private static float snap(@NonNull ObjectMenuSheet.Prop p, float v) {
+        if (!com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE.equals(p.key())) return v;
+        float pct = v * 100f;
+        for (float d : SCALE_DETENTS_PCT) {
+            if (Math.abs(pct - d) <= SNAP_PCT) return d / 100f;
+        }
+        return v;
+    }
 }

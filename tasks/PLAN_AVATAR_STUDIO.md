@@ -169,7 +169,14 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
 - [x] A2 tracking driver: bus/pipeline/One-Euro/life landed earlier; D4 MediaPipe
       FaceLandmarker source landed bdb9be8. Axis-tuning knobs MIRROR_YAW/SIGN_PITCH await
       device verify.
-- [ ] A3 visemes (amplitude tier EXISTS in TrackingParamPipeline; spectral/TarsosDSP tier open)
+- [x] A3 visemes — **BOTH TIERS BUILT (status corrected 2026-08-06 by code audit).** The
+      spectral tier is real: SpectralVisemeAnalyzer + MicVisemeSource + MicAugmentedSource,
+      PARAM_VISEME through TrackingParamPipeline -> AvatarParamTrack -> PuppetPoseResolver.
+      It was INERT until 2026-08-06 because AvatarRig.visemeMap had no writer anywhere in
+      the app and applyVisemeMap returned early on an empty map. An empty map now means
+      "use the natural order" (class index -> mouth cell index), so it works unconfigured
+      and stays overridable. Contract: a 6-cell mouth in CLASS_NAMES order
+      (REST, AA, EE, OO, CLOSURE, FRIC). OWED: device feel-test with a real mouth sheet.
 - [x] **A4 COMPLETE 2026-07-11 (c0c4020 + 7b4edb3 + 16a712f, device verify owed)**:
       (1) puppet RENDERS into the webcam bubble — camera single-owner honored (Camera2
       preview never opens in avatar mode; the tracker owns the front cam and webcam pixels
@@ -217,7 +224,13 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       cat clip = no human face): chip → progress dialog → completion toast, take kept,
       undo count 0; mid-sweep Cancel → clean dismiss; zero crashes. OWED: face-bearing
       clip verify (Task 2d, needs JoyRaptor) — includes the video-vs-front-cam MIRROR_YAW check.
-- [ ] A5 AI rigging
+- [x] A5 AI rigging — **BUILT AND REACHABLE (status corrected 2026-08-06 by code audit).**
+      author_avatar_rig + apply_avatar_rig are dispatched and described in AIToolExecutor,
+      AvatarRigValidator runs, and ChatAssistantActivity renders the proposal card with an
+      Apply button. See PLAN_A5_AI_RIGGING.md, which was accurate all along.
+      STILL ORPHANED: AvatarRigTemplates.bipedTemplate()/templateJson() are called only by
+      the JVM harness — the tool description hand-writes its own rig shape instead, and
+      Avatar Studio hand-builds a 1-part rig. No "start from a biped" flow exists.
 - [~] A6 limbs — **PIN-WARP CORE LANDED 2026-07-06 (5e3a94d)**: PinWarpStrip math (JVM harness
       PinWarpTest 16/16 — identity/translation/90° bend/guards/degenerates), Part.restPins
       schema (additive, tolerant read; ResolverGateTest re-run green), PuppetPreviewView warp

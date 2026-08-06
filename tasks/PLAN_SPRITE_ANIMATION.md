@@ -40,6 +40,15 @@
 #     D (header hit zones + caption-chooser autohide) → E (vertical re-layout) → F (no-overlap all +
 #     move-between-layers + lane consolidation) → G1–G9 (gestures/menu/keyframes/handles/overlays/
 #     resizable-PiP/coach-marks/multi-select/linking). THEN sprite FF-A/FF-B, S7, S2b.
+# ⚠ THE "REMAINING" LINE BELOW IS STALE — corrected 2026-08-06 by a line-by-line code audit.
+#   ALREADY BUILT AND REACHABLE: S7 relink UI (sheet manager → Relink, red-tinted when missing);
+#   S2b auto-detect grid, bg-key UI, onion skin, sidecar import/export, filmstrip (all in
+#   SpriteSheetEditorActivity); FF-A dope sheet (sprite palette → ▦ chip).
+#   GENUINELY STILL MISSING: FF-B's set_sprite_grid / label_sprite_cells /
+#   author_sprite_animation / apply_sprite_proposal; the palette's per-track arm toggles (arming
+#   exists, but in ObjectMenuSheet); FF-A's dope-sheet TRANSFORM rows + per-key easing
+#   (DopeSheetView is frames-only; that capability lives in ObjectMenuSheet); sw600dp two-pane
+#   (no values-sw600dp resource dir exists at all).
 #   REMAINING (genuine NEW build — multi-session): S7 relink UI; S2b polish (auto-detect grid, onion
 #     skin, bg-key UI, sw600dp two-pane, sidecar-export button, filmstrip); FF-A presets/dope-sheet UI;
 #     FF-B AI sprite tools (AIToolExecutor has 0 sprite refs today). Do them in that order.

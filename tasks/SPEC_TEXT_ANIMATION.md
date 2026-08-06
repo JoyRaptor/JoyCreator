@@ -1,5 +1,17 @@
 # SPEC: Animated text (and animated timers)
 
+> ## ⚠ STATUS CORRECTIONS 2026-08-06 (line-by-line code audit — trust these over the body)
+> - **The tape ▶◀ carets are NOT parked.** They were rewritten for text boxes and are LIVE:
+>   `EditorTimelineView.hitTestTextAnimHandle` + the draw/drag path, persisted in
+>   ProjectStorage and honoured by CompositeExportOverlay. The old method names this doc
+>   says have no caller no longer exist.
+> - **There are ELEVEN presets, all implemented**, not six: NONE, TYPEWRITER, FADE, RISE,
+>   GHOST, BEAM, MATRIX, UNSCRAMBLE, MASK_WIPE, ODOMETER, NEON_FLICKER. The "which are v1"
+>   answer earlier in this doc was never updated after the later sections shipped.
+> - Still genuinely MISSING: retrigger-on-value-change (the timer tick pop).
+
+
+
 **Status 2026-07-28 (late): THE FEATURE IS AUTHORABLE.** Engine, storage, preview, export AND
 the authoring UI are done and committed. `project.json` is no longer the only way in. What is
 NOT done is the on-device capture of a large-amplitude frame — no device was attached when the

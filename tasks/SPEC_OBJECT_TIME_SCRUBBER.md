@@ -1,5 +1,17 @@
 # SPEC — Object time-scrubber (precise, touch-free object navigation)
 
+> ## ⚠ STATUS CORRECTIONS 2026-08-06 (line-by-line code audit — trust these over the body)
+> - **§8 editor wiring IS built** for TEXT overlays: `ObjectMenuSheet.setTimeScrub` is called
+>   from `FaditorEditorActivity.attachTextOverlayTimeScrub`. Path: long-press a text object
+>   → object menu → "Move in time". The §7 header saying it is NOT built is wrong.
+> - **"'End here' does NOTHING" is fixed** — range chips are peek-visible during a scrub.
+> - Still genuinely MISSING: extending the scrubber to sprite / audio / PiP payloads
+>   (`setTimeScrub` has exactly one call site), and the §9 cross-lane y-GLIDE.
+> - ORPHANED: `ObjectTimeScrubSession.currentLane()` / `currentStart()` have no callers —
+>   the wiring took a shortcut around the designed read-back contract.
+
+
+
 **Status:** DRAFT for user confirmation, 2026-07-26 (new account). Author: autonomous run.
 **Origin:** the user's LAYER MANAGEMENT POLISH top priority + the detailed answer given
 2026-07-26 (recorded verbatim at the bottom). This is the reframed "#6": *Move up/down

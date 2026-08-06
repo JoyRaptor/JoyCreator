@@ -4599,6 +4599,12 @@ public class EditorTimelineView extends View {
         }
 
         @Override
+        @Nullable
+        public com.fadcam.ui.faditor.sprite.SpriteSheet sheet(@NonNull String sheetId) {
+            return previewSheetById(sheetId);
+        }
+
+        @Override
         public int cellForKey(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
                               @NonNull com.fadcam.ui.faditor.sprite.FrameTrack.Key key) {
             // Direct-cell keys resolve trivially; preset keys resolve through the ONE

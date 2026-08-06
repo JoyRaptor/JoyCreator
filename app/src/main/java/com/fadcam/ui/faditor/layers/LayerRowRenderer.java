@@ -1800,6 +1800,14 @@ public final class LayerRowRenderer {
         /** Resolved cell index for a frame-track key (direct cell OR preset), or -1. */
         int cellForKey(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
                        @NonNull FrameTrack.Key key);
+        /**
+         * The sheet DEFINITION for {@code sheetId}, or null.
+         *
+         * <p>Needed because an image sequence's tape (SPEC_IMAGE_SEQUENCE §4) draws a mark at
+         * every frame CHANGE, and those times are derived from the sheet's weights and cadence —
+         * not from the frame-track keys, of which a sequence has exactly one.</p>
+         */
+        @Nullable com.fadcam.ui.faditor.sprite.SpriteSheet sheet(@NonNull String sheetId);
     }
 
     /** §2 video items (overlay/PiP clips): the master T1 filmstrip thumbnails for the clip's
@@ -1938,6 +1946,16 @@ public final class LayerRowRenderer {
         float viewLeft = lastHScrollOffsetPx, viewRight = lastHScrollOffsetPx + lastWidthPx;
         canvas.save();
         canvas.clipRect(x0, top, x1, bottom);
+
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                spriteCellProvider.sheet(sprite.getSheetId());
+        if (sheet != null && sheet.isSequence()) {
+            drawSequenceTape(canvas, sprite, sheet, sr, x0, x1, top, bottom, w,
+                    viewLeft, viewRight, timeToX);
+            canvas.restore();
+            return;
+        }
+
         for (FrameTrack.Key k : sprite.getFrameTrack().keys()) {
             float dx = timeToX.map(item.getTimelineStartMs() + k.timeMs);
             if (dx + w < Math.max(x0, viewLeft) || dx > Math.min(x1, viewRight)) continue; // cull
@@ -1947,6 +1965,81 @@ public final class LayerRowRenderer {
             sr.drawCell(canvas, cell, previewDst, previewPaint);
         }
         canvas.restore();
+    }
+
+    /** Repeat-pass thumbnails are dimmed rather than recoloured — §4's "reads as a repeat". */
+    private final android.graphics.Paint repeatPaint = new android.graphics.Paint(
+            android.graphics.Paint.FILTER_BITMAP_FLAG | android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+    /** Hairline at each frame change, so a change is visible even where a thumb is too narrow. */
+    private final android.graphics.Paint seqTickPaint = new android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+    /**
+     * SPEC_IMAGE_SEQUENCE §4 — the image-sequence tape.
+     *
+     * <p><b>A thumbnail is drawn at each frame CHANGE, and the thumbnails are a UNIFORM size.</b>
+     * Their POSITION carries the timing, not their width — the user's own correction of an
+     * earlier draft. A long hold is simply a long gap before the next thumbnail, with the lane's
+     * bar colour showing through, so uneven timing is legible AND honest at once. Scaling
+     * thumbnails to duration would have made short frames unreadable to buy information that
+     * position already carries for free.</p>
+     *
+     * <p>Change times come from {@link com.fadcam.ui.faditor.sprite.SpriteFrameResolver}, the same
+     * function that decides what the video shows, so the tape cannot lie about the timing.</p>
+     */
+    private void drawSequenceTape(@NonNull Canvas canvas,
+                                  @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite,
+                                  @NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet,
+                                  @NonNull com.fadcam.ui.faditor.sprite.SpriteSheetRenderer sr,
+                                  float x0, float x1, float top, float bottom, float w,
+                                  float viewLeft, float viewRight, @NonNull TimeToX timeToX) {
+        long start = sprite.getStartMs();
+        // Ask only for the VISIBLE window. A looping sequence has unboundedly many changes; the
+        // tape needs the ones on screen, and the cap below is the backstop for a pathological
+        // zoom where even that is thousands.
+        long fromLocal = Math.max(0, msAtX(Math.max(x0, viewLeft), timeToX, start) - 1);
+        long toLocal = msAtX(Math.min(x1, viewRight), timeToX, start) + 1;
+        java.util.List<com.fadcam.ui.faditor.sprite.SpriteFrameResolver.FrameChange> changes =
+                com.fadcam.ui.faditor.sprite.SpriteFrameResolver.frameChangesIn(
+                        sheet, sprite, fromLocal, toLocal, MAX_SEQUENCE_MARKS);
+        if (changes.isEmpty()) return;
+
+        repeatPaint.setAlpha(110);
+        seqTickPaint.setColor(0xB3FFFFFF);
+        float tickW = Math.max(1f, density);
+        // Thumbs are skipped, not shrunk, when they would collide: overlapping them would read
+        // as a faster cadence than the sequence actually has. The hairline still marks every
+        // change, so a dense region shows as a comb rather than as a smear of half-thumbnails.
+        float minGap = w * 0.9f;
+        float lastDrawnX = Float.NEGATIVE_INFINITY;
+        for (com.fadcam.ui.faditor.sprite.SpriteFrameResolver.FrameChange fc : changes) {
+            float dx = timeToX.map(start + fc.localMs);
+            if (dx < x0 || dx > x1) continue;
+            canvas.drawRect(dx, top, dx + tickW, bottom, seqTickPaint);
+            if (dx - lastDrawnX < minGap) continue;
+            previewDst.set(dx, top, Math.min(dx + w, x1), bottom);
+            sr.drawCell(canvas, fc.cellIndex, previewDst, fc.repeat ? repeatPaint : previewPaint);
+            lastDrawnX = dx;
+        }
+    }
+
+    /** Cap on tape marks per row per frame — see {@link #drawSequenceTape}. */
+    private static final int MAX_SEQUENCE_MARKS = 400;
+
+
+    /**
+     * Inverse of {@link TimeToX#map} by local search — the renderer is handed a forward mapping
+     * only, and the tape needs "what time is at this pixel" to ask for just the visible window.
+     * Two probes a second apart give the (linear) scale; the mapping is linear in time by
+     * construction, so this is exact rather than approximate.
+     */
+    private long msAtX(float x, @NonNull TimeToX timeToX, long itemStartMs) {
+        float xAtStart = timeToX.map(itemStartMs);
+        float xAtPlusSec = timeToX.map(itemStartMs + 1000);
+        float pxPerSec = xAtPlusSec - xAtStart;
+        if (Math.abs(pxPerSec) < 0.0001f) return 0;
+        return Math.round((x - xAtStart) / pxPerSec * 1000.0);
     }
 
     /** Scratch rect for visible-span clipping in {@link #drawHdAudioWaveform}. */

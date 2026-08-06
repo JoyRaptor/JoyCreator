@@ -161,6 +161,36 @@ public final class SequenceTiming {
         return 0;
     }
 
+    /**
+     * One cycle of a preset expanded to (frame index, weight) pairs, in play order.
+     *
+     * <p>For {@code loop}/{@code once} that is simply {@code 0…n-1}. For {@code pingpong} it is
+     * the forward pass followed by the mirror {@code n-2…1} — endpoints not repeated — with every
+     * entry carrying its OWN weight, which is what makes §6's "ping-pong preserves weights" fall
+     * out rather than needing a rule.</p>
+     *
+     * <p>Returned as {@code int[2][]}: {@code [0]} indices, {@code [1]} weights. Used by the tape
+     * and the dope sheet to enumerate where a frame CHANGES, so those surfaces and
+     * {@link SpriteFrameResolver} cannot disagree about when a frame comes in.</p>
+     */
+    @NonNull
+    public static int[][] cycleOrder(@Nullable List<Integer> weights, int frameCount,
+                                     @Nullable String type) {
+        if (frameCount <= 0) return new int[][]{new int[0], new int[0]};
+        boolean pingpong = "pingpong".equals(type) && frameCount > 1;
+        int len = pingpong ? 2 * frameCount - 2 : frameCount;
+        int[] idx = new int[len], w = new int[len];
+        for (int i = 0; i < frameCount; i++) {
+            idx[i] = i;
+            w[i] = weightAt(weights, i);
+        }
+        for (int i = frameCount, j = frameCount - 2; i < len; i++, j--) {
+            idx[i] = j;
+            w[i] = weightAt(weights, j);
+        }
+        return new int[][]{idx, w};
+    }
+
     // ── The three VIEWS of the array (§2: not three modes) ───────────────────
 
     /**

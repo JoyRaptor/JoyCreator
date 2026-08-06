@@ -303,12 +303,41 @@ The **Bash tool's** adb intermittently prints `no devices/emulators found` mid-s
 with the full adb path and `-s REAL_SERIAL` is reliable; prefer it for adb. `adb kill-server; adb start-server`
 recovers a wedged server.
 
-## 7f. Building from inside the agent
-Gradle fails here with `Unable to establish loopback connection` (client↔daemon socket) — this persists even
-with the sandbox disabled, `--no-daemon`, matched jvmargs, and `preferIPv4Stack`. **Do not rely on the agent
-building.** Use the user's file-watcher (§2a): edit source, then poll `build.log` for the FINAL
-`BUILD SUCCESSFUL`. If the watcher is off, ask the user to start it (its log is `build.log`, UTF-16). Until it's
-running, your source edits are NOT on the phone.
+## 7f. Building from inside the agent — **SOLVED 2026-08-06. The agent CAN build.**
+
+```bash
+bash tools/build-install.sh          # build + install onto the sandbox phone
+```
+
+**The old advice here was wrong, and the error message is what made it wrong.** Gradle failed with
+`java.io.IOException: Unable to establish loopback connection`, which reads as "the sandbox blocks
+localhost" — so three sessions concluded the agent could not build and waited on the user's watcher.
+
+Loopback is fine. Bind, connect, and cross-process accept on `127.0.0.1` all succeed from the agent
+shell (checked, with a JVM on each side). The real failure is one level down: `Selector.open()` on
+JDK 17 / Windows builds its wakeup pipe from an **AF_UNIX socket pair**, and AF_UNIX
+`bind`/`connect` fails with `Invalid argument` when `java.io.tmpdir` is an **8.3 SHORT PATH** —
+which it is in the agent's shell (`C:\Users\JOYRAP~1\AppData\Local\Temp`). Gradle opens a Selector
+to talk to its daemon, so every invocation died in the same place and blamed the network.
+
+The whole fix is one property pointed at a non-short temp dir:
+
+```bash
+export JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=C:\\Windows\\Temp"
+```
+
+`JAVA_TOOL_OPTIONS`, not `GRADLE_OPTS`: the **daemon** JVM needs it too, and Gradle does not forward
+`-D` flags into `daemonOpts`. With only the launcher fixed you get one step further and then
+`A new daemon was started but could not be connected to` — which is the daemon hitting the identical
+`Selector.open()` failure. `JAVA_TOOL_OPTIONS` is inherited by every child JVM, so it covers both.
+
+Diagnosis worth keeping: `Selector.open()` in a three-line JVM program reproduces it in one second,
+where `--stacktrace` on Gradle only gets you as far as `SocketConnection.<init>`. When a tool blames
+the network, check whether the network is actually broken before believing it.
+
+**You still must confirm the APK is fresh** (`lastUpdateTime` vs now — `build-install.sh` prints
+both). The user's watcher can die silently while `build.log` keeps showing an old
+`BUILD SUCCESSFUL`; that happened on 2026-08-06 and cost ~20 minutes of testing against stale bits.
 
 ## 8. Troubleshooting (the things that get agents stuck)
 

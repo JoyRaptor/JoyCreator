@@ -54,6 +54,11 @@ public class SequenceTimingTest {
         weightedResolverHoldsTheRightCell();
         weightedLoopWraps();
         weightedPingPongWraps();
+        // Tape change-times (§4)
+        changeTimesLandWhereFramesActuallyChange();
+        changeTimesMarkRepeatsOnLaterPasses();
+        changeTimesAreWindowedAndCapped();
+        onceDoesNotEmitPhantomChangesAfterItsRun();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -378,6 +383,80 @@ public class SequenceTimingTest {
             if (SpriteFrameResolver.resolveCellAt(s, it, t * 100) != expect[t % 9]) ok = false;
         }
         check("weighted pingpong wraps and preserves holds on the mirror", ok);
+    }
+
+    // ── Tape change-times (§4) ──────────────────────────────────────────────
+
+    /**
+     * The tape's whole value is that it tells the truth about timing, so the change times must
+     * agree with the resolver at the moments they claim. This asserts BOTH: the times are the
+     * weight boundaries, and the resolver returns that same cell just after each one.
+     */
+    static void changeTimesLandWhereFramesActuallyChange() {
+        SpriteSheet s = seq(3, 10f, w(2, 3, 1), "once");   // 100ms/tick -> 0@0, 1@200, 2@500
+        SpriteOverlayItem it = item(s, "hold");
+        it.setTimeRange(0, 1000);
+        List<SpriteFrameResolver.FrameChange> ch =
+                SpriteFrameResolver.frameChangesIn(s, it, 0, 1000, 100);
+        check("three changes for three frames", ch.size() == 3);
+        boolean times = ch.size() == 3 && ch.get(0).localMs == 0
+                && ch.get(1).localMs == 200 && ch.get(2).localMs == 500;
+        check("changes land on the weight boundaries", times);
+        boolean cells = ch.size() == 3 && ch.get(0).cellIndex == 0
+                && ch.get(1).cellIndex == 1 && ch.get(2).cellIndex == 2;
+        check("each change names the cell coming in", cells);
+        // Cross-check against the evaluator itself — this is the anti-drift assertion.
+        boolean agrees = true;
+        for (SpriteFrameResolver.FrameChange c : ch) {
+            if (SpriteFrameResolver.resolveCellAt(s, it, c.localMs) != c.cellIndex) agrees = false;
+        }
+        check("the tape agrees with what the video shows", agrees);
+    }
+
+    static void changeTimesMarkRepeatsOnLaterPasses() {
+        SpriteSheet s = seq(3, 10f, null, "loop");  // 3 ticks per cycle = 300ms
+        SpriteOverlayItem it = item(s, "hold");
+        it.setTimeRange(0, 900);
+        List<SpriteFrameResolver.FrameChange> ch =
+                SpriteFrameResolver.frameChangesIn(s, it, 0, 900, 100);
+        check("three cycles of three", ch.size() == 9);
+        boolean firstPassPlain = !ch.get(0).repeat && !ch.get(1).repeat && !ch.get(2).repeat;
+        boolean laterPassesRepeat = ch.get(3).repeat && ch.get(8).repeat;
+        check("first pass is not a repeat", firstPassPlain);
+        check("later passes are flagged as repeats", laterPassesRepeat);
+    }
+
+    static void changeTimesAreWindowedAndCapped() {
+        SpriteSheet s = seq(3, 10f, null, "loop");
+        SpriteOverlayItem it = item(s, "hold");
+        it.setTimeRange(0, 100000);
+        List<SpriteFrameResolver.FrameChange> win =
+                SpriteFrameResolver.frameChangesIn(s, it, 500, 800, 1000);
+        boolean inWindow = true;
+        for (SpriteFrameResolver.FrameChange c : win) {
+            if (c.localMs < 500 || c.localMs > 800) inWindow = false;
+        }
+        check("only the asked-for window is returned", inWindow && !win.isEmpty());
+        List<SpriteFrameResolver.FrameChange> capped =
+                SpriteFrameResolver.frameChangesIn(s, it, 0, 100000, 25);
+        check("the cap is honoured (a loop is unbounded)", capped.size() == 25);
+        // An OPEN-ENDED item must not walk forever either.
+        SpriteOverlayItem open = item(s, "loop");
+        open.setTimeRange(0, Long.MAX_VALUE);
+        List<SpriteFrameResolver.FrameChange> o =
+                SpriteFrameResolver.frameChangesIn(s, open, 0, 1000, 500);
+        check("open-ended is bounded by the query window", o.size() <= 11 && !o.isEmpty());
+    }
+
+    static void onceDoesNotEmitPhantomChangesAfterItsRun() {
+        SpriteSheet s = seq(3, 10f, null, "once"); // 3 frames = 300ms, item is 5s long
+        SpriteOverlayItem it = item(s, "hold");
+        it.setTimeRange(0, 5000);
+        List<SpriteFrameResolver.FrameChange> ch =
+                SpriteFrameResolver.frameChangesIn(s, it, 0, 5000, 100);
+        check("a 'once' run stops changing after its last frame", ch.size() == 3);
+        check("and the video agrees it is holding",
+                SpriteFrameResolver.resolveCellAt(s, it, 4000) == 2);
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────

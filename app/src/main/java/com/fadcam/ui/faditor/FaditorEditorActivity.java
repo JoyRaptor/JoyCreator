@@ -1412,6 +1412,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
+        // A sequence offer parked by the picker's result callback (see the field's doc).
+        if (pendingSequenceOffer != null) {
+            Runnable offer = pendingSequenceOffer;
+            pendingSequenceOffer = null;
+            getWindow().getDecorView().post(offer);
+        }
+
         // Reapply immersive fullscreen (in case it was cleared by edge swipes)
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_FULLSCREEN |
@@ -23497,13 +23504,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return s.isEmpty() ? "Sequence" : s;
     }
 
+    /**
+     * A sequence offer that must wait for the activity to be resumed.
+     *
+     * <p><b>Why this exists, proven on device 2026-08-06.</b> Returning from the SAF picker can
+     * RECREATE this activity, and the {@code ActivityResult} is delivered before the new window
+     * is attached. A dialog shown at that moment is created — logcat shows the {@code Dialog}
+     * lines — and then destroyed with the old window a few ms later, so the user taps "Allow" on
+     * the folder and lands back in the editor with nothing to show for it and no error anywhere.
+     *
+     * <p>The same shape as the missing-file dialog in HANDOFF_20260804c ("fired during load and
+     * was lost"), which is why this parks on the lifecycle rather than guessing at a delay.</p>
+     */
+    @Nullable private Runnable pendingSequenceOffer;
+
     /** Ask §3b's one question, then build the sheet and place it. */
     private void offerSequenceImport(@NonNull String headline,
                                      @NonNull java.util.List<String> frameUris,
                                      @NonNull String name) {
         if (frameUris.isEmpty()) return;
-        com.fadcam.ui.faditor.sprite.SequenceImportDialog.show(this, headline, frameUris.size(),
-                fps -> createSequenceSheetAndPlace(name, frameUris, fps));
+        final Runnable show = () -> {
+            if (isFinishing() || isDestroyed()) return;
+            com.fadcam.ui.faditor.sprite.SequenceImportDialog.show(this, headline,
+                    frameUris.size(), fps -> createSequenceSheetAndPlace(name, frameUris, fps));
+        };
+        // getLifecycle() rather than a flag we maintain ourselves: the result can arrive either
+        // before or after onResume depending on whether the activity survived the picker, and
+        // only one of those two paths may run.
+        if (getLifecycle().getCurrentState().isAtLeast(
+                androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            getWindow().getDecorView().post(show);
+        } else {
+            pendingSequenceOffer = show;
+        }
     }
 
     /**

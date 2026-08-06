@@ -115,6 +115,117 @@ public final class SpriteFrameResolver {
         return validCellOrNone(sheet, preset.frames.get(idx));
     }
 
+    /**
+     * One moment where the picture CHANGES — what the timeline tape draws a thumbnail at
+     * (SPEC_IMAGE_SEQUENCE §4) and what the dope sheet lays out.
+     */
+    public static final class FrameChange {
+        /** Item-LOCAL ms at which this frame comes in. */
+        public final long localMs;
+        /** The cell that comes in, already validated. */
+        public final int cellIndex;
+        /**
+         * True when this is a repeat — a second or later pass of a loop/ping-pong cycle. §4 draws
+         * these slightly darker so a looped region reads as "this is a repeat" rather than as
+         * more authored content.
+         */
+        public final boolean repeat;
+
+        FrameChange(long localMs, int cellIndex, boolean repeat) {
+            this.localMs = localMs;
+            this.cellIndex = cellIndex;
+            this.repeat = repeat;
+        }
+    }
+
+    /**
+     * Every frame change in {@code [fromLocalMs, toLocalMs]}, in time order.
+     *
+     * <p><b>Why this lives here.</b> The tape's whole value is that it shows the truth about
+     * timing; deriving change times anywhere else would let the picture on the timeline drift
+     * from the picture on the video, which is worse than no tape at all. So the same class that
+     * answers "which cell at time t" also answers "when does the cell change" — and both walk the
+     * same weights.</p>
+     *
+     * @param maxCount hard cap on returned entries. A 600-frame sequence looping over a long
+     *                 timeline is unbounded in principle; the tape only needs what fits on
+     *                 screen, and an uncapped walk here would be a frame-time hang.
+     */
+    @NonNull
+    public static java.util.List<FrameChange> frameChangesIn(@NonNull SpriteSheet sheet,
+                                                             @NonNull SpriteOverlayItem item,
+                                                             long fromLocalMs, long toLocalMs,
+                                                             int maxCount) {
+        java.util.List<FrameChange> out = new java.util.ArrayList<>();
+        FrameTrack track = item.getFrameTrack();
+        if (track.isEmpty() || maxCount <= 0) return out;
+
+        // The item's own end in local ms. An open-ended item is bounded by the query window, so
+        // this never walks forever even when endMs is MAX_VALUE.
+        long itemEndLocal = item.getEndMs() == Long.MAX_VALUE
+                ? toLocalMs : item.getEndMs() - item.getStartMs();
+
+        java.util.List<FrameTrack.Key> keys = track.keys();
+        for (int ki = 0; ki < keys.size() && out.size() < maxCount; ki++) {
+            FrameTrack.Key k = keys.get(ki);
+            long spanEnd = ki + 1 < keys.size() ? keys.get(ki + 1).timeMs : itemEndLocal;
+            if (spanEnd <= k.timeMs) continue;
+            if (k.timeMs > toLocalMs) break;
+
+            if (k.presetId == null) {
+                int cell = validCellOrNone(sheet, k.cellIndex);
+                if (cell != NO_CELL && k.timeMs >= fromLocalMs && k.timeMs <= toLocalMs) {
+                    out.add(new FrameChange(k.timeMs, cell, false));
+                }
+                continue;
+            }
+
+            SpriteSheet.Preset preset = sheet.presetById(k.presetId);
+            if (preset == null || preset.frames.isEmpty()) continue;
+            float fps = preset.fps > 0f ? preset.fps : sheet.getFps();
+            fps = SequenceTiming.clampFps(fps);
+
+            String type = preset.type;
+            boolean isLast = ki + 1 >= keys.size();
+            if (isLast) {
+                if ("loop".equals(item.getEndBehavior())) type = "loop";
+                else if ("pingpong".equals(item.getEndBehavior())) type = "pingpong";
+            }
+            boolean once = "once".equals(type);
+
+            int n = preset.frames.size();
+            int[][] cycle = SequenceTiming.cycleOrder(preset.weights, n, type);
+            int[] order = cycle[0], weights = cycle[1];
+            long cycleTicks = 0;
+            for (int w : weights) cycleTicks += w;
+            if (cycleTicks <= 0) continue;
+
+            long tick = 0;
+            int pass = 0;
+            walk:
+            while (true) {
+                for (int i = 0; i < order.length; i++) {
+                    long tMs = k.timeMs + Math.round(tick * 1000.0 / fps);
+                    if (tMs >= spanEnd || tMs > toLocalMs) break walk;
+                    if (tMs >= fromLocalMs) {
+                        int cell = validCellOrNone(sheet, preset.frames.get(order[i]));
+                        if (cell != NO_CELL) {
+                            out.add(new FrameChange(tMs, cell, pass > 0));
+                            if (out.size() >= maxCount) break walk;
+                        }
+                    }
+                    tick += weights[i];
+                }
+                pass++;
+                // "once" shows its run and then HOLDS the last frame — no further changes, so
+                // stopping here is what keeps a non-looping sequence from drawing phantom marks
+                // across the rest of its span.
+                if (once) break;
+            }
+        }
+        return out;
+    }
+
     private static int validCellOrNone(@NonNull SpriteSheet sheet, int cellIndex) {
         if (cellIndex < 0 || cellIndex >= sheet.cellCount()) return NO_CELL;
         SpriteSheet.Cell meta = sheet.cellAt(cellIndex);

@@ -1,0 +1,374 @@
+package com.fadcam.ui.faditor.tools;
+
+import android.content.Context;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
+import android.widget.SeekBar;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.fadcam.R;
+import com.fadcam.ui.faditor.KeyframeDiamondControl;
+import com.fadcam.ui.faditor.ObjectMenuSheet;
+import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.CompositingSpec;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Content for {@link PipOverlayDrawer}'s four tabs.
+ *
+ * <p>Split from the drawer so the chrome (tabs, animation, icon row) knows nothing about
+ * compositing, and split from {@code FaditorEditorActivity} so building it does not grow the
+ * 26k-line file again.</p>
+ *
+ * <p><b>Rows are COMPACT here on purpose.</b> The drawer sits over the preview, so every dp of
+ * height is picture the user cannot see. Label and value share one line with the slider and the
+ * keyframe diamond, instead of the label-above-slider stacking the bottom sheet uses.</p>
+ */
+public final class PipDrawerTabs {
+
+    private PipDrawerTabs() {}
+
+    private static final int TXT = 0xFFE8E8E8;
+    private static final int TXT_DIM = 0xFFA0A0A0;
+    private static final int ACCENT = 0xFF8C3DFA;
+    private static final int SLIDER_STEPS = 1000;
+
+    /** Everything the tabs need back from the editor. */
+    public interface Host {
+        long playheadMs();
+        /** A value/keyframe changed — repaint preview + timeline and schedule a save. */
+        void onChanged();
+        /** Arm the eyedropper; the next tap on the preview reports a colour (or null). */
+        void pickColorFromPreview(@NonNull ColorPicked cb);
+        /** Record one undo step. */
+        void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo);
+    }
+
+    public interface ColorPicked { void onPicked(@Nullable Integer rgb); }
+
+    // ── Tab 0: VIDEO ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Transform + opacity + volume rows, each with its keyframe diamond.
+     *
+     * <p>The diamonds are the reason this tab exists in a drawer that leaves the timeline
+     * visible: keyframing means moving the playhead and dropping values, and the old bottom
+     * sheet covered the very tape you had to scrub.</p>
+     */
+    @NonNull
+    public static View videoTab(@NonNull Context ctx,
+                                @NonNull List<ObjectMenuSheet.Prop> props,
+                                @NonNull Host host) {
+        LinearLayout root = column(ctx);
+        List<Runnable> refreshers = new ArrayList<>();
+        for (ObjectMenuSheet.Prop p : props) {
+            refreshers.add(propRow(ctx, root, p, host));
+        }
+        // One pass so every diamond shows its true on-key state the moment the tab appears,
+        // rather than only after the next playhead tick.
+        for (Runnable r : refreshers) r.run();
+        return root;
+    }
+
+    /** @return a refresher that re-reads this row's on-key state. */
+    private static Runnable propRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                    @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
+
+        TextView label = new TextView(ctx);
+        label.setTextColor(TXT_DIM);
+        label.setTextSize(11);
+        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setWidth(Math.round(52 * d));
+        label.setText(prop.label());
+        row.addView(label);
+
+        SeekBar bar = new SeekBar(ctx);
+        bar.setMax(SLIDER_STEPS);
+        final float min = propMin(prop), max = propMax(prop);
+        float cur = prop.valueAt(host.playheadMs());
+        bar.setProgress(Math.round((cur - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+
+        TextView value = new TextView(ctx);
+        value.setTextColor(TXT);
+        value.setTextSize(11);
+        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setWidth(Math.round(46 * d));
+        value.setGravity(Gravity.END);
+        value.setText(prop.format(cur));
+
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                if (!fromUser) return;
+                float v = min + (max - min) * (p / (float) SLIDER_STEPS);
+                prop.write(v, host.playheadMs());
+                value.setText(prop.format(v));
+                host.onChanged();
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+        });
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        row.addView(bar, blp);
+        row.addView(value);
+
+        final KeyframeDiamondControl diamond;
+        if (prop.keyframeable()) {
+            diamond = new KeyframeDiamondControl(ctx);
+            diamond.bind(prop, new KeyframeDiamondControl.Host() {
+                @Override public long playheadMs() { return host.playheadMs(); }
+                @Override public void onFocus() { }
+                @Override public void onAction() { host.onChanged(); }
+            });
+            row.addView(diamond);
+        } else {
+            diamond = null;
+            // Reserve the same width so a static row's slider does not stretch into the space
+            // a keyframeable one uses — ragged right edges read as a layout bug.
+            View spacer = new View(ctx);
+            row.addView(spacer, new LinearLayout.LayoutParams(Math.round(64 * d), 1));
+        }
+        parent.addView(row);
+        return () -> { if (diamond != null) diamond.refresh(host.playheadMs()); };
+    }
+
+    // ── Tab 1: MASK ──────────────────────────────────────────────────────────────────────
+
+    @NonNull
+    public static View maskTab(@NonNull Context ctx, @NonNull Clip clip,
+                               @NonNull CompositingSpec spec, @NonNull Runnable apply) {
+        LinearLayout root = column(ctx);
+        if (spec.masks.isEmpty()) spec.masks.add(new CompositingSpec.MaskShape());
+        CompositingSpec.MaskShape m = spec.masks.get(0);
+        slider(ctx, root, R.string.faditor_mask_x, 100, Math.round(m.cx * 100),
+                v -> { m.cx = v / 100f; apply.run(); });
+        slider(ctx, root, R.string.faditor_mask_y, 100, Math.round(m.cy * 100),
+                v -> { m.cy = v / 100f; apply.run(); });
+        slider(ctx, root, R.string.faditor_mask_w, 100, Math.round(m.w * 100),
+                v -> { m.w = Math.max(0.02f, v / 100f); apply.run(); });
+        slider(ctx, root, R.string.faditor_mask_h, 100, Math.round(m.h * 100),
+                v -> { m.h = Math.max(0.02f, v / 100f); apply.run(); });
+        slider(ctx, root, R.string.faditor_mask_round, 100, Math.round(m.corner * 100),
+                v -> { m.corner = v / 100f; apply.run(); });
+        slider(ctx, root, R.string.faditor_mask_rotate, 360, Math.round(m.rotationDeg),
+                v -> { m.rotationDeg = v; apply.run(); });
+        slider(ctx, root, R.string.faditor_mask_soften, 100, Math.round(spec.maskFeather * 100),
+                v -> { spec.maskFeather = v / 100f; apply.run(); });
+        CheckBox inv = check(ctx, R.string.faditor_mask_only_inside, spec.invertMasks);
+        inv.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
+        root.addView(inv);
+        return root;
+    }
+
+    // ── Tab 2: CHROMA KEY ────────────────────────────────────────────────────────────────
+
+    private static final int[] SWATCHES = {0x00FF00, 0x0000FF, 0x000000, 0xFFFFFF};
+
+    @NonNull
+    public static View chromaTab(@NonNull Context ctx, @NonNull Clip clip,
+                                 @NonNull CompositingSpec spec, @NonNull Runnable apply,
+                                 @NonNull Host host) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout root = column(ctx);
+
+        CheckBox on = check(ctx, R.string.faditor_key_enable, spec.keyEnabled);
+        root.addView(on);
+
+        LinearLayout body = column(ctx);
+        body.setPadding(0, 0, 0, 0);
+        root.addView(body);
+
+        final TextView colorLabel = new TextView(ctx);
+        colorLabel.setTextColor(TXT_DIM);
+        colorLabel.setTextSize(11);
+        colorLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        body.addView(colorLabel);
+        Runnable refreshColor = () -> colorLabel.setText(ctx.getString(R.string.faditor_key_color)
+                + "  ·  " + String.format("#%06X", spec.keyColor & 0xFFFFFF));
+        refreshColor.run();
+
+        LinearLayout swatchRow = new LinearLayout(ctx);
+        swatchRow.setOrientation(LinearLayout.HORIZONTAL);
+        swatchRow.setGravity(Gravity.CENTER_VERTICAL);
+        for (int rgb : SWATCHES) {
+            View sw = new View(ctx);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.OVAL);
+            bg.setColor(0xFF000000 | rgb);
+            bg.setStroke(Math.max(1, Math.round(1.5f * d)), 0xFF888888);
+            sw.setBackground(bg);
+            LinearLayout.LayoutParams lp =
+                    new LinearLayout.LayoutParams(Math.round(30 * d), Math.round(30 * d));
+            lp.rightMargin = Math.round(7 * d);
+            sw.setLayoutParams(lp);
+            final int c = rgb;
+            sw.setOnClickListener(v -> { spec.keyColor = c; refreshColor.run(); apply.run(); });
+            swatchRow.addView(sw);
+        }
+        TextView dropper = new TextView(ctx);
+        dropper.setText(R.string.faditor_key_eyedropper);
+        dropper.setTextColor(ACCENT);
+        dropper.setTextSize(12);
+        dropper.setPadding(Math.round(6 * d), Math.round(6 * d),
+                Math.round(6 * d), Math.round(6 * d));
+        dropper.setOnClickListener(v -> host.pickColorFromPreview(rgb -> {
+            if (rgb == null) {
+                android.widget.Toast.makeText(ctx, R.string.faditor_key_eyedropper_failed,
+                        android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            spec.keyColor = rgb;
+            refreshColor.run();
+            apply.run();
+        }));
+        swatchRow.addView(dropper);
+        body.addView(swatchRow);
+
+        slider(ctx, body, R.string.faditor_key_tolerance, 100,
+                Math.round(spec.keyTolerance * 100),
+                v -> { spec.keyTolerance = v / 100f; apply.run(); });
+        slider(ctx, body, R.string.faditor_key_softness, 100,
+                Math.round(spec.keyFuzziness * 100),
+                v -> { spec.keyFuzziness = v / 100f; apply.run(); });
+        // Signed, so the bar is 0..200 with 100 meaning zero — a SeekBar cannot start negative
+        // and a separate direction control would be worse.
+        slider(ctx, body, R.string.faditor_key_spill, 200,
+                Math.round(spec.keyOffset * 100) + 100,
+                v -> { spec.keyOffset = (v - 100) / 100f; apply.run(); });
+
+        body.setVisibility(spec.keyEnabled ? View.VISIBLE : View.GONE);
+        on.setOnCheckedChangeListener((b, checked) -> {
+            spec.keyEnabled = checked;
+            body.setVisibility(checked ? View.VISIBLE : View.GONE);
+            apply.run();
+        });
+        return root;
+    }
+
+    // ── Tab 3: BLEND MODE ────────────────────────────────────────────────────────────────
+
+    private static final String[] BLEND_KEYS = {"NORMAL", "MULTIPLY", "SCREEN", "OVERLAY", "ADD"};
+    private static final int[] BLEND_LABELS = {
+            R.string.faditor_blend_normal, R.string.faditor_blend_multiply,
+            R.string.faditor_blend_screen, R.string.faditor_blend_overlay,
+            R.string.faditor_blend_add};
+
+    @NonNull
+    public static View blendTab(@NonNull Context ctx, @NonNull Clip clip,
+                                @NonNull Runnable apply) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout root = column(ctx);
+        final List<TextView> rows = new ArrayList<>();
+        for (int i = 0; i < BLEND_KEYS.length; i++) {
+            final int idx = i;
+            TextView tv = new TextView(ctx);
+            tv.setText(BLEND_LABELS[i]);
+            tv.setTextSize(13);
+            tv.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            tv.setPadding(Math.round(6 * d), Math.round(9 * d),
+                    Math.round(6 * d), Math.round(9 * d));
+            tv.setOnClickListener(v -> {
+                clip.setOverlayBlendMode(BLEND_KEYS[idx]);
+                for (int j = 0; j < rows.size(); j++) {
+                    rows.get(j).setTextColor(j == idx ? ACCENT : TXT);
+                }
+                apply.run();
+            });
+            rows.add(tv);
+            root.addView(tv);
+        }
+        String cur = clip.getOverlayBlendMode();
+        for (int i = 0; i < BLEND_KEYS.length; i++) {
+            rows.get(i).setTextColor(BLEND_KEYS[i].equals(cur) ? ACCENT : TXT);
+        }
+        TextView note = new TextView(ctx);
+        note.setText(R.string.faditor_blend_export_note);
+        note.setTextColor(TXT_DIM);
+        note.setTextSize(10);
+        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        note.setPadding(Math.round(6 * d), Math.round(6 * d), Math.round(6 * d), 0);
+        root.addView(note);
+        return root;
+    }
+
+    // ── shared builders ──────────────────────────────────────────────────────────────────
+
+    @NonNull
+    private static LinearLayout column(@NonNull Context ctx) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout l = new LinearLayout(ctx);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setPadding(Math.round(14 * d), 0, Math.round(14 * d), Math.round(10 * d));
+        return l;
+    }
+
+    @NonNull
+    private static CheckBox check(@NonNull Context ctx, int labelRes, boolean checked) {
+        CheckBox cb = new CheckBox(ctx);
+        cb.setText(labelRes);
+        cb.setTextColor(TXT);
+        cb.setTextSize(12);
+        cb.setChecked(checked);
+        return cb;
+    }
+
+    /** Compact one-line slider: label · value on the left, bar filling the rest. */
+    private static void slider(@NonNull Context ctx, @NonNull LinearLayout parent, int labelRes,
+                               int max, int initial,
+                               @NonNull java.util.function.Consumer<Integer> onChange) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView label = new TextView(ctx);
+        label.setTextColor(TXT_DIM);
+        label.setTextSize(11);
+        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setWidth(Math.round(78 * d));
+        label.setText(ctx.getString(labelRes));
+        row.addView(label);
+
+        SeekBar bar = new SeekBar(ctx);
+        bar.setMax(max);
+        bar.setProgress(Math.max(0, Math.min(max, initial)));
+
+        TextView value = new TextView(ctx);
+        value.setTextColor(TXT);
+        value.setTextSize(11);
+        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setWidth(Math.round(34 * d));
+        value.setGravity(Gravity.END);
+        value.setText(String.valueOf(initial));
+
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                value.setText(String.valueOf(p));
+                onChange.accept(p);
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+        });
+        row.addView(bar, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(value);
+        parent.addView(row);
+    }
+
+    private static float propMin(@NonNull ObjectMenuSheet.Prop p) { return p.min(); }
+    private static float propMax(@NonNull ObjectMenuSheet.Prop p) { return p.max(); }
+}

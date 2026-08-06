@@ -145,6 +145,16 @@ public final class ObjectMenuSheet extends LinearLayout {
 
         public boolean onKeyAt(long playheadMs) { return onKey.onKeyAt(playheadMs); }
         @NonNull public String label() { return label; }
+
+        // Read-only accessors so a renderer OUTSIDE this package (PipDrawerTabs) can draw the
+        // same Prop without the adapters being duplicated for it. Deliberately accessors and
+        // not public fields: the drawer may read a Prop and drive it, never redefine one.
+        public float min() { return min; }
+        public float max() { return max; }
+        public boolean keyframeable() { return keyframeable; }
+        @NonNull public String format(float value) { return format.format(value); }
+        public float valueAt(long playheadMs) { return get.at(playheadMs); }
+        public void write(float value, long playheadMs) { set.write(value, playheadMs); }
         public void dropKey() { dropKey.run(); }
         public void prevKey() { if (prevKey != null) prevKey.run(); }
         public void nextKey() { if (nextKey != null) nextKey.run(); }

@@ -1440,6 +1440,67 @@ Three corrections this pass, each of which changes the cost:
   M11 box is stale on that point — what M11 still owes is anchoring, which is unbuilt
   (`anchorClipId` appears nowhere in the source).
 
+## 3a-DRAWER. THE PiP DRAWER IS A TOP, TRANSLUCENT, TABBED PANEL — 2026-08-05, device-proven
+
+**User spec, 2026-08-05.** Verbatim asks: compact so the timeline stays scrubbable; comes down
+from the TOP not up from the bottom; black at 40% opacity so you can see the video through it;
+an icon row beside the title; mask/blend/chroma as animated tabs that slide spatially; volume
+keyframes; Scale to 400%; drop "Show audio waveform" (double-tap already opens it).
+
+**Answers the user gave when asked (BINDING, do not re-litigate):**
+1. **PiP only for now.** `ObjectMenuSheet` still serves text/sprite/audio/visualizer across 19
+   call sites; porting them is mechanical once this is proven.
+2. **FOUR tabs** — Video · Mask · Chroma key · Blend — not chroma-folded-into-blend. Blend
+   really is sparse (5 options) but chroma has ~8 controls and Luma key adds more.
+3. **Luma matte lane: consumed on the CANVAS, grayscale in the TIMELINE.** The lane above stops
+   being composited as a picture; its timeline tapes stay visible but render grayscale so you
+   can see the assets and know they have become a mask. **The object that TURNED luma key on
+   needs an obvious marker** so it is clear which one is causing it.
+4. **Any lane type may be the matte** — video, text, sprite, image, shapes. User's words: it
+   *"should feel as easy as 'this here should be cutout by anything one lane above'"*.
+
+**SHIPPED AND SEEN ON THE NOTE 9.** `tools/PipOverlayDrawer` (chrome: top anchor, 40% black,
+icon row, four tabs, directional slide) + `tools/PipDrawerTabs` (content). The activity gained
+~90 lines of wiring instead of ~500 of inline UI — the same discipline the Mask panel took.
+Confirmed on device: toolbar clear, six compact rows, **Volume now carries `‹ ◇ ›` like every
+other row**, timeline fully scrubable underneath, tab titles change, content slides, and the
+active tab's icon turns green (Mask and Chroma both checked).
+
+**One real layout bug, found by looking rather than by reading.** Anchored `Gravity.TOP` the
+drawer landed ON the editor's own top bar — its title and icon row collided with the project
+title, the close ✕ and the export button. Translucency made that read as a rendering fault
+rather than a layout one, and it put two tappable things in one place. Now offset by the
+measured height of `editor_top_bar` (measured, not a constant — the bar carries a
+device-dependent status-bar inset).
+
+**Volume's missing diamond was HONEST, not an oversight — and is now real.** It shipped as a
+`staticProp` because `buildOverlayAudioSequence` only ever called `setVolume()`, a constant; a
+diamond over an export that ignores it is a control that lies. Fixed at the source: that
+sequence now uses `setVolumeEnvelope()` when the clip has keys, mirroring the master-clip path.
+The curve moved out of `VolumeAudioProcessor` into `model/VolumeEnvelope` because it now has
+three readers (export processor, live preview, menu row) — **a preview that fades at a different
+rate than the file is worse than one that does not fade at all, because it looks correct.**
+Harness: `run-key.sh` now covers both shared model curves, 37 chroma + 17 envelope, ALL GREEN,
+and the envelope checks discriminate (removing the leading clamp fails exactly one).
+
+**Scale 150% → 400%**, and the PINCH clamp went 300% → 400% in the same change: the two
+disagreed, so fingers could reach a size the slider could neither display nor restore.
+
+### ⚠ NOT BUILT YET — LUMA KEY. The spec above is complete; the work is not.
+Nothing of item 3/4 is implemented. What exists to build on: `CompositingSpec.mattePeerId` +
+`LayerPreviewController.servingMatteClipIds` + `MatteVisibilityTest` (14 checks) already do
+CLIP-to-CLIP luma matte, canvas-consumed, in preview AND export. So the remaining work is a
+new SELECTOR ("the lane immediately above") on a working engine, plus:
+- generalising the matte SOURCE beyond `Clip` — text/sprite/image lanes are not in the peer
+  list the resolver reads, and `TextOverlayItem` has no compositing field;
+- the timeline treatment: grayscale tapes on the matte lane + an obvious badge on the object
+  that enabled it.
+Also still open from the earlier chroma work: frame-rate cost of the GL tier, the rotation
+refusal, and the OK/Cancel/Remove round-trip through the new tabs (the drawer writes live like
+the dialog did, so the revert contract needs re-checking in its new home).
+
+---
+
 ## 3a-KEY. THE CHROMA KEY HAS A UI, AND THE PREVIEW KEYS — 2026-08-05. ⚠ NOT YET SEEN ON A PHONE.
 
 **The binding condition is met: the sliders are tuned against a keyed preview, not blind.** §3a

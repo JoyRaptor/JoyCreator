@@ -19822,34 +19822,145 @@ public class FaditorEditorActivity extends AppCompatActivity {
             props.add(pipVolumeProp(c));
         }
 
-        java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
-        addPipAudioAction(actions, c);
-        addPipAudioDrawerAction(actions, c);
-        // §3a — the masking engine's FIRST door. CompositingSpec/MaskPathBuilder have been built,
-        // export-proven and preview-wired for weeks with the JSON deserializer as their only
-        // writer, i.e. reachable solely by hand-editing project.json.
-        actions.add(new ObjectMenuSheet.Action(getString(R.string.faditor_mask_action), false,
-                () -> showMaskDialog(c)));
-        // Blend modes: BlendModeGlEffect renders MULTIPLY/SCREEN/OVERLAY/ADD in the export today;
-        // setOverlayBlendMode had no caller but the deserializer (access-point audit).
-        actions.add(new ObjectMenuSheet.Action(getString(R.string.faditor_blend_action), false,
-                () -> showBlendModeDialog(c)));
-        actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
-                () -> clearAllPipKeyframes(c)));
+        // The old ACTION LIST is gone, not merely unused. Mute/hide/lock became header icons,
+        // Mask and Blend became tabs, and "Show audio waveform" was dropped outright — the
+        // double-tap already opens it for a video overlay, so the row was a second door to the
+        // same place (user, 2026-08-05). A list built and never read is the dead-code trap this
+        // project keeps paying for, so it is deleted rather than left for later.
+        showPipDrawer(c, props);
+    }
 
-        final com.fadcam.ui.faditor.keyframe.KeyframeSet[] sliderBefore =
-                new com.fadcam.ui.faditor.keyframe.KeyframeSet[1];
-        ObjectMenuSheet.GestureHooks hooks = new ObjectMenuSheet.GestureHooks() {
-            @Override public void onSliderStart() { sliderBefore[0] = pipKfCopy(c); }
-            @Override public void onSliderCommit(@NonNull String what) {
-                if (sliderBefore[0] != null) recordPipMenuUndo(c, sliderBefore[0], what);
-                sliderBefore[0] = null;
+    @Nullable private com.fadcam.ui.faditor.tools.PipOverlayDrawer pipDrawer;
+
+    @NonNull
+    private com.fadcam.ui.faditor.tools.PipOverlayDrawer ensurePipDrawer() {
+        if (pipDrawer == null) {
+            pipDrawer = new com.fadcam.ui.faditor.tools.PipOverlayDrawer(this);
+            android.view.ViewGroup root =
+                    (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
+            // TOP, not BOTTOM — the whole point of the redesign: the timeline stays uncovered
+            // so the user can scrub while the drawer is open, which is what keyframing needs.
+            android.widget.FrameLayout.LayoutParams lp =
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                            android.view.Gravity.TOP);
+            // Start BELOW the editor's own top bar, not over it. Anchored at TOP without this,
+            // the drawer's title and icon row land on the project title, the close ✕ and the
+            // export button — a translucent panel makes that collision look like a rendering
+            // fault rather than a layout one, and it puts two tappable things in one place.
+            // Measured off the real view rather than a constant, since the bar carries the
+            // status-bar inset and that is device-dependent.
+            android.view.View topBar = findViewById(R.id.editor_top_bar);
+            if (topBar != null) {
+                lp.topMargin = topBar.getHeight() > 0
+                        ? topBar.getHeight() : Math.round(56 * getResources()
+                                .getDisplayMetrics().density);
+                topBar.post(() -> {
+                    if (pipDrawer == null) return;
+                    android.widget.FrameLayout.LayoutParams p =
+                            (android.widget.FrameLayout.LayoutParams) pipDrawer.getLayoutParams();
+                    if (p != null && topBar.getHeight() > 0 && p.topMargin != topBar.getHeight()) {
+                        p.topMargin = topBar.getHeight();
+                        pipDrawer.setLayoutParams(p);
+                    }
+                });
+            }
+            root.addView(pipDrawer, lp);
+        }
+        return pipDrawer;
+    }
+
+    /**
+     * The PiP's TOP drawer (user, 2026-08-05) — replaces the bottom sheet for VIDEO OVERLAYS
+     * ONLY. Text, sprites, audio and visualizers keep {@code ObjectMenuSheet}; porting them is
+     * mechanical once this is proven on device.
+     *
+     * <p>Chrome lives in {@code PipOverlayDrawer} and content in {@code PipDrawerTabs}, so the
+     * feature costs this file ~90 lines of wiring instead of the ~500 it would have taken
+     * inline — the same reason the Mask panel moved out.</p>
+     */
+    private void showPipDrawer(@NonNull Clip c,
+                               @NonNull java.util.List<ObjectMenuSheet.Prop> props) {
+        final com.fadcam.ui.faditor.model.CompositingSpec spec =
+                c.getCompositing() != null ? c.getCompositing()
+                        : new com.fadcam.ui.faditor.model.CompositingSpec();
+        final Runnable applyComp = () -> {
+            c.setCompositing(spec.isEmpty() ? null : spec);
+            if (overlayVideoLayer != null) overlayVideoLayer.refreshCompositing();
+            if (editorTimeline != null) editorTimeline.invalidate();
+            scheduleAutoSave();
+        };
+
+        com.fadcam.ui.faditor.tools.PipDrawerTabs.Host tabHost =
+                new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
+            @Override public long playheadMs() { return lastPlayheadAbsoluteMs; }
+            @Override public void onChanged() {
+                if (overlayVideoLayer != null) overlayVideoLayer.refreshCompositing();
+                if (editorTimeline != null) editorTimeline.invalidate();
+                scheduleAutoSave();
+            }
+            @Override public void pickColorFromPreview(
+                    @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
+                if (overlayVideoLayer == null) { cb.onPicked(null); return; }
+                android.widget.Toast.makeText(FaditorEditorActivity.this,
+                        R.string.faditor_key_tap_prompt,
+                        android.widget.Toast.LENGTH_SHORT).show();
+                pendingEyedropper = cb::onPicked;
+            }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
             }
         };
-        addObjectVisibilityActions(actions, c::isHiddenObject, c::setHiddenObject, c::isLockedObject, c::setLockedObject);
-        maybeAddLinkActions(actions, c.getId());
-        ensureObjectMenuSheet().show("Video overlay", null, props, actions, // TODO(strings)
-                null, null, hooks, lastPlayheadAbsoluteMs, null);
+
+        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
+                new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                "Video overlay", 0,                                        // TODO(strings)
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.videoTab(ctx, props, tabHost)));
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(ctx, c, spec, applyComp)));
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
+                        ctx, c, spec, applyComp, tabHost)));
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
+                        ctx, c, tabHost::onChanged)));
+
+        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
+                new java.util.ArrayList<>();
+        // Mute doubles as the audio OPT-IN: a PiP is silent by default, so one icon answers
+        // "is this contributing sound" in both directions rather than needing two rows.
+        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+                R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24,
+                () -> !c.isOverlayAudioEnabled() || c.isAudioMuted(),
+                () -> {
+                    c.setOverlayAudioEnabled(!c.isOverlayAudioEnabled());
+                    if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+                    syncTimelineOverlays();
+                    scheduleAutoSave();
+                }, true));
+        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+                R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
+                c::isHiddenObject,
+                () -> {
+                    c.setHiddenObject(!c.isHiddenObject());
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }, true));
+        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+                R.drawable.ic_lock, R.drawable.ic_lock,
+                c::isLockedObject,
+                () -> {
+                    c.setLockedObject(!c.isLockedObject());
+                    scheduleAutoSave();
+                }, false));
+
+        ensurePipDrawer().show(tabs, toggles);
     }
 
     /**

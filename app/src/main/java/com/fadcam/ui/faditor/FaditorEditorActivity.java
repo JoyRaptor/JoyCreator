@@ -2630,6 +2630,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Intent intent = new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class);
             intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID,
                     project != null ? project.getId() : "");
+            // So "show the assistant this frame" means the frame the user is looking at.
+            intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PLAYHEAD_MS,
+                    Math.max(0, lastPlayheadAbsoluteMs));
             startActivity(intent);
         });
     }

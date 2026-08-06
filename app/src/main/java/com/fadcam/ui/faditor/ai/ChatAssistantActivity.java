@@ -212,7 +212,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         updateModelLabel();
 
         ImageButton btnAttach = findViewById(R.id.chat_attach);
-        btnAttach.setOnClickListener(v -> pickImage());
+        btnAttach.setOnClickListener(v -> showAttachChooser());
 
         ImageButton btnSettings = findViewById(R.id.chat_settings);
         btnSettings.setOnClickListener(v -> showSettingsDialog());
@@ -416,6 +416,187 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
     }
 
+    // ── Attaching what the AI should LOOK at ────────────────────────────────────────────────
+
+    /**
+     * Timeline position the editor was sitting at when it opened this chat, in absolute ms.
+     * Lets "send the current frame" mean the frame the user is actually looking at.
+     */
+    public static final String EXTRA_PLAYHEAD_MS = "chat_playhead_ms";
+
+    /**
+     * Attach chooser: a picked image, or the video frame at the playhead.
+     *
+     * <p>A chooser rather than a second button because {@code res/} is another agent's live file
+     * under the working protocol, and a long-press would hide the feature behind a gesture
+     * nothing advertises — the same discoverability trap the dope sheet was in.</p>
+     *
+     * <p>With no project attached there is no frame to send, so this degrades to the picker it
+     * has always been rather than offering an option that cannot work.</p>
+     */
+    private void showAttachChooser() {
+        if (projectId == null || projectId.isEmpty()) { pickImage(); return; }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Show the assistant…")
+                .setItems(new String[]{"🎞  This frame (at the playhead)", "🖼  Pick an image…"},
+                        (d, which) -> {
+                            if (which == 0) attachFrameAtPlayhead(); else pickImage();
+                        })
+                .show();
+    }
+
+    /**
+     * Extract the video frame under the playhead and attach it.
+     *
+     * <p><b>What this is and is not.</b> It is the SOURCE video frame at that moment — the
+     * picture the clip contributes. It is not the fully composed frame: overlays, text, sprites
+     * and image sequences are drawn by the export compositor, and reproducing that here would
+     * mean running it offscreen. So the assistant can answer "is this shot in focus / what is
+     * happening here / what colour is the wall", and cannot yet answer "does my caption read
+     * over this". That second one is the natural follow-up and wants the compositor, not a
+     * bigger screenshot.</p>
+     *
+     * <p>Time mapping goes through {@code Clip.mapToSourceMs} — the same authority the
+     * thumbnails, the seek path and the export all use — so the frame the AI sees is the frame
+     * the editor would show, including trims, speed and loop repeats.</p>
+     */
+    private void attachFrameAtPlayhead() {
+        final long playheadMs = getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, 0L);
+        addBotMessage("Grabbing the frame…");
+        aiExecutor.execute(() -> {
+            android.media.MediaMetadataRetriever mmr = null;
+            Bitmap frame = null;
+            String problem = null;
+            try {
+                com.fadcam.ui.faditor.project.ProjectStorage storage =
+                        new com.fadcam.ui.faditor.project.ProjectStorage(this);
+                com.fadcam.ui.faditor.model.FaditorProject proj = storage.load(projectId);
+                com.fadcam.ui.faditor.model.Timeline tl =
+                        proj == null ? null : proj.getTimeline();
+                if (tl == null || tl.getClipCount() == 0) {
+                    problem = "There are no clips in this project yet.";
+                } else {
+                    // Walk the spine the way the timeline does: each clip occupies its VISUAL
+                    // duration (trim + loop extension), and the playhead lands in exactly one.
+                    int idx = -1;
+                    long acc = 0, localMs = 0;
+                    for (int i = 0; i < tl.getClipCount(); i++) {
+                        com.fadcam.ui.faditor.model.Clip c = tl.getClip(i);
+                        if (c == null) continue;
+                        long dur = Math.max(1, c.getVisualDurationMs());
+                        if (playheadMs < acc + dur || i == tl.getClipCount() - 1) {
+                            idx = i;
+                            localMs = Math.max(0, Math.min(dur - 1, playheadMs - acc));
+                            break;
+                        }
+                        acc += dur;
+                    }
+                    com.fadcam.ui.faditor.model.Clip clip = idx < 0 ? null : tl.getClip(idx);
+                    if (clip == null || clip.getSourceUri() == null) {
+                        problem = "I couldn't find a clip at the playhead.";
+                    } else {
+                        long srcMs = clip.mapToSourceMs(localMs);
+                        mmr = new android.media.MediaMetadataRetriever();
+                        mmr.setDataSource(this, clip.getSourceUri());
+                        // OPTION_CLOSEST is worth the extra decode here: OPTION_CLOSEST_SYNC can
+                        // land seconds away on a sparsely-keyframed clip, and "the frame at the
+                        // playhead" showing a different shot entirely is the one failure that
+                        // would make the whole feature untrustworthy.
+                        frame = mmr.getFrameAtTime(srcMs * 1000L,
+                                android.media.MediaMetadataRetriever.OPTION_CLOSEST);
+                        if (frame == null) problem = "That clip wouldn't give me a frame.";
+                    }
+                }
+            } catch (Exception | OutOfMemoryError e) {
+                problem = "I couldn't read that frame.";
+            } finally {
+                if (mmr != null) try { mmr.release(); } catch (Exception ignored) { }
+            }
+            final Bitmap got = frame;
+            final String err = problem;
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) { if (got != null) got.recycle(); return; }
+                if (got == null) {
+                    updateLastBotMessage(err != null ? err : "I couldn't read that frame.");
+                    return;
+                }
+                // Bound it before it becomes base64: a 4K frame is ~8MB of pixels and several
+                // MB of JPEG, and vision models gain nothing from the extra resolution.
+                Bitmap sized = scaleForVision(got);
+                if (sized != got) got.recycle();
+                updateLastBotMessage("Here's the frame at "
+                        + String.format(java.util.Locale.US, "%.2fs", playheadMs / 1000f) + ".");
+                addFrameMessage(sized, playheadMs);
+            });
+        });
+    }
+
+    /** Longest-edge cap for anything sent to a vision model. */
+    private static final int VISION_MAX_DIM = 1024;
+
+    @NonNull
+    private static Bitmap scaleForVision(@NonNull Bitmap src) {
+        int w = src.getWidth(), h = src.getHeight();
+        int longest = Math.max(w, h);
+        if (longest <= VISION_MAX_DIM) return src;
+        float s = VISION_MAX_DIM / (float) longest;
+        return Bitmap.createScaledBitmap(src,
+                Math.max(1, Math.round(w * s)), Math.max(1, Math.round(h * s)), true);
+    }
+
+    /**
+     * Show an extracted frame as a user message and send it for analysis.
+     *
+     * <p>Mirrors {@link #addImageMessage} but takes no URI — this bitmap came from a decode, not
+     * from a document the user picked, so there is no grant to persist and nothing to re-open.
+     */
+    private void addFrameMessage(@NonNull Bitmap frame, long playheadMs) {
+        android.widget.LinearLayout wrapper = new android.widget.LinearLayout(this);
+        wrapper.setOrientation(android.widget.LinearLayout.VERTICAL);
+        wrapper.setPadding(dp(12), dp(8), dp(12), dp(8));
+
+        android.widget.ImageView iv = new android.widget.ImageView(this);
+        iv.setImageBitmap(frame);
+        iv.setAdjustViewBounds(true);
+        iv.setMaxHeight(dp(240));
+        iv.setPadding(0, 0, 0, dp(4));
+        wrapper.addView(iv);
+
+        TextView caption = new TextView(this);
+        caption.setText(String.format(java.util.Locale.US,
+                "[Frame at %.2fs] %d×%d", playheadMs / 1000f,
+                frame.getWidth(), frame.getHeight()));
+        caption.setTextColor(0xFFAAAAAA);
+        caption.setTextSize(12);
+        wrapper.addView(caption);
+
+        messagesContainer.addView(wrapper);
+        messageViews.add(wrapper);
+        addTickerTick(true);
+        scrollToBottom();
+
+        if (inputField.getText().toString().trim().isEmpty()) {
+            inputField.setText("What do you see in this frame?");
+        }
+
+        if (apiKey == null || apiKey.isEmpty()) {
+            addBotMessage("Connect an API key (top-right settings) and I can look at this.");
+            return;
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        frame.compress(Bitmap.CompressFormat.JPEG, 85, baos);
+        String base64 = android.util.Base64.encodeToString(
+                baos.toByteArray(), android.util.Base64.NO_WRAP);
+        // Say so plainly when the connected model has no eyes, rather than sending an image into
+        // a text-only model and reporting whatever it hallucinates about a picture it never saw.
+        if (ModelCapabilities.visionFor(model) == ModelCapabilities.Vision.NO) {
+            addBotMessage("Heads up: \"" + model + "\" doesn't accept images, so I'll be "
+                    + "answering without actually seeing this. Pick a model with the 👁 for a "
+                    + "real look.");
+        }
+        sendVisionMessage(base64, frame.getWidth(), frame.getHeight());
+    }
+
     /** Show an attached image as a user message and send it to the AI for vision analysis. */
     private void addImageMessage(@NonNull Bitmap bitmap, @NonNull Uri imageUri) {
         // Take a temporary persistence grant so the URI stays readable
@@ -519,8 +700,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
                 JSONObject retainedUserMsg = new JSONObject();
                 retainedUserMsg.put("role", "user");
+                // Worded as a FACT ABOUT THE PAST, not as an attachment. The first wording said
+                // "[image attached: …]", which is true of that turn and false of every turn
+                // after it — and a model reading it on turn 2, with no image present, replies
+                // "I can't see the image you attached, I don't have image analysis
+                // capabilities". That denial then reads to the user as vision being broken when
+                // it is the history being honest. Measured on device 2026-08-06.
                 retainedUserMsg.put("content", userText
-                        + "\n[image attached: " + imgW + "x" + imgH + " JPEG, not retained in history]");
+                        + "\n[The user showed you a " + imgW + "x" + imgH + " video frame at this"
+                        + " point in the conversation. It was visible to you then and is not"
+                        + " re-attached now; ask them to share it again if you need another look.]");
                 conversationHistory.add(retainedUserMsg);
 
                 // Build the request body: prior history (with placeholders) plus
@@ -550,6 +739,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 }
 
                 JSONObject json = new JSONObject(responseBody);
+                // A completion names the model that ACTUALLY served it, which for a router
+                // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
+                // it turns the eye indicator's prediction into an observation.
+                ModelCapabilities.noteServedModel(json.optString("model", null));
                 JSONArray choices = json.optJSONArray("choices");
                 if (choices == null || choices.length() == 0) {
                     runOnUiThread(() -> updateLastBotMessage("Empty response from AI."));
@@ -846,6 +1039,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 }
 
                 JSONObject json = new JSONObject(responseBody);
+                // A completion names the model that ACTUALLY served it, which for a router
+                // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
+                // it turns the eye indicator's prediction into an observation.
+                ModelCapabilities.noteServedModel(json.optString("model", null));
                 JSONArray choices = json.optJSONArray("choices");
                 if (choices == null || choices.length() == 0) {
                     runOnUiThread(() -> updateLastBotMessage("Empty response from AI."));
@@ -917,6 +1114,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 }
 
                 JSONObject json = new JSONObject(responseBody);
+                // A completion names the model that ACTUALLY served it, which for a router
+                // (openrouter/free, openrouter/auto) is only knowable after the fact. Recording
+                // it turns the eye indicator's prediction into an observation.
+                ModelCapabilities.noteServedModel(json.optString("model", null));
                 JSONArray choices = json.optJSONArray("choices");
                 if (choices == null || choices.length() == 0) {
                     runOnUiThread(() -> addBotMessage("Done."));
@@ -1596,18 +1797,48 @@ public class ChatAssistantActivity extends AppCompatActivity {
         aiExecutor.shutdownNow();
     }
 
-    /** Update the model-slug label to show the current model name. */
+    /**
+     * Update the model-slug label, with an EYE when the connected model can see images.
+     *
+     * <p>The eye is an honesty affordance, not a gate: routing already pre-filters by what the
+     * request contains, so attaching an image to {@code openrouter/free} is safe regardless.
+     * What the user cannot otherwise know is whether asking "does this text read over that
+     * background" will actually be answered by something with eyes.</p>
+     *
+     * <p>Three states, deliberately. {@link ModelCapabilities.Vision#UNKNOWN} — before the
+     * catalogue has been fetched, or after a failed fetch — shows NO marker at all rather than a
+     * dark eye, because "nobody has checked" is not the same claim as "it cannot see".</p>
+     */
     private void updateModelLabel() {
         if (modelLabel == null) return;
         boolean hasKey = apiKey != null && !apiKey.isEmpty();
-        if (hasKey && model != null && !model.isEmpty() && !DEFAULT_MODEL.equals(model)) {
-            modelLabel.setText(model);
-            modelLabel.setVisibility(View.VISIBLE);
-        } else if (hasKey) {
-            modelLabel.setText("connected");
-            modelLabel.setVisibility(View.VISIBLE);
-        } else {
+        if (!hasKey) {
             modelLabel.setVisibility(View.GONE);
+            return;
         }
+        boolean named = model != null && !model.isEmpty() && !DEFAULT_MODEL.equals(model);
+        String base = named ? model : "connected";
+        ModelCapabilities.Vision v = ModelCapabilities.visionFor(named ? model : DEFAULT_MODEL);
+        String marker = v == ModelCapabilities.Vision.YES ? "  👁"
+                : (v == ModelCapabilities.Vision.NO ? "  ⃠" : "");
+        modelLabel.setText(base + marker);
+        modelLabel.setVisibility(View.VISIBLE);
+        maybeRefreshCapabilities();
+    }
+
+    /**
+     * Kick a background refresh of the model catalogue if it is missing or stale, then redraw.
+     *
+     * <p>Public endpoint, no key needed. Failure is silent by design — a network hiccup must not
+     * flip a correct eye into a wrong one, so the previous answer simply stands.</p>
+     */
+    private void maybeRefreshCapabilities() {
+        if (!ModelCapabilities.needsRefresh()) return;
+        aiExecutor.execute(() -> ModelCapabilities.refreshBlocking(
+                () -> runOnUiThread(() -> {
+                    // Guard: the refresh outlives a quick close of this screen.
+                    if (isFinishing() || isDestroyed() || modelLabel == null) return;
+                    updateModelLabel();
+                })));
     }
 }

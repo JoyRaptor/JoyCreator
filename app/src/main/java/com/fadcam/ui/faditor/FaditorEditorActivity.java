@@ -20153,8 +20153,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * feature costs this file ~90 lines of wiring instead of the ~500 it would have taken
      * inline — the same reason the Mask panel moved out.</p>
      */
+    /**
+     * Commits the open compositing drawer's session as ONE undo step. Null when no session is
+     * open, or when one has already been committed.
+     *
+     * @see #commitPendingCompUndo()
+     */
+    @Nullable private Runnable pendingCompUndoCommit;
+
+    /**
+     * End the current mask/chroma editing session, recording one undo step if anything actually
+     * changed.
+     *
+     * <p>Called from BOTH the drawer's close hook and the top of {@link #showPipDrawer}. The
+     * second is not redundant: the drawer is a single reused instance that
+     * {@code onItemSelectionChanged} RETARGETS at a different clip by calling {@code show()}
+     * again, and that path never closes the drawer — so without the flush here, the first
+     * clip's whole editing session would silently vanish from the undo stack.</p>
+     */
+    private void commitPendingCompUndo() {
+        Runnable r = pendingCompUndoCommit;
+        pendingCompUndoCommit = null;
+        if (r != null) r.run();
+    }
+
     private void showPipDrawer(@NonNull Clip c,
                                @NonNull java.util.List<ObjectMenuSheet.Prop> props) {
+        // Any previous clip's session ends here, before this one's snapshot is taken.
+        commitPendingCompUndo();
         final com.fadcam.ui.faditor.model.CompositingSpec spec =
                 c.getCompositing() != null ? c.getCompositing()
                         : new com.fadcam.ui.faditor.model.CompositingSpec();
@@ -20234,6 +20260,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     c.setLockedObject(!c.isLockedObject());
                     scheduleAutoSave();
                 }, false));
+
+        // ── Undo for the mask and chroma-key controls (SPEC_ADJUSTMENT_LAYERS_FX §1.5) ──
+        // PipDrawerTabs.Host.recordUndo was declared and never called, so every slider on the
+        // Mask and Chroma tabs had NO undo at all. Per-slider actions would be wrong here: one
+        // drag emits a continuous stream of values and would bury the stack, which is why the
+        // MaskKeyPanel session-snapshot idiom is the one copied.
+        //
+        // The JSON is re-parsed into DETACHED specs before the lambdas capture them
+        // (MaskKeyPanel:371 explains why): holding the live `spec` would make both directions
+        // point at the same mutating object, and undo would restore the state it was undoing.
+        final String compBefore = spec.toJson().toString();
+        pendingCompUndoCommit = () -> {
+            String compAfter = spec.toJson().toString();
+            if (compAfter.equals(compBefore)) return;   // opened and closed, or looked only
+            final com.fadcam.ui.faditor.model.CompositingSpec undoState =
+                    com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
+                            com.google.gson.JsonParser.parseString(compBefore).getAsJsonObject());
+            final com.fadcam.ui.faditor.model.CompositingSpec redoState =
+                    com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
+                            com.google.gson.JsonParser.parseString(compAfter).getAsJsonObject());
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    getString(R.string.faditor_mask_title),
+                    () -> { spec.copyFrom(redoState); applyComp.run(); },
+                    () -> { spec.copyFrom(undoState); applyComp.run(); }));
+        };
+        ensurePipDrawer().setOnClose(this::commitPendingCompUndo);
 
         ensurePipDrawer().show(tabs, toggles);
     }

@@ -62,9 +62,9 @@ public class ColorGradeShaderProgram extends BaseGlShaderProgram implements GlEf
         try {
             glProgram.use();
             glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, 0);
-            glProgram.setFloatUniform("uExposure", params.getExposure());
-            glProgram.setFloatUniform("uTemperature", params.getTemperature());
-            glProgram.setFloatUniform("uTint", params.getTint());
+            // uExposure / uTemperature / uTint are GONE, not merely unset — see the shader's
+            // own note. media3's Brightness and RgbAdjustment sit EARLIER in the same chain and
+            // already applied them, so setting them here applied each one twice.
             glProgram.setFloatUniform("uHighlights", params.getHighlights());
             glProgram.setFloatUniform("uShadows", params.getShadows());
             glProgram.setFloatUniform("uFade", params.getFade());
@@ -103,9 +103,14 @@ public class ColorGradeShaderProgram extends BaseGlShaderProgram implements GlEf
         return "#version 100\n"
                 + "precision mediump float;\n"
                 + "uniform sampler2D uTexSampler;\n"
-                + "uniform float uExposure;\n"
-                + "uniform float uTemperature;\n"
-                + "uniform float uTint;\n"
+                // NO uExposure / uTemperature / uTint. This program is the LAST link in a chain
+                // whose earlier links (media3 Brightness, then RgbAdjustment) have already
+                // applied exposure and temperature/tint — see EffectStack.toEffects. Declaring
+                // them here and adding them again was a double-apply with DIFFERENT maths each
+                // time (additive here, multiplicative there), and it fired on every project
+                // where any of highlights / shadows / fade / vignette / grain was non-zero.
+                // What arrives at vTexSamplingCoord is already exposed and already balanced;
+                // this program's job is only what nothing upstream can do.
                 + "uniform float uHighlights;\n"
                 + "uniform float uShadows;\n"
                 + "uniform float uFade;\n"
@@ -118,10 +123,9 @@ public class ColorGradeShaderProgram extends BaseGlShaderProgram implements GlEf
                 + "void main() {\n"
                 + "  vec4 c = texture2D(uTexSampler, vTexSamplingCoord);\n"
                 + "  vec3 color = c.rgb;\n"
-                + "  color += uExposure;\n"
-                + "  color.r += uTemperature * 0.08;\n"
-                + "  color.b -= uTemperature * 0.08;\n"
-                + "  color.g += uTint * 0.04;\n"
+                // The luma the masks key off is now measured on the ALREADY-EXPOSED colour,
+                // which is what the masks were always meant to see: brightening a shot should
+                // move which pixels count as highlights.
                 + "  float luma = dot(color, vec3(0.299, 0.587, 0.114));\n"
                 + "  float highlightMask = step(0.5, luma) * clamp((luma - 0.5) * 2.0, 0.0, 1.0);\n"
                 + "  float shadowMask = step(luma, 0.5) * clamp((0.5 - luma) * 2.0, 0.0, 1.0);\n"

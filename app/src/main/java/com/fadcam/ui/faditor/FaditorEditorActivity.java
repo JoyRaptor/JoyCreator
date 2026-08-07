@@ -6712,10 +6712,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * AGSL RuntimeShader on API 33+. On older devices the shader-only params are not shown in
      * preview (export still unaffected).
      */
+    /**
+     * The clip whose grade is currently on {@code playerView}, so a LAYOUT change can re-apply
+     * it. {@code uSize} is baked into the shader when it is built; without this, rotating the
+     * device or opening a drawer that resizes the preview would leave the vignette measuring
+     * against the old dimensions — the same class of bug as the one the prologue just fixed,
+     * arriving by a different door.
+     */
+    @Nullable private Clip gradedPreviewClip;
+    private boolean gradeLayoutWatcherAttached;
+
     private void applyPreviewColorGrade(@Nullable Clip clip) {
         if (playerView == null
                 || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
             return;
+        }
+        gradedPreviewClip = clip;
+        if (!gradeLayoutWatcherAttached) {
+            gradeLayoutWatcherAttached = true;
+            playerView.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                if ((r - l) == (or - ol) && (b - t) == (ob - ot)) return;   // moved, not resized
+                if (gradedPreviewClip != null) applyPreviewColorGrade(gradedPreviewClip);
+            });
         }
         if (clip == null || clip.isImageClip() || !clip.getEffectStack().isActive()) {
             playerView.setRenderEffect(null);
@@ -6752,12 +6770,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             String agsl =
                     "uniform shader inputShader;\n"
+                    // THE NORMALIZATION PROLOGUE. createRuntimeShaderEffect hands main() a
+                    // coordinate in LOCAL PIXEL space, not 0..1 — and this shader spent its
+                    // whole life assuming otherwise. distance(co, float2(0.5)) against a number
+                    // around 700 made smoothstep(0.72, 0.28, d) evaluate to ZERO across the
+                    // entire frame, so the preview vignette has never once been visible, at any
+                    // setting. The grain was wrong the same way: co * 100.0 in pixel space is a
+                    // completely different frequency from the one intended.
+                    //
+                    // FxCompiler emits this same prologue for every FX shader, and for exactly
+                    // this reason: no authored body may see a raw fragment coordinate.
+                    + "uniform float2 uSize;\n"
                     + "uniform float uHighlights;\n"
                     + "uniform float uShadows;\n"
                     + "uniform float uFade;\n"
                     + "uniform float uVignette;\n"
                     + "uniform float uGrain;\n"
                     + "half4 main(float2 co) {\n"
+                    // eval() still takes the RAW co — it addresses the input image in the
+                    // caller's own space. Only the geometry below wants 0..1.
+                    + "  float2 uv = co / uSize;\n"
                     + "  half4 color = inputShader.eval(co);\n"
                     + "  float a = color.a;\n"
                     + "  float luma = dot(color.rgb, half3(0.299, 0.587, 0.114));\n"
@@ -6769,9 +6801,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     + "  float fadeDown = max(0.0, -uFade);\n"
                     + "  color.rgb = mix(color.rgb, half3(0.0), fadeUp);\n"
                     + "  color.rgb = mix(color.rgb, half3(1.0), fadeDown);\n"
-                    + "  float d = distance(co, float2(0.5));\n"
+                    + "  float d = distance(uv, float2(0.5));\n"
                     + "  color *= 1.0 - (smoothstep(0.72, 0.28, d) * uVignette);\n"
-                    + "  float noise = fract(sin(dot(co * 100.0, float2(12.9898, 78.233))) * 43758.5453) - 0.5;\n"
+                    + "  float noise = fract(sin(dot(uv * 100.0, float2(12.9898, 78.233))) * 43758.5453) - 0.5;\n"
                     + "  color += noise * uGrain * 0.08;\n"
                     + "  color = clamp(color, 0.0, 1.0);\n"
                     + "  return half4(color.rgb, a);\n"
@@ -6779,6 +6811,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             try {
                 android.graphics.RuntimeShader shader =
                         new android.graphics.RuntimeShader(agsl);
+                // Guarded: a not-yet-laid-out view is 0x0, and dividing by it would make every
+                // uv NaN — a black frame, which is far worse than the bug being fixed.
+                float pw = Math.max(1f, playerView.getWidth());
+                float ph = Math.max(1f, playerView.getHeight());
+                shader.setFloatUniform("uSize", pw, ph);
                 shader.setFloatUniform("uHighlights", fx.getHighlights());
                 shader.setFloatUniform("uShadows", fx.getShadows());
                 shader.setFloatUniform("uFade", fx.getFade());

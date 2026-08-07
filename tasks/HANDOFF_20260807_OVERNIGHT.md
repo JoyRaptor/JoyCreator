@@ -110,10 +110,25 @@ media3 throws on the lookup. Sampler binds are guarded now, like the float
 setters. That stack trace only existed because the log was changed to pass the
 throwable — a bare `toString` on an NPE names no line.
 
-**What is still NOT proven: the pixels.** Both exports went to a SAF location the
-adb shell cannot traverse, so no frame was extracted and compared. "It ran clean"
-is not "it inverted". Pulling one frame through the app's own Records screen is
-the last step, and it is small — **this is the top of the open list.**
+### PROVEN ON PIXELS
+
+The exports live in `/sdcard/Android/data/com.fadcam.beta/files/FadCam/Faditor/`
+and are readable with `adb exec-out run-as com.fadcam.beta cat <path>` —
+**with `MSYS2_ARG_CONV_EXCL='*'` set**, or the shell rewrites the device path and
+you silently get a 138-byte stub.
+
+- **Invert:** the exported frame is cyan/turquoise; re-inverting it gives back the
+  true red Persian rug. The layer inverted the whole composited frame.
+- **Blur, radius 50:** unmistakably blurred, through the multi-pass path — two
+  ping-pong FBOs and a separable kernel.
+
+**A real finding from those frames:** the text overlay stays SHARP over blurred
+video, and was never inverted either. Text composites AFTER the video effect
+chain, so an adjustment layer affects the video/PiP plane and not the text above
+it. That matches the M5 preview wrapper boundary exactly — text and sprite
+surfaces sit outside `fx_below_group` — so preview and export agree by
+construction. It is worth telling JoyRaptor, because "everything beneath it" means
+beneath in the CHAIN, and text is not.
 
 **The design decision that paid for itself:** this effect degrades to passthrough
 and never throws. Four consecutive driver-level failures each produced one log

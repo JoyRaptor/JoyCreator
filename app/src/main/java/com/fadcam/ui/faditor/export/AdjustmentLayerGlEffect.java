@@ -217,7 +217,8 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         }
 
         private static void setF(@NonNull GlProgram p, @NonNull String name, float v) {
-            try { p.setFloatUniform(name, v); } catch (RuntimeException ignored) { }
+            try { p.setFloatUniform(name, v); }
+            catch (RuntimeException e) { noteSkipped(name); }
         }
 
         private static void setF2(@NonNull GlProgram p, @NonNull String name, float a, float b) {
@@ -226,7 +227,27 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
 
         private static void setFn(@NonNull GlProgram p, @NonNull String name,
                                   @NonNull float[] v) {
-            try { p.setFloatsUniform(name, v); } catch (RuntimeException ignored) { }
+            try { p.setFloatsUniform(name, v); }
+            catch (RuntimeException e) { noteSkipped(name); }
+        }
+
+        /**
+         * Names whose set was skipped, reported ONCE each.
+         *
+         * <p>Skipping an absent uniform is correct — the driver strips what no code reads. But
+         * a uniform the shader DOES read going missing is a silent wrong picture, which is
+         * exactly how a blur can run with no warning and produce no blur. Naming them turns
+         * that from invisible into obvious.</p>
+         */
+        private static final java.util.Set<String> SKIPPED =
+                java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+        private static void noteSkipped(@NonNull String name) {
+            // DEBUG, not a warning: a skip is usually correct — the composite pass does not
+            // read uDir, a blur pass does not read the mask set, and the driver strips both.
+            // It earns a line only because a uniform the shader DOES read going missing is a
+            // silently wrong picture, and this is the cheapest thing that would show it.
+            if (SKIPPED.add(name)) FLog.d("AdjustmentLayer", "uniform not in program: " + name);
         }
 
         /** One RENDER: a compiled program, the pass it came from, and its kernel axis. */

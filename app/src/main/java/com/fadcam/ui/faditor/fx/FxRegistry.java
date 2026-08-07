@@ -143,6 +143,22 @@ public final class FxRegistry {
 
     // ── The catalog ─────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Rules a body must not break. DECLARED BEFORE the static initializer that reads it, and it
+     * must stay there: static fields initialise in SOURCE ORDER, so with this further down the
+     * file {@link #validate} saw a null table and the whole class failed to load — on every
+     * device, the first time anything touched the registry.
+     */
+    private static final String[][] FORBIDDEN = {
+            {"texture2D", "sampling is FX_SAMPLE's job — a raw texture2D cannot translate to AGSL"},
+            {"uniform", "uniforms are emitted from FxParam descriptors, never authored"},
+            {"varying", "the compiler owns the varyings; AGSL has none at all"},
+            {"precision", "the compiler emits the precision qualifier once, per backend"},
+            {"#", "AGSL has no preprocessor — every macro is expanded in Java"},
+            {"gl_FragColor", "the entry point is the compiler's; AGSL returns a value instead"},
+            {"main(", "a body is a STATEMENT BLOCK; the compiler emits the signature"},
+    };
+
     private static final List<FxEffectDef> ALL;
     private static final Map<String, FxEffectDef> BY_ID;
 
@@ -270,15 +286,6 @@ public final class FxRegistry {
     // ── The self-check ──────────────────────────────────────────────────────────────────────
 
     /** Tokens an authored body must never contain, each mapped to whose job it actually is. */
-    private static final String[][] FORBIDDEN = {
-            {"texture2D", "sampling is FX_SAMPLE's job — a raw texture2D cannot translate to AGSL"},
-            {"uniform", "uniforms are emitted from FxParam descriptors, never authored"},
-            {"varying", "the compiler owns the varyings; AGSL has none at all"},
-            {"precision", "the compiler emits the precision qualifier once, per backend"},
-            {"#", "AGSL has no preprocessor — every macro is expanded in Java"},
-            {"gl_FragColor", "the entry point is the compiler's; AGSL returns a value instead"},
-            {"main(", "a body is a STATEMENT BLOCK; the compiler emits the signature"},
-    };
 
     /**
      * Every rule the catalog must satisfy, as a list of human-readable problems ({@code empty} ==

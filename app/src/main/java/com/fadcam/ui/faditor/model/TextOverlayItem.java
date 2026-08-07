@@ -189,6 +189,33 @@ public class TextOverlayItem {
     private final com.fadcam.ui.faditor.keyframe.KeyframeSet keyframes =
             new com.fadcam.ui.faditor.keyframe.KeyframeSet();
 
+    /**
+     * PER-OBJECT effects (SPEC_ADJUSTMENT_LAYERS_FX M7) — this text's own {@code FxStack}.
+     *
+     * <p>The same model a {@code Clip} carries and the same one an adjustment layer runs: same
+     * registry, same compiler, same panel. JoyRaptor asked for exactly this — "a primitive that
+     * could be either put directly onto a video image or text layer... only affecting the areas
+     * that are opaque".</p>
+     *
+     * <p>Null until something is added, so every text overlay that predates per-object FX
+     * serializes byte-identically.</p>
+     *
+     * <p><b>MODEL AND STORAGE ONLY TODAY — nothing renders this yet, and that is an
+     * architectural boundary rather than an unfinished wire.</b> A PiP reaches the screen
+     * through {@code BlendModeGlEffect}, a GL shader, so M7 splices the compiled FX straight
+     * into it. Text reaches the screen through {@code CompositeExportOverlay}, a
+     * {@code BitmapOverlay} drawn on a Canvas — there is no shader to splice into. Rendering
+     * this would mean putting the text bitmap through the FX chain as a texture, which is a
+     * renderer, not a wire.</p>
+     *
+     * <p>The field lands now because the model, the panel and the serialization are genuinely
+     * shared, and because a stack authored today will simply start working when that renderer
+     * exists. It is deliberately NOT surfaced in the UI: an Effects tab that silently does
+     * nothing is worse than no tab.</p>
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.fx.FxStack fx;
+
     public TextOverlayItem(@NonNull String text, int colorInt,
                            float centerX, float centerY,
                            float sizeFraction, float rotationDeg) {
@@ -227,6 +254,28 @@ public class TextOverlayItem {
      * on, and inheriting the original's lane is exactly what makes two objects overlap on a row
      * that forbids overlap.</p>
      */
+    /** This text's own effect stack, created on first access. @see #fx */
+    @NonNull
+    public com.fadcam.ui.faditor.fx.FxStack getOrCreateFx() {
+        if (fx == null) fx = new com.fadcam.ui.faditor.fx.FxStack();
+        return fx;
+    }
+
+    /** @see #fx */
+    @Nullable
+    public com.fadcam.ui.faditor.fx.FxStack getFx() { return fx; }
+
+    /** An EMPTY stack normalises to null, so an overlay briefly given an effect and then
+     *  emptied serializes exactly as it did before it was ever touched. */
+    public void setFx(@Nullable com.fadcam.ui.faditor.fx.FxStack v) {
+        fx = (v == null || v.isEmpty()) ? null : v;
+    }
+
+    /** True when this text's own effects would change any pixel. */
+    public boolean hasActiveFx() {
+        return fx != null && !fx.active().isEmpty();
+    }
+
     @NonNull
     public TextOverlayItem copyWithNewId(@NonNull String newId) {
         TextOverlayItem c = new TextOverlayItem(newId, text, colorInt,
@@ -252,6 +301,8 @@ public class TextOverlayItem {
         c.textAnimInPct = textAnimInPct;
         c.textAnimOutPct = textAnimOutPct;
         c.keyframes.copyFrom(keyframes);
+        // Deep-copied, never shared: two texts fed by one stack would grade together.
+        c.fx = fx == null ? null : fx.copy();
         c.generatedSource = generatedSource == null ? null : generatedSource.copy();
         c.timerSpec = timerSpec == null ? null : timerSpec.copy();
         return c;

@@ -2022,6 +2022,10 @@ public class ProjectStorage {
                 oJson.addProperty("centerY", o.getCenterY());
                 oJson.addProperty("sizeFraction", o.getSizeFraction());
                 oJson.addProperty("rotationDeg", o.getRotationDeg());
+                // Per-object FX (M7). Additive: written only when the overlay has effects.
+                if (o.getFx() != null && !o.getFx().isEmpty()) {
+                    oJson.add("fx", o.getFx().toJson());
+                }
                 if (o.getOpacity() != 1f) oJson.addProperty("opacity", o.getOpacity());
                 if (!"default".equals(o.getFontFamily())) {
                     oJson.addProperty("fontFamily", o.getFontFamily());
@@ -2651,6 +2655,16 @@ public class ProjectStorage {
                                                 ? oObj.get("rotationDeg").getAsFloat() : 0f);
                         if (hasValue(oObj, "fontFamily")) {
                             o.setFontFamily(oObj.get("fontFamily").getAsString());
+                        }
+                        if (hasValue(oObj, "fx")) {
+                            try {
+                                o.setFx(com.fadcam.ui.faditor.fx.FxStack.fromJson(
+                                        oObj.getAsJsonObject("fx")));
+                            } catch (Exception ignored) {
+                                // Tolerant read: a malformed stack costs the EFFECTS, not the
+                                // overlay -- losing someone's caption over a bad effect would
+                                // be a wildly disproportionate failure.
+                            }
                         }
                         if (hasValue(oObj, "imageUri")) {
                             o.setImageUri(fromStorageUri(projectDir,

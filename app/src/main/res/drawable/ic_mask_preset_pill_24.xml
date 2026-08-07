@@ -1,0 +1,9 @@
+<!-- Mask preset PILL: a wide rect with fully-rounded ends — CIRCLE's corner radius on
+     RECT's proportion, which is exactly what applyPreset does. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path android:fillColor="@android:color/white" android:fillType="evenOdd"
+        android:pathData="M8,7h8a5,5 0 0,1 0,10h-8a5,5 0 0,1 0,-10zM8,8.6a3.4,3.4 0 0,0 0,6.8h8a3.4,3.4 0 0,0 0,-6.8z"/>
+</vector>

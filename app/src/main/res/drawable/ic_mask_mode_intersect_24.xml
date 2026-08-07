@@ -1,0 +1,23 @@
+<!-- Mask mode INTERSECT: only the LENS where the two circles overlap is solid; both circles
+     are outlined so the lens reads as "what both have in common". The solid lens is produced
+     by clipping the right circle to the left one — a shape no single pathData can express.
+
+     JoyRaptor described this one as "two solid circles and the middle knocked out"; that glyph is
+     Pathfinder's EXCLUDE, which is the opposite result. Drawn as a true intersect so the icon
+     matches the boolean the shape actually performs. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path android:strokeColor="@android:color/white" android:strokeWidth="1"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M9,6.5a5.5,5.5 0 1,0 0,11a5.5,5.5 0 1,0 0,-11z"/>
+    <path android:strokeColor="@android:color/white" android:strokeWidth="1"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M15,6.5a5.5,5.5 0 1,0 0,11a5.5,5.5 0 1,0 0,-11z"/>
+    <group>
+        <clip-path android:pathData="M9,6.5a5.5,5.5 0 1,0 0,11a5.5,5.5 0 1,0 0,-11z"/>
+        <path android:fillColor="@android:color/white"
+            android:pathData="M15,6.5a5.5,5.5 0 1,0 0,11a5.5,5.5 0 1,0 0,-11z"/>
+    </group>
+</vector>

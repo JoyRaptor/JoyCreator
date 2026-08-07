@@ -221,13 +221,31 @@ public final class PipDrawerTabs {
         // Three rows, rebuilt together because all three describe the SELECTED shape. Two
         // people's faces in one mask is the case this exists for: add a second circle rather
         // than duplicating the video (JoyRaptor, 2026-08-06).
-        LinearLayout shapeRow = row(ctx);
+        // TWO rows, not four. Shape chips sit on the left of row 1 with the four shape presets
+        // right-justified beside them; the three boolean modes are centred on row 2. JoyRaptor
+        // asked for all three groups on ONE row; at 24dp icons plus the +/- chips that is
+        // ~384dp of content on a ~360dp-wide phone, so it would overflow the moment a third
+        // shape existed. Two rows is the closest arrangement that cannot clip, and it still
+        // removes two rows of the four this used to take (user, 2026-08-06).
+        LinearLayout topRow = row(ctx);
+        LinearLayout shapeGroup = new LinearLayout(ctx);
+        shapeGroup.setOrientation(LinearLayout.HORIZONTAL);
+        shapeGroup.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout presetGroup = new LinearLayout(ctx);
+        presetGroup.setOrientation(LinearLayout.HORIZONTAL);
+        presetGroup.setGravity(Gravity.CENTER_VERTICAL);
+        topRow.addView(shapeGroup, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        topRow.addView(presetGroup);
+
         LinearLayout modeRow = row(ctx);
-        LinearLayout presetRow = row(ctx);
+        modeRow.setGravity(Gravity.CENTER_HORIZONTAL);
         LinearLayout sliderHost = column(ctx);
-        root.addView(shapeRow);
+        // The slider column already sits inside `root`'s padding; paying it twice indented the
+        // sliders past the rows that label them.
+        sliderHost.setPadding(0, 0, 0, 0);
+        root.addView(topRow);
         root.addView(modeRow);
-        root.addView(presetRow);
         root.addView(sliderHost);
 
         // Assigned below; declared first because the three builders call each other.
@@ -243,13 +261,13 @@ public final class PipDrawerTabs {
             final CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
 
             // — chips: one per shape, then + / − —
-            shapeRow.removeAllViews();
+            shapeGroup.removeAllViews();
             for (int i = 0; i < spec.masks.size(); i++) {
                 final int idx = i;
-                TextView c = chip(ctx, "● " + (i + 1), dp);
+                TextView c = chip(ctx, String.valueOf(i + 1), dp);
                 c.setBackgroundColor(idx == sel[0] ? 0x66FFFFFF : 0x22FFFFFF);
                 c.setOnClickListener(v -> { sel[0] = idx; rebuild[0].run(); });
-                shapeRow.addView(c);
+                shapeGroup.addView(c);
             }
             TextView addChip = chip(ctx, "+", dp);
             addChip.setOnClickListener(v -> {
@@ -262,7 +280,7 @@ public final class PipDrawerTabs {
                 rebuild[0].run();
                 apply.run();
             });
-            shapeRow.addView(addChip);
+            shapeGroup.addView(addChip);
             if (spec.masks.size() > 1) {
                 TextView del = chip(ctx, "−", dp);
                 del.setOnClickListener(v -> {
@@ -273,40 +291,48 @@ public final class PipDrawerTabs {
                     rebuild[0].run();
                     apply.run();
                 });
-                shapeRow.addView(del);
+                shapeGroup.addView(del);
             }
 
-            // — mode: how this shape combines with the ones before it —
-            modeRow.removeAllViews();
-            final int[] modes = {CompositingSpec.MODE_ADD, CompositingSpec.MODE_SUBTRACT,
-                    CompositingSpec.MODE_INTERSECT};
-            final String[] modeLabels = {"Add", "Subtract", "Intersect"};
-            for (int i = 0; i < modes.length; i++) {
-                final int mode = modes[i];
-                TextView c = chip(ctx, modeLabels[i], dp);
-                c.setBackgroundColor(cur.mode == mode ? 0x66FFFFFF : 0x22FFFFFF);
-                c.setOnClickListener(v -> {
-                    cur.mode = mode;
-                    rebuild[0].run();
-                    apply.run();
-                });
-                modeRow.addView(c);
-            }
-
-            // — presets: a starting SHAPE, not a reset (centre/rotation/mode survive) —
-            presetRow.removeAllViews();
+            // — presets, right-justified on the same row: a starting SHAPE, not a reset —
+            presetGroup.removeAllViews();
             final int[] presets = {CompositingSpec.PRESET_SQUARE, CompositingSpec.PRESET_RECT,
                     CompositingSpec.PRESET_CIRCLE, CompositingSpec.PRESET_PILL};
-            final String[] presetLabels = {"Square", "Rect", "Circle", "Pill"};
+            final int[] presetIcons = {R.drawable.ic_mask_preset_square_24,
+                    R.drawable.ic_mask_preset_rect_24, R.drawable.ic_mask_preset_circle_24,
+                    R.drawable.ic_mask_preset_pill_24};
+            final String[] presetNames = {"Square", "Rect", "Circle", "Pill"};
             for (int i = 0; i < presets.length; i++) {
                 final int p = presets[i];
-                TextView c = chip(ctx, presetLabels[i], dp);
-                c.setOnClickListener(v -> {
+                // A preset is a one-shot action, so it is never "selected" — unlike mode, it
+                // leaves no state behind that a highlight could honestly represent.
+                android.widget.ImageView b =
+                        iconButton(ctx, presetIcons[i], presetNames[i], false, dp);
+                b.setOnClickListener(v -> {
                     CompositingSpec.applyPreset(cur, p);
                     rebuild[0].run();   // the w/h/corner sliders must follow the preset
                     apply.run();
                 });
-                presetRow.addView(c);
+                presetGroup.addView(b);
+            }
+
+            // — mode, centred on its own row: how this shape combines with the ones before it —
+            modeRow.removeAllViews();
+            final int[] modes = {CompositingSpec.MODE_ADD, CompositingSpec.MODE_SUBTRACT,
+                    CompositingSpec.MODE_INTERSECT};
+            final int[] modeIcons = {R.drawable.ic_mask_mode_add_24,
+                    R.drawable.ic_mask_mode_subtract_24, R.drawable.ic_mask_mode_intersect_24};
+            final String[] modeNames = {"Add", "Subtract", "Intersect"};
+            for (int i = 0; i < modes.length; i++) {
+                final int mode = modes[i];
+                android.widget.ImageView b = iconButton(
+                        ctx, modeIcons[i], modeNames[i], cur.mode == mode, dp);
+                b.setOnClickListener(v -> {
+                    cur.mode = mode;
+                    rebuild[0].run();
+                    apply.run();
+                });
+                modeRow.addView(b);
             }
 
             // — the six per-shape sliders, rebuilt in place —
@@ -346,7 +372,6 @@ public final class PipDrawerTabs {
                 v -> { spec.maskFeather = v / 100f; apply.run(); });
         CheckBox inv = check(ctx, R.string.faditor_mask_only_inside, spec.invertMasks);
         inv.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
-        root.addView(inv);
 
         // ── The writers for MaskAnimator ────────────────────────────────────────────────
         // Inline literals: strings.xml is another agent's live file under the working protocol
@@ -384,7 +409,16 @@ public final class PipDrawerTabs {
             }
             apply.run();
         });
-        root.addView(link);
+        // Both checkboxes share ONE line (user, 2026-08-06). Equal weights rather than
+        // wrap_content so the two labels cannot jostle each other as their text changes
+        // length under translation or a larger font scale.
+        LinearLayout checkRow = row(ctx);
+        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        checkRow.addView(inv, half);
+        checkRow.addView(link, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        root.addView(checkRow);
         syncSelected[0] = () -> link.setChecked(spec.masks.get(sel[0]).linkedToObject);
 
         TextView hint = new TextView(ctx);
@@ -732,6 +766,34 @@ public final class PipDrawerTabs {
         row.addView(key);
         row.addView(inc);
         parent.addView(row);
+    }
+
+    /**
+     * A square icon button for the mask row's mode and preset groups.
+     *
+     * <p>{@code name} is the accessibility label AND a long-press tooltip: replacing four text
+     * chips with four glyphs buys the vertical space back, but it would otherwise take the
+     * only statement of what each one does with it.</p>
+     */
+    @NonNull
+    private static android.widget.ImageView iconButton(@NonNull Context ctx, int iconRes,
+                                                       @NonNull String name, boolean selected,
+                                                       float d) {
+        android.widget.ImageView iv = new android.widget.ImageView(ctx);
+        iv.setImageResource(iconRes);
+        iv.setContentDescription(name);
+        int pad = Math.round(5 * d);
+        iv.setPadding(pad, pad, pad, pad);
+        iv.setBackgroundColor(selected ? 0x66FFFFFF : 0x22FFFFFF);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                Math.round(34 * d), Math.round(30 * d));
+        lp.rightMargin = Math.round(5 * d);
+        iv.setLayoutParams(lp);
+        iv.setOnLongClickListener(v -> {
+            android.widget.Toast.makeText(ctx, name, android.widget.Toast.LENGTH_SHORT).show();
+            return true;
+        });
+        return iv;
     }
 
     /** One tap target in a slider row's {@code ‹ ◇ ›} cluster. */

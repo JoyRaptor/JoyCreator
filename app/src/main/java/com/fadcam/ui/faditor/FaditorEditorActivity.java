@@ -28425,7 +28425,65 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /**
      * Duplicate the currently selected segment (inserts a copy right after it).
      */
+    /**
+     * Duplicate the selected floating OBJECT onto its own new lane, at the SAME time position
+     * (JoyRaptor's request, recorded in START_HERE §3D).
+     *
+     * <p><b>Why a new lane rather than beside it.</b> Objects on a lane may not overlap, so a
+     * copy at the same time has nowhere to go on the original's row — it would have to be
+     * shoved sideways, which changes WHEN it happens, or pushed through to another lane, which
+     * is the complicated gesture the scrubber spec deliberately limits. A fresh lane needs
+     * neither: the copy lands exactly on top of the original in time, which is what "duplicate"
+     * means everywhere else.</p>
+     *
+     * @return true when an object was duplicated; false when nothing suitable was selected, so
+     *         the caller can fall back to duplicating the master-track segment.
+     */
+    private boolean duplicateSelectedObject() {
+        if (project == null || editorTimeline == null) return false;
+        String selectedId = editorTimeline.getSelectedLayerItemId();
+        if (selectedId == null) return false;
+        Timeline timeline = project.getTimeline();
+
+        // ADJUSTMENT LAYERS ONLY, for now, and deliberately rather than by omission.
+        // AdjustmentLayer.copy() is a real deep copy with a harness test proving it aliases
+        // neither the FX stack nor the compositing spec. TextOverlayItem and SpriteOverlayItem
+        // have no copy() at all, and hand-rolling one here would mean deep-copying their
+        // keyframe sets from the outside — precisely where an aliasing bug hides, and it would
+        // surface as two objects that animate together for no visible reason. They need a
+        // copy() of their own first; that is a model change, not a button change.
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
+            if (!al.getId().equals(selectedId)) continue;
+            com.fadcam.ui.faditor.model.AdjustmentLayer copy = al.copy();
+            copy.setId(java.util.UUID.randomUUID().toString());
+            copy.setName(al.getName() + " copy");
+            String lane = timeline.createLayerTrack(
+                    com.fadcam.ui.faditor.layers.TrackKind.ADJUSTMENT, "Adjustment");
+            copy.setLayerId(lane);
+            timeline.addAdjustmentLayer(copy);
+            finishDuplicate(() -> timeline.removeAdjustmentLayer(copy));
+            return true;
+        }
+        return false;
+    }
+
+    /** Shared tail of {@link #duplicateSelectedObject}: one undo step, repaint, save, tell. */
+    private void finishDuplicate(@NonNull Runnable undo) {
+        undoManager.recordAction(new EditActions.LambdaAction(
+                "Duplicate",                                                  // TODO(strings)
+                () -> { refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
+                () -> { undo.run(); refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); }));
+        refreshAfterMarqueeBatchDelete();
+        saveProjectNow();
+        Toast.makeText(this, "Duplicated onto a new lane",                    // TODO(strings)
+                Toast.LENGTH_SHORT).show();
+    }
+
     private void duplicateSelectedSegment() {
+        // An OBJECT selection wins over the master-track segment: if the user has just tapped a
+        // text or sprite, "duplicate" can only sensibly mean that one, and duplicating a whole
+        // clip underneath them instead would be a startling amount of undo to reach for.
+        if (duplicateSelectedObject()) return;
         try {
             Timeline timeline = project.getTimeline();
             int newIndex = timeline.duplicateClip(selectedClipIndex);

@@ -51,19 +51,66 @@ public final class MaskPathBuilder {
     @Nullable
     public static Path buildVisiblePath(@Nullable CompositingSpec spec, float w, float h) {
         if (spec == null || !spec.hasMasks() || w <= 0 || h <= 0) return null;
+        MaskFold.Fold fold = MaskFold.foldOps(spec);
+        Path region = fold.sequential ? buildSequential(spec, fold, w, h)
+                                      : buildTwoBucket(spec, w, h);
+        if (spec.invertMasks) return region;
+        Path visible = new Path();
+        visible.addRect(0, 0, w, h, Path.Direction.CW);
+        visible.op(region, Path.Op.DIFFERENCE);
+        return visible;
+    }
+
+    /**
+     * EXACTLY the code that shipped — union(add) − union(sub) — reached whenever no shape uses
+     * INTERSECT. Untouched on purpose (spec §1.2): the gate is what guarantees BY CONSTRUCTION
+     * that no existing project can take a different code path, which is what keeps the
+     * feather-0 clip path byte-identical.
+     */
+    @NonNull
+    private static Path buildTwoBucket(@NonNull CompositingSpec spec, float w, float h) {
         Path add = new Path();
         Path sub = new Path();
         for (CompositingSpec.MaskShape m : spec.masks) {
             Path shape = shapePath(m, w, h);
-            if (m.subtract) sub.op(shape, Path.Op.UNION);
+            if (m.isSubtract()) sub.op(shape, Path.Op.UNION);
             else add.op(shape, Path.Op.UNION);
         }
         add.op(sub, Path.Op.DIFFERENCE); // the effective hole/window region
-        if (spec.invertMasks) return add;
-        Path visible = new Path();
-        visible.addRect(0, 0, w, h, Path.Direction.CW);
-        visible.op(add, Path.Op.DIFFERENCE);
-        return visible;
+        return add;
+    }
+
+    /**
+     * The ordered fold, reached only when some shape INTERSECTS. Each shape folds onto the
+     * accumulator in list order with its own op — the reading a boolean stack has everywhere
+     * else, and the only one under which "intersect" means anything at all.
+     *
+     * <p>The FIRST shape always seeds the accumulator by union — {@link MaskFold#foldOps}
+     * reports that in {@code ops[0]}, so it is pinned by the harness rather than buried here.</p>
+     */
+    @NonNull
+    private static Path buildSequential(@NonNull CompositingSpec spec,
+                                        @NonNull MaskFold.Fold fold, float w, float h) {
+        Path acc = new Path();
+        for (int i = 0; i < spec.masks.size(); i++) {
+            acc.op(shapePath(spec.masks.get(i), w, h), pathOp(fold.ops[i]));
+        }
+        return acc;
+    }
+
+    /**
+     * The op ordinals {@link MaskFold} speaks in, turned into the {@code Path.Op}s only this
+     * file may use. This mapping is the ENTIRE reason the decision could be extracted: it is
+     * the one line that needs android, and it holds no policy.
+     */
+    @NonNull
+    private static Path.Op pathOp(int op) {
+        switch (op) {
+            case MaskFold.OP_DIFFERENCE: return Path.Op.DIFFERENCE;
+            case MaskFold.OP_INTERSECT: return Path.Op.INTERSECT;
+            case MaskFold.OP_UNION:
+            default: return Path.Op.UNION;
+        }
     }
 
     // clipCanvas (both overloads) was deleted when beginMask/endMask replaced it: a clip
@@ -201,23 +248,46 @@ public final class MaskPathBuilder {
         canvas.restoreToCount(scope.outer);
     }
 
-    // One-entry cache. The mask is static geometry while the frames under it are not, so
-    // without this the export would rebuild and re-blur the same bitmap on EVERY frame.
-    // One entry is enough because a frame belongs to one clip: alternating specs would
-    // thrash, which is why the signature is checked rather than assumed.
+    /**
+     * FOUR-entry LRU, not the one entry that shipped (spec §1.2, risk R4).
+     *
+     * <p>The mask is static geometry while the frames under it are not, so without a cache the
+     * export would rebuild and re-blur the same bitmap on EVERY frame. One entry was enough
+     * only while "a frame belongs to one clip" held. It stops holding the moment a second
+     * masked object can exist — an adjustment layer with a mask over a masked PiP makes the
+     * export alternate between two specs per frame, and a one-entry cache then MISSES every
+     * single time, i.e. it degrades to exactly the no-cache cost it was added to avoid. This
+     * has to land here, in M0, because M0 is the last point before anything can produce that
+     * second masked object.</p>
+     *
+     * <p>Four, not more: each entry is a full-frame ALPHA_8 bitmap (~2 MB at 1080p), and four
+     * covers the realistic worst case (a layer plus a few masked PiPs) without turning a cache
+     * into a leak.</p>
+     *
+     * <p>Evicted bitmaps are deliberately NOT recycled. {@link #endMask} draws the returned
+     * bitmap outside the lock, so recycling on eviction would be a use-after-free the moment
+     * two threads composite at once; the previous one-entry code dropped its reference the same
+     * way, and the GC has always been what actually frees these.</p>
+     */
+    private static final int FEATHER_CACHE_ENTRIES = 4;
     private static final Object featherLock = new Object();
-    @Nullable private static String featherKey;
-    @Nullable private static Bitmap featherCache;
+    private static final java.util.LinkedHashMap<String, Bitmap> featherCache =
+            new java.util.LinkedHashMap<String, Bitmap>(8, 0.75f, /* accessOrder= */ true) {
+                @Override
+                protected boolean removeEldestEntry(java.util.Map.Entry<String, Bitmap> eldest) {
+                    return size() > FEATHER_CACHE_ENTRIES;
+                }
+            };
 
     @Nullable
     private static Bitmap featherBitmap(@NonNull CompositingSpec spec, float w, float h) {
         int bw = Math.max(1, Math.round(w));
         int bh = Math.max(1, Math.round(h));
-        String key = signature(spec) + '|' + bw + 'x' + bh;
+        String key = MaskFold.signature(spec) + '|' + bw + 'x' + bh;
         synchronized (featherLock) {
-            if (key.equals(featherKey) && featherCache != null && !featherCache.isRecycled()) {
-                return featherCache;
-            }
+            Bitmap hit = featherCache.get(key);   // access-ordered: a get is a touch
+            if (hit != null && !hit.isRecycled()) return hit;
+            if (hit != null) featherCache.remove(key);
             Path erase = buildErasePath(spec, w, h);
             if (erase == null) return null;
             float radius = CompositingSpec.featherRadiusPx(spec.maskFeather, w, h);
@@ -233,24 +303,9 @@ public final class MaskPathBuilder {
                 paint.setMaskFilter(new BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL));
             }
             new Canvas(bmp).drawPath(erase, paint);
-            featherKey = key;
-            featherCache = bmp;
+            featherCache.put(key, bmp);
             return bmp;
         }
-    }
-
-    /** Everything that changes the erase bitmap, and nothing that does not. */
-    @NonNull
-    private static String signature(@NonNull CompositingSpec spec) {
-        StringBuilder sb = new StringBuilder(64);
-        sb.append(spec.invertMasks ? 'I' : 'n').append(spec.maskFeather);
-        for (CompositingSpec.MaskShape m : spec.masks) {
-            sb.append(';').append(m.cx).append(',').append(m.cy).append(',')
-              .append(m.w).append(',').append(m.h).append(',')
-              .append(m.corner).append(',').append(m.rotationDeg)
-              .append(m.subtract ? 's' : 'a');
-        }
-        return sb.toString();
     }
 
     @NonNull

@@ -22,10 +22,12 @@ import java.util.List;
  *       (0..1 of the video content rect — the user authors holes over the
  *       composed frame, and a hole must not travel when the item moves).
  *       Default read: shapes cut HOLES in the item ("reveal what's
- *       underneath"); a shape with {@code subtract=true} protects its region
- *       FROM the hole ("mask out part of my mask" → the kept notch).
+ *       underneath"); a {@link #MODE_SUBTRACT} shape protects its region
+ *       FROM the hole ("mask out part of my mask" → the kept notch), and a
+ *       {@link #MODE_INTERSECT} shape keeps only what is inside both it and
+ *       everything folded before it.
  *       {@code invertMasks=true} flips the whole stack into a window: the
- *       item is visible ONLY inside the (add−subtract) region.</li>
+ *       item is visible ONLY inside the combined region.</li>
  *   <li>CHROMA KEY (B2): key out {@code keyColor} with tolerance (distance
  *       where alpha starts), fuzziness (softness band width) and offset
  *       (post-key alpha bias, ±1). Evaluated per-pixel in the GL export path;
@@ -47,6 +49,14 @@ import java.util.List;
  */
 public class CompositingSpec {
 
+    // ── Boolean modes (M0). The wire keeps writing "sub" forever; see toJson. ──
+    /** This shape ADDS to the hole/window. The default, and what every project means. */
+    public static final int MODE_ADD = 0;
+    /** This shape SUBTRACTS — it protects its region (the user's "notch" case). */
+    public static final int MODE_SUBTRACT = 1;
+    /** This shape INTERSECTS: only what is inside BOTH it and everything folded so far. */
+    public static final int MODE_INTERSECT = 2;
+
     /** One rounded-rect mask shape, canvas-normalized. */
     public static class MaskShape {
         public float cx = 0.5f, cy = 0.5f;   // center, 0..1 of canvas
@@ -54,9 +64,33 @@ public class CompositingSpec {
         /** 0 = sharp corners … 1 = fully round (radius = min(w,h)/2). */
         public float corner = 0f;
         public float rotationDeg = 0f;
-        /** false = this shape ADDS to the hole/window; true = it SUBTRACTS
-         *  (protects its region — the user's "notch" case). */
-        public boolean subtract = false;
+
+        /**
+         * How this shape folds into the stack — {@link #MODE_ADD} / {@link #MODE_SUBTRACT} /
+         * {@link #MODE_INTERSECT}. The ONE authority; there is deliberately no {@code subtract}
+         * field beside it, because two writable representations of the same fact are how they
+         * drift. Read it through {@link #isSubtract()} where only the old binary question
+         * matters.
+         */
+        public int mode = MODE_ADD;
+
+        /**
+         * STABLE identity for keyframe namespacing — assigned at creation by
+         * {@link CompositingSpec#addShape()}, <b>never reused and never renumbered on delete</b>.
+         * Mask keyframe tracks are named off the slot, not the list index; renumbering on delete
+         * would silently move shape 3's animation onto shape 2 (spec risk R11), which is the same
+         * class of bug as the {@code TrackKind} coercion.
+         *
+         * <p>Slot 0 is special forever: it keeps the FLAT track names ({@code maskCx} …) that
+         * shipped, so an old build still animates it correctly and no migration exists.</p>
+         */
+        public int slot = 0;
+
+        /** The old binary question, derived. There is no {@code subtract} field to disagree. */
+        public boolean isSubtract() { return mode == MODE_SUBTRACT; }
+
+        /** True when this shape needs the ordered fold rather than the two-bucket fast path. */
+        public boolean isIntersect() { return mode == MODE_INTERSECT; }
 
         /**
          * LINKED to the object (user, 2026-08-05). {@code false} (default, and what every
@@ -82,7 +116,8 @@ public class CompositingSpec {
         MaskShape copy() {
             MaskShape m = new MaskShape();
             m.cx = cx; m.cy = cy; m.w = w; m.h = h;
-            m.corner = corner; m.rotationDeg = rotationDeg; m.subtract = subtract;
+            m.corner = corner; m.rotationDeg = rotationDeg;
+            m.mode = mode; m.slot = slot;
             m.linkedToObject = linkedToObject;
             m.linkBaseX = linkBaseX; m.linkBaseY = linkBaseY;
             m.linkBaseScale = linkBaseScale; m.linkBaseRotDeg = linkBaseRotDeg;
@@ -105,10 +140,15 @@ public class CompositingSpec {
      * a PiP's {@code overlayTransform} uses, deliberately, so one clip does not carry two
      * conventions and the drawer can hand both the same playhead.
      *
-     * <p>Applies to {@code masks.get(0)} plus the spec-level {@link #maskFeather}. That is not a
-     * shortcut: shape 0 is the ONLY shape any authoring UI can create, and pretending otherwise
-     * would mean seven tracks per shape that nothing can reach — dead structure the serializer
-     * would then have to keep forever.</p>
+     * <p>ONE set for the whole stack, namespaced by {@link MaskShape#slot}: slot 0 keeps the
+     * FLAT names ({@code maskCx} …) it shipped with, slots 1..n use {@code mask<slot>.cx}. See
+     * {@link MaskAnimator#trackFor}. {@code KeyframeCodec} round-trips arbitrary track names,
+     * so multi-shape masks need NO migration and an old build still animates shape 0 exactly as
+     * it always did.</p>
+     *
+     * <p>{@link #maskFeather} stays spec-level — one soften for the stack, matching the single
+     * feather bitmap {@code MaskPathBuilder} builds — so its track is flat and belongs to no
+     * shape.</p>
      *
      * <p>{@code null} for every project that has never keyed a mask, which is the whole cost of
      * this feature to them: {@link MaskAnimator#resolve} returns the input spec untouched.</p>
@@ -118,6 +158,151 @@ public class CompositingSpec {
     /** True when any mask parameter animates — the only reason to resolve per frame. */
     public boolean hasMaskKeys() {
         return maskKeys != null && !maskKeys.isEmpty();
+    }
+
+    // ── Shape list (M0) ──────────────────────────────────────────────────
+
+    /**
+     * Append a shape carrying a fresh, never-before-used {@link MaskShape#slot}.
+     *
+     * <p>The slot is one past the highest slot ANY current shape holds, not the list size:
+     * after deleting the middle of three shapes the list is 2 long while slots 0 and 2 are
+     * live, and reusing 1 would hand the new shape the deleted one's keyframe tracks.</p>
+     */
+    @NonNull
+    public MaskShape addShape() {
+        MaskShape m = new MaskShape();
+        int next = 0;
+        for (MaskShape s : masks) next = Math.max(next, s.slot + 1);
+        m.slot = next;
+        masks.add(m);
+        return m;
+    }
+
+    /**
+     * Remove the shape at {@code index} AND its keyframe tracks. Keyframe-aware on purpose:
+     * an orphaned {@code mask2.cx} track survives every save, reappears in any track list the
+     * UI builds from {@code maskKeys}, and animates nothing.
+     *
+     * <p>Slot 0's tracks are the flat spec-level ones, and {@link MaskAnimator#FEATHER} is NOT
+     * among them — feather is a property of the stack, not of a shape, so deleting a shape must
+     * never take the soften animation with it.</p>
+     *
+     * @return the removed shape, or null when {@code index} is out of range
+     */
+    @Nullable
+    public MaskShape removeShape(int index) {
+        if (index < 0 || index >= masks.size()) return null;
+        MaskShape gone = masks.remove(index);
+        if (maskKeys != null) {
+            for (String track : MaskAnimator.shapeTracks(gone.slot)) {
+                maskKeys.removeProperty(track);
+            }
+        }
+        return gone;
+    }
+
+    /**
+     * True when {@link #toJson} would write a key an older build cannot represent, and the save
+     * path must therefore stamp schema v13.
+     *
+     * <p>TWO triggers, not one. {@code mode} is the obvious case. {@code slot} is the subtle one:
+     * it is omitted while every slot still equals its list index, so it only appears after a
+     * multi-shape delete — but once it does, an old build reads no slot, renumbers by index, and
+     * hands shape 3's keyframe tracks to shape 2 (risk R11). Both must raise the stamp, so both
+     * live behind this ONE predicate rather than being re-derived at the call site.</p>
+     *
+     * <p>Deliberately mirrors {@link #toJson}'s write conditions exactly. If a future key becomes
+     * non-additive, add it here in the same commit — a stamp that disagrees with the serializer
+     * is silent, permanent data loss.</p>
+     */
+    public boolean needsSchema13() {
+        if (usesIntersect()) return true;
+        for (int i = 0; i < masks.size(); i++) {
+            if (masks.get(i).slot != i) return true;
+        }
+        return false;
+    }
+
+    /** True when any shape uses {@link #MODE_INTERSECT} — see {@link #needsSchema13}. */
+    public boolean usesIntersect() {
+        for (MaskShape m : masks) if (m.isIntersect()) return true;
+        return false;
+    }
+
+    /**
+     * True when some shape's {@link MaskShape#slot} is not its list index, i.e. the JSON has to
+     * carry an explicit {@code "slot"} to survive a round-trip. Only reachable after a
+     * multi-shape delete, so it is false for every project that exists today.
+     */
+    public boolean hasExplicitSlots() {
+        for (int i = 0; i < masks.size(); i++) if (masks.get(i).slot != i) return true;
+        return false;
+    }
+
+    // ── Shape presets (data only — no geometry, no android) ──────────────
+
+    public static final int PRESET_SQUARE = 0;
+    public static final int PRESET_RECT = 1;
+    public static final int PRESET_CIRCLE = 2;
+    public static final int PRESET_PILL = 3;
+
+    /**
+     * Rewrite {@code m}'s {@code w}/{@code h}/{@code corner} into one of the four shipped
+     * presets, leaving centre, rotation, mode, slot and link state alone — a preset is a
+     * starting SHAPE, not a reset.
+     *
+     * <p>Square and Circle equalise w and h to their mean <b>in canvas-normalised units</b>.
+     * That is not the same as square in pixels on a non-square frame, and it is the right
+     * choice here: this class is deliberately android-free and has no frame size to ask, while
+     * {@code MaskPathBuilder.shapePath} already derives the corner radius from
+     * {@code min(w*frameW, h*frameH)} — so the pixel-space question belongs there, next to the
+     * only code that knows the answer. A caller that wants pixel-square scales {@code w} by the
+     * frame aspect afterwards.</p>
+     *
+     * <p>There is no ellipse: a true ellipse is not expressible through
+     * {@code Path.addRoundRect}, and a fully-round rounded rect (Circle/Pill) is. Spec §1.1.</p>
+     */
+    public static void applyPreset(@NonNull MaskShape m, int preset) {
+        switch (preset) {
+            case PRESET_SQUARE: {
+                float s = clamp((m.w + m.h) * 0.5f, 0.001f, 1f);
+                m.w = s; m.h = s; m.corner = 0f;
+                break;
+            }
+            case PRESET_CIRCLE: {
+                float s = clamp((m.w + m.h) * 0.5f, 0.001f, 1f);
+                m.w = s; m.h = s; m.corner = 1f;
+                break;
+            }
+            case PRESET_PILL:
+                m.corner = 1f;
+                break;
+            case PRESET_RECT:
+            default:
+                m.corner = 0f;
+                break;
+        }
+    }
+
+    /**
+     * Become {@code other}, IN PLACE. Undo needs this: {@code Clip} holds a final reference to
+     * its spec, so a snapshot restore cannot reassign the field — the same reason
+     * {@code KeyframeSet.copyFrom} exists.
+     */
+    public void copyFrom(@NonNull CompositingSpec other) {
+        if (other == this) return;
+        masks.clear();
+        for (MaskShape m : other.masks) masks.add(m.copy());
+        invertMasks = other.invertMasks;
+        maskFeather = other.maskFeather;
+        maskKeys = other.maskKeys == null ? null : other.maskKeys.copy();
+        keyEnabled = other.keyEnabled;
+        keyColor = other.keyColor;
+        keyTolerance = other.keyTolerance;
+        keyFuzziness = other.keyFuzziness;
+        keyOffset = other.keyOffset;
+        mattePeerId = other.mattePeerId;
     }
 
     /** True when the mask travels with the item rather than staying put in the frame. */
@@ -195,7 +380,8 @@ public class CompositingSpec {
         JsonObject j = new JsonObject();
         if (!masks.isEmpty()) {
             JsonArray arr = new JsonArray();
-            for (MaskShape m : masks) {
+            for (int i = 0; i < masks.size(); i++) {
+                MaskShape m = masks.get(i);
                 JsonObject mj = new JsonObject();
                 mj.addProperty("cx", m.cx);
                 mj.addProperty("cy", m.cy);
@@ -203,7 +389,20 @@ public class CompositingSpec {
                 mj.addProperty("h", m.h);
                 if (m.corner != 0f) mj.addProperty("corner", m.corner);
                 if (m.rotationDeg != 0f) mj.addProperty("rot", m.rotationDeg);
-                if (m.subtract) mj.addProperty("sub", true);
+                // WIRE-COMPATIBILITY SHIM (spec §1.1). "sub" is still the ONLY thing an
+                // add/subtract shape writes, and it is written on exactly the same condition
+                // as before, so every project that predates modes stays BYTE-IDENTICAL — the
+                // property the conditional v13 stamp in ProjectStorage depends on. "mode" is
+                // written ONLY for intersect, because that is the only value "sub" cannot
+                // express; an old build reads such a shape as plain additive, which is the
+                // graceful degradation, and the v13 stamp is what stops it saving that back.
+                if (m.isSubtract()) mj.addProperty("sub", true);
+                if (m.isIntersect()) mj.addProperty("mode", MODE_INTERSECT);
+                // Omitted while the slot IS the list index, which is every shape any build has
+                // ever created — only a multi-shape delete can make them diverge. Persisting it
+                // is not optional: the keyframe tracks are named off the slot, so a slot that
+                // renumbered on reload would hand shape 3's animation to shape 2 (risk R11).
+                if (m.slot != i) mj.addProperty("slot", m.slot);
                 // Omitted while false, so every project that predates linking stays
                 // byte-identical — the same additive-schema rule the rest of this class follows.
                 if (m.linkedToObject) {
@@ -257,7 +456,22 @@ public class CompositingSpec {
                     m.h = clamp(optFloat(mj, "h", 0.2f), 0.001f, 1f);
                     m.corner = clamp01(optFloat(mj, "corner", 0f));
                     m.rotationDeg = optFloat(mj, "rot", 0f);
-                    m.subtract = mj.has("sub") && mj.get("sub").getAsBoolean();
+                    // "mode" wins where present (it is the only carrier of INTERSECT);
+                    // otherwise fall back to the legacy boolean, which is what every existing
+                    // project carries. An unknown/garbage mode degrades to ADD rather than
+                    // taking the project down.
+                    boolean legacySub = mj.has("sub") && mj.get("sub").getAsBoolean();
+                    m.mode = legacySub ? MODE_SUBTRACT : MODE_ADD;
+                    if (mj.has("mode")) {
+                        int mode = optInt(mj, "mode", m.mode);
+                        if (mode == MODE_ADD || mode == MODE_SUBTRACT || mode == MODE_INTERSECT) {
+                            m.mode = mode;
+                        }
+                    }
+                    // Absent slot = "the slot is my index", the implicit numbering every
+                    // pre-M0 project has. A duplicate or negative hand-edited slot is repaired
+                    // below, after the whole array is read.
+                    m.slot = optInt(mj, "slot", i);
                     m.linkedToObject = mj.has("link") && mj.get("link").getAsBoolean();
                     m.linkBaseX = optFloat(mj, "linkBaseX", 0.5f);
                     m.linkBaseY = optFloat(mj, "linkBaseY", 0.5f);
@@ -267,6 +481,7 @@ public class CompositingSpec {
                     m.linkBaseRotDeg = optFloat(mj, "linkBaseRot", 0f);
                     s.masks.add(m);
                 }
+                repairSlots(s.masks);
                 s.invertMasks = j.has("invertMasks")
                         && j.get("invertMasks").getAsBoolean();
                 s.maskFeather = clamp01(optFloat(j, "feather", 0f));
@@ -301,6 +516,34 @@ public class CompositingSpec {
             return (int) (Long.parseLong(hex, 16) & 0xFFFFFF);
         } catch (NumberFormatException e) {
             return 0x00FF00;
+        }
+    }
+
+    /**
+     * Make the slots of a freshly-parsed array unique and non-negative, changing nothing when
+     * they already are (which is every well-formed file). Hand-edited JSON with two shapes on
+     * the same slot would otherwise give them the SAME keyframe tracks — two shapes animating
+     * as one, which looks like a broken renderer rather than a bad edit.
+     *
+     * <p>Repair walks forward and only ever moves a duplicate UP to a free slot, so the first
+     * shape holding a slot keeps it and its keyframes.</p>
+     */
+    private static void repairSlots(@NonNull List<MaskShape> list) {
+        java.util.HashSet<Integer> used = new java.util.HashSet<>();
+        int next = 0;
+        for (MaskShape m : list) {
+            if (m.slot < 0 || !used.add(m.slot)) {
+                while (!used.add(next)) next++;
+                m.slot = next;
+            }
+        }
+    }
+
+    private static int optInt(@NonNull JsonObject j, @NonNull String k, int def) {
+        try {
+            return j.has(k) ? j.get(k).getAsInt() : def;
+        } catch (RuntimeException e) {
+            return def;
         }
     }
 

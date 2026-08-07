@@ -1123,6 +1123,26 @@ public class ProjectStorage {
      * track does not change {@code getLayers().size()} beyond 1 unless the default
      * bucket is also non-empty — the direct check below covers that gap).</p>
      */
+    /**
+     * True when ANY clip — master track or overlay — carries a compositing spec that would
+     * serialize a v13-only key. Both clip lists are walked because a mask can live on either;
+     * checking only the overlays is the shape of bug that leaves a master-track mask unstamped.
+     *
+     * @see CompositingSpec#needsSchema13()
+     */
+    private static boolean usesMultiShapeMaskFeatures(@NonNull FaditorProject project) {
+        Timeline tl = project.getTimeline();
+        for (Clip c : tl.getClips()) {
+            com.fadcam.ui.faditor.model.CompositingSpec s = c.getCompositing();
+            if (s != null && s.needsSchema13()) return true;
+        }
+        for (Clip c : tl.getOverlayClips()) {
+            com.fadcam.ui.faditor.model.CompositingSpec s = c.getCompositing();
+            if (s != null && s.needsSchema13()) return true;
+        }
+        return false;
+    }
+
     private static boolean usesLayerFeatures(@NonNull FaditorProject project) {
         Timeline tl = project.getTimeline();
         if (!"ripple".equals(tl.getRippleMode())) return true;
@@ -1844,6 +1864,16 @@ public class ProjectStorage {
             // it actually pays (some transcript instance is on more than one owner) — an
             // un-duplicated project keeps the inline shape AND its old stamp, so it stays
             // openable by older builds and its JSON stays byte-identical.
+            // v13 — multi-shape masks (SPEC_ADJUSTMENT_LAYERS_FX M0). Non-additive for the two
+            // reasons CompositingSpec.needsSchema13 documents: an old build reads an INTERSECT
+            // shape as plain additive and reads no explicit slot at all, then autosaves that
+            // back — turning an intersection into a union and renumbering keyframe tracks onto
+            // the wrong shapes. Raising the stamp is what makes that build refuse the file.
+            // A spec that writes neither key leaves the stamp alone, so every add/subtract-only
+            // project keeps its old version AND its byte-identical JSON.
+            if (usesMultiShapeMaskFeatures(src)) {
+                stampedVersion = Math.max(stampedVersion, 13);
+            }
             com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool transcriptPool =
                     poolingWouldPay(src)
                             ? new com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool()

@@ -42,6 +42,49 @@ public final class MaskAnimator {
     public static final String[] KEYS = {CX, CY, W, H, CORNER, ROTATION, FEATHER};
 
     /**
+     * The slot-namespaced suffixes, index-aligned with {@link #KEYS}. Only the first six are
+     * ever used: {@link #FEATHER} is a property of the STACK, not of a shape, so it has no
+     * per-slot form and its entry here exists purely to keep the two arrays parallel.
+     */
+    private static final String[] SUFFIXES =
+            {"cx", "cy", "w", "h", "corner", "rotation", "feather"};
+
+    /** Number of {@link #KEYS} entries that belong to a SHAPE (i.e. everything but feather). */
+    public static final int SHAPE_KEY_COUNT = 6;
+
+    /**
+     * The track name animating {@code KEYS[keyIndex]} for the shape in {@code slot}.
+     *
+     * <p><b>Slot 0 keeps the flat names forever.</b> {@code maskCx} is what shipped, it is what
+     * every existing project on disk carries, and an old build reading a multi-shape spec still
+     * animates shape 0 correctly because of it. Slots 1..n get {@code mask<slot>.cx}, which
+     * {@code KeyframeCodec} round-trips for free — that is the whole reason there is no
+     * migration here.</p>
+     *
+     * <p>{@link #FEATHER} is spec-level and returns its flat name for every slot; asking for it
+     * per shape is a caller bug, but answering with a name that ALIASES the real feather track
+     * is strictly better than inventing a dead one.</p>
+     */
+    @NonNull
+    public static String trackFor(int slot, int keyIndex) {
+        if (keyIndex < 0 || keyIndex >= KEYS.length) return KEYS[0];
+        if (slot <= 0 || keyIndex >= SHAPE_KEY_COUNT) return KEYS[keyIndex];
+        return "mask" + slot + "." + SUFFIXES[keyIndex];
+    }
+
+    /**
+     * Every track name that belongs to the shape in {@code slot} — what
+     * {@code CompositingSpec.removeShape} deletes. Deliberately EXCLUDES feather, so removing a
+     * shape never takes the stack's soften animation with it.
+     */
+    @NonNull
+    public static String[] shapeTracks(int slot) {
+        String[] out = new String[SHAPE_KEY_COUNT];
+        for (int i = 0; i < SHAPE_KEY_COUNT; i++) out[i] = trackFor(slot, i);
+        return out;
+    }
+
+    /**
      * The spec to build mask geometry from at {@code timelineMs}.
      *
      * @param spec       the authored spec; {@code null} passes straight through
@@ -65,23 +108,32 @@ public final class MaskAnimator {
         if (!animates && !linked) return spec;
 
         CompositingSpec out = spec.copy();
-        CompositingSpec.MaskShape m = out.masks.get(0);
 
         if (animates) {
-            KeyframeSet k = spec.maskKeys;
-            m.cx = clamp01(k.valueAt(CX, timelineMs, m.cx));
-            m.cy = clamp01(k.valueAt(CY, timelineMs, m.cy));
-            // Never zero: a zero-size shape makes an empty Path, and an empty mask silently
-            // means "no mask at all" rather than "a mask you cannot see" — two very different
-            // pictures for the same authored value.
-            m.w = clamp(k.valueAt(W, timelineMs, m.w), MIN_SIZE, 1f);
-            m.h = clamp(k.valueAt(H, timelineMs, m.h), MIN_SIZE, 1f);
-            m.corner = clamp01(k.valueAt(CORNER, timelineMs, m.corner));
-            m.rotationDeg = k.valueAt(ROTATION, timelineMs, m.rotationDeg);
-            out.maskFeather = clamp01(k.valueAt(FEATHER, timelineMs, spec.maskFeather));
+            // Feather is SPEC-level — one soften for the whole stack, matching the single
+            // feather bitmap MaskPathBuilder builds — so it is resolved once, outside the loop.
+            out.maskFeather = clamp01(
+                    spec.maskKeys.valueAt(FEATHER, timelineMs, spec.maskFeather));
         }
 
-        if (m.linkedToObject) applyLink(m, objectKf, timelineMs, frameW, frameH);
+        // Every shape, not just masks.get(0): shape 0's tracks are the flat names and slots
+        // 1..n are namespaced, so one loop covers both without a special case.
+        for (CompositingSpec.MaskShape m : out.masks) {
+            if (animates) {
+                KeyframeSet k = spec.maskKeys;
+                int slot = m.slot;
+                m.cx = clamp01(k.valueAt(trackFor(slot, 0), timelineMs, m.cx));
+                m.cy = clamp01(k.valueAt(trackFor(slot, 1), timelineMs, m.cy));
+                // Never zero: a zero-size shape makes an empty Path, and an empty mask silently
+                // means "no mask at all" rather than "a mask you cannot see" — two very
+                // different pictures for the same authored value.
+                m.w = clamp(k.valueAt(trackFor(slot, 2), timelineMs, m.w), MIN_SIZE, 1f);
+                m.h = clamp(k.valueAt(trackFor(slot, 3), timelineMs, m.h), MIN_SIZE, 1f);
+                m.corner = clamp01(k.valueAt(trackFor(slot, 4), timelineMs, m.corner));
+                m.rotationDeg = k.valueAt(trackFor(slot, 5), timelineMs, m.rotationDeg);
+            }
+            if (m.linkedToObject) applyLink(m, objectKf, timelineMs, frameW, frameH);
+        }
         return out;
     }
 

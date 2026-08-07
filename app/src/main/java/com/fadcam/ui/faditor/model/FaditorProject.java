@@ -41,8 +41,17 @@ public class FaditorProject {
      * project transcript-less and autosave that back. Stamped 12 only when pooling actually
      * pays (some transcript instance sits on more than one clip), so a project without that
      * duplication keeps the inline shape and its older stamp.</p>
+     * <p>v13 covers MULTI-SHAPE MASKS (SPEC_ADJUSTMENT_LAYERS_FX M0): a mask shape's boolean
+     * {@code mode} — specifically {@code MODE_INTERSECT} — and its stable {@code slot}. Both
+     * are non-additive in the same way v11's lane kind was: an older build reads an intersect
+     * shape as plain ADDITIVE (its {@code "sub"} is false) and reads no slot at all, then
+     * autosaves that back, permanently turning an intersection into a union and renumbering
+     * keyframe tracks onto the wrong shapes. Stamped 13 only when a spec actually uses
+     * INTERSECT or actually carries an explicit slot — {@code CompositingSpec.toJson} writes
+     * neither key otherwise, so every add/subtract-only project keeps its old stamp and
+     * BYTE-IDENTICAL JSON. Reproduced offline in {@code tasks/schema_mask_stamp.py}.</p>
      */
-    public static final int SCHEMA_VERSION = 12;
+    public static final int SCHEMA_VERSION = 13;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project

@@ -80,6 +80,18 @@ public class KeyframeSet {
         if (t.isEmpty()) tracks.remove(property);
     }
 
+    /**
+     * Drop a whole named track. Needed by any model that DELETES an animatable thing —
+     * {@code CompositingSpec.removeShape} is the first — because leaving the track behind
+     * would resurrect the deleted object's animation the moment a new one reused the name.
+     * (It cannot: slots are never reused. This is the belt to that suspenders.)
+     *
+     * @return true if a track was actually removed
+     */
+    public boolean removeProperty(@NonNull String property) {
+        return tracks.remove(property) != null;
+    }
+
     @NonNull
     public KeyframeSet copy() {
         KeyframeSet s = new KeyframeSet();

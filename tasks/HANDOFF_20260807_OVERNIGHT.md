@@ -1,4 +1,4 @@
-# Handoff — overnight run, 2026-08-06 → 07. Adjustment layers M0–M6 (bar M5).
+# Handoff — overnight run, 2026-08-06 → 07. Adjustment layers M0–M6, and more.
 
 JoyRaptor went to bed with "finish all known specs". This is what got done, what is
 provably true, and what is deliberately not finished. **Read
@@ -11,9 +11,12 @@ Branch `joy-creator`. Everything is committed. JoyRaptor's own files
 
 ## The one-line summary
 
-**M0, M1, M3 and M6 are complete. M2's two shipping bugs are fixed. M4 renders
-on export, single-pass, with the multi-pass half explicitly owed. M5 (live
-preview of the effect) is NOT started — see "what you will and will not see".**
+**M0, M1, M3, M5 and M6 are complete. M2's two shipping bugs are fixed. M4
+renders on export and interleaves correctly in z; only its multi-pass half is
+owed. M7 (per-object FX) is not started.**
+
+**Also done from START_HERE's backlog:** all four FF-B sprite AI tools, and the
+duplicate-onto-its-own-lane button — for adjustment layers, text and sprites.
 
 **The feature is usable end to end from the app**: add a layer, open its FX
 panel, pick from 12 effects, set parameters, opacity and blend, reorder, delete.
@@ -52,13 +55,19 @@ Two new harnesses this run: `run-adjust.sh` (model + SDF) and `run-fx.sh`
 ## What you WILL and WILL NOT see
 
 **Will:** the layer in the band, the FX panel, the picker, cards with working
-sliders, blend chips, reorder, delete, the cost meter, undo.
+sliders, blend chips, reorder, delete, per-parameter keyframe diamonds, saved
+looks, the cost meter, undo.
 
-**Will not: the effect itself, anywhere.** M5 is the live preview and it is not
-built, so the editor shows the ungraded picture. Export DOES apply the effect —
-but that path has never been run (see above), so treat it as untested rather than
-as working. **The honest next step is an export A/B**: one adjustment layer, one
-Invert, over a solid-colour clip, and compare frames.
+**Will not, ON THIS PHONE: the effect itself.** Not a gap in M5 — a hardware
+floor. The Note 9 is **API 29**; `RenderEffect` starts at 31 and AGSL at 33, so
+that device is permanently tier C and the panel says so in its own header. On an
+Android 13 phone the same build previews the full chain live. Export applies
+everything on every device.
+
+**Still untested anywhere: the export path.** `AdjustmentLayerGlEffect` is
+written, gated and typechecked, but no export has been run with a layer in it.
+**The honest next step is an export A/B**: one layer, one Invert, over a
+solid-colour clip, compare frames.
 
 **NOT verified on a device, and this is the honest gap:**
 - **The export path has never run.** `AdjustmentLayerGlEffect` is written,

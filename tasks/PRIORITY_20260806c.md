@@ -166,7 +166,27 @@
 > Reorder is by arrows rather than long-press drag — a half-built drag that mis-drops a card
 > would silently reorder an effect chain, and order is meaning here.
 >
-> **M5 (live preview) is the one milestone not started.** So the effect is invisible in the
+> **M5 — DONE.** `fx_below_group` wraps the canvas backdrop through the PiP plane (a LAYOUT
+> change, not a runtime reparent), `AdjustmentPreviewController` puts the compiled AGSL on it,
+> and `FxPreviewTier` decides capability in one place so the picker badge, the controller and
+> the panel header cannot disagree. It early-outs unless the resolved state changed, so an
+> unanimated stack costs one string compare per tick rather than a subtree invalidation.
+> **Unverifiable on the sandbox phone** — API 29 is below RenderEffect's floor of 31 — so the
+> tier table is pinned in the harness instead.
+>
+> **ALSO DONE this run, from START_HERE's backlog:**
+> - **FF-B, all four sprite AI tools** — `set_sprite_grid`, `label_sprite_cells`,
+>   `author_sprite_animation`, `apply_sprite_proposal`. Required adding per-cell NAMES to
+>   `SpriteSheet`, which its own class note had promised since it was written and which never
+>   existed — so `describe_sprite_sheet` reported "any existing cell names" and could only ever
+>   find none.
+> - **Duplicate onto its own lane** — adjustment layers, text and sprites, each through its own
+>   deep `copy`, with the non-aliasing proved in the harness (that is the whole risk: a shared
+>   keyframe set reads as the editor having a mind of its own).
+> - **M6 extras:** per-parameter keyframe diamonds and a preset store that lives OUTSIDE the
+>   project schema, so a saved look can never make a project unopenable by an older build.
+>
+> **~~M5 (live preview) is the one milestone not started.~~** So the effect is invisible in the
 > editor today: everything can be authored, nothing can be seen until export. That is the
 > single biggest gap left, and `SPEC_ADJUSTMENT_LAYERS_FX` §6 specifies it in full — the
 > `fx_below_group` wrapper is an XML change, not a runtime reparent, and

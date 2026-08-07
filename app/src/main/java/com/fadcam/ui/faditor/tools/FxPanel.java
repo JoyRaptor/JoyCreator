@@ -77,6 +77,17 @@ public final class FxPanel {
      */
     @NonNull
     public static View build(@NonNull Context ctx, @NonNull FxStack stack, @NonNull Host host) {
+        return build(ctx, stack, host, FxPreviewTier.Subject.LAYER);
+    }
+
+    /**
+     * @param subject what the stack is attached to. It changes only what the panel SAYS: a
+     *                blur is fine on an adjustment layer and cannot render on a single object,
+     *                and the card has to tell the truth about which one this is.
+     */
+    @NonNull
+    public static View build(@NonNull Context ctx, @NonNull FxStack stack, @NonNull Host host,
+                             @NonNull FxPreviewTier.Subject subject) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -96,9 +107,9 @@ public final class FxPanel {
             // stack in every editor reads. Iterating the list forwards here would show the
             // chain upside down.
             for (int i = cards.size() - 1; i >= 0; i--) {
-                root.addView(card(ctx, stack, cards.get(i), i, host, rebuild[0], d));
+                root.addView(card(ctx, stack, cards.get(i), i, host, rebuild[0], d, subject));
             }
-            root.addView(addRow(ctx, stack, host, rebuild[0], d));
+            root.addView(addRow(ctx, stack, host, rebuild[0], d, subject));
             root.addView(presetRow(ctx, stack, host, rebuild[0], d));
         };
         rebuild[0].run();
@@ -158,7 +169,8 @@ public final class FxPanel {
     @NonNull
     private static View card(@NonNull Context ctx, @NonNull FxStack stack,
                              @NonNull FxInstance fx, int index, @NonNull Host host,
-                             @NonNull Runnable rebuild, float d) {
+                             @NonNull Runnable rebuild, float d,
+                             @NonNull FxPreviewTier.Subject subject) {
         LinearLayout card = new LinearLayout(ctx);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackgroundColor(CARD_BG);
@@ -240,7 +252,7 @@ public final class FxPanel {
         // Say on the CARD where this effect will and will not appear. A blur that is silently
         // skipped on export is the worst kind of missing feature: the user adds it, sees
         // nothing, and has no way to tell that from a bug.
-        String note = FxPreviewTier.cardNote(def, FxPreviewTier.current());
+        String note = FxPreviewTier.cardNote(def, FxPreviewTier.current(), subject);
         if (!note.isEmpty()) {
             TextView warn = new TextView(ctx);
             warn.setText(note);
@@ -650,7 +662,8 @@ public final class FxPanel {
 
     @NonNull
     private static View addRow(@NonNull Context ctx, @NonNull FxStack stack,
-                               @NonNull Host host, @NonNull Runnable rebuild, float d) {
+                               @NonNull Host host, @NonNull Runnable rebuild, float d,
+                               @NonNull FxPreviewTier.Subject subject) {
         LinearLayout wrap = new LinearLayout(ctx);
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.setPadding(0, Math.round(6 * d), 0, 0);
@@ -690,9 +703,9 @@ public final class FxPanel {
                 }
                 // The badge answers "will I SEE this" BEFORE the card is added, which is the
                 // only moment the answer can still change the decision.
-                String badge = FxPreviewTier.canExport(def)
+                String badge = FxPreviewTier.canExportOn(def, subject)
                         ? FxPreviewTier.badge(def, FxPreviewTier.current())
-                        : "not yet";
+                        : "layer only";
                 TextView c = chip(ctx,
                         badge.isEmpty() ? def.displayName : def.displayName + " (" + badge + ")",
                         d);

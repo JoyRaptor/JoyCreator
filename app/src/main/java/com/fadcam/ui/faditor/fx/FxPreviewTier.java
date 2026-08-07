@@ -94,11 +94,31 @@ public final class FxPreviewTier {
      * disagree with what the renderer actually does.</p>
      */
     public static boolean canExport(@NonNull FxEffectDef def) {
-        // Every capability now renders: AdjustmentLayerGlEffect compiles one program per pass
-        // and ping-pongs through its own FBOs, so a SAMPLER card gets the finished image it
-        // needs. Kept as a predicate rather than deleted -- it is the seam a future
-        // capability plugs into, and the card/picker already read it.
+        // On an ADJUSTMENT LAYER every capability renders: AdjustmentLayerGlEffect compiles one
+        // program per pass and ping-pongs through its own FBOs, so a SAMPLER card gets the
+        // finished image it needs.
         return true;
+    }
+
+    /** What the stack is attached to. The same effect is not equally supported on both. */
+    public enum Subject {
+        /** An adjustment layer: multi-pass, every capability. */
+        LAYER,
+        /** One object (a PiP): its FX are spliced into the compositing shader, single pass. */
+        OBJECT
+    }
+
+    /**
+     * Can {@code def} render on {@code subject}?
+     *
+     * <p>An adjustment layer owns its own FBOs, so a blur works. A PER-OBJECT stack is spliced
+     * into {@code BlendModeGlEffect}'s shader, which composites the object in ONE pass and has
+     * no finished image for a SAMPLER card to read neighbours from. Giving one answer for both
+     * would badge a blur as fine and then quietly skip it on a PiP.</p>
+     */
+    public static boolean canExportOn(@NonNull FxEffectDef def, @NonNull Subject subject) {
+        if (subject == Subject.LAYER) return canExport(def);
+        return def.capability != FxEffectDef.Capability.SAMPLER;
     }
 
     /**
@@ -107,7 +127,17 @@ public final class FxPreviewTier {
      */
     @NonNull
     public static String cardNote(@NonNull FxEffectDef def, @NonNull Tier tier) {
-        if (!canExport(def)) return "multi-pass — not rendered yet";
+        return cardNote(def, tier, Subject.LAYER);
+    }
+
+    /** @see #canExportOn */
+    @NonNull
+    public static String cardNote(@NonNull FxEffectDef def, @NonNull Tier tier,
+                                  @NonNull Subject subject) {
+        if (!canExportOn(def, subject)) {
+            return subject == Subject.OBJECT
+                    ? "needs an adjustment layer" : "multi-pass — not rendered yet";
+        }
         if (!canPreview(def, tier)) return "export only";
         if (tier == Tier.PARTIAL) return "preview approximate";
         return "";

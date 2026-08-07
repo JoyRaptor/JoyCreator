@@ -223,10 +223,26 @@ public class AdjustmentLayerTest {
 
         // EXPORT capability is a different question from preview tier, and nothing to do with
         // the device: a SAMPLER card needs multi-pass FBOs the export renderer does not have.
-        // Multi-pass landed, so EVERY capability exports now -- including the blurs, which
-        // were the one thing the spec promised that this feature could not do end to end.
-        check("a SAMPLER effect exports now",
+        // Multi-pass landed, so EVERY capability exports on a LAYER -- including the blurs,
+        // which were the one thing the spec promised that this feature could not do end to end.
+        check("a SAMPLER effect exports on a layer",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(blur));
+        // ...but NOT on a single object: that stack is spliced into the compositing shader,
+        // which has no finished image for a sampler to read neighbours from. One answer for
+        // both subjects would badge a blur as fine and then quietly skip it on a PiP.
+        check("...but NOT on one object",
+                !com.fadcam.ui.faditor.fx.FxPreviewTier.canExportOn(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT));
+        check("a pointwise effect works on both",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.canExportOn(invert,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)
+                && com.fadcam.ui.faditor.fx.FxPreviewTier.canExportOn(invert,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER));
+        check("the object card points at the fix rather than just refusing",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)
+                        .contains("adjustment layer"));
         check("...as does a pointwise one",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(invert));
         check("so no card claims otherwise on capable hardware",

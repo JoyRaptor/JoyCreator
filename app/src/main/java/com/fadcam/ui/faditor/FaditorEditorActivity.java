@@ -20464,7 +20464,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             @Override public long playheadMs() {
                                 return Math.max(0, lastPlayheadAbsoluteMs);
                             }
-                        })));
+                        },
+                        // OBJECT, so a blur is badged "layer only" rather than silently skipped:
+                        // a per-object stack is spliced into the compositing shader and has no
+                        // finished image for a sampler to read.
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();

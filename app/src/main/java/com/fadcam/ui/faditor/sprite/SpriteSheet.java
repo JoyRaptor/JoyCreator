@@ -71,6 +71,23 @@ public class SpriteSheet {
     @NonNull private final List<Cell> cells = new ArrayList<>();
     @NonNull private final List<Preset> presets = new ArrayList<>();
 
+    /**
+     * Per-cell NAMES — "idle", "walk_01", "blink" — keyed by cell index.
+     *
+     * <p>The class note has promised these since it was written ("cell numbers are static;
+     * names/tags are user aliases") and the field never existed, so
+     * {@code describe_sprite_sheet} reported "any existing cell names" and could only ever find
+     * none. This is that field.</p>
+     *
+     * <p>A MAP rather than a parallel list, deliberately: naming three cells of a sixty-four
+     * cell sheet should cost three entries, not sixty-four, and a map cannot fall out of step
+     * with the grid the way a positional list would when cols/rows change.</p>
+     *
+     * <p>Written only when non-empty, so every sheet authored before names existed round-trips
+     * byte-identically — the additive rule the rest of this class follows.</p>
+     */
+    @NonNull private final java.util.Map<Integer, String> cellNames = new java.util.LinkedHashMap<>();
+
     // ── Sequence backing (SPEC_IMAGE_SEQUENCE) ───────────────────────────
     // Additive and inert for every grid sheet that exists: kind defaults to "grid" and
     // frameUris stays empty, so nothing is written and nothing is read differently.
@@ -197,6 +214,28 @@ public class SpriteSheet {
     }
     @NonNull public List<Cell> getCells() { return cells; }
     @NonNull public List<Preset> getPresets() { return presets; }
+
+    /** @see #cellNames */
+    @NonNull public java.util.Map<Integer, String> getCellNames() { return cellNames; }
+
+    /** The name of {@code cell}, or {@code null} when it has none. */
+    @Nullable public String cellName(int cell) { return cellNames.get(cell); }
+
+    /**
+     * Name a cell, or clear the name with a null/blank value.
+     *
+     * @return false when {@code cell} is outside the grid — a name on a cell that does not
+     *         exist is invisible, and silently keeping it would make a typo look like a bug in
+     *         whatever failed to display it later.
+     */
+    public boolean setCellName(int cell, @Nullable String name) {
+        int count = Math.max(0, getCols() * getRows());
+        if (isSequence()) count = frameUris.size();
+        if (cell < 0 || cell >= count) return false;
+        if (name == null || name.trim().isEmpty()) cellNames.remove(cell);
+        else cellNames.put(cell, name.trim());
+        return true;
+    }
 
     // ── Sequence accessors ───────────────────────────────────────────────
 
@@ -401,6 +440,13 @@ public class SpriteSheet {
             }
             j.add("presets", arr);
         }
+        if (!cellNames.isEmpty()) {
+            JsonObject names = new JsonObject();
+            for (java.util.Map.Entry<Integer, String> e : cellNames.entrySet()) {
+                names.addProperty(String.valueOf(e.getKey()), e.getValue());
+            }
+            j.add("cellNames", names);
+        }
         return j;
     }
 
@@ -442,6 +488,17 @@ public class SpriteSheet {
                 }
                 if (cj.has("enabled")) c.enabled = cj.get("enabled").getAsBoolean();
                 s.cells.add(c);
+            }
+        }
+        if (j.has("cellNames") && j.get("cellNames").isJsonObject()) {
+            JsonObject names = j.getAsJsonObject("cellNames");
+            for (String k : names.keySet()) {
+                try {
+                    s.cellNames.put(Integer.parseInt(k), names.get(k).getAsString());
+                } catch (RuntimeException ignored) {
+                    // Tolerant read: a hand-edited sidecar with a bad key loses that ONE name
+                    // rather than the whole sheet.
+                }
             }
         }
         if (j.has("presets")) {

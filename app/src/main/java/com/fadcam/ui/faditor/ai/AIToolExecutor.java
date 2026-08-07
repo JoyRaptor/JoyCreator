@@ -140,7 +140,9 @@ public class AIToolExecutor {
                 case "describe_sequence": return toolDescribeSequence(args);
                 case "edit_sequence": return toolEditSequence(args);
                 case "set_sprite_grid": return toolSetSpriteGrid(args);
+                case "label_sprite_cells": return toolLabelSpriteCells(args);
                 case "author_sprite_animation": return toolAuthorSpriteAnimation(args);
+                case "apply_sprite_proposal": return toolApplySpriteProposal(args);
                 case "author_avatar_rig": return toolAuthorAvatarRig(args);
                 case "apply_avatar_rig": return toolApplyAvatarRig(args);
                 default: return "Error: unknown tool '" + toolName + "'";
@@ -347,6 +349,23 @@ public class AIToolExecutor {
                 "fps" 0 or absent = inherit the sheet's fps.
                 args: {"sheetId":"...","name":"walk","frames":[0,1,2,3],
                        "type":"loop|pingpong|once","fps":12,"weights":[2,1,1,2]}
+
+            33e. label_sprite_cells — NAME cells ("idle", "walk_01"). Names are what make
+                authoring conversational: "loop the walk frames" is only answerable if the
+                sheet knows which cells those are. Use describe_sprite_sheet's per-cell
+                occupancy and bounding boxes to decide. An empty name clears one.
+                Out-of-range cells are reported back, never silently skipped.
+                args: {"sheetId":"...","labels":{"0":"idle","1":"walk_01","2":""}}
+
+            33f. apply_sprite_proposal — Apply grid + labels + animations in ONE call, when
+                you have just inspected a sheet and want to say "it is 8x4, these are the
+                walk frames, here is the cycle" as a single thought. Each part is validated
+                by the same rules as its individual tool; grid failure stops before any
+                change is made.
+                args: {"sheetId":"...","proposal":{
+                         "grid":{"cols":8,"rows":4},
+                         "labels":{"0":"idle"},
+                         "animations":[{"name":"walk","frames":[0,1,2,3],"type":"loop"}]}}
 
             33c. describe_sequence — Read-only. An IMAGE SEQUENCE's timing: frameCount,
                 the WEIGHT array, fps, run length, loop mode, resize mode, and whether a
@@ -1716,6 +1735,135 @@ public class AIToolExecutor {
                 + (preset.fps > 0 ? " at " + preset.fps + " fps" : " at the sheet's fps")
                 + (weights.isEmpty() ? "" : ", weighted")
                 + ". id=" + preset.id;
+    }
+
+    /**
+     * FF-B: NAME cells — "idle", "walk_01", "blink".
+     *
+     * <p>Names are what make {@code author_sprite_animation} conversational: "loop the walk
+     * frames" is only answerable if something on the sheet knows which cells those are. The
+     * model can see the art through {@code describe_sprite_sheet}'s per-cell occupancy and
+     * bounding boxes, so it is well placed to propose them.</p>
+     *
+     * <p>Out-of-range cells are REPORTED, not skipped. A silently dropped name would look like
+     * the tool worked, and the mistake would only surface much later as an animation that
+     * cannot find its frames.</p>
+     */
+    private String toolLabelSpriteCells(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
+        JSONObject labels = args.optJSONObject("labels");
+        if (labels == null || labels.length() == 0) {
+            return "Error: 'labels' must be an object of cellIndex -> name, "
+                    + "e.g. {\"0\":\"idle\",\"1\":\"walk_01\"}.";
+        }
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = proj.spriteSheetById(sheetId);
+        if (sheet == null) {
+            return "Error: no sprite sheet with id '" + sheetId + "'. " + availableSheetsLine(proj);
+        }
+
+        int named = 0, cleared = 0;
+        java.util.List<String> rejected = new java.util.ArrayList<>();
+        java.util.Iterator<String> keys = labels.keys();
+        while (keys.hasNext()) {
+            String k = keys.next();
+            int cell;
+            try {
+                cell = Integer.parseInt(k.trim());
+            } catch (NumberFormatException e) {
+                rejected.add(k + " (not a cell index)");
+                continue;
+            }
+            String name = labels.optString(k, "");
+            if (!sheet.setCellName(cell, name)) {
+                rejected.add(String.valueOf(cell));
+                continue;
+            }
+            if (name.trim().isEmpty()) cleared++; else named++;
+        }
+        if (named == 0 && cleared == 0) {
+            return "Error: nothing applied. Rejected: " + rejected + ". This sheet has "
+                    + (sheet.getCols() * sheet.getRows()) + " cells.";
+        }
+        storage.save(proj);
+        StringBuilder out = new StringBuilder("Named " + named + " cell(s)");
+        if (cleared > 0) out.append(", cleared ").append(cleared);
+        out.append(" on '").append(sheet.getName()).append("'.");
+        if (!rejected.isEmpty()) {
+            out.append(" REJECTED (outside the ")
+               .append(sheet.getCols() * sheet.getRows()).append("-cell grid): ")
+               .append(rejected).append('.');
+        }
+        return out.toString();
+    }
+
+    /**
+     * FF-B: apply a whole PROPOSAL in one call — grid, names and animations together.
+     *
+     * <p>The point is atomicity of INTENT. A model that has just looked at a sheet wants to say
+     * "it is 8x4, these are the walk frames, here is the cycle" as one thought; making it place
+     * three separate calls invites a half-applied sheet when one of them is rejected. Everything
+     * is validated before anything is saved.</p>
+     *
+     * <p>Deliberately reuses the individual tools' own validation by calling them, rather than
+     * restating the rules — a second copy of "is this cell in range" is how the two would come
+     * to disagree.</p>
+     */
+    private String toolApplySpriteProposal(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
+        JSONObject proposal = args.optJSONObject("proposal");
+        if (proposal == null) {
+            return "Error: 'proposal' is required — an object with any of "
+                    + "\"grid\", \"labels\", \"animations\".";
+        }
+        StringBuilder log = new StringBuilder();
+
+        if (proposal.has("grid")) {
+            JSONObject grid = proposal.optJSONObject("grid");
+            if (grid == null) return "Error: proposal.grid must be an object.";
+            try {
+                grid.put("sheetId", sheetId);
+            } catch (org.json.JSONException e) {
+                return "Error: could not read proposal.grid: " + e.getMessage();
+            }
+            String r = toolSetSpriteGrid(grid);
+            if (r.startsWith("Error")) return "Stopped before any change — grid: " + r;
+            log.append(r).append(' ');
+        }
+        if (proposal.has("labels")) {
+            JSONObject wrap = new JSONObject();
+            try {
+                wrap.put("sheetId", sheetId);
+                wrap.put("labels", proposal.optJSONObject("labels"));
+            } catch (org.json.JSONException e) {
+                return "Error: could not read proposal.labels: " + e.getMessage();
+            }
+            String r = toolLabelSpriteCells(wrap);
+            if (r.startsWith("Error")) return log + "| labels: " + r;
+            log.append(r).append(' ');
+        }
+        org.json.JSONArray anims = proposal.optJSONArray("animations");
+        if (anims != null) {
+            for (int i = 0; i < anims.length(); i++) {
+                JSONObject a = anims.optJSONObject(i);
+                if (a == null) continue;
+                try {
+                    a.put("sheetId", sheetId);
+                } catch (org.json.JSONException e) {
+                    return log + "| animation " + i + ": " + e.getMessage();
+                }
+                String r = toolAuthorSpriteAnimation(a);
+                if (r.startsWith("Error")) return log + "| animation " + i + ": " + r;
+                log.append(r).append(' ');
+            }
+        }
+        if (log.length() == 0) {
+            return "Nothing in the proposal — expected \"grid\", \"labels\" or \"animations\".";
+        }
+        return log.toString().trim();
     }
 
     private String toolApplyAvatarRig(@NonNull JSONObject args) {

@@ -112,9 +112,36 @@
 >    key**. A single key is a static value, not an animation, so the value you dialled in at a
 >    keyframe vanished on reload.
 >
-> **Next in the spec's order: M2** — repackage the colour grade through the new compiler. That
-> is the milestone that checks the compiler against a KNOWN-GOOD shipping feature before a new
-> object type depends on it, and it fixes the two live grade bugs in §0.5 of the spec.
+> **M2 (partial) — BOTH SHIPPING GRADE BUGS ARE FIXED.** The full repackage through
+> `FxChainGlEffect` is still owed, but the two live bugs did not need it and are done:
+> - Export **double-applied exposure and temperature/tint** whenever any of highlights /
+>   shadows / fade / vignette / grain was non-zero — additive in the shader, multiplicative in
+>   `RgbAdjustment`, both landing. Those three uniforms are now DELETED from
+>   `ColorGradeShaderProgram` (not zeroed — a declared uniform invites being set again), since
+>   the chain already applied them upstream.
+> - The **preview vignette has never worked, at any setting**, and preview grain was at the
+>   wrong frequency: `createRuntimeShaderEffect` hands `main()` a coordinate in LOCAL PIXEL
+>   space, so `distance(co, 0.5)` ran against ~700. Fixed with the same normalization prologue
+>   `FxCompiler` emits, plus a layout listener so a resize cannot leave `uSize` stale.
+>
+> ⚠ **These change what existing projects EXPORT.** That is the point — export now matches what
+> the preview always showed — but it is worth telling JoyRaptor before he re-exports something old.
+>
+> **M3 — DONE through the z seam.** `AdjustmentLayer` (self-serializing, android-free),
+> `Timeline.adjustmentLayers`, `TimedItem` payload, `TrackKind.ADJUSTMENT` with a **literal
+> 13** floor, lane emission in its own phase above video/PiP, persistence + conditional stamp,
+> and `LayerPreviewController.orderedCompositedItems` — the ONE merged z order both renderers
+> will consume. `run-adjust.sh` 33/33, `AdjustmentLaneTest` 12/12 (on run-matte's classpath,
+> because `Timeline` reaches media3), `tasks/schema_adjust_stamp.py` 13/13 reproducing the lane
+> coercion before proving the stamp stops it.
+>
+> **STILL OWED on M3:** the creation UI (carousel tool + `EditActions` add/remove) and the
+> `LayerRowRenderer` chip. The layer cannot yet be made from the app.
+>
+> **Next: M4** — export rendering (`AdjustmentLayerGlEffect`, `MaskSdf`, the merged z-loop in
+> `ExportManager`). Ground truth first, per the spec. The merged loop touches the code the PiP
+> z-unification fix wrote, so the regression that matters is: **a PiP project with no
+> adjustment layer must export byte-identically.**
 >
 > **P0.1 device verification — BLOCKED. The hold gesture is NOT adb-drivable; stop trying.**
 > Four injection strategies were tried and all fail identically. Save the next session the hour:

@@ -288,23 +288,92 @@ public final class MaskPathBuilder {
             Bitmap hit = featherCache.get(key);   // access-ordered: a get is a touch
             if (hit != null && !hit.isRecycled()) return hit;
             if (hit != null) featherCache.remove(key);
-            Path erase = buildErasePath(spec, w, h);
-            if (erase == null) return null;
-            float radius = CompositingSpec.featherRadiusPx(spec.maskFeather, w, h);
             Bitmap bmp;
             try {
                 bmp = Bitmap.createBitmap(bw, bh, Bitmap.Config.ALPHA_8);
             } catch (OutOfMemoryError e) {
                 return null;   // a soft edge is never worth taking the export down
             }
-            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            // Software canvas — this is the whole reason the blur lives in a Bitmap.
-            if (radius > 0f) {
-                paint.setMaskFilter(new BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL));
+
+            if (spec.usesPerShapeFeather()) {
+                if (!drawPerShapeFeather(spec, bmp, w, h)) return null;
+            } else {
+                // EXACTLY the code that shipped: one combined path, one blur. Gated so every
+                // project written before per-shape feather provably renders unchanged.
+                Path erase = buildErasePath(spec, w, h);
+                if (erase == null) return null;
+                float radius = CompositingSpec.featherRadiusPx(spec.maskFeather, w, h);
+                Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                // Software canvas — this is the whole reason the blur lives in a Bitmap.
+                if (radius > 0f) {
+                    paint.setMaskFilter(new BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL));
+                }
+                new Canvas(bmp).drawPath(erase, paint);
             }
-            new Canvas(bmp).drawPath(erase, paint);
             featherCache.put(key, bmp);
             return bmp;
+        }
+    }
+
+    /**
+     * Compose the visible-region alpha ONE SHAPE AT A TIME, each blurred by its own feather.
+     *
+     * <p>This is the only way one hard edge and one soft edge can coexist in a single mask. The
+     * shipped path unions the shapes into a single {@code Path} first and blurs the result, at
+     * which point there is exactly one radius to give it — softening shape 2 necessarily
+     * softened shape 1 (user, 2026-08-06).</p>
+     *
+     * <p><b>The booleans become ALPHA ops rather than Path ops:</b> union → SRC_OVER,
+     * subtract → DST_OUT, intersect → DST_IN. A blurred shape carries a soft edge into the
+     * composite, which a {@code Path.op} could not represent — a path has no partial coverage,
+     * so a soft subtract was never expressible either. That is a capability gain, but it is
+     * also why this must stay behind the gate: it is a genuinely different renderer.</p>
+     *
+     * <p><b>Draw ORDER preserves the shipped geometry.</b> When no shape intersects, the two
+     * bucket reading is kept exactly — every additive shape first, then every subtractive one,
+     * so a subtract still removes from the union of ALL adds rather than only from those before
+     * it. Switching that to an ordered fold would move existing geometry the moment a user
+     * touched a feather slider, which is the last thing this change may do.</p>
+     *
+     * @return false if the surface could not be prepared; the caller then falls back to no
+     *         feather bitmap at all rather than to a wrong one
+     */
+    private static boolean drawPerShapeFeather(@NonNull CompositingSpec spec,
+                                               @NonNull Bitmap bmp, float w, float h) {
+        MaskFold.Fold fold = MaskFold.foldOps(spec);
+        if (fold.ops.length != spec.masks.size()) return false;
+        Canvas canvas = new Canvas(bmp);
+        boolean ordered = fold.sequential;
+        // Two passes when unordered (adds, then subtracts); one pass in list order when the
+        // stack intersects and order is the meaning.
+        for (int pass = 0; pass < (ordered ? 1 : 2); pass++) {
+            for (int i = 0; i < spec.masks.size(); i++) {
+                CompositingSpec.MaskShape m = spec.masks.get(i);
+                int op = fold.ops[i];
+                if (!ordered) {
+                    boolean isSub = op == MaskFold.OP_DIFFERENCE;
+                    if ((pass == 0) == isSub) continue;   // pass 0 = adds, pass 1 = subtracts
+                }
+                Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                float radius = CompositingSpec.featherRadiusPx(spec.featherOf(m), w, h);
+                if (radius > 0f) {
+                    paint.setMaskFilter(new BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL));
+                }
+                paint.setXfermode(new android.graphics.PorterDuffXfermode(alphaMode(op)));
+                canvas.drawPath(shapePath(m, w, h), paint);
+            }
+        }
+        return true;
+    }
+
+    /** {@link MaskFold}'s op ordinals as ALPHA composition modes. @see #drawPerShapeFeather */
+    @NonNull
+    private static android.graphics.PorterDuff.Mode alphaMode(int op) {
+        switch (op) {
+            case MaskFold.OP_DIFFERENCE: return android.graphics.PorterDuff.Mode.DST_OUT;
+            case MaskFold.OP_INTERSECT:  return android.graphics.PorterDuff.Mode.DST_IN;
+            case MaskFold.OP_UNION:
+            default:                     return android.graphics.PorterDuff.Mode.SRC_OVER;
         }
     }
 

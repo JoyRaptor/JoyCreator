@@ -86,6 +86,25 @@ public class CompositingSpec {
          */
         public int slot = 0;
 
+        /**
+         * PER-SHAPE soft edge, or {@code -1} meaning "inherit {@link #maskFeather}".
+         *
+         * <p>Added because one hard edge and one soft edge in the same mask was not
+         * expressible: feather was a property of the whole stack, so softening shape 2 softened
+         * shape 1 with it (user, 2026-08-06). {@code -1} rather than {@code 0} is the default
+         * precisely so "inherit" and "deliberately hard" stay different answers — with 0 as the
+         * default, every legacy shape would read as an explicit hard edge and stop following
+         * the stack slider.</p>
+         *
+         * <p>Serialized only when set, and it is a schema-v13 trigger: an older build ignores
+         * the key and renders every edge at the stack feather, which is a visibly different
+         * picture rather than a missing refinement.</p>
+         */
+        public float feather = -1f;
+
+        /** True when this shape overrides the stack's soft edge. @see #feather */
+        public boolean hasFeatherOverride() { return feather >= 0f; }
+
         /** The old binary question, derived. There is no {@code subtract} field to disagree. */
         public boolean isSubtract() { return mode == MODE_SUBTRACT; }
 
@@ -118,6 +137,7 @@ public class CompositingSpec {
             m.cx = cx; m.cy = cy; m.w = w; m.h = h;
             m.corner = corner; m.rotationDeg = rotationDeg;
             m.mode = mode; m.slot = slot;
+            m.feather = feather;
             m.linkedToObject = linkedToObject;
             m.linkBaseX = linkBaseX; m.linkBaseY = linkBaseY;
             m.linkBaseScale = linkBaseScale; m.linkBaseRotDeg = linkBaseRotDeg;
@@ -217,7 +237,23 @@ public class CompositingSpec {
      * is silent, permanent data loss.</p>
      */
     public boolean needsSchema13() {
-        return usesIntersect() || hasExplicitSlots();
+        return usesIntersect() || hasExplicitSlots() || usesPerShapeFeather();
+    }
+
+    /**
+     * True when some shape overrides the stack's soft edge — the gate that decides whether
+     * {@code MaskPathBuilder} builds the feather bitmap the shipped way (ONE blur over the
+     * combined path) or per shape. False for every project written before per-shape feather
+     * existed, so they provably take the old path.
+     */
+    public boolean usesPerShapeFeather() {
+        for (MaskShape m : masks) if (m.hasFeatherOverride()) return true;
+        return false;
+    }
+
+    /** The soft edge {@code m} actually renders with: its own override, else the stack's. */
+    public float featherOf(@NonNull MaskShape m) {
+        return m.hasFeatherOverride() ? m.feather : maskFeather;
     }
 
     /** True when any shape uses {@link #MODE_INTERSECT} — see {@link #needsSchema13}. */
@@ -330,7 +366,15 @@ public class CompositingSpec {
     public boolean hasMasks() { return !masks.isEmpty(); }
 
     /** True when the mask stack wants a soft edge — the only reason to pay for a layer. */
-    public boolean hasFeather() { return !masks.isEmpty() && maskFeather > 0f; }
+    public boolean hasFeather() {
+        if (masks.isEmpty()) return false;
+        if (maskFeather > 0f) return true;
+        // A per-shape override can soften an edge while the STACK slider sits at zero, which
+        // is the whole point of it. Asking only about maskFeather here would take the hard
+        // clip path and silently discard that shape's soft edge.
+        for (MaskShape m : masks) if (m.feather > 0f) return true;
+        return false;
+    }
 
     /** {@link #maskFeather} = 1 blurs by this fraction of the frame's SHORTER side. */
     public static final float MAX_FEATHER_FRACTION = 0.08f;
@@ -399,6 +443,9 @@ public class CompositingSpec {
                 // is not optional: the keyframe tracks are named off the slot, so a slot that
                 // renumbered on reload would hand shape 3's animation to shape 2 (risk R11).
                 if (m.slot != i) mj.addProperty("slot", m.slot);
+                // Omitted while inheriting, so a stack that softens uniformly -- every project
+                // that predates per-shape feather -- stays byte-identical.
+                if (m.hasFeatherOverride()) mj.addProperty("feather", m.feather);
                 // Omitted while false, so every project that predates linking stays
                 // byte-identical — the same additive-schema rule the rest of this class follows.
                 if (m.linkedToObject) {
@@ -456,6 +503,9 @@ public class CompositingSpec {
                     m.w = clamp(optFloat(mj, "w", 0.3f), 0.001f, 1f);
                     m.h = clamp(optFloat(mj, "h", 0.2f), 0.001f, 1f);
                     m.corner = clamp01(optFloat(mj, "corner", 0f));
+                    // -1 sentinel survives the clamp: absent means inherit, not "hard edge".
+                    float fo = optFloat(mj, "feather", -1f);
+                    m.feather = fo < 0f ? -1f : clamp01(fo);
                     m.rotationDeg = optFloat(mj, "rot", 0f);
                     // "mode" wins where present (it is the only carrier of INTERSECT);
                     // otherwise fall back to the legacy boolean, which is what every existing

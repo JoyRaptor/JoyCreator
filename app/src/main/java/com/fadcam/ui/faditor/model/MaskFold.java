@@ -85,7 +85,11 @@ public final class MaskFold {
             sb.append(';').append(m.cx).append(',').append(m.cy).append(',')
               .append(m.w).append(',').append(m.h).append(',')
               .append(m.corner).append(',').append(m.rotationDeg)
-              .append('m').append(m.mode).append('#').append(m.slot);
+              .append('m').append(m.mode).append('#').append(m.slot)
+              // A per-shape override changes the blur radius that shape is drawn with, so two
+              // stacks identical but for one shape's softness are DIFFERENT bitmaps. Omitting
+              // this would serve the first one's cached bitmap for the second.
+              .append('f').append(m.feather);
         }
         return sb.toString();
     }

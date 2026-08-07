@@ -28,6 +28,7 @@ public class CompositingSpecTest {
         slotsNeverRenumberOnDelete();
         roundTripPreservesModeAndSlot();
         schema13FiresOnBothTriggersAndOnlyThem();
+        perShapeFeather();
         copyFromMutatesInPlace();
         presetsAreAStartingShapeNotAReset();
 
@@ -136,6 +137,68 @@ public class CompositingSpecTest {
                 diverged.needsSchema13() && !diverged.usesIntersect());
 
         check("an empty spec never asks for v13", !new CompositingSpec().needsSchema13());
+
+        CompositingSpec soft = new CompositingSpec();
+        add(soft, 0.3f, CompositingSpec.MODE_ADD);
+        add(soft, 0.7f, CompositingSpec.MODE_ADD);
+        soft.masks.get(1).feather = 0.4f;
+        check("trigger 3: a per-shape feather override → v13", soft.needsSchema13());
+    }
+
+    /**
+     * Per-shape soft edges. The gate matters as much as the feature: a stack where nobody
+     * overrides must still take the shipped ONE-blur-over-the-combined-path renderer, or every
+     * existing masked project would quietly re-render through new code.
+     */
+    static void perShapeFeather() {
+        CompositingSpec s = new CompositingSpec();
+        add(s, 0.3f, CompositingSpec.MODE_ADD);
+        add(s, 0.7f, CompositingSpec.MODE_ADD);
+        s.maskFeather = 0.2f;
+
+        check("nobody overrides → the shipped renderer", !s.usesPerShapeFeather());
+        check("both shapes inherit the stack value",
+                s.featherOf(s.masks.get(0)) == 0.2f && s.featherOf(s.masks.get(1)) == 0.2f);
+
+        // The thing that could not be expressed before: shape 1 hard, shape 2 soft.
+        s.masks.get(0).feather = 0f;
+        s.masks.get(1).feather = 0.6f;
+        check("one hard edge and one soft edge in the same mask",
+                s.featherOf(s.masks.get(0)) == 0f && s.featherOf(s.masks.get(1)) == 0.6f);
+        check("an override switches on the per-shape renderer", s.usesPerShapeFeather());
+
+        // -1 vs 0 is the distinction the default exists for.
+        CompositingSpec d = new CompositingSpec();
+        add(d, 0.5f, CompositingSpec.MODE_ADD);
+        d.maskFeather = 0.5f;
+        check("a fresh shape INHERITS rather than reading as a hard edge",
+                !d.masks.get(0).hasFeatherOverride() && d.featherOf(d.masks.get(0)) == 0.5f);
+        d.masks.get(0).feather = 0f;
+        check("...while an explicit 0 really is a hard edge, and overrides the stack",
+                d.masks.get(0).hasFeatherOverride() && d.featherOf(d.masks.get(0)) == 0f);
+
+        // hasFeather gates the whole soft-edge path; a stack slider at 0 must not hide an
+        // override, or that shape's soft edge would be silently discarded.
+        CompositingSpec z = new CompositingSpec();
+        add(z, 0.5f, CompositingSpec.MODE_ADD);
+        z.maskFeather = 0f;
+        check("stack feather 0 and no override → hard clip path", !z.hasFeather());
+        z.masks.get(0).feather = 0.3f;
+        check("an override alone is enough to need the soft path", z.hasFeather());
+
+        // Serialization round-trip, including the inherit sentinel.
+        CompositingSpec r = CompositingSpec.fromJson(s.toJson());
+        check("round-trip keeps a per-shape feather", r.masks.get(1).feather == 0.6f);
+        check("round-trip keeps an explicit hard edge", r.masks.get(0).feather == 0f);
+        CompositingSpec ri = CompositingSpec.fromJson(d.toJson());
+        check("an inheriting shape writes no feather key",
+                !s.toJson().toString().isEmpty() && !ri.masks.isEmpty());
+        CompositingSpec inh = new CompositingSpec();
+        add(inh, 0.5f, CompositingSpec.MODE_ADD);
+        check("...and comes back still inheriting",
+                !CompositingSpec.fromJson(inh.toJson()).masks.get(0).hasFeatherOverride());
+        check("an inheriting stack stays byte-identical to before the feature",
+                !inh.toJson().toString().contains("\"feather\""));
     }
 
     // ── Undo plumbing ───────────────────────────────────────────────────────

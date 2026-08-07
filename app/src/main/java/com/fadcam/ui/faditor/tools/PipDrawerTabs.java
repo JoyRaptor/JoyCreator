@@ -341,13 +341,29 @@ public final class PipDrawerTabs {
                     Math.round(cur.rotationDeg),
                     v -> { cur.rotationDeg = v; apply.run(); });
 
+            // Soften moved IN here, because it is per-shape now: one hard edge and one soft
+            // edge in the same mask was not expressible before (user, 2026-08-06).
+            slider(ctx, sliderHost, R.string.faditor_mask_soften, 100,
+                    Math.round(spec.featherOf(cur) * 100),
+                    v -> {
+                        if (spec.masks.size() == 1) {
+                            // With ONE shape a per-shape override and the stack value are the
+                            // same picture, so write the stack one: it needs no v13 stamp and
+                            // keeps single-mask projects openable by older builds. Softening
+                            // one mask is far too ordinary an act to cost compatibility.
+                            spec.maskFeather = v / 100f;
+                            cur.feather = -1f;
+                        } else {
+                            cur.feather = v / 100f;
+                        }
+                        apply.run();
+                    });
+
             if (syncSelected[0] != null) syncSelected[0].run();
         };
         rebuild[0].run();
 
         // ── Everything below here is SPEC-level: one value for the whole stack ──────────
-        slider(ctx, root, R.string.faditor_mask_soften, 100, Math.round(spec.maskFeather * 100),
-                v -> { spec.maskFeather = v / 100f; apply.run(); });
         CheckBox inv = check(ctx, R.string.faditor_mask_only_inside, spec.invertMasks);
         inv.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
 

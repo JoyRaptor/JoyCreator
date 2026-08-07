@@ -56,6 +56,11 @@ public final class FxPanel {
         void onFxChanged();
         /** Record one undo step. */
         void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo);
+        /**
+         * ABSOLUTE timeline ms — the base FxStack's keyframes are stored in, and the same one
+         * overlayTransform and maskKeys already use, so no conversion happens anywhere.
+         */
+        long playheadMs();
     }
 
     /**
@@ -224,7 +229,14 @@ public final class FxPanel {
 
         // ── parameters ──
         for (FxParam param : def.params) {
-            card.addView(paramRow(ctx, fx, param, host, d));
+            LinearLayout pr = new LinearLayout(ctx);
+            pr.setOrientation(LinearLayout.HORIZONTAL);
+            pr.setGravity(Gravity.CENTER_VERTICAL);
+            View row = paramRow(ctx, fx, param, host, d);
+            pr.addView(row, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            if (param.keyable) pr.addView(diamond(ctx, stack, fx, param, host, rebuild, d));
+            card.addView(pr);
         }
 
         // ── fold controls: how this card's result lands on what is below it ──
@@ -405,6 +417,62 @@ public final class FxPanel {
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = Math.round(5 * d);
         t.setLayoutParams(lp);
+        return t;
+    }
+
+    // ── Keyframes ───────────────────────────────────────────────────────────
+
+    /**
+     * The ◆ that keys ONE parameter at the playhead.
+     *
+     * <p>Per-parameter rather than all-at-once, unlike the mask tab's "key at playhead". A mask
+     * keys its six numbers together because half-arming a SHAPE reads as the shape tearing; an
+     * effect's parameters are independent, and keying a blur's radius should not also pin its
+     * angle to whatever it happened to be.</p>
+     *
+     * <p>Filled means this track already has keys. Tapping adds one at the playhead; long-press
+     * removes every key on the track, because a stray keyframe is otherwise very hard to find
+     * once the diamond is the only evidence it exists.</p>
+     */
+    @NonNull
+    private static View diamond(@NonNull Context ctx, @NonNull FxStack stack,
+                                @NonNull FxInstance fx, @NonNull FxParam param,
+                                @NonNull Host host, @NonNull Runnable rebuild, float d) {
+        boolean keyed = false;
+        if (stack.keys != null) {
+            for (int i = 0; i < param.kind.components && !keyed; i++) {
+                keyed = stack.keys.hasProperty(fx.track(param, i));
+            }
+        }
+        TextView t = chip(ctx, keyed ? "◆" : "◇", d);
+        t.setAlpha(keyed ? 1f : 0.5f);
+        t.setOnClickListener(v -> {
+            long at = host.playheadMs();
+            if (stack.keys == null) {
+                stack.keys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+            }
+            float[] vals = fx.get(param);
+            for (int i = 0; i < param.kind.components; i++) {
+                stack.keys.getOrCreate(fx.track(param, i)).put(at, vals[i],
+                        com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT);
+            }
+            rebuild.run();
+            host.onFxChanged();
+            android.widget.Toast.makeText(ctx,
+                    param.label + " keyed at " + (at / 1000f) + "s",
+                    android.widget.Toast.LENGTH_SHORT).show();
+        });
+        t.setOnLongClickListener(v -> {
+            if (stack.keys == null) return true;
+            for (int i = 0; i < param.kind.components; i++) {
+                stack.keys.removeProperty(fx.track(param, i));
+            }
+            rebuild.run();
+            host.onFxChanged();
+            android.widget.Toast.makeText(ctx, param.label + " keys cleared",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return true;
+        });
         return t;
     }
 

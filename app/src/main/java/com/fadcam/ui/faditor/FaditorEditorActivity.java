@@ -20199,6 +20199,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                              @NonNull Runnable undo) {
                 undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
             }
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
         };
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =

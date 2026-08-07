@@ -2722,6 +2722,36 @@ public class ExportManager {
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
             }
+
+            // ── Adjustment layers (SPEC_ADJUSTMENT_LAYERS_FX M4) ───────────────────────────
+            // Chain position IS z-order, so appending here puts these ABOVE every PiP — which
+            // is exactly where getLayers emits the adjustment phase, so the default case is
+            // correct by construction.
+            //
+            // GATED on the list being non-empty. Every project that predates adjustment layers
+            // adds nothing at all here, so its chain is built by the identical code and the
+            // export is byte-identical. That guarantee is the point of the gate: this sits in
+            // the code the PiP z-unification fix wrote, and it must be provably inert.
+            //
+            // STILL OWED, stated so it is not mistaken for finished: a layer deliberately
+            // ordered BETWEEN two PiPs is not yet honoured — that needs the fully merged
+            // iteration over LayerPreviewController.orderedCompositedItems, which is written
+            // and tested but not yet consumed here. Until then such a layer grades everything
+            // rather than only what is beneath it, which is wrong in the same DIRECTION as the
+            // user's intent rather than opposite to it.
+            if (!project.getTimeline().getAdjustmentLayers().isEmpty()) {
+                final long adjustmentOffset =
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                                - (isLoopBeforeItem
+                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L);
+                for (com.fadcam.ui.faditor.model.AdjustmentLayer al
+                        : project.getTimeline().getAdjustmentLayers()) {
+                    // A layer with nothing to draw is skipped at BUILD time, not just gated per
+                    // frame, so an empty layer costs no program and no pass at all.
+                    if (!al.rendersAnything()) continue;
+                    videoEffects.add(new AdjustmentLayerGlEffect(context, al, adjustmentOffset));
+                }
+            }
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
                     || clip.isCaptionsEnabled()

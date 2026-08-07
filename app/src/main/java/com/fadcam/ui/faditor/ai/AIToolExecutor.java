@@ -139,6 +139,8 @@ public class AIToolExecutor {
                 case "describe_sprite_sheet": return toolDescribeSpriteSheet(args);
                 case "describe_sequence": return toolDescribeSequence(args);
                 case "edit_sequence": return toolEditSequence(args);
+                case "set_sprite_grid": return toolSetSpriteGrid(args);
+                case "author_sprite_animation": return toolAuthorSpriteAnimation(args);
                 case "author_avatar_rig": return toolAuthorAvatarRig(args);
                 case "apply_avatar_rig": return toolApplyAvatarRig(args);
                 default: return "Error: unknown tool '" + toolName + "'";
@@ -328,6 +330,23 @@ public class AIToolExecutor {
                 is on the sheet. Deterministic, no network. Omit both args to list the
                 project's sheets.
                 args: {"sheetId":"..."}  OR  {"imageUri":"file://…|content://…"}
+
+            33c. set_sprite_grid — Set a sheet's grid/margins/spacing/fps. The companion to
+                describe_sprite_sheet, which suggests a grid but could not apply one. Every
+                field is optional; absent means leave it alone. REFUSES to change cols/rows
+                on a sheet that already has saved animations, because frames are cell
+                INDICES and reshaping the grid renumbers every cell.
+                args: {"sheetId":"...","cols":8,"rows":4,"marginX":0,"marginY":0,
+                       "spacingX":0,"spacingY":0,"fps":12}
+
+            33d. author_sprite_animation — Create a NAMED animation on a sheet: an ordered
+                run of cell indices with a cadence. This is the one people give up on doing
+                by hand. Frames are validated against the sheet's cell count before anything
+                is saved. "weights" is optional and parallel to "frames" — how many ticks
+                each frame is HELD (1 = normal, 2 = "on twos"); omit it for uniform timing.
+                "fps" 0 or absent = inherit the sheet's fps.
+                args: {"sheetId":"...","name":"walk","frames":[0,1,2,3],
+                       "type":"loop|pingpong|once","fps":12,"weights":[2,1,1,2]}
 
             33c. describe_sequence — Read-only. An IMAGE SEQUENCE's timing: frameCount,
                 the WEIGHT array, fps, run length, loop mode, resize mode, and whether a
@@ -1555,6 +1574,150 @@ public class AIToolExecutor {
      * undoable step (the editor reloads on signalModified, exactly like the narrative /
      * b-roll apply tools). Idempotent by rig id — re-applying replaces the same rig.
      */
+    /**
+     * FF-B: set a sprite sheet's GRID (PLAN_SPRITE_ANIMATION Fast-Follow B).
+     *
+     * <p>The natural companion to {@code describe_sprite_sheet}, which already reports an
+     * auto-detected grid suggestion for a raw image but had no way to act on it. Reading a
+     * suggestion the model cannot apply is a conversation that always ends in the user typing
+     * numbers by hand.</p>
+     *
+     * <p>Every field is OPTIONAL and absent means "leave it alone", so a call that only fixes
+     * the column count cannot silently reset margins someone tuned by eye.</p>
+     */
+    private String toolSetSpriteGrid(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = proj.spriteSheetById(sheetId);
+        if (sheet == null) {
+            return "Error: no sprite sheet with id '" + sheetId + "'. " + availableSheetsLine(proj);
+        }
+
+        int cols = args.optInt("cols", sheet.getCols());
+        int rows = args.optInt("rows", sheet.getRows());
+        if (cols < 1 || rows < 1) return "Error: cols and rows must both be at least 1.";
+        // A cell index is (row * cols + col), so changing the grid RENUMBERS every cell. Presets
+        // hold cell indices, so silently reshaping a sheet that animations already reference
+        // would scramble them — refuse instead, and say what to do about it.
+        if ((cols != sheet.getCols() || rows != sheet.getRows())
+                && !sheet.getPresets().isEmpty()) {
+            return "Error: this sheet has " + sheet.getPresets().size() + " saved animation(s) "
+                    + "whose frames are cell INDICES; changing the grid renumbers every cell and "
+                    + "would scramble them. Delete or re-author the animations first, or set the "
+                    + "grid before authoring any.";
+        }
+
+        StringBuilder changed = new StringBuilder();
+        if (cols != sheet.getCols() || rows != sheet.getRows()) {
+            sheet.setGrid(cols, rows);
+            changed.append("grid ").append(cols).append("x").append(rows).append("; ");
+        }
+        if (args.has("marginX") || args.has("marginY")) {
+            sheet.setMargins(args.optInt("marginX", sheet.getMarginX()),
+                    args.optInt("marginY", sheet.getMarginY()));
+            changed.append("margins; ");
+        }
+        if (args.has("spacingX") || args.has("spacingY")) {
+            sheet.setSpacing(args.optInt("spacingX", sheet.getSpacingX()),
+                    args.optInt("spacingY", sheet.getSpacingY()));
+            changed.append("spacing; ");
+        }
+        if (args.has("fps")) {
+            sheet.setFps((float) args.optDouble("fps", sheet.getFps()));
+            changed.append("fps ").append(sheet.getFps()).append("; ");
+        }
+        if (changed.length() == 0) return "No change — every field matched the current grid.";
+        storage.save(proj);
+        return "Updated '" + sheet.getName() + "': " + changed
+                + "now " + sheet.getCols() + "x" + sheet.getRows()
+                + " (" + (sheet.getCols() * sheet.getRows()) + " cells) at " + sheet.getFps()
+                + " fps.";
+    }
+
+    /**
+     * FF-B: author a named ANIMATION (a {@code SpriteSheet.Preset}) — an ordered run of cells
+     * with a cadence, optionally with per-frame weights.
+     *
+     * <p>This is the tool the sprite plan's Fast-Follow B was actually about: everything else
+     * could be done by hand, but building a twelve-frame walk cycle by typing cell indices into
+     * a UI is the job people give up on.</p>
+     *
+     * <p>Frames are validated against the sheet's own cell count BEFORE anything is saved. An
+     * out-of-range index would resolve to a blank cell at render time, which reads as a
+     * flickering animation rather than as a bad number.</p>
+     */
+    private String toolAuthorSpriteAnimation(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
+        String name = args.optString("name", "").trim();
+        if (name.isEmpty()) return "Error: 'name' is required (what to call this animation).";
+        org.json.JSONArray framesJson = args.optJSONArray("frames");
+        if (framesJson == null || framesJson.length() == 0) {
+            return "Error: 'frames' must be a non-empty array of cell indices, e.g. [0,1,2,3].";
+        }
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = proj.spriteSheetById(sheetId);
+        if (sheet == null) {
+            return "Error: no sprite sheet with id '" + sheetId + "'. " + availableSheetsLine(proj);
+        }
+
+        int cellCount = Math.max(0, sheet.getCols() * sheet.getRows());
+        java.util.List<Integer> frames = new java.util.ArrayList<>();
+        for (int i = 0; i < framesJson.length(); i++) {
+            int cell = framesJson.optInt(i, -1);
+            if (cell < 0 || cell >= cellCount) {
+                return "Error: frame " + i + " is cell " + cell + ", but this sheet has "
+                        + cellCount + " cells (0.." + (cellCount - 1) + ").";
+            }
+            frames.add(cell);
+        }
+
+        String type = args.optString("type", "loop");
+        if (!"loop".equals(type) && !"pingpong".equals(type) && !"once".equals(type)) {
+            return "Error: 'type' must be loop, pingpong or once.";
+        }
+
+        // Weights are OPTIONAL and stay empty when uniform — an unweighted preset then
+        // serialises byte-identically to one authored before weights existed, and resolves down
+        // the identical code path (SPEC_IMAGE_SEQUENCE §2).
+        java.util.List<Integer> weights = new java.util.ArrayList<>();
+        org.json.JSONArray weightsJson = args.optJSONArray("weights");
+        if (weightsJson != null && weightsJson.length() > 0) {
+            if (weightsJson.length() != frames.size()) {
+                return "Error: 'weights' has " + weightsJson.length() + " entries but 'frames' "
+                        + "has " + frames.size() + "; they must be parallel.";
+            }
+            boolean anyNonDefault = false;
+            for (int i = 0; i < weightsJson.length(); i++) {
+                int w = weightsJson.optInt(i, 1);
+                if (w < 1) return "Error: weight " + i + " is " + w + "; a frame must be held "
+                        + "at least one tick.";
+                weights.add(w);
+                if (w != 1) anyNonDefault = true;
+            }
+            if (!anyNonDefault) weights.clear();
+        }
+
+        com.fadcam.ui.faditor.sprite.SpriteSheet.Preset preset =
+                new com.fadcam.ui.faditor.sprite.SpriteSheet.Preset(
+                        java.util.UUID.randomUUID().toString(), name);
+        preset.type = type;
+        preset.fps = (float) args.optDouble("fps", 0d);   // 0 = inherit the sheet's fps
+        preset.frames.addAll(frames);
+        preset.weights.addAll(weights);
+        sheet.getPresets().add(preset);
+        storage.save(proj);
+
+        return "Added animation '" + name + "' to '" + sheet.getName() + "': "
+                + frames.size() + " frames, " + type
+                + (preset.fps > 0 ? " at " + preset.fps + " fps" : " at the sheet's fps")
+                + (weights.isEmpty() ? "" : ", weighted")
+                + ". id=" + preset.id;
+    }
+
     private String toolApplyAvatarRig(@NonNull JSONObject args) {
         String rigJsonStr = extractRigJson(args);
         if (rigJsonStr == null) return "Error: 'rig' (the rig JSON) is required.";

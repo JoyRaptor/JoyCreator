@@ -20,24 +20,55 @@
 > called from a new `ProjectStorage.usesMultiShapeMaskFeatures`. **The lesson is the repo's
 > own:** the doc asserted a safety property the code did not implement.
 >
-> **STILL OWED on P1a:** `tools/jvm-harness/run-mask.sh` + `MaskPathBuilderTest` /
-> `CompositingSpecTest` (nothing pins the new fold or the slot rules in Java yet — only the
-> Python drill does), the `maskTab` UI (§P1b), and `docs/project-schema.md`.
+> **P1a harness — DONE. `run-mask.sh` is 54/54** (`MaskFoldTest` 21, `CompositingSpecTest`
+> 33). The gate is proved *exhaustively*, not sampled: all 14 add/subtract arrangements up to
+> three shapes stay on the shipped two-bucket path.
+>
+> **P1b mask tab UI — BUILT, typechecks, NOT yet seen on a phone.** Shape chips (1..n, +, −),
+> Add/Subtract/Intersect, four presets, per-shape sliders rebuilt in place, per-shape object
+> link, and "Key at playhead" writing slot-named tracks.
+>
+> **STILL OWED on M0:** undo for the mask/chroma sliders (`Host.recordUndo` is *still*
+> declared and never called — spec §1.5), and `docs/project-schema.md`.
+>
+> ### 🖐 ONE THING THAT NEEDS JOYRAPTOR'S FINGER (20 seconds)
+> The mask tab cannot be reached by adb input injection — see the P0.1 note below. To see the
+> new UI: open **"bisect C long 2x"** → in the lane band, **hold** the picture-in-picture strip
+> (the one with the video thumbnails, 4th row down) **until it lifts, then release without
+> moving** → the drawer opens → **Mask** tab. Expect a `● 1  +` chip row at the top. Tap `+`
+> and a second shape appears, offset to the right, with Add/Subtract/Intersect above the
+> sliders. If that works, M0 is real.
 >
 > **P2 (fx/) — 3 of 8 classes only:** `FxParam`, `FxEffectDef`, `FxRegistry`. `FxInstance`,
 > `FxStack`, `FxCompiler`, `FxUniforms`, `FxCost` are absent. It compiles because the
 > reserved-name constants were moved onto `FxParam`; treat the package as a stub, not a
 > foundation.
 >
-> **P0.1 device verification — BLOCKED, and possibly not adb-drivable.** The PiP drawer opens
-> on *hold → release in place*, not a tap: `LayerGestureController:1892`, armed by
-> `EditorTimelineView.ITEM_PICKUP_MS = 450`. Injected `input motionevent DOWN / sleep / UP`
-> delivers the touches (confirmed in logcat, and the item does select) but never promotes to
-> pickup, so the menu never opens. `input swipe` with identical start/end fails the same way.
-> **This likely needs JoyRaptor's finger.** Fixture: project `129d8643` "bisect C long 2x" has a
-> PiP with a mask + chroma key and no `link` keys — ideal. It was backed up before opening,
-> drifted on autosave exactly as START_HERE §1 warns, and was restored byte-exact to
-> `md5 c2bfa8c6`.
+> **P0.1 device verification — BLOCKED. The hold gesture is NOT adb-drivable; stop trying.**
+> Four injection strategies were tried and all fail identically. Save the next session the hour:
+>
+> | Tried | Result |
+> |---|---|
+> | `input tap` on the item | selects it (chips appear) — but a tap is only ever a select |
+> | `input swipe x y x y 900` (same point) | no pickup |
+> | `input motionevent DOWN` · `sleep 1.3` · `UP` (separate processes) | no pickup |
+> | `input swipe x y x+2 y+1 1400` (in-slop, one process) | no pickup |
+>
+> The path is understood and is not the problem: `EditorTimelineView` arms
+> `itemPickupRunnable` on the DOWN branch (`ITEM_PICKUP_MS = 450`, line ~6760),
+> `beginPickup()` sets `pickupArmed`, and the UP resolves to `onItemMenuRequested` at
+> `LayerGestureController:1892`. With `ROWGESTURE_DEBUG = true` and a rebuild, **zero
+> ROWGESTURE lines are logged for any of the four**, so the touch never reaches the row-body
+> pending state at all. The row was confirmed EXPANDED at the time (tapping its caret
+> collapsed it), so a collapsed-row `MISS` is ruled out. Best remaining hypothesis: injected
+> events lack something the pending-body path requires, and a real finger is the only way in.
+>
+> `ROWGESTURE_DEBUG` was flipped back to `false` and the phone reflashed, so the installed APK
+> is clean.
+>
+> Fixture: project `129d8643` "bisect C long 2x" — a PiP with a mask + chroma key and no
+> `link` keys, ideal for this test. Backed up before opening, drifted on autosave exactly as
+> START_HERE §1 warns, and **restored byte-exact to `md5 c2bfa8c6`** (twice).
 
 Merges `START_HERE_20260806b.md` §3, `SPEC_ADJUSTMENT_LAYERS_FX.md` M0–M7, and the multi-shape
 mask work (which **is** that spec's M0 — it was never a separate item).

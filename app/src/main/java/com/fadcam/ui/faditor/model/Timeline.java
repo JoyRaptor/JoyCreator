@@ -1336,7 +1336,15 @@ public class Timeline {
             String id = oc.getLayerId() != null ? oc.getLayerId() : "video";
             videosByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(oc);
         }
-        LaneBuckets buckets = new LaneBuckets(textsByLayer, spritesByLayer, videosByLayer);
+        // M3. Every project written before adjustment layers has an EMPTY map here, so every
+        // phase below behaves exactly as it did — the emitted band is provably identical.
+        Map<String, List<AdjustmentLayer>> adjustmentsByLayer = new LinkedHashMap<>();
+        for (AdjustmentLayer al : adjustmentLayers) {
+            String id = al.getLayerId().isEmpty() ? "adjustment" : al.getLayerId();
+            adjustmentsByLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(al);
+        }
+        LaneBuckets buckets = new LaneBuckets(textsByLayer, spritesByLayer, videosByLayer,
+                adjustmentsByLayer);
         // Ids that a DEF owns. The per-phase leftover flushes below must skip these or a
         // def whose id happens to sit in an earlier phase's map would be pre-empted: the
         // flush would emit its items under a leftover name and the def would then emit an
@@ -1370,6 +1378,17 @@ public class Timeline {
         }
         emitDefs(layers, buckets, TrackKind.VIDEO, TrackKind.IMAGE);
         flushLeftovers(layers, buckets, buckets.videos, defIds, TrackKind.VIDEO, "PiP");
+
+        // ADJUSTMENT phase — emitted AFTER video/PiP so a new adjustment lane defaults ABOVE
+        // the PiPs. That is the After Effects reading JoyRaptor described: "grade everything I have
+        // built so far". With no adjustment layers the maps are empty and nothing is emitted,
+        // so the band is unchanged for every project that predates the feature.
+        if (buckets.adjustments.containsKey("adjustment")) {
+            layers.add(buildLaneTrack("adjustment", TrackKind.ADJUSTMENT, "Adjustment", buckets));
+        }
+        emitDefs(layers, buckets, TrackKind.ADJUSTMENT, null);
+        flushLeftovers(layers, buckets, buckets.adjustments, defIds, TrackKind.ADJUSTMENT,
+                "Adjustment");
 
         emitDefs(layers, buckets, TrackKind.LAYER, null);
         // Belt-and-braces: an id owned by a def of a kind no phase emits (CAPTION/
@@ -1422,18 +1441,23 @@ public class Timeline {
         final Map<String, List<TextOverlayItem>> texts;
         final Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> sprites;
         final Map<String, List<Clip>> videos;
+        /** M3: adjustment layers, emitted in their own phase ABOVE the video/PiP one. */
+        final Map<String, List<AdjustmentLayer>> adjustments;
 
         LaneBuckets(@NonNull Map<String, List<TextOverlayItem>> texts,
                 @NonNull Map<String, List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem>> sprites,
-                @NonNull Map<String, List<Clip>> videos) {
+                @NonNull Map<String, List<Clip>> videos,
+                @NonNull Map<String, List<AdjustmentLayer>> adjustments) {
             this.texts = texts;
             this.sprites = sprites;
             this.videos = videos;
+            this.adjustments = adjustments;
         }
 
         /** True if ANY payload type has items for {@code id}. */
         boolean hasItems(@NonNull String id) {
-            return texts.containsKey(id) || sprites.containsKey(id) || videos.containsKey(id);
+            return texts.containsKey(id) || sprites.containsKey(id) || videos.containsKey(id)
+                    || adjustments.containsKey(id);
         }
 
         /** Every id still unconsumed, in text→sprite→video discovery order, deduped. */
@@ -1442,6 +1466,7 @@ public class Timeline {
             java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<>(texts.keySet());
             ids.addAll(sprites.keySet());
             ids.addAll(videos.keySet());
+            ids.addAll(adjustments.keySet());
             return new ArrayList<>(ids);
         }
     }
@@ -1501,6 +1526,10 @@ public class Timeline {
         List<Clip> vb = buckets.videos.remove(id);
         if (vb != null) {
             for (Clip oc : vb) track.addItem(videoTimedItem(oc));
+        }
+        List<AdjustmentLayer> ab = buckets.adjustments.remove(id);
+        if (ab != null) {
+            for (AdjustmentLayer al : ab) track.addItem(TimedItem.ofAdjustment(al));
         }
         applyTrackFlags(track);
         return track;

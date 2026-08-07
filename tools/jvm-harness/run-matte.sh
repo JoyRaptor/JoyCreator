@@ -42,7 +42,9 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$CP" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/MatteVisibilityTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/MatteVisibilityTest.java tools/jvm-harness/AdjustmentLaneTest.java || exit 1
 # The positive control on the COMPILE itself: an empty out dir means the command never ran.
 [ -f "$OUT/MatteVisibilityTest.class" ] || { echo "no class file — the compile did not run"; exit 1; }
-java @"$RUNARGS" MatteVisibilityTest
+[ -f "$OUT/AdjustmentLaneTest.class" ] || { echo "no AdjustmentLaneTest class"; exit 1; }
+java @"$RUNARGS" MatteVisibilityTest || exit 1
+java @"$RUNARGS" AdjustmentLaneTest

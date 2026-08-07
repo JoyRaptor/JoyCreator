@@ -85,6 +85,58 @@ public final class LayerPreviewController {
     }
 
     /**
+     * Every item that takes part in the COMPOSITED image — PiP clips and adjustment layers —
+     * in one bottom→top order (SPEC_ADJUSTMENT_LAYERS_FX M3).
+     *
+     * <p><b>ONE call, consumed by BOTH the export loop and the preview wrapper builder.</b> That
+     * is the entire point, and it is the reason already written on
+     * {@link #partitionAroundVideo}: giving each side its own helper is how they drift. Export
+     * iterates this to build its effect chain, where position literally IS z; preview iterates
+     * the same list to decide what sits beneath a given layer. If they ever answered
+     * differently, an adjustment layer would grade one set of objects on screen and a different
+     * set in the file.</p>
+     *
+     * <p><b>Merged, not concatenated.</b> PiPs and adjustment layers are interleaved in the ONE
+     * ordering rather than appended as two groups — a project with a layer between two PiPs is
+     * exactly the case a concatenation would z-invert, which is precisely the bug the PiP
+     * z-unification fix was written to repair.</p>
+     *
+     * <p>Returns items in {@link #orderedVisualItems} order, so hidden lanes and per-object eyes
+     * are already applied, once, by the same code every other consumer uses.</p>
+     */
+    @NonNull
+    public static List<VisualItem> orderedCompositedItems(@NonNull Timeline timeline) {
+        List<VisualItem> out = new ArrayList<>();
+        for (VisualItem v : orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.model.Clip clip = v.item.getClip();
+            boolean isPip = clip != null && clip.isOverlayClip();
+            boolean isAdjustment = v.item.getAdjustment() != null;
+            if (isPip || isAdjustment) out.add(v);
+        }
+        return out;
+    }
+
+    /**
+     * The adjustment layers live at {@code editorMs}, bottom→top — mirroring
+     * {@code visibleOverlayVideoClips}, and derived from the same ordering so the two cannot
+     * disagree about which is on top.
+     *
+     * <p>A layer whose stack is empty or entirely disabled is EXCLUDED: it is a real object the
+     * user can see and move, but it must cost no render pass, or every adjustment layer would
+     * buy a full-screen copy for nothing.</p>
+     */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.model.AdjustmentLayer> visibleAdjustmentLayers(
+            @NonNull Timeline timeline, long editorMs) {
+        List<com.fadcam.ui.faditor.model.AdjustmentLayer> out = new ArrayList<>();
+        for (VisualItem v : orderedCompositedItems(timeline)) {
+            com.fadcam.ui.faditor.model.AdjustmentLayer a = v.item.getAdjustment();
+            if (a != null && a.activeAt(editorMs) && a.rendersAnything()) out.add(a);
+        }
+        return out;
+    }
+
+    /**
      * Z2 (SPEC_CROSSTYPE_Z): does this item paint UNDER the PiP video surface?
      *
      * <p>The two-bucket model. The overlay-video surface is one plane that cannot be split

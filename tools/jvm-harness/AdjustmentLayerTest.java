@@ -16,6 +16,12 @@ import com.fadcam.ui.faditor.model.CompositingSpec;
  * reproduced end to end in {@code tasks/schema_adjust_stamp.py}; this pins the constant it all
  * rests on.</p>
  *
+ * <p><b>Model only.</b> Lane emission and the shared z seam are NOT tested here and cannot be:
+ * {@code Timeline} reaches {@code Clip}, which reaches media3, so it will not load on this
+ * harness's deliberately gson-only classpath. Those assertions live in
+ * {@code AdjustmentLaneTest} under {@code run-matte.sh}, which already pays for a real Android
+ * classpath. Keeping this one pure is what makes it seconds to run.</p>
+ *
  * <p>Run: {@code bash tools/jvm-harness/run-adjust.sh}</p>
  */
 public class AdjustmentLayerTest {

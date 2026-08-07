@@ -70,6 +70,15 @@ public class TimedItem {
     private final CaptionSpanRef captionSpan;
 
     /**
+     * ADJUSTMENT payload (SPEC_ADJUSTMENT_LAYERS_FX M3) — a layer that TRANSFORMS everything
+     * beneath it in z rather than compositing over it. It is a first-class timeline item so it
+     * can be selected, moved, trimmed and keyed like any other, which is the whole reason it
+     * gets a payload slot rather than living outside the lane model.
+     */
+    @Nullable
+    private final com.fadcam.ui.faditor.model.AdjustmentLayer adjustment;
+
+    /**
      * Optional free-transform envelope (X/Y/SCALE/ROTATION/OPACITY) for an overlay
      * video/image, reusing the same {@link KeyframeSet} primitive {@link TextOverlayItem}
      * uses. {@code null} = use the payload's own transform or identity. Text/sprite
@@ -82,7 +91,8 @@ public class TimedItem {
                       @Nullable TextOverlayItem textOverlay, @Nullable AudioClip audioClip,
                       @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite,
                       @Nullable com.fadcam.ui.faditor.model.WaveformOverlayInstance waveform,
-                      @Nullable CaptionSpanRef captionSpan) {
+                      @Nullable CaptionSpanRef captionSpan,
+                      @Nullable com.fadcam.ui.faditor.model.AdjustmentLayer adjustment) {
         this.id = id;
         this.clip = clip;
         this.textOverlay = textOverlay;
@@ -90,6 +100,7 @@ public class TimedItem {
         this.sprite = sprite;
         this.waveform = waveform;
         this.captionSpan = captionSpan;
+        this.adjustment = adjustment;
     }
 
     // ── Factories (one per payload kind) ─────────────────────────────
@@ -97,7 +108,7 @@ public class TimedItem {
     /** Wrap a {@link Clip} (MASTER / VIDEO / IMAGE item). */
     @NonNull
     public static TimedItem ofClip(@NonNull Clip clip, long timelineStartMs) {
-        TimedItem t = new TimedItem(clip.getId(), clip, null, null, null, null, null);
+        TimedItem t = new TimedItem(clip.getId(), clip, null, null, null, null, null, null);
         t.timelineStartMs = timelineStartMs;
         return t;
     }
@@ -105,7 +116,7 @@ public class TimedItem {
     /** Wrap a {@link TextOverlayItem} (TEXT / STICKER item). */
     @NonNull
     public static TimedItem ofTextOverlay(@NonNull TextOverlayItem overlay) {
-        TimedItem t = new TimedItem(overlay.getId(), null, overlay, null, null, null, null);
+        TimedItem t = new TimedItem(overlay.getId(), null, overlay, null, null, null, null, null);
         t.timelineStartMs = overlay.getStartMs();
         return t;
     }
@@ -113,7 +124,7 @@ public class TimedItem {
     /** Wrap an {@link AudioClip} (AUDIO item). Its offset is the timeline start. */
     @NonNull
     public static TimedItem ofAudioClip(@NonNull AudioClip audioClip) {
-        TimedItem t = new TimedItem(audioClip.getId(), null, null, audioClip, null, null, null);
+        TimedItem t = new TimedItem(audioClip.getId(), null, null, audioClip, null, null, null, null);
         t.timelineStartMs = audioClip.getOffsetMs();
         return t;
     }
@@ -121,7 +132,7 @@ public class TimedItem {
     /** Wrap a {@link com.fadcam.ui.faditor.sprite.SpriteOverlayItem} (SPRITE item). */
     @NonNull
     public static TimedItem ofSprite(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite) {
-        TimedItem t = new TimedItem(sprite.getId(), null, null, null, sprite, null, null);
+        TimedItem t = new TimedItem(sprite.getId(), null, null, null, sprite, null, null, null);
         t.timelineStartMs = sprite.getStartMs();
         return t;
     }
@@ -133,7 +144,7 @@ public class TimedItem {
     @NonNull
     public static TimedItem ofWaveform(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance waveform) {
-        TimedItem t = new TimedItem(waveform.getId(), null, null, null, null, waveform, null);
+        TimedItem t = new TimedItem(waveform.getId(), null, null, null, null, waveform, null, null);
         t.timelineStartMs = waveform.getStartMs();
         return t;
     }
@@ -145,8 +156,21 @@ public class TimedItem {
     @NonNull
     public static TimedItem ofCaptionSpan(@NonNull CaptionSpanRef captionSpan) {
         TimedItem t = new TimedItem(captionSpan.getClip().getId(), null, null, null, null, null,
-                captionSpan);
+                captionSpan, null);
         t.timelineStartMs = Math.max(0, captionSpan.getStartMs());
+        return t;
+    }
+
+    /**
+     * Wrap an {@link com.fadcam.ui.faditor.model.AdjustmentLayer}. Its {@code startMs} is the
+     * timeline start, in the same editor-time base every other floating payload uses.
+     */
+    @NonNull
+    public static TimedItem ofAdjustment(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer adjustment) {
+        TimedItem t = new TimedItem(adjustment.getId(), null, null, null, null, null, null,
+                adjustment);
+        t.timelineStartMs = adjustment.getStartMs();
         return t;
     }
 
@@ -186,6 +210,10 @@ public class TimedItem {
     @Nullable
     public CaptionSpanRef getCaptionSpan() { return captionSpan; }
 
+    /** @see #ofAdjustment */
+    @Nullable
+    public com.fadcam.ui.faditor.model.AdjustmentLayer getAdjustment() { return adjustment; }
+
     @Nullable
     public KeyframeSet getTransform() { return transform; }
 
@@ -207,6 +235,7 @@ public class TimedItem {
         if (sprite != null) return "sprite";
         if (waveform != null) return "waveform";
         if (captionSpan != null) return "captionSpan";
+        if (adjustment != null) return "adjustment";
         return "none";
     }
 

@@ -31,6 +31,7 @@ public class MaskAnimatorTest {
         animatesTheSevenParameters();
         sizeNeverReachesZero();
         clampsIntoRange();
+        aLinkedMaskFollowsTheObjectOffStage();
         linkTranslatesWithTheObject();
         linkScalesWithTheObject();
         linkRotationIsAPixelRotationNotAShear();
@@ -114,13 +115,49 @@ public class MaskAnimatorTest {
     }
 
     static void clampsIntoRange() {
+        // A runaway key is still caught, but at the OFF-STAGE bounds, not the frame edge.
+        // These two assertions used to read "clamps to 1" / "clamps to 0"; that contract was
+        // the bug. Clamping a mask centre to the visible frame is what made a linked mask
+        // track its object perfectly and then silently stop at the edge (user, 2026-08-06).
         CompositingSpec s = specWithMask();
         s.maskKeys = new KeyframeSet();
         s.maskKeys.getOrCreate(MaskAnimator.CX).put(0, 5f, Easing.LINEAR);
         s.maskKeys.getOrCreate(MaskAnimator.CY).put(0, -5f, Easing.LINEAR);
         CompositingSpec r = MaskAnimator.resolve(s, null, 0, 1920, 1080);
-        check("cx clamps to 1", near(r.masks.get(0).cx, 1f));
-        check("cy clamps to 0", near(r.masks.get(0).cy, 0f));
+        check("a runaway cx clamps at POS_MAX, not at the frame edge",
+                near(r.masks.get(0).cx, KeyframeSet.POS_MAX));
+        check("a runaway cy clamps at POS_MIN, not at the frame edge",
+                near(r.masks.get(0).cy, KeyframeSet.POS_MIN));
+
+        // The point of the change: an ordinary off-stage position must survive untouched.
+        CompositingSpec off = specWithMask();
+        off.maskKeys = new KeyframeSet();
+        off.maskKeys.getOrCreate(MaskAnimator.CX).put(0, 1.4f, Easing.LINEAR);
+        off.maskKeys.getOrCreate(MaskAnimator.CY).put(0, -0.3f, Easing.LINEAR);
+        CompositingSpec ro = MaskAnimator.resolve(off, null, 0, 1920, 1080);
+        check("an off-stage cx is preserved exactly", near(ro.masks.get(0).cx, 1.4f));
+        check("an off-stage cy is preserved exactly", near(ro.masks.get(0).cy, -0.3f));
+    }
+
+    /**
+     * The regression this whole range change exists to kill: a linked mask must keep following
+     * its object all the way off-stage, not stop dead when its own centre reaches the edge.
+     */
+    static void aLinkedMaskFollowsTheObjectOffStage() {
+        CompositingSpec s = specWithMask();
+        CompositingSpec.MaskShape m = s.masks.get(0);
+        m.linkedToObject = true;
+        m.linkBaseX = 0.5f; m.linkBaseY = 0.5f; m.linkBaseScale = 1f; m.linkBaseRotDeg = 0f;
+        m.cx = 0.5f; m.cy = 0.5f;
+
+        // The object pans well off the right edge.
+        CompositingSpec r = MaskAnimator.resolve(s, objectAt(1.35f, 0.5f, 1f, 0f), 0, 1000, 1000);
+        check("the mask follows its object past the frame edge",
+                near(r.masks.get(0).cx, 1.35f));
+
+        // ...and off the left, where the old clamp pinned it at 0.
+        CompositingSpec r2 = MaskAnimator.resolve(s, objectAt(-0.4f, 0.5f, 1f, 0f), 0, 1000, 1000);
+        check("...and off the opposite edge too", near(r2.masks.get(0).cx, -0.4f));
     }
 
     // ── The link ────────────────────────────────────────────────────────────

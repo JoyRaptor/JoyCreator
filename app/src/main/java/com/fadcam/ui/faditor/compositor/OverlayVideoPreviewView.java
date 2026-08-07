@@ -754,8 +754,12 @@ public class OverlayVideoPreviewView extends FrameLayout {
                         || Math.abs(e.getRawY() - downRawY) > 8) {
                     moved = true;
                 }
-                putStatic(manipulating, KeyframeSet.X, clamp01(startX + dx));
-                putStatic(manipulating, KeyframeSet.Y, clamp01(startY + dy));
+                // clampPos, NOT clamp01: dragging must be able to take an object off-stage,
+                // the same reach the Pos X / Pos Y sliders now have. Clamping the finger to
+                // the visible frame while the slider could leave it would be two different
+                // answers to one question.
+                putStatic(manipulating, KeyframeSet.X, KeyframeSet.clampPos(startX + dx));
+                putStatic(manipulating, KeyframeSet.Y, KeyframeSet.clampPos(startY + dy));
                 applyTransform(manipulating);
                 return true;
             }

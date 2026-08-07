@@ -20074,10 +20074,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
         ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
+        // -100%..200%, not 0..100%. These address the object's CENTRE, so a 0..1 range could
+        // only ever slide an object until it was half off — panning on from off-stage left and
+        // away to the right was not expressible at all (user, 2026-08-06). See
+        // KeyframeSet.POS_MIN for why the limit is one frame of travel beyond each edge.
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
-                "Pos X", 0f, 1f, pct));      // TODO(strings)
+                "Pos X", com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, pct));      // TODO(strings)
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
-                "Pos Y", 0f, 1f, pct));      // TODO(strings)
+                "Pos Y", com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN,
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, pct));      // TODO(strings)
         // Scale to 400% (user, 2026-08-05). The pinch gesture already clamped at 300% while
         // this slider stopped at 150%, so the two disagreed about the maximum — the slider
         // could not express a size the fingers could reach. Both are 4.0 now; see

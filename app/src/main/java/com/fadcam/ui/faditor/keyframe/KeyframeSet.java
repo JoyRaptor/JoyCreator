@@ -23,6 +23,32 @@ public class KeyframeSet {
     public static final String OPACITY = "opacity";
     public static final String ROTATION = "rotation";
 
+    /**
+     * How far a canvas position ({@link #X}/{@link #Y}, and a mask's centre) may travel, in
+     * canvas-normalised units where 0..1 is the visible frame.
+     *
+     * <p><b>Why this is not 0..1.</b> These coordinates address an object's CENTRE, so a range
+     * of 0..1 can only ever move an object until its centre reaches the edge — half of it is
+     * still on screen at both extremes. Panning something on from off-stage left and away off
+     * to the right, which is the most ordinary move in motion graphics, was simply not
+     * expressible. It also produced a subtler bug: a mask linked to its object tracked it
+     * correctly until the mask's centre hit the frame edge, then clamped and silently stopped
+     * following (user, 2026-08-06).</p>
+     *
+     * <p>One full frame of travel beyond each edge takes any object up to 2× the frame size
+     * completely out of view, and keeps the numbers legible (-100%..200%). It is a limit rather
+     * than no limit at all so a slider still has ends and a stray keyframe cannot strand an
+     * object a thousand frames away.</p>
+     */
+    public static final float POS_MIN = -1f;
+    /** @see #POS_MIN */
+    public static final float POS_MAX = 2f;
+
+    /** Clamp a canvas position into {@link #POS_MIN}..{@link #POS_MAX}. */
+    public static float clampPos(float v) {
+        return v < POS_MIN ? POS_MIN : (v > POS_MAX ? POS_MAX : v);
+    }
+
     @NonNull
     private final Map<String, KeyframeTrack> tracks = new LinkedHashMap<>();
 

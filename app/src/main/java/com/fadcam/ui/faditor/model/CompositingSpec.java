@@ -446,8 +446,13 @@ public class CompositingSpec {
                 for (int i = 0; i < arr.size(); i++) {
                     JsonObject mj = arr.get(i).getAsJsonObject();
                     MaskShape m = new MaskShape();
-                    m.cx = clamp01(optFloat(mj, "cx", 0.5f));
-                    m.cy = clamp01(optFloat(mj, "cy", 0.5f));
+                    // A mask centre may legitimately sit off-stage, so this must NOT clamp to
+                    // 0..1 — doing so would quietly drag an off-screen shape back into frame
+                    // on every reload. See KeyframeSet.POS_MIN.
+                    m.cx = com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(
+                            optFloat(mj, "cx", 0.5f));
+                    m.cy = com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(
+                            optFloat(mj, "cy", 0.5f));
                     m.w = clamp(optFloat(mj, "w", 0.3f), 0.001f, 1f);
                     m.h = clamp(optFloat(mj, "h", 0.2f), 0.001f, 1f);
                     m.corner = clamp01(optFloat(mj, "corner", 0f));

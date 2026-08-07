@@ -314,9 +314,18 @@ public final class PipDrawerTabs {
             // WRAP_CONTENT afterwards, so changing this column's height needs no extra
             // plumbing here.
             sliderHost.removeAllViews();
-            slider(ctx, sliderHost, R.string.faditor_mask_x, 100, Math.round(cur.cx * 100),
+            // X/Y run -100..200%, not 0..100 — a mask centre must be able to leave the frame
+            // entirely, and must be free to follow a linked object off-stage. KeyframeSet.POS_MIN
+            // explains why 0..1 could never express a pan-on/pan-off move.
+            final int posMin = Math.round(
+                    com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN * 100);
+            final int posMax = Math.round(
+                    com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX * 100);
+            slider(ctx, sliderHost, R.string.faditor_mask_x, posMin, posMax,
+                    Math.round(cur.cx * 100),
                     v -> { cur.cx = v / 100f; apply.run(); });
-            slider(ctx, sliderHost, R.string.faditor_mask_y, 100, Math.round(cur.cy * 100),
+            slider(ctx, sliderHost, R.string.faditor_mask_y, posMin, posMax,
+                    Math.round(cur.cy * 100),
                     v -> { cur.cy = v / 100f; apply.run(); });
             slider(ctx, sliderHost, R.string.faditor_mask_w, 100, Math.round(cur.w * 100),
                     v -> { cur.w = Math.max(0.02f, v / 100f); apply.run(); });
@@ -644,6 +653,20 @@ public final class PipDrawerTabs {
     private static void slider(@NonNull Context ctx, @NonNull LinearLayout parent, int labelRes,
                                int max, int initial,
                                @NonNull java.util.function.Consumer<Integer> onChange) {
+        slider(ctx, parent, labelRes, 0, max, initial, onChange);
+    }
+
+    /**
+     * Slider over an arbitrary integer range, including a negative one.
+     *
+     * <p>SeekBar has no minimum before API 26, and this app's floor is 24, so the bar always
+     * runs 0..(max-min) and {@code min} is added on the way out. Doing it here rather than at
+     * each call site is what keeps the displayed number and the reported value from drifting
+     * apart — they are computed once, from the same expression.</p>
+     */
+    private static void slider(@NonNull Context ctx, @NonNull LinearLayout parent, int labelRes,
+                               int min, int max, int initial,
+                               @NonNull java.util.function.Consumer<Integer> onChange) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -666,29 +689,65 @@ public final class PipDrawerTabs {
         row.addView(label);
 
         SeekBar bar = new SeekBar(ctx);
-        bar.setMax(max);
-        bar.setProgress(Math.max(0, Math.min(max, initial)));
+        bar.setMax(max - min);
+        bar.setProgress(Math.max(0, Math.min(max - min, initial - min)));
 
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
         value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        value.setWidth(Math.round(34 * d));
+        // Wide enough for "-100" — a negative position used to be unreachable, and a value
+        // column sized for "100" would ellipsize the very numbers that prove it now works.
+        value.setWidth(Math.round(40 * d));
         value.setGravity(Gravity.END);
         value.setText(String.valueOf(initial));
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
-                value.setText(String.valueOf(p));
-                onChange.accept(p);
+                value.setText(String.valueOf(p + min));
+                onChange.accept(p + min);
             }
             @Override public void onStartTrackingTouch(SeekBar s) {}
             @Override public void onStopTrackingTouch(SeekBar s) {}
         });
+
+        // ‹ ◇ › — one step down, keyframe diamond, one step up (user, 2026-08-06). A slider
+        // this narrow cannot be nudged by a single unit with a fingertip, which is exactly the
+        // precision wanted when lining a mask up against a face.
+        TextView dec = stepper(ctx, "‹", d);
+        TextView key = stepper(ctx, "◇", d);
+        TextView inc = stepper(ctx, "›", d);
+        dec.setOnClickListener(v -> bar.setProgress(Math.max(0, bar.getProgress() - 1)));
+        inc.setOnClickListener(v ->
+                bar.setProgress(Math.min(max - min, bar.getProgress() + 1)));
+        // The diamond is a placeholder until per-parameter mask keying lands: the tab's own
+        // "Key at playhead" still keys all six at once. Shown disabled-looking rather than
+        // omitted so the row's spacing is final and does not shift when it is wired.
+        key.setAlpha(0.35f);
+
         row.addView(bar, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(value);
+        row.addView(dec);
+        row.addView(key);
+        row.addView(inc);
         parent.addView(row);
+    }
+
+    /** One tap target in a slider row's {@code ‹ ◇ ›} cluster. */
+    @NonNull
+    private static TextView stepper(@NonNull Context ctx, @NonNull String glyph, float d) {
+        TextView t = new TextView(ctx);
+        t.setText(glyph);
+        t.setTextColor(TXT);
+        t.setTextSize(15);
+        t.setGravity(Gravity.CENTER);
+        // 30dp is under the 48dp guideline, but four rows of 48 would push the sliders off a
+        // drawer that deliberately leaves the timeline visible. Widened padding rather than
+        // height keeps the hit area usable without growing the row.
+        t.setWidth(Math.round(30 * d));
+        t.setPadding(0, Math.round(4 * d), 0, Math.round(4 * d));
+        return t;
     }
 
     private static float propMin(@NonNull ObjectMenuSheet.Prop p) { return p.min(); }

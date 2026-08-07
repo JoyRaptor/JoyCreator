@@ -122,8 +122,9 @@ public final class MaskAnimator {
             if (animates) {
                 KeyframeSet k = spec.maskKeys;
                 int slot = m.slot;
-                m.cx = clamp01(k.valueAt(trackFor(slot, 0), timelineMs, m.cx));
-                m.cy = clamp01(k.valueAt(trackFor(slot, 1), timelineMs, m.cy));
+                // Positions may sit off-stage — see KeyframeSet.POS_MIN.
+                m.cx = KeyframeSet.clampPos(k.valueAt(trackFor(slot, 0), timelineMs, m.cx));
+                m.cy = KeyframeSet.clampPos(k.valueAt(trackFor(slot, 1), timelineMs, m.cy));
                 // Never zero: a zero-size shape makes an empty Path, and an empty mask silently
                 // means "no mask at all" rather than "a mask you cannot see" — two very
                 // different pictures for the same authored value.
@@ -179,8 +180,11 @@ public final class MaskAnimator {
         float rx = (float) ((offX * cos - offY * sin) * ds);
         float ry = (float) ((offX * sin + offY * cos) * ds);
 
-        m.cx = clamp01(ox + rx / pw);
-        m.cy = clamp01(oy + ry / ph);
+        // clampPos, NOT clamp01. A linked mask must be free to follow its object off-stage;
+        // clamping to the visible frame here is what made the mask track the object perfectly
+        // until it reached the edge and then silently stop following it (user, 2026-08-06).
+        m.cx = KeyframeSet.clampPos(ox + rx / pw);
+        m.cy = KeyframeSet.clampPos(oy + ry / ph);
         m.w = clamp(m.w * ds, MIN_SIZE, 1f);
         m.h = clamp(m.h * ds, MIN_SIZE, 1f);
         m.rotationDeg = m.rotationDeg + drot;

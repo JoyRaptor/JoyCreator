@@ -15,20 +15,33 @@ Branch `joy-creator`. Everything is committed. JoyRaptor's own files
 M4 renders on export, interleaves correctly in z, and does multi-pass — so blur
 exports; M7 puts the same FX stack on individual PiP clips.
 
-**M7's two boundaries, both deliberate and both surfaced in the UI rather than
-left to be discovered:**
-- **Text overlays** carry the FX stack (model, storage, deep copy) but get NO
-  tab. Text renders through a Canvas `BitmapOverlay`, not a GL shader, so there
-  is nothing to splice into — that is a renderer, not a wire. A tab that
-  silently did nothing would be worse than none.
-- **Sampler cards on an object** (the blurs, RGB shift) are badged "layer only"
-  in the picker and "needs an adjustment layer" on the card. A per-object stack
-  is spliced into the compositing shader, which draws in one pass and has no
-  finished image for a sampler to read.
+**M7 is COMPLETE, on PiPs and on TEXT**, both proven on exported pixels.
 
-**The last remaining work is a renderer, not a gap:** FX on text needs the text
-bitmap run through the FX chain as a texture. Everything else in this spec is
-built.
+Text needed its own renderer, and it got one: `TextFxGlEffect` rasterises the
+overlay through the SAME `TextOverlayRenderer` the Canvas path uses, then runs
+the same compiled FX chain. Gated on `hasActiveFx()`, and
+`CompositeExportOverlay` skips only the overlays that moved — so nothing is
+drawn twice and nothing without effects changes path at all.
+
+**Two bugs that only exported frames could have caught:** it rendered the
+AUTHORED transform instead of the ANIMATED one (a keyframed caption would have
+jumped the moment it was styled), and `TextOverlayRenderer` returns a bitmap
+sized to the TEXT which the Canvas path then positions — handing that straight
+to `BitmapOverlay` stretched it across the frame, so a styled caption came out
+enormous. Both paths call the same renderer; the bugs were entirely in what
+happens after it.
+
+**One remaining boundary, surfaced in the UI rather than left to be found:**
+sampler cards (the blurs, RGB shift) on a single OBJECT are badged "layer only"
+in the picker and "needs an adjustment layer" on the card. A per-object stack is
+spliced into a compositing shader that draws in one pass, so there is no
+finished image for a sampler to read neighbours from. The user's actual goal is
+achievable — just on a layer.
+
+**Z-order caveat:** a styled text overlay composites inside the video effect
+chain, so it sits beneath any other text, sprite or caption. Invisible for one
+styled title; real for a project stacking text over text. The fix is moving the
+whole overlay pass into GL, not special-casing it.
 
 **Also done from START_HERE's backlog:** all four FF-B sprite AI tools, and the
 duplicate-onto-its-own-lane button — for adjustment layers, text and sprites.

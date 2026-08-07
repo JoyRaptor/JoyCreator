@@ -41,7 +41,16 @@ public enum TrackKind {
     CAPTION,
     VISUALIZER,
     AUDIO,
-    LAYER;
+    LAYER,
+    /**
+     * An ADJUSTMENT LAYER lane (SPEC_ADJUSTMENT_LAYERS_FX M3) — a layer that TRANSFORMS
+     * everything beneath it in z rather than compositing over it.
+     *
+     * <p>Emitted AFTER the video/PiP phase, so a new adjustment lane defaults above the PiPs:
+     * "grade everything I have built so far" is the After Effects reading and the one people
+     * expect.</p>
+     */
+    ADJUSTMENT;
 
     /**
      * True if a row of this kind is a real LANE — a container whose membership is decided by
@@ -57,7 +66,8 @@ public enum TrackKind {
      */
     public boolean isLane() {
         return this == VIDEO || this == IMAGE || this == TEXT
-                || this == STICKER || this == SPRITE || this == LAYER;
+                || this == STICKER || this == SPRITE || this == LAYER
+                || this == ADJUSTMENT;
     }
 
     /**
@@ -82,6 +92,7 @@ public enum TrackKind {
      * first understood the kind, so a later unrelated bump must not drag it along.
      */
     public int minSchemaVersion() {
+        if (this == ADJUSTMENT) return 13;   // LITERAL, per the contract above. Do not compute.
         return this == LAYER ? 11 : 7;
     }
 

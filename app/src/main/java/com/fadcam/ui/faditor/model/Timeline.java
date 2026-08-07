@@ -196,6 +196,56 @@ public class Timeline {
         return Collections.unmodifiableList(clips);
     }
 
+    // ── Adjustment layers (SPEC_ADJUSTMENT_LAYERS_FX M3) ─────────────
+
+    /**
+     * Layers that TRANSFORM everything beneath them in z, rather than compositing over it.
+     * Mirrors {@link #overlayClips} deliberately: they are siblings in the z order, and giving
+     * them different shapes is how the two lists would drift apart.
+     */
+    private final List<AdjustmentLayer> adjustmentLayers = new ArrayList<>();
+
+    /** Unmodifiable view of the adjustment layers. */
+    @NonNull
+    public List<AdjustmentLayer> getAdjustmentLayers() {
+        return Collections.unmodifiableList(adjustmentLayers);
+    }
+
+    /** Add an adjustment layer. It must carry a non-empty {@code layerId}, like an overlay. */
+    public void addAdjustmentLayer(@NonNull AdjustmentLayer layer) {
+        adjustmentLayers.add(layer);
+    }
+
+    public boolean removeAdjustmentLayer(@NonNull AdjustmentLayer layer) {
+        return adjustmentLayers.remove(layer);
+    }
+
+    @Nullable
+    public AdjustmentLayer findAdjustmentLayer(@NonNull String id) {
+        for (AdjustmentLayer a : adjustmentLayers) {
+            if (a.getId().equals(id)) return a;
+        }
+        return null;
+    }
+
+    /** Adjustment layers live at {@code editorMs}, in list order (bottom-up). */
+    @NonNull
+    public List<AdjustmentLayer> visibleAdjustmentLayers(long editorMs) {
+        List<AdjustmentLayer> out = new ArrayList<>();
+        for (AdjustmentLayer a : adjustmentLayers) {
+            if (a.activeAt(editorMs)) out.add(a);
+        }
+        return out;
+    }
+
+    /**
+     * True when any adjustment layer exists at all — the schema-v13 trigger for this feature.
+     *
+     * <p>An empty list is what every project that predates adjustment layers has, so the stamp
+     * stays off for all of them and they remain openable by older builds.</p>
+     */
+    public boolean usesAdjustmentLayers() { return !adjustmentLayers.isEmpty(); }
+
     // ── Floating overlay-video clips (M-COMP-2) ──────────────────────
 
     /** Unmodifiable view of the floating overlay (PiP) clips. */

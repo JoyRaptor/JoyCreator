@@ -1874,6 +1874,14 @@ public class ProjectStorage {
             if (usesMultiShapeMaskFeatures(src)) {
                 stampedVersion = Math.max(stampedVersion, 13);
             }
+            // v13 — adjustment layers (M3). NON-NEGOTIABLE, and the reason is TrackKind's:
+            // an old build maps the unknown ADJUSTMENT kind to VIDEO, then autosaves that
+            // coercion back, permanently changing which lane paints over which — with no error
+            // and no way back. It already happened once for LAYER. Raising the stamp is what
+            // makes that build refuse the file instead of quietly damaging it.
+            if (src.getTimeline().usesAdjustmentLayers()) {
+                stampedVersion = Math.max(stampedVersion, 13);
+            }
             com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool transcriptPool =
                     poolingWouldPay(src)
                             ? new com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.Pool()
@@ -1905,6 +1913,18 @@ public class ProjectStorage {
                     overlayClipsArray.add(serializeClipObject(projectDir, oc, transcriptPool));
                 }
                 timelineJson.add("overlayClips", overlayClipsArray);
+            }
+
+            // Adjustment layers — SPEC_ADJUSTMENT_LAYERS_FX M3. Additive in the same way, and
+            // SELF-SERIALIZING (AdjustmentLayer.toJson) rather than going through a
+            // serializer-side helper: the class that knows what a field means writes it.
+            if (src.getTimeline().usesAdjustmentLayers()) {
+                JsonArray adjustArray = new JsonArray();
+                for (com.fadcam.ui.faditor.model.AdjustmentLayer al
+                        : src.getTimeline().getAdjustmentLayers()) {
+                    adjustArray.add(al.toJson());
+                }
+                timelineJson.add("adjustmentLayers", adjustArray);
             }
 
             // Serialize audio clips
@@ -2466,6 +2486,28 @@ public class ProjectStorage {
                         } catch (Exception ex) {
                             FLog.e(TAG, "Skipping malformed overlay (PiP) clip #" + i, ex);
                             project.addLoadSkip("Picture-in-picture clip #" + (i + 1));
+                        }
+                    }
+                }
+                // Adjustment layers — M3. Absent on every project written before them, and a
+                // malformed one is skipped per-item rather than taking the load down.
+                if (hasValue(timelineJson, "adjustmentLayers")) {
+                    JsonArray adjArr = timelineJson.getAsJsonArray("adjustmentLayers");
+                    for (int i = 0; i < adjArr.size(); i++) {
+                        try {
+                            com.fadcam.ui.faditor.model.AdjustmentLayer al =
+                                    com.fadcam.ui.faditor.model.AdjustmentLayer.fromJson(
+                                            adjArr.get(i).getAsJsonObject());
+                            if (al == null) continue;
+                            if (al.getLayerId().isEmpty()) {
+                                // Same tolerant read as the overlay above: a layer whose lane
+                                // was lost lands somewhere real rather than in neither list.
+                                al.setLayerId("adjustment");
+                            }
+                            project.getTimeline().addAdjustmentLayer(al);
+                        } catch (Exception ex) {
+                            FLog.e(TAG, "Skipping malformed adjustment layer #" + i, ex);
+                            project.addLoadSkip("Adjustment layer #" + (i + 1));
                         }
                     }
                 }

@@ -209,20 +209,130 @@ public final class PipDrawerTabs {
                                @NonNull CompositingSpec spec, @NonNull Runnable apply,
                                @NonNull PlayheadSource playheadMs) {
         LinearLayout root = column(ctx);
-        if (spec.masks.isEmpty()) spec.masks.add(new CompositingSpec.MaskShape());
-        CompositingSpec.MaskShape m = spec.masks.get(0);
-        slider(ctx, root, R.string.faditor_mask_x, 100, Math.round(m.cx * 100),
-                v -> { m.cx = v / 100f; apply.run(); });
-        slider(ctx, root, R.string.faditor_mask_y, 100, Math.round(m.cy * 100),
-                v -> { m.cy = v / 100f; apply.run(); });
-        slider(ctx, root, R.string.faditor_mask_w, 100, Math.round(m.w * 100),
-                v -> { m.w = Math.max(0.02f, v / 100f); apply.run(); });
-        slider(ctx, root, R.string.faditor_mask_h, 100, Math.round(m.h * 100),
-                v -> { m.h = Math.max(0.02f, v / 100f); apply.run(); });
-        slider(ctx, root, R.string.faditor_mask_round, 100, Math.round(m.corner * 100),
-                v -> { m.corner = v / 100f; apply.run(); });
-        slider(ctx, root, R.string.faditor_mask_rotate, 360, Math.round(m.rotationDeg),
-                v -> { m.rotationDeg = v; apply.run(); });
+        if (spec.masks.isEmpty()) spec.addShape();
+        float dp = ctx.getResources().getDisplayMetrics().density;
+
+        // WHICH shape the per-shape controls below are editing. Held as an INDEX into
+        // spec.masks (what the chip row shows), never as a slot — slots are stable and sparse
+        // after a delete, so an index is the only thing that stays in step with the list.
+        final int[] sel = {0};
+
+        // ── Shape chips · mode · presets ────────────────────────────────────────────────
+        // Three rows, rebuilt together because all three describe the SELECTED shape. Two
+        // people's faces in one mask is the case this exists for: add a second circle rather
+        // than duplicating the video (JoyRaptor, 2026-08-06).
+        LinearLayout shapeRow = row(ctx);
+        LinearLayout modeRow = row(ctx);
+        LinearLayout presetRow = row(ctx);
+        LinearLayout sliderHost = column(ctx);
+        root.addView(shapeRow);
+        root.addView(modeRow);
+        root.addView(presetRow);
+        root.addView(sliderHost);
+
+        // Assigned below; declared first because the three builders call each other.
+        final Runnable[] rebuild = new Runnable[1];
+        // Spec-level controls that nevertheless describe the SELECTED shape (the object link).
+        // They are built after this point, so rebuild reaches them through a holder rather
+        // than by forward reference, and tolerates being run before they exist.
+        final Runnable[] syncSelected = new Runnable[1];
+
+        rebuild[0] = () -> {
+            if (sel[0] >= spec.masks.size()) sel[0] = spec.masks.size() - 1;
+            if (sel[0] < 0) sel[0] = 0;
+            final CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
+
+            // — chips: one per shape, then + / − —
+            shapeRow.removeAllViews();
+            for (int i = 0; i < spec.masks.size(); i++) {
+                final int idx = i;
+                TextView c = chip(ctx, "● " + (i + 1), dp);
+                c.setBackgroundColor(idx == sel[0] ? 0x66FFFFFF : 0x22FFFFFF);
+                c.setOnClickListener(v -> { sel[0] = idx; rebuild[0].run(); });
+                shapeRow.addView(c);
+            }
+            TextView addChip = chip(ctx, "+", dp);
+            addChip.setOnClickListener(v -> {
+                CompositingSpec.MaskShape n = spec.addShape();
+                // Offset the newcomer so it is not hidden exactly under the shape it was
+                // copied from — an "add" that appears to do nothing reads as a broken button.
+                n.cx = Math.min(0.9f, cur.cx + 0.18f);
+                n.cy = cur.cy; n.w = cur.w; n.h = cur.h; n.corner = cur.corner;
+                sel[0] = spec.masks.size() - 1;
+                rebuild[0].run();
+                apply.run();
+            });
+            shapeRow.addView(addChip);
+            if (spec.masks.size() > 1) {
+                TextView del = chip(ctx, "−", dp);
+                del.setOnClickListener(v -> {
+                    // removeShape drops this slot's keyframe tracks and leaves every other
+                    // slot alone, which is what stops shape 3's animation landing on shape 2.
+                    spec.removeShape(sel[0]);
+                    if (sel[0] > 0) sel[0]--;
+                    rebuild[0].run();
+                    apply.run();
+                });
+                shapeRow.addView(del);
+            }
+
+            // — mode: how this shape combines with the ones before it —
+            modeRow.removeAllViews();
+            final int[] modes = {CompositingSpec.MODE_ADD, CompositingSpec.MODE_SUBTRACT,
+                    CompositingSpec.MODE_INTERSECT};
+            final String[] modeLabels = {"Add", "Subtract", "Intersect"};
+            for (int i = 0; i < modes.length; i++) {
+                final int mode = modes[i];
+                TextView c = chip(ctx, modeLabels[i], dp);
+                c.setBackgroundColor(cur.mode == mode ? 0x66FFFFFF : 0x22FFFFFF);
+                c.setOnClickListener(v -> {
+                    cur.mode = mode;
+                    rebuild[0].run();
+                    apply.run();
+                });
+                modeRow.addView(c);
+            }
+
+            // — presets: a starting SHAPE, not a reset (centre/rotation/mode survive) —
+            presetRow.removeAllViews();
+            final int[] presets = {CompositingSpec.PRESET_SQUARE, CompositingSpec.PRESET_RECT,
+                    CompositingSpec.PRESET_CIRCLE, CompositingSpec.PRESET_PILL};
+            final String[] presetLabels = {"Square", "Rect", "Circle", "Pill"};
+            for (int i = 0; i < presets.length; i++) {
+                final int p = presets[i];
+                TextView c = chip(ctx, presetLabels[i], dp);
+                c.setOnClickListener(v -> {
+                    CompositingSpec.applyPreset(cur, p);
+                    rebuild[0].run();   // the w/h/corner sliders must follow the preset
+                    apply.run();
+                });
+                presetRow.addView(c);
+            }
+
+            // — the six per-shape sliders, rebuilt in place —
+            // PipOverlayDrawer.switchTo already tweens contentHost's height and restores
+            // WRAP_CONTENT afterwards, so changing this column's height needs no extra
+            // plumbing here.
+            sliderHost.removeAllViews();
+            slider(ctx, sliderHost, R.string.faditor_mask_x, 100, Math.round(cur.cx * 100),
+                    v -> { cur.cx = v / 100f; apply.run(); });
+            slider(ctx, sliderHost, R.string.faditor_mask_y, 100, Math.round(cur.cy * 100),
+                    v -> { cur.cy = v / 100f; apply.run(); });
+            slider(ctx, sliderHost, R.string.faditor_mask_w, 100, Math.round(cur.w * 100),
+                    v -> { cur.w = Math.max(0.02f, v / 100f); apply.run(); });
+            slider(ctx, sliderHost, R.string.faditor_mask_h, 100, Math.round(cur.h * 100),
+                    v -> { cur.h = Math.max(0.02f, v / 100f); apply.run(); });
+            slider(ctx, sliderHost, R.string.faditor_mask_round, 100, Math.round(cur.corner * 100),
+                    v -> { cur.corner = v / 100f; apply.run(); });
+            slider(ctx, sliderHost, R.string.faditor_mask_rotate, 360,
+                    Math.round(cur.rotationDeg),
+                    v -> { cur.rotationDeg = v; apply.run(); });
+
+            if (syncSelected[0] != null) syncSelected[0].run();
+        };
+        rebuild[0].run();
+
+        // ── Everything below here is SPEC-level: one value for the whole stack ──────────
         slider(ctx, root, R.string.faditor_mask_soften, 100, Math.round(spec.maskFeather * 100),
                 v -> { spec.maskFeather = v / 100f; apply.run(); });
         CheckBox inv = check(ctx, R.string.faditor_mask_only_inside, spec.invertMasks);
@@ -237,29 +347,36 @@ public final class PipDrawerTabs {
 
         // Built directly rather than via check(): that helper takes a STRING RESOURCE id,
         // and passing 0 for an inline literal would throw at inflate time.
+        // PER-SHAPE, like the sliders above it — MaskShape.linkedToObject is a shape field, so
+        // one shape can ride the object while another stays pinned to the frame. Its checked
+        // state is therefore re-synced whenever the selection changes (see syncSelected below);
+        // reading spec.masks.get(sel[0]) at CLICK time is what keeps it honest after a switch.
         CheckBox link = new CheckBox(ctx);
         link.setText("Move with the object");
         link.setTextColor(TXT);
         link.setTextSize(12);
-        link.setChecked(m.linkedToObject);
+        link.setChecked(spec.masks.get(sel[0]).linkedToObject);
         link.setOnCheckedChangeListener((b, on) -> {
-            m.linkedToObject = on;
+            CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
+            if (cur.linkedToObject == on) return;   // a re-sync must not re-capture the pose
+            cur.linkedToObject = on;
             if (on) {
                 // CAPTURE the object's pose now: "relative to the object" has no origin
                 // otherwise, and the mask would jump the first time the object sat anywhere
                 // but its default pose.
                 com.fadcam.ui.faditor.keyframe.KeyframeSet kf = clip.getOverlayTransform();
                 long t = playheadMs.get();
-                m.linkBaseX = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, t, 0.5f);
-                m.linkBaseY = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, t, 0.5f);
-                m.linkBaseScale = Math.max(0.001f,
+                cur.linkBaseX = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, t, 0.5f);
+                cur.linkBaseY = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, t, 0.5f);
+                cur.linkBaseScale = Math.max(0.001f,
                         poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, t, 1f));
-                m.linkBaseRotDeg =
+                cur.linkBaseRotDeg =
                         poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, t, 0f);
             }
             apply.run();
         });
         root.addView(link);
+        syncSelected[0] = () -> link.setChecked(spec.masks.get(sel[0]).linkedToObject);
 
         TextView hint = new TextView(ctx);
         hint.setText("Off: the mask stays put and the object moves under it. "
@@ -286,18 +403,24 @@ public final class PipDrawerTabs {
             }
             com.fadcam.ui.faditor.keyframe.Easing ease =
                     com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
-            // All SEVEN at once. Half-arming would animate some parameters and snap the rest,
+            // Keys the SELECTED shape, into tracks named off its SLOT — so reordering or
+            // deleting another shape can never redirect these keys onto the wrong geometry.
+            // Shape 0 still writes the flat maskCx/maskCy/... names it always did.
+            CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
+            int slot = cur.slot;
+            float[] vals = {cur.cx, cur.cy, cur.w, cur.h, cur.corner, cur.rotationDeg};
+            // All six at once. Half-arming would animate some parameters and snap the rest,
             // which reads as the shape tearing rather than as an incomplete keyframe.
-            spec.maskKeys.getOrCreate(MaskAnimator.CX).put(t, m.cx, ease);
-            spec.maskKeys.getOrCreate(MaskAnimator.CY).put(t, m.cy, ease);
-            spec.maskKeys.getOrCreate(MaskAnimator.W).put(t, m.w, ease);
-            spec.maskKeys.getOrCreate(MaskAnimator.H).put(t, m.h, ease);
-            spec.maskKeys.getOrCreate(MaskAnimator.CORNER).put(t, m.corner, ease);
-            spec.maskKeys.getOrCreate(MaskAnimator.ROTATION).put(t, m.rotationDeg, ease);
+            for (int i = 0; i < MaskAnimator.SHAPE_KEY_COUNT; i++) {
+                spec.maskKeys.getOrCreate(MaskAnimator.trackFor(slot, i)).put(t, vals[i], ease);
+            }
+            // Feather is a property of the STACK, not of a shape, so it has one flat track
+            // however many shapes exist — the same split MaskAnimator.trackFor documents.
             spec.maskKeys.getOrCreate(MaskAnimator.FEATHER).put(t, spec.maskFeather, ease);
             refresh.run();
             apply.run();
-            android.widget.Toast.makeText(ctx, "Mask keyed at " + (t / 1000f) + "s",
+            android.widget.Toast.makeText(ctx,
+                    "Shape " + (sel[0] + 1) + " keyed at " + (t / 1000f) + "s",
                     android.widget.Toast.LENGTH_SHORT).show();
         });
         TextView clearKeys = chip(ctx, "Clear", d);
@@ -491,6 +614,19 @@ public final class PipDrawerTabs {
         LinearLayout l = new LinearLayout(ctx);
         l.setOrientation(LinearLayout.VERTICAL);
         l.setPadding(Math.round(14 * d), 0, Math.round(14 * d), Math.round(10 * d));
+        return l;
+    }
+
+    /**
+     * A horizontal chip strip. No side padding: these sit INSIDE a {@link #column}, which has
+     * already paid it, and doubling it would step the chip rows in from the sliders they label.
+     */
+    @NonNull
+    private static LinearLayout row(@NonNull Context ctx) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout l = new LinearLayout(ctx);
+        l.setOrientation(LinearLayout.HORIZONTAL);
+        l.setPadding(0, Math.round(6 * d), 0, Math.round(2 * d));
         return l;
     }
 

@@ -14,6 +14,7 @@ import com.fadcam.ui.faditor.fx.FxCost;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxInstance;
 import com.fadcam.ui.faditor.fx.FxParam;
+import com.fadcam.ui.faditor.fx.FxPreviewTier;
 import com.fadcam.ui.faditor.fx.FxRegistry;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.model.BlendModes;
@@ -112,7 +113,22 @@ public final class FxPanel {
         cost.setText(stack.isEmpty() ? "No effects" : est.label());
         row.addView(cost, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        return row;
+
+        // On a phone that cannot preview effects, say so ONCE at the top rather than badging
+        // every card. Silence here would leave the user adding effect after effect and seeing
+        // nothing, with no way to tell a broken feature from an unsupported one.
+        String note = FxPreviewTier.headerNote(FxPreviewTier.current());
+        if (note.isEmpty()) return row;
+        LinearLayout col = new LinearLayout(ctx);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.addView(row);
+        TextView warn = new TextView(ctx);
+        warn.setText(note);
+        warn.setTextColor(0xFFFFC107);
+        warn.setTextSize(11f);
+        warn.setPadding(0, 0, 0, Math.round(6 * d));
+        col.addView(warn);
+        return col;
     }
 
     @NonNull
@@ -432,7 +448,12 @@ public final class FxPanel {
                     current = next;
                     perRow = 0;
                 }
-                TextView c = chip(ctx, def.displayName, d);
+                // The badge answers "will I SEE this" BEFORE the card is added, which is the
+                // only moment the answer can still change the decision.
+                String badge = FxPreviewTier.badge(def, FxPreviewTier.current());
+                TextView c = chip(ctx,
+                        badge.isEmpty() ? def.displayName : def.displayName + " (" + badge + ")",
+                        d);
                 c.setOnClickListener(v -> {
                     stack.add(def.id);
                     picker.setVisibility(View.GONE);

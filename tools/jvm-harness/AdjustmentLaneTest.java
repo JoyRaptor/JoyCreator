@@ -25,6 +25,7 @@ public class AdjustmentLaneTest {
 
     public static void main(String[] args) {
         laneEmissionAndZ();
+        interleavedZOrder();
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
         if (failed > 0) System.exit(1);
@@ -93,6 +94,47 @@ public class AdjustmentLaneTest {
                         .visibleAdjustmentLayers(t2, 100).isEmpty());
     }
 
+
+    /**
+     * The z ORDER the export loop inserts against.
+     *
+     * <p>An adjustment layer above one PiP but below another must grade only the first. The
+     * export builds its chain by walking this exact list, so pinning the list pins the chain —
+     * which matters because an export cannot be run from a harness, and this is the closest
+     * thing to a proof of the ordering that is available off-device.</p>
+     */
+    static void interleavedZOrder() {
+        Timeline t = new Timeline();
+        AdjustmentLayer a = layer(0, 5000);
+        a.getFx().add("invert");
+        t.addAdjustmentLayer(a);
+
+        List<LayerPreviewController.VisualItem> ordered =
+                LayerPreviewController.orderedCompositedItems(t);
+        check("with no PiPs the layer is the only composited item", ordered.size() == 1);
+        check("...and it is the adjustment layer", ordered.get(0).item.getAdjustment() == a);
+
+        // Two layers keep their relative order, which is what makes "grade, then grade again"
+        // mean something different from the reverse.
+        AdjustmentLayer b = layer(0, 5000);
+        b.setName("Second");
+        b.getFx().add("posterize");
+        t.addAdjustmentLayer(b);
+        ordered = LayerPreviewController.orderedCompositedItems(t);
+        check("two layers both appear", ordered.size() == 2);
+        check("...in the order they were added, bottom-up",
+                ordered.get(0).item.getAdjustment() == a
+                        && ordered.get(1).item.getAdjustment() == b);
+
+        // An EMPTY layer is still an item here -- ordering is a property of the band, not of
+        // whether the thing draws. The export loop is what skips it.
+        AdjustmentLayer empty = layer(0, 5000);
+        t.addAdjustmentLayer(empty);
+        check("an empty layer still holds its place in the order",
+                LayerPreviewController.orderedCompositedItems(t).size() == 3);
+        check("...but never reaches a renderer",
+                LayerPreviewController.visibleAdjustmentLayers(t, 100).size() == 2);
+    }
 
     static void check(String what, boolean ok) {
         if (ok) { passed++; System.out.println("  ok   " + what); }

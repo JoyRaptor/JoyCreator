@@ -2708,6 +2708,9 @@ public class ExportManager {
             // cannot be hidden in one place and rendered (or heard) in another.
             java.util.Set<String> servingMatteIds =
                     LayerPreviewController.servingMatteClipIds(exportOverlayVideoClips);
+            // Where the PiP block begins, so adjustment layers can be inserted BETWEEN its
+            // entries below rather than only after all of them.
+            final int pipEffectStart = videoEffects.size();
             for (Clip oc : exportOverlayVideoClips) {
                 if (servingMatteIds.contains(oc.getId())) continue; // matte source: hidden
                 com.fadcam.ui.faditor.model.CompositingSpec cs = oc.getCompositing();
@@ -2733,23 +2736,42 @@ public class ExportManager {
             // export is byte-identical. That guarantee is the point of the gate: this sits in
             // the code the PiP z-unification fix wrote, and it must be provably inert.
             //
-            // STILL OWED, stated so it is not mistaken for finished: a layer deliberately
-            // ordered BETWEEN two PiPs is not yet honoured — that needs the fully merged
-            // iteration over LayerPreviewController.orderedCompositedItems, which is written
-            // and tested but not yet consumed here. Until then such a layer grades everything
-            // rather than only what is beneath it, which is wrong in the same DIRECTION as the
-            // user's intent rather than opposite to it.
+            // INTERLEAVED, not appended. Walking orderedCompositedItems and inserting each
+            // adjustment layer at the position its LANE puts it in means a layer deliberately
+            // ordered between two PiPs grades only the ones beneath it. Appending would have
+            // graded all of them — wrong in the same direction as the intent, but still wrong,
+            // and invisible until someone built exactly that stack.
+            //
+            // The PiP loop above already emitted every PiP in its own order; this pass inserts
+            // the adjustment entries at the right INDEX in videoEffects rather than rebuilding
+            // that loop, so the z-unification fix's code is read but never rewritten.
             if (!project.getTimeline().getAdjustmentLayers().isEmpty()) {
                 final long adjustmentOffset =
                         editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L);
-                for (com.fadcam.ui.faditor.model.AdjustmentLayer al
-                        : project.getTimeline().getAdjustmentLayers()) {
+                // How many PiP effects were just appended, and where they start. An adjustment
+                // layer sitting above N of them belongs after the Nth.
+                final int pipEffectCount = videoEffects.size() - pipEffectStart;
+                int inserted = 0;
+                int pipsSeen = 0;
+                for (LayerPreviewController.VisualItem v
+                        : LayerPreviewController.orderedCompositedItems(project.getTimeline())) {
+                    Clip vc = v.item.getClip();
+                    if (vc != null && vc.isOverlayClip()) {
+                        // Only PiPs that actually reached the chain move the cursor — a matte
+                        // source was skipped above and emitted nothing to sit after.
+                        if (!servingMatteIds.contains(vc.getId())) pipsSeen++;
+                        continue;
+                    }
+                    com.fadcam.ui.faditor.model.AdjustmentLayer al = v.item.getAdjustment();
                     // A layer with nothing to draw is skipped at BUILD time, not just gated per
                     // frame, so an empty layer costs no program and no pass at all.
-                    if (!al.rendersAnything()) continue;
-                    videoEffects.add(new AdjustmentLayerGlEffect(context, al, adjustmentOffset));
+                    if (al == null || !al.rendersAnything()) continue;
+                    int at = pipEffectStart + Math.min(pipsSeen, pipEffectCount) + inserted;
+                    videoEffects.add(at,
+                            new AdjustmentLayerGlEffect(context, al, adjustmentOffset));
+                    inserted++;
                 }
             }
             boolean hasOverlays = !exportTextOverlays.isEmpty()

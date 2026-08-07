@@ -64,10 +64,7 @@ that device is permanently tier C and the panel says so in its own header. On an
 Android 13 phone the same build previews the full chain live. Export applies
 everything on every device.
 
-**Still untested anywhere: the export path.** `AdjustmentLayerGlEffect` is
-written, gated and typechecked, but no export has been run with a layer in it.
-**The honest next step is an export A/B**: one layer, one Invert, over a
-solid-colour clip, compare frames.
+**The export path HAS now been run**, and it was worth doing. See below.
 
 **NOT verified on a device, and this is the honest gap:**
 - **The export path has never run.** `AdjustmentLayerGlEffect` is written,
@@ -77,6 +74,42 @@ solid-colour clip, compare frames.
 - The mask tab's multi-shape UI, still — the drawer needs a real finger.
 
 ---
+
+## The export A/B — run, and it found four bugs
+
+A project was built with one adjustment layer carrying a single Invert, and
+exported on the phone. **The first run failed four different ways**, in a class
+that typechecked perfectly and would have shipped as "the adjustment layer does
+nothing":
+
+1. **Shader assembly order** — `MaskSdf`'s functions and the composite's uniforms
+   were appended AFTER the compiler's output, so `main()` used them before they
+   were declared. GLSL ES 1.00 requires declaration before use.
+2. **The composite's uniforms were never declared at all.** `FxCompiler` emits
+   uniforms for effect CARDS and knows nothing about layers — rightly, since it
+   also serves the preview.
+3. **The shaders were passed in the wrong order** — `GlProgram(fragment, vertex)`
+   — so the fragment source was compiled AS A VERTEX SHADER. The driver's
+   `'gl_FragColor' : undeclared identifier` was telling the exact truth.
+4. **Unused uniforms are optimised away**, and media3 looks names up in the
+   LINKED program, so setting one the driver deleted throws NPE. An invert-only
+   stack reads none of `uTexel`/`uTime`/`uAspect`/`uDir` — **the simplest
+   possible stack was the one that crashed.**
+
+Plus a missing `setBufferAttribute` for the quad.
+
+**All fixed. The final run: "Export Complete", ZERO AdjustmentLayer warnings
+across the whole export.** That proves the shader compiles, links, binds and
+draws every frame.
+
+**What is still NOT proven: the pixels.** The output went to a SAF location the
+adb shell cannot read, so no frame was extracted and compared. "It ran clean" is
+not "it inverted". Pulling one frame through the app's own Records screen is the
+last step, and it is small.
+
+**The design decision that paid for itself:** this effect degrades to passthrough
+and never throws. Four consecutive driver-level failures each produced one log
+line and a finished export instead of a lost render.
 
 ## The safety property that matters most
 

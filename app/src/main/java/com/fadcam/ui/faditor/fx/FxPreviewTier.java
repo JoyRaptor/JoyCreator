@@ -81,6 +81,34 @@ public final class FxPreviewTier {
         return "approx";
     }
 
+    /**
+     * Can this effect be RENDERED ON EXPORT yet?
+     *
+     * <p>Separate from the preview tiers and nothing to do with the device.
+     * {@code AdjustmentLayerGlEffect} renders a single FUSED pass today; a SAMPLER card needs a
+     * finished image to read neighbours from, which means ping-pong FBOs that are not built.
+     * Such a card is skipped at render time with a log — correct, since a wrong blur that looks
+     * plausible is worse than an absent one, but invisible unless the UI says so.</p>
+     *
+     * <p>This is the single place that knows, so the card badge and any future warning cannot
+     * disagree with what the renderer actually does.</p>
+     */
+    public static boolean canExport(@NonNull FxEffectDef def) {
+        return def.capability != FxEffectDef.Capability.SAMPLER;
+    }
+
+    /**
+     * What to say ON a card about where it will and will not appear, or {@code ""} when it
+     * works everywhere.
+     */
+    @NonNull
+    public static String cardNote(@NonNull FxEffectDef def, @NonNull Tier tier) {
+        if (!canExport(def)) return "multi-pass — not rendered yet";
+        if (!canPreview(def, tier)) return "export only";
+        if (tier == Tier.PARTIAL) return "preview approximate";
+        return "";
+    }
+
     /** One line for the FX panel header, or {@code ""} when the preview is fully faithful. */
     @NonNull
     public static String headerNote(@NonNull Tier tier) {

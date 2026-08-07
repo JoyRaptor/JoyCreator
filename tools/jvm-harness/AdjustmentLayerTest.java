@@ -220,6 +220,18 @@ public class AdjustmentLayerTest {
                 .headerNote(com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
         check("the other tiers explain themselves", !com.fadcam.ui.faditor.fx.FxPreviewTier
                 .headerNote(com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY).isEmpty());
+
+        // EXPORT capability is a different question from preview tier, and nothing to do with
+        // the device: a SAMPLER card needs multi-pass FBOs the export renderer does not have.
+        check("a SAMPLER effect cannot be exported yet",
+                !com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(blur));
+        check("a pointwise effect can", com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(invert));
+        check("the card says so, even on the best hardware",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).contains("not rendered"));
+        check("...and says nothing when an effect works everywhere",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(invert,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────

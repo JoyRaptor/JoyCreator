@@ -185,6 +185,19 @@ public final class FxPanel {
         head.addView(name, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
+        // Say on the CARD where this effect will and will not appear. A blur that is silently
+        // skipped on export is the worst kind of missing feature: the user adds it, sees
+        // nothing, and has no way to tell that from a bug.
+        String note = FxPreviewTier.cardNote(def, FxPreviewTier.current());
+        if (!note.isEmpty()) {
+            TextView warn = new TextView(ctx);
+            warn.setText(note);
+            warn.setTextColor(0xFFFFC107);
+            warn.setTextSize(9.5f);
+            warn.setPadding(0, 0, Math.round(6 * d), 0);
+            head.addView(warn);
+        }
+
         // Bypass, which is also the cheap escape: a disabled card contributes NO pass at all.
         TextView eye = chip(ctx, fx.enabled ? "◉" : "◌", d);
         eye.setOnClickListener(v -> {
@@ -625,7 +638,9 @@ public final class FxPanel {
                 }
                 // The badge answers "will I SEE this" BEFORE the card is added, which is the
                 // only moment the answer can still change the decision.
-                String badge = FxPreviewTier.badge(def, FxPreviewTier.current());
+                String badge = FxPreviewTier.canExport(def)
+                        ? FxPreviewTier.badge(def, FxPreviewTier.current())
+                        : "not yet";
                 TextView c = chip(ctx,
                         badge.isEmpty() ? def.displayName : def.displayName + " (" + badge + ")",
                         d);

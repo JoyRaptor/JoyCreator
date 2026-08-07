@@ -11,9 +11,10 @@ Branch `joy-creator`. Everything is committed. JoyRaptor's own files
 
 ## The one-line summary
 
-**M0, M1, M3, M5 and M6 are complete. M2's two shipping bugs are fixed. M4
-renders on export and interleaves correctly in z; only its multi-pass half is
-owed. M7 (per-object FX) is not started.**
+**M0 through M6 are complete.** M2's two shipping bugs are fixed; M4 renders on
+export, interleaves correctly in z, AND does multi-pass — so blur, the effect
+the spec called "the one everyone expects", exports. **M7 (per-object FX on PiP
+and text) is the only milestone not started.**
 
 **Also done from START_HERE's backlog:** all four FF-B sprite AI tools, and the
 duplicate-onto-its-own-lane button — for adjustment layers, text and sprites.
@@ -98,14 +99,21 @@ nothing":
 
 Plus a missing `setBufferAttribute` for the quad.
 
-**All fixed. The final run: "Export Complete", ZERO AdjustmentLayer warnings
-across the whole export.** That proves the shader compiles, links, binds and
-draws every frame.
+**All fixed. The run after that: "Export Complete", ZERO AdjustmentLayer
+warnings.** That proves the shader compiles, links, binds and draws every frame.
 
-**What is still NOT proven: the pixels.** The output went to a SAF location the
-adb shell cannot read, so no frame was extracted and compared. "It ran clean" is
-not "it inverted". Pulling one frame through the app's own Records screen is the
-last step, and it is small.
+**Then multi-pass landed and was exported too.** A stack of
+`gaussian_blur(radius 6) + invert` — 3 renders through 2 ping-pong FBOs —
+exported clean. It found one more bug of the same shape: only the composite pass
+READS `uBaseSampler`, so the driver strips it from every intermediate pass and
+media3 throws on the lookup. Sampler binds are guarded now, like the float
+setters. That stack trace only existed because the log was changed to pass the
+throwable — a bare `toString` on an NPE names no line.
+
+**What is still NOT proven: the pixels.** Both exports went to a SAF location the
+adb shell cannot traverse, so no frame was extracted and compared. "It ran clean"
+is not "it inverted". Pulling one frame through the app's own Records screen is
+the last step, and it is small — **this is the top of the open list.**
 
 **The design decision that paid for itself:** this effect degrades to passthrough
 and never throws. Four consecutive driver-level failures each produced one log

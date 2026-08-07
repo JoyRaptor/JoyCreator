@@ -11,13 +11,53 @@ import androidx.annotation.NonNull;
  * answer it differently, and the failure mode is the worst kind: a UI that promises a live
  * effect the renderer silently cannot produce.</p>
  *
- * <p>The floor is real: {@code minSdk} is 24, {@code RenderEffect} arrives at 31 and AGSL at 33.
- * Roughly three in four phones in use are tier A. Export is correct on ALL of them — this only
- * ever describes the preview.</p>
+ * <p><b>The API floor is real; the DEVICE floor was not.</b> {@code RenderEffect} arrives at 31
+ * and AGSL at 33, so {@link Tier} below is an accurate description of what that ONE backend can
+ * do. It was read for a while as "phones under Android 12 cannot preview effects", which is a
+ * different and false claim: {@code minSdk} here is 24 and the project's own sandbox device is a
+ * Note 9 on API 29 whose Adreno 630 runs OpenGL ES 3.2. {@code FxPreviewTextureView} previews the
+ * full chain there by running the export's own GLSL, the same way this app's live chroma key and
+ * live transitions already did on that phone. {@link #backend} is what the UI should ask;
+ * {@link Tier} answers only "what could RenderEffect manage here".</p>
  */
 public final class FxPreviewTier {
 
     private FxPreviewTier() {}
+
+    /**
+     * Which renderer draws the live preview.
+     *
+     * <p><b>GL is used everywhere, deliberately.</b> It is not a fallback for old phones. It
+     * compiles {@link FxGlSource}, the byte-identical source the export compiles, at the same
+     * kernel width, through the same multi-pass ping-pong — so "what you see is what exports" is
+     * true by construction rather than by two implementations being carefully kept in step. The
+     * AGSL path is a TRANSLATION of those bodies, and translations drift. Flip {@link #USE_GL} to
+     * put new phones back on {@code RenderEffect}; nothing else needs to change.</p>
+     */
+    public enum Backend {
+        /** {@code FxPreviewTextureView}: the export's shaders, on the decoder, at any API ≥ 24. */
+        GL,
+        /** {@code AdjustmentPreviewController}: {@code RenderEffect} over the view subtree. */
+        RENDER_EFFECT,
+        /** Nothing can preview — no longer reachable, kept so the UI copy has somewhere to go. */
+        NONE
+    }
+
+    /** @see Backend */
+    private static final boolean USE_GL = true;
+
+    /** The renderer that will actually draw the preview on this device. */
+    @NonNull
+    public static Backend backend() {
+        if (USE_GL) return Backend.GL;
+        Tier t = current();
+        return t == Tier.EXPORT_ONLY ? Backend.NONE : Backend.RENDER_EFFECT;
+    }
+
+    /** Whether the editor should route the decoder through the GL preview renderer. */
+    public static boolean usesGl() {
+        return backend() == Backend.GL;
+    }
 
     public enum Tier {
         /** SDK ≥ 33: the full AGSL chain. What the effect looks like here is what exports. */
@@ -63,9 +103,18 @@ public final class FxPreviewTier {
         }
     }
 
-    /** @see #canPreview(FxEffectDef, Tier) */
+    /**
+     * Can {@code def} be previewed live on THIS device, by whichever backend will draw it?
+     *
+     * <p>This is the question the UI actually has. Under {@link Backend#GL} the answer is yes for
+     * everything, because the preview runs the export's own program — there is no subset.</p>
+     */
     public static boolean canPreview(@NonNull FxEffectDef def) {
-        return canPreview(def, current());
+        switch (backend()) {
+            case GL: return true;
+            case NONE: return false;
+            default: return canPreview(def, current());
+        }
     }
 
     /**
@@ -119,6 +168,49 @@ public final class FxPreviewTier {
     public static boolean canExportOn(@NonNull FxEffectDef def, @NonNull Subject subject) {
         if (subject == Subject.LAYER) return canExport(def);
         return def.capability != FxEffectDef.Capability.SAMPLER;
+    }
+
+    /** The picker badge for THIS device, by whichever backend will draw the preview. */
+    @NonNull
+    public static String badge(@NonNull FxEffectDef def) {
+        switch (backend()) {
+            case GL: return "";
+            case NONE: return "export only";
+            default: return badge(def, current());
+        }
+    }
+
+    /** The card note for THIS device. @see #cardNote(FxEffectDef, Tier, Subject) */
+    @NonNull
+    public static String cardNote(@NonNull FxEffectDef def, @NonNull Subject subject) {
+        if (!canExportOn(def, subject)) {
+            return subject == Subject.OBJECT
+                    ? "needs an adjustment layer" : "multi-pass — not rendered yet";
+        }
+        switch (backend()) {
+            case GL: return "";
+            case NONE: return "export only";
+            default: return cardNote(def, current(), subject);
+        }
+    }
+
+    /**
+     * One line for the FX panel header on THIS device, or {@code ""} when the preview is
+     * faithful.
+     *
+     * <p>Under GL the honest remaining gap is not the effects — it is REACH. The preview grades
+     * the video plane; the export chain also carries any PiP composited beneath the layer. For a
+     * layer over plain footage, which is the ordinary case, there is nothing to say, so it says
+     * nothing rather than spending the user's attention on a caveat that does not apply to
+     * them.</p>
+     */
+    @NonNull
+    public static String headerNote() {
+        switch (backend()) {
+            case GL: return "";
+            case NONE: return headerNote(Tier.EXPORT_ONLY);
+            default: return headerNote(current());
+        }
     }
 
     /**

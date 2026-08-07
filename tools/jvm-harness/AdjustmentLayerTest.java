@@ -37,6 +37,7 @@ public class AdjustmentLayerTest {
         tolerantRead();
         copyIsDeep();
         previewTiers();
+        sharedGlSource();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -165,8 +166,15 @@ public class AdjustmentLayerTest {
 
     /**
      * The tier table, pinned here because it CANNOT be verified on the sandbox phone: the
-     * Note 9 is API 29, below RenderEffect's floor of 31, so it is permanently EXPORT_ONLY and
-     * no amount of device testing there can exercise the other two branches.
+     * Note 9 is API 29, below RenderEffect's floor of 31, so {@code Tier} there is EXPORT_ONLY.
+     *
+     * <p><b>That is a statement about RenderEffect, not about the phone</b>, and the two were
+     * conflated for a while. {@code Tier} still means exactly what it always did; what changed is
+     * that it is no longer the thing the UI asks. {@code FxPreviewTextureView} previews the whole
+     * chain in GL on that same API-29 device — verified there on exported pixels — so
+     * {@code backend()} answers GL and the device-facing predicates below say "yes" regardless of
+     * tier. The tier assertions are kept because the RenderEffect path still exists behind
+     * {@code USE_GL}.</p>
      */
     static void previewTiers() {
         check("API 33+ is the full AGSL chain",
@@ -179,7 +187,7 @@ public class AdjustmentLayerTest {
         check("API 30 and below cannot preview at all",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.of(30)
                         == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
-        check("the sandbox phone (API 29) is EXPORT_ONLY — so M5 is unverifiable on it",
+        check("the sandbox phone (API 29) is EXPORT_ONLY for RENDEREFFECT specifically",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.of(29)
                         == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
         check("minSdk (24) does not crash the table",
@@ -251,6 +259,78 @@ public class AdjustmentLayerTest {
         check("...and says nothing when an effect works everywhere",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(invert,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
+        glBackend(blur, invert);
+    }
+
+    /**
+     * The DEVICE-facing predicates — the ones the picker, the cards and the panel header call.
+     *
+     * <p>These deliberately do not take a {@code Tier}. The old three-argument forms are a
+     * description of {@code RenderEffect}'s reach and are still asserted above; these describe
+     * what the user will actually see, which since the GL renderer is the same on every device
+     * this app runs on. A regression here is the one that matters: it puts "export only" back on
+     * a card whose effect the editor is, in fact, showing live.</p>
+     */
+    static void glBackend(@SuppressWarnings("unused") com.fadcam.ui.faditor.fx.FxEffectDef blur,
+                          com.fadcam.ui.faditor.fx.FxEffectDef invert) {
+        check("GL is the backend, so the tier no longer gates the preview",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.backend()
+                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Backend.GL
+                && com.fadcam.ui.faditor.fx.FxPreviewTier.usesGl());
+        check("a SAMPLER effect previews live — the multi-pass path, not just pointwise",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur));
+        check("...and so does a pointwise one",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(invert));
+        check("no picker badge on any effect, on any device",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.badge(blur).isEmpty()
+                && com.fadcam.ui.faditor.fx.FxPreviewTier.badge(invert).isEmpty());
+        check("the panel header has nothing to apologise for",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.headerNote().isEmpty());
+        check("a layer card is clean...",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER).isEmpty());
+        check("...but the per-OBJECT sampler limit still speaks, since that one is real",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)
+                        .contains("adjustment layer"));
+    }
+
+    /**
+     * Preview and export must compile the SAME text.
+     *
+     * <p>This is the whole reason {@code FxGlSource} exists. The two renderers each own their
+     * pass loop — one drives media3, the other an EGL thread — and that is fine; what cannot
+     * differ is the program. If someone re-inlines the composite into either caller, this fails
+     * before a device ever sees it.</p>
+     */
+    static void sharedGlSource() {
+        com.fadcam.ui.faditor.fx.FxStack s = new com.fadcam.ui.faditor.fx.FxStack();
+        s.add("gaussian_blur");
+        com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
+                com.fadcam.ui.faditor.fx.FxCompiler.plan(s);
+        check("a blur stack plans at least one pass", !plan.passes.isEmpty());
+        com.fadcam.ui.faditor.fx.FxCompiler.Pass p = plan.passes.get(0);
+
+        String plain = com.fadcam.ui.faditor.fx.FxGlSource.fragment(
+                p, com.fadcam.ui.faditor.fx.FxGlSource.KERNEL_HALF, false);
+        String composite = com.fadcam.ui.faditor.fx.FxGlSource.fragment(
+                p, com.fadcam.ui.faditor.fx.FxGlSource.KERNEL_HALF, true);
+
+        check("both variants are GLSL ES 1.00", plain.startsWith("#version 100")
+                && composite.startsWith("#version 100"));
+        // The bug the first export A/B found: GLSL ES 1.00 needs declaration before use, so the
+        // mask fn and the composite uniforms must land BEFORE main(), not after it.
+        check("declarations precede main()",
+                composite.indexOf("uniform sampler2D uBaseSampler") < composite.indexOf("void main()")
+                && composite.indexOf("fxShapeSd") < composite.indexOf("void main()"));
+        check("only the composite variant mixes back over the original",
+                composite.contains("uBaseSampler, fxClamp(vFxUv)")
+                && composite.contains("mix(base.rgb, c.rgb, amt)")
+                && !plain.contains("mix(base.rgb, c.rgb, amt)"));
+        check("the composite really replaced the compiler's entry, leaving no stray write",
+                !composite.contains("  gl_FragColor = c;\n"));
+        check("a sampler pass reads the neighbour offset uniform it was emitted for",
+                plain.contains("uTexel"));
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────

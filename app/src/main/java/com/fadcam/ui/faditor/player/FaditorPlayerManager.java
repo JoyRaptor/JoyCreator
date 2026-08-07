@@ -258,6 +258,28 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         player.setVideoSurface(surface);
     }
 
+    /**
+     * The player actually rendering video right now, whichever engine is driving.
+     *
+     * <p>{@link #retargetVideoOutput} deliberately no-ops in gapless mode, because the live
+     * transition blend it serves only ever runs on transition projects and those are
+     * gapless-ineligible. The live FX preview has no such restriction — an adjustment layer is
+     * legal on any project — so it needs the player itself rather than that one-way door.</p>
+     */
+    @Nullable
+    public ExoPlayer activeVideoPlayer() {
+        if (gapless()) return gaplessEngine.getPlayer();
+        return player;
+    }
+
+    /** The PlayerView's own video surface, so a caller that retargeted output can hand it back. */
+    @Nullable
+    public android.view.TextureView playerVideoTextureView() {
+        if (playerView == null) return null;
+        android.view.View v = playerView.getVideoSurfaceView();
+        return v instanceof android.view.TextureView ? (android.view.TextureView) v : null;
+    }
+
     /** Undo {@link #retargetVideoOutput}: reattach the PlayerView's own video surface. */
     public void restoreVideoOutput() {
         if (player == null || playerView == null) return;

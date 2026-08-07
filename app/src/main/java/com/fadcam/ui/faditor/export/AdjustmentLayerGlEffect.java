@@ -14,6 +14,7 @@ import androidx.media3.effect.GlEffect;
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.fx.FxCompiler;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
+import com.fadcam.ui.faditor.fx.FxGlSource;
 import com.fadcam.ui.faditor.fx.FxInstance;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.fx.FxUniforms;
@@ -85,20 +86,16 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
 
     private static final class Program extends BaseGlShaderProgram {
 
-        private static final String VERTEX_SHADER =
-                "#version 100\n"
-                + "attribute vec4 aFramePosition;\n"
-                + "varying vec2 vFxUv;\n"
-                + "void main() {\n"
-                + "  gl_Position = aFramePosition;\n"
-                + "  vFxUv = aFramePosition.xy * 0.5 + 0.5;\n"
-                + "}\n";
+        private static final String VERTEX_SHADER = FxGlSource.VERTEX_SHADER;
 
         @NonNull private final AdjustmentLayer layer;
         private final long editorTimeOffsetMs;
 
-        /** Kernel half-width. A LITERAL in the emitted source, so it is part of the source key. */
-        private static final int KERNEL_HALF = 8;
+        /**
+         * Kernel half-width. A LITERAL in the emitted source, so it is part of the source key —
+         * and shared with the preview, because the same radius must mean the same blur in both.
+         */
+        private static final int KERNEL_HALF = FxGlSource.KERNEL_HALF;
         /** Null once a compile has failed — the passthrough latch. */
         private boolean degraded;
         private int width = 1, height = 1;
@@ -335,28 +332,16 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         /**
          * Build one pass's program.
          *
-         * <p>ORDER MATTERS, and getting it wrong is what the first export A/B caught. GLSL ES
-         * 1.00 requires declaration before use, so the mask functions and the composite's own
-         * uniforms are spliced in AHEAD of main(); appending them left main() calling fxShapeSd
-         * and reading uMaskGeo before either existed, and the driver rejected the program.</p>
+         * <p>The source itself comes from {@link FxGlSource}, shared with the live GL preview so
+         * the two renderers cannot drift. The splice order that assembly gets right — mask
+         * functions and composite uniforms AHEAD of main(), because GLSL ES 1.00 requires
+         * declaration before use — is what the first export A/B caught.</p>
          */
         @NonNull
         private GlProgram compile(@NonNull FxCompiler.Pass pa, boolean composite)
                 throws GlUtil.GlException {
-            String body = FxCompiler.emitGlsl(pa, KERNEL_HALF);
-            int mainAt = body.indexOf("void main()");
-            if (mainAt < 0) {
-                // The compiler always emits an entry point; if it ever stops, fail loudly here
-                // rather than handing the driver a program with nothing to run.
-                throw new GlUtil.GlException("FxCompiler emitted no entry point");
-            }
-            String fragment = "#version 100\n"
-                    + body.substring(0, mainAt)
-                    + COMPOSITE_UNIFORMS
-                    + MaskSdf.GLSL_MASK_FN
-                    + body.substring(mainAt);
             GlProgram prog = new GlProgram(VERTEX_SHADER,
-                    composite ? withComposite(fragment) : fragment);
+                    FxGlSource.fragment(pa, KERNEL_HALF, composite));
             // The quad. Without it GlProgram throws "call setBuffer before bind" on first draw.
             prog.setBufferAttribute("aFramePosition",
                     GlUtil.getNormalizedCoordinateBounds(), 4);
@@ -369,57 +354,6 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             }
             steps.clear();
             sourceKey = null;
-        }
-
-        /**
-         * The composite's OWN uniforms.
-         *
-         * <p>{@link FxCompiler} emits uniforms for the effect cards from their descriptors, and
-         * knows nothing about layers — correctly, since it also serves the preview. These belong
-         * to the adjustment-layer semantic, so they are declared here, next to the code that
-         * reads them and the code that sets them.</p>
-         */
-        private static final String COMPOSITE_UNIFORMS =
-                // The ORIGINAL frame, on its own sampler. In a multi-pass stack uTexSampler
-                // holds the PREVIOUS PASS's output by the time the composite runs, so reading
-                // "base" from it would mix the effect with itself instead of with the picture
-                // underneath — a blur would compose over its own blurred copy.
-                "uniform sampler2D uBaseSampler;\n"
-                + "uniform float uLayerOpacity;\n"
-                + "uniform float uMaskCount;\n"
-                + "uniform vec4 uMaskGeo;\n"
-                + "uniform vec2 uMaskRot;\n"
-                + "uniform float uMaskCorner;\n"
-                + "uniform float uMaskFeather;\n"
-                + "uniform float uMaskInvert;\n";
-
-        /**
-         * Rewrite the compiler's {@code main} so the graded colour is mixed back over the
-         * original by mask coverage and layer opacity.
-         *
-         * <p>The compiler's entry writes {@code gl_FragColor = c}. Here the ORIGINAL is still in
-         * hand, so the last statement becomes the mix that defines what an adjustment layer
-         * means. Textual because the compiler deliberately knows nothing about layers.</p>
-         */
-        @NonNull
-        private static String withComposite(@NonNull String fragment) {
-            return fragment.replace(
-                    "  gl_FragColor = c;\n",
-                    "  vec4 base = texture2D(uBaseSampler, fxClamp(vFxUv));\n"
-                    + "  float cover = 1.0;\n"
-                    + "  if (uMaskCount > 0.5) {\n"
-                    + "    vec2 frame = vec2(1.0) / uTexel;\n"
-                    + "    float sd = fxShapeSd(vFxUv, frame, uMaskGeo, uMaskRot, uMaskCorner);\n"
-                    + "    float inside = fxCoverageOf(sd, uMaskFeather);\n"
-                    // invert flips WHICH SIDE the effect lands on. Default: a mask cuts a hole,
-                    // so the effect applies outside it.
-                    + "    cover = uMaskInvert > 0.5 ? inside : 1.0 - inside;\n"
-                    + "  }\n"
-                    + "  float amt = clamp(cover * uLayerOpacity, 0.0, 1.0);\n"
-                    + "  gl_FragColor = vec4(mix(base.rgb, c.rgb, amt), base.a);\n")
-                    + "\n"
-                    // Declared after the replace so it cannot be clobbered by it.
-                    ;
         }
 
         private void passthrough(int inputTexId) throws VideoFrameProcessingException {
@@ -443,12 +377,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
 
         @androidx.annotation.Nullable private GlProgram passProgram;
 
-        private static final String PASSTHROUGH_FRAGMENT =
-                "#version 100\n"
-                + "precision mediump float;\n"
-                + "varying vec2 vFxUv;\n"
-                + "uniform sampler2D uTexSampler;\n"
-                + "void main() { gl_FragColor = texture2D(uTexSampler, vFxUv); }\n";
+        private static final String PASSTHROUGH_FRAGMENT = FxGlSource.PASSTHROUGH_FRAGMENT;
 
         @Override
         public void release() throws VideoFrameProcessingException {

@@ -139,7 +139,7 @@ public final class FxPanel {
         // On a phone that cannot preview effects, say so ONCE at the top rather than badging
         // every card. Silence here would leave the user adding effect after effect and seeing
         // nothing, with no way to tell a broken feature from an unsupported one.
-        String note = FxPreviewTier.headerNote(FxPreviewTier.current());
+        String note = FxPreviewTier.headerNote();
         if (note.isEmpty()) return row;
         LinearLayout col = new LinearLayout(ctx);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -252,7 +252,7 @@ public final class FxPanel {
         // Say on the CARD where this effect will and will not appear. A blur that is silently
         // skipped on export is the worst kind of missing feature: the user adds it, sees
         // nothing, and has no way to tell that from a bug.
-        String note = FxPreviewTier.cardNote(def, FxPreviewTier.current(), subject);
+        String note = FxPreviewTier.cardNote(def, subject);
         if (!note.isEmpty()) {
             TextView warn = new TextView(ctx);
             warn.setText(note);
@@ -704,7 +704,7 @@ public final class FxPanel {
                 // The badge answers "will I SEE this" BEFORE the card is added, which is the
                 // only moment the answer can still change the decision.
                 String badge = FxPreviewTier.canExportOn(def, subject)
-                        ? FxPreviewTier.badge(def, FxPreviewTier.current())
+                        ? FxPreviewTier.badge(def)
                         : "layer only";
                 TextView c = chip(ctx,
                         badge.isEmpty() ? def.displayName : def.displayName + " (" + badge + ")",

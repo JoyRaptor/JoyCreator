@@ -518,6 +518,19 @@
             app:resize_mode="fit"
             app:use_controller="false" />
 
+        <!-- Live adjustment-layer FX, rendered in GL directly over the player's own surface.
+             GONE until a project actually has a layer that renders something, so a project that
+             never used one never allocates an EGL context. Sits immediately above player_view
+             because an adjustment layer grades the VIDEO plane; the PiP and below-video overlay
+             surfaces further down still composite over the graded result, which is the same
+             boundary the export chain draws. -->
+        <com.fadcam.ui.faditor.compositor.FxPreviewTextureView
+            android:id="@+id/fx_preview_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
         <com.fadcam.ui.faditor.player.TransitionPreviewOverlayView
             android:id="@+id/transition_preview_overlay"
             android:layout_width="match_parent"

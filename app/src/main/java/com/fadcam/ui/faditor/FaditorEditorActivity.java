@@ -4132,6 +4132,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // The incoming clip has a real frame on the surface — drop the held
                 // GL blend frame (see startGlTransitionAnimator's handoff hold).
                 releaseGlTransitionHold();
+                // OPENING a project with effects already saved must SHOW them. Otherwise the
+                // editor opens ungraded and stays that way until the first scrub, which reads
+                // as "my effects were lost" — the preview only syncs on a playhead tick, and
+                // opening a project produces none.
+                syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
             }
 
             @Override
@@ -4153,6 +4158,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (overlayLayer != null) {
                     overlayLayer.post(() -> overlayLayer.rebuild());
                 }
+                // The GL FX preview sizes its render targets and its blur radii from the decoded
+                // size, for the same export-matching reason the comment above gives: a chain run
+                // at the wrong resolution puts a different amount of blur on screen than the
+                // export produces at the same slider value.
+                syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
             }
 
             @Override
@@ -20154,22 +20164,64 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @Nullable private com.fadcam.ui.faditor.compositor.AdjustmentPreviewController adjustPreview;
 
-    /** @see com.fadcam.ui.faditor.compositor.AdjustmentPreviewController#sync */
+    /**
+     * The GL live-preview controller — the path that works on EVERY device this app ships to,
+     * rather than only on API 31+.
+     *
+     * @see com.fadcam.ui.faditor.compositor.FxLivePreviewController
+     */
+    @Nullable private com.fadcam.ui.faditor.compositor.FxLivePreviewController fxLivePreview;
+
+    /**
+     * Drive whichever live-preview backend this device uses.
+     *
+     * <p>Exactly ONE of the two runs. {@code RenderEffect} grades the whole {@code fx_below_group}
+     * subtree in one call and is the cheaper path where it exists; the GL renderer routes the
+     * decoder through the export's own shaders and works everywhere. Letting both run would
+     * double-apply the grade on a new phone, which is why {@code FxPreviewTier.usesGl} is the
+     * single place that chooses.</p>
+     *
+     * @see com.fadcam.ui.faditor.compositor.AdjustmentPreviewController#sync
+     */
     private void syncAdjustmentPreview(long absoluteMs) {
         if (project == null) return;
-        if (adjustPreview == null) {
-            View wrapper = findViewById(R.id.fx_below_group);
-            if (wrapper == null) return;
-            adjustPreview =
-                    new com.fadcam.ui.faditor.compositor.AdjustmentPreviewController(wrapper);
-        }
         try {
-            adjustPreview.sync(project.getTimeline(), absoluteMs);
+            if (com.fadcam.ui.faditor.fx.FxPreviewTier.usesGl()) {
+                syncGlAdjustmentPreview(absoluteMs);
+            } else {
+                if (adjustPreview == null) {
+                    View wrapper = findViewById(R.id.fx_below_group);
+                    if (wrapper == null) return;
+                    adjustPreview = new com.fadcam.ui.faditor.compositor
+                            .AdjustmentPreviewController(wrapper);
+                }
+                adjustPreview.sync(project.getTimeline(), absoluteMs);
+            }
         } catch (RuntimeException e) {
             // This runs on every playhead tick. A preview effect is never worth taking the
             // editor down for, and export is unaffected either way.
             com.fadcam.FLog.w(TAG, "adjustment preview sync failed: " + e);
         }
+    }
+
+    /** Lazily build the GL preview controller and hand it this tick. */
+    private void syncGlAdjustmentPreview(long absoluteMs) {
+        if (fxLivePreview == null) {
+            com.fadcam.ui.faditor.compositor.FxPreviewTextureView v =
+                    findViewById(R.id.fx_preview_view);
+            if (v == null) return;
+            fxLivePreview = new com.fadcam.ui.faditor.compositor.FxLivePreviewController(v,
+                    new com.fadcam.ui.faditor.compositor.FxLivePreviewController.Host() {
+                        @Override
+                        public androidx.media3.exoplayer.ExoPlayer activeVideoPlayer() {
+                            return playerManager == null ? null : playerManager.activeVideoPlayer();
+                        }
+                        @Override public void restoreVideoOutput() {
+                            if (playerManager != null) playerManager.restoreVideoOutput();
+                        }
+                    });
+        }
+        fxLivePreview.sync(project.getTimeline(), absoluteMs);
     }
 
     private void openOrCreateAdjustmentLayer() {
@@ -20193,6 +20245,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
             @Override public void onFxChanged() {
                 if (editorTimeline != null) editorTimeline.invalidate();
+                // Push the new stack at the preview NOW. syncAdjustmentPreview otherwise only
+                // runs on a playhead tick, so editing a stack while PAUSED — which is how
+                // anyone actually dials in an effect — would change nothing on screen until
+                // playback was started. The first device run showed exactly that: the card
+                // appeared, the picture did not move.
+                syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
                 scheduleAutoSave();
             }
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,

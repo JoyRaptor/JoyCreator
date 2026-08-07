@@ -221,31 +221,30 @@ public final class PipDrawerTabs {
         // Three rows, rebuilt together because all three describe the SELECTED shape. Two
         // people's faces in one mask is the case this exists for: add a second circle rather
         // than duplicating the video (JoyRaptor, 2026-08-06).
-        // TWO rows, not four. Shape chips sit on the left of row 1 with the four shape presets
-        // right-justified beside them; the three boolean modes are centred on row 2. JoyRaptor
-        // asked for all three groups on ONE row; at 24dp icons plus the +/- chips that is
-        // ~384dp of content on a ~360dp-wide phone, so it would overflow the moment a third
-        // shape existed. Two rows is the closest arrangement that cannot clip, and it still
-        // removes two rows of the four this used to take (user, 2026-08-06).
+        // ONE row: shape chips left, the three boolean modes right-justified beside them.
+        //
+        // The four shape presets are GONE. They did not fit alongside both other groups, and
+        // when told so JoyRaptor's answer was that "the sliders can do everything needed" — a
+        // preset only ever wrote w/h/corner, which the three sliders below already set
+        // directly. Deleting the row beat keeping a second one for controls that duplicated
+        // existing ones (user, 2026-08-06). CompositingSpec.applyPreset survives, unused by
+        // the UI, because the FX/adjustment-layer drawer may want it where space is cheaper.
         LinearLayout topRow = row(ctx);
         LinearLayout shapeGroup = new LinearLayout(ctx);
         shapeGroup.setOrientation(LinearLayout.HORIZONTAL);
         shapeGroup.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout presetGroup = new LinearLayout(ctx);
-        presetGroup.setOrientation(LinearLayout.HORIZONTAL);
-        presetGroup.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout modeRow = new LinearLayout(ctx);
+        modeRow.setOrientation(LinearLayout.HORIZONTAL);
+        modeRow.setGravity(Gravity.CENTER_VERTICAL);
         topRow.addView(shapeGroup, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        topRow.addView(presetGroup);
+        topRow.addView(modeRow);
 
-        LinearLayout modeRow = row(ctx);
-        modeRow.setGravity(Gravity.CENTER_HORIZONTAL);
         LinearLayout sliderHost = column(ctx);
         // The slider column already sits inside `root`'s padding; paying it twice indented the
         // sliders past the rows that label them.
         sliderHost.setPadding(0, 0, 0, 0);
         root.addView(topRow);
-        root.addView(modeRow);
         root.addView(sliderHost);
 
         // Assigned below; declared first because the three builders call each other.
@@ -294,29 +293,8 @@ public final class PipDrawerTabs {
                 shapeGroup.addView(del);
             }
 
-            // — presets, right-justified on the same row: a starting SHAPE, not a reset —
-            presetGroup.removeAllViews();
-            final int[] presets = {CompositingSpec.PRESET_SQUARE, CompositingSpec.PRESET_RECT,
-                    CompositingSpec.PRESET_CIRCLE, CompositingSpec.PRESET_PILL};
-            final int[] presetIcons = {R.drawable.ic_mask_preset_square_24,
-                    R.drawable.ic_mask_preset_rect_24, R.drawable.ic_mask_preset_circle_24,
-                    R.drawable.ic_mask_preset_pill_24};
-            final String[] presetNames = {"Square", "Rect", "Circle", "Pill"};
-            for (int i = 0; i < presets.length; i++) {
-                final int p = presets[i];
-                // A preset is a one-shot action, so it is never "selected" — unlike mode, it
-                // leaves no state behind that a highlight could honestly represent.
-                android.widget.ImageView b =
-                        iconButton(ctx, presetIcons[i], presetNames[i], false, dp);
-                b.setOnClickListener(v -> {
-                    CompositingSpec.applyPreset(cur, p);
-                    rebuild[0].run();   // the w/h/corner sliders must follow the preset
-                    apply.run();
-                });
-                presetGroup.addView(b);
-            }
-
-            // — mode, centred on its own row: how this shape combines with the ones before it —
+            // — mode, right-justified on the same row: how this shape combines with the ones
+            //   before it —
             modeRow.removeAllViews();
             final int[] modes = {CompositingSpec.MODE_ADD, CompositingSpec.MODE_SUBTRACT,
                     CompositingSpec.MODE_INTERSECT};

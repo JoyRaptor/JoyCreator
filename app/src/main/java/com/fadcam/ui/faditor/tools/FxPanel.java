@@ -34,11 +34,15 @@ import java.util.List;
  * with a height tween. Introducing a second scrolling container inside it is how a drawer starts
  * fighting itself.</p>
  *
- * <p><b>Reorder is by BUTTON, not by drag, in this version.</b> The spec asks for long-press
- * pickup, and that is the right end state; but a half-built drag that sometimes drops a card in
- * the wrong place would silently reorder a user's effect chain, and order is meaning here. Two
- * arrows always move exactly one place. Slots are stable either way, so keyframes follow the
- * card whichever mechanism moves it.</p>
+ * <p><b>Reorder by DRAG, with the arrows kept.</b> Long-press a card header and it lifts;
+ * drag past the card above or below and they swap; release to drop. The arrows stay because
+ * they are the precise instrument — one press is always exactly one place, which a drag can
+ * never promise on a list that reflows under the finger.</p>
+ *
+ * <p>The drag deliberately commits on every crossing rather than computing a drop index at the
+ * end: the model IS the preview, so what the user sees mid-drag is already the order they will
+ * get, and there is no separate commit step to disagree with it. Slots are stable, so keyframes
+ * follow the card whichever mechanism moves it.</p>
  */
 public final class FxPanel {
 
@@ -176,6 +180,54 @@ public final class FxPanel {
         TextView caret = chip(ctx, fx.collapsed ? "▸" : "▾", d);
         caret.setOnClickListener(v -> { fx.collapsed = !fx.collapsed; rebuild.run(); });
         head.addView(caret);
+
+        // ── Long-press the header to pick the card up, then drag to reorder ──
+        // Row height is measured from the card itself rather than assumed, so a collapsed card
+        // and an expanded one both hand back a correct threshold.
+        final float[] dragStartY = {0f};
+        final boolean[] lifted = {false};
+        head.setOnLongClickListener(v -> {
+            lifted[0] = true;
+            card.setAlpha(0.75f);
+            card.setBackgroundColor(CHIP_ON);
+            v.performHapticFeedback(
+                    android.view.HapticFeedbackConstants.LONG_PRESS);
+            return true;
+        });
+        head.setOnTouchListener((v, ev) -> {
+            switch (ev.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    dragStartY[0] = ev.getRawY();
+                    return false;   // let the long-press detector see it
+                case android.view.MotionEvent.ACTION_MOVE: {
+                    if (!lifted[0]) return false;
+                    float dy = ev.getRawY() - dragStartY[0];
+                    int h = Math.max(1, card.getHeight());
+                    // Screen order is top-down while the model is bottom-up, so dragging DOWN
+                    // moves a card EARLIER in the stack. Getting this backwards would be the
+                    // most confusing possible bug here.
+                    if (dy > h * 0.6f && index > 0) {
+                        stack.move(index, index - 1);
+                        rebuild.run();
+                        host.onFxChanged();
+                    } else if (dy < -h * 0.6f && index < stack.size() - 1) {
+                        stack.move(index, index + 1);
+                        rebuild.run();
+                        host.onFxChanged();
+                    }
+                    return true;
+                }
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    if (!lifted[0]) return false;
+                    lifted[0] = false;
+                    card.setAlpha(1f);
+                    card.setBackgroundColor(CARD_BG);
+                    return true;
+                default:
+                    return false;
+            }
+        });
 
         TextView name = new TextView(ctx);
         name.setText(def.displayName);

@@ -35,9 +35,12 @@
 > keyframe track names, and its version history — which had stopped at v10 while the code was
 > on v12 — is backfilled through v13.
 >
-> **Full sweep at this commit:** `run-mask` 21/21 + 33/33 · `run-key` 22/22 (4 suites) ·
+> **Full sweep, latest:** `run-mask` 21/21 + 47/47 · `run-key` 26/26 (4 suites) ·
 > `run-matte` all pass · `run-sequence` 100/100 + 50/50 · `schema_mask_stamp.py` 13/13.
 > APK on the phone is current and built WITHOUT the debug flag.
+>
+> **M0 IS COMPLETE, including three rounds of feedback.** The next substantial work is M1
+> (the `fx/` package, still a 3-of-8 stub) — see P2 below.
 >
 > ### Round 2 — JoyRaptor's feedback, 2026-08-06 evening
 > **DONE:**
@@ -71,11 +74,15 @@
 >   single-shape mask still writes the stack value so it costs no v13 stamp. This also makes a
 >   **soft subtract** expressible, which a Path-based fold never could.
 >
+> - **Off-screen ghosts — DONE and DEVICE-VERIFIED.** Green object / yellow mask, drawn only
+>   when something is actually off-stage. Two tiers: partly off = the outline where it really
+>   is, clipped by the frame; wholly off = a tick on the frame edge it left by, at its centre's
+>   height. **The device caught a real bug here:** measured against the VIEW bounds first, the
+>   outline stopped dead at the content rect (view-x 782 of 1080) because something above this
+>   view paints the letterbox — so an edge tick out there was invisible. Everything is measured
+>   against the CONTENT RECT now. Verified with both tiers on screen at once.
+>
 > **STILL OPEN from round 2:**
-> - **Off-screen ghost outline** — when an object or mask travels off-stage, draw an outline
->   where it *would* be so it can be found again. JoyRaptor's colours: **green for the object,
->   yellow for the mask.** Not started. This matters more now than it did before, because the
->   off-stage range above is exactly what makes an object easy to lose.
 > - ~~One row~~ — resolved in round 3: presets deleted, one row.
 > - Intersect icon still drawn as a TRUE intersect (his description was of EXCLUDE). He
 >   corrected the SUBTRACT icon in round 3 and did not mention this one — still unconfirmed.

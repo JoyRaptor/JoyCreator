@@ -176,6 +176,8 @@ of each other. **(v8)**
 | `chromaKey` | object | `{ "color": "#RRGGBB", "tolerance": float, "fuzziness": float, "offset": float }` — RGB-distance keying with smoothstep tolerance/fuzziness. |
 | `mattePeerId` | string | Gates the `matte` object — id of the peer clip supplying the luma track matte. |
 | `matte` | object | `{ "peerId": "<clip id>", "mode": "luma" }` — the serving peer is hidden at export, its luma×alpha gates this clip's visibility. |
+| `feather` | float | Optional, omitted while 0. Softens the combined mask edge. A property of the whole STACK, not of one shape. |
+| `maskKeys` | object | Optional `KeyframeSet` animating the mask. Track names below. |
 
 ### Mask Object (inside `masks` array)
 
@@ -186,6 +188,27 @@ of each other. **(v8)**
 | `corner` | float | Optional corner radius fraction (rounded-rect masks). |
 | `rot` | float | Optional rotation in degrees. |
 | `sub` | bool | Optional — if true, this mask subtracts from (notches out of) the combined shape instead of adding to it. |
+| `mode` | int | Optional, **v13**. `2` = INTERSECT. Written *only* for intersect; add and subtract are still carried by `sub`, so pre-v13 projects serialize byte-identically. |
+| `slot` | int | Optional, **v13**. The shape's stable identity, written only once it diverges from the array index (i.e. after a shape has been deleted). Keyframe tracks are named off this, never off the index. |
+| `link` | bool | Optional, omitted while false. The mask travels with the object instead of staying pinned to the frame. |
+| `linkBaseX` / `linkBaseY` / `linkBaseScale` / `linkBaseRotDeg` | float | Present only with `link`. The object pose captured when linking was switched on — "relative to the object" needs an origin, or the mask jumps the first time the object leaves its default pose. |
+
+#### Mask keyframe track names (inside `maskKeys`)
+
+Six per-shape tracks plus one stack-level track.
+
+| Shape | Tracks |
+|---|---|
+| slot 0 | `maskCx`, `maskCy`, `maskW`, `maskH`, `maskCorner`, `maskRotation` |
+| slot *n* > 0 | `mask<n>.cx`, `mask<n>.cy`, `mask<n>.w`, `mask<n>.h`, `mask<n>.corner`, `mask<n>.rotation` |
+| the stack | `maskFeather` |
+
+**Slot 0 keeps the flat names forever.** That is what every project on disk
+already carries, and it is why multi-shape masks needed no migration: an older
+build reading a multi-shape spec still animates shape 0 correctly, and
+`KeyframeCodec` round-trips the `mask<n>.*` names it does not understand.
+Times are ABSOLUTE timeline ms — the same base a PiP's `overlayTransform` uses,
+so one clip never carries two time conventions.
 
 ## Generated Source Object (inside a Clip's `generatedSource`)
 
@@ -425,6 +448,36 @@ Valid types: `FADE_IN_FROM_BLACK`, `FADE_OUT_TO_BLACK`, `FADE_IN_FROM_WHITE`,
 | `cleanAudio` | bool | Enable Clean Audio v2 post-pass. |
 
 ## Schema Version History
+
+### v13 (multi-shape masks)
+- `masks[]` becomes genuinely multi-shape from the UI. New per-shape `mode`
+  (add / subtract / **intersect**) and stable `slot`.
+- **Stamped conditionally, on two triggers**, via `CompositingSpec.needsSchema13()`:
+  a shape using INTERSECT, or a `slot` that has diverged from its array index
+  after a delete. Anything else keeps its older stamp and byte-identical JSON —
+  including key order.
+- Non-additive, which is why the stamp exists: an older build reads an intersect
+  shape as plain additive and reads no slot at all, then autosaves that back,
+  turning an intersection into a union and renumbering keyframe tracks onto the
+  wrong shapes. Reproduced, then shown prevented, in
+  `tasks/schema_mask_stamp.py`.
+- No migration needed: shape 0 keeps the flat `maskCx`/`maskCy`/… track names it
+  always had, and `KeyframeCodec` round-trips the new `mask<n>.*` names for free.
+
+### v12 (transcript pool)
+- Added top-level `transcriptPool`; a pooled file carries no per-clip
+  `transcripts`. Stamped only when pooling actually pays (some transcript
+  instance sits on more than one owner), so an un-duplicated project keeps the
+  inline shape and its old stamp.
+- *(Backfilled from `TranscriptPoolCodec` and `ProjectStorage` — this entry was
+  missing when v13 was written.)*
+
+### v11 (lane kinds)
+- Lane `kind` on `LayerTrackDef`. A kind an older build cannot represent is its
+  own floor on the stamp, via `TrackKind.minSchemaVersion()` — an unknown kind
+  otherwise coerces to `VIDEO` and the next autosave writes that coercion back,
+  permanently changing paint order.
+- *(Backfilled from `TrackKind` and `ProjectStorage` — also missing.)*
 
 ### v10 (avatar rigs)
 - Added top-level `avatarRigs[]` to `FaditorProject` — rigged sprite puppets

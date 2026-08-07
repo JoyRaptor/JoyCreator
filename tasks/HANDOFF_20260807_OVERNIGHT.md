@@ -15,9 +15,20 @@ Branch `joy-creator`. Everything is committed. JoyRaptor's own files
 M4 renders on export, interleaves correctly in z, and does multi-pass — so blur
 exports; M7 puts the same FX stack on individual PiP clips.
 
-**Two pieces of M7 remain owed:** the Effects tab on TEXT overlays (PiP only
-today), and SAMPLER cards on an object — those need the object rendered to its
-own FBO, which is the adjustment layer's machinery.
+**M7's two boundaries, both deliberate and both surfaced in the UI rather than
+left to be discovered:**
+- **Text overlays** carry the FX stack (model, storage, deep copy) but get NO
+  tab. Text renders through a Canvas `BitmapOverlay`, not a GL shader, so there
+  is nothing to splice into — that is a renderer, not a wire. A tab that
+  silently did nothing would be worse than none.
+- **Sampler cards on an object** (the blurs, RGB shift) are badged "layer only"
+  in the picker and "needs an adjustment layer" on the card. A per-object stack
+  is spliced into the compositing shader, which draws in one pass and has no
+  finished image for a sampler to read.
+
+**The last remaining work is a renderer, not a gap:** FX on text needs the text
+bitmap run through the FX chain as a texture. Everything else in this spec is
+built.
 
 **Also done from START_HERE's backlog:** all four FF-B sprite AI tools, and the
 duplicate-onto-its-own-lane button — for adjustment layers, text and sprites.

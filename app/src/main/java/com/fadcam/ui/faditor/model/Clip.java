@@ -201,6 +201,22 @@ public class Clip {
     @Nullable
     private CompositingSpec compositing;
 
+    /**
+     * PER-OBJECT effects (SPEC_ADJUSTMENT_LAYERS_FX M7) — an {@code FxStack} that transforms
+     * THIS clip's own pixels, before it is composited over what is beneath it.
+     *
+     * <p>The mirror image of an adjustment layer, and deliberately the SAME model: same
+     * registry, same compiler, same panel, same keyframe convention. An adjustment layer
+     * transforms everything below it; this transforms one object and nothing else. JoyRaptor asked
+     * for both in the same breath — "stacked with a primitive that could be either put directly
+     * onto a video image or text layer".</p>
+     *
+     * <p>Null until something is added, so every clip that predates per-object FX serializes
+     * byte-identically.</p>
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.fx.FxStack fx;
+
     /** Whether animated on-screen captions are enabled for this clip. */
     private boolean captionsEnabled = false;
 
@@ -1087,6 +1103,32 @@ public class Clip {
     @NonNull
     public String getOverlayBlendMode() {
         return overlayBlendMode;
+    }
+
+    /**
+     * This object's own effect stack, created on first access.
+     *
+     * @see #fx
+     */
+    @NonNull
+    public com.fadcam.ui.faditor.fx.FxStack getOrCreateFx() {
+        if (fx == null) fx = new com.fadcam.ui.faditor.fx.FxStack();
+        return fx;
+    }
+
+    /** This object's effect stack, or null when it has never had one. @see #fx */
+    @Nullable
+    public com.fadcam.ui.faditor.fx.FxStack getFx() { return fx; }
+
+    public void setFx(@Nullable com.fadcam.ui.faditor.fx.FxStack v) {
+        // An EMPTY stack is stored as null, so adding then removing every card leaves the clip
+        // serializing exactly as it did before it was ever touched.
+        fx = (v == null || v.isEmpty()) ? null : v;
+    }
+
+    /** True when this clip's own effects would change any pixel. */
+    public boolean hasActiveFx() {
+        return fx != null && !fx.active().isEmpty();
     }
 
     /** @see #compositing */

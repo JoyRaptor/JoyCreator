@@ -98,6 +98,63 @@ public final class BlendModeGlEffect implements GlEffect {
                 + "  vTexSamplingCoord = aFramePosition.xy * 0.5 + 0.5;\n"
                 + "}\n";
 
+        /**
+         * Per-object FX (SPEC_ADJUSTMENT_LAYERS_FX M7), spliced into THIS clip's shader.
+         *
+         * <p><b>The no-FX case returns the string that shipped, untouched.</b> A PiP that
+         * carries no effects compiles exactly the source it always did — the same gate
+         * discipline the mask fold and the adjustment chain already use, so M7 is provably
+         * inert for every existing project.</p>
+         *
+         * <p><b>Only the FUSED pass.</b> A SAMPLER card would need the object rendered to its
+         * own FBO first, which is the adjustment layer's machinery and not this class's job.
+         * Such a card is skipped; {@code FxPreviewTier} is what tells the UI so.</p>
+         */
+        @NonNull
+        private static String fragmentFor(@NonNull Clip clip) {
+            com.fadcam.ui.faditor.fx.FxStack stack = clip.getFx();
+            if (stack == null || stack.active().isEmpty()) return FRAGMENT_SHADER;
+            com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
+                    com.fadcam.ui.faditor.fx.FxCompiler.plan(stack);
+            com.fadcam.ui.faditor.fx.FxCompiler.Pass fused = null;
+            for (com.fadcam.ui.faditor.fx.FxCompiler.Pass p : plan.passes) {
+                if (!p.sampler) { fused = p; break; }
+            }
+            if (fused == null) return FRAGMENT_SHADER;
+
+            String emitted = com.fadcam.ui.faditor.fx.FxCompiler.emitGlsl(fused, 8);
+            int mainAt = emitted.indexOf("void main()");
+            if (mainAt < 0) return FRAGMENT_SHADER;
+            // Everything the compiler declared BEFORE its entry point — uniforms, the prelude,
+            // the blend authority, the per-card functions. Its own main() is discarded: this
+            // shader already has one, and here the subject is one object's colour rather than
+            // a whole frame.
+            String decls = emitted.substring(0, mainAt)
+                    // Already declared by this shader; declaring either twice fails to compile.
+                    .replace("uniform sampler2D uTexSampler;\n", "")
+                    .replace("varying vec2 vFxUv;\n", "")
+                    .replace("precision mediump float;\n", "")
+                    .replace("precision highp float;\n", "");
+
+            StringBuilder fold = new StringBuilder();
+            for (com.fadcam.ui.faditor.fx.FxInstance card : fused.cards) {
+                fold.append("  fxc = fxBlendOver(fxc, fx").append(card.slot)
+                        .append("(ovc, fxc), ")
+                        .append(com.fadcam.ui.faditor.fx.FxCompiler.foldOpacityName(card))
+                        .append(", ")
+                        .append(com.fadcam.ui.faditor.fx.FxCompiler.foldBlendName(card))
+                        .append(");\n");
+            }
+            // AFTER the key, deliberately. Keying measures distance from a colour in the SOURCE
+            // image, so inverting or grading the object first would stop a green screen being
+            // green and the key would silently miss.
+            String apply = "  vec4 fxc = vec4(sc, 1.0);\n" + fold + "  sc = fxc.rgb;\n";
+            return FRAGMENT_SHADER
+                    .replace("varying vec2 vTexSamplingCoord;\n",
+                            "varying vec2 vTexSamplingCoord;\n" + decls)
+                    .replace("  if (uMatteOn > 0.5) {", apply + "  if (uMatteOn > 0.5) {");
+        }
+
         private static final String FRAGMENT_SHADER =
                 "#version 100\n"
                 + "precision mediump float;\n"
@@ -154,6 +211,8 @@ public final class BlendModeGlEffect implements GlEffect {
         private final float mode;
         private final float[] keyColor;
         private final float[] keyParams;
+        /** Kept for its FX uniform values; the geometry all lives in the overlay. */
+        @NonNull private final Clip fxClip;
 
         Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip,
                 long editorTimeOffsetMs)
@@ -164,6 +223,7 @@ public final class BlendModeGlEffect implements GlEffect {
                     ? new PipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
             // The wire-value → shader-code mapping moved out with the equations it selects; a
             // mode string that means 3 here and 3 in the FX fold is the whole point of one table.
+            this.fxClip = clip;
             this.mode = com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode());
             // Packed by the shared authority, not unpacked by hand here — the preview tier
             // packs the identical uniforms from the identical spec, so a clamp added on one
@@ -172,7 +232,8 @@ public final class BlendModeGlEffect implements GlEffect {
             this.keyColor = com.fadcam.ui.faditor.model.ChromaKey.packColor(spec);
             this.keyParams = com.fadcam.ui.faditor.model.ChromaKey.packParams(spec);
             try {
-                this.glProgram = new GlProgram(VERTEX_SHADER, FRAGMENT_SHADER);
+                // Per-clip source: identical to FRAGMENT_SHADER unless this object carries FX.
+                this.glProgram = new GlProgram(VERTEX_SHADER, fragmentFor(clip));
                 this.glProgram.setBufferAttribute("aFramePosition",
                         GlUtil.getNormalizedCoordinateBounds(), 4);
             } catch (Exception e) {
@@ -208,11 +269,46 @@ public final class BlendModeGlEffect implements GlEffect {
                 glProgram.setFloatsUniform("uKeyColor", keyColor);
                 glProgram.setFloatsUniform("uKeyParams", keyParams);
                 glProgram.setFloatUniform("uMatteOn", matteOn ? 1f : 0f);
+                // Per-object FX (M7). Resolved at the playhead so a keyed parameter animates,
+                // exactly as an adjustment layer's does — same stack, same resolver.
+                setFxUniforms(presentationTimeUs);
                 glProgram.bindAttributesAndUniforms();
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                 GlUtil.checkGlError();
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
+            }
+        }
+
+        /**
+         * Upload this object's FX parameters.
+         *
+         * <p>Each set is GUARDED: an unused uniform is stripped by the driver, and media3 looks
+         * names up in the LINKED program, so setting one it removed throws. That cost a whole
+         * export cycle to find on the adjustment layer; it is not going to cost another here.</p>
+         *
+         * <p>Silent no-op when the clip has no FX, because then the shader is the original
+         * string and none of these names exist at all.</p>
+         */
+        private void setFxUniforms(long presentationTimeUs) {
+            com.fadcam.ui.faditor.fx.FxStack stack = fxClip.getFx();
+            if (stack == null || stack.active().isEmpty()) return;
+            long editorMs = presentationTimeUs / 1000L;
+            com.fadcam.ui.faditor.fx.FxStack resolved = stack.resolveAt(editorMs);
+            com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
+                    com.fadcam.ui.faditor.fx.FxCompiler.plan(resolved);
+            for (com.fadcam.ui.faditor.fx.FxCompiler.Pass p : plan.passes) {
+                if (p.sampler) continue;   // not compiled into this shader — see fragmentFor
+                for (com.fadcam.ui.faditor.fx.FxUniforms.Value v
+                        : com.fadcam.ui.faditor.fx.FxUniforms.forPass(p)) {
+                    try {
+                        if (v.components() == 1) glProgram.setFloatUniform(v.name, v.data[0]);
+                        else glProgram.setFloatsUniform(v.name, v.data);
+                    } catch (RuntimeException ignored) {
+                        // Stripped by the driver; harmless.
+                    }
+                }
+                break;   // only the first fused pass is in this shader
             }
         }
 

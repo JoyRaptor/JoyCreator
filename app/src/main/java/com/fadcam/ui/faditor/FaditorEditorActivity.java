@@ -20437,6 +20437,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
                         ctx, c, tabHost::onChanged)));
+        // M7: this object's OWN effects. Same registry, same compiler, same panel as an
+        // adjustment layer -- the difference is only WHAT they transform. Appended, so the
+        // drawer's icon-index arithmetic is unchanged (PipOverlayDrawer's buildIconRow is
+        // correct only because icons are dense from index 1, and appending keeps that true).
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                "Effects", R.drawable.ic_mask_mode_add_24,                    // TODO(strings)
+                ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
+                        ctx, c.getOrCreateFx(),
+                        new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+                            @Override public void onFxChanged() {
+                                // Normalise an emptied stack back to null so removing every
+                                // card leaves the clip serializing as it did before.
+                                c.setFx(c.getFx());
+                                if (overlayVideoLayer != null) {
+                                    overlayVideoLayer.refreshCompositing();
+                                }
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                scheduleAutoSave();
+                            }
+                            @Override public void recordUndo(@NonNull String label,
+                                    @NonNull Runnable redo, @NonNull Runnable undo) {
+                                undoManager.recordAction(
+                                        new EditActions.LambdaAction(label, redo, undo));
+                            }
+                            @Override public long playheadMs() {
+                                return Math.max(0, lastPlayheadAbsoluteMs);
+                            }
+                        })));
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();

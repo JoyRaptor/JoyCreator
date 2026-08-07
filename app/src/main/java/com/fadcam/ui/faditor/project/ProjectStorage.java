@@ -1427,6 +1427,11 @@ public class ProjectStorage {
         if (comp != null && !comp.isEmpty()) {
             clipJson.add("compositing", comp.toJson());
         }
+        // Per-object FX (M7). Additive: written only when the clip actually has effects, so
+        // every clip authored before them stays byte-identical.
+        if (clip.hasActiveFx() || (clip.getFx() != null && !clip.getFx().isEmpty())) {
+            clipJson.add("fx", clip.getFx().toJson());
+        }
         // ── Floating overlay-video fields (M-COMP-2).
         //
         // ⚠ These used to be gated ENTIRELY on `layerId != null`, which was safe only while a
@@ -1699,6 +1704,14 @@ public class ProjectStorage {
         }
         // Per-item compositing spec — restored for masters AND overlays (the
         // serializer writes it at clip level, outside the layerId block).
+        if (hasValue(clipObj, "fx")) {
+            try {
+                clip.setFx(com.fadcam.ui.faditor.fx.FxStack.fromJson(
+                        clipObj.getAsJsonObject("fx")));
+            } catch (Exception ignored) {
+                // Tolerant read: a malformed stack costs the EFFECTS, never the clip.
+            }
+        }
         if (hasValue(clipObj, "compositing")) {
             clip.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec
                     .fromJson(clipObj.getAsJsonObject("compositing")));

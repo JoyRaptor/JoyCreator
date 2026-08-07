@@ -27,6 +27,7 @@ public class AdjustmentLaneTest {
         laneEmissionAndZ();
         interleavedZOrder();
         duplicateCopiesAreDeep();
+        perObjectFx();
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
         if (failed > 0) System.exit(1);
@@ -182,6 +183,40 @@ public class AdjustmentLaneTest {
                 sp.getFrameTrack().size() == 1 && sc.getFrameTrack().size() == 2);
         check("the sprite copy does not inherit the original's lane",
                 sc.getLayerId() == null || !"sprite".equals(sc.getLayerId()));
+    }
+
+    /**
+     * Per-object FX (M7) — the SAME stack model on a clip rather than on a layer.
+     *
+     * <p>Lives here rather than in run-fx because {@code Clip} reaches media3, the same
+     * boundary that sent the lane tests here.</p>
+     *
+     * <p>The property that matters is that an emptied stack normalises back to NULL. That is
+     * what keeps a clip which was briefly given an effect serializing exactly as it did before
+     * it was ever touched — and it is what makes M7 provably inert for every existing project.</p>
+     */
+    static void perObjectFx() {
+        com.fadcam.ui.faditor.model.Clip c =
+                // sourceUri null, like MatteVisibilityTest: android.jar's Uri is a compile
+                // stub that throws at runtime, and none of this needs a real one.
+                new com.fadcam.ui.faditor.model.Clip(null, 5000L);
+        check("a fresh clip has NO fx object at all", c.getFx() == null);
+        check("...and reports none active", !c.hasActiveFx());
+
+        com.fadcam.ui.faditor.fx.FxStack st = c.getOrCreateFx();
+        check("getOrCreateFx makes one on demand", c.getFx() != null);
+        check("...but an empty one is still nothing to render", !c.hasActiveFx());
+
+        st.add("invert");
+        c.setFx(st);
+        check("a card makes it active", c.hasActiveFx());
+
+        // Emptying must return the clip to its ORIGINAL shape, not leave an empty husk that
+        // serializes an "fx":{} nobody asked for.
+        st.remove(0);
+        c.setFx(st);
+        check("emptying the stack normalises back to null", c.getFx() == null);
+        check("...and to inactive", !c.hasActiveFx());
     }
 
     static void check(String what, boolean ok) {

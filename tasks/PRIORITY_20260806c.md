@@ -38,6 +38,33 @@
 > `run-matte` all pass · `run-sequence` 100/100 + 50/50 · `schema_mask_stamp.py` 13/13.
 > APK on the phone is current and built WITHOUT the debug flag.
 >
+> ### Round 2 — JoyRaptor's feedback, 2026-08-06 evening
+> **DONE:**
+> - **Off-stage positions.** Pos X/Y and mask X/Y now run **-100%..200%**
+>   (`KeyframeSet.POS_MIN/POS_MAX`). A 0..1 range addressed the object's CENTRE, so
+>   pan-on-from-offstage was never expressible, and a linked mask stopped following its object
+>   the moment its own centre hit the edge. Fixed at every clamp: the props, the sliders,
+>   `MaskAnimator.resolve`, `applyLink`, `CompositingSpec.fromJson`, and the preview DRAG.
+>   Pinned by 6 new assertions in `MaskAnimatorTest` (26/26).
+> - **`‹ ◇ ›` on every mask slider.** The diamond is deliberately inert and dimmed until
+>   per-parameter mask keying exists — the tab's "Key at playhead" still keys all six at once.
+> - **Layout.** Shape chips left + preset icons right-justified on one row; mode icons centred
+>   on row two; both checkboxes on one line. Four rows became two.
+> - **Icons.** 7 new drawables (`ic_mask_mode_*`, `ic_mask_preset_*`).
+> - **"Soften edges" misalignment** — it was real: the shape sliders sat in a column nested
+>   inside `root` and paid the 14dp side padding twice.
+>
+> **STILL OPEN from that round:**
+> - **Off-screen ghost outline** — when an object or mask travels off-stage, draw an outline
+>   where it *would* be so it can be found again. JoyRaptor's colours: **green for the object,
+>   yellow for the mask.** Not started. This matters more now than it did before, because the
+>   off-stage range above is exactly what makes an object easy to lose.
+> - One judgement call to confirm: he asked for shapes + modes + presets on a **single** row;
+>   it does not fit (~384dp of content on a ~360dp phone once a third shape exists), so it is
+>   two rows. Confirm or overrule.
+> - He described the intersect icon as "two solid circles, middle knocked out" — that glyph is
+>   Pathfinder's EXCLUDE, the opposite result, so a true intersect is drawn instead. Confirm.
+>
 > ### 🖐 ONE THING THAT NEEDS JOYRAPTOR'S FINGER (20 seconds)
 > The mask tab cannot be reached by adb input injection — see the P0.1 note below. To see the
 > new UI: open **"bisect C long 2x"** → in the lane band, **hold** the picture-in-picture strip

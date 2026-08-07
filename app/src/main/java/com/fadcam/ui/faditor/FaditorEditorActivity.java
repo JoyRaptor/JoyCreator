@@ -28446,13 +28446,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (selectedId == null) return false;
         Timeline timeline = project.getTimeline();
 
-        // ADJUSTMENT LAYERS ONLY, for now, and deliberately rather than by omission.
-        // AdjustmentLayer.copy() is a real deep copy with a harness test proving it aliases
-        // neither the FX stack nor the compositing spec. TextOverlayItem and SpriteOverlayItem
-        // have no copy() at all, and hand-rolling one here would mean deep-copying their
-        // keyframe sets from the outside — precisely where an aliasing bug hides, and it would
-        // surface as two objects that animate together for no visible reason. They need a
-        // copy() of their own first; that is a model change, not a button change.
+        // Each payload copies through its OWN deep copy, never a field-by-field one written
+        // here: the class that knows which of its references may be shared is the class that
+        // holds them, and an aliased keyframe set would surface as two objects animating
+        // together — a bug that reads as the editor having a mind of its own.
+        for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
+            if (!t.getId().equals(selectedId)) continue;
+            com.fadcam.ui.faditor.model.TextOverlayItem copy =
+                    t.copyWithNewId(java.util.UUID.randomUUID().toString());
+            String lane = timeline.createLayerTrack(
+                    com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text");
+            copy.setLayerId(lane);
+            timeline.addTextOverlay(copy);
+            finishDuplicate(() -> timeline.removeTextOverlay(copy));
+            return true;
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : timeline.getSpriteOverlays()) {
+            if (!sp.getId().equals(selectedId)) continue;
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy =
+                    sp.copyWithNewId(java.util.UUID.randomUUID().toString());
+            String lane = timeline.createLayerTrack(
+                    com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite");
+            copy.setLayerId(lane);
+            timeline.addSpriteOverlay(copy);
+            finishDuplicate(() -> timeline.removeSpriteOverlay(copy));
+            return true;
+        }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
             if (!al.getId().equals(selectedId)) continue;
             com.fadcam.ui.faditor.model.AdjustmentLayer copy = al.copy();

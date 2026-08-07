@@ -26,6 +26,7 @@ public class AdjustmentLaneTest {
     public static void main(String[] args) {
         laneEmissionAndZ();
         interleavedZOrder();
+        duplicateCopiesAreDeep();
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
         if (failed > 0) System.exit(1);
@@ -134,6 +135,53 @@ public class AdjustmentLaneTest {
                 LayerPreviewController.orderedCompositedItems(t).size() == 3);
         check("...but never reaches a renderer",
                 LayerPreviewController.visibleAdjustmentLayers(t, 100).size() == 2);
+    }
+
+    /**
+     * The duplicate-onto-a-new-lane copies must ALIAS NOTHING.
+     *
+     * <p>This is the whole risk of the feature. A shared keyframe set or frame track produces
+     * two objects that animate together, which does not read as an aliasing bug — it reads as
+     * the editor having a mind of its own, and it is nearly impossible to report.</p>
+     */
+    static void duplicateCopiesAreDeep() {
+        com.fadcam.ui.faditor.model.TextOverlayItem t =
+                new com.fadcam.ui.faditor.model.TextOverlayItem(
+                        "t1", "hello", 0xFFFFFFFF, 0.5f, 0.5f, 0.2f, 0f);
+        t.setLayerId("text");
+        t.getKeyframes().getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X)
+                .put(0, 0.25f, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+        com.fadcam.ui.faditor.model.TextOverlayItem tc = t.copyWithNewId("t2");
+
+        check("the text copy has the new id and keeps the content",
+                tc.getId().equals("t2") && "hello".equals(tc.getText()));
+        check("the text copy took the keyframes", Math.abs(
+                tc.getKeyframes().valueAt(
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, -1f) - 0.25f) < 0.001f);
+        tc.getKeyframes().getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X)
+                .put(0, 0.9f, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+        check("...but does NOT share them — editing the copy leaves the original alone",
+                Math.abs(t.getKeyframes().valueAt(
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, -1f) - 0.25f) < 0.001f);
+        // A copy that inherited the lane would land on a row that forbids overlap, on top of
+        // the object it was copied from.
+        check("the text copy does not inherit the original's lane",
+                tc.getLayerId() == null || !"text".equals(tc.getLayerId()));
+
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp =
+                new com.fadcam.ui.faditor.sprite.SpriteOverlayItem("s1", "sheet1");
+        sp.setLayerId("sprite");
+        sp.getFrameTrack().put(
+                com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(0, 3));
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem sc = sp.copyWithNewId("s2");
+        check("the sprite copy keeps its sheet and frames",
+                "sheet1".equals(sc.getSheetId()) && sc.getFrameTrack().size() == 1);
+        sc.getFrameTrack().put(
+                com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(500, 7));
+        check("...and does NOT share the frame track",
+                sp.getFrameTrack().size() == 1 && sc.getFrameTrack().size() == 2);
+        check("the sprite copy does not inherit the original's lane",
+                sc.getLayerId() == null || !"sprite".equals(sc.getLayerId()));
     }
 
     static void check(String what, boolean ok) {

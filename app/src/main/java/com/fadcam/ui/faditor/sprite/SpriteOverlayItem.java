@@ -126,6 +126,54 @@ public class SpriteOverlayItem {
     /** Eased whole-unit transform animation (x/y/scale/rotation/opacity), item-local times. */
     @NonNull private final KeyframeSet keyframes = new KeyframeSet();
 
+    /**
+     * A DEEP copy under a NEW id — what "duplicate this object" needs.
+     *
+     * <p>The {@link FrameTrack} and the {@link KeyframeSet} are both final and both copied
+     * ENTRY BY ENTRY rather than shared. Sharing either would give two sprites one animation:
+     * scrubbing a frame on the copy would move the original, which looks like the editor having
+     * a mind of its own rather than like an aliased field.</p>
+     *
+     * <p>{@code layerId} is NOT copied — a duplicate belongs to whichever lane the caller puts
+     * it on, and inheriting the original's lane is precisely what makes two objects overlap on
+     * a row that forbids overlap.</p>
+     *
+     * <p>{@code clippedByNeighbour} is transient layout state, not content, and is deliberately
+     * left at its default.</p>
+     */
+    @NonNull
+    public SpriteOverlayItem copyWithNewId(@NonNull String newId) {
+        SpriteOverlayItem c = new SpriteOverlayItem(newId, sheetId);
+        c.hidden = hidden;
+        c.locked = locked;
+        c.centerX = centerX;
+        c.centerY = centerY;
+        c.sizeFraction = sizeFraction;
+        c.rotationDeg = rotationDeg;
+        c.opacity = opacity;
+        c.flipH = flipH;
+        c.flipV = flipV;
+        c.startMs = startMs;
+        c.endMs = endMs;
+        c.endBehavior = endBehavior;
+        c.continuesUntilBlocked = continuesUntilBlocked;
+        c.sequenceStartFrame = sequenceStartFrame;
+        c.avatarRigId = avatarRigId;
+        for (FrameTrack.Key k : frameTrack.keys()) {
+            FrameTrack.Key nk = k.presetId != null
+                    ? FrameTrack.Key.ofPreset(k.timeMs, k.presetId)
+                    : FrameTrack.Key.ofCell(k.timeMs, k.cellIndex);
+            c.frameTrack.put(nk);
+        }
+        c.keyframes.copyFrom(keyframes);
+        // The avatar param track has no copy() of its own; sharing it would alias a rig's pose
+        // animation across two puppets. Dropped rather than shared -- a copy that quietly moves
+        // with the original is worse than one that starts un-posed, and the rig id is kept so
+        // the copy still knows what it is.
+        c.avatarTrack = null;
+        return c;
+    }
+
     public SpriteOverlayItem(@NonNull String id, @NonNull String sheetId) {
         this.id = id;
         this.sheetId = sheetId;

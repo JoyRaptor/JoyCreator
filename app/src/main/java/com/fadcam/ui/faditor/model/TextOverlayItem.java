@@ -214,6 +214,49 @@ public class TextOverlayItem {
         this.rotationDeg = rotationDeg;
     }
 
+    /**
+     * A DEEP copy under a NEW id — what "duplicate this object" needs.
+     *
+     * <p><b>Every reference type is copied, not shared.</b> {@link #keyframes} is final and
+     * copied through {@code copyFrom}; {@link #generatedSource} and {@link #timerSpec} have
+     * their own {@code copy()}. Sharing any of the three would produce two objects that animate
+     * together, or two captions that rewrite each other — a bug that looks like the editor
+     * having a mind of its own rather than like an aliased field.</p>
+     *
+     * <p>{@code layerId} is NOT copied. A duplicate belongs to whichever lane the caller puts it
+     * on, and inheriting the original's lane is exactly what makes two objects overlap on a row
+     * that forbids overlap.</p>
+     */
+    @NonNull
+    public TextOverlayItem copyWithNewId(@NonNull String newId) {
+        TextOverlayItem c = new TextOverlayItem(newId, text, colorInt,
+                centerX, centerY, sizeFraction, rotationDeg);
+        c.hidden = hidden;
+        c.locked = locked;
+        c.strokeColorInt = strokeColorInt;
+        c.strokeWidthPx = strokeWidthPx;
+        c.shadowColorInt = shadowColorInt;
+        c.shadowRadiusPx = shadowRadiusPx;
+        c.glowColorInt = glowColorInt;
+        c.glowRadiusPx = glowRadiusPx;
+        c.backgroundColorInt = backgroundColorInt;
+        c.opacity = opacity;
+        c.fontFamily = fontFamily;
+        c.imageUri = imageUri;
+        c.startMs = startMs;
+        c.endMs = endMs;
+        c.hostClipId = hostClipId;
+        c.hostOffsetMs = hostOffsetMs;
+        c.textAnimPreset = textAnimPreset;
+        c.textAnimGranularity = textAnimGranularity;
+        c.textAnimInPct = textAnimInPct;
+        c.textAnimOutPct = textAnimOutPct;
+        c.keyframes.copyFrom(keyframes);
+        c.generatedSource = generatedSource == null ? null : generatedSource.copy();
+        c.timerSpec = timerSpec == null ? null : timerSpec.copy();
+        return c;
+    }
+
     @NonNull
     public String getId() { return id; }
 

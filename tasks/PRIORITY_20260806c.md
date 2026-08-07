@@ -54,16 +54,31 @@
 > - **"Soften edges" misalignment** — it was real: the shape sliders sat in a column nested
 >   inside `root` and paid the 14dp side padding twice.
 >
-> **STILL OPEN from that round:**
+> ### Round 3 — JoyRaptor's feedback, 2026-08-06 late
+> Confirmed working by him: **movement is fixed**, and **"masks seem to interact well."**
+> - **ONE row.** The four presets are deleted — he judged them expendable because "the sliders
+>   can do everything needed", and a preset only ever wrote w/h/corner. `applyPreset` survives
+>   in the model (still harness-tested) for the FX drawer; nothing in the UI calls it.
+> - **Subtract icon corrected.** It had `evenOdd` across both circles, which also fills the
+>   RIGHT crescent — that is EXCLUDE, a different boolean. Now a clip-path group draws the left
+>   circle with the right bitten out ("so the solid looks like a cookie") plus a dotted cutter.
+> - **Feather is PER SHAPE.** His question — one hard edge, one soft, in the same mask — was a
+>   real limit, now lifted. `MaskShape.feather` (-1 = inherit) + a second renderer that
+>   composes alpha one shape at a time with its own blur, booleans becoming PorterDuff alpha
+>   ops. Gated on `usesPerShapeFeather()`, draw order preserves the two-bucket geometry, and a
+>   single-shape mask still writes the stack value so it costs no v13 stamp. This also makes a
+>   **soft subtract** expressible, which a Path-based fold never could.
+>
+> **STILL OPEN from round 2:**
 > - **Off-screen ghost outline** — when an object or mask travels off-stage, draw an outline
 >   where it *would* be so it can be found again. JoyRaptor's colours: **green for the object,
 >   yellow for the mask.** Not started. This matters more now than it did before, because the
 >   off-stage range above is exactly what makes an object easy to lose.
-> - One judgement call to confirm: he asked for shapes + modes + presets on a **single** row;
->   it does not fit (~384dp of content on a ~360dp phone once a third shape exists), so it is
->   two rows. Confirm or overrule.
-> - He described the intersect icon as "two solid circles, middle knocked out" — that glyph is
->   Pathfinder's EXCLUDE, the opposite result, so a true intersect is drawn instead. Confirm.
+> - ~~One row~~ — resolved in round 3: presets deleted, one row.
+
+
+> - Intersect icon still drawn as a TRUE intersect (his description was of EXCLUDE). He
+>   corrected the SUBTRACT icon in round 3 and did not mention this one — still unconfirmed.
 >
 > ### 🖐 ONE THING THAT NEEDS JOYRAPTOR'S FINGER (20 seconds)
 > The mask tab cannot be reached by adb input injection — see the P0.1 note below. To see the

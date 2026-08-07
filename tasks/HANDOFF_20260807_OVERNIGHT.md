@@ -227,6 +227,18 @@ button, the §3A device verification list — were not touched this run.
   any `adb push` to `/data/local/tmp`** — without it the shell rewrites the
   device path into a Windows one and `cat > file` empties the target.
 
+## ⚠ NEVER `git add tasks/`
+
+`tasks/` holds JoyRaptor's own live work — `LAUNCH_STRATEGY.md` and
+`OUTREACH_ANONFADED.md` are his, edited, and deliberately uncommitted. A broad
+`git add tasks/` swept them into a commit **twice** this session. Nothing was
+lost either time, but backing a commit out is not free and the second one
+happened after the lesson had already been written into a commit message —
+which is exactly why it is here instead.
+
+**Stage the paths you actually wrote.** Never a directory that also holds
+someone else's work in progress.
+
 ## Two working notes worth keeping
 
 - **`typecheck.sh` cannot see new resources.** It does not run `aapt`, so any new

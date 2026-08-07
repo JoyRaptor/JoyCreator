@@ -39,12 +39,16 @@ import java.util.List;
  * the image is drawn; here it decides where the effect applies. Same machinery, different
  * question, and conflating the two would put a hole in the picture instead of limiting a grade.</p>
  *
- * <p><b>SINGLE PASS in this version, and it says so rather than pretending.</b> Only cards the
- * compiler can FUSE — pointwise and generator — are rendered here; that is 9 of the 12 shipped
- * effects. A SAMPLER card (the two blurs, RGB shift) needs a finished image to read neighbours
- * from, which means real ping-pong FBOs; until that lands such a card is SKIPPED with an
- * {@link FLog} warning rather than rendered wrongly. A wrong blur that looks plausible is worse
- * than an absent one, because nobody goes looking for it.</p>
+ * <p><b>MULTI-PASS.</b> One program is compiled per pass the planner emits, and the frame
+ * ping-pongs through this class's own FBOs. A SAMPLER card — either blur, RGB shift — gets the
+ * finished image it needs to read neighbours from; a separable kernel declares two renders and
+ * runs the same program twice with {@code uDir} flipped, horizontal then vertical.</p>
+ *
+ * <p><b>Only the LAST render composites.</b> The mix with the original, the mask and the layer
+ * opacity all belong at the end of the chain: folding the layer over the picture mid-chain and
+ * then continuing to blur the result would blur the composite rather than the source. That is
+ * also why the composite reads the original through its own {@code uBaseSampler} — by then
+ * {@code uTexSampler} holds the previous pass's output.</p>
  *
  * <p><b>Never throws on a driver failure.</b> {@code BlendModeGlEffect} does, and for a PiP that
  * is right — a missing overlay is a broken film. Here a lost grade is far better than a lost
@@ -93,8 +97,8 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         @NonNull private final AdjustmentLayer layer;
         private final long editorTimeOffsetMs;
 
-        @androidx.annotation.Nullable private GlProgram program;
-        @androidx.annotation.Nullable private FxCompiler.Pass pass;
+        /** Kernel half-width. A LITERAL in the emitted source, so it is part of the source key. */
+        private static final int KERNEL_HALF = 8;
         /** Null once a compile has failed — the passthrough latch. */
         private boolean degraded;
         private int width = 1, height = 1;
@@ -127,40 +131,65 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     return;
                 }
                 FxStack resolved = layer.getFx().resolveAt(editorMs);
-                if (!ensureProgram(resolved)) {
+                if (!ensurePrograms(resolved)) {
                     passthrough(inputTexId);
                     return;
                 }
-                GlProgram p = program;
-                if (p == null || pass == null) { passthrough(inputTexId); return; }
-                p.use();
-                p.setSamplerTexIdUniform("uTexSampler", inputTexId, 0);
-                setF2(p, "uTexel", 1f / width, 1f / height);
-                setF(p, "uAspect", (float) width / (float) height);
-                setF(p, "uTime", editorMs / 1000f);
-                setF2(p, "uDir", 1f, 0f);
-                for (FxUniforms.Value v : FxUniforms.forPass(pass)) {
-                    if (v.components() == 1) setF(p, v.name, v.data[0]);
-                    else setFn(p, v.name, v.data);
-                }
-                // The mask/opacity mix factor — see the class note. Packed flat so the shader
-                // needs no loop over a shape array it may not have.
                 CompositingSpec cs = layer.getCompositing();
                 float[] geo = MaskSdf.packShapes(cs, width, height);
-                setF(p, "uLayerOpacity", layer.opacityAt(editorMs));
-                setF(p, "uMaskCount", cs == null || cs.masks.isEmpty() ? 0f : 1f);
-                setFn(p, "uMaskGeo", new float[]{geo[0], geo[1], geo[2], geo[3]});
-                setF2(p, "uMaskRot", geo[4], geo[5]);
-                setF(p, "uMaskCorner", geo[6]);
-                setF(p, "uMaskFeather", geo[7]);
-                setF(p, "uMaskInvert", cs != null && cs.invertMasks ? 1f : 0f);
-                p.bindAttributesAndUniforms();
-                GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
-                GlUtil.checkGlError();
+                float opacity = layer.opacityAt(editorMs);
+
+                // Remember the framebuffer media3 bound for our OUTPUT before we focus any of
+                // our own — the final pass has to give it back.
+                int[] outFbo = new int[1];
+                GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, outFbo, 0);
+
+                int src = inputTexId;
+                int stepCount = steps.size();
+                for (int i = 0; i < stepCount; i++) {
+                    Step step = steps.get(i);
+                    boolean last = i == stepCount - 1;
+                    if (last) {
+                        GlUtil.focusFramebufferUsingCurrentContext(outFbo[0], width, height);
+                    } else {
+                        GlUtil.focusFramebufferUsingCurrentContext(fboFor(i), width, height);
+                    }
+                    GlProgram p = step.program;
+                    p.use();
+                    p.setSamplerTexIdUniform("uTexSampler", src, 0);
+                    // The ORIGINAL, on unit 1 so it cannot collide with the pass input.
+                    // GUARDED for the same reason the float setters are: only the COMPOSITE
+                    // pass reads uBaseSampler, so on every intermediate pass the driver strips
+                    // it and media3 throws looking the name up in the linked program.
+                    setSampler(p, "uBaseSampler", inputTexId, 1);
+                    setF2(p, "uTexel", 1f / width, 1f / height);
+                    setF(p, "uAspect", (float) width / (float) height);
+                    setF(p, "uTime", editorMs / 1000f);
+                    // A separable kernel runs the SAME program twice with the axis flipped;
+                    // that is the whole reason a pass can declare two renders.
+                    setF2(p, "uDir", step.dirX, step.dirY);
+                    for (FxUniforms.Value v : FxUniforms.forPass(step.pass)) {
+                        if (v.components() == 1) setF(p, v.name, v.data[0]);
+                        else setFn(p, v.name, v.data);
+                    }
+                    setF(p, "uLayerOpacity", opacity);
+                    setF(p, "uMaskCount", cs == null || cs.masks.isEmpty() ? 0f : 1f);
+                    setFn(p, "uMaskGeo", new float[]{geo[0], geo[1], geo[2], geo[3]});
+                    setF2(p, "uMaskRot", geo[4], geo[5]);
+                    setF(p, "uMaskCorner", geo[6]);
+                    setF(p, "uMaskFeather", geo[7]);
+                    setF(p, "uMaskInvert", cs != null && cs.invertMasks ? 1f : 0f);
+                    p.bindAttributesAndUniforms();
+                    GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+                    GlUtil.checkGlError();
+                    if (!last) src = texFor(i);
+                }
             } catch (Exception e) {
                 // A lost grade beats a lost export. Latch so a per-frame failure does not spam.
                 if (!degraded) {
-                    FLog.w("AdjustmentLayer", "degrading to passthrough: " + e);
+                    // WITH the throwable: a bare toString on an NPE names no line, and this
+                    // path is only ever reached on a device where a debugger is not attached.
+                    FLog.w("AdjustmentLayer", "degrading to passthrough", e);
                     degraded = true;
                 }
                 try {
@@ -172,88 +201,21 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         }
 
         /**
-         * Compile the fused pass for {@code stack}, or report that there is nothing to draw.
-         *
-         * @return false when the stack has no fusable card — the caller then passes the frame
-         *         through untouched rather than binding a program that would do nothing.
-         */
-        private boolean ensureProgram(@NonNull FxStack stack)
-                throws VideoFrameProcessingException {
-            FxCompiler.Plan plan = FxCompiler.plan(stack);
-            FxCompiler.Pass fused = null;
-            int skipped = 0;
-            for (FxCompiler.Pass candidate : plan.passes) {
-                if (candidate.sampler) { skipped++; continue; }
-                if (fused == null) fused = candidate;
-                else skipped++;
-            }
-            if (skipped > 0 && sourceKey == null) {
-                // Said ONCE, at compile time, not per frame. Naming the count is what makes the
-                // difference between "the blur did nothing" and "this build cannot do blurs yet".
-                FLog.w("AdjustmentLayer",
-                        skipped + " pass(es) skipped: multi-pass FX are not wired into export "
-                                + "yet (SPEC_ADJUSTMENT_LAYERS_FX M4 remainder)");
-            }
-            if (fused == null) return false;
-            String key = FxUniforms.sourceKey(fused, 8);
-            if (program != null && key.equals(sourceKey)) { pass = fused; return true; }
-            // ORDER MATTERS, and getting it wrong is what the first export A/B caught.
-            //
-            // GLSL ES 1.00 requires declaration BEFORE use, so the mask functions and the
-            // composite's own uniforms have to be spliced in AHEAD of main() — appending them
-            // after the compiler's output left main() calling fxShapeSd and reading uMaskGeo
-            // before either existed, and the driver rejected the whole program:
-            //   'uMaskCount' : undeclared identifier
-            //   'fxShapeSd'  : no matching overloaded function found
-            //
-            // The effect degraded to passthrough exactly as designed, so the export still
-            // finished — which is why this was a log line rather than a lost render.
-            String body = FxCompiler.emitGlsl(fused, 8);
-            int mainAt = body.indexOf("void main()");
-            if (mainAt < 0) {
-                FLog.w("AdjustmentLayer", "compiler emitted no entry point; passing through");
-                degraded = true;
-                return false;
-            }
-            String fragment = "#version 100\n"
-                    + body.substring(0, mainAt)
-                    + COMPOSITE_UNIFORMS
-                    + MaskSdf.GLSL_MASK_FN
-                    + body.substring(mainAt);
-            // The composite is appended rather than emitted by FxCompiler: the compiler builds
-            // an effect chain, and "fold my result back over what was already there, where the
-            // mask allows" is the ADJUSTMENT LAYER's semantic, not the stack's.
-            try {
-                // (vertex, fragment) — that order. Reversed, the fragment source compiles as a
-                // VERTEX shader, where gl_FragColor genuinely does not exist; the driver's
-                // "'gl_FragColor' : undeclared identifier" was telling the exact truth.
-                program = new GlProgram(VERTEX_SHADER, withComposite(fragment));
-                // The quad. Without it GlProgram throws "call setBuffer before bind" on the
-                // first draw -- the attribute exists but has nothing behind it.
-                program.setBufferAttribute("aFramePosition",
-                        GlUtil.getNormalizedCoordinateBounds(), 4);
-            } catch (Exception e) {
-                FLog.w("AdjustmentLayer", "shader compile failed, passing through: " + e);
-                degraded = true;
-                return false;
-            }
-            sourceKey = key;
-            pass = fused;
-            return true;
-        }
-
-        /**
          * Set a uniform that the driver may have OPTIMISED AWAY.
          *
          * <p>GLSL compilers delete uniforms no code path reads, and media3's {@code GlProgram}
          * looks names up in a map built from the LINKED program — so setting one that was
          * removed throws NPE. An invert-only stack reads none of {@code uTexel}, {@code uTime},
          * {@code uAspect} or {@code uDir}, all of which this class declares for the effects that
-         * do, so the very simplest possible stack was the one that crashed.</p>
-         *
-         * <p>Found by running an actual export; the effect degraded to passthrough exactly as
-         * designed, which is why it surfaced as a log line instead of a broken file.</p>
+         * do, so the very simplest possible stack was the one that crashed. Found by running an
+         * actual export.</p>
          */
+        private static void setSampler(@NonNull GlProgram p, @NonNull String name,
+                                       int texId, int unit) {
+            try { p.setSamplerTexIdUniform(name, texId, unit); }
+            catch (RuntimeException ignored) { }
+        }
+
         private static void setF(@NonNull GlProgram p, @NonNull String name, float v) {
             try { p.setFloatUniform(name, v); } catch (RuntimeException ignored) { }
         }
@@ -267,6 +229,127 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             try { p.setFloatsUniform(name, v); } catch (RuntimeException ignored) { }
         }
 
+        /** One RENDER: a compiled program, the pass it came from, and its kernel axis. */
+        private static final class Step {
+            @NonNull final GlProgram program;
+            @NonNull final FxCompiler.Pass pass;
+            final float dirX, dirY;
+
+            Step(@NonNull GlProgram program, @NonNull FxCompiler.Pass pass,
+                 float dirX, float dirY) {
+                this.program = program;
+                this.pass = pass;
+                this.dirX = dirX;
+                this.dirY = dirY;
+            }
+        }
+
+        @NonNull private final List<Step> steps = new java.util.ArrayList<>();
+        /** Ping-pong targets, one per intermediate step. Lazily made, reused every frame. */
+        @NonNull private final List<int[]> pingPong = new java.util.ArrayList<>();
+
+        private int texFor(int i) throws GlUtil.GlException { return pingPongAt(i)[0]; }
+        private int fboFor(int i) throws GlUtil.GlException { return pingPongAt(i)[1]; }
+
+        @NonNull
+        private int[] pingPongAt(int i) throws GlUtil.GlException {
+            while (pingPong.size() <= i) {
+                int tex = GlUtil.createTexture(width, height,
+                        /* useHighPrecisionColorComponents= */ false);
+                pingPong.add(new int[]{tex, GlUtil.createFboForTexture(tex)});
+            }
+            return pingPong.get(i);
+        }
+
+        /**
+         * Compile ONE PROGRAM PER RENDER for {@code stack}.
+         *
+         * <p>Every pass the planner emits is compiled, including SAMPLER passes — the
+         * single-fused-pass limitation is gone. A separable kernel declares two renders and gets
+         * two {@link Step}s sharing one program with the axis flipped, which is exactly what
+         * {@code uDir} was emitted for.</p>
+         *
+         * <p>ONLY THE LAST STEP composites. The mix with the original, the mask and the layer
+         * opacity all belong at the end of the chain: applying them to an intermediate would
+         * fold the layer over the picture and then keep blurring the result.</p>
+         *
+         * @return false when the stack plans nothing to draw.
+         */
+        private boolean ensurePrograms(@NonNull FxStack stack)
+                throws VideoFrameProcessingException {
+            FxCompiler.Plan plan = FxCompiler.plan(stack);
+            if (plan.passes.isEmpty()) return false;
+
+            StringBuilder key = new StringBuilder();
+            for (FxCompiler.Pass pa : plan.passes) {
+                key.append(FxUniforms.sourceKey(pa, KERNEL_HALF)).append('/');
+            }
+            if (!steps.isEmpty() && key.toString().equals(sourceKey)) return true;
+
+            releaseSteps();
+            try {
+                for (int i = 0; i < plan.passes.size(); i++) {
+                    FxCompiler.Pass pa = plan.passes.get(i);
+                    boolean lastPass = i == plan.passes.size() - 1;
+                    int renders = Math.max(1, pa.repeats);
+                    for (int r = 0; r < renders; r++) {
+                        boolean lastRender = lastPass && r == renders - 1;
+                        GlProgram prog = compile(pa, lastRender);
+                        // Horizontal first, then vertical — the order the kernel weights assume.
+                        float dx = (renders > 1 && r == 1) ? 0f : 1f;
+                        float dy = (renders > 1 && r == 1) ? 1f : 0f;
+                        steps.add(new Step(prog, pa, dx, dy));
+                    }
+                }
+            } catch (Exception e) {
+                FLog.w("AdjustmentLayer", "shader compile failed, passing through: " + e);
+                releaseSteps();
+                degraded = true;
+                return false;
+            }
+            sourceKey = key.toString();
+            return true;
+        }
+
+        /**
+         * Build one pass's program.
+         *
+         * <p>ORDER MATTERS, and getting it wrong is what the first export A/B caught. GLSL ES
+         * 1.00 requires declaration before use, so the mask functions and the composite's own
+         * uniforms are spliced in AHEAD of main(); appending them left main() calling fxShapeSd
+         * and reading uMaskGeo before either existed, and the driver rejected the program.</p>
+         */
+        @NonNull
+        private GlProgram compile(@NonNull FxCompiler.Pass pa, boolean composite)
+                throws GlUtil.GlException {
+            String body = FxCompiler.emitGlsl(pa, KERNEL_HALF);
+            int mainAt = body.indexOf("void main()");
+            if (mainAt < 0) {
+                // The compiler always emits an entry point; if it ever stops, fail loudly here
+                // rather than handing the driver a program with nothing to run.
+                throw new GlUtil.GlException("FxCompiler emitted no entry point");
+            }
+            String fragment = "#version 100\n"
+                    + body.substring(0, mainAt)
+                    + COMPOSITE_UNIFORMS
+                    + MaskSdf.GLSL_MASK_FN
+                    + body.substring(mainAt);
+            GlProgram prog = new GlProgram(VERTEX_SHADER,
+                    composite ? withComposite(fragment) : fragment);
+            // The quad. Without it GlProgram throws "call setBuffer before bind" on first draw.
+            prog.setBufferAttribute("aFramePosition",
+                    GlUtil.getNormalizedCoordinateBounds(), 4);
+            return prog;
+        }
+
+        private void releaseSteps() {
+            for (Step st : steps) {
+                try { st.program.delete(); } catch (Exception ignored) { }
+            }
+            steps.clear();
+            sourceKey = null;
+        }
+
         /**
          * The composite's OWN uniforms.
          *
@@ -276,7 +359,12 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
          * reads them and the code that sets them.</p>
          */
         private static final String COMPOSITE_UNIFORMS =
-                "uniform float uLayerOpacity;\n"
+                // The ORIGINAL frame, on its own sampler. In a multi-pass stack uTexSampler
+                // holds the PREVIOUS PASS's output by the time the composite runs, so reading
+                // "base" from it would mix the effect with itself instead of with the picture
+                // underneath — a blur would compose over its own blurred copy.
+                "uniform sampler2D uBaseSampler;\n"
+                + "uniform float uLayerOpacity;\n"
                 + "uniform float uMaskCount;\n"
                 + "uniform vec4 uMaskGeo;\n"
                 + "uniform vec2 uMaskRot;\n"
@@ -296,7 +384,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         private static String withComposite(@NonNull String fragment) {
             return fragment.replace(
                     "  gl_FragColor = c;\n",
-                    "  vec4 base = texture2D(uTexSampler, fxClamp(vFxUv));\n"
+                    "  vec4 base = texture2D(uBaseSampler, fxClamp(vFxUv));\n"
                     + "  float cover = 1.0;\n"
                     + "  if (uMaskCount > 0.5) {\n"
                     + "    vec2 frame = vec2(1.0) / uTexel;\n"
@@ -345,7 +433,13 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         public void release() throws VideoFrameProcessingException {
             super.release();
             try {
-                if (program != null) program.delete();
+                releaseSteps();
+                // The ping-pong targets are GL objects too. Leaking one per export would be a
+                // slow bleed nobody notices until a long session runs out of texture memory.
+                for (int[] pp : pingPong) {
+                    try { GlUtil.deleteTexture(pp[0]); } catch (Exception ignored) { }
+                }
+                pingPong.clear();
                 if (passProgram != null) passProgram.delete();
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);

@@ -94,7 +94,11 @@ public final class FxPreviewTier {
      * disagree with what the renderer actually does.</p>
      */
     public static boolean canExport(@NonNull FxEffectDef def) {
-        return def.capability != FxEffectDef.Capability.SAMPLER;
+        // Every capability now renders: AdjustmentLayerGlEffect compiles one program per pass
+        // and ping-pongs through its own FBOs, so a SAMPLER card gets the finished image it
+        // needs. Kept as a predicate rather than deleted -- it is the seam a future
+        // capability plugs into, and the card/picker already read it.
+        return true;
     }
 
     /**

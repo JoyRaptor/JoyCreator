@@ -223,12 +223,15 @@ public class AdjustmentLayerTest {
 
         // EXPORT capability is a different question from preview tier, and nothing to do with
         // the device: a SAMPLER card needs multi-pass FBOs the export renderer does not have.
-        check("a SAMPLER effect cannot be exported yet",
-                !com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(blur));
-        check("a pointwise effect can", com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(invert));
-        check("the card says so, even on the best hardware",
+        // Multi-pass landed, so EVERY capability exports now -- including the blurs, which
+        // were the one thing the spec promised that this feature could not do end to end.
+        check("a SAMPLER effect exports now",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(blur));
+        check("...as does a pointwise one",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(invert));
+        check("so no card claims otherwise on capable hardware",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).contains("not rendered"));
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
         check("...and says nothing when an effect works everywhere",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(invert,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());

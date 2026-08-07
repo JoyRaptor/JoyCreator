@@ -1,4 +1,4 @@
-# Handoff — overnight run, 2026-08-06 → 07. Adjustment layers M0–M4.
+# Handoff — overnight run, 2026-08-06 → 07. Adjustment layers M0–M6 (bar M5).
 
 JoyRaptor went to bed with "finish all known specs". This is what got done, what is
 provably true, and what is deliberately not finished. **Read
@@ -27,7 +27,7 @@ run-adjust     33/33 + 38/38        run-fx        18/18 + 71/71
 run-mask       21/21 + 47/47        run-key       26/26 (4 suites)
 run-matte      all pass + 12/12     run-sequence  100/100 + 50/50
 schema_mask_stamp.py   13/13        schema_adjust_stamp.py  13/13
-typecheck      606 sources, 1652 classes
+typecheck      607 sources, 1657 classes
 ```
 
 Two new harnesses this run: `run-adjust.sh` (model + SDF) and `run-fx.sh`
@@ -128,11 +128,16 @@ not yet honoured; it grades everything instead of only what is beneath it.
 `LayerPreviewController.orderedCompositedItems` is built and tested for exactly
 this and simply is not consumed yet.
 
-**M5 (preview rendering) and M6 (the FX tab UI) are not started.** Both are
-specced in full in `SPEC_ADJUSTMENT_LAYERS_FX`. **Until M6 exists there is no way
-to add an effect card from the app**, so an adjustment layer created today is an
-empty one — real, movable, saveable, and visually inert. That is the honest state
-of the feature.
+**M5 (preview rendering) is not started** — and it is now the single biggest
+gap, because everything else works. A user can author a full effect stack and
+see absolutely nothing happen in the editor. §6 of the spec specifies it in
+full; the `fx_below_group` wrapper is an XML change rather than a runtime
+reparent, and `applyPreviewColorGrade` already proves RenderEffect works on a
+ViewGroup containing a TextureView in this app.
+
+**M6 remainders:** reorder is by arrow buttons rather than long-press drag, and
+there is no preset store or per-parameter keyframe diamond yet. All three are
+additive to what exists.
 
 **START_HERE's other items** — the FF-B sprite AI tools, the duplicate-layer
 button, the §3A device verification list — were not touched this run.

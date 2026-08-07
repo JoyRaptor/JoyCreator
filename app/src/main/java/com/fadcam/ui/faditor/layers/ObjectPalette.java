@@ -40,6 +40,12 @@ public final class ObjectPalette {
     public static final int CAPTION    = 0xFFFFC107; // gold
     /** Waveform / spectrum visualizers. */
     public static final int VISUALIZER = 0xFFEC407A; // pink
+    /**
+     * Adjustment layers. Its own hue on purpose: an adjustment layer is the one object that
+     * changes what is ALREADY there rather than adding to it, and reading as a PiP would hide
+     * exactly the distinction the user needs to see in the band.
+     */
+    public static final int ADJUSTMENT = 0xFF9E9E9E; // slate — "affects, does not add"
     /** The master spine reads as video — same hue, named separately for call-site clarity. */
     public static final int MASTER     = VIDEO;
 
@@ -60,6 +66,7 @@ public final class ObjectPalette {
             case SPRITE:     return SPRITE;
             case CAPTION:    return CAPTION;
             case VISUALIZER: return VISUALIZER;
+            case ADJUSTMENT: return ADJUSTMENT;
             case VIDEO:
             case MASTER:
             case LAYER:
@@ -93,6 +100,7 @@ public final class ObjectPalette {
         if (item.getAudioClip() != null) return TrackKind.AUDIO;
         if (item.getWaveform() != null) return TrackKind.VISUALIZER;
         if (item.getCaptionSpan() != null) return TrackKind.CAPTION;
+        if (item.getAdjustment() != null) return TrackKind.ADJUSTMENT;
         if (item.getClip() != null && item.getClip().isOverlayClip()) return TrackKind.VIDEO;
         return rowKind;
     }

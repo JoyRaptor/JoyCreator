@@ -101,6 +101,10 @@
     <item name="tool_sprites_icon" type="id"/>
     <item name="tool_sprites_label" type="id"/>
     <!-- Slice F: "Compact lanes" carousel tool (drops layers into the fewest no-overlap lanes). -->
+    <!-- Adjustment-layer tool (SPEC_ADJUSTMENT_LAYERS_FX M3). -->
+    <item name="tool_adjustment" type="id"/>
+    <item name="tool_adjustment_icon" type="id"/>
+    <item name="tool_adjustment_label" type="id"/>
     <item name="tool_compact" type="id"/>
     <item name="tool_compact_icon" type="id"/>
     <item name="tool_compact_label" type="id"/>

@@ -2462,6 +2462,14 @@ public final class LayerRowRenderer {
         }
         if (item.getWaveform() != null) return "VIZ";
         if (item.getCaptionSpan() != null) return "CC";
+        if (item.getAdjustment() != null) {
+            // The layer's own name, so several are told apart at a glance. The effect count is
+            // appended once there is one: an adjustment layer with an empty stack changes
+            // nothing, and saying so on the chip is cheaper than wondering why nothing happened.
+            int fx = item.getAdjustment().getFx().active().size();
+            String name = item.getAdjustment().getName();
+            return fx > 0 ? name + " · " + fx : name;
+        }
         if (item.getClip() != null) return null; // master items already show thumbnails elsewhere
         return null;
     }

@@ -2574,6 +2574,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             sheet.show(getSupportFragmentManager(), "faditorSettings");
         });
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
+        View toolAdjustment = findViewById(R.id.tool_adjustment);
+        if (toolAdjustment != null) toolAdjustment.setOnClickListener(v -> addAdjustmentLayer());
         View toolCompact = findViewById(R.id.tool_compact);
         if (toolCompact != null) toolCompact.setOnClickListener(v -> compactLayers());
         // G8 (contract §5.5): three-state marquee multi-select toggle.
@@ -20104,6 +20106,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
             case ADD:      return R.string.faditor_blend_add;
             default:       return R.string.faditor_blend_normal;
         }
+    }
+
+    /**
+     * Create an ADJUSTMENT LAYER spanning the whole timeline
+     * (SPEC_ADJUSTMENT_LAYERS_FX M3).
+     *
+     * <p>Whole timeline rather than the current selection: an adjustment layer's ordinary use is
+     * "grade the whole thing", and a layer that silently covered only part of it would look like
+     * the effect had stopped working partway through. Trimming it back is one drag; discovering
+     * why half the film is ungraded is not.</p>
+     *
+     * <p>It lands in the {@code "adjustment"} lane, which {@code Timeline.getLayers} emits
+     * ABOVE the video/PiP phase — so a new layer affects everything built so far, which is the
+     * After Effects reading.</p>
+     *
+     * <p><b>It renders nothing yet</b>, by design (M3). What it does do is exist: it can be
+     * created, selected, moved, trimmed, hidden, saved, reloaded and undone, and every one of
+     * those is worth proving before either renderer depends on it.</p>
+     */
+    private void addAdjustmentLayer() {
+        if (project == null || editorTimeline == null) return;
+        long total = Math.max(1L, project.getTimeline().getTotalDurationMs());
+        com.fadcam.ui.faditor.model.AdjustmentLayer layer =
+                new com.fadcam.ui.faditor.model.AdjustmentLayer();
+        layer.setLayerId("adjustment");
+        layer.setStartMs(0L);
+        layer.setDurationMs(total);
+        layer.setName("Adjustment " + (project.getTimeline().getAdjustmentLayers().size() + 1));
+
+        project.getTimeline().addAdjustmentLayer(layer);
+        undoManager.recordAction(new EditActions.LambdaAction(
+                "Add adjustment layer",                                       // TODO(strings)
+                () -> {
+                    project.getTimeline().addAdjustmentLayer(layer);
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                },
+                () -> {
+                    project.getTimeline().removeAdjustmentLayer(layer);
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }));
+        refreshAfterMarqueeBatchDelete();
+        scheduleAutoSave();
+        android.widget.Toast.makeText(this,
+                "Adjustment layer added — effects come next",                  // TODO(strings)
+                android.widget.Toast.LENGTH_SHORT).show();
     }
 
     private void showObjectMenuSheetForPipClip(@NonNull Clip c) {

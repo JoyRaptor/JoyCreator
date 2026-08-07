@@ -104,6 +104,12 @@ public final class FaditorToolRegistry {
         add(t, "sprites", R.id.tool_sprites, R.id.tool_sprites_icon, R.id.tool_sprites_label,
                 ctx.getString(R.string.faditor_tool_sprites), "animation",
                 FaditorTool.BindMode.CLICK, false);
+        // Adjustment layer (SPEC_ADJUSTMENT_LAYERS_FX M3) — a layer that transforms everything
+        // beneath it. A Material Symbols LIGATURE, which is the carousel's convention; the
+        // drawer uses vector drawables instead, and mixing the two is how an icon goes missing.
+        add(t, "adjustment", R.id.tool_adjustment, R.id.tool_adjustment_icon,
+                R.id.tool_adjustment_label, "Adjust", "layers",
+                FaditorTool.BindMode.CLICK, false);
         // Slice F: compact lanes — drop every overlay into the fewest no-overlap lanes.
         add(t, "compact", R.id.tool_compact, R.id.tool_compact_icon, R.id.tool_compact_label,
                 "Compact", "compress",

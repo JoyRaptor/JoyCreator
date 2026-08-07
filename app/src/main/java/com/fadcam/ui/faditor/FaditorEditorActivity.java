@@ -2575,7 +2575,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
         View toolAdjustment = findViewById(R.id.tool_adjustment);
-        if (toolAdjustment != null) toolAdjustment.setOnClickListener(v -> addAdjustmentLayer());
+        if (toolAdjustment != null) {
+            toolAdjustment.setOnClickListener(v -> openOrCreateAdjustmentLayer());
+            // Long-press always CREATES, so a second layer stays reachable once the tap has
+            // become "edit the one you have".
+            toolAdjustment.setOnLongClickListener(v -> { addAdjustmentLayer(); return true; });
+        }
         View toolCompact = findViewById(R.id.tool_compact);
         if (toolCompact != null) toolCompact.setOnClickListener(v -> compactLayers());
         // G8 (contract §5.5): three-state marquee multi-select toggle.
@@ -20125,6 +20130,86 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * created, selected, moved, trimmed, hidden, saved, reloaded and undone, and every one of
      * those is worth proving before either renderer depends on it.</p>
      */
+    /**
+     * The "Adjust" tool: create the first adjustment layer, or EDIT the topmost one.
+     *
+     * <p>Deliberately one button doing two things, and it is the right two. The drawer that
+     * would normally own an object's editor is reached by hold-then-release on its timeline
+     * chip — a gesture that is undiscoverable enough to need a coach-mark, and which cannot be
+     * driven by adb at all, so it is also unverifiable from here. Routing the FX panel through
+     * the tool the user already pressed to make the layer means the feature is reachable by tap
+     * on the first try.</p>
+     *
+     * <p>Add a SECOND layer by pressing the tool while the panel is open — the panel's own
+     * header says so. That keeps "make another" possible without making it the default, since
+     * wanting two adjustment layers is much rarer than wanting to edit the one you just made.</p>
+     */
+    private void openOrCreateAdjustmentLayer() {
+        if (project == null) return;
+        java.util.List<com.fadcam.ui.faditor.model.AdjustmentLayer> existing =
+                project.getTimeline().getAdjustmentLayers();
+        if (existing.isEmpty()) {
+            addAdjustmentLayer();
+            return;
+        }
+        showAdjustmentDrawer(existing.get(existing.size() - 1));
+    }
+
+    /** The FX stack editor for one adjustment layer (SPEC_ADJUSTMENT_LAYERS_FX M6). */
+    private void showAdjustmentDrawer(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
+        // Session snapshot for undo, the same idiom the mask/chroma drawer uses: one drag emits
+        // a stream of values, and a per-slider action would bury the stack.
+        final String before = layer.getFx().toJson().toString();
+        com.fadcam.ui.faditor.tools.FxPanel.Host fxHost =
+                new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            @Override public void onFxChanged() {
+                if (editorTimeline != null) editorTimeline.invalidate();
+                scheduleAutoSave();
+            }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+        };
+
+        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
+                new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                layer.getName(), 0,
+                ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(ctx, layer.getFx(), fxHost)));
+
+        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
+                new java.util.ArrayList<>();
+        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+                R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
+                layer::isHidden,
+                () -> {
+                    layer.setHidden(!layer.isHidden());
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }, true));
+
+        ensurePipDrawer().setOnClose(() -> {
+            String after = layer.getFx().toJson().toString();
+            if (after.equals(before)) return;
+            // DETACHED copies, for the reason MaskKeyPanel:371 records: holding the live stack
+            // would leave both directions pointing at one mutating object, so undo would
+            // restore the very state it was undoing.
+            final com.fadcam.ui.faditor.fx.FxStack undoState =
+                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
+                            com.google.gson.JsonParser.parseString(before).getAsJsonObject());
+            final com.fadcam.ui.faditor.fx.FxStack redoState =
+                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
+                            com.google.gson.JsonParser.parseString(after).getAsJsonObject());
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    "Effects",                                                // TODO(strings)
+                    () -> { layer.getFx().copyFrom(redoState); fxHost.onFxChanged(); },
+                    () -> { layer.getFx().copyFrom(undoState); fxHost.onFxChanged(); }));
+        });
+        ensurePipDrawer().show(tabs, toggles);
+    }
+
     private void addAdjustmentLayer() {
         if (project == null || editorTimeline == null) return;
         long total = Math.max(1L, project.getTimeline().getTotalDurationMs());

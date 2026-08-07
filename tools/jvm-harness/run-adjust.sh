@@ -27,7 +27,7 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/AdjustmentLayerTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/AdjustmentLayerTest.java tools/jvm-harness/MaskSdfTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which
 # a grep for "error:" would report as success. run-matte.sh was bitten by exactly this.
@@ -35,4 +35,5 @@ javac @"$ARGS" tools/jvm-harness/AdjustmentLayerTest.java || exit 1
 [ -f "$OUT/AdjustmentLayerTest.class" ] || { echo "no BlendModesTest class"; exit 1; }
 
 
-java @"$RUNARGS" AdjustmentLayerTest
+java @"$RUNARGS" AdjustmentLayerTest || exit 1
+java @"$RUNARGS" MaskSdfTest

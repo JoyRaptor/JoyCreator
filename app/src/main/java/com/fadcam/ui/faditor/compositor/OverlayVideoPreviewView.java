@@ -584,6 +584,169 @@ public class OverlayVideoPreviewView extends FrameLayout {
 
     /** Top-most visible overlay clip (list order = z, bottom→top; end-INCLUSIVE like sprites). */
     @Nullable
+    // ── Off-stage ghosts ──────────────────────────────────────────────────────
+
+    /**
+     * Outline colours. Green = the object, yellow = its mask — JoyRaptor's own pairing,
+     * 2026-08-06, and worth keeping distinct because the two travel independently once a mask
+     * is unlinked.
+     */
+    private static final int GHOST_OBJECT = 0xFF4CD964;
+    private static final int GHOST_MASK = 0xFFFFD426;
+
+    private final android.graphics.Paint ghostPaint = new android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Path ghostPath = new android.graphics.Path();
+
+    /**
+     * Draw a dashed outline wherever a PiP or one of its mask shapes has left the visible
+     * frame, so an object panned off-stage can still be found.
+     *
+     * <p>Positions may now travel a full frame beyond each edge ({@code KeyframeSet.POS_MIN}),
+     * which is exactly what makes an object easy to lose — "oh no, where did my asset go"
+     * (user, 2026-08-06). The ghost is the answer to that, so it arrived in the same breath as
+     * the range that needs it.</p>
+     *
+     * <p><b>Drawn only when something is ACTUALLY off-stage.</b> An outline around every object
+     * all the time is chrome; one that appears exactly when a thing becomes hard to see is
+     * information.</p>
+     *
+     * <p>Two tiers. If any part of the outline is inside this view it is drawn in place, in the
+     * letterbox beside the frame. If the object has gone past the view as well — reachable,
+     * since the range is a whole frame — the outline would be invisible, so an EDGE TICK is
+     * drawn instead, on the side the object left by, at its centre's height. Without that
+     * second tier the feature would quietly stop working at exactly the distances that need it
+     * most.</p>
+     */
+    private void drawOffStageGhosts(@NonNull android.graphics.Canvas canvas) {
+        if (callback == null || clips.isEmpty()) return;
+        RectF r = callback.getVideoContentRect();
+        if (r.width() <= 0 || r.height() <= 0) return;
+        ghostPaint.setStyle(android.graphics.Paint.Style.STROKE);
+        ghostPaint.setStrokeWidth(Math.max(2f, getResources().getDisplayMetrics().density * 1.5f));
+        ghostPaint.setPathEffect(new android.graphics.DashPathEffect(new float[]{9f, 7f}, 0f));
+
+        for (Clip c : clips) {
+            long start = c.getOverlayStartMs();
+            long end = start + Math.max(0, c.getTrimmedDurationMs());
+            if (currentTimeMs < start || currentTimeMs > end) continue;
+            if (c.isHiddenObject()) continue;
+
+            KeyframeSet kf = c.getOverlayTransform();
+            long t = currentTimeMs;
+            float x = kf == null ? DEFAULT_X : kf.valueAt(KeyframeSet.X, t, DEFAULT_X);
+            float y = kf == null ? DEFAULT_Y : kf.valueAt(KeyframeSet.Y, t, DEFAULT_Y);
+            float scale = kf == null ? DEFAULT_SCALE
+                    : kf.valueAt(KeyframeSet.SCALE, t, DEFAULT_SCALE);
+            float rot = kf == null ? 0f : kf.valueAt(KeyframeSet.ROTATION, t, 0f);
+
+            // The still's own fit when there is one, else the routed host's base box. Using
+            // baseW/baseH for every clip would draw a ghost the size of the ACTIVE video.
+            StillFrame sf = stills.get(c.getId());
+            float bw, bh;
+            if (sf != null && sf.bitmap != null && !sf.bitmap.isRecycled()) {
+                float fit = Math.min(r.width() / sf.bitmap.getWidth(),
+                        r.height() / sf.bitmap.getHeight());
+                bw = sf.bitmap.getWidth() * fit;
+                bh = sf.bitmap.getHeight() * fit;
+            } else {
+                bw = baseW; bh = baseH;
+            }
+            if (bw <= 0 || bh <= 0) continue;
+            bw *= scale; bh *= scale;
+
+            float cx = r.left + x * r.width();
+            float cy = r.top + y * r.height();
+            RectF box = new RectF(cx - bw / 2f, cy - bh / 2f, cx + bw / 2f, cy + bh / 2f);
+            if (r.contains(box)) continue;   // fully on stage — nothing to find
+
+            ghostPaint.setColor(GHOST_OBJECT);
+            drawGhostBox(canvas, r, box, rot, cx, cy);
+
+            // Mask shapes travel independently of the object once unlinked, so they get their
+            // own ghost rather than being assumed to sit inside the object's.
+            com.fadcam.ui.faditor.model.CompositingSpec cs =
+                    com.fadcam.ui.faditor.model.MaskAnimator.resolve(
+                            c.getCompositing(), kf, t, r.width(), r.height());
+            if (cs == null) continue;
+            ghostPaint.setColor(GHOST_MASK);
+            for (com.fadcam.ui.faditor.model.CompositingSpec.MaskShape m : cs.masks) {
+                float mw = m.w * r.width(), mh = m.h * r.height();
+                float mcx = r.left + m.cx * r.width(), mcy = r.top + m.cy * r.height();
+                RectF mb = new RectF(mcx - mw / 2f, mcy - mh / 2f, mcx + mw / 2f, mcy + mh / 2f);
+                if (r.contains(mb)) continue;
+                drawGhostBox(canvas, r, mb, m.rotationDeg, mcx, mcy);
+            }
+        }
+        ghostPaint.setPathEffect(null);
+    }
+
+    /**
+     * One ghost outline, or an edge tick when the thing has left the FRAME entirely.
+     *
+     * <p><b>Everything here is measured against the content rect, not this view's bounds.</b>
+     * The view is wider than the frame — there is letterbox either side — but something above
+     * it paints that letterbox, so anything drawn out there is invisible. Verified on device:
+     * an outline at view-x 744..1060 rendered only as far as the content rect's right edge at
+     * 782. So the frame, not the view, is the usable canvas, and a tick placed at the view
+     * edge would be a locator nobody can see.</p>
+     */
+    private void drawGhostBox(@NonNull android.graphics.Canvas canvas, @NonNull RectF frame,
+                              @NonNull RectF box, float rotDeg, float cx, float cy) {
+        boolean offFrame = box.right < frame.left || box.left > frame.right
+                || box.bottom < frame.top || box.top > frame.bottom;
+        if (!offFrame) {
+            // Partly in view: draw it where it really is and let the frame clip it. The edge
+            // that is still inside points straight at the rest.
+            canvas.save();
+            if (rotDeg != 0f) canvas.rotate(rotDeg, cx, cy);
+            ghostPath.reset();
+            ghostPath.addRect(box, android.graphics.Path.Direction.CW);
+            canvas.drawPath(ghostPath, ghostPaint);
+            canvas.restore();
+            return;
+        }
+        // Wholly outside: a tick on the frame edge it left by, at its own centre's height, so
+        // the direction it went is still readable. Without this the feature would quietly stop
+        // working at exactly the distances that need it most.
+        float d = getResources().getDisplayMetrics().density;
+        float inset = 3f * d, len = 18f * d;
+        float ty = Math.max(frame.top + len, Math.min(frame.bottom - len, cy));
+        float tx = Math.max(frame.left + len, Math.min(frame.right - len, cx));
+        android.graphics.PathEffect dashes = ghostPaint.getPathEffect();
+        ghostPaint.setPathEffect(null);      // an 18dp tick has no room for dashes
+        if (box.right < frame.left) {
+            canvas.drawLine(frame.left + inset, ty - len / 2f,
+                    frame.left + inset, ty + len / 2f, ghostPaint);
+        } else if (box.left > frame.right) {
+            canvas.drawLine(frame.right - inset, ty - len / 2f,
+                    frame.right - inset, ty + len / 2f, ghostPaint);
+        } else if (box.bottom < frame.top) {
+            canvas.drawLine(tx - len / 2f, frame.top + inset,
+                    tx + len / 2f, frame.top + inset, ghostPaint);
+        } else {
+            canvas.drawLine(tx - len / 2f, frame.bottom - inset,
+                    tx + len / 2f, frame.bottom - inset, ghostPaint);
+        }
+        ghostPaint.setPathEffect(dashes);
+    }
+
+    /**
+     * Ghosts draw AFTER the children, unlike the stills in {@link #onDraw}. An off-stage object
+     * lies in the letterbox where the TextureView may still be sitting, and a ghost drawn
+     * behind it would be hidden by the very object it exists to locate.
+     */
+    @Override
+    protected void dispatchDraw(@NonNull android.graphics.Canvas canvas) {
+        super.dispatchDraw(canvas);
+        try {
+            drawOffStageGhosts(canvas);
+        } catch (RuntimeException e) {
+            // A locator is never worth taking the preview down for.
+            com.fadcam.FLog.w("OverlayPreview", "ghost draw failed: " + e);
+        }
+    }
+
     private Clip topVisibleAt(long t) {
         for (int i = clips.size() - 1; i >= 0; i--) {
             Clip c = clips.get(i);

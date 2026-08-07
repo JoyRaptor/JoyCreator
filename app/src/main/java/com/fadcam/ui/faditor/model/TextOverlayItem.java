@@ -200,18 +200,11 @@ public class TextOverlayItem {
      * <p>Null until something is added, so every text overlay that predates per-object FX
      * serializes byte-identically.</p>
      *
-     * <p><b>MODEL AND STORAGE ONLY TODAY — nothing renders this yet, and that is an
-     * architectural boundary rather than an unfinished wire.</b> A PiP reaches the screen
-     * through {@code BlendModeGlEffect}, a GL shader, so M7 splices the compiled FX straight
-     * into it. Text reaches the screen through {@code CompositeExportOverlay}, a
-     * {@code BitmapOverlay} drawn on a Canvas — there is no shader to splice into. Rendering
-     * this would mean putting the text bitmap through the FX chain as a texture, which is a
-     * renderer, not a wire.</p>
-     *
-     * <p>The field lands now because the model, the panel and the serialization are genuinely
-     * shared, and because a stack authored today will simply start working when that renderer
-     * exists. It is deliberately NOT surfaced in the UI: an Effects tab that silently does
-     * nothing is worse than no tab.</p>
+     * <p><b>Rendered by {@code TextFxGlEffect}.</b> A PiP reaches the screen through a GL
+     * shader, so its FX splice straight in; text reaches it through a Canvas
+     * {@code BitmapOverlay}, where there is no shader at all. So an overlay carrying effects
+     * leaves the Canvas path entirely and gets its own GL effect, which rasterises it through
+     * the SAME {@code TextOverlayRenderer} and then runs its stack on those pixels.</p>
      */
     @Nullable
     private com.fadcam.ui.faditor.fx.FxStack fx;

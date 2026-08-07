@@ -21322,6 +21322,59 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private final java.util.Set<String> textOverlayCreatedHere = new java.util.HashSet<>();
 
+    /**
+     * The FX stack editor for ONE text overlay (SPEC_ADJUSTMENT_LAYERS_FX M7).
+     *
+     * <p>The same {@code FxPanel} in the same drawer a PiP and an adjustment layer use — the
+     * point of M7 being one model rather than three. Subject OBJECT, so a sampler card is
+     * badged "layer only": a text overlay's effects are folded into its compositing shader in
+     * one pass, exactly like a PiP's.</p>
+     */
+    private void showTextFxDrawer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        final String before = item.getOrCreateFx().toJson().toString();
+        com.fadcam.ui.faditor.tools.FxPanel.Host host =
+                new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            @Override public void onFxChanged() {
+                // Normalise an emptied stack back to null, so an overlay briefly given an
+                // effect serializes exactly as it did before it was touched.
+                item.setFx(item.getFx());
+                refreshAfterMarqueeBatchDelete();
+                scheduleAutoSave();
+            }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+        };
+
+        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
+                new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                "Text effects", 0,                                            // TODO(strings)
+                ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
+                        ctx, item.getOrCreateFx(), host,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
+
+        ensurePipDrawer().setOnClose(() -> {
+            String after = item.getOrCreateFx().toJson().toString();
+            if (after.equals(before)) return;
+            // Detached copies, per MaskKeyPanel:371 — holding the live stack would leave both
+            // undo directions pointing at one mutating object.
+            final com.fadcam.ui.faditor.fx.FxStack undoState =
+                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
+                            com.google.gson.JsonParser.parseString(before).getAsJsonObject());
+            final com.fadcam.ui.faditor.fx.FxStack redoState =
+                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
+                            com.google.gson.JsonParser.parseString(after).getAsJsonObject());
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    "Text effects",                                           // TODO(strings)
+                    () -> { item.getOrCreateFx().copyFrom(redoState); host.onFxChanged(); },
+                    () -> { item.getOrCreateFx().copyFrom(undoState); host.onFxChanged(); }));
+        });
+        ensurePipDrawer().show(tabs, new java.util.ArrayList<>());
+    }
+
     private void showTextOverlayEditor(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         if (item.isImage()) {
@@ -21372,6 +21425,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
             swatchRow.addView(swatch);
         }
         root.addView(swatchRow);
+
+        // M7: this text's OWN effects. A chip rather than another inline section, because the
+        // FX panel is a scrolling card list and this dialog is already tall — and because it
+        // is the same panel a PiP and an adjustment layer open, so it belongs in the same
+        // drawer they use rather than reimplemented here.
+        {
+            android.widget.TextView fxChip = new android.widget.TextView(this);
+            int fxCount = item.getFx() == null ? 0 : item.getFx().active().size();
+            fxChip.setText(fxCount > 0 ? "✦ Effects (" + fxCount + ")" : "✦ Effects");
+            fxChip.setTextColor(0xFFE8E8E8);
+            fxChip.setTextSize(13f);
+            int cp = (int) (10 * getResources().getDisplayMetrics().density);
+            fxChip.setPadding(cp, cp, cp, cp);
+            fxChip.setBackgroundColor(0x22FFFFFF);
+            fxChip.setOnClickListener(v -> showTextFxDrawer(item));
+            root.addView(fxChip);
+        }
 
         // Font selector — distinct personalities + custom fonts
         final String[][] fonts = {

@@ -2726,6 +2726,23 @@ public class ExportManager {
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
             }
 
+            // ── Text overlays that carry their OWN effects (M7) ────────────────────────────
+            // A Canvas has no shader, so these leave the CompositeExportOverlay path and get a
+            // GL effect apiece. GATED on hasActiveFx(), so every text overlay that has no
+            // effects — which is all of them in every project written before now — stays on
+            // exactly the path it always took.
+            //
+            // Emitted BEFORE the adjustment layers below, so an adjustment layer still grades
+            // "everything beneath it" including styled text. Emitted AFTER the PiP loop, so
+            // text stays above the video, which is where it has always been.
+            for (com.fadcam.ui.faditor.model.TextOverlayItem to : exportTextOverlays) {
+                if (!to.hasActiveFx()) continue;
+                videoEffects.add(new TextFxGlEffect(context, to,
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                                - (isLoopBeforeItem
+                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
+            }
+
             // ── Adjustment layers (SPEC_ADJUSTMENT_LAYERS_FX M4) ───────────────────────────
             // Chain position IS z-order, so appending here puts these ABOVE every PiP — which
             // is exactly where getLayers emits the adjustment phase, so the default case is

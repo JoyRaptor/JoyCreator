@@ -433,6 +433,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
         for (TextOverlayItem o : all) {
             if (o.getEndMs() < clipTimelineStartMs) continue;
             if (o.getStartMs() > clipVisualEndMs) continue;
+            // M7: an overlay carrying its OWN effects is rendered by TextFxGlEffect instead,
+            // because a Canvas has no shader to run them through. Skipping it here is what
+            // stops it being drawn twice — once styled in GL and once plain on top.
+            if (o.hasActiveFx()) continue;
             out.add(o);
         }
         return out;

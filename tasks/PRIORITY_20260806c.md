@@ -28,8 +28,15 @@
 > Add/Subtract/Intersect, four presets, per-shape sliders rebuilt in place, per-shape object
 > link, and "Key at playhead" writing slot-named tracks.
 >
-> **STILL OWED on M0:** undo for the mask/chroma sliders (`Host.recordUndo` is *still*
-> declared and never called — spec §1.5), and `docs/project-schema.md`.
+> **M0 IS CODE-COMPLETE.** Undo now covers the mask *and* chroma sliders (session snapshot,
+> committed from both the drawer close hook and a retarget — `setOnClose` had no callers
+> before). `docs/project-schema.md` documents feather / maskKeys / link* / mode / slot and the
+> keyframe track names, and its version history — which had stopped at v10 while the code was
+> on v12 — is backfilled through v13.
+>
+> **Full sweep at this commit:** `run-mask` 21/21 + 33/33 · `run-key` 22/22 (4 suites) ·
+> `run-matte` all pass · `run-sequence` 100/100 + 50/50 · `schema_mask_stamp.py` 13/13.
+> APK on the phone is current and built WITHOUT the debug flag.
 >
 > ### 🖐 ONE THING THAT NEEDS JOYRAPTOR'S FINGER (20 seconds)
 > The mask tab cannot be reached by adb input injection — see the P0.1 note below. To see the

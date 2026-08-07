@@ -35,8 +35,10 @@
 > keyframe track names, and its version history — which had stopped at v10 while the code was
 > on v12 — is backfilled through v13.
 >
-> **Full sweep, latest:** `run-mask` 21/21 + 47/47 · `run-key` 26/26 (4 suites) ·
-> `run-matte` all pass · `run-sequence` 100/100 + 50/50 · `schema_mask_stamp.py` 13/13.
+> **Full sweep, latest — everything green:**
+> `run-adjust` 33/33 + 38/38 · `run-fx` 18/18 + 71/71 · `run-mask` 21/21 + 47/47 ·
+> `run-key` 26/26 · `run-matte` all pass + 12/12 · `run-sequence` 100/100 + 50/50 ·
+> `schema_mask_stamp.py` 13/13 · `schema_adjust_stamp.py` 13/13.
 > APK on the phone is current and built WITHOUT the debug flag.
 >
 > **M0 IS COMPLETE, including three rounds of feedback.** The next substantial work is M1
@@ -135,13 +137,29 @@
 > because `Timeline` reaches media3), `tasks/schema_adjust_stamp.py` 13/13 reproducing the lane
 > coercion before proving the stamp stops it.
 >
-> **STILL OWED on M3:** the creation UI (carousel tool + `EditActions` add/remove) and the
-> `LayerRowRenderer` chip. The layer cannot yet be made from the app.
+> **M3 IS COMPLETE AND DEVICE-VERIFIED.** The "Adjust" carousel tool creates a layer spanning
+> the whole timeline, in its own slate hue, with a name-plus-effect-count chip and one undo
+> action. Tapping it on the phone produced exactly:
+> `"adjustmentLayers":[{… "durationMs":7874, "name":"Adjustment 1"}]` **and
+> `"schemaVersion": 13`** — the conditional stamp firing only because a layer is present.
+> It renders nothing yet; that is M4.
 >
-> **Next: M4** — export rendering (`AdjustmentLayerGlEffect`, `MaskSdf`, the merged z-loop in
-> `ExportManager`). Ground truth first, per the spec. The merged loop touches the code the PiP
-> z-unification fix wrote, so the regression that matters is: **a PiP project with no
-> adjustment layer must export byte-identically.**
+> **M4 — STARTED.** `MaskSdf` is done and pinned (38/38): the mask as a signed distance field,
+> the ChromaKey shape (GLSL constant + Java mirror + packer) so export and preview concatenate
+> the SAME string. `sdRoundBox` is geometrically exact against `Path.addRoundRect`, so hard
+> edges match the Canvas renderers to the pixel; the feather is a smoothstep rather than a
+> Gaussian and that is documented, not hidden. Booleans fold as max/min on COVERAGE, which is
+> what makes a **soft subtract** expressible at all.
+>
+> **STILL OWED on M4:** `export/AdjustmentLayerGlEffect.java` and the merged z-loop in
+> `ExportManager`. **The regression that matters there: a PiP project with NO adjustment layer
+> must export byte-identically.** Suggested approach — gate it exactly like `MaskFold`: when
+> `usesAdjustmentLayers()` is false, run today's PiP loop untouched; only take the merged
+> `orderedCompositedItems` path when a layer exists. That makes the no-layer case identical by
+> construction rather than by careful reading.
+>
+> **Then M5** (preview: the `fx_below_group` wrapper + tiered RenderEffect) and **M6** (the FX
+> tab UI). Both are specced in full.
 >
 > **P0.1 device verification — BLOCKED. The hold gesture is NOT adb-drivable; stop trying.**
 > Four injection strategies were tried and all fail identically. Save the next session the hour:

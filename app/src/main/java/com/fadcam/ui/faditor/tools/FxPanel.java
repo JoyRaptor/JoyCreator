@@ -14,6 +14,7 @@ import com.fadcam.ui.faditor.fx.FxCost;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxInstance;
 import com.fadcam.ui.faditor.fx.FxParam;
+import com.fadcam.ui.faditor.fx.FxPresetStore;
 import com.fadcam.ui.faditor.fx.FxPreviewTier;
 import com.fadcam.ui.faditor.fx.FxRegistry;
 import com.fadcam.ui.faditor.fx.FxStack;
@@ -89,6 +90,7 @@ public final class FxPanel {
                 root.addView(card(ctx, stack, cards.get(i), i, host, rebuild[0], d));
             }
             root.addView(addRow(ctx, stack, host, rebuild[0], d));
+            root.addView(presetRow(ctx, stack, host, rebuild[0], d));
         };
         rebuild[0].run();
         return root;
@@ -404,6 +406,111 @@ public final class FxPanel {
         lp.rightMargin = Math.round(5 * d);
         t.setLayoutParams(lp);
         return t;
+    }
+
+    // ── Presets ─────────────────────────────────────────────────────────────
+
+    /**
+     * Save the stack as a named look, and load one back.
+     *
+     * <p>Presets live OUTSIDE the project schema (see {@link FxPresetStore}), so this row can
+     * never make a project unopenable by an older build — which is what lets it exist at all
+     * without a migration story.</p>
+     */
+    @NonNull
+    private static View presetRow(@NonNull Context ctx, @NonNull FxStack stack,
+                                  @NonNull Host host, @NonNull Runnable rebuild, float d) {
+        LinearLayout wrap = new LinearLayout(ctx);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.setPadding(0, Math.round(10 * d), 0, 0);
+
+        List<String> names = FxPresetStore.listNames(ctx);
+        if (stack.isEmpty() && names.isEmpty()) return wrap;   // nothing to save, none to load
+
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        if (!stack.isEmpty()) {
+            TextView save = chip(ctx, "Save look", d);
+            save.setOnClickListener(v -> {
+                final android.widget.EditText input = new android.widget.EditText(ctx);
+                input.setHint("Name this look");
+                new android.app.AlertDialog.Builder(ctx)
+                        .setTitle("Save look")
+                        .setView(input)
+                        .setPositiveButton("Save", (dlg, w) -> {
+                            String name = input.getText().toString().trim();
+                            if (name.isEmpty()) return;
+                            FxPresetStore.save(ctx, name, stack);
+                            rebuild.run();
+                            android.widget.Toast.makeText(ctx, "Saved '" + name + "'",
+                                    android.widget.Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+            row.addView(save);
+        }
+        wrap.addView(row);
+
+        if (names.isEmpty()) return wrap;
+        TextView head = new TextView(ctx);
+        head.setText("Saved looks");
+        head.setTextColor(TXT_DIM);
+        head.setTextSize(10.5f);
+        head.setPadding(0, Math.round(6 * d), 0, Math.round(2 * d));
+        wrap.addView(head);
+
+        LinearLayout list = new LinearLayout(ctx);
+        list.setOrientation(LinearLayout.HORIZONTAL);
+        for (String name : names) {
+            TextView c = chip(ctx, name, d);
+            c.setOnClickListener(v -> {
+                // REPLACES the stack, so it is confirmed: loading a look over work in progress
+                // is the one action here that destroys something the user cannot see a copy of.
+                if (stack.isEmpty()) {
+                    applyPreset(ctx, stack, name, host, rebuild);
+                    return;
+                }
+                new android.app.AlertDialog.Builder(ctx)
+                        .setTitle("Load '" + name + "'?")
+                        .setMessage("This replaces the " + stack.size()
+                                + " effect(s) on this layer.")
+                        .setPositiveButton("Load",
+                                (dlg, w) -> applyPreset(ctx, stack, name, host, rebuild))
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+            c.setOnLongClickListener(v -> {
+                new android.app.AlertDialog.Builder(ctx)
+                        .setTitle("Delete '" + name + "'?")
+                        .setPositiveButton("Delete", (dlg, w) -> {
+                            FxPresetStore.delete(ctx, name);
+                            rebuild.run();
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+                return true;
+            });
+            list.addView(c);
+        }
+        android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(ctx);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.addView(list);
+        wrap.addView(scroll);
+        return wrap;
+    }
+
+    private static void applyPreset(@NonNull Context ctx, @NonNull FxStack stack,
+                                    @NonNull String name, @NonNull Host host,
+                                    @NonNull Runnable rebuild) {
+        if (!FxPresetStore.load(ctx, name, stack)) {
+            android.widget.Toast.makeText(ctx, "Could not load '" + name + "'",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        rebuild.run();
+        host.onFxChanged();
     }
 
     // ── The picker ──────────────────────────────────────────────────────────

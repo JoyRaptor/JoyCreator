@@ -57,17 +57,6 @@ import com.fadcam.ui.faditor.model.CompositingSpec;
  */
 public final class BlendModeGlEffect implements GlEffect {
 
-    /** Wire values match {@code Clip#getOverlayBlendMode()} strings. */
-    static int modeCode(@NonNull String blendMode) {
-        switch (blendMode) {
-            case "MULTIPLY": return 1;
-            case "SCREEN":   return 2;
-            case "OVERLAY":  return 3;
-            case "ADD":      return 4;
-            default:          return 0; // NORMAL = plain SRC_OVER (mode 0 in the shader)
-        }
-    }
-
     private final Context context;
     private final Clip clip;
     private final long editorTimeOffsetMs;
@@ -125,19 +114,12 @@ public final class BlendModeGlEffect implements GlEffect {
                 // so the live preview tier and this export effect cannot drift apart — see
                 // ChromaKey's class note for why that mattered enough to centralise.
                 + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN
-                + "vec3 blendPix(vec3 b, vec3 s) {\n"
-                + "  if (uBlendMode < 0.5) return s;\n" // NORMAL: mix-by-alpha below = SRC_OVER
-                + "  if (uBlendMode < 1.5) return b * s;\n"
-                + "  if (uBlendMode < 2.5) return 1.0 - (1.0 - b) * (1.0 - s);\n"
-                + "  if (uBlendMode < 3.5) {\n"
-                + "    vec3 lo = 2.0 * b * s;\n"
-                + "    vec3 hi = 1.0 - 2.0 * (1.0 - b) * (1.0 - s);\n"
-                + "    return vec3(b.r < 0.5 ? lo.r : hi.r,\n"
-                + "                b.g < 0.5 ? lo.g : hi.g,\n"
-                + "                b.b < 0.5 ? lo.b : hi.b);\n"
-                + "  }\n"
-                + "  return min(b + s, vec3(1.0));\n"
-                + "}\n"
+                // Nor is the blend written here, for the same reason and by the same pattern: the
+                // FX compiler folds effect cards with these exact equations, so OVERLAY's
+                // per-channel branch exists in ONE place. The text below used to be inline and was
+                // moved without a character changed — BlendModesTest pins that byte-for-byte.
+                // NORMAL relies on the mix-by-alpha further down being SRC_OVER already.
+                + com.fadcam.ui.faditor.model.BlendModes.GLSL_BLEND_FN
                 + "void main() {\n"
                 + "  vec4 base = texture2D(uVideoTexSampler0, vTexSamplingCoord);\n"
                 // Bitmap textures upload Y-DOWN (row 0 = top) while the frame
@@ -180,7 +162,9 @@ public final class BlendModeGlEffect implements GlEffect {
             this.overlay = new PipFrameOverlay(context, clip, editorTimeOffsetMs);
             this.matteOverlay = matteClip != null
                     ? new PipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
-            this.mode = modeCode(clip.getOverlayBlendMode());
+            // The wire-value → shader-code mapping moved out with the equations it selects; a
+            // mode string that means 3 here and 3 in the FX fold is the whole point of one table.
+            this.mode = com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode());
             // Packed by the shared authority, not unpacked by hand here — the preview tier
             // packs the identical uniforms from the identical spec, so a clamp added on one
             // side can never be missing on the other.

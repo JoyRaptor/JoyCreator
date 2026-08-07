@@ -1,7 +1,8 @@
 # PRIORITY — 2026-08-06 (night). One ordered list across all three sources.
 
 > ## STATUS 2026-08-06 late — read before picking anything up
-> **Tree compiles: TYPECHECK OK, 598 sources, 1638 classes. Nothing is committed.**
+> **Tree compiles: TYPECHECK OK, 598 sources, 1638 classes. All of it is COMMITTED** —
+> M0 plus three rounds of JoyRaptor's feedback, ending at "Record round 3".
 > Existing harnesses re-run and all green *after* these changes: `run-key.sh` 22/22,
 > `run-matte.sh` all pass, `run-sequence.sh` 50/50 — so the multi-shape rewrite did not
 > regress `MaskAnimator`, and the `blendPix` extraction is behaviour-neutral.
@@ -48,9 +49,10 @@
 >   Pinned by 6 new assertions in `MaskAnimatorTest` (26/26).
 > - **`‹ ◇ ›` on every mask slider.** The diamond is deliberately inert and dimmed until
 >   per-parameter mask keying exists — the tab's "Key at playhead" still keys all six at once.
-> - **Layout.** Shape chips left + preset icons right-justified on one row; mode icons centred
->   on row two; both checkboxes on one line. Four rows became two.
-> - **Icons.** 7 new drawables (`ic_mask_mode_*`, `ic_mask_preset_*`).
+> - **Layout.** Both checkboxes on one line. (The row arrangement here was superseded by
+>   round 3 below — read that, not this.)
+> - **Icons.** 3 mode drawables (`ic_mask_mode_*`). The 4 preset drawables were added here and
+>   deleted again in round 3.
 > - **"Soften edges" misalignment** — it was real: the shape sliders sat in a column nested
 >   inside `root` and paid the 14dp side padding twice.
 >
@@ -75,8 +77,6 @@
 >   yellow for the mask.** Not started. This matters more now than it did before, because the
 >   off-stage range above is exactly what makes an object easy to lose.
 > - ~~One row~~ — resolved in round 3: presets deleted, one row.
-
-
 > - Intersect icon still drawn as a TRUE intersect (his description was of EXCLUDE). He
 >   corrected the SUBTRACT icon in round 3 and did not mention this one — still unconfirmed.
 >
@@ -85,8 +85,9 @@
 > new UI: open **"bisect C long 2x"** → in the lane band, **hold** the picture-in-picture strip
 > (the one with the video thumbnails, 4th row down) **until it lifts, then release without
 > moving** → the drawer opens → **Mask** tab. Expect a `● 1  +` chip row at the top. Tap `+`
-> and a second shape appears, offset to the right, with Add/Subtract/Intersect above the
-> sliders. If that works, M0 is real.
+> and a second shape appears, offset to the right, with Add/Subtract/Intersect on the same row.
+> **Round 3 confirmed this works** — this note is kept only because the drawer still cannot be
+> reached by adb, so every future mask change needs the same hand-check.
 >
 > **P2 (fx/) — 3 of 8 classes only:** `FxParam`, `FxEffectDef`, `FxRegistry`. `FxInstance`,
 > `FxStack`, `FxCompiler`, `FxUniforms`, `FxCost` are absent. It compiles because the

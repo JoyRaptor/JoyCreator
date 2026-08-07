@@ -11,9 +11,14 @@ Branch `joy-creator`. Everything is committed. JoyRaptor's own files
 
 ## The one-line summary
 
-**M0, M1 and M3 are complete. M2's two shipping bugs are fixed. M4 renders on
-export, single-pass, with the multi-pass half explicitly owed. M5 and M6 are not
-started.**
+**M0, M1, M3 and M6 are complete. M2's two shipping bugs are fixed. M4 renders
+on export, single-pass, with the multi-pass half explicitly owed. M5 (live
+preview of the effect) is NOT started — see "what you will and will not see".**
+
+**The feature is usable end to end from the app**: add a layer, open its FX
+panel, pick from 12 effects, set parameters, opacity and blend, reorder, delete.
+All of that was driven on the phone and the result read back out of the project
+file.
 
 ## Every harness, at HEAD
 
@@ -39,6 +44,21 @@ Two new harnesses this run: `run-adjust.sh` (model + SDF) and `run-fx.sh`
   `"adjustmentLayers":[{… "name":"Adjustment 1"}]` **and `"schemaVersion": 13`**,
   the conditional stamp firing only because a layer was present.
 - The editor is healthy with a layer present — no crash, scrubbing fine.
+- **The whole M6 chain.** Tapped Adjust → panel opened on "Adjustment 1 / No
+  effects" → Add effect → picker showed all four families → Invert. The project
+  came back with `"fx":{"cards":[{"id":"invert","slot":0}],"nextSlot":1}` at
+  schemaVersion 13 — the minimal additive shape, exactly as designed.
+
+## What you WILL and WILL NOT see
+
+**Will:** the layer in the band, the FX panel, the picker, cards with working
+sliders, blend chips, reorder, delete, the cost meter, undo.
+
+**Will not: the effect itself, anywhere.** M5 is the live preview and it is not
+built, so the editor shows the ungraded picture. Export DOES apply the effect —
+but that path has never been run (see above), so treat it as untested rather than
+as working. **The honest next step is an export A/B**: one adjustment layer, one
+Invert, over a solid-colour clip, and compare frames.
 
 **NOT verified on a device, and this is the honest gap:**
 - **The export path has never run.** `AdjustmentLayerGlEffect` is written,

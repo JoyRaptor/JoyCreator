@@ -158,8 +158,20 @@
 > `orderedCompositedItems` path when a layer exists. That makes the no-layer case identical by
 > construction rather than by careful reading.
 >
-> **Then M5** (preview: the `fx_below_group` wrapper + tiered RenderEffect) and **M6** (the FX
-> tab UI). Both are specced in full.
+> **M6 — DONE and device-verified.** `FxPanel`: collapsible cards, the 12-effect picker grouped
+> by family, per-card parameters/opacity/blend, reorder by button, delete, a cost meter that
+> reports and never refuses, and session-snapshot undo. Reached from the **carousel tool**
+> rather than the object drawer, because that drawer's hold gesture is not adb-drivable and so
+> could never be verified from here; tap edits the topmost layer, long-press creates another.
+> Reorder is by arrows rather than long-press drag — a half-built drag that mis-drops a card
+> would silently reorder an effect chain, and order is meaning here.
+>
+> **M5 (live preview) is the one milestone not started.** So the effect is invisible in the
+> editor today: everything can be authored, nothing can be seen until export. That is the
+> single biggest gap left, and `SPEC_ADJUSTMENT_LAYERS_FX` §6 specifies it in full — the
+> `fx_below_group` wrapper is an XML change, not a runtime reparent, and
+> `applyPreviewColorGrade` already proves RenderEffect works on a ViewGroup containing a
+> TextureView in this app.
 >
 > **P0.1 device verification — BLOCKED. The hold gesture is NOT adb-drivable; stop trying.**
 > Four injection strategies were tried and all fail identically. Save the next session the hour:

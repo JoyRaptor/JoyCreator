@@ -36,6 +36,7 @@ public class AdjustmentLayerTest {
         serializationRoundTrip();
         tolerantRead();
         copyIsDeep();
+        previewTiers();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -158,6 +159,67 @@ public class AdjustmentLayerTest {
         check("copy does not alias the FX stack", a.getFx().size() == 1);
         check("copy does not alias the compositing spec", a.getCompositing().masks.size() == 1);
         check("copy does not alias scalars", !a.getName().equals("changed"));
+    }
+
+    // ── Preview tiers ───────────────────────────────────────────────────────
+
+    /**
+     * The tier table, pinned here because it CANNOT be verified on the sandbox phone: the
+     * Note 9 is API 29, below RenderEffect's floor of 31, so it is permanently EXPORT_ONLY and
+     * no amount of device testing there can exercise the other two branches.
+     */
+    static void previewTiers() {
+        check("API 33+ is the full AGSL chain",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.of(33)
+                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL);
+        check("API 31-32 is partial", com.fadcam.ui.faditor.fx.FxPreviewTier.of(31)
+                == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL
+                && com.fadcam.ui.faditor.fx.FxPreviewTier.of(32)
+                == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL);
+        check("API 30 and below cannot preview at all",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.of(30)
+                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
+        check("the sandbox phone (API 29) is EXPORT_ONLY — so M5 is unverifiable on it",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.of(29)
+                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
+        check("minSdk (24) does not crash the table",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.of(24)
+                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
+
+        com.fadcam.ui.faditor.fx.FxEffectDef blur =
+                com.fadcam.ui.faditor.fx.FxRegistry.require("gaussian_blur");
+        com.fadcam.ui.faditor.fx.FxEffectDef invert =
+                com.fadcam.ui.faditor.fx.FxRegistry.require("invert");
+
+        check("tier A previews everything",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL)
+                && com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(invert,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL));
+        // Deliberately narrow: a "nearly right" grade is the thing nobody notices is wrong
+        // until export, so tier B approximates blur and skips the rest rather than faking it.
+        check("tier B previews blur only",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL)
+                && !com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(invert,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL));
+        check("tier C previews nothing",
+                !com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY));
+
+        check("tier A shows NO badge — a badge on every entry is noise",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.badge(invert,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
+        check("tier B badges an unpreviewable effect 'export only'",
+                "export only".equals(com.fadcam.ui.faditor.fx.FxPreviewTier.badge(invert,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL)));
+        check("tier B badges blur 'approx', because it genuinely is",
+                "approx".equals(com.fadcam.ui.faditor.fx.FxPreviewTier.badge(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL)));
+        check("tier A has no header note", com.fadcam.ui.faditor.fx.FxPreviewTier
+                .headerNote(com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
+        check("the other tiers explain themselves", !com.fadcam.ui.faditor.fx.FxPreviewTier
+                .headerNote(com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY).isEmpty());
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────

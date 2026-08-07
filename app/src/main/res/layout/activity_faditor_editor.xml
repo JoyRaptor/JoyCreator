@@ -481,6 +481,26 @@
         android:clipToPadding="false"
         android:background="@android:color/black">
 
+        <!-- FX BELOW GROUP (SPEC_ADJUSTMENT_LAYERS_FX M5). Everything an adjustment layer
+             treats as "beneath it" lives inside this wrapper, so a single setRenderEffect on
+             it grades the whole composited stack at once.
+
+             This is a LAYOUT change, not a runtime reparent: findViewById searches the whole
+             tree, so every existing lookup still resolves and no code moved. The boundary is
+             deliberate — canvas backdrop through the PiP plane are inside; waveform, text and
+             sprite surfaces stay siblings AFTER it, because that is where M3 emits a new
+             adjustment lane by default.
+
+             clipChildren=false is inherited intent from the parent: a PiP dragged off-stage
+             must still draw its ghost outline. -->
+        <FrameLayout
+            android:id="@+id/fx_below_group"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:layout_gravity="center">
+
         <!-- Canvas backdrop: black canvas rect + diagonal hatch for out-of-canvas -->
         <com.fadcam.ui.faditor.player.CanvasFrameView
             android:id="@+id/canvas_frame"
@@ -559,6 +579,9 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center" />
+
+        </FrameLayout>
+        <!-- ^ end fx_below_group. Everything below paints OVER an adjustment layer. -->
 
         <!-- Waveform/spectrum visualizer overlays (rendered below text overlays) -->
         <com.fadcam.ui.faditor.waveform.WaveformOverlayView

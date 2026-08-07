@@ -8845,6 +8845,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateCurrentTimeDisplay(long positionInCurrentSegmentMs) {
         long absoluteMs = getAbsolutePlayheadMs(positionInCurrentSegmentMs);
         lastPlayheadAbsoluteMs = absoluteMs;
+        // M5: put the topmost adjustment layer's effect stack on the preview. Cheap by design —
+        // it early-outs unless the RESOLVED state changed, so an unanimated stack costs one
+        // string compare per tick rather than a subtree invalidation.
+        syncAdjustmentPreview(absoluteMs);
         Clip currentClip = getSelectedClip();
         float currentSpeed = currentClip != null ? currentClip.getSpeedMultiplier() : 1f;
         long timelineLocalMs = (currentSpeed > 0) ? (long) (positionInCurrentSegmentMs / currentSpeed) : positionInCurrentSegmentMs;
@@ -20144,6 +20148,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * header says so. That keeps "make another" possible without making it the default, since
      * wanting two adjustment layers is much rarer than wanting to edit the one you just made.</p>
      */
+    /**
+     * The live-preview controller for adjustment layers, created lazily because the wrapper it
+     * drives only exists once the layout is inflated.
+     */
+    @Nullable private com.fadcam.ui.faditor.compositor.AdjustmentPreviewController adjustPreview;
+
+    /** @see com.fadcam.ui.faditor.compositor.AdjustmentPreviewController#sync */
+    private void syncAdjustmentPreview(long absoluteMs) {
+        if (project == null) return;
+        if (adjustPreview == null) {
+            View wrapper = findViewById(R.id.fx_below_group);
+            if (wrapper == null) return;
+            adjustPreview =
+                    new com.fadcam.ui.faditor.compositor.AdjustmentPreviewController(wrapper);
+        }
+        try {
+            adjustPreview.sync(project.getTimeline(), absoluteMs);
+        } catch (RuntimeException e) {
+            // This runs on every playhead tick. A preview effect is never worth taking the
+            // editor down for, and export is unaffected either way.
+            com.fadcam.FLog.w(TAG, "adjustment preview sync failed: " + e);
+        }
+    }
+
     private void openOrCreateAdjustmentLayer() {
         if (project == null) return;
         java.util.List<com.fadcam.ui.faditor.model.AdjustmentLayer> existing =

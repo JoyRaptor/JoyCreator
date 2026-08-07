@@ -135,27 +135,25 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                 if (p == null || pass == null) { passthrough(inputTexId); return; }
                 p.use();
                 p.setSamplerTexIdUniform("uTexSampler", inputTexId, 0);
-                p.setFloatsUniform("uTexel", new float[]{1f / width, 1f / height});
-                p.setFloatUniform("uAspect", (float) width / (float) height);
-                p.setFloatUniform("uTime", editorMs / 1000f);
-                p.setFloatsUniform("uDir", new float[]{1f, 0f});
+                setF2(p, "uTexel", 1f / width, 1f / height);
+                setF(p, "uAspect", (float) width / (float) height);
+                setF(p, "uTime", editorMs / 1000f);
+                setF2(p, "uDir", 1f, 0f);
                 for (FxUniforms.Value v : FxUniforms.forPass(pass)) {
-                    if (v.components() == 1) p.setFloatUniform(v.name, v.data[0]);
-                    else p.setFloatsUniform(v.name, v.data);
+                    if (v.components() == 1) setF(p, v.name, v.data[0]);
+                    else setFn(p, v.name, v.data);
                 }
                 // The mask/opacity mix factor — see the class note. Packed flat so the shader
                 // needs no loop over a shape array it may not have.
                 CompositingSpec cs = layer.getCompositing();
                 float[] geo = MaskSdf.packShapes(cs, width, height);
-                p.setFloatUniform("uLayerOpacity", layer.opacityAt(editorMs));
-                p.setFloatUniform("uMaskCount",
-                        cs == null || cs.masks.isEmpty() ? 0f : 1f);
-                p.setFloatsUniform("uMaskGeo", new float[]{geo[0], geo[1], geo[2], geo[3]});
-                p.setFloatsUniform("uMaskRot", new float[]{geo[4], geo[5]});
-                p.setFloatUniform("uMaskCorner", geo[6]);
-                p.setFloatUniform("uMaskFeather", geo[7]);
-                p.setFloatUniform("uMaskInvert",
-                        cs != null && cs.invertMasks ? 1f : 0f);
+                setF(p, "uLayerOpacity", layer.opacityAt(editorMs));
+                setF(p, "uMaskCount", cs == null || cs.masks.isEmpty() ? 0f : 1f);
+                setFn(p, "uMaskGeo", new float[]{geo[0], geo[1], geo[2], geo[3]});
+                setF2(p, "uMaskRot", geo[4], geo[5]);
+                setF(p, "uMaskCorner", geo[6]);
+                setF(p, "uMaskFeather", geo[7]);
+                setF(p, "uMaskInvert", cs != null && cs.invertMasks ? 1f : 0f);
                 p.bindAttributesAndUniforms();
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                 GlUtil.checkGlError();
@@ -199,14 +197,41 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             if (fused == null) return false;
             String key = FxUniforms.sourceKey(fused, 8);
             if (program != null && key.equals(sourceKey)) { pass = fused; return true; }
+            // ORDER MATTERS, and getting it wrong is what the first export A/B caught.
+            //
+            // GLSL ES 1.00 requires declaration BEFORE use, so the mask functions and the
+            // composite's own uniforms have to be spliced in AHEAD of main() — appending them
+            // after the compiler's output left main() calling fxShapeSd and reading uMaskGeo
+            // before either existed, and the driver rejected the whole program:
+            //   'uMaskCount' : undeclared identifier
+            //   'fxShapeSd'  : no matching overloaded function found
+            //
+            // The effect degraded to passthrough exactly as designed, so the export still
+            // finished — which is why this was a log line rather than a lost render.
+            String body = FxCompiler.emitGlsl(fused, 8);
+            int mainAt = body.indexOf("void main()");
+            if (mainAt < 0) {
+                FLog.w("AdjustmentLayer", "compiler emitted no entry point; passing through");
+                degraded = true;
+                return false;
+            }
             String fragment = "#version 100\n"
-                    + FxCompiler.emitGlsl(fused, 8)
-                    + MaskSdf.GLSL_MASK_FN;
+                    + body.substring(0, mainAt)
+                    + COMPOSITE_UNIFORMS
+                    + MaskSdf.GLSL_MASK_FN
+                    + body.substring(mainAt);
             // The composite is appended rather than emitted by FxCompiler: the compiler builds
             // an effect chain, and "fold my result back over what was already there, where the
             // mask allows" is the ADJUSTMENT LAYER's semantic, not the stack's.
             try {
-                program = new GlProgram(withComposite(fragment), VERTEX_SHADER);
+                // (vertex, fragment) — that order. Reversed, the fragment source compiles as a
+                // VERTEX shader, where gl_FragColor genuinely does not exist; the driver's
+                // "'gl_FragColor' : undeclared identifier" was telling the exact truth.
+                program = new GlProgram(VERTEX_SHADER, withComposite(fragment));
+                // The quad. Without it GlProgram throws "call setBuffer before bind" on the
+                // first draw -- the attribute exists but has nothing behind it.
+                program.setBufferAttribute("aFramePosition",
+                        GlUtil.getNormalizedCoordinateBounds(), 4);
             } catch (Exception e) {
                 FLog.w("AdjustmentLayer", "shader compile failed, passing through: " + e);
                 degraded = true;
@@ -216,6 +241,48 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             pass = fused;
             return true;
         }
+
+        /**
+         * Set a uniform that the driver may have OPTIMISED AWAY.
+         *
+         * <p>GLSL compilers delete uniforms no code path reads, and media3's {@code GlProgram}
+         * looks names up in a map built from the LINKED program — so setting one that was
+         * removed throws NPE. An invert-only stack reads none of {@code uTexel}, {@code uTime},
+         * {@code uAspect} or {@code uDir}, all of which this class declares for the effects that
+         * do, so the very simplest possible stack was the one that crashed.</p>
+         *
+         * <p>Found by running an actual export; the effect degraded to passthrough exactly as
+         * designed, which is why it surfaced as a log line instead of a broken file.</p>
+         */
+        private static void setF(@NonNull GlProgram p, @NonNull String name, float v) {
+            try { p.setFloatUniform(name, v); } catch (RuntimeException ignored) { }
+        }
+
+        private static void setF2(@NonNull GlProgram p, @NonNull String name, float a, float b) {
+            setFn(p, name, new float[]{a, b});
+        }
+
+        private static void setFn(@NonNull GlProgram p, @NonNull String name,
+                                  @NonNull float[] v) {
+            try { p.setFloatsUniform(name, v); } catch (RuntimeException ignored) { }
+        }
+
+        /**
+         * The composite's OWN uniforms.
+         *
+         * <p>{@link FxCompiler} emits uniforms for the effect cards from their descriptors, and
+         * knows nothing about layers — correctly, since it also serves the preview. These belong
+         * to the adjustment-layer semantic, so they are declared here, next to the code that
+         * reads them and the code that sets them.</p>
+         */
+        private static final String COMPOSITE_UNIFORMS =
+                "uniform float uLayerOpacity;\n"
+                + "uniform float uMaskCount;\n"
+                + "uniform vec4 uMaskGeo;\n"
+                + "uniform vec2 uMaskRot;\n"
+                + "uniform float uMaskCorner;\n"
+                + "uniform float uMaskFeather;\n"
+                + "uniform float uMaskInvert;\n";
 
         /**
          * Rewrite the compiler's {@code main} so the graded colour is mixed back over the
@@ -251,7 +318,9 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             // something must be written or the frame would be whatever the texture last held.
             try {
                 if (passProgram == null) {
-                    passProgram = new GlProgram(PASSTHROUGH_FRAGMENT, VERTEX_SHADER);
+                    passProgram = new GlProgram(VERTEX_SHADER, PASSTHROUGH_FRAGMENT);
+                    passProgram.setBufferAttribute("aFramePosition",
+                            GlUtil.getNormalizedCoordinateBounds(), 4);
                 }
                 passProgram.use();
                 passProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, 0);

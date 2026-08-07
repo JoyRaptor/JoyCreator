@@ -217,11 +217,7 @@ public class CompositingSpec {
      * is silent, permanent data loss.</p>
      */
     public boolean needsSchema13() {
-        if (usesIntersect()) return true;
-        for (int i = 0; i < masks.size(); i++) {
-            if (masks.get(i).slot != i) return true;
-        }
-        return false;
+        return usesIntersect() || hasExplicitSlots();
     }
 
     /** True when any shape uses {@link #MODE_INTERSECT} — see {@link #needsSchema13}. */

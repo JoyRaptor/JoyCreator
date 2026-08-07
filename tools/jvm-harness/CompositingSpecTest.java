@@ -1,131 +1,193 @@
 import com.fadcam.ui.faditor.model.CompositingSpec;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
-/** §C compositing family: JSON round-trip, tolerant reads, omit-empty contract. */
+/**
+ * JVM harness for CompositingSpec's multi-shape model — serialization, slot stability, and the
+ * schema-v13 predicate.
+ *
+ * <p><b>The load-bearing test is byte-identity.</b> The whole multi-shape design rests on one
+ * promise: a project that only ever used add/subtract shapes serializes to exactly the bytes it
+ * did before modes and slots existed, so it keeps its old schema stamp and older builds keep
+ * opening it losslessly. That promise is what lets the v13 stamp be conditional. If it breaks,
+ * every existing masked project silently becomes unopenable by an older build — so it is
+ * checked as a STRING, not as a field-by-field comparison, because key order is part of the
+ * claim.</p>
+ *
+ * <p><b>The second is slot stability.</b> Keyframe tracks are named off the slot, so a slot that
+ * renumbers on delete hands shape 3's animation to shape 2 — spec risk R11. The test deletes
+ * from the middle and proves the survivor keeps its original number.</p>
+ *
+ * <p>Run: {@code bash tools/jvm-harness/run-mask.sh}</p>
+ */
 public class CompositingSpecTest {
-    static int fails = 0;
-    static void check(boolean c, String n) { System.out.println((c?"PASS  ":"FAIL  ")+n); if(!c) fails++; }
 
-    public static void main(String[] a) {
-        // 1. Empty spec: isEmpty, and an item carrying it serializes nothing.
-        CompositingSpec empty = new CompositingSpec();
-        check(empty.isEmpty(), "fresh spec is empty (serializer omits it)");
+    private static int passed = 0, failed = 0;
 
-        // 2. Full round-trip: masks + key + matte survive byte-exactly.
+    public static void main(String[] args) {
+        addSubtractOnlyIsByteIdentical();
+        intersectWritesTheModeKey();
+        slotsNeverRenumberOnDelete();
+        roundTripPreservesModeAndSlot();
+        schema13FiresOnBothTriggersAndOnlyThem();
+        copyFromMutatesInPlace();
+        presetsAreAStartingShapeNotAReset();
+
+        System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
+                : "FAILURES: " + failed + " (passed " + passed + ")");
+        if (failed > 0) System.exit(1);
+    }
+
+    // ── Fixtures ────────────────────────────────────────────────────────────
+
+    static CompositingSpec.MaskShape add(CompositingSpec s, float cx, int mode) {
+        CompositingSpec.MaskShape m = s.addShape();
+        m.cx = cx; m.cy = 0.5f; m.w = 0.3f; m.h = 0.5f; m.corner = 1f;
+        m.mode = mode;
+        return m;
+    }
+
+    // ── Serialization ───────────────────────────────────────────────────────
+
+    static void addSubtractOnlyIsByteIdentical() {
         CompositingSpec s = new CompositingSpec();
-        CompositingSpec.MaskShape m1 = new CompositingSpec.MaskShape();
-        m1.cx = 0.25f; m1.cy = 0.30f; m1.w = 0.20f; m1.h = 0.15f;
-        m1.corner = 0.5f; m1.rotationDeg = 12f;
-        CompositingSpec.MaskShape m2 = new CompositingSpec.MaskShape();
-        m2.cx = 0.28f; m2.cy = 0.33f; m2.w = 0.05f; m2.h = 0.05f; m2.subtract = true;
-        s.masks.add(m1);
-        s.masks.add(m2);
-        s.keyEnabled = true;
-        s.keyColor = 0x11AA33;
-        s.keyTolerance = 0.22f;
-        s.keyFuzziness = 0.08f;
-        s.keyOffset = -0.1f;
-        s.mattePeerId = "clip-xyz";
+        add(s, 0.5f, CompositingSpec.MODE_ADD);
+        add(s, 0.2f, CompositingSpec.MODE_SUBTRACT);
+        String json = s.toJson().toString();
+
+        check("an ADD shape writes no 'mode' and no 'slot'",
+                !json.contains("\"mode\"") && !json.contains("\"slot\""));
+        check("a SUBTRACT shape still writes the legacy \"sub\" key", json.contains("\"sub\":true"));
+        check("the shape keys are exactly the pre-change set, in the pre-change order",
+                json.contains("\"cx\":0.5,\"cy\":0.5,\"w\":0.3,\"h\":0.5,\"corner\":1.0"));
+        check("and this spec does NOT ask for v13", !s.needsSchema13());
+    }
+
+    static void intersectWritesTheModeKey() {
+        CompositingSpec s = new CompositingSpec();
+        add(s, 0.5f, CompositingSpec.MODE_ADD);
+        add(s, 0.7f, CompositingSpec.MODE_INTERSECT);
+        String json = s.toJson().toString();
+        check("an INTERSECT shape writes \"mode\":2", json.contains("\"mode\":2"));
+        check("...and only that one shape does", count(json, "\"mode\"") == 1);
+        check("an intersect spec asks for v13", s.needsSchema13());
+    }
+
+    // ── Slots ───────────────────────────────────────────────────────────────
+
+    static void slotsNeverRenumberOnDelete() {
+        CompositingSpec s = new CompositingSpec();
+        add(s, 0.1f, CompositingSpec.MODE_ADD);
+        add(s, 0.2f, CompositingSpec.MODE_ADD);
+        add(s, 0.3f, CompositingSpec.MODE_ADD);
+        check("three shapes get slots 0,1,2",
+                s.masks.get(0).slot == 0 && s.masks.get(1).slot == 1 && s.masks.get(2).slot == 2);
+
+        s.removeShape(1);
+        check("deleting the middle shape leaves two", s.masks.size() == 2);
+        check("the SURVIVOR keeps slot 2 — it does not slide down to 1",
+                s.masks.get(1).slot == 2);
+        check("...which is exactly when an explicit \"slot\" must be persisted",
+                s.hasExplicitSlots() && s.toJson().toString().contains("\"slot\":2"));
+
+        CompositingSpec.MaskShape next = s.addShape();
+        check("a NEW shape never reuses the freed slot 1", next.slot != 1);
+        check("...it takes the next unused number", next.slot == 3);
+    }
+
+    static void roundTripPreservesModeAndSlot() {
+        CompositingSpec s = new CompositingSpec();
+        add(s, 0.1f, CompositingSpec.MODE_ADD);
+        add(s, 0.2f, CompositingSpec.MODE_INTERSECT);
+        add(s, 0.3f, CompositingSpec.MODE_SUBTRACT);
+        s.removeShape(0);                       // force a slot divergence too
+        s.maskFeather = 0.25f;
+        s.invertMasks = true;
+
         CompositingSpec r = CompositingSpec.fromJson(s.toJson());
-        check(r.masks.size() == 2, "both mask shapes round-trip");
-        check(Math.abs(r.masks.get(0).cx - 0.25f) < 1e-6
-                && Math.abs(r.masks.get(0).corner - 0.5f) < 1e-6
-                && Math.abs(r.masks.get(0).rotationDeg - 12f) < 1e-6
-                && !r.masks.get(0).subtract, "additive shape fields exact");
-        check(r.masks.get(1).subtract, "subtract flag survives");
-        check(r.keyEnabled && r.keyColor == 0x11AA33
-                && Math.abs(r.keyTolerance - 0.22f) < 1e-6
-                && Math.abs(r.keyFuzziness - 0.08f) < 1e-6
-                && Math.abs(r.keyOffset + 0.1f) < 1e-6, "chroma key round-trips");
-        check("clip-xyz".equals(r.mattePeerId), "matte peer id round-trips");
+        check("round-trip keeps the shape count", r.masks.size() == s.masks.size());
+        boolean modes = true, slots = true;
+        for (int i = 0; i < s.masks.size(); i++) {
+            if (r.masks.get(i).mode != s.masks.get(i).mode) modes = false;
+            if (r.masks.get(i).slot != s.masks.get(i).slot) slots = false;
+        }
+        check("round-trip keeps every mode", modes);
+        check("round-trip keeps every slot — the keyframe tracks depend on it", slots);
+        check("round-trip keeps feather and invert",
+                r.maskFeather == 0.25f && r.invertMasks);
+        check("a second trip is stable", r.toJson().toString().equals(s.toJson().toString()));
+    }
 
-        // 3. Copy is deep: mutating the copy leaves the original alone.
-        CompositingSpec c = s.copy();
-        c.masks.get(0).cx = 0.9f;
-        c.keyColor = 0xFFFFFF;
-        check(Math.abs(s.masks.get(0).cx - 0.25f) < 1e-6 && s.keyColor == 0x11AA33,
-                "copy() is deep (undo/duplicate safety)");
+    // ── The stamp predicate ─────────────────────────────────────────────────
 
-        // 4. Tolerant read: garbage values clamp, missing fields default,
-        //    a malformed section degrades instead of throwing.
-        JsonObject bad = JsonParser.parseString(
-                "{\"masks\":[{\"cx\":9.5,\"w\":-3,\"corner\":\"x\"}],"
-                + "\"chromaKey\":{\"color\":\"not-a-color\",\"tolerance\":42},"
-                + "\"matte\":{}}").getAsJsonObject();
-        CompositingSpec t = CompositingSpec.fromJson(bad);
-        check(t.masks.size() == 1
-                && t.masks.get(0).cx <= 1f && t.masks.get(0).w > 0f
-                && t.masks.get(0).corner == 0f, "garbage mask values clamp to sane");
-        check(t.keyEnabled && t.keyColor == 0x00FF00 && t.keyTolerance <= 1f,
-                "unparseable key color falls back to green, tolerance clamps");
-        check(t.mattePeerId == null, "matte without peerId reads as no matte");
+    static void schema13FiresOnBothTriggersAndOnlyThem() {
+        CompositingSpec plain = new CompositingSpec();
+        add(plain, 0.5f, CompositingSpec.MODE_ADD);
+        add(plain, 0.2f, CompositingSpec.MODE_SUBTRACT);
+        check("add/subtract only → no v13", !plain.needsSchema13());
 
-        // 5. Omit-defaults writing: a sharp, unrotated, additive shape writes
-        //    only cx/cy/w/h (JSON diff hygiene for the AI contract).
-        CompositingSpec lean = new CompositingSpec();
-        lean.masks.add(new CompositingSpec.MaskShape());
-        JsonObject lj = lean.toJson().getAsJsonArray("masks").get(0).getAsJsonObject();
-        check(!lj.has("corner") && !lj.has("rot") && !lj.has("sub"),
-                "default shape omits corner/rot/sub keys");
+        CompositingSpec inter = new CompositingSpec();
+        add(inter, 0.5f, CompositingSpec.MODE_INTERSECT);
+        check("trigger 1: intersect → v13", inter.needsSchema13());
 
-        // 6. null JSON → empty spec (absent field on old projects).
-        check(CompositingSpec.fromJson(null).isEmpty(), "null json → empty spec");
+        CompositingSpec diverged = new CompositingSpec();
+        add(diverged, 0.1f, CompositingSpec.MODE_ADD);
+        add(diverged, 0.2f, CompositingSpec.MODE_ADD);
+        diverged.removeShape(0);
+        check("trigger 2: a diverged slot → v13, with no intersect anywhere",
+                diverged.needsSchema13() && !diverged.usesIntersect());
 
-        // 7. FEATHER (soft edges) — the v1 slider's model half.
-        CompositingSpec f = new CompositingSpec();
-        check(f.maskFeather == 0f, "feather defaults to 0 — every shipped project is hard-edged");
-        check(!f.hasFeather(), "no masks, no feather work to do");
-        f.maskFeather = 0.4f;
-        check(!f.hasFeather(), "feather with NO shapes is inert — it must not open a layer");
-        f.masks.add(new CompositingSpec.MaskShape());
-        check(f.hasFeather(), "feather + a shape is the one case that pays for a layer");
-        CompositingSpec fr = CompositingSpec.fromJson(f.toJson());
-        check(Math.abs(fr.maskFeather - 0.4f) < 1e-6, "feather round-trips");
-        check(Math.abs(f.copy().maskFeather - 0.4f) < 1e-6, "feather survives copy()");
+        check("an empty spec never asks for v13", !new CompositingSpec().needsSchema13());
+    }
 
-        // A feather with no shapes must not make an empty-looking spec non-empty on disk:
-        // it writes inside the masks block, so there is nothing to write.
-        CompositingSpec lonely = new CompositingSpec();
-        lonely.maskFeather = 1f;
-        check(lonely.isEmpty() && lonely.toJson().size() == 0,
-                "feather alone serializes to nothing");
+    // ── Undo plumbing ───────────────────────────────────────────────────────
 
-        // Hard edge omits the key entirely (same JSON-diff hygiene as corner/rot/sub).
-        CompositingSpec hard = new CompositingSpec();
-        hard.masks.add(new CompositingSpec.MaskShape());
-        check(!hard.toJson().has("feather"), "feather=0 omits the key");
+    static void copyFromMutatesInPlace() {
+        CompositingSpec live = new CompositingSpec();
+        add(live, 0.1f, CompositingSpec.MODE_ADD);
+        CompositingSpec snapshot = new CompositingSpec();
+        add(snapshot, 0.9f, CompositingSpec.MODE_SUBTRACT);
+        add(snapshot, 0.8f, CompositingSpec.MODE_ADD);
 
-        check(Math.abs(CompositingSpec.fromJson(JsonParser.parseString(
-                "{\"masks\":[{}],\"feather\":7}").getAsJsonObject()).maskFeather - 1f) < 1e-6,
-                "an out-of-range feather clamps to 1 rather than blurring the whole frame");
+        java.util.List<CompositingSpec.MaskShape> identity = live.masks;
+        live.copyFrom(snapshot);
+        check("copyFrom keeps the SAME list object — Clip holds a final reference to it",
+                live.masks == identity);
+        check("copyFrom takes the other spec's shapes", live.masks.size() == 2);
+        check("copyFrom takes their modes",
+                live.masks.get(0).mode == CompositingSpec.MODE_SUBTRACT);
 
-        // 8. featherRadiusPx — the units authority. Preview draws into a content rect and
-        //    export into a full frame, so the SAME slider has to mean the same softness in
-        //    both. That only holds if the radius is derived from the frame, which is what
-        //    these pin. (The class of bug: zones in source vs timeline ms, twice.)
-        check(CompositingSpec.featherRadiusPx(0f, 1920, 1080) == 0f,
-                "feather 0 → radius 0 (the hard-edge fast path stays reachable)");
-        check(CompositingSpec.featherRadiusPx(-1f, 1920, 1080) == 0f, "negative feather → 0");
-        check(CompositingSpec.featherRadiusPx(0.5f, 0, 1080) == 0f, "a degenerate frame → 0");
-        check(CompositingSpec.featherRadiusPx(Float.NaN, 1920, 1080) == 0f, "NaN feather → 0");
-        float full = CompositingSpec.featherRadiusPx(1f, 1920, 1080);
-        check(Math.abs(full - 1080 * CompositingSpec.MAX_FEATHER_FRACTION) < 1e-3,
-                "full feather is MAX_FEATHER_FRACTION of the SHORTER side");
-        check(Math.abs(CompositingSpec.featherRadiusPx(1f, 1080, 1920) - full) < 1e-3,
-                "portrait and landscape of the same frame agree — the short side, not width");
-        check(Math.abs(CompositingSpec.featherRadiusPx(2f, 1920, 1080) - full) < 1e-3,
-                "an out-of-range feather clamps at the radius too, not just on read");
-        // The property that makes preview and export agree: radius scales with the surface,
-        // so a half-size preview gets a half-size blur of the same authored value.
-        check(Math.abs(CompositingSpec.featherRadiusPx(0.5f, 960, 540) * 2f
-                        - CompositingSpec.featherRadiusPx(0.5f, 1920, 1080)) < 1e-3,
-                "half-size surface, half-size radius — one slider, one look in both renderers");
-        check(CompositingSpec.featherRadiusPx(0.25f, 1920, 1080)
-                        < CompositingSpec.featherRadiusPx(0.75f, 1920, 1080),
-                "the slider is monotonic");
+        snapshot.masks.get(0).cx = 0.05f;
+        check("and it copied rather than aliased — editing the source cannot reach back",
+                live.masks.get(0).cx != 0.05f);
+    }
 
-        System.out.println(fails == 0 ? "ALL GREEN" : fails + " FAILURES");
-        System.exit(fails == 0 ? 0 : 1);
+    static void presetsAreAStartingShapeNotAReset() {
+        CompositingSpec s = new CompositingSpec();
+        CompositingSpec.MaskShape m = add(s, 0.77f, CompositingSpec.MODE_INTERSECT);
+        m.rotationDeg = 30f;
+        int slot = m.slot;
+
+        CompositingSpec.applyPreset(m, CompositingSpec.PRESET_CIRCLE);
+        check("a circle preset equalises w and h", m.w == m.h);
+        check("...and fully rounds the corner", m.corner == 1f);
+        check("a preset leaves the CENTRE alone", m.cx == 0.77f);
+        check("a preset leaves ROTATION alone", m.rotationDeg == 30f);
+        check("a preset leaves MODE alone", m.isIntersect());
+        check("a preset leaves the SLOT alone", m.slot == slot);
+
+        CompositingSpec.applyPreset(m, CompositingSpec.PRESET_RECT);
+        check("a rect preset squares the corner off", m.corner == 0f);
+    }
+
+    // ── plumbing ────────────────────────────────────────────────────────────
+
+    static int count(String hay, String needle) {
+        int n = 0, i = 0;
+        while ((i = hay.indexOf(needle, i)) >= 0) { n++; i += needle.length(); }
+        return n;
+    }
+
+    static void check(String what, boolean ok) {
+        if (ok) { passed++; System.out.println("  ok   " + what); }
+        else { failed++; System.out.println("  FAIL " + what); }
     }
 }

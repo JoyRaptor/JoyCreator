@@ -11,10 +11,13 @@ Branch `joy-creator`. Everything is committed. JoyRaptor's own files
 
 ## The one-line summary
 
-**M0 through M6 are complete.** M2's two shipping bugs are fixed; M4 renders on
-export, interleaves correctly in z, AND does multi-pass — so blur, the effect
-the spec called "the one everyone expects", exports. **M7 (per-object FX on PiP
-and text) is the only milestone not started.**
+**EVERY MILESTONE M0–M7 IS NOW IMPLEMENTED.** M2's two shipping bugs are fixed;
+M4 renders on export, interleaves correctly in z, and does multi-pass — so blur
+exports; M7 puts the same FX stack on individual PiP clips.
+
+**Two pieces of M7 remain owed:** the Effects tab on TEXT overlays (PiP only
+today), and SAMPLER cards on an object — those need the object rendered to its
+own FBO, which is the adjustment layer's machinery.
 
 **Also done from START_HERE's backlog:** all four FF-B sprite AI tools, and the
 duplicate-onto-its-own-lane button — for adjustment layers, text and sprites.

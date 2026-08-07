@@ -63,8 +63,8 @@ assistance to write the code.
 
 That was about two months ago. It got further than I expected.
 
-The editor — I call it Faditor internally — went from the roughly 15,000 lines that were
-in FadCam to about 121,000 lines. It now has:
+Your editor, Faditor, went from the roughly 15,000 lines it was when I forked to about
+121,000. It now has:
 
 - Multi-track layers with layer blend modes
 - Masking
@@ -92,8 +92,9 @@ that explicitly disclaims any right to the FadCam name, logo, or FadSec Lab bran
 blindside you. I'm poor and I am trying to make a living from this, so I won't pretend
 otherwise. But I don't think we're actually going after the same people. FadCam is a
 privacy-first tool with an edge to it, and that identity is a real part of its appeal.
-Joy Creator is aimed at general-audience creators who want a serious editor that doesn't
-hobble their exports — where the privacy and offline-first parts are a great bonus rather
+Joy Creator is meant to be a general-audience creative suite — aimed at creators,
+animators, and compositors who want something that can handle large projects and won't
+hobble their exports. The privacy and offline-first parts are a great bonus there rather
 than the pitch. Different brand, different audience, same excellent engine underneath.
 
 So what I'd like to ask is small:

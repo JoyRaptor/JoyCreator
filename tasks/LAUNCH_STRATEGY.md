@@ -47,15 +47,24 @@ Why this can work against CapCut / KineMaster despite being a no-name project:
 1. **No hobbled export.** Competitors gate resolution, bitrate, and watermarks. We do
    not. This is the single clearest differentiator and it is also a values position.
 2. **No subscription, no ads.** One of the few serious mobile editors that is neither.
-3. **Features they don't have and won't build** — layers and layer modes, masking,
-   keyframe animation, puppet/avatar animation, sprite sheets, transcript-driven
+3. **Features they don't have and won't build** — layer modes, masking and layer masking,
+   keyframe animation, puppet/avatar animation, animating sprite sheets and image sequances, transcript-driven
    editing, waveform editing, GL transitions, AI-assisted editing. This is closer to
-   After Effects' expandability than to a social-clip trimmer.
+   After Effects' expandability than to a social-clip trimmer. local and on-device ai features
 4. **Privacy and offline-first as a bonus,** not as the pitch.
 5. **Owner is a working creator.** Built for a real YouTube workflow, and demonstrated
    on one. See §6.
 
+**Audience:** general-audience creators, **animators, and compositors** who need something
+that handles large projects and won't hobble their export. Joy Creator is a *suite*, not
+a single editor. components being a screen recorder, webcam or live avatar display, they Joy Creator editor, avatar studio, audio visualizer studio with possibly more tools coming that will interrelate
+
 **Positioning line (draft):** *A real editor that doesn't hold your work hostage.*
+
+**Tagline / export signature:** **"Made with Joy."** Stamped on export (as metadata and
+as an optional, off-by-default end card — never a forced watermark, which would violate
+the no-hobbling promise). Cheap, warm, and it does organic marketing every time someone
+shares a file.
 
 ---
 
@@ -194,6 +203,8 @@ Until then, treat cloud/streaming as OFF for anything we publish.
 
 | # | Action | Status | Notes |
 |---|---|---|---|
+| 0a | **Back up repo to a private remote** | 🔴 URGENT | Only copy exists on one machine; push remote is `DISABLED_LOCAL_ONLY` |
+| 0b | **Scrub commit email before any public push** | 🔴 URGENT | All 769 commits authored as `studio@joycreator.cc` — real name + personal address would become permanently public. See §11 |
 | 1 | `TRADEMARK.md` | ✅ Done | Needs contact email filled in |
 | 2 | Letter to anonfaded | 📝 Drafted | See `tasks/OUTREACH_ANONFADED.md` |
 | 3 | Send letter | ⬜ Not started | Highest leverage, ~5 min, do first |
@@ -240,11 +251,68 @@ policy-risk vs. feature-loss tension at no engineering cost.
 ## 10. Open questions
 
 - [ ] Does anonfaded reply, and what do they want? Everything downstream shifts on this.
-- [ ] Is "Joy Creator" free to use as a mark? (Informal search of Play, app stores, and
-      USPTO TESS before committing to the name and buying a domain.)
+- [x] ~~Is "Joy Creator" free to use as a mark?~~ Searched 2026-08-06 — see §11.
 - [ ] What is the AAB size with ffmpeg-kit + OpenCV + TFLite + MediaPipe + Vosk? Play's
       compressed limit is 200 MB. Unmeasured.
 - [ ] `ffmpeg-kit` is retired upstream (binaries pulled 2025). Replacement plan?
 - [ ] What does the editor need to look shippable? Scope the polish pass.
 - [ ] There are currently **no automated tests** in `app/src/test` or `androidTest`
       despite the Gradle config expecting them. Risk to a solo non-developer maintainer.
+
+---
+
+## 11. Naming & identity findings (searched 2026-08-06)
+
+### Name availability
+
+| Check | Result |
+|---|---|
+| "Joy Creator" as an app on Play / App Store | No direct conflict found |
+| "Joy Creator" registered US trademark | None found for the bare mark |
+| Nearby registered mark | **JOY CREATOR COLLECTIVE** — Joy Group Holding Inc., covering influencer marketing / advertising services |
+| `joycreator.com` | Registered 2012, parked at HugeDomains — **for sale, likely $2k+**. Out of budget. |
+| `joycreatorstudio.com` | ✅ **AVAILABLE** |
+| `joycreator.app` | Probably available (registry RDAP returned not-found; confirm at a registrar) |
+| `madewithjoy.com` | Registered since 2007. Not available. |
+
+**Assessment.** No blocking conflict. JOY CREATOR COLLECTIVE is in a different class of
+goods and services (marketing services, not software), so coexistence is normal — but it
+is a reminder that "Joy" + creative-word names are a crowded space.
+
+**The real weakness is not conflict, it's distinctiveness.** "Joy Creator" is close to
+descriptive, and descriptive marks are weak: hard to register, hard to enforce, easy for
+others to crowd. Since trademark is the *primary* defense against GPL clones (§7), the
+name is doing real strategic work and a weak one costs us.
+
+**Recommendation:** ship as **Joy Creator Studio** — it's the stronger mark of the two,
+the matching `.com` is free today, "Studio" correctly signals a suite rather than a
+single editor, and "Joy Creator" still works as the everyday short name. Register
+`joycreatorstudio.com` before announcing anything.
+
+### Commit identity — must fix before first public push
+
+All 769 commits are authored as `studio@joycreator.cc`. Pushing publicly would make a
+real name and personal email permanently part of the git history — mirrored, cached, and
+scraped within hours, and **not fixable after the fact without rewriting every commit**.
+
+Fix before the first public push:
+1. Enable GitHub's **"Keep my email address private"**, plus **"Block command line pushes
+   that expose my email"** (Settings → Emails). This gives a `@users.noreply.github.com`
+   address.
+2. Set that as the local identity: `git config user.email "<id>+joyraptor@users.noreply.github.com"`
+3. Rewrite existing history to replace the old address (`git filter-repo --mailmap`, or
+   equivalent), **before** the repo is ever public.
+
+Note `anonfaded@pm.me` also appears in history — that one is theirs, it is legitimate
+upstream authorship, and it must be **left alone**. The GPL requires preserving it.
+
+### GitHub account shape
+
+Use the existing **JoyRaptor** handle as the personal account, and create a free
+**Organization** for the project later when the brand is settled; repos transfer between
+them at any time. Reasons: contribution history accrues to one identity you're already
+known by, Sponsors verification is simpler on a personal account, and a throwaway account
+named after the product becomes dead weight if the name changes.
+
+Gmail is fine for *account recovery*; add the project Proton address as a second verified
+email and use it for anything public-facing.

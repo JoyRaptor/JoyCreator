@@ -84,8 +84,8 @@
 >
 > **STILL OPEN from round 2:**
 > - ~~One row~~ — resolved in round 3: presets deleted, one row.
-> - Intersect icon still drawn as a TRUE intersect (his description was of EXCLUDE). He
->   corrected the SUBTRACT icon in round 3 and did not mention this one — still unconfirmed.
+> - ~~Intersect icon~~ — **CONFIRMED by JoyRaptor, 2026-08-06: "reads exactly perfect."** The true
+>   intersect glyph stays; his original description was of EXCLUDE.
 >
 > ### 🖐 ONE THING THAT NEEDS JOYRAPTOR'S FINGER (20 seconds)
 > The mask tab cannot be reached by adb input injection — see the P0.1 note below. To see the
@@ -96,10 +96,25 @@
 > **Round 3 confirmed this works** — this note is kept only because the drawer still cannot be
 > reached by adb, so every future mask change needs the same hand-check.
 >
-> **P2 (fx/) — 3 of 8 classes only:** `FxParam`, `FxEffectDef`, `FxRegistry`. `FxInstance`,
-> `FxStack`, `FxCompiler`, `FxUniforms`, `FxCost` are absent. It compiles because the
-> reserved-name constants were moved onto `FxParam`; treat the package as a stub, not a
-> foundation.
+> **P2 / M1 (fx/) — DONE. 8 of 8 classes, `run-fx.sh` 18/18 + 71/71.** Pass planning with
+> fusion, both shader emits pinned by GOLDEN STRINGS, the stack model with stable slots, the
+> uniform packer and the cost model. The fold uses `BlendModes.glslBlendFnWithModeParam()`, so
+> the blend equations exist exactly once in the codebase.
+>
+> Three real bugs the harness caught while landing it:
+> 1. `FxRegistry.FORBIDDEN` was declared AFTER the static initializer that reads it — static
+>    fields initialise in source order, so the table was null and **the class failed to load on
+>    every device**, the first time anything touched the registry.
+> 2. `FX_NOISE` was used by the noise body and implemented nowhere, so the macro reached the
+>    driver unexpanded. `fxNoise`/`fxHash` now live in the shared prelude — a hash written twice
+>    is a hash that drifts.
+> 3. `FxStack.toJson` gated the keyframe write on `isAnimated()`, which is **false for a single
+>    key**. A single key is a static value, not an animation, so the value you dialled in at a
+>    keyframe vanished on reload.
+>
+> **Next in the spec's order: M2** — repackage the colour grade through the new compiler. That
+> is the milestone that checks the compiler against a KNOWN-GOOD shipping feature before a new
+> object type depends on it, and it fixes the two live grade bugs in §0.5 of the spec.
 >
 > **P0.1 device verification — BLOCKED. The hold gesture is NOT adb-drivable; stop trying.**
 > Four injection strategies were tried and all fail identically. Save the next session the hour:

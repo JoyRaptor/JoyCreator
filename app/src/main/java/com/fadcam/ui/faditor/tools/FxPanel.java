@@ -19,6 +19,7 @@ import com.fadcam.ui.faditor.fx.FxPresetStore;
 import com.fadcam.ui.faditor.fx.FxPreviewTier;
 import com.fadcam.ui.faditor.fx.FxRegistry;
 import com.fadcam.ui.faditor.fx.FxStack;
+import com.fadcam.ui.faditor.fx.GradientRamp;
 import com.fadcam.ui.faditor.model.BlendModes;
 
 import java.util.List;
@@ -400,7 +401,13 @@ public final class FxPanel {
                 }
                 return row;
             }
-            case COLOR:
+            case COLOR: {
+                // A round swatch that opens THE app-wide picker — JoyRaptor's mandate (2026-08-08):
+                // "use this for every colour swatch you build". Live while the dialog is open,
+                // one undo step recorded on Set (Cancel already reverts via ColorPickerDialog's
+                // own onLive replay, so nothing here needs to snapshot twice).
+                return colorSwatchRow(ctx, stack, fx, param, host, rebuild, d);
+            }
             case POINT: {
                 // Multi-component parameters get one slider per component, suffixed exactly as
                 // their keyframe tracks are, so the row and the track cannot disagree.
@@ -421,6 +428,9 @@ public final class FxPanel {
                 }
                 return col;
             }
+            case GRADIENT: {
+                return gradientRow(ctx, stack, fx, param, host, rebuild, d);
+            }
             case FLOAT:
             default: {
                 // The slider works in whole units of the descriptor's own range, so a 0..1
@@ -437,6 +447,142 @@ public final class FxPanel {
                         v -> { fx.set(param, v / scale); host.onFxChanged(); }, d,
                         stack, host, rebuild, param.label);
             }
+        }
+    }
+
+    /** The round swatch + label row every COLOR param now gets — see {@link #paramRow}'s note. */
+    @NonNull
+    private static View colorSwatchRow(@NonNull Context ctx, @NonNull FxStack stack,
+                                       @NonNull FxInstance fx, @NonNull FxParam param,
+                                       @NonNull Host host, @NonNull Runnable rebuild, float d) {
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(label(ctx, param.label, d));
+
+        float[] cur = fx.get(param);
+        int initial = 0xFF000000
+                | (Math.round(cur[0] * 255f) << 16)
+                | (Math.round(cur[1] * 255f) << 8)
+                | Math.round(cur[2] * 255f);
+
+        View swatch = new View(ctx);
+        int sz = Math.round(24 * d);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sz, sz);
+        swatch.setLayoutParams(lp);
+        paintSwatch(swatch, initial, d);
+
+        swatch.setOnClickListener(v -> {
+            FxStack before = stack.copy();
+            ColorPickerDialog.show(ctx, param.label, initial, false,
+                    live -> {
+                        if (live == null) return;
+                        fx.set(param, new float[]{
+                                ((live >> 16) & 0xFF) / 255f,
+                                ((live >> 8) & 0xFF) / 255f,
+                                (live & 0xFF) / 255f});
+                        paintSwatch(swatch, live, d);
+                        host.onFxChanged();
+                    },
+                    picked -> {
+                        if (picked != null) {
+                            fx.set(param, new float[]{
+                                    ((picked >> 16) & 0xFF) / 255f,
+                                    ((picked >> 8) & 0xFF) / 255f,
+                                    (picked & 0xFF) / 255f});
+                        }
+                        recordSnapshot(stack, host, rebuild, param.label, before);
+                    });
+        });
+        row.addView(swatch);
+        return row;
+    }
+
+    private static void paintSwatch(@NonNull View swatch, int color, float d) {
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        bg.setColor(0xFF000000 | (color & 0xFFFFFF));
+        bg.setStroke(Math.round(1 * d), 0x55FFFFFF);
+        swatch.setBackground(bg);
+    }
+
+    /**
+     * The gradient ramp row: a thin live preview strip plus an "Edit" chip that opens {@link
+     * GradientRampEditorView} in a dialog — the standard app-wide gradient editor, wrapped in
+     * exactly the "one editing session, one undo step" pattern every other structural edit in
+     * this panel already uses.
+     */
+    @NonNull
+    private static View gradientRow(@NonNull Context ctx, @NonNull FxStack stack,
+                                    @NonNull FxInstance fx, @NonNull FxParam param,
+                                    @NonNull Host host, @NonNull Runnable rebuild, float d) {
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Math.round(4 * d), 0, Math.round(4 * d));
+
+        View strip = new View(ctx);
+        GradientRamp preview = GradientRamp.fromFloatArray(fx.get(param));
+        strip.setBackground(stripDrawable(preview, d));
+        row.addView(strip, new LinearLayout.LayoutParams(
+                0, Math.round(18 * d), 1f));
+
+        TextView edit = chip(ctx, "Edit", d);
+        edit.setOnClickListener(v -> openGradientDialog(ctx, stack, fx, param, host, rebuild, d));
+        row.addView(edit);
+        strip.setOnClickListener(v -> openGradientDialog(ctx, stack, fx, param, host, rebuild, d));
+        return row;
+    }
+
+    @NonNull
+    private static android.graphics.drawable.Drawable stripDrawable(@NonNull GradientRamp r, float d) {
+        // A cheap linear approximation for the small preview strip — the real, exact ramp bar
+        // lives inside GradientRampEditorView, which shares FxCompiler's own segment math.
+        int steps = 12;
+        int[] colors = new int[steps + 1];
+        for (int i = 0; i <= steps; i++) {
+            float t = i / (float) steps;
+            int rgb = r.sampleColor(t);
+            int a = Math.round(r.sampleAlpha(t) * 255f);
+            colors[i] = (a << 24) | (rgb & 0xFFFFFF);
+        }
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable(
+                        android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, colors);
+        g.setCornerRadius(4f * d);
+        return g;
+    }
+
+    private static void openGradientDialog(@NonNull Context ctx, @NonNull FxStack stack,
+                                           @NonNull FxInstance fx, @NonNull FxParam param,
+                                           @NonNull Host host, @NonNull Runnable rebuild, float d) {
+        FxStack before = stack.copy();
+        GradientRampEditorView editor = new GradientRampEditorView(ctx);
+        editor.setRamp(GradientRamp.fromFloatArray(fx.get(param)));
+        editor.setOnLiveChangeListener(ramp -> {
+            fx.set(param, ramp.toFloatArray());
+            host.onFxChanged();
+        });
+        int pad = Math.round(12 * d);
+        FrameLayoutPad wrap = new FrameLayoutPad(ctx, pad);
+        wrap.addView(editor);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                .setTitle(param.label)
+                .setView(wrap)
+                .setPositiveButton("Done", (dlg, w) ->
+                        recordSnapshot(stack, host, rebuild, param.label, before))
+                .setOnCancelListener(dlgi ->
+                        recordSnapshot(stack, host, rebuild, param.label, before))
+                .show();
+    }
+
+    /** A FrameLayout with uniform padding — {@code MaterialAlertDialogBuilder.setView} does not
+     *  pad its content, and this widget's touch targets sit flush against the dialog edge
+     *  without it. */
+    private static final class FrameLayoutPad extends android.widget.FrameLayout {
+        FrameLayoutPad(@NonNull Context ctx, int pad) {
+            super(ctx);
+            setPadding(pad, pad, pad, pad);
         }
     }
 

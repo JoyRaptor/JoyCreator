@@ -18709,10 +18709,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * G4 routing from {@code onItemSelectionChanged}: text/image + sprite get
-     * handle targets (their transform models + G2 write conventions exist);
-     * audio/PiP/visualizer/caption → handles hidden (their targets come online
-     * with their §2 Prop adapters, same staging as the G2 menu).
+     * G4 routing from {@code onItemSelectionChanged}: text/image, sprite and PiP get handle
+     * targets; audio/visualizer/caption → handles hidden (an audio clip has no canvas box, and
+     * the other two are drawn by layers that own their own gesture surfaces).
      */
     private void updatePreviewHandlesForSelection(
             @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
@@ -18720,6 +18719,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             ensurePreviewHandlesOverlay().setTarget(textHandlesTarget(item.getTextOverlay()));
         } else if (item != null && item.getSprite() != null) {
             ensurePreviewHandlesOverlay().setTarget(spriteHandlesTarget(item.getSprite()));
+        } else if (item != null && item.getClip() != null && item.getClip().isOverlayClip()) {
+            // PiPs at last. Handles on selection have been asked for since 2026-07-06
+            // (FEEDBACK_20260706_layers_ux §6), re-specified in PLAN_LAYERS_UX_ADDENDUM §6 and
+            // again in FEEDBACK_20260717 D1. Text and sprites got them; a PiP fell through to
+            // setTarget(null), so selecting one showed nothing on the canvas and there was no
+            // way to resize or rotate it there at all.
+            ensurePreviewHandlesOverlay().setTarget(pipHandlesTarget(item.getClip()));
         } else if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setTarget(null);
         }
@@ -19122,6 +19128,142 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Light per-drag-frame refresh: re-evaluate sprite transforms + repaint. */
     private void refreshSpriteAfterHandleWrite() {
         setSpriteOverlayPlayhead(lastPlayheadAbsoluteMs);
+    }
+
+    /**
+     * Corner and edge handles for a PiP on the canvas.
+     *
+     * <p>Reads and writes the SAME {@code overlayTransform} keyframe tracks that
+     * {@code OverlayVideoPreviewView} positions the PiP from and that
+     * {@code fxPipGeometry} feeds the GL composite, so the handles, the drag, the render and
+     * the export cannot disagree about where the object is or how big it is.</p>
+     *
+     * <p>The drawn box comes from {@code overlayVideoLayer.drawnRectFor} rather than being
+     * recomputed here, so a PiP whose aspect differs from the project's still gets a frame that
+     * hugs the video instead of the letterboxed base box around it.</p>
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target pipHandlesTarget(
+            @NonNull Clip c) {
+        return new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target() {
+            @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet before;
+
+            private float read(@NonNull String prop, float fallback, long t) {
+                com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+                return kf == null ? fallback : kf.valueAt(prop, t, fallback);
+            }
+
+            private void write(@NonNull String prop, float v) {
+                com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+                if (kf == null) {
+                    kf = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                    c.setOverlayTransform(kf);
+                }
+                com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = kf.getOrCreate(prop);
+                tr.keyframes.clear();
+                tr.put(0L, v, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+            }
+
+            /**
+             * The PiP's own scale multiplier. The overlay treats {@code sizeFraction} as an
+             * opaque magnitude — it only ever computes {@code startSize * dragRatio} and hands
+             * it back to {@link #scaleTo} — so the PiP's native unit round-trips exactly, with
+             * no conversion through frame height to get wrong in one direction.
+             */
+            private float pipScale(long t) {
+                return read(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView
+                                .DEFAULT_SCALE, t);
+            }
+
+            @Override public void onDoubleTapped() { showPipDrawerForObject(c); }
+
+            @Override
+            public boolean frame(long timeMs, @NonNull android.graphics.RectF outRect) {
+                if (project == null || !project.getTimeline().getOverlayClips().contains(c)) {
+                    return false;
+                }
+                // Ask the overlay for the box it actually drew: it alone knows the PiP's decoded
+                // aspect, and a box derived from the canvas rect would miss the video whenever
+                // the PiP's aspect differs from the project's.
+                android.graphics.RectF drawn = overlayVideoLayer == null
+                        ? null : overlayVideoLayer.drawnRectFor(c);
+                if (drawn == null) return false;
+                outRect.set(drawn);
+                return true;
+            }
+
+            @Override public float rotationDeg(long t) {
+                return read(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, 0f, t);
+            }
+            @Override public float centerX(long t) {
+                return read(com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X, t);
+            }
+            @Override public float centerY(long t) {
+                return read(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y, t);
+            }
+            @Override public float sizeFraction(long t) { return pipScale(t); }
+
+            @NonNull @Override
+            public android.graphics.RectF videoRect() { return computeCanvasRect(); }
+
+            @Override public void beginGesture() {
+                com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
+                before = kf != null ? kf.copy()
+                        : new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+            }
+
+            @Override public void moveTo(float normCx, float normCy, long timeMs) {
+                write(com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(normCx));
+                write(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(normCy));
+                refreshPipAfterHandleWrite();
+            }
+
+            @Override public void scaleTo(float sizeFraction, long timeMs) {
+                write(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                        Math.max(0.02f, sizeFraction));
+                refreshPipAfterHandleWrite();
+            }
+
+            @Override public void rotateTo(float deg, long timeMs) {
+                write(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, deg);
+                refreshPipAfterHandleWrite();
+            }
+
+            @Override public void commit(@NonNull String what) {
+                if (before != null) {
+                    final com.fadcam.ui.faditor.keyframe.KeyframeSet undo = before;
+                    final com.fadcam.ui.faditor.keyframe.KeyframeSet redo =
+                            c.getOverlayTransform() != null
+                                    ? c.getOverlayTransform().copy()
+                                    : new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                    undoManager.recordAction(new EditActions.LambdaAction(what + " PiP",
+                            () -> { restoreOverlayTransform(c, redo);
+                                    refreshPipAfterHandleWrite(); },
+                            () -> { restoreOverlayTransform(c, undo);
+                                    refreshPipAfterHandleWrite(); }));
+                }
+                before = null;
+                syncTimelineOverlays();
+                scheduleAutoSave();
+            }
+        };
+    }
+
+    /** Re-evaluate the PiP transform and repaint both the View tier and the GL composite. */
+    private void refreshPipAfterHandleWrite() {
+        if (overlayVideoLayer != null) {
+            // setPlayheadMs re-runs applyTransform; the time is unchanged so no reseek fires.
+            // Pass the REAL playing state — a hardcoded false would pause the PiP decoder the
+            // moment a handle is touched during playback.
+            overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
+                    playerManager != null && playerManager.isPlaying());
+        }
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
     }
 
     /**

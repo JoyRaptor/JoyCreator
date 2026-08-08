@@ -310,6 +310,30 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 Math.max(1, videoW), Math.max(1, videoH));
     }
 
+    /**
+     * The PiP's drawn box in THIS view's pixel space, for the preview manipulation handles.
+     *
+     * <p>Derived from the same full-fit base box {@link #updateBaseLayout} sizes the host with,
+     * NOT from the content rect scaled directly: a 16:9 PiP on a 9:16 canvas is letterboxed
+     * inside its base box, so {@code contentRect * scale} would draw a handle frame far taller
+     * than the video and the user would grab empty space.</p>
+     *
+     * <p>Null when the clip is not the one currently decoding — only the active clip's source
+     * dimensions are known, and guessing a box would put the handles somewhere the PiP is not.</p>
+     */
+    @Nullable
+    public RectF drawnRectFor(@NonNull Clip clip) {
+        if (callback == null || clip != active || videoW <= 0 || videoH <= 0) return null;
+        RectF r = callback.getVideoContentRect();
+        if (r.width() <= 0 || r.height() <= 0) return null;
+        float fit = Math.min(r.width() / videoW, r.height() / videoH);
+        float scale = readValue(clip, KeyframeSet.SCALE, DEFAULT_SCALE);
+        float w = videoW * fit * scale, h = videoH * fit * scale;
+        float cx = r.left + readValue(clip, KeyframeSet.X, DEFAULT_X) * r.width();
+        float cy = r.top + readValue(clip, KeyframeSet.Y, DEFAULT_Y) * r.height();
+        return new RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
+    }
+
     /** Attach the decoder to the FX surface once both it and a player exist. */
     private void routeToFxIfWanted() {
         Surface s = fxSurface;

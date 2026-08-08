@@ -29577,6 +29577,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return;
             }
 
+            // AN OBJECT SELECTION WINS OVER THE MASTER-TRACK SEGMENT, same rule and same order
+            // duplicateSelectedObject() already follows. This was the one place that didn't:
+            // select a text/sprite/PiP/adjustment layer, tap the toolbar trash, and it deleted
+            // the master clip under the playhead instead — the object stayed on screen and
+            // something the user never touched was gone. Routed through the EXACT per-type
+            // confirmation dialogs the layer gesture callback's own delete badge already uses,
+            // so the affordance and the undo step are identical regardless of which surface
+            // triggered the delete.
+            if (deleteSelectedLayerItem()) return;
+
             // Check if an audio clip is selected — delete that instead
             int audioIdx = editorTimeline.getSelectedAudioIndex();
             if (audioIdx >= 0) {
@@ -29753,6 +29763,50 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * @return true when an object was duplicated; false when nothing suitable was selected, so
      *         the caller can fall back to duplicating the master-track segment.
      */
+    /**
+     * Delete whatever object is selected in the layer band, or report false so
+     * {@link #deleteSelectedSegment} falls through to its master-clip / audio paths.
+     *
+     * <p>Same lookup {@link #duplicateSelectedObject} already does, same "object selection
+     * wins" rule, and — critically — the SAME per-type confirmation methods
+     * {@code onItemDeleteRequested} calls for the layer row's own trash badge. Two delete
+     * entry points reaching two different pieces of logic is exactly how "select a text box,
+     * hit the toolbar trash, and the master clip disappears" happens: one path knew about the
+     * selection and one didn't.</p>
+     */
+    private boolean deleteSelectedLayerItem() {
+        if (project == null || editorTimeline == null) return false;
+        String selectedId = editorTimeline.getSelectedLayerItemId();
+        if (selectedId == null) return false;
+        Timeline timeline = project.getTimeline();
+        for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
+            if (!t.getId().equals(selectedId)) continue;
+            deleteTextOverlayWithConfirmation(t);
+            return true;
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : timeline.getSpriteOverlays()) {
+            if (!sp.getId().equals(selectedId)) continue;
+            deleteSpriteWithConfirmation(sp);
+            return true;
+        }
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
+            if (!al.getId().equals(selectedId)) continue;
+            deleteAdjustmentLayerWithConfirmation(al);
+            return true;
+        }
+        for (Clip c : timeline.getOverlayClips()) {
+            if (!c.getId().equals(selectedId)) continue;
+            deleteOverlayClipWithConfirmation(c);
+            return true;
+        }
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : timeline.getWaveformOverlays()) {
+            if (!w.getId().equals(selectedId)) continue;
+            deleteVisualizerWithConfirmation(w);
+            return true;
+        }
+        return false;
+    }
+
     private boolean duplicateSelectedObject() {
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
@@ -29795,6 +29849,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
             copy.setLayerId(lane);
             timeline.addAdjustmentLayer(copy);
             finishDuplicate(() -> timeline.removeAdjustmentLayer(copy));
+            return true;
+        }
+        // PiP / video-overlay clip. This was the actual gap the master-clip-instead-of-my-
+        // object reports trace to: text/sprite/adjustment were covered above, a selected PiP
+        // fell through every loop and landed in duplicateSelectedSegment()'s master-clip path.
+        // Copy constructor mints a fresh id (see Timeline.duplicateClip's identical use), so no
+        // manual id juggling here — same as the other three branches deliberately don't share
+        // references either.
+        for (Clip c : timeline.getOverlayClips()) {
+            if (!c.getId().equals(selectedId)) continue;
+            Clip copy = new Clip(c);
+            String lane = timeline.createLayerTrack(
+                    com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Layer");
+            copy.setLayerId(lane);
+            timeline.addOverlayClip(copy);
+            syncTimelineOverlays();
+            finishDuplicate(() -> { timeline.removeOverlayClip(copy); syncTimelineOverlays(); });
             return true;
         }
         return false;

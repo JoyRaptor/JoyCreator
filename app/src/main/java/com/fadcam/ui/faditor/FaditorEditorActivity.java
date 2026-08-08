@@ -20247,6 +20247,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public com.fadcam.ui.faditor.model.Clip clipAtPlayhead() {
                             return getSelectedClip();
                         }
+                        @Override public com.fadcam.ui.faditor.compositor
+                                .OverlayVideoPreviewView overlayVideoLayer() {
+                            return overlayVideoLayer;
+                        }
                     });
         }
         fxLivePreview.sync(project.getTimeline(), absoluteMs);
@@ -20258,12 +20262,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>Used only to decide whether the FX panel owes the user a caveat. Cheap enough to answer
      * on each panel build — a timeline has tens of clips, not thousands.</p>
      */
-    private boolean projectHasOverlayVideo() {
+    private boolean projectHasKeyedOverlayVideo() {
         if (project == null) return false;
         // The SAME authority the PiP preview and the export sequence consume, rather than a
         // fourth opinion about what counts as an overlay clip.
-        return !com.fadcam.ui.faditor.compositor.LayerPreviewController
-                .visibleOverlayVideoClips(project.getTimeline()).isEmpty();
+        for (Clip c : com.fadcam.ui.faditor.compositor.LayerPreviewController
+                .visibleOverlayVideoClips(project.getTimeline())) {
+            if (com.fadcam.ui.faditor.model.ChromaKey.isActive(c.getCompositing())) return true;
+        }
+        return false;
     }
 
     private void openOrCreateAdjustmentLayer() {
@@ -20301,12 +20308,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
             @Override public String previewCaveat() {
-                // Only when the project actually HAS a PiP. Export composites PiPs BENEATH the
-                // adjustment layer (ExportManager:2723 before :2789), so they are graded there;
-                // the live preview grades the video plane only, because a PiP is a separate
-                // Android surface rather than a texture in this chain.
-                return projectHasOverlayVideo()
-                        ? "Picture-in-picture clips are graded on export, not in this preview."
+                // A PiP IS composited into the graded chain now — except a CHROMA-KEYED one,
+                // which keeps its own live tier because that produces per-pixel alpha this
+                // composite has no equivalent for. So the caveat narrowed from "any PiP" to
+                // "a keyed PiP", and is still asked per-project rather than stated always.
+                return projectHasKeyedOverlayVideo()
+                        ? "A chroma-keyed PiP is graded on export, not in this preview."
                         : "";
             }
         };

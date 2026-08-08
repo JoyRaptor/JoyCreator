@@ -102,6 +102,52 @@ public class FxPreviewTextureView extends TextureView
             + "  gl_FragColor = texture2D(uOesTexture, uv);\n"
             + "}\n";
 
+    /**
+     * Composite one PiP over the frame, in the MASTER frame's normalised space.
+     *
+     * <p>This is {@code OverlayVideoPreviewView.applyTransform}'s maths, moved into a shader.
+     * There it is a chain of View properties — scale, rotation, alpha, translation on a box
+     * fit-sized into the video content rect. Here the same numbers place a quad, because a PiP
+     * has to BE in this chain for an adjustment layer above it to grade it, which is what the
+     * export does ({@code BlendModeGlEffect} at ExportManager:2723, adjustment layers at :2789).
+     * A PiP left as a sibling View can only ever be drawn over the graded result.</p>
+     *
+     * <p><b>Rotation is aspect-corrected.</b> The View rotates in SCREEN space; normalised uv is
+     * not square, so rotating it directly would shear the PiP. Multiplying x by the aspect before
+     * the rotation and dividing after is what keeps a rotated PiP rectangular.</p>
+     */
+    private static final String PIP_FRAGMENT =
+            "#version 100\n"
+            + "#extension GL_OES_EGL_image_external : require\n"
+            + "precision mediump float;\n"
+            + "varying vec2 vFxUv;\n"
+            + "uniform sampler2D uTexSampler;\n"       // the frame so far
+            + "uniform samplerExternalOES uPipTexture;\n"
+            + "uniform mat4 uPipTexMatrix;\n"
+            + "uniform vec2 uPipCentre;\n"
+            + "uniform vec2 uPipHalf;\n"
+            + "uniform float uPipCos;\n"
+            + "uniform float uPipSin;\n"
+            + "uniform float uPipAspect;\n"
+            + "uniform float uPipAlpha;\n"
+            + "uniform float uPipRotation;\n"
+            + "void main() {\n"
+            + "  vec4 base = texture2D(uTexSampler, vFxUv);\n"
+            + "  vec2 p = vFxUv - uPipCentre;\n"
+            + "  p.x *= uPipAspect;\n"
+            + "  vec2 r = vec2(p.x * uPipCos + p.y * uPipSin,\n"
+            + "               -p.x * uPipSin + p.y * uPipCos);\n"
+            + "  r.x /= uPipAspect;\n"
+            + "  vec2 q = r / uPipHalf;\n"              // -1..1 inside the PiP box
+            + "  gl_FragColor = base;\n"
+            + "  if (abs(q.x) <= 1.0 && abs(q.y) <= 1.0) {\n"
+            + "    vec2 uv = q * 0.5 + 0.5;\n"
+            + "    vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;\n"
+            + "    vec4 src = texture2D(uPipTexture, s);\n"
+            + "    gl_FragColor = vec4(mix(base.rgb, src.rgb, uPipAlpha * src.a), base.a);\n"
+            + "  }\n"
+            + "}\n";
+
     /** Full-frame quad in clip space — the same bounds media3 feeds {@code aFramePosition}. */
     private static final float[] QUAD = {
             -1f, -1f, 0f, 1f,
@@ -115,6 +161,32 @@ public class FxPreviewTextureView extends TextureView
         void onFxInputSurfaceReady(@NonNull Surface surface);
         /** Fires on the MAIN thread when the surface goes away and the player must let go. */
         void onFxInputSurfaceLost();
+        /** The PiP decoder's surface, published alongside the master's. */
+        default void onFxPipSurfaceReady(@NonNull Surface surface) { }
+    }
+
+    /**
+     * One picture-in-picture clip, resolved to where it sits on the master frame.
+     *
+     * <p>Built on the main thread from the same {@code KeyframeSet} evaluation
+     * {@code OverlayVideoPreviewView} uses to position its View, so the GL composite and the
+     * gesture layer cannot disagree about where the PiP is.</p>
+     */
+    public static final class Pip {
+        final float cx, cy, halfW, halfH, rotationDeg, alpha;
+
+        public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha) {
+            this.cx = cx;
+            this.cy = cy;
+            this.halfW = halfW;
+            this.halfH = halfH;
+            this.rotationDeg = rotationDeg;
+            this.alpha = alpha;
+        }
+
+        boolean rendersAnything() {
+            return alpha > 0.004f && halfW > 0f && halfH > 0f;
+        }
     }
 
     // ── Immutable per-frame state, built on the MAIN thread ──────────────────────────────────
@@ -233,6 +305,8 @@ public class FxPreviewTextureView extends TextureView
     @NonNull private volatile List<Layer> layers = java.util.Collections.emptyList();
     /** The clip grade, or null when the clip under the playhead has none. */
     @Nullable private volatile Grade grade;
+    /** The PiP to composite, or null when there is none (or its own tier owns it). */
+    @Nullable private volatile Pip pip;
     private volatile int videoW = 0, videoH = 0;
     /** @see #setVideoRotation */
     private volatile int rotation = 0;
@@ -246,11 +320,18 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private SurfaceTexture inputTexture;
     @Nullable private Surface inputSurface;
     private final float[] texMatrix = new float[16];
+    /** Second decoder input: the PiP. Allocated with the master's, used only when one exists. */
+    private int pipTexId;
+    @Nullable private SurfaceTexture pipTexture;
+    @Nullable private volatile Surface pipSurface;
+    private final float[] pipTexMatrix = new float[16];
+    /** Set on the GL thread when a PiP frame has actually arrived; until then, do not draw it. */
+    private boolean pipHasFrame;
     private FloatBuffer quadBuf;
     private volatile int surfaceW, surfaceH;
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
-    private int stageProgram, presentProgram, gradeProgram;
+    private int stageProgram, presentProgram, gradeProgram, pipProgram;
     /** Compiled effect steps, keyed by the concatenated source keys of every live layer. */
     @Nullable private String compiledKey;
     /** The one stack whose compile failed, so it is not retried per frame. See ensurePrograms. */
@@ -357,6 +438,23 @@ public class FxPreviewTextureView extends TextureView
         requestFrame();
     }
 
+    /**
+     * The PiP to composite over the master frame, or null for none.
+     *
+     * <p>Composited AFTER the clip grade and BEFORE the adjustment layers, which is the export
+     * chain's order — so a layer grades the PiP along with the video beneath it, and the clip's
+     * own grade does not leak onto the PiP.</p>
+     */
+    public void setPip(@Nullable Pip p) {
+        pip = p;
+        requestFrame();
+    }
+
+    /** True once the PiP decoder surface exists, so a caller knows routing can proceed. */
+    public boolean hasPipSurface() {
+        return pipSurface != null;
+    }
+
     /** Redraw with current state even if no new decoder frame arrived (a paused scrub). */
     public void requestFrame() {
         Handler h = glHandler;
@@ -447,33 +545,56 @@ public class FxPreviewTextureView extends TextureView
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
                     com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
+            pipProgram = buildProgram(FxGlSource.VERTEX_SHADER, PIP_FRAGMENT);
 
-            int[] ids = new int[1];
-            GLES20.glGenTextures(1, ids, 0);
-            oesTexId = ids[0];
-            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTexId);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                    GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                    GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                    GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-            GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-                    GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+            oesTexId = newOesTexture();
 
             inputTexture = new SurfaceTexture(oesTexId);
             inputTexture.setOnFrameAvailableListener(this);
             inputSurface = new Surface(inputTexture);
 
+            // The PiP's input, made alongside the master's. Costs one texture and one
+            // SurfaceTexture on a project that never uses a PiP; building it lazily instead
+            // would mean creating GL objects from whichever thread noticed, which is the kind
+            // of cross-thread GL that fails intermittently rather than loudly.
+            pipTexId = newOesTexture();
+            pipTexture = new SurfaceTexture(pipTexId);
+            pipTexture.setOnFrameAvailableListener(st -> {
+                pipHasFrame = true;
+                requestFrame();
+            });
+            pipSurface = new Surface(pipTexture);
+
             final Surface ready = inputSurface;
+            final Surface pipReady = pipSurface;
             main.post(() -> {
                 SurfaceListener l = surfaceListener;
-                if (l != null) l.onFxInputSurfaceReady(ready);
+                if (l != null) {
+                    l.onFxInputSurfaceReady(ready);
+                    l.onFxPipSurfaceReady(pipReady);
+                }
             });
         } catch (Exception e) {
             FLog.e(TAG, "GL setup failed; the live FX preview is unavailable", e);
             releaseGl();
         }
+    }
+
+    /** An external-OES texture with the clamped, linear sampling every decoder input wants. */
+    private int newOesTexture() {
+        int[] ids = new int[1];
+        GLES20.glGenTextures(1, ids, 0);
+        int id = ids[0];
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, id);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        return id;
     }
 
     private void drawFrame() {
@@ -502,12 +623,24 @@ public class FxPreviewTextureView extends TextureView
                 cur = 1;
             }
 
-            // 3 — every live layer, in z order, each grading the result of the one beneath.
+            // 3 — the PiP, over the graded clip and UNDER the layers. Same order as export, and
+            //     the whole reason it is composited here rather than left as a sibling View.
+            Pip pp = pip;
+            if (!degraded && pp != null && pp.rendersAnything() && pipHasFrame
+                    && pipTexture != null) {
+                pipTexture.updateTexImage();
+                pipTexture.getTransformMatrix(pipTexMatrix);
+                int dst = cur == 0 ? 1 : 0;
+                drawPip(pp, cur, dst, vw, vh);
+                cur = dst;
+            }
+
+            // 4 — every live layer, in z order, each grading the result of the one beneath.
             if (!degraded && !live.isEmpty() && ensurePrograms(live)) {
                 cur = drawLayers(live, vw, vh, cur);
             }
 
-            // 4 — present the finished frame, fit-centred, at view resolution.
+            // 5 — present the finished frame, fit-centred, at view resolution.
             drawPresent(targets[cur][0]);
             EGL14.eglSwapBuffers(eglDisplay, eglSurface);
         } catch (Exception e) {
@@ -555,6 +688,33 @@ public class FxPreviewTextureView extends TextureView
         setF(gradeProgram, "uFade", g.fade);
         setF(gradeProgram, "uVignette", g.vignette);
         setF(gradeProgram, "uGrain", g.grain);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    /** Composite the PiP: {@code src} → {@code dst}, one pass. */
+    private void drawPip(@NonNull Pip p, int src, int dst, int vw, int vh) {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(pipProgram);
+        bindQuad(pipProgram);
+        setSampler(pipProgram, "uTexSampler", targets[src][0], 0, true);
+        GLES20.glUniformMatrix4fv(
+                GLES20.glGetUniformLocation(pipProgram, "uPipTexMatrix"), 1, false,
+                pipTexMatrix, 0);
+        int loc = GLES20.glGetUniformLocation(pipProgram, "uPipTexture");
+        if (loc >= 0) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexId);
+            GLES20.glUniform1i(loc, 1);
+        }
+        double rad = Math.toRadians(p.rotationDeg);
+        setF2(pipProgram, "uPipCentre", p.cx, p.cy);
+        setF2(pipProgram, "uPipHalf", p.halfW, p.halfH);
+        setF(pipProgram, "uPipCos", (float) Math.cos(rad));
+        setF(pipProgram, "uPipSin", (float) Math.sin(rad));
+        setF(pipProgram, "uPipAspect", (float) vw / (float) vh);
+        setF(pipProgram, "uPipAlpha", p.alpha);
+        setF(pipProgram, "uPipRotation", p.rotationDeg);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
     }
 
@@ -872,6 +1032,11 @@ public class FxPreviewTextureView extends TextureView
                 releaseTargets();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }
+                Surface ps = pipSurface;
+                pipSurface = null;
+                if (ps != null) ps.release();
+                if (pipTexture != null) { pipTexture.release(); pipTexture = null; }
+                pipHasFrame = false;
                 if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
                     EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE,
                             EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);

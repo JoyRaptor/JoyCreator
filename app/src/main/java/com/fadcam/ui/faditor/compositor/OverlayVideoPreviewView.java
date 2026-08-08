@@ -217,6 +217,89 @@ public class OverlayVideoPreviewView extends FrameLayout {
         return (keyedRouted && keyedView != null) ? keyedView : textureView;
     }
 
+    // ── FX-graded tier: hand the PiP decoder to FxPreviewTextureView ─────────────────────────
+
+    /**
+     * When non-null, the PiP's frames go HERE instead of to a TextureView of this view's own, so
+     * that {@link FxPreviewTextureView} can composite the PiP into its chain and let an
+     * adjustment layer grade it — which is what the export does and what a View sibling can never
+     * reproduce.
+     *
+     * <p>This view keeps doing everything else: decoder policy, gestures, hit-testing, ghost
+     * outlines and the transform evaluation. Only the PIXELS move. Its own hosts are made
+     * transparent rather than GONE, because a GONE TextureView is never laid out and
+     * {@code getVideoContentRect}-relative gesture maths depends on the layout being real.</p>
+     */
+    @Nullable private Surface fxSurface;
+    private boolean fxRouted;
+
+    /** Route the PiP into {@code s}, or pass null to hand it back to this view's own surface. */
+    public void setFxCompositeSurface(@Nullable Surface s) {
+        if (s == fxSurface) return;
+        fxSurface = s;
+        if (s == null && fxRouted) {
+            fxRouted = false;
+            textureView.setAlpha(1f);
+            if (keyedView != null) keyedView.setAlpha(1f);
+            if (player != null) player.setVideoTextureView(textureView);
+            keyedRouted = false;
+        }
+        routeToFxIfWanted();
+    }
+
+    /**
+     * Whether the FX tier currently owns the PiP pixels. The host asks so it knows whether the
+     * GL composite will actually show something, rather than assuming the routing took.
+     */
+    public boolean isFxRouted() {
+        return fxRouted;
+    }
+
+    /**
+     * The PiP's placement on the master frame, normalised, or null when nothing is on screen.
+     *
+     * <p>Read from the SAME {@code KeyframeSet} evaluation {@link #applyTransform} feeds the View
+     * properties, so the GL composite lands exactly where the gesture layer thinks the PiP is.
+     * Half-extents are in master-frame units, which is why they divide by the content rect: the
+     * shader works in the master video's normalised space.</p>
+     */
+    @Nullable
+    public FxPreviewTextureView.Pip fxPipGeometry() {
+        if (callback == null || active == null || videoW <= 0 || videoH <= 0) return null;
+        RectF r = callback.getVideoContentRect();
+        if (r.width() <= 0 || r.height() <= 0) return null;
+        float fit = Math.min(r.width() / videoW, r.height() / videoH);
+        float baseW = videoW * fit, baseH = videoH * fit;
+        float x = readValue(active, KeyframeSet.X, DEFAULT_X);
+        float y = readValue(active, KeyframeSet.Y, DEFAULT_Y);
+        float scale = readValue(active, KeyframeSet.SCALE, DEFAULT_SCALE);
+        float rot = readValue(active, KeyframeSet.ROTATION, 0f);
+        float alpha = Math.max(0f, Math.min(1f, readValue(active, KeyframeSet.OPACITY, 1f)));
+        // Y AND ROTATION ARE FLIPPED into GL's frame. The transform above is in VIEW space,
+        // whose origin is top-left and whose positive rotation is clockwise on screen; the
+        // shader works in vFxUv, which the vertex stage builds bottom-up. Passing y straight
+        // through put the PiP as far below centre as it should have been above it.
+        return new FxPreviewTextureView.Pip(
+                x, 1f - y,
+                (baseW * scale) / r.width() * 0.5f,
+                (baseH * scale) / r.height() * 0.5f,
+                -rot, alpha);
+    }
+
+    /** Attach the decoder to the FX surface once both it and a player exist. */
+    private void routeToFxIfWanted() {
+        Surface s = fxSurface;
+        if (s == null || player == null || fxRouted) return;
+        // A keyed PiP keeps its own live tier: ChromaKeyTextureView produces per-pixel alpha
+        // that this composite has no equivalent for, and a key that stopped working because a
+        // grade was added would be a far worse trade than an ungraded PiP.
+        if (keyedWanted) return;
+        player.setVideoSurface(s);
+        fxRouted = true;
+        textureView.setAlpha(0f);
+        FLog.i(TAG, "PiP routed into the FX composite");
+    }
+
     /**
      * Decide which tier renders {@code clip} and move the decoder if that changed.
      *
@@ -277,6 +360,16 @@ public class OverlayVideoPreviewView extends FrameLayout {
             // Push the authored key every sync, not only on change: a slider drag must show up
             // live, and this is cheap (two array reads).
             keyedView.setSpec(clip.getCompositing());
+        }
+        // The FX composite owns the pixels while it is routed, and only an actual KEY takes them
+        // back — otherwise this method's per-tick "reattach the plain TextureView" would undo the
+        // routing on the next frame and the PiP would vanish from the graded chain.
+        if (fxSurface != null && !wantKeyed) {
+            routeToFxIfWanted();
+            if (fxRouted) return;
+        } else if (fxRouted) {
+            fxRouted = false;
+            textureView.setAlpha(1f);
         }
         boolean canKey = wantKeyed && keyedInputSurface != null;
         if (canKey == keyedRouted && routedPlayer == player) return;
@@ -857,7 +950,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
         host.setScaleX(scale);
         host.setScaleY(scale);
         host.setRotation(rot);
-        host.setAlpha(alpha);
+        // Zero while the FX composite owns the pixels. This runs EVERY tick, so writing the
+        // clip's own opacity here would undo the hide a frame after routing and leave the
+        // ungraded PiP sitting on top of the graded one — which is exactly what it did.
+        host.setAlpha(fxRouted ? 0f : alpha);
         host.setTranslationX((x - 0.5f) * r.width());
         host.setTranslationY((y - 0.5f) * r.height());
         // Export clips the PiP at the canvas; the preview must not show pixels

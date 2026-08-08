@@ -45,6 +45,12 @@ public final class FxLivePreviewController {
         void restoreVideoOutput();
         /** The clip under the playhead, whose colour grade the preview must show. */
         @Nullable com.fadcam.ui.faditor.model.Clip clipAtPlayhead();
+
+        /**
+         * The PiP layer, so its decoder can be composited INTO this chain rather than drawn over
+         * the graded result. Null on a host that has no PiP support.
+         */
+        @Nullable default OverlayVideoPreviewView overlayVideoLayer() { return null; }
     }
 
     /**
@@ -129,6 +135,8 @@ public final class FxLivePreviewController {
 
     /** The decoder-facing surface, once the GL thread has published one. */
     @Nullable private Surface inputSurface;
+    /** The PiP's decoder-facing surface, once the GL thread has published one. */
+    @Nullable private Surface pipSurface;
     /** True while the decoder is rendering into {@link #view} rather than the PlayerView. */
     private boolean routed;
     /**
@@ -152,11 +160,17 @@ public final class FxLivePreviewController {
             }
             @Override public void onFxInputSurfaceLost() {
                 inputSurface = null;
+                pipSurface = null;
+                OverlayVideoPreviewView ov = host.overlayVideoLayer();
+                if (ov != null) ov.setFxCompositeSurface(null);
                 if (routed) {
                     routed = false;
                     routedPlayer = null;
                     host.restoreVideoOutput();
                 }
+            }
+            @Override public void onFxPipSurfaceReady(@NonNull Surface s) {
+                pipSurface = s;
             }
         });
     }
@@ -198,6 +212,7 @@ public final class FxLivePreviewController {
         view.setVideoSize(size[0], size[1]);
         view.setVideoRotation(rotationDegrees());
         view.setLayers(snapshot);
+        syncPip();
         route();
     }
 
@@ -224,6 +239,22 @@ public final class FxLivePreviewController {
     private int rotationDegrees() {
         ExoPlayer p = host.activeVideoPlayer();
         return p == null ? 0 : p.getVideoSize().unappliedRotationDegrees;
+    }
+
+    /**
+     * Offer the PiP layer our composite surface, and push whatever geometry it reports.
+     *
+     * <p>The offer is made every tick rather than once: the PiP layer creates its player lazily
+     * (only when a PiP clip is actually on screen) and releases it when the list empties, so the
+     * moment routing becomes possible is not knowable from here.</p>
+     */
+    private void syncPip() {
+        OverlayVideoPreviewView ov = host.overlayVideoLayer();
+        if (ov == null || pipSurface == null) { view.setPip(null); return; }
+        ov.setFxCompositeSurface(pipSurface);
+        // Geometry only counts once the pixels are actually coming here. A keyed PiP keeps its
+        // own live tier, so it stays a sibling View and must NOT also be drawn in the chain.
+        view.setPip(ov.isFxRouted() ? ov.fxPipGeometry() : null);
     }
 
     /** Attach the decoder to the GL view, if it is not already there. */
@@ -254,6 +285,9 @@ public final class FxLivePreviewController {
         routedPlayer = null;
         view.setLayers(java.util.Collections.emptyList());
         view.setGrade(null);
+        view.setPip(null);
+        OverlayVideoPreviewView ov = host.overlayVideoLayer();
+        if (ov != null) ov.setFxCompositeSurface(null);   // give the PiP its own surface back
         host.restoreVideoOutput();
         FLog.i(TAG, "live FX preview released");
     }

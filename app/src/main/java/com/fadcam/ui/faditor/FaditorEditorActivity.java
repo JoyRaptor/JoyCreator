@@ -6721,23 +6721,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Real-time color grade for the LIVE preview, applied as a {@link android.graphics.RenderEffect}
-     * on the TextureView-backed player (the same reason rotate/crop use View transforms — Media3
-     * {@code setVideoEffects} does not render in this preview path). Covers the matrix-expressible
-     * params (exposure/contrast/saturation/temperature/tint) via ColorMatrix on API 31+; the
-     * shader-only params (highlights/shadows/fade/vignette/grain) are additionally previewed via
-     * AGSL RuntimeShader on API 33+. On older devices the shader-only params are not shown in
-     * preview (export still unaffected).
-     */
-    /**
-     * The clip whose grade is currently on {@code playerView}, so a LAYOUT change can re-apply
-     * it. {@code uSize} is baked into the shader when it is built; without this, rotating the
-     * device or opening a drawer that resizes the preview would leave the vignette measuring
-     * against the old dimensions — the same class of bug as the one the prologue just fixed,
-     * arriving by a different door.
+     * The clip whose grade the preview is showing.
+     *
+     * <p>Kept because callers set it on clip changes and a resize no longer needs to re-apply
+     * anything: the GL renderer reads its own dimensions each frame, so the stale-{@code uSize}
+     * class of bug that the old RenderEffect path needed a layout watcher for cannot arise.</p>
+     *
+     * <p><b>Media3 {@code setVideoEffects} does not render in this preview path.</b> That was
+     * measured again on 2026-08-07 — the export's own {@code Effect} list handed to the player
+     * left saturation 0 fully saturated, routed and unrouted — which is why the grade is
+     * rendered by {@code FxPreviewTextureView} instead. Do not spend the afternoon on it twice.</p>
      */
     @Nullable private Clip gradedPreviewClip;
-    private boolean gradeLayoutWatcherAttached;
 
     /**
      * Put the clip's grade on the live preview as media3 effects.
@@ -6748,133 +6743,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * and merely playing does not.</p>
      */
     private void applyPreviewColorGrade(@Nullable Clip clip) {
-        // THE GL PATH, on every device. FxPreviewTextureView runs the grade itself, from
-        // media3's own matrices and the export's own grade function, covering the shader-only
-        // parameters (highlights, shadows, fade, vignette, grain) that the ColorMatrix path
-        // below could never show — and covering them on API 24 rather than 31/33.
-        //
-        // Handing ExoPlayer the export's Effect list via setVideoEffects was tried first and
-        // does NOT render in this preview path, routed or not: with saturation dragged to 0 the
-        // picture stayed fully saturated on the device. That is what this method's original
-        // javadoc always claimed, and it is still true.
-        if (com.fadcam.ui.faditor.fx.FxPreviewTier.usesGl()) {
-            gradedPreviewClip = clip;
-            // The renderer is fed from the playhead tick, which already carries the clip; there
-            // is nothing to push here. Kept as an explicit early return so the RenderEffect path
-            // below cannot also run and double-apply the grade on a new phone.
-            syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
-            return;
-        }
-        if (playerView == null
-                || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
-            return;
-        }
+        // The clip grade is rendered by FxPreviewTextureView, from media3's own matrices and
+        // the export's own grade function — see ColorGradeGlSource. This method used to hold a
+        // second implementation: a ColorMatrix on API 31+, plus an AGSL translation of the
+        // shader-only parameters on API 33+, neither of which could show a LUT and both of
+        // which were unreachable on the phones this app mostly runs on. It is gone; all that is
+        // left is to remember the clip and let the playhead tick push it.
         gradedPreviewClip = clip;
-        if (!gradeLayoutWatcherAttached) {
-            gradeLayoutWatcherAttached = true;
-            playerView.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-                if ((r - l) == (or - ol) && (b - t) == (ob - ot)) return;   // moved, not resized
-                if (gradedPreviewClip != null) applyPreviewColorGrade(gradedPreviewClip);
-            });
-        }
-        if (clip == null || clip.isImageClip() || !clip.getEffectStack().isActive()) {
-            playerView.setRenderEffect(null);
-            return;
-        }
-        com.fadcam.ui.faditor.effects.EffectStack fx = clip.getEffectStack();
-        android.graphics.ColorMatrix cm = new android.graphics.ColorMatrix();
-        cm.setSaturation(fx.getSaturation());
-        float c = 1f + fx.getContrast();
-        float ct = (1f - c) * 0.5f * 255f;
-        cm.postConcat(new android.graphics.ColorMatrix(new float[]{
-                c, 0, 0, 0, ct,
-                0, c, 0, 0, ct,
-                0, 0, c, 0, ct,
-                0, 0, 0, 1, 0}));
-        float e = 1f + fx.getExposure();
-        android.graphics.ColorMatrix scale = new android.graphics.ColorMatrix();
-        scale.setScale(e * (1f + fx.getTemperature() * 0.18f),
-                e * (1f + fx.getTint() * 0.08f),
-                e * (1f - fx.getTemperature() * 0.18f), 1f);
-        cm.postConcat(scale);
-
-        boolean hasShaderParams = Math.abs(fx.getHighlights()) > 0.001f
-                || Math.abs(fx.getShadows()) > 0.001f
-                || Math.abs(fx.getFade()) > 0.001f
-                || fx.getVignette() > 0.001f
-                || fx.getGrain() > 0.001f;
-
-        android.graphics.RenderEffect colorMatrixEffect =
-                android.graphics.RenderEffect.createColorFilterEffect(
-                        new android.graphics.ColorMatrixColorFilter(cm));
-
-        if (hasShaderParams
-                && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            String agsl =
-                    "uniform shader inputShader;\n"
-                    // THE NORMALIZATION PROLOGUE. createRuntimeShaderEffect hands main() a
-                    // coordinate in LOCAL PIXEL space, not 0..1 — and this shader spent its
-                    // whole life assuming otherwise. distance(co, float2(0.5)) against a number
-                    // around 700 made smoothstep(0.72, 0.28, d) evaluate to ZERO across the
-                    // entire frame, so the preview vignette has never once been visible, at any
-                    // setting. The grain was wrong the same way: co * 100.0 in pixel space is a
-                    // completely different frequency from the one intended.
-                    //
-                    // FxCompiler emits this same prologue for every FX shader, and for exactly
-                    // this reason: no authored body may see a raw fragment coordinate.
-                    + "uniform float2 uSize;\n"
-                    + "uniform float uHighlights;\n"
-                    + "uniform float uShadows;\n"
-                    + "uniform float uFade;\n"
-                    + "uniform float uVignette;\n"
-                    + "uniform float uGrain;\n"
-                    + "half4 main(float2 co) {\n"
-                    // eval() still takes the RAW co — it addresses the input image in the
-                    // caller's own space. Only the geometry below wants 0..1.
-                    + "  float2 uv = co / uSize;\n"
-                    + "  half4 color = inputShader.eval(co);\n"
-                    + "  float a = color.a;\n"
-                    + "  float luma = dot(color.rgb, half3(0.299, 0.587, 0.114));\n"
-                    + "  float highlightMask = step(0.5, luma) * clamp((luma - 0.5) * 2.0, 0.0, 1.0);\n"
-                    + "  color.rgb = mix(color.rgb, half3(luma), uHighlights * highlightMask);\n"
-                    + "  float shadowMask = step(luma, 0.5) * clamp((0.5 - luma) * 2.0, 0.0, 1.0);\n"
-                    + "  color.rgb = mix(color.rgb, half3(luma), -uShadows * shadowMask);\n"
-                    + "  float fadeUp = max(0.0, uFade);\n"
-                    + "  float fadeDown = max(0.0, -uFade);\n"
-                    + "  color.rgb = mix(color.rgb, half3(0.0), fadeUp);\n"
-                    + "  color.rgb = mix(color.rgb, half3(1.0), fadeDown);\n"
-                    + "  float d = distance(uv, float2(0.5));\n"
-                    + "  color *= 1.0 - (smoothstep(0.72, 0.28, d) * uVignette);\n"
-                    + "  float noise = fract(sin(dot(uv * 100.0, float2(12.9898, 78.233))) * 43758.5453) - 0.5;\n"
-                    + "  color += noise * uGrain * 0.08;\n"
-                    + "  color = clamp(color, 0.0, 1.0);\n"
-                    + "  return half4(color.rgb, a);\n"
-                    + "}";
-            try {
-                android.graphics.RuntimeShader shader =
-                        new android.graphics.RuntimeShader(agsl);
-                // Guarded: a not-yet-laid-out view is 0x0, and dividing by it would make every
-                // uv NaN — a black frame, which is far worse than the bug being fixed.
-                float pw = Math.max(1f, playerView.getWidth());
-                float ph = Math.max(1f, playerView.getHeight());
-                shader.setFloatUniform("uSize", pw, ph);
-                shader.setFloatUniform("uHighlights", fx.getHighlights());
-                shader.setFloatUniform("uShadows", fx.getShadows());
-                shader.setFloatUniform("uFade", fx.getFade());
-                shader.setFloatUniform("uVignette", fx.getVignette());
-                shader.setFloatUniform("uGrain", fx.getGrain());
-                android.graphics.RenderEffect shaderEffect =
-                        android.graphics.RenderEffect.createRuntimeShaderEffect(
-                                shader, "inputShader");
-                playerView.setRenderEffect(
-                        android.graphics.RenderEffect.createChainEffect(
-                                shaderEffect, colorMatrixEffect));
-            } catch (Exception ex) {
-                playerView.setRenderEffect(colorMatrixEffect);
-            }
-        } else {
-            playerView.setRenderEffect(colorMatrixEffect);
-        }
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
     }
 
     /** Tint the Filter tool green when the selected clip has any active color/grade effect. */
@@ -20184,44 +20060,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * wanting two adjustment layers is much rarer than wanting to edit the one you just made.</p>
      */
     /**
-     * The live-preview controller for adjustment layers, created lazily because the wrapper it
-     * drives only exists once the layout is inflated.
-     */
-    @Nullable private com.fadcam.ui.faditor.compositor.AdjustmentPreviewController adjustPreview;
-
-    /**
-     * The GL live-preview controller — the path that works on EVERY device this app ships to,
-     * rather than only on API 31+.
+     * The live-preview controller — one renderer, on every device this app ships to.
      *
      * @see com.fadcam.ui.faditor.compositor.FxLivePreviewController
      */
     @Nullable private com.fadcam.ui.faditor.compositor.FxLivePreviewController fxLivePreview;
 
     /**
-     * Drive whichever live-preview backend this device uses.
+     * Put the adjustment layers and the clip grade on the live preview.
      *
-     * <p>Exactly ONE of the two runs. {@code RenderEffect} grades the whole {@code fx_below_group}
-     * subtree in one call and is the cheaper path where it exists; the GL renderer routes the
-     * decoder through the export's own shaders and works everywhere. Letting both run would
-     * double-apply the grade on a new phone, which is why {@code FxPreviewTier.usesGl} is the
-     * single place that chooses.</p>
-     *
-     * @see com.fadcam.ui.faditor.compositor.AdjustmentPreviewController#sync
+     * <p>There used to be a second backend here, choosing {@code RenderEffect} over the
+     * {@code fx_below_group} subtree on API 31+ and nothing at all below it. It is gone: the GL
+     * renderer compiles the export's own shaders and runs on everything, so the alternative
+     * covered no device the GL path does not, and keeping it meant maintaining a second
+     * translation of every effect body that no one would notice going stale.</p>
      */
     private void syncAdjustmentPreview(long absoluteMs) {
         if (project == null) return;
         try {
-            if (com.fadcam.ui.faditor.fx.FxPreviewTier.usesGl()) {
-                syncGlAdjustmentPreview(absoluteMs);
-            } else {
-                if (adjustPreview == null) {
-                    View wrapper = findViewById(R.id.fx_below_group);
-                    if (wrapper == null) return;
-                    adjustPreview = new com.fadcam.ui.faditor.compositor
-                            .AdjustmentPreviewController(wrapper);
-                }
-                adjustPreview.sync(project.getTimeline(), absoluteMs);
-            }
+            syncGlAdjustmentPreview(absoluteMs);
         } catch (RuntimeException e) {
             // This runs on every playhead tick. A preview effect is never worth taking the
             // editor down for, and export is unaffected either way.

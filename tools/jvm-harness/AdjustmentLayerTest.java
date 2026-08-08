@@ -165,118 +165,22 @@ public class AdjustmentLayerTest {
     // ── Preview tiers ───────────────────────────────────────────────────────
 
     /**
-     * The tier table, pinned here because it CANNOT be verified on the sandbox phone: the
-     * Note 9 is API 29, below RenderEffect's floor of 31, so {@code Tier} there is EXPORT_ONLY.
+     * What the picker, the cards and the panel header say.
      *
-     * <p><b>That is a statement about RenderEffect, not about the phone</b>, and the two were
-     * conflated for a while. {@code Tier} still means exactly what it always did; what changed is
-     * that it is no longer the thing the UI asks. {@code FxPreviewTextureView} previews the whole
-     * chain in GL on that same API-29 device — verified there on exported pixels — so
-     * {@code backend()} answers GL and the device-facing predicates below say "yes" regardless of
-     * tier. The tier assertions are kept because the RenderEffect path still exists behind
-     * {@code USE_GL}.</p>
+     * <p>The device tiers this used to assert are gone. They graded phones by {@code
+     * RenderEffect} (API 31) and AGSL (API 33), and the project read that as "the Note 9 cannot
+     * preview effects" — which was false, and is the belief this whole area was rebuilt to
+     * correct. The preview now compiles the export's own GLSL on every device, so a regression
+     * here is the one that matters: it puts "export only" back on a card whose effect the editor
+     * is, in fact, showing live.</p>
      */
     static void previewTiers() {
-        check("API 33+ is the full AGSL chain",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.of(33)
-                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL);
-        check("API 31-32 is partial", com.fadcam.ui.faditor.fx.FxPreviewTier.of(31)
-                == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL
-                && com.fadcam.ui.faditor.fx.FxPreviewTier.of(32)
-                == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL);
-        check("API 30 and below cannot preview at all",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.of(30)
-                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
-        check("the sandbox phone (API 29) is EXPORT_ONLY for RENDEREFFECT specifically",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.of(29)
-                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
-        check("minSdk (24) does not crash the table",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.of(24)
-                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY);
-
         com.fadcam.ui.faditor.fx.FxEffectDef blur =
                 com.fadcam.ui.faditor.fx.FxRegistry.require("gaussian_blur");
         com.fadcam.ui.faditor.fx.FxEffectDef invert =
                 com.fadcam.ui.faditor.fx.FxRegistry.require("invert");
-
-        check("tier A previews everything",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL)
-                && com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(invert,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL));
-        // Deliberately narrow: a "nearly right" grade is the thing nobody notices is wrong
-        // until export, so tier B approximates blur and skips the rest rather than faking it.
-        check("tier B previews blur only",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL)
-                && !com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(invert,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL));
-        check("tier C previews nothing",
-                !com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY));
-
-        check("tier A shows NO badge — a badge on every entry is noise",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.badge(invert,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
-        check("tier B badges an unpreviewable effect 'export only'",
-                "export only".equals(com.fadcam.ui.faditor.fx.FxPreviewTier.badge(invert,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL)));
-        check("tier B badges blur 'approx', because it genuinely is",
-                "approx".equals(com.fadcam.ui.faditor.fx.FxPreviewTier.badge(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.PARTIAL)));
-        check("tier A has no header note", com.fadcam.ui.faditor.fx.FxPreviewTier
-                .headerNote(com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
-        check("the other tiers explain themselves", !com.fadcam.ui.faditor.fx.FxPreviewTier
-                .headerNote(com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.EXPORT_ONLY).isEmpty());
-
-        // EXPORT capability is a different question from preview tier, and nothing to do with
-        // the device: a SAMPLER card needs multi-pass FBOs the export renderer does not have.
-        // Multi-pass landed, so EVERY capability exports on a LAYER -- including the blurs,
-        // which were the one thing the spec promised that this feature could not do end to end.
-        check("a SAMPLER effect exports on a layer",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(blur));
-        // ...but NOT on a single object: that stack is spliced into the compositing shader,
-        // which has no finished image for a sampler to read neighbours from. One answer for
-        // both subjects would badge a blur as fine and then quietly skip it on a PiP.
-        check("...but NOT on one object",
-                !com.fadcam.ui.faditor.fx.FxPreviewTier.canExportOn(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT));
-        check("a pointwise effect works on both",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.canExportOn(invert,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)
-                && com.fadcam.ui.faditor.fx.FxPreviewTier.canExportOn(invert,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER));
-        check("the object card points at the fix rather than just refusing",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)
-                        .contains("adjustment layer"));
-        check("...as does a pointwise one",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(invert));
-        check("so no card claims otherwise on capable hardware",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
-        check("...and says nothing when an effect works everywhere",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(invert,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Tier.FULL).isEmpty());
-        glBackend(blur, invert);
-    }
-
-    /**
-     * The DEVICE-facing predicates — the ones the picker, the cards and the panel header call.
-     *
-     * <p>These deliberately do not take a {@code Tier}. The old three-argument forms are a
-     * description of {@code RenderEffect}'s reach and are still asserted above; these describe
-     * what the user will actually see, which since the GL renderer is the same on every device
-     * this app runs on. A regression here is the one that matters: it puts "export only" back on
-     * a card whose effect the editor is, in fact, showing live.</p>
-     */
-    static void glBackend(@SuppressWarnings("unused") com.fadcam.ui.faditor.fx.FxEffectDef blur,
-                          com.fadcam.ui.faditor.fx.FxEffectDef invert) {
-        check("GL is the backend, so the tier no longer gates the preview",
-                com.fadcam.ui.faditor.fx.FxPreviewTier.backend()
-                        == com.fadcam.ui.faditor.fx.FxPreviewTier.Backend.GL
-                && com.fadcam.ui.faditor.fx.FxPreviewTier.usesGl());
+        check("the GL renderer is the only backend",
+                com.fadcam.ui.faditor.fx.FxPreviewTier.usesGl());
         check("a SAMPLER effect previews live — the multi-pass path, not just pointwise",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.canPreview(blur));
         check("...and so does a pointwise one",

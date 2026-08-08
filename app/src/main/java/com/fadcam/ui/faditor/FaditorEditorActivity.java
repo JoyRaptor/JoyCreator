@@ -13301,10 +13301,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     openSpritePalette();
                 } else if (item.getWaveform() != null) {
                     showVisualizerDrawer(true);
+                } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                    // THE PiP AUDIO DRAWER, restored. It had two doors and lost both: the
+                    // "Show audio waveform" row went when the object menu's action list was
+                    // deleted (its removal note said "the double-tap already opens it"), and
+                    // the double-tap branch it named never existed. So a PiP whose lane icon
+                    // says it has audio could not be opened to show that audio at all.
+                    Clip pc = item.getClip();
+                    if (pc.isOverlayAudioEnabled() && editorTimeline != null) {
+                        String laneId = pc.getLayerId() != null ? pc.getLayerId() : "video";
+                        editorTimeline.setLaneAudioDrawerOpen(
+                                laneId, !editorTimeline.isLaneAudioDrawerOpen(laneId));
+                    } else {
+                        // Silent would read as the same bug all over again. A PiP is muted by
+                        // default, so the honest answer is that there is nothing to show yet.
+                        Toast.makeText(FaditorEditorActivity.this,
+                                "This PiP has no audio turned on yet",   // TODO(strings)
+                                Toast.LENGTH_SHORT).show();
+                    }
                 }
-                // Audio / PiP: no dedicated type editor exists yet — the selection from the
-                // first tap stands, and double-tap will route here once those power-tools
-                // drawers land (gesture contract §2 general menu / per-type editors).
+                // Audio: no dedicated type editor yet — the selection from the first tap
+                // stands (gesture contract §2 general menu / per-type editors).
             }
 
             @Override
@@ -13506,7 +13523,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final AudioClip audioPayload = item.getAudioClip();
         final com.fadcam.ui.faditor.sprite.SpriteOverlayItem spritePayload = item.getSprite();
         final Clip clipPayload = item.getClip();
+        // AN ADJUSTMENT LAYER MOVES BETWEEN LANES LIKE ANYTHING ELSE. It was excluded here, so
+        // the one object whose whole purpose is to sit ABOVE other objects was the only one
+        // that could not be put above them -- leaving it with nothing to affect but the master
+        // layer, which is exactly what JoyRaptor reported.
+        final com.fadcam.ui.faditor.model.AdjustmentLayer adjustPayload = item.getAdjustment();
         if (textPayload == null && audioPayload == null && spritePayload == null
+                && adjustPayload == null
                 && (clipPayload == null || !clipPayload.isOverlayClip())) return null;
         // Each payload type has its own SEEDED default lane id ("text"/"sprite"/"audio");
         // storing null (rather than the literal string) for a move BACK to that lane keeps
@@ -13531,13 +13554,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
                 project.getTimeline().getLayerTrackDef(fromTrackId);
         final int fromDefIndex = project.getTimeline().indexOfLayerTrackDef(fromTrackId);
-        applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+        applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload, adjustPayload,
                 toStored, clipToStored);
         syncTimelineOverlays();
         maybeRemoveEmptyLayerTrack(fromTrackId);
         return new PendingLayerTrackUndo("Move layer",
                 () -> {
-                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload, adjustPayload,
                             toStored, clipToStored);
                     syncTimelineOverlays();
                     maybeRemoveEmptyLayerTrack(fromTrackId);
@@ -13546,7 +13569,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (fromDefBefore != null) {
                         project.getTimeline().restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
                     }
-                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload, adjustPayload,
                             fromStored, clipFromStored);
                     syncTimelineOverlays();
                 });
@@ -13562,11 +13585,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Nullable AudioClip audioPayload,
             @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayItem spritePayload,
             @Nullable Clip clipPayload,
+            @Nullable com.fadcam.ui.faditor.model.AdjustmentLayer adjustPayload,
             @Nullable String stored, @NonNull String clipStored) {
         if (textPayload != null) textPayload.setLayerId(stored);
         else if (audioPayload != null) audioPayload.setLayerId(stored);
         else if (spritePayload != null) spritePayload.setLayerId(stored);
         else if (clipPayload != null) clipPayload.setLayerId(clipStored);
+        // NEVER NULL for an adjustment layer, same rule an overlay clip follows: a null
+        // layerId means master-spine semantics, and a grade that fell into the spine would
+        // stop being a layer at all.
+        else if (adjustPayload != null) adjustPayload.setLayerId(clipStored);
     }
 
     /**
@@ -13595,8 +13623,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.sprite.SpriteOverlayItem spritePayload = item.getSprite();
         final Clip clipPayload = item.getClip();
         final boolean overlayClipPayload = clipPayload != null && clipPayload.isOverlayClip();
+        // Dropping into the gap between lanes makes a NEW lane. An adjustment layer needs this
+        // most of all: putting one above a specific stack of objects is the whole reason it is
+        // an object rather than a project-wide setting.
+        final com.fadcam.ui.faditor.model.AdjustmentLayer adjustPayload = item.getAdjustment();
         if (textPayload == null && audioPayload == null && spritePayload == null
-                && !overlayClipPayload) return null;
+                && adjustPayload == null && !overlayClipPayload) return null;
         final Timeline timeline = project.getTimeline();
         boolean floatingBand = editorTimeline.isLayerTrackFloatingBand(fromTrack);
         com.fadcam.ui.faditor.layers.TrackKind newKind = floatingBand
@@ -13650,7 +13682,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
-        applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+        applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload, adjustPayload,
                 newTrackId, newTrackId);
         syncTimelineOverlays();
         maybeRemoveEmptyLayerTrack(fromTrackId);
@@ -13660,7 +13692,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     for (java.util.Map.Entry<String, Integer> e : zAfter.entrySet()) {
                         timeline.getOrCreateTrackFlags(e.getKey()).zIndex = e.getValue();
                     }
-                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload, adjustPayload,
                             newTrackId, newTrackId);
                     syncTimelineOverlays();
                     maybeRemoveEmptyLayerTrack(fromTrackId);
@@ -13669,7 +13701,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (fromDefBefore != null) {
                         timeline.restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
                     }
-                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload,
+                    applyMovedLayerId(textPayload, audioPayload, spritePayload, clipPayload, adjustPayload,
                             fromStored, clipFromStored);
                     for (java.util.Map.Entry<String, Integer> e : zBefore.entrySet()) {
                         timeline.getOrCreateTrackFlags(e.getKey()).zIndex = e.getValue();
@@ -21166,24 +21198,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             apply.run();
             undoManager.recordAction(new EditActions.LambdaAction(
                     was ? "Mute overlay audio" : "Include overlay audio", apply, revert));
-        }));
-    }
-
-    /**
-     * SPEC_PIP_AUDIO slice D: show/hide this PiP's waveform shelf on its lane row — the
-     * lane-row sibling of the master clip-audio drawer, so the picture tape and the audio can
-     * be read together. Offered only for a clip that actually contributes audio; there is
-     * nothing to draw otherwise. Pure view state, so no undo step (matching the master
-     * drawer, which is also session UI state).
-     */
-    private void addPipAudioDrawerAction(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
-            @NonNull Clip c) {
-        if (!c.isOverlayAudioEnabled() || editorTimeline == null) return;
-        final String laneId = c.getLayerId() != null ? c.getLayerId() : "video";
-        final boolean open = editorTimeline.isLaneAudioDrawerOpen(laneId);
-        actions.add(new ObjectMenuSheet.Action(
-                open ? "Hide audio waveform" : "Show audio waveform", false, () -> { // TODO(strings)
-            if (editorTimeline != null) editorTimeline.setLaneAudioDrawerOpen(laneId, !open);
         }));
     }
 

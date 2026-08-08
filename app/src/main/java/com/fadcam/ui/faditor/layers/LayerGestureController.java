@@ -2165,8 +2165,14 @@ public final class LayerGestureController {
         // onto one would write a layerId that no routing consumes — see TrackKind#isLane.
         if (!candidate.getKind().isLane()) return false;
         if (item.getAudioClip() != null) return false;
+        // AN ADJUSTMENT LAYER IS A VISUAL PAYLOAD TOO, and the omission here is what made it
+        // the one object that could not be re-homed. That is fatal to the whole idea: a layer
+        // grades everything BENEATH it, so being unable to place it above a chosen stack left
+        // it with nothing to affect but the master track. Same rule as any other visual thing
+        // — every floating lane takes it, no audio lane does.
         return item.getClip() != null
                 || item.getTextOverlay() != null
-                || item.getSprite() != null;
+                || item.getSprite() != null
+                || item.getAdjustment() != null;
     }
 }

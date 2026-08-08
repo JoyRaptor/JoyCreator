@@ -854,7 +854,14 @@ public class FxPreviewTextureView extends TextureView
                 .replace("uniform sampler2D uTexSampler;\n", "")
                 .replace("varying vec2 vFxUv;\n", "")
                 .replace("precision mediump float;\n", "")
-                .replace("precision highp float;\n", "");
+                .replace("precision highp float;\n", "")
+                // blendPix IS ALREADY IN PIP_FRAGMENT, and GLSL ES 1.00 rejects a second body
+                // outright: "'blendPix' : function already has a body". The whole PiP stack then
+                // failed to compile and fell back to the plain composite, which is precisely the
+                // "inverse still doesn't work on a PiP" report. Both sides pull the equations
+                // from BlendModes, so removing the emitted copy by that exact string keeps ONE
+                // authority and cannot drift out of sync with what was spliced in.
+                .replace(com.fadcam.ui.faditor.model.BlendModes.glslBlendFnWithModeParam(), "");
         StringBuilder fold = new StringBuilder();
         for (com.fadcam.ui.faditor.fx.FxInstance card : fused.cards) {
             fold.append("    fxc = fxBlendOver(fxc, fx").append(card.slot)
@@ -863,8 +870,13 @@ public class FxPreviewTextureView extends TextureView
                     .append(FxCompiler.foldBlendName(card)).append(");\n");
         }
         String apply = "    vec4 fxc = src;\n" + fold + "    src = fxc;\n";
+        // SPLICED IMMEDIATELY BEFORE main(), not up among the uniforms. The emitted decls
+        // include fxBlendOver, which CALLS blendPix, and GLSL ES 1.00 requires a declaration
+        // before its use — placing them higher put the caller above the callee and traded
+        // "function already has a body" for "no matching overloaded function". Everything
+        // spliced here is global scope, so uniforms are equally happy this far down.
         return PIP_FRAGMENT
-                .replace("uniform float uPipRotation;\n", "uniform float uPipRotation;\n" + decls)
+                .replace("void main() {\n", decls + "void main() {\n")
                 .replace("    vec4 src = texture2D(uPipTexture, s);\n",
                         "    vec4 src = texture2D(uPipTexture, s);\n" + apply);
     }

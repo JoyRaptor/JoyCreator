@@ -116,7 +116,7 @@ public final class FxPanel {
             root.addView(headerRow(ctx, stack, host, rebuild[0], d));
             List<FxInstance> cards = stack.cards();
             if (cards.isEmpty()) {
-                root.addView(emptyNote(ctx, d));
+                root.addView(emptyNote(ctx, d, subject));
             }
             // TOP-DOWN on screen, bottom-up in the model. The last card in the list is applied
             // last, so it belongs at the TOP of a vertical list — the same way every layer
@@ -196,11 +196,20 @@ public final class FxPanel {
         return col;
     }
 
+    /**
+     * The empty state, which has to name the RIGHT subject. It said "everything beneath the
+     * layer takes it" on a PiP's own Effects tab — describing an adjustment layer to someone
+     * looking at an object, and promising a reach the object's stack does not have.
+     */
     @NonNull
-    private static View emptyNote(@NonNull Context ctx, float d) {
+    private static View emptyNote(@NonNull Context ctx, float d,
+                                  @NonNull FxPreviewTier.Subject subject) {
         TextView t = new TextView(ctx);
-        t.setText("This layer changes nothing yet. Add an effect and everything beneath the "
-                + "layer takes it.");
+        t.setText(subject == FxPreviewTier.Subject.LAYER
+                ? "This layer changes nothing yet. Add an effect and everything beneath the "
+                        + "layer takes it."
+                : "No effects on this object yet. Add one and it rides with the object — it "
+                        + "affects this and nothing else.");
         t.setTextColor(TXT_DIM);
         t.setTextSize(11.5f);
         t.setPadding(0, Math.round(8 * d), 0, Math.round(10 * d));

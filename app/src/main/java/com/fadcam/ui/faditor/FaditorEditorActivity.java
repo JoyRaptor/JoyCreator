@@ -18162,7 +18162,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             restoreOverlayTransform(clip, before);
                         }));
             }
+
+            @Override
+            public void onOverlayVideoSelected(@NonNull Clip clip) {
+                // Route the canvas tap into the SAME selection the timeline uses, so the row
+                // highlights, the trash badge appears, and every selection-derived tool (FX,
+                // duplicate, delete) is now aimed at what the user just touched. Selecting in
+                // one place and not the other is how the two surfaces start disagreeing about
+                // what "the current object" means.
+                selectLayerItemById(clip.getId());
+            }
         };
+    }
+
+    /**
+     * Select the lane item with this id, from anywhere.
+     *
+     * <p>Written once because there are now two ways to select an object — its timeline row and
+     * its body on the canvas — and they must land on the same state.</p>
+     */
+    private void selectLayerItemById(@NonNull String id) {
+        if (editorTimeline == null || project == null) return;
+        com.fadcam.ui.faditor.layers.LayerGestureController ctrl =
+                editorTimelineGestureController();
+        if (ctrl == null) return;
+        for (com.fadcam.ui.faditor.layers.Track t : project.getTimeline().getLayers()) {
+            for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
+                if (id.equals(it.getId())) {
+                    ctrl.setSelectedItem(t, it);
+                    editorTimeline.invalidate();
+                    return;
+                }
+            }
+        }
     }
 
     /**

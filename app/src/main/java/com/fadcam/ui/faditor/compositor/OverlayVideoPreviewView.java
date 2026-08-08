@@ -83,6 +83,15 @@ public class OverlayVideoPreviewView extends FrameLayout {
         void onOverlayVideoChanged();
         /** A drag/pinch finished; record ONE undo step from the snapshot. */
         void onOverlayVideoManipulated(@NonNull Clip clip, @NonNull KeyframeSet before);
+
+        /**
+         * The user TAPPED this PiP on the canvas — select it.
+         *
+         * <p>Default no-op so existing callers compile, but the editor must implement it: a tap
+         * that selects nothing is the difference between a canvas you can work on and one that
+         * appears to ignore you.</p>
+         */
+        default void onOverlayVideoSelected(@NonNull Clip clip) { }
         /**
          * Playback volume for this PiP — the host answers from
          * {@code LayerPreviewController.effectiveOverlayVolume} so preview and export share
@@ -1042,6 +1051,13 @@ public class OverlayVideoPreviewView extends FrameLayout {
                         if (before != null) callback.onOverlayVideoManipulated(c, before);
                         callback.onOverlayVideoChanged();
                     }
+                } else if (c != null && e.getActionMasked() == MotionEvent.ACTION_UP) {
+                    // A TAP SELECTS. This branch did not exist: a tap that moved nothing fell
+                    // straight out of the gesture and fired no callback at all, so tapping a
+                    // PiP on the canvas was a literal no-op — which is why the preview felt
+                    // like it was eating touches. Selecting is what every other surface does
+                    // with a tap, and it is what raises the row highlight and the trash badge.
+                    callback.onOverlayVideoSelected(c);
                 }
                 return c != null;
             }

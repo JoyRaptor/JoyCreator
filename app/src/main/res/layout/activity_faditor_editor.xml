@@ -1090,18 +1090,22 @@
          Sits on the boundary between the weight=1 preview above and the
          timeline block below. Drag UP → taller timeline (more layer rows
          visible, smaller preview); drag DOWN → bigger preview. Persisted. -->
+    <!-- 28dp, not 20: this is a DRAG target and 20dp is under half the 48dp minimum, which is
+         why it read as decoration. The bar itself is wider than the mark so the whole strip is
+         grabbable, and the mark is brighter so it looks like something you can take hold of. -->
     <FrameLayout
         android:id="@+id/timeline_grab_bar"
         android:layout_width="match_parent"
-        android:layout_height="20dp"
+        android:layout_height="28dp"
         android:background="#FF141414"
         android:clickable="true"
         android:focusable="true"
         android:contentDescription="@string/faditor_timeline_resize_handle">
         <View
-            android:layout_width="44dp"
-            android:layout_height="4dp"
+            android:layout_width="56dp"
+            android:layout_height="5dp"
             android:layout_gravity="center"
+            android:alpha="0.85"
             android:background="@drawable/grab_handle_bg" />
     </FrameLayout>
 

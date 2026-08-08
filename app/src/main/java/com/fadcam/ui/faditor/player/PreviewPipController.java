@@ -113,7 +113,14 @@ public class PreviewPipController {
      * slot / gap can still give up. The preview itself promotes to PiP before it hits zero.
      */
     public float maxBandDpFor(float currentBandDp) {
-        return currentBandDp + Math.max(0f, prospectiveSlotPx()) / density;
+        float slot = prospectiveSlotPx();
+        // UNKNOWN IS NOT ZERO. prospectiveSlotPx returns -1 before the column has been laid
+        // out, and clamping to "current + 0" on that answer pins the band at exactly its
+        // present height — the timeline then refuses to grow and the grab bar feels dead,
+        // which is indistinguishable from it not being draggable at all. No measurement means
+        // no ceiling; the next MOVE event will have one.
+        if (slot < 0f) return Float.MAX_VALUE;
+        return currentBandDp + slot / density;
     }
 
     // ── Core signal ──────────────────────────────────────────────────

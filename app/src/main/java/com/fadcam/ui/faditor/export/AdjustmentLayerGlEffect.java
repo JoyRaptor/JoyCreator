@@ -135,6 +135,14 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                 CompositingSpec cs = layer.getCompositing();
                 float[] geo = MaskSdf.packShapes(cs, width, height);
                 float opacity = layer.opacityAt(editorMs);
+                // Packed by the shared authority every frame, exactly like the mask geometry
+                // above — cheap, and it is what keeps this in step with a tab that can change
+                // the key colour or tolerance while the preview (and, mid-export, this) is
+                // running.
+                float[] keyColor = com.fadcam.ui.faditor.model.ChromaKey.packColor(cs);
+                float[] keyParams = com.fadcam.ui.faditor.model.ChromaKey.packParams(cs);
+                float blendMode = com.fadcam.ui.faditor.model.BlendModes.modeCode(
+                        layer.getBlendMode());
 
                 // Remember the framebuffer media3 bound for our OUTPUT before we focus any of
                 // our own — the final pass has to give it back.
@@ -176,6 +184,9 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     setF(p, "uMaskCorner", geo[6]);
                     setF(p, "uMaskFeather", geo[7]);
                     setF(p, "uMaskInvert", cs != null && cs.invertMasks ? 1f : 0f);
+                    setFn(p, "uKeyColor", keyColor);
+                    setFn(p, "uKeyParams", keyParams);
+                    setF(p, "uBlendMode", blendMode);
                     p.bindAttributesAndUniforms();
                     GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                     GlUtil.checkGlError();

@@ -208,6 +208,38 @@ public final class PipDrawerTabs {
     public static View maskTab(@NonNull Context ctx, @NonNull Clip clip,
                                @NonNull CompositingSpec spec, @NonNull Runnable apply,
                                @NonNull PlayheadSource playheadMs) {
+        return maskTab(ctx, clip::getOverlayTransform, spec, apply, playheadMs);
+    }
+
+    /**
+     * For an object with nothing to link a mask to (an adjustment layer: it grades a composed
+     * frame, not an object with its own position/scale/rotation) — see {@link LinkSource}. The
+     * "Move with the object" row is left out entirely rather than shown disabled, because a
+     * control for a concept that does not apply here reads as more broken than no control.
+     */
+    @NonNull
+    public static View maskTab(@NonNull Context ctx, @NonNull CompositingSpec spec,
+                               @NonNull Runnable apply, @NonNull PlayheadSource playheadMs) {
+        return maskTab(ctx, (LinkSource) null, spec, apply, playheadMs);
+    }
+
+    /**
+     * Supplies the pose a linked mask captures FROM when "Move with the object" is switched on.
+     *
+     * <p>{@link #maskTab} was typed around a PiP {@code Clip} originally, purely for this one
+     * feature — a mask anchored to the clip's {@code overlayTransform} keyframes. An adjustment
+     * layer has no equivalent (its own {@code transform} is opacity-only, see the class doc on
+     * {@code AdjustmentLayer}), so this is the one seam widened to a supplier rather than
+     * duplicating ~300 lines of otherwise object-agnostic tab code for the sake of one field.</p>
+     */
+    public interface LinkSource {
+        @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet transform();
+    }
+
+    @NonNull
+    private static View maskTab(@NonNull Context ctx, @Nullable LinkSource linkSource,
+                                @NonNull CompositingSpec spec, @NonNull Runnable apply,
+                                @NonNull PlayheadSource playheadMs) {
         LinearLayout root = column(ctx);
         // NO MASK UNTIL ASKED FOR. Opening this tab used to CREATE a full-frame shape, so every
         // PiP arrived already masked and the user had to notice and remove something they never
@@ -410,49 +442,68 @@ public final class PipDrawerTabs {
         // one shape can ride the object while another stays pinned to the frame. Its checked
         // state is therefore re-synced whenever the selection changes (see syncSelected below);
         // reading spec.masks.get(sel[0]) at CLICK time is what keeps it honest after a switch.
-        CheckBox link = new CheckBox(ctx);
-        link.setText("Move with the object");
-        link.setTextColor(TXT);
-        link.setTextSize(12);
-        link.setChecked(!spec.masks.isEmpty() && spec.masks.get(sel[0]).linkedToObject);
-        link.setOnCheckedChangeListener((b, on) -> {
-            if (spec.masks.isEmpty()) return;
-            CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
-            if (cur.linkedToObject == on) return;   // a re-sync must not re-capture the pose
-            cur.linkedToObject = on;
-            if (on) {
-                // CAPTURE the object's pose now: "relative to the object" has no origin
-                // otherwise, and the mask would jump the first time the object sat anywhere
-                // but its default pose.
-                com.fadcam.ui.faditor.keyframe.KeyframeSet kf = clip.getOverlayTransform();
-                long t = playheadMs.get();
-                cur.linkBaseX = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, t, 0.5f);
-                cur.linkBaseY = poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, t, 0.5f);
-                cur.linkBaseScale = Math.max(0.001f,
-                        poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, t, 1f));
-                cur.linkBaseRotDeg =
-                        poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, t, 0f);
-            }
-            apply.run();
-        });
-        // Both checkboxes share ONE line (user, 2026-08-06). Equal weights rather than
-        // wrap_content so the two labels cannot jostle each other as their text changes
-        // length under translation or a larger font scale.
+        //
+        // NULL when linkSource is null (an adjustment layer): there is no object pose to link
+        // to, so the row is left out of checkRow entirely rather than built and disabled.
+        @Nullable final CheckBox link;
+        if (linkSource != null) {
+            link = new CheckBox(ctx);
+            link.setText("Move with the object");
+            link.setTextColor(TXT);
+            link.setTextSize(12);
+            link.setChecked(!spec.masks.isEmpty() && spec.masks.get(sel[0]).linkedToObject);
+            link.setOnCheckedChangeListener((b, on) -> {
+                if (spec.masks.isEmpty()) return;
+                CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
+                if (cur.linkedToObject == on) return;   // a re-sync must not re-capture the pose
+                cur.linkedToObject = on;
+                if (on) {
+                    // CAPTURE the object's pose now: "relative to the object" has no origin
+                    // otherwise, and the mask would jump the first time the object sat anywhere
+                    // but its default pose.
+                    com.fadcam.ui.faditor.keyframe.KeyframeSet kf = linkSource.transform();
+                    long t = playheadMs.get();
+                    cur.linkBaseX =
+                            poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, t, 0.5f);
+                    cur.linkBaseY =
+                            poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, t, 0.5f);
+                    cur.linkBaseScale = Math.max(0.001f,
+                            poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, t, 1f));
+                    cur.linkBaseRotDeg =
+                            poseAt(kf, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, t, 0f);
+                }
+                apply.run();
+            });
+        } else {
+            link = null;
+        }
+        // Both checkboxes share ONE line (user, 2026-08-06) when both exist. Equal weights
+        // rather than wrap_content so the two labels cannot jostle each other as their text
+        // changes length under translation or a larger font scale. With no link checkbox,
+        // invertMasks alone takes the row rather than half of it.
         LinearLayout checkRow = row(ctx);
         LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        checkRow.addView(inv, half);
-        checkRow.addView(link, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        checkRow.addView(inv, link != null ? half : new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        if (link != null) {
+            checkRow.addView(link, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        }
         root.addView(checkRow);
 
-        TextView hint = new TextView(ctx);
-        hint.setText("Off: the mask stays put and the object moves under it. "
-                + "On: the mask travels with the object.");
-        hint.setTextColor(0xFF8A8A8A);
-        hint.setTextSize(11.5f);
-        hint.setPadding((int) (8 * d), 0, (int) (8 * d), (int) (6 * d));
-        root.addView(hint);
+        @Nullable final TextView hint;
+        if (link != null) {
+            hint = new TextView(ctx);
+            hint.setText("Off: the mask stays put and the object moves under it. "
+                    + "On: the mask travels with the object.");
+            hint.setTextColor(0xFF8A8A8A);
+            hint.setTextSize(11.5f);
+            hint.setPadding((int) (8 * d), 0, (int) (8 * d), (int) (6 * d));
+            root.addView(hint);
+        } else {
+            hint = null;
+        }
 
         LinearLayout keyRow = new LinearLayout(ctx);
         keyRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -501,11 +552,12 @@ public final class PipDrawerTabs {
         // Everything from the checkbox row down describes a shape stack, so it is hidden while
         // there is no shape — and re-shown the moment one is added. Wired through syncSelected
         // because that is the one hook rebuild already calls on every state change.
-        final View[] shapeOnly = {checkRow, hint, keyRow};
+        final View[] shapeOnly = hint != null
+                ? new View[]{checkRow, hint, keyRow} : new View[]{checkRow, keyRow};
         syncSelected[0] = () -> {
             boolean any = !spec.masks.isEmpty();
             for (View v : shapeOnly) v.setVisibility(any ? View.VISIBLE : View.GONE);
-            if (any) link.setChecked(spec.masks.get(sel[0]).linkedToObject);
+            if (any && link != null) link.setChecked(spec.masks.get(sel[0]).linkedToObject);
         };
         syncSelected[0].run();
         return root;
@@ -538,8 +590,13 @@ public final class PipDrawerTabs {
 
     private static final int[] SWATCHES = {0x00FF00, 0x0000FF, 0x000000, 0xFFFFFF};
 
+    /**
+     * Never took a {@code Clip} for anything but its type signature — the tab reads and writes
+     * only {@code spec} and the eyedropper goes through {@code host}. Object-agnostic already,
+     * which is exactly why an adjustment layer (no clip of its own) can use it unchanged.
+     */
     @NonNull
-    public static View chromaTab(@NonNull Context ctx, @NonNull Clip clip,
+    public static View chromaTab(@NonNull Context ctx,
                                  @NonNull CompositingSpec spec, @NonNull Runnable apply,
                                  @NonNull Host host) {
         float d = ctx.getResources().getDisplayMetrics().density;
@@ -630,6 +687,26 @@ public final class PipDrawerTabs {
     @NonNull
     public static View blendTab(@NonNull Context ctx, @NonNull Clip clip,
                                 @NonNull Runnable apply) {
+        // false: a PiP's blend mode is export-only (BlendModeGlEffect has no live-preview
+        // counterpart), so the caveat stays exactly as it was for this caller.
+        return blendTab(ctx, clip::getOverlayBlendMode, clip::setOverlayBlendMode, apply, false);
+    }
+
+    /**
+     * Widened off {@code Clip} the same way {@link #maskTab} was — the chip row itself only ever
+     * read/wrote one string, so an adjustment layer's {@code blendMode} field plugs in through
+     * these two functional params with no new UI code.
+     *
+     * @param previewsLive true when this caller's blend compiles into the SAME GL source the
+     *                     live preview runs (an adjustment layer, via {@code FxGlSource}) — the
+     *                     export-only caveat below would be actively wrong there, so it is
+     *                     skipped rather than shown and ignored.
+     */
+    @NonNull
+    public static View blendTab(@NonNull Context ctx,
+                                @NonNull java.util.function.Supplier<String> getMode,
+                                @NonNull java.util.function.Consumer<String> setMode,
+                                @NonNull Runnable apply, boolean previewsLive) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
         // HORIZONTAL chips, not a vertical list. Five one-word options stacked vertically made
@@ -659,7 +736,7 @@ public final class PipDrawerTabs {
             lp.rightMargin = Math.round(7 * d);
             tv.setLayoutParams(lp);
             tv.setOnClickListener(v -> {
-                clip.setOverlayBlendMode(BLEND_KEYS[idx]);
+                setMode.accept(BLEND_KEYS[idx]);
                 for (int j = 0; j < rows.size(); j++) {
                     rows.get(j).setTextColor(j == idx ? ACCENT : TXT);
                 }
@@ -670,17 +747,19 @@ public final class PipDrawerTabs {
         }
         hs.addView(strip);
         root.addView(hs);
-        String cur = clip.getOverlayBlendMode();
+        String cur = getMode.get();
         for (int i = 0; i < BLEND_KEYS.length; i++) {
             rows.get(i).setTextColor(BLEND_KEYS[i].equals(cur) ? ACCENT : TXT);
         }
-        TextView note = new TextView(ctx);
-        note.setText(R.string.faditor_blend_export_note);
-        note.setTextColor(TXT_DIM);
-        note.setTextSize(10);
-        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        note.setPadding(Math.round(6 * d), Math.round(6 * d), Math.round(6 * d), 0);
-        root.addView(note);
+        if (!previewsLive) {
+            TextView note = new TextView(ctx);
+            note.setText(R.string.faditor_blend_export_note);
+            note.setTextColor(TXT_DIM);
+            note.setTextSize(10);
+            note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            note.setPadding(Math.round(6 * d), Math.round(6 * d), Math.round(6 * d), 0);
+            root.addView(note);
+        }
         return root;
     }
 

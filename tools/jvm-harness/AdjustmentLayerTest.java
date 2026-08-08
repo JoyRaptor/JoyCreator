@@ -245,10 +245,14 @@ public class AdjustmentLayerTest {
         check("declarations precede main()",
                 composite.indexOf("uniform sampler2D uBaseSampler") < composite.indexOf("void main()")
                 && composite.indexOf("fxShapeSd") < composite.indexOf("void main()"));
+        // "blended" rather than "c.rgb" directly since M-BLEND wired uBlendMode through this
+        // same seam: blendPix(base.rgb, c.rgb) IS the graded colour when uBlendMode is NORMAL
+        // (BlendModes.GLSL_BLEND_FN's own short-circuit), so this is the identical picture for
+        // every project that predates blend modes and a real combine for the ones that use one.
         check("only the composite variant mixes back over the original",
                 composite.contains("uBaseSampler, fxClamp(vFxUv)")
-                && composite.contains("mix(base.rgb, c.rgb, amt)")
-                && !plain.contains("mix(base.rgb, c.rgb, amt)"));
+                && composite.contains("mix(base.rgb, blended, amt)")
+                && !plain.contains("mix(base.rgb, blended, amt)"));
         check("the composite really replaced the compiler's entry, leaving no stray write",
                 !composite.contains("  gl_FragColor = c;\n"));
         check("a sampler pass reads the neighbour offset uniform it was emitted for",

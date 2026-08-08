@@ -20628,6 +20628,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
+        // Flush whatever compositing session the PREVIOUS object left open — same reason
+        // showPipDrawer does it first: the drawer is one reused instance that show() retargets
+        // without ever closing, so skipping this would silently drop the prior object's Mask/Key
+        // edits from the undo stack. See commitPendingCompUndo's doc.
+        commitPendingCompUndo();
+        final com.fadcam.ui.faditor.model.CompositingSpec spec = layer.getCompositing();
+        final Runnable applyComp = () -> {
+            syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+            if (editorTimeline != null) editorTimeline.invalidate();
+            scheduleAutoSave();
+        };
+        com.fadcam.ui.faditor.tools.PipDrawerTabs.Host compHost =
+                new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public void onChanged() { applyComp.run(); }
+            @Override public void pickColorFromPreview(
+                    @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
+                // The PiP eyedropper hit-tests a CLIP's own decoder texture (see
+                // OverlayVideoPreviewView.sampleAt) — there is no equivalent surface for an
+                // adjustment layer to sample, since it has no footage of its own. Declining
+                // honestly beats arming a dropper that would silently sample the wrong thing
+                // (or nothing) on the next tap.
+                android.widget.Toast.makeText(FaditorEditorActivity.this,
+                        "Pick a swatch — the eyedropper isn't available on an adjustment layer",
+                        android.widget.Toast.LENGTH_SHORT).show();     // TODO(strings)
+                cb.onPicked(null);
+            }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+        };
+
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
@@ -20652,6 +20685,47 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             ctx, layer.getFx(), fxHost));
                     return col;
                 }));
+        // Masks, chroma key and blend mode — the same three tabs a PiP's drawer offers,
+        // reusing PipDrawerTabs' content wholesale (JoyRaptor, 2026-08-08: "much the same UI as
+        // video overlay ... we dont need a later redundant [Effects tab]", which is why there
+        // is no fourth tab here duplicating what "layer.getName()" above already is). Masks and
+        // chroma key restrict WHERE the grade lands rather than what is drawn — see the class
+        // doc on AdjustmentLayer — and both are ALREADY wired into the shared FxGlSource seam
+        // that AdjustmentLayerGlEffect (export) and FxPreviewTextureView (preview) both compile,
+        // so this tab list is not decoration: every control here changes the exported picture.
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
+                // No LinkSource: "move with the object" has no meaning for a layer that grades
+                // whatever is composited beneath it rather than being an object with a pose of
+                // its own to link to.
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
+                        ctx, spec, applyComp, () -> Math.max(0, lastPlayheadAbsoluteMs))));
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
+                        ctx, spec, applyComp, compHost)));
+        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+                getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(ctx,
+                        layer::getBlendMode,
+                        mode -> {
+                            // A single tap, not a drag — cheap to give it its own undo step
+                            // rather than folding it into the mask/key session snapshot below,
+                            // which only ever tracks CompositingSpec.
+                            String before = layer.getBlendMode();
+                            if (before.equals(mode)) return;
+                            layer.setBlendMode(mode);
+                            applyComp.run();
+                            undoManager.recordAction(new EditActions.LambdaAction(
+                                    getString(R.string.faditor_blend_title),
+                                    () -> { layer.setBlendMode(mode); applyComp.run(); },
+                                    () -> { layer.setBlendMode(before); applyComp.run(); }));
+                        },
+                        applyComp,
+                        // true: unlike a PiP's blend (export-only), this compiles through the
+                        // SAME FxGlSource the live GL preview runs, so the export-only caveat
+                        // would be actively wrong here.
+                        true)));
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
@@ -20664,12 +20738,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     scheduleAutoSave();
                 }, true));
 
-        // NO SESSION-CLOSE UNDO ANY MORE. FxPanel records one step per edit now — add, delete,
-        // bypass, reorder, preset, each chip, each slider drag — so a whole-session action on
-        // top of them double-counted every change. Concretely: add Blur, drag it to 0.8, close.
-        // Undo, undo, redo restored the stack as it was BEFORE the slider moved, because that
-        // snapshot predated it — one press of redo landed the user in a state that never
-        // existed. Two authorities for one delta cannot both be right.
+        // NO SESSION-CLOSE UNDO for the FX tab. FxPanel records one step per edit now — add,
+        // delete, bypass, reorder, preset, each chip, each slider drag — so a whole-session
+        // action on top of them double-counted every change. Concretely: add Blur, drag it to
+        // 0.8, close. Undo, undo, redo restored the stack as it was BEFORE the slider moved,
+        // because that snapshot predated it — one press of redo landed the user in a state that
+        // never existed. Two authorities for one delta cannot both be right.
+        //
+        // The Mask/Key tabs are the OPPOSITE case — a slider drag on them is a stream of values
+        // with no per-frame undo of its own (PipDrawerTabs.Host.recordUndo is declared and never
+        // called from those tabs, exactly as it was for the PiP drawer) — so they get ONE
+        // session-snapshot step, taken and committed the same way showPipDrawer's does.
+        final String compBefore = spec.toJson().toString();
+        pendingCompUndoCommit = () -> {
+            String compAfter = spec.toJson().toString();
+            if (compAfter.equals(compBefore)) return;   // opened and closed, or looked only
+            final com.fadcam.ui.faditor.model.CompositingSpec undoState =
+                    com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
+                            com.google.gson.JsonParser.parseString(compBefore).getAsJsonObject());
+            final com.fadcam.ui.faditor.model.CompositingSpec redoState =
+                    com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
+                            com.google.gson.JsonParser.parseString(compAfter).getAsJsonObject());
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    getString(R.string.faditor_mask_title),
+                    () -> { spec.copyFrom(redoState); applyComp.run(); },
+                    () -> { spec.copyFrom(undoState); applyComp.run(); }));
+        };
+        ensurePipDrawer().setOnClose(this::commitPendingCompUndo);
+
         ensurePipDrawer().show(tabs, toggles);
     }
 
@@ -21007,7 +21103,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
-                        ctx, c, spec, applyComp, tabHost)));
+                        ctx, spec, applyComp, tabHost)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(

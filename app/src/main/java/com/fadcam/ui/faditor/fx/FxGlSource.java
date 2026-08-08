@@ -77,7 +77,17 @@ public final class FxGlSource {
             + "uniform vec2 uMaskRot;\n"
             + "uniform float uMaskCorner;\n"
             + "uniform float uMaskFeather;\n"
-            + "uniform float uMaskInvert;\n";
+            + "uniform float uMaskInvert;\n"
+            // Chroma key GATES the mix factor exactly like a mask does — an adjustment layer has
+            // no footage of its own to key, so "key" here means "key OUT a colour from what's
+            // beneath, before grading", not the PiP sense of "key my own source". Packed by the
+            // same ChromaKey authority a PiP uses, so the tolerance/softness/spill sliders mean
+            // the identical distance whichever object they are tuned on.
+            + "uniform vec3 uKeyColor;\n"
+            + "uniform vec4 uKeyParams;\n"   // x=enabled, y=tolerance, z=fuzziness, w=offset
+            // How the graded colour combines with the original, past the plain opacity mix.
+            // BlendModes' own float codes (0=NORMAL … see BlendModes.modeCode).
+            + "uniform float uBlendMode;\n";
 
     /**
      * Assemble one pass's fragment source.
@@ -102,6 +112,11 @@ public final class FxGlSource {
                 + body.substring(0, mainAt)
                 + COMPOSITE_UNIFORMS
                 + MaskSdf.GLSL_MASK_FN
+                // Same shared-source discipline as the mask function: the key and blend
+                // equations live in ChromaKey/BlendModes so export and preview cannot compile
+                // two different ideas of what they mean.
+                + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN
+                + com.fadcam.ui.faditor.model.BlendModes.GLSL_BLEND_FN
                 + body.substring(mainAt);
         return composite ? withComposite(fragment) : fragment;
     }
@@ -112,10 +127,13 @@ public final class FxGlSource {
      *
      * <p>The compiler's entry writes {@code gl_FragColor = c}. Here the ORIGINAL is still in hand,
      * so the last statement becomes the one line that IS the adjustment-layer semantic:</p>
-     * <pre>out = mix(base, graded, coverage * opacity)</pre>
-     * <p>Masks modulate that MIX FACTOR, not an alpha. On a PiP a mask decides where the image is
-     * drawn; here it decides where the effect applies — same machinery, different question, and
-     * conflating the two puts a hole in the picture instead of limiting a grade.</p>
+     * <pre>out = mix(base, blendPix(base, graded), coverage * opacity)</pre>
+     * <p>Masks and the chroma key both modulate that MIX FACTOR, not an alpha. On a PiP a mask (or
+     * a key) decides where the image is drawn; here they decide where the effect applies — same
+     * machinery, different question, and conflating the two puts a hole in the picture instead of
+     * limiting a grade. The key reads {@code base}, the frame BEFORE this layer's grade, because an
+     * adjustment layer has no footage of its own to key — "key out this colour, then grade what's
+     * left" is the only reading of chroma key that means anything here.</p>
      *
      * <p>Textual because the compiler deliberately knows nothing about layers.</p>
      */
@@ -133,7 +151,15 @@ public final class FxGlSource {
                 // the effect applies outside it.
                 + "    cover = uMaskInvert > 0.5 ? inside : 1.0 - inside;\n"
                 + "  }\n"
+                // Key gates the SAME mix factor a mask does, on the colour already sitting there
+                // (BASE, not the graded result) — "key out this colour before grading", which is
+                // the only reading of chroma key that makes sense with no footage of its own.
+                // fadKeyAlpha self-gates on uKeyParams.x, so this is a no-op unless the tab
+                // switched keying on — no second "is it enabled" branch to keep in step.
+                + "  cover *= fadKeyAlpha(base.rgb / max(base.a, 0.001), 1.0, uKeyColor, "
+                + "uKeyParams);\n"
                 + "  float amt = clamp(cover * uLayerOpacity, 0.0, 1.0);\n"
-                + "  gl_FragColor = vec4(mix(base.rgb, c.rgb, amt), base.a);\n");
+                + "  vec3 blended = clamp(blendPix(base.rgb, c.rgb), 0.0, 1.0);\n"
+                + "  gl_FragColor = vec4(mix(base.rgb, blended, amt), base.a);\n");
     }
 }

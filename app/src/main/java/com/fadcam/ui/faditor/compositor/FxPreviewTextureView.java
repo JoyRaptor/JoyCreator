@@ -295,10 +295,16 @@ public class FxPreviewTextureView extends TextureView
         final boolean hasMask;
         final boolean invertMask;
         final float timeSec;
+        /** Packed by {@code ChromaKey} — the same authority the export effect reads. */
+        @NonNull final float[] keyColor;
+        @NonNull final float[] keyParams;
+        /** A {@code BlendModes.modeCode} value — how the grade combines with the original. */
+        final float blendMode;
 
         private Layer(@NonNull FxCompiler.Plan plan, @NonNull String sourceKey,
                       @NonNull List<List<FxUniforms.Value>> uniforms, @NonNull float[] geo,
-                      float opacity, boolean hasMask, boolean invertMask, float timeSec) {
+                      float opacity, boolean hasMask, boolean invertMask, float timeSec,
+                      @NonNull float[] keyColor, @NonNull float[] keyParams, float blendMode) {
             this.plan = plan;
             this.sourceKey = sourceKey;
             this.uniforms = uniforms;
@@ -307,6 +313,9 @@ public class FxPreviewTextureView extends TextureView
             this.hasMask = hasMask;
             this.invertMask = invertMask;
             this.timeSec = timeSec;
+            this.keyColor = keyColor;
+            this.keyParams = keyParams;
+            this.blendMode = blendMode;
         }
 
         /**
@@ -336,7 +345,10 @@ public class FxPreviewTextureView extends TextureView
                     layer.opacityAt(editorMs),
                     cs != null && !cs.masks.isEmpty(),
                     cs != null && cs.invertMasks,
-                    editorMs / 1000f);
+                    editorMs / 1000f,
+                    com.fadcam.ui.faditor.model.ChromaKey.packColor(cs),
+                    com.fadcam.ui.faditor.model.ChromaKey.packParams(cs),
+                    com.fadcam.ui.faditor.model.BlendModes.modeCode(layer.getBlendMode()));
         }
     }
 
@@ -971,6 +983,9 @@ public class FxPreviewTextureView extends TextureView
                 setF(step.program, "uMaskCorner", g[6]);
                 setF(step.program, "uMaskFeather", g[7]);
                 setF(step.program, "uMaskInvert", layer.invertMask ? 1f : 0f);
+                setFn(step.program, "uKeyColor", layer.keyColor, 3);
+                setFn(step.program, "uKeyParams", layer.keyParams, 4);
+                setF(step.program, "uBlendMode", layer.blendMode);
 
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                 src = dst;

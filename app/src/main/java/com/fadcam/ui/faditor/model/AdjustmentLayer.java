@@ -54,6 +54,14 @@ public final class AdjustmentLayer {
     /** The effect stack this layer runs over everything beneath it. */
     @NonNull private FxStack fx = new FxStack();
 
+    /**
+     * How the graded result combines with the original, past plain opacity mix — the same
+     * {@code BlendModes.ALL} vocabulary a PiP's overlay blend uses ({@code Clip#overlayBlendMode}).
+     * "NORMAL" (the default) is what every layer had before this field existed, so it is never
+     * serialized — see {@link #toJson}.
+     */
+    @NonNull private String blendMode = "NORMAL";
+
     /** Layer-level animation. v1 uses {@code opacity} only — how much of the effect lands. */
     @Nullable private KeyframeSet transform;
 
@@ -102,6 +110,9 @@ public final class AdjustmentLayer {
     @NonNull public FxStack getFx() { return fx; }
     public void setFx(@NonNull FxStack v) { fx = v; }
 
+    @NonNull public String getBlendMode() { return blendMode; }
+    public void setBlendMode(@Nullable String v) { blendMode = v == null ? "NORMAL" : v; }
+
     @Nullable public KeyframeSet getTransform() { return transform; }
     public void setTransform(@Nullable KeyframeSet v) { transform = v; }
 
@@ -142,6 +153,7 @@ public final class AdjustmentLayer {
         if (locked) o.addProperty("locked", true);
         if (!compositing.isEmpty()) o.add("compositing", compositing.toJson());
         if (!fx.isEmpty()) o.add("fx", fx.toJson());
+        if (!"NORMAL".equals(blendMode)) o.addProperty("blendMode", blendMode);
         if (transform != null && !transform.isEmpty()) {
             o.add("transform", KeyframeCodec.toJson(transform));
         }
@@ -165,6 +177,7 @@ public final class AdjustmentLayer {
         if (o.has("fx") && o.get("fx").isJsonObject()) {
             a.fx = FxStack.fromJson(o.getAsJsonObject("fx"));
         }
+        if (o.has("blendMode")) a.blendMode = o.get("blendMode").getAsString();
         if (o.has("transform") && o.get("transform").isJsonObject()) {
             a.transform = KeyframeCodec.fromJson(o.getAsJsonObject("transform"));
         }
@@ -183,6 +196,7 @@ public final class AdjustmentLayer {
         c.locked = locked;
         c.compositing = compositing.copy();
         c.fx = fx.copy();
+        c.blendMode = blendMode;
         c.transform = transform == null ? null : transform.copy();
         return c;
     }

@@ -841,20 +841,34 @@ public final class FxPanel {
                     current = next;
                     perRow = 0;
                 }
-                // The badge answers "will I SEE this" BEFORE the card is added, which is the
-                // only moment the answer can still change the decision.
-                String badge = FxPreviewTier.canExportOn(def, subject)
-                        ? FxPreviewTier.badge(def)
-                        : "layer only";
-                TextView c = chip(ctx,
-                        badge.isEmpty() ? def.displayName : def.displayName + " (" + badge + ")",
-                        d);
-                c.setOnClickListener(v -> {
-                    stack.add(def.id);
-                    picker.setVisibility(View.GONE);
-                    rebuild.run();
-                    host.onFxChanged();
-                });
+                // WARN, PERMIT, WARN AGAIN was the old flow: the picker badged a blur
+                // "(layer only)", added it anyway on tap, and the card then nagged "needs an
+                // adjustment layer" forever while rendering nothing. Three chances to say no
+                // and it said yes. An effect that cannot render on this subject is not offered
+                // at all now, and the tap explains itself and OFFERS THE FIX rather than
+                // leaving the user to infer what an adjustment layer is.
+                boolean canRender = FxPreviewTier.canExportOn(def, subject);
+                TextView c = chip(ctx, def.displayName, d);
+                if (!canRender) {
+                    c.setAlpha(0.4f);
+                    c.setOnClickListener(v -> new com.google.android.material.dialog
+                            .MaterialAlertDialogBuilder(ctx)
+                            .setTitle(def.displayName + " needs its own pass")
+                            .setMessage(def.displayName + " reads neighbouring pixels, so it "
+                                    + "needs a finished image to work from. An object is drawn "
+                                    + "in a single pass, so there isn't one yet.\n\nPut it on an "
+                                    + "adjustment layer above this object and it will apply to "
+                                    + "this and everything under it.")
+                            .setPositiveButton("Got it", null)
+                            .show());
+                } else {
+                    c.setOnClickListener(v -> {
+                        stack.add(def.id);
+                        picker.setVisibility(View.GONE);
+                        rebuild.run();
+                        host.onFxChanged();
+                    });
+                }
                 current.addView(c);
                 perRow++;
             }

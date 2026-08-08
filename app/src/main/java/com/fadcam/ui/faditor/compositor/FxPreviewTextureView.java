@@ -174,18 +174,58 @@ public class FxPreviewTextureView extends TextureView
      */
     public static final class Pip {
         final float cx, cy, halfW, halfH, rotationDeg, alpha;
+        /**
+         * The object's OWN effect stack, fused into one pass — or null when it has none.
+         *
+         * <p>Per-object FX were read by nothing in this package until now: only
+         * {@code BlendModeGlEffect} (export) and {@code TextFxGlEffect} consumed them, so an
+         * effect put on a PiP rendered on export and was invisible in the editor. "I don't see
+         * anything that's working in a video layer" was exactly right.</p>
+         *
+         * <p>ONE FUSED PASS, matching export. {@code BlendModeGlEffect} splices the first
+         * non-sampler pass into its compositing shader and skips the rest; previewing more than
+         * export can render would be a new lie in the other direction.</p>
+         */
+        @Nullable final FxCompiler.Pass fused;
+        @NonNull final List<FxUniforms.Value> fxUniforms;
+        @NonNull final String fxKey;
 
-        public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha) {
+        public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
+                   @Nullable FxCompiler.Pass fused,
+                   @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey) {
             this.cx = cx;
             this.cy = cy;
             this.halfW = halfW;
             this.halfH = halfH;
             this.rotationDeg = rotationDeg;
             this.alpha = alpha;
+            this.fused = fused;
+            this.fxUniforms = fxUniforms;
+            this.fxKey = fxKey;
         }
 
         boolean rendersAnything() {
             return alpha > 0.004f && halfW > 0f && halfH > 0f;
+        }
+
+        /** Resolve an object's stack at {@code editorMs} into the fused pass and its uniforms. */
+        @NonNull
+        public static Pip of(float cx, float cy, float halfW, float halfH, float rot, float alpha,
+                             @Nullable FxStack stack, long editorMs) {
+            FxCompiler.Pass fused = null;
+            List<FxUniforms.Value> vals = java.util.Collections.emptyList();
+            String key = "";
+            if (stack != null && !stack.active().isEmpty()) {
+                FxStack resolved = stack.resolveAt(editorMs);
+                for (FxCompiler.Pass p : FxCompiler.plan(resolved).passes) {
+                    if (p.sampler) continue;
+                    fused = p;
+                    vals = FxUniforms.forPass(p);
+                    key = FxUniforms.sourceKey(p, FxGlSource.KERNEL_HALF);
+                    break;
+                }
+            }
+            return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key);
         }
     }
 
@@ -332,6 +372,8 @@ public class FxPreviewTextureView extends TextureView
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
     private int stageProgram, presentProgram, gradeProgram, pipProgram;
+    /** The object stack {@link #pipProgram} was compiled for. */
+    @NonNull private String pipFxKey = " ";
     /** Compiled effect steps, keyed by the concatenated source keys of every live layer. */
     @Nullable private String compiledKey;
     /** The one stack whose compile failed, so it is not retried per frame. See ensurePrograms. */
@@ -545,7 +587,10 @@ public class FxPreviewTextureView extends TextureView
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
                     com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
-            pipProgram = buildProgram(FxGlSource.VERTEX_SHADER, PIP_FRAGMENT);
+            // The PiP program is compiled lazily by pipProgramFor, because its source depends on
+            // the object's effect stack.
+            pipProgram = 0;
+            pipFxKey = " ";
 
             oesTexId = newOesTexture();
 
@@ -691,12 +736,76 @@ public class FxPreviewTextureView extends TextureView
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
     }
 
+    /**
+     * The PiP composite program for {@code p}'s effect stack, compiled on demand.
+     *
+     * <p>Keyed on the stack's source, so an unchanged stack reuses its program and a slider drag
+     * that only moves uniform VALUES never recompiles.</p>
+     */
+    private int pipProgramFor(@NonNull Pip p) {
+        if (p.fxKey.equals(pipFxKey) && pipProgram != 0) return pipProgram;
+        try {
+            int prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused));
+            if (pipProgram != 0) GLES20.glDeleteProgram(pipProgram);
+            pipProgram = prog;
+            pipFxKey = p.fxKey;
+        } catch (Exception e) {
+            FLog.w(TAG, "PiP FX compile failed; compositing ungraded", e);
+            pipFxKey = p.fxKey;   // do not retry this stack every frame
+        }
+        return pipProgram;
+    }
+
+    /**
+     * Splice the object's fused FX pass into the composite shader.
+     *
+     * <p>Deliberately the SAME transformation {@code BlendModeGlEffect.fragmentFor} performs:
+     * take the compiler's output, discard its {@code main()} (this shader has one, and here the
+     * subject is one object's colour rather than a whole frame), keep its declarations minus the
+     * ones already present, and fold each card over the object's colour. Doing it differently
+     * here is how the editor and the render start disagreeing about what a PiP looks like.</p>
+     */
+    @NonNull
+    private static String pipFragment(@Nullable FxCompiler.Pass fused) {
+        if (fused == null) return PIP_FRAGMENT;
+        String emitted = FxCompiler.emitGlsl(fused, FxGlSource.KERNEL_HALF);
+        int mainAt = emitted.indexOf("void main()");
+        if (mainAt < 0) return PIP_FRAGMENT;
+        String decls = emitted.substring(0, mainAt)
+                .replace("uniform sampler2D uTexSampler;\n", "")
+                .replace("varying vec2 vFxUv;\n", "")
+                .replace("precision mediump float;\n", "")
+                .replace("precision highp float;\n", "");
+        StringBuilder fold = new StringBuilder();
+        for (com.fadcam.ui.faditor.fx.FxInstance card : fused.cards) {
+            fold.append("    fxc = fxBlendOver(fxc, fx").append(card.slot)
+                    .append("(uv, fxc), ")
+                    .append(FxCompiler.foldOpacityName(card)).append(", ")
+                    .append(FxCompiler.foldBlendName(card)).append(");\n");
+        }
+        String apply = "    vec4 fxc = src;\n" + fold + "    src = fxc;\n";
+        return PIP_FRAGMENT
+                .replace("uniform float uPipRotation;\n", "uniform float uPipRotation;\n" + decls)
+                .replace("    vec4 src = texture2D(uPipTexture, s);\n",
+                        "    vec4 src = texture2D(uPipTexture, s);\n" + apply);
+    }
+
     /** Composite the PiP: {@code src} → {@code dst}, one pass. */
     private void drawPip(@NonNull Pip p, int src, int dst, int vw, int vh) {
+        int pipProgram = pipProgramFor(p);
+        if (pipProgram == 0) return;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
         GLES20.glViewport(0, 0, vw, vh);
         GLES20.glUseProgram(pipProgram);
         bindQuad(pipProgram);
+        // The object's own effects, and the frame constants their bodies may read.
+        setF2(pipProgram, "uTexel", 1f / vw, 1f / vh);
+        setF(pipProgram, "uAspect", (float) vw / (float) vh);
+        setF(pipProgram, "uTime", 0f);
+        setF2(pipProgram, "uDir", 1f, 0f);
+        for (FxUniforms.Value v : p.fxUniforms) {
+            setFn(pipProgram, v.name, v.data, v.components());
+        }
         setSampler(pipProgram, "uTexSampler", targets[src][0], 0, true);
         GLES20.glUniformMatrix4fv(
                 GLES20.glGetUniformLocation(pipProgram, "uPipTexMatrix"), 1, false,

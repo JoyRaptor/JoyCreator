@@ -279,11 +279,15 @@ public class OverlayVideoPreviewView extends FrameLayout {
         // whose origin is top-left and whose positive rotation is clockwise on screen; the
         // shader works in vFxUv, which the vertex stage builds bottom-up. Passing y straight
         // through put the PiP as far below centre as it should have been above it.
-        return new FxPreviewTextureView.Pip(
+        //
+        // The object's OWN effect stack rides along, so a PiP with effects on it finally shows
+        // them in the editor instead of only in the export.
+        return FxPreviewTextureView.Pip.of(
                 x, 1f - y,
                 (baseW * scale) / r.width() * 0.5f,
                 (baseH * scale) / r.height() * 0.5f,
-                -rot, alpha);
+                -rot, alpha,
+                active.getFx(), currentTimeMs);
     }
 
     /** Attach the decoder to the FX surface once both it and a player exist. */

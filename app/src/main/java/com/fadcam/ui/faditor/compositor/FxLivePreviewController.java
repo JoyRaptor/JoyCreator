@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
+import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.Timeline;
 
 import java.util.ArrayList;
@@ -193,7 +194,14 @@ public final class FxLivePreviewController {
             }
         }
         FxPreviewTextureView.Grade g = gradeOf(host.clipAtPlayhead());
-        if (!anyRenders && g == null) { stop(); return; }
+        // A project whose ONLY effects are on an object still has to route, or those effects
+        // render nowhere in the editor — which is the state that made "I don't see anything
+        // working in a video layer" true.
+        boolean objectFx = false;
+        for (Clip c : timeline.getOverlayClips()) {
+            if (c.getFx() != null && !c.getFx().active().isEmpty()) { objectFx = true; break; }
+        }
+        if (!anyRenders && g == null && !objectFx) { stop(); return; }
 
         if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
         view.setGrade(g);

@@ -82,12 +82,20 @@ public final class FxPreviewTier {
         return "";
     }
 
-    /** What to say ON a card, or {@code ""} when it works everywhere. */
+    /**
+     * What to say ON a card, or {@code ""} when it works everywhere.
+     *
+     * <p>Empty for an object now. The card used to read "needs an adjustment layer" in yellow,
+     * on a card the picker had let the user add in the first place — a sentence that means
+     * nothing to anyone who has not yet learned what an adjustment layer is, attached to an
+     * effect that then rendered nothing. The picker no longer offers what cannot render, and
+     * explains the reason and the fix at the moment of the tap, so there is nothing left for a
+     * permanent badge to say.</p>
+     */
     @NonNull
     public static String cardNote(@NonNull FxEffectDef def, @NonNull Subject subject) {
-        if (!canExportOn(def, subject)) {
-            return subject == Subject.OBJECT
-                    ? "needs an adjustment layer" : "multi-pass — not rendered yet";
+        if (!canExportOn(def, subject) && subject == Subject.LAYER) {
+            return "multi-pass — not rendered yet";
         }
         return "";
     }

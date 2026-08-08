@@ -1495,7 +1495,63 @@ public final class LayerRowRenderer {
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
         }
-        drawPassThroughBadge(canvas, item, x0, top, x1, bottom);
+        // Right-to-left from the trash roundel: pass-through first, then FX. Counted rather
+        // than positioned by literal, so the FX mark does not sit on top of the finger badge
+        // on an object that has both.
+        int slot = 0;
+        if (drawPassThroughBadge(canvas, item, x0, top, x1, bottom, slot)) slot++;
+        drawFxBadge(canvas, item, x0, top, x1, bottom, slot);
+    }
+
+    /**
+     * A small <b>fx</b> roundel on any object carrying its own live effect stack.
+     *
+     * <p>Effects were completely invisible from the timeline: the only way to know an object had
+     * any was to select it and open the drawer. On a project with a dozen objects that turns
+     * "which one is doing that?" into a search. Drawn whenever the stack RENDERS something, so a
+     * fully bypassed stack does not claim credit for a frame it is not changing.</p>
+     */
+    private void drawFxBadge(@NonNull Canvas canvas, @NonNull TimedItem item,
+                             float x0, float top, float x1, float bottom, int slot) {
+        boolean has;
+        if (item.getClip() != null) has = item.getClip().hasActiveFx();
+        else if (item.getTextOverlay() != null) has = item.getTextOverlay().hasActiveFx();
+        else if (item.getAdjustment() != null) has = item.getAdjustment().rendersAnything();
+        else has = false;
+        if (!has) return;
+
+        float r = DELETE_BADGE_RADIUS_DP * density;
+        float cx = badgeSlotCx(x0, x1, slot, r);
+        if (Float.isNaN(cx) || cx - r < x0) return;
+        float cy = (top + bottom) / 2f;
+
+        int prevColor = itemSelectionPaint.getColor();
+        Paint.Style prevStyle = itemSelectionPaint.getStyle();
+        itemSelectionPaint.setStyle(Paint.Style.FILL);
+        itemSelectionPaint.setColor(0xDD1C1C22);
+        canvas.drawCircle(cx, cy, r, itemSelectionPaint);
+        if (fxBadgePaint == null) {
+            fxBadgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            fxBadgePaint.setColor(0xFFB388FF);   // the app's purple accent, as the FX tool uses
+            fxBadgePaint.setTextAlign(Paint.Align.CENTER);
+            fxBadgePaint.setTypeface(android.graphics.Typeface.create(
+                    android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
+        }
+        fxBadgePaint.setTextSize(r * 1.15f);
+        // Baseline nudge rather than centre-y: text sits on its baseline, so drawing at cy
+        // would hang the glyphs below the middle of the roundel.
+        canvas.drawText("fx", cx, cy + r * 0.42f, fxBadgePaint);
+        itemSelectionPaint.setColor(prevColor);
+        itemSelectionPaint.setStyle(prevStyle);
+    }
+
+    @Nullable private Paint fxBadgePaint;
+
+    /** Centre-x of the {@code slot}-th badge counting left from the trash roundel. */
+    private float badgeSlotCx(float x0, float x1, int slot, float r) {
+        float trashCx = deleteBadgeCx(x0, x1);
+        float first = Float.isNaN(trashCx) ? x1 - r - 2f * density : trashCx - (2.4f * r);
+        return first - slot * (2.4f * r);
     }
 
     /**
@@ -1509,14 +1565,13 @@ public final class LayerRowRenderer {
      * <p>Sits just left of where the trash roundel goes, so the two never overlap on a selected
      * row, and pins to the viewport edge the same way the trash does.</p>
      */
-    private void drawPassThroughBadge(@NonNull Canvas canvas, @NonNull TimedItem item,
-                                      float x0, float top, float x1, float bottom) {
+    private boolean drawPassThroughBadge(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                         float x0, float top, float x1, float bottom, int slot) {
         com.fadcam.ui.faditor.model.Clip c = item.getClip();
-        if (c == null || !c.isPassThrough()) return;
-        float trashCx = deleteBadgeCx(x0, x1);
+        if (c == null || !c.isPassThrough()) return false;
         float r = DELETE_BADGE_RADIUS_DP * density;
-        float cx = Float.isNaN(trashCx) ? x1 - r - 2f * density : trashCx - (2.4f * r);
-        if (cx - r < x0) return;                       // no room without covering the body
+        float cx = badgeSlotCx(x0, x1, slot, r);
+        if (cx - r < x0) return false;                 // no room without covering the body
         float cy = (top + bottom) / 2f;
 
         int prevColor = itemSelectionPaint.getColor();
@@ -1538,6 +1593,7 @@ public final class LayerRowRenderer {
         itemSelectionPaint.setStrokeWidth(prevW);
         itemSelectionPaint.setColor(prevColor);
         itemSelectionPaint.setStyle(prevStyle);
+        return true;
     }
 
     /** Paints for the audio volume-automation envelope (ported legacy drawAudioTrack visual). */

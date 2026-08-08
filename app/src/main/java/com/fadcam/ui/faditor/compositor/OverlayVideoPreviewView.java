@@ -304,7 +304,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 (baseW * scale) / r.width() * 0.5f,
                 (baseH * scale) / r.height() * 0.5f,
                 -rot, alpha,
-                active.getFx(), currentTimeMs);
+                active.getFx(), currentTimeMs,
+                active.getCompositing(),
+                com.fadcam.ui.faditor.model.BlendModes.modeCode(active.getOverlayBlendMode()),
+                Math.max(1, videoW), Math.max(1, videoH));
     }
 
     /** Attach the decoder to the FX surface once both it and a player exist. */

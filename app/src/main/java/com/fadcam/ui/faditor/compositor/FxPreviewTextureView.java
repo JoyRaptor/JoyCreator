@@ -131,6 +131,16 @@ public class FxPreviewTextureView extends TextureView
             + "uniform float uPipAspect;\n"
             + "uniform float uPipAlpha;\n"
             + "uniform float uPipRotation;\n"
+            + "uniform float uPipBlend;\n"
+            + "uniform float uPipMaskOn;\n"
+            + "uniform vec4 uPipMaskGeo;\n"
+            + "uniform vec2 uPipMaskRot;\n"
+            + "uniform float uPipMaskCorner;\n"
+            + "uniform float uPipMaskFeather;\n"
+            + "uniform float uPipMaskInvert;\n"
+            + "uniform vec2 uPipTexel;\n"
+            + com.fadcam.ui.faditor.model.BlendModes.glslBlendFnWithModeParam()
+            + com.fadcam.ui.faditor.model.MaskSdf.GLSL_MASK_FN
             + "void main() {\n"
             + "  vec4 base = texture2D(uTexSampler, vFxUv);\n"
             + "  vec2 p = vFxUv - uPipCentre;\n"
@@ -144,7 +154,21 @@ public class FxPreviewTextureView extends TextureView
             + "    vec2 uv = q * 0.5 + 0.5;\n"
             + "    vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;\n"
             + "    vec4 src = texture2D(uPipTexture, s);\n"
-            + "    gl_FragColor = vec4(mix(base.rgb, src.rgb, uPipAlpha * src.a), base.a);\n"
+            // BLEND MODE and MASK, as the export composites them. Without these, adding an
+            // adjustment layer silently REMOVED a PiP blend mode and mask from the preview:
+            // the sibling View that used to draw them had handed its pixels to this chain,
+            // and this chain did not know about either. One lie fixed with another.
+            + "    float cover = 1.0;\n"
+            + "    if (uPipMaskOn > 0.5) {\n"
+            + "      vec2 frame = vec2(1.0) / uPipTexel;\n"
+            + "      float sd = fxShapeSd(vFxUv, frame, uPipMaskGeo, uPipMaskRot,\n"
+            + "                           uPipMaskCorner);\n"
+            + "      float inside = fxCoverageOf(sd, uPipMaskFeather);\n"
+            + "      cover = uPipMaskInvert > 0.5 ? 1.0 - inside : inside;\n"
+            + "    }\n"
+            + "    vec3 blended = blendPix(base.rgb, src.rgb, uPipBlend);\n"
+            + "    float amt = clamp(uPipAlpha * src.a * cover, 0.0, 1.0);\n"
+            + "    gl_FragColor = vec4(mix(base.rgb, blended, amt), base.a);\n"
             + "  }\n"
             + "}\n";
 
@@ -176,6 +200,10 @@ public class FxPreviewTextureView extends TextureView
         final float cx, cy, halfW, halfH, rotationDeg, alpha;
         /** Playhead seconds, for time-driven object effects. */
         final float timeSec;
+        /** Blend mode index and mask packing, so the composite matches the export's. */
+        final float blendMode;
+        final boolean maskOn, maskInvert;
+        @NonNull final float[] maskGeo;
         /**
          * The object's OWN effect stack, fused into one pass — or null when it has none.
          *
@@ -195,7 +223,8 @@ public class FxPreviewTextureView extends TextureView
         public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
                    @Nullable FxCompiler.Pass fused,
                    @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey,
-                   float timeSec) {
+                   float timeSec, float blendMode, boolean maskOn, boolean maskInvert,
+                   @NonNull float[] maskGeo) {
             this.cx = cx;
             this.cy = cy;
             this.halfW = halfW;
@@ -206,6 +235,10 @@ public class FxPreviewTextureView extends TextureView
             this.fxUniforms = fxUniforms;
             this.fxKey = fxKey;
             this.timeSec = timeSec;
+            this.blendMode = blendMode;
+            this.maskOn = maskOn;
+            this.maskInvert = maskInvert;
+            this.maskGeo = maskGeo;
         }
 
         boolean rendersAnything() {
@@ -215,7 +248,9 @@ public class FxPreviewTextureView extends TextureView
         /** Resolve an object's stack at {@code editorMs} into the fused pass and its uniforms. */
         @NonNull
         public static Pip of(float cx, float cy, float halfW, float halfH, float rot, float alpha,
-                             @Nullable FxStack stack, long editorMs) {
+                             @Nullable FxStack stack, long editorMs,
+                             @Nullable CompositingSpec spec, float blendMode,
+                             int frameW, int frameH) {
             FxCompiler.Pass fused = null;
             List<FxUniforms.Value> vals = java.util.Collections.emptyList();
             String key = "";
@@ -229,8 +264,11 @@ public class FxPreviewTextureView extends TextureView
                     break;
                 }
             }
+            boolean maskOn = spec != null && !spec.masks.isEmpty();
             return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key,
-                    editorMs / 1000f);
+                    editorMs / 1000f, blendMode, maskOn,
+                    spec != null && spec.invertMasks,
+                    MaskSdf.packShapes(spec, frameW, frameH));
         }
     }
 
@@ -502,11 +540,26 @@ public class FxPreviewTextureView extends TextureView
         return pipSurface != null;
     }
 
-    /** Redraw with current state even if no new decoder frame arrived (a paused scrub). */
+    /**
+     * Redraw with current state even if no new decoder frame arrived (a paused scrub).
+     *
+     * <p>COALESCED. {@code sync()} pushes size, rotation, grade, layers and the PiP every tick,
+     * and each setter used to post its own draw — four or five complete video-resolution chain
+     * renders per frame, on top of the one {@code onFrameAvailable} posts. The flag collapses a
+     * burst into the single draw the caller actually wanted.</p>
+     */
     public void requestFrame() {
         Handler h = glHandler;
-        if (h != null) h.post(this::drawFrame);
+        if (h == null) return;
+        if (!drawPending.compareAndSet(false, true)) return;
+        h.post(() -> {
+            drawPending.set(false);
+            drawFrame();
+        });
     }
+
+    private final java.util.concurrent.atomic.AtomicBoolean drawPending =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     // ── TextureView lifecycle ────────────────────────────────────────────────────────────────
 
@@ -828,6 +881,15 @@ public class FxPreviewTextureView extends TextureView
         setF2(pipProgram, "uTexel", 1f / vw, 1f / vh);
         setF(pipProgram, "uAspect", (float) vw / (float) vh);
         setF(pipProgram, "uTime", p.timeSec);
+        setF(pipProgram, "uPipBlend", p.blendMode);
+        setF(pipProgram, "uPipMaskOn", p.maskOn ? 1f : 0f);
+        setF(pipProgram, "uPipMaskInvert", p.maskInvert ? 1f : 0f);
+        setFn(pipProgram, "uPipMaskGeo", new float[]{p.maskGeo[0], p.maskGeo[1],
+                p.maskGeo[2], p.maskGeo[3]}, 4);
+        setF2(pipProgram, "uPipMaskRot", p.maskGeo[4], p.maskGeo[5]);
+        setF(pipProgram, "uPipMaskCorner", p.maskGeo[6]);
+        setF(pipProgram, "uPipMaskFeather", p.maskGeo[7]);
+        setF2(pipProgram, "uPipTexel", 1f / vw, 1f / vh);
         setF2(pipProgram, "uDir", 1f, 0f);
         for (FxUniforms.Value v : p.fxUniforms) {
             setFn(pipProgram, v.name, v.data, v.components());

@@ -90,7 +90,7 @@ public final class TextBoxRenderer {
     public static void measure(@NonNull TextOverlayItem o, @NonNull String text, float fontPx,
                                @NonNull float[] out) {
         TextPaint p = paintFor(o, fontPx);
-        String[] lines = splitLines(normalise(text));
+        String[] lines = splitLines(normalise(o.applyCase(text)));
         float widest = 1f;
         for (String line : lines) widest = Math.max(widest, p.measureText(line));
         Paint.FontMetrics fm = p.getFontMetrics();
@@ -151,7 +151,7 @@ public final class TextBoxRenderer {
         // map was still sized from the original zero-length string, so the first character of the
         // substituted line indexed past the end of a zero-length array. Any two derivations of
         // "the text" that can disagree will eventually disagree — so there is only one.
-        String t = normalise(text);
+        String t = normalise(o.applyCase(text));
         String[] lines = splitLines(t);
         Paint.FontMetrics fm = p.getFontMetrics();
         float lineH = (fm.descent - fm.ascent) * LINE_SPACING;
@@ -201,7 +201,7 @@ public final class TextBoxRenderer {
             p.getTextWidths(line, adv);
             float lineW = 0f;
             for (int i = 0; i < n; i++) lineW += adv[i];
-            float x = left + (size[0] - lineW) / 2f;
+            float x = alignedLineX(o, left, size[0], lineW, pad);
 
             // Walk the line in runs of one unit. Whitespace belongs to no unit and is simply
             // stepped over — it carries no ink, so nothing is lost by never drawing it.
@@ -230,7 +230,7 @@ public final class TextBoxRenderer {
                                 o.getStartMs() + spanMs, inZone, outZone, u, unitCount)
                         : 1f;
                 drawUnit(c, p, o, line.substring(i, j), x, baseY, runW, fontPx, preset,
-                        progress, u, objectAlpha);
+                        progress, u, objectAlpha, mediaMs);
                 x += runW;
                 i = j;
             }
@@ -271,7 +271,7 @@ public final class TextBoxRenderer {
                                  @NonNull TextOverlayItem o, @NonNull String run,
                                  float x, float baseY, float w, float fontPx,
                                  @NonNull CaptionAnimator.Preset preset, float progress,
-                                 int unitIdx, float objectAlpha) {
+                                 int unitIdx, float objectAlpha, long mediaMs) {
         CaptionAnimator.Transform t =
                 CaptionAnimator.presetTransform(preset, progress, fontPx, unitIdx);
         if (t.alpha <= 0.004f) return;
@@ -322,14 +322,14 @@ public final class TextBoxRenderer {
             float slotH = rollClip[3] - rollClip[1];
             c.save();
             c.translate(0f, roll.phase * slotH);
-            paintRun(c, p, o, roll.incoming, x, baseY, fontPx, animAlpha, t.glowPx);
+            paintRun(c, p, o, roll.incoming, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
             c.restore();
             c.save();
             c.translate(0f, (roll.phase - 1f) * slotH);
-            paintRun(c, p, o, roll.outgoing, x, baseY, fontPx, animAlpha, t.glowPx);
+            paintRun(c, p, o, roll.outgoing, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
             c.restore();
         } else {
-            paintRun(c, p, o, shown, x, baseY, fontPx, animAlpha, t.glowPx);
+            paintRun(c, p, o, shown, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
         }
         if (blurred) p.setMaskFilter(null);
         c.restore();
@@ -374,7 +374,8 @@ public final class TextBoxRenderer {
     private static void paintRun(@NonNull Canvas c, @NonNull TextPaint p,
                                  @NonNull TextOverlayItem o, @NonNull String run,
                                  float x, float baseY, float fontPx, float animAlpha,
-                                 float presetGlowPx) {
+                                 float presetGlowPx, long mediaMs) {
+        p.setUnderlineText(o.isUnderline());
         // The PRESET's own glow (NEON_FLICKER), in the unit's own fill colour. Drawn before the
         // object's optional passes so the user's stroke and glow still sit on top of it, and
         // cleared by the applyShadow below, which every path already reaches.
@@ -386,22 +387,48 @@ public final class TextBoxRenderer {
             c.drawText(run, x, baseY, p);
             p.clearShadowLayer();
         }
-        if (o.getStrokeWidthPx() > 0f && o.getStrokeColorInt() != Color.TRANSPARENT) {
+        float strokeWidthPx = o.animatedStrokeWidthPx(mediaMs);
+        if (strokeWidthPx > 0f && o.getStrokeColorInt() != Color.TRANSPARENT) {
             p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getStrokeWidthPx(), fontPx));
+            p.setStrokeWidth(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(strokeWidthPx, fontPx));
             p.setColor(CaptionAnimator.applyAlpha(o.getStrokeColorInt(), animAlpha));
             c.drawText(run, x, baseY, p);
         }
-        if (o.getGlowRadiusPx() > 0f && o.getGlowColorInt() != Color.TRANSPARENT) {
-            p.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getGlowRadiusPx(), fontPx), 0f, 0f, o.getGlowColorInt());
+        float glowRadiusPx = o.animatedGlowRadiusPx(mediaMs);
+        if (glowRadiusPx > 0f && o.getGlowColorInt() != Color.TRANSPARENT) {
+            p.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(glowRadiusPx, fontPx), 0f, 0f, o.getGlowColorInt());
             p.setStyle(Paint.Style.FILL);
             p.setColor(CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
             c.drawText(run, x, baseY, p);
         }
-        applyShadow(p, o, fontPx);
+        applyShadow(p, o, fontPx, mediaMs);
         p.setStyle(Paint.Style.FILL);
         p.setColor(CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
         c.drawText(run, x, baseY, p);
+        p.clearShadowLayer();
+        p.setUnderlineText(false);
+    }
+
+    /**
+     * A line's left edge for the item's current {@code textAlign}.
+     *
+     * <p>JUSTIFY reads as LEFT here — genuine justify (stretching inter-glyph gaps to fill the
+     * line) would need each glyph drawn with its own manual advance instead of one
+     * {@code drawText} call per run, which the per-unit animation path above does not support.
+     * Left-aligning rather than centring is still the more useful fallback: it is what every
+     * other line in a justified paragraph looks like except the last.</p>
+     */
+    private static float alignedLineX(@NonNull TextOverlayItem o, float left, float boxW,
+                                      float lineW, float pad) {
+        switch (o.getTextAlign()) {
+            case TextOverlayItem.ALIGN_LEFT:
+            case TextOverlayItem.ALIGN_JUSTIFY:
+                return left + pad;
+            case TextOverlayItem.ALIGN_RIGHT:
+                return left + boxW - pad - lineW;
+            default: // CENTER
+                return left + (boxW - lineW) / 2f;
+        }
     }
 
     // ── Shared paint setup ───────────────────────────────────────────────────────────────────
@@ -422,15 +449,27 @@ public final class TextBoxRenderer {
         p.setTypeface(o.getTypeface());
         p.setTextAlign(Paint.Align.LEFT);
         p.setColor(o.getColorInt());
-        applyShadow(p, o, fontPx);
+        applyShadow(p, o, fontPx, 0L);
         return p;
     }
 
+    /**
+     * @param mediaMs the timeline time to evaluate the shadow's keyframed angle/distance/radius
+     *                at. Passed 0 (= the object's own local time 0) from {@link #paintFor}'s
+     *                initial paint setup, where no frame time is known yet and every draw call
+     *                overwrites the shadow layer again with the real one before anything shows.
+     */
     private static void applyShadow(@NonNull TextPaint p, @NonNull TextOverlayItem o,
-                                    float fontPx) {
-        p.setShadowLayer(o.getShadowRadiusPx() > 0f
-                ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx) : fontPx * 0.10f,
-                0f, fontPx * 0.04f, o.getShadowColorInt());
+                                    float fontPx, long mediaMs) {
+        float radiusPercent = o.animatedShadowRadiusPx(mediaMs);
+        float radius = radiusPercent > 0f
+                ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(radiusPercent, fontPx)
+                : fontPx * 0.10f;
+        float angle = o.animatedShadowAngleDeg(mediaMs);
+        float distance = o.animatedShadowDistancePx(mediaMs);
+        float dx = com.fadcam.ui.faditor.model.TextOverlayItem.shadowDx(angle, distance, fontPx);
+        float dy = com.fadcam.ui.faditor.model.TextOverlayItem.shadowDy(angle, distance, fontPx);
+        p.setShadowLayer(radius, dx, dy, o.getShadowColorInt());
     }
 
     private static float clamp01(float v) {

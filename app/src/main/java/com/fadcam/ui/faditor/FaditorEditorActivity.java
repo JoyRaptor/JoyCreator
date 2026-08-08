@@ -1111,8 +1111,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (overlayVideoLayer == null) { cb.onPicked(null); return true; }
             int[] loc = new int[2];
             overlayVideoLayer.getLocationOnScreen(loc);
-            overlayVideoLayer.sampleAt(ev.getRawX() - loc[0], ev.getRawY() - loc[1],
-                    cb::onPicked);
+            // DIVIDE BY THE SCALE. getLocationOnScreen is matrix-aware and returns the scaled
+            // top-left, but the delta from it is still in SCREEN pixels while sampleAt wants
+            // this view's own. The dropper is only ever armed from the chroma tab, so the
+            // drawer that shrinks player_container is open by construction — every pick was
+            // sampling too near the top of the frame, and a tap past the scale fraction
+            // sampled outside it entirely.
+            float ui = com.fadcam.ui.faditor.overlay.UiScale.of(overlayVideoLayer);
+            overlayVideoLayer.sampleAt((ev.getRawX() - loc[0]) / ui,
+                    (ev.getRawY() - loc[1]) / ui, cb::onPicked);
             return true;
         }
         if (assetDragActive) {
@@ -19153,15 +19160,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return kf == null ? fallback : kf.valueAt(prop, t, fallback);
             }
 
-            private void write(@NonNull String prop, float v) {
+            /**
+             * ARMED-AWARE, exactly as {@code pipMenuProp}'s setter and the sprite target are.
+             *
+             * <p>An unconditional collapse-to-t=0 here silently FLATTENED an animated PiP: key
+             * X at 0s and Y at 3s so it flies across frame, then nudge one corner handle, and
+             * the whole track was replaced by a single static pose. The handles are the most
+             * casual way to touch an object, so they are the last place that should be allowed
+             * to destroy a curve.</p>
+             */
+            private void write(@NonNull String prop, float v, long timeMs) {
                 com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
                 if (kf == null) {
                     kf = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
                     c.setOverlayTransform(kf);
                 }
                 com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = kf.getOrCreate(prop);
-                tr.keyframes.clear();
-                tr.put(0L, v, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                if (pipArmed(c)) {
+                    // Snap to the existing key under the playhead, so dragging at a keyed frame
+                    // MOVES that key instead of stacking a second one a millisecond away.
+                    tr.put(snapPipKeyTime(kf.get(prop), timeMs), v,
+                            com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                } else {
+                    tr.keyframes.clear();
+                    tr.put(0L, v, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                }
             }
 
             /**
@@ -19217,20 +19240,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override public void moveTo(float normCx, float normCy, long timeMs) {
                 write(com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(normCx));
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(normCx), timeMs);
                 write(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
-                        com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(normCy));
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(normCy), timeMs);
                 refreshPipAfterHandleWrite();
             }
 
             @Override public void scaleTo(float sizeFraction, long timeMs) {
                 write(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
-                        Math.max(0.02f, sizeFraction));
+                        Math.max(0.02f, sizeFraction), timeMs);
                 refreshPipAfterHandleWrite();
             }
 
             @Override public void rotateTo(float deg, long timeMs) {
-                write(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, deg);
+                write(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, deg, timeMs);
                 refreshPipAfterHandleWrite();
             }
 
@@ -20480,9 +20503,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** The FX stack editor for one adjustment layer (SPEC_ADJUSTMENT_LAYERS_FX M6). */
     private void showAdjustmentDrawer(
             @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
-        // Session snapshot for undo, the same idiom the mask/chroma drawer uses: one drag emits
-        // a stream of values, and a per-slider action would bury the stack.
-        final String before = layer.getFx().toJson().toString();
+        // NO SESSION SNAPSHOT. FxPanel records one step per edit now — add, delete, bypass,
+        // reorder, preset, each chip, and one per slider DRAG rather than per value — so a
+        // whole-session action on top of them double-counted every change. Concretely: add
+        // Blur, drag it to 0.8, close the drawer, then undo/undo/redo. The redo restored the
+        // stack as it was BEFORE the slider moved, because that snapshot predated it, landing
+        // the user in a state that never existed. Two authorities for one delta cannot agree.
         com.fadcam.ui.faditor.tools.FxPanel.Host fxHost =
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
             @Override public void onFxChanged() {
@@ -20547,23 +20573,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     scheduleAutoSave();
                 }, true));
 
-        ensurePipDrawer().setOnClose(() -> {
-            String after = layer.getFx().toJson().toString();
-            if (after.equals(before)) return;
-            // DETACHED copies, for the reason MaskKeyPanel:371 records: holding the live stack
-            // would leave both directions pointing at one mutating object, so undo would
-            // restore the very state it was undoing.
-            final com.fadcam.ui.faditor.fx.FxStack undoState =
-                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
-                            com.google.gson.JsonParser.parseString(before).getAsJsonObject());
-            final com.fadcam.ui.faditor.fx.FxStack redoState =
-                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
-                            com.google.gson.JsonParser.parseString(after).getAsJsonObject());
-            undoManager.recordAction(new EditActions.LambdaAction(
-                    "Effects",                                                // TODO(strings)
-                    () -> { layer.getFx().copyFrom(redoState); fxHost.onFxChanged(); },
-                    () -> { layer.getFx().copyFrom(undoState); fxHost.onFxChanged(); }));
-        });
+        // NO SESSION-CLOSE UNDO ANY MORE. FxPanel records one step per edit now — add, delete,
+        // bypass, reorder, preset, each chip, each slider drag — so a whole-session action on
+        // top of them double-counted every change. Concretely: add Blur, drag it to 0.8, close.
+        // Undo, undo, redo restored the stack as it was BEFORE the slider moved, because that
+        // snapshot predated it — one press of redo landed the user in a state that never
+        // existed. Two authorities for one delta cannot both be right.
         ensurePipDrawer().show(tabs, toggles);
     }
 
@@ -20811,11 +20826,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             if (videoH <= 0) videoH = slotH;
             int bandH = Math.max(1, slotH - drawerHeightPx);
-            // Pivot is the container's centre, so re-centring in the band is exactly half the
-            // drawer's height regardless of scale — the scaled picture stays centred on the
-            // pivot, and the pivot moves by (bandCentre - slotCentre) = drawer / 2.
-            shift = drawerHeightPx / 2f;
             if (videoH > bandH) scale = Math.max(0.35f, bandH / (float) videoH);
+            // Pivot is the container's centre, so re-centring in the band is half the drawer's
+            // height — but CLAMPED to the slack the scaled picture actually leaves, or a drawer
+            // taller than the slot pushes the video's centre past the container's bottom edge
+            // and the parent clips it away entirely. The 0.35 scale floor makes that reachable:
+            // it is exactly when the shrink stops keeping up that the translate must stop too.
+            float slack = Math.max(0f, (slotH - videoH * scale) / 2f);
+            shift = Math.min(drawerHeightPx / 2f, slack);
         }
         container.setPivotX(container.getWidth() / 2f);
         container.setPivotY(slotH / 2f);
@@ -20916,13 +20934,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // correct only because icons are dense from index 1, and appending keeps that true).
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Effects", R.drawable.ic_fx_24,                               // TODO(strings)
-                ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
-                        ctx, c.getOrCreateFx(),
+                ctx -> {
+                    // Hoisted, because the host must be able to RE-ATTACH this exact stack.
+                    // setFx(getFx()) detaches it the moment the last card is deleted (an empty
+                    // stack normalises to null), and the panel goes on holding the orphan — so
+                    // an undo refilled an object the clip no longer pointed at. The card came
+                    // back on screen and the effect stayed gone, which is worse than no undo.
+                    final com.fadcam.ui.faditor.fx.FxStack pipFx = c.getOrCreateFx();
+                    return com.fadcam.ui.faditor.tools.FxPanel.build(
+                        ctx, pipFx,
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
                             @Override public void onFxChanged() {
-                                // Normalise an emptied stack back to null so removing every
-                                // card leaves the clip serializing as it did before.
-                                c.setFx(c.getFx());
+                                // Re-attach when refilled, normalise to null when emptied — the
+                                // one call does both, because setFx nulls an empty stack itself.
+                                c.setFx(pipFx);
                                 // PUSH IT NOW. The Pip snapshot only reaches the renderer on a
                                 // playhead tick, so dragging a slider while PAUSED -- the only
                                 // way anyone dials in an effect -- changed nothing on screen.
@@ -20946,7 +20971,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // OBJECT, so a blur is badged "layer only" rather than silently skipped:
                         // a per-object stack is spliced into the compositing shader and has no
                         // finished image for a sampler to read.
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT);
+                }));
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
@@ -21826,13 +21852,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * one pass, exactly like a PiP's.</p>
      */
     private void showTextFxDrawer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
-        final String before = item.getOrCreateFx().toJson().toString();
+        // Hoisted so the host can RE-ATTACH it: setFx(getFx()) nulls an emptied stack, which
+        // detaches the very object the panel is still editing, and an undo then refilled an
+        // orphan — the card reappeared and the effect stayed gone. No session-close undo here
+        // either; FxPanel records per edit now, and two authorities for one delta disagree.
+        final com.fadcam.ui.faditor.fx.FxStack textFx = item.getOrCreateFx();
         com.fadcam.ui.faditor.tools.FxPanel.Host host =
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
             @Override public void onFxChanged() {
-                // Normalise an emptied stack back to null, so an overlay briefly given an
-                // effect serializes exactly as it did before it was touched.
-                item.setFx(item.getFx());
+                // Re-attach when refilled, normalise to null when emptied — setFx does both.
+                item.setFx(textFx);
                 refreshAfterMarqueeBatchDelete();
                 scheduleAutoSave();
             }
@@ -21848,25 +21877,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Text effects", 0,                                            // TODO(strings)
                 ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
-                        ctx, item.getOrCreateFx(), host,
+                        ctx, textFx, host,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
 
-        ensurePipDrawer().setOnClose(() -> {
-            String after = item.getOrCreateFx().toJson().toString();
-            if (after.equals(before)) return;
-            // Detached copies, per MaskKeyPanel:371 — holding the live stack would leave both
-            // undo directions pointing at one mutating object.
-            final com.fadcam.ui.faditor.fx.FxStack undoState =
-                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
-                            com.google.gson.JsonParser.parseString(before).getAsJsonObject());
-            final com.fadcam.ui.faditor.fx.FxStack redoState =
-                    com.fadcam.ui.faditor.fx.FxStack.fromJson(
-                            com.google.gson.JsonParser.parseString(after).getAsJsonObject());
-            undoManager.recordAction(new EditActions.LambdaAction(
-                    "Text effects",                                           // TODO(strings)
-                    () -> { item.getOrCreateFx().copyFrom(redoState); host.onFxChanged(); },
-                    () -> { item.getOrCreateFx().copyFrom(undoState); host.onFxChanged(); }));
-        });
         ensurePipDrawer().show(tabs, new java.util.ArrayList<>());
     }
 

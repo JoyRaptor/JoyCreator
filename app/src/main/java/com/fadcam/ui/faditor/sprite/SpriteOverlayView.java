@@ -280,8 +280,11 @@ public class SpriteOverlayView extends View {
                 }
                 RectF r = callback.getVideoContentRect();
                 if (r.width() <= 0 || r.height() <= 0) return true;
-                float dx = (e.getRawX() - downRawX) / r.width();
-                float dy = (e.getRawY() - downRawY) / r.height();
+                // Screen-pixel delta over a local-pixel rect: correct only while nothing above
+                // is scaled, and player_container shrinks to clear a drawer.
+                float ui = com.fadcam.ui.faditor.overlay.UiScale.of(this);
+                float dx = (e.getRawX() - downRawX) / ui / r.width();
+                float dy = (e.getRawY() - downRawY) / ui / r.height();
                 if (Math.abs(e.getRawX() - downRawX) > 8
                         || Math.abs(e.getRawY() - downRawY) > 8) {
                     moved = true;

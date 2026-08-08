@@ -1063,8 +1063,13 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 if (scaleDetector.isInProgress()) { moved = true; return true; }
                 RectF r = callback.getVideoContentRect();
                 if (r.width() <= 0 || r.height() <= 0) return true;
-                float dx = (e.getRawX() - downRawX) / r.width();
-                float dy = (e.getRawY() - downRawY) / r.height();
+                // Raw deltas are SCREEN pixels; r is in this view's own pixels. They agree only
+                // while nothing above is scaled, and the editor shrinks player_container to
+                // clear an open drawer — at 0.6 the PiP moved 60% of the finger's travel and
+                // slid out from under it. See UiScale.
+                float ui = com.fadcam.ui.faditor.overlay.UiScale.of(this);
+                float dx = (e.getRawX() - downRawX) / ui / r.width();
+                float dy = (e.getRawY() - downRawY) / ui / r.height();
                 if (Math.abs(e.getRawX() - downRawX) > 8
                         || Math.abs(e.getRawY() - downRawY) > 8) {
                     moved = true;

@@ -149,9 +149,26 @@ public final class FxPanel {
                                    @NonNull Runnable mutate) {
         FxStack before = stack.copy();
         mutate.run();
-        FxStack after = stack.copy();
         rebuild.run();
         host.onFxChanged();
+        recordSnapshot(stack, host, rebuild, label, before);
+    }
+
+    /**
+     * Record one undo step spanning {@code before} → the stack's current contents.
+     *
+     * <p>Split out of {@link #structural} because a SLIDER cannot use it: the value stream has
+     * to be applied live and the step recorded once on release, so the snapshot is taken at a
+     * different moment from the record. Sharing this keeps both on whole-stack copies, which is
+     * what makes keyframe tracks survive the round trip.</p>
+     */
+    private static void recordSnapshot(@NonNull FxStack stack, @NonNull Host host,
+                                       @NonNull Runnable rebuild, @NonNull String label,
+                                       @NonNull FxStack before) {
+        FxStack after = stack.copy();
+        // A no-op edit records nothing — tapping the blend mode a card is already on, or a
+        // slider gesture that ended where it began, must not put a dead press on the stack.
+        if (after.toJson().toString().equals(before.toJson().toString())) return;
         host.recordUndo(label,
                 () -> { stack.copyFrom(after); rebuild.run(); host.onFxChanged(); },
                 () -> { stack.copyFrom(before); rebuild.run(); host.onFxChanged(); });
@@ -298,7 +315,7 @@ public final class FxPanel {
             LinearLayout pr = new LinearLayout(ctx);
             pr.setOrientation(LinearLayout.HORIZONTAL);
             pr.setGravity(Gravity.CENTER_VERTICAL);
-            View row = paramRow(ctx, fx, param, host, d);
+            View row = paramRow(ctx, stack, fx, param, host, rebuild, d);
             pr.addView(row, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             if (param.keyable) pr.addView(diamond(ctx, stack, fx, param, host, rebuild, d));
@@ -307,7 +324,8 @@ public final class FxPanel {
 
         // ── fold controls: how this card's result lands on what is below it ──
         card.addView(sliderRow(ctx, "Opacity", 0, 100, Math.round(fx.opacity * 100),
-                v -> { fx.opacity = v / 100f; host.onFxChanged(); }, d));
+                v -> { fx.opacity = v / 100f; host.onFxChanged(); }, d,
+                stack, host, rebuild, def.displayName + " opacity"));
 
         LinearLayout blendRow = new LinearLayout(ctx);
         blendRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -315,11 +333,8 @@ public final class FxPanel {
         for (String mode : BlendModes.ALL) {
             TextView c = chip(ctx, pretty(mode), d);
             c.setBackground(pill(mode.equals(fx.blendMode) ? CHIP_ON : CHIP_BG, d));
-            c.setOnClickListener(v -> {
-                fx.blendMode = mode;
-                rebuild.run();
-                host.onFxChanged();
-            });
+            c.setOnClickListener(v -> structural(stack, host, rebuild,
+                    def.displayName + " blend", () -> fx.blendMode = mode));
             blendRow.addView(c);
         }
         card.addView(blendRow);
@@ -335,8 +350,9 @@ public final class FxPanel {
     // ── Parameter rows ──────────────────────────────────────────────────────
 
     @NonNull
-    private static View paramRow(@NonNull Context ctx, @NonNull FxInstance fx,
-                                 @NonNull FxParam param, @NonNull Host host, float d) {
+    private static View paramRow(@NonNull Context ctx, @NonNull FxStack stack,
+                                 @NonNull FxInstance fx, @NonNull FxParam param,
+                                 @NonNull Host host, @NonNull Runnable rebuild, float d) {
         switch (param.kind) {
             case BOOL: {
                 LinearLayout row = new LinearLayout(ctx);
@@ -348,10 +364,10 @@ public final class FxPanel {
                 TextView c = chip(ctx, on ? "On" : "Off", d);
                 c.setBackground(pill(on ? CHIP_ON : CHIP_BG, d));
                 c.setOnClickListener(v -> {
-                    fx.set(param, on ? 0f : 1f);
                     c.setText(on ? "Off" : "On");
                     c.setBackground(pill(on ? CHIP_BG : CHIP_ON, d));
-                    host.onFxChanged();
+                    structural(stack, host, rebuild, param.label,
+                            () -> fx.set(param, on ? 0f : 1f));
                 });
                 row.addView(c);
                 return row;
@@ -367,6 +383,7 @@ public final class FxPanel {
                     TextView c = chip(ctx, labels[i], d);
                     c.setBackground(pill(Math.round(fx.getScalar(param)) == i ? CHIP_ON : CHIP_BG, d));
                     c.setOnClickListener(v -> {
+                        FxStack before = stack.copy();
                         fx.set(param, idx);
                         host.onFxChanged();
                         // Repaint the row's chips without rebuilding the whole panel.
@@ -377,6 +394,7 @@ public final class FxPanel {
                             }
                         }
                         v.setBackground(pill(CHIP_ON, d));
+                        recordSnapshot(stack, host, rebuild, param.label, before);
                     });
                     row.addView(c);
                 }
@@ -399,7 +417,7 @@ public final class FxPanel {
                                 vals[comp] = v / 100f;
                                 fx.set(param, vals);
                                 host.onFxChanged();
-                            }, d));
+                            }, d, stack, host, rebuild, param.label));
                 }
                 return col;
             }
@@ -416,7 +434,8 @@ public final class FxPanel {
                 final int fmin = min, fmax = max;
                 return sliderRow(ctx, param.label, fmin, fmax,
                         Math.round(fx.getScalar(param) * scale),
-                        v -> { fx.set(param, v / scale); host.onFxChanged(); }, d);
+                        v -> { fx.set(param, v / scale); host.onFxChanged(); }, d,
+                        stack, host, rebuild, param.label);
             }
         }
     }
@@ -428,6 +447,24 @@ public final class FxPanel {
                                   int min, int max, int initial,
                                   @NonNull java.util.function.Consumer<Integer> onChange,
                                   float d) {
+        return sliderRow(ctx, labelText, min, max, initial, onChange, d, null, null, null, "");
+    }
+
+    /**
+     * A slider that records ONE undo step per drag.
+     *
+     * <p>Snapshot on {@code onStartTrackingTouch}, record on {@code onStopTrackingTouch}: a drag
+     * emits a value stream, so recording per callback would bury the undo stack and recording
+     * nothing — which is what happened before — left every parameter edit unrecoverable. No
+     * rebuild on release, because that would destroy the {@link SeekBar} the finger just let go
+     * of; the undo/redo lambdas rebuild, and they run outside the gesture.</p>
+     */
+    @NonNull
+    private static View sliderRow(@NonNull Context ctx, @NonNull String labelText,
+                                  int min, int max, int initial,
+                                  @NonNull java.util.function.Consumer<Integer> onChange,
+                                  float d, @Nullable FxStack stack, @Nullable Host host,
+                                  @Nullable Runnable rebuild, @NonNull String undoLabel) {
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -444,13 +481,21 @@ public final class FxPanel {
         value.setGravity(Gravity.END);
         value.setText(String.valueOf(initial));
 
+        final FxStack[] snap = {null};
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 value.setText(String.valueOf(p + min));
                 onChange.accept(p + min);
             }
-            @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar s) {}
+            @Override public void onStartTrackingTouch(SeekBar s) {
+                if (stack != null) snap[0] = stack.copy();
+            }
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                if (stack != null && host != null && rebuild != null && snap[0] != null) {
+                    recordSnapshot(stack, host, rebuild, undoLabel, snap[0]);
+                }
+                snap[0] = null;
+            }
         });
         row.addView(bar, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));

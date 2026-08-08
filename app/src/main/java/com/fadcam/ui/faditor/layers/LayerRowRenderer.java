@@ -1495,6 +1495,49 @@ public final class LayerRowRenderer {
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
         }
+        drawPassThroughBadge(canvas, item, x0, top, x1, bottom);
+    }
+
+    /**
+     * The finger-with-a-slash badge on an object whose taps pass through in the preview.
+     *
+     * <p>Drawn WHENEVER the flag is on, not only when the item is selected. The point of the
+     * badge is to answer "why can't I grab that thing on the canvas" at a glance, and a state
+     * you can only see after selecting the object is no use for a question you ask about an
+     * object you cannot select.</p>
+     *
+     * <p>Sits just left of where the trash roundel goes, so the two never overlap on a selected
+     * row, and pins to the viewport edge the same way the trash does.</p>
+     */
+    private void drawPassThroughBadge(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                      float x0, float top, float x1, float bottom) {
+        com.fadcam.ui.faditor.model.Clip c = item.getClip();
+        if (c == null || !c.isPassThrough()) return;
+        float trashCx = deleteBadgeCx(x0, x1);
+        float r = DELETE_BADGE_RADIUS_DP * density;
+        float cx = Float.isNaN(trashCx) ? x1 - r - 2f * density : trashCx - (2.4f * r);
+        if (cx - r < x0) return;                       // no room without covering the body
+        float cy = (top + bottom) / 2f;
+
+        int prevColor = itemSelectionPaint.getColor();
+        Paint.Style prevStyle = itemSelectionPaint.getStyle();
+        float prevW = itemSelectionPaint.getStrokeWidth();
+        itemSelectionPaint.setStyle(Paint.Style.FILL);
+        itemSelectionPaint.setColor(0xDD1C1C22);
+        canvas.drawCircle(cx, cy, r, itemSelectionPaint);
+        itemSelectionPaint.setStyle(Paint.Style.STROKE);
+        itemSelectionPaint.setStrokeWidth(1.2f * density);
+        itemSelectionPaint.setColor(0xFFFFFFFF);
+        // A finger pressing a surface: a stem, and the line it stops against.
+        canvas.drawLine(cx, cy - 0.55f * r, cx, cy + 0.15f * r, itemSelectionPaint);
+        canvas.drawLine(cx - 0.5f * r, cy + 0.45f * r, cx + 0.5f * r, cy + 0.45f * r,
+                itemSelectionPaint);
+        // ...and the slash that says it is not catching anything.
+        canvas.drawLine(cx - 0.6f * r, cy - 0.6f * r, cx + 0.6f * r, cy + 0.6f * r,
+                itemSelectionPaint);
+        itemSelectionPaint.setStrokeWidth(prevW);
+        itemSelectionPaint.setColor(prevColor);
+        itemSelectionPaint.setStyle(prevStyle);
     }
 
     /** Paints for the audio volume-automation envelope (ported legacy drawAudioTrack visual). */

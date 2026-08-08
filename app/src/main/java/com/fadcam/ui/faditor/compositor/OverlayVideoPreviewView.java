@@ -1069,6 +1069,9 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Nullable
     private Clip hitTest(float x, float y) {
         Clip top = topVisibleAt(currentTimeMs);
+        // PASS-THROUGH: the object is on screen and editable from its row, but it is not
+        // catching taps meant for what is behind it.
+        if (top != null && top.isPassThrough()) return null;
         // The ROUTED host again: hit-testing the plain view while the keyed one is on screen
         // would make a keyed PiP ungrabbable — the drag would silently do nothing.
         TextureView host = videoHost();

@@ -20647,6 +20647,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     c.setLockedObject(!c.isLockedObject());
                     scheduleAutoSave();
                 }, false));
+        // TOUCH PASS-THROUGH, next to lock because it is the same family of question: lock is
+        // "do not let me change this", pass-through is "stop catching the taps I am aiming at
+        // the thing behind it". A big PiP over the frame makes everything under it unreachable
+        // on the canvas; this is the way out without hiding or locking the object.
+        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+                R.drawable.ic_touch_press_off_24, R.drawable.ic_touch_press_24,
+                c::isPassThrough,
+                () -> {
+                    c.setPassThrough(!c.isPassThrough());
+                    android.widget.Toast.makeText(this,
+                            c.isPassThrough()
+                                    ? "Taps now pass through this in the preview"
+                                    : "Touchable in the preview again",       // TODO(strings)
+                            android.widget.Toast.LENGTH_SHORT).show();
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }, false));
 
         // ── Undo for the mask and chroma-key controls (SPEC_ADJUSTMENT_LAYERS_FX §1.5) ──
         // PipDrawerTabs.Host.recordUndo was declared and never called, so every slider on the

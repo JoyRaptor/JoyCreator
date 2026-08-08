@@ -26,10 +26,24 @@ public class Clip {
     private boolean hidden;
     private boolean locked;
 
+    /**
+     * Touch PASS-THROUGH: the object is still visible and still editable from its timeline row,
+     * but taps on the canvas go straight past it to whatever is underneath.
+     *
+     * <p>Distinct from {@code locked}, and the difference matters. Locked means "do not let me
+     * change this". Pass-through means "I am still working on this, but stop catching the taps
+     * I am aiming at the thing behind it" — which is what a large object covering most of the
+     * frame does to everything below it. Absent = false, so every existing project keeps
+     * behaving exactly as it did.</p>
+     */
+    private boolean passThrough;
+
     public boolean isHiddenObject() { return hidden; }
     public void setHiddenObject(boolean hidden) { this.hidden = hidden; }
     public boolean isLockedObject() { return locked; }
     public void setLockedObject(boolean locked) { this.locked = locked; }
+    public boolean isPassThrough() { return passThrough; }
+    public void setPassThrough(boolean v) { this.passThrough = v; }
 
     @NonNull
     private final String id;

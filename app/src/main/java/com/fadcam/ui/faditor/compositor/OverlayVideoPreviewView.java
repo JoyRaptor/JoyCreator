@@ -323,9 +323,24 @@ public class OverlayVideoPreviewView extends FrameLayout {
      */
     @Nullable
     public RectF drawnRectFor(@NonNull Clip clip) {
-        if (callback == null || clip != active || videoW <= 0 || videoH <= 0) return null;
+        if (callback == null) return null;
         RectF r = callback.getVideoContentRect();
         if (r.width() <= 0 || r.height() <= 0) return null;
+        // SOURCE SIZE FOR ANY VISIBLE CLIP, not only the decoding one. Returning null for the
+        // rest meant a PiP that was not topmost had no box at all: no handles, and — once the
+        // preview's hit-testing started asking this — no way to tap or drag it either. That is
+        // the "one layer I can't move by hand" report. The still-frame cache already holds the
+        // decoded bitmap onDraw paints for exactly those clips, so its dimensions are the same
+        // ones the picture on screen was built from.
+        int srcW = videoW, srcH = videoH;
+        if (clip != active) {
+            StillFrame sf = stills.get(clip.getId());
+            if (sf == null || sf.bitmap == null || sf.bitmap.isRecycled()) return null;
+            srcW = sf.bitmap.getWidth();
+            srcH = sf.bitmap.getHeight();
+        }
+        if (srcW <= 0 || srcH <= 0) return null;
+        final int videoW = srcW, videoH = srcH;
         float fit = Math.min(r.width() / videoW, r.height() / videoH);
         float scale = readValue(clip, KeyframeSet.SCALE, DEFAULT_SCALE);
         float w = videoW * fit * scale, h = videoH * fit * scale;

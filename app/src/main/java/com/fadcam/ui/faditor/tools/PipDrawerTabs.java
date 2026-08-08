@@ -209,7 +209,10 @@ public final class PipDrawerTabs {
                                @NonNull CompositingSpec spec, @NonNull Runnable apply,
                                @NonNull PlayheadSource playheadMs) {
         LinearLayout root = column(ctx);
-        if (spec.masks.isEmpty()) spec.addShape();
+        // NO MASK UNTIL ASKED FOR. Opening this tab used to CREATE a full-frame shape, so every
+        // PiP arrived already masked and the user had to notice and remove something they never
+        // added. An object with no mask is the overwhelmingly common case; the "+" chip is the
+        // whole affordance for the other one.
         float dp = ctx.getResources().getDisplayMetrics().density;
 
         // WHICH shape the per-shape controls below are editing. Held as an INDEX into
@@ -257,6 +260,32 @@ public final class PipDrawerTabs {
         rebuild[0] = () -> {
             if (sel[0] >= spec.masks.size()) sel[0] = spec.masks.size() - 1;
             if (sel[0] < 0) sel[0] = 0;
+
+            // EMPTY STATE: a "+" and a sentence, nothing else. Every control below describes a
+            // shape, and a row of sliders for a shape that does not exist is exactly the kind
+            // of thing that made this drawer feel like it had already done something to you.
+            if (spec.masks.isEmpty()) {
+                shapeGroup.removeAllViews();
+                modeRow.removeAllViews();
+                sliderHost.removeAllViews();
+                TextView add = chip(ctx, "+", dp);
+                add.setOnClickListener(v -> {
+                    spec.addShape();
+                    sel[0] = 0;
+                    rebuild[0].run();
+                    apply.run();
+                });
+                shapeGroup.addView(add);
+                TextView none = new TextView(ctx);
+                none.setText("No mask. Add one to show only part of this object.");
+                none.setTextColor(0xFF8A8A8A);
+                none.setTextSize(11.5f);
+                none.setPadding(Math.round(8 * dp), Math.round(6 * dp),
+                        Math.round(8 * dp), Math.round(6 * dp));
+                sliderHost.addView(none);
+                if (syncSelected[0] != null) syncSelected[0].run();
+                return;
+            }
             final CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
 
             // — chips: one per shape, then + / − —
@@ -280,7 +309,9 @@ public final class PipDrawerTabs {
                 apply.run();
             });
             shapeGroup.addView(addChip);
-            if (spec.masks.size() > 1) {
+            {
+                // Always offered, including for the LAST shape — removing it is how you get
+                // back to an unmasked object, which is where every object now starts.
                 TextView del = chip(ctx, "−", dp);
                 del.setOnClickListener(v -> {
                     // removeShape drops this slot's keyframe tracks and leaves every other
@@ -383,8 +414,9 @@ public final class PipDrawerTabs {
         link.setText("Move with the object");
         link.setTextColor(TXT);
         link.setTextSize(12);
-        link.setChecked(spec.masks.get(sel[0]).linkedToObject);
+        link.setChecked(!spec.masks.isEmpty() && spec.masks.get(sel[0]).linkedToObject);
         link.setOnCheckedChangeListener((b, on) -> {
+            if (spec.masks.isEmpty()) return;
             CompositingSpec.MaskShape cur = spec.masks.get(sel[0]);
             if (cur.linkedToObject == on) return;   // a re-sync must not re-capture the pose
             cur.linkedToObject = on;
@@ -413,7 +445,6 @@ public final class PipDrawerTabs {
         checkRow.addView(link, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(checkRow);
-        syncSelected[0] = () -> link.setChecked(spec.masks.get(sel[0]).linkedToObject);
 
         TextView hint = new TextView(ctx);
         hint.setText("Off: the mask stays put and the object moves under it. "
@@ -467,6 +498,16 @@ public final class PipDrawerTabs {
         keyRow.addView(state);
         root.addView(keyRow);
         refresh.run();
+        // Everything from the checkbox row down describes a shape stack, so it is hidden while
+        // there is no shape — and re-shown the moment one is added. Wired through syncSelected
+        // because that is the one hook rebuild already calls on every state change.
+        final View[] shapeOnly = {checkRow, hint, keyRow};
+        syncSelected[0] = () -> {
+            boolean any = !spec.masks.isEmpty();
+            for (View v : shapeOnly) v.setVisibility(any ? View.VISIBLE : View.GONE);
+            if (any) link.setChecked(spec.masks.get(sel[0]).linkedToObject);
+        };
+        syncSelected[0].run();
         return root;
     }
 

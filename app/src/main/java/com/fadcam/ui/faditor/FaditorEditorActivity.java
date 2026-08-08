@@ -13360,6 +13360,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         objectMenuSheet.hide();
                     }
                 }
+                // THE TOP DRAWER FOLLOWS THE SELECTION TOO. It did not, so tapping a second
+                // PiP in the preview left the first one's mask, chroma and effects on screen
+                // — every slider then edited an object the user was no longer looking at.
+                // Only retargets while it is already open: selecting something must not
+                // conjure a drawer nobody asked for.
+                if (pipDrawer != null && pipDrawer.isShowing() && item != null) {
+                    if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                        showPipDrawerForObject(item.getClip());
+                    } else if (item.getAdjustment() != null) {
+                        showAdjustmentDrawer(item.getAdjustment());
+                    } else if (item.getTextOverlay() != null
+                            && !item.getTextOverlay().isImage()) {
+                        showTextFxDrawer(item.getTextOverlay());
+                    }
+                }
                 // Selecting from the preview (or anywhere) also scrolls the layer
                 // band so the selected object's row is on-screen (JoyRaptor 2026-07-17).
                 if (item != null && editorTimeline != null) {
@@ -18711,8 +18726,91 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     new android.widget.FrameLayout.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            previewHandlesOverlay.setSelectionSource(previewSelectionSource());
         }
         return previewHandlesOverlay;
+    }
+
+    /**
+     * Hit-testing for the preview: what did the finger land on, and select it.
+     *
+     * <p><b>One authority, replacing five.</b> The text layer, the sprite layer and the PiP view
+     * each ran their own hit-test and drag, and whichever sat highest in the XML won the touch.
+     * That is why one object could not be grabbed at all, why nothing you picked in the preview
+     * showed up in the timeline, and why the drawer kept showing a different item's options.
+     * Selection now goes through {@code setSelectedItem}, the SAME call the timeline makes, so
+     * the timeline row, the handles and the drawer cannot disagree about what is selected —
+     * they are all downstream of one event.</p>
+     *
+     * <p>Candidates are tested TOP-DOWN in paint order (text and sprites over PiPs), so tapping
+     * where two objects overlap picks the one you can actually see.</p>
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.SelectionSource
+            previewSelectionSource() {
+        return new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.SelectionSource() {
+            @Override
+            public boolean selectAt(float x, float y, long timeMs) {
+                if (project == null) return false;
+                java.util.List<com.fadcam.ui.faditor.layers.TimedItem> hits =
+                        new java.util.ArrayList<>();
+                for (com.fadcam.ui.faditor.layers.Track tr
+                        : project.getTimeline().getLayers()) {
+                    for (com.fadcam.ui.faditor.layers.TimedItem it : tr.getItems()) {
+                        if (hitsInPreview(it, x, y, timeMs)) hits.add(it);
+                    }
+                }
+                if (hits.isEmpty()) return false;
+                // Later in the lane list = painted later = on top. Prefer the last hit, which
+                // is the one the eye says was touched.
+                com.fadcam.ui.faditor.layers.TimedItem pick = hits.get(hits.size() - 1);
+                selectLayerItemById(pick.getId());
+                return previewHandlesOverlay != null && previewHandlesOverlay.hasTarget();
+            }
+
+            @Override
+            public void selectNone() {
+                // Deliberately NOT clearing the selection. A miss in the preview is usually a
+                // miss, not a decision to deselect — and dropping the selection would close the
+                // drawer the user is working in. The timeline's own empty-space tap still does.
+            }
+        };
+    }
+
+    /**
+     * Is {@code (x,y)} inside this item's drawn box in the preview?
+     *
+     * <p>Asks the item's OWN handles target for the box, rather than recomputing geometry per
+     * type here — the target is what draws the selection rectangle, so a hit-test that used
+     * anything else could disagree with the thing the user is aiming at.</p>
+     */
+    private boolean hitsInPreview(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                                  float x, float y, long timeMs) {
+        com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t;
+        if (item.getTextOverlay() != null) t = textHandlesTarget(item.getTextOverlay());
+        else if (item.getSprite() != null) t = spriteHandlesTarget(item.getSprite());
+        else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            // A PiP whose taps are set to pass through is deliberately ungrabbable — that is
+            // the whole point of the toggle, and its lane badge says so.
+            if (item.getClip().isPassThrough()) return false;
+            t = pipHandlesTarget(item.getClip());
+        } else return false;
+
+        android.graphics.RectF r = new android.graphics.RectF();
+        if (!t.frame(timeMs, r)) return false;
+        float rot = t.rotationDeg(timeMs);
+        if (rot != 0f) {
+            // Inverse-rotate the point into the box's own frame, the same way the overlay's
+            // own inside-test does — otherwise a rotated object is only grabbable by the
+            // axis-aligned rectangle that happens to bound it.
+            double rad = Math.toRadians(-rot);
+            float cx = r.centerX(), cy = r.centerY();
+            float dx = x - cx, dy = y - cy;
+            float cos = (float) Math.cos(rad), sin = (float) Math.sin(rad);
+            x = cx + dx * cos - dy * sin;
+            y = cy + dx * sin + dy * cos;
+        }
+        return r.contains(x, y);
     }
 
     /**
@@ -20795,21 +20893,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /**
      * Move the picture out from under an open drawer.
      *
-     * <p><b>Translate, then shrink only if translating is not enough.</b> The drawer covers the
-     * top {@code drawerHeightPx} of the slot, leaving a band underneath; the video is re-centred
-     * in that band, which for a 16:9 project in a tall slot costs nothing at all — it slides down
-     * into letterbox that was showing black. A 9:16 project is the case the owner actually works
-     * in and it has almost no letterbox to spend, so translation alone would move the occlusion
-     * from the top of the picture to the bottom of the slot. When the band is shorter than the
-     * video, the container is scaled to fit it. A smaller picture that is entirely visible beats
-     * a full-size one with its head cut off, and it is what the ask ("the preview should animate
-     * down above an open drawer") means on the format it was asked about.</p>
+     * <p><b>TRANSLATE ONLY — never shrink.</b> An earlier version scaled the container down to
+     * fit the band under the drawer, on the reasoning that a smaller picture entirely visible
+     * beats a full-size one with its head cut off. The owner disagreed outright ("when the door
+     * comes down, I like that preview moves down, but let's not make it smaller"), and the
+     * reasoning was wrong anyway: the drawer is deliberately SEMI-TRANSPARENT precisely so you
+     * can keep working through it, so a little overlap is a feature and shrinking the picture
+     * to avoid it trades the thing you are judging for the thing you are adjusting.</p>
      *
-     * <p>Scaling the CONTAINER rather than the player keeps every sibling overlay — handles,
-     * text, sprites, the GL composite — registered with the picture, and Android maps touches
-     * back through the same matrix, so hit-testing needs no compensation. Safe because the
-     * player is a {@code texture_view} (see {@code activity_faditor_editor.xml}); a SurfaceView
-     * would tear.</p>
+     * <p>The shift is half the drawer's height — that re-centres the video in the band below it
+     * — clamped to the letterbox slack so the picture's own bottom never leaves the container.
+     * On a 16:9 project in a tall slot that is free. On 9:16 there is almost no slack, so the
+     * video barely moves and the translucent drawer overlaps it, which is the intent.</p>
+     *
+     * <p>Because nothing is scaled, no gesture surface needs scale compensation — but
+     * {@code UiScale} stays in the drag paths regardless: it is a no-op at scale 1 and it is
+     * what makes those surfaces correct if anything above them is ever scaled again.</p>
      *
      * <p>220ms decelerate, matching the drawer's own slide, so the two read as one movement.</p>
      */
@@ -20817,7 +20916,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         View container = findViewById(R.id.player_container);
         if (container == null) return;
         float shift = 0f;
-        float scale = 1f;
         int slotH = container.getHeight();
         if (drawerHeightPx > 0 && slotH > 0) {
             int videoH = 0;
@@ -20825,19 +20923,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 videoH = playerView.getVideoSurfaceView().getHeight();
             }
             if (videoH <= 0) videoH = slotH;
-            int bandH = Math.max(1, slotH - drawerHeightPx);
-            if (videoH > bandH) scale = Math.max(0.35f, bandH / (float) videoH);
-            // Pivot is the container's centre, so re-centring in the band is half the drawer's
-            // height — but CLAMPED to the slack the scaled picture actually leaves, or a drawer
-            // taller than the slot pushes the video's centre past the container's bottom edge
-            // and the parent clips it away entirely. The 0.35 scale floor makes that reachable:
-            // it is exactly when the shrink stops keeping up that the translate must stop too.
-            float slack = Math.max(0f, (slotH - videoH * scale) / 2f);
+            float slack = Math.max(0f, (slotH - videoH) / 2f);
             shift = Math.min(drawerHeightPx / 2f, slack);
         }
-        container.setPivotX(container.getWidth() / 2f);
-        container.setPivotY(slotH / 2f);
-        container.animate().translationY(shift).scaleX(scale).scaleY(scale).setDuration(220)
+        // Identity scale, explicitly: a build that HAD scaled could otherwise leave the
+        // container shrunk forever, since nothing else ever writes these.
+        container.animate().translationY(shift).scaleX(1f).scaleY(1f).setDuration(220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
     }
 

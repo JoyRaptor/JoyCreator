@@ -78,7 +78,36 @@ public final class PreviewHandlesOverlay extends View {
         default void onDoubleTapped() { }
     }
 
-    private enum Mode { NONE, MOVE, SCALE, ROTATE }
+    /**
+     * How this overlay finds out what the user just touched.
+     *
+     * <p><b>Selection has to happen HERE, not in the layers underneath.</b> Five sibling views
+     * draw into the preview and each used to run its own hit-test and drag; the topmost one to
+     * claim a touch won, which is why one layer could not be grabbed at all and why selecting
+     * something never agreed with the timeline. This overlay is above all of them, so it is the
+     * only place that can answer "what is under this finger" once.</p>
+     */
+    public interface SelectionSource {
+        /**
+         * Select the topmost object whose drawn box contains {@code (x,y)}, in THIS view's
+         * pixels. Returning true means the implementation has already called
+         * {@link #setTarget} with that object — the same gesture then continues as a drag on it.
+         */
+        boolean selectAt(float x, float y, long timeMs);
+
+        /** The touch hit nothing. */
+        void selectNone();
+    }
+
+    @Nullable private SelectionSource selectionSource;
+
+    public void setSelectionSource(@Nullable SelectionSource s) { selectionSource = s; }
+
+    private enum Mode { NONE, MOVE, SCALE, ROTATE, PINCH }
+
+    /** Two-finger gesture state: the span and angle at the moment the second finger landed. */
+    private float pinchStartSpan, pinchStartAngle, pinchStartSize, pinchStartRot;
+    private boolean pinching;
 
     /** In-box tap pairing for the double-tap forwarder (see onTouchEvent UP). */
     private long lastInBoxTapUpMs;
@@ -192,25 +221,53 @@ public final class PreviewHandlesOverlay extends View {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        Target t = target;
-        if (t == null) return false;
         switch (e.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-                return onDown(t, e.getX(), e.getY());
-            case MotionEvent.ACTION_MOVE:
-                if (mode == Mode.NONE) return false;
+            case MotionEvent.ACTION_DOWN: {
+                // TRY THE CURRENT SELECTION FIRST, then everything else. Touching the selected
+                // object's own box must keep working exactly as it did — the handles are the
+                // precision surface — and only a miss falls through to picking something new.
+                Target cur = target;
+                if (cur != null && onDown(cur, e.getX(), e.getY())) return true;
+                if (selectionSource == null) return false;
+                if (!selectionSource.selectAt(e.getX(), e.getY(), currentTimeMs)) {
+                    selectionSource.selectNone();
+                    return false;   // empty canvas — let whatever is beneath have it
+                }
+                // selectAt has already retargeted us. Start the drag on the NEW object in the
+                // SAME gesture: "I should be able to tap and move, and they all just select."
+                Target picked = target;
+                return picked != null && onDown(picked, e.getX(), e.getY());
+            }
+            case MotionEvent.ACTION_POINTER_DOWN:
+                return onSecondFinger(e);
+            case MotionEvent.ACTION_POINTER_UP:
+                if (pinching && e.getPointerCount() <= 2) {
+                    // Down to one finger: end the two-finger gesture rather than letting the
+                    // survivor drag the object from wherever it happens to be.
+                    endGesture(true);
+                    return true;
+                }
+                return mode != Mode.NONE;
+            case MotionEvent.ACTION_MOVE: {
+                Target t = target;
+                if (t == null || mode == Mode.NONE) return false;
+                if (mode == Mode.PINCH) { onPinchMove(t, e); return true; }
                 onDragMove(t, e.getX(), e.getY());
                 return true;
+            }
             case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                if (mode == Mode.NONE) return false;
+            case MotionEvent.ACTION_CANCEL: {
+                Target t = target;
+                if (t == null || mode == Mode.NONE) return false;
                 Mode finished = mode;
+                boolean committed = e.getActionMasked() == MotionEvent.ACTION_UP;
                 mode = Mode.NONE;
-                if (moved && e.getActionMasked() == MotionEvent.ACTION_UP) {
+                pinching = false;
+                if (moved && committed) {
                     t.commit(finished == Mode.MOVE ? "Move"
-                            : finished == Mode.SCALE ? "Scale" : "Rotate");
-                } else if (!moved && finished == Mode.MOVE
-                        && e.getActionMasked() == MotionEvent.ACTION_UP) {
+                            : finished == Mode.SCALE ? "Scale"
+                            : finished == Mode.PINCH ? "Transform" : "Rotate");
+                } else if (!moved && finished == Mode.MOVE && committed) {
                     // JoyRaptor 2026-07-19: once the handles are up they consume every touch
                     // inside the box, which was EATING the second tap of a double-tap —
                     // the type editor became unreachable from the preview on a selected
@@ -225,9 +282,82 @@ public final class PreviewHandlesOverlay extends View {
                 }
                 invalidate();
                 return true;
+            }
             default:
                 return false;
         }
+    }
+
+    /** Finish whatever is running, committing only when the gesture ended cleanly. */
+    private void endGesture(boolean commit) {
+        Target t = target;
+        Mode finished = mode;
+        mode = Mode.NONE;
+        pinching = false;
+        if (t != null && moved && commit) {
+            t.commit(finished == Mode.PINCH ? "Transform"
+                    : finished == Mode.SCALE ? "Scale"
+                    : finished == Mode.ROTATE ? "Rotate" : "Move");
+        }
+        invalidate();
+    }
+
+    /**
+     * A second finger landed — switch to PINCH: scale by span ratio, rotate by angle delta.
+     *
+     * <p>Takes over from a MOVE already in flight without committing it, because the user's
+     * intent for one continuous two-finger gesture is one edit, not a move followed by a
+     * transform. Both values come off the SAME pair of pointers, so scaling and rotating
+     * happen together the way they do in every other editor.</p>
+     */
+    private boolean onSecondFinger(@NonNull MotionEvent e) {
+        Target t = target;
+        if (t == null || e.getPointerCount() < 2) return false;
+        mode = Mode.PINCH;
+        pinching = true;
+        moved = false;
+        pinchStartSpan = Math.max(1f, span(e));
+        pinchStartAngle = twoFingerAngle(e);
+        pinchStartSize = t.sizeFraction(currentTimeMs);
+        pinchStartRot = t.rotationDeg(currentTimeMs);
+        t.beginGesture();
+        getParent().requestDisallowInterceptTouchEvent(true);
+        return true;
+    }
+
+    private void onPinchMove(@NonNull Target t, @NonNull MotionEvent e) {
+        if (e.getPointerCount() < 2) return;
+        float s = Math.max(1f, span(e));
+        float ratio = s / pinchStartSpan;
+        float deltaDeg = twoFingerAngle(e) - pinchStartAngle;
+        // Normalise the delta into ±180 so crossing the ±π seam does not spin the object.
+        while (deltaDeg > 180f) deltaDeg -= 360f;
+        while (deltaDeg < -180f) deltaDeg += 360f;
+        if (!moved && (Math.abs(ratio - 1f) > 0.02f || Math.abs(deltaDeg) > 2f)) moved = true;
+        if (!moved) return;
+        t.scaleTo(Math.max(0.01f, pinchStartSize * ratio), currentTimeMs);
+        t.rotateTo(snapRotation(pinchStartRot + deltaDeg), currentTimeMs);
+        invalidate();
+    }
+
+    private static float span(@NonNull MotionEvent e) {
+        return (float) Math.hypot(e.getX(0) - e.getX(1), e.getY(0) - e.getY(1));
+    }
+
+    private static float twoFingerAngle(@NonNull MotionEvent e) {
+        return (float) Math.toDegrees(
+                Math.atan2(e.getY(1) - e.getY(0), e.getX(1) - e.getX(0)));
+    }
+
+    /** Pull to the nearest cardinal when close — 0° above all, which is what "level" means. */
+    private static float snapRotation(float deg) {
+        float norm = ((deg % 360f) + 360f) % 360f;
+        for (float cardinal : new float[]{0f, 90f, 180f, 270f, 360f}) {
+            if (Math.abs(norm - cardinal) < ROT_SNAP_DEG) {
+                return deg + (cardinal % 360f) - norm;
+            }
+        }
+        return deg;
     }
 
     private boolean onDown(@NonNull Target t, float x, float y) {
@@ -300,16 +430,7 @@ public final class PreviewHandlesOverlay extends View {
             }
             case ROTATE: {
                 float angle = (float) Math.toDegrees(Math.atan2(y - cy, x - cx));
-                float deg = startRot + (angle - startAngle);
-                // Snap to cardinals when close.
-                float norm = ((deg % 360f) + 360f) % 360f;
-                for (float cardinal : new float[]{0f, 90f, 180f, 270f, 360f}) {
-                    if (Math.abs(norm - cardinal) < ROT_SNAP_DEG) {
-                        deg += (cardinal % 360f) - norm;
-                        break;
-                    }
-                }
-                t.rotateTo(deg, currentTimeMs);
+                t.rotateTo(snapRotation(startRot + (angle - startAngle)), currentTimeMs);
                 break;
             }
             default:

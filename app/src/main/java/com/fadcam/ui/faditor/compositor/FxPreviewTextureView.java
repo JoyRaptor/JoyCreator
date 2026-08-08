@@ -174,6 +174,8 @@ public class FxPreviewTextureView extends TextureView
      */
     public static final class Pip {
         final float cx, cy, halfW, halfH, rotationDeg, alpha;
+        /** Playhead seconds, for time-driven object effects. */
+        final float timeSec;
         /**
          * The object's OWN effect stack, fused into one pass — or null when it has none.
          *
@@ -192,7 +194,8 @@ public class FxPreviewTextureView extends TextureView
 
         public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
                    @Nullable FxCompiler.Pass fused,
-                   @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey) {
+                   @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey,
+                   float timeSec) {
             this.cx = cx;
             this.cy = cy;
             this.halfW = halfW;
@@ -202,6 +205,7 @@ public class FxPreviewTextureView extends TextureView
             this.fused = fused;
             this.fxUniforms = fxUniforms;
             this.fxKey = fxKey;
+            this.timeSec = timeSec;
         }
 
         boolean rendersAnything() {
@@ -225,7 +229,8 @@ public class FxPreviewTextureView extends TextureView
                     break;
                 }
             }
-            return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key);
+            return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key,
+                    editorMs / 1000f);
         }
     }
 
@@ -583,6 +588,16 @@ public class FxPreviewTextureView extends TextureView
                     new int[]{EGL14.EGL_NONE}, 0);
             EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
 
+            // EVERY LATCH RESETS HERE. degraded/failedKey/compiledKey used to survive
+            // surface recreation, so one transient exception -- a driver hiccup, a
+            // target FBO that failed once because the video size was still 0 -- left the
+            // preview showing raw ungraded video for the rest of the session, and
+            // rotating the device did not clear it. Worse, while degraded the PiP
+            // composite is skipped too while its own View is held at alpha 0, so the PiP
+            // vanished outright rather than merely losing its grade.
+            degraded = false;
+            failedKey = null;
+            compiledKey = null;
             stageProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_FRAGMENT);
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
@@ -750,7 +765,18 @@ public class FxPreviewTextureView extends TextureView
             pipProgram = prog;
             pipFxKey = p.fxKey;
         } catch (Exception e) {
+            // Fall back to the PLAIN composite, which is what the log claims happens. Keeping
+            // the previously compiled program would render the OLD stack while being fed the
+            // new stack's uniforms; leaving it at 0 would drop the PiP entirely, because its
+            // own View is held at alpha 0 while the composite owns the pixels.
             FLog.w(TAG, "PiP FX compile failed; compositing ungraded", e);
+            try {
+                if (pipProgram != 0) GLES20.glDeleteProgram(pipProgram);
+                pipProgram = buildProgram(FxGlSource.VERTEX_SHADER, PIP_FRAGMENT);
+            } catch (Exception fatal) {
+                FLog.e(TAG, "plain PiP composite failed too", fatal);
+                pipProgram = 0;
+            }
             pipFxKey = p.fxKey;   // do not retry this stack every frame
         }
         return pipProgram;
@@ -801,7 +827,7 @@ public class FxPreviewTextureView extends TextureView
         // The object's own effects, and the frame constants their bodies may read.
         setF2(pipProgram, "uTexel", 1f / vw, 1f / vh);
         setF(pipProgram, "uAspect", (float) vw / (float) vh);
-        setF(pipProgram, "uTime", 0f);
+        setF(pipProgram, "uTime", p.timeSec);
         setF2(pipProgram, "uDir", 1f, 0f);
         for (FxUniforms.Value v : p.fxUniforms) {
             setFn(pipProgram, v.name, v.data, v.components());
@@ -1131,10 +1157,12 @@ public class FxPreviewTextureView extends TextureView
         HandlerThread t = glThread;
         glHandler = null;
         glThread = null;
-        main.post(() -> {
-            SurfaceListener l = surfaceListener;
-            if (l != null) l.onFxInputSurfaceLost();
-        });
+        // SYNCHRONOUS, and we are already on the main thread. Posting it meant the callback
+        // could not run until onSurfaceTextureDestroyed's join(500) returned -- by which time
+        // the GL thread had already released the Surface. The comment promised the opposite
+        // ordering to what the code did.
+        SurfaceListener sl = surfaceListener;
+        if (sl != null) sl.onFxInputSurfaceLost();
         if (h != null) {
             h.post(() -> {
                 releasePrograms();

@@ -207,8 +207,20 @@ public final class PipOverlayDrawer extends LinearLayout {
                         float dy = e.getRawY() - downY;
                         if (!moved && Math.abs(dy) > slop) { moved = true; resizing = true; }
                         if (resizing && bodyScroll != null) {
-                            userHeightPx = Math.round(startHeight + dy);
+                            // CLAMPED AT ASSIGNMENT. Unclamped, any upward drag past the start
+                            // height drove this to <= 0, maxBodyHeightPx read that as "unset"
+                            // and snapped the body back to 55% of the screen -- so dragging up
+                            // both failed to shrink AND, because it had grown again, failed the
+                            // at-floor test that dismisses. The grip did nothing in one whole
+                            // direction.
+                            int screen = getResources().getDisplayMetrics().heightPixels;
+                            userHeightPx = Math.max(dp(MIN_BODY_DP),
+                                    Math.min(Math.round(startHeight + dy),
+                                            Math.round(screen * ABSOLUTE_MAX_FRACTION)));
                             bodyScroll.requestLayout();
+                            // Report DURING the drag, throttled by the layout pass itself, so
+                            // the picture moves with the finger instead of jumping when it lifts.
+                            reportHeight();
                         }
                         return true;
                     }
@@ -219,7 +231,7 @@ public final class PipOverlayDrawer extends LinearLayout {
                         boolean atFloor = bodyScroll != null
                                 && bodyScroll.getHeight() <= dp(MIN_BODY_DP) + 1;
                         if (!moved || (dy < -slop * 2 && atFloor)) {
-                            userHeightPx = 0;
+                            userHeightPx = -1;
                             hide();
                         } else {
                             v.performHapticFeedback(
@@ -261,6 +273,13 @@ public final class PipOverlayDrawer extends LinearLayout {
      * retargets the drawer at a different clip.
      */
     public void show(@NonNull List<Tab> tabList, @NonNull List<Toggle> toggleList) {
+        // A pending close belongs to the object being replaced. show() used to rebind without
+        // it, so opening a second object's drawer dropped the first one's FX undo step entirely
+        // -- or, worse, left it registered and fired it later against an object not on screen.
+        if (onClose != null) { Runnable r = onClose; onClose = null; r.run(); }
+        // A height dragged on one tab must not follow the drawer to a different object: sizing
+        // the FX tab tall and then opening a one-row tab left three-quarters of a screen empty.
+        userHeightPx = -1;
         tabs.clear();
         tabs.addAll(tabList);
         toggles.clear();
@@ -488,8 +507,12 @@ public final class PipOverlayDrawer extends LinearLayout {
             @Override
             protected void onMeasure(int widthSpec, int heightSpec) {
                 int cap = maxBodyHeightPx();
-                super.onMeasure(widthSpec,
-                        MeasureSpec.makeMeasureSpec(cap, MeasureSpec.AT_MOST));
+                // EXACTLY when the user has dragged a size, AT_MOST otherwise. With AT_MOST the
+                // ScrollView still measures to its content, so userHeightPx only ever raised a
+                // ceiling -- and on any tab shorter than the cap (Chroma, a two-card stack)
+                // dragging DOWN did nothing at all and the grip read as broken.
+                int mode = userHeightPx > 0 ? MeasureSpec.EXACTLY : MeasureSpec.AT_MOST;
+                super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(cap, mode));
             }
         };
         sv.setVerticalScrollBarEnabled(false);
@@ -522,7 +545,7 @@ public final class PipOverlayDrawer extends LinearLayout {
     /** The scrolling body of the current tab, for the resize drag. */
     @Nullable private ScrollView bodyScroll;
     /** Height the user dragged to, or 0 for "use the default fraction". Session-scoped. */
-    private int userHeightPx;
+    private int userHeightPx = -1;
 
     private int dp(int v) { return Math.round(v * density); }
 }

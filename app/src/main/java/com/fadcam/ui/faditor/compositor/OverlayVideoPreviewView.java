@@ -241,6 +241,14 @@ public class OverlayVideoPreviewView extends FrameLayout {
      */
     @Nullable private Surface fxSurface;
     private boolean fxRouted;
+    /**
+     * The player {@link #fxRouted} describes. A decoder error releases the player and a later
+     * clip builds a NEW one wired to this view's own TextureView; without the identity check the
+     * stale flag matched, routeToFxIfWanted early-returned, and the new decoder painted into a
+     * view still held at alpha 0 -- the PiP disappeared for the rest of the session with nothing
+     * on screen to say why. The keyed tier learned this already; see routedPlayer.
+     */
+    @Nullable private ExoPlayer fxRoutedPlayer;
 
     /** Route the PiP into {@code s}, or pass null to hand it back to this view's own surface. */
     public void setFxCompositeSurface(@Nullable Surface s) {
@@ -302,13 +310,15 @@ public class OverlayVideoPreviewView extends FrameLayout {
     /** Attach the decoder to the FX surface once both it and a player exist. */
     private void routeToFxIfWanted() {
         Surface s = fxSurface;
-        if (s == null || player == null || fxRouted) return;
+        if (s == null || player == null) return;
+        if (fxRouted && player == fxRoutedPlayer) return;
         // A keyed PiP keeps its own live tier: ChromaKeyTextureView produces per-pixel alpha
         // that this composite has no equivalent for, and a key that stopped working because a
         // grade was added would be a far worse trade than an ungraded PiP.
         if (keyedWanted) return;
         player.setVideoSurface(s);
         fxRouted = true;
+        fxRoutedPlayer = player;
         textureView.setAlpha(0f);
         FLog.i(TAG, "PiP routed into the FX composite");
     }
@@ -495,6 +505,12 @@ public class OverlayVideoPreviewView extends FrameLayout {
         videoH = 0;
         keyedRouted = false;
         routedPlayer = null;
+        // The FX tier too. Leaving fxRouted set here is what stranded the PiP: the next player
+        // was built wired to textureView, routeToFxIfWanted saw "already routed" and skipped,
+        // and applyTransform kept the view at alpha 0 forever.
+        fxRouted = false;
+        fxRoutedPlayer = null;
+        textureView.setAlpha(1f);
         applyHostVisibility(false);
     }
 
@@ -1070,7 +1086,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
     private Clip hitTest(float x, float y) {
         Clip top = topVisibleAt(currentTimeMs);
         // PASS-THROUGH: the object is on screen and editable from its row, but it is not
-        // catching taps meant for what is behind it.
+        // catching taps meant for what is behind it. Only the TOP PiP is hit-testable in this
+        // tier, so a pass-through top means the tap continues to the master video — the deeper
+        // "fall through to the PiP below" needs multi-PiP hit-testing, which this view does not
+        // have yet (it drives one live decoder).
         if (top != null && top.isPassThrough()) return null;
         // The ROUTED host again: hit-testing the plain view while the keyed one is on screen
         // would make a keyed PiP ungrabbable — the drag would silently do nothing.

@@ -1310,6 +1310,11 @@ public class ProjectStorage {
         // §4.5 per-object eye/lock — write-if-true keeps master-clip JSON byte-identical.
         if (clip.isHiddenObject()) clipJson.addProperty("objHidden", true);
         if (clip.isLockedObject()) clipJson.addProperty("objLocked", true);
+        // Written beside objLocked because Clip is HAND-serialized here, not reflected by gson.
+        // Adding the field to the model was not enough: the toggle worked, the badge appeared,
+        // and the flag evaporated on save — the object went back to catching taps with no badge
+        // and no explanation. Omit-at-default, so an untouched project is byte-identical.
+        if (clip.isPassThrough()) clipJson.addProperty("objPassThrough", true);
         if (!clip.getRemovedSpans().isEmpty()) {
             JsonArray spans = new JsonArray();
             for (long[] s : clip.getRemovedSpans()) {
@@ -1755,6 +1760,9 @@ public class ProjectStorage {
         // §4.5 per-object eye/lock (tolerant: absent = false).
         if (hasValue(clipObj, "objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
         if (hasValue(clipObj, "objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
+        if (hasValue(clipObj, "objPassThrough")) {
+            clip.setPassThrough(clipObj.get("objPassThrough").getAsBoolean());
+        }
         return clip;
     }
 

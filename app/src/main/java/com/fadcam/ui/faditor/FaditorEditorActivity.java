@@ -19602,6 +19602,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setMessage("Everything under it goes back to how it looked.")
                 .setNegativeButton("Cancel", null)                         // TODO(strings)
                 .setPositiveButton("Remove", (d, w) -> {                   // TODO(strings)
+                    // Where it sat, captured BEFORE the removal: addAdjustmentLayer appends,
+                    // so undoing a delete from the middle of three layers would put it back on
+                    // top and quietly change the render order. Undo has to be exact.
+                    final int atIndex =
+                            project.getTimeline().getAdjustmentLayers().indexOf(a);
                     project.getTimeline().removeAdjustmentLayer(a);
                     refreshAfterMarqueeBatchDelete();
                     syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
@@ -19611,7 +19616,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     refreshAfterMarqueeBatchDelete();
                                     syncAdjustmentPreview(
                                             Math.max(0, lastPlayheadAbsoluteMs)); },
-                            () -> { project.getTimeline().addAdjustmentLayer(a);
+                            () -> { java.util.List<com.fadcam.ui.faditor.model.AdjustmentLayer>
+                                            list = project.getTimeline().getAdjustmentLayers();
+                                    if (atIndex >= 0 && atIndex <= list.size()) {
+                                        list.add(atIndex, a);
+                                    } else {
+                                        project.getTimeline().addAdjustmentLayer(a);
+                                    }
                                     refreshAfterMarqueeBatchDelete();
                                     syncAdjustmentPreview(
                                             Math.max(0, lastPlayheadAbsoluteMs)); }));
@@ -20174,6 +20185,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * The clip the PLAYHEAD is inside, which is not the same thing as the selected clip.
+     *
+     * <p>The live preview asked {@code getSelectedClip()} for the grade to show, and that
+     * returns the clip the user last TAPPED — falling back to clip 0 when nothing is selected.
+     * So on any multi-clip project the editor applied one clip's exposure, contrast and vignette
+     * to another clip's frames, and during playback the grade never changed at all because the
+     * selection never changed. The preview cannot claim to match the export while it is grading
+     * the wrong clip; this is what makes the claim true.</p>
+     */
+    @Nullable
+    private Clip clipUnderPlayhead() {
+        if (project == null) return null;
+        Timeline tl = project.getTimeline();
+        int seg = editorTimeline != null ? editorTimeline.getSegmentAtPlayhead() : -1;
+        if (seg >= 0 && seg < tl.getClipCount()) return tl.getClip(seg);
+        return getSelectedClip();   // pre-layout, before the timeline can answer
+    }
+
     /** Lazily build the GL preview controller and hand it this tick. */
     private void syncGlAdjustmentPreview(long absoluteMs) {
         if (fxLivePreview == null) {
@@ -20190,7 +20220,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (playerManager != null) playerManager.restoreVideoOutput();
                         }
                         @Override public com.fadcam.ui.faditor.model.Clip clipAtPlayhead() {
-                            return getSelectedClip();
+                            return clipUnderPlayhead();
                         }
                         @Override public com.fadcam.ui.faditor.compositor
                                 .OverlayVideoPreviewView overlayVideoLayer() {
@@ -20235,6 +20265,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void openAdjustForSelection() {
         if (project == null) return;
+        // TOGGLE. The drawer this tool opens has no other close affordance in reach of the
+        // thumb that just opened it, and a button that only ever opens is half a control.
+        if (pipDrawer != null && pipDrawer.isShowing()) {
+            pipDrawer.hide();
+            setAdjustToolActive(false);
+            return;
+        }
         dismissOpenObjectSheets();
         Timeline timeline = project.getTimeline();
         String selectedId = editorTimeline == null ? null
@@ -20271,6 +20308,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         showPipDrawer(c, new java.util.ArrayList<>());
         com.fadcam.ui.faditor.tools.PipOverlayDrawer d = pipDrawer;
         if (d != null) d.showTabTitled("Effects");
+    }
+
+    /**
+     * Light the Adjust tool while its drawer is open.
+     *
+     * <p>A tool that opens a panel and then looks exactly as it did before leaves the user with
+     * no way to tell, from the toolbar, whether the thing in front of them belongs to that
+     * button. Green is what every other active tool in this row uses.</p>
+     */
+    private void setAdjustToolActive(boolean active) {
+        int color = active ? 0xFF4CAF50 : 0xFF888888;
+        View icon = findViewById(R.id.tool_adjustment_icon);
+        View label = findViewById(R.id.tool_adjustment_label);
+        if (icon instanceof TextView) ((TextView) icon).setTextColor(color);
+        if (label instanceof TextView) ((TextView) label).setTextColor(color);
     }
 
     /**
@@ -20463,7 +20515,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 });
             }
             root.addView(pipDrawer, lp);
-            pipDrawer.setHeightListener(this::reflowPreviewUnderDrawer);
+            pipDrawer.setHeightListener(h -> {
+                reflowPreviewUnderDrawer(h);
+                // One place that knows the drawer's visibility, so the tool light
+                // cannot be left on by a close path nobody remembered to hook.
+                setAdjustToolActive(h > 0);
+            });
         }
         return pipDrawer;
     }
@@ -20599,6 +20656,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 // Normalise an emptied stack back to null so removing every
                                 // card leaves the clip serializing as it did before.
                                 c.setFx(c.getFx());
+                                // PUSH IT NOW. The Pip snapshot only reaches the renderer on a
+                                // playhead tick, so dragging a slider while PAUSED -- the only
+                                // way anyone dials in an effect -- changed nothing on screen.
+                                // Same bug the adjustment-layer host already guards against.
+                                syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
                                 if (overlayVideoLayer != null) {
                                     overlayVideoLayer.refreshCompositing();
                                 }

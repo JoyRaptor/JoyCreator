@@ -645,7 +645,13 @@ public final class LayerGestureController {
             clipBeforeOutMs = item.getClip().getOutPointMs();
         } else if (item.getAdjustment() != null) {
             adjustBeforeStartMs = item.getAdjustment().getStartMs();
-            adjustBeforeDurationMs = item.getAdjustment().getDurationMs();
+            // MATERIALISE an open end. A layer is created with duration 0, which
+            // TimedItem.getDisplayDurationMs reads as "runs to the end of the timeline" -- so a
+            // freshly made full-width layer reports 0 here, endMs collapses to its own start,
+            // and grabbing the left edge snapped it to a sliver.
+            adjustBeforeDurationMs = item.getAdjustment().getDurationMs() > 0
+                    ? item.getAdjustment().getDurationMs()
+                    : Math.max(0, item.getDisplayDurationMs(lastTotalMs));
         }
     }
 
@@ -683,7 +689,13 @@ public final class LayerGestureController {
             dragStartTrimOutMs = item.getClip().getOutPointMs();
         } else if (item.getAdjustment() != null) {
             adjustBeforeStartMs = item.getAdjustment().getStartMs();
-            adjustBeforeDurationMs = item.getAdjustment().getDurationMs();
+            // MATERIALISE an open end. A layer is created with duration 0, which
+            // TimedItem.getDisplayDurationMs reads as "runs to the end of the timeline" -- so a
+            // freshly made full-width layer reports 0 here, endMs collapses to its own start,
+            // and grabbing the left edge snapped it to a sliver.
+            adjustBeforeDurationMs = item.getAdjustment().getDurationMs() > 0
+                    ? item.getAdjustment().getDurationMs()
+                    : Math.max(0, item.getDisplayDurationMs(lastTotalMs));
         }
     }
 

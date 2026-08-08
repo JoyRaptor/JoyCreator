@@ -535,6 +535,14 @@ public final class FxPanel {
                     lifted[0] = false;
                     card.animate().translationZ(0).scaleX(1f).scaleY(1f).alpha(1f)
                             .setDuration(120).start();
+                    // AN INTERRUPTED GESTURE REVERTS — never commits (the fcc0bd5 rule, which
+                    // OverlayVideoPreviewView states outright). CANCEL is what arrives when a
+                    // dialog opens, the window loses focus, or the drawer is dismissed mid-drag;
+                    // committing on it silently reorders the effect chain, and therefore changes
+                    // the render, when the user let go of nothing.
+                    if (ev.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) {
+                        shift[0] = 0;
+                    }
                     if (shift[0] != 0) {
                         int[] fromTo = com.fadcam.ui.faditor.fx.FxReorder.indices(
                                 screenPos, shift[0], count);

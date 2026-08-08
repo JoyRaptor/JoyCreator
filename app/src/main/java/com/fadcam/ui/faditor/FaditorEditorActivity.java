@@ -4,6 +4,7 @@ import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.animation.ValueAnimator;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
@@ -376,6 +377,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.assetbrowser.AssetBrowserPanel assetBrowserPanel;
     /** Launcher for picking a pinned directory (SAF tree URI). */
     private androidx.activity.result.ActivityResultLauncher<android.net.Uri> assetDirPickerLauncher;
+    /** SPEC_TEXT_DRAWER: "Import font" in the text drawer's font picker — SAF file pick, copied
+     *  into Pictures/FadCam/fonts/ (the same folder the font scanner already reads). */
+    private androidx.activity.result.ActivityResultLauncher<String[]> fontImportLauncher;
+    /** Runs after {@link #fontImportLauncher} returns — reopens the font picker on the new file. */
+    @Nullable private java.util.function.Consumer<String> pendingFontImportCallback;
     /** Currently selected asset for the insert-at-playhead button. */
     @Nullable
     private com.fadcam.ui.faditor.assetbrowser.AssetItem selectedAsset;
@@ -1196,6 +1202,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return;
                     }
                     onVisualizerStyleImported(target, imported);
+                });
+
+        fontImportLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(),
+                uri -> {
+                    java.util.function.Consumer<String> cb = pendingFontImportCallback;
+                    pendingFontImportCallback = null;
+                    if (uri == null) return;
+                    String name = displayNameOf(uri);
+                    if (name == null || !(name.toLowerCase(java.util.Locale.US).endsWith(".ttf")
+                            || name.toLowerCase(java.util.Locale.US).endsWith(".otf"))) {
+                        Toast.makeText(this, "Not a .ttf/.otf font file", Toast.LENGTH_SHORT).show(); // TODO(strings)
+                        return;
+                    }
+                    File fontsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
+                            android.os.Environment.DIRECTORY_PICTURES), "FadCam/fonts");
+                    if (!fontsDir.exists()) fontsDir.mkdirs();
+                    File dest = new File(fontsDir, name);
+                    try (java.io.InputStream in = getContentResolver().openInputStream(uri);
+                         java.io.OutputStream out = new java.io.FileOutputStream(dest)) {
+                        if (in == null) throw new java.io.IOException("null stream");
+                        byte[] buf = new byte[8192];
+                        int n;
+                        while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
+                        Toast.makeText(this, "Imported " + name, Toast.LENGTH_SHORT).show(); // TODO(strings)
+                        if (cb != null) cb.accept("file:" + dest.getAbsolutePath());
+                    } catch (Exception e) {
+                        FLog.w(TAG, "Font import failed", e);
+                        Toast.makeText(this, "Import failed", Toast.LENGTH_SHORT).show(); // TODO(strings)
+                    }
                 });
 
         slideHtmlImportLauncher = registerForActivityResult(
@@ -21958,13 +21994,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
 
-        // Holder, because the dialog is built at the END of this method and the Effects chip
-        // near the top needs to close it. A field would outlive the editor and leak it.
-        final android.app.Dialog[] textEditorDialogRef = new android.app.Dialog[1];
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer drawer = ensureTextDrawer();
 
         android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
-        root.setPadding(pad, pad, pad, 0);
+        root.setPadding(pad, pad, pad, pad);
 
         final android.widget.EditText input = new android.widget.EditText(this);
         input.setHint(R.string.faditor_text_hint);
@@ -21976,33 +22010,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setTextColor(0xFFFFFFFF);
         root.addView(input);
 
-        // Colour swatches
-        final int[] colors = {0xFFFFFFFF, 0xFF000000, 0xFFF44336, 0xFFFFEB3B,
-                0xFF4CAF50, 0xFF2196F3, 0xFFFF9800, 0xFFE91E63};
-        final int[] chosen = {item.getColorInt()};
-        android.widget.LinearLayout swatchRow = new android.widget.LinearLayout(this);
-        swatchRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        swatchRow.setPadding(0, pad, 0, 0);
-        int sw = (int) (32 * getResources().getDisplayMetrics().density);
-        for (int c : colors) {
-            View swatch = new View(this);
-            android.widget.LinearLayout.LayoutParams lp =
-                    new android.widget.LinearLayout.LayoutParams(sw, sw);
-            lp.rightMargin = (int) (8 * getResources().getDisplayMetrics().density);
-            swatch.setLayoutParams(lp);
-            android.graphics.drawable.GradientDrawable bg =
-                    new android.graphics.drawable.GradientDrawable();
-            bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            bg.setColor(c);
-            bg.setStroke((int) (2 * getResources().getDisplayMetrics().density), 0xFF888888);
-            swatch.setBackground(bg);
-            swatch.setOnClickListener(v -> {
-                chosen[0] = c;
-                input.setTextColor(c == 0xFF000000 ? 0xFF888888 : c);
-            });
-            swatchRow.addView(swatch);
-        }
-        root.addView(swatchRow);
+        // TOP ROW: font · B/I/U · case · alignment · motion — SPEC_TEXT_DRAWER.
+        root.addView(buildTextTopRow(item));
 
         // M7: this text's OWN effects. A chip rather than another inline section, because the
         // FX panel is a scrolling card list and this dialog is already tall — and because it
@@ -22026,316 +22035,371 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // window, which is BEHIND this modal — so tapping this chip opened the panel
                 // where it could not be seen or touched, and read as a dead button. It is also
                 // the rule: no modal object editors (FEEDBACK_20260717 D1).
-                android.app.Dialog open = textEditorDialogRef[0];
-                if (open != null && open.isShowing()) open.dismiss();
+                drawer.hide();
                 showTextFxDrawer(item);
             });
             root.addView(fxChip);
         }
 
-        // Font selector — distinct personalities + custom fonts
-        final String[][] fonts = {
-                {"popular", "Popular"},
-                {"popular_italic", "Popular Italic"},
-                {"designer", "Designer"},
-                {"trendy", "Trendy"},
-                {"light", "Light"},
-                {"sans_light", "Airy"},
-                {"sans_thin", "Thin"},
-                {"sans_medium", "Medium"},
-                {"sans_black", "Heavy"},
-                {"condensed", "Condensed"},
-                {"condensed_bold", "Condensed Bold"},
-                {"classy", "Classy"},
-                {"classy_italic", "Classy Italic"},
-                {"serif_bold", "Bold Serif"},
-                {"serif_italic", "Serif Italic"},
-                {"country", "Country"},
-                {"dramatic", "Dramatic"},
-                {"mono", "Mono"},
-                {"mono_bold", "Mono Bold"},
-                {"casual", "Casual"},
-                {"cursive", "Cursive"},
-        };
+        // Live text: this drawer writes EVERYTHING as it happens (SPEC_TEXT_DRAWER — "you will
+        // be seeing it live in the preview window anyway"), so there is no staged "OK" for the
+        // string either. The only thing still deferred to close is the placeholder cleanup and
+        // the ADD undo, both below.
+        input.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                item.setText(s.toString());
+                refreshOverlayPreview();
+                syncTimelineOverlays();
+            }
+        });
 
-        // Scan for custom .ttf/.otf fonts in the assets bucket
+        root.addView(buildTextStyleSection(item));
+        root.addView(buildOverlayAnimationControls(item));
+        root.addView(buildTextMotionRangeSection(item));
+
+        android.widget.LinearLayout buttonRow = new android.widget.LinearLayout(this);
+        buttonRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        buttonRow.setPadding(0, pad, 0, 0);
+        android.widget.Button deleteBtn = new android.widget.Button(this);
+        deleteBtn.setText(R.string.faditor_text_delete);
+        deleteBtn.setAllCaps(false);
+        deleteBtn.setOnClickListener(v -> {
+            boolean wasCommitted = textOverlayAddRecorded.remove(item);
+            String emptiedLane2 = item.getLayerId();
+            project.getTimeline().removeTextOverlay(item);
+            textOverlayCreatedHere.remove(item.getId());
+            final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane2 =
+                    pruneEmptyLayerTrack(emptiedLane2);
+            refreshOverlayPreview();
+            syncTimelineOverlays();
+            if (wasCommitted) {
+                undoManager.recordAction(new EditActions.LambdaAction("Delete text overlay",
+                        () -> project.getTimeline().removeTextOverlay(item),
+                        () -> { restorePrunedLane(prunedLane2);
+                                project.getTimeline().addTextOverlay(item); }));
+            }
+            scheduleAutoSave();
+            drawer.hide();
+        });
+        buttonRow.addView(deleteBtn);
+        root.addView(buttonRow);
+
+        drawer.setTitle(getString(R.string.faditor_text_edit_title));
+        drawer.show(root);
+        // Closing the drawer (✕, grip-drag-dismiss, or opening a different object) is what "OK"
+        // used to be: text/colour/font/style all wrote live as the user worked, so all that is
+        // left on the way out is (a) recording the ADD undo the first time real text exists, and
+        // (b) cleaning up a placeholder this session created and never filled in — the exact
+        // cleanup Cancel used to do, now run unconditionally on close since there is no separate
+        // Cancel affordance on a live-editing drawer (same convention FxPanel/PipDrawerTabs use).
+        drawer.setOnClose(() -> {
+            String txt = item.getText();
+            boolean stillPlaceholder = txt == null || txt.trim().isEmpty()
+                    || txt.equals(getString(R.string.faditor_text_hint));
+            if (stillPlaceholder) {
+                if (textOverlayCreatedHere.contains(item.getId())) {
+                    String emptiedLane = item.getLayerId();
+                    project.getTimeline().removeTextOverlay(item);
+                    textOverlayCreatedHere.remove(item.getId());
+                    final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane =
+                            pruneEmptyLayerTrack(emptiedLane);
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.faditor_text_delete),
+                            () -> { project.getTimeline().removeTextOverlay(item); syncTimelineOverlays(); },
+                            () -> { restorePrunedLane(prunedLane);
+                                    project.getTimeline().addTextOverlay(item);
+                                    refreshOverlayPreview();
+                                    syncTimelineOverlays(); }));
+                    refreshOverlayPreview();
+                    syncTimelineOverlays();
+                    scheduleAutoSave();
+                }
+                return;
+            }
+            textOverlayCreatedHere.remove(item.getId());
+            if (project.getTimeline().getTextOverlays().contains(item)
+                    && !textOverlayAddRecorded.contains(item)) {
+                textOverlayAddRecorded.add(item);
+                undoManager.recordAction(new EditActions.LambdaAction("Add text overlay",
+                        () -> project.getTimeline().addTextOverlay(item),
+                        () -> project.getTimeline().removeTextOverlay(item)));
+            }
+            scheduleAutoSave();
+        });
+    }
+
+    @Nullable private com.fadcam.ui.faditor.tools.TextOverlayDrawer textDrawer;
+
+    /**
+     * The BOTTOM text drawer — see {@link com.fadcam.ui.faditor.tools.TextOverlayDrawer}'s class
+     * doc for why it comes from the bottom (opposite of the PiP drawer, which comes from the
+     * top). Unlike the PiP drawer this one does NOT reflow the preview: it deliberately covers
+     * the timeline instead, which "doesn't count" per the owner, so the video area is untouched.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.tools.TextOverlayDrawer ensureTextDrawer() {
+        if (textDrawer == null) {
+            textDrawer = new com.fadcam.ui.faditor.tools.TextOverlayDrawer(this);
+            android.view.ViewGroup root2 =
+                    (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
+            android.widget.FrameLayout.LayoutParams lp =
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                            android.view.Gravity.BOTTOM);
+            root2.addView(textDrawer, lp);
+        }
+        return textDrawer;
+    }
+
+    // ── SPEC_TEXT_DRAWER top row: font · B/I/U · case · alignment · motion ──────────────────
+
+    @NonNull
+    private View buildTextTopRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        float d = getResources().getDisplayMetrics().density;
+        int pad = Math.round(6 * d);
+
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(0, pad * 2, 0, pad);
+
+        // FONT — opens a scrollable list with a live-typeface preview per entry + Import.
+        TextView fontBtn = topRowChip(this, d, "Aa");
+        fontBtn.setOnClickListener(v -> showFontPickerPopup(item, fontBtn));
+        row.addView(fontBtn);
+
+        // B / I / U — independent toggles (see TextOverlayItem javadoc on why not an enum).
+        TextView boldBtn = topRowToggle(this, d, "B");
+        boldBtn.setTypeface(null, android.graphics.Typeface.BOLD);
+        TextView italicBtn = topRowToggle(this, d, "I");
+        italicBtn.setTypeface(null, android.graphics.Typeface.ITALIC);
+        TextView underlineBtn = topRowToggle(this, d, "U");
+        underlineBtn.getPaint().setUnderlineText(true);
+        Runnable refreshBiu = () -> {
+            styleToggleState(boldBtn, item.isBold());
+            styleToggleState(italicBtn, item.isItalic());
+            styleToggleState(underlineBtn, item.isUnderline());
+        };
+        boldBtn.setOnClickListener(v -> { item.setBold(!item.isBold()); refreshBiu.run(); refreshOverlayPreview(); scheduleAutoSave(); });
+        italicBtn.setOnClickListener(v -> { item.setItalic(!item.isItalic()); refreshBiu.run(); refreshOverlayPreview(); scheduleAutoSave(); });
+        underlineBtn.setOnClickListener(v -> { item.setUnderline(!item.isUnderline()); refreshBiu.run(); refreshOverlayPreview(); scheduleAutoSave(); });
+        refreshBiu.run();
+        row.addView(boldBtn);
+        row.addView(italicBtn);
+        row.addView(underlineBtn);
+
+        // CASE — three toggles, mutually exclusive with NONE (tapping the active one clears it).
+        TextView capFirstBtn = topRowToggle(this, d, "Tt");
+        TextView allCapsBtn = topRowToggle(this, d, "TT");
+        TextView smallCapsBtn = topRowToggle(this, d, "ᴛᴛ");
+        Runnable refreshCase = () -> {
+            styleToggleState(capFirstBtn,
+                    com.fadcam.ui.faditor.model.TextOverlayItem.CASE_CAPITALIZE_FIRST.equals(item.getTextCase()));
+            styleToggleState(allCapsBtn,
+                    com.fadcam.ui.faditor.model.TextOverlayItem.CASE_ALL_CAPS.equals(item.getTextCase()));
+            styleToggleState(smallCapsBtn,
+                    com.fadcam.ui.faditor.model.TextOverlayItem.CASE_SMALL_CAPS.equals(item.getTextCase()));
+        };
+        capFirstBtn.setOnClickListener(v -> {
+            item.setTextCase(com.fadcam.ui.faditor.model.TextOverlayItem.CASE_CAPITALIZE_FIRST.equals(item.getTextCase())
+                    ? com.fadcam.ui.faditor.model.TextOverlayItem.CASE_NONE
+                    : com.fadcam.ui.faditor.model.TextOverlayItem.CASE_CAPITALIZE_FIRST);
+            refreshCase.run(); refreshOverlayPreview(); scheduleAutoSave();
+        });
+        allCapsBtn.setOnClickListener(v -> {
+            item.setTextCase(com.fadcam.ui.faditor.model.TextOverlayItem.CASE_ALL_CAPS.equals(item.getTextCase())
+                    ? com.fadcam.ui.faditor.model.TextOverlayItem.CASE_NONE
+                    : com.fadcam.ui.faditor.model.TextOverlayItem.CASE_ALL_CAPS);
+            refreshCase.run(); refreshOverlayPreview(); scheduleAutoSave();
+        });
+        smallCapsBtn.setOnClickListener(v -> {
+            item.setTextCase(com.fadcam.ui.faditor.model.TextOverlayItem.CASE_SMALL_CAPS.equals(item.getTextCase())
+                    ? com.fadcam.ui.faditor.model.TextOverlayItem.CASE_NONE
+                    : com.fadcam.ui.faditor.model.TextOverlayItem.CASE_SMALL_CAPS);
+            refreshCase.run(); refreshOverlayPreview(); scheduleAutoSave();
+        });
+        refreshCase.run();
+        row.addView(capFirstBtn);
+        row.addView(allCapsBtn);
+        row.addView(smallCapsBtn);
+
+        // ALIGNMENT — cycles LEFT → CENTER → RIGHT → JUSTIFY → LEFT.
+        TextView alignBtn = topRowChip(this, d, alignGlyph(item.getTextAlign()));
+        alignBtn.setOnClickListener(v -> {
+            item.setTextAlign(com.fadcam.ui.faditor.model.TextOverlayItem.nextAlign(item.getTextAlign()));
+            alignBtn.setText(alignGlyph(item.getTextAlign()));
+            refreshOverlayPreview();
+            scheduleAutoSave();
+        });
+        row.addView(alignBtn);
+
+        // MOTION — the SAME icon/behaviour, just relocated into this row (owner: "I just moved
+        // its location. I like it the same"). Its label turns the app's purple accent when a
+        // preset is assigned, instead of staying dim — "when there's something there, it
+        // changes to a color".
+        View motionIcon = makeTextMotionIcon(d);
+        TextView motionState = new TextView(this);
+        motionState.setTextColor(0xFF888888);
+        motionState.setTextSize(11);
+        motionState.setPadding(pad, 0, 0, 0);
+        motionState.setMaxLines(1);
+        motionState.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        row.addView(motionIcon);
+        row.addView(motionState, new android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        Runnable refreshMotion = () -> {
+            updateTextMotionState(motionState, item);
+            motionState.setTextColor(item.hasTextAnim() ? 0xFFB388FF : 0xFF888888);
+        };
+        refreshMotion.run();
+        motionIcon.setOnClickListener(v -> com.fadcam.ui.faditor.TextAnimPickerPopover.show(
+                v,
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(item.getTextAnimPreset()),
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.parseGranularity(item.getTextAnimGranularity()),
+                null,
+                new com.fadcam.ui.faditor.TextAnimPickerPopover.OnPick() {
+                    @Override public void onPreset(
+                            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p) {
+                        applyTextOverlayAnim(item, p,
+                                com.fadcam.ui.faditor.transcript.CaptionAnimator.parseGranularity(item.getTextAnimGranularity()));
+                        refreshMotion.run();
+                    }
+                    @Override public void onGranularity(
+                            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
+                        applyTextOverlayAnim(item,
+                                com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(item.getTextAnimPreset()), g);
+                        refreshMotion.run();
+                    }
+                }));
+
+        return row;
+    }
+
+    @NonNull
+    private static String alignGlyph(@NonNull String align) {
+        switch (align) {
+            case com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_LEFT: return "≡⌐";
+            case com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_RIGHT: return "⌐≡";
+            case com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_JUSTIFY: return "☰";
+            default: return "≡"; // CENTER
+        }
+    }
+
+    @NonNull
+    private static TextView topRowChip(@NonNull Context ctx, float d, @NonNull String label) {
+        TextView t = new TextView(ctx);
+        t.setText(label);
+        t.setTextColor(0xFFEEEEEE);
+        t.setTextSize(14);
+        t.setGravity(android.view.Gravity.CENTER);
+        int pad = Math.round(8 * d);
+        t.setPadding(pad, pad, pad, pad);
+        t.setMinWidth(Math.round(34 * d));
+        android.widget.LinearLayout.LayoutParams lp =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMarginEnd(Math.round(4 * d));
+        t.setLayoutParams(lp);
+        t.setBackgroundResource(R.drawable.floating_button_item_bg);
+        return t;
+    }
+
+    @NonNull
+    private static TextView topRowToggle(@NonNull Context ctx, float d, @NonNull String label) {
+        return topRowChip(ctx, d, label);
+    }
+
+    /** Purple accent when ON (the app's highlight colour, matching the FX badge), dim off. */
+    private static void styleToggleState(@NonNull TextView t, boolean on) {
+        t.setTextColor(on ? 0xFFB388FF : 0xFFAAAAAA);
+        t.setBackgroundColor(on ? 0x33B388FF : 0x00000000);
+    }
+
+    /**
+     * Font list with a live-typeface preview per entry, plus "Import font" (SAF pick →
+     * copied into Pictures/FadCam/fonts/, the folder the scan below already reads).
+     */
+    private void showFontPickerPopup(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                                     @NonNull View anchor) {
+        float d = getResources().getDisplayMetrics().density;
+        String[][] fonts = {
+                {"popular", "Popular"}, {"popular_italic", "Popular Italic"},
+                {"designer", "Designer"}, {"trendy", "Trendy"}, {"light", "Light"},
+                {"sans_light", "Airy"}, {"sans_thin", "Thin"}, {"sans_medium", "Medium"},
+                {"sans_black", "Heavy"}, {"condensed", "Condensed"},
+                {"condensed_bold", "Condensed Bold"}, {"classy", "Classy"},
+                {"classy_italic", "Classy Italic"}, {"serif_bold", "Bold Serif"},
+                {"serif_italic", "Serif Italic"}, {"country", "Country"},
+                {"dramatic", "Dramatic"}, {"mono", "Mono"}, {"mono_bold", "Mono Bold"},
+                {"casual", "Casual"}, {"cursive", "Cursive"},
+        };
         File fontsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
                 android.os.Environment.DIRECTORY_PICTURES), "FadCam/fonts");
         List<String[]> customFonts = new ArrayList<>();
         if (fontsDir.exists()) {
-            File[] fontFiles = fontsDir.listFiles((dir, name) ->
-                    name.toLowerCase().endsWith(".ttf") || name.toLowerCase().endsWith(".otf"));
-            if (fontFiles != null) {
-                for (File f : fontFiles) {
-                    String key = "file:" + f.getAbsolutePath();
-                    String name = f.getName().replaceFirst("\\.[^.]+$", "");
-                    customFonts.add(new String[]{key, name});
+            File[] files = fontsDir.listFiles((dir, name) -> name.toLowerCase(java.util.Locale.US).endsWith(".ttf")
+                    || name.toLowerCase(java.util.Locale.US).endsWith(".otf"));
+            if (files != null) {
+                for (File f : files) {
+                    customFonts.add(new String[]{"file:" + f.getAbsolutePath(),
+                            f.getName().replaceFirst("\\.[^.]+$", "")});
                 }
             }
         }
 
-        final String[] chosenFont = {item.getFontFamily()};
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        android.widget.LinearLayout list = new android.widget.LinearLayout(this);
+        list.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = Math.round(12 * d);
+        list.setPadding(pad, pad / 2, pad, pad / 2);
+        scroll.addView(list);
 
-        // MOTION — the reporter's "icon in the text dialog, an A in motion". Without this the
-        // text-box animation would be reachable only by hand-editing project.json, which is the
-        // exact shape of the §3a failure the LEDGER exists to prevent: an engine that shipped
-        // with no way in.
-        TextView motionLabel = new TextView(this);
-        motionLabel.setText("MOTION");
-        motionLabel.setTextColor(0xFF888888);
-        motionLabel.setTextSize(12);
-        motionLabel.setTypeface(null, android.graphics.Typeface.BOLD);
-        motionLabel.setAllCaps(true);
-        motionLabel.setLetterSpacing(0.06f);
-        motionLabel.setPadding(0, pad, 0, pad / 2);
-        root.addView(motionLabel);
-
-        android.widget.LinearLayout motionRow = new android.widget.LinearLayout(this);
-        motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        final float dens = getResources().getDisplayMetrics().density;
-        final TextView motionState = new TextView(this);
-        motionState.setTextColor(0xFFCCCCCC);
-        motionState.setTextSize(13);
-        motionState.setPadding(pad, 0, 0, 0);
-        View motionIcon = makeTextMotionIcon(dens);
-        motionRow.addView(motionIcon);
-        motionRow.addView(motionState);
-        root.addView(motionRow);
-        updateTextMotionState(motionState, item);
-        motionIcon.setOnClickListener(v -> com.fadcam.ui.faditor.TextAnimPickerPopover.show(
-                v,
-                com.fadcam.ui.faditor.transcript.CaptionAnimator
-                        .parsePreset(item.getTextAnimPreset()),
-                com.fadcam.ui.faditor.transcript.CaptionAnimator
-                        .parseGranularity(item.getTextAnimGranularity()),
-                // null = every granularity. Text boxes were restricted to {BLOCK} because neither
-                // surface could animate them per glyph; both now do, through the one shared
-                // TextBoxRenderer, so the restriction is gone rather than merely relaxed.
-                null,
-                new com.fadcam.ui.faditor.TextAnimPickerPopover.OnPick() {
-                    @Override
-                    public void onPreset(
-                            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p) {
-                        applyTextOverlayAnim(item, p,
-                                com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                        .parseGranularity(item.getTextAnimGranularity()));
-                        updateTextMotionState(motionState, item);
-                    }
-
-                    @Override
-                    public void onGranularity(
-                            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
-                        applyTextOverlayAnim(item,
-                                com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                        .parsePreset(item.getTextAnimPreset()), g);
-                        updateTextMotionState(motionState, item);
-                    }
-                }));
-
-        TextView fontLabel = new TextView(this);
-        fontLabel.setText("FONT");
-        fontLabel.setTextColor(0xFF888888);
-        fontLabel.setTextSize(12);
-        fontLabel.setTypeface(null, android.graphics.Typeface.BOLD);
-        fontLabel.setAllCaps(true);
-        fontLabel.setLetterSpacing(0.06f);
-        fontLabel.setPadding(0, pad, 0, pad / 2);
-        root.addView(fontLabel);
-
-        android.widget.HorizontalScrollView fontScroll = new android.widget.HorizontalScrollView(this);
-        android.widget.LinearLayout fontRow = new android.widget.LinearLayout(this);
-        fontRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        for (String[] f : fonts) {
-            TextView fontChip = new TextView(this);
-            fontChip.setText(f[1]);
-            fontChip.setTextColor(f[0].equals(chosenFont[0]) ? 0xFF4CAF50 : 0xFFCCCCCC);
-            fontChip.setTypeface(getTypefaceForKey(f[0]));
-            fontChip.setTextSize(14);
-            fontChip.setPadding(pad, pad / 2, pad, pad / 2);
-            android.graphics.drawable.GradientDrawable chipBg = new android.graphics.drawable.GradientDrawable();
-            chipBg.setCornerRadius(8 * getResources().getDisplayMetrics().density);
-            chipBg.setColor(f[0].equals(chosenFont[0]) ? 0xFF1B3A20 : 0xFF2A2A2A);
-            chipBg.setStroke((int) getResources().getDisplayMetrics().density, f[0].equals(chosenFont[0]) ? 0xFF4CAF50 : 0xFF444444);
-            fontChip.setBackground(chipBg);
-            fontChip.setOnClickListener(v -> {
-                chosenFont[0] = f[0];
-                // Refresh chip colors
-                for (int ci = 0; ci < fontRow.getChildCount(); ci++) {
-                    TextView chip = (TextView) fontRow.getChildAt(ci);
-                    String chipKey = ci < fonts.length ? fonts[ci][0] : customFonts.get(ci - fonts.length)[0];
-                    boolean selected = chipKey.equals(chosenFont[0]);
-                    chip.setTextColor(selected ? 0xFF4CAF50 : 0xFFCCCCCC);
-                    android.graphics.drawable.GradientDrawable bg =
-                            (android.graphics.drawable.GradientDrawable) chip.getBackground();
-                    bg.setColor(selected ? 0xFF1B3A20 : 0xFF2A2A2A);
-                    bg.setStroke((int) getResources().getDisplayMetrics().density, selected ? 0xFF4CAF50 : 0xFF444444);
-                }
-            });
-            fontRow.addView(fontChip);
-        }
-        // Add custom fonts
-        for (String[] f : customFonts) {
-            TextView fontChip = new TextView(this);
-            fontChip.setText(f[1] + " ★");
-            fontChip.setTextColor(f[0].equals(chosenFont[0]) ? 0xFF4CAF50 : 0xFFCCCCCC);
-            try {
-                fontChip.setTypeface(android.graphics.Typeface.createFromFile(f[0].substring(5)));
-            } catch (Exception ignored) { }
-            fontChip.setTextSize(14);
-            fontChip.setPadding(pad, pad / 2, pad, pad / 2);
-            android.graphics.drawable.GradientDrawable chipBg = new android.graphics.drawable.GradientDrawable();
-            chipBg.setCornerRadius(8 * getResources().getDisplayMetrics().density);
-            chipBg.setColor(f[0].equals(chosenFont[0]) ? 0xFF1B3A20 : 0xFF2A2A2A);
-            chipBg.setStroke((int) getResources().getDisplayMetrics().density, f[0].equals(chosenFont[0]) ? 0xFF4CAF50 : 0xFF444444);
-            fontChip.setBackground(chipBg);
-            fontChip.setOnClickListener(v -> {
-                chosenFont[0] = f[0];
-                for (int ci = 0; ci < fontRow.getChildCount(); ci++) {
-                    TextView chip = (TextView) fontRow.getChildAt(ci);
-                    String chipKey = ci < fonts.length ? fonts[ci][0] : customFonts.get(ci - fonts.length)[0];
-                    boolean selected = chipKey.equals(chosenFont[0]);
-                    chip.setTextColor(selected ? 0xFF4CAF50 : 0xFFCCCCCC);
-                    android.graphics.drawable.GradientDrawable bg =
-                            (android.graphics.drawable.GradientDrawable) chip.getBackground();
-                    bg.setColor(selected ? 0xFF1B3A20 : 0xFF2A2A2A);
-                    bg.setStroke((int) getResources().getDisplayMetrics().density, selected ? 0xFF4CAF50 : 0xFF444444);
-                }
-            });
-            fontRow.addView(fontChip);
-        }
-        if (!customFonts.isEmpty()) {
-            TextView hint = new TextView(this);
-            hint.setText("★ = custom fonts from Pictures/FadCam/fonts/");
-            hint.setTextColor(0xFF666666);
-            hint.setTextSize(10);
-            hint.setPadding(0, pad / 4, 0, 0);
-            root.addView(hint);
-        }
-        fontScroll.addView(fontRow);
-        root.addView(fontScroll);
-        root.addView(buildOverlayDecorationControls(item));
-        root.addView(buildOverlayAnimationControls(item));
-
-        @SuppressWarnings("UnnecessaryLocalVariable")
-        androidx.appcompat.app.AlertDialog textEditorDialog =
+        androidx.appcompat.app.AlertDialog dlg =
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.faditor_text_edit_title)
-                .setView(root)
-                .setPositiveButton(android.R.string.ok, (d, w) -> {
-                    String txt = input.getText().toString();
-                    if (txt.trim().isEmpty()) {
-                        // No text entered → don't leave an empty "Enter text" ghost.
-                        String emptiedLane3 = item.getLayerId();
-                        project.getTimeline().removeTextOverlay(item);
-                        textOverlayCreatedHere.remove(item.getId());
-                        if (emptiedLane3 != null) maybeRemoveEmptyLayerTrack(emptiedLane3);
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
-                                overlayLayerCallback());
-                        syncTimelineOverlays();
-                        scheduleAutoSave();
-                        return;
-                    }
-                    decorCommitted = true;
-                    // Committed: this overlay is the user's now, never again a placeholder the
-                    // cancel path may delete. Leaving the id in the set kept that door open.
-                    textOverlayCreatedHere.remove(item.getId());
-                    item.setText(txt);
-                    item.setColorInt(chosen[0]);
-                    item.setFontFamily(chosenFont[0]);
-                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
-                            overlayLayerCallback());
-                    syncTimelineOverlays();
-                    // Record ADD undo only once the overlay is committed with real text
-                    // (placeholder is still in the timeline from addTextOverlay()).
-                    if (project.getTimeline().getTextOverlays().contains(item)
-                            && !textOverlayAddRecorded.contains(item)) {
-                        textOverlayAddRecorded.add(item);
-                        undoManager.recordAction(new EditActions.LambdaAction("Add text overlay",
-                                () -> project.getTimeline().addTextOverlay(item),
-                                () -> project.getTimeline().removeTextOverlay(item)));
-                    }
-                    // AFTER the add, so it can FOLD INTO it: creating a styled overlay is one
-                    // gesture and must be one undo press. Recorded before, it was a separate
-                    // entry — undo #1 deleted the overlay, undo #2 then "restyled" an item that
-                    // was no longer in the timeline (a visible no-op), and undo #3 destroyed an
-                    // unrelated earlier edit. Same rule the delete path now follows.
-                    recordDecorationUndo(item);
-                    scheduleAutoSave();
-                })
-                .setNeutralButton(R.string.faditor_text_delete, (d, w) -> {
-                    boolean wasCommitted = textOverlayAddRecorded.remove(item);
-                    String emptiedLane2 = item.getLayerId();
-                    project.getTimeline().removeTextOverlay(item);
-                    textOverlayCreatedHere.remove(item.getId());
-                    final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane2 =
-                            pruneEmptyLayerTrack(emptiedLane2);
-                    overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
-                            overlayLayerCallback());
-                    syncTimelineOverlays();
-                    // Only record a DELETE if this overlay had been committed (its ADD was
-                    // recorded). Deleting a never-committed placeholder records nothing.
-                    if (wasCommitted) {
-                        undoManager.recordAction(new EditActions.LambdaAction("Delete text overlay",
-                                () -> project.getTimeline().removeTextOverlay(item),
-                                () -> { restorePrunedLane(prunedLane2);
-                                        project.getTimeline().addTextOverlay(item); }));
-                    }
-                    scheduleAutoSave();
-                })
-                .setNegativeButton(android.R.string.cancel, (d, w) -> {
-                    // Decoration controls write the model LIVE (so the sliders can be tuned
-                    // against the preview), so Cancel has to put them back or it silently keeps
-                    // half the dialog's edits. NOTE: the button is not the only way out — see the
-                    // setOnDismissListener below, which covers BACK, outside-tap and rotation.
-                    restoreDecoration(item);
-                    // Clean up a never-filled placeholder so it can't get stuck — but ONLY one
-                    // this session actually created. An existing overlay the user never renamed
-                    // is still THEIR object; deleting it on cancel is destroying work.
-                    String cur = item.getText();
-                    if (textOverlayCreatedHere.contains(item.getId())
-                            && (cur == null || cur.trim().isEmpty()
-                                || cur.equals(getString(R.string.faditor_text_hint)))) {
-                        String emptiedLane = item.getLayerId();
-                        project.getTimeline().removeTextOverlay(item);
-                        textOverlayCreatedHere.remove(item.getId());
-                        // Creating a text overlay can auto-create a lane
-                        // (assignTextOverlayToFreeLane). Removing the overlay must take that lane
-                        // with it, or an empty row is left behind forever — §4.5b says lanes
-                        // vanish when empty, and JoyRaptor saw exactly this orphan on 2026-08-04.
-                        final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane =
-                                pruneEmptyLayerTrack(emptiedLane);
-                        // Record it even though it is "just a placeholder". Nothing the user can
-                        // see disappearing should be unrecoverable by undo — that is what made
-                        // this bug feel like data loss rather than a tidy-up.
-                        undoManager.recordAction(new EditActions.LambdaAction(
-                                getString(R.string.faditor_text_delete),
-                                () -> { project.getTimeline().removeTextOverlay(item);
-                                        syncTimelineOverlays(); },
-                                () -> { restorePrunedLane(prunedLane);
-                                        project.getTimeline().addTextOverlay(item);
-                                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
-                                                overlayLayerCallback());
-                                        syncTimelineOverlays(); }));
-                        overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()),
-                                overlayLayerCallback());
-                        syncTimelineOverlays();
-                        scheduleAutoSave();
-                    }
-                    decorCommitted = true;   // handled; the dismiss listener must not re-revert
-                })
-                .create();
-        // Any non-button dismissal (BACK, tap outside, rotation) previously KEPT every live
-        // decoration write while skipping the placeholder cleanup — Cancel was only honest if
-        // the user happened to press the button. Adversarial review 2026-08-03.
-        decorCommitted = false;
-        textEditorDialog.setOnDismissListener(d -> {
-            if (!decorCommitted) restoreDecoration(item);
-            decorSnapshotSizes = null;   // never let a stale snapshot become the next "original"
-            decorSnapshotColors = null;
+                        .setTitle("Font") // TODO(strings)
+                        .setView(scroll)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .create();
+
+        java.util.function.BiConsumer<String, String> addRow = (key, name) -> {
+            TextView row = new TextView(this);
+            row.setText(name);
+            row.setTextColor(key.equals(item.getFontFamily()) ? 0xFFB388FF : 0xFFEEEEEE);
+            row.setTextSize(16);
+            row.setPadding(0, Math.round(10 * d), 0, Math.round(10 * d));
+            row.setTypeface(getTypefaceForKey(key));
+            row.setOnClickListener(v -> {
+                item.setFontFamily(key);
+                refreshOverlayPreview();
+                scheduleAutoSave();
+                dlg.dismiss();
+            });
+            list.addView(row);
+        };
+        for (String[] f : fonts) addRow.accept(f[0], f[1]);
+        for (String[] f : customFonts) addRow.accept(f[0], f[1] + " ★");
+
+        TextView importRow = new TextView(this);
+        importRow.setText("＋ Import font…"); // TODO(strings)
+        importRow.setTextColor(0xFF64B5F6);
+        importRow.setTextSize(15);
+        importRow.setPadding(0, Math.round(12 * d), 0, Math.round(4 * d));
+        importRow.setOnClickListener(v -> {
+            pendingFontImportCallback = key -> {
+                item.setFontFamily(key);
+                refreshOverlayPreview();
+                scheduleAutoSave();
+            };
+            fontImportLauncher.launch(new String[]{"*/*"});
+            dlg.dismiss();
         });
-        textEditorDialogRef[0] = textEditorDialog;
-        textEditorDialog.show();
+        list.addView(importRow);
+
+        dlg.show();
     }
 
     /**
@@ -22619,6 +22683,435 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 overlayLayerCallback());
     }
 
+    // ── SPEC_TEXT_DRAWER STYLE section: text / outline / glow / background rows + shadow ────
+
+    @NonNull
+    private View buildTextStyleSection(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        float d = getResources().getDisplayMetrics().density;
+        int gap = Math.round(8 * d);
+
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setPadding(0, gap * 2, 0, 0);
+
+        TextView header = new TextView(this);
+        header.setText(R.string.faditor_text_decor_section);
+        header.setTextColor(0xFF888888);
+        header.setTextSize(12);
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setAllCaps(true);
+        header.setLetterSpacing(0.06f);
+        box.addView(header);
+
+        // TEXT: colour (no "none" — invisible text is a bug) · opacity · the existing pose
+        // keyframe (isArmed()/addOpacityKeyframeAt), which is the one already wired end to end.
+        box.addView(buildStyleRow(item, "Text", false,
+                item::getColorInt, item::setColorInt,
+                () -> Math.round(item.animatedOpacity(lastPlayheadAbsoluteMs) * 100f),
+                v -> {
+                    float op = v / 100f;
+                    if (item.isArmed()) item.addOpacityKeyframeAt(lastPlayheadAbsoluteMs, op);
+                    else item.setOpacity(op);
+                },
+                item::isArmed,
+                () -> item.addOpacityKeyframeAt(lastPlayheadAbsoluteMs, item.animatedOpacity(lastPlayheadAbsoluteMs))));
+
+        // OUTLINE
+        box.addView(buildStyleRow(item, getString(R.string.faditor_text_decor_stroke), true,
+                item::getStrokeColorInt, c -> {
+                    item.setStrokeColorInt(c);
+                    if (c != android.graphics.Color.TRANSPARENT && item.getStrokeWidthPx() <= 0f) {
+                        item.setStrokeWidthPx(25f);
+                    }
+                },
+                () -> Math.round(item.animatedStrokeWidthPx(lastPlayheadAbsoluteMs)),
+                v -> item.setStrokeWidthPx(v),
+                item::isStrokeArmed,
+                () -> item.addStrokeKeyframeAt(lastPlayheadAbsoluteMs)));
+
+        // GLOW
+        box.addView(buildStyleRow(item, getString(R.string.faditor_text_decor_glow), true,
+                item::getGlowColorInt, c -> {
+                    item.setGlowColorInt(c);
+                    if (c != android.graphics.Color.TRANSPARENT && item.getGlowRadiusPx() <= 0f) {
+                        item.setGlowRadiusPx(40f);
+                    }
+                },
+                () -> Math.round(item.animatedGlowRadiusPx(lastPlayheadAbsoluteMs)),
+                v -> item.setGlowRadiusPx(v),
+                item::isGlowArmed,
+                () -> item.addGlowKeyframeAt(lastPlayheadAbsoluteMs)));
+
+        // BACKGROUND / PLATE — one model field (backgroundColorInt) backs both names; there is
+        // no independently-configurable "plate" surface in TextOverlayItem, so this single row
+        // covers what JoyRaptor called "background and plate" together rather than inventing a
+        // second colour the renderers do not read. No size slider: the plate's "size" is the
+        // text box itself (TextBoxRenderer draws it as the box's own rounded rect), not a
+        // separate radius — so no keyframeable numeric track applies here either.
+        {
+            TextView label = new TextView(this);
+            label.setText(getString(R.string.faditor_text_decor_plate));
+            label.setTextColor(0xFFAAAAAA);
+            label.setTextSize(12);
+            label.setPadding(0, gap, 0, gap / 2);
+            box.addView(label);
+            box.addView(colorSwatchButton(d, true, item::getBackgroundColorInt, c -> {
+                item.setBackgroundColorInt(c == null ? android.graphics.Color.TRANSPARENT : c);
+                refreshOverlayPreview();
+                scheduleAutoSave();
+            }, "Background / plate")); // TODO(strings)
+        }
+
+        box.addView(buildShadowRow(item));
+
+        return box;
+    }
+
+    /**
+     * One STYLE row: swatch · description · slider · keyframe diamond — "the same for text,
+     * outline, and glow" (JoyRaptor). The diamond mirrors {@code FxPanel.diamond}'s idiom (a filled
+     * purple diamond when the property is keyed, tap to drop a key at the playhead) but keys a
+     * text-drawer style track instead of an FX param — see
+     * {@code TextOverlayItem.TRACK_STROKE_WIDTH} etc.
+     */
+    @NonNull
+    private View buildStyleRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                               @NonNull String label, boolean allowNoneColor,
+                               @NonNull java.util.function.Supplier<Integer> getColor,
+                               @NonNull java.util.function.Consumer<Integer> setColor,
+                               @NonNull java.util.function.Supplier<Integer> getSlider,
+                               @NonNull java.util.function.Consumer<Float> setSlider,
+                               @NonNull java.util.function.Supplier<Boolean> isArmed,
+                               @NonNull Runnable dropKeyframe) {
+        float d = getResources().getDisplayMetrics().density;
+        int gap = Math.round(8 * d);
+
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(0, gap, 0, 0);
+
+        row.addView(colorSwatchButton(d, allowNoneColor, getColor, c -> {
+            setColor.accept(c == null ? android.graphics.Color.TRANSPARENT : c);
+            refreshOverlayPreview();
+            scheduleAutoSave();
+        }, label));
+
+        TextView desc = new TextView(this);
+        desc.setText(label);
+        desc.setTextColor(0xFFCCCCCC);
+        desc.setTextSize(12.5f);
+        desc.setPadding(gap, 0, gap, 0);
+        desc.setWidth(Math.round(64 * d));
+        row.addView(desc);
+
+        android.widget.SeekBar bar = new android.widget.SeekBar(this);
+        bar.setMax(100);
+        bar.setProgress(Math.max(0, Math.min(100, getSlider.get())));
+        bar.setLayoutParams(new android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
+                if (!fromUser) return;
+                setSlider.accept((float) p);
+                refreshOverlayPreview();
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar s) { scheduleAutoSave(); }
+        });
+        row.addView(bar);
+
+        row.addView(diamondButton(d, isArmed, dropKeyframe));
+        return row;
+    }
+
+    /**
+     * The keyframe diamond — a filled purple diamond when armed, hollow otherwise, tapping
+     * drops/updates a key at the current playhead. Same visual language as
+     * {@code FxPanel.diamond}, deliberately not shared code with it: that one keys an
+     * {@code FxStack} slot, this one keys a {@code TextOverlayItem} style track, and the two
+     * models have no common interface to key against.
+     */
+    @NonNull
+    private View diamondButton(float d, @NonNull java.util.function.Supplier<Boolean> isArmed,
+                               @NonNull Runnable onTap) {
+        TextView t = new TextView(this) {
+            @Override protected void onDraw(android.graphics.Canvas c) {
+                super.onDraw(c);
+            }
+        };
+        Runnable refresh = () -> {
+            t.setText("◆");
+            t.setTextColor(isArmed.get() ? 0xFFB388FF : 0xFF666666);
+        };
+        refresh.run();
+        t.setTextSize(15);
+        int pad = Math.round(8 * d);
+        t.setPadding(pad, pad, pad, pad);
+        t.setOnClickListener(v -> { onTap.run(); refresh.run(); scheduleAutoSave(); });
+        return t;
+    }
+
+    /**
+     * A small round colour-swatch button that opens {@link ColorPickerDialog} — the one picker
+     * used for every colour control in the text drawer, live-previewing on every drag and
+     * reverting on Cancel per its own contract.
+     */
+    @NonNull
+    private View colorSwatchButton(float d, boolean allowNone,
+                                   @NonNull java.util.function.Supplier<Integer> get,
+                                   @NonNull java.util.function.Consumer<Integer> onPicked,
+                                   @NonNull String title) {
+        View swatch = new View(this);
+        int size = Math.round(28 * d);
+        android.widget.LinearLayout.LayoutParams lp =
+                new android.widget.LinearLayout.LayoutParams(size, size);
+        swatch.setLayoutParams(lp);
+        Runnable paint = () -> {
+            int c = get.get();
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            bg.setColor(allowNone && c == android.graphics.Color.TRANSPARENT ? 0x00000000 : c);
+            bg.setStroke(Math.round(1.5f * d), 0xFF888888);
+            swatch.setBackground(bg);
+        };
+        paint.run();
+        swatch.setOnClickListener(v -> {
+            Integer initial = allowNone && get.get() == android.graphics.Color.TRANSPARENT
+                    ? null : get.get();
+            com.fadcam.ui.faditor.tools.ColorPickerDialog.show(this, title, initial, allowNone,
+                    c -> { onPicked.accept(c); paint.run(); },
+                    c -> { onPicked.accept(c); paint.run(); });
+        });
+        return swatch;
+    }
+
+    /**
+     * The SHADOW row: everything the other STYLE rows have (colour · description · blur slider ·
+     * keyframe) PLUS the direction knob and its angle read-out, plus a distance slider — "all of
+     * those values will go under the same keyframe" (JoyRaptor), which is
+     * {@code TextOverlayItem.addShadowKeyframeAt}: one tap keys angle + distance + blur together.
+     */
+    @NonNull
+    private View buildShadowRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        float d = getResources().getDisplayMetrics().density;
+        int gap = Math.round(8 * d);
+
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+
+        // Main row: colour · label · BLUR slider · diamond (the shared row shape).
+        box.addView(buildStyleRow(item, getString(R.string.faditor_text_decor_shadow), false,
+                item::getShadowColorInt, item::setShadowColorInt,
+                () -> Math.round(item.animatedShadowRadiusPx(lastPlayheadAbsoluteMs)),
+                v -> item.setShadowRadiusPx(v),
+                item::isShadowArmed,
+                () -> item.addShadowKeyframeAt(lastPlayheadAbsoluteMs)));
+
+        // Knob + angle read-out + distance slider, all writing the SAME keyframe as the row
+        // above when the shadow is armed.
+        android.widget.LinearLayout knobRow = new android.widget.LinearLayout(this);
+        knobRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        knobRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        knobRow.setPadding(0, gap / 2, 0, 0);
+
+        ShadowDirectionKnob knob = new ShadowDirectionKnob(this);
+        int knobSize = Math.round(46 * d);
+        knobRow.addView(knob, new android.widget.LinearLayout.LayoutParams(knobSize, knobSize));
+
+        TextView angleReadout = new TextView(this);
+        angleReadout.setTextColor(0xFFCCCCCC);
+        angleReadout.setTextSize(13);
+        angleReadout.setPadding(gap, 0, gap, 0);
+        Runnable syncAngle = () -> {
+            angleReadout.setText(Math.round(item.getShadowAngleDeg()) + "°");
+            knob.setAngleDeg(item.getShadowAngleDeg());
+        };
+        syncAngle.run();
+        knobRow.addView(angleReadout);
+
+        // "tap on to enter specific value" — the same look-like-text idiom ColorPickerDialog's
+        // H/S/B fields use.
+        angleReadout.setOnClickListener(v -> {
+            android.widget.EditText in = new android.widget.EditText(this);
+            in.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                    | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+            in.setText(String.valueOf(Math.round(item.getShadowAngleDeg())));
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Shadow angle") // TODO(strings)
+                    .setView(in)
+                    .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                        try {
+                            item.setShadowAngleDeg(Float.parseFloat(in.getText().toString().trim()));
+                            if (item.isShadowArmed()) item.addShadowKeyframeAt(lastPlayheadAbsoluteMs);
+                            syncAngle.run();
+                            refreshOverlayPreview();
+                            scheduleAutoSave();
+                        } catch (NumberFormatException ignored) { }
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show();
+        });
+
+        knob.setOnAngleChanged(angle -> {
+            item.setShadowAngleDeg(angle);
+            if (item.isShadowArmed()) item.addShadowKeyframeAt(lastPlayheadAbsoluteMs);
+            angleReadout.setText(Math.round(item.getShadowAngleDeg()) + "°");
+            refreshOverlayPreview();
+        });
+        knob.setOnAngleCommitted(() -> scheduleAutoSave());
+
+        box.addView(knobRow);
+
+        // Distance slider, plain (not the shared row shape — no separate colour/keyframe of its
+        // own, it shares the shadow row's).
+        TextView distLabel = new TextView(this);
+        distLabel.setText("Distance"); // TODO(strings)
+        distLabel.setTextColor(0xFFAAAAAA);
+        distLabel.setTextSize(12);
+        distLabel.setPadding(0, gap, 0, gap / 2);
+        box.addView(distLabel);
+        android.widget.SeekBar distBar = new android.widget.SeekBar(this);
+        distBar.setMax(100);
+        distBar.setProgress(Math.round(item.animatedShadowDistancePx(lastPlayheadAbsoluteMs)));
+        distBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
+                if (!fromUser) return;
+                item.setShadowDistancePx(p);
+                if (item.isShadowArmed()) item.addShadowKeyframeAt(lastPlayheadAbsoluteMs);
+                refreshOverlayPreview();
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar s) { scheduleAutoSave(); }
+        });
+        box.addView(distBar);
+
+        return box;
+    }
+
+    /**
+     * SPEC_TEXT_DRAWER follow-up (2026-08-08): "start motion here / end motion here", visible
+     * only when a motion preset is assigned. Writes {@code TextOverlayItem.motionStartMs/EndMs}
+     * — a SEPARATE range from the on-screen time range, so a box that is visible for a long
+     * stretch can still have a short animation instead of one stretched across its whole
+     * duration.
+     *
+     * <p><b>Known gap, reported rather than hidden:</b> this wires the two buttons and the
+     * model fields, but does NOT yet (a) draw the drag-carrot range handles on the timeline
+     * block the way loop-animation/slide-trim handles do, nor (b) make the entrance/exit
+     * evaluator in {@code TextBoxRenderer}/{@code TextOverlayLayer}/{@code CompositeExportOverlay}
+     * actually read this range instead of the object's full start..end span. Both are real
+     * remaining work — see the session report.</p>
+     */
+    @NonNull
+    private View buildTextMotionRangeSection(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        float d = getResources().getDisplayMetrics().density;
+        int gap = Math.round(8 * d);
+        android.widget.LinearLayout box = new android.widget.LinearLayout(this);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        box.setVisibility(item.hasTextAnim() ? View.VISIBLE : View.GONE);
+        if (!item.hasTextAnim()) return box;
+
+        TextView label = new TextView(this);
+        label.setText("Motion range"); // TODO(strings)
+        label.setTextColor(0xFF888888);
+        label.setTextSize(12);
+        label.setTypeface(null, android.graphics.Typeface.BOLD);
+        label.setAllCaps(true);
+        label.setLetterSpacing(0.06f);
+        label.setPadding(0, gap * 2, 0, gap / 2);
+        box.addView(label);
+
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+
+        android.widget.Button startBtn = new android.widget.Button(this);
+        startBtn.setText("Start motion here"); // TODO(strings)
+        startBtn.setAllCaps(false);
+        startBtn.setOnClickListener(v -> {
+            long start = lastPlayheadAbsoluteMs;
+            long end = item.hasMotionRange() ? Math.max(item.getMotionEndMs(), start + 1) : item.getEndMs();
+            item.setMotionRange(start, end);
+            refreshOverlayPreview();
+            scheduleAutoSave();
+        });
+        row.addView(startBtn);
+
+        android.widget.Button endBtn = new android.widget.Button(this);
+        endBtn.setText("End motion here"); // TODO(strings)
+        endBtn.setAllCaps(false);
+        endBtn.setOnClickListener(v -> {
+            long end = lastPlayheadAbsoluteMs;
+            long start = item.hasMotionRange() ? Math.min(item.getMotionStartMs(), end - 1) : item.getStartMs();
+            item.setMotionRange(start, end);
+            refreshOverlayPreview();
+            scheduleAutoSave();
+        });
+        row.addView(endBtn);
+        box.addView(row);
+
+        return box;
+    }
+
+    /**
+     * The shadow's direction knob — a small circular scrub control, drag to rotate. Bespoke View
+     * for the same reason {@code ColorWheelView} is: no stock Android widget expresses "drag
+     * around a centre to pick an angle".
+     */
+    private static final class ShadowDirectionKnob extends View {
+        private float angleDeg = 0f;
+        @Nullable private java.util.function.Consumer<Float> onAngleChanged;
+        @Nullable private Runnable onAngleCommitted;
+        private final android.graphics.Paint paint =
+                new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+        ShadowDirectionKnob(@NonNull Context ctx) { super(ctx); }
+
+        void setAngleDeg(float v) { angleDeg = v; invalidate(); }
+        void setOnAngleChanged(@NonNull java.util.function.Consumer<Float> l) { onAngleChanged = l; }
+        void setOnAngleCommitted(@NonNull Runnable l) { onAngleCommitted = l; }
+
+        @Override protected void onDraw(android.graphics.Canvas c) {
+            super.onDraw(c);
+            float w = getWidth(), h = getHeight();
+            float cx = w / 2f, cy = h / 2f;
+            float r = Math.min(w, h) / 2f - 2f;
+            paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeWidth(2f);
+            paint.setColor(0xFF555555);
+            c.drawCircle(cx, cy, r, paint);
+            // 0° = straight down, matching TextOverlayItem's shadowDx/shadowDy convention.
+            double rad = Math.toRadians(angleDeg);
+            float ix = cx + (float) Math.sin(rad) * r;
+            float iy = cy + (float) Math.cos(rad) * r;
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+            paint.setColor(0xFFB388FF);
+            c.drawCircle(ix, iy, r * 0.22f, paint);
+        }
+
+        @Override public boolean onTouchEvent(android.view.MotionEvent e) {
+            switch (e.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                case android.view.MotionEvent.ACTION_MOVE: {
+                    float cx = getWidth() / 2f, cy = getHeight() / 2f;
+                    double rad = Math.atan2(e.getX() - cx, e.getY() - cy);
+                    float deg = (float) Math.toDegrees(rad);
+                    if (deg < 0f) deg += 360f;
+                    angleDeg = deg;
+                    invalidate();
+                    if (onAngleChanged != null) onAngleChanged.accept(deg);
+                    return true;
+                }
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    if (onAngleCommitted != null) onAngleCommitted.run();
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+
     private View buildOverlayAnimationControls(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         float density = getResources().getDisplayMetrics().density;
@@ -22733,9 +23226,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         Toast.LENGTH_SHORT).show();
                 return;
             }
+            // ONE undo step, the same shape as a timeline drag-trim (onGestureFinished's text
+            // branch): snapshot before, mutate, record after — so "Start here" undoes exactly
+            // like dragging the same edge would.
+            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                    item.snapshotTransform();
             item.setTimeRange(lastPlayheadAbsoluteMs, item.getEndMs());
+            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after =
+                    item.snapshotTransform();
             setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
+            undoManager.recordAction(new EditActions.LambdaAction("Overlay time range",
+                    () -> { item.restoreTransform(after); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); },
+                    () -> { item.restoreTransform(before); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); }));
             scheduleAutoSave();
             Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
         });
@@ -22750,9 +23253,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         Toast.LENGTH_SHORT).show();
                 return;
             }
+            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                    item.snapshotTransform();
             item.setTimeRange(item.getStartMs(), lastPlayheadAbsoluteMs);
+            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after =
+                    item.snapshotTransform();
             setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
+            undoManager.recordAction(new EditActions.LambdaAction("Overlay time range",
+                    () -> { item.restoreTransform(after); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); },
+                    () -> { item.restoreTransform(before); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); }));
             scheduleAutoSave();
             Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
         });

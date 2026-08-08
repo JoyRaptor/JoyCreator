@@ -60,13 +60,22 @@ public final class TextOverlayRenderer {
         TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(o.getColorInt());
         paint.setTextSize(fontPx);
-        paint.setTypeface(o.getTypeface());
-        paint.setTextAlign(Paint.Align.CENTER);
-        paint.setShadowLayer(o.getShadowRadiusPx() > 0f
-                        ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx) : fontPx * 0.10f,
-                0f, fontPx * 0.04f, o.getShadowColorInt());
+        paint.setTypeface(o.getTypeface());     // bold/italic already baked in — see getTypeface()
+        paint.setUnderlineText(o.isUnderline());
+        // CENTER only — this path (per-object GL FX only, see TextFxGlEffect) draws one bitmap
+        // rasterised to its own text bounds rather than a positioned box, so LEFT/RIGHT/JUSTIFY
+        // have no box edge to align against. Known, documented gap: an item with BOTH an active
+        // FX stack AND a non-CENTER alignment renders centred here while the (no-FX) preview and
+        // export path (TextBoxRenderer) honour the alignment — see SPEC_TEXT_DRAWER report.
+        paint.setShadowLayer(shadowRadiusFor(o, fontPx),
+                com.fadcam.ui.faditor.model.TextOverlayItem.shadowDx(
+                        o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
+                com.fadcam.ui.faditor.model.TextOverlayItem.shadowDy(
+                        o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
+                o.getShadowColorInt());
 
-        String text = o.getText() == null || o.getText().isEmpty() ? " " : o.getText();
+        String raw = o.getText() == null || o.getText().isEmpty() ? " " : o.getText();
+        String text = o.applyCase(raw);
         String[] lines = text.split("\n", -1);
 
         float maxLineW = 1f;
@@ -106,14 +115,23 @@ public final class TextOverlayRenderer {
                 paint.setColor(o.getColorInt());
                 canvas.drawText(line, x, y, paint);
             }
-            paint.setShadowLayer(o.getShadowRadiusPx() > 0f
-                        ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx) : fontPx * 0.10f,
-                    0f, fontPx * 0.04f, o.getShadowColorInt());
+            paint.setShadowLayer(shadowRadiusFor(o, fontPx),
+                    com.fadcam.ui.faditor.model.TextOverlayItem.shadowDx(
+                            o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
+                    com.fadcam.ui.faditor.model.TextOverlayItem.shadowDy(
+                            o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
+                    o.getShadowColorInt());
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(o.getColorInt());
             canvas.drawText(line, x, y, paint);
             y += lineH;
         }
         return bmp;
+    }
+
+    private static float shadowRadiusFor(@NonNull TextOverlayItem o, float fontPx) {
+        return o.getShadowRadiusPx() > 0f
+                ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx)
+                : fontPx * 0.10f;
     }
 }

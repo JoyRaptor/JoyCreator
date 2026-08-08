@@ -55,6 +55,133 @@ public class TextOverlayItem {
 
     private int backgroundColorInt = Color.TRANSPARENT;
 
+    // ── Bottom text drawer, top row (SPEC_TEXT_DRAWER) ──────────────────────────────────
+    // Bold/italic/underline are simple booleans rather than a style enum, because the user
+    // can toggle any combination independently (bold+underline, italic alone, all three) —
+    // an enum would force picking one shape at a time. Baked into getTypeface() so every
+    // caller that already asks this item for its Typeface gets them for free, on both
+    // renderers, without a second place that has to remember to apply them.
+    private boolean bold;
+    private boolean italic;
+    private boolean underline;
+
+    public boolean isBold() { return bold; }
+    public void setBold(boolean bold) { this.bold = bold; }
+    public boolean isItalic() { return italic; }
+    public void setItalic(boolean italic) { this.italic = italic; }
+    public boolean isUnderline() { return underline; }
+    public void setUnderline(boolean underline) { this.underline = underline; }
+
+    /** Case transform names — see {@link #applyCase}. */
+    public static final String CASE_NONE = "NONE";
+    public static final String CASE_CAPITALIZE_FIRST = "CAPITALIZE_FIRST";
+    public static final String CASE_ALL_CAPS = "ALL_CAPS";
+    public static final String CASE_SMALL_CAPS = "SMALL_CAPS";
+
+    @NonNull
+    private String textCase = CASE_NONE;
+
+    @NonNull
+    public String getTextCase() { return textCase; }
+
+    public void setTextCase(@NonNull String textCase) { this.textCase = textCase; }
+
+    /**
+     * Apply this item's case transform to displayed text. Called by BOTH renderers on the
+     * string they are about to lay out, so a case choice can never look different in preview
+     * vs export.
+     *
+     * <p>SMALL_CAPS has no real small-caps glyphs available on stock Android type — it upper-
+     * cases like ALL_CAPS. Kept as a distinct value anyway (rather than aliased to ALL_CAPS)
+     * because a future font swap could give it real small-caps metrics without a model change.
+     */
+    @NonNull
+    public String applyCase(@NonNull String text) {
+        switch (textCase) {
+            case CASE_ALL_CAPS:
+            case CASE_SMALL_CAPS:
+                return text.toUpperCase(java.util.Locale.getDefault());
+            case CASE_CAPITALIZE_FIRST: {
+                StringBuilder sb = new StringBuilder(text.length());
+                boolean atWordStart = true;
+                for (int i = 0; i < text.length(); i++) {
+                    char c = text.charAt(i);
+                    if (Character.isWhitespace(c)) {
+                        atWordStart = true;
+                        sb.append(c);
+                    } else if (atWordStart) {
+                        sb.append(Character.toUpperCase(c));
+                        atWordStart = false;
+                    } else {
+                        sb.append(c);
+                    }
+                }
+                return sb.toString();
+            }
+            default:
+                return text;
+        }
+    }
+
+    /** Horizontal alignment of this text box's lines within its own measured width. */
+    public static final String ALIGN_CENTER = "CENTER";
+    public static final String ALIGN_LEFT = "LEFT";
+    public static final String ALIGN_RIGHT = "RIGHT";
+    public static final String ALIGN_JUSTIFY = "JUSTIFY";
+
+    @NonNull
+    private String textAlign = ALIGN_CENTER;
+
+    @NonNull
+    public String getTextAlign() { return textAlign; }
+
+    public void setTextAlign(@NonNull String textAlign) { this.textAlign = textAlign; }
+
+    /** Cycle LEFT → CENTER → RIGHT → JUSTIFY → LEFT, the order the top-row button steps through. */
+    @NonNull
+    public static String nextAlign(@NonNull String current) {
+        switch (current) {
+            case ALIGN_LEFT: return ALIGN_CENTER;
+            case ALIGN_CENTER: return ALIGN_RIGHT;
+            case ALIGN_RIGHT: return ALIGN_JUSTIFY;
+            default: return ALIGN_LEFT;
+        }
+    }
+
+    // ── Shadow direction (SPEC_TEXT_DRAWER shadow row) ──────────────────────────────────
+    // The renderer used to offset the shadow by a small FIXED (0, fontPx*0.04) — a shadow that
+    // always fell slightly down. angle/distance replace that with a direction the user can
+    // scrub, expressed the same "percent of font size" way every other decoration radius is
+    // (see decorRadiusPx) so it scales identically in preview and export.
+
+    /** Clockwise degrees from straight down (0°), matching the knob's scrub direction. */
+    private float shadowAngleDeg = 0f;
+
+    /** Distance as a percent of font size — same unit family as stroke/glow/shadow radius. */
+    private float shadowDistancePx = 4f;
+
+    public float getShadowAngleDeg() { return shadowAngleDeg; }
+    public void setShadowAngleDeg(float shadowAngleDeg) {
+        float v = shadowAngleDeg % 360f;
+        this.shadowAngleDeg = v < 0f ? v + 360f : v;
+    }
+
+    public float getShadowDistancePx() { return shadowDistancePx; }
+    public void setShadowDistancePx(float shadowDistancePx) {
+        this.shadowDistancePx = Math.max(0f, shadowDistancePx);
+    }
+
+    /** Shadow offset in actual pixels, resolved against this item's own angle/distance/fontPx. */
+    public static float shadowDx(float angleDeg, float distancePercent, float fontPx) {
+        double rad = Math.toRadians(angleDeg);
+        return (float) Math.sin(rad) * decorRadiusPx(distancePercent, fontPx);
+    }
+
+    public static float shadowDy(float angleDeg, float distancePercent, float fontPx) {
+        double rad = Math.toRadians(angleDeg);
+        return (float) Math.cos(rad) * decorRadiusPx(distancePercent, fontPx);
+    }
+
     /** Centre X in normalised video-content coords [0,1]. */
     private float centerX;
 
@@ -286,6 +413,15 @@ public class TextOverlayItem {
         c.glowColorInt = glowColorInt;
         c.glowRadiusPx = glowRadiusPx;
         c.backgroundColorInt = backgroundColorInt;
+        c.bold = bold;
+        c.italic = italic;
+        c.underline = underline;
+        c.textCase = textCase;
+        c.textAlign = textAlign;
+        c.shadowAngleDeg = shadowAngleDeg;
+        c.shadowDistancePx = shadowDistancePx;
+        c.motionStartMs = motionStartMs;
+        c.motionEndMs = motionEndMs;
         c.opacity = opacity;
         c.fontFamily = fontFamily;
         c.imageUri = imageUri;
@@ -371,9 +507,28 @@ public class TextOverlayItem {
 
     public void setFontFamily(@NonNull String fontFamily) { this.fontFamily = fontFamily; }
 
-    /** Get the Android Typeface for this overlay's font family. */
+    /**
+     * Get the Android Typeface for this overlay's font family, WITH bold/italic applied.
+     *
+     * <p>Baked in here rather than left to each renderer's paint setup: every caller that asks
+     * this item for its Typeface already gets bold/italic for free, on both renderers, with no
+     * second place that could apply them differently or forget to.</p>
+     */
     @NonNull
     public android.graphics.Typeface getTypeface() {
+        return withBoldItalic(rawTypeface());
+    }
+
+    @NonNull
+    private android.graphics.Typeface withBoldItalic(@NonNull android.graphics.Typeface base) {
+        if (!bold && !italic) return base;
+        int style = (bold ? android.graphics.Typeface.BOLD : 0)
+                | (italic ? android.graphics.Typeface.ITALIC : 0);
+        return android.graphics.Typeface.create(base, style);
+    }
+
+    @NonNull
+    private android.graphics.Typeface rawTypeface() {
         // Custom font file (loaded from storage)
         if (fontFamily.startsWith("file:")) {
             try {
@@ -575,6 +730,42 @@ public class TextOverlayItem {
         return true;
     }
 
+    // ── Motion range (SPEC_TEXT_DRAWER follow-up, 2026-08-08) ───────────────────────────────
+    // A text box can be on screen far longer than its entrance/exit animation should run —
+    // "if you have text on screen for a long period of time, it can still have its animation be
+    // short and not stretched the entire duration". -1 = unset, meaning "use the full
+    // startMs..endMs span", which is the box's behaviour before this existed and stays the
+    // default for every overlay that never opens the motion-range controls.
+    private long motionStartMs = -1L;
+    private long motionEndMs = -1L;
+
+    public boolean hasMotionRange() { return motionStartMs >= 0L && motionEndMs >= 0L; }
+
+    public long getMotionStartMs() { return motionStartMs; }
+    public long getMotionEndMs() { return motionEndMs; }
+
+    public void setMotionRange(long startMs, long endMs) {
+        this.motionStartMs = Math.max(0L, startMs);
+        this.motionEndMs = Math.max(this.motionStartMs + 1L, endMs);
+    }
+
+    public void clearMotionRange() {
+        this.motionStartMs = -1L;
+        this.motionEndMs = -1L;
+    }
+
+    /**
+     * The span the entrance/exit zones should evaluate against: the motion range if the user
+     * set one, else the object's own full startMs..endMs span (today's behaviour, unchanged for
+     * every overlay that never touches this control).
+     */
+    public long motionRangeStartMs() { return hasMotionRange() ? motionStartMs : startMs; }
+
+    public long motionRangeEndMs(long timelineDurationMs) {
+        return hasMotionRange() ? motionEndMs
+                : (endMs == Long.MAX_VALUE || endMs <= 0 ? timelineDurationMs : endMs);
+    }
+
     public void setTimeRange(long startMs, long endMs) {
         this.startMs = Math.max(0, startMs);
         // Guard against a degenerate range (end at/before start) that would make
@@ -729,6 +920,74 @@ public class TextOverlayItem {
                 }
             }
         }
+    }
+
+    // ── STYLE-row keyframes (SPEC_TEXT_DRAWER) ──────────────────────────────────────────
+    //
+    // A SEPARATE set of track names from the pose keyframe above (X/Y/SCALE/ROTATION/OPACITY),
+    // and deliberately NOT routed through addPropertyKeyframeAt/addKeyframeAt: those always seed
+    // X/Y/SCALE too, because they arm the "move the whole pose" idiom the canvas drag uses.
+    // Keying a stroke width has nothing to do with the object's position, and forcing a position
+    // keyframe on it would silently arm canvas-drag animation the user never asked for. Colour
+    // itself is NOT keyframeable — no numeric colour track exists anywhere in this codebase
+    // (position/scale/rotation/opacity are the full set), so these key the same SIZE value the
+    // sliders already are, which is consistent with that limit rather than a new one.
+    public static final String TRACK_STROKE_WIDTH = "textStrokeWidth";
+    public static final String TRACK_GLOW_RADIUS = "textGlowRadius";
+    public static final String TRACK_SHADOW_RADIUS = "textShadowRadius";
+    public static final String TRACK_SHADOW_ANGLE = "textShadowAngle";
+    public static final String TRACK_SHADOW_DISTANCE = "textShadowDistance";
+
+    private void putStyleKeyframe(@NonNull String track, long timelineMs, float value) {
+        keyframes.getOrCreate(track).put(localTime(timelineMs), value,
+                com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT);
+    }
+
+    public void addStrokeKeyframeAt(long timelineMs) {
+        putStyleKeyframe(TRACK_STROKE_WIDTH, timelineMs, strokeWidthPx);
+    }
+
+    public void addGlowKeyframeAt(long timelineMs) {
+        putStyleKeyframe(TRACK_GLOW_RADIUS, timelineMs, glowRadiusPx);
+    }
+
+    /**
+     * ONE keyframe entry covering angle + distance + blur together — JoyRaptor's "all of those
+     * values will go under the same keyframe": scrubbing the direction knob, dragging distance
+     * or dragging blur all arm and record the same three tracks at once, so the shadow always
+     * animates as one coherent motion rather than three independently-timed ones.
+     */
+    public void addShadowKeyframeAt(long timelineMs) {
+        putStyleKeyframe(TRACK_SHADOW_ANGLE, timelineMs, shadowAngleDeg);
+        putStyleKeyframe(TRACK_SHADOW_DISTANCE, timelineMs, shadowDistancePx);
+        putStyleKeyframe(TRACK_SHADOW_RADIUS, timelineMs, shadowRadiusPx);
+    }
+
+    public boolean isStrokeArmed() { return keyframes.get(TRACK_STROKE_WIDTH) != null
+            && !keyframes.get(TRACK_STROKE_WIDTH).isEmpty(); }
+    public boolean isGlowArmed() { return keyframes.get(TRACK_GLOW_RADIUS) != null
+            && !keyframes.get(TRACK_GLOW_RADIUS).isEmpty(); }
+    public boolean isShadowArmed() { return keyframes.get(TRACK_SHADOW_ANGLE) != null
+            && !keyframes.get(TRACK_SHADOW_ANGLE).isEmpty(); }
+
+    public float animatedStrokeWidthPx(long timelineMs) {
+        return keyframes.valueAt(TRACK_STROKE_WIDTH, localTime(timelineMs), strokeWidthPx);
+    }
+
+    public float animatedGlowRadiusPx(long timelineMs) {
+        return keyframes.valueAt(TRACK_GLOW_RADIUS, localTime(timelineMs), glowRadiusPx);
+    }
+
+    public float animatedShadowRadiusPx(long timelineMs) {
+        return keyframes.valueAt(TRACK_SHADOW_RADIUS, localTime(timelineMs), shadowRadiusPx);
+    }
+
+    public float animatedShadowAngleDeg(long timelineMs) {
+        return keyframes.valueAt(TRACK_SHADOW_ANGLE, localTime(timelineMs), shadowAngleDeg);
+    }
+
+    public float animatedShadowDistancePx(long timelineMs) {
+        return keyframes.valueAt(TRACK_SHADOW_DISTANCE, localTime(timelineMs), shadowDistancePx);
     }
 
     public float animatedOpacity(long timelineMs) {

@@ -98,13 +98,20 @@ public final class TextFxGlEffect implements GlEffect {
                     item.animatedCenterX(timelineMs), item.animatedCenterY(timelineMs),
                     item.animatedSizeFraction(timelineMs), item.animatedRotation(timelineMs));
             frameItem.setStrokeColorInt(item.getStrokeColorInt());
-            frameItem.setStrokeWidthPx(item.getStrokeWidthPx());
+            frameItem.setStrokeWidthPx(item.animatedStrokeWidthPx(timelineMs));
             frameItem.setShadowColorInt(item.getShadowColorInt());
-            frameItem.setShadowRadiusPx(item.getShadowRadiusPx());
+            frameItem.setShadowRadiusPx(item.animatedShadowRadiusPx(timelineMs));
+            frameItem.setShadowAngleDeg(item.animatedShadowAngleDeg(timelineMs));
+            frameItem.setShadowDistancePx(item.animatedShadowDistancePx(timelineMs));
             frameItem.setGlowColorInt(item.getGlowColorInt());
-            frameItem.setGlowRadiusPx(item.getGlowRadiusPx());
+            frameItem.setGlowRadiusPx(item.animatedGlowRadiusPx(timelineMs));
             frameItem.setBackgroundColorInt(item.getBackgroundColorInt());
             frameItem.setFontFamily(item.getFontFamily());
+            frameItem.setBold(item.isBold());
+            frameItem.setItalic(item.isItalic());
+            frameItem.setUnderline(item.isUnderline());
+            frameItem.setTextCase(item.getTextCase());
+            frameItem.setTextAlign(item.getTextAlign());
             Bitmap textBmp = TextOverlayRenderer.render(frameItem, outW, outH);
             // COMPOSE ONTO A FULL FRAME. render() returns a bitmap sized to the TEXT, which
             // CompositeExportOverlay then positions with canvas.drawBitmap(cx - w/2, ...).

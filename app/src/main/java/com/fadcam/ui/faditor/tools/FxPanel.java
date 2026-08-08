@@ -126,7 +126,7 @@ public final class FxPanel {
                 root.addView(card(ctx, stack, cards.get(i), i, host, rebuild[0], d, subject));
             }
             root.addView(addRow(ctx, stack, host, rebuild[0], d, subject));
-            root.addView(presetRow(ctx, stack, host, rebuild[0], d));
+            root.addView(presetRow(ctx, stack, host, rebuild[0], d, subject));
         };
         rebuild[0].run();
         return root;
@@ -482,16 +482,37 @@ public final class FxPanel {
         value.setText(String.valueOf(initial));
 
         final FxStack[] snap = {null};
+        final boolean[] tracking = {false};
+        final boolean recordable = stack != null && host != null && rebuild != null;
+        // Settles a run of non-touch changes into ONE step. A D-pad hold or a TalkBack
+        // "increment" repeat should read as a single edit, the same way a drag does.
+        final Runnable settle = !recordable ? null : () -> {
+            if (snap[0] != null) recordSnapshot(stack, host, rebuild, undoLabel, snap[0]);
+            snap[0] = null;
+        };
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                // KEYBOARD, D-PAD AND TALKBACK NEVER SEND THE TRACKING CALLBACKS. AbsSeekBar
+                // handles DPAD_LEFT/RIGHT and the accessibility scroll actions by writing the
+                // progress directly, so the touch-only path recorded nothing at all: the value
+                // changed, the save was scheduled, and undo skipped to the previous edit. Snap
+                // BEFORE applying, or the "before" would already contain the change.
+                if (fromUser && recordable && snap[0] == null) snap[0] = stack.copy();
                 value.setText(String.valueOf(p + min));
                 onChange.accept(p + min);
+                if (fromUser && recordable && !tracking[0]) {
+                    s.removeCallbacks(settle);
+                    s.postDelayed(settle, 350);
+                }
             }
             @Override public void onStartTrackingTouch(SeekBar s) {
-                if (stack != null) snap[0] = stack.copy();
+                tracking[0] = true;
+                s.removeCallbacks(settle);
+                if (recordable && snap[0] == null) snap[0] = stack.copy();
             }
             @Override public void onStopTrackingTouch(SeekBar s) {
-                if (stack != null && host != null && rebuild != null && snap[0] != null) {
+                tracking[0] = false;
+                if (recordable && snap[0] != null) {
                     recordSnapshot(stack, host, rebuild, undoLabel, snap[0]);
                 }
                 snap[0] = null;
@@ -842,29 +863,33 @@ public final class FxPanel {
         }
         TextView t = chip(ctx, keyed ? "◆" : "◇", d);
         t.setAlpha(keyed ? 1f : 0.5f);
+        // BOTH GO THROUGH structural. The diamond was the last mutation path in this panel with
+        // no undo at all, and the long-press is the most destructive control on the card: it
+        // removes EVERY key on the track. A hand-animated curve wiped by a stray long-press was
+        // simply gone, and scheduleAutoSave had already written it out.
         t.setOnClickListener(v -> {
             long at = host.playheadMs();
-            if (stack.keys == null) {
-                stack.keys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
-            }
-            float[] vals = fx.get(param);
-            for (int i = 0; i < param.kind.components; i++) {
-                stack.keys.getOrCreate(fx.track(param, i)).put(at, vals[i],
-                        com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT);
-            }
-            rebuild.run();
-            host.onFxChanged();
+            structural(stack, host, rebuild, "Key " + param.label, () -> {
+                if (stack.keys == null) {
+                    stack.keys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                }
+                float[] vals = fx.get(param);
+                for (int i = 0; i < param.kind.components; i++) {
+                    stack.keys.getOrCreate(fx.track(param, i)).put(at, vals[i],
+                            com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT);
+                }
+            });
             android.widget.Toast.makeText(ctx,
                     param.label + " keyed at " + (at / 1000f) + "s",
                     android.widget.Toast.LENGTH_SHORT).show();
         });
         t.setOnLongClickListener(v -> {
             if (stack.keys == null) return true;
-            for (int i = 0; i < param.kind.components; i++) {
-                stack.keys.removeProperty(fx.track(param, i));
-            }
-            rebuild.run();
-            host.onFxChanged();
+            structural(stack, host, rebuild, "Clear " + param.label + " keys", () -> {
+                for (int i = 0; i < param.kind.components; i++) {
+                    stack.keys.removeProperty(fx.track(param, i));
+                }
+            });
             android.widget.Toast.makeText(ctx, param.label + " keys cleared",
                     android.widget.Toast.LENGTH_SHORT).show();
             return true;
@@ -883,7 +908,8 @@ public final class FxPanel {
      */
     @NonNull
     private static View presetRow(@NonNull Context ctx, @NonNull FxStack stack,
-                                  @NonNull Host host, @NonNull Runnable rebuild, float d) {
+                                  @NonNull Host host, @NonNull Runnable rebuild, float d,
+                                  @NonNull FxPreviewTier.Subject subject) {
         LinearLayout wrap = new LinearLayout(ctx);
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.setPadding(0, Math.round(10 * d), 0, 0);
@@ -933,7 +959,7 @@ public final class FxPanel {
                 // REPLACES the stack, so it is confirmed: loading a look over work in progress
                 // is the one action here that destroys something the user cannot see a copy of.
                 if (stack.isEmpty()) {
-                    applyPreset(ctx, stack, name, host, rebuild);
+                    applyPreset(ctx, stack, name, host, rebuild, subject);
                     return;
                 }
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
@@ -941,7 +967,7 @@ public final class FxPanel {
                         .setMessage("This replaces the " + stack.size()
                                 + " effect(s) on this layer.")
                         .setPositiveButton("Load",
-                                (dlg, w) -> applyPreset(ctx, stack, name, host, rebuild))
+                                (dlg, w) -> applyPreset(ctx, stack, name, host, rebuild, subject))
                         .setNegativeButton("Cancel", null)
                         .show();
             });
@@ -967,7 +993,8 @@ public final class FxPanel {
 
     private static void applyPreset(@NonNull Context ctx, @NonNull FxStack stack,
                                     @NonNull String name, @NonNull Host host,
-                                    @NonNull Runnable rebuild) {
+                                    @NonNull Runnable rebuild,
+                                    @NonNull FxPreviewTier.Subject subject) {
         // Snapshot BEFORE the load, because load() replaces the whole chain in place — this is
         // the single most destructive action in the panel and it had no undo at all.
         FxStack before = stack.copy();
@@ -975,6 +1002,25 @@ public final class FxPanel {
             android.widget.Toast.makeText(ctx, "Could not load '" + name + "'",
                     android.widget.Toast.LENGTH_SHORT).show();
             return;
+        }
+        // THE PICKER'S GATE APPLIES HERE TOO. A sampler card cannot run on an object — its body
+        // reads uTexSampler, which in the PiP composite is the MASTER FRAME SO FAR while the uv
+        // is PiP-local, so a blur loaded from a look would fill the PiP box with a smeared crop
+        // of the background. It used to fail safe only because the whole shader failed to
+        // compile; now that it compiles, the gate has to be enforced rather than implied.
+        int dropped = 0;
+        for (int i = stack.cards().size() - 1; i >= 0; i--) {
+            FxEffectDef def = stack.cards().get(i).def();
+            if (def != null && !FxPreviewTier.canExportOn(def, subject)) {
+                stack.remove(i);
+                dropped++;
+            }
+        }
+        if (dropped > 0) {
+            android.widget.Toast.makeText(ctx,
+                    dropped + (dropped == 1 ? " effect needs" : " effects need")
+                            + " an adjustment layer — left out",       // TODO(strings)
+                    android.widget.Toast.LENGTH_LONG).show();
         }
         FxStack after = stack.copy();
         rebuild.run();

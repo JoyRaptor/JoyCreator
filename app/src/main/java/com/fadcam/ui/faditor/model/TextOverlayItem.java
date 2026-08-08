@@ -258,10 +258,14 @@ public class TextOverlayItem {
     @Nullable
     public com.fadcam.ui.faditor.fx.FxStack getFx() { return fx; }
 
-    /** An EMPTY stack normalises to null, so an overlay briefly given an effect and then
-     *  emptied serializes exactly as it did before it was ever touched. */
+    /**
+     * ONCE ATTACHED, THE INSTANCE STAYS — see {@code Clip.setFx} for the whole story. This
+     * used to null an empty stack for tidiness, but {@code ProjectStorage} already skips an
+     * empty one when writing, and detaching the object the FX panel is holding meant a later
+     * undo restored a stack nothing pointed at.
+     */
     public void setFx(@Nullable com.fadcam.ui.faditor.fx.FxStack v) {
-        fx = (v == null || v.isEmpty()) ? null : v;
+        fx = v;
     }
 
     /** True when this text's own effects would change any pixel. */

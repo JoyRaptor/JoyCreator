@@ -271,6 +271,11 @@ public final class PipOverlayDrawer extends LinearLayout {
 
     private void reportHeight() {
         if (heightListener == null) return;
+        // SILENT WHILE THE DRAWER IS ANIMATING ITS OWN HEIGHT. switchTo writes a new content
+        // height every frame for 240ms; reporting each one restarted the preview's 220ms tween
+        // on every frame, so the picture crawled and lagged behind the drawer instead of moving
+        // with it. The animator's end action reports the settled height once.
+        if (animating) return;
         int h = (getVisibility() == VISIBLE && !hiding) ? getHeight() : 0;
         if (h == reportedHeightPx) return;
         reportedHeightPx = h;
@@ -301,7 +306,14 @@ public final class PipOverlayDrawer extends LinearLayout {
         // it, so opening a second object's drawer dropped the first one's FX undo step entirely
         // -- or, worse, left it registered and fired it later against an object not on screen.
         if (onClose != null) { Runnable r = onClose; onClose = null; r.run(); }
-        hiding = false;   // a show() during the slide-out cancels the hide
+        // CANCEL A SLIDE-OUT IN FLIGHT. hide()'s end action sets GONE and wipes contentHost;
+        // reopening within those 240ms left that action queued, so the freshly shown drawer was
+        // destroyed a moment later — and because a GONE view gets no more onLayout, the preview
+        // stayed shrunk and shoved down with no drawer above it and the Adjust tool stuck green.
+        animate().cancel();
+        setTranslationY(0f);
+        setAlpha(1f);
+        hiding = false;
         // A height dragged on one tab must not follow the drawer to a different object: sizing
         // the FX tab tall and then opening a one-row tab left three-quarters of a screen empty.
         userHeightPx = -1;
@@ -508,6 +520,9 @@ public final class PipOverlayDrawer extends LinearLayout {
                     animating = false;
                     activeTab = target;
                     refreshIcons();
+                    // The one report for this tab switch — reportHeight stays silent for the
+                    // whole animation so the preview makes a single move, not sixty.
+                    reportHeight();
                 }).start();
     }
 

@@ -1024,7 +1024,20 @@ public class OverlayVideoPreviewView extends FrameLayout {
         return kf == null ? fallback : kf.valueAt(property, currentTimeMs, fallback);
     }
 
-    /** v1 static write: replace the whole track with one key at t=0. */
+    /**
+     * Write a transform value — collapsing to one key at t=0 ONLY when the track is not animated.
+     *
+     * <p><b>An animated track is updated in place, never cleared.</b> This used to clear
+     * unconditionally, so keying a PiP's X at 0s and Y at 3s to fly it across frame and then
+     * dragging its BODY on the canvas replaced the whole curve with a single static pose — and a
+     * pinch did the same to SCALE. Dragging is the most casual way to touch a PiP; it is the
+     * last thing that should be able to destroy an animation. The corner handles were taught
+     * this; the body drag and the pinch, which come through here, had been left behind.</p>
+     *
+     * <p>"Animated" is decided from the track itself (more than one key) rather than from the
+     * editor's ARMED flag, because this view has no access to that flag and the property it
+     * really needs to preserve is the curve, not the mode that produced it.</p>
+     */
     private void putStatic(@NonNull Clip clip, @NonNull String property, float value) {
         KeyframeSet kf = clip.getOverlayTransform();
         if (kf == null) {
@@ -1032,6 +1045,16 @@ public class OverlayVideoPreviewView extends FrameLayout {
             clip.setOverlayTransform(kf);
         }
         com.fadcam.ui.faditor.keyframe.KeyframeTrack track = kf.getOrCreate(property);
+        if (track.keyframes.size() > 1) {
+            // Move the key at (or nearest within a frame of) the playhead, so a drag nudges the
+            // pose at this moment instead of stacking a new key every touch event.
+            long at = currentTimeMs;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : track.keyframes) {
+                if (Math.abs(k.timeMs - currentTimeMs) <= 66L) { at = k.timeMs; break; }
+            }
+            track.put(at, value, Easing.LINEAR);
+            return;
+        }
         track.keyframes.clear();
         track.put(0L, value, Easing.LINEAR);
     }

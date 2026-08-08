@@ -205,6 +205,14 @@ public class PreviewPipController {
             shell.addView(buildChrome(ctx, chromeH, shell));
 
             editorRoot.removeView(playerContainer);
+            // DROP THE DRAWER REFLOW'S TRANSFORM. The editor scales and lowers this very
+            // container to clear an open FX drawer; reparenting it carried that transform into
+            // the floating PiP, so promoting with a drawer open rendered the preview at 60% and
+            // shoved a couple of hundred pixels out of its own chrome box. Only the drawer's
+            // height listener ever reset it, and the drawer is no longer above this view.
+            playerContainer.setScaleX(1f);
+            playerContainer.setScaleY(1f);
+            playerContainer.setTranslationY(0f);
             shell.addView(playerContainer, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, contentH));
 
@@ -247,6 +255,12 @@ public class PreviewPipController {
             ViewGroup.LayoutParams lp = savedInlineLp != null ? savedInlineLp
                     : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
             int index = Math.min(Math.max(savedIndexInRoot, 0), editorRoot.getChildCount());
+            // Back inline at identity. Any reflow the drawer wants is re-applied by its own
+            // height listener on the next layout; inheriting the promoted shell's state here
+            // would be inheriting a transform that meant something in a different parent.
+            playerContainer.setScaleX(1f);
+            playerContainer.setScaleY(1f);
+            playerContainer.setTranslationY(0f);
             editorRoot.addView(playerContainer, index, lp);
             promoted = false;
             lastFillGapPx = -1f;

@@ -211,12 +211,16 @@ public class AdjustmentLaneTest {
         c.setFx(st);
         check("a card makes it active", c.hasActiveFx());
 
-        // Emptying must return the clip to its ORIGINAL shape, not leave an empty husk that
-        // serializes an "fx":{} nobody asked for.
+        // EMPTYING KEEPS THE INSTANCE. It used to null the field so the clip returned to its
+        // original shape, but ProjectStorage already skips an empty stack when writing, so the
+        // file is identical either way — and detaching the object cost real correctness: the FX
+        // panel holds this exact instance, so deleting the last card orphaned the thing being
+        // edited and a later undo restored a stack the clip no longer pointed at.
         st.remove(0);
         c.setFx(st);
-        check("emptying the stack normalises back to null", c.getFx() == null);
+        check("emptying the stack KEEPS the instance the panel is holding", c.getFx() == st);
         check("...and to inactive", !c.hasActiveFx());
+        check("...and an empty stack is still nothing to serialize", c.getFx().isEmpty());
     }
 
     static void check(String what, boolean ok) {

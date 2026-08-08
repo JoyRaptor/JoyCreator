@@ -1135,9 +1135,14 @@ public class Clip {
     public com.fadcam.ui.faditor.fx.FxStack getFx() { return fx; }
 
     public void setFx(@Nullable com.fadcam.ui.faditor.fx.FxStack v) {
-        // An EMPTY stack is stored as null, so adding then removing every card leaves the clip
-        // serializing exactly as it did before it was ever touched.
-        fx = (v == null || v.isEmpty()) ? null : v;
+        // ONCE ATTACHED, THE INSTANCE STAYS. This used to null an empty stack so an object that
+        // briefly had an effect serialized as it did before — but ProjectStorage already skips
+        // an empty stack when writing, so the file is identical either way, and nulling the
+        // field had a real cost: the FX panel holds this exact object. Deleting the last card
+        // detached it mid-edit, the next getOrCreateFx minted a SECOND stack, and a recorded
+        // undo step then restored the first one onto a clip whose panel was bound to the other.
+        // The card came back, the effect did not, and the next edit dropped it again.
+        fx = v;
     }
 
     /** True when this clip's own effects would change any pixel. */

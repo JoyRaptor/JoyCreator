@@ -282,6 +282,39 @@ public class AdjustmentLayerTest {
             }
         }
         check("a remap pass was actually produced to check", checked);
+        reorderMath();
+    }
+
+    /**
+     * Dragging a card DOWN moves it EARLIER in the stack.
+     *
+     * <p>Screen is top-down and the model is bottom-up: the last card is applied last, so it
+     * belongs at the top of the list. Invert this and the user watches a card move down while
+     * the picture changes as though it moved up — the most confusing bug the panel could have,
+     * and one no device test would catch quickly because both orders "look like something
+     * happened". The touch handler cannot be driven by adb at all (the drawer's hold gesture
+     * has defeated four injection strategies), so the arithmetic is pinned here instead.</p>
+     */
+    static void reorderMath() {
+        // 3 cards. Model [0,1,2] renders top-down as screen [2,1,0].
+        int[] r = com.fadcam.ui.faditor.fx.FxReorder.indices(0, 1, 3);
+        check("top card dragged down one lands one EARLIER in the model",
+                r[0] == 2 && r[1] == 1);
+        r = com.fadcam.ui.faditor.fx.FxReorder.indices(2, -1, 3);
+        check("bottom card dragged up one lands one LATER in the model",
+                r[0] == 0 && r[1] == 1);
+        r = com.fadcam.ui.faditor.fx.FxReorder.indices(0, 2, 3);
+        check("top card dragged to the bottom becomes the first applied",
+                r[0] == 2 && r[1] == 0);
+        r = com.fadcam.ui.faditor.fx.FxReorder.indices(2, -2, 3);
+        check("bottom card dragged to the top becomes the last applied",
+                r[0] == 0 && r[1] == 2);
+        // Over-drag is clamped rather than throwing an index at the model.
+        r = com.fadcam.ui.faditor.fx.FxReorder.indices(0, 9, 3);
+        check("an over-drag clamps to the end instead of going out of range",
+                r[1] == 0);
+        r = com.fadcam.ui.faditor.fx.FxReorder.indices(1, 0, 2);
+        check("a zero shift is a no-op move", r[0] == r[1]);
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────

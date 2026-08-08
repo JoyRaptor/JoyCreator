@@ -520,7 +520,7 @@ public final class FxPanel {
                     card.setTranslationY(dy);
                     int h = Math.max(1, card.getHeight());
                     int want = Math.max(-screenPos, Math.min(count - 1 - screenPos,
-                            Math.round(dy / h)));
+                            rowsCrossed(parent, card, dy)));
                     if (want != shift[0]) {
                         shift[0] = want;
                         slideNeighbours(parent, card, screenPos, want, h);
@@ -536,12 +536,9 @@ public final class FxPanel {
                     card.animate().translationZ(0).scaleX(1f).scaleY(1f).alpha(1f)
                             .setDuration(120).start();
                     if (shift[0] != 0) {
-                        // Screen is top-down, the model is bottom-up: dragging DOWN moves a
-                        // card EARLIER in the stack. Committed once, here, so the list reflows
-                        // exactly once and the order the user let go of is the order they get.
-                        int from = (count - 1) - screenPos;
-                        int to = (count - 1) - (screenPos + shift[0]);
-                        stack.move(from, to);
+                        int[] fromTo = com.fadcam.ui.faditor.fx.FxReorder.indices(
+                                screenPos, shift[0], count);
+                        stack.move(fromTo[0], fromTo[1]);
                         host.onFxChanged();
                     }
                     rebuild.run();
@@ -551,6 +548,32 @@ public final class FxPanel {
                     return false;
             }
         });
+    }
+
+    /**
+     * How many rows the finger has travelled, measured against the cards ACTUALLY THERE.
+     *
+     * <p>Not {@code dy / draggedHeight}: a collapsed card is a fraction of an expanded one, so
+     * one height for every slot puts the drop in the wrong place the moment the stack is mixed
+     * — and a stack of a dozen effects is exactly when people collapse things. Walking the real
+     * sibling positions costs a loop over at most a dozen views and is always right.</p>
+     */
+    private static int rowsCrossed(@Nullable ViewGroup parent, @NonNull View dragged, float dy) {
+        if (parent == null) return 0;
+        int idx = parent.indexOfChild(dragged);
+        float travelled = 0f;
+        int step = dy > 0 ? 1 : -1;
+        int crossed = 0;
+        for (int i = idx + step; i >= 0 && i < parent.getChildCount(); i += step) {
+            View sib = parent.getChildAt(i);
+            if (sib.getVisibility() == View.GONE) continue;
+            // Half of the neighbour is the commit point — the same "past its midpoint" rule
+            // every list reorder uses, so the gap opens when the card visually belongs there.
+            travelled += sib.getHeight();
+            if (Math.abs(dy) < travelled - sib.getHeight() / 2f) break;
+            crossed += step;
+        }
+        return crossed;
     }
 
     /** Animate the cards the dragged one has passed, opening a gap where it will land. */

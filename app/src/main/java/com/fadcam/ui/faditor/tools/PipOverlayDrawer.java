@@ -177,23 +177,57 @@ public final class PipOverlayDrawer extends LinearLayout {
     /** Drag up (or tap) on the grip dismisses. Tap is kept because a 4dp pill is a small drag
      *  target, and the bottom sheet taught users the grip is tappable. */
     @SuppressWarnings("ClickableViewAccessibility")
+    /**
+     * The grip: DRAG TO RESIZE, drag up hard to dismiss, tap to dismiss.
+     *
+     * <p>It used to do only the last two — "drag up past twice the slop → hide, tap → hide" —
+     * so a drawer that had grown too tall could be closed and reopened at exactly the same
+     * height, and never made shorter or taller. Dragging DOWN grows the body, dragging UP
+     * shrinks it, and only a decisive upward flick from an already-minimal drawer dismisses,
+     * so resizing cannot close the thing you are trying to size.</p>
+     */
     private void wireGrip(@NonNull View grip) {
         final float slop = android.view.ViewConfiguration.get(getContext()).getScaledTouchSlop();
         grip.setOnTouchListener(new OnTouchListener() {
             float downY;
-            boolean acted;
+            int startHeight;
+            boolean resizing;
+            boolean moved;
+
             @Override public boolean onTouch(View v, android.view.MotionEvent e) {
                 switch (e.getActionMasked()) {
                     case android.view.MotionEvent.ACTION_DOWN:
                         downY = e.getRawY();
-                        acted = false;
+                        moved = false;
+                        resizing = false;
+                        startHeight = bodyScroll != null && bodyScroll.getHeight() > 0
+                                ? bodyScroll.getHeight() : maxBodyHeightPx();
                         return true;
-                    case android.view.MotionEvent.ACTION_MOVE:
-                        if (!acted && downY - e.getRawY() > slop * 2) { acted = true; hide(); }
+                    case android.view.MotionEvent.ACTION_MOVE: {
+                        float dy = e.getRawY() - downY;
+                        if (!moved && Math.abs(dy) > slop) { moved = true; resizing = true; }
+                        if (resizing && bodyScroll != null) {
+                            userHeightPx = Math.round(startHeight + dy);
+                            bodyScroll.requestLayout();
+                        }
                         return true;
-                    case android.view.MotionEvent.ACTION_UP:
-                        if (!acted) hide();
+                    }
+                    case android.view.MotionEvent.ACTION_UP: {
+                        float dy = e.getRawY() - downY;
+                        // A tap dismisses. So does an upward drag that has already squeezed the
+                        // body to its floor — at that point "smaller" can only mean "gone".
+                        boolean atFloor = bodyScroll != null
+                                && bodyScroll.getHeight() <= dp(MIN_BODY_DP) + 1;
+                        if (!moved || (dy < -slop * 2 && atFloor)) {
+                            userHeightPx = 0;
+                            hide();
+                        } else {
+                            v.performHapticFeedback(
+                                    android.view.HapticFeedbackConstants.CLOCK_TICK);
+                            post(PipOverlayDrawer.this::reportHeight);
+                        }
                         return true;
+                    }
                     default:
                         return false;
                 }
@@ -202,6 +236,25 @@ public final class PipOverlayDrawer extends LinearLayout {
     }
 
     public void setOnClose(@Nullable Runnable r) { this.onClose = r; }
+
+    /**
+     * Told the height this drawer occupies, so the host can move the picture out from under it.
+     *
+     * <p>The drawer is an overlay on the root {@code FrameLayout}: nothing reflows when it
+     * appears, so on a 16:9 project it covers the top of the video while an identical band of
+     * unused letterbox sits below. Reported rather than acted on, because only the host knows
+     * how much slack the letterbox is offering and whether any picture has to be given up.</p>
+     */
+    public interface HeightListener { void onDrawerHeightChanged(int heightPx); }
+
+    @Nullable private HeightListener heightListener;
+
+    public void setHeightListener(@Nullable HeightListener l) { this.heightListener = l; }
+
+    private void reportHeight() {
+        if (heightListener == null) return;
+        heightListener.onDrawerHeightChanged(getVisibility() == VISIBLE ? getHeight() : 0);
+    }
 
     /**
      * Bind tabs + header toggles and show tab 0. Rebuilding is cheap and is how the caller
@@ -227,6 +280,9 @@ public final class PipOverlayDrawer extends LinearLayout {
             animate().translationY(0f).alpha(1f)
                     .setDuration(SLIDE_MS).setInterpolator(new DecelerateInterpolator()).start();
         }
+        // After layout: the height is not known until the content has measured, and the host
+        // needs the real number to decide how far to move the picture.
+        post(this::reportHeight);
     }
 
     public boolean isShowing() { return getVisibility() == VISIBLE; }
@@ -259,6 +315,9 @@ public final class PipOverlayDrawer extends LinearLayout {
 
     public void hide() {
         if (getVisibility() != VISIBLE) return;
+        // Give the picture back its space on the way out, not after — the two animations run
+        // together so the video rises as the drawer leaves rather than jumping when it lands.
+        if (heightListener != null) heightListener.onDrawerHeightChanged(0);
         animate().translationY(-dp(120)).alpha(0f).setDuration(SLIDE_MS)
                 .withEndAction(() -> {
                     setVisibility(GONE);
@@ -412,28 +471,58 @@ public final class PipOverlayDrawer extends LinearLayout {
      * placement was chosen to avoid.
      */
     @NonNull
+    /**
+     * The scrolling body, clamped at MEASURE time.
+     *
+     * <p>The cap used to be applied once, inside a single {@code post()} at tab-build time.
+     * {@code FxPanel} then rebuilds its children in place on every add / delete / reorder, so
+     * every card added after that first layout grew {@code WRAP_CONTENT} straight past the cap
+     * and the drawer swallowed the screen. Clamping in {@code onMeasure} cannot be outrun by a
+     * later rebuild, which is the whole difference.</p>
+     *
+     * <p>The user can also drag the grip to resize (see {@code wireGrip}); {@link #userHeightPx}
+     * overrides the fraction when they have expressed a preference.</p>
+     */
     private View wrap(@NonNull View content) {
-        ScrollView sv = new ScrollView(getContext());
+        ScrollView sv = new ScrollView(getContext()) {
+            @Override
+            protected void onMeasure(int widthSpec, int heightSpec) {
+                int cap = maxBodyHeightPx();
+                super.onMeasure(widthSpec,
+                        MeasureSpec.makeMeasureSpec(cap, MeasureSpec.AT_MOST));
+            }
+        };
         sv.setVerticalScrollBarEnabled(false);
+        sv.setFillViewport(false);
         sv.addView(content, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        int cap = Math.round(getResources().getDisplayMetrics().heightPixels
-                * MAX_HEIGHT_FRACTION);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+        sv.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT);
-        sv.setLayoutParams(lp);
-        sv.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                FrameLayout.LayoutParams.WRAP_CONTENT));
         sv.setMinimumHeight(0);
-        sv.post(() -> {
-            if (sv.getHeight() > cap) {
-                ViewGroup.LayoutParams p = sv.getLayoutParams();
-                p.height = cap;
-                sv.setLayoutParams(p);
-            }
-        });
+        bodyScroll = sv;
         return sv;
     }
+
+    /** The tallest the scrolling body may be: the user's dragged height, else the fraction. */
+    private int maxBodyHeightPx() {
+        int screen = getResources().getDisplayMetrics().heightPixels;
+        if (userHeightPx > 0) {
+            return Math.max(dp(MIN_BODY_DP), Math.min(userHeightPx,
+                    Math.round(screen * ABSOLUTE_MAX_FRACTION)));
+        }
+        return Math.round(screen * MAX_HEIGHT_FRACTION);
+    }
+
+    /** Smallest useful body — below this the drawer is chrome with nothing in it. */
+    private static final int MIN_BODY_DP = 96;
+    /** Even a deliberate drag stops here; past it the drawer IS the screen. */
+    private static final float ABSOLUTE_MAX_FRACTION = 0.82f;
+
+    /** The scrolling body of the current tab, for the resize drag. */
+    @Nullable private ScrollView bodyScroll;
+    /** Height the user dragged to, or 0 for "use the default fraction". Session-scoped. */
+    private int userHeightPx;
 
     private int dp(int v) { return Math.round(v * density); }
 }

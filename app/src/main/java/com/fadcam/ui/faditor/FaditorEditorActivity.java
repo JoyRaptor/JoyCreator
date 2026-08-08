@@ -20431,8 +20431,40 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 });
             }
             root.addView(pipDrawer, lp);
+            pipDrawer.setHeightListener(this::reflowPreviewUnderDrawer);
         }
         return pipDrawer;
+    }
+
+    /**
+     * Move the picture out from under an open drawer.
+     *
+     * <p><b>Spend the letterbox before spending the picture.</b> A 16:9 project in a tall slot
+     * is centred with equal black bands above and below, so the drawer can eat the top band for
+     * free — the video slides down into space that was showing nothing. Only when the drawer is
+     * taller than that slack does anything get given up, and then only the remainder. Computing
+     * it this way matters most on the case the owner usually works in: a 9:16 project has almost
+     * no slack, and a blind "push the video down" would just move the occlusion to the bottom.</p>
+     *
+     * <p>220ms decelerate, matching the drawer's own slide, so the two read as one movement.</p>
+     */
+    private void reflowPreviewUnderDrawer(int drawerHeightPx) {
+        View container = findViewById(R.id.player_container);
+        if (container == null) return;
+        float shift = 0f;
+        if (drawerHeightPx > 0) {
+            int videoH = 0;
+            if (playerView != null && playerView.getVideoSurfaceView() != null) {
+                videoH = playerView.getVideoSurfaceView().getHeight();
+            }
+            if (videoH <= 0) videoH = container.getHeight();
+            int slack = Math.max(0, (container.getHeight() - videoH) / 2);
+            // Never push the video's own bottom past the container: below the slack we would be
+            // trading one occlusion for another.
+            shift = Math.min(drawerHeightPx, slack);
+        }
+        container.animate().translationY(shift).setDuration(220)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
     }
 
     /**

@@ -232,6 +232,20 @@ public final class PipOverlayDrawer extends LinearLayout {
     public boolean isShowing() { return getVisibility() == VISIBLE; }
 
     /**
+     * Switch to the tab with this title, if it exists.
+     *
+     * <p>By TITLE rather than index because the caller — the Adjust tool, which wants "Effects"
+     * whatever object it is looking at — must not have to know each object's tab order. Tab
+     * lists differ per object type, and an index would silently open the Mask tab on the day
+     * someone inserts a tab before it.</p>
+     */
+    public void showTabTitled(@NonNull String title) {
+        for (int i = 0; i < tabs.size(); i++) {
+            if (title.equals(tabs.get(i).title)) { switchTo(i); return; }
+        }
+    }
+
+    /**
      * The tab content currently on screen, or {@code null}. The drawer stays ignorant of what a
      * tab CONTAINS — the caller asks the content to refresh itself — but it is the only thing
      * that knows which tab is showing, and during a slide there are briefly two children.

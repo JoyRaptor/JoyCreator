@@ -216,10 +216,16 @@ public class FaditorToolsDrawer {
 
         TextView icon = new TextView(context);
         icon.setGravity(Gravity.CENTER);
-        icon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
-        icon.setText(liveIcon != null ? liveIcon.getText() : tool.icon);
+        // The live cell may carry a dynamically overridden glyph; a text icon has no live
+        // override to inherit, so it is applied from the registry either way.
+        if (tool.icon.startsWith(com.fadcam.ui.faditor.tools.FaditorTool.TEXT_ICON)) {
+            FaditorTool.applyIcon(icon, tool.icon, 24f);
+        } else {
+            icon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
+            icon.setText(liveIcon != null ? liveIcon.getText() : tool.icon);
+            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f);
+        }
         icon.setTextColor(liveIcon != null ? liveIcon.getCurrentTextColor() : 0xFF888888);
-        icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(30), dp(30));
         iconLp.gravity = Gravity.CENTER_HORIZONTAL;
         icon.setLayoutParams(iconLp);

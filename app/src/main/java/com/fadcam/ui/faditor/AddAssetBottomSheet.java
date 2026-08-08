@@ -58,6 +58,17 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
          * callers compile unchanged.
          */
         default void onGeneratedSlideSelected() { }
+
+        /**
+         * Called when the user picks "FX Adjustment Layer" — an empty container in the lanes
+         * whose effects transform everything BENEATH it, as distinct from adjusting one object.
+         *
+         * <p>It belongs here, in Add, because it is a thing you ADD to the timeline. It was
+         * previously reachable only through the Adjust tool, which is where nobody looked: the
+         * owner went to Add, did not find it, and only found the feature by guessing at a
+         * toolbar icon. Default no-op so existing callers compile unchanged.</p>
+         */
+        default void onAdjustmentLayerSelected() { }
     }
 
     @Nullable
@@ -161,6 +172,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 "AI slide (animated)",
                 "auto_awesome", materialIcons, dp,
                 () -> { if (callback != null) callback.onGeneratedSlideSelected(); }));
+
+        // FX adjustment layer — an empty container that grades everything beneath it.
+        // TODO(strings)
+        root.addView(createOptionRow(
+                "FX Adjustment Layer",
+                "auto_fix_high", materialIcons, dp,
+                () -> { if (callback != null) callback.onAdjustmentLayerSelected(); }));
 
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);

@@ -280,6 +280,19 @@ public class TimedItem {
             if (end == Long.MAX_VALUE || end <= start) return Math.max(0, fallbackMs - start);
             return end - start;
         }
+        if (adjustment != null) {
+            // WITHOUT THIS the method fell through to 0, and everything an adjustment layer
+            // could not do followed from it: LayerRowRenderer floors a zero-width body at 2dp,
+            // and a 2dp bar cannot be tapped, dragged, trimmed or hit-tested. The layer was a
+            // real payload on a real lane the whole time — it just had no width, which is
+            // indistinguishable from "this is not a real layer" at the only place the user
+            // looks. Same open-end semantics as text and sprites: a layer with no duration set
+            // runs to the end of the timeline, which is what "grade everything" means.
+            long dur = adjustment.getDurationMs();
+            long start = Math.max(0, adjustment.getStartMs());
+            if (dur <= 0) return Math.max(0, fallbackMs - start);
+            return dur;
+        }
         return 0;
     }
 }

@@ -2576,7 +2576,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
         View toolAdjustment = findViewById(R.id.tool_adjustment);
         if (toolAdjustment != null) {
-            toolAdjustment.setOnClickListener(v -> openOrCreateAdjustmentLayer());
+            toolAdjustment.setOnClickListener(v -> openAdjustForSelection());
             // Long-press always CREATES, so a second layer stays reachable once the tap has
             // become "edit the one you have".
             toolAdjustment.setOnLongClickListener(v -> { addAdjustmentLayer(); return true; });
@@ -20130,15 +20130,69 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return false;
     }
 
-    private void openOrCreateAdjustmentLayer() {
+    /**
+     * The "Adjust" tool: open the effect stack for WHATEVER IS SELECTED.
+     *
+     * <p><b>It is a shortcut, not a creator.</b> It used to make an adjustment layer on first
+     * press and edit the topmost one afterwards, which conflated two different things. Adjusting
+     * an OBJECT stacks effects that ride with that object and change only it; an ADJUSTMENT
+     * LAYER is an empty container in the lanes whose effects change everything beneath it. One
+     * button cannot mean both. Creating a layer now lives in Add — where the user looked for it
+     * and did not find it — and this tool is the second, discoverable route to the panel that
+     * long-pressing an object already gives.</p>
+     *
+     * <p>Any open sheet is dismissed first. With a modal sheet up, the tap that reaches this
+     * tool is the one that closes the sheet, so the tool appeared to do nothing and the user had
+     * to press it twice without being told why.</p>
+     */
+    private void openAdjustForSelection() {
         if (project == null) return;
-        java.util.List<com.fadcam.ui.faditor.model.AdjustmentLayer> existing =
-                project.getTimeline().getAdjustmentLayers();
-        if (existing.isEmpty()) {
-            addAdjustmentLayer();
+        dismissOpenObjectSheets();
+        Timeline timeline = project.getTimeline();
+        String selectedId = editorTimeline == null ? null
+                : editorTimeline.getSelectedLayerItemId();
+
+        if (selectedId != null) {
+            for (com.fadcam.ui.faditor.model.AdjustmentLayer a : timeline.getAdjustmentLayers()) {
+                if (selectedId.equals(a.getId())) { showAdjustmentDrawer(a); return; }
+            }
+            // A PiP carries its own stack; its drawer already has an Effects tab.
+            for (Clip c : timeline.getOverlayClips()) {
+                if (selectedId.equals(c.getId())) { showPipDrawerForObject(c); return; }
+            }
+        }
+
+        // Nothing selected, or something without its own FX surface yet: fall back to the clip
+        // under the playhead, which is what "adjust" means with no other context.
+        Clip current = getSelectedClip();
+        if (current != null) { showPipDrawerForObject(current); return; }
+
+        java.util.List<com.fadcam.ui.faditor.model.AdjustmentLayer> layers =
+                timeline.getAdjustmentLayers();
+        if (!layers.isEmpty()) {
+            showAdjustmentDrawer(layers.get(layers.size() - 1));
             return;
         }
-        showAdjustmentDrawer(existing.get(existing.size() - 1));
+        android.widget.Toast.makeText(this,
+                "Select a clip or object to adjust, or add an FX Adjustment Layer",
+                android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    /** Open the object drawer on its Effects tab, for a clip or PiP. */
+    private void showPipDrawerForObject(@NonNull Clip c) {
+        showPipDrawer(c, new java.util.ArrayList<>());
+        com.fadcam.ui.faditor.tools.PipOverlayDrawer d = pipDrawer;
+        if (d != null) d.showTabTitled("Effects");
+    }
+
+    /**
+     * Close any modal object sheet that is up.
+     *
+     * <p>Without this the first tap on a tool is eaten by the sheet's scrim and the tool looks
+     * broken — which is exactly how the Adjust tool was reported.</p>
+     */
+    private void dismissOpenObjectSheets() {
+        if (objectMenuSheet != null && objectMenuSheet.isShowing()) objectMenuSheet.hide();
     }
 
     /** The FX stack editor for one adjustment layer (SPEC_ADJUSTMENT_LAYERS_FX M6). */
@@ -20237,9 +20291,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }));
         refreshAfterMarqueeBatchDelete();
         scheduleAutoSave();
-        android.widget.Toast.makeText(this,
-                "Adjustment layer added — effects come next",                  // TODO(strings)
-                android.widget.Toast.LENGTH_SHORT).show();
+        // OPEN IT. A Toast saying "effects come next" is not a next step, it is an announcement
+        // that fires behind whatever drawer is already up and leaves the user on the same
+        // screen — which is precisely how this read as "the button did nothing". An empty
+        // container is only useful once you can put something in it.
+        showAdjustmentDrawer(layer);
     }
 
     private void showObjectMenuSheetForPipClip(@NonNull Clip c) {
@@ -20415,7 +20471,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // drawer's icon-index arithmetic is unchanged (PipOverlayDrawer's buildIconRow is
         // correct only because icons are dense from index 1, and appending keeps that true).
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
-                "Effects", R.drawable.ic_mask_mode_add_24,                    // TODO(strings)
+                "Effects", R.drawable.ic_fx_24,                               // TODO(strings)
                 ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
                         ctx, c.getOrCreateFx(),
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
@@ -21357,6 +21413,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
 
+        // Holder, because the dialog is built at the END of this method and the Effects chip
+        // near the top needs to close it. A field would outlive the editor and leak it.
+        final android.app.Dialog[] textEditorDialogRef = new android.app.Dialog[1];
+
         android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, 0);
@@ -21406,13 +21466,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         {
             android.widget.TextView fxChip = new android.widget.TextView(this);
             int fxCount = item.getFx() == null ? 0 : item.getFx().active().size();
-            fxChip.setText(fxCount > 0 ? "✦ Effects (" + fxCount + ")" : "✦ Effects");
+            fxChip.setText(fxCount > 0 ? " Effects (" + fxCount + ")" : " Effects");
+            // The SAME FX mark as the PiP drawer tab and the Adjust tool. It was a "✦" here —
+            // a third symbol for one concept, in a feature whose whole problem is that the
+            // same idea wears a different face on every surface.
+            fxChip.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_fx_24, 0, 0, 0);
             fxChip.setTextColor(0xFFE8E8E8);
             fxChip.setTextSize(13f);
             int cp = (int) (10 * getResources().getDisplayMetrics().density);
             fxChip.setPadding(cp, cp, cp, cp);
             fxChip.setBackgroundColor(0x22FFFFFF);
-            fxChip.setOnClickListener(v -> showTextFxDrawer(item));
+            fxChip.setOnClickListener(v -> {
+                // CLOSE THE DIALOG FIRST. showTextFxDrawer opens a drawer in the activity
+                // window, which is BEHIND this modal — so tapping this chip opened the panel
+                // where it could not be seen or touched, and read as a dead button. It is also
+                // the rule: no modal object editors (FEEDBACK_20260717 D1).
+                android.app.Dialog open = textEditorDialogRef[0];
+                if (open != null && open.isShowing()) open.dismiss();
+                showTextFxDrawer(item);
+            });
             root.addView(fxChip);
         }
 
@@ -21600,6 +21672,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(buildOverlayDecorationControls(item));
         root.addView(buildOverlayAnimationControls(item));
 
+        @SuppressWarnings("UnnecessaryLocalVariable")
         androidx.appcompat.app.AlertDialog textEditorDialog =
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.faditor_text_edit_title)
@@ -21716,6 +21789,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             decorSnapshotSizes = null;   // never let a stale snapshot become the next "original"
             decorSnapshotColors = null;
         });
+        textEditorDialogRef[0] = textEditorDialog;
         textEditorDialog.show();
     }
 
@@ -27378,6 +27452,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onGeneratedSlideSelected() {
                 showSlideImportSheet();
+            }
+
+            @Override
+            public void onAdjustmentLayerSelected() {
+                // addAdjustmentLayer opens the drawer itself now, so every route into it —
+                // here, the tool, a future shortcut — lands the user on the effects.
+                addAdjustmentLayer();
             }
         });
         sheet.show(getSupportFragmentManager(), "addAsset");

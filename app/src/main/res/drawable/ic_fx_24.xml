@@ -1,0 +1,32 @@
+<!--
+  FX, in heavy letterforms.
+
+  Drawn as filled paths rather than set as TEXT because this is used as a drawable in the
+  long-press drawer's icon row, where every sibling is a 24dp vector and a TextView would not
+  tint, size or align with them.
+
+  The Effects tab used to borrow ic_mask_mode_add_24 - the boolean-union two-circles mark - which
+  says "combine two shapes", not "effects", and read as nothing at all next to the mask and
+  chroma icons.
+
+  Strokes are ~3.2 units on a 24 grid so the mark still reads at 20dp in the icon row.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- F: stem, top arm, middle arm, as one outline. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2.6,5 H10.2 V8.2 H5.8 V10.6 H9.4 V13.8 H5.8 V19 H2.6 Z" />
+
+    <!-- X: two crossing bars. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11.8,5 H15.3 L21.4,19 H17.9 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.9,5 H21.4 L15.3,19 H11.8 Z" />
+</vector>

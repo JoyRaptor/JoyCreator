@@ -80,8 +80,11 @@ public final class FaditorToolRegistry {
         add(t, "sticker", R.id.tool_sticker, R.id.tool_sticker_icon, R.id.tool_sticker_label,
                 ctx.getString(R.string.faditor_tool_sticker), "image",
                 FaditorTool.BindMode.CLICK, false);
+        // "closed_caption" is the CC badge, which is literally what captions ARE. It was on
+        // Transcript, where it meant nothing, while Captions wore "subtitles" — a stack of
+        // little text blocks that describes a transcript. The two were simply swapped.
         add(t, "captions", R.id.tool_captions, R.id.tool_captions_icon, R.id.tool_captions_label,
-                ctx.getString(R.string.faditor_captions), "subtitles",
+                ctx.getString(R.string.faditor_captions), "closed_caption",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "filter", R.id.tool_filter, R.id.tool_filter_icon, R.id.tool_filter_label,
                 ctx.getString(R.string.faditor_tool_filter), "tune",
@@ -93,7 +96,7 @@ public final class FaditorToolRegistry {
                 ctx.getString(R.string.faditor_tool_transitions), "auto_awesome_motion",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "transcript", R.id.tool_transcript, R.id.tool_transcript_icon, R.id.tool_transcript_label,
-                ctx.getString(R.string.faditor_transcript), "closed_caption",
+                ctx.getString(R.string.faditor_transcript), "subtitles",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "silence", R.id.tool_silence, R.id.tool_silence_icon, R.id.tool_silence_label,
                 ctx.getString(R.string.faditor_tool_silence), "auto_fix_high",
@@ -104,15 +107,19 @@ public final class FaditorToolRegistry {
         add(t, "sprites", R.id.tool_sprites, R.id.tool_sprites_icon, R.id.tool_sprites_label,
                 ctx.getString(R.string.faditor_tool_sprites), "animation",
                 FaditorTool.BindMode.CLICK, false);
-        // Adjustment layer (SPEC_ADJUSTMENT_LAYERS_FX M3) — a layer that transforms everything
-        // beneath it. A Material Symbols LIGATURE, which is the carousel's convention; the
-        // drawer uses vector drawables instead, and mixing the two is how an icon goes missing.
+        // Adjust — open the effect stack for whatever is selected. The mark is the WORD "FX",
+        // not a glyph: the icon font has nothing for the idea, and every near-miss borrowed
+        // from it (stacked rhombi, a boolean-union pair of circles) reads as two abstract
+        // shapes. See FaditorTool.TEXT_ICON. This tool no longer creates a layer either —
+        // that lives in Add, where the user went looking for it.
         add(t, "adjustment", R.id.tool_adjustment, R.id.tool_adjustment_icon,
-                R.id.tool_adjustment_label, "Adjust", "layers",
+                R.id.tool_adjustment_label, "Adjust", FaditorTool.TEXT_ICON + "FX",
                 FaditorTool.BindMode.CLICK, false);
         // Slice F: compact lanes — drop every overlay into the fewest no-overlap lanes.
+        // "Consolidate layers" over "Compact": longer, but it names the OBJECT it acts on.
+        // "Compact" alone could mean compact the timeline, the view, the file, or the UI.
         add(t, "compact", R.id.tool_compact, R.id.tool_compact_icon, R.id.tool_compact_label,
-                "Compact", "compress",
+                "Consolidate layers", "compress",
                 FaditorTool.BindMode.CLICK, false);
         // G8: marquee multi-select mode toggle (off / inclusive-crossing / exclusive-window).
         add(t, "select", R.id.tool_select, R.id.tool_select_icon, R.id.tool_select_label,

@@ -796,10 +796,10 @@ public class FaditorToolsAdapter {
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(28), dp(28));
         icon.setLayoutParams(iconLp);
         icon.setGravity(Gravity.CENTER);
-        icon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
-        icon.setText(tool.icon);
+        // Via applyIcon, so a tool whose mark is a WORD ("text:FX") renders as bold letters
+        // rather than as the literal string "text:FX" in the icon font.
+        FaditorTool.applyIcon(icon, tool.icon, 22f);
         icon.setTextColor(0xFF888888);
-        icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
         cell.addView(icon);
 
         TextView label = new TextView(context);

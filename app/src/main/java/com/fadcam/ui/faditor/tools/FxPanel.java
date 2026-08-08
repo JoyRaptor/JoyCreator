@@ -3,6 +3,7 @@ package com.fadcam.ui.faditor.tools;
 import android.content.Context;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -34,15 +35,18 @@ import java.util.List;
  * with a height tween. Introducing a second scrolling container inside it is how a drawer starts
  * fighting itself.</p>
  *
- * <p><b>Reorder by DRAG, with the arrows kept.</b> Long-press a card header and it lifts;
- * drag past the card above or below and they swap; release to drop. The arrows stay because
- * they are the precise instrument — one press is always exactly one place, which a drag can
- * never promise on a list that reflows under the finger.</p>
+ * <p><b>Reorder by DRAGGING THE ☰ HANDLE.</b> Long-press it and the card lifts; neighbours slide
+ * aside to open the gap; release to drop. The ▲/▼ arrows are gone.</p>
  *
- * <p>The drag deliberately commits on every crossing rather than computing a drop index at the
- * end: the model IS the preview, so what the user sees mid-drag is already the order they will
- * get, and there is no separate commit step to disagree with it. Slots are stable, so keyframes
- * follow the card whichever mechanism moves it.</p>
+ * <p><b>What the previous version got wrong, twice over.</b> This class used to claim a
+ * long-press-the-header drag that could never fire. The tab lives inside the drawer's
+ * {@code ScrollView} and nothing called {@code requestDisallowInterceptTouchEvent}, so the list
+ * scrolled instead of the card lifting; and the handler committed {@code stack.move} on every
+ * crossing, each rebuilding the panel and destroying the view that owned the in-flight gesture.
+ * The arrows were not a precise alternative to a working drag — they were the only reorder that
+ * ran at all. See {@code installDragHandle}: disallow interception on pickup, move VIEWS during
+ * the drag, commit the MODEL once on release. Slots are stable, so keyframes follow the card
+ * whichever mechanism moves it.</p>
  */
 public final class FxPanel {
 
@@ -187,7 +191,7 @@ public final class FxPanel {
                              @NonNull FxPreviewTier.Subject subject) {
         LinearLayout card = new LinearLayout(ctx);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackgroundColor(CARD_BG);
+        card.setBackground(cardBg(d));
         int p = Math.round(8 * d);
         card.setPadding(p, p, p, p);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -203,57 +207,13 @@ public final class FxPanel {
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView caret = chip(ctx, fx.collapsed ? "▸" : "▾", d);
+        // Borderless: a disclosure triangle does not need a box around it, and the box was
+        // making the least important control in the row look like one of the most important.
+        TextView caret = iconBtn(ctx, fx.collapsed ? "▸" : "▾", d);
         caret.setOnClickListener(v -> { fx.collapsed = !fx.collapsed; rebuild.run(); });
         head.addView(caret);
-
-        // ── Long-press the header to pick the card up, then drag to reorder ──
-        // Row height is measured from the card itself rather than assumed, so a collapsed card
-        // and an expanded one both hand back a correct threshold.
-        final float[] dragStartY = {0f};
-        final boolean[] lifted = {false};
-        head.setOnLongClickListener(v -> {
-            lifted[0] = true;
-            card.setAlpha(0.75f);
-            card.setBackgroundColor(CHIP_ON);
-            v.performHapticFeedback(
-                    android.view.HapticFeedbackConstants.LONG_PRESS);
-            return true;
-        });
-        head.setOnTouchListener((v, ev) -> {
-            switch (ev.getActionMasked()) {
-                case android.view.MotionEvent.ACTION_DOWN:
-                    dragStartY[0] = ev.getRawY();
-                    return false;   // let the long-press detector see it
-                case android.view.MotionEvent.ACTION_MOVE: {
-                    if (!lifted[0]) return false;
-                    float dy = ev.getRawY() - dragStartY[0];
-                    int h = Math.max(1, card.getHeight());
-                    // Screen order is top-down while the model is bottom-up, so dragging DOWN
-                    // moves a card EARLIER in the stack. Getting this backwards would be the
-                    // most confusing possible bug here.
-                    if (dy > h * 0.6f && index > 0) {
-                        stack.move(index, index - 1);
-                        rebuild.run();
-                        host.onFxChanged();
-                    } else if (dy < -h * 0.6f && index < stack.size() - 1) {
-                        stack.move(index, index + 1);
-                        rebuild.run();
-                        host.onFxChanged();
-                    }
-                    return true;
-                }
-                case android.view.MotionEvent.ACTION_UP:
-                case android.view.MotionEvent.ACTION_CANCEL:
-                    if (!lifted[0]) return false;
-                    lifted[0] = false;
-                    card.setAlpha(1f);
-                    card.setBackgroundColor(CARD_BG);
-                    return true;
-                default:
-                    return false;
-            }
-        });
+        installDragHandle(ctx, head, card, stack,
+                (stack.size() - 1) - index, stack.size(), host, rebuild, d);
 
         TextView name = new TextView(ctx);
         name.setText(def.displayName);
@@ -285,27 +245,11 @@ public final class FxPanel {
         });
         head.addView(eye);
 
-        TextView up = chip(ctx, "▲", d);
-        up.setAlpha(index < stack.size() - 1 ? 1f : 0.3f);
-        up.setOnClickListener(v -> {
-            if (index >= stack.size() - 1) return;
-            stack.move(index, index + 1);
-            rebuild.run();
-            host.onFxChanged();
-        });
-        head.addView(up);
-
-        TextView down = chip(ctx, "▼", d);
-        down.setAlpha(index > 0 ? 1f : 0.3f);
-        down.setOnClickListener(v -> {
-            if (index <= 0) return;
-            stack.move(index, index - 1);
-            rebuild.run();
-            host.onFxChanged();
-        });
-        head.addView(down);
-
-        TextView del = chip(ctx, "✕", d);
+        // The ▲/▼ pair is gone. They were clumsy, and they were also the ONLY reorder that
+        // worked — the long-press drag this class documented could never fire (the enclosing
+        // ScrollView ate the gesture, and rebuilding mid-drag destroyed the view holding the
+        // listener). The handle below is the replacement, and it actually runs.
+        TextView del = iconBtn(ctx, "✕", d);
         del.setOnClickListener(v -> {
             // remove() also deletes this slot's keyframe tracks and retires the slot, so
             // nothing added later can inherit them.
@@ -339,7 +283,7 @@ public final class FxPanel {
         blendRow.setPadding(0, Math.round(4 * d), 0, 0);
         for (String mode : BlendModes.ALL) {
             TextView c = chip(ctx, pretty(mode), d);
-            c.setBackgroundColor(mode.equals(fx.blendMode) ? CHIP_ON : CHIP_BG);
+            c.setBackground(pill(mode.equals(fx.blendMode) ? CHIP_ON : CHIP_BG, d));
             c.setOnClickListener(v -> {
                 fx.blendMode = mode;
                 rebuild.run();
@@ -371,11 +315,11 @@ public final class FxPanel {
                 row.addView(label);
                 boolean on = fx.getScalar(param) >= 0.5f;
                 TextView c = chip(ctx, on ? "On" : "Off", d);
-                c.setBackgroundColor(on ? CHIP_ON : CHIP_BG);
+                c.setBackground(pill(on ? CHIP_ON : CHIP_BG, d));
                 c.setOnClickListener(v -> {
                     fx.set(param, on ? 0f : 1f);
                     c.setText(on ? "Off" : "On");
-                    c.setBackgroundColor(on ? CHIP_BG : CHIP_ON);
+                    c.setBackground(pill(on ? CHIP_BG : CHIP_ON, d));
                     host.onFxChanged();
                 });
                 row.addView(c);
@@ -390,7 +334,7 @@ public final class FxPanel {
                 for (int i = 0; i < labels.length; i++) {
                     final int idx = i;
                     TextView c = chip(ctx, labels[i], d);
-                    c.setBackgroundColor(Math.round(fx.getScalar(param)) == i ? CHIP_ON : CHIP_BG);
+                    c.setBackground(pill(Math.round(fx.getScalar(param)) == i ? CHIP_ON : CHIP_BG, d));
                     c.setOnClickListener(v -> {
                         fx.set(param, idx);
                         host.onFxChanged();
@@ -398,10 +342,10 @@ public final class FxPanel {
                         for (int k = 0; k < row.getChildCount(); k++) {
                             View child = row.getChildAt(k);
                             if (child instanceof TextView && child != v && k > 0) {
-                                child.setBackgroundColor(CHIP_BG);
+                                child.setBackground(pill(CHIP_BG, d));
                             }
                         }
-                        v.setBackgroundColor(CHIP_ON);
+                        v.setBackground(pill(CHIP_ON, d));
                     });
                     row.addView(c);
                 }
@@ -495,18 +439,200 @@ public final class FxPanel {
         return t;
     }
 
+    /**
+     * A selectable/stateful chip — a PILL, matching {@code PipDrawerTabs.blendTab}.
+     *
+     * <p>This used to be {@code setBackgroundColor}: a hard rectangle with no corner radius, at
+     * 26x28dp. Seven of them in one card header gave every control identical weight, all of them
+     * under half the 48dp minimum, and the visible box made each look bigger than it was
+     * tappable. The blend tab next door had already solved this with a 14dp-radius
+     * {@code GradientDrawable}; this is that, so the two panels stop disagreeing.</p>
+     *
+     * <p>The rule now: <b>chrome only where it carries STATE.</b> Toggles and selectable chips
+     * get a pill; pure actions get {@link #iconBtn}.</p>
+     */
     @NonNull
     private static TextView chip(@NonNull Context ctx, @NonNull String text, float d) {
         TextView t = new TextView(ctx);
         t.setText(text);
         t.setTextColor(TXT);
         t.setTextSize(12f);
-        int px = Math.round(9 * d), py = Math.round(6 * d);
+        int px = Math.round(12 * d), py = Math.round(7 * d);
         t.setPadding(px, py, px, py);
-        t.setBackgroundColor(CHIP_BG);
+        t.setBackground(pill(CHIP_BG, d));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = Math.round(5 * d);
+        lp.rightMargin = Math.round(7 * d);
+        t.setLayoutParams(lp);
+        return t;
+    }
+
+    /**
+     * The ☰ grab handle, and the drag session it starts.
+     *
+     * <p><b>Why this is a rewrite rather than a tweak.</b> The previous drag could not work for
+     * two independent reasons. The tab lives inside {@code PipOverlayDrawer}'s {@code ScrollView},
+     * and nothing called {@code requestDisallowInterceptTouchEvent}, so the moment the finger
+     * passed touch slop the list scrolled instead of the card lifting. And it committed
+     * {@code stack.move} on every crossing, each of which rebuilt the panel and destroyed the
+     * very view holding the touch listener — Android then delivered ACTION_CANCEL to a detached
+     * view, ending the gesture after at most one swap.</p>
+     *
+     * <p>So: disallow interception on pickup, move VIEWS during the drag and the MODEL once on
+     * release, and animate the displaced neighbours instead of rebuilding under the finger.</p>
+     *
+     * @param screenPos this card's position in the on-screen list, top-down.
+     */
+    private static void installDragHandle(@NonNull Context ctx, @NonNull LinearLayout head,
+                                          @NonNull View card, @NonNull FxStack stack,
+                                          int screenPos, int count,
+                                          @NonNull Host host, @NonNull Runnable rebuild,
+                                          float d) {
+        View handle = grabHandle(ctx, d);
+        head.addView(handle, 0);
+        if (count < 2) { handle.setAlpha(0.25f); return; }
+
+        final float[] downY = {0f};
+        final boolean[] lifted = {false};
+        final int[] shift = {0};
+
+        handle.setOnLongClickListener(v -> {
+            lifted[0] = true;
+            shift[0] = 0;
+            ViewGroup parent = (ViewGroup) card.getParent();
+            if (parent != null) parent.requestDisallowInterceptTouchEvent(true);
+            card.animate().translationZ(6 * d).scaleX(1.03f).scaleY(1.03f).alpha(0.92f)
+                    .setDuration(120).start();
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            return true;
+        });
+
+        handle.setOnTouchListener((v, ev) -> {
+            switch (ev.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    downY[0] = ev.getRawY();
+                    return false;   // let the long-press detector arm first
+                case android.view.MotionEvent.ACTION_MOVE: {
+                    if (!lifted[0]) return false;
+                    ViewGroup parent = (ViewGroup) card.getParent();
+                    if (parent != null) parent.requestDisallowInterceptTouchEvent(true);
+                    float dy = ev.getRawY() - downY[0];
+                    card.setTranslationY(dy);
+                    int h = Math.max(1, card.getHeight());
+                    int want = Math.max(-screenPos, Math.min(count - 1 - screenPos,
+                            Math.round(dy / h)));
+                    if (want != shift[0]) {
+                        shift[0] = want;
+                        slideNeighbours(parent, card, screenPos, want, h);
+                        v.performHapticFeedback(
+                                android.view.HapticFeedbackConstants.CLOCK_TICK);
+                    }
+                    return true;
+                }
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL: {
+                    if (!lifted[0]) return false;
+                    lifted[0] = false;
+                    card.animate().translationZ(0).scaleX(1f).scaleY(1f).alpha(1f)
+                            .setDuration(120).start();
+                    if (shift[0] != 0) {
+                        // Screen is top-down, the model is bottom-up: dragging DOWN moves a
+                        // card EARLIER in the stack. Committed once, here, so the list reflows
+                        // exactly once and the order the user let go of is the order they get.
+                        int from = (count - 1) - screenPos;
+                        int to = (count - 1) - (screenPos + shift[0]);
+                        stack.move(from, to);
+                        host.onFxChanged();
+                    }
+                    rebuild.run();
+                    return true;
+                }
+                default:
+                    return false;
+            }
+        });
+    }
+
+    /** Animate the cards the dragged one has passed, opening a gap where it will land. */
+    private static void slideNeighbours(@Nullable ViewGroup parent, @NonNull View dragged,
+                                        int screenPos, int shift, int rowH) {
+        if (parent == null) return;
+        int draggedIdx = parent.indexOfChild(dragged);
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            View child = parent.getChildAt(i);
+            if (child == dragged) continue;
+            int rel = i - draggedIdx;          // negative = above, positive = below
+            float target = 0f;
+            if (shift > 0 && rel > 0 && rel <= shift) target = -rowH;
+            else if (shift < 0 && rel < 0 && rel >= shift) target = rowH;
+            if (child.getTranslationY() != target) {
+                child.animate().translationY(target).setDuration(180)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                        .start();
+            }
+        }
+    }
+
+    /** Two stacked bars — the universal "grab me" mark. */
+    @NonNull
+    private static View grabHandle(@NonNull Context ctx, float d) {
+        LinearLayout box = new LinearLayout(ctx);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        for (int i = 0; i < 2; i++) {
+            View bar = new View(ctx);
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                    Math.round(16 * d), Math.round(2 * d));
+            blp.topMargin = i == 0 ? 0 : Math.round(3 * d);
+            bar.setLayoutParams(blp);
+            bar.setBackgroundColor(0x66FFFFFF);
+            box.addView(bar);
+        }
+        int size = Math.round(44 * d);
+        box.setLayoutParams(new LinearLayout.LayoutParams(size, size));
+        return box;
+    }
+
+    /** The pill background at the one radius this app uses for chips. */
+    @NonNull
+    private static android.graphics.drawable.GradientDrawable pill(int color, float d) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setColor(color);
+        g.setCornerRadius(14f * d);
+        return g;
+    }
+
+    /** A card is a soft panel, not a hard rectangle — a smaller radius than the chips on it. */
+    @NonNull
+    private static android.graphics.drawable.GradientDrawable cardBg(float d) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setColor(CARD_BG);
+        g.setCornerRadius(10f * d);
+        return g;
+    }
+
+    /**
+     * A BORDERLESS icon action — no box, and a real 48dp target.
+     *
+     * <p>For controls that do a thing rather than hold a state: the disclosure caret, delete, the
+     * keyframe diamond. A disclosure triangle does not need a container, and boxing it made the
+     * densest row in the panel out of the least important controls.</p>
+     */
+    @NonNull
+    private static TextView iconBtn(@NonNull Context ctx, @NonNull String glyph, float d) {
+        TextView t = new TextView(ctx);
+        t.setText(glyph);
+        t.setTextColor(TXT);
+        t.setTextSize(13f);
+        t.setGravity(Gravity.CENTER);
+        android.util.TypedValue tv = new android.util.TypedValue();
+        ctx.getTheme().resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless, tv, true);
+        t.setBackgroundResource(tv.resourceId);
+        int size = Math.round(44 * d);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
         t.setLayoutParams(lp);
         return t;
     }
@@ -594,7 +720,7 @@ public final class FxPanel {
             save.setOnClickListener(v -> {
                 final android.widget.EditText input = new android.widget.EditText(ctx);
                 input.setHint("Name this look");
-                new android.app.AlertDialog.Builder(ctx)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
                         .setTitle("Save look")
                         .setView(input)
                         .setPositiveButton("Save", (dlg, w) -> {
@@ -631,7 +757,7 @@ public final class FxPanel {
                     applyPreset(ctx, stack, name, host, rebuild);
                     return;
                 }
-                new android.app.AlertDialog.Builder(ctx)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
                         .setTitle("Load '" + name + "'?")
                         .setMessage("This replaces the " + stack.size()
                                 + " effect(s) on this layer.")
@@ -641,7 +767,7 @@ public final class FxPanel {
                         .show();
             });
             c.setOnLongClickListener(v -> {
-                new android.app.AlertDialog.Builder(ctx)
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
                         .setTitle("Delete '" + name + "'?")
                         .setPositiveButton("Delete", (dlg, w) -> {
                             FxPresetStore.delete(ctx, name);
@@ -683,7 +809,7 @@ public final class FxPanel {
         wrap.setPadding(0, Math.round(6 * d), 0, 0);
 
         TextView add = chip(ctx, "＋ Add effect", d);
-        add.setBackgroundColor(CHIP_ON);
+        add.setBackground(pill(CHIP_ON, d));
         final LinearLayout picker = new LinearLayout(ctx);
         picker.setOrientation(LinearLayout.VERTICAL);
         picker.setVisibility(View.GONE);

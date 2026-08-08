@@ -45,6 +45,16 @@ public final class ColorPickerDialog {
     /** Result: a colour, or {@code null} for "none". */
     public interface OnPicked { void onPicked(@Nullable Integer color); }
 
+    /**
+     * Fired on EVERY change — slider drag, wheel drag, swatch tap — so the caller can paint the
+     * live object while the dialog is still open. "I should not have to click the button Set to
+     * see how it looks" (JoyRaptor, 2026-08-08): Set only closes the dialog, it does not apply
+     * anything that live preview has not already applied.
+     */
+    public interface OnLive { void onLive(@Nullable Integer color); }
+
+    private static final OnLive NO_LIVE = c -> { };
+
     private static final String PREFS = "faditor_color_picker";
     private static final String KEY_RECENTS = "recents";
     private static final int RECENT_SLOTS = 8;
@@ -58,14 +68,25 @@ public final class ColorPickerDialog {
 
     private ColorPickerDialog() {}
 
+    /** Convenience overload for a caller with nothing to live-preview against. */
+    public static void show(@NonNull Context ctx, @NonNull String title,
+                            @Nullable Integer initial, boolean allowNone,
+                            @NonNull OnPicked onPicked) {
+        show(ctx, title, initial, allowNone, NO_LIVE, onPicked);
+    }
+
     /**
      * @param initial the current colour, or {@code null} when the thing has none.
      * @param allowNone whether to offer the "none" swatch at all. Text colour, for instance,
      *                  cannot be none — invisible text is a bug, not a style.
+     * @param onLive called on every change so the caller can paint the live object while the
+     *               dialog is open — see {@link OnLive}.
+     * @param onPicked called ONCE, when Set is pressed. Cancel instead replays {@code initial}
+     *                 through {@code onLive} and calls neither.
      */
     public static void show(@NonNull Context ctx, @NonNull String title,
                             @Nullable Integer initial, boolean allowNone,
-                            @NonNull OnPicked onPicked) {
+                            @NonNull OnLive onLive, @NonNull OnPicked onPicked) {
         float d = ctx.getResources().getDisplayMetrics().density;
         int pad = Math.round(14 * d);
 
@@ -77,6 +98,7 @@ public final class ColorPickerDialog {
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, 0);
+        root.setClipChildren(false);
 
         // ── top: sliders on the left, wheel on the right ────────────────────────────────
         LinearLayout top = new LinearLayout(ctx);
@@ -192,20 +214,25 @@ public final class ColorPickerDialog {
         root.addView(fixedRow1);
         root.addView(fixedRow2);
 
+        // OFFSET ROW, per the owner's own drawing: alternating swatches sit a couple of dp
+        // higher/lower than their neighbours instead of marching in a rigid grid line. Purely
+        // cosmetic — it costs nothing but a translationY — but it is what makes the row read as
+        // hand-laid rather than as a spreadsheet.
+        int slot = 0;
         if (allowNone) {
-            fixedRow1.addView(noneSwatch(ctx, d, () -> {
+            fixedRow1.addView(offset(noneSwatch(ctx, d, () -> {
                 isNone[0] = true;
                 syncFromHsb[0].run();
-            }));
+            }), d, slot++));
         }
         for (int i = 0; i < SWATCHES.length; i++) {
             final int c = SWATCHES[i];
-            View sw = swatch(ctx, d, c, () -> {
+            View sw = offset(swatch(ctx, d, c, () -> {
                 Color.colorToHSV(c, hsb);
                 alpha[0] = 255;
                 isNone[0] = false;
                 syncFromHsb[0].run();
-            });
+            }), d, slot++);
             (i < 7 ? fixedRow1 : fixedRow2).addView(sw);
         }
 
@@ -223,16 +250,16 @@ public final class ColorPickerDialog {
         for (int i = 0; i < RECENT_SLOTS; i++) {
             if (i < recents.size()) {
                 final int c = recents.get(i);
-                recentRow.addView(swatch(ctx, d, c, () -> {
+                recentRow.addView(offset(swatch(ctx, d, c, () -> {
                     Color.colorToHSV(c, hsb);
                     alpha[0] = Color.alpha(c);
                     isNone[0] = false;
                     syncFromHsb[0].run();
-                }));
+                }), d, i));
             } else {
                 // EMPTY slots are drawn, not omitted: the row keeps its shape as it fills, so
                 // the swatch you used last does not move under your thumb every session.
-                recentRow.addView(emptySwatch(ctx, d));
+                recentRow.addView(offset(emptySwatch(ctx, d), d, i));
             }
         }
 
@@ -252,6 +279,10 @@ public final class ColorPickerDialog {
             bg.setColor(isNone[0] ? 0x00000000 : rgb);
             bg.setStroke(Math.round(1 * d), 0xFF777777);
             preview.setBackground(bg);
+            // LIVE. "I should not have to click Set to see how it looks" — every control in
+            // this dialog funnels through syncFromHsb, so firing onLive here is the one place
+            // that makes the whole dialog live without every slider/swatch remembering to.
+            onLive.onLive(isNone[0] ? null : rgb);
         };
         wheel.setListener((h, s, b) -> {
             hsb[0] = h; hsb[1] = s; hsb[2] = b;
@@ -263,13 +294,21 @@ public final class ColorPickerDialog {
         new MaterialAlertDialogBuilder(ctx)
                 .setTitle(title)
                 .setView(root)
+                // Set does NOT apply anything — live preview already has. It only stops asking,
+                // and it is the one path that writes to recents (a value you merely previewed
+                // and then cancelled should not crowd out the ones you actually chose).
                 .setPositiveButton("Set", (dlg, w) -> {                   // TODO(strings)
                     if (isNone[0]) { onPicked.onPicked(null); return; }
                     int rgb = Color.HSVToColor(alpha[0], hsb);
                     pushRecent(ctx, rgb);
                     onPicked.onPicked(rgb);
                 })
-                .setNegativeButton(android.R.string.cancel, null)
+                // Cancel REVERTS. The live object has been tracking every drag, so undoing that
+                // means replaying the ORIGINAL value through the same onLive path — anything
+                // else leaves the object showing whatever the last drag happened to land on.
+                .setNegativeButton(android.R.string.cancel,
+                        (dlg, w) -> onLive.onLive(initial))
+                .setOnCancelListener(dlg -> onLive.onLive(initial))
                 .show();
     }
 
@@ -313,7 +352,19 @@ public final class ColorPickerDialog {
         LinearLayout r = new LinearLayout(ctx);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
+        // Enough vertical room for the offset swatches to rise/fall without clipping.
+        r.setPadding(0, Math.round(4 * r.getResources().getDisplayMetrics().density),
+                0, Math.round(4 * r.getResources().getDisplayMetrics().density));
+        r.setClipChildren(false);
+        r.setClipToPadding(false);
         return r;
+    }
+
+    /** Alternate a swatch a few dp above/below the row's baseline — the "hand-laid" look. */
+    @NonNull
+    private static View offset(@NonNull View v, float d, int index) {
+        v.setTranslationY((index % 2 == 0 ? -1f : 1f) * 3f * d);
+        return v;
     }
 
     @NonNull

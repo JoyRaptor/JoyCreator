@@ -16484,10 +16484,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bg.setColor(get.get());
         bg.setStroke((int)(1*d), 0xFF555555);
         swatch.setBackground(bg);
-        swatch.setOnClickListener(v -> showCaptionColorPicker(label, get.get(), c -> {
-            set.accept(c);
-            bg.setColor(c);
-        }));
+        // LIVE, both ways: dragging any control in the picker re-styles the caption on the
+        // preview immediately (tweakCaptionStyle records no undo, so calling it on every tick
+        // costs nothing extra), and Cancel replays the original colour back through the same
+        // path so the caption returns to exactly what it looked like before the dialog opened.
+        swatch.setOnClickListener(v -> com.fadcam.ui.faditor.tools.ColorPickerDialog.show(
+                this, label, get.get(), false,
+                c -> { if (c != null) { set.accept(c); bg.setColor(c); } },
+                c -> { if (c != null) { set.accept(c); bg.setColor(c); } }));
         row.addView(swatch);
     }
 
@@ -16517,11 +16521,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bg.setColor(getColor.get());
         bg.setStroke((int)(1*d), 0xFF555555);
         swatch.setBackground(bg);
-        swatch.setOnClickListener(v -> showCaptionColorPicker(label, getColor.get(), c -> {
-            setColor.accept(c);
-            bg.setColor(c);
-            toggle.setAlpha(1f);
-        }));
+        swatch.setOnClickListener(v -> com.fadcam.ui.faditor.tools.ColorPickerDialog.show(
+                this, label, getColor.get(), false,
+                c -> { if (c != null) { setColor.accept(c); bg.setColor(c); toggle.setAlpha(1f); } },
+                c -> { if (c != null) { setColor.accept(c); bg.setColor(c); toggle.setAlpha(1f); } }));
         row.addView(swatch);
     }
 
@@ -16560,25 +16563,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btn.setContentDescription(cd);
         btn.setOnClickListener(onClick);
         row.addView(btn);
-    }
-
-    /** Simple palette grid picker for caption colors. TODO(strings) */
-    /**
-     * Caption colours now go through the ONE app-wide picker.
-     *
-     * <p>This used to be a fixed grid of twenty swatches — no hue control, no hex, no memory of
-     * what you had just used elsewhere. Every colour in the app was picked by a different
-     * bespoke widget, so "the blue I used on the outline" was something you had to eyeball
-     * again in each place. {@link ColorPickerDialog} is that one instrument, and its recent
-     * swatches are shared, which is the whole point of making it app-wide.</p>
-     *
-     * <p>{@code allowNone} is false: a caption with no colour is invisible text, which is a bug
-     * rather than a style.</p>
-     */
-    private void showCaptionColorPicker(@NonNull String title, int current,
-                                        @NonNull java.util.function.IntConsumer onPicked) {
-        com.fadcam.ui.faditor.tools.ColorPickerDialog.show(this, title, current, false,
-                c -> { if (c != null) onPicked.accept(c); });
     }
 
     /** The style currently applied to the selection (clip or audio). */

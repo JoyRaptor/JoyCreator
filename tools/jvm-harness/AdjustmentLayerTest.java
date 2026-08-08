@@ -82,6 +82,16 @@ public class AdjustmentLayerTest {
 
         a.setHidden(true);
         check("a hidden layer is never active, even mid-span", !a.activeAt(2500));
+
+        // ZERO DURATION IS OPEN-ENDED, not "never". TimedItem.getDisplayDurationMs already
+        // draws such a layer full-width, so a renderer that gated it off produced a bar the
+        // user could see covering the project while nothing was graded.
+        AdjustmentLayer open = layer(500, 0);
+        check("open-ended: before the start is still inactive", !open.activeAt(499));
+        check("open-ended: active at the start", open.activeAt(500));
+        check("open-ended: active far past any nominal end", open.activeAt(9_999_999L));
+        open.setHidden(true);
+        check("open-ended: hidden still wins", !open.activeAt(9_999_999L));
     }
 
     static void rendersAnything() {

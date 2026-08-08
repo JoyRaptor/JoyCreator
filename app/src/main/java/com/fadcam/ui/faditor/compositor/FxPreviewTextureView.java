@@ -416,7 +416,7 @@ public class FxPreviewTextureView extends TextureView
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
     private int stageProgram, presentProgram, gradeProgram, pipProgram;
     /** The object stack {@link #pipProgram} was compiled for. */
-    @NonNull private String pipFxKey = " ";
+    @NonNull private String pipFxKey = "\0";
     /** Compiled effect steps, keyed by the concatenated source keys of every live layer. */
     @Nullable private String compiledKey;
     /** The one stack whose compile failed, so it is not retried per frame. See ensurePrograms. */
@@ -658,7 +658,7 @@ public class FxPreviewTextureView extends TextureView
             // The PiP program is compiled lazily by pipProgramFor, because its source depends on
             // the object's effect stack.
             pipProgram = 0;
-            pipFxKey = " ";
+            pipFxKey = "\0";
 
             oesTexId = newOesTexture();
 

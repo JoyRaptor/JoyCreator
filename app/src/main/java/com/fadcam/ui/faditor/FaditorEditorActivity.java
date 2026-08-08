@@ -20515,7 +20515,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 layer.getName(), 0,
-                ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(ctx, layer.getFx(), fxHost)));
+                ctx -> {
+                    android.widget.LinearLayout col = new android.widget.LinearLayout(ctx);
+                    col.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    // "Grade everything" is the commonest shape for a layer, and rebuilding it
+                    // by dragging two edges after every timeline change is busywork. An
+                    // adjustment layer has no long-press menu of its own, so the action lives
+                    // where the layer is already open.
+                    android.widget.TextView span = new android.widget.TextView(ctx);
+                    float dp = ctx.getResources().getDisplayMetrics().density;
+                    span.setText("↔  Span whole timeline");                   // TODO(strings)
+                    span.setTextColor(0xFFB388FF);
+                    span.setTextSize(13f);
+                    int p = Math.round(12 * dp);
+                    span.setPadding(p, Math.round(10 * dp), p, Math.round(10 * dp));
+                    span.setOnClickListener(v -> spanAdjustmentLayerOverTimeline(layer));
+                    col.addView(span);
+                    col.addView(com.fadcam.ui.faditor.tools.FxPanel.build(
+                            ctx, layer.getFx(), fxHost));
+                    return col;
+                }));
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
@@ -20546,6 +20565,97 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> { layer.getFx().copyFrom(undoState); fxHost.onFxChanged(); }));
         });
         ensurePipDrawer().show(tabs, toggles);
+    }
+
+    /**
+     * Cut the selected adjustment layer in two at the playhead.
+     *
+     * <p>Both halves keep the whole effect stack — splitting a grade is how you make it diverge
+     * over time (fade one half out, retune the other), so starting the right half empty would be
+     * the opposite of the reason anyone splits one.</p>
+     *
+     * <p>Returns false when the selection is not an adjustment layer, so {@code splitAtPlayhead}
+     * can fall through to its clip path.</p>
+     */
+    private boolean splitSelectedAdjustmentLayer() {
+        if (project == null || editorTimeline == null) return false;
+        String selectedId = editorTimeline.getSelectedLayerItemId();
+        if (selectedId == null) return false;
+        com.fadcam.ui.faditor.model.AdjustmentLayer layer = null;
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a
+                : project.getTimeline().getAdjustmentLayers()) {
+            if (selectedId.equals(a.getId())) { layer = a; break; }
+        }
+        if (layer == null) return false;
+
+        long total = Math.max(1L, project.getTimeline().getTotalDurationMs());
+        // Zero duration means open-ended (activeAt agrees) — materialise it before cutting, or
+        // the right half would inherit a length of "whatever the timeline is next week".
+        long endMs = layer.getDurationMs() > 0 ? layer.getEndMs() : total;
+        long cut = editorTimeline.getPlayheadPositionMs();
+        // A cut ON either edge produces a zero-length half, which is a layer that renders
+        // nothing and cannot be grabbed. Refuse rather than create one.
+        if (cut <= layer.getStartMs() || cut >= endMs) {
+            Toast.makeText(this, "Move the playhead inside the layer to split it",  // TODO(strings)
+                    Toast.LENGTH_SHORT).show();
+            return true;
+        }
+
+        final com.fadcam.ui.faditor.model.AdjustmentLayer left = layer;
+        final long beforeStart = left.getStartMs();
+        final long beforeDur = left.getDurationMs();
+        final com.fadcam.ui.faditor.model.AdjustmentLayer right = left.copy();
+        right.setId(java.util.UUID.randomUUID().toString());
+        right.setName(left.getName() + " B");
+        right.setStartMs(cut);
+        right.setDurationMs(endMs - cut);
+
+        left.setDurationMs(cut - left.getStartMs());
+        project.getTimeline().addAdjustmentLayer(right);
+        undoManager.recordAction(new EditActions.LambdaAction("Split adjustment layer",
+                () -> {
+                    left.setStartMs(beforeStart);
+                    left.setDurationMs(cut - beforeStart);
+                    project.getTimeline().addAdjustmentLayer(right);
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                },
+                () -> {
+                    project.getTimeline().removeAdjustmentLayer(right);
+                    left.setStartMs(beforeStart);
+                    left.setDurationMs(beforeDur);
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }));
+        refreshAfterMarqueeBatchDelete();
+        scheduleAutoSave();
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+        return true;
+    }
+
+    /**
+     * Stretch an adjustment layer over the whole project.
+     *
+     * <p>The common shape for a grade is "everything", and rebuilding that by dragging two edges
+     * after any timeline change is busywork the editor can just do.</p>
+     */
+    private void spanAdjustmentLayerOverTimeline(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
+        if (project == null) return;
+        long total = Math.max(1L, project.getTimeline().getTotalDurationMs());
+        final long beforeStart = layer.getStartMs();
+        final long beforeDur = layer.getDurationMs();
+        if (beforeStart == 0L && beforeDur == total) return;
+        layer.setStartMs(0L);
+        layer.setDurationMs(total);
+        undoManager.recordAction(new EditActions.LambdaAction("Span whole timeline",
+                () -> { layer.setStartMs(0L); layer.setDurationMs(total);
+                        refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
+                () -> { layer.setStartMs(beforeStart); layer.setDurationMs(beforeDur);
+                        refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); }));
+        refreshAfterMarqueeBatchDelete();
+        scheduleAutoSave();
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
     }
 
     private void addAdjustmentLayer() {
@@ -28521,6 +28631,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 splitAudioAtPlayhead(audioIdx);
                 return;
             }
+
+            // An adjustment layer is a real lane object, so Split has to mean something for it
+            // too. Checked BEFORE getSelectedClip, which returns the master clip under the
+            // playhead and would have split THAT while an adjustment layer was selected —
+            // cutting the wrong object is worse than doing nothing.
+            if (splitSelectedAdjustmentLayer()) return;
 
             Clip clip = getSelectedClip();
             if (clip == null) return;

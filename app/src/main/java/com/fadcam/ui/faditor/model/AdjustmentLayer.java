@@ -79,9 +79,18 @@ public final class AdjustmentLayer {
     /** Exclusive end, in the same editor-time base as {@link #getStartMs}. */
     public long getEndMs() { return startMs + durationMs; }
 
-    /** True when this layer is live at {@code editorMs} — what the renderers gate on. */
+    /**
+     * True when this layer is live at {@code editorMs} — what the renderers gate on.
+     *
+     * <p>A duration of zero means OPEN-ENDED (runs to the end of the timeline), matching what
+     * {@code TimedItem.getDisplayDurationMs} already draws for it. They disagreed: the lane drew
+     * a full-width bar while every renderer treated the layer as never active, so a layer could
+     * look like it covered the whole project and grade nothing. The timeline is the thing the
+     * user reads, so the renderers were the ones that were wrong.</p>
+     */
     public boolean activeAt(long editorMs) {
-        return !hidden && editorMs >= startMs && editorMs < getEndMs();
+        if (hidden || editorMs < startMs) return false;
+        return durationMs <= 0L || editorMs < getEndMs();
     }
 
     @NonNull public String getName() { return name; }

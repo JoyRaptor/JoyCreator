@@ -65,6 +65,18 @@ public final class FxPanel {
          * overlayTransform and maskKeys already use, so no conversion happens anywhere.
          */
         long playheadMs();
+
+        /**
+         * A caveat about what this preview will NOT show, or {@code ""} when it will show
+         * everything.
+         *
+         * <p>Asked of the host rather than computed here because it depends on the PROJECT, not
+         * on the device: the live preview grades the video plane, and a PiP composited beneath
+         * the layer is graded only on export. Saying that unconditionally would nag the ordinary
+         * case — most projects have no PiP at all — and saying it never would leave the one user
+         * it affects to discover it in a finished render.</p>
+         */
+        default String previewCaveat() { return ""; }
     }
 
     /**
@@ -140,6 +152,8 @@ public final class FxPanel {
         // every card. Silence here would leave the user adding effect after effect and seeing
         // nothing, with no way to tell a broken feature from an unsupported one.
         String note = FxPreviewTier.headerNote();
+        String caveat = host.previewCaveat();
+        if (!caveat.isEmpty()) note = note.isEmpty() ? caveat : note + " " + caveat;
         if (note.isEmpty()) return row;
         LinearLayout col = new LinearLayout(ctx);
         col.setOrientation(LinearLayout.VERTICAL);

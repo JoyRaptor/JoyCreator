@@ -43,6 +43,85 @@ public final class FxLivePreviewController {
         @Nullable ExoPlayer activeVideoPlayer();
         /** Hand video output back to the PlayerView's own surface. */
         void restoreVideoOutput();
+        /** The clip under the playhead, whose colour grade the preview must show. */
+        @Nullable com.fadcam.ui.faditor.model.Clip clipAtPlayhead();
+    }
+
+    /**
+     * Resolve a clip's colour grade for the renderer, or null when it has none.
+     *
+     * <p><b>The matrices come from media3, not from arithmetic here.</b> {@code Brightness},
+     * {@code Contrast} and {@code RgbAdjustment} are {@code RgbMatrix} implementations, so asking
+     * them for their matrix gives the export's exact numbers — including any future change to how
+     * media3 defines them. Building the same matrix by hand would be a copy that silently ages.</p>
+     *
+     * <p>The activation thresholds mirror {@code EffectStack.toEffects} exactly, because a stage
+     * export SKIPS must not run here: an HSL round trip at neutral saturation is not a perfect
+     * identity, and "the preview drifts slightly on every clip" is a horrible bug to chase.</p>
+     */
+    @Nullable
+    static FxPreviewTextureView.Grade gradeOf(
+            @Nullable com.fadcam.ui.faditor.model.Clip clip) {
+        if (clip == null || clip.isImageClip()) return null;
+        com.fadcam.ui.faditor.effects.EffectStack s = clip.getEffectStack();
+        if (s == null || !s.isActive()) return null;
+
+        // Exposure then contrast, composed into one matrix — media3 runs them as two chained
+        // effects, and chaining two matrix stages IS multiplying them.
+        float[] matA = identity();
+        boolean matAOn = false;
+        if (Math.abs(s.getExposure()) > 0.001f) {
+            matA = mul(new androidx.media3.effect.Brightness(s.getExposure())
+                    .getMatrix(0L, false), matA);
+            matAOn = true;
+        }
+        if (Math.abs(s.getContrast()) > 0.001f) {
+            matA = mul(new androidx.media3.effect.Contrast(s.getContrast())
+                    .getMatrix(0L, false), matA);
+            matAOn = true;
+        }
+
+        boolean satOn = Math.abs(s.getSaturation() - 1f) > 0.001f;
+        // HslAdjustment takes a PERCENTAGE and HslShaderProgram divides by 100, so what the
+        // shader actually sees is the plain fractional delta. Getting this wrong is what once
+        // made export ~100x less saturated than the preview.
+        float satAdj = s.getSaturation() - 1f;
+
+        float[] matB = identity();
+        boolean matBOn = Math.abs(s.getTemperature()) > 0.001f || Math.abs(s.getTint()) > 0.001f;
+        if (matBOn) {
+            matB = new androidx.media3.effect.RgbAdjustment.Builder()
+                    .setRedScale(1f + s.getTemperature() * 0.18f)
+                    .setGreenScale(1f + s.getTint() * 0.08f)
+                    .setBlueScale(1f - s.getTemperature() * 0.18f)
+                    .build()
+                    .getMatrix(0L, false);
+        }
+
+        boolean shaderOn = Math.abs(s.getHighlights()) > 0.001f
+                || Math.abs(s.getShadows()) > 0.001f
+                || Math.abs(s.getFade()) > 0.001f
+                || s.getVignette() > 0.001f
+                || s.getGrain() > 0.001f;
+
+        return new FxPreviewTextureView.Grade(
+                matA, matAOn, satOn, satAdj, matB, matBOn, shaderOn,
+                s.getHighlights(), s.getShadows(), s.getFade(), s.getVignette(), s.getGrain());
+    }
+
+    @NonNull
+    private static float[] identity() {
+        float[] m = new float[16];
+        android.opengl.Matrix.setIdentityM(m, 0);
+        return m;
+    }
+
+    /** {@code out = lhs * rhs} — apply {@code rhs} first, then {@code lhs}. */
+    @NonNull
+    private static float[] mul(@NonNull float[] lhs, @NonNull float[] rhs) {
+        float[] out = new float[16];
+        android.opengl.Matrix.multiplyMM(out, 0, lhs, 0, rhs, 0);
+        return out;
     }
 
     @NonNull private final FxPreviewTextureView view;
@@ -88,22 +167,28 @@ public final class FxLivePreviewController {
      */
     public void sync(@Nullable Timeline timeline, long playheadMs) {
         if (timeline == null) { stop(); return; }
-        List<AdjustmentLayer> all = timeline.getAdjustmentLayers();
-        if (all == null || all.isEmpty()) { stop(); return; }
 
+        // Either reason is enough to take the decoder: a layer that renders something, or a clip
+        // that carries a grade. Both are things the export will do and the user must therefore
+        // see; the routing itself does not care which.
+        List<AdjustmentLayer> all = timeline.getAdjustmentLayers();
         boolean anyRenders = false;
-        for (AdjustmentLayer l : all) {
-            if (l.rendersAnything()) { anyRenders = true; break; }
+        if (all != null) {
+            for (AdjustmentLayer l : all) {
+                if (l.rendersAnything()) { anyRenders = true; break; }
+            }
         }
-        if (!anyRenders) { stop(); return; }
+        FxPreviewTextureView.Grade g = gradeOf(host.clipAtPlayhead());
+        if (!anyRenders && g == null) { stop(); return; }
 
         if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
+        view.setGrade(g);
 
         // Resolve on THIS thread — the GL thread must never walk the live model. See
         // FxPreviewTextureView.Layer for why a snapshot rather than the layer itself.
         int[] size = videoSize();
-        List<AdjustmentLayer> live =
-                LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
+        List<AdjustmentLayer> live = all == null ? java.util.Collections.emptyList()
+                : LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
         for (AdjustmentLayer l : live) {
             FxPreviewTextureView.Layer s =
@@ -168,6 +253,7 @@ public final class FxLivePreviewController {
         routed = false;
         routedPlayer = null;
         view.setLayers(java.util.Collections.emptyList());
+        view.setGrade(null);
         host.restoreVideoOutput();
         FLog.i(TAG, "live FX preview released");
     }

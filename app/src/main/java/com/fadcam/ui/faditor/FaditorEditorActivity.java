@@ -6739,7 +6739,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable private Clip gradedPreviewClip;
     private boolean gradeLayoutWatcherAttached;
 
+    /**
+     * Put the clip's grade on the live preview as media3 effects.
+     *
+     * <p><b>Rebuilt only on change.</b> {@code setVideoEffects} tears down and re-creates the
+     * frame processor, which drops a frame or two — invisible once, a stutter if it ran on every
+     * playhead tick. The key is the serialized stack, so dragging a slider rebuilds (as it must)
+     * and merely playing does not.</p>
+     */
     private void applyPreviewColorGrade(@Nullable Clip clip) {
+        // THE GL PATH, on every device. FxPreviewTextureView runs the grade itself, from
+        // media3's own matrices and the export's own grade function, covering the shader-only
+        // parameters (highlights, shadows, fade, vignette, grain) that the ColorMatrix path
+        // below could never show — and covering them on API 24 rather than 31/33.
+        //
+        // Handing ExoPlayer the export's Effect list via setVideoEffects was tried first and
+        // does NOT render in this preview path, routed or not: with saturation dragged to 0 the
+        // picture stayed fully saturated on the device. That is what this method's original
+        // javadoc always claimed, and it is still true.
+        if (com.fadcam.ui.faditor.fx.FxPreviewTier.usesGl()) {
+            gradedPreviewClip = clip;
+            // The renderer is fed from the playhead tick, which already carries the clip; there
+            // is nothing to push here. Kept as an explicit early return so the RenderEffect path
+            // below cannot also run and double-apply the grade on a new phone.
+            syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+            return;
+        }
         if (playerView == null
                 || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
             return;
@@ -20219,9 +20244,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public void restoreVideoOutput() {
                             if (playerManager != null) playerManager.restoreVideoOutput();
                         }
+                        @Override public com.fadcam.ui.faditor.model.Clip clipAtPlayhead() {
+                            return getSelectedClip();
+                        }
                     });
         }
         fxLivePreview.sync(project.getTimeline(), absoluteMs);
+    }
+
+    /**
+     * Does this project composite any picture-in-picture video?
+     *
+     * <p>Used only to decide whether the FX panel owes the user a caveat. Cheap enough to answer
+     * on each panel build — a timeline has tens of clips, not thousands.</p>
+     */
+    private boolean projectHasOverlayVideo() {
+        if (project == null) return false;
+        // The SAME authority the PiP preview and the export sequence consume, rather than a
+        // fourth opinion about what counts as an overlay clip.
+        return !com.fadcam.ui.faditor.compositor.LayerPreviewController
+                .visibleOverlayVideoClips(project.getTimeline()).isEmpty();
     }
 
     private void openOrCreateAdjustmentLayer() {
@@ -20258,6 +20300,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
             }
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public String previewCaveat() {
+                // Only when the project actually HAS a PiP. Export composites PiPs BENEATH the
+                // adjustment layer (ExportManager:2723 before :2789), so they are graded there;
+                // the live preview grades the video plane only, because a PiP is a separate
+                // Android surface rather than a texture in this chain.
+                return projectHasOverlayVideo()
+                        ? "Picture-in-picture clips are graded on export, not in this preview."
+                        : "";
+            }
         };
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =

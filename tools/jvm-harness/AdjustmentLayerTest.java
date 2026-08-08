@@ -331,6 +331,45 @@ public class AdjustmentLayerTest {
                 !composite.contains("  gl_FragColor = c;\n"));
         check("a sampler pass reads the neighbour offset uniform it was emitted for",
                 plain.contains("uTexel"));
+        declarationOrder();
+    }
+
+    /**
+     * {@code fxuvN} → {@code fxRemap} → {@code fxN}, in that order in the SOURCE.
+     *
+     * <p>GLSL ES 1.00 is declaration-before-use and has no forward declarations in play here, so
+     * this ordering is not style — it is whether the program compiles. It did not: {@code
+     * fxRemap} was emitted ahead of the {@code fxuvN} bodies it calls, so every Pixelate or
+     * Offset stack failed to link with "'fxuv2': no matching overloaded function found". On
+     * export that degraded to passthrough with no user-visible sign, which is why it survived a
+     * device verification pass that called all twelve effects shipped.</p>
+     */
+    static void declarationOrder() {
+        com.fadcam.ui.faditor.fx.FxStack s = new com.fadcam.ui.faditor.fx.FxStack();
+        s.add("pixelate");        // UV_REMAP -> emits fxuvN and fxRemap
+        s.add("gaussian_blur");   // SAMPLER  -> its body expands FX_SAMPLE_SRC into fxRemap(...)
+        com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
+                com.fadcam.ui.faditor.fx.FxCompiler.plan(s);
+        boolean checked = false;
+        for (com.fadcam.ui.faditor.fx.FxCompiler.Pass p : plan.passes) {
+            String src = com.fadcam.ui.faditor.fx.FxCompiler.emitGlsl(
+                    p, com.fadcam.ui.faditor.fx.FxGlSource.KERNEL_HALF);
+            int remapDef = src.indexOf("vec2 fxRemap(vec2 uv) {");
+            int firstUvDef = src.indexOf("vec2 fxuv");
+            if (remapDef < 0 || firstUvDef < 0) continue;
+            checked = true;
+            check("every fxuvN body is declared before fxRemap calls it",
+                    firstUvDef < remapDef);
+            // and the call site inside fxRemap must refer to one that now exists above it
+            String head = src.substring(0, remapDef);
+            int callAt = src.indexOf("uv = fxuv", remapDef);
+            if (callAt > 0) {
+                String name = src.substring(callAt + 5, src.indexOf('(', callAt));
+                check("...specifically " + name,
+                        head.contains("vec2 " + name + "(vec2 uv) {"));
+            }
+        }
+        check("a remap pass was actually produced to check", checked);
     }
 
     // ── plumbing ────────────────────────────────────────────────────────────

@@ -185,6 +185,43 @@ public class FxPreviewTextureView extends TextureView
         }
     }
 
+    /**
+     * The clip colour grade, resolved to what the shader needs.
+     *
+     * <p>Built on the main thread from {@link com.fadcam.ui.faditor.effects.EffectStack}, with the
+     * matrix stages taken from media3's OWN {@code Brightness} / {@code Contrast} /
+     * {@code RgbAdjustment} rather than recomputed — see
+     * {@link com.fadcam.ui.faditor.effects.ColorGradeGlSource}. The {@code On} flags reproduce
+     * {@code toEffects}' activation thresholds so the preview skips exactly what export skips.</p>
+     */
+    public static final class Grade {
+        @NonNull final float[] matA;
+        @NonNull final float[] matB;
+        final boolean matAOn, matBOn, satOn, shaderOn;
+        final float satAdj, highlights, shadows, fade, vignette, grain;
+
+        public Grade(@NonNull float[] matA, boolean matAOn, boolean satOn, float satAdj,
+                     @NonNull float[] matB, boolean matBOn, boolean shaderOn, float highlights,
+                     float shadows, float fade, float vignette, float grain) {
+            this.matA = matA;
+            this.matAOn = matAOn;
+            this.satOn = satOn;
+            this.satAdj = satAdj;
+            this.matB = matB;
+            this.matBOn = matBOn;
+            this.shaderOn = shaderOn;
+            this.highlights = highlights;
+            this.shadows = shadows;
+            this.fade = fade;
+            this.vignette = vignette;
+            this.grain = grain;
+        }
+
+        boolean rendersAnything() {
+            return matAOn || matBOn || satOn || shaderOn;
+        }
+    }
+
     // ── Main-thread state ────────────────────────────────────────────────────────────────────
 
     @Nullable private SurfaceListener surfaceListener;
@@ -194,6 +231,8 @@ public class FxPreviewTextureView extends TextureView
 
     /** Published for the GL thread. Immutable objects, so a plain volatile handoff is enough. */
     @NonNull private volatile List<Layer> layers = java.util.Collections.emptyList();
+    /** The clip grade, or null when the clip under the playhead has none. */
+    @Nullable private volatile Grade grade;
     private volatile int videoW = 0, videoH = 0;
     /** @see #setVideoRotation */
     private volatile int rotation = 0;
@@ -211,7 +250,7 @@ public class FxPreviewTextureView extends TextureView
     private volatile int surfaceW, surfaceH;
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
-    private int stageProgram, presentProgram;
+    private int stageProgram, presentProgram, gradeProgram;
     /** Compiled effect steps, keyed by the concatenated source keys of every live layer. */
     @Nullable private String compiledKey;
     /** The one stack whose compile failed, so it is not retried per frame. See ensurePrograms. */
@@ -306,6 +345,18 @@ public class FxPreviewTextureView extends TextureView
         requestFrame();
     }
 
+    /**
+     * The colour grade for the clip under the playhead, or null for none.
+     *
+     * <p>Runs BEFORE the adjustment layers, which is where the export chain puts it
+     * (ExportManager:2560 against :2789) — a layer grades what the clip grade already produced,
+     * not the raw decode.</p>
+     */
+    public void setGrade(@Nullable Grade g) {
+        grade = g;
+        requestFrame();
+    }
+
     /** Redraw with current state even if no new decoder frame arrived (a paused scrub). */
     public void requestFrame() {
         Handler h = glHandler;
@@ -394,6 +445,8 @@ public class FxPreviewTextureView extends TextureView
 
             stageProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_FRAGMENT);
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
+            gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
+                    com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
 
             int[] ids = new int[1];
             GLES20.glGenTextures(1, ids, 0);
@@ -442,12 +495,19 @@ public class FxPreviewTextureView extends TextureView
             drawStage(vw, vh);
             int cur = 0;
 
-            // 2 — every live layer, in z order, each grading the result of the one beneath.
-            if (!degraded && !live.isEmpty() && ensurePrograms(live)) {
-                cur = drawLayers(live, vw, vh);
+            // 2 — the CLIP grade, before any layer, exactly as the export chain orders them.
+            Grade g = grade;
+            if (!degraded && g != null && g.rendersAnything()) {
+                drawGrade(g, cur, 1, vw, vh);
+                cur = 1;
             }
 
-            // 3 — present the finished frame, fit-centred, at view resolution.
+            // 3 — every live layer, in z order, each grading the result of the one beneath.
+            if (!degraded && !live.isEmpty() && ensurePrograms(live)) {
+                cur = drawLayers(live, vw, vh, cur);
+            }
+
+            // 4 — present the finished frame, fit-centred, at view resolution.
             drawPresent(targets[cur][0]);
             EGL14.eglSwapBuffers(eglDisplay, eglSurface);
         } catch (Exception e) {
@@ -474,6 +534,30 @@ public class FxPreviewTextureView extends TextureView
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
     }
 
+    /** The clip colour grade: {@code src} → {@code dst}, one pass, media3's own math. */
+    private void drawGrade(@NonNull Grade g, int src, int dst, int vw, int vh) {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(gradeProgram);
+        bindQuad(gradeProgram);
+        setSampler(gradeProgram, "uTexSampler", targets[src][0], 0, true);
+        GLES20.glUniformMatrix4fv(
+                GLES20.glGetUniformLocation(gradeProgram, "uGradeMatA"), 1, false, g.matA, 0);
+        GLES20.glUniformMatrix4fv(
+                GLES20.glGetUniformLocation(gradeProgram, "uGradeMatB"), 1, false, g.matB, 0);
+        setF(gradeProgram, "uGradeMatAOn", g.matAOn ? 1f : 0f);
+        setF(gradeProgram, "uGradeMatBOn", g.matBOn ? 1f : 0f);
+        setF(gradeProgram, "uSatOn", g.satOn ? 1f : 0f);
+        setF(gradeProgram, "uSatAdj", g.satAdj);
+        setF(gradeProgram, "uShaderOn", g.shaderOn ? 1f : 0f);
+        setF(gradeProgram, "uHighlights", g.highlights);
+        setF(gradeProgram, "uShadows", g.shadows);
+        setF(gradeProgram, "uFade", g.fade);
+        setF(gradeProgram, "uVignette", g.vignette);
+        setF(gradeProgram, "uGrain", g.grain);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+    }
+
     /**
      * Run every layer's compiled steps. Returns the index of the target holding the result.
      *
@@ -483,8 +567,8 @@ public class FxPreviewTextureView extends TextureView
      * finished. One slot holds the base and the other two ping-pong; when the layer completes,
      * its output becomes the next layer's base and the old base is free again.</p>
      */
-    private int drawLayers(@NonNull List<Layer> live, int vw, int vh) {
-        int base = 0;
+    private int drawLayers(@NonNull List<Layer> live, int vw, int vh, int from) {
+        int base = from;
         for (int li = 0; li < compiled.size() && li < live.size(); li++) {
             Layer layer = live.get(li);
             List<Step> steps = compiled.get(li).steps;

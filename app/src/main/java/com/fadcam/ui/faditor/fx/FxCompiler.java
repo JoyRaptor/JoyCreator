@@ -149,6 +149,9 @@ public final class FxCompiler {
         emitUniformDecls(sb, pass, false);
         sb.append(PRELUDE_GLSL);
         sb.append(BlendModes.glslBlendFnWithModeParam()).append(FOLD_FN);
+        // fxuvN → fxRemap → fxN. See emitRemapCardFns for why this order is the only one that
+        // compiles.
+        emitRemapCardFns(sb, pass, false, kernelHalf);
         emitRemapFn(sb, pass, false, kernelHalf);
         emitCardFns(sb, pass, false, kernelHalf);
         sb.append("void main() {\n")
@@ -174,6 +177,9 @@ public final class FxCompiler {
         emitUniformDecls(sb, pass, true);
         sb.append(PRELUDE_AGSL);
         sb.append(toAgsl(BlendModes.glslBlendFnWithModeParam())).append(toAgsl(FOLD_FN));
+        // Same chain as the GLSL path — AGSL is likewise declaration-before-use, and has no
+        // prototypes to fall back on.
+        emitRemapCardFns(sb, pass, true, kernelHalf);
         emitRemapFn(sb, pass, true, kernelHalf);
         emitCardFns(sb, pass, true, kernelHalf);
         // THE PROLOGUE. co is in local pixel space; every body downstream sees 0..1.
@@ -283,8 +289,24 @@ public final class FxCompiler {
         sb.append("  return uv;\n}\n");
     }
 
-    private static void emitCardFns(@NonNull StringBuilder sb, @NonNull Pass pass, boolean agsl,
-                                    int kernelHalf) {
+    /**
+     * The REMAP card bodies, {@code fxuvN}.
+     *
+     * <p>Split from the effect cards, and emitted before {@link #emitRemapFn}, because the three
+     * kinds form a strict chain: {@code fxuvN} → {@code fxRemap} → {@code fxN}. {@code fxRemap}
+     * calls every {@code fxuvN}; an effect card that SAMPLES expands {@code FX_SAMPLE_SRC} into a
+     * call to {@code fxRemap}. GLSL ES 1.00 requires declaration before use, so any other order
+     * fails to compile — and it did: emitting {@code fxRemap} first made every Pixelate or Offset
+     * stack fail with "'fxuv2': no matching overloaded function found", on EXPORT as well as
+     * preview, where it degraded silently to passthrough. Found by the live preview, which
+     * logs the driver's message and the source.</p>
+     *
+     * <p>A remap body cannot itself sample — {@code FxRegistry} rejects a non-SAMPLER card whose
+     * body reads neighbours — so this end of the chain has no back edge and no prototype is
+     * needed.</p>
+     */
+    private static void emitRemapCardFns(@NonNull StringBuilder sb, @NonNull Pass pass,
+                                         boolean agsl, int kernelHalf) {
         for (FxInstance card : pass.remaps) {
             FxEffectDef def = card.def();
             if (def == null) continue;
@@ -293,6 +315,11 @@ public final class FxCompiler {
               .append(" uv) {\n").append(indent(expand(def.glslBody, card, agsl, kernelHalf)))
               .append("}\n");
         }
+    }
+
+    /** The EFFECT card bodies, {@code fxN}. These may call {@code fxRemap}. */
+    private static void emitCardFns(@NonNull StringBuilder sb, @NonNull Pass pass, boolean agsl,
+                                    int kernelHalf) {
         for (FxInstance card : pass.cards) {
             FxEffectDef def = card.def();
             if (def == null) continue;

@@ -132,6 +132,31 @@ public final class FxPanel {
         return root;
     }
 
+    /**
+     * Run a structural change to the stack as ONE undoable step.
+     *
+     * <p>{@code Host.recordUndo} has been declared since this panel was written and was never
+     * called from it: adding, deleting, bypassing and reordering effects all mutated the model
+     * silently, so the editor's undo button skipped straight past them to whatever timeline edit
+     * came before. Deleting a card is the worst of those — {@code FxStack.remove} also drops the
+     * slot's keyframe tracks, so an accidental ✕ threw away hand-animated curves with no way
+     * back. That is why this snapshots rather than trying to invert each operation: the tracks
+     * live in the stack too, and a whole-stack copy restores them without every call site having
+     * to remember they exist.</p>
+     */
+    private static void structural(@NonNull FxStack stack, @NonNull Host host,
+                                   @NonNull Runnable rebuild, @NonNull String label,
+                                   @NonNull Runnable mutate) {
+        FxStack before = stack.copy();
+        mutate.run();
+        FxStack after = stack.copy();
+        rebuild.run();
+        host.onFxChanged();
+        host.recordUndo(label,
+                () -> { stack.copyFrom(after); rebuild.run(); host.onFxChanged(); },
+                () -> { stack.copyFrom(before); rebuild.run(); host.onFxChanged(); });
+    }
+
     // ── Header ──────────────────────────────────────────────────────────────
 
     @NonNull
@@ -238,11 +263,9 @@ public final class FxPanel {
 
         // Bypass, which is also the cheap escape: a disabled card contributes NO pass at all.
         TextView eye = chip(ctx, fx.enabled ? "◉" : "◌", d);
-        eye.setOnClickListener(v -> {
-            fx.enabled = !fx.enabled;
-            rebuild.run();
-            host.onFxChanged();
-        });
+        eye.setOnClickListener(v -> structural(stack, host, rebuild,
+                fx.enabled ? "Bypass effect" : "Enable effect",
+                () -> fx.enabled = !fx.enabled));
         head.addView(eye);
 
         // The ▲/▼ pair is gone. They were clumsy, and they were also the ONLY reorder that
@@ -250,13 +273,12 @@ public final class FxPanel {
         // ScrollView ate the gesture, and rebuilding mid-drag destroyed the view holding the
         // listener). The handle below is the replacement, and it actually runs.
         TextView del = iconBtn(ctx, "✕", d);
-        del.setOnClickListener(v -> {
-            // remove() also deletes this slot's keyframe tracks and retires the slot, so
-            // nothing added later can inherit them.
-            stack.remove(index);
-            rebuild.run();
-            host.onFxChanged();
-        });
+        // No confirm dialog: the delete is now a recorded undo step, and undo is a better
+        // answer than a modal on every ✕. remove() also deletes this slot's keyframe tracks
+        // and retires the slot, so nothing added later can inherit them — the snapshot in
+        // structural() is what brings those curves back.
+        del.setOnClickListener(v -> structural(stack, host, rebuild,
+                "Delete " + def.displayName, () -> stack.remove(index)));
         head.addView(del);
         card.addView(head);
 
@@ -490,20 +512,81 @@ public final class FxPanel {
                                           float d) {
         View handle = grabHandle(ctx, d);
         head.addView(handle, 0);
-        if (count < 2) { handle.setAlpha(0.25f); return; }
+        if (count < 2) {
+            // Dimmed AND answerable. A greyed control with no explanation reads as broken; the
+            // user has said so about other dimmed things in this panel. One card cannot be
+            // reordered, and saying that costs a toast.
+            handle.setAlpha(0.25f);
+            handle.setOnClickListener(v -> android.widget.Toast.makeText(ctx,
+                    "Add a second effect to reorder the chain",   // TODO(strings)
+                    android.widget.Toast.LENGTH_SHORT).show());
+            return;
+        }
 
         final float[] downY = {0f};
+        final float[] lastRawY = {0f};
         final boolean[] lifted = {false};
         final int[] shift = {0};
+        /** Pixels the enclosing ScrollView has auto-scrolled during THIS drag. */
+        final int[] scrolled = {0};
+        final Runnable[] autoScroll = {null};
+
+        // One place that turns "finger is here" into "card is there, neighbours are apart",
+        // because the auto-scroller has to re-run exactly the same maths without a MotionEvent.
+        final Runnable applyDrag = () -> {
+            ViewGroup parent = (ViewGroup) card.getParent();
+            if (parent == null) return;
+            // Scrolling moves the card with the content, so the finger's raw-Y delta alone
+            // would let the card slide out from under the finger the moment the list scrolls.
+            float dy = lastRawY[0] - downY[0] + scrolled[0];
+            card.setTranslationY(dy);
+            int h = Math.max(1, card.getHeight());
+            int want = Math.max(-screenPos, Math.min(count - 1 - screenPos,
+                    rowsCrossed(parent, card, dy)));
+            if (want != shift[0]) {
+                shift[0] = want;
+                slideNeighbours(parent, card, screenPos, want, h);
+                card.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK);
+            }
+        };
+
+        // Auto-scroll: the drawer is capped and scrollable now, so a chain of eight effects is
+        // taller than the tab. Without this, a card can only ever be dragged as far as the
+        // visible edge and reordering across a scroll is impossible.
+        autoScroll[0] = new Runnable() {
+            @Override public void run() {
+                if (!lifted[0]) return;
+                android.widget.ScrollView sv = scrollParent(card);
+                if (sv != null && sv.getHeight() > 0) {
+                    int[] loc = new int[2];
+                    sv.getLocationOnScreen(loc);
+                    float zone = 56 * d;
+                    float y = lastRawY[0] - loc[1];
+                    int dir = y < zone ? -1 : (y > sv.getHeight() - zone ? 1 : 0);
+                    if (dir != 0) {
+                        int before = sv.getScrollY();
+                        sv.scrollBy(0, dir * Math.round(9 * d));
+                        int delta = sv.getScrollY() - before;
+                        if (delta != 0) {
+                            scrolled[0] += delta;
+                            applyDrag.run();
+                        }
+                    }
+                }
+                card.postOnAnimation(this);
+            }
+        };
 
         handle.setOnLongClickListener(v -> {
             lifted[0] = true;
             shift[0] = 0;
+            scrolled[0] = 0;
             ViewGroup parent = (ViewGroup) card.getParent();
             if (parent != null) parent.requestDisallowInterceptTouchEvent(true);
             card.animate().translationZ(6 * d).scaleX(1.03f).scaleY(1.03f).alpha(0.92f)
                     .setDuration(120).start();
             v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            card.postOnAnimation(autoScroll[0]);
             return true;
         });
 
@@ -511,28 +594,21 @@ public final class FxPanel {
             switch (ev.getActionMasked()) {
                 case android.view.MotionEvent.ACTION_DOWN:
                     downY[0] = ev.getRawY();
+                    lastRawY[0] = ev.getRawY();
                     return false;   // let the long-press detector arm first
                 case android.view.MotionEvent.ACTION_MOVE: {
                     if (!lifted[0]) return false;
                     ViewGroup parent = (ViewGroup) card.getParent();
                     if (parent != null) parent.requestDisallowInterceptTouchEvent(true);
-                    float dy = ev.getRawY() - downY[0];
-                    card.setTranslationY(dy);
-                    int h = Math.max(1, card.getHeight());
-                    int want = Math.max(-screenPos, Math.min(count - 1 - screenPos,
-                            rowsCrossed(parent, card, dy)));
-                    if (want != shift[0]) {
-                        shift[0] = want;
-                        slideNeighbours(parent, card, screenPos, want, h);
-                        v.performHapticFeedback(
-                                android.view.HapticFeedbackConstants.CLOCK_TICK);
-                    }
+                    lastRawY[0] = ev.getRawY();
+                    applyDrag.run();
                     return true;
                 }
                 case android.view.MotionEvent.ACTION_UP:
                 case android.view.MotionEvent.ACTION_CANCEL: {
                     if (!lifted[0]) return false;
-                    lifted[0] = false;
+                    lifted[0] = false;   // also stops the auto-scroller on its next frame
+                    card.removeCallbacks(autoScroll[0]);
                     card.animate().translationZ(0).scaleX(1f).scaleY(1f).alpha(1f)
                             .setDuration(120).start();
                     // AN INTERRUPTED GESTURE REVERTS — never commits (the fcc0bd5 rule, which
@@ -546,10 +622,13 @@ public final class FxPanel {
                     if (shift[0] != 0) {
                         int[] fromTo = com.fadcam.ui.faditor.fx.FxReorder.indices(
                                 screenPos, shift[0], count);
-                        stack.move(fromTo[0], fromTo[1]);
-                        host.onFxChanged();
+                        structural(stack, host, rebuild, "Reorder effects",
+                                () -> stack.move(fromTo[0], fromTo[1]));
+                    } else {
+                        // Nothing moved (or the gesture was cancelled) — repaint to drop the
+                        // neighbours' translations without recording an empty undo step.
+                        rebuild.run();
                     }
-                    rebuild.run();
                     return true;
                 }
                 default:
@@ -602,6 +681,21 @@ public final class FxPanel {
                         .start();
             }
         }
+    }
+
+    /**
+     * The nearest scrolling ancestor, or null. Walked rather than named: this tab is hosted by
+     * {@code PipOverlayDrawer} today and by whatever hosts it next, and a hardcoded id would
+     * silently disable auto-scroll the day it moves.
+     */
+    @Nullable
+    private static android.widget.ScrollView scrollParent(@NonNull View v) {
+        android.view.ViewParent p = v.getParent();
+        while (p != null) {
+            if (p instanceof android.widget.ScrollView) return (android.widget.ScrollView) p;
+            p = p.getParent();
+        }
+        return null;
     }
 
     /** Two stacked bars — the universal "grab me" mark. */
@@ -820,13 +914,20 @@ public final class FxPanel {
     private static void applyPreset(@NonNull Context ctx, @NonNull FxStack stack,
                                     @NonNull String name, @NonNull Host host,
                                     @NonNull Runnable rebuild) {
+        // Snapshot BEFORE the load, because load() replaces the whole chain in place — this is
+        // the single most destructive action in the panel and it had no undo at all.
+        FxStack before = stack.copy();
         if (!FxPresetStore.load(ctx, name, stack)) {
             android.widget.Toast.makeText(ctx, "Could not load '" + name + "'",
                     android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
+        FxStack after = stack.copy();
         rebuild.run();
         host.onFxChanged();
+        host.recordUndo("Apply preset '" + name + "'",
+                () -> { stack.copyFrom(after); rebuild.run(); host.onFxChanged(); },
+                () -> { stack.copyFrom(before); rebuild.run(); host.onFxChanged(); });
     }
 
     // ── The picker ──────────────────────────────────────────────────────────
@@ -894,10 +995,9 @@ public final class FxPanel {
                             .show());
                 } else {
                     c.setOnClickListener(v -> {
-                        stack.add(def.id);
                         picker.setVisibility(View.GONE);
-                        rebuild.run();
-                        host.onFxChanged();
+                        structural(stack, host, rebuild, "Add " + def.displayName,
+                                () -> stack.add(def.id));
                     });
                 }
                 current.addView(c);

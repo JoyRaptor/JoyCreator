@@ -20670,12 +20670,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /**
      * Move the picture out from under an open drawer.
      *
-     * <p><b>Spend the letterbox before spending the picture.</b> A 16:9 project in a tall slot
-     * is centred with equal black bands above and below, so the drawer can eat the top band for
-     * free — the video slides down into space that was showing nothing. Only when the drawer is
-     * taller than that slack does anything get given up, and then only the remainder. Computing
-     * it this way matters most on the case the owner usually works in: a 9:16 project has almost
-     * no slack, and a blind "push the video down" would just move the occlusion to the bottom.</p>
+     * <p><b>Translate, then shrink only if translating is not enough.</b> The drawer covers the
+     * top {@code drawerHeightPx} of the slot, leaving a band underneath; the video is re-centred
+     * in that band, which for a 16:9 project in a tall slot costs nothing at all — it slides down
+     * into letterbox that was showing black. A 9:16 project is the case the owner actually works
+     * in and it has almost no letterbox to spend, so translation alone would move the occlusion
+     * from the top of the picture to the bottom of the slot. When the band is shorter than the
+     * video, the container is scaled to fit it. A smaller picture that is entirely visible beats
+     * a full-size one with its head cut off, and it is what the ask ("the preview should animate
+     * down above an open drawer") means on the format it was asked about.</p>
+     *
+     * <p>Scaling the CONTAINER rather than the player keeps every sibling overlay — handles,
+     * text, sprites, the GL composite — registered with the picture, and Android maps touches
+     * back through the same matrix, so hit-testing needs no compensation. Safe because the
+     * player is a {@code texture_view} (see {@code activity_faditor_editor.xml}); a SurfaceView
+     * would tear.</p>
      *
      * <p>220ms decelerate, matching the drawer's own slide, so the two read as one movement.</p>
      */
@@ -20683,18 +20692,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         View container = findViewById(R.id.player_container);
         if (container == null) return;
         float shift = 0f;
-        if (drawerHeightPx > 0) {
+        float scale = 1f;
+        int slotH = container.getHeight();
+        if (drawerHeightPx > 0 && slotH > 0) {
             int videoH = 0;
             if (playerView != null && playerView.getVideoSurfaceView() != null) {
                 videoH = playerView.getVideoSurfaceView().getHeight();
             }
-            if (videoH <= 0) videoH = container.getHeight();
-            int slack = Math.max(0, (container.getHeight() - videoH) / 2);
-            // Never push the video's own bottom past the container: below the slack we would be
-            // trading one occlusion for another.
-            shift = Math.min(drawerHeightPx, slack);
+            if (videoH <= 0) videoH = slotH;
+            int bandH = Math.max(1, slotH - drawerHeightPx);
+            // Pivot is the container's centre, so re-centring in the band is exactly half the
+            // drawer's height regardless of scale — the scaled picture stays centred on the
+            // pivot, and the pivot moves by (bandCentre - slotCentre) = drawer / 2.
+            shift = drawerHeightPx / 2f;
+            if (videoH > bandH) scale = Math.max(0.35f, bandH / (float) videoH);
         }
-        container.animate().translationY(shift).setDuration(220)
+        container.setPivotX(container.getWidth() / 2f);
+        container.setPivotY(slotH / 2f);
+        container.animate().translationY(shift).scaleX(scale).scaleY(scale).setDuration(220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
     }
 

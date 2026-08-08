@@ -136,6 +136,64 @@ public final class FxRegistry {
             + "float v = m < 0.5 ? FX_NOISE(p * 0.25) : (m < 1.5 ? f : abs(f * 2.0 - 1.0));\n"
             + "return vec4(mix(src.rgb, vec3(v), FX_P(amount)), src.a);\n";
 
+    private static final String BODY_SOLID_COLOR =
+            // GENERATOR, so src is whatever the pass has built so far, not "nothing" — mixing by
+            // FX_P(amount) is what makes the swatch usable as a translucent overlay rather than
+            // an opaque plate. The per-card opacity/blend row (every card has one) is a SECOND,
+            // independent control on top of this, the same relationship "noise"'s own amount has
+            // to its card opacity.
+            "return vec4(mix(src.rgb, FX_P(color), FX_P(amount)), src.a);\n";
+
+    /**
+     * A Photoshop-style gradient fill: pick a shape, rotate it, walk its parametric {@code t}
+     * through mirror-fold and flip, then look the colour and per-pixel alpha up in the ramp.
+     *
+     * <p><b>Aspect correction, not pixel space.</b> {@code FxCompiler} bodies only ever see
+     * {@code FX_UV} (0..1) and {@code FX_ASPECT} (a scalar ratio) — no frame width/height in
+     * pixels, unlike {@code MaskSdf}'s mask shapes. Scaling the x delta by {@code FX_ASPECT}
+     * before rotating is mathematically the SAME non-shearing rotation {@code MaskSdf} does in
+     * true pixel space, up to a uniform scale — dividing both axes by frame height cancels to
+     * exactly this. So a 45° line is genuinely 45° on a 16:9 frame, not sheared.</p>
+     *
+     * <p><b>Curve is a STUB.</b> "Linear with 1–3 vertices and bezier handles, parameterised by
+     * arc length" needs either an iterative nearest-point solve or an arc-length lookup table —
+     * real work this build did not reach. Selecting it renders as Linear, on purpose and
+     * documented on the ENUM label ("Curve (soon)") rather than silently drawing nothing.</p>
+     */
+    private static final String BODY_GRADIENT_FILL =
+            "vec2 d = uv - FX_P(center);\n"
+            + "vec2 ap = vec2(d.x * FX_ASPECT, d.y);\n"
+            + "float ang = radians(FX_P(angle));\n"
+            + "float ca = cos(ang);\n"
+            + "float sa = sin(ang);\n"
+            + "vec2 rd = vec2(ap.x * ca + ap.y * sa, -ap.x * sa + ap.y * ca);\n"
+            + "float shape = FX_P(shape);\n"
+            + "float t;\n"
+            + "if (shape < 0.5) {\n"                    // Linear
+            + "  t = rd.x + 0.5;\n"
+            + "} else if (shape < 1.5) {\n"              // Radial
+            + "  t = length(rd) * 2.0;\n"
+            + "} else if (shape < 2.5) {\n"              // Angle / conic
+            + "  t = atan(rd.y, rd.x) / 6.28318530718 + 0.5;\n"
+            + "} else if (shape < 3.5) {\n"              // Reflected (mirror of linear at centre)
+            + "  t = abs(rd.x) * 2.0;\n"
+            + "} else if (shape < 4.5) {\n"              // Diamond
+            + "  t = (abs(rd.x) + abs(rd.y)) * 2.0;\n"
+            + "} else if (shape < 5.5) {\n"              // Box
+            + "  t = max(abs(rd.x), abs(rd.y)) * 2.0;\n"
+            + "} else {\n"                               // Curve — STUB, falls back to Linear
+            + "  t = rd.x + 0.5;\n"
+            + "}\n"
+            + "if (FX_GRAD_MIRROR > 0.5) {\n"
+            + "  float m = mod(t, 2.0);\n"
+            + "  t = m > 1.0 ? 2.0 - m : m;\n"
+            + "}\n"
+            + "t = clamp(t, 0.0, 1.0);\n"
+            + "if (FX_GRAD_FLIP > 0.5) t = 1.0 - t;\n"
+            + "vec3 gcol = FX_GRAD_COLOR(t);\n"
+            + "float galpha = FX_GRAD_ALPHA(t);\n"
+            + "return vec4(mix(src.rgb, gcol, galpha), src.a);\n";
+
     private static final String BODY_OFFSET =
             // fract() is the wrap. It makes a tiling generator underneath actually usable, which
             // is the only reason a zero-cost remap earns a catalog slot at all.
@@ -229,6 +287,25 @@ public final class FxRegistry {
                 BODY_RGB_SHIFT,
                 FxParam.flt("amount", "Amount", 0f, 64f, 6f),
                 FxParam.flt("angle", "Angle", -180f, 180f, 0f)));
+
+        // FIRST in Generate, per JoyRaptor's ask (2026-08-08): a round swatch and a Photoshop-style
+        // ramp editor, both pure generators — no neighbour pixels read, so both preview and
+        // export identically on an adjustment layer AND on a single object (FxPreviewTier keys
+        // this off Capability alone, and GENERATOR already means "not SAMPLER").
+        defs.add(new FxEffectDef("solid_color", "Solid Color",
+                FxEffectDef.Family.GENERATE, FxEffectDef.Capability.GENERATOR, 1, 0.2f,
+                BODY_SOLID_COLOR,
+                FxParam.color("color", "Color", 0xFFFFFF),
+                FxParam.flt("amount", "Amount", 0f, 1f, 1f)));
+
+        defs.add(new FxEffectDef("gradient_fill", "Gradient",
+                FxEffectDef.Family.GENERATE, FxEffectDef.Capability.GENERATOR, 1, 1.8f,
+                BODY_GRADIENT_FILL,
+                FxParam.enumOf("shape", "Shape", 0,
+                        "Linear", "Radial", "Angle", "Reflected", "Diamond", "Box", "Curve (soon)"),
+                FxParam.flt("angle", "Angle", -180f, 180f, 0f),
+                FxParam.point("center", "Center", 0.5f, 0.5f),
+                FxParam.gradient("ramp", "Ramp", GradientRamp.defaultRamp())));
 
         defs.add(new FxEffectDef("noise", "Noise / Clouds",
                 FxEffectDef.Family.GENERATE, FxEffectDef.Capability.GENERATOR, 1, 2.0f,
@@ -332,7 +409,12 @@ public final class FxRegistry {
                 if (d.param(r) == null) problems.add(d.id + ": FX_P(" + r + ") is not a declared param");
             }
             for (FxParam p : d.params) {
-                if (!referenced.contains(p.name)) {
+                // A GRADIENT param never appears as FX_P(name) — see FxParam.Kind's note — so it
+                // is "read" when the body calls the ramp evaluator macros instead.
+                boolean read = p.kind == FxParam.Kind.GRADIENT
+                        ? (d.glslBody.contains("FX_GRAD_COLOR") || d.glslBody.contains("FX_GRAD_ALPHA"))
+                        : referenced.contains(p.name);
+                if (!read) {
                     problems.add(d.id + ": param '" + p.name + "' is declared but no body reads it "
                             + "— that is a slider that changes nothing");
                 }

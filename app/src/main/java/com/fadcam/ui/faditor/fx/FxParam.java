@@ -42,7 +42,17 @@ public final class FxParam {
         /** An index into {@link #enumLabels}. Uniform: {@code float}, see the class note. */
         ENUM(1),
         /** A normalised 0..1 point. Uniform: {@code vec2}. */
-        POINT(2);
+        POINT(2),
+        /**
+         * A {@link GradientRamp}, packed via {@link GradientRamp#toFloatArray()}. NOT a plain
+         * uniform — {@link FxCompiler} special-cases this kind into a run of named uniforms
+         * (flags/colour stops/opacity stops) rather than the generic one-uniform-per-param path,
+         * because the ramp is a variable-length list packed into fixed slots, not a vector. See
+         * {@link FxCompiler}'s gradient section. Never keyable: the shape/angle/centre params
+         * next to it key normally, but animating a whole ramp stop-by-stop is not what "keyframe
+         * this parameter" means for any other control in this panel.
+         */
+        GRADIENT(GradientRamp.PACKED_LENGTH);
 
         /** How many floats this kind occupies in a uniform and in {@link FxInstance}'s values. */
         public final int components;
@@ -119,6 +129,13 @@ public final class FxParam {
     @NonNull
     public static FxParam point(@NonNull String name, @NonNull String label, float defX, float defY) {
         return new FxParam(name, label, Kind.POINT, 0f, 1f, new float[]{defX, defY}, true, null);
+    }
+
+    /** @param def the ramp's default — {@link GradientRamp#defaultRamp()} for most callers. */
+    @NonNull
+    public static FxParam gradient(@NonNull String name, @NonNull String label,
+                                   @NonNull GradientRamp def) {
+        return new FxParam(name, label, Kind.GRADIENT, 0f, 1f, def.toFloatArray(), false, null);
     }
 
     // ── Reads ───────────────────────────────────────────────────────────────────────────────

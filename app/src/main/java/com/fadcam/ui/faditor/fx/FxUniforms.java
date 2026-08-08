@@ -63,6 +63,11 @@ public final class FxUniforms {
             FxEffectDef def = card.def();
             if (def == null) continue;
             for (FxParam p : def.params) {
+                if (p.kind == FxParam.Kind.GRADIENT) {
+                    // No single uniform to pack this under — see FxCompiler's gradient section.
+                    out.addAll(FxCompiler.gradientUniformValues(card, p));
+                    continue;
+                }
                 out.add(new Value(FxCompiler.uniformName(card, p), card.get(p)));
             }
             if (def.foldsColor()) {

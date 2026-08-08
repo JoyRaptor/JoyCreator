@@ -6,6 +6,7 @@ import com.fadcam.ui.faditor.fx.FxParam;
 import com.fadcam.ui.faditor.fx.FxRegistry;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.fx.FxUniforms;
+import com.fadcam.ui.faditor.fx.GradientRamp;
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 
@@ -36,6 +37,8 @@ public class FxCompilerTest {
         fusionCounts();
         uniformsAreCollisionFree();
         goldenStrings();
+        gradientRampModel();
+        gradientEffectCompiles();
         stackIdentityAndKeys();
         slotsSurviveReorder();
         serializationRoundTrip();
@@ -53,7 +56,8 @@ public class FxCompilerTest {
     static void registryIsValid() {
         List<String> problems = FxRegistry.validate();
         check("the registry self-check passes: " + problems, problems.isEmpty());
-        check("all 12 v1 effects are present", FxRegistry.all().size() == 12);
+        check("all 14 effects are present (12 v1 + Solid Color + Gradient)",
+                FxRegistry.all().size() == 14);
     }
 
     static void everyEffectCompilesToBothBackends() {
@@ -234,6 +238,90 @@ public class FxCompilerTest {
                 g1.contains("fxBlendOver"));
         check("GOLDEN the sampler pass declares uDir for the separable axis",
                 g1.contains("uniform vec2 uDir"));
+    }
+
+    // ── Gradient ────────────────────────────────────────────────────────────
+
+    static void gradientRampModel() {
+        GradientRamp r = GradientRamp.defaultRamp();
+        check("default ramp starts black->white", r.colorStops.size() == 2
+                && r.colorStops.get(0).color == 0xFF000000
+                && r.colorStops.get(1).color == 0xFFFFFFFF);
+        check("default ramp is fully opaque throughout",
+                Math.abs(r.sampleAlpha(0f) - 1f) < 0.001f
+                        && Math.abs(r.sampleAlpha(0.5f) - 1f) < 0.001f
+                        && Math.abs(r.sampleAlpha(1f) - 1f) < 0.001f);
+        check("midpoint of black->white samples mid-grey",
+                Math.abs(((r.sampleColor(0.5f) >> 16) & 0xFF) - 127.5) < 2.0);
+
+        int added = 0;
+        for (int i = 0; i < GradientRamp.CAP; i++) {
+            if (r.addColorStop(0.5f, 0xFF123456)) added++;
+        }
+        check("stops beyond CAP are refused, not silently dropped later",
+                r.colorStops.size() == GradientRamp.CAP && !r.addColorStop(0.9f, 0xFF000000));
+        check("...and the successful adds actually landed", added == GradientRamp.CAP - 2);
+
+        GradientRamp bare = GradientRamp.defaultRamp();
+        check("removing below two stops is refused",
+                !bare.removeColorStop(0) && bare.colorStops.size() == 2);
+
+        // Pack/unpack round trip, including the sentinel-drops-silently contract.
+        GradientRamp packed = GradientRamp.defaultRamp();
+        packed.addColorStop(0.5f, 0xFF7F7F7F);
+        packed.mirror = true;
+        packed.solidBands = true;
+        float[] a = packed.toFloatArray();
+        check("packed array is the declared length", a.length == GradientRamp.PACKED_LENGTH);
+        GradientRamp back = GradientRamp.fromFloatArray(a);
+        check("float round trip keeps stop count", back.colorStops.size() == 3);
+        check("float round trip keeps flags", back.mirror && back.solidBands && !back.flip);
+
+        // Rich JSON round trip.
+        GradientRamp j = GradientRamp.fromJson(packed.toJson());
+        check("json round trip keeps stop count and flags",
+                j.colorStops.size() == 3 && j.mirror && j.solidBands);
+
+        // Banding: a solid ramp must jump, not blend, at the segment midpoint.
+        GradientRamp solid = GradientRamp.defaultRamp();
+        solid.solidBands = true;
+        check("solid band holds the left colour just before the midpoint",
+                solid.sampleColor(0.49f) == 0xFF000000);
+        check("solid band snaps to the right colour just after the midpoint",
+                solid.sampleColor(0.51f) == 0xFFFFFFFF);
+    }
+
+    static void gradientEffectCompiles() {
+        FxStack s = new FxStack();
+        FxInstance g = s.add("gradient_fill");
+        FxCompiler.Plan plan = FxCompiler.plan(s);
+        check("a lone gradient card is one fused stage", plan.passes.size() == 1);
+        String glsl = FxCompiler.emitGlsl(plan.passes.get(0), K);
+        String agsl = FxCompiler.emitAgsl(plan.passes.get(0), K);
+        check("gradient GLSL declares the flags uniform", glsl.contains("uniform vec3 u0_ramp_flags"));
+        check("gradient GLSL declares all 8 colour stops",
+                glsl.contains("u0_ramp_c7") && !glsl.contains("u0_ramp_c8"));
+        check("gradient GLSL declares all 8 opacity stops",
+                glsl.contains("u0_ramp_o7") && !glsl.contains("u0_ramp_o8"));
+        check("gradient AGSL uses the same slot naming", agsl.contains("u0_ramp_flags"));
+        check("no FX_ macro survives expansion in either backend",
+                !glsl.contains("FX_") && !agsl.contains("FX_"));
+        check("the ramp evaluator is declared exactly once in GLSL",
+                countOf(glsl, "vec3 fxGradColor(") == 1);
+        check("the ramp evaluator is declared exactly once in AGSL",
+                countOf(agsl, "float3 fxGradColor(") == 1);
+
+        List<FxUniforms.Value> vals = FxUniforms.forPass(plan.passes.get(0));
+        boolean sawFlags = false;
+        for (FxUniforms.Value v : vals) if (v.name.equals("u0_ramp_flags")) sawFlags = true;
+        check("FxUniforms packs the gradient's flags value", sawFlags);
+
+        // A stack with an ordinary effect ahead of it must NOT pull the gradient prelude in.
+        FxStack plain = new FxStack();
+        plain.add("invert");
+        String plainGlsl = FxCompiler.emitGlsl(FxCompiler.plan(plain).passes.get(0), K);
+        check("a stack with no gradient card carries no gradient evaluator",
+                !plainGlsl.contains("fxGradColor"));
     }
 
     static int countOf(String hay, String needle) {

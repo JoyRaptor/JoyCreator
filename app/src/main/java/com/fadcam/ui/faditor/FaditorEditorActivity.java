@@ -13213,6 +13213,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         maybeRecordTrackOnlyChange(trackChange);
                     }
                     if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                } else if (item.getAdjustment() != null) {
+                    // Without this branch a move or trim of an adjustment layer mutated the
+                    // model and recorded NO undo — and before the controller learned about it,
+                    // did not even mutate. It is a lane object; it gets the same treatment as
+                    // every other one.
+                    com.fadcam.ui.faditor.model.AdjustmentLayer a = item.getAdjustment();
+                    long beforeStart = ctrl.getAdjustBeforeStartMs();
+                    long beforeDur = ctrl.getAdjustBeforeDurationMs();
+                    long afterStart = a.getStartMs();
+                    long afterDur = a.getDurationMs();
+                    boolean changed = beforeStart != afterStart || beforeDur != afterDur;
+                    if (changed || trackChange != null) {
+                        String desc = trackChange != null ? trackChange.description
+                                : (kind == com.fadcam.ui.faditor.layers.LayerGestureController
+                                        .GestureKind.MOVE
+                                        ? "Move adjustment layer" : "Trim adjustment layer");
+                        undoManager.recordAction(mergedAction(desc,
+                                changed ? () -> { a.setStartMs(afterStart);
+                                                  a.setDurationMs(afterDur); } : null,
+                                changed ? () -> { a.setStartMs(beforeStart);
+                                                  a.setDurationMs(beforeDur); } : null,
+                                trackChange));
+                    }
+                    syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
                 }
                 syncTimelineOverlays();
                 scheduleAutoSave();
@@ -13238,6 +13262,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // The drawer trash is gone (JoyRaptor 2026-07-17) — the badge is now
                     // the ONE sprite delete affordance, so it needs its own branch.
                     deleteSpriteWithConfirmation(item.getSprite());
+                } else if (item.getAdjustment() != null) {
+                    // The trash badge was a no-op on an adjustment layer, which reads exactly
+                    // like the object being locked — and it was the only delete affordance it
+                    // had, so there was no way to remove one at all.
+                    deleteAdjustmentLayerWithConfirmation(item.getAdjustment());
                 }
             }
 
@@ -19527,6 +19556,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     syncTimelineOverlays(); refreshSpritePreviewData(); },
                             () -> { project.getTimeline().addSpriteOverlay(s);
                                     syncTimelineOverlays(); refreshSpritePreviewData(); }));
+                    scheduleAutoSave();
+                })
+                .show();
+    }
+
+    /** Delete an adjustment layer from its lane, with the same confirm+undo every object gets. */
+    private void deleteAdjustmentLayerWithConfirmation(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer a) {
+        if (project == null) return;
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Remove adjustment layer?")                      // TODO(strings)
+                .setMessage("Everything under it goes back to how it looked.")
+                .setNegativeButton("Cancel", null)                         // TODO(strings)
+                .setPositiveButton("Remove", (d, w) -> {                   // TODO(strings)
+                    project.getTimeline().removeAdjustmentLayer(a);
+                    refreshAfterMarqueeBatchDelete();
+                    syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            "Delete adjustment layer",
+                            () -> { project.getTimeline().removeAdjustmentLayer(a);
+                                    refreshAfterMarqueeBatchDelete();
+                                    syncAdjustmentPreview(
+                                            Math.max(0, lastPlayheadAbsoluteMs)); },
+                            () -> { project.getTimeline().addAdjustmentLayer(a);
+                                    refreshAfterMarqueeBatchDelete();
+                                    syncAdjustmentPreview(
+                                            Math.max(0, lastPlayheadAbsoluteMs)); }));
                     scheduleAutoSave();
                 })
                 .show();

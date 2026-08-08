@@ -193,10 +193,18 @@ public class AdjustmentLayerTest {
         check("a layer card is clean...",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER).isEmpty());
-        check("...but the per-OBJECT sampler limit still speaks, since that one is real",
+        // The per-object sampler limit is REAL, but it is no longer said on a card. The old flow
+        // badged a blur "(layer only)" in the picker, added it anyway on tap, then nagged
+        // "needs an adjustment layer" in yellow forever while rendering nothing — three chances
+        // to refuse and it accepted every time, in a sentence that assumes the reader already
+        // knows what an adjustment layer is. The picker now declines the tap and explains. So
+        // the CAPABILITY must still say no, and the CARD must say nothing.
+        check("a sampler still cannot render on an object",
+                !com.fadcam.ui.faditor.fx.FxPreviewTier.canExportOn(blur,
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT));
+        check("...and no card nags about it, because it can no longer be added",
                 com.fadcam.ui.faditor.fx.FxPreviewTier.cardNote(blur,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)
-                        .contains("adjustment layer"));
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT).isEmpty());
     }
 
     /**

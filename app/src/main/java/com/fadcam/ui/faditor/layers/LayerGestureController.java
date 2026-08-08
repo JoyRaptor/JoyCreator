@@ -517,6 +517,10 @@ public final class LayerGestureController {
         if (item.getClip() != null && item.getClip().isOverlayClip()) {
             return item.getClip().isLockedObject();
         }
+        // An adjustment layer is a lane object like any other. Without this it fell through to
+        // "false" and could not report a lock either way, which is the least of what it could
+        // not do — see the adjustment branches below.
+        if (item.getAdjustment() != null) return item.getAdjustment().isLocked();
         return false;
     }
 
@@ -639,6 +643,9 @@ public final class LayerGestureController {
             clipBeforeStartMs = item.getClip().getOverlayStartMs();
             clipBeforeInMs = item.getClip().getInPointMs();
             clipBeforeOutMs = item.getClip().getOutPointMs();
+        } else if (item.getAdjustment() != null) {
+            adjustBeforeStartMs = item.getAdjustment().getStartMs();
+            adjustBeforeDurationMs = item.getAdjustment().getDurationMs();
         }
     }
 
@@ -674,6 +681,9 @@ public final class LayerGestureController {
             clipBeforeOutMs = item.getClip().getOutPointMs();
             dragStartTrimInMs = item.getClip().getInPointMs();
             dragStartTrimOutMs = item.getClip().getOutPointMs();
+        } else if (item.getAdjustment() != null) {
+            adjustBeforeStartMs = item.getAdjustment().getStartMs();
+            adjustBeforeDurationMs = item.getAdjustment().getDurationMs();
         }
     }
 
@@ -1455,6 +1465,8 @@ public final class LayerGestureController {
             item.getAudioClip().setOffsetMs(newStartMs);
         } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
             item.getClip().setOverlayStartMs(newStartMs);
+        } else if (item.getAdjustment() != null) {
+            item.getAdjustment().setStartMs(Math.max(0, newStartMs));
         }
     }
 
@@ -1595,6 +1607,22 @@ public final class LayerGestureController {
                 newOut = Math.max(newOut, dragStartTrimInMs + AUDIO_MIN_TRIM_GAP_MS);
                 ac.setOutPointMs(newOut);
             }
+        } else if (item.getAdjustment() != null) {
+            // An adjustment layer trims like a range, not like media: there is no source to run
+            // out of, so the left edge may go to 0 and the right edge anywhere after it. The
+            // only floor is the same minimum gap every other object honours, so a layer cannot
+            // be trimmed to nothing and become ungrabbable.
+            com.fadcam.ui.faditor.model.AdjustmentLayer a = item.getAdjustment();
+            long endMs = adjustBeforeStartMs + adjustBeforeDurationMs;
+            if (left) {
+                long newStart = Math.max(0, Math.min(targetTimeMs, endMs - AUDIO_MIN_TRIM_GAP_MS));
+                a.setStartMs(newStart);
+                a.setDurationMs(endMs - newStart);
+            } else {
+                long newEnd = Math.max(adjustBeforeStartMs + AUDIO_MIN_TRIM_GAP_MS, targetTimeMs);
+                a.setDurationMs(newEnd - a.getStartMs());
+            }
+            return;
         } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
             Clip c = item.getClip();
             long srcDur = c.getSourceDurationMs();
@@ -2014,6 +2042,8 @@ public final class LayerGestureController {
             item.getAudioClip().setOffsetMs(newStartMs);
         } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
             item.getClip().setOverlayStartMs(newStartMs);
+        } else if (item.getAdjustment() != null) {
+            item.getAdjustment().setStartMs(Math.max(0, newStartMs));
         }
     }
 
@@ -2036,6 +2066,8 @@ public final class LayerGestureController {
                 item.getAudioClip().setOffsetMs(audioBeforeOffsetMs);
             } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
                 item.getClip().setOverlayStartMs(clipBeforeStartMs);
+            } else if (item.getAdjustment() != null) {
+                item.getAdjustment().setStartMs(adjustBeforeStartMs);
             }
         } else {
             if (item.getTextOverlay() != null) {
@@ -2061,6 +2093,19 @@ public final class LayerGestureController {
     public long getAudioBeforeOffsetMs() { return audioBeforeOffsetMs; }
     public long getAudioBeforeInMs() { return audioBeforeInMs; }
     public long getAudioBeforeOutMs() { return audioBeforeOutMs; }
+    /**
+     * An adjustment layer's span at gesture start.
+     *
+     * <p>It is a lane object with a start and a duration and nothing else — no in/out points,
+     * because it has no source media to trim into. That is why it needs its own pair rather
+     * than borrowing the clip snapshot.</p>
+     */
+    private long adjustBeforeStartMs;
+    private long adjustBeforeDurationMs;
+
+    public long getAdjustBeforeStartMs() { return adjustBeforeStartMs; }
+    public long getAdjustBeforeDurationMs() { return adjustBeforeDurationMs; }
+
     public long getClipBeforeStartMs() { return clipBeforeStartMs; }
     public long getClipBeforeInMs() { return clipBeforeInMs; }
     public long getClipBeforeOutMs() { return clipBeforeOutMs; }

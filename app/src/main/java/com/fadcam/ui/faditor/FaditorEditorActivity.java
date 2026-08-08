@@ -16563,45 +16563,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Simple palette grid picker for caption colors. TODO(strings) */
+    /**
+     * Caption colours now go through the ONE app-wide picker.
+     *
+     * <p>This used to be a fixed grid of twenty swatches — no hue control, no hex, no memory of
+     * what you had just used elsewhere. Every colour in the app was picked by a different
+     * bespoke widget, so "the blue I used on the outline" was something you had to eyeball
+     * again in each place. {@link ColorPickerDialog} is that one instrument, and its recent
+     * swatches are shared, which is the whole point of making it app-wide.</p>
+     *
+     * <p>{@code allowNone} is false: a caption with no colour is invisible text, which is a bug
+     * rather than a style.</p>
+     */
     private void showCaptionColorPicker(@NonNull String title, int current,
                                         @NonNull java.util.function.IntConsumer onPicked) {
-        int[] palette = {
-                0xFFFFFFFF, 0xFF000000, 0xFFFFEB3B, 0xFFFFC107, 0xFFFF9800, 0xFFFF5252,
-                0xFFE91E63, 0xFFFF4081, 0xFFBA68C8, 0xFF7C4DFF, 0xFF448AFF, 0xFF4DD0E1,
-                0xFF69F0AE, 0xFF9CCC65, 0xFFF5F5F0, 0xFFBDBDBD, 0xFF616161, 0xCC000000,
-                0x99000000, 0xB3FFFFFF,
-        };
-        float d = getResources().getDisplayMetrics().density;
-        android.widget.GridLayout grid = new android.widget.GridLayout(this);
-        grid.setColumnCount(6);
-        int pad = (int)(16*d);
-        grid.setPadding(pad, pad, pad, pad);
-        final androidx.appcompat.app.AlertDialog dialog =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                        .setTitle(title + " color")
-                        .setView(grid)
-                        .setNegativeButton(R.string.faditor_cancel, null)
-                        .create();
-        for (int c : palette) {
-            View swatch = new View(this);
-            android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
-            lp.width = (int)(40*d);
-            lp.height = (int)(40*d);
-            lp.setMargins((int)(4*d), (int)(4*d), (int)(4*d), (int)(4*d));
-            swatch.setLayoutParams(lp);
-            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-            bg.setCornerRadius(8*d);
-            bg.setColor(c);
-            bg.setStroke((int)(c == current ? 3*d : 1*d), c == current ? 0xFF4CAF50 : 0xFF555555);
-            swatch.setBackground(bg);
-            final int color = c;
-            swatch.setOnClickListener(v -> {
-                onPicked.accept(color);
-                dialog.dismiss();
-            });
-            grid.addView(swatch);
-        }
-        dialog.show();
+        com.fadcam.ui.faditor.tools.ColorPickerDialog.show(this, title, current, false,
+                c -> { if (c != null) onPicked.accept(c); });
     }
 
     /** The style currently applied to the selection (clip or audio). */

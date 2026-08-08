@@ -263,9 +263,33 @@ public final class PipOverlayDrawer extends LinearLayout {
 
     public void setHeightListener(@Nullable HeightListener l) { this.heightListener = l; }
 
+    /** Last height handed to the listener, so a layout pass that changed nothing costs nothing. */
+    private int reportedHeightPx = Integer.MIN_VALUE;
+
+    /** True between {@link #hide} and the slide-out landing — the drawer is still VISIBLE then. */
+    private boolean hiding;
+
     private void reportHeight() {
         if (heightListener == null) return;
-        heightListener.onDrawerHeightChanged(getVisibility() == VISIBLE ? getHeight() : 0);
+        int h = (getVisibility() == VISIBLE && !hiding) ? getHeight() : 0;
+        if (h == reportedHeightPx) return;
+        reportedHeightPx = h;
+        heightListener.onDrawerHeightChanged(h);
+    }
+
+    /**
+     * Report on EVERY layout, not only on show and grip-drag.
+     *
+     * <p>The drawer changes height by itself constantly: opening the effect picker, adding a
+     * card, expanding a collapsed one. Only the two explicit calls existed, so the picture stayed
+     * where the drawer USED to end and the newly grown drawer covered it again — the exact thing
+     * the reflow was added to stop. Deduped against the last reported value so the ordinary
+     * layout traffic does not restart the 220ms tween on every pass.</p>
+     */
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        super.onLayout(changed, l, t, r, b);
+        reportHeight();
     }
 
     /**
@@ -277,6 +301,7 @@ public final class PipOverlayDrawer extends LinearLayout {
         // it, so opening a second object's drawer dropped the first one's FX undo step entirely
         // -- or, worse, left it registered and fired it later against an object not on screen.
         if (onClose != null) { Runnable r = onClose; onClose = null; r.run(); }
+        hiding = false;   // a show() during the slide-out cancels the hide
         // A height dragged on one tab must not follow the drawer to a different object: sizing
         // the FX tab tall and then opening a one-row tab left three-quarters of a screen empty.
         userHeightPx = -1;
@@ -336,6 +361,8 @@ public final class PipOverlayDrawer extends LinearLayout {
         if (getVisibility() != VISIBLE) return;
         // Give the picture back its space on the way out, not after — the two animations run
         // together so the video rises as the drawer leaves rather than jumping when it lands.
+        hiding = true;
+        reportedHeightPx = 0;
         if (heightListener != null) heightListener.onDrawerHeightChanged(0);
         animate().translationY(-dp(120)).alpha(0f).setDuration(SLIDE_MS)
                 .withEndAction(() -> {

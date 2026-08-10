@@ -63,12 +63,29 @@ public class TextBoxView extends View {
      */
     private float objectAlpha = 1f;
 
+    /**
+     * The drawer's live selection (display-string indices), both {@code < 0} to draw none.
+     * The preview draws a highlight over exactly these characters (W5-2 §3.8); the export
+     * never receives one — drawn by this view only, never by TextBoxRenderer's other callers.
+     */
+    private int selStart = -1;
+    private int selEnd = -1;
+
     public TextBoxView(@NonNull Context ctx, @NonNull TextOverlayItem o) {
         super(ctx);
         this.item = o;
         // The renderer paints every pixel this view shows, including its background pill, so the
         // view must not also draw one.
         setWillNotDraw(false);
+    }
+
+    /** Set the drawer's selection to highlight, or pass both negative to clear it. */
+    public void setSelection(int start, int end) {
+        if (this.selStart != start || this.selEnd != end) {
+            this.selStart = start;
+            this.selEnd = end;
+            invalidate();
+        }
     }
 
     /**
@@ -140,6 +157,6 @@ public class TextBoxView extends View {
     protected void onDraw(@NonNull Canvas canvas) {
         float inset = boxInsetPx();
         TextBoxRenderer.draw(canvas, item, text, inset, inset, fontPx, mediaMs,
-                projectDurationMs, animate, objectAlpha);
+                projectDurationMs, animate, objectAlpha, selStart, selEnd);
     }
 }

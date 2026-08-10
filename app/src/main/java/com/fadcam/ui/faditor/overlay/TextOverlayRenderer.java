@@ -3,8 +3,6 @@ package com.fadcam.ui.faditor.overlay;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Typeface;
-import android.text.TextPaint;
 
 import androidx.annotation.NonNull;
 
@@ -17,6 +15,13 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
  * <p>The font size is a fraction of the output height, exactly matching the
  * on-screen preview (which uses the same fraction of the video-content height),
  * so what you place is what you export.</p>
+ *
+ * <p><b>All of the rendering is {@link TextBoxRenderer}.</b> This class only owns the
+ * frame-size plumbing: {@link #fontPxFor}, {@link #padPxFor} and the bitmap sizing. It used
+ * to hand-roll the whole draw (paint, lines, stroke/glow/shadow passes, alignment) — a
+ * second copy of the box's pixels that W5-2's per-selection spans would have had to be
+ * taught separately. Delegating keeps the per-object-FX GL path (the only consumer) on the
+ * same one layout and the same run resolution as the preview and the no-FX export.</p>
  */
 public final class TextOverlayRenderer {
 
@@ -42,9 +47,12 @@ public final class TextOverlayRenderer {
      * put the mask edge in a different place than the preview does — the preview's
      * {@code TextView} is measured to the text itself and carries no such margin. So the export
      * insets by this before wiping. See {@code TextOverlayLayer#applyReveal}.</p>
+     *
+     * <p>Stays honest only while it mirrors {@code TextBoxRenderer.PAD_EM} — the same 0.35em the
+     * shared renderer pads every box with. If one changes, so must this.</p>
      */
     public static int padPxFor(@NonNull TextOverlayItem o, int outH) {
-        return (int) (fontPxFor(o, outH) * 0.35f);
+        return (int) (fontPxFor(o, outH) * TextBoxRenderer.padEm());
     }
 
     /**
@@ -57,81 +65,22 @@ public final class TextOverlayRenderer {
     public static Bitmap render(@NonNull TextOverlayItem o, int outW, int outH) {
         float fontPx = fontPxFor(o, outH);
 
-        TextPaint paint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-        paint.setColor(o.getColorInt());
-        paint.setTextSize(fontPx);
-        paint.setTypeface(o.getTypeface());     // bold/italic already baked in — see getTypeface()
-        paint.setUnderlineText(o.isUnderline());
-        // CENTER only — this path (per-object GL FX only, see TextFxGlEffect) draws one bitmap
-        // rasterised to its own text bounds rather than a positioned box, so LEFT/RIGHT/JUSTIFY
-        // have no box edge to align against. Known, documented gap: an item with BOTH an active
-        // FX stack AND a non-CENTER alignment renders centred here while the (no-FX) preview and
-        // export path (TextBoxRenderer) honour the alignment — see SPEC_TEXT_DRAWER report.
-        paint.setShadowLayer(shadowRadiusFor(o, fontPx),
-                com.fadcam.ui.faditor.model.TextOverlayItem.shadowDx(
-                        o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
-                com.fadcam.ui.faditor.model.TextOverlayItem.shadowDy(
-                        o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
-                o.getShadowColorInt());
+        String shown = TextBoxRenderer.textAt(o, 0L, 0L);
+        float[] size = new float[2];
+        TextBoxRenderer.measure(o, shown, fontPx, size);
 
-        String raw = o.getText() == null || o.getText().isEmpty() ? " " : o.getText();
-        String text = o.applyCase(raw);
-        String[] lines = text.split("\n", -1);
-
-        float maxLineW = 1f;
-        for (String line : lines) {
-            maxLineW = Math.max(maxLineW, paint.measureText(line));
-        }
-        Paint.FontMetrics fm = paint.getFontMetrics();
-        float lineH = fm.descent - fm.ascent;
-        int pad = padPxFor(o, outH);
-
-        int w = (int) Math.ceil(maxLineW) + pad * 2;
-        int h = (int) Math.ceil(lineH * lines.length) + pad * 2;
+        int w = (int) Math.ceil(size[0]);
+        int h = (int) Math.ceil(size[1]);
         w = Math.max(1, Math.min(w, outW > 0 ? outW * 2 : w));
         h = Math.max(1, h);
 
         Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bmp);
-        if (o.getBackgroundColorInt() != android.graphics.Color.TRANSPARENT) {
-            Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-            bg.setColor(o.getBackgroundColorInt());
-            canvas.drawRoundRect(new android.graphics.RectF(0, 0, w, h),
-                    fontPx * 0.35f, fontPx * 0.35f, bg);
-        }
-
-        float x = w / 2f;
-        float y = pad - fm.ascent;
-        for (String line : lines) {
-            if (o.getStrokeWidthPx() > 0f && o.getStrokeColorInt() != android.graphics.Color.TRANSPARENT) {
-                paint.setStyle(Paint.Style.STROKE);
-                paint.setStrokeWidth(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getStrokeWidthPx(), fontPx));
-                paint.setColor(o.getStrokeColorInt());
-                canvas.drawText(line, x, y, paint);
-            }
-            if (o.getGlowRadiusPx() > 0f && o.getGlowColorInt() != android.graphics.Color.TRANSPARENT) {
-                paint.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getGlowRadiusPx(), fontPx), 0f, 0f, o.getGlowColorInt());
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(o.getColorInt());
-                canvas.drawText(line, x, y, paint);
-            }
-            paint.setShadowLayer(shadowRadiusFor(o, fontPx),
-                    com.fadcam.ui.faditor.model.TextOverlayItem.shadowDx(
-                            o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
-                    com.fadcam.ui.faditor.model.TextOverlayItem.shadowDy(
-                            o.getShadowAngleDeg(), o.getShadowDistancePx(), fontPx),
-                    o.getShadowColorInt());
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(o.getColorInt());
-            canvas.drawText(line, x, y, paint);
-            y += lineH;
-        }
+        // The whole box — pill, lines, glyphs, run-accurate colours and typefaces, spans
+        // included — through the SAME renderer the preview and the no-FX export use. Static
+        // frame: animate=false (the GL path animates the FRAME, and the textured item only
+        // needs the keyframed style values, which the caller pre-bakes into the item).
+        TextBoxRenderer.draw(canvas, o, shown, 0f, 0f, fontPx, 0L, 0L, false, 1f);
         return bmp;
-    }
-
-    private static float shadowRadiusFor(@NonNull TextOverlayItem o, float fontPx) {
-        return o.getShadowRadiusPx() > 0f
-                ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(o.getShadowRadiusPx(), fontPx)
-                : fontPx * 0.10f;
     }
 }

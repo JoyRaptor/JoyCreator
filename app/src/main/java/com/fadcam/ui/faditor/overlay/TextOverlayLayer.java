@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.overlay;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.RectF;
 import android.net.Uri;
 import android.util.AttributeSet;
@@ -93,6 +94,76 @@ public class TextOverlayLayer extends FrameLayout {
     /** Z3: make this instance draw-only, so it never competes for touch. */
     public void setInteractive(boolean value) { this.interactive = value; }
 
+    /**
+     * Preview-only live-area fade. A hugely scaled overlay extends past the video
+     * frame; per the user (2026-08-09) everything INSIDE the live area stays
+     * regular and ONLY the overhang beyond the boundary turns half-transparent.
+     * The fade hits the overlay's OWN pixels — nothing behind it ever tints.
+     *
+     * <p>Implemented as two drawing passes over the children: pass 1 clips the
+     * live rect and draws at full opacity; pass 2 clips the complement (four
+     * strips around the rect — no Region.Op, no complex Path, HW-accelerator
+     * friendly) into {@link #saveLayerAlpha} and draws at half opacity. A child
+     * fully inside the rect is clipped away in pass 2, so only real overhang
+     * costs the second draw. Never exported — the export path has no canvas to
+     * overhang, exactly as the rendered frame has no area outside the canvas.</p>
+     */
+    private static final int OVERHANG_ALPHA = 128; // half-transparent overhang
+
+    @Override
+    protected void dispatchDraw(@NonNull android.graphics.Canvas canvas) {
+        if (callback == null || getChildCount() == 0) {
+            super.dispatchDraw(canvas);
+            return;
+        }
+        RectF r = callback.getVideoContentRect();
+        if (r.width() <= 0 || r.height() <= 0) {
+            super.dispatchDraw(canvas);
+            return;
+        }
+        if (!anyOverhang(r)) {
+            super.dispatchDraw(canvas);
+            return;
+        }
+
+        // Pass 1 — the live area at full opacity.
+        canvas.save();
+        canvas.clipRect(r.left, r.top, r.right, r.bottom);
+        super.dispatchDraw(canvas);
+        canvas.restore();
+
+        // Pass 2 — everything outside the live rect, at half opacity. The four
+        // strips mean only the child pixels that actually overhang are affected.
+        float w = getWidth();
+        float h = getHeight();
+        canvas.save();
+        canvas.clipRect(0f, 0f, w, r.top);
+        canvas.clipRect(0f, r.bottom, w, h);
+        canvas.clipRect(0f, r.top, r.left, r.bottom);
+        canvas.clipRect(r.right, r.top, w, r.bottom);
+        canvas.saveLayerAlpha(0f, 0f, w, h, OVERHANG_ALPHA);
+        super.dispatchDraw(canvas);
+        canvas.restore();
+        canvas.restore();
+    }
+
+    /**
+     * True when any visible child reaches past the live-area rect, using the
+     * view's laid-out bounds in this layer's space (a text box keeps its excursion
+     * margin inside those bounds, so the fade starts at the edge the user sees).
+     */
+    private boolean anyOverhang(@NonNull RectF r) {
+        for (int i = 0; i < getChildCount(); i++) {
+            View v = getChildAt(i);
+            if (v.getVisibility() != View.VISIBLE) continue;
+            if (v.getLeft() < r.left - 0.5f || v.getTop() < r.top - 0.5f
+                    || v.getRight() > r.right + 0.5f || v.getBottom() > r.bottom + 0.5f) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void setData(@NonNull List<TextOverlayItem> overlays, @NonNull Callback cb) {
         this.overlays.clear();
         this.overlays.addAll(overlays);
@@ -111,8 +182,7 @@ public class TextOverlayLayer extends FrameLayout {
         }
     }
 
-    /**
-     * Update the timeline time and re-evaluate every overlay's time-range,
+    /** Update the timeline time and re-evaluate every overlay's time-range,
      * keyframed position/size/rotation, and opacity — without rebuilding views.
      */
     public void setPlayheadMs(long timelineMs) {
@@ -123,6 +193,48 @@ public class TextOverlayLayer extends FrameLayout {
             if (tag instanceof TextOverlayItem) {
                 position(v, (TextOverlayItem) tag);
             }
+        }
+    }
+
+    /**
+     * Route the type-drawer's live selection (W5-2 §3.8) to the text view that
+     * draws {@code itemId}, so the preview highlights exactly the characters
+     * the drawer's controls will format. NOTE: indices are DISPLAY-string
+     * indices (what the user sees while editing, case transformations
+     * applied) — the drawer maps them to authored-text indices itself before
+     * touching the model. Both negative means draw no selection.
+     *
+     * <p>The drawer's selection is also remembered HERE, so a
+     * {@link #rebuild()} (every {@code refreshOverlayPreview} recreates the
+     * views but reuses the same item objects) re-applies it to the fresh
+     * view instead of leaving the highlight to silently disappear.
+     */
+    public void setEditingSelection(@NonNull String itemId, int selStart, int selEnd) {
+        selectionItemId = itemId;
+        selectionStart = selStart;
+        selectionEnd = selEnd;
+        for (int i = 0; i < getChildCount(); i++) {
+            View v = getChildAt(i);
+            Object tag = v.getTag();
+            if (tag instanceof TextOverlayItem) {
+                TextOverlayItem o = (TextOverlayItem) tag;
+                if (itemId.equals(o.getId()) && v instanceof TextBoxView) {
+                    ((TextBoxView) v).setSelection(selStart, selEnd);
+                    return;
+                }
+            }
+        }
+    }
+
+    @Nullable private String selectionItemId;
+    private int selectionStart = -1;
+    private int selectionEnd = -1;
+
+    /** Re-apply the remembered drawer selection to a freshly created view. */
+    private void applyRememberedSelection(@NonNull TextOverlayItem o, @NonNull View view) {
+        if (selectionItemId == null || !selectionItemId.equals(o.getId())) return;
+        if (view instanceof TextBoxView) {
+            ((TextBoxView) view).setSelection(selectionStart, selectionEnd);
         }
     }
 
@@ -167,6 +279,7 @@ public class TextOverlayLayer extends FrameLayout {
         }
         view.setLayoutParams(new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        applyRememberedSelection(o, view);
         attachGestures(view, o);
         // Position once the view has a measured size.
         final View fv = view;
@@ -209,8 +322,8 @@ public class TextOverlayLayer extends FrameLayout {
                 anim = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
                         com.fadcam.ui.faditor.transcript.CaptionAnimator
                                 .parsePreset(o.getTextAnimPreset()),
-                        currentTimeMs, o.getStartMs(),
-                        o.animSpanMs(callback.getProjectDurationMs()),
+                        currentTimeMs, o.motionRangeStartMs(),
+                        o.motionSpanMs(callback.getProjectDurationMs()),
                         o.getTextAnimInPct(), o.getTextAnimOutPct(),
                         sizeFraction * r.height());
             }
@@ -274,6 +387,14 @@ public class TextOverlayLayer extends FrameLayout {
             w = Math.max(1, view.getWidth());
             h = Math.max(1, view.getHeight());
         }
+
+        // Travel limit proportional to the object's OWN size: the centre may move
+        // up to one half-extent beyond each edge, so at any scale the object can
+        // be pushed until it is just fully off-frame (user, 2026-08-09). Clamped
+        // at half a frame inside setCenterTravelLimit so a tiny object can still
+        // be moved completely off-canvas too.
+        o.setCenterTravelLimit((w / 2f) / Math.max(1f, r.width()),
+                (h / 2f) / Math.max(1f, r.height()));
 
         float cx = r.left + (live ? o.getCenterX() : o.animatedCenterX(currentTimeMs)) * r.width();
         float cy = r.top + (live ? o.getCenterY() : o.animatedCenterY(currentTimeMs)) * r.height();
@@ -470,7 +591,8 @@ public class TextOverlayLayer extends FrameLayout {
     }
 
     private float snapX(float x) {
-        float best = clamp(x);
+        float limit = manipulating != null ? manipulating.getCenterLimitX() : 1f;
+        float best = clamp(x, limit);
         float bestDistance = SNAP_THRESHOLD;
         float[] targets = new float[]{0.5f};
         for (TextOverlayItem other : overlays) {
@@ -483,11 +605,12 @@ public class TextOverlayLayer extends FrameLayout {
                 best = target;
             }
         }
-        return clamp(best);
+        return clamp(best, limit);
     }
 
     private float snapY(float y) {
-        float best = clamp(y);
+        float limit = manipulating != null ? manipulating.getCenterLimitY() : 1f;
+        float best = clamp(y, limit);
         float bestDistance = SNAP_THRESHOLD;
         float[] targets = new float[]{0.5f};
         for (TextOverlayItem other : overlays) {
@@ -500,7 +623,7 @@ public class TextOverlayLayer extends FrameLayout {
                 best = target;
             }
         }
-        return clamp(best);
+        return clamp(best, limit);
     }
 
     private long snapTimeMs(long timeMs) {
@@ -531,7 +654,7 @@ public class TextOverlayLayer extends FrameLayout {
         return out;
     }
 
-    private float clamp(float value) {
-        return Math.max(0f, Math.min(1f, value));
+    private float clamp(float value, float limit) {
+        return Math.max(-limit, Math.min(1f + limit, value));
     }
 }

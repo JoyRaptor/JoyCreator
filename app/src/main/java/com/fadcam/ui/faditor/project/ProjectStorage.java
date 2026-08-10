@@ -11,6 +11,7 @@ import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.ExportSettings;
 import com.fadcam.ui.faditor.model.FaditorProject;
+import com.fadcam.ui.faditor.model.StyleSpan;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -2080,6 +2081,12 @@ public class ProjectStorage {
                 if (o.getGlowColorInt() != android.graphics.Color.TRANSPARENT) oJson.addProperty("glowColorInt", o.getGlowColorInt());
                 if (o.getGlowRadiusPx() > 0f) oJson.addProperty("glowRadiusPx", o.getGlowRadiusPx());
                 if (o.getBackgroundColorInt() != android.graphics.Color.TRANSPARENT) oJson.addProperty("backgroundColorInt", o.getBackgroundColorInt());
+                // Motion-range window — sparse like the rest: written only when set, so a project
+                // that never opens the motion-range controls round-trips byte-identically.
+                if (o.hasMotionRange()) {
+                    oJson.addProperty("motionStartMs", o.getMotionStartMs());
+                    oJson.addProperty("motionEndMs", o.getMotionEndMs());
+                }
                 // Keyframe tracks (animation), if any.
                 if (!o.getKeyframes().isEmpty()) {
                     JsonObject tracksJson = new JsonObject();
@@ -2103,6 +2110,18 @@ public class ProjectStorage {
                 if (o.isHidden()) oJson.addProperty("objHidden", true);
                 if (o.isLocked()) oJson.addProperty("objLocked", true);
                 serializeTimerSpec(oJson, o.getTimerSpec());
+                // W5-2 rich text spans (§3.8). Sparse: an overlay with no per-selection
+                // formatting writes nothing, so every pre-W5-2 project round-trips
+                // byte-identically.
+                if (o.hasStyleSpans()) {
+                    JsonArray spansArr = new JsonArray();
+                    for (StyleSpan s : o.getStyleSpans()) {
+                        JsonObject sj = new JsonObject();
+                        StyleSpan.toJson(s, sj);
+                        spansArr.add(sj);
+                    }
+                    oJson.add("styleSpans", spansArr);
+                }
                 overlaysArray.add(oJson);
             }
             timelineJson.add("textOverlays", overlaysArray);
@@ -2710,6 +2729,14 @@ public class ProjectStorage {
                                     hasValue(oObj, "textAnimOutPct")
                                             ? oObj.get("textAnimOutPct").getAsFloat() : 0f);
                         }
+                        // Motion-range window (SPEC_TEXT_DRAWER follow-up, 2026-08-08) — the
+                        // [startMs, endMs) window the entrance/exit zones evaluate against. Both
+                        // keys must be present; a lone one would leave the model half-set, and
+                        // hasMotionRange() already guards every consumer.
+                        if (hasValue(oObj, "motionStartMs") && hasValue(oObj, "motionEndMs")) {
+                            o.setMotionRange(oObj.get("motionStartMs").getAsLong(),
+                                    oObj.get("motionEndMs").getAsLong());
+                        }
                         if (hasValue(oObj, "strokeColorInt")) o.setStrokeColorInt(oObj.get("strokeColorInt").getAsInt());
                         if (hasValue(oObj, "strokeWidthPx")) o.setStrokeWidthPx(oObj.get("strokeWidthPx").getAsFloat());
                         if (hasValue(oObj, "shadowColorInt")) o.setShadowColorInt(oObj.get("shadowColorInt").getAsInt());
@@ -2741,6 +2768,22 @@ public class ProjectStorage {
                         if (hasValue(oObj, "objHidden")) o.setHidden(oObj.get("objHidden").getAsBoolean());
                         if (hasValue(oObj, "objLocked")) o.setLocked(oObj.get("objLocked").getAsBoolean());
                         o.setTimerSpec(deserializeTimerSpec(oObj)); // absent = ordinary text
+                        // W5-2 rich text spans (§3.8). Tolerant per-span read: a malformed
+                        // span costs only that span's formatting, and out-of-range spans are
+                        // re-clamped by the resolver's normalize at use time.
+                        if (hasValue(oObj, "styleSpans")) {
+                            try {
+                                JsonArray spansArr = oObj.getAsJsonArray("styleSpans");
+                                java.util.List<StyleSpan> spans = new java.util.ArrayList<>();
+                                for (int s = 0; s < spansArr.size(); s++) {
+                                    spans.add(StyleSpan.fromJson(
+                                            spansArr.get(s).getAsJsonObject()));
+                                }
+                                o.setStyleSpans(spans);
+                            } catch (Exception ignored) {
+                                // Tolerant: lose the formatting, keep the overlay + text.
+                            }
+                        }
                         project.getTimeline().addTextOverlay(o);
                       } catch (Exception ex) {
                         FLog.e(TAG, "Skipping malformed text overlay #" + i, ex);

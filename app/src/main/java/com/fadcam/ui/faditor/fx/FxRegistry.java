@@ -87,8 +87,12 @@ public final class FxRegistry {
             + "return vec4(c, src.a);\n";
 
     private static final String BODY_GRADIENT_MAP =
+            // §3.11 (2026-08-08): the old two-colour lowColor/highColor lerp is now a full
+            // GradientRamp — "THIS WILL BE THE STANDARD FOR ALL GRADIENTS APP WIDE" (JoyRaptor).
+            // Luminance 0..1 walks the ramp through the shared FX_GRAD_COLOR evaluator, so the
+            // map honours every stop, mirror, flip and solid-band the ramp editor offers.
             "float l = dot(src.rgb, vec3(0.299, 0.587, 0.114));\n"
-            + "vec3 g = mix(FX_P(lowColor), FX_P(highColor), l);\n"
+            + "vec3 g = FX_GRAD_COLOR(clamp(l, 0.0, 1.0));\n"
             + "return vec4(mix(src.rgb, g, FX_P(amount)), src.a);\n";
 
     private static final String BODY_THRESHOLD =
@@ -155,10 +159,11 @@ public final class FxRegistry {
      * true pixel space, up to a uniform scale — dividing both axes by frame height cancels to
      * exactly this. So a 45° line is genuinely 45° on a 16:9 frame, not sheared.</p>
      *
-     * <p><b>Curve is a STUB.</b> "Linear with 1–3 vertices and bezier handles, parameterised by
-     * arc length" needs either an iterative nearest-point solve or an arc-length lookup table —
-     * real work this build did not reach. Selecting it renders as Linear, on purpose and
-     * documented on the ENUM label ("Curve (soon)") rather than silently drawing nothing.</p>
+     * <p><b>Curve is a quadratic bezier.</b> The gradient runs along a sampled quadratic bezier
+     * path from a start anchor to an end anchor; each pixel's {@code t} is the arc-length fraction
+     * of the nearest point on the path (8 fixed samples, two constant loops). The {@code curve}
+     * control point defaults to the linear midpoint, so an untouched Curve renders exactly like
+     * Linear — the safe default — and pulling the control bends the path.</p>
      */
     private static final String BODY_GRADIENT_FILL =
             "vec2 d = uv - FX_P(center);\n"
@@ -168,20 +173,59 @@ public final class FxRegistry {
             + "float sa = sin(ang);\n"
             + "vec2 rd = vec2(ap.x * ca + ap.y * sa, -ap.x * sa + ap.y * ca);\n"
             + "float shape = FX_P(shape);\n"
+            + "float scl = FX_P(scale);\n"
             + "float t;\n"
             + "if (shape < 0.5) {\n"                    // Linear
             + "  t = rd.x + 0.5;\n"
             + "} else if (shape < 1.5) {\n"              // Radial
-            + "  t = length(rd) * 2.0;\n"
-            + "} else if (shape < 2.5) {\n"              // Angle / conic
-            + "  t = atan(rd.y, rd.x) / 6.28318530718 + 0.5;\n"
+            + "  t = length(rd) * scl;\n"
+            + "} else if (shape < 2.5) {\n"              // Angle / conic = the radar SWEEP (JoyRaptor 2026-08-09:
+            + "  t = atan(rd.y, rd.x) / 6.28318530718 + 0.5;\n"   //  one 100% line from top to centre, sweeping).
             + "} else if (shape < 3.5) {\n"              // Reflected (mirror of linear at centre)
             + "  t = abs(rd.x) * 2.0;\n"
-            + "} else if (shape < 4.5) {\n"              // Diamond
-            + "  t = (abs(rd.x) + abs(rd.y)) * 2.0;\n"
-            + "} else if (shape < 5.5) {\n"              // Box
-            + "  t = max(abs(rd.x), abs(rd.y)) * 2.0;\n"
-            + "} else {\n"                               // Curve — STUB, falls back to Linear
+            + "} else if (shape < 4.5) {\n"              // Diamond/Box (combined — Diamond is Box rotated 45°)
+            + "  // Use angle to rotate between Diamond and Box: 0° = Box, 45° = Diamond\n"
+            + "  float boxAngle = radians(FX_P(angle));\n"
+            + "  float cba = cos(boxAngle);\n"
+            + "  float sba = sin(boxAngle);\n"
+            + "  vec2 brd = vec2(rd.x * cba + rd.y * sba, -rd.x * sba + rd.y * cba);\n"
+            + "  t = max(abs(brd.x), abs(brd.y)) * scl;\n"
+            + "} else if (shape < 5.5) {\n"              // Curve — QUADRATIC BEZIER (W4-5, real, not the old stub)
+            // The gradient runs along a quadratic bezier from a start anchor to an end anchor,
+            // and each pixel's `t` is the ARC-LENGTH fraction of the NEAREST point on that path.
+            // The control point defaults to the linear midpoint, so an untouched Curve renders
+            // exactly like Linear — the shape is Linear-by-construction until it is bent, which
+            // is what keeps the default safe for projects that never touch it.
+            + "  vec2 cp = FX_P(curve);\n"
+            + "  vec2 cpt = vec2((cp.x - FX_P(center).x) * FX_ASPECT, cp.y - FX_P(center).y);\n"
+            + "  vec2 cpr = vec2(cpt.x * ca + cpt.y * sa, -cpt.x * sa + cpt.y * ca);\n"
+            + "  vec2 p0 = vec2(-0.5, 0.0);\n"
+            + "  vec2 p1 = cpr;\n"
+            + "  vec2 p2 = vec2(0.5, 0.0);\n"
+            + "  float total = 0.0;\n"
+            + "  vec2 prev = p0;\n"
+            + "  for (int i = 1; i <= 8; i++) {\n"
+            + "    float u = float(i) / 8.0;\n"
+            + "    float omu = 1.0 - u;\n"
+            + "    vec2 p = omu*omu*p0 + 2.0*omu*u*p1 + u*u*p2;\n"
+            + "    total += length(p - prev);\n"
+            + "    prev = p;\n"
+            + "  }\n"
+            + "  float cum = 0.0;\n"
+            + "  float bestD = 1e9;\n"
+            + "  float bestCum = 0.0;\n"
+            + "  prev = p0;\n"
+            + "  for (int i = 1; i <= 8; i++) {\n"
+            + "    float u = float(i) / 8.0;\n"
+            + "    float omu = 1.0 - u;\n"
+            + "    vec2 p = omu*omu*p0 + 2.0*omu*u*p1 + u*u*p2;\n"
+            + "    cum += length(p - prev);\n"
+            + "    prev = p;\n"
+            + "    float d = length(p - rd);\n"
+            + "    if (d < bestD) { bestD = d; bestCum = cum; }\n"
+            + "  }\n"
+            + "  t = bestCum / max(total, 0.0001);\n"
+            + "} else {\n"                               // (unreachable — last shape)
             + "  t = rd.x + 0.5;\n"
             + "}\n"
             + "if (FX_GRAD_MIRROR > 0.5) {\n"
@@ -220,6 +264,20 @@ public final class FxRegistry {
     private static final List<FxEffectDef> ALL;
     private static final Map<String, FxEffectDef> BY_ID;
 
+    /** Gradient Map's default ramp — the exact two stops the old lowColor/highColor defaults
+     *  described (dark warm shadow → light warm highlight), so a fresh map looks identical to
+     *  the pre-§3.11 effect. */
+    private static GradientRamp gradientMapDefaultRamp() {
+        GradientRamp r = new GradientRamp();
+        r.colorStops.clear();
+        r.opacityStops.clear();
+        r.addColorStop(0f, 0x101820);
+        r.addColorStop(1f, 0xF2E9E4);
+        r.addOpacityStop(0f, 1f);
+        r.addOpacityStop(1f, 1f);
+        return r;
+    }
+
     static {
         List<FxEffectDef> defs = new ArrayList<>();
 
@@ -256,8 +314,9 @@ public final class FxRegistry {
         defs.add(new FxEffectDef("gradient_map", "Gradient Map",
                 FxEffectDef.Family.COLOR, FxEffectDef.Capability.POINTWISE, 1, 0.4f,
                 BODY_GRADIENT_MAP,
-                FxParam.color("lowColor", "Shadows", 0x101820),
-                FxParam.color("highColor", "Highlights", 0xF2E9E4),
+                // §3.11: one ramp instead of lowColor/highColor. Old projects migrate in
+                // FxInstance.fromJson (their two colours load as a 2-stop ramp).
+                FxParam.gradient("ramp", "Ramp", gradientMapDefaultRamp()),
                 FxParam.flt("amount", "Amount", 0f, 1f, 1f)));
 
         defs.add(new FxEffectDef("threshold", "Threshold",
@@ -302,9 +361,13 @@ public final class FxRegistry {
                 FxEffectDef.Family.GENERATE, FxEffectDef.Capability.GENERATOR, 1, 1.8f,
                 BODY_GRADIENT_FILL,
                 FxParam.enumOf("shape", "Shape", 0,
-                        "Linear", "Radial", "Angle", "Reflected", "Diamond", "Box", "Curve (soon)"),
+                        "Linear", "Radial", "Angle/Sweep", "Reflected", "Diamond/Box", "Curve"),
                 FxParam.flt("angle", "Angle", -180f, 180f, 0f),
+                FxParam.flt("scale", "Scale", 0.5f, 4.0f, 1.0f),
                 FxParam.point("center", "Center", 0.5f, 0.5f),
+                // W4-5: the Curve shape's control point. Defaults to the linear midpoint so
+                // Curve == Linear until bent (safe default; see BODY_GRADIENT_FILL's Curve branch).
+                FxParam.point("curve", "Curve point", 0.5f, 0.5f),
                 FxParam.gradient("ramp", "Ramp", GradientRamp.defaultRamp())));
 
         defs.add(new FxEffectDef("noise", "Noise / Clouds",

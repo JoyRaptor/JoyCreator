@@ -122,6 +122,7 @@ public final class PreviewHandlesOverlay extends View {
     private final Paint handleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handleStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rotatePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint movePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF box = new RectF();
 
     @Nullable private Target target;
@@ -149,6 +150,12 @@ public final class PreviewHandlesOverlay extends View {
         handleStroke.setColor(0xFF444444);
         rotatePaint.setStyle(Paint.Style.FILL);
         rotatePaint.setColor(0xFFB388FF); // app purple accent (M10 target family)
+        // W5-5 move affordance: a dim crosshair at the box centre says "you can drag me" — the
+        // single most reported "nothing tells me I can move this" gap (JoyRaptor, 2026-08-08).
+        movePaint.setStyle(Paint.Style.STROKE);
+        movePaint.setStrokeWidth(1.8f * density);
+        movePaint.setStrokeCap(Paint.Cap.ROUND);
+        movePaint.setColor(0x99FFFFFF);
     }
 
     /** Show handles for {@code t} (null = hide). Selection drives this. */
@@ -206,6 +213,34 @@ public final class PreviewHandlesOverlay extends View {
         canvas.drawLine(cx, box.top, cx, stalkTop, boxPaint);
         canvas.drawCircle(cx, stalkTop, 5f * density, rotatePaint);
         canvas.drawCircle(cx, stalkTop, 5f * density, handleStroke);
+
+        // W5-5 move affordance: four small arrows around the centre — the "you can drag me" cue.
+        float g = Math.max(5f * density, Math.min(box.width(), box.height()) * 0.13f);
+        drawMoveArrows(canvas, cx, cy, g);
+
+        canvas.restore();
+    }
+
+    /** Four outward arrow heads around the box centre (move glyph). */
+    private void drawMoveArrows(@NonNull Canvas canvas, float cx, float cy, float g) {
+        float a = g * 0.55f;   // arrow head size
+        // UP
+        canvas.drawLine(cx, cy + g, cx, cy - g, movePaint);
+        // DOWN
+        canvas.drawLine(cx, cy - g, cx, cy + g, movePaint);
+        // LEFT
+        canvas.drawLine(cx - g, cy, cx + g, cy, movePaint);
+        // RIGHT
+        canvas.drawLine(cx + g, cy, cx - g, cy, movePaint);
+        // four arrow heads
+        canvas.save();
+        canvas.translate(cx, cy);
+        for (int i = 0; i < 4; i++) {
+            canvas.rotate(90f * i);
+            // upward head at (0, -g)
+            canvas.drawLine(0, -g, -a, -g + a * 1.6f, movePaint);
+            canvas.drawLine(0, -g, a, -g + a * 1.6f, movePaint);
+        }
         canvas.restore();
     }
 

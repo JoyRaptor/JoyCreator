@@ -1100,6 +1100,30 @@
     <string name="faditor_text_hint">Enter text</string>
     <string name="faditor_text_edit_title">Edit text</string>
     <string name="faditor_text_delete">Delete</string>
+    <string name="faditor_text_selection_whole">Whole text</string>
+    <string name="faditor_text_selection_count">%1$d selected</string>
+    <string name="faditor_text_selection_clear">Clear</string>
+    <string name="faditor_text_style_undo">Format text</string>
+    <!-- W5-4: strings extracted from the joy-creator working tree (2026-08-09). -->
+    <string name="faditor_text_motion_range">Text motion range</string>
+    <string name="faditor_trim_start_here">⇤ Start here</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  Span whole</string>
+    <string name="faditor_trim_end_here">End here ⇥</string>
+    <string name="faditor_split_playhead_text">Move the playhead inside the text to split it</string>
+    <string name="faditor_split_playhead_sprite">Move the playhead inside the sprite to split it</string>
+    <string name="faditor_split_playhead_pip">Move the playhead inside the PiP to split it</string>
+    <string name="faditor_split_playhead_layer">Move the playhead inside the layer to split it</string>
+    <string name="faditor_trim_start_impossible">Move the playhead before the layer\'s end to trim the start</string>
+    <string name="faditor_trim_end_impossible">Move the playhead after the layer\'s start to trim the end</string>
+    <string name="faditor_heal_confirm_add">Healing this split would add %1$s to the timeline. OK?</string>
+    <string name="faditor_heal_confirm_remove">Healing this split would remove %1$s from the timeline. OK?</string>
+    <string name="faditor_locked_title">Locked object</string>
+    <string name="faditor_locked_message">This object is locked. Unlock and continue?</string>
+    <string name="faditor_locked_unlock">Unlock &amp; continue</string>
+    <string name="faditor_fx_static_hint">Static — tap ◆ to animate</string>
+    <string name="faditor_fx_reorder_hint">Add a second effect to reorder the chain</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s needs an adjustment layer — left out</string>
+    <string name="faditor_color_set">Set</string>
     <string name="faditor_image_overlay_title">Image overlay</string>
     <string name="faditor_image_overlay_desc">Drag to move, pinch to resize</string>
     <string name="faditor_tool_silence">Clean</string>
@@ -3234,7 +3258,8 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_text_decor_stroke">Outline</string>
     <string name="faditor_text_decor_glow">Glow</string>
     <string name="faditor_text_decor_shadow">Shadow</string>
-    <string name="faditor_text_decor_plate">Background plate</string>
+    <!-- "plate" is gone (JoyRaptor 2026-08-08: just "background"): one row, one field. -->
+    <string name="faditor_text_decor_plate">Background</string>
     <!-- 3a: the masking engine's first access point -->
     <string name="faditor_mask_action">Mask</string>
     <string name="faditor_mask_title">Mask</string>

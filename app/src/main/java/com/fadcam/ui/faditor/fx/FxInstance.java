@@ -177,8 +177,46 @@ public final class FxInstance {
                     // taking the project load down — the tolerance rule this model follows.
                 }
             }
+            // §3.11 migration: gradient_map used to be two colours (lowColor/highColor). A
+            // project written before the ramp landed still has those and no ramp — load them as
+            // a 2-stop ramp rather than dropping the user's grading to the default.
+            if ("gradient_map".equals(id) && v.has("lowColor") && v.has("highColor")
+                    && !v.has("ramp")) {
+                FxParam ramp = def.param("ramp");
+                if (ramp != null) {
+                    try {
+                        float[] lo = toRgb(v.getAsJsonArray("lowColor"));
+                        float[] hi = toRgb(v.getAsJsonArray("highColor"));
+                        GradientRamp r = new GradientRamp();
+                        r.colorStops.clear();
+                        r.opacityStops.clear();
+                        r.addColorStop(0f, packRgb(lo));
+                        r.addColorStop(1f, packRgb(hi));
+                        r.addOpacityStop(0f, 1f);
+                        r.addOpacityStop(1f, 1f);
+                        fx.set(ramp, r.toFloatArray());
+                    } catch (RuntimeException ignored) { }
+                }
+            }
         }
         return fx;
+    }
+
+    /** Read a JsonArray as a float[] (missing/odd entries → 0). */
+    private static float[] toRgb(@NonNull JsonArray a) {
+        float[] out = new float[3];
+        for (int i = 0; i < Math.min(3, a.size()); i++) {
+            try { out[i] = a.get(i).getAsFloat(); } catch (RuntimeException ignored) { }
+        }
+        return out;
+    }
+
+    /** Pack three 0..1 floats to 0xRRGGBB (alpha forced opaque). */
+    private static int packRgb(@NonNull float[] rgb) {
+        int r = Math.max(0, Math.min(255, Math.round(rgb[0] * 255f)));
+        int g = Math.max(0, Math.min(255, Math.round(rgb[1] * 255f)));
+        int b = Math.max(0, Math.min(255, Math.round(rgb[2] * 255f)));
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     @NonNull

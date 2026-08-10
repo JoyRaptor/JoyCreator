@@ -306,6 +306,19 @@ public class FxCompilerTest {
         check("gradient AGSL uses the same slot naming", agsl.contains("u0_ramp_flags"));
         check("no FX_ macro survives expansion in either backend",
                 !glsl.contains("FX_") && !agsl.contains("FX_"));
+        // W4-5: the Curve shape is a real quadratic bezier now, not the old "Curve (soon)" stub
+        // that fell back to Linear. The body must carry the bezier evaluator + arc-length search
+        // in BOTH backends, and the new `curve` control-point uniform must be declared.
+        check("gradient GLSL declares the Curve control-point uniform",
+                glsl.contains("uniform vec2 u0_curve"));
+        check("gradient GLSL emits the bezier arc-length search",
+                glsl.contains("bestCum / max(total, 0.0001)")
+                        && glsl.contains("omu*omu*p0"));
+        check("gradient AGSL emits the bezier arc-length search",
+                agsl.contains("bestCum / max(total, 0.0001)")
+                        && agsl.contains("omu*omu*p0"));
+        check("no \"Curve (soon)\" stub label survives",
+                !glsl.contains("Curve (soon)"));
         check("the ramp evaluator is declared exactly once in GLSL",
                 countOf(glsl, "vec3 fxGradColor(") == 1);
         check("the ramp evaluator is declared exactly once in AGSL",

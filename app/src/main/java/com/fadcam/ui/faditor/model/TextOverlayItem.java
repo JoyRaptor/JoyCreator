@@ -72,11 +72,11 @@ public class TextOverlayItem {
     public boolean isUnderline() { return underline; }
     public void setUnderline(boolean underline) { this.underline = underline; }
 
-    /** Case transform names — see {@link #applyCase}. */
-    public static final String CASE_NONE = "NONE";
-    public static final String CASE_CAPITALIZE_FIRST = "CAPITALIZE_FIRST";
-    public static final String CASE_ALL_CAPS = "ALL_CAPS";
-    public static final String CASE_SMALL_CAPS = "SMALL_CAPS";
+    /** Case transform names — see {@link #applyCase}. Aliased to the resolver's single authority. */
+    public static final String CASE_NONE = TextStyleResolver.CASE_NONE;
+    public static final String CASE_CAPITALIZE_FIRST = TextStyleResolver.CASE_CAPITALIZE_FIRST;
+    public static final String CASE_ALL_CAPS = TextStyleResolver.CASE_ALL_CAPS;
+    public static final String CASE_SMALL_CAPS = TextStyleResolver.CASE_SMALL_CAPS;
 
     @NonNull
     private String textCase = CASE_NONE;
@@ -85,6 +85,71 @@ public class TextOverlayItem {
     public String getTextCase() { return textCase; }
 
     public void setTextCase(@NonNull String textCase) { this.textCase = textCase; }
+
+    // ── Rich text spans (W5-2 §3.8) ────────────────────────────────────────────────────
+    // Per-selection formatting on top of the base style above. The spans are the ONE
+    // per-glyph override list: their rules (last-span-wins per property, base fallback,
+    // edit realignment) are all owned by TextStyleResolver, which is pure-Java and pinned
+    // by the JVM harness — renderers only consume its resolved runs and so cannot invent a
+    // different meaning for a span.
+    //
+    // Null until something is set, so every overlay that predates W5-2 serializes
+    // byte-identically (the storage writes "styleSpans" only when non-empty).
+
+    @Nullable
+    private java.util.List<StyleSpan> styleSpans;
+
+    /** The item's spans, or null when it has none. Renderers read this through the resolver. */
+    @Nullable
+    public java.util.List<StyleSpan> getStyleSpans() { return styleSpans; }
+
+    /** The mutable span list, created on first access — what the drawer edits. */
+    @NonNull
+    public java.util.List<StyleSpan> getOrCreateStyleSpans() {
+        if (styleSpans == null) styleSpans = new java.util.ArrayList<>();
+        return styleSpans;
+    }
+
+    /** True when any span carries at least one override. */
+    public boolean hasStyleSpans() {
+        if (styleSpans == null) return false;
+        for (StyleSpan s : styleSpans) {
+            if (!s.isNoop()) return true;
+        }
+        return false;
+    }
+
+    /** Replace the span list wholesale (deep copy — never alias another item's list). */
+    public void setStyleSpans(@Nullable java.util.List<StyleSpan> spans) {
+        styleSpans = copySpans(spans);
+    }
+
+    private static java.util.List<StyleSpan> copySpans(@Nullable java.util.List<StyleSpan> src) {
+        if (src == null) return null;
+        java.util.List<StyleSpan> out = new java.util.ArrayList<>(src.size());
+        for (StyleSpan s : src) out.add(s.copy());
+        return out;
+    }
+
+    /**
+     * The {@link TextStyleResolver.Base} this item's base style means — the unspanned look.
+     * The drawer feeds this to the resolver's queries; both renderers build it to resolve.
+     */
+    @NonNull
+    public TextStyleResolver.Base resolveBase() {
+        TextStyleResolver.Base b = new TextStyleResolver.Base();
+        b.fontFamily = fontFamily;
+        b.bold = bold;
+        b.italic = italic;
+        b.underline = underline;
+        b.textCase = textCase;
+        b.fillColor = colorInt;
+        b.strokeColor = strokeColorInt;
+        b.glowColor = glowColorInt;
+        b.shadowColor = shadowColorInt;
+        b.backgroundColor = backgroundColorInt;
+        return b;
+    }
 
     /**
      * Apply this item's case transform to displayed text. Called by BOTH renderers on the
@@ -187,6 +252,16 @@ public class TextOverlayItem {
 
     /** Centre Y in normalised video-content coords [0,1]. */
     private float centerY;
+
+    /**
+     * How far the centre may travel beyond each canvas edge, as a fraction of the
+     * canvas size, per axis. Grown by the render layer each layout to be
+     * proportional to the object's own rendered size, so a huge overlay can be
+     * pushed fully off-frame and still be reachable (user, 2026-08-09). The
+     * clamp in {@link #setCenter} and the X/Y keyframe writer both use these.
+     */
+    private float centerLimitX = 1f;
+    private float centerLimitY = 1f;
 
     /** Text height as a fraction of the video height (e.g. 0.08 = 8%). */
     private float sizeFraction;
@@ -438,6 +513,7 @@ public class TextOverlayItem {
         c.fx = fx == null ? null : fx.copy();
         c.generatedSource = generatedSource == null ? null : generatedSource.copy();
         c.timerSpec = timerSpec == null ? null : timerSpec.copy();
+        c.styleSpans = copySpans(styleSpans);
         return c;
     }
 
@@ -479,14 +555,30 @@ public class TextOverlayItem {
     public float getCenterY() { return centerY; }
 
     public void setCenter(float x, float y) {
-        this.centerX = Math.max(0f, Math.min(1f, x));
-        this.centerY = Math.max(0f, Math.min(1f, y));
+        this.centerX = Math.max(-centerLimitX, Math.min(1f + centerLimitX, x));
+        this.centerY = Math.max(-centerLimitY, Math.min(1f + centerLimitY, y));
     }
+
+    /**
+     * Set how far the centre may travel beyond each canvas edge, in canvas fractions.
+     * Always at least one half-frame so a tiny overlay can still be moved off-screen
+     * (otherwise the user's "just off the screen" is unachievable for small objects).
+     */
+    public void setCenterTravelLimit(float x, float y) {
+        this.centerLimitX = Math.max(0.5f, x);
+        this.centerLimitY = Math.max(0.5f, y);
+    }
+
+    /** How far the centre may travel beyond each canvas edge (canvas fractions). */
+    public float getCenterLimitX() { return centerLimitX; }
+
+    /** How far the centre may travel beyond each canvas edge (canvas fractions). */
+    public float getCenterLimitY() { return centerLimitY; }
 
     public float getSizeFraction() { return sizeFraction; }
 
     public void setSizeFraction(float sizeFraction) {
-        this.sizeFraction = Math.max(0.02f, Math.min(0.6f, sizeFraction));
+        this.sizeFraction = Math.max(0.02f, Math.min(10f, sizeFraction));
     }
 
     public float getRotationDeg() { return rotationDeg; }
@@ -513,77 +605,81 @@ public class TextOverlayItem {
      * <p>Baked in here rather than left to each renderer's paint setup: every caller that asks
      * this item for its Typeface already gets bold/italic for free, on both renderers, with no
      * second place that could apply them differently or forget to.</p>
+     *
+     * <p>Span-aware callers resolve per-run typefaces via {@link #typefaceFor} with the run's
+     * family/bold/italic — the same lookup, parameterised.</p>
      */
     @NonNull
     public android.graphics.Typeface getTypeface() {
-        return withBoldItalic(rawTypeface());
+        return typefaceFor(fontFamily, bold, italic);
     }
 
+    /** THE typeface lookup: one family↔Typeface map, applied for any bold/italic pair. Used by
+     * the base style (via {@link #getTypeface}) and by every resolved span run. */
     @NonNull
-    private android.graphics.Typeface withBoldItalic(@NonNull android.graphics.Typeface base) {
+    public static android.graphics.Typeface typefaceFor(@NonNull String family,
+                                                        boolean bold, boolean italic) {
+        android.graphics.Typeface base;
+        // Custom font file (loaded from storage)
+        if (family.startsWith("file:")) {
+            try {
+                base = android.graphics.Typeface.createFromFile(family.substring(5));
+            } catch (Exception e) {
+                base = android.graphics.Typeface.DEFAULT_BOLD;
+            }
+        } else {
+            switch (family) {
+                case "serif": base = android.graphics.Typeface.SERIF; break;
+                case "serif_italic": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SERIF, android.graphics.Typeface.ITALIC); break;
+                case "mono": base = android.graphics.Typeface.MONOSPACE; break;
+                case "mono_bold": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD); break;
+                case "dramatic": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD_ITALIC); break;
+                case "techie": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD); break;
+                case "designer": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL); break;
+                case "classy": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SERIF, android.graphics.Typeface.NORMAL); break;
+                case "classy_italic": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SERIF, android.graphics.Typeface.ITALIC); break;
+                case "trendy": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL); break;
+                case "country": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD); break;
+                case "popular": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD); break;
+                case "popular_italic": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD_ITALIC); break;
+                case "light": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL); break;
+                case "condensed": base = android.graphics.Typeface.create(
+                        "sans-serif-condensed", android.graphics.Typeface.NORMAL); break;
+                case "condensed_bold": base = android.graphics.Typeface.create(
+                        "sans-serif-condensed", android.graphics.Typeface.BOLD); break;
+                case "casual": base = android.graphics.Typeface.create(
+                        "casual", android.graphics.Typeface.NORMAL); break;
+                case "cursive": base = android.graphics.Typeface.create(
+                        "cursive", android.graphics.Typeface.NORMAL); break;
+                case "serif_bold": base = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD); break;
+                case "sans_light": base = android.graphics.Typeface.create(
+                        "sans-serif-light", android.graphics.Typeface.NORMAL); break;
+                case "sans_thin": base = android.graphics.Typeface.create(
+                        "sans-serif-thin", android.graphics.Typeface.NORMAL); break;
+                case "sans_medium": base = android.graphics.Typeface.create(
+                        "sans-serif-medium", android.graphics.Typeface.NORMAL); break;
+                case "sans_black": base = android.graphics.Typeface.create(
+                        "sans-serif-black", android.graphics.Typeface.NORMAL); break;
+                default: base = android.graphics.Typeface.DEFAULT_BOLD;
+            }
+        }
         if (!bold && !italic) return base;
         int style = (bold ? android.graphics.Typeface.BOLD : 0)
                 | (italic ? android.graphics.Typeface.ITALIC : 0);
         return android.graphics.Typeface.create(base, style);
-    }
-
-    @NonNull
-    private android.graphics.Typeface rawTypeface() {
-        // Custom font file (loaded from storage)
-        if (fontFamily.startsWith("file:")) {
-            try {
-                return android.graphics.Typeface.createFromFile(fontFamily.substring(5));
-            } catch (Exception e) {
-                return android.graphics.Typeface.DEFAULT_BOLD;
-            }
-        }
-        switch (fontFamily) {
-            case "serif": return android.graphics.Typeface.SERIF;
-            case "serif_italic": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SERIF, android.graphics.Typeface.ITALIC);
-            case "mono": return android.graphics.Typeface.MONOSPACE;
-            case "mono_bold": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
-            case "dramatic": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD_ITALIC);
-            case "techie": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
-            case "designer": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL);
-            case "classy": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SERIF, android.graphics.Typeface.NORMAL);
-            case "classy_italic": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SERIF, android.graphics.Typeface.ITALIC);
-            case "trendy": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL);
-            case "country": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD);
-            case "popular": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD);
-            case "popular_italic": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD_ITALIC);
-            case "light": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.NORMAL);
-            case "condensed": return android.graphics.Typeface.create(
-                    "sans-serif-condensed", android.graphics.Typeface.NORMAL);
-            case "condensed_bold": return android.graphics.Typeface.create(
-                    "sans-serif-condensed", android.graphics.Typeface.BOLD);
-            case "casual": return android.graphics.Typeface.create(
-                    "casual", android.graphics.Typeface.NORMAL);
-            case "cursive": return android.graphics.Typeface.create(
-                    "cursive", android.graphics.Typeface.NORMAL);
-            case "serif_bold": return android.graphics.Typeface.create(
-                    android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD);
-            case "sans_light": return android.graphics.Typeface.create(
-                    "sans-serif-light", android.graphics.Typeface.NORMAL);
-            case "sans_thin": return android.graphics.Typeface.create(
-                    "sans-serif-thin", android.graphics.Typeface.NORMAL);
-            case "sans_medium": return android.graphics.Typeface.create(
-                    "sans-serif-medium", android.graphics.Typeface.NORMAL);
-            case "sans_black": return android.graphics.Typeface.create(
-                    "sans-serif-black", android.graphics.Typeface.NORMAL);
-            default: return android.graphics.Typeface.DEFAULT_BOLD;
-        }
     }
 
     @Nullable
@@ -766,6 +862,15 @@ public class TextOverlayItem {
                 : (endMs == Long.MAX_VALUE || endMs <= 0 ? timelineDurationMs : endMs);
     }
 
+    /**
+     * The span the entrance/exit zones evaluate against — {@link #motionRangeEndMs} minus
+     * {@link #motionRangeStartMs}. Identical to {@link #animSpanMs} for every overlay without an
+     * explicit motion range, which is what keeps the default behaviour byte-for-byte unchanged.
+     */
+    public long motionSpanMs(long timelineDurationMs) {
+        return Math.max(0L, motionRangeEndMs(timelineDurationMs) - motionRangeStartMs());
+    }
+
     public void setTimeRange(long startMs, long endMs) {
         this.startMs = Math.max(0, startMs);
         // Guard against a degenerate range (end at/before start) that would make
@@ -867,12 +972,16 @@ public class TextOverlayItem {
         float v = value;
         switch (property) {
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.X:
+                v = Math.max(-centerLimitX, Math.min(1f + centerLimitX, value));
+                break;
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.Y:
+                v = Math.max(-centerLimitY, Math.min(1f + centerLimitY, value));
+                break;
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY:
                 v = Math.max(0f, Math.min(1f, value));
                 break;
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE:
-                v = Math.max(0.02f, Math.min(0.6f, value));
+                v = Math.max(0.02f, Math.min(10f, value));
                 break;
             default:
                 break; // rotation is unclamped (degrees)

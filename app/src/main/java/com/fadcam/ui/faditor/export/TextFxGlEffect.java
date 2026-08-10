@@ -112,6 +112,10 @@ public final class TextFxGlEffect implements GlEffect {
             frameItem.setUnderline(item.isUnderline());
             frameItem.setTextCase(item.getTextCase());
             frameItem.setTextAlign(item.getTextAlign());
+            // W5-2 §3.8: the per-selection spans ride into the GL rasteriser too — render()
+            // delegates to TextBoxRenderer, which resolves them exactly like the preview and
+            // the no-FX export, so an FX'd caption cannot lose its formatting at export.
+            frameItem.setStyleSpans(item.getStyleSpans());
             Bitmap textBmp = TextOverlayRenderer.render(frameItem, outW, outH);
             // COMPOSE ONTO A FULL FRAME. render() returns a bitmap sized to the TEXT, which
             // CompositeExportOverlay then positions with canvas.drawBitmap(cx - w/2, ...).

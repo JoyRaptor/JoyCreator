@@ -9,8 +9,15 @@ import android.text.TextPaint;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.ui.faditor.model.StyleSpan;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.model.TextStyleResolver;
 import com.fadcam.ui.faditor.transcript.CaptionAnimator;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * THE per-glyph renderer for a TEXT BOX — the one place a text overlay's pixels are decided,
@@ -30,6 +37,16 @@ import com.fadcam.ui.faditor.transcript.CaptionAnimator;
  * WHERE GLYPH i SITS, which is a much finer-grained agreement than "is this visible" — and two
  * independently written layouts would not hold it for long.
  *
+ * <h3>Rich text (W5-2 §3.8)</h3>
+ * Both surfaces lay out the SAME resolved runs, produced by {@link TextStyleResolver} — the one
+ * authority for what a span means. A box without spans resolves to a single whole-string run of
+ * the item's base style and draws exactly as it always did (the legacy locale-sensitive
+ * {@code applyCase} is kept for that path, so existing projects render byte-identically). A box
+ * with spans segments every line into cells — the intersection of animation units with style
+ * runs — and each cell draws with its own run's typeface, colours and toggles. Since
+ * {@code applyCaseToRange} is length-preserving per char, span offsets stay valid in the display
+ * string, so unit segmentation and style segmentation can share one layout.
+ *
  * <h3>What changed to make this necessary</h3>
  * Text boxes were BLOCK-only (one unit, whole body) because the preview drew them as a single
  * {@code TextView}: one view, one string, no way to move individual characters. The recorded
@@ -46,14 +63,14 @@ import com.fadcam.ui.faditor.transcript.CaptionAnimator;
  * ({@link CaptionAnimator.Transform#revealFrac}, MASK_WIPE).
  *
  * <p><b>There is a FOURTH channel: blur ({@link CaptionAnimator.Transform#blurPx}), GHOST's.</b>
- * It IS applied here, on both surfaces — see {@link #drawUnit}. This sentence used to read
+ * It IS applied here, on both surfaces — see {@link #drawCell}. This sentence used to read
  * "deliberately NOT applied here… the one channel whose two surfaces genuinely cannot match",
  * which stopped being true when GHOST's blur shipped and was left stale; it is corrected rather
  * than quietly rewritten because a doc that contradicts its own method body is how a blocker note
  * gets believed without being re-derived.
  *
  * <p>(A fifth channel, ODOMETER's wheel, arrived later still: {@link CaptionAnimator#rollUnit}
- * and {@code rollClip}, also applied in {@link #drawUnit}.)
+ * and {@code rollClip}, also applied in {@link #drawCell}.)
  */
 public final class TextBoxRenderer {
 
@@ -75,6 +92,81 @@ public final class TextBoxRenderer {
     /** Corner radius of the background pill, as a multiple of the type size. */
     private static final float PILL_RADIUS_EM = 0.35f;
 
+    /** Selection highlight in the preview while the drawer is editing (W5-2 §3.8). */
+    private static final int SEL_COLOR = 0x44B388FF;
+
+    /**
+     * The shared margin unit ({@link #PAD_EM}) — exposed so the rasterised export path
+     * ({@code TextOverlayRenderer.padPxFor}) and the shared renderer measure on the same
+     * number instead of each owning a copy.
+     */
+    public static float padEm() {
+        return PAD_EM;
+    }
+
+    // ── Layout ────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * One rect of constant style AND constant animation unit within a line — the atom both the
+     * measurement pass and the draw pass iterate.
+     */
+    private static final class Cell {
+        int unit;                        // animation unit index, or -1 outside any unit
+        int ls;                          // char index in the LINE string (display string)
+        int le;                          // exclusive end in the LINE string
+        @NonNull TextStyleResolver.Run run;
+        float x;                         // laid-out left edge, measured from the line's text left
+        float w;                         // advance width
+    }
+
+    /** A laid-out line: per-char advances, ink metrics and cells. */
+    private static final class LineLayout {
+        int start;                       // char offset of the line's first char in the DISPLAY string
+        int n;                           // line length
+        @NonNull float[] adv;            // per-char advances (run-accurate)
+        float lineW;
+        float maxAscent;
+        float maxDescent;
+        float lineH;
+        @NonNull List<Cell> cells = new ArrayList<>(8);
+    }
+
+    /**
+     * The resolved style runs for the box's AUTHORED string, or a single whole-string run of the
+     * base style when the box has no spans — so one machinery serves both paths. A TIMER's string
+     * is computed, so its indices share nothing with the span indices (authored text) — spans are
+     * ignored for timers entirely (spec §3.8; the drawer also refuses to create them).
+     */
+    @NonNull
+    private static List<TextStyleResolver.Run> runsFor(@NonNull TextOverlayItem o, int len) {
+        return TextStyleResolver.resolve(o.resolveBase(),
+                o.isTimer() || !o.hasStyleSpans()
+                        ? java.util.Collections.<StyleSpan>emptyList()
+                        : o.getStyleSpans(),
+                len);
+    }
+
+    /** What actually gets drawn — the authored string run through each run's case transform.
+     * No-spans keeps the legacy locale-sensitive {@code applyCase} so pre-W5-2 projects render
+     * byte-identically; the span path is per-char (length-preserving) so offsets survive. */
+    @NonNull
+    private static String displayFor(@NonNull TextOverlayItem o, @NonNull String authored,
+                                     @NonNull List<TextStyleResolver.Run> runs) {
+        // Timers are excluded here EXACTLY as in runsFor: their string is computed, their runs
+        // are the empty list, and walking zero runs would render the box as "". Runs are only
+        // synthesized by the drawer on authored text, but a hand-edited project could carry
+        // stale spans on a timer — the match must be symmetric or a timer goes invisible.
+        if (o.isTimer() || !o.hasStyleSpans()) return o.applyCase(authored);
+        StringBuilder sb = new StringBuilder(authored.length());
+        for (TextStyleResolver.Run r : runs) {
+            boolean atWordStart = r.start == 0
+                    || Character.isWhitespace(authored.charAt(r.start - 1));
+            TextStyleResolver.applyCaseToRange(sb, authored, r.start, r.end,
+                    r.textCase, atWordStart);
+        }
+        return sb.toString();
+    }
+
     // ── Measurement ──────────────────────────────────────────────────────────────────────────
 
     /**
@@ -85,19 +177,27 @@ public final class TextBoxRenderer {
      * {@code TextView.measure} and the export from its own arithmetic; those agreed closely enough
      * for a whole-body transform and would not have agreed per glyph.
      *
+     * <p>With spans, per-run typefaces change advances and ink metrics, so the width of a line is
+     * the SUM of its run-accurate advances and the line height is the max ascent/descent across
+     * the line's runs — the same numbers the draw pass lays out with.
+     *
      * @param out receives {@code {width, height}} in the same pixels {@code fontPx} is in
      */
     public static void measure(@NonNull TextOverlayItem o, @NonNull String text, float fontPx,
                                @NonNull float[] out) {
-        TextPaint p = paintFor(o, fontPx);
-        String[] lines = splitLines(normalise(o.applyCase(text)));
+        String authored = normalise(text);
+        List<TextStyleResolver.Run> runs = runsFor(o, authored.length());
+        String t = displayFor(o, authored, runs);
+        LineLayout[] lines = layout(t, runs, fontPx, null, null);
         float widest = 1f;
-        for (String line : lines) widest = Math.max(widest, p.measureText(line));
-        Paint.FontMetrics fm = p.getFontMetrics();
-        float lineH = (fm.descent - fm.ascent) * LINE_SPACING;
+        float totalH = 0f;
+        for (LineLayout ln : lines) {
+            widest = Math.max(widest, ln.lineW);
+            totalH += ln.lineH;
+        }
         float pad = fontPx * PAD_EM;
         out[0] = widest + pad * 2f;
-        out[1] = lineH * lines.length + pad * 2f;
+        out[1] = totalH + pad * 2f;
     }
 
     /**
@@ -145,16 +245,27 @@ public final class TextBoxRenderer {
     public static void draw(@NonNull Canvas c, @NonNull TextOverlayItem o, @NonNull String text,
                             float left, float top, float fontPx, long mediaMs,
                             long projectDurationMs, boolean animate, float objectAlpha) {
-        TextPaint p = paintFor(o, fontPx);
+        draw(c, o, text, left, top, fontPx, mediaMs, projectDurationMs, animate, objectAlpha,
+                -1, -1);
+    }
+
+    /**
+     * Draw with an optional selection highlight ({@code selStart}/{@code selEnd} in DISPLAY-string
+     * indices, both {@code < 0} for none). The export passes no selection; the preview passes the
+     * drawer's live selection so the user sees exactly which characters a style change will hit.
+     */
+    public static void draw(@NonNull Canvas c, @NonNull TextOverlayItem o, @NonNull String text,
+                            float left, float top, float fontPx, long mediaMs,
+                            long projectDurationMs, boolean animate, float objectAlpha,
+                            int selStart, int selEnd) {
+        String authored = normalise(text);
+        List<TextStyleResolver.Run> runs = runsFor(o, authored.length());
         // Normalise ONCE, at the top, and use this string for everything below. Getting this
         // wrong crashed the editor: splitLines substituted " " for an empty box while the unit
         // map was still sized from the original zero-length string, so the first character of the
         // substituted line indexed past the end of a zero-length array. Any two derivations of
         // "the text" that can disagree will eventually disagree — so there is only one.
-        String t = normalise(o.applyCase(text));
-        String[] lines = splitLines(t);
-        Paint.FontMetrics fm = p.getFontMetrics();
-        float lineH = (fm.descent - fm.ascent) * LINE_SPACING;
+        String t = displayFor(o, authored, runs);
         float pad = fontPx * PAD_EM;
 
         float[] size = new float[2];
@@ -186,63 +297,205 @@ public final class TextBoxRenderer {
             }
         }
 
-        long spanMs = o.animSpanMs(projectDurationMs);
+        LineLayout[] laid = layout(t, runs, fontPx, units, unitOfChar);
+
+        long spanMs = o.motionSpanMs(projectDurationMs);
         long inZone = CaptionAnimator.zoneForSpan(o.getTextAnimInPct(), spanMs);
         long outZone = CaptionAnimator.zoneForSpan(o.getTextAnimOutPct(), spanMs);
         boolean animating = preset != CaptionAnimator.Preset.NONE && spanMs > 0
                 && (inZone > 0 || outZone > 0);
 
-        float baseY = top + pad - fm.ascent;
-        int charBase = 0;
-        float[] adv = new float[64];
-        for (String line : lines) {
-            int n = line.length();
-            if (adv.length < n) adv = new float[n];
-            p.getTextWidths(line, adv);
-            float lineW = 0f;
-            for (int i = 0; i < n; i++) lineW += adv[i];
-            float x = alignedLineX(o, left, size[0], lineW, pad);
+        // Selection pass first, so the ink sits on top of it. Best-effort math against the
+        // display string (spans are length-preserving, so this is exact for the span path).
+        if (selStart >= 0 && selEnd > selStart) {
+            drawSelection(c, o, laid, left, top, size[0], pad, selStart, selEnd);
+        }
 
-            // Walk the line in runs of one unit. Whitespace belongs to no unit and is simply
-            // stepped over — it carries no ink, so nothing is lost by never drawing it.
-            int i = 0;
-            while (i < n) {
-                // Bounds-guarded rather than trusted. lines and unitOfChar are both derived from
-                // `t` so their indices agree by construction, but this runs inside onDraw on every
-                // frame, and the cost of being wrong here is the editor dying rather than one
-                // glyph being misplaced.
-                int ci = charBase + i;
-                int u = ci < unitOfChar.length ? unitOfChar[ci] : -1;
-                if (u < 0) {          // between units
-                    x += adv[i];
-                    i++;
-                    continue;
+        for (LineLayout ln : laid) {
+            float alignX = alignedLineX(o, left, size[0], ln.lineW, pad);
+            float baseY = topFor(ln, top, pad);
+            int currentUnit = -2;
+            float unitX = 0f;
+            float unitW = 0f;
+            float progress = 1f;
+            String unitShown = null;          // substituted text of the CURRENT unit
+            for (int ci = 0; ci < ln.cells.size(); ci++) {
+                Cell cell = ln.cells.get(ci);
+                if (cell.unit < 0) continue;              // whitespace carries no ink
+                float px = alignX + cell.x;
+                if (cell.unit != currentUnit) {
+                    currentUnit = cell.unit;
+                    unitX = px;                            // the unit's leftmost cell edge
+                    unitW = 0f;
+                    // Substitute the WHOLE unit once, then slice per cell — the substitution
+                    // is length-preserving, so a cell's offsets in the display string are the
+                    // same offsets in the substituted unit text.
+                    progress = animating
+                            ? CaptionAnimator.unitProgress(mediaMs, o.motionRangeStartMs(),
+                                    o.motionRangeEndMs(projectDurationMs), inZone, outZone,
+                                    currentUnit, unitCount)
+                            : 1f;
+                    unitShown = CaptionAnimator.substituteUnit(preset,
+                            t.substring(units[currentUnit][0], units[currentUnit][1]),
+                            progress, currentUnit);
                 }
-                int j = i;
-                float runW = 0f;
-                while (j < n && charBase + j < unitOfChar.length
-                        && unitOfChar[charBase + j] == u) {
-                    runW += adv[j];
-                    j++;
-                }
-                float progress = animating
-                        ? CaptionAnimator.unitProgress(mediaMs, o.getStartMs(),
-                                o.getStartMs() + spanMs, inZone, outZone, u, unitCount)
-                        : 1f;
-                drawUnit(c, p, o, line.substring(i, j), x, baseY, runW, fontPx, preset,
-                        progress, u, objectAlpha, mediaMs);
-                x += runW;
-                i = j;
+                unitW += cell.w;
+                int cellGlobalStart = ln.start + cell.ls;
+                int cellGlobalEnd = cellGlobalStart + (cell.le - cell.ls);
+                String shown = unitShown.substring(
+                        cellGlobalStart - units[currentUnit][0],
+                        cellGlobalEnd - units[currentUnit][0]);
+                drawCell(c, cell.run, paintForRun(cell.run, fontPx), o, shown,
+                        px, baseY, unitX, unitW, fontPx, preset, progress,
+                        currentUnit, objectAlpha, mediaMs);
             }
-            charBase += n + 1;        // +1 for the '\n' that split() removed
-            baseY += lineH;
         }
     }
 
     /**
-     * One unit, with all three animated channels applied — the text-box twin of
+     * The selection highlight: one purple rect per affected cell overlap, in a line band of that
+     * line's own metrics — the same cells and the same aligned x the draw pass uses, so the
+     * highlight can never point at different glyphs than the ink.
+     */
+    private static void drawSelection(@NonNull Canvas c, @NonNull TextOverlayItem o,
+                                      @NonNull LineLayout[] lines, float left, float top,
+                                      float boxW, float pad, int selStart, int selEnd) {
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(SEL_COLOR);
+        p.setStyle(Paint.Style.FILL);
+        for (LineLayout ln : lines) {
+            float alignX = alignedLineX(o, left, boxW, ln.lineW, pad);
+            float bandTop = topFor(ln, top, pad);
+            for (Cell cell : ln.cells) {
+                int a = Math.max(cell.ls, selStart - ln.start);
+                int b = Math.min(cell.le, selEnd - ln.start);
+                if (a >= b) continue;
+                float ox = 0f;
+                for (int i = cell.ls; i < a; i++) ox += ln.adv[i];
+                float w = 0f;
+                for (int i = a; i < b; i++) w += ln.adv[i];
+                if (w <= 0f) continue;
+                float rx = alignX + cell.x + ox;
+                c.drawRect(new RectF(rx, bandTop, rx + w, bandTop + ln.lineH), p);
+            }
+        }
+    }
+
+    private static float topFor(@NonNull LineLayout ln, float top, float pad) {
+        return top + pad - ln.maxAscent;
+    }
+
+    /**
+     * Lay every line into cells — the intersection of animation units (when given) with resolved
+     * style runs. Also computes per-char advances (run-accurate), the line's ink metrics (max
+     * ascent/descent across its runs) and each cell's laid-out x (measured from the line's TEXT
+     * left edge; alignment is applied by the caller), so measurement and drawing cannot disagree
+     * about where a glyph sits.
+     */
+    @NonNull
+    private static LineLayout[] layout(@NonNull String t,
+                                       @NonNull List<TextStyleResolver.Run> runs, float fontPx,
+                                       @Nullable int[][] units, @Nullable int[] unitOfChar) {
+        String[] lines = splitLines(t);
+        LineLayout[] out = new LineLayout[lines.length];
+        int charBase = 0;
+        for (int li = 0; li < lines.length; li++) {
+            String line = lines[li];
+            int n = line.length();
+            LineLayout ln = new LineLayout();
+            ln.start = charBase;
+            ln.n = n;
+            ln.adv = new float[Math.max(1, n)];
+            if (runs.isEmpty()) {
+                // Defensive: resolver tiles [0,len) so this should not happen for len >= 1.
+                ln.lineH = fontPx * 1.2f;
+                out[li] = ln;
+                charBase += n + 1;
+                continue;
+            }
+            // Pass A: per-char advances + ink metrics, run span by run span. Units do not
+            // change geometry, only style does — one getTextWidths call per run span per line.
+            float[] widths = WIDTHS.get();
+            if (widths.length < n) {
+                widths = new float[n + 16];
+                WIDTHS.set(widths);
+            }
+            int ri = 0;
+            int i = 0;
+            while (i < n) {
+                int gi = charBase + i;
+                while (ri < runs.size() && runs.get(ri).end <= gi) ri++;
+                if (ri >= runs.size()) break;
+                TextStyleResolver.Run run = runs.get(ri);
+                TextPaint p = paintForRun(run, fontPx);
+                int j = Math.min(n, run.end - charBase);
+                if (j <= i) { i = j; continue; }
+                p.getTextWidths(line, i, j, widths);
+                int w = j - i;
+                for (int k = 0; k < w; k++) ln.adv[i + k] = widths[k];
+                Paint.FontMetrics fm = p.getFontMetrics();
+                ln.maxAscent = Math.min(ln.maxAscent, fm.ascent);
+                ln.maxDescent = Math.max(ln.maxDescent, fm.descent);
+                i = j;
+            }
+            ln.lineW = 0f;
+            for (int k = 0; k < n; k++) ln.lineW += ln.adv[k];
+            // An EMPTY line (a text ending in a line break) keeps the box's height — the old
+            // behaviour was one uniform line height for every line, and the splitLines contract
+            // says a trailing newline keeps its height. Seed the metrics from the first run's
+            // font so such a line is not zero-tall.
+            if (n == 0) {
+                Paint.FontMetrics fm = paintForRun(runs.get(0), fontPx).getFontMetrics();
+                ln.maxAscent = fm.ascent;
+                ln.maxDescent = fm.descent;
+            }
+            // Pass B: cells = unit ∩ run spans, sharing the same run pointer walk.
+            i = 0;
+            ri = 0;
+            float x = 0f;
+            while (i < n) {
+                int gi = charBase + i;
+                while (ri < runs.size() && runs.get(ri).end <= gi) ri++;
+                if (ri >= runs.size()) break;
+                TextStyleResolver.Run run = runs.get(ri);
+                int runEnd = Math.min(n, run.end - charBase);
+                int uHere = (units != null && gi < unitOfChar.length) ? unitOfChar[gi] : -1;
+                int j = i + 1;
+                while (j < runEnd) {
+                    int gj = charBase + j;
+                    int uThere = (units != null && gj < unitOfChar.length) ? unitOfChar[gj] : -1;
+                    if (uThere != uHere) break;
+                    j++;
+                }
+                Cell cell = new Cell();
+                cell.unit = uHere;
+                cell.ls = i;
+                cell.le = j;
+                cell.run = run;
+                float w = 0f;
+                for (int k = i; k < j; k++) w += ln.adv[k];
+                cell.w = w;
+                cell.x = x;
+                x += w;
+                ln.cells.add(cell);
+                i = j;
+            }
+            ln.lineH = (ln.maxDescent - ln.maxAscent) * LINE_SPACING;
+            out[li] = ln;
+            charBase += n + 1;                 // +1 for the '\n' that split() removed
+        }
+        return out;
+    }
+
+    /**
+     * One cell, with all three animated channels applied — the text-box twin of
      * {@code CaptionOverlayView.drawUnit} / {@code CaptionExportRenderer.drawUnit}, except that
      * there is only ONE of it and both surfaces call it.
+     *
+     * <p>A unit whose characters span style runs is drawn once per CELL, each with its own paint
+     * and resolved colours; the reveal/roll clip windows are the UNIT's (computed from its bounds
+     * here), so a wipe sweeps the whole unit rather than each cell being revealed from its own
+     * left edge.</p>
      *
      * <p><b>{@link CaptionAnimator.Transform#blurPx} IS applied, on both surfaces.</b> See the
      * {@code BlurMaskFilter} in the body below.
@@ -266,21 +519,23 @@ public final class TextBoxRenderer {
      *
      * <p><b>Scope: TEXT BOXES only.</b> Captions still ignore {@code blurPx} — one shared view for
      * all words, so a different cost profile and a separate decision.
+     *
+     * @param unitX unitX the whole unit's laid-out left edge — shared clip windows for every cell
+     * @param unitW unitW the whole unit's laid-out width — the distance a reveal sweeps across
      */
-    private static void drawUnit(@NonNull Canvas c, @NonNull TextPaint p,
-                                 @NonNull TextOverlayItem o, @NonNull String run,
-                                 float x, float baseY, float w, float fontPx,
-                                 @NonNull CaptionAnimator.Preset preset, float progress,
-                                 int unitIdx, float objectAlpha, long mediaMs) {
+    private static void drawCell(@NonNull Canvas c, @NonNull TextStyleResolver.Run run,
+                                 @NonNull TextPaint p, @NonNull TextOverlayItem o,
+                                 @NonNull String shown, float x, float baseY,
+                                 float unitX, float unitW,
+                                 float fontPx, @NonNull CaptionAnimator.Preset preset,
+                                 float progress, int unitIdx, float objectAlpha, long mediaMs) {
         CaptionAnimator.Transform t =
                 CaptionAnimator.presetTransform(preset, progress, fontPx, unitIdx);
         if (t.alpha <= 0.004f) return;
         if (!CaptionAnimator.revealDrawsAnything(t.revealFrac)) return;
 
-        String shown = CaptionAnimator.substituteUnit(preset, run, progress, unitIdx);
-
         Paint.FontMetrics fm = p.getFontMetrics();
-        float ucx = x + w / 2f;
+        float ucx = unitX + unitW / 2f;
         float ucy = baseY - (fm.descent - fm.ascent) * 0.35f;
 
         c.save();
@@ -288,11 +543,11 @@ public final class TextBoxRenderer {
         c.scale(t.scaleX, t.scaleY, ucx, ucy);
         if (t.revealFrac < 1f) {
             float[] clip = new float[4];
-            CaptionAnimator.revealClip(x, baseY, w, fontPx, t.revealFrac, clip);
+            CaptionAnimator.revealClip(unitX, baseY, unitW, fontPx, t.revealFrac, clip);
             c.clipRect(clip[0], clip[1], clip[2], clip[3]);
         }
-        // GHOST's blur. Set on the paint for this unit only and cleared straight after, so it
-        // cannot leak onto the next unit or onto a later frame through the shared TextPaint.
+        // GHOST's blur. Set on the paint for this cell only and cleared straight after, so it
+        // cannot leak onto the next cell or onto a later frame through the shared TextPaint.
         // BlurMaskFilter is a no-op on a hardware canvas, which is why TextBoxView switches the
         // view to a software layer for a blurring preset — see CaptionAnimator#presetBlurs for
         // the measured price of doing so.
@@ -314,7 +569,7 @@ public final class TextBoxRenderer {
         float[] rollClip = ROLL_CLIP.get();
         CaptionAnimator.rollUnit(preset, shown, progress, roll);
         if (roll.rolling) {
-            CaptionAnimator.rollClip(x, baseY, w, fontPx, rollClip);
+            CaptionAnimator.rollClip(unitX, baseY, unitW, fontPx, rollClip);
             c.clipRect(rollClip[0], rollClip[1], rollClip[2], rollClip[3]);
             // The travel is the WINDOW HEIGHT, read off the rect rather than recomputed from
             // fontPx, so the distance and the window cannot drift: the outgoing row is exactly
@@ -322,14 +577,14 @@ public final class TextBoxRenderer {
             float slotH = rollClip[3] - rollClip[1];
             c.save();
             c.translate(0f, roll.phase * slotH);
-            paintRun(c, p, o, roll.incoming, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
+            paintRun(c, run, p, o, roll.incoming, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
             c.restore();
             c.save();
             c.translate(0f, (roll.phase - 1f) * slotH);
-            paintRun(c, p, o, roll.outgoing, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
+            paintRun(c, run, p, o, roll.outgoing, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
             c.restore();
         } else {
-            paintRun(c, p, o, shown, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
+            paintRun(c, run, p, o, shown, x, baseY, fontPx, animAlpha, t.glowPx, mediaMs);
         }
         if (blurred) p.setMaskFilter(null);
         c.restore();
@@ -337,7 +592,7 @@ public final class TextBoxRenderer {
 
     /**
      * Scratch for the roll channel, reused rather than allocated because at LETTER granularity
-     * {@code drawUnit} runs once per glyph per frame.
+     * {@code drawCell} runs once per glyph per frame.
      *
      * <p><b>THREAD-LOCAL, not static, and that is the point.</b> Every method on this class is
      * static and stateless, so a plain {@code static} scratch buffer would have looked consistent
@@ -363,6 +618,10 @@ public final class TextBoxRenderer {
             new ThreadLocal<float[]>() {
                 @Override protected float[] initialValue() { return new float[4]; }
             };
+    private static final ThreadLocal<float[]> WIDTHS =
+            new ThreadLocal<float[]>() {
+                @Override protected float[] initialValue() { return new float[64]; }
+            };
 
     /**
      * The three paint passes — outline, glow, fill — in the order the export has always used.
@@ -370,41 +629,44 @@ public final class TextBoxRenderer {
      * <p>{@code animAlpha} multiplies ALL of them, for the reason the caption path documents:
      * fading only the fill leaves an outline standing at full opacity, so a departing unit reads
      * as an empty outline of itself rather than as text going away.</p>
+     *
+     * <p>Every colour and toggle comes from the RESOLVED run — fill, stroke, glow, shadow,
+     * underline — so the base style and any span override arrive through the same door.</p>
      */
-    private static void paintRun(@NonNull Canvas c, @NonNull TextPaint p,
-                                 @NonNull TextOverlayItem o, @NonNull String run,
-                                 float x, float baseY, float fontPx, float animAlpha,
-                                 float presetGlowPx, long mediaMs) {
-        p.setUnderlineText(o.isUnderline());
-        // The PRESET's own glow (NEON_FLICKER), in the unit's own fill colour. Drawn before the
+    private static void paintRun(@NonNull Canvas c, @NonNull TextStyleResolver.Run run,
+                                 @NonNull TextPaint p, @NonNull TextOverlayItem o,
+                                 @NonNull String runText, float x, float baseY, float fontPx,
+                                 float animAlpha, float presetGlowPx, long mediaMs) {
+        p.setUnderlineText(run.underline);
+        // The PRESET's own glow (NEON_FLICKER), in the run's own fill colour. Drawn before the
         // object's optional passes so the user's stroke and glow still sit on top of it, and
         // cleared by the applyShadow below, which every path already reaches.
         if (presetGlowPx > 0.25f) {
             p.setShadowLayer(presetGlowPx, 0f, 0f,
-                    CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
+                    CaptionAnimator.applyAlpha(run.fill, animAlpha));
             p.setStyle(Paint.Style.FILL);
-            p.setColor(CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
-            c.drawText(run, x, baseY, p);
+            p.setColor(CaptionAnimator.applyAlpha(run.fill, animAlpha));
+            c.drawText(runText, x, baseY, p);
             p.clearShadowLayer();
         }
         float strokeWidthPx = o.animatedStrokeWidthPx(mediaMs);
-        if (strokeWidthPx > 0f && o.getStrokeColorInt() != Color.TRANSPARENT) {
+        if (strokeWidthPx > 0f && run.stroke != Color.TRANSPARENT) {
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(strokeWidthPx, fontPx));
-            p.setColor(CaptionAnimator.applyAlpha(o.getStrokeColorInt(), animAlpha));
-            c.drawText(run, x, baseY, p);
+            p.setColor(CaptionAnimator.applyAlpha(run.stroke, animAlpha));
+            c.drawText(runText, x, baseY, p);
         }
         float glowRadiusPx = o.animatedGlowRadiusPx(mediaMs);
-        if (glowRadiusPx > 0f && o.getGlowColorInt() != Color.TRANSPARENT) {
-            p.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(glowRadiusPx, fontPx), 0f, 0f, o.getGlowColorInt());
+        if (glowRadiusPx > 0f && run.glow != Color.TRANSPARENT) {
+            p.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(glowRadiusPx, fontPx), 0f, 0f, run.glow);
             p.setStyle(Paint.Style.FILL);
-            p.setColor(CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
-            c.drawText(run, x, baseY, p);
+            p.setColor(CaptionAnimator.applyAlpha(run.fill, animAlpha));
+            c.drawText(runText, x, baseY, p);
         }
-        applyShadow(p, o, fontPx, mediaMs);
+        applyShadow(p, run.shadow, fontPx, mediaMs, o);
         p.setStyle(Paint.Style.FILL);
-        p.setColor(CaptionAnimator.applyAlpha(o.getColorInt(), animAlpha));
-        c.drawText(run, x, baseY, p);
+        p.setColor(CaptionAnimator.applyAlpha(run.fill, animAlpha));
+        c.drawText(runText, x, baseY, p);
         p.clearShadowLayer();
         p.setUnderlineText(false);
     }
@@ -434,33 +696,50 @@ public final class TextBoxRenderer {
     // ── Shared paint setup ───────────────────────────────────────────────────────────────────
 
     /**
-     * The paint both surfaces draw with. Every visual property of a text box is decided here, so
-     * "the preview uses a slightly different shadow" cannot happen — which it previously did: the
-     * {@code TextView} path set no glow and no background at all, and set the FILL colour to the
-     * stroke colour rather than stroking.
+     * The paint a resolved run draws with: the run's family/bold/italic typeface at {@code fontPx}.
+     * Colours and toggles are applied per pass in {@link #paintRun} — this is only the glyph
+     * shape. Cached per thread on the family/bold/italic triple: {@code drawCell} may run per
+     * glyph per frame but the distinct typefaces in a box are few.
      *
      * <p>{@code Align.LEFT} because this renderer positions every run itself; a centred align
      * would fight the per-glyph x it computes.</p>
      */
     @NonNull
-    private static TextPaint paintFor(@NonNull TextOverlayItem o, float fontPx) {
-        TextPaint p = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private static TextPaint paintForRun(@NonNull TextStyleResolver.Run run, float fontPx) {
+        String k = run.fontFamily + "|" + run.bold + "|" + run.italic;
+        Map<String, TextPaint> cache = PAINTS.get();
+        TextPaint p = cache.get(k);
+        if (p == null) {
+            p = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+            p.setTypeface(TextOverlayItem.typefaceFor(run.fontFamily, run.bold, run.italic));
+            p.setTextAlign(Paint.Align.LEFT);
+            cache.put(k, p);
+        }
         p.setTextSize(Math.max(1f, fontPx));
-        p.setTypeface(o.getTypeface());
-        p.setTextAlign(Paint.Align.LEFT);
-        p.setColor(o.getColorInt());
-        applyShadow(p, o, fontPx, 0L);
         return p;
     }
 
     /**
-     * @param mediaMs the timeline time to evaluate the shadow's keyframed angle/distance/radius
-     *                at. Passed 0 (= the object's own local time 0) from {@link #paintFor}'s
-     *                initial paint setup, where no frame time is known yet and every draw call
-     *                overwrites the shadow layer again with the real one before anything shows.
+     * Per-thread typeface-keyed paint cache — same race discipline as {@link #ROLL}: this one
+     * class is called from the main thread (preview) and the export worker at the same time, so
+     * the cache must be per thread or the two surfaces would corrupt each other's paints.
      */
-    private static void applyShadow(@NonNull TextPaint p, @NonNull TextOverlayItem o,
-                                    float fontPx, long mediaMs) {
+    // NOT ThreadLocal.withInitial: see ROLL for the API-26 reason.
+    private static final ThreadLocal<Map<String, TextPaint>> PAINTS =
+            new ThreadLocal<Map<String, TextPaint>>() {
+                @Override protected Map<String, TextPaint> initialValue() {
+                    return new HashMap<>(8);
+                }
+            };
+
+    /**
+     * @param mediaMs the timeline time to evaluate the shadow's keyframed angle/distance/radius
+     *                at. Passed 0 (= the object's own local time 0) from pre-frame paint setup,
+     *                where no frame time is known yet and every draw call overwrites the shadow
+     *                layer again with the real one before anything shows.
+     */
+    private static void applyShadow(@NonNull TextPaint p, int shadowColor, float fontPx,
+                                    long mediaMs, @NonNull TextOverlayItem o) {
         float radiusPercent = o.animatedShadowRadiusPx(mediaMs);
         float radius = radiusPercent > 0f
                 ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(radiusPercent, fontPx)
@@ -469,7 +748,7 @@ public final class TextBoxRenderer {
         float distance = o.animatedShadowDistancePx(mediaMs);
         float dx = com.fadcam.ui.faditor.model.TextOverlayItem.shadowDx(angle, distance, fontPx);
         float dy = com.fadcam.ui.faditor.model.TextOverlayItem.shadowDy(angle, distance, fontPx);
-        p.setShadowLayer(radius, dx, dy, o.getShadowColorInt());
+        p.setShadowLayer(radius, dx, dy, shadowColor);
     }
 
     private static float clamp01(float v) {

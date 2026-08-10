@@ -71,6 +71,7 @@ import com.fadcam.ui.faditor.player.FaditorPlayerManager;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.ui.faditor.timeline.EditorTimelineView;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.model.TextStyleResolver;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.undo.EditActions;
@@ -783,6 +784,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return project.getTimeline().getClip(0);
         }
         return project.getTimeline().getClip(selectedClipIndex);
+    }
+
+    /**
+     * §3.5 "selected = target": the clip a video verb (speed/filter/volume) should act on.
+     * When a PiP (overlay clip) is the selected LAYER item, return IT — the old code always
+     * grabbed the master clip, so "Speed" on a selected PiP silently re-sped the video under it.
+     * Non-video layer selections (text/sprite/adjustment) fall back to the master clip, which is
+     * the only remaining video surface.
+     */
+    @NonNull
+    private Clip selectedTargetClip() {
+        if (project != null && editorTimeline != null) {
+            String id = editorTimeline.getSelectedLayerItemId();
+            if (id != null) {
+                for (Clip c : project.getTimeline().getOverlayClips()) {
+                    if (c.getId().equals(id)) return c;
+                }
+            }
+        }
+        return getSelectedClip();
     }
 
     /**
@@ -1838,6 +1859,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onTextAnimZonesChanged(@NonNull String itemId, float beforeIn,
                     float beforeOut, float inPct, float outPct) {
                 applyTextAnimZones(itemId, beforeIn, beforeOut, inPct, outPct);
+            }
+
+            @Override
+            public void onMotionRangePreviewed(@NonNull String itemId, long startMs,
+                    long endMs) {
+                previewMotionRange(itemId, startMs, endMs);
+            }
+
+            @Override
+            public void onMotionRangeChanged(@NonNull String itemId, long beforeStartMs,
+                    long beforeEndMs, long afterStartMs, long afterEndMs) {
+                applyMotionRange(itemId, beforeStartMs, beforeEndMs, afterStartMs, afterEndMs);
             }
 
             @Override
@@ -6684,7 +6717,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── Speed ────────────────────────────────────────────────────────
 
     private void showSpeedSlider() {
-        Clip clip = getSelectedClip();
+        Clip clip = selectedTargetClip();
         float oldSpeed = clip.getSpeedMultiplier();
         boolean oldPitch = clip.isPitchCompensationEnabled();
         SpeedSliderBottomSheet sheet = SpeedSliderBottomSheet.newInstance(
@@ -6697,7 +6730,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             clip, oldSpeed, speed));
                 }
                 clip.setSpeedMultiplier(speed);
-                playerManager.setPlaybackSpeed(speed, clip.isPitchCompensationEnabled());
+                // §3.5: for a selected PiP the model IS the target — the master player rate must
+                // NOT follow (adversarial review #2: it played the master at the PiP's speed).
+                if (clip.isOverlayClip()) {
+                    refreshOverlayPreview();
+                } else {
+                    playerManager.setPlaybackSpeed(speed, clip.isPitchCompensationEnabled());
+                }
                 updateSpeedUI(speed);
                 scheduleAutoSave();
             }
@@ -6705,15 +6744,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onPitchCompensationChanged(boolean enabled) {
                 clip.setPitchCompensationEnabled(enabled);
-                playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), enabled);
+                if (clip.isOverlayClip()) {
+                    refreshOverlayPreview();
+                } else {
+                    playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), enabled);
+                }
                 scheduleAutoSave();
             }
 
             @Override
             public void onSpeedCommitted() {
                 // Only re-bake if the speed ACTUALLY changed: a rebuild is a visible hitch,
-                // and merely peeking at the sheet during playback used to cost one.
-                if (clip.getSpeedMultiplier() != oldSpeed) {
+                // and merely peeking at the sheet during playback used to cost one. The gapless
+                // bake is the MASTER clip's concern — a PiP's speed rides the model/compositor.
+                if (clip.getSpeedMultiplier() != oldSpeed && !clip.isOverlayClip()) {
                     commitClipSpeedToGaplessEngine(clip);
                 }
             }
@@ -8826,6 +8870,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // that ignores the playhead is the one thing it must not be.
         if (pipDrawer != null && pipDrawer.isShowing()) {
             com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(pipDrawer.currentTabContent());
+        }
+        // The FX panel's keyframe diamonds (and keyframed sliders) track the scrub the same way:
+        // a diamond must go solid/hollow the instant the playhead lands/leaves a key, or it reads
+        // as a broken control (JoyRaptor, 2026-08-08). The FX tab lives INSIDE the same drawer, so the
+        // same currentTabContent() root is walked for an FxPanel RefreshState tag.
+        if (pipDrawer != null && pipDrawer.isShowing()) {
+            com.fadcam.ui.faditor.tools.FxPanel.refreshRows(
+                    pipDrawer.currentTabContent(), absoluteMs);
         }
         // G3: the keyframe ribbon's diamond tracks the scrub too.
         if (ribbonProp != null) refreshKeyframeRibbon();
@@ -13355,6 +13407,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 "This PiP has no audio turned on yet",   // TODO(strings)
                                 Toast.LENGTH_SHORT).show();
                     }
+                } else if (item.getAdjustment() != null) {
+                    // §3.3 follow-up (2026-08-08): double-tap an adjustment layer = the same
+                    // express lane the other types get — its Mask/Chroma/Blend drawer.
+                    showAdjustmentDrawer(item.getAdjustment());
                 }
                 // Audio: no dedicated type editor yet — the selection from the first tap
                 // stands (gesture contract §2 general menu / per-type editors).
@@ -13377,6 +13433,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     showObjectMenuSheetForPipClip(item.getClip());
                 } else if (item.getWaveform() != null) {
                     showObjectMenuSheetForVisualizer(item.getWaveform());
+                } else if (item.getAdjustment() != null) {
+                    // §3.3 (2026-08-08): the long-press route for an adjustment layer was missing
+                    // entirely, so its Mask/Chroma/Blend drawer was only reachable via the Adjust
+                    // tool. An adjustment layer has no pose of its own — the drawer IS its editor.
+                    showAdjustmentDrawer(item.getAdjustment());
                 }
                 // Any other type (a master-track clip, caption span) has no §2 general
                 // menu — the item stays lifted-then-dropped-in-place, no side effect.
@@ -14700,7 +14761,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void openFilterSheet() {
         if (project == null) return;
         if (inCropMode) exitCropMode(false);
-        Clip clip = getSelectedClip();
+        Clip clip = selectedTargetClip();   // §3.5: a selected PiP grades itself, not the master
         if (clip == null) {
             Toast.makeText(this, "Select a clip first", Toast.LENGTH_SHORT).show();
             return;
@@ -16457,6 +16518,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 },
                 () -> {
                     o.setTextAnimZonePct(clampedBeforeIn, clampedBeforeOut);
+                    refreshAfterTimerEdit(o);
+                }));
+        refreshAfterTimerEdit(o);
+        editorTimeline.invalidate();
+    }
+
+    // ── Motion-range window (SPEC_TEXT_DRAWER follow-up, 2026-08-08) ────────────────────────
+    // The timeline carrots and the drawer's Start/End-here buttons both write this window; the
+    // drawer's buttons are plain writes, the carrots are preview-on-move / commit-on-release with
+    // ONE undo step, mirroring the text-anim zone carets exactly.
+
+    /** Live carrot drag — write the window, reseat the playhead (zones are read at position time). */
+    private void previewMotionRange(@NonNull String itemId, long startMs, long endMs) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = textOverlayById(itemId);
+        if (o == null) return;
+        o.setMotionRange(startMs, endMs);
+        setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+    }
+
+    /**
+     * Commit a carrot drag — ONE undo step. The before-window arrives from the view (captured on
+     * DOWN); by release the model already holds the gesture's live preview, so reading the model
+     * here would undo to the last pixel of the drag instead of where it began.
+     */
+    private void applyMotionRange(@NonNull String itemId, long beforeStartMs, long beforeEndMs,
+                                  long afterStartMs, long afterEndMs) {
+        final com.fadcam.ui.faditor.model.TextOverlayItem o = textOverlayById(itemId);
+        if (o == null) return;
+        o.setMotionRange(afterStartMs, afterEndMs);
+        final long afterS = o.getMotionStartMs();
+        final long afterE = o.getMotionEndMs();
+        if (beforeStartMs == afterS && beforeEndMs == afterE) {
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+            return;
+        }
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_text_motion_range),
+                () -> {
+                    o.setMotionRange(afterS, afterE);
+                    refreshAfterTimerEdit(o);
+                },
+                () -> {
+                    o.setMotionRange(beforeStartMs, beforeEndMs);
                     refreshAfterTimerEdit(o);
                 }));
         refreshAfterTimerEdit(o);
@@ -19581,11 +19685,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Contract §2 general order: Transform (position · scale · rotation),
         // then Opacity. Peek still defaults to Opacity (the everyday row).
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
-        props.add(overlayMenuProp(o, K_X, "Pos X", 0f, 1f, pct,         // TODO(strings)
+        // Transform slider travel is scale-proportional (user, 2026-08-09): the
+        // render layer grows the centre's travel limit with the object's own
+        // rendered size, so a huge overlay can be pushed until it just leaves the
+        // frame — a fixed 0..100% range could only ever get an object fully off
+        // frame for at most one frame-height (KeyframeSet.POS_MIN rationale).
+        props.add(overlayMenuProp(o, K_X, "Pos X",
+                -o.getCenterLimitX(), 1f + o.getCenterLimitX(), pct,   // TODO(strings)
                 ms -> o.animatedCenterX(ms)));
-        props.add(overlayMenuProp(o, K_Y, "Pos Y", 0f, 1f, pct,         // TODO(strings)
+        props.add(overlayMenuProp(o, K_Y, "Pos Y",
+                -o.getCenterLimitY(), 1f + o.getCenterLimitY(), pct,   // TODO(strings)
                 ms -> o.animatedCenterY(ms)));
-        props.add(overlayMenuProp(o, K_SCALE, "Scale", 0.02f, 0.6f, pct, // TODO(strings)
+        props.add(overlayMenuProp(o, K_SCALE, "Scale", 0.02f, 10f, pct, // TODO(strings)
                 ms -> o.animatedSizeFraction(ms)));
         props.add(overlayMenuProp(o, K_ROT, "Rotate", -180f, 180f, deg, // TODO(strings)
                 ms -> normDeg(o.animatedRotation(ms))));
@@ -19629,9 +19740,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Peek-visible range chips (C2): Start/End here must work WHILE scrubbing —
         // exactly what the retired modal dialog made impossible.
         java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
-        rangeChips.add(new ObjectMenuSheet.Action("⇤ Start here", false,   // TODO(strings)
+        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_start_here), false,
                 () -> setOverlayRangeEdgeAtPlayhead(o, true)));
-        rangeChips.add(new ObjectMenuSheet.Action("End here ⇥", false,    // TODO(strings)
+        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_end_here), false,
                 () -> setOverlayRangeEdgeAtPlayhead(o, false)));
 
         String title = o.isImage() ? "Image"                            // TODO(strings)
@@ -20653,6 +20764,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
             }
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public void seekTo(long ms) {
+                if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
+            }
             @Override public String previewCaveat() {
                 // A PiP IS composited into the graded chain now — except a CHROMA-KEYED one,
                 // which keeps its own live tier because that produces per-pixel alpha this
@@ -20704,19 +20818,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ctx -> {
                     android.widget.LinearLayout col = new android.widget.LinearLayout(ctx);
                     col.setOrientation(android.widget.LinearLayout.VERTICAL);
-                    // "Grade everything" is the commonest shape for a layer, and rebuilding it
-                    // by dragging two edges after every timeline change is busywork. An
-                    // adjustment layer has no long-press menu of its own, so the action lives
-                    // where the layer is already open.
-                    android.widget.TextView span = new android.widget.TextView(ctx);
                     float dp = ctx.getResources().getDisplayMetrics().density;
-                    span.setText("↔  Span whole timeline");                   // TODO(strings)
-                    span.setTextColor(0xFFB388FF);
-                    span.setTextSize(13f);
-                    int p = Math.round(12 * dp);
-                    span.setPadding(p, Math.round(10 * dp), p, Math.round(10 * dp));
-                    span.setOnClickListener(v -> spanAdjustmentLayerOverTimeline(layer));
-                    col.addView(span);
+                    // THREE trim moves — "⇤Start here" / "↔ span whole timeline" / "Place end
+                    // here⇥" (JoyRaptor, 2026-08-08). The two flanking buttons move the layer's
+                    // respective EDGE to wherever the playhead is, the centre one spans it over
+                    // everything — the same direct language the text drawer's range chips use.
+                    android.widget.LinearLayout trimRow = new android.widget.LinearLayout(ctx);
+                    trimRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                    trimRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                    trimRow.setPadding(Math.round(12 * dp), Math.round(10 * dp),
+                            Math.round(12 * dp), Math.round(10 * dp));
+
+                    android.widget.TextView startBtn = new android.widget.TextView(ctx);
+                    startBtn.setText(getString(R.string.faditor_trim_start_here));
+                    startBtn.setTextColor(0xFFB388FF);
+                    startBtn.setTextSize(12.5f);
+                    startBtn.setPadding(0, 0, Math.round(10 * dp), 0);
+                    startBtn.setOnClickListener(v -> trimAdjustmentLayerStartAtPlayhead(layer));
+                    trimRow.addView(startBtn);
+
+                    // U+FE0E pins the TEXT presentation of ↔ so it never swaps to the emoji glyph.
+                    android.widget.TextView spanBtn = new android.widget.TextView(ctx);
+                    spanBtn.setText(getString(R.string.faditor_trim_span_whole));
+                    spanBtn.setTextColor(0xFFB388FF);
+                    spanBtn.setTextSize(12.5f);
+                    spanBtn.setPadding(Math.round(10 * dp), 0, Math.round(10 * dp), 0);
+                    spanBtn.setOnClickListener(v -> spanAdjustmentLayerOverTimeline(layer));
+                    trimRow.addView(spanBtn);
+
+                    android.widget.TextView endBtn = new android.widget.TextView(ctx);
+                    endBtn.setText(getString(R.string.faditor_trim_end_here));
+                    endBtn.setTextColor(0xFFB388FF);
+                    endBtn.setTextSize(12.5f);
+                    endBtn.setPadding(Math.round(10 * dp), 0, 0, 0);
+                    endBtn.setOnClickListener(v -> trimAdjustmentLayerEndAtPlayhead(layer));
+                    trimRow.addView(endBtn);
+
+                    col.addView(trimRow);
                     col.addView(com.fadcam.ui.faditor.tools.FxPanel.build(
                             ctx, layer.getFx(), fxHost));
                     return col;
@@ -20815,6 +20953,178 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>Returns false when the selection is not an adjustment layer, so {@code splitAtPlayhead}
      * can fall through to its clip path.</p>
      */
+    /**
+     * §3.5 "selected = target": Split must act on the selected LAYER object, not whatever master
+     * clip sits under the playhead. Text/sprite overlays split their visible span at the playhead
+     * (two objects, keyframes re-based to each half's new start); an overlay clip (PiP) splits
+     * its source range. Returns true when the selection was handled (so the caller never falls
+     * through to the master clip and silently cuts the wrong object).
+     */
+    private boolean splitSelectedLayerItem() {
+        if (project == null || editorTimeline == null) return false;
+        String selectedId = editorTimeline.getSelectedLayerItemId();
+        if (selectedId == null) return false;
+        Timeline timeline = project.getTimeline();
+        long cut = editorTimeline.getPlayheadPositionMs();
+        playerManager.pause();
+
+        for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
+            if (!t.getId().equals(selectedId)) continue;
+            long start = t.getStartMs();
+            long end = t.getEndMs();
+            long effEnd = (end == Long.MAX_VALUE || end <= 0)
+                    ? Math.max(cut + 1, timeline.getTotalDurationMs()) : end;
+            if (cut <= start || cut >= effEnd) {
+                Toast.makeText(this,
+                        getString(R.string.faditor_split_playhead_text),
+                        Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            final com.fadcam.ui.faditor.model.TextOverlayItem left = t;
+            final com.fadcam.ui.faditor.model.TextOverlayItem right =
+                    t.copyWithNewId(java.util.UUID.randomUUID().toString());
+            final long beforeStart = start, beforeEnd = end;
+            left.setTimeRange(start, cut);
+            right.setTimeRange(cut, end);   // preserves Long.MAX open-ended via setTimeRange
+            // Keyframes are stored item-LOCAL; the right half's start moved to `cut`, so rebase.
+            // The right half must CONTINUE the animation at the cut, not restart it: drop every
+            // pre-cut key and pin one at its new local 0 holding the track's value AT the cut
+            // (adversarial review #2 — a naive shift clamped pre-cut keys to 0 with their authored
+            // value, making the object snap at the seam).
+            rebaseOverlayKeyframes(right.getKeyframes(), left.getKeyframes(), cut - start);
+            // A host-anchored overlay's offset is relative to its host — slide it with the split.
+            if (right.getHostClipId() != null) {
+                right.setHostAnchor(right.getHostClipId(),
+                        right.getHostOffsetMs() + (cut - start));
+            }
+            timeline.addTextOverlay(right);
+            undoManager.recordAction(new EditActions.LambdaAction("Split text",
+                    () -> {
+                        left.setTimeRange(start, cut);
+                        timeline.addTextOverlay(right);
+                        refreshAfterMarqueeBatchDelete();
+                        scheduleAutoSave();
+                    },
+                    () -> {
+                        timeline.removeTextOverlay(right);
+                        left.setTimeRange(start, beforeEnd);
+                        refreshAfterMarqueeBatchDelete();
+                        scheduleAutoSave();
+                    }));
+            refreshAfterMarqueeBatchDelete();
+            scheduleAutoSave();
+            return true;
+        }
+
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : timeline.getSpriteOverlays()) {
+            if (!s.getId().equals(selectedId)) continue;
+            long start = s.getStartMs();
+            long end = s.getEndMs();
+            long effEnd = (end == Long.MAX_VALUE || end <= 0)
+                    ? Math.max(cut + 1, timeline.getTotalDurationMs()) : end;
+            if (cut <= start || cut >= effEnd) {
+                Toast.makeText(this,
+                        getString(R.string.faditor_split_playhead_sprite),
+                        Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            final com.fadcam.ui.faditor.sprite.SpriteOverlayItem left = s;
+            final com.fadcam.ui.faditor.sprite.SpriteOverlayItem right =
+                    s.copyWithNewId(java.util.UUID.randomUUID().toString());
+            final long beforeStart = start, beforeEnd = end;
+            left.setTimeRange(start, cut);
+            right.setTimeRange(cut, end);
+            rebaseOverlayKeyframes(right.getKeyframes(), left.getKeyframes(), cut - start);
+            timeline.addSpriteOverlay(right);
+            undoManager.recordAction(new EditActions.LambdaAction("Split sprite",
+                    () -> {
+                        left.setTimeRange(start, cut);
+                        timeline.addSpriteOverlay(right);
+                        refreshAfterMarqueeBatchDelete();
+                        scheduleAutoSave();
+                    },
+                    () -> {
+                        timeline.removeSpriteOverlay(right);
+                        left.setTimeRange(start, beforeEnd);
+                        refreshAfterMarqueeBatchDelete();
+                        scheduleAutoSave();
+                    }));
+            refreshAfterMarqueeBatchDelete();
+            scheduleAutoSave();
+            return true;
+        }
+
+        for (Clip c : timeline.getOverlayClips()) {
+            if (!c.getId().equals(selectedId)) continue;
+            long in = c.getInPointMs(), out = c.getOutPointMs();
+            long oStart = c.getOverlayStartMs();
+            float speed = Math.max(0.01f, c.getSpeedMultiplier());
+            long dur = Math.round((out - in) / speed);
+            if (cut <= oStart || cut >= oStart + dur) {
+                Toast.makeText(this,
+                        getString(R.string.faditor_split_playhead_pip),
+                        Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            long local = cut - oStart;
+            long absSplit = Math.max(in, Math.min(out, in + Math.round(local * speed)));
+            // Extreme slow-mo can round a tiny local span to zero source distance — refuse rather
+            // than mint an empty (invisible) left half (adversarial review #2).
+            if (absSplit <= in || absSplit >= out) {
+                Toast.makeText(this,
+                        getString(R.string.faditor_split_playhead_pip),
+                        Toast.LENGTH_SHORT).show();
+                return true;
+            }
+            final Clip left = c;
+            final long beforeOut = left.getOutPointMs();
+            left.setOutPointMs(absSplit);
+            final Clip right = new Clip(c, java.util.UUID.randomUUID().toString());
+            right.setInPointMs(absSplit);
+            right.setOverlayStartMs(cut);
+            timeline.addOverlayClip(right);
+            undoManager.recordAction(new EditActions.LambdaAction("Split PiP",
+                    () -> {
+                        left.setOutPointMs(absSplit);
+                        timeline.addOverlayClip(right);
+                        refreshAfterMarqueeBatchDelete();
+                        scheduleAutoSave();
+                    },
+                    () -> {
+                        timeline.removeOverlayClip(right);
+                        left.setOutPointMs(beforeOut);
+                        refreshAfterMarqueeBatchDelete();
+                        scheduleAutoSave();
+                    }));
+            refreshAfterMarqueeBatchDelete();
+            scheduleAutoSave();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Re-base an overlay's keyframes after a split. The right half's track times were authored
+     * against the ORIGINAL start; its new start is {@code shift} later. A plain subtraction would
+     * clamp pre-cut keys to local 0 holding their AUTHORED value — making the object snap to a
+     * stale pose at the seam. Instead: drop every pre-cut key and pin ONE at local 0 holding the
+     * track's interpolated value AT the cut (from the left/original track), so the right half
+     * continues the animation exactly where the left half stops.
+     */
+    private static void rebaseOverlayKeyframes(
+            @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet rightKeys,
+            @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet leftKeys, long shift) {
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : rightKeys.tracks()) {
+            if (tr.keyframes.isEmpty()) continue;
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack src = leftKeys.get(tr.property);
+            float fallback = tr.keyframes.get(0).value;
+            float valueAtCut = src != null ? src.valueAt(shift, fallback) : fallback;
+            tr.keyframes.removeIf(k -> k.timeMs <= shift);
+            tr.keyframes.add(0, new com.fadcam.ui.faditor.keyframe.Keyframe(0L, valueAtCut,
+                    com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT));
+        }
+    }
+
     private boolean splitSelectedAdjustmentLayer() {
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
@@ -20834,7 +21144,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // A cut ON either edge produces a zero-length half, which is a layer that renders
         // nothing and cannot be grabbed. Refuse rather than create one.
         if (cut <= layer.getStartMs() || cut >= endMs) {
-            Toast.makeText(this, "Move the playhead inside the layer to split it",  // TODO(strings)
+            Toast.makeText(this, getString(R.string.faditor_split_playhead_layer),
                     Toast.LENGTH_SHORT).show();
             return true;
         }
@@ -20890,6 +21200,60 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> { layer.setStartMs(0L); layer.setDurationMs(total);
                         refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
                 () -> { layer.setStartMs(beforeStart); layer.setDurationMs(beforeDur);
+                        refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); }));
+        refreshAfterMarqueeBatchDelete();
+        scheduleAutoSave();
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+    }
+
+    /** "⇤ Start here": move the layer's START edge to the playhead. End is untouched, so a
+     *  finite layer keeps its far edge and its span shrinks/grows from the left. One undo step. */
+    private void trimAdjustmentLayerStartAtPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
+        if (project == null) return;
+        long cut = Math.max(0L, lastPlayheadAbsoluteMs);
+        long end = layer.getDurationMs() > 0L ? layer.getEndMs()
+                : project.getTimeline().getTotalDurationMs();
+        if (cut >= end) {
+            Toast.makeText(this, getString(R.string.faditor_trim_start_impossible),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final long beforeStart = layer.getStartMs();
+        final long beforeDur = layer.getDurationMs();
+        if (cut == beforeStart) return;
+        layer.setStartMs(cut);
+        layer.setDurationMs(layer.getDurationMs() > 0L ? end - cut : 0L);
+        undoManager.recordAction(new EditActions.LambdaAction("Start here",
+                () -> { layer.setStartMs(cut);
+                        layer.setDurationMs(layer.getDurationMs() > 0L ? end - cut : 0L);
+                        refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
+                () -> { layer.setStartMs(beforeStart); layer.setDurationMs(beforeDur);
+                        refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); }));
+        refreshAfterMarqueeBatchDelete();
+        scheduleAutoSave();
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+    }
+
+    /** "End here ⇥": move the layer's END edge to the playhead. Start is untouched. One undo step. */
+    private void trimAdjustmentLayerEndAtPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
+        if (project == null) return;
+        long cut = Math.max(0L, lastPlayheadAbsoluteMs);
+        if (cut <= layer.getStartMs()) {
+            Toast.makeText(this, getString(R.string.faditor_trim_end_impossible),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final long beforeStart = layer.getStartMs();
+        final long beforeDur = layer.getDurationMs();
+        long newDur = cut - layer.getStartMs();
+        if (newDur == beforeDur) return;
+        layer.setDurationMs(newDur);
+        undoManager.recordAction(new EditActions.LambdaAction("End here",
+                () -> { layer.setDurationMs(newDur);
+                        refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
+                () -> { layer.setDurationMs(beforeDur);
                         refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); }));
         refreshAfterMarqueeBatchDelete();
         scheduleAutoSave();
@@ -20983,27 +21347,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                             android.view.Gravity.TOP);
-            // Start BELOW the editor's own top bar, not over it. Anchored at TOP without this,
-            // the drawer's title and icon row land on the project title, the close ✕ and the
-            // export button — a translucent panel makes that collision look like a rendering
-            // fault rather than a layout one, and it puts two tappable things in one place.
-            // Measured off the real view rather than a constant, since the bar carries the
-            // status-bar inset and that is device-dependent.
-            android.view.View topBar = findViewById(R.id.editor_top_bar);
-            if (topBar != null) {
-                lp.topMargin = topBar.getHeight() > 0
-                        ? topBar.getHeight() : Math.round(56 * getResources()
-                                .getDisplayMetrics().density);
-                topBar.post(() -> {
-                    if (pipDrawer == null) return;
-                    android.widget.FrameLayout.LayoutParams p =
-                            (android.widget.FrameLayout.LayoutParams) pipDrawer.getLayoutParams();
-                    if (p != null && topBar.getHeight() > 0 && p.topMargin != topBar.getHeight()) {
-                        p.topMargin = topBar.getHeight();
-                        pipDrawer.setLayoutParams(p);
-                    }
-                });
-            }
+            // §3.2 (2026-08-08): the drawer now COVERS the editor's own top bar instead of
+            // starting below it. JoyRaptor: a drawer stopping just under the header made the header
+            // (project name / ✕ / export) read as the drawer's own title bar and close button,
+            // and the inset wasted vertical space. The drawer is added to editor_root's PARENT,
+            // which is a sibling ABOVE the header — so with topMargin 0 it draws over it and the
+            // header stays functionally intact underneath (the drawer dismisses with one gesture).
             root.addView(pipDrawer, lp);
             pipDrawer.setHeightListener(h -> {
                 reflowPreviewUnderDrawer(h);
@@ -21182,6 +21531,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             }
                             @Override public long playheadMs() {
                                 return Math.max(0, lastPlayheadAbsoluteMs);
+                            }
+                            @Override public void seekTo(long ms) {
+                                if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
                             }
                         },
                         // OBJECT, so a blur is badged "layer only" rather than silently skipped:
@@ -21662,9 +22014,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }));
 
         java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
-        rangeChips.add(new ObjectMenuSheet.Action("⇤ Start here", false, // TODO(strings)
+        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_start_here), false,
                 () -> setVisualizerRangeEdgeAtPlayhead(wf, true)));
-        rangeChips.add(new ObjectMenuSheet.Action("End here ⇥", false, // TODO(strings)
+        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_end_here), false,
                 () -> setVisualizerRangeEdgeAtPlayhead(wf, false)));
 
         final VizTransformState[] sliderBefore = new VizTransformState[1];
@@ -22041,6 +22393,195 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private final java.util.Set<String> textOverlayCreatedHere = new java.util.HashSet<>();
 
+    // ── W5-2 §3.8: rich-text session state ────────────────────────────────────────────────────
+    // One TextStyleSession lives per open text drawer. It owns the three questions the drawer
+    // always asks — "is there a real selection?", "what does the selection look like?", "does
+    // every character agree?" — plus the undo bookkeeping (spans compared at CLOSE, one entry
+    // per session, folded into the add-undo for items this session created).
+
+    /**
+     * One text-drawer session's selection-aware state (W5-2 §3.8).
+     *
+     * <p>Selection indices are taken from the drawer's {@code EditText} — the AUTHORED string —
+     * and the renderer highlights the same numbers in the DISPLAY string, which is safe because
+     * every span-aware case transform is length-preserving (see {@code TextStyleResolver}). A
+     * selection covering the WHOLE text is deliberately NOT a selection: it means "edit the base
+     * style" (the field opens select-all, so that is the every-day state — §3.8 keeps today's
+     * behaviour on open). Timers have no authored/display mapping (their string is computed), so
+     * they never engage spans at all.
+     */
+    private class TextStyleSession {
+        @NonNull final com.fadcam.ui.faditor.model.TextOverlayItem item;
+        /** The mutable span list the drawer edits through TextStyleResolver. */
+        @NonNull final java.util.List<com.fadcam.ui.faditor.model.StyleSpan> spans;
+        /** The spans as the session opened them (deep copy) — the undo pre-state. */
+        @Nullable final java.util.List<com.fadcam.ui.faditor.model.StyleSpan> startSpans;
+        /** The drawer's live selection, both {@code < 0}/equal meaning none. */
+        int selStart = -1;
+        int selEnd = -1;
+        /** The item was deleted from this drawer — record no style-undo on close. */
+        boolean destroyed;
+        /** True when THIS close recorded the item's "Add text overlay" undo — the style undo
+         * may then fold into it (one press). A previous close's add-undo does NOT count: folding
+         * into an entry that is no longer top would merge two unrelated sessions. */
+        boolean addUndoRecordedHere;
+
+        TextStyleSession(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+            this.item = item;
+            this.spans = item.getOrCreateStyleSpans();
+            this.startSpans = copySpansForUndo(item.getStyleSpans());
+        }
+
+        /** True when the drawer is really editing a RANGE (not base, not a caret, not a timer). */
+        boolean hasSelection() {
+            boolean whole = selStart == 0 && selEnd == len();
+            return !item.isTimer()
+                    && selStart >= 0 && selEnd > selStart && !whole;
+        }
+
+        int len() {
+            String t = item.getText();
+            return t == null ? 0 : t.length();
+        }
+
+        /** Runtime repaint hooks — declared BEFORE {@link #refresh}, which iterates them. */
+        @NonNull final java.util.List<Runnable> refreshers = new java.util.ArrayList<>();
+
+        /** Repaint every selection-aware control and push the preview highlight. */
+        @NonNull final Runnable refresh = () -> {
+            for (Runnable r : refreshers) r.run();
+            pushEditingSelection(this);
+        };
+
+        static java.util.List<com.fadcam.ui.faditor.model.StyleSpan> copySpansForUndo(
+                @Nullable java.util.List<com.fadcam.ui.faditor.model.StyleSpan> src) {
+            if (src == null || src.isEmpty()) return null;
+            java.util.List<com.fadcam.ui.faditor.model.StyleSpan> out =
+                    new java.util.ArrayList<>(src.size());
+            for (com.fadcam.ui.faditor.model.StyleSpan s : src) out.add(s.copy());
+            return out;
+        }
+    }
+
+    /** Push {@code session}'s selection into the preview layer (or clear it — range or none). */
+    private void pushEditingSelection(@NonNull TextStyleSession session) {
+        if (overlayLayer == null) return;
+        java.lang.String id = session.item.getId();
+        if (session.hasSelection()) {
+            overlayLayer.setEditingSelection(id, session.selStart, session.selEnd);
+        } else {
+            overlayLayer.setEditingSelection(id, -1, -1);
+        }
+    }
+
+    /** The EditText selection moved — clamp, remember, repaint. */
+    private void updateTextStyleSelection(@NonNull TextStyleSession session,
+                                          int selStart, int selEnd) {
+        int len = session.len();
+        session.selStart = Math.max(0, Math.min(selStart, len));
+        session.selEnd = Math.max(0, Math.min(selEnd, len));
+        session.refresh.run();
+    }
+
+    /**
+     * The toggle's effective value over the session: a {@code Boolean} when every covered char
+     * agrees, <b>null when the selection is MIXED</b>; with no selection, the item's own field.
+     */
+    @Nullable
+    private static Boolean textToggleValue(@NonNull TextStyleSession session,
+                                           @NonNull TextStyleResolver.Prop prop) {
+        if (session.hasSelection()) {
+            return (Boolean) TextStyleResolver.overRange(
+                    session.item.resolveBase(), session.spans, prop,
+                    session.selStart, session.selEnd, session.len());
+        }
+        switch (prop) {
+            case BOLD:     return session.item.isBold();
+            case ITALIC:   return session.item.isItalic();
+            case UNDERLINE: return session.item.isUnderline();
+            default:       return Boolean.FALSE;
+        }
+    }
+
+    /** Toggle rule (§3.8): mixed → ON; uniform → flip. Routes to a span or the item field. */
+    private void textToggleTap(@NonNull TextStyleSession session,
+                               @NonNull TextStyleResolver.Prop prop,
+                               @NonNull java.util.function.Consumer<Boolean> setBase) {
+        Boolean cur = textToggleValue(session, prop);
+        boolean next = cur == null || !cur;
+        if (session.hasSelection()) {
+            TextStyleResolver.apply(session.spans, prop, next,
+                    session.selStart, session.selEnd);
+            TextStyleResolver.normalize(session.spans, session.len());
+        } else {
+            setBase.accept(next);
+        }
+    }
+
+    /** The effective case over the session (null when MIXED), else the item's own case. */
+    @Nullable
+    private static String textCaseValue(@NonNull TextStyleSession session) {
+        if (session.hasSelection()) {
+            return (String) TextStyleResolver.overRange(
+                    session.item.resolveBase(), session.spans,
+                    TextStyleResolver.Prop.TEXT_CASE,
+                    session.selStart, session.selEnd, session.len());
+        }
+        return session.item.getTextCase();
+    }
+
+    /** Case-chip rule: mixed (or different) → set this case; already this case → NONE. */
+    private void textCaseTap(@NonNull TextStyleSession session, @NonNull String caseValue,
+                             @NonNull java.util.function.Consumer<String> setBase) {
+        String cur = textCaseValue(session);
+        String next = cur == null || !cur.equals(caseValue) ? caseValue
+                : TextStyleResolver.CASE_NONE;
+        if (session.hasSelection()) {
+            TextStyleResolver.apply(session.spans, TextStyleResolver.Prop.TEXT_CASE, next,
+                    session.selStart, session.selEnd);
+            TextStyleResolver.normalize(session.spans, session.len());
+        } else {
+            setBase.accept(next);
+        }
+    }
+
+    /** Chip ON state — purple accent when on, dim off. */
+    private static void styleToggleState(@NonNull TextView t, boolean on) {
+        t.setTextColor(on ? 0xFFB388FF : 0xFFAAAAAA);
+        t.setBackgroundColor(on ? 0x33B388FF : 0x00000000);
+    }
+
+    /** Chip MIXED state — purple text, background split half-purple over transparent: "some of
+     * these characters are on, some off". */
+    private static void styleMixedState(@NonNull TextView t) {
+        t.setTextColor(0xFFB388FF);
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable(
+                        android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                        new int[]{0x33B388FF, 0x00000000});
+        t.setBackground(g);
+    }
+
+    /** One undo step for the whole session's span edits, recorded at drawer CLOSE. */
+    private void recordTextStyleUndo(@NonNull TextStyleSession session) {
+        java.util.List<com.fadcam.ui.faditor.model.StyleSpan> endSpans =
+                TextStyleSession.copySpansForUndo(session.spans);
+        if (TextStyleResolver.spansEqual(session.startSpans, endSpans)) return;
+        EditActions.LambdaAction act = new EditActions.LambdaAction(
+                getString(R.string.faditor_text_style_undo),
+                () -> session.item.setStyleSpans(endSpans),
+                () -> session.item.setStyleSpans(session.startSpans));
+        // Fold ONLY into the add-undo this very close recorded (amendTopAction undoes the fold
+        // extra FIRST, so one press restores the style and removes the item). A stale
+        // textOverlayAddRecorded from a PREVIOUS close must not pull unrelated entries under
+        // this one — an amend targets whatever is top, which may be an unrelated edit.
+        if (session.addUndoRecordedHere) {
+            undoManager.amendTopAction(act);
+        } else {
+            undoManager.recordAction(act);
+        }
+    }
+
     /**
      * The FX stack editor for ONE text overlay (SPEC_ADJUSTMENT_LAYERS_FX M7).
      *
@@ -22068,6 +22609,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
             }
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public void seekTo(long ms) {
+                if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
+            }
         };
 
         java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
@@ -22088,7 +22632,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
 
+        // ONE SURFACE AT A TIME. The object menu sheet's "More…" is a common door into this
+        // drawer, and the sheet is a modal sibling in the same container — leaving it up would
+        // stack two bottom panels and trap the drawer behind the sheet's scrim. Verified on the
+        // Note 9 (2026-08-08): "More…" opened the drawer with the sheet still rendered on top.
+        dismissOpenObjectSheets();
+
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
+
+        final TextStyleSession session = new TextStyleSession(item);
 
         com.fadcam.ui.faditor.tools.TextOverlayDrawer drawer = ensureTextDrawer();
 
@@ -22096,7 +22648,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, pad);
 
-        final android.widget.EditText input = new android.widget.EditText(this);
+        // The selection is the W5-2 §3.8 input: native handles, precise char indices, no gesture
+        // conflict with the preview's move/scale/rotate surface. Overridden only to track it.
+        final android.widget.EditText input = new android.widget.EditText(this) {
+            @Override protected void onSelectionChanged(int selStart, int selEnd) {
+                super.onSelectionChanged(selStart, selEnd);
+                updateTextStyleSelection(session, selStart, selEnd);
+            }
+        };
         input.setHint(R.string.faditor_text_hint);
         // Don't pre-fill the placeholder hint text as real content.
         if (!getString(R.string.faditor_text_hint).equals(item.getText())) {
@@ -22106,8 +22665,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setTextColor(0xFFFFFFFF);
         root.addView(input);
 
+        // W5-2: the selection status row — "Whole text" / "N selected" + the Clear chip.
+        root.addView(buildTextStyleStatusRow(session));
+
         // TOP ROW: font · B/I/U · case · alignment · motion — SPEC_TEXT_DRAWER.
-        root.addView(buildTextTopRow(item));
+        root.addView(buildTextTopRow(item, session));
 
         // M7: this text's OWN effects. A chip rather than another inline section, because the
         // FX panel is a scrolling card list and this dialog is already tall — and because it
@@ -22142,16 +22704,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // string either. The only thing still deferred to close is the placeholder cleanup and
         // the ADD undo, both below.
         input.addTextChangedListener(new android.text.TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+                // Align every span to the edit BEFORE the string changes: text typed inside a
+                // span extends it, deletion shrinks it, a span fully deleted disappears — the
+                // resolver owns the exact convention (§3.8, pinned by the JVM harness).
+                TextStyleResolver.adjustForEdit(session.spans, a, b, c);
+            }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void afterTextChanged(android.text.Editable s) {
                 item.setText(s.toString());
+                // The selection may now dangle past a shorter string — clamp, repaint.
+                session.selStart = Math.min(session.selStart, s.length());
+                session.selEnd = Math.min(session.selEnd, s.length());
+                session.refresh.run();
                 refreshOverlayPreview();
                 syncTimelineOverlays();
             }
         });
 
-        root.addView(buildTextStyleSection(item));
+        root.addView(buildTextStyleSection(item, session));
         root.addView(buildOverlayAnimationControls(item));
         root.addView(buildTextMotionRangeSection(item));
 
@@ -22166,6 +22737,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String emptiedLane2 = item.getLayerId();
             project.getTimeline().removeTextOverlay(item);
             textOverlayCreatedHere.remove(item.getId());
+            session.destroyed = true;
             final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane2 =
                     pruneEmptyLayerTrack(emptiedLane2);
             refreshOverlayPreview();
@@ -22195,6 +22767,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             boolean stillPlaceholder = txt == null || txt.trim().isEmpty()
                     || txt.equals(getString(R.string.faditor_text_hint));
             if (stillPlaceholder) {
+                session.destroyed = true;
                 if (textOverlayCreatedHere.contains(item.getId())) {
                     String emptiedLane = item.getLayerId();
                     project.getTimeline().removeTextOverlay(item);
@@ -22212,18 +22785,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     syncTimelineOverlays();
                     scheduleAutoSave();
                 }
+                endTextStyleSession(session);
                 return;
             }
             textOverlayCreatedHere.remove(item.getId());
             if (project.getTimeline().getTextOverlays().contains(item)
                     && !textOverlayAddRecorded.contains(item)) {
                 textOverlayAddRecorded.add(item);
+                session.addUndoRecordedHere = true;
                 undoManager.recordAction(new EditActions.LambdaAction("Add text overlay",
                         () -> project.getTimeline().addTextOverlay(item),
                         () -> project.getTimeline().removeTextOverlay(item)));
             }
             scheduleAutoSave();
+            // W5-2: the style entry lands AFTER the add-undo so recordTextStyleUndo can fold
+            // into it (amendTopAction) for a session-created item — one press undoes both.
+            endTextStyleSession(session);
         });
+    }
+
+    /** The session's close bookkeeping: clear the preview highlight, retire the font-import
+     * callback (it captures THIS session — a SAR result landing after close must not mutate a
+     * drawer that is no longer open), then one undo for all of the session's span edits
+     * (skipped when the item was deleted instead). */
+    private void endTextStyleSession(@NonNull TextStyleSession session) {
+        if (overlayLayer != null) {
+            overlayLayer.setEditingSelection(session.item.getId(), -1, -1);
+        }
+        if (pendingFontImportCallback != null) {
+            pendingFontImportCallback = null;
+        }
+        if (!session.destroyed) {
+            recordTextStyleUndo(session);
+        }
     }
 
     @Nullable private com.fadcam.ui.faditor.tools.TextOverlayDrawer textDrawer;
@@ -22253,7 +22847,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── SPEC_TEXT_DRAWER top row: font · B/I/U · case · alignment · motion ──────────────────
 
     @NonNull
-    private View buildTextTopRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+    private View buildTextTopRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                                 @NonNull TextStyleSession session) {
         float d = getResources().getDisplayMetrics().density;
         int pad = Math.round(6 * d);
 
@@ -22264,10 +22859,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // FONT — opens a scrollable list with a live-typeface preview per entry + Import.
         TextView fontBtn = topRowChip(this, d, "Aa");
-        fontBtn.setOnClickListener(v -> showFontPickerPopup(item, fontBtn));
+        fontBtn.setOnClickListener(v -> showFontPickerPopup(item, fontBtn, session));
         row.addView(fontBtn);
 
         // B / I / U — independent toggles (see TextOverlayItem javadoc on why not an enum).
+        // With a selection these read and WRITE the SPAN over the range: mixed → two-tone,
+        // tap → ON; uniform → tap flips. No selection: the item's base fields, as before.
         TextView boldBtn = topRowToggle(this, d, "B");
         boldBtn.setTypeface(null, android.graphics.Typeface.BOLD);
         TextView italicBtn = topRowToggle(this, d, "I");
@@ -22275,48 +22872,63 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView underlineBtn = topRowToggle(this, d, "U");
         underlineBtn.getPaint().setUnderlineText(true);
         Runnable refreshBiu = () -> {
-            styleToggleState(boldBtn, item.isBold());
-            styleToggleState(italicBtn, item.isItalic());
-            styleToggleState(underlineBtn, item.isUnderline());
+            Boolean b = textToggleValue(session, TextStyleResolver.Prop.BOLD);
+            if (b == null) { styleMixedState(boldBtn); } else { styleToggleState(boldBtn, b); }
+            Boolean i = textToggleValue(session, TextStyleResolver.Prop.ITALIC);
+            if (i == null) { styleMixedState(italicBtn); } else { styleToggleState(italicBtn, i); }
+            Boolean u = textToggleValue(session, TextStyleResolver.Prop.UNDERLINE);
+            if (u == null) { styleMixedState(underlineBtn); } else { styleToggleState(underlineBtn, u); }
         };
-        boldBtn.setOnClickListener(v -> { item.setBold(!item.isBold()); refreshBiu.run(); refreshOverlayPreview(); scheduleAutoSave(); });
-        italicBtn.setOnClickListener(v -> { item.setItalic(!item.isItalic()); refreshBiu.run(); refreshOverlayPreview(); scheduleAutoSave(); });
-        underlineBtn.setOnClickListener(v -> { item.setUnderline(!item.isUnderline()); refreshBiu.run(); refreshOverlayPreview(); scheduleAutoSave(); });
+        boldBtn.setOnClickListener(v -> {
+            textToggleTap(session, TextStyleResolver.Prop.BOLD, item::setBold);
+            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
+        });
+        italicBtn.setOnClickListener(v -> {
+            textToggleTap(session, TextStyleResolver.Prop.ITALIC, item::setItalic);
+            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
+        });
+        underlineBtn.setOnClickListener(v -> {
+            textToggleTap(session, TextStyleResolver.Prop.UNDERLINE, item::setUnderline);
+            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
+        });
+        session.refreshers.add(refreshBiu);
         refreshBiu.run();
         row.addView(boldBtn);
         row.addView(italicBtn);
         row.addView(underlineBtn);
 
         // CASE — three toggles, mutually exclusive with NONE (tapping the active one clears it).
+        // With a selection the active chip is the (possibly MIXED → two-tone) range's case; mixed
+        // or different → tap sets that case over the range, tapping the active case clears it.
         TextView capFirstBtn = topRowToggle(this, d, "Tt");
         TextView allCapsBtn = topRowToggle(this, d, "TT");
         TextView smallCapsBtn = topRowToggle(this, d, "ᴛᴛ");
         Runnable refreshCase = () -> {
-            styleToggleState(capFirstBtn,
-                    com.fadcam.ui.faditor.model.TextOverlayItem.CASE_CAPITALIZE_FIRST.equals(item.getTextCase()));
-            styleToggleState(allCapsBtn,
-                    com.fadcam.ui.faditor.model.TextOverlayItem.CASE_ALL_CAPS.equals(item.getTextCase()));
-            styleToggleState(smallCapsBtn,
-                    com.fadcam.ui.faditor.model.TextOverlayItem.CASE_SMALL_CAPS.equals(item.getTextCase()));
+            String active = textCaseValue(session);
+            if (active == null) {
+                styleMixedState(capFirstBtn);
+                styleMixedState(allCapsBtn);
+                styleMixedState(smallCapsBtn);
+            } else {
+                styleToggleState(capFirstBtn,
+                        TextStyleResolver.CASE_CAPITALIZE_FIRST.equals(active));
+                styleToggleState(allCapsBtn, TextStyleResolver.CASE_ALL_CAPS.equals(active));
+                styleToggleState(smallCapsBtn, TextStyleResolver.CASE_SMALL_CAPS.equals(active));
+            }
         };
         capFirstBtn.setOnClickListener(v -> {
-            item.setTextCase(com.fadcam.ui.faditor.model.TextOverlayItem.CASE_CAPITALIZE_FIRST.equals(item.getTextCase())
-                    ? com.fadcam.ui.faditor.model.TextOverlayItem.CASE_NONE
-                    : com.fadcam.ui.faditor.model.TextOverlayItem.CASE_CAPITALIZE_FIRST);
-            refreshCase.run(); refreshOverlayPreview(); scheduleAutoSave();
+            textCaseTap(session, TextStyleResolver.CASE_CAPITALIZE_FIRST, item::setTextCase);
+            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
         });
         allCapsBtn.setOnClickListener(v -> {
-            item.setTextCase(com.fadcam.ui.faditor.model.TextOverlayItem.CASE_ALL_CAPS.equals(item.getTextCase())
-                    ? com.fadcam.ui.faditor.model.TextOverlayItem.CASE_NONE
-                    : com.fadcam.ui.faditor.model.TextOverlayItem.CASE_ALL_CAPS);
-            refreshCase.run(); refreshOverlayPreview(); scheduleAutoSave();
+            textCaseTap(session, TextStyleResolver.CASE_ALL_CAPS, item::setTextCase);
+            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
         });
         smallCapsBtn.setOnClickListener(v -> {
-            item.setTextCase(com.fadcam.ui.faditor.model.TextOverlayItem.CASE_SMALL_CAPS.equals(item.getTextCase())
-                    ? com.fadcam.ui.faditor.model.TextOverlayItem.CASE_NONE
-                    : com.fadcam.ui.faditor.model.TextOverlayItem.CASE_SMALL_CAPS);
-            refreshCase.run(); refreshOverlayPreview(); scheduleAutoSave();
+            textCaseTap(session, TextStyleResolver.CASE_SMALL_CAPS, item::setTextCase);
+            session.refresh.run(); refreshOverlayPreview(); scheduleAutoSave();
         });
+        session.refreshers.add(refreshCase);
         refreshCase.run();
         row.addView(capFirstBtn);
         row.addView(allCapsBtn);
@@ -22409,18 +23021,78 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return topRowChip(ctx, d, label);
     }
 
-    /** Purple accent when ON (the app's highlight colour, matching the FX badge), dim off. */
-    private static void styleToggleState(@NonNull TextView t, boolean on) {
-        t.setTextColor(on ? 0xFFB388FF : 0xFFAAAAAA);
-        t.setBackgroundColor(on ? 0x33B388FF : 0x00000000);
+    /**
+     * W5-2 §3.8: the selection status row — "Whole text" (base-style mode) or "N selected",
+     * plus the Clear chip: purple over a selection and strips every span over the range, dim
+     * in base mode and strips every span of the whole item.
+     */
+    @NonNull
+    private View buildTextStyleStatusRow(@NonNull TextStyleSession session) {
+        float d = getResources().getDisplayMetrics().density;
+        int pad = Math.round(6 * d);
+
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(0, pad / 2, 0, pad / 2);
+
+        TextView status = new TextView(this);
+        status.setTextColor(0xFF888888);
+        status.setTextSize(12);
+        android.widget.LinearLayout.LayoutParams statusLp =
+                new android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f);
+        status.setLayoutParams(statusLp);
+        row.addView(status);
+
+        TextView clearChip = new TextView(this);
+        clearChip.setText(R.string.faditor_text_selection_clear);
+        clearChip.setTextColor(0xFFB388FF);
+        clearChip.setTextSize(12);
+        int cp = Math.round(8 * d);
+        clearChip.setPadding(cp, cp / 2, cp, cp / 2);
+        // Always present: it clears the RANGE when something is selected, the WHOLE item
+        // otherwise (§3.8 — one affordance for both readings, dimmed in base mode).
+        clearChip.setOnClickListener(v -> {
+            if (session.item.isTimer()) return; // timers never carry spans
+            if (session.hasSelection()) {
+                TextStyleResolver.clearRange(session.spans, session.selStart, session.selEnd);
+            } else {
+                TextStyleResolver.clearAll(session.spans);
+            }
+            TextStyleResolver.normalize(session.spans, session.len());
+            session.refresh.run();
+            refreshOverlayPreview();
+            scheduleAutoSave();
+        });
+        row.addView(clearChip);
+
+        Runnable refresh = () -> {
+            if (session.hasSelection()) {
+                int n = session.selEnd - session.selStart;
+                status.setText(getString(R.string.faditor_text_selection_count, n));
+                clearChip.setTextColor(0xFFB388FF);
+            } else {
+                status.setText(getString(R.string.faditor_text_selection_whole));
+                clearChip.setTextColor(0xFF666666);
+            }
+        };
+        session.refreshers.add(refresh);
+        refresh.run();
+        return row;
     }
 
     /**
      * Font list with a live-typeface preview per entry, plus "Import font" (SAF pick →
      * copied into Pictures/FadCam/fonts/, the folder the scan below already reads).
+     * With a selection every family present in the range lights up (mixed font), and tapping
+     * applies that family over the whole range (§3.8).
      */
     private void showFontPickerPopup(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
-                                     @NonNull View anchor) {
+                                     @NonNull View anchor,
+                                     @NonNull TextStyleSession session) {
         float d = getResources().getDisplayMetrics().density;
         String[][] fonts = {
                 {"popular", "Popular"}, {"popular_italic", "Popular Italic"},
@@ -22462,14 +23134,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         .create();
 
         java.util.function.BiConsumer<String, String> addRow = (key, name) -> {
+            boolean active = session.hasSelection()
+                    ? TextStyleResolver.valuesOverRange(
+                            item.resolveBase(), session.spans,
+                            TextStyleResolver.Prop.FONT_FAMILY,
+                            session.selStart, session.selEnd, session.len()).contains(key)
+                    : key.equals(item.getFontFamily());
             TextView row = new TextView(this);
             row.setText(name);
-            row.setTextColor(key.equals(item.getFontFamily()) ? 0xFFB388FF : 0xFFEEEEEE);
+            row.setTextColor(active ? 0xFFB388FF : 0xFFEEEEEE);
             row.setTextSize(16);
             row.setPadding(0, Math.round(10 * d), 0, Math.round(10 * d));
             row.setTypeface(getTypefaceForKey(key));
             row.setOnClickListener(v -> {
-                item.setFontFamily(key);
+                if (session.hasSelection()) {
+                    TextStyleResolver.apply(session.spans,
+                            TextStyleResolver.Prop.FONT_FAMILY, key,
+                            session.selStart, session.selEnd);
+                    TextStyleResolver.normalize(session.spans, session.len());
+                    session.refresh.run();
+                } else {
+                    item.setFontFamily(key);
+                }
                 refreshOverlayPreview();
                 scheduleAutoSave();
                 dlg.dismiss();
@@ -22486,7 +23172,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         importRow.setPadding(0, Math.round(12 * d), 0, Math.round(4 * d));
         importRow.setOnClickListener(v -> {
             pendingFontImportCallback = key -> {
-                item.setFontFamily(key);
+                if (session.hasSelection()) {
+                    TextStyleResolver.apply(session.spans,
+                            TextStyleResolver.Prop.FONT_FAMILY, key,
+                            session.selStart, session.selEnd);
+                    TextStyleResolver.normalize(session.spans, session.len());
+                    session.refresh.run();
+                } else {
+                    item.setFontFamily(key);
+                }
                 refreshOverlayPreview();
                 scheduleAutoSave();
             };
@@ -22782,7 +23476,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // ── SPEC_TEXT_DRAWER STYLE section: text / outline / glow / background rows + shadow ────
 
     @NonNull
-    private View buildTextStyleSection(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+    private View buildTextStyleSection(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                                       @NonNull TextStyleSession session) {
         float d = getResources().getDisplayMetrics().density;
         int gap = Math.round(8 * d);
 
@@ -22801,8 +23496,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // TEXT: colour (no "none" — invisible text is a bug) · opacity · the existing pose
         // keyframe (isArmed()/addOpacityKeyframeAt), which is the one already wired end to end.
+        // With a selection the FILL swatch reads/writes the SPAN over the range (mixed →
+        // split swatch, pick applies to the whole range); the opacity track and diamond stay
+        // item-level — spans carry colours and per-char style, never keyframes.
+        //
+        // The two suppliers are self-contained (no cross-memo): each asks overRange directly,
+        // so the mixed → swatch split and the colour → swatch fill can never disagree on the
+        // first repaint.
         box.addView(buildStyleRow(item, "Text", false,
-                item::getColorInt, item::setColorInt,
+                () -> {
+                    Integer v = session.hasSelection() ? (Integer) TextStyleResolver.overRange(
+                            session.item.resolveBase(), session.spans,
+                            TextStyleResolver.Prop.FILL_COLOR,
+                            session.selStart, session.selEnd, session.len()) : null;
+                    if (v != null) return v;
+                    return session.hasSelection() ? 0 : item.getColorInt();
+                },
+                c -> {
+                    if (session.hasSelection()) {
+                        TextStyleResolver.apply(session.spans,
+                                TextStyleResolver.Prop.FILL_COLOR, c,
+                                session.selStart, session.selEnd);
+                        TextStyleResolver.normalize(session.spans, session.len());
+                        session.refresh.run();
+                    } else {
+                        item.setColorInt(c);
+                    }
+                },
                 () -> Math.round(item.animatedOpacity(lastPlayheadAbsoluteMs) * 100f),
                 v -> {
                     float op = v / 100f;
@@ -22810,7 +23530,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     else item.setOpacity(op);
                 },
                 item::isArmed,
-                () -> item.addOpacityKeyframeAt(lastPlayheadAbsoluteMs, item.animatedOpacity(lastPlayheadAbsoluteMs))));
+                () -> item.addOpacityKeyframeAt(lastPlayheadAbsoluteMs, item.animatedOpacity(lastPlayheadAbsoluteMs)),
+                () -> session.hasSelection() && TextStyleResolver.overRange(
+                        session.item.resolveBase(), session.spans,
+                        TextStyleResolver.Prop.FILL_COLOR,
+                        session.selStart, session.selEnd, session.len()) == null,
+                repaint -> session.refreshers.add(repaint)));
 
         // OUTLINE
         box.addView(buildStyleRow(item, getString(R.string.faditor_text_decor_stroke), true,
@@ -22823,7 +23548,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> Math.round(item.animatedStrokeWidthPx(lastPlayheadAbsoluteMs)),
                 v -> item.setStrokeWidthPx(v),
                 item::isStrokeArmed,
-                () -> item.addStrokeKeyframeAt(lastPlayheadAbsoluteMs)));
+                () -> item.addStrokeKeyframeAt(lastPlayheadAbsoluteMs),
+                () -> false));
 
         // GLOW
         box.addView(buildStyleRow(item, getString(R.string.faditor_text_decor_glow), true,
@@ -22836,14 +23562,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> Math.round(item.animatedGlowRadiusPx(lastPlayheadAbsoluteMs)),
                 v -> item.setGlowRadiusPx(v),
                 item::isGlowArmed,
-                () -> item.addGlowKeyframeAt(lastPlayheadAbsoluteMs)));
+                () -> item.addGlowKeyframeAt(lastPlayheadAbsoluteMs),
+                () -> false));
 
-        // BACKGROUND / PLATE — one model field (backgroundColorInt) backs both names; there is
-        // no independently-configurable "plate" surface in TextOverlayItem, so this single row
-        // covers what JoyRaptor called "background and plate" together rather than inventing a
-        // second colour the renderers do not read. No size slider: the plate's "size" is the
-        // text box itself (TextBoxRenderer draws it as the box's own rounded rect), not a
-        // separate radius — so no keyframeable numeric track applies here either.
+        // SHADOW — everything text/outline/glow have, plus the direction knob and distance.
+        box.addView(buildShadowRow(item));
+
+        // BACKGROUND — ONE row, ONE field (backgroundColorInt), no "plate" (JoyRaptor 2026-08-08:
+        // "just use background not plate"). No size slider: the background's "size" is the text
+        // box itself (TextBoxRenderer draws it as the box's own rounded rect), not a separate
+        // radius — so no keyframeable numeric track applies here either.
         {
             TextView label = new TextView(this);
             label.setText(getString(R.string.faditor_text_decor_plate));
@@ -22855,10 +23583,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 item.setBackgroundColorInt(c == null ? android.graphics.Color.TRANSPARENT : c);
                 refreshOverlayPreview();
                 scheduleAutoSave();
-            }, "Background / plate")); // TODO(strings)
+            }, getString(R.string.faditor_text_decor_plate), null, null));
         }
-
-        box.addView(buildShadowRow(item));
 
         return box;
     }
@@ -22877,8 +23603,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                @NonNull java.util.function.Consumer<Integer> setColor,
                                @NonNull java.util.function.Supplier<Integer> getSlider,
                                @NonNull java.util.function.Consumer<Float> setSlider,
+@NonNull java.util.function.Supplier<Boolean> isArmed,
+                                @NonNull Runnable dropKeyframe) {
+        return buildStyleRow(item, label, allowNoneColor, getColor, setColor, getSlider,
+                setSlider, isArmed, dropKeyframe, () -> false, null);
+    }
+
+    @NonNull
+    private View buildStyleRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                               @NonNull String label, boolean allowNoneColor,
+                               @NonNull java.util.function.Supplier<Integer> getColor,
+                               @NonNull java.util.function.Consumer<Integer> setColor,
+                               @NonNull java.util.function.Supplier<Integer> getSlider,
+                               @NonNull java.util.function.Consumer<Float> setSlider,
                                @NonNull java.util.function.Supplier<Boolean> isArmed,
-                               @NonNull Runnable dropKeyframe) {
+                               @NonNull Runnable dropKeyframe,
+                               @NonNull java.util.function.Supplier<Boolean> mixed) {
+        return buildStyleRow(item, label, allowNoneColor, getColor, setColor, getSlider,
+                setSlider, isArmed, dropKeyframe, mixed, null);
+    }
+
+    /**
+     * {@code mixed} — true when this row's colour swatch must show the W5-2 split "MIXED" mark
+     * ({@link com.fadcam.ui.faditor.tools.MixedSwatchDrawable}) instead of a colour (a selection
+     * whose characters disagree on this property). {@code repaintOut}, when given, receives the
+     * swatch's repaint so the drawer session can re-evaluate mixed state when the selection moves.
+     */
+    @NonNull
+    private View buildStyleRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                               @NonNull String label, boolean allowNoneColor,
+                               @NonNull java.util.function.Supplier<Integer> getColor,
+                               @NonNull java.util.function.Consumer<Integer> setColor,
+                               @NonNull java.util.function.Supplier<Integer> getSlider,
+                               @NonNull java.util.function.Consumer<Float> setSlider,
+                               @NonNull java.util.function.Supplier<Boolean> isArmed,
+                               @NonNull Runnable dropKeyframe,
+                               @NonNull java.util.function.Supplier<Boolean> mixed,
+                               @Nullable java.util.function.Consumer<Runnable> repaintOut) {
         float d = getResources().getDisplayMetrics().density;
         int gap = Math.round(8 * d);
 
@@ -22891,7 +23652,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             setColor.accept(c == null ? android.graphics.Color.TRANSPARENT : c);
             refreshOverlayPreview();
             scheduleAutoSave();
-        }, label));
+        }, label, mixed, repaintOut));
 
         TextView desc = new TextView(this);
         desc.setText(label);
@@ -22958,12 +23719,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                    @NonNull java.util.function.Supplier<Integer> get,
                                    @NonNull java.util.function.Consumer<Integer> onPicked,
                                    @NonNull String title) {
+        return colorSwatchButton(d, allowNone, get, onPicked, title, null, null);
+    }
+
+    /**
+     * {@code mixed}, when non-null, switches the swatch to the W5-2 split "MIXED" mark
+     * ({@link MixedSwatchDrawable}) whenever it returns true; {@code repaintOut}, when given,
+     * receives the swatch's repaint lambda so a session can refresh it on selection changes.
+     */
+    @NonNull
+    private View colorSwatchButton(float d, boolean allowNone,
+                                   @NonNull java.util.function.Supplier<Integer> get,
+                                   @NonNull java.util.function.Consumer<Integer> onPicked,
+                                   @NonNull String title,
+                                   @Nullable java.util.function.Supplier<Boolean> mixed,
+                                   @Nullable java.util.function.Consumer<Runnable> repaintOut) {
         View swatch = new View(this);
         int size = Math.round(28 * d);
         android.widget.LinearLayout.LayoutParams lp =
                 new android.widget.LinearLayout.LayoutParams(size, size);
         swatch.setLayoutParams(lp);
         Runnable paint = () -> {
+            if (mixed != null && mixed.get()) {
+                swatch.setBackground(new com.fadcam.ui.faditor.tools.MixedSwatchDrawable());
+                return;
+            }
             int c = get.get();
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
             bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
@@ -22972,12 +23752,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
             swatch.setBackground(bg);
         };
         paint.run();
+        if (repaintOut != null) repaintOut.accept(paint);
         swatch.setOnClickListener(v -> {
-            Integer initial = allowNone && get.get() == android.graphics.Color.TRANSPARENT
-                    ? null : get.get();
+            boolean isMixed = mixed != null && mixed.get();
+            Integer initial = isMixed ? null
+                    : (allowNone && get.get() == android.graphics.Color.TRANSPARENT
+                            ? null : get.get());
+            // W2-4 (§3.13): the colour picker is itself a bottom sheet, so when it rises from
+            // the text drawer the two bottom panels collide. JoyRaptor's ruling: slide the text
+            // drawer HORIZONTALLY out of the way while the sheet is up, and slide it back the
+            // moment the colour is Set or cancelled — you cannot touch anything but the picker
+            // until you confirm anyway, so the drawer's content is dead weight during that beat.
+            final com.fadcam.ui.faditor.tools.TextOverlayDrawer host = textDrawer != null
+                    && textDrawer.isShowing() ? textDrawer : null;
+            final float aside = host == null ? 0f
+                    : Math.max(host.getWidth(), host.getResources().getDisplayMetrics().widthPixels);
+            Runnable slideOut = () -> {
+                if (host != null && aside > 0f) {
+                    host.animate().cancel();
+                    host.animate().translationX(aside).setDuration(180)
+                            .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                            .start();
+                }
+            };
+            Runnable slideBack = () -> {
+                if (host != null && aside > 0f) {
+                    host.animate().cancel();
+                    host.animate().translationX(0f).setDuration(220)
+                            .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                            .start();
+                }
+            };
             com.fadcam.ui.faditor.tools.ColorPickerDialog.show(this, title, initial, allowNone,
                     c -> { onPicked.accept(c); paint.run(); },
-                    c -> { onPicked.accept(c); paint.run(); });
+                    c -> { onPicked.accept(c); paint.run(); },
+                    slideOut, slideBack);
         });
         return swatch;
     }
@@ -29187,6 +29996,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private static final long HEAL_DEFAULT_RANGE_MS = 500L;
     private static final long HEAL_MIN_EDGE_MS = 100L;
     private static final long SPLIT_HEAL_SEAM_MS = 250L;
+    /** A seam within this many source-ms of "exactly contiguous" is still offered as healable,
+     *  with a confirm that says how much will be added/removed (JoyRaptor, §3.6). */
+    private static final long HEAL_NEAR_MS = 150L;
+
+    /**
+     * §3.6: the index of the LEFT clip of a HEALABLE seam near {@code playheadMs}, or -1.
+     * A seam is healable only when the two adjacent MASTER clips came from the SAME source and
+     * are contiguous and in order in source time (left.outPoint == right.inPoint, or within
+     * {@link #HEAL_NEAR_MS} for the confirm path). Two clips from different sources — or one
+     * rearranged out of order — are NOT healable, and Heal must not be offered for them.
+     */
+    private int healableSeam(long playheadMs) {
+        if (project == null || editorTimeline == null) return -1;
+        Timeline t = project.getTimeline();
+        for (int i = 0; i + 1 < t.getClipCount(); i++) {
+            long seam = editorTimeline.getSegmentStartTimeMs(i + 1);
+            if (Math.abs(playheadMs - seam) > SPLIT_HEAL_SEAM_MS) continue;
+            Clip a = t.getClip(i), b = t.getClip(i + 1);
+            if (a.isImageClip() || b.isImageClip()) continue;
+            if (a.getSourceUri() == null || !a.getSourceUri().equals(b.getSourceUri())) continue;
+            long gap = b.getInPointMs() - a.getOutPointMs();
+            if (gap == 0L || Math.abs(gap) <= HEAL_NEAR_MS) return i;
+        }
+        return -1;
+    }
 
     private void splitOrHealAtPlayhead() {
         if (splitHealMode) {
@@ -29199,17 +30033,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateSplitHealButton() {
         Timeline timeline = project != null ? project.getTimeline() : null;
         Clip clip = getSelectedClip();
-        boolean heal = false;
-        if (timeline != null && clip != null && !clip.isImageClip()) {
-            long playhead = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
-            for (int i = 1; i < timeline.getClipCount(); i++) {
-                long seam = editorTimeline.getSegmentStartTimeMs(i);
-                if (Math.abs(playhead - seam) <= SPLIT_HEAL_SEAM_MS) {
-                    heal = true;
-                    break;
-                }
-            }
-        }
+        // §3.6: Heal is offered ONLY on a genuinely healable seam (same source + contiguous + in
+        // order) — the old code flipped to Heal for ANY seam, so pressing it on a fresh split's
+        // seam fired the span-removal path and read as "did nothing".
+        long playhead = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
+        boolean heal = timeline != null && clip != null && !clip.isImageClip()
+                && healableSeam(playhead) >= 0;
         splitHealMode = heal;
         if (toolSplitIcon != null) {
             toolSplitIcon.setText(heal ? "healing" : "content_cut");
@@ -29239,7 +30068,91 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /**
      * Remove a small non-destructive gap around the playhead.
      */
+    /**
+     * §3.6 "Heal" — rejoin the two clips at a HEALABLE seam (the exact inverse of a split:
+     * same source, contiguous, in order). Restores the right clip's source out-point onto the
+     * left and removes the right, fixing transitions, as ONE undo step. The OLD behaviour of
+     * this button (removing a span from inside ONE clip) moved to {@link #removeSectionAtPlayhead}.
+     */
     private void healAtPlayhead() {
+        try {
+            if (editorTimeline.getSelectedAudioIndex() >= 0) {
+                Toast.makeText(this, R.string.faditor_split_error, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            long playheadMs = editorTimeline.getPlayheadPositionMs();
+            int seam = healableSeam(playheadMs);
+            if (seam < 0) {
+                Toast.makeText(this, R.string.faditor_heal_error, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            playerManager.pause();
+            final Timeline t = project.getTimeline();
+            final Clip left = t.getClip(seam);
+            final Clip right = t.getClip(seam + 1);
+            final int rightIndex = seam + 1;
+            final long beforeLeftOut = left.getOutPointMs();
+            final long beforeRightIn = right.getInPointMs();
+            final long leftSourceEnd = right.getOutPointMs();
+            final long gap = beforeRightIn - beforeLeftOut;   // 0 exact, <0 overlap, >0 hole
+            final java.util.List<com.fadcam.ui.faditor.model.Transition> transBefore =
+                    t.snapshotTransitions();
+
+            Runnable rejoin = () -> {
+                undoManager.recordAction(new EditActions.LambdaAction("Heal split",
+                        () -> {
+                            left.setOutPointMs(leftSourceEnd);
+                            t.removeClip(rightIndex);
+                            t.removeTransitionsForDeletedClip(rightIndex);
+                            refreshAfterMarqueeBatchDelete();
+                            scheduleAutoSave();
+                        },
+                        () -> {
+                            t.addClip(rightIndex, right);
+                            left.setOutPointMs(beforeLeftOut);
+                            t.restoreTransitions(transBefore);
+                            refreshAfterMarqueeBatchDelete();
+                            scheduleAutoSave();
+                        }));
+                left.setOutPointMs(leftSourceEnd);
+                t.removeClip(rightIndex);
+                t.removeTransitionsForDeletedClip(rightIndex);
+                refreshAfterMarqueeBatchDelete();
+                editorTimeline.invalidate();
+                refreshTotalTimeDisplay();
+                saveProjectNow();
+                Toast.makeText(FaditorEditorActivity.this,
+                        R.string.faditor_heal_success, Toast.LENGTH_SHORT).show();
+            };
+
+            if (gap == 0L) {
+                rejoin.run();
+            } else {
+                // Nearly contiguous (within HEAL_NEAR_MS): say exactly what will change.
+                String msg = String.format(gap > 0
+                                ? getString(R.string.faditor_heal_confirm_add)
+                                : getString(R.string.faditor_heal_confirm_remove),
+                        TimeFormatter.formatAuto(Math.abs(gap)));
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.faditor_heal_title)
+                        .setMessage(msg)
+                        .setPositiveButton(android.R.string.ok, (dialog, which) -> rejoin.run())
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+        } catch (Exception e) {
+            FLog.e(TAG, "healAtPlayhead failed", e);
+            Toast.makeText(this, R.string.faditor_heal_error, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * "Remove section" (the old Heal): remove a small non-destructive span from INSIDE the
+     * selected single clip, centred on the playhead — cut out a cough/stumble. Not yet exposed
+     * on the toolbar (its honest home is the ripple-delete family / a dedicated control); kept
+     * callable so the feature is not lost in the §3.6 rename.
+     */
+    private void removeSectionAtPlayhead() {
         try {
             if (editorTimeline.getSelectedAudioIndex() >= 0) {
                 Toast.makeText(this, R.string.faditor_split_error, Toast.LENGTH_SHORT).show();
@@ -29300,7 +30213,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     .setNegativeButton(android.R.string.cancel, null)
                     .show();
         } catch (Exception e) {
-            FLog.e(TAG, "healAtPlayhead failed", e);
+            FLog.e(TAG, "removeSectionAtPlayhead failed", e);
             Toast.makeText(this, R.string.faditor_heal_error, Toast.LENGTH_SHORT).show();
         }
     }
@@ -29321,6 +30234,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // too. Checked BEFORE getSelectedClip, which returns the master clip under the
             // playhead and would have split THAT while an adjustment layer was selected —
             // cutting the wrong object is worse than doing nothing.
+            if (splitSelectedLayerItem()) return;   // §3.5: text/sprite/PiP split their OWN span
             if (splitSelectedAdjustmentLayer()) return;
 
             Clip clip = getSelectedClip();
@@ -29774,6 +30688,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * hit the toolbar trash, and the master clip disappears" happens: one path knew about the
      * selection and one didn't.</p>
      */
+    /**
+     * §3.5/§2.3: gate a verb behind the locked-object confirm. When {@code locked} is true, show
+     * "This object is locked. Unlock and continue?" and only run {@code action} on the confirm —
+     * never a silent no-op and never a silent mutation of an object the user locked on purpose.
+     */
+    private void confirmLockedThen(boolean locked, @NonNull Runnable action) {
+        if (!locked) { action.run(); return; }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(getString(R.string.faditor_locked_title))
+                .setMessage(getString(R.string.faditor_locked_message))
+                .setPositiveButton(getString(R.string.faditor_locked_unlock), (d, w) -> action.run())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
     private boolean deleteSelectedLayerItem() {
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
@@ -29781,27 +30710,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline timeline = project.getTimeline();
         for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
             if (!t.getId().equals(selectedId)) continue;
-            deleteTextOverlayWithConfirmation(t);
+            confirmLockedThen(t.isLocked(), () -> deleteTextOverlayWithConfirmation(t));
             return true;
         }
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : timeline.getSpriteOverlays()) {
             if (!sp.getId().equals(selectedId)) continue;
-            deleteSpriteWithConfirmation(sp);
+            confirmLockedThen(sp.isLocked(), () -> deleteSpriteWithConfirmation(sp));
             return true;
         }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
             if (!al.getId().equals(selectedId)) continue;
-            deleteAdjustmentLayerWithConfirmation(al);
+            confirmLockedThen(al.isLocked(), () -> deleteAdjustmentLayerWithConfirmation(al));
             return true;
         }
         for (Clip c : timeline.getOverlayClips()) {
             if (!c.getId().equals(selectedId)) continue;
-            deleteOverlayClipWithConfirmation(c);
+            confirmLockedThen(c.isLockedObject(), () -> deleteOverlayClipWithConfirmation(c));
             return true;
         }
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : timeline.getWaveformOverlays()) {
             if (!w.getId().equals(selectedId)) continue;
-            deleteVisualizerWithConfirmation(w);
+            confirmLockedThen(w.isLocked(), () -> deleteVisualizerWithConfirmation(w));
             return true;
         }
         return false;
@@ -29819,36 +30748,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // together — a bug that reads as the editor having a mind of its own.
         for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
             if (!t.getId().equals(selectedId)) continue;
-            com.fadcam.ui.faditor.model.TextOverlayItem copy =
-                    t.copyWithNewId(java.util.UUID.randomUUID().toString());
-            String lane = timeline.createLayerTrack(
-                    com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text");
-            copy.setLayerId(lane);
-            timeline.addTextOverlay(copy);
-            finishDuplicate(() -> timeline.removeTextOverlay(copy));
+            confirmLockedThen(t.isLocked(), () -> {
+                com.fadcam.ui.faditor.model.TextOverlayItem copy =
+                        t.copyWithNewId(java.util.UUID.randomUUID().toString());
+                String lane = timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text");
+                copy.setLayerId(lane);
+                timeline.addTextOverlay(copy);
+                finishDuplicate(() -> timeline.removeTextOverlay(copy));
+            });
             return true;
         }
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : timeline.getSpriteOverlays()) {
             if (!sp.getId().equals(selectedId)) continue;
-            com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy =
-                    sp.copyWithNewId(java.util.UUID.randomUUID().toString());
-            String lane = timeline.createLayerTrack(
-                    com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite");
-            copy.setLayerId(lane);
-            timeline.addSpriteOverlay(copy);
-            finishDuplicate(() -> timeline.removeSpriteOverlay(copy));
+            confirmLockedThen(sp.isLocked(), () -> {
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy =
+                        sp.copyWithNewId(java.util.UUID.randomUUID().toString());
+                String lane = timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite");
+                copy.setLayerId(lane);
+                timeline.addSpriteOverlay(copy);
+                finishDuplicate(() -> timeline.removeSpriteOverlay(copy));
+            });
             return true;
         }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
             if (!al.getId().equals(selectedId)) continue;
-            com.fadcam.ui.faditor.model.AdjustmentLayer copy = al.copy();
-            copy.setId(java.util.UUID.randomUUID().toString());
-            copy.setName(al.getName() + " copy");
-            String lane = timeline.createLayerTrack(
-                    com.fadcam.ui.faditor.layers.TrackKind.ADJUSTMENT, "Adjustment");
-            copy.setLayerId(lane);
-            timeline.addAdjustmentLayer(copy);
-            finishDuplicate(() -> timeline.removeAdjustmentLayer(copy));
+            confirmLockedThen(al.isLocked(), () -> {
+                com.fadcam.ui.faditor.model.AdjustmentLayer copy = al.copy();
+                copy.setId(java.util.UUID.randomUUID().toString());
+                copy.setName(al.getName() + " copy");
+                String lane = timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.ADJUSTMENT, "Adjustment");
+                copy.setLayerId(lane);
+                timeline.addAdjustmentLayer(copy);
+                finishDuplicate(() -> timeline.removeAdjustmentLayer(copy));
+            });
             return true;
         }
         // PiP / video-overlay clip. This was the actual gap the master-clip-instead-of-my-

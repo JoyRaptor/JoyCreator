@@ -169,6 +169,18 @@ public final class FxParam {
      */
     @NonNull
     public float[] clamp(@NonNull float[] v) {
+        // A GRADIENT is NOT uniform-scalar data: the packed array holds real stop data (0..1)
+        // PLUS >1.0 sentinels marking unused slots, which GradientRamp.fromFloatArray drops.
+        // Clamping the sentinels to 1.0 would re-inflate them as phantom stops and silently
+        // refuse every new stop (adversarial review #2). Pass through, fixing only missing/NaN.
+        if (kind == Kind.GRADIENT) {
+            float[] g = new float[kind.components];
+            for (int i = 0; i < g.length; i++) {
+                float x = i < v.length ? v[i] : defaults[i];
+                g[i] = Float.isNaN(x) ? defaults[i] : x;
+            }
+            return g;
+        }
         float[] out = new float[kind.components];
         for (int i = 0; i < out.length; i++) {
             float x = i < v.length ? v[i] : defaults[i];

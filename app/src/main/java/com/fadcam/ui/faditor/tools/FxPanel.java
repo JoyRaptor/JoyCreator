@@ -72,6 +72,13 @@ public final class FxPanel {
         long playheadMs();
 
         /**
+         * Move the editor playhead to {@code ms} (absolute timeline) — what the keyframe
+         * control's {@code ‹ ›} chevrons and swipe-nav call to jump to the previous/next key.
+         * Default no-op so pre-existing hosts keep compiling; the editor's hosts implement it.
+         */
+        default void seekTo(long ms) {}
+
+        /**
          * A caveat about what this preview will NOT show, or {@code ""} when it will show
          * everything.
          *
@@ -111,9 +118,16 @@ public final class FxPanel {
         int pad = Math.round(12 * d);
         root.setPadding(pad, 0, pad, Math.round(10 * d));
 
+        // Live-refresh registry for keyframe diamonds / keyframed sliders. Attached to the root
+        // tag and re-populated on every rebuild; the editor calls FxPanel.refreshRows(root, ms)
+        // on playhead ticks.
+        final RefreshState rs = new RefreshState();
+        root.setTag(REFRESH_TAG, rs);
+
         final Runnable[] rebuild = new Runnable[1];
         rebuild[0] = () -> {
             root.removeAllViews();
+            rs.entries.clear();
             root.addView(headerRow(ctx, stack, host, rebuild[0], d));
             List<FxInstance> cards = stack.cards();
             if (cards.isEmpty()) {
@@ -124,7 +138,7 @@ public final class FxPanel {
             // stack in every editor reads. Iterating the list forwards here would show the
             // chain upside down.
             for (int i = cards.size() - 1; i >= 0; i--) {
-                root.addView(card(ctx, stack, cards.get(i), i, host, rebuild[0], d, subject));
+                root.addView(card(ctx, stack, cards.get(i), i, host, rebuild[0], d, subject, rs));
             }
             root.addView(addRow(ctx, stack, host, rebuild[0], d, subject));
             root.addView(presetRow(ctx, stack, host, rebuild[0], d, subject));
@@ -240,7 +254,8 @@ public final class FxPanel {
     private static View card(@NonNull Context ctx, @NonNull FxStack stack,
                              @NonNull FxInstance fx, int index, @NonNull Host host,
                              @NonNull Runnable rebuild, float d,
-                             @NonNull FxPreviewTier.Subject subject) {
+                             @NonNull FxPreviewTier.Subject subject,
+                             @NonNull RefreshState rs) {
         LinearLayout card = new LinearLayout(ctx);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(cardBg(d));
@@ -312,14 +327,26 @@ public final class FxPanel {
         if (fx.collapsed) return card;
 
         // ── parameters ──
+        // For gradient_fill, some params are shape-dependent:
+        // - Curve Point X/Y only show when shape == Curve (index 5)
+        // - Angle is hidden for Radial (index 1) since radial has no angle
+        // - Scale is shown for Radial and Diamond/Box (index 4)
+        int currentShape = Math.round(fx.getScalar(def.params.get(0)));
         for (FxParam param : def.params) {
+            // Skip Curve Point params unless Curve shape is selected
+            if (param.name.equals("curve") && currentShape != 5) continue;
+            // Skip Angle for Radial shape (radial has no angle)
+            if (param.name.equals("angle") && currentShape == 1) continue;
+            // Skip Scale for non-Radial/non-Diamond shapes
+            if (param.name.equals("scale") && currentShape != 1 && currentShape != 4) continue;
+
             LinearLayout pr = new LinearLayout(ctx);
             pr.setOrientation(LinearLayout.HORIZONTAL);
             pr.setGravity(Gravity.CENTER_VERTICAL);
-            View row = paramRow(ctx, stack, fx, param, host, rebuild, d);
+            View row = paramRow(ctx, stack, fx, param, host, rebuild, d, rs);
             pr.addView(row, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            if (param.keyable) pr.addView(diamond(ctx, stack, fx, param, host, rebuild, d));
+            if (param.keyable) pr.addView(diamond(ctx, stack, fx, param, host, rebuild, d, rs));
             card.addView(pr);
         }
 
@@ -353,7 +380,8 @@ public final class FxPanel {
     @NonNull
     private static View paramRow(@NonNull Context ctx, @NonNull FxStack stack,
                                  @NonNull FxInstance fx, @NonNull FxParam param,
-                                 @NonNull Host host, @NonNull Runnable rebuild, float d) {
+                                 @NonNull Host host, @NonNull Runnable rebuild, float d,
+                                 @NonNull RefreshState rs) {
         switch (param.kind) {
             case BOOL: {
                 LinearLayout row = new LinearLayout(ctx);
@@ -378,6 +406,18 @@ public final class FxPanel {
                 row.setOrientation(LinearLayout.HORIZONTAL);
                 row.setGravity(Gravity.CENTER_VERTICAL);
                 row.addView(label(ctx, param.label, d));
+                // The label is fixed; the CHIP cluster scrolls. A shape picker like Gradient's
+                // seven entries ("Linear"…"Curve (soon)") overflows a 360dp screen and the last
+                // chips were CUT OFF at the right edge (device finding, 2026-08-09) — invisible,
+                // not reachable. Same idiom as the "Saved looks" row: scroll the overflow, keep
+                // every option reachable. The selection repaint loop below walks `row`'s children,
+                // which are the scroll view and the label, so it now iterates the cluster instead.
+                android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(ctx);
+                scroll.setHorizontalScrollBarEnabled(false);
+                scroll.setFillViewport(false);
+                LinearLayout cluster = new LinearLayout(ctx);
+                cluster.setOrientation(LinearLayout.HORIZONTAL);
+                cluster.setGravity(Gravity.CENTER_VERTICAL);
                 String[] labels = param.enumLabels();
                 for (int i = 0; i < labels.length; i++) {
                     final int idx = i;
@@ -387,18 +427,21 @@ public final class FxPanel {
                         FxStack before = stack.copy();
                         fx.set(param, idx);
                         host.onFxChanged();
-                        // Repaint the row's chips without rebuilding the whole panel.
-                        for (int k = 0; k < row.getChildCount(); k++) {
-                            View child = row.getChildAt(k);
-                            if (child instanceof TextView && child != v && k > 0) {
+                        // Repaint the cluster's chips without rebuilding the whole panel.
+                        for (int k = 0; k < cluster.getChildCount(); k++) {
+                            View child = cluster.getChildAt(k);
+                            if (child instanceof TextView && child != v) {
                                 child.setBackground(pill(CHIP_BG, d));
                             }
                         }
                         v.setBackground(pill(CHIP_ON, d));
                         recordSnapshot(stack, host, rebuild, param.label, before);
                     });
-                    row.addView(c);
+                    cluster.addView(c);
                 }
+                scroll.addView(cluster);
+                row.addView(scroll, new LinearLayout.LayoutParams(
+                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
                 return row;
             }
             case COLOR: {
@@ -435,19 +478,144 @@ public final class FxPanel {
             default: {
                 // The slider works in whole units of the descriptor's own range, so a 0..1
                 // parameter reads as a percentage and a 0..64 radius reads as pixels — rather
-                // than every control pretending to be a percentage of something.
+                // than every control pretending to be a percentage of something. When the range
+                // is too tight to aim at (max-min < 4, e.g. Gamma 0.1..4), the slider is scaled
+                // x100 and `scale` is 100 so the value maps back correctly — m5: the old code
+                // left scale=1 there, so the slider spanned 10..400 while the param clamped at 4.
                 int min = Math.round(param.min);
                 int max = Math.round(param.max);
-                if (max - min < 4) { min = Math.round(param.min * 100); max = Math.round(param.max * 100); }
-                final float scale = (max - min) > 0 && param.max <= 1.001f && param.min >= -1.001f
-                        ? 100f : 1f;
-                final int fmin = min, fmax = max;
-                return sliderRow(ctx, param.label, fmin, fmax,
-                        Math.round(fx.getScalar(param) * scale),
-                        v -> { fx.set(param, v / scale); host.onFxChanged(); }, d,
-                        stack, host, rebuild, param.label);
+                final boolean percent = (max - min) < 4;
+                if (percent) { min = Math.round(param.min * 100); max = Math.round(param.max * 100); }
+                final float scale = percent ? 100f : 1f;
+                return floatParamSlider(ctx, stack, fx, param, host, rebuild, d, rs,
+                        min, max, scale);
             }
         }
+    }
+
+    /**
+     * A FLOAT param slider that is also a KEYFRAME control. When this param's track is armed,
+     * the slider shows the INTERPOLATED value at the playhead (and follows the playhead on a
+     * scrub), and dragging it writes a key at the playhead instead of a static value — the same
+     * "slide between the values the keys have locked in" behaviour the PiP drawer rows have
+     * (JoyRaptor, 2026-08-08: "any slider throughout the entire system should slide between the
+     * values that the key frames have locked in at").
+     */
+    @NonNull
+    private static View floatParamSlider(@NonNull Context ctx, @NonNull FxStack stack,
+                                         @NonNull FxInstance fx, @NonNull FxParam param,
+                                         @NonNull Host host, @NonNull Runnable rebuild, float d,
+                                         @NonNull RefreshState rs,
+                                         int min, int max, float scale) {
+        final String track = fx.track(param, 0);
+        final boolean[] armed = {false};
+        Runnable scanArmed = () -> armed[0] = stack.keys != null
+                && stack.keys.hasProperty(track);
+        scanArmed.run();
+
+        final java.util.function.Supplier<Float> animated = () -> {
+            float staticVal = fx.getScalar(param);
+            if (armed[0] && stack.keys != null) {
+                return stack.keys.valueAt(track, host.playheadMs(), staticVal);
+            }
+            return staticVal;
+        };
+
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(label(ctx, param.label, d));
+
+        SeekBar bar = new SeekBar(ctx);
+        bar.setMax(Math.max(1, max - min));
+        TextView value = new TextView(ctx);
+        value.setTextColor(TXT);
+        value.setTextSize(11f);
+        value.setWidth(Math.round(40 * d));
+        value.setGravity(Gravity.END);
+
+        Runnable render = () -> {
+            scanArmed.run();
+            float v = animated.get();
+            bar.setProgress(Math.max(0, Math.min(max - min,
+                    Math.round(v * scale) - min)));
+            value.setText(String.valueOf(Math.round(v * scale)));
+        };
+        render.run();
+
+        // Dragging writes a key when the track is armed, else the static value — one undo step
+        // per gesture either way (snapshot on touch-down, record on release, same as sliderRow).
+        // The listener is attached AFTER the wrap/hint block below; keep this comment there.
+        final FxStack[] snap = {null};
+        row.addView(bar, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(value);
+
+        // U4: the diamond's purpose is undiscoverable on an un-keyed param. Same C7 honesty
+        // hint the ObjectMenuSheet rows use — "Static — tap ◆ to animate", flashed once under
+        // the row on the first un-armed drag, then faded. Feedback only; it never auto-keys.
+        final TextView[] hint = {null};
+        final boolean[] hintShown = {false};
+        LinearLayout wrap = new LinearLayout(ctx);
+        wrap.setOrientation(LinearLayout.VERTICAL);
+        wrap.addView(row);
+        TextView h = new TextView(ctx);
+        h.setTextColor(0xFF9A9A9A);
+        h.setTextSize(10.5f);
+        h.setPadding(Math.round(86 * d), 0, 0, 0);
+        h.setVisibility(View.GONE);
+        wrap.addView(h);
+        hint[0] = h;
+        Runnable flashHint = () -> {
+            if (armed[0] || hintShown[0]) return;
+            hintShown[0] = true;
+            h.setText(com.fadcam.R.string.faditor_fx_static_hint);
+            h.setAlpha(1f);
+            h.setVisibility(View.VISIBLE);
+            h.animate().cancel();
+            h.postDelayed(() -> h.animate().alpha(0f).setDuration(400)
+                    .withEndAction(() -> h.setVisibility(View.GONE)).start(), 2500);
+        };
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                if (!fromUser) return;
+                value.setText(String.valueOf(p + min));
+                if (!armed[0]) flashHint.run();
+                if (snap[0] == null) snap[0] = stack.copy();   // both paths need an undo target
+                if (armed[0]) {
+                    long at = host.playheadMs();
+                    if (stack.keys == null) stack.keys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                    stack.keys.getOrCreate(track).put(at, (p + min) / scale,
+                            com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT);
+                    host.onFxChanged();
+                } else {
+                    fx.set(param, (p + min) / scale);
+                    host.onFxChanged();
+                }
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {
+                // Snapshot for BOTH paths — an un-armed static drag is an edit too, and without
+                // a snapshot it silently produces no undo (adversarial review, M1).
+                if (snap[0] == null) snap[0] = stack.copy();
+            }
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                if (snap[0] != null) {
+                    recordSnapshot(stack, host, rebuild, param.label, snap[0]);
+                }
+                snap[0] = null;
+            }
+        });
+
+        rs.entries.add(playheadMs -> {
+            if (!armed[0]) return;   // static param: nothing to re-read
+            float v = stack.keys != null
+                    ? stack.keys.valueAt(track, playheadMs, fx.getScalar(param))
+                    : fx.getScalar(param);
+            bar.setProgress(Math.max(0, Math.min(max - min,
+                    Math.round(v * scale) - min)));
+            value.setText(String.valueOf(Math.round(v * scale)));
+        });
+        return wrap;
     }
 
     /** The round swatch + label row every COLOR param now gets — see {@link #paramRow}'s note. */
@@ -739,7 +907,7 @@ public final class FxPanel {
             // reordered, and saying that costs a toast.
             handle.setAlpha(0.25f);
             handle.setOnClickListener(v -> android.widget.Toast.makeText(ctx,
-                    "Add a second effect to reorder the chain",   // TODO(strings)
+                    com.fadcam.R.string.faditor_fx_reorder_hint,
                     android.widget.Toast.LENGTH_SHORT).show());
             return;
         }
@@ -885,6 +1053,12 @@ public final class FxPanel {
     }
 
     /** Animate the cards the dragged one has passed, opening a gap where it will land. */
+    /**
+     * Slide neighbours out of the way while dragging a card — C6: each neighbour displaces by
+     * ITS OWN height, not the dragged card's. With mixed collapsed/expanded cards the old single
+     * {@code rowH} opened a gap the wrong size (the dragged card's height), which snapped back
+     * unevenly when the finger passed a collapsed row.
+     */
     private static void slideNeighbours(@Nullable ViewGroup parent, @NonNull View dragged,
                                         int screenPos, int shift, int rowH) {
         if (parent == null) return;
@@ -893,9 +1067,13 @@ public final class FxPanel {
             View child = parent.getChildAt(i);
             if (child == dragged) continue;
             int rel = i - draggedIdx;          // negative = above, positive = below
+            // C6: each neighbour moves by its OWN height (+ the inter-card margin), so a
+            // collapsed 14dp row beside an expanded 34dp one opens exactly the room it needs.
+            float own = child.getHeight();
+            if (own <= 0f) own = rowH;        // pre-layout fallback
             float target = 0f;
-            if (shift > 0 && rel > 0 && rel <= shift) target = -rowH;
-            else if (shift < 0 && rel < 0 && rel >= shift) target = rowH;
+            if (shift > 0 && rel > 0 && rel <= shift) target = -own;
+            else if (shift < 0 && rel < 0 && rel >= shift) target = own;
             if (child.getTranslationY() != target) {
                 child.animate().translationY(target).setDuration(180)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator())
@@ -998,49 +1176,238 @@ public final class FxPanel {
      * once the diamond is the only evidence it exists.</p>
      */
     @NonNull
-    private static View diamond(@NonNull Context ctx, @NonNull FxStack stack,
-                                @NonNull FxInstance fx, @NonNull FxParam param,
-                                @NonNull Host host, @NonNull Runnable rebuild, float d) {
-        boolean keyed = false;
-        if (stack.keys != null) {
-            for (int i = 0; i < param.kind.components && !keyed; i++) {
-                keyed = stack.keys.hasProperty(fx.track(param, i));
+    // ── Keyframes ───────────────────────────────────────────────────────────
+
+    /** Tag key for the panel root's live refresh list — diamonds/sliders re-read the model. */
+    private static final int REFRESH_TAG = 0x2A5F_0001; // arbitrary unique tag key
+
+    /** One registered live-refresh callback (diamond fill state, keyframed slider value). */
+    private interface RefreshEntry { void onPlayhead(long playheadMs); }
+
+    /** The panel's live-refresh list, attached to the root returned by {@link #build}. */
+    private static final class RefreshState {
+        final java.util.List<RefreshEntry> entries = new java.util.ArrayList<>();
+    }
+
+    /**
+     * Re-read every registered keyframe control for the new playhead — called by the editor on
+     * every playhead tick so a diamond goes solid/hollow the moment the playhead lands/leaves a
+     * key, and a slider shows the interpolated keyframed value. No-op when {@code root} is not
+     * (or no longer contains) an FxPanel root.
+     */
+    public static void refreshRows(@Nullable View root, long playheadMs) {
+        if (root == null) return;
+        Object tag = root.getTag(REFRESH_TAG);
+        if (tag instanceof RefreshState) {
+            RefreshState rs = (RefreshState) tag;
+            for (RefreshEntry e : rs.entries) e.onPlayhead(playheadMs);
+            return;
+        }
+        if (root instanceof android.view.ViewGroup) {
+            android.view.ViewGroup vg = (android.view.ViewGroup) root;
+            for (int i = 0; i < vg.getChildCount(); i++) refreshRows(vg.getChildAt(i), playheadMs);
+        }
+    }
+
+    /** True when any component track of this param has a key within ~2 frames of {@code at}. */
+    private static boolean onKeyAtPlayhead(@NonNull FxStack stack, @NonNull FxInstance fx,
+                                           @NonNull FxParam param, long at) {
+        if (stack.keys == null) return false;
+        for (int i = 0; i < param.kind.components; i++) {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr =
+                    stack.keys.get(fx.track(param, i));
+            if (tr != null) {
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                    if (Math.abs(k.timeMs - at) <= 66) return true;
+                }
             }
         }
-        TextView t = chip(ctx, keyed ? "◆" : "◇", d);
-        t.setAlpha(keyed ? 1f : 0.5f);
-        // BOTH GO THROUGH structural. The diamond was the last mutation path in this panel with
-        // no undo at all, and the long-press is the most destructive control on the card: it
-        // removes EVERY key on the track. A hand-animated curve wiped by a stray long-press was
-        // simply gone, and scheduleAutoSave had already written it out.
-        t.setOnClickListener(v -> {
+        return false;
+    }
+
+    /** The exact key time on {@code tr} within ~2 frames of {@code at}, or -1. */
+    private static long keyTimeAt(@Nullable com.fadcam.ui.faditor.keyframe.KeyframeTrack tr,
+                                  long at) {
+        if (tr == null) return -1L;
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (Math.abs(k.timeMs - at) <= 66) return k.timeMs;
+        }
+        return -1L;
+    }
+
+    /** Seek the playhead to the nearest key strictly before/after it, across all component tracks. */
+    private static void jumpKey(@NonNull FxStack stack, @NonNull FxInstance fx,
+                                @NonNull FxParam param, @NonNull Host host, boolean forward) {
+        if (stack.keys == null || host == null) return;
+        long at = host.playheadMs();
+        Long best = null;
+        for (int i = 0; i < param.kind.components; i++) {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = stack.keys.get(fx.track(param, i));
+            if (tr == null) continue;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                if (forward ? k.timeMs > at + 66 : k.timeMs < at - 66) {
+                    if (best == null || (forward ? k.timeMs < best : k.timeMs > best)) {
+                        best = k.timeMs;
+                    }
+                }
+            }
+        }
+        if (best != null) host.seekTo(best);
+    }
+
+    /** A {@code ‹} / {@code ›} chevron — jump to the previous/next key of this property. */
+    @NonNull
+    private static TextView keyChevron(@NonNull Context ctx, @NonNull String glyph, float d,
+                                       @NonNull Runnable onTap) {
+        TextView v = new TextView(ctx);
+        v.setText(glyph);
+        v.setTextColor(0xFF888888);
+        v.setTextSize(15f);
+        v.setGravity(Gravity.CENTER);
+        v.setPadding(Math.round(6 * d), 0, Math.round(6 * d), 0);
+        v.setOnClickListener(ignored -> onTap.run());
+        return v;
+    }
+
+    /**
+     * The {@code ‹ ◆ ›} keyframe control for ONE parameter at the playhead.
+     *
+     * <p>Filled only when the playhead sits ON a key of this property — the moment it moves off,
+     * the diamond goes hollow (JoyRaptor, 2026-08-08). Tap toggles: on-key removes that key, off-key
+     * drops one. Long-press clears every key on the track. The flanking chevrons and a horizontal
+     * swipe on the diamond jump the playhead to the previous/next key.
+     *
+     * <p>Every mutation goes through {@link #structural}, so one undo step per gesture. Registered
+     * in the panel's {@link RefreshState} so the editor can repaint the fill on playhead ticks.
+     */
+    @NonNull
+    private static View diamond(@NonNull Context ctx, @NonNull FxStack stack,
+                                @NonNull FxInstance fx, @NonNull FxParam param,
+                                @NonNull Host host, @NonNull Runnable rebuild, float d,
+                                @NonNull RefreshState rs) {
+        final TextView[] dg = {null};
+        final Runnable repaint = () -> {
+            boolean on = onKeyAtPlayhead(stack, fx, param, host.playheadMs());
+            dg[0].setText(on ? "◆" : "◇");
+            dg[0].setTextColor(on ? 0xFFB388FF : 0xFF888888);
+        };
+
+        LinearLayout cluster = new LinearLayout(ctx);
+        cluster.setOrientation(LinearLayout.HORIZONTAL);
+        cluster.setGravity(Gravity.CENTER_VERTICAL);
+
+        cluster.addView(keyChevron(ctx, "‹", d,
+                () -> jumpKey(stack, fx, param, host, false)));
+
+        TextView t = chip(ctx, "◇", d);
+        dg[0] = t;
+        repaint.run();
+        // BOTH GO THROUGH structural. The diamond is a mutation path with one undo per gesture,
+        // and the long-press is the most destructive control on the card: it removes EVERY key
+        // on the track. A hand-animated curve wiped by a stray long-press was simply gone, and
+        // scheduleAutoSave had already written it out.
+        //
+        // The tap / long-press / swipe all live INSIDE one OnTouchListener, NOT the view's
+        // click/long-click listeners: consuming ACTION_DOWN here (required to detect a swipe)
+        // stops View.onTouchEvent from ever arming the press state, so performClick() and the
+        // long-click detector would never fire (adversarial review, C1).
+        final Runnable toggleKey = () -> {
             long at = host.playheadMs();
             structural(stack, host, rebuild, "Key " + param.label, () -> {
                 if (stack.keys == null) {
                     stack.keys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
                 }
-                float[] vals = fx.get(param);
-                for (int i = 0; i < param.kind.components; i++) {
-                    stack.keys.getOrCreate(fx.track(param, i)).put(at, vals[i],
-                            com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT);
+                boolean on = onKeyAtPlayhead(stack, fx, param, at);
+                if (on) {
+                    // ON a key → remove it (the × the shared control draws).
+                    for (int i = 0; i < param.kind.components; i++) {
+                        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr =
+                                stack.keys.get(fx.track(param, i));
+                        long hit = keyTimeAt(tr, at);
+                        if (hit >= 0) tr.removeAt(hit);
+                    }
+                } else {
+                    float[] vals = fx.get(param);
+                    for (int i = 0; i < param.kind.components; i++) {
+                        stack.keys.getOrCreate(fx.track(param, i)).put(at, vals[i],
+                                com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT);
+                    }
                 }
             });
-            android.widget.Toast.makeText(ctx,
-                    param.label + " keyed at " + (at / 1000f) + "s",
-                    android.widget.Toast.LENGTH_SHORT).show();
-        });
-        t.setOnLongClickListener(v -> {
-            if (stack.keys == null) return true;
+            repaint.run();
+        };
+        final Runnable clearKeys = () -> {
+            if (stack.keys == null) return;
             structural(stack, host, rebuild, "Clear " + param.label + " keys", () -> {
                 for (int i = 0; i < param.kind.components; i++) {
                     stack.keys.removeProperty(fx.track(param, i));
                 }
             });
+            repaint.run();
             android.widget.Toast.makeText(ctx, param.label + " keys cleared",
                     android.widget.Toast.LENGTH_SHORT).show();
-            return true;
+        };
+        // Swipe on the diamond = previous/next key; tap = add/remove a key; long-press = clear.
+        t.setOnTouchListener(new android.view.View.OnTouchListener() {
+            float downX, downY;
+            boolean moved;
+            boolean longPressed;
+            Runnable pendingLp;
+            @Override public boolean onTouch(View v, android.view.MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        downX = e.getRawX(); downY = e.getRawY();
+                        moved = false;
+                        longPressed = false;
+                        pendingLp = () -> {
+                            longPressed = true;
+                            v.performHapticFeedback(
+                                    android.view.HapticFeedbackConstants.LONG_PRESS);
+                            clearKeys.run();
+                        };
+                        v.postDelayed(pendingLp,
+                                android.view.ViewConfiguration.getLongPressTimeout());
+                        return true;
+                    case android.view.MotionEvent.ACTION_MOVE: {
+                        float slop = android.view.ViewConfiguration.get(ctx).getScaledTouchSlop();
+                        if (!moved && (Math.abs(e.getRawX() - downX) > slop
+                                || Math.abs(e.getRawY() - downY) > slop)) {
+                            moved = true;
+                            if (pendingLp != null) v.removeCallbacks(pendingLp);
+                        }
+                        return true;
+                    }
+                    case android.view.MotionEvent.ACTION_UP: {
+                        if (pendingLp != null) v.removeCallbacks(pendingLp);
+                        if (longPressed) return true;
+                        float dx = e.getRawX() - downX;
+                        float dy = e.getRawY() - downY;
+                        float slop = android.view.ViewConfiguration.get(ctx).getScaledTouchSlop();
+                        if (moved && Math.abs(dx) > slop * 2 && Math.abs(dx) > Math.abs(dy)) {
+                            jumpKey(stack, fx, param, host, dx > 0);
+                        } else if (!moved) {
+                            toggleKey.run();
+                        }
+                        return true;
+                    }
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        if (pendingLp != null) v.removeCallbacks(pendingLp);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
         });
-        return t;
+        cluster.addView(t);
+        cluster.addView(keyChevron(ctx, "›", d,
+                () -> jumpKey(stack, fx, param, host, true)));
+
+        rs.entries.add(playheadMs -> {
+            boolean on = onKeyAtPlayhead(stack, fx, param, playheadMs);
+            dg[0].setText(on ? "◆" : "◇");
+            dg[0].setTextColor(on ? 0xFFB388FF : 0xFF888888);
+        });
+        return cluster;
     }
 
     // ── Presets ─────────────────────────────────────────────────────────────
@@ -1163,10 +1530,9 @@ public final class FxPanel {
             }
         }
         if (dropped > 0) {
-            android.widget.Toast.makeText(ctx,
-                    dropped + (dropped == 1 ? " effect needs" : " effects need")
-                            + " an adjustment layer — left out",       // TODO(strings)
-                    android.widget.Toast.LENGTH_LONG).show();
+            String phrase = String.format(ctx.getString(com.fadcam.R.string.faditor_fx_layer_only_left_out),
+                    dropped + (dropped == 1 ? " effect" : " effects"));
+            android.widget.Toast.makeText(ctx, phrase, android.widget.Toast.LENGTH_LONG).show();
         }
         FxStack after = stack.copy();
         rebuild.run();

@@ -671,7 +671,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                         com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
                                 com.fadcam.ui.faditor.transcript.CaptionAnimator
                                         .parsePreset(o.getTextAnimPreset()),
-                                timelineMs, o.getStartMs(), o.animSpanMs(projectDurationMs),
+                                timelineMs, o.motionRangeStartMs(), o.motionSpanMs(projectDurationMs),
                                 o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
                 float aspect = img.getHeight() > 0
                         ? img.getWidth() / (float) img.getHeight() : 1f;
@@ -719,8 +719,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 frameText = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTextAt(
                         com.fadcam.ui.faditor.transcript.CaptionAnimator
                                 .parsePreset(o.getTextAnimPreset()),
-                        frameText, timelineMs, o.getStartMs(),
-                        o.animSpanMs(projectDurationMs),
+                        frameText, timelineMs, o.motionRangeStartMs(),
+                        o.motionSpanMs(projectDurationMs),
                         o.getTextAnimInPct(), o.getTextAnimOutPct());
             }
             TextOverlayItem frameOverlay = new TextOverlayItem(frameText, o.getColorInt(),
@@ -733,6 +733,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
             frameOverlay.setGlowRadiusPx(o.getGlowRadiusPx());
             frameOverlay.setBackgroundColorInt(o.getBackgroundColorInt());
             frameOverlay.setFontFamily(o.getFontFamily());
+            // Alignment rides along too — M3 (adversarial review): the frame item is what
+            // TextOverlayRenderer.render rasterises, and without this the export centred every
+            // LEFT/RIGHT/JUSTIFY overlay even though the preview honoured it.
+            frameOverlay.setTextAlign(o.getTextAlign());
             // NOTE: setImageUri() used to be called here. It was a CALL INTO A VOID —
             // TextOverlayRenderer has no image support whatsoever — and it is what made BUG C
             // look implemented for months. Images are now handled by the branch above and can
@@ -756,7 +760,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                     com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
                             com.fadcam.ui.faditor.transcript.CaptionAnimator
                                     .parsePreset(o.getTextAnimPreset()),
-                            timelineMs, o.getStartMs(), o.animSpanMs(projectDurationMs),
+                            timelineMs, o.motionRangeStartMs(), o.motionSpanMs(projectDurationMs),
                             o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
             Paint p = new Paint();
             int alpha = Math.round(opacity * anim.alpha * 255);

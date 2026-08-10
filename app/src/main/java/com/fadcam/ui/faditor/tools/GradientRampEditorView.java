@@ -52,7 +52,10 @@ public final class GradientRampEditorView extends LinearLayout {
     public interface OnLiveChange { void onChange(@NonNull GradientRamp ramp); }
 
     private static final float SNAP_DP = 7f;
-    private static final float DELETE_DP = 30f;
+    /** Vertical drag (dp) past the stop's row before the stop is marked for deletion on release.
+     *  60dp ≈ a deliberate, full-finger pull — JoyRaptor (2026-08-08): "polling swatches off is a
+     *  little sensitive… takes a little bit more vertical movement to delete". */
+    private static final float DELETE_DP = 60f;
 
     @NonNull private GradientRamp ramp = GradientRamp.defaultRamp();
     @Nullable private OnLiveChange listener;
@@ -127,10 +130,22 @@ public final class GradientRampEditorView extends LinearLayout {
         private int dragMode = MODE_NONE;
         private int dragIndex = -1;
         private float dragDy;
+        // W5-1: the stop's position at drag start, so a REFUSED delete (the two-stop floor) can
+        // restore it. The class doc promises "the marker snaps back" but the code never did —
+        // drag a stop of a 2-stop ramp off the bar and it stayed wherever the finger left it.
+        private float dragStartPos = -1f;
+        // W5-1 design review: the tap-vs-drag decision needs the finger's TOTAL travel from its
+        // down-point, not a dy-from-the-row check. The old `|dragDy| < 3dp` gate meant any
+        // ordinary 4-7dp vertical jitter while tapping a colour stop silently turned the tap
+        // into a drag — the stop nudged a pixel and the colour picker never opened. Touch slop
+        // is the OS's own "you meant to tap" yardstick; use it.
+        private float downX, downY;
+        private float touchSlop;
 
         RampBar(@NonNull Context ctx) {
             super(ctx);
             d = ctx.getResources().getDisplayMetrics().density;
+            touchSlop = android.view.ViewConfiguration.get(ctx).getScaledTouchSlop();
             strokePaint.setStyle(Paint.Style.STROKE);
             strokePaint.setStrokeWidth(1.4f * d);
             fillPaint.setStyle(Paint.Style.FILL);
@@ -275,12 +290,21 @@ public final class GradientRampEditorView extends LinearLayout {
                 case MotionEvent.ACTION_DOWN: {
                     getParent().requestDisallowInterceptTouchEvent(true);
                     dragDy = 0f;
+                    downX = x; downY = y;
                     int bi = hitBias(x, y);
-                    if (bi >= 0) { dragMode = MODE_BIAS; dragIndex = bi; return true; }
+                    if (bi >= 0) { dragMode = MODE_BIAS; dragIndex = bi; dragStartPos = -1f; return true; }
                     int oi = hitOpacity(x, y);
-                    if (oi >= 0) { dragMode = MODE_OPACITY; dragIndex = oi; return true; }
+                    if (oi >= 0) {
+                        dragMode = MODE_OPACITY; dragIndex = oi;
+                        dragStartPos = ramp.opacityStops.get(oi).pos;
+                        return true;
+                    }
                     int ci = hitColor(x, y);
-                    if (ci >= 0) { dragMode = MODE_COLOR; dragIndex = ci; return true; }
+                    if (ci >= 0) {
+                        dragMode = MODE_COLOR; dragIndex = ci;
+                        dragStartPos = ramp.colorStops.get(ci).pos;
+                        return true;
+                    }
                     if (barRect.contains(x, Math.max(barRect.top, Math.min(barRect.bottom, y)))) {
                         // TAP THE BAR → add a stop there, interpolated from what is showing.
                         float t = posOf(x);
@@ -309,19 +333,33 @@ public final class GradientRampEditorView extends LinearLayout {
                 }
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL: {
+                    // W5-1: a colour-stop TAP is a release whose finger barely moved — measured
+                    // as total travel from the DOWN point (touch slop), not the stop's row. The
+                    // old gate only compared |dragDy| against 3dp, so a 4-7dp jitter that stayed
+                    // within the hit circle was still "a drag" and the picker never opened.
+                    boolean tappedColor = dragMode == MODE_COLOR
+                            && ev.getActionMasked() == MotionEvent.ACTION_UP
+                            && Math.abs(x - downX) < touchSlop
+                            && Math.abs(y - downY) < touchSlop;
                     if (dragMode == MODE_COLOR && Math.abs(dragDy) > DELETE_DP * d) {
-                        ramp.removeColorStop(dragIndex);
+                        // Two-stop floor: GradientRamp refuses the delete — the marker must
+                        // SNAP BACK to where the finger picked it up, not stay where it was
+                        // dropped (the class doc promises this; it never happened).
+                        if (!ramp.removeColorStop(dragIndex) && dragStartPos >= 0f) {
+                            ramp.moveColorStop(dragIndex, dragStartPos);
+                        }
                     } else if (dragMode == MODE_OPACITY && Math.abs(dragDy) > DELETE_DP * d) {
-                        ramp.removeOpacityStop(dragIndex);
-                    } else if (dragMode == MODE_COLOR && ev.getActionMasked() == MotionEvent.ACTION_UP
-                            && Math.abs(dragDy) < 3f * d) {
-                        // A near-stationary release reads as a TAP on the stop → colour picker.
+                        if (!ramp.removeOpacityStop(dragIndex) && dragStartPos >= 0f) {
+                            ramp.moveOpacityStop(dragIndex, dragStartPos);
+                        }
+                    } else if (tappedColor) {
                         openPicker(dragIndex);
                     }
                     boolean changed = dragMode != MODE_NONE;
                     dragMode = MODE_NONE;
                     dragIndex = -1;
                     dragDy = 0f;
+                    dragStartPos = -1f;
                     if (changed) fire();
                     return true;
                 }

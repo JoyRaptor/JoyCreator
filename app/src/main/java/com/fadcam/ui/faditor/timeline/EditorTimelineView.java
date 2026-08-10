@@ -191,6 +191,11 @@ public class EditorTimelineView extends View {
     // same place on the tape, so a glance has to say WHICH kind of zone this is.
     private final Paint textAnimMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textAnimZonePaint   = new Paint();
+    // Text-box MOTION-RANGE window carrots + tint (SPEC_TEXT_DRAWER follow-up, 2026-08-08).
+    // Purple, the app's keyframe accent — this is where the entrance/exit tape RUNS, distinct
+    // from the amber in/out zone carets, which sit inside this window.
+    private final Paint motionRangeMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint motionRangeZonePaint   = new Paint();
 
     // Audio track paints
     private final Paint audioTrackBgPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -834,7 +839,9 @@ public class EditorTimelineView extends View {
         FREEZE_LEFT_HANDLE,
         FREEZE_RIGHT_HANDLE,
         TEXT_ANIM_IN_HANDLE,
-        TEXT_ANIM_OUT_HANDLE
+        TEXT_ANIM_OUT_HANDLE,
+        MOTION_RANGE_START_HANDLE,
+        MOTION_RANGE_END_HANDLE
     }
     private Drag activeDrag = Drag.NONE;
     /** Finger x (scrolled space) while dragging a slide freeze-zone handle. */
@@ -846,6 +853,9 @@ public class EditorTimelineView extends View {
      * listener an undo target that the gesture's own live preview has not already overwritten.
      */
     private float textAnimBeforeIn, textAnimBeforeOut;
+    /** Finger x (content space) while dragging a text-box motion-range boundary carrot. */
+    /** The motion window the grabbed item held when the carrot was GRABBED (undo target). */
+    private long motionRangeBeforeStartMs, motionRangeBeforeEndMs;
     private float downX, downY;
     private long downTime;
     private int downSegIndex = -1;
@@ -1420,6 +1430,19 @@ public class EditorTimelineView extends View {
          */
         default void onTextAnimZonesPreviewed(@NonNull String itemId,
                 float inPct, float outPct) {}
+        /**
+         * A text box's motion-RANGE window was dragged (SPEC_TEXT_DRAWER follow-up, 2026-08-08):
+         * the [startMs, endMs) window the entrance/exit zones evaluate against, in ABSOLUTE
+         * timeline ms. Fires ONCE per gesture, on release, carrying the before-window as well as
+         * the after — same capture-on-DOWN rule as {@link #onTextAnimZonesChanged}.
+         */
+        default void onMotionRangeChanged(@NonNull String itemId,
+                long beforeStartMs, long beforeEndMs, long afterStartMs, long afterEndMs) {}
+        /**
+         * The same window, live on every frame of the carrot drag — preview only, no undo.
+         */
+        default void onMotionRangePreviewed(@NonNull String itemId,
+                long startMs, long endMs) {}
         /** Double-tap on a generated-slide clip → its code editor sheet. */
         default void onSlideDoubleTapped(int segmentIndex) {}
         /** Called when playhead is seeked. isDragging=true means user is actively dragging,
@@ -1614,6 +1637,8 @@ public class EditorTimelineView extends View {
         freezeZonePaint.setColor(0x3300E5FF);
         textAnimMarkerPaint.setColor(0xFFFFC107);
         textAnimZonePaint.setColor(0x40FFC107);
+        motionRangeMarkerPaint.setColor(0xFFB388FF);
+        motionRangeZonePaint.setColor(0x33B388FF);
         trimOverlayPaint.setStyle(Paint.Style.FILL);
         trimRecoverPaint.setColor(0x404CAF50);
         trimRecoverPaint.setStyle(Paint.Style.FILL);
@@ -2593,6 +2618,9 @@ public class EditorTimelineView extends View {
         // under it. Still inside the translate: the carets are content-x / screen-y, which is
         // exactly this space (see the block comment on drawTextAnimHandles).
         drawTextAnimHandles(canvas);
+        // Motion-range window carrots — after the amber carets so the purple window reads as
+        // wrapping them (it does: the window is where the whole entrance+exit tape runs).
+        drawMotionRangeHandles(canvas);
 
         // G8: marquee multi-selection highlights + the live selection box — content-x
         // space, so they ride the same translate as the rows themselves.
@@ -6862,6 +6890,20 @@ public class EditorTimelineView extends View {
             }
         }
 
+        // Motion-range window carrots — same tight-then-trim rule as the amber carets above.
+        {
+            Drag mr = hitTestMotionRangeHandle(scrolledX, y);
+            if (mr != Drag.NONE) {
+                FLog.d(TAG, "onDown: hit motion-range carrot " + mr);
+                activeDrag = mr;
+                com.fadcam.ui.faditor.model.TextOverlayItem grabbed = selectedMotionRangeItem();
+                motionRangeBeforeStartMs = grabbed != null ? grabbed.getMotionStartMs() : 0L;
+                motionRangeBeforeEndMs = grabbed != null ? grabbed.getMotionEndMs() : 0L;
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+        }
+
         // M6 hook: touch dispatch into the multi-row Track UI. Header icon taps
         // (caret/hide/lock/mute) are handled entirely here; a tap elsewhere in a
         // LOCKED track's row is swallowed (locked = taps/gestures ignored at the
@@ -7714,6 +7756,12 @@ public class EditorTimelineView extends View {
             return true;
         }
 
+        if (activeDrag == Drag.MOTION_RANGE_START_HANDLE
+                || activeDrag == Drag.MOTION_RANGE_END_HANDLE) {
+            doMotionRangeDrag(scrolledX);
+            return true;
+        }
+
         // Audio trim handle drag
         if (activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
             lastTrimFingerScreenX = x;
@@ -8001,6 +8049,9 @@ public class EditorTimelineView extends View {
         } else if (last == Drag.TEXT_ANIM_IN_HANDLE
                 || last == Drag.TEXT_ANIM_OUT_HANDLE) {
             finishTextAnimDrag();
+        } else if (last == Drag.MOTION_RANGE_START_HANDLE
+                || last == Drag.MOTION_RANGE_END_HANDLE) {
+            finishMotionRangeDrag();
         } else if (last == Drag.AUDIO_LEFT_HANDLE || last == Drag.AUDIO_RIGHT_HANDLE) {
             // Audio trim finished — data was already applied during drag
             if (listener != null) {
@@ -8463,6 +8514,142 @@ public class EditorTimelineView extends View {
         listener.onTextAnimZonesChanged(o.getId(), textAnimBeforeIn, textAnimBeforeOut,
                 textAnimZoneIn(o, r), textAnimZoneOut(o, r));
         invalidate();
+    }
+
+    // ── Motion-range window carrots (SPEC_TEXT_DRAWER follow-up, 2026-08-08) ────────────────
+    //
+    // The "Start motion here"/"End motion here" buttons place a [startMs, endMs) WINDOW at the
+    // playhead; these two carrots fine-tune it on the tape. They ride the SAME selected animated
+    // text box as the amber in/out zone carets — the purple window is OUTSIDE them (it is where
+    // the whole entrance+exit tape runs), so both can coexist on one block without claiming the
+    // same pixels: the amber carets travel inside the item's span, the purple window bounds it.
+
+    /** The selected text overlay that owns a motion-range window, else null. */
+    @Nullable
+    private com.fadcam.ui.faditor.model.TextOverlayItem selectedMotionRangeItem() {
+        if (layerGestureController == null) return null;
+        String id = layerGestureController.getSelectedItemId();
+        if (id == null) return null;
+        for (com.fadcam.ui.faditor.layers.Track t : layerTracks) {
+            for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
+                if (!id.equals(item.getId())) continue;
+                com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+                if (o == null) return null;
+                if (!o.hasMotionRange()) return null;
+                return com.fadcam.ui.faditor.transcript.CaptionAnimator
+                        .parsePreset(o.getTextAnimPreset())
+                        == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                        ? null : o;
+            }
+        }
+        return null;
+    }
+
+    /** The selected item's tape in content-x / screen-y (same space as the amber carets). */
+    @Nullable
+    private RectF motionRangeRect() {
+        if (layerRowRenderer == null || layerGestureController == null) return null;
+        String id = layerGestureController.getSelectedItemId();
+        if (id == null) return null;
+        return layerRowRenderer.itemBodyRect(id, getM6RowsTopPx(), totalEffectiveMs, this::timeToX);
+    }
+
+    /** Content-x for a timeline ms, clamped to the item's tape so a carrot never leaves it. */
+    private float motionRangeX(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                               @NonNull RectF r, long ms) {
+        return Math.max(r.left, Math.min(r.right, timeToX(ms)));
+    }
+
+    /**
+     * Hit-test the two window carrots — tight, and checked BEFORE the item's own trim handles,
+     * exactly like the amber carets (a carrot at the tape's very edge must still be grabbable).
+     */
+    private Drag hitTestMotionRangeHandle(float x, float y) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedMotionRangeItem();
+        if (o == null) return Drag.NONE;
+        RectF r = motionRangeRect();
+        if (r == null || r.right - r.left < textAnimInsetPx() * 2f) return Drag.NONE;
+        if (y < r.top || y > r.bottom) return Drag.NONE;
+        float zone = textAnimInsetPx() * 0.9f;
+        float sx = motionRangeX(o, r, o.getMotionStartMs());
+        float ex = motionRangeX(o, r, o.getMotionEndMs());
+        if (Math.abs(x - sx) <= zone) return Drag.MOTION_RANGE_START_HANDLE;
+        if (Math.abs(x - ex) <= zone) return Drag.MOTION_RANGE_END_HANDLE;
+        return Drag.NONE;
+    }
+
+    /** Live carrot drag — sets the window, previews, records nothing (one undo on release). */
+    private void doMotionRangeDrag(float x) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedMotionRangeItem();
+        if (o == null || listener == null) return;
+        RectF r = motionRangeRect();
+        if (r == null) return;
+        long minMs = Math.max(0L, xToTime(r.left));
+        long maxMs = Math.max(minMs + 1L, xToTime(r.right));
+        long minGap = Math.max(16L, Math.round((maxMs - minMs) * 0.01f));
+        if (activeDrag == Drag.MOTION_RANGE_START_HANDLE) {
+            long start = Math.max(minMs, Math.min(xToTime(x), o.getMotionEndMs() - minGap));
+            o.setMotionRange(start, o.getMotionEndMs());
+        } else {
+            long end = Math.min(maxMs, Math.max(xToTime(x), o.getMotionStartMs() + minGap));
+            o.setMotionRange(o.getMotionStartMs(), end);
+        }
+        listener.onMotionRangePreviewed(o.getId(), o.getMotionStartMs(), o.getMotionEndMs());
+        invalidate();
+    }
+
+    /** Commit the carrot drag — ONE undo step spanning the whole gesture. */
+    private void finishMotionRangeDrag() {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedMotionRangeItem();
+        if (o == null || listener == null) return;
+        listener.onMotionRangeChanged(o.getId(), motionRangeBeforeStartMs,
+                motionRangeBeforeEndMs, o.getMotionStartMs(), o.getMotionEndMs());
+        invalidate();
+    }
+
+    /**
+     * The window tint + two purple carrots at the motion range's start/end. Drawn only when a
+     * range is SET (the buttons are the only way to create one), so an untouched box shows
+     * nothing new here.
+     */
+    private void drawMotionRangeHandles(Canvas canvas) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = selectedMotionRangeItem();
+        if (o == null) return;
+        RectF r = motionRangeRect();
+        if (r == null) return;
+        float[] span = layerRowRenderer.rowContentXRange();
+        if (span == null) return;
+        canvas.save();
+        canvas.clipRect(span[0], r.top, span[1], r.bottom);
+        try {
+            float sx = motionRangeX(o, r, o.getMotionStartMs());
+            float ex = motionRangeX(o, r, o.getMotionEndMs());
+            if (ex - sx > 1f) {
+                canvas.drawRect(sx, r.top, ex, r.bottom, motionRangeZonePaint);
+            }
+            drawMotionRangeMarker(canvas, sx, r, true);
+            drawMotionRangeMarker(canvas, ex, r, false);
+        } finally {
+            canvas.restore();
+        }
+    }
+
+    private void drawMotionRangeMarker(Canvas canvas, float x, RectF r, boolean leftEdge) {
+        float cy = r.centerY();
+        float h = Math.min(r.height() * 0.7f, handleNotchHeightPx * 1.2f);
+        float w = textAnimInsetPx() * 0.8f;
+        android.graphics.Path p = new android.graphics.Path();
+        if (leftEdge) {
+            p.moveTo(x + w / 2f, cy - h / 2f);
+            p.lineTo(x + w / 2f, cy + h / 2f);
+            p.lineTo(x - w / 2f, cy);
+        } else {
+            p.moveTo(x - w / 2f, cy - h / 2f);
+            p.lineTo(x - w / 2f, cy + h / 2f);
+            p.lineTo(x + w / 2f, cy);
+        }
+        p.close();
+        canvas.drawPath(p, motionRangeMarkerPaint);
     }
 
     /**

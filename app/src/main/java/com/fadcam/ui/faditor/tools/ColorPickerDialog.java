@@ -20,17 +20,20 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ONE colour picker for the whole app (JoyRaptor's compact dialog, 2026-08-08).
+ * ONE colour picker for the whole app (JoyRaptor's compact bottom drawer, 2026-08-08).
  *
- * <p>Hue/saturation/brightness sliders down the left with tappable numeric read-outs, a hue ring
- * with a saturation/brightness triangle, a copyable hex field, a row of useful fixed swatches
- * including a "none", and eight RECENT swatches shared by every caller in the app.</p>
+ * <p>A bottom drawer, so it never covers the preview: the hue ring + saturation/brightness
+ * triangle sits top-left with the copyable hex field under it, the H/S/B sliders with tappable
+ * numeric read-outs sit to its right, three honeycombed rows of fixed swatches follow (the
+ * middle row nudged right so the circles interlock), and the bottom row holds eight RECENT
+ * swatches shared by every caller in the app.</p>
  *
  * <p><b>Recents are app-wide on purpose.</b> A palette that only remembers what you did in one
  * drawer is a palette you have to rebuild in every other one; the whole value of "the colour I
@@ -59,12 +62,25 @@ public final class ColorPickerDialog {
     private static final String KEY_RECENTS = "recents";
     private static final int RECENT_SLOTS = 8;
 
-    /** Useful fixed colours: greys at both ends, then a spread that covers the common asks. */
+    /** Useful fixed colours: greys at both ends, then a spread that covers the common asks.
+     *  16 entries — exactly two full rows of 8 (JoyRaptor, 2026-08-08: "let's have it be 8 8 8"). */
     private static final int[] SWATCHES = {
             0xFF000000, 0xFF404040, 0xFF808080, 0xFFC0C0C0, 0xFFFFFFFF,
-            0xFFE53935, 0xFFFB8C00, 0xFFFDD835, 0xFF43A047, 0xFF00ACC1,
-            0xFF1E88E5, 0xFF5E35B1, 0xFFD81B60, 0xFF6D4C41,
+            0xFFE53935, 0xFFFB8C00, 0xFFFDD835,
+            0xFF43A047, 0xFF00ACC1, 0xFF1E88E5, 0xFF5E35B1, 0xFFD81B60,
+            0xFF6D4C41, 0xFF00BFA5, 0xFFFF7043,
     };
+
+    /** Honeycomb stagger for the middle row: half the 25dp swatch pitch keeps circles interlocked. */
+    private static final int ROW_OFFSET_DP = 13;
+
+    /** Number of common swatches that fit the top (un-offset) row; the rest go in the middle. */
+    private static final int TOP_ROW_SWATCHES = 8;
+
+    /** Swatch circle size + right gap. 22+3=25dp pitch so 8 fit the narrow sliders column even on
+     *  a 360dp phone (adversarial review M2 — the old 26+6=32dp pitch clipped the left swatches). */
+    private static final int SWATCH_DP = 22;
+    private static final int SWATCH_GAP_DP = 3;
 
     private ColorPickerDialog() {}
 
@@ -87,6 +103,20 @@ public final class ColorPickerDialog {
     public static void show(@NonNull Context ctx, @NonNull String title,
                             @Nullable Integer initial, boolean allowNone,
                             @NonNull OnLive onLive, @NonNull OnPicked onPicked) {
+        show(ctx, title, initial, allowNone, onLive, onPicked, null, null);
+    }
+
+    /**
+     * {@code show} plus a slide-aside contract for a bottom drawer that would otherwise sit
+     * behind this bottom sheet (W2-4, §3.13): {@code onShown} runs once the sheet is up and
+     * {@code onDismissed} runs on EVERY way out — Set, Cancel, back, scrim tap, swipe-away — so
+     * a drawer hosting the swatch can slide horizontally out of the way while the sheet is up
+     * and slide back the moment it closes. Either may be {@code null}.
+     */
+    public static void show(@NonNull Context ctx, @NonNull String title,
+                            @Nullable Integer initial, boolean allowNone,
+                            @NonNull OnLive onLive, @NonNull OnPicked onPicked,
+                            @Nullable Runnable onShown, @Nullable Runnable onDismissed) {
         float d = ctx.getResources().getDisplayMetrics().density;
         int pad = Math.round(14 * d);
 
@@ -97,20 +127,51 @@ public final class ColorPickerDialog {
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(pad, pad, pad, 0);
+        root.setPadding(pad, pad, pad, Math.round(6 * d));
         root.setClipChildren(false);
 
-        // ── top: sliders on the left, wheel on the right ────────────────────────────────
+        // The caller's label ("Glow", "Stop color", …) — the only way the drawer says what it is
+        // picking for.
+        TextView titleView = new TextView(ctx);
+        titleView.setText(title);
+        titleView.setTextColor(0xFFE8E8E8);
+        titleView.setTextSize(14f);
+        titleView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        titleView.setPadding(0, 0, 0, Math.round(6 * d));
+        root.addView(titleView);
+
+        // ── top: wheel (hex under it) on the left, H/S/B sliders on the right ───────────
+        // The sliders' column is SHORTER than the wheel+hex column, so the swatch rows and the
+        // Cancel/Set actions live UNDER the sliders inside the same right column — the picker
+        // ends flush with the wheel instead of stacking another full-width block below it
+        // (JoyRaptor, 2026-08-08).
         LinearLayout top = new LinearLayout(ctx);
         top.setOrientation(LinearLayout.HORIZONTAL);
+
+        LinearLayout leftCol = new LinearLayout(ctx);
+        leftCol.setOrientation(LinearLayout.VERTICAL);
+        ColorWheelView wheel = new ColorWheelView(ctx);
+        leftCol.addView(wheel, new LinearLayout.LayoutParams(
+                Math.round(112 * d), Math.round(112 * d)));
+
+        LinearLayout rightCol = new LinearLayout(ctx);
+        rightCol.setOrientation(LinearLayout.VERTICAL);
+        rightCol.setGravity(Gravity.END);
+        // Clear air between the wheel's edge and the slider labels ("the corner of the B is
+        // ~3-4px from touching the wheel" — JoyRaptor, 2026-08-08).
+        LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        rightLp.leftMargin = Math.round(10 * d);
+        rightLp.rightMargin = Math.round(2 * d);
+
         LinearLayout sliders = new LinearLayout(ctx);
         sliders.setOrientation(LinearLayout.VERTICAL);
         sliders.setGravity(Gravity.CENTER_VERTICAL);
-        ColorWheelView wheel = new ColorWheelView(ctx);
-        top.addView(sliders, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        top.addView(wheel, new LinearLayout.LayoutParams(
-                Math.round(132 * d), Math.round(132 * d)));
+        rightCol.addView(sliders, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        top.addView(leftCol);
+        top.addView(rightCol, rightLp);
         root.addView(top);
 
         final View preview = new View(ctx);
@@ -171,11 +232,11 @@ public final class ColorPickerDialog {
                     }));
         }
 
-        // ── hex row: swatch · copy · value ──────────────────────────────────────────────
+        // ── hex row: swatch · copy · value, UNDER the wheel ─────────────────────────────
         LinearLayout hexRow = new LinearLayout(ctx);
         hexRow.setOrientation(LinearLayout.HORIZONTAL);
         hexRow.setGravity(Gravity.CENTER_VERTICAL);
-        hexRow.setPadding(0, Math.round(10 * d), 0, Math.round(4 * d));
+        hexRow.setPadding(0, Math.round(6 * d), 0, 0);
 
         FrameLayout previewBox = new FrameLayout(ctx);
         previewBox.addView(preview, new FrameLayout.LayoutParams(
@@ -196,7 +257,7 @@ public final class ColorPickerDialog {
         // path, not the only one.
         hex.setTextIsSelectable(true);
         hexRow.addView(hex);
-        root.addView(hexRow);
+        leftCol.addView(hexRow);
 
         copy.setOnClickListener(v -> {
             ClipboardManager cm =
@@ -208,58 +269,64 @@ public final class ColorPickerDialog {
             }
         });
 
-        // ── fixed swatches (+ none) ─────────────────────────────────────────────────────
+        // ── fixed swatches (+ none), honeycomb rows ─────────────────────────────────────
+        // Right-justified under the HSB sliders (the sliders' column is shorter than the wheel),
+        // so the whole picker ends flush with the wheel column instead of running another
+        // full-width band beneath it. Row 2's leftMargin offset rides INSIDE the right padding,
+        // so the honeycomb interlock survives the right-justification.
         LinearLayout fixedRow1 = swatchRow(ctx);
         LinearLayout fixedRow2 = swatchRow(ctx);
-        root.addView(fixedRow1);
-        root.addView(fixedRow2);
+        rightCol.addView(fixedRow1);
+        rightCol.addView(fixedRow2);
 
-        // OFFSET ROW, per the owner's own drawing: alternating swatches sit a couple of dp
-        // higher/lower than their neighbours instead of marching in a rigid grid line. Purely
-        // cosmetic — it costs nothing but a translationY — but it is what makes the row read as
-        // hand-laid rather than as a spreadsheet.
-        int slot = 0;
-        if (allowNone) {
-            fixedRow1.addView(offset(noneSwatch(ctx, d, () -> {
-                isNone[0] = true;
-                syncFromHsb[0].run();
-            }), d, slot++));
-        }
+        // The middle row's CONTAINER is nudged right by half a swatch + gap (never the
+        // individual swatches), so the circles nest with the rows above and below instead of
+        // marching in a rigid grid — the honeycomb look the owner asked for.
+        LinearLayout.LayoutParams row2Lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        row2Lp.leftMargin = Math.round(ROW_OFFSET_DP * d);
+        fixedRow2.setLayoutParams(row2Lp);
+
         for (int i = 0; i < SWATCHES.length; i++) {
+            // M4 (adversarial review): the "none" must OCCUPY one of the 16 fixed slots — the
+            // 16th — not be appended as a 9th cell of row 2 (which made the rows 8/9/8 and
+            // widened row 2 past the column).
+            if (allowNone && i == SWATCHES.length - 1) {
+                fixedRow2.addView(noneSwatch(ctx, d, () -> {
+                    isNone[0] = true;
+                    syncFromHsb[0].run();
+                }));
+                continue;
+            }
             final int c = SWATCHES[i];
-            View sw = offset(swatch(ctx, d, c, () -> {
+            View sw = swatch(ctx, d, c, () -> {
                 Color.colorToHSV(c, hsb);
                 alpha[0] = 255;
                 isNone[0] = false;
                 syncFromHsb[0].run();
-            }), d, slot++);
-            (i < 7 ? fixedRow1 : fixedRow2).addView(sw);
+            });
+            (i < TOP_ROW_SWATCHES ? fixedRow1 : fixedRow2).addView(sw);
         }
 
         // ── recents ─────────────────────────────────────────────────────────────────────
-        TextView recentLabel = new TextView(ctx);
-        recentLabel.setText("RECENT");                                    // TODO(strings)
-        recentLabel.setTextColor(0xFF8A8A8A);
-        recentLabel.setTextSize(10.5f);
-        recentLabel.setPadding(0, Math.round(8 * d), 0, Math.round(2 * d));
-        root.addView(recentLabel);
-
+        // No label: the row of (mostly empty) circles below the fixed colours is self-evident.
+        // The entire last row is history — nothing else ever lands there.
         LinearLayout recentRow = swatchRow(ctx);
-        root.addView(recentRow);
+        rightCol.addView(recentRow);
         List<Integer> recents = loadRecents(ctx);
         for (int i = 0; i < RECENT_SLOTS; i++) {
             if (i < recents.size()) {
                 final int c = recents.get(i);
-                recentRow.addView(offset(swatch(ctx, d, c, () -> {
+                recentRow.addView(swatch(ctx, d, c, () -> {
                     Color.colorToHSV(c, hsb);
                     alpha[0] = Color.alpha(c);
                     isNone[0] = false;
                     syncFromHsb[0].run();
-                }), d, i));
+                }));
             } else {
                 // EMPTY slots are drawn, not omitted: the row keeps its shape as it fills, so
                 // the swatch you used last does not move under your thumb every session.
-                recentRow.addView(offset(emptySwatch(ctx, d), d, i));
+                recentRow.addView(emptySwatch(ctx, d));
             }
         }
 
@@ -291,25 +358,60 @@ public final class ColorPickerDialog {
         });
         syncFromHsb[0].run();
 
-        new MaterialAlertDialogBuilder(ctx)
-                .setTitle(title)
-                .setView(root)
-                // Set does NOT apply anything — live preview already has. It only stops asking,
-                // and it is the one path that writes to recents (a value you merely previewed
-                // and then cancelled should not crowd out the ones you actually chose).
-                .setPositiveButton("Set", (dlg, w) -> {                   // TODO(strings)
-                    if (isNone[0]) { onPicked.onPicked(null); return; }
-                    int rgb = Color.HSVToColor(alpha[0], hsb);
-                    pushRecent(ctx, rgb);
-                    onPicked.onPicked(rgb);
-                })
-                // Cancel REVERTS. The live object has been tracking every drag, so undoing that
-                // means replaying the ORIGINAL value through the same onLive path — anything
-                // else leaves the object showing whatever the last drag happened to land on.
-                .setNegativeButton(android.R.string.cancel,
-                        (dlg, w) -> onLive.onLive(initial))
-                .setOnCancelListener(dlg -> onLive.onLive(initial))
-                .show();
+        // ── actions: Set closes, Cancel reverts ─────────────────────────────────────────
+        LinearLayout actions = new LinearLayout(ctx);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.END);
+        actions.setPadding(0, Math.round(8 * d), 0, 0);
+
+        TextView cancelBtn = new TextView(ctx);
+        cancelBtn.setText(android.R.string.cancel);
+        cancelBtn.setTextColor(0xFFBBBBBB);
+        cancelBtn.setTextSize(14f);
+        cancelBtn.setPadding(Math.round(14 * d), Math.round(6 * d),
+                Math.round(14 * d), Math.round(6 * d));
+        actions.addView(cancelBtn);
+
+        TextView setBtn = new TextView(ctx);
+        setBtn.setText(ctx.getString(com.fadcam.R.string.faditor_color_set));
+        setBtn.setTextColor(0xFF4FC3F7);
+        setBtn.setTextSize(14f);
+        setBtn.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        setBtn.setPadding(Math.round(14 * d), Math.round(6 * d),
+                Math.round(14 * d), Math.round(6 * d));
+        actions.addView(setBtn);
+
+        rightCol.addView(actions);
+
+        // Bottom drawer (never covers the preview), wearing the app's own bottom-sheet theme so
+        // the background gradient is the same one every other drawer in the app uses.
+        BottomSheetDialog dlg = new BottomSheetDialog(ctx);
+        dlg.setContentView(root);
+        // Set does NOT apply anything — live preview already has. It only stops asking, and it
+        // is the one path that writes to recents (a value you merely previewed and then
+        // cancelled should not crowd out the ones you actually chose).
+        setBtn.setOnClickListener(v -> {
+            if (isNone[0]) { onPicked.onPicked(null); dlg.dismiss(); return; }
+            int rgb = Color.HSVToColor(alpha[0], hsb);
+            pushRecent(ctx, rgb);
+            onPicked.onPicked(rgb);
+            dlg.dismiss();
+        });
+        // Cancel REVERTS. The live object has been tracking every drag, so undoing that means
+        // replaying the ORIGINAL value through the same onLive path — anything else leaves the
+        // object showing whatever the last drag happened to land on. Back, scrim tap and
+        // swiping the sheet away all land here.
+        cancelBtn.setOnClickListener(v -> {
+            onLive.onLive(initial);
+            dlg.dismiss();
+        });
+        dlg.setOnCancelListener(ignored -> onLive.onLive(initial));
+        // W2-4 (§3.13): fire the slide-aside/back contract on show and on EVERY dismissal — Set,
+        // Cancel, back, scrim tap and swipe-away all funnel through onDismiss, so the hosting
+        // drawer cannot be left stranded off-screen.
+        dlg.setOnShowListener(ignored -> { if (onShown != null) onShown.run(); });
+        dlg.setOnDismissListener(ignored -> { if (onDismissed != null) onDismissed.run(); });
+        dlg.show();
     }
 
     // ── Recents storage ─────────────────────────────────────────────────────────────────
@@ -352,19 +454,10 @@ public final class ColorPickerDialog {
         LinearLayout r = new LinearLayout(ctx);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
-        // Enough vertical room for the offset swatches to rise/fall without clipping.
-        r.setPadding(0, Math.round(4 * r.getResources().getDisplayMetrics().density),
-                0, Math.round(4 * r.getResources().getDisplayMetrics().density));
-        r.setClipChildren(false);
-        r.setClipToPadding(false);
+        // Tight: the honeycomb offset does the nesting, not vertical margins.
+        r.setPadding(0, Math.round(1 * r.getResources().getDisplayMetrics().density),
+                0, Math.round(1 * r.getResources().getDisplayMetrics().density));
         return r;
-    }
-
-    /** Alternate a swatch a few dp above/below the row's baseline — the "hand-laid" look. */
-    @NonNull
-    private static View offset(@NonNull View v, float d, int index) {
-        v.setTranslationY((index % 2 == 0 ? -1f : 1f) * 3f * d);
-        return v;
     }
 
     @NonNull
@@ -377,10 +470,8 @@ public final class ColorPickerDialog {
         bg.setStroke(Math.round(1 * d), 0x55FFFFFF);
         v.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                Math.round(26 * d), Math.round(26 * d));
-        lp.rightMargin = Math.round(6 * d);
-        lp.topMargin = Math.round(3 * d);
-        lp.bottomMargin = Math.round(3 * d);
+                Math.round(SWATCH_DP * d), Math.round(SWATCH_DP * d));
+        lp.rightMargin = Math.round(SWATCH_GAP_DP * d);
         v.setLayoutParams(lp);
         v.setOnClickListener(x -> onTap.run());
         return v;
@@ -395,8 +486,8 @@ public final class ColorPickerDialog {
         bg.setStroke(Math.round(1 * d), 0x33FFFFFF);
         v.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                Math.round(26 * d), Math.round(26 * d));
-        lp.rightMargin = Math.round(6 * d);
+                Math.round(SWATCH_DP * d), Math.round(SWATCH_DP * d));
+        lp.rightMargin = Math.round(SWATCH_GAP_DP * d);
         v.setLayoutParams(lp);
         return v;
     }
@@ -420,8 +511,8 @@ public final class ColorPickerDialog {
             }
         };
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                Math.round(26 * d), Math.round(26 * d));
-        lp.rightMargin = Math.round(6 * d);
+                Math.round(SWATCH_DP * d), Math.round(SWATCH_DP * d));
+        lp.rightMargin = Math.round(SWATCH_GAP_DP * d);
         v.setLayoutParams(lp);
         v.setOnClickListener(x -> onTap.run());
         return v;

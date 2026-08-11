@@ -436,7 +436,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
             // M7: an overlay carrying its OWN effects is rendered by TextFxGlEffect instead,
             // because a Canvas has no shader to run them through. Skipping it here is what
             // stops it being drawn twice — once styled in GL and once plain on top.
-            if (o.hasActiveFx()) continue;
+            // IMAGE overlays are the exception, and deliberately: TextFxGlEffect rasterises
+            // TEXT (TextOverlayRenderer substitutes " " for empty text), so an image with FX
+            // handed to it exports as a blank space. Until that effect learns to rasterise the
+            // image bitmap (build-list), an image with FX stays on the plain canvas path — the
+            // effect persists, but the picture must not disappear.
+            if (o.hasActiveFx() && !o.isImage()) continue;
             out.add(o);
         }
         return out;
@@ -675,8 +680,13 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                 o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
                 float aspect = img.getHeight() > 0
                         ? img.getWidth() / (float) img.getHeight() : 1f;
-                float ih = Math.max(1f, sizeFrac * outH);
-                float iw = Math.max(1f, ih * aspect);
+                // Per-axis scale, mirroring TextOverlayLayer.position: a split Scale X/Y pair
+                // stretches one axis; linked keeps both multipliers at 1 so existing projects
+                // are byte-identical. Same animated-read accessors the preview uses.
+                float sx = o.animatedScaleX(timelineMs);
+                float sy = o.animatedScaleY(timelineMs);
+                float ih = Math.max(1f, sizeFrac * sy * outH);
+                float iw = Math.max(1f, ih * aspect * sx);
                 Paint ip = new Paint(Paint.FILTER_BITMAP_FLAG);
                 // The preview composes the preset's alpha OVER the keyframed opacity
                 // ("compose, don't replace"), so this multiplies rather than picking one.

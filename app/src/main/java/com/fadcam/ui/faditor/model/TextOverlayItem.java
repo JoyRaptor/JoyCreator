@@ -266,6 +266,37 @@ public class TextOverlayItem {
     /** Text height as a fraction of the video height (e.g. 0.08 = 8%). */
     private float sizeFraction;
 
+    /**
+     * Per-axis scale multipliers on {@link #sizeFraction}, used when the Scale row's chain is
+     * UNLINKED (image-overlay drawer). Linked (default) = both 1, so every pre-existing project
+     * renders exactly as it always did and serializes nothing extra. Unlinked, the effective
+     * box size is {@code sizeFraction*scaleX} wide by {@code sizeFraction*scaleY} tall.
+     */
+    private float scaleX = 1f;
+    private float scaleY = 1f;
+
+    /** Chain state of the Scale row: true = one uniform slider (SCALE track), false = X/Y pair. */
+    private boolean scaleLinked = true;
+
+    /**
+     * Touch pass-through — the image-overlay twin of a PiP's. true = the preview ignores taps
+     * on this overlay so the thing beneath it is reachable (export is unaffected; this is a
+     * preview interaction, exactly like a PiP's pass-through).
+     */
+    private boolean passThrough;
+
+    /**
+     * Per-item compositing (masks + chroma key + matte), the same {@link CompositingSpec} a
+     * PiP or adjustment layer carries. Null = nothing, serialized only when non-empty. The
+     * Mask/Key tabs of the image drawer edit it.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.model.CompositingSpec compositing;
+
+    /** Blend-mode NAME ({@code layers.BlendMode}) — the Blend tab of the image drawer. */
+    @NonNull
+    private String overlayBlendMode = "NORMAL";
+
     /** Clockwise rotation in degrees. */
     private float rotationDeg;
 
@@ -514,6 +545,12 @@ public class TextOverlayItem {
         c.generatedSource = generatedSource == null ? null : generatedSource.copy();
         c.timerSpec = timerSpec == null ? null : timerSpec.copy();
         c.styleSpans = copySpans(styleSpans);
+        c.scaleX = scaleX;
+        c.scaleY = scaleY;
+        c.scaleLinked = scaleLinked;
+        c.passThrough = passThrough;
+        c.compositing = compositing == null ? null : compositing.copy();
+        c.overlayBlendMode = overlayBlendMode;
         return c;
     }
 
@@ -585,6 +622,59 @@ public class TextOverlayItem {
 
     public void setRotationDeg(float rotationDeg) {
         this.rotationDeg = rotationDeg % 360f;
+    }
+
+    // ── Per-axis scale + chain (image-overlay drawer) ─────────────────
+
+    /** Effective X multiplier (linked mode = 1). */
+    public float getScaleX() { return scaleX; }
+
+    /** Effective Y multiplier (linked mode = 1). */
+    public float getScaleY() { return scaleY; }
+
+    public void setScaleX(float scaleX) {
+        this.scaleX = Math.max(0.02f, Math.min(10f, scaleX));
+    }
+
+    public void setScaleY(float scaleY) {
+        this.scaleY = Math.max(0.02f, Math.min(10f, scaleY));
+    }
+
+    public boolean isScaleLinked() { return scaleLinked; }
+
+    public void setScaleLinked(boolean scaleLinked) { this.scaleLinked = scaleLinked; }
+
+    // ── Pass-through, blend, compositing ──────────────────────────────
+
+    /** True when the preview ignores touch on this overlay (PiP-style pass-through). */
+    public boolean isPassThrough() { return passThrough; }
+
+    public void setPassThrough(boolean passThrough) { this.passThrough = passThrough; }
+
+    @Nullable
+    public com.fadcam.ui.faditor.model.CompositingSpec getCompositing() { return compositing; }
+
+    public void setCompositing(@Nullable com.fadcam.ui.faditor.model.CompositingSpec c) {
+        this.compositing = c;
+    }
+
+    /** Get or lazily create the compositing spec (masks/chroma key/matte). */
+    @NonNull
+    public com.fadcam.ui.faditor.model.CompositingSpec getOrCreateCompositing() {
+        if (compositing == null) compositing = new com.fadcam.ui.faditor.model.CompositingSpec();
+        return compositing;
+    }
+
+    /** Whether any compositing is configured (used for serialization sparsity). */
+    public boolean hasActiveCompositing() {
+        return compositing != null && !compositing.isEmpty();
+    }
+
+    @NonNull
+    public String getOverlayBlendMode() { return overlayBlendMode; }
+
+    public void setOverlayBlendMode(@NonNull String overlayBlendMode) {
+        this.overlayBlendMode = overlayBlendMode == null ? "NORMAL" : overlayBlendMode;
     }
 
     /** Static opacity [0,1] used when there are no OPACITY keyframes. */
@@ -924,6 +1014,18 @@ public class TextOverlayItem {
                 localTime(timelineMs), sizeFraction);
     }
 
+    /** Per-axis X multiplier at a time (SCALE_X track, falling back to static). */
+    public float animatedScaleX(long timelineMs) {
+        return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_X,
+                localTime(timelineMs), scaleX);
+    }
+
+    /** Per-axis Y multiplier at a time (SCALE_Y track, falling back to static). */
+    public float animatedScaleY(long timelineMs) {
+        return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_Y,
+                localTime(timelineMs), scaleY);
+    }
+
     /**
      * Record the overlay's current static transform as a keyframe at the given
      * timeline time (position, size, rotation, and opacity). Repeating this at
@@ -981,6 +1083,12 @@ public class TextOverlayItem {
                 v = Math.max(0f, Math.min(1f, value));
                 break;
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE:
+                v = Math.max(0.02f, Math.min(10f, value));
+                break;
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_X:
+                v = Math.max(0.02f, Math.min(10f, value));
+                break;
+            case com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_Y:
                 v = Math.max(0.02f, Math.min(10f, value));
                 break;
             default:
@@ -1118,6 +1226,8 @@ public class TextOverlayItem {
      */
     public static final class TransformSnapshot {
         private final float centerX, centerY, sizeFraction, rotationDeg, opacity;
+        private final float scaleX, scaleY;
+        private final boolean scaleLinked;
         private final long startMs, endMs;
         @NonNull private final com.fadcam.ui.faditor.keyframe.KeyframeSet keyframes;
 
@@ -1127,6 +1237,9 @@ public class TextOverlayItem {
             this.sizeFraction = o.sizeFraction;
             this.rotationDeg = o.rotationDeg;
             this.opacity = o.opacity;
+            this.scaleX = o.scaleX;
+            this.scaleY = o.scaleY;
+            this.scaleLinked = o.scaleLinked;
             this.startMs = o.startMs;
             this.endMs = o.endMs;
             this.keyframes = o.keyframes.copy();
@@ -1139,6 +1252,9 @@ public class TextOverlayItem {
                     && sizeFraction == other.sizeFraction
                     && rotationDeg == other.rotationDeg
                     && opacity == other.opacity
+                    && scaleX == other.scaleX
+                    && scaleY == other.scaleY
+                    && scaleLinked == other.scaleLinked
                     && startMs == other.startMs
                     && endMs == other.endMs
                     && keyframesEqual(keyframes, other.keyframes);
@@ -1185,6 +1301,9 @@ public class TextOverlayItem {
         this.sizeFraction = s.sizeFraction;
         this.rotationDeg = s.rotationDeg;
         this.opacity = s.opacity;
+        this.scaleX = s.scaleX;
+        this.scaleY = s.scaleY;
+        this.scaleLinked = s.scaleLinked;
         this.startMs = s.startMs;
         this.endMs = s.endMs;
         this.keyframes.copyFrom(s.keyframes);

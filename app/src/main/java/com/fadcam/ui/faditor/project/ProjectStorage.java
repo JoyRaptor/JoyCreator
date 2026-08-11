@@ -2109,6 +2109,20 @@ public class ProjectStorage {
                 // §4.5 per-object eye/lock (write-if-true — pre-§4.5 JSON unchanged).
                 if (o.isHidden()) oJson.addProperty("objHidden", true);
                 if (o.isLocked()) oJson.addProperty("objLocked", true);
+                // Image-overlay drawer state (M-IMG-1). All sparse defaults:
+                // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
+                // so every pre-existing project stays byte-identical.
+                if (o.isPassThrough()) oJson.addProperty("passThrough", true);
+                if (!o.isScaleLinked()) oJson.addProperty("scaleLinked", false);
+                if (o.getScaleX() != 1f) oJson.addProperty("scaleX", o.getScaleX());
+                if (o.getScaleY() != 1f) oJson.addProperty("scaleY", o.getScaleY());
+                if (!"NORMAL".equals(o.getOverlayBlendMode())) {
+                    oJson.addProperty("overlayBlendMode", o.getOverlayBlendMode());
+                }
+                com.fadcam.ui.faditor.model.CompositingSpec oComp = o.getCompositing();
+                if (oComp != null && !oComp.isEmpty()) {
+                    oJson.add("compositing", oComp.toJson());
+                }
                 serializeTimerSpec(oJson, o.getTimerSpec());
                 // W5-2 rich text spans (§3.8). Sparse: an overlay with no per-selection
                 // formatting writes nothing, so every pre-W5-2 project round-trips
@@ -2745,6 +2759,22 @@ public class ProjectStorage {
                         if (hasValue(oObj, "glowRadiusPx")) o.setGlowRadiusPx(oObj.get("glowRadiusPx").getAsFloat());
                         if (hasValue(oObj, "backgroundColorInt")) o.setBackgroundColorInt(oObj.get("backgroundColorInt").getAsInt());
                         if (hasValue(oObj, "opacity")) o.setOpacity(oObj.get("opacity").getAsFloat());
+                        // Image-overlay drawer state (M-IMG-1). Tolerant defaults mirror the
+                        // model so a project written before these keys load exactly as it
+                        // always did.
+                        if (hasValue(oObj, "passThrough")) o.setPassThrough(oObj.get("passThrough").getAsBoolean());
+                        if (hasValue(oObj, "scaleLinked")) o.setScaleLinked(oObj.get("scaleLinked").getAsBoolean());
+                        if (hasValue(oObj, "scaleX")) o.setScaleX(oObj.get("scaleX").getAsFloat());
+                        if (hasValue(oObj, "scaleY")) o.setScaleY(oObj.get("scaleY").getAsFloat());
+                        if (hasValue(oObj, "overlayBlendMode")) o.setOverlayBlendMode(oObj.get("overlayBlendMode").getAsString());
+                        if (hasValue(oObj, "compositing")) {
+                            try {
+                                o.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec.fromJson(
+                                        oObj.getAsJsonObject("compositing")));
+                            } catch (Exception ignored) {
+                                // Tolerant: lose the masks, keep the overlay.
+                            }
+                        }
                         if (hasValue(oObj, "keyframes")) {
                             JsonObject tracksJson = oObj.getAsJsonObject("keyframes");
                             for (java.util.Map.Entry<String, JsonElement> e

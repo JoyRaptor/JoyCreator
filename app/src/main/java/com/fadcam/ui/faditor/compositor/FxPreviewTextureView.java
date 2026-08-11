@@ -172,6 +172,19 @@ public class FxPreviewTextureView extends TextureView
             + "  }\n"
             + "}\n";
 
+    /**
+     * {@link #PIP_FRAGMENT} with the PiP source swapped from the decoder's OES texture to an
+     * uploaded 2D still frame — how every visible PiP BELOW the live one is composited.
+     * Derived textually so the blend/mask maths can never drift between the two variants; only
+     * the sampling differs: a {@code GLUtils} upload is top-row-first, so the still variant
+     * flips v itself rather than running a decoder transform matrix.
+     */
+    private static final String PIP_STILL_FRAGMENT = PIP_FRAGMENT
+            .replace("#extension GL_OES_EGL_image_external : require\n", "")
+            .replace("uniform samplerExternalOES uPipTexture;", "uniform sampler2D uPipTexture;")
+            .replace("vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;",
+                     "vec2 s = vec2(uv.x, 1.0 - uv.y);");
+
     /** Full-frame quad in clip space — the same bounds media3 feeds {@code aFramePosition}. */
     private static final float[] QUAD = {
             -1f, -1f, 0f, 1f,
@@ -204,6 +217,18 @@ public class FxPreviewTextureView extends TextureView
         final float blendMode;
         final boolean maskOn, maskInvert;
         @NonNull final float[] maskGeo;
+        /** The clip this PiP draws — keys the GL-side still-texture cache. */
+        @NonNull final String clipId;
+        /**
+         * The frame to composite when this PiP is NOT the live decoder's clip: a cached still,
+         * uploaded to a plain 2D texture on the GL thread. Null marks the live PiP, whose
+         * pixels arrive on the OES surface.
+         *
+         * <p>The reference crosses threads safely ONLY because the stills cache never recycles
+         * a bitmap while this chain might be uploading it — retired bitmaps are freed on the GL
+         * thread itself ({@link #stillTrash}). Never publish a bitmap another owner recycles.</p>
+         */
+        @Nullable final android.graphics.Bitmap still;
         /**
          * The object's OWN effect stack, fused into one pass — or null when it has none.
          *
@@ -224,7 +249,8 @@ public class FxPreviewTextureView extends TextureView
                    @Nullable FxCompiler.Pass fused,
                    @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey,
                    float timeSec, float blendMode, boolean maskOn, boolean maskInvert,
-                   @NonNull float[] maskGeo) {
+                   @NonNull float[] maskGeo,
+                   @NonNull String clipId, @Nullable android.graphics.Bitmap still) {
             this.cx = cx;
             this.cy = cy;
             this.halfW = halfW;
@@ -239,6 +265,8 @@ public class FxPreviewTextureView extends TextureView
             this.maskOn = maskOn;
             this.maskInvert = maskInvert;
             this.maskGeo = maskGeo;
+            this.clipId = clipId;
+            this.still = still;
         }
 
         boolean rendersAnything() {
@@ -250,7 +278,8 @@ public class FxPreviewTextureView extends TextureView
         public static Pip of(float cx, float cy, float halfW, float halfH, float rot, float alpha,
                              @Nullable FxStack stack, long editorMs,
                              @Nullable CompositingSpec spec, float blendMode,
-                             int frameW, int frameH) {
+                             int frameW, int frameH,
+                             @NonNull String clipId, @Nullable android.graphics.Bitmap still) {
             FxCompiler.Pass fused = null;
             List<FxUniforms.Value> vals = java.util.Collections.emptyList();
             String key = "";
@@ -268,7 +297,7 @@ public class FxPreviewTextureView extends TextureView
             return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key,
                     editorMs / 1000f, blendMode, maskOn,
                     spec != null && spec.invertMasks,
-                    MaskSdf.packShapes(spec, frameW, frameH));
+                    MaskSdf.packShapes(spec, frameW, frameH), clipId, still);
         }
     }
 
@@ -389,6 +418,43 @@ public class FxPreviewTextureView extends TextureView
         }
     }
 
+    /**
+     * One rung of the z-ordered composite walk: a PiP to draw over the frame so far, or an
+     * adjustment layer to grade it. The walk IS the export's chain order — both renderers read
+     * {@code LayerPreviewController.orderedCompositedItems} — so an adjustment layer grades
+     * exactly the PiPs beneath it here, and a layer sitting between two PiPs grades only the
+     * lower one, precisely as the exported file composites it.
+     */
+    public static final class Rung {
+        @Nullable final Pip pip;
+        /** Index into {@link CompositePlan#layers} when this rung is an adjustment layer. */
+        final int layerIndex;
+
+        private Rung(@Nullable Pip pip, int layerIndex) {
+            this.pip = pip;
+            this.layerIndex = layerIndex;
+        }
+
+        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1); }
+        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex); }
+    }
+
+    /**
+     * The immutable per-tick composite description: the live adjustment layers (bottom→top —
+     * the list program compilation is keyed on) plus the z-ordered rung walk that interleaves
+     * them with the PiPs. ONE holder published by a single volatile write, so the GL thread
+     * never assembles a frame from a half-updated pair of lists.
+     */
+    public static final class CompositePlan {
+        @NonNull final List<Layer> layers;
+        @NonNull final List<Rung> rungs;
+
+        public CompositePlan(@NonNull List<Layer> layers, @NonNull List<Rung> rungs) {
+            this.layers = layers;
+            this.rungs = rungs;
+        }
+    }
+
     // ── Main-thread state ────────────────────────────────────────────────────────────────────
 
     @Nullable private SurfaceListener surfaceListener;
@@ -396,12 +462,15 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private Handler glHandler;
     private final Handler main = new Handler(android.os.Looper.getMainLooper());
 
-    /** Published for the GL thread. Immutable objects, so a plain volatile handoff is enough. */
-    @NonNull private volatile List<Layer> layers = java.util.Collections.emptyList();
+    /**
+     * The z-ordered composite plan — every visible PiP and adjustment layer, interleaved.
+     * Immutable, so a plain volatile handoff to the GL thread is enough; null when the chain
+     * composites nothing (the staged video, plus any grade, still renders — the passthrough a
+     * plain project sees).
+     */
+    @Nullable private volatile CompositePlan plan;
     /** The clip grade, or null when the clip under the playhead has none. */
     @Nullable private volatile Grade grade;
-    /** The PiP to composite, or null when there is none (or its own tier owns it). */
-    @Nullable private volatile Pip pip;
     private volatile int videoW = 0, videoH = 0;
     /** @see #setVideoRotation */
     private volatile int rotation = 0;
@@ -426,9 +495,29 @@ public class FxPreviewTextureView extends TextureView
     private volatile int surfaceW, surfaceH;
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
-    private int stageProgram, presentProgram, gradeProgram, pipProgram;
-    /** The object stack {@link #pipProgram} was compiled for. */
-    @NonNull private String pipFxKey = "\0";
+    private int stageProgram, presentProgram, gradeProgram;
+    /**
+     * PiP composite programs, keyed by effect-stack source AND texture variant (live OES vs
+     * uploaded still) — two PiPs carrying different object stacks must not recompile each
+     * other's program every frame. A 0 value latches a stack whose even plain composite
+     * failed, so it is not retried per frame.
+     */
+    @NonNull private final java.util.Map<String, Integer> pipPrograms = new java.util.HashMap<>();
+    /** Uploaded still frames by clip id — one GL texture per visible non-live PiP. A texture
+     *  outlives a re-decode so the PiP keeps showing its last frame instead of blinking out. */
+    @NonNull private final java.util.Map<String, Integer> stillTexIds = new java.util.HashMap<>();
+    /** The bitmap each {@link #stillTexIds} entry currently holds, for upload-change detection. */
+    @NonNull private final java.util.Map<String, android.graphics.Bitmap> stillUploaded =
+            new java.util.HashMap<>();
+    /** Clip ids the frame being drawn referenced; still textures for the rest are freed. */
+    @NonNull private final java.util.Set<String> stillKeysInFrame = new java.util.HashSet<>();
+    /**
+     * Stills the cache retired while this chain might be mid-upload on them. Recycled HERE, on
+     * the GL thread — the only thread that touches their pixels — because freeing a bitmap
+     * during {@code texImage2D} is a native crash no catch block reaches.
+     */
+    @NonNull private final java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap>
+            stillTrash = new java.util.concurrent.ConcurrentLinkedQueue<>();
     /** Compiled effect steps, keyed by the concatenated source keys of every live layer. */
     @Nullable private String compiledKey;
     /** The one stack whose compile failed, so it is not retried per frame. See ensurePrograms. */
@@ -511,16 +600,31 @@ public class FxPreviewTextureView extends TextureView
     }
 
     /**
-     * Publish the layers to render, innermost first — the same order the export chain appends
-     * them, so each layer grades the result of the one beneath it.
+     * Publish the composite plan for the next frames — PiPs and adjustment layers interleaved
+     * in z, the export's chain order. Null clears the walk: the staged video (and any grade)
+     * still renders, which is the passthrough a plain project sees.
      *
      * <p>Safe from the main thread at any time; push every tick rather than on change. Resolving
      * is cheap, and gating it on "did anything change" is how a keyframed parameter quietly stops
      * animating.</p>
      */
-    public void setLayers(@NonNull List<Layer> next) {
-        layers = next;
+    public void setCompositePlan(@Nullable CompositePlan next) {
+        plan = next;
         requestFrame();
+    }
+
+    /**
+     * The GL-thread trash for retired still bitmaps. The stills cache defers recycling here
+     * while the composite may be uploading those bitmaps — see the field note.
+     */
+    @NonNull
+    public java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> stillTrash() {
+        return stillTrash;
+    }
+
+    /** True once the PiP decoder surface exists, so a caller knows routing can proceed. */
+    public boolean hasPipSurface() {
+        return pipSurface != null;
     }
 
     /**
@@ -533,23 +637,6 @@ public class FxPreviewTextureView extends TextureView
     public void setGrade(@Nullable Grade g) {
         grade = g;
         requestFrame();
-    }
-
-    /**
-     * The PiP to composite over the master frame, or null for none.
-     *
-     * <p>Composited AFTER the clip grade and BEFORE the adjustment layers, which is the export
-     * chain's order — so a layer grades the PiP along with the video beneath it, and the clip's
-     * own grade does not leak onto the PiP.</p>
-     */
-    public void setPip(@Nullable Pip p) {
-        pip = p;
-        requestFrame();
-    }
-
-    /** True once the PiP decoder surface exists, so a caller knows routing can proceed. */
-    public boolean hasPipSurface() {
-        return pipSurface != null;
     }
 
     /**
@@ -667,10 +754,12 @@ public class FxPreviewTextureView extends TextureView
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
                     com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
-            // The PiP program is compiled lazily by pipProgramFor, because its source depends on
-            // the object's effect stack.
-            pipProgram = 0;
-            pipFxKey = "\0";
+            // The PiP programs are compiled lazily by pipProgramFor, because their source
+            // depends on each object's effect stack. Any ids cached from a previous surface
+            // belong to a destroyed context — clearing the maps is not optional.
+            pipPrograms.clear();
+            stillTexIds.clear();
+            stillUploaded.clear();
 
             oesTexId = newOesTexture();
 
@@ -726,6 +815,8 @@ public class FxPreviewTextureView extends TextureView
         if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
         try {
             EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+            // Retired stills are freed HERE, before any upload can touch them — see stillTrash.
+            for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
             inputTexture.updateTexImage();
             inputTexture.getTransformMatrix(texMatrix);
 
@@ -733,7 +824,6 @@ public class FxPreviewTextureView extends TextureView
             int vh = videoH > 0 ? videoH : surfaceH;
             if (vw <= 0 || vh <= 0) return;
 
-            List<Layer> live = layers;
             ensureTargets(vw, vh);
             if (targets[0] == null) return;   // FBO allocation failed; it already logged
 
@@ -741,31 +831,39 @@ public class FxPreviewTextureView extends TextureView
             drawStage(vw, vh);
             int cur = 0;
 
-            // 2 — the CLIP grade, before any layer, exactly as the export chain orders them.
+            // 2 — the CLIP grade, before any composited item, exactly as the export chain
+            //     orders them (ExportManager:2560 against the PiP block at :2714).
             Grade g = grade;
             if (!degraded && g != null && g.rendersAnything()) {
                 drawGrade(g, cur, 1, vw, vh);
                 cur = 1;
             }
 
-            // 3 — the PiP, over the graded clip and UNDER the layers. Same order as export, and
-            //     the whole reason it is composited here rather than left as a sibling View.
-            Pip pp = pip;
-            if (!degraded && pp != null && pp.rendersAnything() && pipHasFrame
-                    && pipTexture != null) {
-                pipTexture.updateTexImage();
-                pipTexture.getTransformMatrix(pipTexMatrix);
-                int dst = cur == 0 ? 1 : 0;
-                drawPip(pp, cur, dst, vw, vh);
-                cur = dst;
+            // 3 — the composited items, bottom→top, in the EXPORT's chain order: each PiP
+            //     drawn over the frame so far, each adjustment layer grading what is beneath
+            //     it. One ordering (LayerPreviewController.orderedCompositedItems) feeds both
+            //     renderers, so a layer between two PiPs grades only the lower one here,
+            //     exactly as in the file — and EVERY visible PiP is composited, the live one
+            //     from its decoder surface and the rest from their cached stills, rather than
+            //     the sibling-View stills that used to paint UNGRADED over this chain.
+            stillKeysInFrame.clear();
+            CompositePlan cp = plan;
+            if (!degraded && cp != null) {
+                boolean layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
+                for (int ri = 0; ri < cp.rungs.size(); ri++) {
+                    Rung r = cp.rungs.get(ri);
+                    if (r.pip != null) {
+                        cur = drawPipRung(r.pip, cur, vw, vh);
+                    } else if (layersReady && r.layerIndex >= 0
+                            && r.layerIndex < cp.layers.size() && r.layerIndex < compiled.size()) {
+                        cur = drawOneLayer(cp.layers.get(r.layerIndex),
+                                compiled.get(r.layerIndex), vw, vh, cur);
+                    }
+                }
             }
+            evictUnusedStills();
 
-            // 4 — every live layer, in z order, each grading the result of the one beneath.
-            if (!degraded && !live.isEmpty() && ensurePrograms(live)) {
-                cur = drawLayers(live, vw, vh, cur);
-            }
-
-            // 5 — present the finished frame, fit-centred, at view resolution.
+            // 4 — present the finished frame, fit-centred, at view resolution.
             drawPresent(targets[cur][0]);
             EGL14.eglSwapBuffers(eglDisplay, eglSurface);
         } catch (Exception e) {
@@ -817,34 +915,38 @@ public class FxPreviewTextureView extends TextureView
     }
 
     /**
-     * The PiP composite program for {@code p}'s effect stack, compiled on demand.
+     * The PiP composite program for {@code p}'s effect stack and texture variant, compiled on
+     * demand.
      *
-     * <p>Keyed on the stack's source, so an unchanged stack reuses its program and a slider drag
-     * that only moves uniform VALUES never recompiles.</p>
+     * <p>Keyed on the stack's source plus the variant (live OES vs uploaded still), so an
+     * unchanged stack reuses its program, a slider drag that only moves uniform VALUES never
+     * recompiles, and two PiPs carrying different stacks no longer evict each other's program
+     * on every frame.</p>
      */
     private int pipProgramFor(@NonNull Pip p) {
-        if (p.fxKey.equals(pipFxKey) && pipProgram != 0) return pipProgram;
+        String key = (p.still == null ? "o" : "s") + p.fxKey;
+        Integer have = pipPrograms.get(key);
+        if (have != null) return have;
+        int prog;
         try {
-            int prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused));
-            if (pipProgram != 0) GLES20.glDeleteProgram(pipProgram);
-            pipProgram = prog;
-            pipFxKey = p.fxKey;
+            prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused, p.still != null));
+            FLog.d("FxMultiPip", "pip program compiled key=" + key + " -> " + prog);
         } catch (Exception e) {
-            // Fall back to the PLAIN composite, which is what the log claims happens. Keeping
-            // the previously compiled program would render the OLD stack while being fed the
-            // new stack's uniforms; leaving it at 0 would drop the PiP entirely, because its
-            // own View is held at alpha 0 while the composite owns the pixels.
+            // Fall back to the PLAIN composite, which is what the log claims happens. A 0 latch
+            // drops this PiP from the chain rather than retrying a broken stack every frame —
+            // the same "absent until fixed" behaviour a still that never decodes has.
             FLog.w(TAG, "PiP FX compile failed; compositing ungraded", e);
+            int fallback = 0;
             try {
-                if (pipProgram != 0) GLES20.glDeleteProgram(pipProgram);
-                pipProgram = buildProgram(FxGlSource.VERTEX_SHADER, PIP_FRAGMENT);
+                fallback = buildProgram(FxGlSource.VERTEX_SHADER,
+                        pipFragment(null, p.still != null));
             } catch (Exception fatal) {
                 FLog.e(TAG, "plain PiP composite failed too", fatal);
-                pipProgram = 0;
             }
-            pipFxKey = p.fxKey;   // do not retry this stack every frame
+            prog = fallback;
         }
-        return pipProgram;
+        pipPrograms.put(key, prog);
+        return prog;
     }
 
     /**
@@ -857,11 +959,12 @@ public class FxPreviewTextureView extends TextureView
      * here is how the editor and the render start disagreeing about what a PiP looks like.</p>
      */
     @NonNull
-    private static String pipFragment(@Nullable FxCompiler.Pass fused) {
-        if (fused == null) return PIP_FRAGMENT;
+    private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still) {
+        String base = still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT;
+        if (fused == null) return base;
         String emitted = FxCompiler.emitGlsl(fused, FxGlSource.KERNEL_HALF);
         int mainAt = emitted.indexOf("void main()");
-        if (mainAt < 0) return PIP_FRAGMENT;
+        if (mainAt < 0) return base;
         String decls = emitted.substring(0, mainAt)
                 .replace("uniform sampler2D uTexSampler;\n", "")
                 .replace("varying vec2 vFxUv;\n", "")
@@ -887,112 +990,206 @@ public class FxPreviewTextureView extends TextureView
         // before its use — placing them higher put the caller above the callee and traded
         // "function already has a body" for "no matching overloaded function". Everything
         // spliced here is global scope, so uniforms are equally happy this far down.
-        return PIP_FRAGMENT
+        return base
                 .replace("void main() {\n", decls + "void main() {\n")
                 .replace("    vec4 src = texture2D(uPipTexture, s);\n",
                         "    vec4 src = texture2D(uPipTexture, s);\n" + apply);
     }
 
-    /** Composite the PiP: {@code src} → {@code dst}, one pass. */
-    private void drawPip(@NonNull Pip p, int src, int dst, int vw, int vh) {
-        int pipProgram = pipProgramFor(p);
-        if (pipProgram == 0) return;
+    /**
+     * Composite the PiP: {@code src} → {@code dst}, one pass. {@code stillTexId} is 0 when the
+     * pixels arrive on the live decoder's OES surface, or the uploaded 2D texture for a cached
+     * still. Returns false when nothing was drawn, so the caller keeps the frame where it was.
+     */
+    private boolean drawPip(@NonNull Pip p, int src, int dst, int vw, int vh, int stillTexId) {
+        int program = pipProgramFor(p);
+        if (program == 0) return false;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
         GLES20.glViewport(0, 0, vw, vh);
-        GLES20.glUseProgram(pipProgram);
-        bindQuad(pipProgram);
+        GLES20.glUseProgram(program);
+        bindQuad(program);
         // The object's own effects, and the frame constants their bodies may read.
-        setF2(pipProgram, "uTexel", 1f / vw, 1f / vh);
-        setF(pipProgram, "uAspect", (float) vw / (float) vh);
-        setF(pipProgram, "uTime", p.timeSec);
-        setF(pipProgram, "uPipBlend", p.blendMode);
-        setF(pipProgram, "uPipMaskOn", p.maskOn ? 1f : 0f);
-        setF(pipProgram, "uPipMaskInvert", p.maskInvert ? 1f : 0f);
-        setFn(pipProgram, "uPipMaskGeo", new float[]{p.maskGeo[0], p.maskGeo[1],
+        setF2(program, "uTexel", 1f / vw, 1f / vh);
+        setF(program, "uAspect", (float) vw / (float) vh);
+        setF(program, "uTime", p.timeSec);
+        setF(program, "uPipBlend", p.blendMode);
+        setF(program, "uPipMaskOn", p.maskOn ? 1f : 0f);
+        setF(program, "uPipMaskInvert", p.maskInvert ? 1f : 0f);
+        setFn(program, "uPipMaskGeo", new float[]{p.maskGeo[0], p.maskGeo[1],
                 p.maskGeo[2], p.maskGeo[3]}, 4);
-        setF2(pipProgram, "uPipMaskRot", p.maskGeo[4], p.maskGeo[5]);
-        setF(pipProgram, "uPipMaskCorner", p.maskGeo[6]);
-        setF(pipProgram, "uPipMaskFeather", p.maskGeo[7]);
-        setF2(pipProgram, "uPipTexel", 1f / vw, 1f / vh);
-        setF2(pipProgram, "uDir", 1f, 0f);
+        setF2(program, "uPipMaskRot", p.maskGeo[4], p.maskGeo[5]);
+        setF(program, "uPipMaskCorner", p.maskGeo[6]);
+        setF(program, "uPipMaskFeather", p.maskGeo[7]);
+        setF2(program, "uPipTexel", 1f / vw, 1f / vh);
+        setF2(program, "uDir", 1f, 0f);
         for (FxUniforms.Value v : p.fxUniforms) {
-            setFn(pipProgram, v.name, v.data, v.components());
+            setFn(program, v.name, v.data, v.components());
         }
-        setSampler(pipProgram, "uTexSampler", targets[src][0], 0, true);
-        GLES20.glUniformMatrix4fv(
-                GLES20.glGetUniformLocation(pipProgram, "uPipTexMatrix"), 1, false,
-                pipTexMatrix, 0);
-        int loc = GLES20.glGetUniformLocation(pipProgram, "uPipTexture");
+        setSampler(program, "uTexSampler", targets[src][0], 0, true);
+        int loc = GLES20.glGetUniformLocation(program, "uPipTexture");
         if (loc >= 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
-            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexId);
+            if (stillTexId != 0) {
+                // Uploaded still frame (plain 2D). The shader variant samples it with v flipped.
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, stillTexId);
+            } else {
+                GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexId);
+            }
             GLES20.glUniform1i(loc, 1);
         }
+        if (stillTexId == 0) {
+            // The decoder's transform matrix exists only on the OES path; the still variant
+            // strips it (location -1, which GLES ignores).
+            GLES20.glUniformMatrix4fv(
+                    GLES20.glGetUniformLocation(program, "uPipTexMatrix"), 1, false,
+                    pipTexMatrix, 0);
+        }
         double rad = Math.toRadians(p.rotationDeg);
-        setF2(pipProgram, "uPipCentre", p.cx, p.cy);
-        setF2(pipProgram, "uPipHalf", p.halfW, p.halfH);
-        setF(pipProgram, "uPipCos", (float) Math.cos(rad));
-        setF(pipProgram, "uPipSin", (float) Math.sin(rad));
-        setF(pipProgram, "uPipAspect", (float) vw / (float) vh);
-        setF(pipProgram, "uPipAlpha", p.alpha);
-        setF(pipProgram, "uPipRotation", p.rotationDeg);
+        setF2(program, "uPipCentre", p.cx, p.cy);
+        setF2(program, "uPipHalf", p.halfW, p.halfH);
+        setF(program, "uPipCos", (float) Math.cos(rad));
+        setF(program, "uPipSin", (float) Math.sin(rad));
+        setF(program, "uPipAspect", (float) vw / (float) vh);
+        setF(program, "uPipAlpha", p.alpha);
+        setF(program, "uPipRotation", p.rotationDeg);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        return true;
     }
 
     /**
-     * Run every layer's compiled steps. Returns the index of the target holding the result.
+     * Composite one PiP rung over the frame in {@code src}; returns the slot now holding the
+     * frame. A PiP whose pixels are not there yet (live decoder yet to produce a frame, still
+     * yet to decode) contributes nothing — the slot stays {@code src}, matching the "absent
+     * until ready" behaviour the sibling stills have always had.
+     */
+    private int drawPipRung(@NonNull Pip p, int src, int vw, int vh) {
+        if (!p.rendersAnything()) return src;
+        int dst = src == 0 ? 1 : 0;
+        if (p.still == null) {
+            // The live decoder's pixels on the OES surface.
+            if (!pipHasFrame || pipTexture == null) return src;
+            pipTexture.updateTexImage();
+            pipTexture.getTransformMatrix(pipTexMatrix);
+            return drawPip(p, src, dst, vw, vh, 0) ? dst : src;
+        }
+        int tex = stillTextureFor(p);
+        if (tex == 0) return src;
+        return drawPip(p, src, dst, vw, vh, tex) ? dst : src;
+    }
+
+    /**
+     * The GL texture holding {@code p}'s still frame, uploading only when the bitmap changed.
+     * Keyed by clip id so an unchanged still is uploaded once per decode, not once per frame;
+     * a texture outlives a re-decode so the PiP keeps showing its last frame instead of blinking.
+     */
+    private int stillTextureFor(@NonNull Pip p) {
+        stillKeysInFrame.add(p.clipId);
+        android.graphics.Bitmap b = p.still;
+        Integer have = stillTexIds.get(p.clipId);
+        if (b == null || b.isRecycled()) return have == null ? 0 : have;
+        if (have != null && stillUploaded.get(p.clipId) == b) return have;
+        int id = have == null ? newStillTexture() : have;
+        try {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, id);
+            android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+            FLog.d("FxMultiPip", "still upload OK " + p.clipId + " tex=" + id
+                    + " " + b.getWidth() + "x" + b.getHeight());
+        } catch (RuntimeException e) {
+            // A bitmap the stills cache recycled underneath us must not take the preview down;
+            // keep whatever frame this clip last uploaded. (A native mid-upload crash is avoided
+            // by the stillTrash deferral — see OverlayVideoPreviewView.recycleStill.)
+            FLog.w(TAG, "still upload failed for " + p.clipId, e);
+            return have == null ? 0 : have;
+        }
+        stillTexIds.put(p.clipId, id);
+        stillUploaded.put(p.clipId, b);
+        return id;
+    }
+
+    /** A plain 2D texture with the clamped, linear sampling the still frames want. */
+    private int newStillTexture() {
+        int[] ids = new int[1];
+        GLES20.glGenTextures(1, ids, 0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, ids[0]);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        return ids[0];
+    }
+
+    /**
+     * Free still textures no visible PiP referenced this frame — bounded memory, and a clip
+     * that comes back simply re-uploads from its (still cached) bitmap.
+     */
+    private void evictUnusedStills() {
+        java.util.Iterator<java.util.Map.Entry<String, Integer>> it =
+                stillTexIds.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<String, Integer> e = it.next();
+            if (stillKeysInFrame.contains(e.getKey())) continue;
+            try { GLES20.glDeleteTextures(1, new int[]{e.getValue()}, 0); }
+            catch (Exception ignored) { }
+            it.remove();
+            stillUploaded.remove(e.getKey());
+        }
+    }
+
+    /**
+     * Run ONE layer's compiled steps over the frame at {@code from}; returns the slot holding
+     * the result.
      *
      * <p><b>Three targets, and the reason is the composite.</b> The last render of each layer
      * reads its own INPUT through {@code uBaseSampler} at the same time as the previous pass's
      * output through {@code uTexSampler}, so the layer's base must survive until that layer is
      * finished. One slot holds the base and the other two ping-pong; when the layer completes,
-     * its output becomes the next layer's base and the old base is free again.</p>
+     * its output becomes the next rung's base and the old base is free again.</p>
+     *
+     * <p>The interleaved composite walk calls this once per adjustment-layer rung, so a layer
+     * sitting between two PiPs grades only the frame beneath it — the export's ordering.</p>
      */
-    private int drawLayers(@NonNull List<Layer> live, int vw, int vh, int from) {
+    private int drawOneLayer(@NonNull Layer layer, @NonNull LayerSteps ls, int vw, int vh,
+                             int from) {
+        List<Step> steps = ls.steps;
+        if (steps.isEmpty()) return from;
         int base = from;
-        for (int li = 0; li < compiled.size() && li < live.size(); li++) {
-            Layer layer = live.get(li);
-            List<Step> steps = compiled.get(li).steps;
-            if (steps.isEmpty()) continue;
-            int src = base;
-            int dst = -1;
-            for (int i = 0; i < steps.size(); i++) {
-                Step step = steps.get(i);
-                // Any slot that is neither the layer's base nor the current source is free.
-                dst = freeTargetOther(base, src);
-                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
-                GLES20.glViewport(0, 0, vw, vh);
-                GLES20.glUseProgram(step.program);
-                bindQuad(step.program);
+        int src = from;
+        int dst = -1;
+        for (int i = 0; i < steps.size(); i++) {
+            Step step = steps.get(i);
+            // Any slot that is neither the layer's base nor the current source is free.
+            dst = freeTargetOther(base, src);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+            GLES20.glViewport(0, 0, vw, vh);
+            GLES20.glUseProgram(step.program);
+            bindQuad(step.program);
 
-                setSampler(step.program, "uTexSampler", targets[src][0], 0, false);
-                // The layer's own INPUT, on unit 1 so it cannot collide with the pass input.
-                setSampler(step.program, "uBaseSampler", targets[base][0], 1, false);
-                setF2(step.program, "uTexel", 1f / vw, 1f / vh);
-                setF(step.program, "uAspect", (float) vw / (float) vh);
-                setF(step.program, "uTime", layer.timeSec);
-                setF2(step.program, "uDir", step.dirX, step.dirY);
-                for (FxUniforms.Value v : layer.uniforms.get(step.passIndex)) {
-                    setFn(step.program, v.name, v.data, v.components());
-                }
-                setF(step.program, "uLayerOpacity", layer.opacity);
-                setF(step.program, "uMaskCount", layer.hasMask ? 1f : 0f);
-                float[] g = layer.geo;
-                setFn(step.program, "uMaskGeo", new float[]{g[0], g[1], g[2], g[3]}, 4);
-                setF2(step.program, "uMaskRot", g[4], g[5]);
-                setF(step.program, "uMaskCorner", g[6]);
-                setF(step.program, "uMaskFeather", g[7]);
-                setF(step.program, "uMaskInvert", layer.invertMask ? 1f : 0f);
-                setFn(step.program, "uKeyColor", layer.keyColor, 3);
-                setFn(step.program, "uKeyParams", layer.keyParams, 4);
-                setF(step.program, "uBlendMode", layer.blendMode);
-
-                GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
-                src = dst;
+            setSampler(step.program, "uTexSampler", targets[src][0], 0, false);
+            // The layer's own INPUT, on unit 1 so it cannot collide with the pass input.
+            setSampler(step.program, "uBaseSampler", targets[base][0], 1, false);
+            setF2(step.program, "uTexel", 1f / vw, 1f / vh);
+            setF(step.program, "uAspect", (float) vw / (float) vh);
+            setF(step.program, "uTime", layer.timeSec);
+            setF2(step.program, "uDir", step.dirX, step.dirY);
+            for (FxUniforms.Value v : layer.uniforms.get(step.passIndex)) {
+                setFn(step.program, v.name, v.data, v.components());
             }
-            if (dst >= 0) base = dst;
+            setF(step.program, "uLayerOpacity", layer.opacity);
+            setF(step.program, "uMaskCount", layer.hasMask ? 1f : 0f);
+            float[] g = layer.geo;
+            setFn(step.program, "uMaskGeo", new float[]{g[0], g[1], g[2], g[3]}, 4);
+            setF2(step.program, "uMaskRot", g[4], g[5]);
+            setF(step.program, "uMaskCorner", g[6]);
+            setF(step.program, "uMaskFeather", g[7]);
+            setF(step.program, "uMaskInvert", layer.invertMask ? 1f : 0f);
+            setFn(step.program, "uKeyColor", layer.keyColor, 3);
+            setFn(step.program, "uKeyParams", layer.keyParams, 4);
+            setF(step.program, "uBlendMode", layer.blendMode);
+
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+            src = dst;
         }
-        return base;
+        return dst >= 0 ? dst : base;
     }
 
     /** The one slot that is neither {@code a} nor {@code b}. */
@@ -1256,6 +1453,20 @@ public class FxPreviewTextureView extends TextureView
             h.post(() -> {
                 releasePrograms();
                 releaseTargets();
+                // The cached PiP programs and uploaded still textures belong to this context —
+                // free them while it is still current. Retired still bitmaps are recycled here
+                // too: it is the GL thread, the only thread that ever touches their pixels.
+                for (Integer prog : pipPrograms.values()) {
+                    try { GLES20.glDeleteProgram(prog); } catch (Exception ignored) { }
+                }
+                pipPrograms.clear();
+                for (Integer id : stillTexIds.values()) {
+                    try { GLES20.glDeleteTextures(1, new int[]{id}, 0); }
+                    catch (Exception ignored) { }
+                }
+                stillTexIds.clear();
+                stillUploaded.clear();
+                for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }
                 Surface ps = pipSurface;

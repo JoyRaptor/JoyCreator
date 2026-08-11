@@ -3,8 +3,11 @@ package com.fadcam.ui.faditor.overlay;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.transcript.CaptionAnimator;
@@ -40,8 +43,16 @@ import com.fadcam.ui.faditor.transcript.CaptionAnimator;
  * way on a 1.2em glyph). It is deliberately not computed per preset — a margin that changed size
  * when the preset changed would re-measure and re-layout the box on every pick, and a slightly
  * oversized transparent margin costs nothing.
+ *
+ * <h3>Why a FrameLayout now (2026-08-09, WYSIWYG reframe)</h3>
+ * The "preview IS the textbox" reframe puts the text input ON the box: a transparent
+ * {@link EditText} child layered over the drawn glyphs gives the user the framework's caret,
+ * selection handles and IME exactly where the rendered text is, while the glyphs below keep
+ * coming from {@code TextBoxRenderer} (the export's renderer — so what you type is what exports).
+ * The view was a plain {@code View}; it is a {@code FrameLayout} so the input surface can be a
+ * child. Children draw AFTER {@link #onDraw}, so a transparent child cannot cover the glyphs.
  */
-public class TextBoxView extends View {
+public class TextBoxView extends FrameLayout {
 
     /**
      * Slack around the box for glyphs that animate outside it, as a multiple of the type size.
@@ -70,6 +81,15 @@ public class TextBoxView extends View {
      */
     private int selStart = -1;
     private int selEnd = -1;
+
+    /**
+     * The in-canvas WYSIWYG input surface (the 2026-08-09 reframe): a transparent EditText laid
+     * over the BOX (inside the excursion margin) while this item's drawer is open. Its text is
+     * invisible, its caret and selection handles are not — so typing lands visually on the
+     * renderer's glyphs below, and the two never have to agree on glyph metrics to line up.
+     * The layer owns the instance; this view only hosts it and keeps its insets in sync.
+     */
+    @Nullable private EditText editor;
 
     public TextBoxView(@NonNull Context ctx, @NonNull TextOverlayItem o) {
         super(ctx);
@@ -105,8 +125,86 @@ public class TextBoxView extends View {
         this.animate = animate;
         this.objectAlpha = objectAlpha;
         applyBlurLayerPolicy();
+        updateEditorInsets();
         invalidate();
         return resized;
+    }
+
+    /**
+     * Host the layer's in-canvas input surface over the box (2026-08-09 WYSIWYG reframe).
+     * Re-attaching the SAME instance is a no-op apart from the inset refresh — the layer
+     * rebuilds this view on every keystroke, so it re-parents the editor into the fresh box.
+     */
+    public void attachEditor(@NonNull EditText e) {
+        // Snapshot the selection BEFORE any detach: the rebuild path re-parents the editor
+        // through this method (old box → fresh box), and detaching an EditText collapses its
+        // selection to a caret, firing onSelectionChanged(selStart==selEnd). If that collapse
+        // reaches the session, the drawer forgets the range being styled and the next toggle
+        // falls back to whole-item formatting. Restoring the range here keeps the user's
+        // selection alive across every rebuild (a style tap rebuilds the preview layer).
+        int ss = e.getSelectionStart();
+        int se = e.getSelectionEnd();
+        if (editor != null && editor != e) {
+            removeView(editor);
+        }
+        editor = e;
+        if (e.getParent() != this) {
+            // The layer rebuilds this box on every reflow mid-EDIT; the editor's previous
+            // parent is the OLD box, already evicted from the tree. Reparent, don't duplicate.
+            if (e.getParent() != null) {
+                ((android.view.ViewGroup) e.getParent()).removeView(e);
+            }
+            addView(e, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        }
+        updateEditorInsets();
+        // Undo the detach-collapse: a real range is restored, a caret is left alone.
+        if (ss >= 0 && se > ss) {
+            int len = e.getText().length();
+            if (ss <= len && se <= len) {
+                e.setSelection(ss, se);
+            }
+        }
+    }
+
+    /** Detach the in-canvas input surface (drawer closed — the box needs it no more). */
+    public void detachEditor() {
+        if (editor != null) {
+            removeView(editor);
+            editor = null;
+        }
+    }
+
+    /**
+     * Keep the editor EXACTLY over the box, inside the excursion margin: the box is the view
+     * inset by {@link #boxInsetPx()} on every side. Called from {@link #bind} because the inset
+     * moves when the type size moves.
+     *
+     * <p>Also keeps the editor's own text layout matching the renderer's: same type size
+     * ({@link #fontPx}) and, via {@code setIncludeFontPadding(false)}, the same 1.0-multiplier
+     * line height — otherwise the editor wraps text at different character counts than
+     * {@code TextBoxRenderer} draws, and a tap or drag lands on a different character than the
+     * one under the finger.</p>
+     */
+    private void updateEditorInsets() {
+        if (editor == null) return;
+        // The caret and hit-testing must follow the glyphs the renderer draws below.
+        if (editor.getTextSize() != Math.max(1f, fontPx)) {
+            editor.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, Math.max(1f, fontPx));
+        }
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) editor.getLayoutParams();
+        if (lp == null) {
+            lp = new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,
+                    LayoutParams.MATCH_PARENT);
+        }
+        int i = Math.round(boxInsetPx());
+        if (lp.leftMargin != i || lp.topMargin != i
+                || lp.rightMargin != i || lp.bottomMargin != i) {
+            lp.leftMargin = i;
+            lp.topMargin = i;
+            lp.rightMargin = i;
+            lp.bottomMargin = i;
+            editor.setLayoutParams(lp);
+        }
     }
 
     /** Half the difference between this view and the text box it contains, in px. */

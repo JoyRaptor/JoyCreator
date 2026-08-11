@@ -1100,7 +1100,7 @@
     <string name="faditor_text_hint">Enter text</string>
     <string name="faditor_text_edit_title">Edit text</string>
     <string name="faditor_text_delete">Delete</string>
-    <string name="faditor_text_selection_whole">Whole text</string>
+    <string name="faditor_text_selection_whole">Select all</string>
     <string name="faditor_text_selection_count">%1$d selected</string>
     <string name="faditor_text_selection_clear">Clear</string>
     <string name="faditor_text_style_undo">Format text</string>

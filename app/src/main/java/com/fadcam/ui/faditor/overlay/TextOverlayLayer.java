@@ -10,6 +10,8 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -59,6 +61,176 @@ public class TextOverlayLayer extends FrameLayout {
          */
         default void onOverlayManipulated(@NonNull TextOverlayItem item,
                                           @NonNull TextOverlayItem.TransformSnapshot before) { }
+    }
+
+    // ── WYSIWYG in-canvas text editing (2026-08-09 reframe) ───────────────────────────────────
+    // "The preview IS the textbox": while the text drawer is open, a transparent EditText lays
+    // over the edited box (a child of TextBoxView — see its class doc). The layer owns it, the
+    // box hosts it, and the activity's session feeds it through this host: the user types and
+    // drags selection handles WHERE THE GLYPHS ARE, and the renderer below keeps painting both
+    // the styled text and (via setEditingSelection) the purple range highlight.
+
+    /** The activity-side editing session — forwards the editor's events verbatim. */
+    public interface TextEditingHost {
+        /** beforeTextChanged — the session aligns its spans to the edit. */
+        void onBeforeTextChanged(int start, int before, int count);
+        /** afterTextChanged — the session writes the authored string to the model. */
+        void onAfterTextChanged(@NonNull String text);
+        /** The editor's selection moved — the session clamps + repaints chips/highlight. */
+        void onSelectionChanged(int selStart, int selEnd);
+    }
+
+    @Nullable private String editingItemId;
+    @Nullable private TextEditingHost textHost;
+    @Nullable private EditText textEditor;
+
+    /**
+     * Begin in-canvas WYSIWYG editing of {@code itemId}: attach (or re-attach) the transparent
+     * editor over its box with {@code initialText}, select all (the every-day "base style" state,
+     * exactly like the old drawer field's select-on-focus), focus and raise the IME.
+     */
+    public void startTextEditing(@NonNull String itemId, @NonNull String initialText,
+                                 @NonNull TextEditingHost host) {
+        if (editingItemId != null && editingItemId.equals(itemId) && textEditor != null) {
+            // Same item, same session — the box was rebuilt (every keystroke does); re-host.
+            attachToBox();
+            return;
+        }
+        endTextEditing();
+        editingItemId = itemId;
+        textHost = host;
+        textEditor = new EditText(getContext()) {
+            @Override protected void onSelectionChanged(int selStart, int selEnd) {
+                super.onSelectionChanged(selStart, selEnd);
+                if (textHost != null) textHost.onSelectionChanged(selStart, selEnd);
+            }
+        };
+        // Invisible ink + invisible native highlight: the renderer below draws BOTH the glyphs
+        // and the W5-2 purple selection — what stays native is the caret, the selection handles
+        // and the IME connection, which is precisely the point of the reframe.
+        textEditor.setTextColor(0x00000000);
+        textEditor.setHighlightColor(0x00000000);
+        textEditor.setBackgroundColor(0x00000000);
+        textEditor.setPadding(0, 0, 0, 0);
+        textEditor.setIncludeFontPadding(false);
+        textEditor.setSingleLine(false);
+        mirrorItemForMetrics(itemId);
+        textEditor.setText(initialText);
+        textEditor.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+                if (textHost != null) textHost.onBeforeTextChanged(a, b, c);
+            }
+            @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
+            @Override public void afterTextChanged(android.text.Editable s) {
+                if (textHost != null) textHost.onAfterTextChanged(s.toString());
+            }
+        });
+        attachToBox();
+        final EditText fresh = textEditor;
+        fresh.post(() -> {
+            fresh.requestFocus();
+            fresh.selectAll();   // open state = whole text = base-style editing (as before)
+            showIme(fresh);
+        });
+    }
+
+    /** End in-canvas editing: detach the editor, hide the IME, forget the session link. */
+    public void endTextEditing() {
+        if (textEditor != null) {
+            hideIme(textEditor);
+            for (int i = 0; i < getChildCount(); i++) {
+                View v = getChildAt(i);
+                Object tag = v.getTag();
+                if (tag instanceof TextOverlayItem && v instanceof TextBoxView
+                        && editingItemId != null
+                        && editingItemId.equals(((TextOverlayItem) tag).getId())) {
+                    ((TextBoxView) v).detachEditor();
+                    break;
+                }
+            }
+            textEditor = null;
+        }
+        editingItemId = null;
+        textHost = null;
+    }
+
+    public boolean isEditingText() { return editingItemId != null; }
+
+    /** True only when THIS item currently hosts the in-canvas editor. */
+    public boolean isEditingItem(@NonNull String itemId) {
+        return itemId.equals(editingItemId);
+    }
+
+    /** Re-host the editor on this item's box (fresh box after a rebuild). */
+    private void attachToBox() {
+        if (editingItemId == null || textEditor == null) return;
+        for (int i = 0; i < getChildCount(); i++) {
+            View v = getChildAt(i);
+            Object tag = v.getTag();
+            if (tag instanceof TextOverlayItem && v instanceof TextBoxView
+                    && editingItemId.equals(((TextOverlayItem) tag).getId())) {
+                final TextBoxView tb = (TextBoxView) v;
+                tb.attachEditor(textEditor);
+                final EditText ed = textEditor;
+                tb.post(() -> {
+                    restoreEditorSelection();
+                    ed.requestFocus();
+                    showIme(ed);
+                });
+                return;
+            }
+        }
+    }
+
+    /**
+     * Re-apply the remembered drawer selection to the editor after a re-host. The layer rebuilds
+     * the box on every {@link #rebuild()} (every style toggle repaints through {@code setData}),
+     * and the detach/re-attach collapses the editor's selection to a caret — so a user who
+     * selected a range and then tapped "B" would lose the range and be stuck re-selecting for
+     * every toggle. Only a real range (start {@code <} end) is restored; a caret is left as the
+     * user put it.
+     */
+    private void restoreEditorSelection() {
+        if (textEditor == null) return;
+        if (selectionStart >= 0 && selectionEnd > selectionStart) {
+            int len = textEditor.getText().length();
+            if (selectionStart <= len && selectionEnd <= len) {
+                textEditor.setSelection(selectionStart, selectionEnd);
+            }
+        }
+    }
+
+    /** The editor's caret/handles measure against the item's BASE metrics — mirror them. */
+    private void mirrorItemForMetrics(@Nullable String itemId) {
+        if (textEditor == null || itemId == null) return;
+        for (TextOverlayItem o : overlays) {
+            if (!itemId.equals(o.getId())) continue;
+            int style = android.graphics.Typeface.NORMAL;
+            if (o.isBold()) style |= android.graphics.Typeface.BOLD;
+            if (o.isItalic()) style |= android.graphics.Typeface.ITALIC;
+            textEditor.setTypeface(android.graphics.Typeface.create(
+                    (android.graphics.Typeface) null, style));
+            String align = o.getTextAlign();
+            int g = TextOverlayItem.ALIGN_CENTER.equals(align) ? Gravity.CENTER_HORIZONTAL
+                    : TextOverlayItem.ALIGN_RIGHT.equals(align) ? Gravity.RIGHT
+                    : Gravity.LEFT;
+            textEditor.setGravity(g);
+            return;
+        }
+    }
+
+    private void showIme(@NonNull EditText e) {
+        InputMethodManager imm = (InputMethodManager)
+                getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.showSoftInput(e, InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    private void hideIme(@NonNull EditText e) {
+        InputMethodManager imm = (InputMethodManager)
+                getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null && e.getWindowToken() != null) {
+            imm.hideSoftInputFromWindow(e.getWindowToken(), 0);
+        }
     }
 
     private final List<TextOverlayItem> overlays = new ArrayList<>();
@@ -173,12 +345,27 @@ public class TextOverlayLayer extends FrameLayout {
 
     /** Recreate all overlay views from the model (call after data or size changes). */
     public void rebuild() {
+        // The editor is a child of one of these boxes, and removeAllViews detaches it — which
+        // collapses its selection to a caret and (via the host) makes the drawer forget the
+        // range being styled. Snapshot before the teardown, restore after the re-attach.
+        int ss = -1;
+        int se = -1;
+        if (textEditor != null) {
+            ss = textEditor.getSelectionStart();
+            se = textEditor.getSelectionEnd();
+        }
         removeAllViews();
         if (callback == null) return;
         for (TextOverlayItem o : overlays) {
             View v = createOverlayView(o);
             v.setTag(o);
             addView(v);
+        }
+        if (textEditor != null && ss >= 0 && se > ss) {
+            int len = textEditor.getText().length();
+            if (ss <= len && se <= len) {
+                textEditor.setSelection(ss, se);
+            }
         }
     }
 
@@ -281,6 +468,21 @@ public class TextOverlayLayer extends FrameLayout {
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         applyRememberedSelection(o, view);
         attachGestures(view, o);
+        // The box was rebuilt under a live editing session — re-host the editor on the fresh
+        // box. Keystrokes rebuild every frame (refreshOverlayPreview → setData), so the editor
+        // must SURVIVE the rebuild: same instance, new parent, focus + IME restored.
+        if (editingItemId != null && editingItemId.equals(o.getId())
+                && textEditor != null && view instanceof TextBoxView) {
+            ((TextBoxView) view).attachEditor(textEditor);
+            final View fv = view;
+            fv.post(() -> {
+                if (textEditor != null) {
+                    restoreEditorSelection();
+                    textEditor.requestFocus();
+                    showIme(textEditor);
+                }
+            });
+        }
         // Position once the view has a measured size.
         final View fv = view;
         fv.post(() -> position(fv, o));
@@ -300,7 +502,10 @@ public class TextOverlayLayer extends FrameLayout {
         view.setVisibility(VISIBLE);
         // While the user is dragging/scaling this overlay, follow the finger
         // (static transform) rather than the keyframed value at the playhead.
-        boolean live = o == manipulating;
+        // The WYSIWYG-edited item is static too: a box mid-entrance-animation
+        // would slide its glyphs away from under the editor the user is typing in.
+        boolean live = o == manipulating
+                || (editingItemId != null && editingItemId.equals(o.getId()));
         float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
 
         // ── TEXT: the whole animation happens INSIDE the view ────────────────────────────────
@@ -373,14 +578,20 @@ public class TextOverlayLayer extends FrameLayout {
             h = Math.max(1, Math.round(size[1]));
             boxInset = tb.boxInsetPx();
         } else if (o.isImage() && view instanceof ImageView) {
-            // Height = fraction of video height; width derived from image aspect.
+            // Height = fraction of video height; width derived from image aspect. The per-axis
+            // scale multipliers fold in HERE (not into sizeFraction), so a split (unlinked)
+            // Scale X/Y pair in the image drawer stretches the picture along one axis without
+            // moving the other — the whole point of the chain toggle. Linked mode keeps both at
+            // 1, so every pre-existing project renders exactly as it always did.
             float aspect = 1f;
             android.graphics.drawable.Drawable d = ((ImageView) view).getDrawable();
             if (d != null && d.getIntrinsicHeight() > 0) {
                 aspect = d.getIntrinsicWidth() / (float) d.getIntrinsicHeight();
             }
-            h = Math.round(sizeFraction * r.height());
-            w = Math.round(h * aspect);
+            float sx = live ? o.getScaleX() : o.animatedScaleX(currentTimeMs);
+            float sy = live ? o.getScaleY() : o.animatedScaleY(currentTimeMs);
+            h = Math.round(sizeFraction * sy * r.height());
+            w = Math.round(h * aspect * sx);
         } else {
             // Neither a text box nor an image with a drawable — keep whatever it measured to
             // rather than collapsing it to nothing.
@@ -497,6 +708,11 @@ public class TextOverlayLayer extends FrameLayout {
                 // touch — two hit-testing text layers would have the top one silently eat
                 // taps meant for the bottom. See SPEC_CROSSTYPE_Z's Z3 note.
                 if (!interactive) return false;
+                // WYSIWYG reframe: while this item is being edited ON the box, the transparent
+                // editor child owns every touch in the box — and the excursion ring counts too,
+                // or dragging the margin would yank the box out from under the caret. The item
+                // becomes inert until the drawer closes: move/scale/rotate return on exit.
+                if (editingItemId != null && editingItemId.equals(o.getId())) return false;
                 scaleDetector.onTouchEvent(e);
                 switch (e.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:

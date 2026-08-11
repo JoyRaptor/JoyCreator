@@ -103,6 +103,25 @@ public final class PreviewHandlesOverlay extends View {
 
     public void setSelectionSource(@Nullable SelectionSource s) { selectionSource = s; }
 
+    /**
+     * WYSIWYG reframe (2026-08-09): while a text overlay's drawer is open, the preview's text
+     * box hosts the transparent in-canvas editor. The handles overlay sits ABOVE the text layer,
+     * so without this it would eat every caret tap and drag inside the box — and its selection
+     * chrome would fight the editor's own handles. While an item is being EDITED the whole
+     * preview surrenders: {@link #onTouchEvent} passes everything through to the layers below
+     * (the edited box is inert anyway; other boxes keep their own gestures) and {@link #onDraw}
+     * skips the chrome.
+     */
+    @Nullable private String editingItemId;
+
+    public void setEditingItemId(@Nullable String id) {
+        if ((id == null) != (editingItemId == null)
+                || (id != null && !id.equals(editingItemId))) {
+            editingItemId = id;
+            invalidate();
+        }
+    }
+
     private enum Mode { NONE, MOVE, SCALE, ROTATE, PINCH }
 
     /** Two-finger gesture state: the span and angle at the moment the second finger landed. */
@@ -192,6 +211,7 @@ public final class PreviewHandlesOverlay extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
+        if (editingItemId != null) return;   // the drawer is open — the editor owns the chrome
         Target t = target;
         if (t == null || !t.frame(currentTimeMs, box)) return;
         float rot = t.rotationDeg(currentTimeMs);
@@ -256,13 +276,17 @@ public final class PreviewHandlesOverlay extends View {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent e) {
+        if (editingItemId != null) return false;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
                 // TRY THE CURRENT SELECTION FIRST, then everything else. Touching the selected
                 // object's own box must keep working exactly as it did — the handles are the
                 // precision surface — and only a miss falls through to picking something new.
                 Target cur = target;
-                if (cur != null && onDown(cur, e.getX(), e.getY())) return true;
+                if (cur != null) {
+                    boolean cd = onDown(cur, e.getX(), e.getY());
+                    if (cd) return true;
+                }
                 if (selectionSource == null) return false;
                 if (!selectionSource.selectAt(e.getX(), e.getY(), currentTimeMs)) {
                     selectionSource.selectNone();

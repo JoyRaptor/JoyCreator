@@ -141,11 +141,47 @@ public final class KeyframeDiamondControl extends LinearLayout {
         getContext().getTheme().resolveAttribute(
                 android.R.attr.selectableItemBackgroundBorderless, tv, true);
         v.setBackgroundResource(tv.resourceId);
-        v.setOnClickListener(view -> {
-            if (host != null) host.onFocus();
-            if (prop == null) return;
-            if (prev) prop.prevKey(); else prop.nextKey();
-            if (host != null) host.onAction();
+        // Both chevrons are swipe-sensitive like the diamond (user, 2026-08-10): a quick
+        // horizontal swipe-left = prev, swipe-right = next, on EITHER chevron. Taps keep
+        // their positional meaning (‹ = prev, › = next).
+        final float slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
+        v.setOnTouchListener(new OnTouchListener() {
+            float downX, downY;
+            boolean moved;
+
+            @Override
+            public boolean onTouch(View view, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = e.getRawX();
+                        downY = e.getRawY();
+                        moved = false;
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        if (!moved && (Math.abs(e.getRawX() - downX) > slop
+                                || Math.abs(e.getRawY() - downY) > slop)) {
+                            moved = true;
+                        }
+                        return true;
+                    case MotionEvent.ACTION_UP: {
+                        if (host != null) host.onFocus();
+                        if (prop == null) return true;
+                        float dx = e.getRawX() - downX;
+                        boolean horizontal = Math.abs(dx) > Math.abs(e.getRawY() - downY);
+                        if (moved && horizontal && Math.abs(dx) > slop * 2) {
+                            if (dx > 0) prop.nextKey(); else prop.prevKey();
+                        } else if (!moved) {
+                            if (prev) prop.prevKey(); else prop.nextKey();
+                        }
+                        if (host != null) host.onAction();
+                        return true;
+                    }
+                    case MotionEvent.ACTION_CANCEL:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
         });
         return v;
     }

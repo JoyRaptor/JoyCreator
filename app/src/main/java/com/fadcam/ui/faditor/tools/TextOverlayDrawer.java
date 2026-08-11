@@ -15,24 +15,21 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 /**
- * The text-overlay drawer — a BOTTOM-anchored, OPAQUE panel that replaces the old modal
- * "Edit text" dialog (SPEC_TEXT_DRAWER, JoyRaptor 2026-08-07/08).
+ * The text-overlay drawer — a TOP-anchored panel that drops DOWN from the top edge and pushes
+ * the video below it, using the same mechanics as {@link PipOverlayDrawer} (spec, 2026-08-10:
+ * "take the drawer that's on the bottom and make it a top down drawer ... attach what we
+ * already have to the video overlay drawer mechanics; as it drops down it will push the video
+ * down like what video overlay drawer does").
  *
- * <p><b>Why bottom, unlike {@link PipOverlayDrawer}.</b> That one moved to the TOP specifically
- * so the timeline stays reachable while keyframing a PiP. Text works the opposite way round:
- * "you are selecting your text in the preview window and formatting it... you won't need a
- * preview in the drawer because you will be seeing it live in the preview window anyway" — so
- * the thing that must stay clear here is the PREVIEW, not the timeline, and covering the
- * timeline "doesn't count" (owner's words). A bottom drawer is exactly that: it rises from
- * underneath and leaves the video untouched above it.</p>
- *
- * <p><b>Why opaque, unlike the PiP drawer.</b> The PiP drawer is translucent because the whole
- * point of adjusting a PiP is watching the PiP through the panel. A text drawer covers the
- * timeline, which the user does not need to see while typing and styling — so there is nothing
- * gained by seeing through it, and an opaque panel reads its own rows more legibly.</p>
+ * <p>Why top now, where the class used to sit on the bottom. A bottom drawer covered the
+ * timeline, which keyframing needs to see ("the fact that we have keyframes means we will
+ * probably also want to see the timeline"). A top drawer hangs from the top and pushes the
+ * preview down, so the timeline stays reachable for the whole session — the same trade the
+ * PiP drawer already made. The {@code HeightListener} reports the drawer's height and the
+ * activity reflows the preview under it, exactly as the PiP drawer does.</p>
  *
  * <p>Generic on purpose, the same way {@code PipOverlayDrawer} is: this class knows about
- * sliding a panel up from the bottom, a title, a close button and a scrolling body capped at a
+ * sliding a panel down from the top, a title, a close button and a scrolling body capped at a
  * height. It does not know about fonts, colours or keyframes — the caller supplies the content
  * view, same as {@code PipDrawerTabs} supplies the PiP drawer's.</p>
  */
@@ -65,27 +62,13 @@ public final class TextOverlayDrawer extends LinearLayout {
         setOrientation(VERTICAL);
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(BG);
-        // Rounded TOP corners only — the mirror image of the PiP drawer's bottom rounding,
-        // because this one comes UP from the bottom edge rather than down from the top.
+        // Rounded BOTTOM corners only — this one hangs DOWN from the top edge, so the curve
+        // is at the bottom, mirroring PipOverlayDrawer.
         float r = 16f * density;
-        bg.setCornerRadii(new float[]{r, r, r, r, 0f, 0f, 0f, 0f});
+        bg.setCornerRadii(new float[]{0f, 0f, 0f, 0f, r, r, r, r});
         setBackground(bg);
         setClickable(true);
         setElevation(8f * density);
-
-        // Pull-DOWN dismiss grip at the TOP edge — the drawer hangs from the bottom, so the
-        // direction that puts it away is down. Mirrors PipOverlayDrawer.wireGrip.
-        LinearLayout grip = new LinearLayout(ctx);
-        grip.setGravity(Gravity.CENTER);
-        grip.setPadding(0, dp(8), 0, dp(4));
-        View pill = new View(ctx);
-        GradientDrawable pillBg = new GradientDrawable();
-        pillBg.setColor(0x33FFFFFF);
-        pillBg.setCornerRadius(3f * density);
-        pill.setBackground(pillBg);
-        grip.addView(pill, new LayoutParams(dp(38), dp(4)));
-        wireGrip(grip);
-        addView(grip, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         LinearLayout header = new LinearLayout(ctx);
         header.setOrientation(HORIZONTAL);
@@ -111,6 +94,20 @@ public final class TextOverlayDrawer extends LinearLayout {
 
         contentHost = new FrameLayout(ctx);
         addView(contentHost, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+
+        // Pull-UP dismiss grip at the BOTTOM edge — the drawer hangs from the top, so the
+        // direction that puts it away is up. Mirrors PipOverlayDrawer.wireGrip.
+        LinearLayout grip = new LinearLayout(ctx);
+        grip.setGravity(Gravity.CENTER);
+        grip.setPadding(0, dp(4), 0, dp(8));
+        View pill = new View(ctx);
+        GradientDrawable pillBg = new GradientDrawable();
+        pillBg.setColor(0x88FFFFFF);
+        pillBg.setCornerRadius(3f * density);
+        pill.setBackground(pillBg);
+        grip.addView(pill, new LayoutParams(dp(38), dp(4)));
+        wireGrip(grip);
+        addView(grip, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
     }
 
     public void setTitle(@NonNull String title) { titleView.setText(title); }
@@ -131,7 +128,9 @@ public final class TextOverlayDrawer extends LinearLayout {
         contentHost.addView(wrap(content));
         if (getVisibility() != VISIBLE) {
             setVisibility(VISIBLE);
-            setTranslationY(dp(160));
+            // Slides DOWN from above the top edge (the mirror of the old bottom drawer,
+            // which slid up from below).
+            setTranslationY(-dp(160));
             setAlpha(0f);
             animate().translationY(0f).alpha(1f)
                     .setDuration(SLIDE_MS).setInterpolator(new DecelerateInterpolator()).start();
@@ -146,7 +145,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         hiding = true;
         reportedHeightPx = 0;
         if (heightListener != null) heightListener.onDrawerHeightChanged(0);
-        animate().translationY(dp(160)).alpha(0f).setDuration(SLIDE_MS)
+        animate().translationY(-dp(160)).alpha(0f).setDuration(SLIDE_MS)
                 .withEndAction(() -> {
                     setVisibility(GONE);
                     contentHost.removeAllViews();
@@ -229,12 +228,12 @@ public final class TextOverlayDrawer extends LinearLayout {
                         float dy = e.getRawY() - downY;
                         if (!moved && Math.abs(dy) > slop) { moved = true; resizing = true; }
                         if (resizing && bodyScroll != null) {
-                            // Dragging DOWN (positive dy) shrinks the body — the mirror of the
-                            // PiP drawer's grip, where dragging UP shrinks it — because this
-                            // drawer hangs from the bottom.
+                            // Dragging UP (negative dy) shrinks the body — the mirror of the
+                            // old bottom drawer's grip, where dragging DOWN shrunk it — because
+                            // this drawer hangs from the top.
                             int screen = getResources().getDisplayMetrics().heightPixels;
                             userHeightPx = Math.max(dp(MIN_BODY_DP),
-                                    Math.min(Math.round(startHeight - dy),
+                                    Math.min(Math.round(startHeight + dy),
                                             Math.round(screen * ABSOLUTE_MAX_FRACTION)));
                             bodyScroll.requestLayout();
                             reportHeight();
@@ -245,7 +244,7 @@ public final class TextOverlayDrawer extends LinearLayout {
                         float dy = e.getRawY() - downY;
                         boolean atFloor = bodyScroll != null
                                 && bodyScroll.getHeight() <= dp(MIN_BODY_DP) + 1;
-                        if (!moved || (dy > slop * 2 && atFloor)) {
+                        if (!moved || (dy < -slop * 2 && atFloor)) {
                             userHeightPx = -1;
                             hide();
                         } else {

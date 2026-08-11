@@ -72,7 +72,7 @@ public final class PipDrawerTabs {
         LinearLayout root = column(ctx);
         final List<Runnable> refreshers = new ArrayList<>();
         for (ObjectMenuSheet.Prop p : props) {
-            refreshers.add(propRow(ctx, root, p, host));
+            refreshers.add(propRow(ctx, root, p, host, null));
         }
         // One pass so every diamond shows its true on-key state the moment the tab appears,
         // rather than only after the next playhead tick.
@@ -106,9 +106,124 @@ public final class PipDrawerTabs {
         if (tag instanceof Runnable) ((Runnable) tag).run();
     }
 
+    /**
+     * Public entry into {@link #propRow} so an activity can compose transform rows
+     * into its own tab content (the image drawer's chain-split Scale rows) while
+     * reusing the exact row chrome the PiP video tab uses.
+     */
+    public static Runnable addPropRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                      @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host) {
+        return propRow(ctx, parent, prop, host, null);
+    }
+
+    /**
+     * The image drawer's chain-split Scale row — ONE row whether linked or split.
+     * Linked shows a single SCALE slider; split shows Scale X and Scale Y sliders IN
+     * SERIES on the same line, never stacked (user 2026-08-11: "two sliders in series,
+     * NOT STACKED … conserve vertical space"). {@code chainToggle} sits immediately
+     * after the label ("the chain icon needs to be after scale"); toggling rebuilds
+     * the caller's rows, because the slider count changes.
+     *
+     * @param linked      true = one slider bound to {@code linkedProp}; false = two
+     *                    sliders bound to {@code xProp}/{@code yProp}
+     * @param chainToggle the linked/broken-chain icon; placed after the label
+     */
+    @NonNull
+    public static Runnable addScaleRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                       @NonNull String label, @NonNull Host host, boolean linked,
+                                       @Nullable ObjectMenuSheet.Prop linkedProp,
+                                       @Nullable ObjectMenuSheet.Prop xProp,
+                                       @Nullable ObjectMenuSheet.Prop yProp,
+                                       @NonNull View chainToggle) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
+
+        TextView labelView = new TextView(ctx);
+        labelView.setTextColor(TXT_DIM);
+        labelView.setTextSize(11);
+        labelView.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        labelView.setWidth(Math.round(52 * d));
+        labelView.setText(label);
+        row.addView(labelView);
+
+        row.addView(chainToggle);
+
+        final List<Runnable> refreshers = new ArrayList<>();
+        if (linked && linkedProp != null) {
+            refreshers.add(scaleSlider(ctx, row, linkedProp, host, d));
+        } else {
+            if (xProp != null) refreshers.add(scaleSlider(ctx, row, xProp, host, d));
+            if (yProp != null) refreshers.add(scaleSlider(ctx, row, yProp, host, d));
+        }
+        parent.addView(row);
+        return () -> {
+            for (Runnable r : refreshers) r.run();
+        };
+    }
+
+    /** One label-less slider + value + keyframe diamond (the label belongs to the row). */
+    @NonNull
+    private static Runnable scaleSlider(@NonNull Context ctx, @NonNull LinearLayout row,
+                                        @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
+                                        float d) {
+        SeekBar bar = new SeekBar(ctx);
+        bar.setMax(SLIDER_STEPS);
+        final float min = propMin(prop), max = propMax(prop);
+        float cur = prop.valueAt(host.playheadMs());
+        bar.setProgress(Math.round((cur - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+
+        TextView value = new TextView(ctx);
+        value.setTextColor(TXT);
+        value.setTextSize(11);
+        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setWidth(Math.round(40 * d));
+        value.setGravity(Gravity.END);
+        value.setText(prop.format(cur));
+
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                if (!fromUser) return;
+                float v = min + (max - min) * (p / (float) SLIDER_STEPS);
+                v = snap(prop, v);
+                prop.write(v, host.playheadMs());
+                value.setText(prop.format(v));
+                host.onChanged();
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {}
+            @Override public void onStopTrackingTouch(SeekBar s) {}
+        });
+        row.addView(bar, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        row.addView(value);
+
+        final KeyframeDiamondControl diamond = new KeyframeDiamondControl(ctx);
+        final Runnable[] selfRefresh = new Runnable[1];
+        diamond.bind(prop, new KeyframeDiamondControl.Host() {
+            @Override public long playheadMs() { return host.playheadMs(); }
+            @Override public void onFocus() { }
+            @Override public void onAction() {
+                host.onChanged();
+                if (selfRefresh[0] != null) selfRefresh[0].run();
+            }
+        });
+        row.addView(diamond);
+        selfRefresh[0] = () -> {
+            long ph = host.playheadMs();
+            float v = prop.valueAt(ph);
+            value.setText(prop.format(v));
+            bar.setProgress(Math.round((v - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+            diamond.refresh(ph);
+        };
+        return selfRefresh[0];
+    }
+
     /** @return a refresher that re-reads this row's value, slider and on-key state. */
     private static Runnable propRow(@NonNull Context ctx, @NonNull LinearLayout parent,
-                                    @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host) {
+                                    @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
+                                    @Nullable View trailing) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -178,6 +293,7 @@ public final class PipDrawerTabs {
             View spacer = new View(ctx);
             row.addView(spacer, new LinearLayout.LayoutParams(Math.round(64 * d), 1));
         }
+        if (trailing != null) row.addView(trailing);
         parent.addView(row);
         selfRefresh[0] = () -> {
             long ph = host.playheadMs();

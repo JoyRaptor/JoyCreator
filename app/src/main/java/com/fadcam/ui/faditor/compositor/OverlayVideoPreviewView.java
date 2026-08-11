@@ -242,6 +242,14 @@ public class OverlayVideoPreviewView extends FrameLayout {
     @Nullable private Surface fxSurface;
     private boolean fxRouted;
     /**
+     * The FX view's GL-thread trash for retired still bitmaps, wired alongside the composite
+     * surface offer. Non-null while the FX composite may be uploading our stills; the gate on
+     * {@link #recycleStill} additionally requires fxSurface != null, so deferral stops the
+     * moment the chain disengages (queued bitmaps are drained by the next GL draw / release).
+     */
+    @Nullable private java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap>
+            fxStillTrash;
+    /**
      * The player {@link #fxRouted} describes. A decoder error releases the player and a later
      * clip builds a NEW one wired to this view's own TextureView; without the identity check the
      * stale flag matched, routeToFxIfWanted early-returned, and the new decoder painted into a
@@ -264,6 +272,26 @@ public class OverlayVideoPreviewView extends FrameLayout {
         routeToFxIfWanted();
     }
 
+    /** Wire the FX view's GL-thread still-bitmap trash; called with the composite surface offer. */
+    public void setFxStillTrash(
+            @Nullable java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> q) {
+        fxStillTrash = q;
+    }
+
+    /**
+     * Recycle a still bitmap, deferring to the FX chain's GL thread while the chain may be
+     * uploading it. {@code texImage2D} reads the pixel memory; freeing that memory mid-upload is
+     * a native crash no try/catch reaches, so while the FX composite owns the stills the actual
+     * free happens on the one thread that touches them. When no chain is engaged, recycle
+     * immediately, exactly as before.
+     */
+    private void recycleStill(@Nullable android.graphics.Bitmap b) {
+        if (b == null || b.isRecycled()) return;
+        java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> trash =
+                fxSurface != null ? fxStillTrash : null;
+        if (trash != null) trash.offer(b); else b.recycle();
+    }
+
     /**
      * Whether the FX tier currently owns the PiP pixels. The host asks so it knows whether the
      * GL composite will actually show something, rather than assuming the routing took.
@@ -273,25 +301,62 @@ public class OverlayVideoPreviewView extends FrameLayout {
     }
 
     /**
-     * The PiP's placement on the master frame, normalised, or null when nothing is on screen.
+     * The composite descriptor the FX chain needs for ONE visible clip, or null when this view
+     * cannot supply its pixels: a clip that is not on screen at the playhead, a matte peer
+     * (never in this view's list), a keyed clip (its own live tier owns the pixels), the live
+     * clip before its routing holds, or a still clip whose frame has not decoded yet. The FX
+     * walk simply draws nothing for that rung — the same "absent until ready" behaviour the
+     * sibling stills have always had.
      *
-     * <p>Read from the SAME {@code KeyframeSet} evaluation {@link #applyTransform} feeds the View
-     * properties, so the GL composite lands exactly where the gesture layer thinks the PiP is.
-     * Half-extents are in master-frame units, which is why they divide by the content rect: the
-     * shader works in the master video's normalised space.</p>
+     * <p>The live decoder's clip carries no bitmap — its pixels arrive on the FX surface. Every
+     * other visible clip carries its cached still, which the chain uploads to a 2D texture and
+     * grades in z-order, so an adjustment layer grades EVERY PiP beneath it — not just the one
+     * that happens to hold the decoder (the multi-PiP jank this replaces).</p>
      */
     @Nullable
-    public FxPreviewTextureView.Pip fxPipGeometry() {
-        if (callback == null || active == null || videoW <= 0 || videoH <= 0) return null;
+    public FxPreviewTextureView.Pip fxPipFor(@NonNull Clip clip) {
+        if (callback == null || !clips.contains(clip)) return null;
+        long start = clip.getOverlayStartMs();
+        long end = start + Math.max(0, clip.getTrimmedDurationMs());
+        if (currentTimeMs < start || currentTimeMs > end) return null;
+        if (clip == active) {
+            // The live decoder's clip: its pixels come through the FX surface — but only while
+            // that routing actually holds; a keyed PiP keeps its own tier and must NOT also be
+            // drawn here.
+            if (!fxRouted || videoW <= 0 || videoH <= 0) return null;
+            return pipFor(clip, videoW, videoH, null);
+        }
+        StillFrame sf = stills.get(clip.getId());
+        android.graphics.Bitmap b = sf == null ? null : sf.bitmap;
+        if (b == null || b.isRecycled()) {
+            FLog.d("FxMultiPip", "fxPipFor still " + clip.getId() + " -> no bitmap"
+                    + " (stills has " + stills.size() + ")");
+            return null;
+        }
+        return pipFor(clip, b.getWidth(), b.getHeight(), b);
+    }
+
+    /**
+     * One PiP's placement on the master frame, normalised — the maths {@link #applyTransform}
+     * feeds View properties, re-expressed for the GL composite. {@code srcW}×{@code srcH} is the
+     * clip's own decoded size (the live decoder's, or the still bitmap's): the fit box of a 16:9
+     * PiP on a 9:16 canvas is letterboxed, and guessing it would move the PiP. Half-extents are
+     * in master-frame units, which is why they divide by the content rect: the shader works in
+     * the master video's normalised space.
+     */
+    @Nullable
+    private FxPreviewTextureView.Pip pipFor(@NonNull Clip clip, int srcW, int srcH,
+                                            @Nullable android.graphics.Bitmap still) {
+        if (callback == null || srcW <= 0 || srcH <= 0) return null;
         RectF r = callback.getVideoContentRect();
         if (r.width() <= 0 || r.height() <= 0) return null;
-        float fit = Math.min(r.width() / videoW, r.height() / videoH);
-        float baseW = videoW * fit, baseH = videoH * fit;
-        float x = readValue(active, KeyframeSet.X, DEFAULT_X);
-        float y = readValue(active, KeyframeSet.Y, DEFAULT_Y);
-        float scale = readValue(active, KeyframeSet.SCALE, DEFAULT_SCALE);
-        float rot = readValue(active, KeyframeSet.ROTATION, 0f);
-        float alpha = Math.max(0f, Math.min(1f, readValue(active, KeyframeSet.OPACITY, 1f)));
+        float fit = Math.min(r.width() / srcW, r.height() / srcH);
+        float baseW = srcW * fit, baseH = srcH * fit;
+        float x = readValue(clip, KeyframeSet.X, DEFAULT_X);
+        float y = readValue(clip, KeyframeSet.Y, DEFAULT_Y);
+        float scale = readValue(clip, KeyframeSet.SCALE, DEFAULT_SCALE);
+        float rot = readValue(clip, KeyframeSet.ROTATION, 0f);
+        float alpha = Math.max(0f, Math.min(1f, readValue(clip, KeyframeSet.OPACITY, 1f)));
         // Y AND ROTATION ARE FLIPPED into GL's frame. The transform above is in VIEW space,
         // whose origin is top-left and whose positive rotation is clockwise on screen; the
         // shader works in vFxUv, which the vertex stage builds bottom-up. Passing y straight
@@ -304,10 +369,11 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 (baseW * scale) / r.width() * 0.5f,
                 (baseH * scale) / r.height() * 0.5f,
                 -rot, alpha,
-                active.getFx(), currentTimeMs,
-                active.getCompositing(),
-                com.fadcam.ui.faditor.model.BlendModes.modeCode(active.getOverlayBlendMode()),
-                Math.max(1, videoW), Math.max(1, videoH));
+                clip.getFx(), currentTimeMs,
+                clip.getCompositing(),
+                com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()),
+                Math.max(1, srcW), Math.max(1, srcH),
+                clip.getId(), still);
     }
 
     /**
@@ -625,7 +691,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
         while (it.hasNext()) {
             java.util.Map.Entry<String, StillFrame> e = it.next();
             if (!visibleIds.contains(e.getKey())) {
-                if (e.getValue().bitmap != null) e.getValue().bitmap.recycle();
+                if (e.getValue().bitmap != null) recycleStill(e.getValue().bitmap);
                 it.remove();
                 changed = true;
             }
@@ -653,11 +719,11 @@ public class OverlayVideoPreviewView extends FrameLayout {
             post(() -> {
                 StillFrame sf = stills.get(id);
                 if (sf == null) { // clip left visibility while we decoded
-                    if (result != null) result.recycle();
+                    if (result != null) recycleStill(result);
                     return;
                 }
                 if (result != null) {
-                    if (sf.bitmap != null) sf.bitmap.recycle();
+                    if (sf.bitmap != null) recycleStill(sf.bitmap);
                     sf.bitmap = result;
                     sf.bucketMs = bucketMs;
                 }
@@ -676,6 +742,11 @@ public class OverlayVideoPreviewView extends FrameLayout {
     protected void onDraw(android.graphics.Canvas canvas) {
         super.onDraw(canvas);
         if (callback == null || stills.isEmpty()) return;
+        // While the FX composite owns the pixels, every still is graded INSIDE its chain in
+        // z-order; drawing them here too would double every PiP AND hoist them ABOVE the
+        // adjustment layers meant to grade them — the exact z-inversion the routing exists
+        // to fix.
+        if (fxSurface != null) return;
         RectF r = callback.getVideoContentRect();
         if (r.width() <= 0 || r.height() <= 0) return;
         Clip top = topVisibleAt(currentTimeMs);
@@ -1186,7 +1257,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
         super.onDetachedFromWindow();
         releasePlayer();
         for (StillFrame sf : stills.values()) {
-            if (sf.bitmap != null && !sf.bitmap.isRecycled()) sf.bitmap.recycle();
+            if (sf.bitmap != null && !sf.bitmap.isRecycled()) recycleStill(sf.bitmap);
         }
         stills.clear();
         stillExecutor.shutdownNow();

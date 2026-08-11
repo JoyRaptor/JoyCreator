@@ -2735,8 +2735,12 @@ public class ExportManager {
             // Emitted BEFORE the adjustment layers below, so an adjustment layer still grades
             // "everything beneath it" including styled text. Emitted AFTER the PiP loop, so
             // text stays above the video, which is where it has always been.
+            // IMAGE overlays are excluded here (and kept on the canvas path by
+            // CompositeExportOverlay.filterTextOverlays): TextFxGlEffect rasterises text, so
+            // an image handed to it would export blank. Pending the image-aware rasterizer
+            // (build-list), an image's effect persists but the picture renders plain.
             for (com.fadcam.ui.faditor.model.TextOverlayItem to : exportTextOverlays) {
-                if (!to.hasActiveFx()) continue;
+                if (!to.hasActiveFx() || to.isImage()) continue;
                 videoEffects.add(new TextFxGlEffect(context, to,
                         editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem

@@ -921,22 +921,182 @@ public class Timeline {
      * them in start order onto the first lane whose previous item has already ended, minting a new lane
      * ONLY when a real time-overlap forces it. Lane 0 keeps the default bucket; extra lanes get a
      * deterministic {@code "<prefix>-<firstItemId>"}. A MANUAL, undoable action (never run
-     * automatically). Also collapses the T8 one-sprite-per-lane sprawl. Returns how many items changed
-     * lane (0 = already minimal).
+     * automatically). Covers EVERY lane family in one pass — PiP/video + image overlays
+     * ({@code overlayClips}), sprites, text and adjustment layers — so orphan-lane sprawl disappears
+     * across all of them, not just the two that used to be packed. Captions are Clip-owned and live on
+     * a single CAPTION track ({@link #getCaptionTracks()}), so they are exempt by construction.
+     *
+     * <p>MATTE COUPLING EXEMPTION (the one exception): a lane that takes part in a track-matte
+     * pairing — either a RECIPIENT whose {@code CompositingSpec.mattePeerId} names another clip, or
+     * the lane holding that matte PEER — is left COMPLETELY undisturbed. The renderers resolve the
+     * pairing by clip id and expect both participants to keep their z/row position, so compacting
+     * either would silently change what gets keyed. Those lanes are counted and reported back so the
+     * UI can tell the user why.</p>
+     *
+     * @return the number of items that changed lane, plus how many matte-coupled lanes were
+     *         deliberately left alone.
      */
-    public int compactOverlayLanes() {
-        return compactTextLanes() + compactSpriteLanes();
+    @NonNull
+    public CompactResult compactOverlayLanes() {
+        java.util.Set<String> exempt = matteCoupledLaneIds();
+        int moved = 0;
+        moved += compactTextLanes(exempt);
+        moved += compactSpriteLanes(exempt);
+        moved += compactVideoLanes(exempt);
+        moved += compactAdjustmentLanes(exempt);
+        return new CompactResult(moved, countExemptLanes(exempt));
     }
 
-    private int compactTextLanes() {
+    /**
+     * Every lane that is part of a track-matte pairing and must survive compaction untouched:
+     * <ul>
+     *   <li>the lane of any RECIPIENT (an overlay clip, text or adjustment layer) whose
+     *       {@code CompositingSpec.mattePeerId} is set — it consumes another lane's pixels;</li>
+     *   <li>the lane of the matte PEER overlay clip that id names — its pixels ARE the mask.</li>
+     * </ul>
+     * A master clip can also name a matte peer, so its peer's lane is exempted too (the master itself
+     * has no lane to compact). Null lane ids are preserved (HashSet allows null) so the default
+     * bucket of a family is exempted exactly like any named lane.
+     */
+    @NonNull
+    private java.util.Set<String> matteCoupledLaneIds() {
+        java.util.Set<String> exempt = new java.util.HashSet<>();
+        for (Clip oc : overlayClips) {
+            addMatteCoupledLane(exempt, oc.getCompositing(), oc.getLayerId());
+        }
+        for (Clip c : clips) {
+            addMattePeerLane(exempt, c.getCompositing());
+        }
+        for (TextOverlayItem t : textOverlays) {
+            addMatteCoupledLane(exempt, t.getCompositing(), t.getLayerId());
+        }
+        for (AdjustmentLayer a : adjustmentLayers) {
+            addMatteCoupledLane(exempt, a.getCompositing(), a.getLayerId());
+        }
+        return exempt;
+    }
+
+    private void addMatteCoupledLane(@NonNull java.util.Set<String> exempt,
+            @Nullable CompositingSpec cs, @Nullable String recipientLane) {
+        if (cs == null || cs.mattePeerId == null) return;
+        exempt.add(recipientLane);
+        addMattePeerLane(exempt, cs);
+    }
+
+    private void addMattePeerLane(@NonNull java.util.Set<String> exempt,
+            @Nullable CompositingSpec cs) {
+        if (cs == null || cs.mattePeerId == null) return;
+        // Resolved against overlayClips, like the renderers do.
+        Clip peer = findOverlayClip(cs.mattePeerId);
+        if (peer != null) exempt.add(peer.getLayerId());
+    }
+
+    /**
+     * How many DISTINCT lanes in the exempt set actually carry an item today — the number a user
+     * would see skipped on screen. {@code omittedLanes} in {@link CompactResult} is this count, not
+     * the raw set size, so an exempt lane that happens to be empty never inflates the toast.
+     */
+    private int countExemptLanes(@NonNull java.util.Set<String> exempt) {
+        if (exempt.isEmpty()) return 0;
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        int n = 0;
+        for (Clip oc : overlayClips) {
+            if (exempt.contains(oc.getLayerId()) && seen.add(oc.getLayerId())) n++;
+        }
+        for (TextOverlayItem t : textOverlays) {
+            if (exempt.contains(t.getLayerId()) && seen.add(t.getLayerId())) n++;
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+            if (exempt.contains(s.getLayerId()) && seen.add(s.getLayerId())) n++;
+        }
+        for (AdjustmentLayer a : adjustmentLayers) {
+            if (exempt.contains(a.getLayerId()) && seen.add(a.getLayerId())) n++;
+        }
+        return n;
+    }
+
+    private int compactTextLanes(@NonNull java.util.Set<String> exempt) {
         if (textOverlays.size() < 2) return 0;
         List<TextOverlayItem> sorted = new ArrayList<>(textOverlays);
         sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
+        return packLaneFamily(sorted,
+                TextOverlayItem::getStartMs,
+                o -> textEndForPacking(o),
+                TextOverlayItem::getLayerId,
+                TextOverlayItem::setLayerId,
+                o -> "text-" + o.getId(),
+                exempt,
+                null);
+    }
+
+    private int compactSpriteLanes(@NonNull java.util.Set<String> exempt) {
+        if (spriteOverlays.size() < 2) return 0;
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sorted = new ArrayList<>(spriteOverlays);
+        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
+        return packLaneFamily(sorted,
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem::getStartMs,
+                o -> spriteEndForPacking(o),
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem::getLayerId,
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem::setLayerId,
+                o -> spriteLayerIdFor(o),
+                exempt,
+                null);
+    }
+
+    private int compactVideoLanes(@NonNull java.util.Set<String> exempt) {
+        if (overlayClips.size() < 2) return 0;
+        List<Clip> sorted = new ArrayList<>(overlayClips);
+        sorted.sort((a, b) -> Long.compare(a.getOverlayStartMs(), b.getOverlayStartMs()));
+        return packLaneFamily(sorted,
+                Clip::getOverlayStartMs,
+                o -> videoEndForPacking(o),
+                Clip::getLayerId,
+                Clip::setLayerId,
+                o -> "video-" + o.getId(),
+                exempt,
+                null);
+    }
+
+    private int compactAdjustmentLanes(@NonNull java.util.Set<String> exempt) {
+        if (adjustmentLayers.size() < 2) return 0;
+        List<AdjustmentLayer> sorted = new ArrayList<>(adjustmentLayers);
+        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
+        return packLaneFamily(sorted,
+                AdjustmentLayer::getStartMs,
+                o -> adjustmentEndForPacking(o),
+                AdjustmentLayer::getLayerId,
+                AdjustmentLayer::setLayerId,
+                o -> "adjustment-" + o.getId(),
+                exempt,
+                "");
+    }
+
+    /**
+     * One greedy lane packer shared by every overlay family. Items on a matte-coupled lane are left
+     * exactly where they are (and are never counted as "moved"); the default bucket is skipped for
+     * packing when it is itself exempt, so nothing is ever folded onto a lane that must stay put.
+     * Returns how many items changed lane.
+     */
+    private static <T> int packLaneFamily(
+            @NonNull List<T> sorted,
+            @NonNull java.util.function.ToLongFunction<T> startFn,
+            @NonNull java.util.function.ToLongFunction<T> endFn,
+            @NonNull java.util.function.Function<T, String> laneFn,
+            @NonNull java.util.function.BiConsumer<T, String> setLaneFn,
+            @NonNull java.util.function.Function<T, String> mintFn,
+            @NonNull java.util.Set<String> exemptLanes,
+            @Nullable String defaultBucketId) {
         List<Long> laneEnd = new ArrayList<>();
         List<String> laneId = new ArrayList<>();
+        boolean defaultExempt = exemptLanes.contains(defaultBucketId);
         int changed = 0;
-        for (TextOverlayItem o : sorted) {
-            long s = o.getStartMs(), e = textEndForPacking(o);
+        for (T o : sorted) {
+            String cur = laneFn.apply(o);
+            // A matte-coupled lane is left COMPLETELY undisturbed: its items never move and no
+            // other item is ever assigned to it.
+            if (exemptLanes.contains(cur)) continue;
+            long s = startFn.applyAsLong(o);
+            long e = endFn.applyAsLong(o);
             int placed = -1;
             for (int k = 0; k < laneEnd.size(); k++) {
                 if (laneEnd.get(k) <= s) { placed = k; break; }
@@ -944,46 +1104,43 @@ public class Timeline {
             if (placed < 0) {
                 placed = laneEnd.size();
                 laneEnd.add(e);
-                laneId.add(placed == 0 ? null : ("text-" + o.getId()));
+                laneId.add((placed == 0 && !defaultExempt) ? defaultBucketId : mintFn.apply(o));
             } else {
                 laneEnd.set(placed, e);
             }
             String want = laneId.get(placed);
-            if (!laneIdEquals(o.getLayerId(), want)) { o.setLayerId(want); changed++; }
+            if (!laneIdEquals(cur, want)) { setLaneFn.accept(o, want); changed++; }
         }
         return changed;
     }
 
-    private int compactSpriteLanes() {
-        if (spriteOverlays.size() < 2) return 0;
-        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sorted = new ArrayList<>(spriteOverlays);
-        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
-        List<Long> laneEnd = new ArrayList<>();
-        List<String> laneId = new ArrayList<>();
-        int changed = 0;
-        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : sorted) {
-            long s = o.getStartMs(), endMs = o.getEndMs();
-            long e = (endMs == Long.MAX_VALUE || endMs <= s) ? Long.MAX_VALUE : endMs;
-            int placed = -1;
-            for (int k = 0; k < laneEnd.size(); k++) {
-                if (laneEnd.get(k) <= s) { placed = k; break; }
-            }
-            if (placed < 0) {
-                placed = laneEnd.size();
-                laneEnd.add(e);
-                laneId.add(placed == 0 ? null : spriteLayerIdFor(o));
-            } else {
-                laneEnd.set(placed, e);
-            }
-            String want = laneId.get(placed);
-            if (!laneIdEquals(o.getLayerId(), want)) { o.setLayerId(want); changed++; }
-        }
-        return changed;
+    /** Open-ended sprite occupies its lane forever (mirrors the old inline guard). */
+    private static long spriteEndForPacking(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem o) {
+        long e = o.getEndMs();
+        return (e == Long.MAX_VALUE || e <= o.getStartMs()) ? Long.MAX_VALUE : e;
+    }
+
+    /** Open-ended adjustment layer (duration <= 0) occupies its lane forever. */
+    private static long adjustmentEndForPacking(@NonNull AdjustmentLayer a) {
+        return a.getDurationMs() <= 0L ? Long.MAX_VALUE : a.getEndMs();
     }
 
     /** Null-safe layer-id compare (a null id == the default lane bucket). */
     private static boolean laneIdEquals(String a, String b) {
         return a == null ? b == null : a.equals(b);
+    }
+
+    /** Outcome of {@link #compactOverlayLanes()}. */
+    public static final class CompactResult {
+        /** How many items actually changed lane (0 = already minimal). */
+        public final int moved;
+        /** How many distinct lanes were left alone because they take part in a track matte. */
+        public final int omittedLanes;
+
+        public CompactResult(int moved, int omittedLanes) {
+            this.moved = moved;
+            this.omittedLanes = omittedLanes;
+        }
     }
 
     // ── Transition management ───────────────────────────────────────

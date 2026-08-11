@@ -14754,37 +14754,73 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
             spriteBefore.put(s, s.getLayerId());
         }
+        java.util.Map<Clip, String> videoBefore = new java.util.HashMap<>();
+        for (Clip c : tl.getOverlayClips()) videoBefore.put(c, c.getLayerId());
+        java.util.Map<com.fadcam.ui.faditor.model.AdjustmentLayer, String> adjustmentBefore =
+                new java.util.HashMap<>();
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
+            adjustmentBefore.put(a, a.getLayerId());
+        }
 
-        int changed = tl.compactOverlayLanes();
-        if (changed == 0) {
+        Timeline.CompactResult result = tl.compactOverlayLanes();
+        if (result.moved == 0 && result.omittedLanes == 0) {
             Toast.makeText(this, "Lanes already compact", Toast.LENGTH_SHORT).show();
             return;
         }
-        java.util.Map<TextOverlayItem, String> textAfter = new java.util.HashMap<>();
-        for (TextOverlayItem o : textBefore.keySet()) textAfter.put(o, o.getLayerId());
-        java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> spriteAfter =
-                new java.util.HashMap<>();
-        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBefore.keySet()) {
-            spriteAfter.put(s, s.getLayerId());
+        if (result.moved > 0) {
+            java.util.Map<TextOverlayItem, String> textAfter = new java.util.HashMap<>();
+            for (TextOverlayItem o : textBefore.keySet()) textAfter.put(o, o.getLayerId());
+            java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> spriteAfter =
+                    new java.util.HashMap<>();
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBefore.keySet()) {
+                spriteAfter.put(s, s.getLayerId());
+            }
+            java.util.Map<Clip, String> videoAfter = new java.util.HashMap<>();
+            for (Clip c : videoBefore.keySet()) videoAfter.put(c, c.getLayerId());
+            java.util.Map<com.fadcam.ui.faditor.model.AdjustmentLayer, String> adjustmentAfter =
+                    new java.util.HashMap<>();
+            for (com.fadcam.ui.faditor.model.AdjustmentLayer a : adjustmentBefore.keySet()) {
+                adjustmentAfter.put(a, a.getLayerId());
+            }
+
+            undoManager.recordAction(new EditActions.LambdaAction("Compact lanes",
+                    () -> { applyLaneSnapshot(textBefore, spriteBefore, videoBefore, adjustmentBefore);
+                            refreshAfterLaneChange(); },
+                    () -> { applyLaneSnapshot(textAfter, spriteAfter, videoAfter, adjustmentAfter);
+                            refreshAfterLaneChange(); }));
+
+            refreshAfterLaneChange();
+            Toast.makeText(this, "Compacted " + result.moved + " lane"
+                            + (result.moved == 1 ? "" : "s"),
+                    Toast.LENGTH_SHORT).show();
         }
-
-        undoManager.recordAction(new EditActions.LambdaAction("Compact lanes",
-                () -> { applyLaneSnapshot(textBefore, spriteBefore); refreshAfterLaneChange(); },
-                () -> { applyLaneSnapshot(textAfter, spriteAfter); refreshAfterLaneChange(); }));
-
-        refreshAfterLaneChange();
-        Toast.makeText(this, "Compacted " + changed + " lane" + (changed == 1 ? "" : "s"),
-                Toast.LENGTH_SHORT).show();
+        if (result.omittedLanes > 0) {
+            Toast.makeText(this, result.omittedLanes + " lane"
+                            + (result.omittedLanes == 1 ? " was" : "s were")
+                            + " omitted from compaction because "
+                            + (result.omittedLanes == 1 ? "it is" : "they are")
+                            + " being used as a mask (track matte) for another lane",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void applyLaneSnapshot(
             @NonNull java.util.Map<TextOverlayItem, String> text,
-            @NonNull java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> sprites) {
+            @NonNull java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> sprites,
+            @NonNull java.util.Map<Clip, String> videos,
+            @NonNull java.util.Map<com.fadcam.ui.faditor.model.AdjustmentLayer, String> adjustments) {
         for (java.util.Map.Entry<TextOverlayItem, String> e : text.entrySet()) {
             e.getKey().setLayerId(e.getValue());
         }
         for (java.util.Map.Entry<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> e
                 : sprites.entrySet()) {
+            e.getKey().setLayerId(e.getValue());
+        }
+        for (java.util.Map.Entry<Clip, String> e : videos.entrySet()) {
+            e.getKey().setLayerId(e.getValue());
+        }
+        for (java.util.Map.Entry<com.fadcam.ui.faditor.model.AdjustmentLayer, String> e
+                : adjustments.entrySet()) {
             e.getKey().setLayerId(e.getValue());
         }
     }

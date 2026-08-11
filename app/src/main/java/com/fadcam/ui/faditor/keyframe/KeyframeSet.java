@@ -20,6 +20,9 @@ public class KeyframeSet {
     public static final String X = "x";
     public static final String Y = "y";
     public static final String SCALE = "scale";
+    /** Per-axis scale multipliers (the image-overlay chain unlink). Default 1 = no change. */
+    public static final String SCALE_X = "scaleX";
+    public static final String SCALE_Y = "scaleY";
     public static final String OPACITY = "opacity";
     public static final String ROTATION = "rotation";
 

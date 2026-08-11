@@ -7755,9 +7755,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (gs != null && gs.width > 0 && gs.height > 0) {
                 return (float) gs.width / gs.height;
             }
-            int w = getVideoWidth(c);
-            int h = getVideoHeight(c);
-            if (w > 0 && h > 0) return (float) w / h;
+            // ONE pass, not two: displaySize opens a MediaMetadataRetriever, and asking it
+            // twice here meant two full setDataSource calls per layout.
+            int[] wh = displaySize(c);
+            if (wh[0] > 0 && wh[1] > 0) return (float) wh[0] / wh[1];
         }
         return -1f;
     }
@@ -7766,46 +7767,85 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Gets video width from clip using MediaMetadataRetriever.
      */
     private int getVideoWidth(@NonNull Clip clip) {
+        return displaySize(clip)[0];
+    }
+
+    /**
+     * The clip's size AS DISPLAYED — rotation already applied. Never the raw stored size.
+     *
+     * <p><b>This is the difference between a portrait video and a landscape one.</b> A phone
+     * records "portrait" as a LANDSCAPE frame plus a 90°/270° rotation flag; the player applies
+     * that flag, the container metadata does not. Reading
+     * {@code METADATA_KEY_VIDEO_WIDTH/HEIGHT} alone therefore reports a 9:16 clip as 1920x1080,
+     * i.e. 16:9. {@link #resolveCanvasAspect} sizes the whole canvas off clip 0, so promoting a
+     * portrait PiP to the front of the timeline silently flipped an entire 9:16 project to
+     * landscape — reported 2026-08-11. Stills have the identical trap in EXIF orientation, so
+     * both are handled here rather than in one branch.</p>
+     *
+     * <p>One retriever pass for all three values: the previous pair of methods each opened their
+     * own {@code MediaMetadataRetriever} and called {@code setDataSource} — two full decodes to
+     * answer one question, on a path {@code applyCanvasFrame} runs at layout time.</p>
+     *
+     * @return {@code {width, height}}, or {@code {0, 0}} when nothing can be read.
+     */
+    @NonNull
+    private int[] displaySize(@NonNull Clip clip) {
         if (clip.isImageClip()) {
+            int w = 0, h = 0;
             try (InputStream is = getContentResolver().openInputStream(clip.getSourceUri())) {
                 android.graphics.BitmapFactory.Options opts =
                         new android.graphics.BitmapFactory.Options();
                 opts.inJustDecodeBounds = true;
                 android.graphics.BitmapFactory.decodeStream(is, null, opts);
-                return opts.outWidth;
-            } catch (Exception e) { return 0; }
+                w = opts.outWidth;
+                h = opts.outHeight;
+            } catch (Exception e) { return new int[]{0, 0}; }
+            // BitmapFactory reports the STORED bounds and ignores EXIF, exactly as the video
+            // metadata ignores its rotation flag.
+            try (InputStream is = getContentResolver().openInputStream(clip.getSourceUri())) {
+                if (is != null) {
+                    int o = new androidx.exifinterface.media.ExifInterface(is).getAttributeInt(
+                            androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                            androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL);
+                    if (o == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90
+                            || o == androidx.exifinterface.media.ExifInterface
+                                    .ORIENTATION_ROTATE_270) {
+                        int t = w; w = h; h = t;
+                    }
+                }
+            } catch (Exception ignored) {
+                // No EXIF, or unreadable: the stored bounds are the best answer available.
+            }
+            return new int[]{w, h};
         }
+        android.media.MediaMetadataRetriever r = null;
         try {
-            android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+            r = new android.media.MediaMetadataRetriever();
             r.setDataSource(this, clip.getSourceUri());
             String w = r.extractMetadata(
                     android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
-            r.release();
-            return w != null ? Integer.parseInt(w) : 0;
-        } catch (Exception e) { return 0; }
+            String h = r.extractMetadata(
+                    android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+            String rot = r.extractMetadata(
+                    android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+            if (w == null || h == null) return new int[]{0, 0};
+            int wi = Integer.parseInt(w), hi = Integer.parseInt(h);
+            int deg = 0;
+            try { if (rot != null) deg = Integer.parseInt(rot); } catch (NumberFormatException ignored) { }
+            deg = ((deg % 360) + 360) % 360;
+            return deg == 90 || deg == 270 ? new int[]{hi, wi} : new int[]{wi, hi};
+        } catch (Exception e) {
+            return new int[]{0, 0};
+        } finally {
+            if (r != null) { try { r.release(); } catch (Exception ignored) { } }
+        }
     }
 
     /**
      * Gets video height from clip using MediaMetadataRetriever.
      */
     private int getVideoHeight(@NonNull Clip clip) {
-        if (clip.isImageClip()) {
-            try (InputStream is = getContentResolver().openInputStream(clip.getSourceUri())) {
-                android.graphics.BitmapFactory.Options opts =
-                        new android.graphics.BitmapFactory.Options();
-                opts.inJustDecodeBounds = true;
-                android.graphics.BitmapFactory.decodeStream(is, null, opts);
-                return opts.outHeight;
-            } catch (Exception e) { return 0; }
-        }
-        try {
-            android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
-            r.setDataSource(this, clip.getSourceUri());
-            String h = r.extractMetadata(
-                    android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
-            r.release();
-            return h != null ? Integer.parseInt(h) : 0;
-        } catch (Exception e) { return 0; }
+        return displaySize(clip)[1];
     }
 
     // ── AV4: Waveform visualizer settings + analysis timing ────────────

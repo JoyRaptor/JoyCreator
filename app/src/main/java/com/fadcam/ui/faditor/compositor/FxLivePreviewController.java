@@ -209,20 +209,87 @@ public final class FxLivePreviewController {
         // Resolve on THIS thread — the GL thread must never walk the live model. See
         // FxPreviewTextureView.Layer for why a snapshot rather than the layer itself.
         int[] size = videoSize();
-        List<AdjustmentLayer> live = all == null ? java.util.Collections.emptyList()
-                : LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
+        view.setVideoSize(size[0], size[1]);
+        view.setVideoRotation(rotationDegrees());
+        view.setCompositePlan(buildPlan(timeline, playheadMs, size));
+        route();
+    }
+
+    /**
+     * Build the z-ordered composite plan: every live adjustment layer (resolved to its immutable
+     * snapshot, the list program compilation keys on) interleaved with every PiP the overlay
+     * layer can supply — in the ONE order both renderers read, {@code LayerPreviewController
+     * .orderedCompositedItems}, the same list the export's effect chain is assembled from. So an
+     * adjustment layer grades the same set of PiPs here as in the file, and a layer between two
+     * PiPs grades only the lower one.
+     *
+     * <p>The surface offer stays "every tick rather than once": the PiP layer creates its player
+     * lazily (only when a PiP clip is actually on screen) and releases it when the list empties,
+     * so the moment routing becomes possible is not knowable from here.</p>
+     */
+    @NonNull
+    private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
+            long playheadMs, @NonNull int[] size) {
+        List<AdjustmentLayer> live =
+                LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
+        java.util.IdentityHashMap<AdjustmentLayer, Integer> layerIndex =
+                new java.util.IdentityHashMap<>();
         for (AdjustmentLayer l : live) {
             FxPreviewTextureView.Layer s =
                     FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1]);
-            if (s != null) snapshot.add(s);
+            if (s != null) {
+                layerIndex.put(l, snapshot.size());
+                snapshot.add(s);
+            }
         }
-        view.setVideoSize(size[0], size[1]);
-        view.setVideoRotation(rotationDegrees());
-        view.setLayers(snapshot);
-        syncPip();
-        route();
+        OverlayVideoPreviewView ov = host.overlayVideoLayer();
+        boolean offer = ov != null && pipSurface != null;
+        if (offer) {
+            ov.setFxCompositeSurface(pipSurface);
+            ov.setFxStillTrash(view.stillTrash());
+        }
+        List<FxPreviewTextureView.Rung> rungs = new ArrayList<>();
+        int pipRungs = 0;
+        for (LayerPreviewController.VisualItem v
+                : LayerPreviewController.orderedCompositedItems(timeline)) {
+            Clip vc = v.item.getClip();
+            if (vc != null && vc.isOverlayClip()) {
+                FxPreviewTextureView.Pip p = offer ? ov.fxPipFor(vc) : null;
+                if (p != null) { rungs.add(FxPreviewTextureView.Rung.pip(p)); pipRungs++; }
+                else if (!loggedNullPip) {
+                    // ONCE, not per frame: a PiP with no geometry yet is the normal state for
+                    // the first frames after a clip appears, so this fired 60 times a second
+                    // while telling you nothing new.
+                    loggedNullPip = true;
+                    FLog.d("FxMultiPip", "buildPlan: pip " + vc.getId() + " -> null");
+                }
+                continue;
+            }
+            AdjustmentLayer al = v.item.getAdjustment();
+            if (al == null) continue;
+            Integer idx = layerIndex.get(al);
+            if (idx != null) rungs.add(FxPreviewTextureView.Rung.layer(idx));
+        }
+        // LOG THE PLAN ONLY WHEN ITS SHAPE CHANGES. buildPlan runs once per rendered frame, so
+        // this was concatenating a string and writing to logcat 60 times a second — FLog.d takes
+        // an already-built String, so the concatenation happens at the call site whether or not
+        // anything is listening. The diagnostic value is in the transitions ("we went from 2
+        // rungs to 4"), which is exactly what this still prints.
+        int shape = (rungs.size() * 31 + pipRungs) * 31 + snapshot.size();
+        if (offer) shape = ~shape;
+        if (shape != lastPlanShape) {
+            lastPlanShape = shape;
+            FLog.d("FxMultiPip", "plan: rungs=" + rungs.size() + " pips=" + pipRungs
+                    + " layers=" + snapshot.size() + " offer=" + offer);
+        }
+        return new FxPreviewTextureView.CompositePlan(snapshot, rungs);
     }
+
+    /** @see #buildPlan — a cheap fingerprint of the last plan's shape, for change-only logging. */
+    private int lastPlanShape = Integer.MIN_VALUE;
+    /** @see #buildPlan — a null PiP is normal on the first frames; say it once, not per frame. */
+    private boolean loggedNullPip;
 
     /**
      * The decoded picture's dimensions, rotation applied.
@@ -247,22 +314,6 @@ public final class FxLivePreviewController {
     private int rotationDegrees() {
         ExoPlayer p = host.activeVideoPlayer();
         return p == null ? 0 : p.getVideoSize().unappliedRotationDegrees;
-    }
-
-    /**
-     * Offer the PiP layer our composite surface, and push whatever geometry it reports.
-     *
-     * <p>The offer is made every tick rather than once: the PiP layer creates its player lazily
-     * (only when a PiP clip is actually on screen) and releases it when the list empties, so the
-     * moment routing becomes possible is not knowable from here.</p>
-     */
-    private void syncPip() {
-        OverlayVideoPreviewView ov = host.overlayVideoLayer();
-        if (ov == null || pipSurface == null) { view.setPip(null); return; }
-        ov.setFxCompositeSurface(pipSurface);
-        // Geometry only counts once the pixels are actually coming here. A keyed PiP keeps its
-        // own live tier, so it stays a sibling View and must NOT also be drawn in the chain.
-        view.setPip(ov.isFxRouted() ? ov.fxPipGeometry() : null);
     }
 
     /** Attach the decoder to the GL view, if it is not already there. */
@@ -291,9 +342,8 @@ public final class FxLivePreviewController {
         if (!routed) return;
         routed = false;
         routedPlayer = null;
-        view.setLayers(java.util.Collections.emptyList());
+        view.setCompositePlan(null);
         view.setGrade(null);
-        view.setPip(null);
         OverlayVideoPreviewView ov = host.overlayVideoLayer();
         if (ov != null) ov.setFxCompositeSurface(null);   // give the PiP its own surface back
         host.restoreVideoOutput();

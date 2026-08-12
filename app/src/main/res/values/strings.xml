@@ -3292,6 +3292,12 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_blend_action">Blend mode</string>
     <string name="faditor_blend_title">Blend mode</string>
     <string name="faditor_blend_export_note">Blend modes are applied when you export. The preview shows the layer normally.</string>
+    <!-- Image-overlay tabs whose settings are saved but reach neither renderer yet. Kept
+         visible on purpose (JoyRaptor, 2026-08-12) — labelled, not hidden. -->
+    <string name="faditor_image_inert_mask">Not applied to image overlays yet — your shape is saved, but it won\'t affect the preview or the export.</string>
+    <string name="faditor_image_inert_key">Not applied to image overlays yet — your key is saved, but it won\'t affect the preview or the export.</string>
+    <string name="faditor_image_inert_blend">Not applied to image overlays yet — your choice is saved, but it won\'t affect the preview or the export.</string>
+    <string name="faditor_image_inert_fx">Not applied to image overlays yet — your effects are saved, but they won\'t affect the preview or the export.</string>
     <string name="faditor_blend_normal">Normal</string>
     <string name="faditor_blend_multiply">Multiply</string>
     <string name="faditor_blend_screen">Screen</string>

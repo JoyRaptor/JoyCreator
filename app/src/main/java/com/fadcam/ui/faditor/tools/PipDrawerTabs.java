@@ -56,6 +56,36 @@ public final class PipDrawerTabs {
 
     public interface ColorPicked { void onPicked(@Nullable Integer rgb); }
 
+    /**
+     * Wraps a tab whose controls write the model but reach NEITHER renderer, with a one-line
+     * caveat above it. JoyRaptor's ruling (2026-08-12) on the four inert image-overlay tabs: leave the
+     * tabs and the controls, but say so — a control that silently does nothing is worse than a
+     * control labelled honestly.
+     *
+     * <p>The note goes ABOVE the content, not below: below is where the export-only blend caveat
+     * lives, and these two must not read as the same class of warning. This one means "no picture
+     * change at all, in preview or in export"; that one means "you will see it in the file".</p>
+     */
+    @NonNull
+    public static View withInertNote(@NonNull Context ctx, @NonNull View content, int noteRes) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout root = column(ctx);
+        TextView note = new TextView(ctx);
+        note.setText(noteRes);
+        note.setTextColor(TXT_DIM);
+        note.setTextSize(10);
+        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        note.setPadding(Math.round(6 * d), Math.round(6 * d),
+                Math.round(6 * d), Math.round(6 * d));
+        root.addView(note);
+        root.addView(content);
+        // The row-refresh tag is looked up on the tab's ROOT view (see refreshRows), so wrapping a
+        // tab would otherwise silently stop its playhead-driven read-back. Forward the child's.
+        Object tag = content.getTag(R.id.faditor_tag_row_refresh);
+        if (tag != null) root.setTag(R.id.faditor_tag_row_refresh, tag);
+        return root;
+    }
+
     // ── Tab 0: VIDEO ─────────────────────────────────────────────────────────────────────
 
     /**

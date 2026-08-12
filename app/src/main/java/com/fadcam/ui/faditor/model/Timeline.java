@@ -511,6 +511,39 @@ public class Timeline {
         }
     }
 
+    /**
+     * The inverse of {@link #reanchorAfterManualSplit}: parts became ONE clip again, so every rider
+     * anchored to any of {@code mergedIds} is re-homed onto {@code survivorId}.
+     *
+     * <p><b>Why undo needs this at all.</b> A split re-homes riders onto the halves; re-joining them
+     * left those anchors pointing at clips that no longer exist. A dangling host is not cosmetic —
+     * {@link #applyAnchorShift} classifies such a rider as an ORPHAN and never moves it again, so it
+     * silently stops tracking its footage for the rest of the project's life while still looking
+     * anchored. One real project accumulated 8 that way, and they were mistaken for legacy data
+     * rather than an ongoing leak.</p>
+     *
+     * <p>Unambiguous, unlike a DELETE: the content is still there and there is exactly one clip it
+     * can belong to, so this repairs silently where §4A's orphan prompt would have to ask. Times are
+     * untouched — a re-home is not a move.</p>
+     */
+    public void reanchorAfterJoin(@NonNull String survivorId, @NonNull String... mergedIds) {
+        int idx = indexOfMasterClipId(survivorId);
+        if (idx < 0) return;
+        long hostStart = segmentStartMs(idx);
+        long hostSpan = clipSpanMs(clips.get(idx));
+        for (TextOverlayItem o : textOverlays) {
+            String host = o.getHostClipId();
+            if (host == null) continue;
+            boolean merged = false;
+            for (String id : mergedIds) {
+                if (host.equals(id)) { merged = true; break; }
+            }
+            if (!merged) continue;
+            o.setHostAnchor(survivorId,
+                    AnchorMath.offsetWithinHost(o.getStartMs(), hostStart, hostSpan));
+        }
+    }
+
     private void reanchorAfterSplit(@NonNull String originalId, int indexA) {
         if (indexA < 0 || indexA + 1 >= clips.size()) return;
         for (TextOverlayItem o : textOverlays) {

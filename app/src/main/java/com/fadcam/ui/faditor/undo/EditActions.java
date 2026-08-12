@@ -578,6 +578,10 @@ public final class EditActions {
             timeline.addClip(at, clipA);
             // REDO must reproduce the index shift too — undo() restored the pre-split list.
             timeline.shiftTransitionsAfterSplit(at);
+            // …and re-home the riders, which undo() put back on the original. splitAt does this
+            // for the FIRST split; this path rebuilds the halves by hand and so must do it itself,
+            // or one undo+redo round trip leaves every rider anchored to a clip that is gone.
+            timeline.reanchorAfterManualSplit(originalClip.getId(), at);
         }
         @Override public void undo() {
             // BY IDENTITY. This removed clips at originalIndex and originalIndex+1 on trust:
@@ -603,6 +607,11 @@ public final class EditActions {
             originalClip.setOutPointMs(originalOut);
             timeline.addClip(Math.min(at, timeline.getClipCount()), originalClip);
             timeline.restoreTransitions(transitionsBefore);
+            // The halves are gone; anything anchored to them would dangle, and a dangling host is
+            // reported as an orphan and never ripples again — a silent, permanent desync that
+            // survives every later edit. The join is unambiguous, so it is repaired rather than
+            // asked about (unlike a delete, where §4A must ask).
+            timeline.reanchorAfterJoin(originalClip.getId(), clipA.getId(), clipB.getId());
         }
         @NonNull @Override public String getDescription() { return "Split clip"; }
     }

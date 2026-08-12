@@ -1,4 +1,5 @@
 import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.undo.EditActions;
 
@@ -30,6 +31,8 @@ public class SplitUndoTest {
         theHalvesTileTheOriginal();
         redoAfterUndoStillSplits();
         undoDoesNotEatClipsWhenIndicesShift();
+        undoRehomesTheRidersItStrands();
+        redoRehomesThemBackOntoTheHalves();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -154,6 +157,71 @@ public class SplitUndoTest {
         check("no duration was eaten (" + total(t) + " vs " + withIntruder + ")",
                 total(t) == withIntruder - (before == 0 ? 0 : 0) && total(t) == withIntruder);
         check("the original is back", t.indexOfClip(original) >= 0);
+    }
+
+    /**
+     * Undo re-joins two halves into one clip — and every rider anchored to a half is left pointing
+     * at a clip that no longer exists.
+     *
+     * <p>{@code splitAt} re-homes riders onto the correct half ({@code reanchorAfterSplit}); nothing
+     * did the reverse. A dangling host is not a cosmetic problem: {@code applyAnchorShift} reports
+     * such a rider as an ORPHAN and never moves it again, so it stops tracking the footage for the
+     * rest of the project's life while still LOOKING anchored. A real project carried 8 of these,
+     * all from splits, and they were read as legacy data rather than as an ongoing leak.</p>
+     */
+    static void undoRehomesTheRidersItStrands() {
+        Timeline t = oneClip(0L, 100_000L);
+        Clip original = t.getClip(0);
+        TextOverlayItem early = overlay(10_000L, 12_000L);   // lands in the LEFT half
+        TextOverlayItem late = overlay(60_000L, 62_000L);    // lands in the RIGHT half
+        t.addTextOverlay(early);
+        t.addTextOverlay(late);
+        t.attachOverlayToHostUnderStart(early);
+        t.attachOverlayToHostUnderStart(late);
+
+        t.splitAt(0, 40_000L);
+        EditActions.SplitClipAction action = new EditActions.SplitClipAction(
+                t, 0, original, t.getClip(0), t.getClip(1), t.getTransitions());
+        check("split re-homed the riders onto the halves",
+                !original.getId().equals(early.getHostClipId())
+                        && !original.getId().equals(late.getHostClipId()));
+
+        action.undo();
+        check("undo: the left rider is anchored to the RESTORED clip, not a dead half",
+                original.getId().equals(early.getHostClipId()));
+        check("undo: so is the right rider",
+                original.getId().equals(late.getHostClipId()));
+        check("undo: the right rider's offset was recaptured against the whole clip ("
+                        + late.getHostOffsetMs() + ")",
+                late.getHostOffsetMs() == 60_000L);
+        check("undo: rider times are untouched — a re-home is not a move",
+                early.getStartMs() == 10_000L && late.getStartMs() == 60_000L);
+    }
+
+    /** …and redo must put them back on the halves, or one round trip strands them the other way. */
+    static void redoRehomesThemBackOntoTheHalves() {
+        Timeline t = oneClip(0L, 100_000L);
+        Clip original = t.getClip(0);
+        TextOverlayItem late = overlay(60_000L, 62_000L);
+        t.addTextOverlay(late);
+        t.attachOverlayToHostUnderStart(late);
+
+        t.splitAt(0, 40_000L);
+        Clip a = t.getClip(0), b = t.getClip(1);
+        EditActions.SplitClipAction action = new EditActions.SplitClipAction(
+                t, 0, original, a, b, t.getTransitions());
+
+        action.undo();
+        action.execute();
+        check("redo: the rider is back on the RIGHT half", b.getId().equals(late.getHostClipId()));
+        check("redo: with the offset measured into that half (" + late.getHostOffsetMs() + ")",
+                late.getHostOffsetMs() == 20_000L);
+    }
+
+    static TextOverlayItem overlay(long startMs, long endMs) {
+        TextOverlayItem o = new TextOverlayItem("t", 0xFFFFFFFF, 0.5f, 0.5f, 0.1f, 0f);
+        o.setTimeRange(startMs, endMs);
+        return o;
     }
 
     static void check(String what, boolean ok) {

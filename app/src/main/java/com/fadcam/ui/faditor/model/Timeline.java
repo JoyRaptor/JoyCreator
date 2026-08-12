@@ -512,6 +512,35 @@ public class Timeline {
     }
 
     /**
+     * Re-home every rider whose {@code hostClipId} names a clip that is not on the timeline, using
+     * the clip under the rider's own start — the same rule {@link #attachOverlayToHostUnderStart}
+     * applies when a rider is first placed. Returns one line per repair, for the caller to LOG.
+     *
+     * <p><b>Why this runs at load.</b> A dangling host is a rider that {@link #applyAnchorShift}
+     * treats as an orphan forever: reported, never moved, so it silently stops tracking its footage
+     * while still looking anchored. Projects already in the wild carry them — one real project has
+     * eight, from splits made before re-homing existed and from the split-undo leak fixed alongside
+     * this. Nothing else will ever clear them, and there is no user question to ask: the stored
+     * pointer is to a clip that does not exist, and the rider's own time says which clip it is over.
+     *
+     * <p>Deliberately narrow. It only touches anchors that CANNOT resolve, never a valid one, and it
+     * never changes a rider's time — same conservatism as {@link #pruneOrphanedTrackFlags}. With no
+     * clips at all it does nothing rather than clearing every anchor in the project.</p>
+     */
+    @NonNull
+    public List<String> healDanglingHostAnchors() {
+        List<String> healed = new ArrayList<>();
+        if (clips.isEmpty()) return healed;
+        for (TextOverlayItem o : textOverlays) {
+            String host = o.getHostClipId();
+            if (host == null || indexOfMasterClipId(host) >= 0) continue;
+            String newHost = attachOverlayToHostUnderStart(o);
+            healed.add(o.getId() + " " + host + "→" + (newHost == null ? "unanchored" : newHost));
+        }
+        return healed;
+    }
+
+    /**
      * The inverse of {@link #reanchorAfterManualSplit}: parts became ONE clip again, so every rider
      * anchored to any of {@code mergedIds} is re-homed onto {@code survivorId}.
      *

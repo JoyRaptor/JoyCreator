@@ -30,6 +30,46 @@ public class RippleObjectsTest {
 
     static int fails = 0, checks = 0;
 
+    /**
+     * A stored anchor pointing at a clip that is not on the timeline is a rider that never moves
+     * again — {@code applyAnchorShift} calls it an orphan every time. Load heals it; the point of
+     * healing is not tidiness, it is that the rider RESUMES rippling, so that is what is asserted.
+     */
+    static void aDanglingAnchorIsHealedAndRipplesAgain() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem stranded = overlay(2200, 2600);
+        t.addTextOverlay(stranded);
+        stranded.setHostAnchor("a-clip-that-was-deleted-long-ago", 200);
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1500);
+        Timeline.AnchorShiftResult r = t.applyAnchorShift(before);
+        eq(stranded.getStartMs(), 2200, "dangling: it does not move — it is read as an orphan");
+        check(r.orphanedOverlayIds.contains(stranded.getId()), "dangling: and reported as one");
+        t.getClip(0).setOutPointMs(1000);                 // put the fixture back
+
+        java.util.List<String> healed = t.healDanglingHostAnchors();
+        check(healed.size() == 1, "heal: exactly the one broken anchor was touched");
+        check(t.getClip(2).getId().equals(stranded.getHostClipId()),
+                "heal: re-homed to the clip its own start sits in");
+        eq(stranded.getStartMs(), 2200, "heal: its TIME was not changed");
+
+        Map<String, Long> before2 = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1500);
+        t.applyAnchorShift(before2);
+        eq(stranded.getStartMs(), 2700, "heal: and now it ripples again");
+
+        // A valid anchor must not be disturbed, and an empty timeline must not be "healed" into
+        // clearing every anchor it has.
+        TextOverlayItem good = overlay(2400, 2500);
+        t.addTextOverlay(good);
+        t.attachOverlayToHostUnderStart(good);
+        String goodHost = good.getHostClipId();
+        check(t.healDanglingHostAnchors().isEmpty(), "heal: a second pass finds nothing (idempotent)");
+        check(goodHost != null && goodHost.equals(good.getHostClipId()),
+                "heal: a VALID anchor is left alone");
+    }
+
     static void check(boolean c, String n) {
         checks++;
         System.out.println((c ? "PASS  " : "FAIL  ") + n);
@@ -78,6 +118,7 @@ public class RippleObjectsTest {
         gapModeMovesNothing();
         gapModeUndoAlsoMovesNothing();
         openEndedObjectKeepsItsSentinel();
+        aDanglingAnchorIsHealedAndRipplesAgain();
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

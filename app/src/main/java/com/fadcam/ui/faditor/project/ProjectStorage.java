@@ -3186,6 +3186,17 @@ public class ProjectStorage {
             // lifetime, matching ProjectStorage#mergeTrackFlagsIfStale's needs.
             project.getTimeline().snapshotBaselineTrackFlags();
 
+            // Same shape as the trackFlags prune above, for rider anchors: an overlay whose
+            // hostClipId names a clip that is not on this timeline is treated as an orphan by
+            // applyAnchorShift and therefore NEVER ripples again — it quietly stops tracking its
+            // footage while still looking anchored. Projects in the wild already carry these.
+            // Re-homed to the clip under the rider's own start; times untouched; logged, not silent.
+            List<String> healedAnchors = project.getTimeline().healDanglingHostAnchors();
+            if (!healedAnchors.isEmpty()) {
+                FLog.w(TAG, "Re-homed " + healedAnchors.size()
+                        + " dangling host anchor(s) on load: " + healedAnchors);
+            }
+
             // Restore canvas preset
             if (hasValue(obj, "canvasPreset")) {
                 project.setCanvasPreset(obj.get("canvasPreset").getAsString());

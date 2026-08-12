@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.undo;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.effects.EffectStack;
 import com.fadcam.ui.faditor.model.AudioClip;
@@ -28,10 +29,32 @@ public final class EditActions {
     public static final class TrimAction implements EditAction {
         private final Clip clip;
         private final long oldIn, oldOut, newIn, newOut;
+        /**
+         * The timeline this clip lives on, so undo/redo can RIPPLE its riders.
+         *
+         * <p>Changing a clip's length moves the start of every clip after it, and anything
+         * anchored to those clips has to move with them or it desynchronises from the words and
+         * pictures it was placed against. Every interactive structural edit already brackets
+         * itself with {@code beginStructuralEdit}/{@code endStructuralEdit} to do exactly that —
+         * but the UNDO of a trim did not, because this action only ever held the Clip and had no
+         * way to reach the timeline. So a trim moved the riders and undoing it left them where
+         * the trim had put them, which is worse than never moving them: the project silently
+         * drifts further out of sync with every undo.</p>
+         *
+         * <p>Nullable so older call sites keep compiling and simply behave as before.</p>
+         */
+        @Nullable private final Timeline timeline;
 
         public TrimAction(@NonNull Clip clip,
                           long oldIn, long oldOut,
                           long newIn, long newOut) {
+            this(null, clip, oldIn, oldOut, newIn, newOut);
+        }
+
+        public TrimAction(@Nullable Timeline timeline, @NonNull Clip clip,
+                          long oldIn, long oldOut,
+                          long newIn, long newOut) {
+            this.timeline = timeline;
             this.clip = clip;
             this.oldIn = oldIn;
             this.oldOut = oldOut;
@@ -39,14 +62,21 @@ public final class EditActions {
             this.newOut = newOut;
         }
 
-        @Override public void execute() {
-            clip.setInPointMs(newIn);
-            clip.setOutPointMs(newOut);
+        /** Apply a bounds change and carry the riders with it, as the live edit paths do. */
+        private void retrim(long in, long out) {
+            if (timeline == null) {
+                clip.setInPointMs(in);
+                clip.setOutPointMs(out);
+                return;
+            }
+            java.util.Map<String, Long> before = timeline.captureClipStarts();
+            clip.setInPointMs(in);
+            clip.setOutPointMs(out);
+            timeline.applyAnchorShift(before);
         }
-        @Override public void undo() {
-            clip.setInPointMs(oldIn);
-            clip.setOutPointMs(oldOut);
-        }
+
+        @Override public void execute() { retrim(newIn, newOut); }
+        @Override public void undo() { retrim(oldIn, oldOut); }
         @NonNull @Override public String getDescription() {
             return "Trim [" + oldIn + "–" + oldOut + "] → [" + newIn + "–" + newOut + "]";
         }

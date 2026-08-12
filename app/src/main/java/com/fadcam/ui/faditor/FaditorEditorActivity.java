@@ -31880,14 +31880,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline timeline = project != null ? project.getTimeline() : null;
         Clip partner = timeline != null ? timeline.findLinkedClip(clip) : null;
         if (partner == null) {
-            undoManager.recordAction(new EditActions.TrimAction(clip, oldIn, oldOut, newIn, newOut));
+            undoManager.recordAction(new EditActions.TrimAction(timeline, clip, oldIn, oldOut, newIn, newOut));
             return;
         }
         if (clip.getSpeedMultiplier() != partner.getSpeedMultiplier()) {
             FLog.w(TAG, "Dual-stream trim mirror skipped: speed mismatch ("
                     + clip.getSpeedMultiplier() + " vs " + partner.getSpeedMultiplier()
                     + ") — trimming master only");
-            undoManager.recordAction(new EditActions.TrimAction(clip, oldIn, oldOut, newIn, newOut));
+            undoManager.recordAction(new EditActions.TrimAction(timeline, clip, oldIn, oldOut, newIn, newOut));
             return;
         }
         final long dIn = newIn - oldIn, dOut = newOut - oldOut;

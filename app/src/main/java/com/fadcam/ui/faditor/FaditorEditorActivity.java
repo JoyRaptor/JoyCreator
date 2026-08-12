@@ -24996,9 +24996,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(0, gap / 2, 0, gap / 2);
 
-        // Motion trim chips — Start here / Span whole / End here, the same compact purple text
-        // chips the adjustment drawer uses (copied verbatim, user: "copy these assets from the
-        // adjustment drop down drawer").
+        // ── TIME TRIM, first on the line ────────────────────────────────────────────────────
+        // Start here / Span whole / End here for the overlay's own visible range, as the three
+        // compact purple chips the image drawer uses, ahead of the selection controls. These
+        // replace the pair of plain Buttons that sat at the very bottom of the drawer under the
+        // opacity slider, where they were both hard to find and styled unlike anything near them.
+        // Routed through the SHARED helpers, so the chip, the image drawer's chip and the object
+        // sheet's chip cannot disagree about what "End here" means.
+        row.addView(textTrimChip(d, R.string.faditor_trim_start_here,
+                () -> setOverlayRangeEdgeAtPlayhead(item, true)));
+        row.addView(textTrimChip(d, R.string.faditor_trim_span_whole,
+                () -> spanOverlayOverTimeline(item)));
+        row.addView(textTrimChip(d, R.string.faditor_trim_end_here,
+                () -> setOverlayRangeEdgeAtPlayhead(item, false)));
+
+        // MOTION trim chips — the animation sub-range, not the object's time range. Only present
+        // when there is an animation to bound, and deliberately AFTER the time chips so the two
+        // identically-worded trios are never adjacent.
         if (item.hasTextAnim()) {
             TextView startBtn = textTrimChip(d, R.string.faditor_trim_start_here, () -> {
                 long start = lastPlayheadAbsoluteMs;
@@ -25027,6 +25041,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
             row.addView(endBtn);
         }
+
+        // Push the selection controls to the far right, mirroring the image drawer's chips-left /
+        // "Clear all keyframes"-right rhythm. Without this the trim chips and the word "delete"
+        // run together into one undifferentiated line of small text.
+        row.addView(new android.widget.Space(this),
+                new android.widget.LinearLayout.LayoutParams(0, 0, 1f));
 
         // The selection status + Clear chip (folded in from the old status row). "Select all"
         // sits right beside "Clear" so the context makes it clear Clear removes the selection.
@@ -25287,56 +25307,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout rangeRow = new android.widget.LinearLayout(this);
         rangeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
 
-        android.widget.Button setStart = new android.widget.Button(this);
-        setStart.setText(R.string.faditor_kf_set_start);
-        setStart.setAllCaps(false);
-        setStart.setOnClickListener(v -> {
-            if (item.getEndMs() != Long.MAX_VALUE && lastPlayheadAbsoluteMs >= item.getEndMs()) {
-                Toast.makeText(this, R.string.faditor_kf_range_invalid,
-                        Toast.LENGTH_SHORT).show();
-                return;
-            }
-            // ONE undo step, the same shape as a timeline drag-trim (onGestureFinished's text
-            // branch): snapshot before, mutate, record after — so "Start here" undoes exactly
-            // like dragging the same edge would.
-            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
-                    item.snapshotTransform();
-            item.setTimeRange(lastPlayheadAbsoluteMs, item.getEndMs());
-            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after =
-                    item.snapshotTransform();
-            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
-            syncTimelineOverlays();
-            undoManager.recordAction(new EditActions.LambdaAction("Overlay time range",
-                    () -> { item.restoreTransform(after); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); },
-                    () -> { item.restoreTransform(before); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); }));
-            scheduleAutoSave();
-            Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
-        });
-        rangeRow.addView(setStart);
-
-        android.widget.Button setEnd = new android.widget.Button(this);
-        setEnd.setText(R.string.faditor_kf_set_end);
-        setEnd.setAllCaps(false);
-        setEnd.setOnClickListener(v -> {
-            if (lastPlayheadAbsoluteMs <= item.getStartMs()) {
-                Toast.makeText(this, R.string.faditor_kf_range_invalid,
-                        Toast.LENGTH_SHORT).show();
-                return;
-            }
-            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
-                    item.snapshotTransform();
-            item.setTimeRange(item.getStartMs(), lastPlayheadAbsoluteMs);
-            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after =
-                    item.snapshotTransform();
-            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
-            syncTimelineOverlays();
-            undoManager.recordAction(new EditActions.LambdaAction("Overlay time range",
-                    () -> { item.restoreTransform(after); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); },
-                    () -> { item.restoreTransform(before); setTextOverlayPlayhead(lastPlayheadAbsoluteMs); syncTimelineOverlays(); }));
-            scheduleAutoSave();
-            Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
-        });
-        rangeRow.addView(setEnd);
+        // The Start/End buttons that used to live here MOVED UP onto the trim row in
+        // buildTextMotionRangeSection (JoyRaptor, 2026-08-12: "start | span | end need to look nice and
+        // be up on the same line and before select all / clear and delete"). They were also two
+        // plain Buttons where the image drawer had three purple chips, and they duplicated
+        // setOverlayRangeEdgeAtPlayhead's validation, undo step and toast — including the fix that
+        // reads the LIVE playhead rather than the cached one, which these never got.
         box.addView(rangeRow);
 
         return box;

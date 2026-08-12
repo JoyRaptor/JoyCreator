@@ -199,7 +199,7 @@ public final class PipDrawerTabs {
     private static Runnable scaleSlider(@NonNull Context ctx, @NonNull LinearLayout row,
                                         @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
                                         float d) {
-        SeekBar bar = new SeekBar(ctx);
+        FineSeekBar bar = new FineSeekBar(ctx);
         bar.setMax(SLIDER_STEPS);
         final float min = propMin(prop), max = propMax(prop);
         float cur = prop.valueAt(host.playheadMs());
@@ -215,7 +215,10 @@ public final class PipDrawerTabs {
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
-                if (!fromUser) return;
+                // isFineDriving: a fine drag writes through setProgress, which reports
+                // fromUser == false exactly as the playhead-tick refresh does. Without this test
+                // the fine mode would move the thumb and change nothing.
+                if (!fromUser && !bar.isFineDriving()) return;
                 float v = min + (max - min) * (p / (float) SLIDER_STEPS);
                 v = snap(prop, v);
                 prop.write(v, host.playheadMs());
@@ -276,7 +279,7 @@ public final class PipDrawerTabs {
         label.setText(prop.label());
         row.addView(label);
 
-        SeekBar bar = new SeekBar(ctx);
+        FineSeekBar bar = new FineSeekBar(ctx);
         bar.setMax(SLIDER_STEPS);
         final float min = propMin(prop), max = propMax(prop);
         float cur = prop.valueAt(host.playheadMs());
@@ -292,7 +295,10 @@ public final class PipDrawerTabs {
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
-                if (!fromUser) return;
+                // isFineDriving: a fine drag writes through setProgress, which reports
+                // fromUser == false exactly as the playhead-tick refresh does. Without this test
+                // the fine mode would move the thumb and change nothing.
+                if (!fromUser && !bar.isFineDriving()) return;
                 float v = min + (max - min) * (p / (float) SLIDER_STEPS);
                 v = snap(prop, v);
                 prop.write(v, host.playheadMs());
@@ -1105,7 +1111,7 @@ public final class PipDrawerTabs {
         label.setText(ctx.getString(labelRes));
         row.addView(label);
 
-        SeekBar bar = new SeekBar(ctx);
+        FineSeekBar bar = new FineSeekBar(ctx);
         bar.setMax(max - min);
         bar.setProgress(Math.max(0, Math.min(max - min, initial - min)));
 

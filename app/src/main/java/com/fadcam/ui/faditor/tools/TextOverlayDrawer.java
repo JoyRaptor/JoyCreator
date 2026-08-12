@@ -35,7 +35,17 @@ import androidx.annotation.Nullable;
  */
 public final class TextOverlayDrawer extends LinearLayout {
 
-    private static final int BG = 0xFF1C1C1E;   // opaque — see class doc
+    /**
+     * The SAME scrim {@code PipOverlayDrawer} uses, not an opaque panel.
+     *
+     * <p>This drawer sits over the preview, and every control in it — colours, outline, glow,
+     * shadow, background — changes what the preview shows. Behind an opaque panel the user is
+     * editing something they cannot see and has to close the drawer to judge each change. JoyRaptor
+     * asked for it to match the image/video drawer for exactly that reason (2026-08-12), and the
+     * PiP drawer had already made the trade. The text on top carries a shadow layer, which is what
+     * keeps it legible over an arbitrary frame.</p>
+     */
+    private static final int BG = 0x66000000;
     private static final int TXT = 0xFFEEEEEE;
     private static final int TXT_DIM = 0xFF9A9A9A;
     private static final int SLIDE_MS = 220;
@@ -81,6 +91,9 @@ public final class TextOverlayDrawer extends LinearLayout {
         titleView.setTypeface(titleView.getTypeface(), android.graphics.Typeface.BOLD);
         titleView.setAllCaps(true);
         titleView.setLetterSpacing(0.05f);
+        // The panel is a scrim now, so anything on it has arbitrary picture behind it. Same shadow
+        // the PiP drawer's title carries, for the same reason.
+        titleView.setShadowLayer(4f * density, 0f, 1f, 0xCC000000);
         header.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
         TextView close = new TextView(ctx);
@@ -88,6 +101,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         close.setTextColor(TXT_DIM);
         close.setTextSize(17);
         close.setPadding(dp(12), dp(4), dp(10), dp(4));
+        close.setShadowLayer(4f * density, 0f, 1f, 0xCC000000);
         close.setOnClickListener(v -> hide());
         header.addView(close);
         addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));

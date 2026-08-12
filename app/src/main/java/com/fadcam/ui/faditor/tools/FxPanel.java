@@ -354,8 +354,15 @@ public final class FxPanel {
         //   leaving those three up would offer controls that do nothing on the selected shape
         // - Angle is hidden for Radial (index 1) since radial has no angle
         // - Scale is shown for Radial and Diamond/Box (index 4)
+        // SHAPE IS gradient_fill's PARAM 0 AND NOBODY ELSE'S. Reading params.get(0) for every
+        // effect made each one's first parameter masquerade as a shape enum, and the rules below
+        // then hid controls on effects that have no shapes at all: Noise/Clouds' first param is
+        // "mode", so switching it off Clouds (1) made its Scale slider vanish — Scale being the
+        // control that actually does something on noise. Directional Blur and RGB Shift are one
+        // "angle" rule away from the same fate. -1 can never equal a rule's constant, so a
+        // non-gradient effect now falls through every branch and shows all of its parameters.
         boolean gradientFill = "gradient_fill".equals(def.id);
-        int currentShape = Math.round(fx.getScalar(def.params.get(0)));
+        int currentShape = gradientFill ? Math.round(fx.getScalar(def.params.get(0))) : -1;
         boolean curveShape = gradientFill && currentShape == 5;
         for (FxParam param : def.params) {
             if (param.kind == FxParam.Kind.CURVE && !curveShape) continue;

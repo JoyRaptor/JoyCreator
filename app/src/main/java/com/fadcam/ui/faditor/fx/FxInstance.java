@@ -198,6 +198,38 @@ public final class FxInstance {
                     } catch (RuntimeException ignored) { }
                 }
             }
+            // W6 migration: the Curve shape used to be ONE quadratic control point — a vec2 param
+            // named "curve" — before the editable bezier path replaced it. Without this, a project
+            // saved with a bent curve loads with the param unrecognised and silently straightens:
+            // no crash, no message, just the user's shape gone.
+            //
+            // A quadratic IS a cubic, exactly: for (p0, p1, p2) the equal cubic has controls
+            // c1 = p0 + 2/3(p1-p0) and c2 = p2 + 2/3(p1-p2). The path model carries ONE handle per
+            // anchor where the outgoing control is a+h and the incoming is a-h, so h_start =
+            // 2/3(p1-start) and h_end = 2/3(end-p1). No intermediate vertex is needed and the
+            // curve is reproduced rather than approximated.
+            //
+            // EXACT only for the default centre (0.5, 0.5) and angle 0, which is where the old
+            // shape sat unless the user moved it: the old curve was evaluated in centre-relative,
+            // rotated, ASPECT-corrected space, and the frame's aspect is not knowable at load
+            // time. A moved centre or a non-zero angle therefore lands the same bend on the
+            // default gradient line. Recovering the bend approximately beats dropping it.
+            if ("gradient_fill".equals(id) && v.has("curve") && !v.has("path")) {
+                FxParam path = def.param("path");
+                if (path != null) {
+                    try {
+                        JsonArray cp = v.getAsJsonArray("curve");
+                        float px = cp.get(0).getAsFloat();
+                        float py = cp.get(1).getAsFloat();
+                        GradientCurve gc = GradientCurve.defaultCurve();
+                        gc.start.hx = (2f / 3f) * (px - gc.start.x);
+                        gc.start.hy = (2f / 3f) * (py - gc.start.y);
+                        gc.end.hx = (2f / 3f) * (gc.end.x - px);
+                        gc.end.hy = (2f / 3f) * (gc.end.y - py);
+                        fx.set(path, gc.toFloatArray());
+                    } catch (RuntimeException ignored) { }
+                }
+            }
         }
         return fx;
     }

@@ -21072,6 +21072,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             glOwnsImagePreview = routed;
                             if (imagePreview != null) imagePreview.setAlpha(routed ? 0f : 1f);
                         }
+                        @Override public void onFxShaderUnavailable(@NonNull String reason) {
+                            // LONG, not SHORT: this one asks the user to understand something
+                            // about their device, and it replaces a failure mode whose entire
+                            // previous symptom was an effect quietly doing nothing.
+                            android.widget.Toast.makeText(FaditorEditorActivity.this, reason,
+                                    android.widget.Toast.LENGTH_LONG).show();
+                        }
                     });
         }
         fxLivePreview.sync(project.getTimeline(), absoluteMs);

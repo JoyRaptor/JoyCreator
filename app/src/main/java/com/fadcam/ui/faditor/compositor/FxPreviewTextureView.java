@@ -243,6 +243,19 @@ public class FxPreviewTextureView extends TextureView
          * stacks two overlay videos never allocates the second input at all.
          */
         default void onFxPipSurfaceReady(@NonNull Surface surface, int slot) { }
+
+        /**
+         * The effect stack could not be compiled or linked on THIS device, so the frame is
+         * passing through ungraded. Fires on the MAIN thread, ONCE per failing stack.
+         *
+         * <p>This exists because the alternative was a log line. A gradient card declares around
+         * 35 uniform vectors; GL ES 2.0's guaranteed floor is 16, and while the Note 9 links it
+         * happily, a weaker driver can refuse. The user's experience of that was an effect that
+         * simply did nothing — no error, no clue, and nothing to distinguish it from an effect
+         * they had misconfigured. A message naming the device's actual limit is the difference
+         * between "this app is broken" and "this effect is too big for this phone".</p>
+         */
+        default void onFxShaderUnavailable(@NonNull String reason) { }
     }
 
     /**
@@ -1456,9 +1469,26 @@ public class FxPreviewTextureView extends TextureView
                 compiled.add(ls);
             }
         } catch (Exception e) {
-            FLog.w(TAG, "FX shader compile failed; previewing ungraded", e);
+            FLog.w(TAG, "FX shader compile failed; previewing ungraded"
+                    + " (max fragment uniform vectors on this device: "
+                    + maxFragmentUniformVectors() + ")", e);
             releasePrograms();
             failedKey = want;
+            // Told, not just logged. The latch above means this fires once per failing stack, so
+            // the user gets one message rather than one per frame, and a different stack reports
+            // again — which is what makes deleting the offending card feel like it worked.
+            final SurfaceListener l = surfaceListener;
+            if (l != null) {
+                // Deliberately does NOT claim the cause. A link failure is the LIKELY reason (the
+                // uniform ceiling), but this catch also covers a genuine shader bug, and telling
+                // the user their phone is too weak when the app miscompiled would be worse than
+                // saying nothing. The limit is included because it is the number a bug report
+                // needs; the log carries the exception.
+                final String reason = "This effect couldn't run on this device's GPU"
+                        + " (it allows " + maxFragmentUniformVectors()
+                        + " uniform slots per shader). Previewing without it."; // TODO(strings)
+                post(() -> l.onFxShaderUnavailable(reason));
+            }
             return false;
         }
         compiledKey = want;
@@ -1560,6 +1590,30 @@ public class FxPreviewTextureView extends TextureView
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + unit);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tex);
         GLES20.glUniform1i(loc, unit);
+    }
+
+    /** Cached: one GL query, on the GL thread, the first time anything asks. -1 until then. */
+    private int maxFragUniformVecs = -1;
+
+    /**
+     * {@code GL_MAX_FRAGMENT_UNIFORM_VECTORS} for this device — the ceiling a shader's uniforms
+     * have to fit under, and the one number that explains a link failure.
+     *
+     * <p>ES 2.0 GUARANTEES only 16. A gradient card declares around 35, which the Note 9 links
+     * without complaint; a weaker driver need not. Reading the real figure means a failure report
+     * says which side of that line the device actually falls on instead of leaving it a guess.</p>
+     */
+    private int maxFragmentUniformVectors() {
+        if (maxFragUniformVecs < 0) {
+            int[] v = new int[1];
+            try {
+                GLES20.glGetIntegerv(GLES20.GL_MAX_FRAGMENT_UNIFORM_VECTORS, v, 0);
+            } catch (RuntimeException ignored) { }
+            // 0 means the query failed or there is no context — report the guaranteed floor
+            // rather than a zero that reads as "this device supports no uniforms at all".
+            maxFragUniformVecs = v[0] > 0 ? v[0] : 16;
+        }
+        return maxFragUniformVecs;
     }
 
     private void setF(int program, @NonNull String name, float v) {

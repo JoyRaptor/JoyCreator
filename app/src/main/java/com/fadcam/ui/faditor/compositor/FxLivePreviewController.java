@@ -73,6 +73,13 @@ public final class FxLivePreviewController {
          * result and the fix is invisible.
          */
         default void onBaseStillRouted(boolean routed) { }
+
+        /**
+         * The effect stack would not compile on this GPU, so the preview is ungraded. Say so —
+         * see {@code FxPreviewTextureView.SurfaceListener#onFxShaderUnavailable} for why a log
+         * line was not good enough. Already on the main thread, fired once per failing stack.
+         */
+        default void onFxShaderUnavailable(@NonNull String reason) { }
     }
 
     /**
@@ -209,6 +216,9 @@ public final class FxLivePreviewController {
             }
             @Override public void onFxPipSurfaceReady(@NonNull Surface s, int slot) {
                 if (slot >= 0 && slot < pipSurfaces.length) pipSurfaces[slot] = s;
+            }
+            @Override public void onFxShaderUnavailable(@NonNull String reason) {
+                host.onFxShaderUnavailable(reason);
             }
         });
     }

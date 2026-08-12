@@ -2210,7 +2210,62 @@ public class Timeline {
             o.setTimeRange(win[0], win[1]);
             res.movedOverlayIds.add(o.getId());
         }
+        if (ripple) rippleEverythingElse(beforeStarts, after, res);
         return res;
+    }
+
+    /**
+     * The rest of the timeline's objects — sprites, PiP/overlay clips, audio clips, adjustment
+     * layers and free-standing visualizers — travel with their footage too.
+     *
+     * <p><b>Why they need their own pass.</b> Only {@link TextOverlayItem} can carry a host anchor,
+     * so every other object family sits at absolute time with no mechanism at all to follow an edit.
+     * A trim early in the tape left a PiP, a music bed and an adjustment layer sitting over
+     * different footage than the user placed them on — the same failure as the unanchored overlay,
+     * on four more object kinds, and just as silent.</p>
+     *
+     * <p><b>Attached visualizers are skipped ON PURPOSE.</b> They re-derive their window from their
+     * host's current span in {@link #resyncAttachedVisualizers()}, which every edit path already
+     * calls. That is a recompute rather than a delta, so shifting them here would move them twice.
+     * Only detached ones — which nothing else would ever move — are rippled.</p>
+     */
+    private void rippleEverythingElse(@NonNull Map<String, Long> beforeStarts,
+                                      @NonNull Map<String, Long> after,
+                                      @NonNull AnchorShiftResult res) {
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+            long d = unanchoredDeltaAt(s.getStartMs(), beforeStarts, after);
+            if (d == 0) continue;
+            s.setTimeRange(AnchorMath.shiftStart(s.getStartMs(), d),
+                    AnchorMath.shiftEnd(s.getEndMs(), d));
+            res.movedObjectIds.add(s.getId());
+        }
+        for (Clip pip : overlayClips) {
+            long d = unanchoredDeltaAt(pip.getOverlayStartMs(), beforeStarts, after);
+            if (d == 0) continue;
+            pip.setOverlayStartMs(AnchorMath.shiftStart(pip.getOverlayStartMs(), d));
+            res.movedObjectIds.add(pip.getId());
+        }
+        for (AudioClip a : audioClips) {
+            long d = unanchoredDeltaAt(a.getOffsetMs(), beforeStarts, after);
+            if (d == 0) continue;
+            a.setOffsetMs(AnchorMath.shiftStart(a.getOffsetMs(), d));
+            res.movedObjectIds.add(a.getId());
+        }
+        for (AdjustmentLayer al : adjustmentLayers) {
+            long d = unanchoredDeltaAt(al.getStartMs(), beforeStarts, after);
+            if (d == 0) continue;
+            // Only the start moves: setDurationMs is a LENGTH, and a ripple does not stretch.
+            al.setStartMs(AnchorMath.shiftStart(al.getStartMs(), d));
+            res.movedObjectIds.add(al.getId());
+        }
+        for (WaveformOverlayInstance w : waveformOverlays) {
+            if (w.getAttachedClipId() != null) continue;   // resynced from its host; see the doc
+            long d = unanchoredDeltaAt(w.getStartMs(), beforeStarts, after);
+            if (d == 0) continue;
+            w.setTimeRange(AnchorMath.shiftStart(w.getStartMs(), d),
+                    AnchorMath.shiftEnd(w.getEndMs(), d));
+            res.movedObjectIds.add(w.getId());
+        }
     }
 
     /**
@@ -2247,12 +2302,21 @@ public class Timeline {
 
     /** What {@link #applyAnchorShift} did — the input to one undo step and to the user-facing notice. */
     public static final class AnchorShiftResult {
-        /** Riders that moved with their host. */
+        /** Text/image overlays that moved — with their host, or with their footage if unanchored. */
         @NonNull public final List<String> movedOverlayIds = new ArrayList<>();
         /** Riders whose host no longer exists. UNRESOLVED — §4A's prompt decides their fate. */
         @NonNull public final List<String> orphanedOverlayIds = new ArrayList<>();
+        /**
+         * Everything else that rippled: sprites, PiP clips, audio clips, adjustment layers,
+         * detached visualizers. Kept apart from {@link #movedOverlayIds} because callers resolve
+         * ORPHANS against that list, and only a text overlay can carry a host anchor to orphan.
+         */
+        @NonNull public final List<String> movedObjectIds = new ArrayList<>();
 
-        public boolean isEmpty() { return movedOverlayIds.isEmpty() && orphanedOverlayIds.isEmpty(); }
+        public boolean isEmpty() {
+            return movedOverlayIds.isEmpty() && orphanedOverlayIds.isEmpty()
+                    && movedObjectIds.isEmpty();
+        }
     }
 
     private long segmentStartMs(int index) {

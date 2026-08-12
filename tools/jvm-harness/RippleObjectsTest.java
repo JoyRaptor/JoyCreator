@@ -70,6 +70,61 @@ public class RippleObjectsTest {
                 "heal: a VALID anchor is left alone");
     }
 
+    /**
+     * A text overlay is not the only thing sitting on the timeline. Only {@code TextOverlayItem}
+     * can carry a host anchor, so a PiP, a music bed, an adjustment layer, a sprite and a detached
+     * visualizer had NO mechanism whatsoever for following an edit — a trim early in the tape left
+     * every one of them over different footage.
+     */
+    static void everyObjectFamilyRipplesNotJustTextOverlays() {
+        Timeline t = threeClips("ripple");
+
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite =
+                new com.fadcam.ui.faditor.sprite.SpriteOverlayItem("sprite-1", "sheet-1");
+        sprite.setTimeRange(2200, 2600);
+        t.addSpriteOverlay(sprite);
+
+        Clip pip = clip(500);
+        pip.setLayerId("layer-1");
+        pip.setOverlayStartMs(2200);
+        t.addOverlayClip(pip);
+
+        com.fadcam.ui.faditor.model.AudioClip music =
+                new com.fadcam.ui.faditor.model.AudioClip(null, 60_000);
+        music.setOffsetMs(2200);
+        t.addAudioClip(music, false);
+
+        com.fadcam.ui.faditor.model.AdjustmentLayer adj =
+                new com.fadcam.ui.faditor.model.AdjustmentLayer();
+        adj.setStartMs(2200);
+        adj.setDurationMs(400);
+        t.addAdjustmentLayer(adj);
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1500);                 // +500 at the head
+        Timeline.AnchorShiftResult r = t.applyAnchorShift(before);
+
+        eq(sprite.getStartMs(), 2700, "sprite rippled");
+        eq(pip.getOverlayStartMs(), 2700, "PiP rippled");
+        eq(music.getOffsetMs(), 2700, "audio clip rippled");
+        eq(adj.getStartMs(), 2700, "adjustment layer rippled");
+        eq(adj.getDurationMs(), 400, "adjustment layer kept its LENGTH — a ripple is not a stretch");
+        check(r.movedObjectIds.size() == 4,
+                "all four are reported, apart from the overlay list (got "
+                        + r.movedObjectIds.size() + ")");
+
+        // Gap mode leaves every one of them alone.
+        Timeline g = threeClips("gap");
+        Clip gpip = clip(500);
+        gpip.setLayerId("layer-1");
+        gpip.setOverlayStartMs(2200);
+        g.addOverlayClip(gpip);
+        Map<String, Long> gbefore = g.captureClipStarts();
+        g.getClip(0).setOutPointMs(1500);
+        g.applyAnchorShift(gbefore);
+        eq(gpip.getOverlayStartMs(), 2200, "gap mode: the PiP stays put");
+    }
+
     static void check(boolean c, String n) {
         checks++;
         System.out.println((c ? "PASS  " : "FAIL  ") + n);
@@ -119,6 +174,7 @@ public class RippleObjectsTest {
         gapModeUndoAlsoMovesNothing();
         openEndedObjectKeepsItsSentinel();
         aDanglingAnchorIsHealedAndRipplesAgain();
+        everyObjectFamilyRipplesNotJustTextOverlays();
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

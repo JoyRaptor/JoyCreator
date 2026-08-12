@@ -3651,6 +3651,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** F1: absolute paths whose background remux is already scheduled (dedupe). */
     private final java.util.HashSet<String> remuxScheduled = new java.util.HashSet<>();
 
+    /**
+     * Forget a cached playback resolution whose file has gone missing.
+     *
+     * @return true when an entry was dropped — i.e. this source is worth retrying, because the
+     *         next resolve will fall back to the raw file instead of the vanished derived copy.
+     */
+    private boolean dropStalePlaybackUri(@Nullable Uri sourceUri) {
+        if (sourceUri == null) return false;
+        Uri cached = playbackUriCache.get(sourceUri.toString());
+        if (cached == null || !"file".equals(cached.getScheme())) return false;
+        String path = cached.getPath();
+        if (path == null || new File(path).exists()) return false;
+        playbackUriCache.remove(sourceUri.toString());
+        return true;
+    }
+
     @NonNull
     private Uri resolvePlaybackUri(@NonNull Uri sourceUri) {
         // Cached: needsRemux() reads the file header from disk, and scrubbing over a
@@ -3658,7 +3674,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // read + remux check ran on the UI thread each frame and snagged the scrub.
         String key = sourceUri.toString();
         Uri cached = playbackUriCache.get(key);
-        if (cached != null) return cached;
+        // A CACHED PATH IS NOT A PROMISE THE FILE IS STILL THERE.
+        //
+        // The remuxed copy lives in getCacheDir(), which Android may reclaim at ANY time — that is
+        // what a cache dir IS. This map, however, held the resolved file:// URI for the whole
+        // session, so once the OS evicted the remux every player build kept opening a path that no
+        // longer existed: ENOENT, four retries, then "RANK-1 recovery ... STOPPING the rebuild
+        // loop", and from that moment the preview was black and nothing played until the app was
+        // restarted. JoyRaptor hit exactly this mid-session (2026-08-12) — cache/remuxed was empty on
+        // his phone while every clip still resolved to a file inside it — and it looked like
+        // adding images had broken playback, because that is what he happened to be doing while
+        // the eviction fired.
+        //
+        // Re-resolving costs one exists() on a cache hit. Losing the session's playback does not.
+        if (cached != null) {
+            if (!"file".equals(cached.getScheme())) return cached;
+            String path = cached.getPath();
+            if (path != null && new File(path).exists()) return cached;
+            FLog.w(TAG, "playback URI went missing (cache eviction?), re-resolving: " + path);
+            playbackUriCache.remove(key);
+        }
         Uri resolved = sourceUri;
         File sourceFile = resolveToFile(sourceUri);
         if (sourceFile != null) {
@@ -3814,6 +3849,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // user instead of melting the UI thread. Sticky for the session — a malformed
             // file does not heal by retrying.
             String key = clipId != null ? clipId : "?";
+            // A MISSING FILE *DOES* HEAL BY RETRYING — which is the one case the cap above gets
+            // wrong. The remuxed copy this clip resolves to lives in a cache dir the OS may
+            // reclaim whenever it likes; when that happens the path is gone but the SOURCE is
+            // perfectly fine, so dropping the stale resolution lets the very next rebuild fall
+            // back to the raw file and everything works again. Without this the clip burned
+            // through the cap and playback stayed dead for the session (JoyRaptor, 2026-08-12).
+            Clip failedClip = clipId != null ? findClipById(clipId) : null;
+            if (failedClip != null && dropStalePlaybackUri(failedClip.getSourceUri())) {
+                unpoisonedRecoveryFailures.remove(key);
+                FLog.w(TAG, "RANK-1 recovery: clip " + key + " resolved to a file that no longer"
+                        + " exists — dropped the stale resolution and rebuilding from source");
+            } else {
             int n = 1 + unpoisonedRecoveryFailures.getOrDefault(key, 0);
             unpoisonedRecoveryFailures.put(key, n);
             if (n > MAX_UNPOISONED_RECOVERY_REBUILDS) {
@@ -3840,6 +3887,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FLog.w(TAG, "RANK-1 recovery: source failure with no poisonable URI (clip "
                     + clipId + ", attempt " + n + "/" + MAX_UNPOISONED_RECOVERY_REBUILDS
                     + ") — rebuilding");
+            }
         }
         if (playerManager == null) return;
         // A recovery rebuild is a user-visible timeline change → bump the generation so any in-flight

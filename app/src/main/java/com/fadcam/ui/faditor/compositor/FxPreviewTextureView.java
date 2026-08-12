@@ -75,6 +75,22 @@ public class FxPreviewTextureView extends TextureView
     private static final String TAG = "FxPreviewGl";
 
     /**
+     * How many overlay clips may be LIVE (their own decoder) in the composite at once.
+     *
+     * <p>This is a hardware limit dressed as a constant. Phones expose a small fixed number of
+     * concurrent AVC/HEVC decoder instances — commonly 2–4 — and going past it fails at
+     * codec-init rather than degrading, so the cap has to be conservative and the overflow has
+     * to have somewhere to go. The Part-10 probe measured the Note 9 comfortably running THREE
+     * simultaneous 1080p HEVC decoders; the master owns one, so two overlays is exactly that
+     * budget and not a frame more. Every visible overlay beyond the cap keeps the cached-still
+     * path that has always been there, which is a worse picture but never a black PiP.</p>
+     *
+     * <p>Raising it is this one number plus a device probe — the input array, the pool and the
+     * plan all size themselves from here.</p>
+     */
+    public static final int MAX_LIVE_PIPS = 2;
+
+    /**
      * Decoder frames arrive on an external-OES texture, but every effect body the compiler emits
      * reads a plain {@code sampler2D uTexSampler} — because that is what media3 hands the export.
      * Rather than teach the compiler a second sampler type, one staging pass copies OES into an
@@ -221,8 +237,12 @@ public class FxPreviewTextureView extends TextureView
         void onFxInputSurfaceReady(@NonNull Surface surface);
         /** Fires on the MAIN thread when the surface goes away and the player must let go. */
         void onFxInputSurfaceLost();
-        /** The PiP decoder's surface, published alongside the master's. */
-        default void onFxPipSurfaceReady(@NonNull Surface surface) { }
+        /**
+         * A PiP decoder's surface. Slot 0 is published alongside the master's; the rest only
+         * once someone asks for them ({@link #requestPipInputs}), so a project that never
+         * stacks two overlay videos never allocates the second input at all.
+         */
+        default void onFxPipSurfaceReady(@NonNull Surface surface, int slot) { }
     }
 
     /**
@@ -253,6 +273,12 @@ public class FxPreviewTextureView extends TextureView
          */
         @Nullable final android.graphics.Bitmap still;
         /**
+         * Which live decoder input this PiP's pixels arrive on, when {@link #still} is null.
+         * Slot 0 is the one input that has always existed; higher slots exist only while a
+         * project genuinely stacks overlay videos. Meaningless for a still-backed PiP.
+         */
+        final int liveSlot;
+        /**
          * The object's OWN effect stack, fused into one pass — or null when it has none.
          *
          * <p>Per-object FX were read by nothing in this package until now: only
@@ -273,7 +299,8 @@ public class FxPreviewTextureView extends TextureView
                    @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey,
                    float timeSec, float blendMode, boolean maskOn, boolean maskInvert,
                    @NonNull float[] maskGeo,
-                   @NonNull String clipId, @Nullable android.graphics.Bitmap still) {
+                   @NonNull String clipId, @Nullable android.graphics.Bitmap still,
+                   int liveSlot) {
             this.cx = cx;
             this.cy = cy;
             this.halfW = halfW;
@@ -290,6 +317,7 @@ public class FxPreviewTextureView extends TextureView
             this.maskGeo = maskGeo;
             this.clipId = clipId;
             this.still = still;
+            this.liveSlot = Math.max(0, Math.min(MAX_LIVE_PIPS - 1, liveSlot));
         }
 
         boolean rendersAnything() {
@@ -302,7 +330,8 @@ public class FxPreviewTextureView extends TextureView
                              @Nullable FxStack stack, long editorMs,
                              @Nullable CompositingSpec spec, float blendMode,
                              int frameW, int frameH,
-                             @NonNull String clipId, @Nullable android.graphics.Bitmap still) {
+                             @NonNull String clipId, @Nullable android.graphics.Bitmap still,
+                             int liveSlot) {
             FxCompiler.Pass fused = null;
             List<FxUniforms.Value> vals = java.util.Collections.emptyList();
             String key = "";
@@ -320,7 +349,7 @@ public class FxPreviewTextureView extends TextureView
             return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key,
                     editorMs / 1000f, blendMode, maskOn,
                     spec != null && spec.invertMasks,
-                    MaskSdf.packShapes(spec, frameW, frameH), clipId, still);
+                    MaskSdf.packShapes(spec, frameW, frameH), clipId, still, liveSlot);
         }
     }
 
@@ -515,13 +544,21 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private SurfaceTexture inputTexture;
     @Nullable private Surface inputSurface;
     private final float[] texMatrix = new float[16];
-    /** Second decoder input: the PiP. Allocated with the master's, used only when one exists. */
-    private int pipTexId;
-    @Nullable private SurfaceTexture pipTexture;
-    @Nullable private volatile Surface pipSurface;
-    private final float[] pipTexMatrix = new float[16];
+    /**
+     * The PiP decoder inputs. Slot 0 is allocated with the master's, exactly as it always was;
+     * slots above it are built lazily on the GL thread when {@link #requestPipInputs} asks, so a
+     * project with one overlay video allocates precisely what it allocated before.
+     */
+    private final int[] pipTexIds = new int[MAX_LIVE_PIPS];
+    private final SurfaceTexture[] pipTextures = new SurfaceTexture[MAX_LIVE_PIPS];
+    private final Surface[] pipSurfaces = new Surface[MAX_LIVE_PIPS];
+    private final float[][] pipTexMatrix = new float[MAX_LIVE_PIPS][16];
     /** Set on the GL thread when a PiP frame has actually arrived; until then, do not draw it. */
-    private boolean pipHasFrame;
+    private final boolean[] pipHasFrame = new boolean[MAX_LIVE_PIPS];
+    /** How many inputs the main thread has asked for; the GL thread builds up to this. */
+    private volatile int wantPipInputs = 1;
+    /** How many inputs exist and have been published — read from any thread. */
+    private volatile int livePipInputs;
     private FloatBuffer quadBuf;
     private volatile int surfaceW, surfaceH;
 
@@ -660,7 +697,23 @@ public class FxPreviewTextureView extends TextureView
 
     /** True once the PiP decoder surface exists, so a caller knows routing can proceed. */
     public boolean hasPipSurface() {
-        return pipSurface != null;
+        return livePipInputs > 0;
+    }
+
+    /**
+     * Ask for {@code count} live PiP inputs (clamped to {@link #MAX_LIVE_PIPS}).
+     *
+     * <p>Only ever grows within a surface's lifetime: an input is an OES texture plus a
+     * {@code SurfaceTexture}, and tearing one down while a decoder might still be writing to it
+     * is the class of bug that shows up as an occasional native crash on someone else's phone.
+     * Growth is one-way and cheap; the decoders on the other end are what actually cost, and
+     * those {@link OverlayVideoPreviewView} releases the moment a stack stops being stacked.</p>
+     */
+    public void requestPipInputs(int count) {
+        int want = Math.max(1, Math.min(MAX_LIVE_PIPS, count));
+        if (want <= wantPipInputs) return;
+        wantPipInputs = want;
+        requestFrame();   // the inputs are built on the GL thread, inside the next draw
     }
 
     /**
@@ -815,6 +868,11 @@ public class FxPreviewTextureView extends TextureView
             pipPrograms.clear();
             stillTexIds.clear();
             stillUploaded.clear();
+            // Same for the PiP inputs: whatever sits in these slots names objects in a context
+            // that no longer exists, and ensurePipInputs decides "already built" from the count.
+            java.util.Arrays.fill(pipTextures, null);
+            java.util.Arrays.fill(pipSurfaces, null);
+            java.util.Arrays.fill(pipHasFrame, false);
             // Same reasoning for the bitmap BASE: its texture id belonged to the dead context.
             baseStillTexId = 0;
             baseStillUploaded = null;
@@ -825,30 +883,52 @@ public class FxPreviewTextureView extends TextureView
             inputTexture.setOnFrameAvailableListener(this);
             inputSurface = new Surface(inputTexture);
 
-            // The PiP's input, made alongside the master's. Costs one texture and one
+            // The PiP's first input, made alongside the master's. Costs one texture and one
             // SurfaceTexture on a project that never uses a PiP; building it lazily instead
             // would mean creating GL objects from whichever thread noticed, which is the kind
-            // of cross-thread GL that fails intermittently rather than loudly.
-            pipTexId = newOesTexture();
-            pipTexture = new SurfaceTexture(pipTexId);
-            pipTexture.setOnFrameAvailableListener(st -> {
-                pipHasFrame = true;
-                requestFrame();
-            });
-            pipSurface = new Surface(pipTexture);
+            // of cross-thread GL that fails intermittently rather than loudly. The inputs ABOVE
+            // it are built lazily — but still on this thread, from ensurePipInputs.
+            livePipInputs = 0;
+            ensurePipInputs();
 
             final Surface ready = inputSurface;
-            final Surface pipReady = pipSurface;
             main.post(() -> {
                 SurfaceListener l = surfaceListener;
-                if (l != null) {
-                    l.onFxInputSurfaceReady(ready);
-                    l.onFxPipSurfaceReady(pipReady);
-                }
+                if (l != null) l.onFxInputSurfaceReady(ready);
             });
         } catch (Exception e) {
             FLog.e(TAG, "GL setup failed; the live FX preview is unavailable", e);
             releaseGl();
+        }
+    }
+
+    /**
+     * Build any PiP inputs that have been asked for and do not exist yet, and publish each new
+     * surface to the main thread. GL thread only — it is called from {@code setupGl} and from
+     * the top of {@code drawFrame}, which are the two places the context is guaranteed current.
+     *
+     * <p>Each slot is published separately and the decoder side treats an unpublished slot as
+     * "not live yet", so the window between asking for a second input and getting one shows the
+     * cached still rather than a hole.</p>
+     */
+    private void ensurePipInputs() {
+        int want = Math.min(MAX_LIVE_PIPS, Math.max(1, wantPipInputs));
+        for (int slot = livePipInputs; slot < want; slot++) {
+            final int s = slot;
+            pipTexIds[s] = newOesTexture();
+            SurfaceTexture st = new SurfaceTexture(pipTexIds[s]);
+            st.setOnFrameAvailableListener(t -> {
+                pipHasFrame[s] = true;
+                requestFrame();
+            });
+            pipTextures[s] = st;
+            final Surface surface = new Surface(st);
+            pipSurfaces[s] = surface;
+            livePipInputs = s + 1;
+            main.post(() -> {
+                SurfaceListener l = surfaceListener;
+                if (l != null) l.onFxPipSurfaceReady(surface, s);
+            });
         }
     }
 
@@ -875,6 +955,9 @@ public class FxPreviewTextureView extends TextureView
             EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
             // Retired stills are freed HERE, before any upload can touch them — see stillTrash.
             for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
+            // A newly requested PiP input is built here, on the one thread that may make GL
+            // objects for this context.
+            if (livePipInputs < wantPipInputs) ensurePipInputs();
             inputTexture.updateTexImage();
             inputTexture.getTransformMatrix(texMatrix);
 
@@ -1138,7 +1221,7 @@ public class FxPreviewTextureView extends TextureView
                 // Uploaded still frame (plain 2D). The shader variant samples it with v flipped.
                 GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, stillTexId);
             } else {
-                GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexId);
+                GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexIds[p.liveSlot]);
             }
             GLES20.glUniform1i(loc, 1);
         }
@@ -1147,7 +1230,7 @@ public class FxPreviewTextureView extends TextureView
             // strips it (location -1, which GLES ignores).
             GLES20.glUniformMatrix4fv(
                     GLES20.glGetUniformLocation(program, "uPipTexMatrix"), 1, false,
-                    pipTexMatrix, 0);
+                    pipTexMatrix[p.liveSlot], 0);
         }
         double rad = Math.toRadians(p.rotationDeg);
         setF2(program, "uPipCentre", p.cx, p.cy);
@@ -1171,10 +1254,14 @@ public class FxPreviewTextureView extends TextureView
         if (!p.rendersAnything()) return src;
         int dst = src == 0 ? 1 : 0;
         if (p.still == null) {
-            // The live decoder's pixels on the OES surface.
-            if (!pipHasFrame || pipTexture == null) return src;
-            pipTexture.updateTexImage();
-            pipTexture.getTransformMatrix(pipTexMatrix);
+            // This PiP's own live decoder, on its own OES surface. A slot that has not been
+            // built or has not produced a frame contributes nothing rather than sampling
+            // whatever another PiP last left in a neighbouring texture.
+            int slot = p.liveSlot;
+            SurfaceTexture st = slot < livePipInputs ? pipTextures[slot] : null;
+            if (st == null || !pipHasFrame[slot]) return src;
+            st.updateTexImage();
+            st.getTransformMatrix(pipTexMatrix[slot]);
             return drawPip(p, src, dst, vw, vh, 0) ? dst : src;
         }
         int tex = stillTextureFor(p);
@@ -1580,11 +1667,15 @@ public class FxPreviewTextureView extends TextureView
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }
-                Surface ps = pipSurface;
-                pipSurface = null;
-                if (ps != null) ps.release();
-                if (pipTexture != null) { pipTexture.release(); pipTexture = null; }
-                pipHasFrame = false;
+                int built = livePipInputs;
+                livePipInputs = 0;
+                for (int i = 0; i < built; i++) {
+                    Surface ps = pipSurfaces[i];
+                    pipSurfaces[i] = null;
+                    if (ps != null) ps.release();
+                    if (pipTextures[i] != null) { pipTextures[i].release(); pipTextures[i] = null; }
+                    pipHasFrame[i] = false;
+                }
                 if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
                     EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE,
                             EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);

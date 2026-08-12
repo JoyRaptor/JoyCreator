@@ -163,8 +163,12 @@ public final class FxLivePreviewController {
 
     /** The decoder-facing surface, once the GL thread has published one. */
     @Nullable private Surface inputSurface;
-    /** The PiP's decoder-facing surface, once the GL thread has published one. */
-    @Nullable private Surface pipSurface;
+    /**
+     * The PiP decoder-facing surfaces, by live slot, as the GL thread publishes them. Slot 0 is
+     * the one that has always existed; the rest appear only after {@link #buildPlan} asks for
+     * them, which it does only for a project that genuinely stacks overlay videos.
+     */
+    private final Surface[] pipSurfaces = new Surface[FxPreviewTextureView.MAX_LIVE_PIPS];
     /** True while the decoder is rendering into {@link #view} rather than the PlayerView. */
     private boolean routed;
     /**
@@ -194,7 +198,7 @@ public final class FxLivePreviewController {
             }
             @Override public void onFxInputSurfaceLost() {
                 inputSurface = null;
-                pipSurface = null;
+                java.util.Arrays.fill(pipSurfaces, null);
                 OverlayVideoPreviewView ov = host.overlayVideoLayer();
                 if (ov != null) ov.setFxCompositeSurface(null);
                 if (routed) {
@@ -203,8 +207,8 @@ public final class FxLivePreviewController {
                     host.restoreVideoOutput();
                 }
             }
-            @Override public void onFxPipSurfaceReady(@NonNull Surface s) {
-                pipSurface = s;
+            @Override public void onFxPipSurfaceReady(@NonNull Surface s, int slot) {
+                if (slot >= 0 && slot < pipSurfaces.length) pipSurfaces[slot] = s;
             }
         });
     }
@@ -234,7 +238,14 @@ public final class FxLivePreviewController {
         for (Clip c : timeline.getOverlayClips()) {
             if (c.getFx() != null && !c.getFx().active().isEmpty()) { objectFx = true; break; }
         }
-        if (!anyRenders && g == null && !objectFx) { stop(); return; }
+        // A project that STACKS overlay videos routes too, even with no grade and no effect
+        // anywhere. This chain is the only tier that can show more than one live PiP — the
+        // sibling View path has one TextureView, so it plays the top clip and reduces the rest
+        // to 400ms stills while the export composites all of them. Routing here is what lets
+        // OverlayVideoPreviewView give those clips real decoders, and it costs a project with
+        // nothing else live only a passthrough draw.
+        boolean stacked = stacksOverlayVideos(timeline);
+        if (!anyRenders && g == null && !objectFx && !stacked) { stop(); return; }
 
         if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
         view.setGrade(g);
@@ -255,7 +266,7 @@ public final class FxLivePreviewController {
                 : videoSize();
         view.setVideoSize(size[0], size[1]);
         view.setVideoRotation(still != null ? 0 : rotationDegrees());
-        view.setCompositePlan(buildPlan(timeline, playheadMs, size));
+        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
         route();
@@ -285,7 +296,7 @@ public final class FxLivePreviewController {
      */
     @NonNull
     private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
-            long playheadMs, @NonNull int[] size) {
+            long playheadMs, @NonNull int[] size, boolean stacked) {
         List<AdjustmentLayer> live =
                 LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
@@ -300,9 +311,14 @@ public final class FxLivePreviewController {
             }
         }
         OverlayVideoPreviewView ov = host.overlayVideoLayer();
-        boolean offer = ov != null && pipSurface != null;
+        // Ask for the extra composite inputs only once the project actually stacks. The request
+        // only ever grows, and the GL side builds each input lazily, so a one-PiP project never
+        // allocates the second OES texture at all.
+        if (stacked) view.requestPipInputs(FxPreviewTextureView.MAX_LIVE_PIPS);
+        boolean offer = ov != null && pipSurfaces[0] != null;
         if (offer) {
-            ov.setFxCompositeSurface(pipSurface);
+            ov.setFxCompositeSurface(pipSurfaces[0]);
+            ov.setFxExtraSurfaces(stacked ? pipSurfaces : null);
             ov.setFxStillTrash(view.stillTrash());
         }
         List<FxPreviewTextureView.Rung> rungs = new ArrayList<>();
@@ -340,6 +356,37 @@ public final class FxLivePreviewController {
                     + " layers=" + snapshot.size() + " offer=" + offer);
         }
         return new FxPreviewTextureView.CompositePlan(snapshot, rungs);
+    }
+
+    /**
+     * Whether the project has two overlay VIDEOS whose time ranges overlap — the one condition
+     * that needs more than one live PiP.
+     *
+     * <p>Asked of the PROJECT, not of the playhead, because routing is per-project (see the
+     * class note): deciding it per frame would swap the decoder's surface every time the user
+     * scrubbed across the edge of a stack, and a surface swap costs a visible black flash.</p>
+     *
+     * <p>Images and hidden clips are excluded — neither can ever own a decoder — but nothing
+     * else is filtered. Being slightly over-eager here only engages a chain that is a
+     * passthrough when nothing is live; being under-eager would leave the stack un-playable.</p>
+     */
+    private static boolean stacksOverlayVideos(@NonNull Timeline timeline) {
+        if (FxPreviewTextureView.MAX_LIVE_PIPS < 2) return false;
+        List<Clip> all = timeline.getOverlayClips();
+        for (int i = 0; i < all.size(); i++) {
+            Clip a = all.get(i);
+            if (a.isImageClip() || a.isHiddenObject()) continue;
+            long aStart = a.getOverlayStartMs();
+            long aEnd = aStart + Math.max(0, a.getTrimmedDurationMs());
+            for (int j = i + 1; j < all.size(); j++) {
+                Clip b = all.get(j);
+                if (b.isImageClip() || b.isHiddenObject()) continue;
+                long bStart = b.getOverlayStartMs();
+                long bEnd = bStart + Math.max(0, b.getTrimmedDurationMs());
+                if (aStart < bEnd && bStart < aEnd) return true;
+            }
+        }
+        return false;
     }
 
     /** @see #buildPlan — a cheap fingerprint of the last plan's shape, for change-only logging. */

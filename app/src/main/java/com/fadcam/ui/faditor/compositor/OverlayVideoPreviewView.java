@@ -32,18 +32,24 @@ import java.util.List;
  * M-COMP-2 (PLAN_LAYERS_V2 §3.3) — live second-video / PiP preview layer.
  *
  * <p>Sits directly above the master video surfaces and below the visualizer/image/sprite/text
- * overlay views. Owns ONE overlay {@link ExoPlayer} (the Part-10 probe measured the Note 9
- * comfortably running 3 simultaneous 1080p HEVC decoders, so master + this one live overlay is
- * well inside budget) rendering into a {@link TextureView} that this view positions, scales,
- * rotates and alpha-blends per tick from the clip's {@code overlayTransform} {@link KeyframeSet}
- * — the SAME evaluator ({@code KeyframeSet.valueAt} at the absolute timeline ms) the export path
- * samples, so preview and export cannot diverge on the transform math.</p>
+ * overlay views. Owns the overlay {@link ExoPlayer}s and renders the top-most one into a
+ * {@link TextureView} that this view positions, scales, rotates and alpha-blends per tick from
+ * the clip's {@code overlayTransform} {@link KeyframeSet} — the SAME evaluator
+ * ({@code KeyframeSet.valueAt} at the absolute timeline ms) the export path samples, so preview
+ * and export cannot diverge on the transform math.</p>
  *
- * <p><b>Decoder policy (plan §3.3):</b> only the TOP-most visible overlay-video clip at the
- * playhead gets the live decoder. Other simultaneously-visible overlay videos are not drawn in
- * preview v1 (a cached-still fallback is a documented follow-up); export composites all of them
- * full-quality. When no overlay clip is visible the player pauses; when the bound list empties
- * the player is RELEASED so scrub-heavy single-track editing and background exports never pay
+ * <p><b>Decoder policy.</b> The TOP-most visible overlay-video clip at the playhead always gets
+ * a live decoder, on the single-player path this view has always had. Clips beneath it get one
+ * too — up to {@link FxPreviewTextureView#MAX_LIVE_PIPS} live overlays in total — but ONLY while
+ * the FX composite is engaged, because that GL chain is the only tier able to draw more than one
+ * live PiP; see {@code syncExtraLive}. Everything past the cap, every device that runs out of
+ * hardware decoders, and every project without the composite keeps the cached-still fallback
+ * below. Export composites all of them full-quality either way, so the stills remain the one
+ * place preview is knowingly poorer than the file.</p>
+ *
+ * <p>When no overlay clip is visible the players pause; when the bound list empties the top-most
+ * player is RELEASED, and the tier below it is released as soon as the project stops having two
+ * overlay videos to stack — so scrub-heavy single-track editing and background exports never pay
  * for an idle decoder.</p>
  *
  * <p><b>Transform convention</b> (creation writes these as keyframes at t=0; absent tracks fall
@@ -211,6 +217,11 @@ public class OverlayVideoPreviewView extends FrameLayout {
     /** Pause the overlay decoder (activity onPause). */
     public void pausePlayback() {
         if (player != null) player.pause();
+        ExtraLive[] pool = extraLive;
+        if (pool == null) return;
+        for (ExtraLive el : pool) {
+            if (el != null && el.player != null) el.player.pause();
+        }
     }
 
     // ── §3a live chroma key ──────────────────────────────────────────────────────────────
@@ -258,10 +269,56 @@ public class OverlayVideoPreviewView extends FrameLayout {
      */
     @Nullable private ExoPlayer fxRoutedPlayer;
 
+    // ── The live tier BELOW the top-most PiP ─────────────────────────────────────────────────
+
+    /**
+     * One decoder for an overlay clip that is visible but is NOT the top-most one.
+     *
+     * <p>Deliberately thinner than the top-most tier: no keyed view, no TextureView, no
+     * gestures. Its pixels only ever go to a composite input, which is the one place more than
+     * one live PiP can be shown at all.</p>
+     */
+    private static final class ExtraLive {
+        final int slot;
+        @Nullable ExoPlayer player;
+        @Nullable Clip clip;
+        @Nullable Surface surface;      // the composite input this player is attached to
+        int videoW, videoH;             // its decoded size, once the decoder reports one
+        float volume = -1f;             // last pushed, so a tick is not an audio-renderer message
+        ExtraLive(int slot) { this.slot = slot; }
+    }
+
+    /**
+     * The pool, indexed by composite slot ({@code [0]} is unused — slot 0 is {@link #player}).
+     *
+     * <p><b>Null, not empty, until a project actually stacks overlay videos while the composite
+     * is engaged.</b> One PiP is the overwhelmingly common project and it must allocate exactly
+     * what it always did; everything in this tier is behind that gate.</p>
+     *
+     * <p>A pool rather than a per-tick build: creating and releasing an ExoPlayer while the user
+     * drags the playhead is the expensive thing, not holding a paused one. Players are keyed to
+     * a clip, reused as clips come in and out of visibility, and released outright only when the
+     * project stops being stacked.</p>
+     */
+    @Nullable private ExtraLive[] extraLive;
+    /** Composite inputs for slots 1.., indexed by slot; null where the GL side has none yet. */
+    @Nullable private Surface[] fxExtraSurfaces;
+    /**
+     * Latched for the session when an extra decoder fails to start.
+     *
+     * <p>Exceeding a phone's concurrent hardware-decoder count fails at codec-init, and retrying
+     * it every tick would turn a degraded preview into a stuttering one. Once this is set the
+     * whole tier stands down and every clip below the top-most goes back to the still-frame
+     * path — the picture this view has always shown, which is worse than live video and much
+     * better than a black PiP.</p>
+     */
+    private boolean extraLiveFailed;
+
     /** Route the PiP into {@code s}, or pass null to hand it back to this view's own surface. */
     public void setFxCompositeSurface(@Nullable Surface s) {
         if (s == fxSurface) return;
         fxSurface = s;
+        if (s == null) releaseExtraLive();   // the tier exists only inside the composite
         if (s == null && fxRouted) {
             fxRouted = false;
             textureView.setAlpha(1f);
@@ -270,6 +327,20 @@ public class OverlayVideoPreviewView extends FrameLayout {
             keyedRouted = false;
         }
         routeToFxIfWanted();
+    }
+
+    /**
+     * Wire the composite's inputs for live slots 1.., offered alongside slot 0's.
+     *
+     * <p>The array is indexed by slot and may hold nulls: the GL side builds each input lazily
+     * and publishes it when it exists, so an unbuilt slot simply means "that clip keeps its
+     * still for now". Passing null is the host saying this project does not stack overlay
+     * videos at all, which is when the pooled decoders are given back — an idle decoder a
+     * project can never use is exactly the cost this tier is not allowed to have.</p>
+     */
+    public void setFxExtraSurfaces(@Nullable Surface[] slots) {
+        fxExtraSurfaces = slots;
+        if (slots == null) releaseExtraLive();
     }
 
     /** Wire the FX view's GL-thread still-bitmap trash; called with the composite surface offer. */
@@ -324,7 +395,13 @@ public class OverlayVideoPreviewView extends FrameLayout {
             // that routing actually holds; a keyed PiP keeps its own tier and must NOT also be
             // drawn here.
             if (!fxRouted || videoW <= 0 || videoH <= 0) return null;
-            return pipFor(clip, videoW, videoH, null);
+            return pipFor(clip, videoW, videoH, null, 0);
+        }
+        // A clip in the tier below the top-most: its own decoder, on its own composite input.
+        ExtraLive el = extraFor(clip);
+        if (el != null) {
+            if (el.videoW <= 0 || el.videoH <= 0) return null;   // absent until the size lands
+            return pipFor(clip, el.videoW, el.videoH, null, el.slot);
         }
         StillFrame sf = stills.get(clip.getId());
         android.graphics.Bitmap b = sf == null ? null : sf.bitmap;
@@ -333,7 +410,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
                     + " (stills has " + stills.size() + ")");
             return null;
         }
-        return pipFor(clip, b.getWidth(), b.getHeight(), b);
+        return pipFor(clip, b.getWidth(), b.getHeight(), b, 0);
     }
 
     /**
@@ -346,7 +423,8 @@ public class OverlayVideoPreviewView extends FrameLayout {
      */
     @Nullable
     private FxPreviewTextureView.Pip pipFor(@NonNull Clip clip, int srcW, int srcH,
-                                            @Nullable android.graphics.Bitmap still) {
+                                            @Nullable android.graphics.Bitmap still,
+                                            int liveSlot) {
         if (callback == null || srcW <= 0 || srcH <= 0) return null;
         RectF r = callback.getVideoContentRect();
         if (r.width() <= 0 || r.height() <= 0) return null;
@@ -373,7 +451,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 clip.getCompositing(),
                 com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()),
                 Math.max(1, srcW), Math.max(1, srcH),
-                clip.getId(), still);
+                clip.getId(), still, liveSlot);
     }
 
     /**
@@ -400,10 +478,19 @@ public class OverlayVideoPreviewView extends FrameLayout {
         // ones the picture on screen was built from.
         int srcW = videoW, srcH = videoH;
         if (clip != active) {
-            StillFrame sf = stills.get(clip.getId());
-            if (sf == null || sf.bitmap == null || sf.bitmap.isRecycled()) return null;
-            srcW = sf.bitmap.getWidth();
-            srcH = sf.bitmap.getHeight();
+            // Its own decoder's size when it has one, else its still's. Without the first
+            // branch a PiP promoted into the live tier would lose its handles and its
+            // hit-testing the moment it stopped being a still.
+            ExtraLive el = extraFor(clip);
+            if (el != null && el.videoW > 0 && el.videoH > 0) {
+                srcW = el.videoW;
+                srcH = el.videoH;
+            } else {
+                StillFrame sf = stills.get(clip.getId());
+                if (sf == null || sf.bitmap == null || sf.bitmap.isRecycled()) return null;
+                srcW = sf.bitmap.getWidth();
+                srcH = sf.bitmap.getHeight();
+            }
         }
         if (srcW <= 0 || srcH <= 0) return null;
         final int videoW = srcW, videoH = srcH;
@@ -604,6 +691,9 @@ public class OverlayVideoPreviewView extends FrameLayout {
 
     /** Release the overlay decoder entirely (activity onDestroy / export start). */
     public void releasePlayer() {
+        // The tier below goes with it: every caller here (export start, onDestroy, a decoder
+        // error) is a reason to be holding no overlay codecs at all.
+        releaseExtraLive();
         if (player != null) {
             try { player.release(); } catch (RuntimeException ignored) { }
             player = null;
@@ -629,6 +719,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
     private void syncToTime() {
         if (callback == null) return;
         Clip top = topVisibleAt(currentTimeMs);
+        syncExtraLive(top);
         refreshStills(top);
         if (top == null) {
             applyHostVisibility(false);
@@ -642,21 +733,194 @@ public class OverlayVideoPreviewView extends FrameLayout {
         routeFor(top);
         applyHostVisibility(true);
         applyTransform(top);
+        syncPlayerTo(player, top);
+    }
 
-        long want = top.getInPointMs() + Math.max(0, currentTimeMs - top.getOverlayStartMs());
-        long pos = player.getCurrentPosition();
+    /**
+     * Hold {@code p} on the frame {@code clip} should be showing at the playhead: in step with
+     * the master while it plays, on the scrubbed frame while it does not.
+     *
+     * <p>Shared by the top-most PiP and by the tier below it so a stack cannot drift apart from
+     * itself. N players is not N times the disk churn during a drag: every seek here is
+     * {@code CLOSEST_SYNC} — a keyframe fetch, not a decode-to-exact walk — and media3 drops a
+     * pending seek when a newer one supersedes it, so a fast drag costs each player roughly one
+     * fetch as it settles rather than one per tick.</p>
+     */
+    private void syncPlayerTo(@NonNull ExoPlayer p, @NonNull Clip clip) {
+        long want = clip.getInPointMs() + Math.max(0, currentTimeMs - clip.getOverlayStartMs());
+        long pos = p.getCurrentPosition();
         if (masterPlaying) {
-            if (!player.isPlaying()) {
-                player.seekTo(want);
-                player.play();
+            if (!p.isPlaying()) {
+                p.seekTo(want);
+                p.play();
             } else if (Math.abs(pos - want) > DRIFT_RESYNC_MS) {
-                player.seekTo(want);
+                p.seekTo(want);
             }
         } else {
-            if (player.isPlaying()) player.pause();
+            if (p.isPlaying()) p.pause();
             if (Math.abs(pos - want) > SCRUB_RESEEK_MS) {
-                player.seekTo(want);
+                p.seekTo(want);
             }
+        }
+    }
+
+    // ── The live tier below the top-most PiP ─────────────────────────────────────────────────
+
+    /**
+     * Give the visible overlay clips BELOW the top-most one their own decoders, up to
+     * {@link FxPreviewTextureView#MAX_LIVE_PIPS}, so a stack of PiPs actually plays instead of
+     * flicking through 400ms stills.
+     *
+     * <p><b>The gate is the composite.</b> This tier renders only through
+     * {@link FxPreviewTextureView}, because that is the only place more than one live PiP can be
+     * drawn at all — the sibling-View path has exactly one TextureView.
+     * {@code FxLivePreviewController} engages the chain for a stacked project for this reason.
+     * With no composite, or with only one overlay video on screen, this returns having allocated
+     * nothing, which is what keeps the one-PiP project identical to what it was.</p>
+     *
+     * <p>Clips are taken from the TOP down: the PiPs nearest the front are the ones being looked
+     * at, so they get the decoders and the deepest ones keep their stills. Slots are assigned
+     * positionally, which is stable by construction at a cap of two — raising the cap should
+     * first keep a clip in the slot it already holds, or one clip leaving visibility would
+     * shuffle the others and re-prepare players that were already on the right frame.</p>
+     */
+    private void syncExtraLive(@Nullable Clip top) {
+        Surface[] slots = fxExtraSurfaces;
+        if (top == null || fxSurface == null || slots == null || extraLiveFailed
+                || FxPreviewTextureView.MAX_LIVE_PIPS < 2) {
+            idleExtraLive();
+            return;
+        }
+        ExtraLive[] pool = extraLive;
+        int cap = Math.min(FxPreviewTextureView.MAX_LIVE_PIPS, slots.length);
+        int next = 1;
+        for (int i = clips.size() - 1; i >= 0 && next < cap; i--) {
+            Clip c = clips.get(i);
+            if (c == top || c.isImageClip() || c.isHiddenObject()) continue;
+            long start = c.getOverlayStartMs();
+            if (currentTimeMs < start || currentTimeMs > start + Math.max(0,
+                    c.getTrimmedDurationMs())) {
+                continue;
+            }
+            if (slots[next] == null) break;      // that input is not built yet — keep the still
+            if (pool == null) {
+                pool = new ExtraLive[FxPreviewTextureView.MAX_LIVE_PIPS];
+                extraLive = pool;
+            }
+            if (pool[next] == null) pool[next] = new ExtraLive(next);
+            bindExtra(pool[next], c, slots[next]);
+            next++;
+        }
+        // Slots that found no clip this tick keep their player, paused. Releasing on every gap
+        // between stacked clips would be exactly the create/release churn a pool exists to
+        // avoid; the whole tier is released when the project stops being stacked.
+        if (pool != null) {
+            for (int s = next; s < pool.length; s++) {
+                if (pool[s] != null) bindExtra(pool[s], null, null);
+            }
+        }
+    }
+
+    /** Bind (or idle) one pooled decoder. Reuses the player across clips; never rebuilds it. */
+    private void bindExtra(@NonNull ExtraLive el, @Nullable Clip clip, @Nullable Surface surface) {
+        if (clip == null || surface == null || callback == null) {
+            el.clip = null;
+            if (el.player != null && el.player.isPlaying()) el.player.pause();
+            return;
+        }
+        if (el.player == null) {
+            try {
+                ExoPlayer p = new ExoPlayer.Builder(getContext()).build();
+                p.setVolume(0f);   // silent until the clip's own opt-in says otherwise
+                p.setSeekParameters(SeekParameters.CLOSEST_SYNC);
+                p.addListener(new Player.Listener() {
+                    @Override public void onVideoSizeChanged(@NonNull VideoSize size) {
+                        if (size.width > 0 && size.height > 0) {
+                            el.videoW = size.width;
+                            el.videoH = size.height;
+                            invalidate();
+                        }
+                    }
+
+                    @Override public void onPlayerError(@NonNull PlaybackException error) {
+                        // This is what running out of hardware decoders looks like. Stand the
+                        // whole tier down and let every clip below the top-most go back to its
+                        // still, rather than leaving a black PiP where a video should be.
+                        FLog.w(TAG, "extra overlay decoder failed — falling back to stills",
+                                error);
+                        extraLiveFailed = true;
+                        // POSTED: this is one of this player's own listener callbacks, and
+                        // releasing a player from inside its own dispatch is asking for
+                        // trouble. The flag above already stops the next tick rebinding it.
+                        post(OverlayVideoPreviewView.this::releaseExtraLive);
+                    }
+                });
+                el.player = p;
+            } catch (RuntimeException e) {
+                FLog.w(TAG, "could not build an extra overlay decoder — stills it is", e);
+                extraLiveFailed = true;
+                releaseExtraLive();
+                return;
+            }
+        }
+        ExoPlayer p = el.player;
+        if (el.surface != surface) {
+            p.setVideoSurface(surface);
+            el.surface = surface;
+        }
+        if (el.clip != clip) {
+            el.clip = clip;
+            el.videoW = 0;
+            el.videoH = 0;
+            p.setMediaItem(MediaItem.fromUri(callback.resolveSeekable(clip)));
+            p.prepare();
+            FLog.i(TAG, "extra overlay decoder " + el.slot + " bound to layer="
+                    + clip.getLayerId() + " start=" + clip.getOverlayStartMs() + "ms");
+        }
+        if (el.player != p) return;   // a prepare-time error tore the tier down under us
+        // The SAME opt-in authority the top-most PiP uses, so stacking cannot make a project
+        // suddenly audible: every clip that has not opted into overlay audio answers 0, which is
+        // every clip by default. Pushed on change only — per-tick setVolume is a message to the
+        // audio renderer for nothing.
+        float v = Math.max(0f, callback.overlayVolumeFor(clip));
+        if (v != el.volume) {
+            el.volume = v;
+            p.setVolume(v);
+        }
+        syncPlayerTo(p, clip);
+    }
+
+    /** The pooled decoder bound to {@code clip}, or null when it is not in the live tier. */
+    @Nullable
+    private ExtraLive extraFor(@NonNull Clip clip) {
+        ExtraLive[] pool = extraLive;
+        if (pool == null) return null;
+        for (ExtraLive el : pool) {
+            if (el != null && el.clip == clip && el.player != null) return el;
+        }
+        return null;
+    }
+
+    /** Pause every pooled decoder and unbind its clip, keeping the players for the next stack. */
+    private void idleExtraLive() {
+        ExtraLive[] pool = extraLive;
+        if (pool == null) return;
+        for (ExtraLive el : pool) {
+            if (el != null) bindExtra(el, null, null);
+        }
+    }
+
+    /** Release the whole tier. Idempotent, and a no-op on every project that never stacked. */
+    private void releaseExtraLive() {
+        ExtraLive[] pool = extraLive;
+        if (pool == null) return;
+        extraLive = null;
+        for (ExtraLive el : pool) {
+            if (el == null || el.player == null) continue;
+            try { el.player.release(); } catch (RuntimeException ignored) { }
+            el.player = null;
+            el.clip = null;
+            el.surface = null;
         }
     }
 
@@ -669,7 +933,9 @@ public class OverlayVideoPreviewView extends FrameLayout {
         boolean changed = false;
         java.util.Set<String> visibleIds = new java.util.HashSet<>();
         for (Clip c : clips) {
-            if (c == top) continue;
+            // A clip with its own live decoder needs no still — and must not keep one, or the
+            // MMR worker would decode frames nothing draws.
+            if (c == top || extraFor(c) != null) continue;
             long start = c.getOverlayStartMs();
             long end = start + Math.max(0, c.getTrimmedDurationMs());
             if (currentTimeMs < start || currentTimeMs > end) continue;
@@ -878,8 +1144,13 @@ public class OverlayVideoPreviewView extends FrameLayout {
             // The still's own fit when there is one, else the routed host's base box. Using
             // baseW/baseH for every clip would draw a ghost the size of the ACTIVE video.
             StillFrame sf = stills.get(c.getId());
+            ExtraLive el = extraFor(c);
             float bw, bh;
-            if (sf != null && sf.bitmap != null && !sf.bitmap.isRecycled()) {
+            if (el != null && el.videoW > 0 && el.videoH > 0) {
+                float fit = Math.min(r.width() / el.videoW, r.height() / el.videoH);
+                bw = el.videoW * fit;
+                bh = el.videoH * fit;
+            } else if (sf != null && sf.bitmap != null && !sf.bitmap.isRecycled()) {
                 float fit = Math.min(r.width() / sf.bitmap.getWidth(),
                         r.height() / sf.bitmap.getHeight());
                 bw = sf.bitmap.getWidth() * fit;
@@ -1042,6 +1313,15 @@ public class OverlayVideoPreviewView extends FrameLayout {
     /** Host hook: re-read the bound PiP's volume after a mute/volume/lane-mute change. */
     public void refreshVolume() {
         applyActiveVolume();
+        ExtraLive[] pool = extraLive;
+        if (pool == null) return;
+        for (ExtraLive el : pool) {
+            if (el == null || el.player == null || el.clip == null || callback == null) continue;
+            float v = Math.max(0f, callback.overlayVolumeFor(el.clip));
+            if (v == el.volume) continue;
+            el.volume = v;
+            el.player.setVolume(v);
+        }
     }
 
     // ── Transform ─────────────────────────────────────────────────────────────

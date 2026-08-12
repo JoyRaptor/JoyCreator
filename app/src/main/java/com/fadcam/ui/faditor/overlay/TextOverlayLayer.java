@@ -426,7 +426,11 @@ public class TextOverlayLayer extends FrameLayout {
         // An earlier pass removed the explicit rebuild() from the drawer's own setter but missed
         // this one, which is reached indirectly and rebuilds the BELOW-z surface on every tick.
         // Guarding it here fixes the class of bug rather than the two call sites I can see.
-        boolean same = overlays.size() == this.overlays.size() && callback == cb;
+        // The comparison is on the ITEMS ONLY, deliberately. overlayLayerCallback() builds a fresh
+        // anonymous instance on every call, so including the callback in this test made it fail
+        // every time and the guard never once fired — the first version of this fix was inert, and
+        // the per-tick rebuild it was written to stop carried straight on happening.
+        boolean same = overlays.size() == this.overlays.size() && callback != null;
         if (same) {
             for (int i = 0; i < overlays.size(); i++) {
                 // Identity, not equals: these ARE the model objects, and a new instance at the
@@ -434,6 +438,10 @@ public class TextOverlayLayer extends FrameLayout {
                 if (this.overlays.get(i) != overlays.get(i)) { same = false; break; }
             }
         }
+        // The callback is swapped in either way: it closes over nothing that outlives a call, and
+        // the views hold no reference to it, so replacing it costs nothing and keeping a stale one
+        // would be the actual hazard.
+        this.callback = cb;
         if (same) {
             // Views already exist for exactly these items — re-read their transforms in place.
             setPlayheadMs(currentTimeMs);
@@ -441,7 +449,6 @@ public class TextOverlayLayer extends FrameLayout {
         }
         this.overlays.clear();
         this.overlays.addAll(overlays);
-        this.callback = cb;
         rebuild();
     }
 

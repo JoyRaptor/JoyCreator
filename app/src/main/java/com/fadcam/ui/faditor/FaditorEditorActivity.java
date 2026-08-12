@@ -19704,6 +19704,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void commit(@NonNull String what) {
+                // A committed transform gesture is the user claiming this object — see the
+                // placeholder cleanup in showTextOverlayEditor for why that has to be recorded.
+                textOverlayTouchedHere.add(o.getId());
                 if (before != null) recordOverlayMenuUndo(o, before, what + " overlay");
                 before = null;
                 syncTimelineOverlays();
@@ -23097,6 +23100,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * ("I clicked End here… the text was gone… undo did not bring back the text layer").</p>
      */
     private final java.util.Set<String> textOverlayCreatedHere = new java.util.HashSet<>();
+    /**
+     * Ids of overlays created in this session that the user has since MOVED, SCALED or ROTATED.
+     * Placing an object is an edit, so one that has been placed is never auto-cleaned as an
+     * abandoned placeholder.
+     */
+    private final java.util.Set<String> textOverlayTouchedHere = new java.util.HashSet<>();
 
     // ── W5-2 §3.8: rich-text session state ────────────────────────────────────────────────────
     // One TextStyleSession lives per open text drawer. It owns the three questions the drawer
@@ -23833,6 +23842,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String txt = item.getText();
             boolean stillPlaceholder = txt == null || txt.trim().isEmpty()
                     || txt.equals(getString(R.string.faditor_text_hint));
+            // MOVING IT COUNTS AS WANTING IT. The cleanup below deletes a box created in this
+            // session that still holds the placeholder — which is right for "opened the tool, then
+            // changed my mind", and hostile for what JoyRaptor actually did (2026-08-12): created a
+            // text box, could not see where to type, dragged it somewhere visible, and the drag
+            // closed the drawer and destroyed the box. "It canceled making the text box, because I
+            // hadn't entered any text yet, but I couldn't see where to enter text."
+            //
+            // Placing an object IS an edit. A box that has been moved, scaled or rotated is kept,
+            // placeholder or not, so the worst case is a visible "Enter text" the user can tap —
+            // recoverable — instead of silent destruction of work, which is not.
+            if (stillPlaceholder && textOverlayTouchedHere.contains(item.getId())) {
+                textOverlayCreatedHere.remove(item.getId());
+                textOverlayTouchedHere.remove(item.getId());
+                endTextStyleSession(session);
+                return;
+            }
             if (stillPlaceholder) {
                 session.destroyed = true;
                 if (textOverlayCreatedHere.contains(item.getId())) {

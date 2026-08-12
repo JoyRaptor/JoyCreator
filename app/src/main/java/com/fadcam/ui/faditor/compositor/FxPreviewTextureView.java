@@ -103,6 +103,29 @@ public class FxPreviewTextureView extends TextureView
             + "}\n";
 
     /**
+     * {@link #STAGE_FRAGMENT} with the base swapped from the decoder's OES texture to an uploaded
+     * 2D bitmap — how an IMAGE master clip enters the chain.
+     *
+     * <p>An image never reaches the player, so {@code setVideoSurface} routing cannot show it and
+     * the whole chain below was blind to it: an adjustment layer graded the video clips and left
+     * the photo untouched, while the EXPORT graded both (image clips get the same
+     * {@code videoEffects} list — {@code ExportManager.assembleClipVideoEffects}). This is the
+     * sampler that closes that gap.</p>
+     *
+     * <p>Derived textually, for the reason {@link #PIP_STILL_FRAGMENT} is: the rotation branch and
+     * everything downstream must stay one authority. Only the sampling differs — a {@code GLUtils}
+     * upload is top-row-first where the OES decoder texture is not, so the still variant flips v
+     * itself instead of running a decoder transform matrix. The caller passes rotation 0 for a
+     * bitmap base (see {@code FxLivePreviewController}), which is also what export does: its
+     * rotate/flip stage is gated on {@code isVideo}.</p>
+     */
+    private static final String STAGE_STILL_FRAGMENT = STAGE_FRAGMENT
+            .replace("#extension GL_OES_EGL_image_external : require\n", "")
+            .replace("uniform samplerExternalOES uOesTexture;", "uniform sampler2D uOesTexture;")
+            .replace("vec2 uv = (uTexMatrix * vec4(s, 0.0, 1.0)).xy;",
+                     "vec2 uv = vec2(s.x, 1.0 - s.y);");
+
+    /**
      * Composite one PiP over the frame, in the MASTER frame's normalised space.
      *
      * <p>This is {@code OverlayVideoPreviewView.applyTransform}'s maths, moved into a shader.
@@ -471,6 +494,14 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private volatile CompositePlan plan;
     /** The clip grade, or null when the clip under the playhead has none. */
     @Nullable private volatile Grade grade;
+    /**
+     * The BASE frame as a bitmap — an image master clip — or null to stage the decoder instead.
+     *
+     * <p>Not owned here. The publisher must never recycle a bitmap it has handed over; retire it
+     * through {@link #stillTrash} exactly as the PiP stills do, or {@code texImage2D} reads freed
+     * pixel memory and takes the process down at a native frame no catch block reaches.</p>
+     */
+    @Nullable private volatile android.graphics.Bitmap baseStill;
     private volatile int videoW = 0, videoH = 0;
     /** @see #setVideoRotation */
     private volatile int rotation = 0;
@@ -496,6 +527,11 @@ public class FxPreviewTextureView extends TextureView
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
     private int stageProgram, presentProgram, gradeProgram;
+    /** @see #STAGE_STILL_FRAGMENT — the bitmap-base variant of {@link #stageProgram}. */
+    private int stageStillProgram;
+    /** The 2D texture holding {@link #baseStill}, and which bitmap it currently holds. */
+    private int baseStillTexId;
+    @Nullable private android.graphics.Bitmap baseStillUploaded;
     /**
      * PiP composite programs, keyed by effect-stack source AND texture variant (live OES vs
      * uploaded still) — two PiPs carrying different object stacks must not recompile each
@@ -640,6 +676,24 @@ public class FxPreviewTextureView extends TextureView
     }
 
     /**
+     * Stage {@code b} as the base frame instead of the decoder, or null to go back to the decoder.
+     *
+     * <p>This is what lets an IMAGE master clip be graded: there is no decoder callback behind a
+     * still, so nothing would ever trigger a draw and the screen would simply not update. The
+     * redraws come from the editor's playhead tick instead — {@code setCompositePlan} already
+     * fires {@link #requestFrame} every tick and the flag there coalesces the burst — so this
+     * setter only has to keep the reference fresh, not run a loop of its own.</p>
+     *
+     * <p>Ownership: see {@link #baseStill}. Hand over bitmaps you will retire through
+     * {@link #stillTrash}, never ones you recycle yourself.</p>
+     */
+    public void setBaseStill(@Nullable android.graphics.Bitmap b) {
+        if (b == baseStill) return;
+        baseStill = b;
+        requestFrame();
+    }
+
+    /**
      * Redraw with current state even if no new decoder frame arrived (a paused scrub).
      *
      * <p>COALESCED. {@code sync()} pushes size, rotation, grade, layers and the PiP every tick,
@@ -751,6 +805,7 @@ public class FxPreviewTextureView extends TextureView
             failedKey = null;
             compiledKey = null;
             stageProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_FRAGMENT);
+            stageStillProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_STILL_FRAGMENT);
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
                     com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
@@ -760,6 +815,9 @@ public class FxPreviewTextureView extends TextureView
             pipPrograms.clear();
             stillTexIds.clear();
             stillUploaded.clear();
+            // Same reasoning for the bitmap BASE: its texture id belonged to the dead context.
+            baseStillTexId = 0;
+            baseStillUploaded = null;
 
             oesTexId = newOesTexture();
 
@@ -875,8 +933,17 @@ public class FxPreviewTextureView extends TextureView
         }
     }
 
-    /** OES → {@code targets[0]}, the "base" the first layer grades. */
+    /**
+     * OES (or an uploaded bitmap) → {@code targets[0]}, the "base" the first layer grades.
+     *
+     * <p>The bitmap branch is what puts an IMAGE master clip into the chain at all. It falls back
+     * to the decoder when the upload fails rather than skipping the stage: a stale {@code
+     * targets[0]} would show the previous clip's frame under this clip's grade, which reads as a
+     * far stranger bug than an ungraded photo.</p>
+     */
     private void drawStage(int vw, int vh) {
+        android.graphics.Bitmap b = baseStill;
+        if (b != null && !b.isRecycled() && drawStageStill(b, vw, vh)) return;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
         GLES20.glViewport(0, 0, vw, vh);
         GLES20.glUseProgram(stageProgram);
@@ -888,6 +955,44 @@ public class FxPreviewTextureView extends TextureView
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTexId);
         GLES20.glUniform1i(GLES20.glGetUniformLocation(stageProgram, "uOesTexture"), 0);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    /**
+     * Bitmap → {@code targets[0]}. Returns false when the pixels could not be uploaded, so the
+     * caller can stage the decoder instead.
+     *
+     * <p>Uploads only when the bitmap CHANGED, keyed on identity: this runs on every tick a still
+     * is the base, and re-uploading a full-resolution photo sixty times a second for a picture
+     * that cannot move is exactly the "drastic performance cost" this project refuses to add.</p>
+     *
+     * <p>Rotation is passed through as usual (the controller sends 0 for a still), and no decoder
+     * transform matrix exists on this path — {@link #STAGE_STILL_FRAGMENT} strips its uniform, so
+     * the location is -1 and the setter is a defined no-op.</p>
+     */
+    private boolean drawStageStill(@NonNull android.graphics.Bitmap b, int vw, int vh) {
+        if (stageStillProgram == 0) return false;
+        if (baseStillTexId == 0) baseStillTexId = newStillTexture();
+        if (baseStillUploaded != b) {
+            try {
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, baseStillTexId);
+                android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+                baseStillUploaded = b;
+            } catch (RuntimeException e) {
+                FLog.w(TAG, "image base upload failed", e);
+                return false;
+            }
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(stageStillProgram);
+        bindQuad(stageStillProgram);
+        setF(stageStillProgram, "uRotation", rotation);
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, baseStillTexId);
+        GLES20.glUniform1i(
+                GLES20.glGetUniformLocation(stageStillProgram, "uOesTexture"), 0);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        return true;
     }
 
     /** The clip colour grade: {@code src} → {@code dst}, one pass, media3's own math. */
@@ -1466,6 +1571,12 @@ public class FxPreviewTextureView extends TextureView
                 }
                 stillTexIds.clear();
                 stillUploaded.clear();
+                if (baseStillTexId != 0) {
+                    try { GLES20.glDeleteTextures(1, new int[]{baseStillTexId}, 0); }
+                    catch (Exception ignored) { }
+                    baseStillTexId = 0;
+                }
+                baseStillUploaded = null;
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

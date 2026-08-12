@@ -52,6 +52,27 @@ public final class FxLivePreviewController {
          * the graded result. Null on a host that has no PiP support.
          */
         @Nullable default OverlayVideoPreviewView overlayVideoLayer() { return null; }
+
+        /**
+         * The decoded picture of the IMAGE master clip under the playhead, or null when the base
+         * is a video (or the decode has not finished).
+         *
+         * <p>An image never enters the player, so {@code setVideoSurface} routing shows nothing
+         * for it and the chain below was blind: an adjustment layer graded every video clip and
+         * left the photo alone, while the export graded both. Supplying the bitmap here is what
+         * makes the two agree.</p>
+         *
+         * <p>The returned bitmap crosses to the GL thread. Retire it through
+         * {@link FxPreviewTextureView#stillTrash()}, never by recycling it directly.</p>
+         */
+        @Nullable default android.graphics.Bitmap baseStillAtPlayhead() { return null; }
+
+        /**
+         * True while the GL chain is drawing that bitmap, so the host can hide whatever View was
+         * showing the image — otherwise the ungraded {@code ImageView} sits ON TOP of the graded
+         * result and the fix is invisible.
+         */
+        default void onBaseStillRouted(boolean routed) { }
     }
 
     /**
@@ -65,11 +86,17 @@ public final class FxLivePreviewController {
      * <p>The activation thresholds mirror {@code EffectStack.toEffects} exactly, because a stage
      * export SKIPS must not run here: an HSL round trip at neutral saturation is not a perfect
      * identity, and "the preview drifts slightly on every clip" is a horrible bug to chase.</p>
+     *
+     * <p><b>Image clips are NOT excluded.</b> They used to be, because the chain could not see
+     * them anyway; but {@code ExportManager.assembleClipVideoEffects} gates the grade on
+     * {@code !isTransitionItem} alone, not on {@code isVideo}, so a graded photo came out of the
+     * export graded and out of the editor raw. Now that a bitmap can be the base, dropping the
+     * exclusion is what makes those two the same picture.</p>
      */
     @Nullable
     static FxPreviewTextureView.Grade gradeOf(
             @Nullable com.fadcam.ui.faditor.model.Clip clip) {
-        if (clip == null || clip.isImageClip()) return null;
+        if (clip == null) return null;
         com.fadcam.ui.faditor.effects.EffectStack s = clip.getEffectStack();
         if (s == null || !s.isActive()) return null;
 
@@ -158,6 +185,12 @@ public final class FxLivePreviewController {
                 // AFTER the first sync asked to route. Re-running the decision here is what makes
                 // the deferred attach actually happen.
                 route();
+                // And ASK FOR A DRAW, which a video base never needed: the decoder's first frame
+                // kicks one by itself, but an image base has no decoder callback at all, so the
+                // draw requested by the sync that ran before this surface existed was dropped on
+                // the floor and the chain would sit blank until the next playhead tick — which,
+                // paused on a photo, never comes.
+                view.requestFrame();
             }
             @Override public void onFxInputSurfaceLost() {
                 inputSurface = null;
@@ -206,14 +239,37 @@ public final class FxLivePreviewController {
         if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
         view.setGrade(g);
 
+        // An IMAGE master clip's pixels come from a bitmap, not the decoder. The chain then runs
+        // at the PICTURE's size and with no rotation — matching export, whose rotate/flip stage is
+        // gated on isVideo — and the host hides the ImageView that would otherwise cover the
+        // graded result with the raw photo.
+        android.graphics.Bitmap still = host.baseStillAtPlayhead();
+        if (still != null && still.isRecycled()) still = null;
+        view.setBaseStill(still);
+        setBaseStillRouted(still != null);
+
         // Resolve on THIS thread — the GL thread must never walk the live model. See
         // FxPreviewTextureView.Layer for why a snapshot rather than the layer itself.
-        int[] size = videoSize();
+        int[] size = still != null
+                ? new int[]{still.getWidth(), still.getHeight()}
+                : videoSize();
         view.setVideoSize(size[0], size[1]);
-        view.setVideoRotation(rotationDegrees());
+        view.setVideoRotation(still != null ? 0 : rotationDegrees());
         view.setCompositePlan(buildPlan(timeline, playheadMs, size));
+        // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
+        // dropping it here would make every image→video crossing pay for a surface swap.
         route();
     }
+
+    /** @see Host#onBaseStillRouted — told once per transition, not once per tick. */
+    private void setBaseStillRouted(boolean routed) {
+        if (routed == baseStillRouted) return;
+        baseStillRouted = routed;
+        host.onBaseStillRouted(routed);
+    }
+
+    /** @see #setBaseStillRouted */
+    private boolean baseStillRouted;
 
     /**
      * Build the z-ordered composite plan: every live adjustment layer (resolved to its immutable
@@ -339,6 +395,10 @@ public final class FxLivePreviewController {
      */
     public void stop() {
         if (view.getVisibility() != View.GONE) view.setVisibility(View.GONE);
+        // BEFORE the routed early-return: a project with an image clip and no live FX never
+        // routes, and leaving the ImageView hidden there would blank the picture entirely.
+        setBaseStillRouted(false);
+        view.setBaseStill(null);
         if (!routed) return;
         routed = false;
         routedPlayer = null;

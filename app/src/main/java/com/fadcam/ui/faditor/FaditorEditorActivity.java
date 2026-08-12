@@ -1594,6 +1594,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         releaseGlTransitionNextPlayer();
         // M-COMP-2: free the overlay-video decoder.
         if (overlayVideoLayer != null) overlayVideoLayer.releasePlayer();
+        // The image-clip base bitmap goes back through the GL trash queue, not a direct recycle.
+        if (imageBaseStills != null) imageBaseStills.release();
         audioExecutor.shutdownNow();
         assetImportExecutor.shutdownNow();
         // S4: release the shared sprite-sheet bitmaps.
@@ -9114,7 +9116,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 opacity = Math.max(0f, Math.min(1f, clip.opacityAtClipMs(timelineLocalMs)));
             }
             if (playerView != null) playerView.setAlpha(opacity);
-            if (imagePreview != null && imagePreview.getVisibility() == View.VISIBLE) {
+            // Skipped while the GL chain owns the picture: this view is held at alpha 0 there and
+            // writing the opacity back would un-hide the raw photo over the graded one.
+            if (imagePreview != null && !glOwnsImagePreview
+                    && imagePreview.getVisibility() == View.VISIBLE) {
                 imagePreview.setAlpha(opacity);
             }
         }
@@ -9156,6 +9161,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Clear stale content before async Glide load
         imagePreview.setImageBitmap(null);
         imagePreview.setVisibility(View.VISIBLE);
+        // Re-showing must not resurrect the raw photo over a graded one — the GL chain may
+        // already own this clip's pixels (crossing a seam calls straight into here).
+        imagePreview.setAlpha(glOwnsImagePreview ? 0f : 1f);
         com.bumptech.glide.Glide.with(this)
                 .load(imageUri)
                 .into(imagePreview);
@@ -20717,6 +20725,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable private com.fadcam.ui.faditor.compositor.FxLivePreviewController fxLivePreview;
 
     /**
+     * The decoded picture of an IMAGE master clip, so the GL chain can grade it.
+     *
+     * @see com.fadcam.ui.faditor.compositor.ImageBaseStillCache
+     */
+    @Nullable private com.fadcam.ui.faditor.compositor.ImageBaseStillCache imageBaseStills;
+
+    /**
+     * True while the GL chain is drawing the image clip itself.
+     *
+     * <p>{@link #imagePreview} must then be transparent, or the RAW photo would sit on top of the
+     * graded one and the grade would look like it had done nothing — the exact symptom this whole
+     * change exists to remove. Alpha rather than GONE, so nothing that measures the view moves.</p>
+     */
+    private boolean glOwnsImagePreview;
+
+    /**
      * Put the adjustment layers and the clip grade on the live preview.
      *
      * <p>There used to be a second backend here, choosing {@code RenderEffect} over the
@@ -20761,6 +20785,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.compositor.FxPreviewTextureView v =
                     findViewById(R.id.fx_preview_view);
             if (v == null) return;
+            // The image-clip bitmap source, wired to the SAME GL-thread trash queue the PiP
+            // stills use — a bitmap handed to the chain must never be recycled by this side.
+            imageBaseStills = new com.fadcam.ui.faditor.compositor.ImageBaseStillCache(
+                    this, () -> syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs)));
+            imageBaseStills.setTrash(v.stillTrash());
             fxLivePreview = new com.fadcam.ui.faditor.compositor.FxLivePreviewController(v,
                     new com.fadcam.ui.faditor.compositor.FxLivePreviewController.Host() {
                         @Override
@@ -20776,6 +20805,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public com.fadcam.ui.faditor.compositor
                                 .OverlayVideoPreviewView overlayVideoLayer() {
                             return overlayVideoLayer;
+                        }
+                        @Override public android.graphics.Bitmap baseStillAtPlayhead() {
+                            return imageBaseStills == null
+                                    ? null : imageBaseStills.bitmapFor(clipUnderPlayhead());
+                        }
+                        @Override public void onBaseStillRouted(boolean routed) {
+                            glOwnsImagePreview = routed;
+                            if (imagePreview != null) imagePreview.setAlpha(routed ? 0f : 1f);
                         }
                     });
         }

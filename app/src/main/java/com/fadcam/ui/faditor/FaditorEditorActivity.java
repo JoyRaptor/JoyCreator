@@ -23162,24 +23162,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Image", 0,                                              // TODO(strings)
                 ctx -> buildImageTransformTab(o, tabHost)));
-        // ── The four inert tabs ──────────────────────────────────────────────────────────────
-        // Mask, Chroma key, Blend and Effects all persist correctly and reach NEITHER renderer
-        // for an image overlay: the preview draws an image overlay as a plain ImageView
+        // ── The three inert tabs ─────────────────────────────────────────────────────────────
+        // Mask, Chroma key and Effects all persist correctly and reach NEITHER renderer for an
+        // image overlay: the preview draws an image overlay as a plain ImageView
         // (TextOverlayLayer.buildView) and the export draws it on the Canvas in
         // CompositeExportOverlay, which is added AFTER the adjustment-layer block in ExportManager
         // and skips image FX by name. So preview and export AGREE — these are not WYSIWYG breaks,
         // and implementing the preview side alone would CREATE one. Per JoyRaptor (2026-08-12): keep
         // the tabs, label them, don't hide them.
+        //
+        // BLEND is the exception, and the reason it was worth separating: it is now real in the
+        // export (ImageBlendGlEffect), so it carries the standing export-only caveat a PiP's
+        // blend has always carried — previewsLive=false — rather than the inert note.
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
-                // previewsLive=true suppresses the "applied when you export" caveat, which would
-                // be a LIE here — an image overlay's blend reaches the export no more than the
-                // preview. withInertNote carries the honest one instead.
-                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
-                        com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
-                                ctx, o::getOverlayBlendMode, o::setOverlayBlendMode,
-                                applyComp, true),
-                        R.string.faditor_image_inert_blend)));
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
+                        ctx, o::getOverlayBlendMode, o::setOverlayBlendMode, applyComp, false)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
                 // NO LinkSource: a text overlay's keyframes are LOCAL-time (item start offset),

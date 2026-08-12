@@ -131,34 +131,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
             Bitmap cached = imageOverlayBitmaps.get(key);
             return (cached != null && !cached.isRecycled()) ? cached : null;
         }
-        Bitmap out = null;
-        String uriStr = o.getImageUri();
-        try {
-            android.net.Uri uri = android.net.Uri.parse(uriStr);
-            android.graphics.BitmapFactory.Options bounds =
-                    new android.graphics.BitmapFactory.Options();
-            bounds.inJustDecodeBounds = true;
-            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
-                android.graphics.BitmapFactory.decodeStream(in, null, bounds);
-            }
-            int maxEdge = Math.max(outW, outH);
-            int sample = 1;
-            while (bounds.outHeight / (sample * 2) >= maxEdge
-                    && bounds.outWidth / (sample * 2) >= 1) {
-                sample *= 2;
-            }
-            android.graphics.BitmapFactory.Options opts =
-                    new android.graphics.BitmapFactory.Options();
-            opts.inSampleSize = sample;
-            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
-                out = android.graphics.BitmapFactory.decodeStream(in, null, opts);
-            }
-        } catch (Throwable t) {
-            FLog.w(TAG, "image overlay " + key + " could not be decoded from " + uriStr
-                    + " — it will be absent from the exported file", t);
-        }
+        // Decode + downsampling live in ImageOverlayDraw, shared with the blend path, so a
+        // blended image is never decoded at a different sharpness than an unblended one.
+        Bitmap out = ImageOverlayDraw.decode(context, o, outW, outH);
         if (out == null) {
-            FLog.w(TAG, "image overlay " + key + " decoded to null from " + uriStr
+            FLog.w(TAG, "image overlay " + key + " decoded to null from " + o.getImageUri()
                     + " — it will be absent from the exported file");
         }
         imageOverlayBitmaps.put(key, out);
@@ -442,6 +419,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
             // image bitmap (build-list), an image with FX stays on the plain canvas path — the
             // effect persists, but the picture must not disappear.
             if (o.hasActiveFx() && !o.isImage()) continue;
+            // An image that chose a blend mode is composited by ImageBlendGlEffect instead — a
+            // Canvas has no video underneath it to blend with. Dropping it here is what stops it
+            // being drawn twice, once blended in the shader and once plain on top. ExportManager
+            // emits that effect for BOTH z buckets, so this exclusion never orphans an item.
+            if (ImageBlendGlEffect.wantsBlend(o)) continue;
             out.add(o);
         }
         return out;
@@ -669,47 +651,18 @@ public class CompositeExportOverlay extends BitmapOverlay {
             // height is a fraction of the frame height, width follows the bitmap's own aspect,
             // and the rect is centred on the object's animated centre. The preview's ImageView is
             // FIT_XY, so drawing into that dst rect stretches identically.
+            //
+            // The arithmetic moved to ImageOverlayDraw when ImageOverlayFrameOverlay needed the
+            // identical picture on its own frame-sized bitmap (blend modes). Not a copy: one
+            // authority, called from both, so the blended and unblended paths cannot place the
+            // same image in two different spots.
             if (o.isImage()) {
                 Bitmap img = imageOverlayBitmap(o);
                 if (img == null) continue; // already logged once
-                com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform ianim =
-                        com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
-                                com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                        .parsePreset(o.getTextAnimPreset()),
-                                timelineMs, o.motionRangeStartMs(), o.motionSpanMs(projectDurationMs),
-                                o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
-                float aspect = img.getHeight() > 0
-                        ? img.getWidth() / (float) img.getHeight() : 1f;
-                // Per-axis scale, mirroring TextOverlayLayer.position: a split Scale X/Y pair
-                // stretches one axis; linked keeps both multipliers at 1 so existing projects
-                // are byte-identical. Same animated-read accessors the preview uses.
-                float sx = o.animatedScaleX(timelineMs);
-                float sy = o.animatedScaleY(timelineMs);
-                float ih = Math.max(1f, sizeFrac * sy * outH);
-                float iw = Math.max(1f, ih * aspect * sx);
-                Paint ip = new Paint(Paint.FILTER_BITMAP_FLAG);
-                // The preview composes the preset's alpha OVER the keyframed opacity
-                // ("compose, don't replace"), so this multiplies rather than picking one.
-                int ia = Math.round(opacity * ianim.alpha * 255f);
-                ip.setAlpha(Math.max(0, Math.min(255, ia)));
-                canvas.save();
-                // Same order as the text path and as the preview's View properties.
-                canvas.translate(ianim.dx, ianim.dy);
-                canvas.rotate(rot, cx, cy);
-                canvas.scale(ianim.scaleX, ianim.scaleY, cx, cy);
-                // MASK_WIPE's reveal. No ink-pad inset here, unlike the text path: that pad is a
-                // TextOverlayRenderer artefact (transparent margin round the glyphs), and an
-                // image's drawn rect IS its bounds — which is also what the preview clips.
-                if (ianim.revealFrac < 1f) {
-                    canvas.clipRect(cx - iw / 2f, cy - ih / 2f,
-                            cx - iw / 2f + iw * Math.max(0f, ianim.revealFrac), cy + ih / 2f);
+                if (ImageOverlayDraw.draw(canvas, img, o, timelineMs, projectDurationMs,
+                        outW, outH, 1f)) {
+                    drawnText++;
                 }
-                canvas.drawBitmap(img,
-                        new android.graphics.Rect(0, 0, img.getWidth(), img.getHeight()),
-                        new android.graphics.RectF(cx - iw / 2f, cy - ih / 2f,
-                                cx + iw / 2f, cy + ih / 2f), ip);
-                canvas.restore();
-                drawnText++;
                 continue;
             }
             // SPEC_TIMER_OBJECT: a timer overlay draws a COMPUTED string for this frame;

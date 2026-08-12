@@ -2747,6 +2747,36 @@ public class ExportManager {
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
             }
 
+            // ── Image overlays that chose a BLEND MODE ─────────────────────────────────────
+            // Blending against the video is the one thing a BitmapOverlay cannot do — a Canvas
+            // has nothing underneath it — so these leave the canvas path for a shader, exactly
+            // as a blended PiP does. CompositeExportOverlay.filterTextOverlays drops the same
+            // items, which is what stops them being drawn twice (once blended, once plain on
+            // top). GATED on a non-NORMAL mode, so every project that never picked one builds
+            // the identical chain it always did.
+            //
+            // Emitted alongside the text-FX effects and for the same reason: chain order is
+            // paint order, so a blended image sits above the video and the PiPs and below the
+            // canvas overlay pass. An image the user ordered above a TEXT overlay will read as
+            // below it once blended — the same z compromise TextFxGlEffect already makes, and
+            // the reason blend is opt-in rather than a path every image takes.
+            //
+            // BOTH buckets, bottom-to-top. filterTextOverlays drops a blended image from the
+            // canvas whichever bucket it is in, so iterating only the ABOVE list would have made
+            // an image ordered beneath a PiP vanish from the export outright — a far worse
+            // outcome than the z shift the caveat above describes.
+            java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> blendCandidates =
+                    new ArrayList<>(belowTexts);
+            blendCandidates.addAll(exportTextOverlays);
+            for (com.fadcam.ui.faditor.model.TextOverlayItem to : blendCandidates) {
+                if (!ImageBlendGlEffect.wantsBlend(to)) continue;
+                videoEffects.add(new ImageBlendGlEffect(context, to,
+                        project.getTimeline().getTotalDurationMs(),
+                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                                - (isLoopBeforeItem
+                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
+            }
+
             // ── Adjustment layers (SPEC_ADJUSTMENT_LAYERS_FX M4) ───────────────────────────
             // Chain position IS z-order, so appending here puts these ABOVE every PiP — which
             // is exactly where getLayers emits the adjustment phase, so the default case is

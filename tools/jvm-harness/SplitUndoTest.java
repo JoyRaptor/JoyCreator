@@ -29,6 +29,7 @@ public class SplitUndoTest {
         splitUndoConservesTotalDuration();
         theHalvesTileTheOriginal();
         redoAfterUndoStillSplits();
+        undoDoesNotEatClipsWhenIndicesShift();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -113,6 +114,46 @@ public class SplitUndoTest {
         check("redo conserves total duration", total(t) == before);
         check("redo's split point is unmoved", t.getClip(0).getOutPointMs() == 25_000L
                 && t.getClip(1).getInPointMs() == 25_000L);
+    }
+
+    /**
+     * The clip-eating case: undo runs when the list has SHIFTED under it.
+     *
+     * <p>The old undo removed indexes {@code originalIndex} and {@code originalIndex+1} on trust —
+     * two removals, one insertion. Insert a clip ahead of the split and those slots no longer hold
+     * this split's halves, so it destroyed two unrelated clips and left the project one clip
+     * shorter. Exactly what happened to a real 43-minute project.</p>
+     */
+    static void undoDoesNotEatClipsWhenIndicesShift() {
+        Timeline t = new Timeline();
+        for (int i = 0; i < 3; i++) {
+            Clip c = new Clip(null, 600_000L);
+            c.setInPointMs(i * 100_000L);
+            c.setOutPointMs(i * 100_000L + 60_000L);
+            t.addClip(c);
+        }
+        Clip original = t.getClip(2);
+        long before = total(t);
+        int n = t.getClipCount();
+
+        t.splitAt(2, original.getInPointMs() + 20_000L);
+        EditActions.SplitClipAction action = new EditActions.SplitClipAction(
+                t, 2, original, t.getClip(2), t.getClip(3), t.getTransitions());
+
+        // Something else inserts a clip BEFORE the split — now every stored index is stale.
+        Clip intruder = new Clip(null, 600_000L);
+        intruder.setInPointMs(0L);
+        intruder.setOutPointMs(5_000L);
+        t.addClip(0, intruder);
+        long withIntruder = total(t);
+
+        action.undo();
+        check("undo removed only its own two halves (" + t.getClipCount() + " clips)",
+                t.getClipCount() == n + 1);
+        check("the intruder survived", t.indexOfClip(intruder) >= 0);
+        check("no duration was eaten (" + total(t) + " vs " + withIntruder + ")",
+                total(t) == withIntruder - (before == 0 ? 0 : 0) && total(t) == withIntruder);
+        check("the original is back", t.indexOfClip(original) >= 0);
     }
 
     static void check(String what, boolean ok) {

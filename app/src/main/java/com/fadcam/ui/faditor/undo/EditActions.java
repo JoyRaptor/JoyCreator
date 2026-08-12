@@ -536,22 +536,38 @@ public final class EditActions {
         }
 
         @Override public void execute() {
-            // Remove original, insert two split clips
-            timeline.removeClip(originalIndex);
-            timeline.addClip(originalIndex, clipB);
-            timeline.addClip(originalIndex, clipA);
+            // BY IDENTITY, not by index — see undo() for why.
+            int at = timeline.indexOfClip(originalClip);
+            if (at < 0) return;
+            timeline.removeClip(originalClip);
+            timeline.addClip(at, clipB);
+            timeline.addClip(at, clipA);
             // REDO must reproduce the index shift too — undo() restored the pre-split list.
-            timeline.shiftTransitionsAfterSplit(originalIndex);
+            timeline.shiftTransitionsAfterSplit(at);
         }
         @Override public void undo() {
-            // Remove two split clips, re-insert original
-            timeline.removeClip(originalIndex + 1);
-            timeline.removeClip(originalIndex);
+            // BY IDENTITY. This removed clips at originalIndex and originalIndex+1 on trust:
+            // two removals and one insertion, so if those slots did NOT hold this split's two
+            // halves it destroyed two unrelated clips and left the timeline one clip shorter.
+            // Indices are not stable — any edit before this point in the list shifts them, and
+            // undo runs arbitrarily long after the split was recorded. A clip vanished from a
+            // real 43-minute project this way (JoyRaptor, 2026-08-12), and the loss is silent
+            // because autosave writes it out immediately.
+            //
+            // Refusing to act when the halves are not both present is deliberate: an undo that
+            // cannot find what it created has already lost track of the document, and guessing
+            // at indices is precisely how it deletes someone's footage.
+            int ia = timeline.indexOfClip(clipA);
+            int ib = timeline.indexOfClip(clipB);
+            if (ia < 0 || ib < 0) return;
+            int at = Math.min(ia, ib);
+            timeline.removeClip(clipA);
+            timeline.removeClip(clipB);
             // Re-apply the range captured at split time, in case anything wrote to this detached
             // object while it was off the timeline. See originalIn/originalOut.
             originalClip.setInPointMs(originalIn);
             originalClip.setOutPointMs(originalOut);
-            timeline.addClip(originalIndex, originalClip);
+            timeline.addClip(Math.min(at, timeline.getClipCount()), originalClip);
             timeline.restoreTransitions(transitionsBefore);
         }
         @NonNull @Override public String getDescription() { return "Split clip"; }

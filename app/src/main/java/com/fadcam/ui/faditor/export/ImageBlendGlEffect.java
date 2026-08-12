@@ -55,11 +55,6 @@ final class ImageBlendGlEffect implements GlEffect {
         this.editorTimeOffsetMs = editorTimeOffsetMs;
     }
 
-    /** True when this overlay wants a blend that the canvas path cannot produce. */
-    static boolean wantsBlend(@NonNull TextOverlayItem o) {
-        return o.isImage() && BlendModes.modeCode(o.getOverlayBlendMode()) != 0;
-    }
-
     @NonNull
     @Override
     public BaseGlShaderProgram toGlShaderProgram(@NonNull Context ignored, boolean useHdr)

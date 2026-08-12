@@ -2769,7 +2769,7 @@ public class ExportManager {
                     new ArrayList<>(belowTexts);
             blendCandidates.addAll(exportTextOverlays);
             for (com.fadcam.ui.faditor.model.TextOverlayItem to : blendCandidates) {
-                if (!ImageBlendGlEffect.wantsBlend(to)) continue;
+                if (!to.wantsExportBlend()) continue;
                 videoEffects.add(new ImageBlendGlEffect(context, to,
                         project.getTimeline().getTotalDurationMs(),
                         editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)

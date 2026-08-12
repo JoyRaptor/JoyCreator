@@ -677,6 +677,25 @@ public class TextOverlayItem {
         this.overlayBlendMode = overlayBlendMode == null ? "NORMAL" : overlayBlendMode;
     }
 
+    /**
+     * Whether this overlay must leave the export's Canvas path for a shader, because it wants a
+     * blend mode that has no Canvas expression: blending against the video needs the video, and a
+     * {@code BitmapOverlay} has nothing underneath it.
+     *
+     * <p><b>Lives here, in the model, on purpose.</b> Two places consume it —
+     * {@code ImageBlendGlEffect} decides whether to exist, and
+     * {@code CompositeExportOverlay.filterTextOverlays} decides whether to drop the item — and
+     * they must be EXACTLY complementary. Either one drifting means the image is drawn twice
+     * (blended in the shader and plain on top of it) or not at all. One predicate makes that
+     * structural instead of something a test has to keep catching.</p>
+     *
+     * <p>Images only. A text overlay's blend has no export path yet, so promising it one here
+     * would drop the text from the canvas and render nothing in its place.</p>
+     */
+    public boolean wantsExportBlend() {
+        return isImage() && BlendModes.modeCode(overlayBlendMode) != 0;
+    }
+
     /** Static opacity [0,1] used when there are no OPACITY keyframes. */
     public float getOpacity() { return opacity; }
 

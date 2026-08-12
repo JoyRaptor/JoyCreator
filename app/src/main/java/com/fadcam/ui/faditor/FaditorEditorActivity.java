@@ -1889,6 +1889,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 undoManager.recordAction(new EditActions.LoopAction(clip,
                         clip.getLoopMode(), oldBefore, oldAfter,
                         clip.getLoopMode(), newBefore, newAfter));
+                // A resized extension changes this clip's on-timeline span, so everything after it
+                // moves. The drag wrote the new values to the model as it went, so there is nothing
+                // left to bracket AROUND — the pre-drag lengths are put back for the length of one
+                // capture and immediately restored, which costs two setters and makes the delta
+                // real. Capturing without this would compare the new state against itself and
+                // ripple nothing, which is precisely how a drag ends up silently desyncing.
+                long curBefore = clip.getLoopBeforeMs(), curAfter = clip.getLoopAfterMs();
+                clip.setLoopBeforeMs(oldBefore);
+                clip.setLoopAfterMs(oldAfter);
+                java.util.Map<String, Long> loopBefore = beginStructuralEdit();
+                clip.setLoopBeforeMs(curBefore);
+                clip.setLoopAfterMs(curAfter);
+                endStructuralEdit(loopBefore, "loopResize");
                 editorTimeline.setTrimFromClip(clip);
                 // Rebuild the gapless playlist so the new rep count/boundaries take effect (for a
                 // NORMAL loop) or so a stored PING_PONG clip stays correctly on the legacy
@@ -6346,6 +6359,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int prevMode = clip.getLoopMode();
         long prevBefore = clip.getLoopBeforeMs();
         long prevAfter = clip.getLoopAfterMs();
+        // A loop extension is part of the clip's on-timeline span (clipSpanMs reads
+        // getVisualDurationMs when hasLoopExtension), so turning one on or off is a length change
+        // like any other and everything after it has to move.
+        java.util.Map<String, Long> loopBefore = beginStructuralEdit();
         clip.setLoopMode(mode);
         if (mode == Clip.LOOP_MODE_OFF) {
             clip.setLoopBeforeMs(0);
@@ -6355,6 +6372,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // immediately and the user can start dragging past source bounds.
             clip.setLoopAfterMs(1000);
         }
+        endStructuralEdit(loopBefore, "loopMode");
         // Reset visual offset when mode changes
         loopVisualOffsetMs = 0;
         loopStillExtensionStartMs = -1;
@@ -6391,11 +6409,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         long prevBefore = clip.getLoopBeforeMs();
         long prevAfter = clip.getLoopAfterMs();
+        java.util.Map<String, Long> loopBefore = beginStructuralEdit();   // see applyLoopMode
         if (deltaMs < 0) {
             clip.setLoopBeforeMs(Math.max(0, clip.getLoopBeforeMs() + (-deltaMs)));
         } else {
             clip.setLoopAfterMs(Math.max(0, clip.getLoopAfterMs() + deltaMs));
         }
+        endStructuralEdit(loopBefore, "loopExtend");
         undoManager.recordAction(new EditActions.LoopAction(clip, mode, prevBefore, prevAfter,
                 mode, clip.getLoopBeforeMs(), clip.getLoopAfterMs()));
         refreshLoopDrawer();
@@ -6820,7 +6840,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     undoManager.recordAction(new EditActions.SpeedAction(
                             clip, oldSpeed, speed));
                 }
+                // A speed change IS a length change — getTrimmedDurationMs is raw/speed — so it
+                // moves every later clip's start, and until this bracket every object after the
+                // clip stayed put while its footage slid. A PiP's speed does not touch the spine,
+                // so there the bracket sees no delta and does nothing.
+                java.util.Map<String, Long> speedBefore = beginStructuralEdit();
                 clip.setSpeedMultiplier(speed);
+                endStructuralEdit(speedBefore, "speed");
                 // §3.5: for a selected PiP the model IS the target — the master player rate must
                 // NOT follow (adversarial review #2: it played the master at the PiP's speed).
                 if (clip.isOverlayClip()) {
@@ -29570,10 +29596,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         Timeline timeline = project.getTimeline();
+        // Silence removal is the biggest length change in the app — one clip becomes several
+        // shorter ones — and it was not bracketed, so every object after it stayed where it was
+        // while the footage under it moved left by however much silence was cut. Its UNDO was
+        // covered (performUndo brackets wholesale), which made the asymmetry drift: each
+        // cut+undo left the project further out of sync.
+        java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         timeline.removeClip(index);
         for (int i = keeps.size() - 1; i >= 0; i--) {
             timeline.addClip(index, keeps.get(i));
         }
+        // Riders anchored to the clip that was cut up are ORPHANED — every keep-clip has a fresh
+        // id. Which keep should own one is genuinely ambiguous (its footage may have been in a
+        // silence that is now gone), so this asks, exactly as a delete does, rather than guessing.
+        handleOrphanedAnchors(endStructuralEdit(anchorsBefore, "silenceCuts"));
         undoManager.recordAction(new EditActions.ReplaceClipsAction(
                 timeline, index, original, keeps));
 
@@ -32039,6 +32075,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Delete both", (d, w) -> {                 // TODO(strings)
                     final Runnable apply = () -> {
+                        // Bracketed like the single-clip delete: removing two clips shortens the
+                        // timeline, and without this nothing after them moved. Undo WAS covered
+                        // (performUndo brackets wholesale), so the two directions disagreed and
+                        // every delete+undo drifted. Nested inside that outer bracket this pair
+                        // is a no-op, which is what the bracket guard is for.
+                        java.util.Map<String, Long> pairBefore = beginStructuralEdit();
                         // Clear the link first so neither removal re-triggers pair logic.
                         master.setLinkedClipId(null);
                         partner.setLinkedClipId(null);
@@ -32049,6 +32091,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             timeline.removeClip(mIdx);
                             timeline.removeTransitionsForDeletedClip(mIdx);
                         }
+                        handleOrphanedAnchors(endStructuralEdit(pairBefore, "deleteLinkedPair"));
                         int newIndex = Math.min(masterIndex, timeline.getClipCount() - 1);
                         selectSegment(Math.max(0, newIndex));
                         editorTimeline.setTransitions(timeline.getTransitions());
@@ -32060,6 +32103,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 homeAfter != null ? homeAfter.getId() : null, 0L, false);
                     };
                     final Runnable revert = () -> {
+                        java.util.Map<String, Long> pairBefore = beginStructuralEdit();
                         // Re-insert both at their original positions, then restore the link.
                         if (masterIndex >= 0 && masterIndex <= timeline.getClipCount()) {
                             timeline.addClip(masterIndex, master);
@@ -32076,6 +32120,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         Timeline.linkClips(master, partner);
                         timeline.restoreTransitions(transitionsBefore);
+                        endStructuralEdit(pairBefore, "deleteLinkedPair:revert");
                         selectSegment(masterIndex);
                         editorTimeline.setTransitions(timeline.getTransitions());
                         syncTimelineOverlays();

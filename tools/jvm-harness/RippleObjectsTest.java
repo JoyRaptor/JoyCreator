@@ -125,6 +125,35 @@ public class RippleObjectsTest {
         eq(gpip.getOverlayStartMs(), 2200, "gap mode: the PiP stays put");
     }
 
+    /**
+     * "Length change" is not only trim/delete/split. A clip's on-timeline span is
+     * {@code hasLoopExtension() ? getVisualDurationMs() : getTrimmedDurationMs()}, and
+     * {@code getTrimmedDurationMs} is {@code raw / speed} — so changing SPEED or resizing a LOOP
+     * moves every later clip exactly as a trim does. Both were unbracketed in the editor.
+     *
+     * <p>This pins the model half: that the ripple math sees those two as length changes at all.
+     * The editor-side brackets that feed it are activity code and cannot be reached from here.</p>
+     */
+    static void speedAndLoopAreLengthChangesToo() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);
+        t.addTextOverlay(free);
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.getClip(0).setSpeedMultiplier(2.0f);            // 1000ms of source → 500ms on the tape
+        t.applyAnchorShift(before);
+        eq(free.getStartMs(), 1700, "speed: doubling clip 0's speed pulled the object back by 500");
+
+        Timeline t2 = threeClips("ripple");
+        TextOverlayItem free2 = overlay(2200, 2600);
+        t2.addTextOverlay(free2);
+        Map<String, Long> before2 = t2.captureClipStarts();
+        t2.getClip(0).setLoopMode(Clip.LOOP_MODE_NORMAL);
+        t2.getClip(0).setLoopAfterMs(300);                // the extension is part of the span
+        t2.applyAnchorShift(before2);
+        eq(free2.getStartMs(), 2500, "loop: extending clip 0 by 300 pushed the object right by 300");
+    }
+
     static void check(boolean c, String n) {
         checks++;
         System.out.println((c ? "PASS  " : "FAIL  ") + n);
@@ -175,6 +204,7 @@ public class RippleObjectsTest {
         openEndedObjectKeepsItsSentinel();
         aDanglingAnchorIsHealedAndRipplesAgain();
         everyObjectFamilyRipplesNotJustTextOverlays();
+        speedAndLoopAreLengthChangesToo();
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

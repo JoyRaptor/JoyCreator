@@ -412,6 +412,33 @@ public class TextOverlayLayer extends FrameLayout {
     }
 
     public void setData(@NonNull List<TextOverlayItem> overlays, @NonNull Callback cb) {
+        // SAME ITEMS, SAME ORDER → REPOSITION, DO NOT REBUILD.
+        //
+        // setData is called from syncTimelineOverlays, which every edit path funnels through —
+        // including the per-TICK slider writes in the object drawers. Rebuilding there was the
+        // remaining half of the image-drag jank (JoyRaptor, 2026-08-12: the flicker is "doing the
+        // slider movement", and "there's no updating happening during the slider movement until
+        // the hand is off"). Both symptoms are one cause: rebuild() destroys every view and the
+        // fresh one is positioned from a POSTED callback, so for at least a frame the object is
+        // unpositioned — it reads as a transparent flicker — and during a continuous drag the
+        // posted pass is always describing a value the finger has already left behind.
+        //
+        // An earlier pass removed the explicit rebuild() from the drawer's own setter but missed
+        // this one, which is reached indirectly and rebuilds the BELOW-z surface on every tick.
+        // Guarding it here fixes the class of bug rather than the two call sites I can see.
+        boolean same = overlays.size() == this.overlays.size() && callback == cb;
+        if (same) {
+            for (int i = 0; i < overlays.size(); i++) {
+                // Identity, not equals: these ARE the model objects, and a new instance at the
+                // same index is a different overlay that needs its own view.
+                if (this.overlays.get(i) != overlays.get(i)) { same = false; break; }
+            }
+        }
+        if (same) {
+            // Views already exist for exactly these items — re-read their transforms in place.
+            setPlayheadMs(currentTimeMs);
+            return;
+        }
         this.overlays.clear();
         this.overlays.addAll(overlays);
         this.callback = cb;

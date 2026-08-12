@@ -186,6 +186,23 @@ public final class PreviewHandlesOverlay extends View {
         }
     }
 
+    /**
+     * Is {@code (x,y)} inside the box of the item currently being edited?
+     *
+     * <p>Only answerable when that item is also the current {@link Target} — which it is whenever a
+     * text drawer is open, because opening one selects its object. When it is not (a stale id after
+     * the item was deleted, say) this reports false, and false is the safe answer: it means touches
+     * are handled normally rather than dropped into a surface that is no longer there.</p>
+     */
+    private boolean hitsEditedBox(float x, float y) {
+        Target t = target;
+        if (t == null || editingItemId == null) return false;
+        if (!t.frame(currentTimeMs, box)) return false;
+        float cx = box.centerX(), cy = box.centerY();
+        rotatePoint(x, y, cx, cy, -t.rotationDeg(currentTimeMs), pt);
+        return box.contains(pt[0], pt[1]);
+    }
+
     private enum Mode { NONE, MOVE, SCALE, ROTATE, PINCH }
 
     /** Two-finger gesture state: the span and angle at the moment the second finger landed. */
@@ -413,7 +430,22 @@ public final class PreviewHandlesOverlay extends View {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        if (editingItemId != null) return false;
+        // ONLY the edited item's own box surrenders, not the whole canvas.
+        //
+        // This used to be `if (editingItemId != null) return false;` — the entire preview went
+        // inert for as long as ANY text was being edited. Two things go wrong with that. The lesser
+        // one is by design: no other object could be selected or dragged while a text drawer was
+        // open. The serious one is that editingItemId is cleared by the drawer's onClose, which is
+        // one-shot, so any path that disposes of the drawer without running it — notably the
+        // placeholder cleanup that removes a text box the user never typed into — left the id
+        // pointing at a DELETED item and the preview permanently untouchable. That is JoyRaptor's
+        // 2026-08-12 report: an "Enter text" layer he could not select, no touches reaching the
+        // preview at all, and no way to make another text layer, all needing an app restart.
+        //
+        // Deferring only touches that land on the edited box keeps the reason the guard existed —
+        // the in-canvas editor owns its own caret taps and selection drags — while a stale id can
+        // now cost at most one unreachable object instead of the whole surface.
+        if (editingItemId != null && hitsEditedBox(e.getX(), e.getY())) return false;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
                 // LOOSE POINTS FIRST. They are only on screen while their editor is open, so a
@@ -771,9 +803,10 @@ public final class PreviewHandlesOverlay extends View {
      * so a drag can never author a position the sliders and the serializer would reject.</p>
      */
     private static float clampTravel(float v, float extent) {
-        float slack = Math.max(0.5f, extent * 0.5f);
-        float lo = Math.max(com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN, -slack);
-        float hi = Math.min(com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, 1f + slack);
-        return v < lo ? lo : (v > hi ? hi : v);
+        // The rails now GROW with the object rather than being intersected with a fixed ±1 frame —
+        // see KeyframeSet.posMinFor. Intersecting was what stopped a 400% image being dragged off
+        // the canvas at all: its centre needs two frames of travel before the trailing edge clears
+        // the frame, and the fixed rail halted it while it still covered everything.
+        return com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(v, extent);
     }
 }

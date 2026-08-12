@@ -52,6 +52,42 @@ public class KeyframeSet {
         return v < POS_MIN ? POS_MIN : (v > POS_MAX ? POS_MAX : v);
     }
 
+    /**
+     * Hard ceiling on the size-aware rails below, so a stray keyframe still cannot strand an
+     * object somewhere unreachable however large it is.
+     */
+    private static final float POS_ABS = 8f;
+
+    /**
+     * The position rails for an object whose extent is {@code extent} canvas-widths (or heights).
+     *
+     * <p><b>{@link #POS_MIN}'s reasoning only holds up to 2× the frame.</b> Its own note says one
+     * frame of travel beyond each edge "takes any object up to 2× the frame size completely out of
+     * view" — true, and false for anything bigger. At 400% the centre has to reach 2 frames out
+     * before the trailing edge clears the canvas, and the fixed ±1 rail stopped it at exactly the
+     * point where the object still covered the whole frame. JoyRaptor (2026-08-12): "I made it big and
+     * I wanna have it come in from the right side. And I can't get it off screen. I can't move it
+     * far enough" — which is the difference between being able to stage a pan-on and not.</p>
+     *
+     * <p>Half the extent beyond each edge is precisely "just fully off-frame", never further than
+     * needed. The fixed rails stay the FLOOR, so every object at or below 2× keeps exactly the
+     * range it has today and no existing project's numbers change.</p>
+     */
+    public static float posMinFor(float extent) {
+        return Math.max(-POS_ABS, Math.min(POS_MIN, -Math.max(0f, extent) / 2f));
+    }
+
+    /** @see #posMinFor */
+    public static float posMaxFor(float extent) {
+        return Math.min(POS_ABS, Math.max(POS_MAX, 1f + Math.max(0f, extent) / 2f));
+    }
+
+    /** {@link #clampPos} with the size-aware rails. */
+    public static float clampPos(float v, float extent) {
+        float lo = posMinFor(extent), hi = posMaxFor(extent);
+        return v < lo ? lo : (v > hi ? hi : v);
+    }
+
     @NonNull
     private final Map<String, KeyframeTrack> tracks = new LinkedHashMap<>();
 

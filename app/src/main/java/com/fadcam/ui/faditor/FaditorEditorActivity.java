@@ -19571,9 +19571,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         || !o.isVisibleAt(timeMs) || overlayLayer == null) {
                     return false;
                 }
-                for (int i = 0; i < overlayLayer.getChildCount(); i++) {
-                    View v = overlayLayer.getChildAt(i);
-                    if (v.getTag() == o) {
+                // BOTH surfaces. An overlay whose lane is ordered BELOW the video plane is
+                // rendered by overlayLayerBelow, so searching only overlayLayer reported "no box"
+                // for it — and since this same target answers the preview hit-test, a below-z
+                // object could not be selected by tapping it AT ALL. That is JoyRaptor's 2026-08-12
+                // report: tapping picked the foreground images and the text box but never the
+                // background image. Same neglected surface as the per-tick rebuild in setData.
+                View found = null;
+                for (int i = 0; found == null && i < overlayLayer.getChildCount(); i++) {
+                    if (overlayLayer.getChildAt(i).getTag() == o) {
+                        found = overlayLayer.getChildAt(i);
+                    }
+                }
+                for (int i = 0; found == null && overlayLayerBelow != null
+                        && i < overlayLayerBelow.getChildCount(); i++) {
+                    if (overlayLayerBelow.getChildAt(i).getTag() == o) {
+                        found = overlayLayerBelow.getChildAt(i);
+                    }
+                }
+                {
+                    View v = found;
+                    if (v != null) {
                         android.widget.FrameLayout.LayoutParams lp =
                                 (android.widget.FrameLayout.LayoutParams) v.getLayoutParams();
                         if (lp.width <= 0 || lp.height <= 0) return false; // pre-layout
@@ -19928,6 +19946,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (project == null || !project.getTimeline().getOverlayClips().contains(c)) {
                     return false;
                 }
+                // IS THE PiP EVEN ON SCREEN AT THIS TIME? The text and sprite targets gate on
+                // their item's own window (isVisibleAt); this one never did, and drawnRectFor
+                // hands back the rect from whenever the PiP last drew. So a PiP that finished
+                // long ago kept a live selection box: JoyRaptor's project (2026-08-12) has one whose
+                // window is 0–5226ms, and at 2:15 its box still sat over the right half of the
+                // canvas — a "free floating thing completely detached from the thing it's
+                // supposed to be bounding", stealing taps meant for the images beneath it, and
+                // rotating or scaling it changed nothing visible because the PiP was not being
+                // rendered at all. Same window PipFrameOverlay.activeAt uses.
+                long start = c.getOverlayStartMs();
+                long end = start + Math.max(0, c.getTrimmedDurationMs());
+                if (timeMs < start || timeMs > end) return false;
                 // Ask the overlay for the box it actually drew: it alone knows the PiP's decoded
                 // aspect, and a box derived from the canvas rect would miss the video whenever
                 // the PiP's aspect differs from the project's.

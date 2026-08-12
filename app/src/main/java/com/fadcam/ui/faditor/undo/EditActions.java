@@ -507,6 +507,19 @@ public final class EditActions {
          */
         private final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBefore;
 
+        /**
+         * The original's trim range AS IT WAS at split time.
+         *
+         * <p>{@code originalClip} is a live object that is no longer on the timeline, and nothing
+         * stops another code path writing to it in the meantime — which is exactly what happened:
+         * the player's {@code updateTrimEndOnly} wrote clip A's out-point through to it, so undo
+         * restored a clip truncated to clip A's range and the project came back shorter than it
+         * went in. That write is gone, but an undo record that depends on nobody else touching a
+         * detached object is a trap left in the road; two longs make it independent of them.</p>
+         */
+        private final long originalIn;
+        private final long originalOut;
+
         public SplitClipAction(@NonNull Timeline timeline, int originalIndex,
                                @NonNull Clip originalClip,
                                @NonNull Clip clipA, @NonNull Clip clipB,
@@ -518,6 +531,8 @@ public final class EditActions {
             this.clipA = clipA;
             this.clipB = clipB;
             this.transitionsBefore = transitionsBefore;
+            this.originalIn = originalClip.getInPointMs();
+            this.originalOut = originalClip.getOutPointMs();
         }
 
         @Override public void execute() {
@@ -532,6 +547,10 @@ public final class EditActions {
             // Remove two split clips, re-insert original
             timeline.removeClip(originalIndex + 1);
             timeline.removeClip(originalIndex);
+            // Re-apply the range captured at split time, in case anything wrote to this detached
+            // object while it was off the timeline. See originalIn/originalOut.
+            originalClip.setInPointMs(originalIn);
+            originalClip.setOutPointMs(originalOut);
             timeline.addClip(originalIndex, originalClip);
             timeline.restoreTransitions(transitionsBefore);
         }

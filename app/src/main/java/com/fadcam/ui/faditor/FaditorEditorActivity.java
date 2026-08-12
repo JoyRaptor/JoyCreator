@@ -4782,6 +4782,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (remember.isChecked()) prefs.setFaditorOrphanAnchorPolicy("delete");
                     deleteOrphans(ids, true);
                 })
+                // CANCEL THE WHOLE THING. A question offering only "keep" or "delete" forces the
+                // user to complete an edit they may already regret — JoyRaptor (2026-08-12): "maybe
+                // you didn't want to actually delete that thing … sometimes I'll be like, oh, I
+                // didn't actually mean to do that, and I'll wanna back out." Both other answers
+                // are commitments; there was no way to say "put it back".
+                //
+                // Order matters here. The clip delete is ALREADY applied and recorded by the time
+                // this dialog is raised, so backing out means re-anchoring the riders first (the
+                // non-destructive resolution, which the dismiss path also chooses) and then
+                // undoing — the undo restores the clip, and the re-anchor step is what stops the
+                // riders being left pointing at a clip that has come back underneath them.
+                //
+                // The remember checkbox is deliberately IGNORED on this path: cancelling says
+                // nothing about what should happen next time, and silently recording a policy
+                // from a cancelled dialog would be the opposite of backing out.
+                .setNeutralButton(android.R.string.cancel, (d, w) -> {
+                    answered[0] = true;
+                    reanchorOrphans(ids);
+                    performUndo();
+                })
                 .setCancelable(false)   // an unanswered question must not silently pick a side
                 .create();
         // ⚠ setCancelable(false) stops BACK, but it cannot stop the activity being destroyed by a
@@ -31710,7 +31730,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // out-point via updateTrimEndOnly so we DON'T trigger an unwanted seekTo(0),
                 // then park 1 ms before the trim end (avoids pos == trimEndMs reading as
                 // out-of-bounds when play() is next pressed).
-                playerManager.updateTrimEndOnly(clipA.getOutPointMs());
+                // Adopt clip A BY IDENTITY. updateTrimEndOnly only knows a number; the player
+                // was still holding the pre-split clip, whose id no longer exists on the
+                // timeline, so every later seekInClip was refused by the id guard and dropped
+                // without a word. This also removes the model write that used to truncate the
+                // clip SplitClipAction restores on undo.
+                playerManager.adoptClipSilently(clipA);
                 long trimmedMs = clipA.getOutPointMs() - clipA.getInPointMs();
                 if (trimmedMs > 1) {
                     playerManager.seekTo(trimmedMs - 1);

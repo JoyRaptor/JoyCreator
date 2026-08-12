@@ -523,10 +523,41 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      */
     public void updateTrimEndOnly(long newTrimEndMs) {
         this.trimEndMs = newTrimEndMs;
-        if (currentClip != null) {
-            this.currentClip.setOutPointMs(newTrimEndMs);
-        }
+        // NO WRITE-THROUGH TO THE MODEL. This used to also call
+        // currentClip.setOutPointMs(newTrimEndMs), and on the legacy player path currentClip is
+        // the very Clip object the timeline holds — not a detached copy — so it quietly
+        // re-trimmed a clip the caller never asked to change.
+        //
+        // It was destructive across UNDO. splitAtPlayhead calls this with clip A's out-point
+        // right after recording a SplitClipAction that keeps a live reference to the ORIGINAL
+        // clip; the write truncated that original to clip A's range, so undoing the split
+        // restored a clip missing clip B's entire span. The timeline came back shorter than it
+        // went in, every later clip shifted earlier, and the playhead — a raw millisecond value
+        // nothing re-maps — then resolved into the wrong clip: "I hit undo and pressed play at
+        // the seam and it jumps to a completely different area" (JoyRaptor, 2026-08-12). Autosaved,
+        // so it was data loss rather than a display glitch.
+        //
+        // Only trimEndMs is load-bearing here (it feeds effectiveTrimEnd()'s playback clamp),
+        // and split is this method's only caller, so nothing depended on the side effect.
         FLog.d(TAG, "Trim end updated (no seek): trimEnd=" + newTrimEndMs + "ms");
+    }
+
+    /**
+     * Point the player at {@code clip} WITHOUT preparing or seeking — for when the media already
+     * loaded IS this clip's media and only the identity and bounds have changed.
+     *
+     * <p>A split replaces one clip with two fresh objects carrying fresh ids. The player was left
+     * holding the original, whose id then matched nothing on the timeline, and {@link #seekInClip}
+     * refuses any clip whose id differs from {@code currentClip}'s — silently, since callers
+     * ignore its boolean. Every seek after a cut was therefore dropped and the picture stayed
+     * wherever the split left it. Adopting the surviving half fixes that without a reload.</p>
+     */
+    public void adoptClipSilently(@NonNull Clip clip) {
+        this.currentClip = clip;
+        this.trimStartMs = clip.getInPointMs();
+        this.trimEndMs = clip.getOutPointMs();
+        FLog.d(TAG, "Adopted clip " + clip.getId() + " silently: trim=["
+                + trimStartMs + "," + trimEndMs + "]");
     }
 
     /**

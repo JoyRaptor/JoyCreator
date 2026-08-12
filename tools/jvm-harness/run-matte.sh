@@ -42,13 +42,15 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$CP" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/MatteVisibilityTest.java tools/jvm-harness/AdjustmentLaneTest.java tools/jvm-harness/CompactLaneTest.java tools/jvm-harness/ImageBlendGateTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/MatteVisibilityTest.java tools/jvm-harness/AdjustmentLaneTest.java tools/jvm-harness/CompactLaneTest.java tools/jvm-harness/ImageBlendGateTest.java tools/jvm-harness/SplitUndoTest.java || exit 1
 # The positive control on the COMPILE itself: an empty out dir means the command never ran.
 [ -f "$OUT/MatteVisibilityTest.class" ] || { echo "no class file — the compile did not run"; exit 1; }
 [ -f "$OUT/AdjustmentLaneTest.class" ] || { echo "no AdjustmentLaneTest class"; exit 1; }
 [ -f "$OUT/CompactLaneTest.class" ] || { echo "no CompactLaneTest class"; exit 1; }
 [ -f "$OUT/ImageBlendGateTest.class" ] || { echo "no ImageBlendGateTest class"; exit 1; }
+[ -f "$OUT/SplitUndoTest.class" ] || { echo "no SplitUndoTest class"; exit 1; }
 java @"$RUNARGS" MatteVisibilityTest || exit 1
 java @"$RUNARGS" AdjustmentLaneTest || exit 1
 java @"$RUNARGS" CompactLaneTest || exit 1
-java @"$RUNARGS" ImageBlendGateTest
+java @"$RUNARGS" ImageBlendGateTest || exit 1
+java @"$RUNARGS" SplitUndoTest

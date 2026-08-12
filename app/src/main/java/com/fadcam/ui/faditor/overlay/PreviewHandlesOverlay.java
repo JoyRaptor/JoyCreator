@@ -651,11 +651,10 @@ public final class PreviewHandlesOverlay extends View {
      * Degrees of two-finger twist to absorb before any rotation is applied.
      *
      * <p>Two fingers never move purely radially, so a pinch meant purely as a zoom always carries
-     * a few degrees of incidental twist — and applying it from the first frame is why "scale seems
-     * to animate rotation" (JoyRaptor, 2026-08-12). Absorbing this much makes a deliberate rotation
-     * still easy (it is a small fraction of any real twist) while an accidental one never lands.
-     * The threshold is SUBTRACTED once passed, so rotation begins from zero rather than jumping by
-     * the whole deadzone the instant it engages.</p>
+     * incidental twist — and applying it from the first frame is why "scale seems to animate
+     * rotation" (JoyRaptor, 2026-08-12). The threshold is SUBTRACTED once passed, so rotation begins
+     * from zero rather than jumping by the whole deadzone the instant it engages.</p>
+     *
      */
     private static final float PINCH_ROT_DEADZONE_DEG = 7f;
 
@@ -707,7 +706,18 @@ public final class PreviewHandlesOverlay extends View {
         float norm = ((deg % 360f) + 360f) % 360f;
         for (float cardinal : new float[]{0f, 90f, 180f, 270f, 360f}) {
             if (Math.abs(norm - cardinal) < ROT_SNAP_DEG) {
-                return deg + (cardinal % 360f) - norm;
+                // `cardinal - norm`, NOT `(cardinal % 360) - norm`. The modulo collapsed the 360
+                // entry to 0, which is right as an ANGLE and catastrophic as a CORRECTION: a small
+                // COUNTER-CLOCKWISE twist normalises to ~357°, matches the 360 cardinal, and was
+                // then corrected by (0 - 357) — snapping the object to MINUS A FULL TURN instead
+                // of to zero. Visually identical while static, so nothing looked wrong; but the
+                // value stored is -360, and the moment it sits in a keyframe track next to any
+                // other value the object spins all the way round between them. JoyRaptor (2026-08-12):
+                // keyed X/Y/SCALE, pinched, and "when it animated rotation, it animated three
+                // hundred and sixty degrees. That's not something I can accidentally do." The 360
+                // entry exists precisely so this wrap case snaps forward to the full turn rather
+                // than being left 3° short of it — so it has to keep its 360.
+                return deg + (cardinal - norm);
             }
         }
         return deg;

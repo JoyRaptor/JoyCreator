@@ -19352,15 +19352,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (project == null) return false;
                 java.util.List<com.fadcam.ui.faditor.layers.TimedItem> hits =
                         new java.util.ArrayList<>();
-                for (com.fadcam.ui.faditor.layers.Track tr
-                        : project.getTimeline().getLayers()) {
-                    for (com.fadcam.ui.faditor.layers.TimedItem it : tr.getItems()) {
-                        if (hitsInPreview(it, x, y, timeMs)) hits.add(it);
-                    }
+                // THE Z AUTHORITY, not the raw lane list. This walked getLayers() in list order
+                // and assumed "later in the list = painted later = on top" — but orderedVisualItems
+                // SORTS lanes by zIndex, and the two orders diverge the moment a lane is added out
+                // of z sequence, which duplicating an object does every time (it appends a lane).
+                // So the topmost pick was wrong, and wrong the same way every time: JoyRaptor, with two
+                // overlapping duplicates, tapped the front-left one and the behind-right one
+                // selected, repeatably (2026-08-12). Same call the renderers order themselves by,
+                // so what the eye sees on top is now what the tap resolves to by construction.
+                //
+                // It also applies the lane eye and the per-object eye, which the raw walk did not —
+                // a HIDDEN object could previously swallow taps aimed at what was visible under it.
+                for (com.fadcam.ui.faditor.compositor.LayerPreviewController.VisualItem v
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController
+                                .orderedVisualItems(project.getTimeline())) {
+                    if (hitsInPreview(v.item, x, y, timeMs)) hits.add(v.item);
                 }
                 if (hits.isEmpty()) return false;
-                // Later in the lane list = painted later = on top. Prefer the last hit, which
-                // is the one the eye says was touched.
+                // Bottom→top order, so the LAST hit is the one drawn most recently — the one the
+                // eye says was touched.
                 com.fadcam.ui.faditor.layers.TimedItem pick = hits.get(hits.size() - 1);
                 selectLayerItemById(pick.getId());
                 return previewHandlesOverlay != null && previewHandlesOverlay.hasTarget();

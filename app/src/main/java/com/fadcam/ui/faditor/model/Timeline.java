@@ -2039,7 +2039,25 @@ public class Timeline {
      * <p>Riders whose host survived are shifted by THAT host's delta, per policy. Riders whose
      * host is GONE are returned in {@link AnchorShiftResult#orphanedOverlayIds} and are NOT
      * touched: §4A makes that a user-facing choice (re-anchor vs delete), and this method must not
-     * pre-empt it. Unanchored riders are untouched by definition.</p>
+     * pre-empt it.</p>
+     *
+     * <p><b>UNANCHORED riders ripple too, in ripple mode.</b> A host anchor and a ripple answer
+     * different questions: an anchor survives REORDERING, which no time-shift can, while ripple
+     * covers everything that changes LENGTH at a time T. An overlay with no host sits at absolute
+     * time, so without this it stays put while the footage under it slides — one trim silently
+     * desynchronises the rest of the project, which is the failure users do not forgive. Such a
+     * rider is shifted by the delta of the clip whose OLD span contained its start, reconstructed
+     * from {@code beforeStarts}.</p>
+     *
+     * <p><b>In GAP mode nothing is shifted at all</b> — that is what the mode means (the
+     * industry's per-track sync lock, expressed project-wide). Orphans are still REPORTED, because
+     * a deleted host dangles an anchor whatever the mode, and answering that is the user's call.</p>
+     *
+     * <p><b>Known limit.</b> A rider starting past the LAST clip's old start moves with that clip.
+     * If only the last clip's own length changes, no start changes at all and such a rider does not
+     * move — {@code beforeStarts} records starts, not spans, so the old end of the timeline is not
+     * reconstructible. Nothing plays out there, so the desync is invisible; if that ever needs
+     * fixing, capture the old total duration alongside the starts rather than guessing here.</p>
      *
      * <p>Returns what moved so the caller can build ONE undo step and — per §4A's no-silent-repair
      * rule — tell the user when the editor moved something they did not.</p>
@@ -2048,11 +2066,21 @@ public class Timeline {
     public AnchorShiftResult applyAnchorShift(@NonNull Map<String, Long> beforeStarts) {
         Map<String, Long> after = captureClipStarts();
         AnchorShiftResult res = new AnchorShiftResult();
+        boolean ripple = !"gap".equals(rippleMode);
         for (TextOverlayItem o : textOverlays) {
             String host = o.getHostClipId();
-            if (host == null) continue;
+            if (host == null) {
+                if (!ripple) continue;
+                long delta = unanchoredDeltaAt(o.getStartMs(), beforeStarts, after);
+                if (delta == 0) continue;
+                o.setTimeRange(AnchorMath.shiftStart(o.getStartMs(), delta),
+                        AnchorMath.shiftEnd(o.getEndMs(), delta));
+                res.movedOverlayIds.add(o.getId());
+                continue;
+            }
             Long newStart = after.get(host);
             if (newStart == null) { res.orphanedOverlayIds.add(o.getId()); continue; }
+            if (!ripple) continue;
             Long oldStart = beforeStarts.get(host);
             if (oldStart == null) continue;           // host is new; nothing to shift relative to
             long delta = newStart - oldStart;
@@ -2065,6 +2093,38 @@ public class Timeline {
             res.movedOverlayIds.add(o.getId());
         }
         return res;
+    }
+
+    /**
+     * How far an UNANCHORED rider starting at {@code startMs} must travel: the delta of the last
+     * SURVIVING clip whose old start was at or before it.
+     *
+     * <p>"Last at or before" is the same containment rule {@link AnchorMath#hostIndexForStart} uses,
+     * expressed on the old starts alone — the old spans are the differences between consecutive old
+     * starts, so asking which old span contained the rider and asking which old start last preceded
+     * it are the same question. Deleted clips are skipped rather than resolved: a rider stranded in
+     * a region that no longer exists takes the delta of the surviving clip before it, so it lands at
+     * the seam that replaced its footage instead of jumping somewhere unrelated. A rider that
+     * precedes every survivor does not move — there is no earlier edit to have displaced it.</p>
+     *
+     * <p>Chooses by comparing old starts rather than by trusting iteration order: the map arrives
+     * from a caller, and one that hands over a plain {@code HashMap} would otherwise silently pick
+     * whichever clip happened to hash last.</p>
+     */
+    private long unanchoredDeltaAt(long startMs,
+                                   @NonNull Map<String, Long> beforeStarts,
+                                   @NonNull Map<String, Long> after) {
+        long delta = 0L;
+        long best = Long.MIN_VALUE;
+        for (Map.Entry<String, Long> e : beforeStarts.entrySet()) {
+            long oldStart = e.getValue();
+            if (oldStart > startMs || oldStart <= best) continue;
+            Long newStart = after.get(e.getKey());
+            if (newStart == null) continue;           // clip is gone; it has no delta to lend
+            best = oldStart;
+            delta = newStart - oldStart;
+        }
+        return delta;
     }
 
     /** What {@link #applyAnchorShift} did — the input to one undo step and to the user-facing notice. */

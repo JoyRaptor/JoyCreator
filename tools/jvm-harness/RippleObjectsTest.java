@@ -1,0 +1,235 @@
+import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.undo.EditActions;
+
+import java.util.Map;
+
+/**
+ * Every edit that changes LENGTH at time T moves everything after T — clips and objects, anchored
+ * or not — and the UNDO of that edit moves them back.
+ *
+ * <p><b>Why this exists.</b> {@code Timeline.applyAnchorShift} only ever moved riders that carried a
+ * {@code hostClipId}. An object placed with no host sits at absolute time, so a trim slid the
+ * footage out from under it and left it on the wrong words; three of the twelve images in the
+ * project this was found in were unanchored. The failure is quiet — nothing errors, the object is
+ * simply over the wrong sentence, and it compounds with every further edit. Undo made it worse,
+ * because a trim that moved riders and an undo that did not left the project further out of sync on
+ * every press.
+ *
+ * <p><b>Both mechanisms stay.</b> A host anchor survives clip REORDERING, which no time-shift can
+ * express; ripple covers length. Gap mode is the industry's per-track sync lock (Premiere/Resolve)
+ * expressed as one project-wide mode — the edit happens and nothing else moves.
+ *
+ * <p>Assertions here are stated as "the object stays on ITS content": the value checked is the one
+ * that keeps an object over the same frame, so a wrong sign or a doubled shift cannot pass.</p>
+ *
+ * <p>Run: {@code bash tools/jvm-harness/run-anchor.sh}</p>
+ */
+public class RippleObjectsTest {
+
+    static int fails = 0, checks = 0;
+
+    static void check(boolean c, String n) {
+        checks++;
+        System.out.println((c ? "PASS  " : "FAIL  ") + n);
+        if (!c) fails++;
+    }
+
+    static void eq(long a, long b, String n) {
+        check(a == b, n + "  (got " + a + ", want " + b + ")");
+    }
+
+    /**
+     * A clip of {@code durMs} on the timeline, with a source far longer than the span.
+     * {@code setOutPointMs} CLAMPS to the source duration, so a fixture whose source equals its
+     * span silently refuses every lengthening trim and the test then passes against a no-op.
+     */
+    static Clip clip(long durMs) {
+        Clip c = new Clip(null, 600_000);
+        c.setInPointMs(0);
+        c.setOutPointMs(durMs);
+        return c;
+    }
+
+    static TextOverlayItem overlay(long startMs, long endMs) {
+        TextOverlayItem o = new TextOverlayItem("t", 0xFFFFFFFF, 0.5f, 0.5f, 0.1f, 0f);
+        o.setTimeRange(startMs, endMs);
+        return o;
+    }
+
+    /** Three clips of 1000 each → starts 0 / 1000 / 2000, total 3000. */
+    static Timeline threeClips(String mode) {
+        Timeline t = new Timeline();
+        t.setRippleMode(mode);
+        t.addClip(clip(1000));
+        t.addClip(clip(1000));
+        t.addClip(clip(1000));
+        return t;
+    }
+
+    public static void main(String[] args) {
+        trimRipplesUnanchoredObjects();
+        trimUndoPutsThemBack();
+        trimUndoIsExactOverManyEdits();
+        deleteRipplesUnanchoredObjects();
+        objectOnTheTrimmedClipItselfDoesNotMove();
+        gapModeMovesNothing();
+        gapModeUndoAlsoMovesNothing();
+        openEndedObjectKeepsItsSentinel();
+
+        System.out.println();
+        System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")
+                                      : (fails + " FAILED of " + checks));
+        if (fails != 0) System.exit(1);
+    }
+
+    /** Lengthening clip 0 by 500 pushes an unanchored object on clip 2 right by exactly 500. */
+    static void trimRipplesUnanchoredObjects() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);   // 200ms into clip 2, NOT attached
+        t.addTextOverlay(free);
+        check(free.getHostClipId() == null, "setup: the object really is unanchored");
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1500);
+        Timeline.AnchorShiftResult r = t.applyAnchorShift(before);
+
+        eq(free.getStartMs(), 2700, "trim: the unanchored object rode the +500 with its footage");
+        eq(free.getEndMs(), 3100, "trim: and kept its duration");
+        eq(free.getStartMs() - t.getClipStartMs(2), 200,
+                "trim: it is still 200ms into clip 2 — the only thing that actually matters");
+        check(r.movedOverlayIds.contains(free.getId()), "trim: the move is reported for undo");
+    }
+
+    /** The regression that made every undo worse than the edit: undo must move them back. */
+    static void trimUndoPutsThemBack() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);
+        t.addTextOverlay(free);
+        Clip c0 = t.getClip(0);
+
+        EditActions.TrimAction action = new EditActions.TrimAction(t, c0, 0, 1000, 0, 1500);
+        action.execute();
+        eq(free.getStartMs(), 2700, "trim via the undo action: object rippled");
+
+        action.undo();
+        eq(free.getStartMs(), 2200, "UNDO: the object came back to where the user put it");
+        eq(free.getEndMs(), 2600, "UNDO: with its duration intact");
+
+        action.execute();
+        eq(free.getStartMs(), 2700, "REDO: and forward again");
+    }
+
+    /**
+     * Drift is the real symptom: each edit is small, and it is the SUM that lands an object on the
+     * wrong sentence. Five trims out and five undos back must return the exact original value —
+     * an off-by-one in the shift would survive a single round trip but not this.
+     */
+    static void trimUndoIsExactOverManyEdits() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);
+        t.addTextOverlay(free);
+        Clip c0 = t.getClip(0);
+
+        EditActions.TrimAction[] actions = new EditActions.TrimAction[5];
+        long out = 1000;
+        for (int i = 0; i < actions.length; i++) {
+            long next = out + 137;                    // deliberately not a round number
+            actions[i] = new EditActions.TrimAction(t, c0, 0, out, 0, next);
+            actions[i].execute();
+            out = next;
+        }
+        eq(free.getStartMs(), 2200 + 5 * 137, "five trims: the object tracked every one");
+
+        for (int i = actions.length - 1; i >= 0; i--) actions[i].undo();
+        eq(free.getStartMs(), 2200, "five undos: back to the exact original, no drift");
+        eq(free.getEndMs(), 2600, "five undos: end too");
+        eq(t.getClip(0).getOutPointMs(), 1000, "five undos: and the clip itself is restored");
+    }
+
+    /** Deleting a clip pulls everything after it left, objects included. */
+    static void deleteRipplesUnanchoredObjects() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);
+        t.addTextOverlay(free);
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.removeClip(0);
+        t.applyAnchorShift(before);
+
+        eq(free.getStartMs(), 1200, "delete: the object moved left by the deleted clip's length");
+        eq(free.getStartMs() - t.getClipStartMs(1), 200,
+                "delete: still 200ms into the clip it was placed over");
+    }
+
+    /**
+     * An object on the clip being trimmed must NOT move: that clip's own start never changed, and
+     * the content under the object is exactly where it was. Moving it is the classic double-shift.
+     */
+    static void objectOnTheTrimmedClipItselfDoesNotMove() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem onIt = overlay(200, 400);     // inside clip 0
+        t.addTextOverlay(onIt);
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1500);             // clip 0 grows; its START is unchanged
+        Timeline.AnchorShiftResult r = t.applyAnchorShift(before);
+
+        eq(onIt.getStartMs(), 200, "trim: an object on the trimmed clip itself does not move");
+        check(!r.movedOverlayIds.contains(onIt.getId()),
+                "trim: and it is not reported as moved");
+    }
+
+    /** Gap mode: the edit happens, nothing else moves. */
+    static void gapModeMovesNothing() {
+        Timeline t = threeClips("gap");
+        TextOverlayItem free = overlay(2200, 2600);
+        TextOverlayItem rider = overlay(2400, 2500);
+        t.addTextOverlay(free);
+        t.addTextOverlay(rider);
+        t.attachOverlayToHostUnderStart(rider);
+        check(rider.getHostClipId() != null, "setup: the second object IS anchored");
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1500);
+        Timeline.AnchorShiftResult r = t.applyAnchorShift(before);
+
+        eq(free.getStartMs(), 2200, "gap: the unanchored object stays at its absolute time");
+        eq(rider.getStartMs(), 2400, "gap: so does the anchored one");
+        check(r.movedOverlayIds.isEmpty(), "gap: nothing reported as moved");
+        eq(t.getClip(0).getOutPointMs(), 1500, "gap: the trim itself still happened");
+    }
+
+    /** …and the undo of a gap-mode edit must not "helpfully" put anything back. */
+    static void gapModeUndoAlsoMovesNothing() {
+        Timeline t = threeClips("gap");
+        TextOverlayItem free = overlay(2200, 2600);
+        t.addTextOverlay(free);
+
+        EditActions.TrimAction action = new EditActions.TrimAction(t, t.getClip(0), 0, 1000, 0, 1500);
+        action.execute();
+        eq(free.getStartMs(), 2200, "gap: object unmoved by the trim");
+        action.undo();
+        eq(free.getStartMs(), 2200, "gap: and unmoved by the undo — no phantom shift back");
+        eq(t.getClip(0).getOutPointMs(), 1000, "gap: the undo still restored the clip");
+    }
+
+    /**
+     * An open-ended object runs to the end of the timeline. Its end is a SENTINEL
+     * ({@code AnchorMath.OPEN_END}); arithmetic on it produces a huge CLOSED end that
+     * {@code setTimeRange} happily stores, and the object then owns its lane forever.
+     */
+    static void openEndedObjectKeepsItsSentinel() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem open = overlay(2200, Long.MAX_VALUE);
+        t.addTextOverlay(open);
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.removeClip(0);                              // negative delta — the corrupting direction
+        t.applyAnchorShift(before);
+
+        eq(open.getStartMs(), 1200, "open-ended: the start rippled");
+        eq(open.getEndMs(), Long.MAX_VALUE, "open-ended: the END SENTINEL survived exactly");
+    }
+}

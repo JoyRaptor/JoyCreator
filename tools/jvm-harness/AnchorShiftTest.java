@@ -75,7 +75,10 @@ public class AnchorShiftTest {
         check(tl.attachOverlayToHostUnderStart(far) == null,
                 "attach: an overlay past the last clip stays UNANCHORED (policy differs from visualizers)");
 
-        // An unanchored overlay that must never move, as the negative control for every shift below
+        // An unanchored overlay. It USED to be the negative control ("never moves"); since ripple
+        // covers length changes it moves too, and the never-moves case is pinned in gap mode at the
+        // bottom of this file. An anchor and a ripple answer different questions — the anchor
+        // survives REORDERING, the ripple covers LENGTH — so both mechanisms stay.
         TextOverlayItem free = overlay(1500, 2500);
         tl.addTextOverlay(free);   // deliberately NOT attached
 
@@ -94,11 +97,15 @@ public class AnchorShiftTest {
         eq(onSeam.getEndMs(), 500, "ripple: and kept its duration (SHIFT_ONLY)");
         eq(mid.getStartMs(), 500, "ripple: the mid overlay moved with its host (1500 -> 500)");
         eq(mid.getEndMs(), 1500, "ripple: duration preserved");
-        eq(free.getStartMs(), 1500, "CONTROL: the UNANCHORED overlay did NOT move");
+        eq(free.getStartMs(), 500, "ripple: the UNANCHORED overlay moved too (1500 -> 500)");
+        eq(free.getEndMs(), 1500, "ripple: and kept its duration");
+        eq(far.getStartMs(), 8000,
+                "ripple: an overlay past the last clip travels with the last surviving clip");
         eq(open.getStartMs(), 1000, "ripple: the open-ended rider's START moved");
         eq(open.getEndMs(), Long.MAX_VALUE, "ripple: and its OPEN END survived exactly");
-        check(res.movedOverlayIds.size() == 3,
-                "result reports exactly the 3 riders that moved (got " + res.movedOverlayIds.size() + ")");
+        check(res.movedOverlayIds.size() == 5,
+                "result reports all 5 riders that moved — 3 anchored, 2 free (got "
+                        + res.movedOverlayIds.size() + ")");
         check(res.orphanedOverlayIds.isEmpty(), "result reports no orphans yet");
 
         // ── DELETE THE HOST: its riders are ORPHANED, reported, and NOT moved ─────────────
@@ -112,7 +119,11 @@ public class AnchorShiftTest {
                         + res2.orphanedOverlayIds.size() + ")");
         eq(mid.getStartMs(), midStartBefore,
                 "host deleted: an orphan is NOT moved — §4A makes that the user's choice");
-        check(res2.movedOverlayIds.isEmpty(), "host deleted: nothing is reported as moved");
+        // `far` is unanchored and sits past everything, so it ripples with the surviving clip; the
+        // orphans do not. Asserting the exact membership, not just a count, is what keeps this from
+        // passing if an orphan ever starts moving too.
+        check(res2.movedOverlayIds.size() == 1 && res2.movedOverlayIds.contains(far.getId()),
+                "host deleted: the only mover is the UNANCHORED overlay, never an orphan");
 
         // ── TRIM: lengthening an EARLIER clip shifts a later host's riders right ──────────
         Timeline tl2 = new Timeline();
@@ -179,6 +190,39 @@ public class AnchorShiftTest {
                 "split then ripple: no orphans — re-homing held");
         eq(early.getStartMs(), 500, "split then ripple: left rider moved with its half");
         eq(late.getStartMs(), 3000, "split then ripple: right rider moved with ITS half");
+
+        // ── GAP MODE: the same delete moves NOTHING ──────────────────────────────────────
+        // Gap mode is the industry's per-track sync lock expressed project-wide: the edit happens,
+        // and every rider keeps its absolute time. Orphan REPORTING still has to work, because a
+        // deleted host dangles an anchor whatever the mode and only the user can settle it.
+        Timeline tl5 = new Timeline();
+        tl5.setRippleMode("gap");
+        tl5.addClip(clip("a", 1000));
+        tl5.addClip(clip("b", 2000));
+        TextOverlayItem gapFree = overlay(1500, 1800);
+        TextOverlayItem gapRider = overlay(1200, 1400);
+        tl5.addTextOverlay(gapFree);
+        tl5.addTextOverlay(gapRider);
+        tl5.attachOverlayToHostUnderStart(gapRider);      // hosts on clip 1
+        Map<String, Long> before6 = tl5.captureClipStarts();
+        tl5.removeClip(0);
+        Timeline.AnchorShiftResult res6 = tl5.applyAnchorShift(before6);
+        eq(gapFree.getStartMs(), 1500, "gap mode: the unanchored overlay stays put");
+        eq(gapRider.getStartMs(), 1200, "gap mode: even an ANCHORED rider stays put");
+        check(res6.movedOverlayIds.isEmpty(), "gap mode: nothing is reported as moved");
+
+        Timeline tl6 = new Timeline();
+        tl6.setRippleMode("gap");
+        tl6.addClip(clip("a", 1000));
+        TextOverlayItem gapOrphan = overlay(200, 400);
+        tl6.addTextOverlay(gapOrphan);
+        tl6.attachOverlayToHostUnderStart(gapOrphan);
+        Map<String, Long> before7 = tl6.captureClipStarts();
+        tl6.removeClip(0);
+        Timeline.AnchorShiftResult res7 = tl6.applyAnchorShift(before7);
+        check(res7.orphanedOverlayIds.size() == 1,
+                "gap mode: a deleted host still REPORTS its orphan — the mode governs movement, "
+                        + "not bookkeeping");
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

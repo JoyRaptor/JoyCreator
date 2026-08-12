@@ -1084,19 +1084,35 @@ public class TextOverlayItem {
         long t = localTime(timelineMs);
         com.fadcam.ui.faditor.keyframe.Easing ease =
                 com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
-        // Ensure X/Y/SCALE tracks exist so the keyframe time is consistent
-        // across all tracks (the timeline uses X as canonical).
-        keyframes.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X).put(t, centerX, ease);
-        keyframes.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y).put(t, centerY, ease);
-        keyframes.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE)
-                .put(t, sizeFraction, ease);
+        // Seed the sibling transform tracks so the timeline's canonical X track has a diamond at
+        // this moment — but SEED ONLY, and from the value the object actually has AT t.
+        //
+        // This used to overwrite X, Y and SCALE at t on EVERY keyframe write, with the STATIC
+        // fields. Two things went wrong, and between them they account for most of "keyframing in
+        // images moving doesn't work very well" (JoyRaptor, 2026-08-12). Dragging a corner to scale
+        // wrote position keys as a side effect, so an object animating across frame was yanked
+        // back to its static centre and its motion path was rewritten by a gesture that had
+        // nothing to do with position. And each of those writes clamped X and Y to centerLimit,
+        // which is recomputed from the object's size only when it is next DRAWN — so straight
+        // after scaling up, the clamp still belonged to the old smaller size. When one axis was
+        // pinned by a stale limit and the other was not, dragging slid along a single axis: "it
+        // sometimes won't let me, like a lock to vertical".
+        seedTransformTrack(com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
+                animatedCenterX(timelineMs), t, ease);
+        seedTransformTrack(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
+                animatedCenterY(timelineMs), t, ease);
+        seedTransformTrack(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                animatedSizeFraction(timelineMs), t, ease);
         float v = value;
         switch (property) {
+            // centerLimit is the object's own half-extent, refreshed when it is drawn; the rails
+            // fall back to the fixed ones for anything small. Written as max() of the two so a
+            // stale (too small) limit can no longer pin an axis — see the note above.
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.X:
-                v = Math.max(-centerLimitX, Math.min(1f + centerLimitX, value));
+                v = clampCenter(value, centerLimitX);
                 break;
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.Y:
-                v = Math.max(-centerLimitY, Math.min(1f + centerLimitY, value));
+                v = clampCenter(value, centerLimitY);
                 break;
             case com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY:
                 v = Math.max(0f, Math.min(1f, value));
@@ -1114,6 +1130,26 @@ public class TextOverlayItem {
                 break; // rotation is unclamped (degrees)
         }
         keyframes.getOrCreate(property).put(t, v, ease);
+    }
+
+    /**
+     * Put {@code value} on {@code property} at {@code t} ONLY if that track has no key there yet.
+     * An existing key is the user's, and a write for a different property must not move it.
+     */
+    private void seedTransformTrack(@NonNull String property, float value, long t,
+                                    @NonNull com.fadcam.ui.faditor.keyframe.Easing ease) {
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = keyframes.getOrCreate(property);
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+            if (k.timeMs == t) return;
+        }
+        tr.put(t, value, ease);
+    }
+
+    /** Position clamp: the object's own half-extent, never tighter than the fixed rails. */
+    private static float clampCenter(float value, float limit) {
+        float lo = Math.min(com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN, -limit);
+        float hi = Math.max(com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, 1f + limit);
+        return Math.max(lo, Math.min(hi, value));
     }
 
     /**

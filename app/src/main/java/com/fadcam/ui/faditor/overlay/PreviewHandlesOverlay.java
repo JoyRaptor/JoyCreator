@@ -635,6 +635,8 @@ public final class PreviewHandlesOverlay extends View {
         awaitingPinch = false;   // resolved: it IS a pinch
         mode = Mode.PINCH;
         pinching = true;
+        pinchRotating = false;
+        pinchScaling = false;
         moved = false;
         pinchStartSpan = Math.max(1f, span(e));
         pinchStartAngle = twoFingerAngle(e);
@@ -645,6 +647,24 @@ public final class PreviewHandlesOverlay extends View {
         return true;
     }
 
+    /**
+     * Degrees of two-finger twist to absorb before any rotation is applied.
+     *
+     * <p>Two fingers never move purely radially, so a pinch meant purely as a zoom always carries
+     * a few degrees of incidental twist — and applying it from the first frame is why "scale seems
+     * to animate rotation" (JoyRaptor, 2026-08-12). Absorbing this much makes a deliberate rotation
+     * still easy (it is a small fraction of any real twist) while an accidental one never lands.
+     * The threshold is SUBTRACTED once passed, so rotation begins from zero rather than jumping by
+     * the whole deadzone the instant it engages.</p>
+     */
+    private static final float PINCH_ROT_DEADZONE_DEG = 7f;
+
+    /** Scale deadzone, the mirror of {@link #PINCH_ROT_DEADZONE_DEG} for a twist-only gesture. */
+    private static final float PINCH_SCALE_DEADZONE = 0.06f;
+
+    /** Set once this pinch has cleared a deadzone — a channel that unlocks stays unlocked. */
+    private boolean pinchRotating, pinchScaling;
+
     private void onPinchMove(@NonNull Target t, @NonNull MotionEvent e) {
         if (e.getPointerCount() < 2) return;
         float s = Math.max(1f, span(e));
@@ -653,10 +673,23 @@ public final class PreviewHandlesOverlay extends View {
         // Normalise the delta into ±180 so crossing the ±π seam does not spin the object.
         while (deltaDeg > 180f) deltaDeg -= 360f;
         while (deltaDeg < -180f) deltaDeg += 360f;
-        if (!moved && (Math.abs(ratio - 1f) > 0.02f || Math.abs(deltaDeg) > 2f)) moved = true;
-        if (!moved) return;
-        t.scaleTo(Math.max(0.01f, pinchStartSize * ratio), currentTimeMs);
-        t.rotateTo(snapRotation(pinchStartRot + deltaDeg), currentTimeMs);
+
+        // Each channel unlocks on its OWN evidence. A gesture the user means as a zoom therefore
+        // never rotates, and one meant as a twist never resizes — instead of both firing together
+        // the moment either one moves, which is what the single shared gate did.
+        if (!pinchScaling && Math.abs(ratio - 1f) > PINCH_SCALE_DEADZONE) pinchScaling = true;
+        if (!pinchRotating && Math.abs(deltaDeg) > PINCH_ROT_DEADZONE_DEG) pinchRotating = true;
+        if (!pinchScaling && !pinchRotating) return;
+        moved = true;
+
+        if (pinchScaling) {
+            t.scaleTo(Math.max(0.01f, pinchStartSize * ratio), currentTimeMs);
+        }
+        if (pinchRotating) {
+            // Subtract the deadzone so the object does not snap by 7° as rotation engages.
+            float applied = deltaDeg - Math.signum(deltaDeg) * PINCH_ROT_DEADZONE_DEG;
+            t.rotateTo(snapRotation(pinchStartRot + applied), currentTimeMs);
+        }
         invalidate();
     }
 
@@ -688,19 +721,26 @@ public final class PreviewHandlesOverlay extends View {
 
         // Handle positions live in ROTATED space — rotate each anchor out and
         // hit-test circles around the results (accurate at any angle).
+        // Nearest wins rather than first-tested wins. The stalk sits 28dp clear of the box and the
+        // grab radius is 14dp, so today the two can never both be in range — this is insurance
+        // against a future tweak to either number silently making the stalk shadow the corners,
+        // not a fix for an observed bug. Ties go to SCALE: a corner is what is under the finger
+        // visually, and a stray rotation is harder to undo by eye than a stray resize.
         float stalkTop = box.top - rotateStalkPx();
         rotatePoint(cx, stalkTop, cx, cy, rot, pt);
-        boolean onRotate = dist(x, y, pt[0], pt[1]) <= grab;
-        boolean onCorner = false;
-        if (!onRotate) {
-            float[][] corners = {
-                    {box.left, box.top}, {box.right, box.top},
-                    {box.left, box.bottom}, {box.right, box.bottom}};
-            for (float[] c : corners) {
-                rotatePoint(c[0], c[1], cx, cy, rot, pt);
-                if (dist(x, y, pt[0], pt[1]) <= grab) { onCorner = true; break; }
-            }
+        float dRotate = dist(x, y, pt[0], pt[1]);
+        float dCorner = Float.MAX_VALUE;
+        float[][] corners = {
+                {box.left, box.top}, {box.right, box.top},
+                {box.left, box.bottom}, {box.right, box.bottom}};
+        for (float[] c : corners) {
+            rotatePoint(c[0], c[1], cx, cy, rot, pt);
+            dCorner = Math.min(dCorner, dist(x, y, pt[0], pt[1]));
         }
+        // Ties go to SCALE: a corner is the thing under the finger visually, and an accidental
+        // rotation is far more disruptive to undo by eye than an accidental resize.
+        boolean onCorner = dCorner <= grab && dCorner <= dRotate;
+        boolean onRotate = !onCorner && dRotate <= grab;
         // Inside-box test: inverse-rotate the touch into the box's frame.
         boolean inside = false;
         if (!onRotate && !onCorner) {

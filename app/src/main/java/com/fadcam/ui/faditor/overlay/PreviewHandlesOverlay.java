@@ -637,7 +637,14 @@ public final class PreviewHandlesOverlay extends View {
                 // omitted here — handles are the precision surface).
                 if (Math.abs(nx - 0.5f) < SNAP_THRESHOLD) nx = 0.5f;
                 if (Math.abs(ny - 0.5f) < SNAP_THRESHOLD) ny = 0.5f;
-                t.moveTo(clamp01(nx), clamp01(ny), currentTimeMs);
+                // TRAVEL SCALES WITH THE OBJECT. clamp01 pinned the CENTRE inside the canvas,
+                // so a big object could only be dragged until its middle reached an edge and
+                // could never be pushed fully off — you cannot stage a pan-on, and on a zoomed
+                // image the far edges stay permanently unreachable. The numeric sliders never
+                // had this limit (they run -centerLimit..1+centerLimit), so finger and slider
+                // disagreed about where the same object was allowed to go.
+                t.moveTo(clampTravel(nx, box.width() / r.width()),
+                        clampTravel(ny, box.height() / r.height()), currentTimeMs);
                 break;
             }
             case SCALE: {
@@ -679,7 +686,23 @@ public final class PreviewHandlesOverlay extends View {
         return (float) Math.hypot(x1 - x2, y1 - y2);
     }
 
-    private static float clamp01(float v) {
-        return Math.max(0f, Math.min(1f, v));
+    /**
+     * Clamp a normalised centre so the object can always be pushed JUST off the canvas, however
+     * large it is.
+     *
+     * <p>{@code extent} is the object's own size as a fraction of the canvas on that axis, so the
+     * allowance grows with it: a half-canvas object may travel 0.5 past an edge, a 200% one may
+     * travel 1.0. The floor keeps a tiny object from being effectively pinned — "just off screen"
+     * has to stay reachable for a 5% sticker too, which is the same reason
+     * {@code TextOverlayItem.setCenterTravelLimit} floors at 0.5.</p>
+     *
+     * <p>The ceiling mirrors {@link com.fadcam.ui.faditor.keyframe.KeyframeSet#clampPos}'s reach
+     * so a drag can never author a position the sliders and the serializer would reject.</p>
+     */
+    private static float clampTravel(float v, float extent) {
+        float slack = Math.max(0.5f, extent * 0.5f);
+        float lo = Math.max(com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN, -slack);
+        float hi = Math.min(com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, 1f + slack);
+        return v < lo ? lo : (v > hi ? hi : v);
     }
 }

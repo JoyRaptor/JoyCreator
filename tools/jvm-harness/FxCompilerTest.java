@@ -6,6 +6,7 @@ import com.fadcam.ui.faditor.fx.FxParam;
 import com.fadcam.ui.faditor.fx.FxRegistry;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.fx.FxUniforms;
+import com.fadcam.ui.faditor.fx.GradientCurve;
 import com.fadcam.ui.faditor.fx.GradientRamp;
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
@@ -39,6 +40,8 @@ public class FxCompilerTest {
         goldenStrings();
         gradientRampModel();
         gradientEffectCompiles();
+        curvePathModel();
+        curveEffectCompiles();
         stackIdentityAndKeys();
         slotsSurviveReorder();
         serializationRoundTrip();
@@ -306,19 +309,19 @@ public class FxCompilerTest {
         check("gradient AGSL uses the same slot naming", agsl.contains("u0_ramp_flags"));
         check("no FX_ macro survives expansion in either backend",
                 !glsl.contains("FX_") && !agsl.contains("FX_"));
-        // W4-5: the Curve shape is a real quadratic bezier now, not the old "Curve (soon)" stub
-        // that fell back to Linear. The body must carry the bezier evaluator + arc-length search
-        // in BOTH backends, and the new `curve` control-point uniform must be declared.
-        check("gradient GLSL declares the Curve control-point uniform",
-                glsl.contains("uniform vec2 u0_curve"));
-        check("gradient GLSL emits the bezier arc-length search",
-                glsl.contains("bestCum / max(total, 0.0001)")
-                        && glsl.contains("omu*omu*p0"));
-        check("gradient AGSL emits the bezier arc-length search",
-                agsl.contains("bestCum / max(total, 0.0001)")
-                        && agsl.contains("omu*omu*p0"));
         check("no \"Curve (soon)\" stub label survives",
                 !glsl.contains("Curve (soon)"));
+
+        // The Linear/Reflected extent the preview's start/end handles drag. Its DEFAULT is the
+        // load-bearing part: 1.0 must reproduce the old fixed extent exactly, or every gradient
+        // saved before the param existed would shift the first time it is reopened.
+        check("the gradient declares a length uniform", glsl.contains("uniform float u0_length"));
+        check("Linear divides by it", glsl.contains("t = rd.x / len + 0.5;"));
+        check("Reflected divides by it", glsl.contains("t = abs(rd.x) * 2.0 / len;"));
+        check("...and it is floored so a zero length cannot divide by zero",
+                glsl.contains("float len = max(u0_length, 0.01);"));
+        check("its default is the old fixed extent, so saved gradients do not move",
+                FxRegistry.require("gradient_fill").param("length").defaultScalar() == 1f);
         check("the ramp evaluator is declared exactly once in GLSL",
                 countOf(glsl, "vec3 fxGradColor(") == 1);
         check("the ramp evaluator is declared exactly once in AGSL",
@@ -335,6 +338,137 @@ public class FxCompilerTest {
         String plainGlsl = FxCompiler.emitGlsl(FxCompiler.plan(plain).passes.get(0), K);
         check("a stack with no gradient card carries no gradient evaluator",
                 !plainGlsl.contains("fxGradColor"));
+        check("...and no curve evaluator either", !plainGlsl.contains("fxCurveT"));
+    }
+
+    // ── The Curve shape ─────────────────────────────────────────────────────
+    //
+    // The gradient runs along an editable bezier path instead of a straight line, parameterised
+    // by distance ALONG the path. The shader can only do that because the CPU has already
+    // resampled the path at equal arc length — so BOTH halves are pinned here: the model's
+    // resampling arithmetic, and the emitted GLSL/AGSL that consumes it.
+
+    static void curvePathModel() {
+        GradientCurve c = GradientCurve.defaultCurve();
+        check("a fresh path is a straight line with no vertices", c.vertices.isEmpty());
+        check("...from the left edge", c.start.x == 0f && c.start.y == 0.5f);
+        check("...to the right edge", c.end.x == 1f && c.end.y == 0.5f);
+        check("...with no bend in it", c.start.hx == 0f && c.end.hy == 0f);
+
+        // An unbent path must sample to a straight, EVENLY SPACED run of points — that is the
+        // whole "Curve == Linear until it is bent" promise, checked rather than assumed.
+        float[] pts = c.samplePoints(GradientCurve.SAMPLE_POINTS);
+        check("samplePoints returns x/y per sample",
+                pts.length == GradientCurve.SAMPLE_POINTS * 2);
+        boolean flat = true, even = true;
+        for (int i = 0; i < GradientCurve.SAMPLE_POINTS; i++) {
+            float want = i / (GradientCurve.SAMPLE_POINTS - 1f);
+            if (Math.abs(pts[i * 2] - want) > 1e-3f) even = false;
+            if (Math.abs(pts[i * 2 + 1] - 0.5f) > 1e-5f) flat = false;
+        }
+        check("an unbent path samples flat", flat);
+        check("...and at even spacing, so Curve renders exactly like Linear", even);
+
+        c.setVertexCount(GradientCurve.VERTEX_CAP + 5);
+        check("asking for more vertices than the cap stops at the cap",
+                c.vertices.size() == GradientCurve.VERTEX_CAP);
+        check("a vertex past the cap is refused, not silently dropped", !c.addVertex(0.5f, 0.5f));
+        check("new vertices land ON the line, not at the origin",
+                Math.abs(c.vertices.get(0).y - 0.5f) < 1e-5f
+                        && c.vertices.get(0).x > 0f && c.vertices.get(0).x < 1f);
+        c.setVertexCount(1);
+        check("shrinking keeps the vertices the user placed first", c.vertices.size() == 1);
+
+        // EQUAL ARC LENGTH is the property the shader's compile-time segment literals depend on.
+        // A bent path is the case where parameter-spacing and arc-spacing come apart, so bend it
+        // hard and check the chords are still the same length as each other.
+        GradientCurve bent = GradientCurve.defaultCurve();
+        bent.start.hy = -0.6f;
+        bent.end.hy = 0.6f;
+        float[] bp = bent.samplePoints(GradientCurve.SAMPLE_POINTS);
+        double lo = Double.MAX_VALUE, hi = 0;
+        for (int i = 0; i + 1 < GradientCurve.SAMPLE_POINTS; i++) {
+            double d = Math.hypot(bp[i * 2 + 2] - bp[i * 2], bp[i * 2 + 3] - bp[i * 2 + 1]);
+            lo = Math.min(lo, d);
+            hi = Math.max(hi, d);
+        }
+        check("a bent path's chords are equal length to within 2% — the arc-length resample "
+                + "is what lets the shader use compile-time segment bounds", hi / lo < 1.02);
+
+        // Degenerate: every anchor on one spot. Must degrade to a point, not divide by zero.
+        GradientCurve dot = GradientCurve.defaultCurve();
+        dot.end.x = dot.start.x;
+        dot.end.y = dot.start.y;
+        float[] dp = dot.samplePoints(GradientCurve.SAMPLE_POINTS);
+        boolean finite = true;
+        for (float v : dp) if (Float.isNaN(v) || Float.isInfinite(v)) finite = false;
+        check("a zero-length path samples finite, not NaN", finite);
+
+        GradientCurve back = GradientCurve.fromFloatArray(bent.toFloatArray());
+        check("the packed form round-trips the anchors",
+                Math.abs(back.start.hy - (-0.6f)) < 1e-6f && back.end.x == 1f);
+        check("packed length is the declared constant",
+                bent.toFloatArray().length == GradientCurve.PACKED_LENGTH);
+        check("a garbled array falls back to the default rather than throwing",
+                GradientCurve.fromFloatArray(new float[]{1f, 2f}).vertices.isEmpty());
+    }
+
+    static void curveEffectCompiles() {
+        FxStack s = new FxStack();
+        s.add("gradient_fill");
+        FxCompiler.Pass pass = FxCompiler.plan(s).passes.get(0);
+        String glsl = FxCompiler.emitGlsl(pass, K);
+        String agsl = FxCompiler.emitAgsl(pass, K);
+
+        check("the curve's sample uniforms are declared, slot-namespaced",
+                glsl.contains("uniform vec4 u0_path_s0;")
+                        && glsl.contains("uniform vec4 u0_path_s"
+                                + (GradientCurve.SAMPLE_VECS - 1) + ";"));
+        check("...and no slot past the cap", !glsl.contains(
+                "uniform vec4 u0_path_s" + GradientCurve.SAMPLE_VECS + ";"));
+        check("the AGSL emit uses the same slot naming",
+                agsl.contains("u0_path_s0") && agsl.contains("half4 u0_path_s0"));
+
+        // THE PARITY RULE. A helper declared twice fails the whole program, the exception is
+        // caught, and the effect silently turns off — so "exactly once" is pinned, in both
+        // backends, for both curve helpers.
+        check("the curve evaluator is declared exactly once in GLSL",
+                countOf(glsl, "float fxCurveT(") == 1);
+        check("the curve evaluator is declared exactly once in AGSL",
+                countOf(agsl, "float fxCurveT(") == 1);
+        check("the per-chord helper is declared exactly once in GLSL",
+                countOf(glsl, "vec2 fxCurveSeg(") == 1);
+        check("the per-chord helper is declared exactly once in AGSL",
+                countOf(agsl, "float2 fxCurveSeg(") == 1);
+
+        // DECLARATION BEFORE USE — GLSL ES 1.00 has no forward declarations here, and getting
+        // this order wrong is what broke every remap stack once already.
+        check("fxCurveSeg is declared before fxCurveT calls it",
+                glsl.indexOf("vec2 fxCurveSeg(") < glsl.indexOf("float fxCurveT("));
+        check("...and fxCurveT before the card body that calls it",
+                glsl.indexOf("float fxCurveT(") < glsl.indexOf("vec4 fx0("));
+
+        check("every chord is tested, and no more than every chord",
+                countOf(glsl, "acc = fxCurveSeg(acc, q, p") == GradientCurve.SAMPLE_SEGMENTS);
+        check("the chord's share of the ramp is a compile-time literal, not a uniform",
+                glsl.contains("* " + (1f / GradientCurve.SAMPLE_SEGMENTS) + ")"));
+        check("FX_CURVE_T expanded away in both backends",
+                !glsl.contains("FX_CURVE_T") && !agsl.contains("FX_CURVE_T"));
+        check("the Curve branch feeds the evaluator aspect-corrected coordinates",
+                glsl.contains("fxCurveT(vec2(uv.x * uAspect, uv.y), uAspect, u0_path_s0"));
+
+        // The values must be the RESAMPLED polyline, not the stored anchors — they come from a
+        // different code path than the gradient's straight slice, so pin that they arrive at all
+        // and that they are vec4s.
+        int seen = 0;
+        for (FxUniforms.Value v : FxUniforms.forPass(pass)) {
+            if (v.name.startsWith("u0_path_s")) {
+                seen++;
+                if (v.components() != 4) check("curve uniforms are vec4", false);
+            }
+        }
+        check("FxUniforms packs one vec4 per sample pair",
+                seen == GradientCurve.SAMPLE_VECS);
     }
 
     static int countOf(String hay, String needle) {

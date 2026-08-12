@@ -18997,6 +18997,264 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return previewHandlesOverlay;
     }
 
+    // ── Gradient CURVE: direct manipulation in the preview ───────────────────────────────
+    //
+    // A gradient's Curve path is up to five positions and five handle vectors. There is no
+    // honest way to author that with sliders, so FxPanel hands it here and the anchors become
+    // draggable dots over the video — through PreviewHandlesOverlay's PointHandles, NOT a new
+    // touch layer, because a second view competing for the preview's touches is the bug this
+    // project has already paid for once.
+
+    @Nullable private com.fadcam.ui.faditor.tools.FxPanel.Host curveEditHost;
+    @Nullable private com.fadcam.ui.faditor.fx.FxStack curveEditStack;
+    @Nullable private com.fadcam.ui.faditor.fx.FxInstance curveEditCard;
+    @Nullable private com.fadcam.ui.faditor.fx.FxParam curveEditParam;
+    /** Whole-stack snapshot taken when a point drag begins — FxPanel's own undo grain. */
+    @Nullable private com.fadcam.ui.faditor.fx.FxStack curveEditBefore;
+
+    /** {@code card == null} leaves the mode. See {@code FxPanel.Host.editGradientInPreview}. */
+    private void setGradientPreviewEdit(
+            @Nullable com.fadcam.ui.faditor.tools.FxPanel.Host host,
+            @Nullable com.fadcam.ui.faditor.fx.FxStack stack,
+            @Nullable com.fadcam.ui.faditor.fx.FxInstance card,
+            @Nullable com.fadcam.ui.faditor.fx.FxParam param) {
+        curveEditHost = card == null ? null : host;
+        curveEditStack = card == null ? null : stack;
+        curveEditCard = card;
+        curveEditParam = card == null ? null : param;
+        curveEditBefore = null;
+        // Which handles depends on what the param IS: a whole path gets anchors and bezier
+        // handles, a plain centre gets the gradient's start/end line. One entry point, because
+        // both are the same gesture surface and the panel should not have to know the difference.
+        com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.PointHandles handles = null;
+        if (card != null && param != null) {
+            handles = param.kind == com.fadcam.ui.faditor.fx.FxParam.Kind.CURVE
+                    ? curvePointHandles() : gradientLineHandles();
+        }
+        ensurePreviewHandlesOverlay().setPointHandles(handles);
+    }
+
+    private boolean isGradientPreviewEdit(@Nullable com.fadcam.ui.faditor.fx.FxInstance card,
+                                       @Nullable com.fadcam.ui.faditor.fx.FxParam param) {
+        return card != null && card == curveEditCard && param == curveEditParam;
+    }
+
+    /** The path as it currently stands, or the default when the mode is not active. */
+    @NonNull
+    private com.fadcam.ui.faditor.fx.GradientCurve curveEditPath() {
+        com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
+        com.fadcam.ui.faditor.fx.FxParam p = curveEditParam;
+        if (c == null || p == null) return com.fadcam.ui.faditor.fx.GradientCurve.defaultCurve();
+        return com.fadcam.ui.faditor.fx.GradientCurve.fromFloatArray(c.get(p));
+    }
+
+    private void curveEditWrite(@NonNull com.fadcam.ui.faditor.fx.GradientCurve path) {
+        com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
+        com.fadcam.ui.faditor.fx.FxParam p = curveEditParam;
+        com.fadcam.ui.faditor.tools.FxPanel.Host h = curveEditHost;
+        if (c == null || p == null) return;
+        c.set(p, path.toFloatArray());
+        if (h != null) h.onFxChanged();
+    }
+
+    /**
+     * The gradient's START and END, dragged on the picture — what Photoshop's gradient tool has
+     * always been, and what a centre-plus-angle-plus-length trio of sliders is a worse spelling
+     * of. Point 0 is the start, point 1 the end; between them they write all three params.
+     *
+     * <p><b>The arithmetic is done in SCREEN pixels on purpose.</b> The shader corrects for
+     * aspect before it rotates, which is exactly what makes a 45° gradient look like 45° on a
+     * 16:9 frame — and it means the gradient's geometry is Euclidean in the canvas rect, not in
+     * normalised uv. So the angle is the on-screen angle and the length is the on-screen distance
+     * divided by the rect HEIGHT, which is the unit the body's {@code length} is expressed in.
+     * Doing this in normalised coordinates would put the handles somewhere the gradient is
+     * not on every frame that is not square.</p>
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.PointHandles
+            gradientLineHandles() {
+        return new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.PointHandles() {
+            private float p(@NonNull String name, float fallback) {
+                com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
+                if (c == null || c.def() == null) return fallback;
+                com.fadcam.ui.faditor.fx.FxParam q = c.def().param(name);
+                return q == null ? fallback : c.getScalar(q);
+            }
+
+            private void write(@NonNull String name, float v) {
+                com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
+                if (c == null || c.def() == null) return;
+                com.fadcam.ui.faditor.fx.FxParam q = c.def().param(name);
+                if (q != null) c.set(q, v);
+            }
+
+            /** Half the gradient line, as a normalised offset from the centre. */
+            private float halfDx() {
+                android.graphics.RectF r = computeCanvasRect();
+                float aspect = r.height() <= 0 ? 1f : r.width() / r.height();
+                return (float) (0.5 * p("length", 1f)
+                        * Math.cos(Math.toRadians(p("angle", 0f))) / aspect);
+            }
+
+            private float halfDy() {
+                return (float) (0.5 * p("length", 1f)
+                        * Math.sin(Math.toRadians(p("angle", 0f))));
+            }
+
+            @Override public int count() { return 2; }
+
+            @Override public float pointX(int i) {
+                com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
+                com.fadcam.ui.faditor.fx.FxParam q = curveEditParam;
+                float cx = c == null || q == null ? 0.5f : c.get(q)[0];
+                return i == 0 ? cx - halfDx() : cx + halfDx();
+            }
+
+            @Override public float pointY(int i) {
+                com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
+                com.fadcam.ui.faditor.fx.FxParam q = curveEditParam;
+                float cy = c == null || q == null ? 0.5f : c.get(q)[1];
+                return i == 0 ? cy - halfDy() : cy + halfDy();
+            }
+
+            @Override public int tetherTo(int i) { return -1; }
+
+            @NonNull
+            @Override public android.graphics.RectF videoRect() { return computeCanvasRect(); }
+
+            @NonNull
+            @Override public float[] guide() {
+                return new float[]{pointX(0), pointY(0), pointX(1), pointY(1)};
+            }
+
+            @Override public void beginPointDrag(int i) {
+                com.fadcam.ui.faditor.fx.FxStack s = curveEditStack;
+                curveEditBefore = s == null ? null : s.copy();
+            }
+
+            @Override public void pointDragTo(int i, float nx, float ny) {
+                com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
+                com.fadcam.ui.faditor.fx.FxParam q = curveEditParam;
+                if (c == null || q == null) return;
+                // The OTHER end stays put and the dragged one follows the finger — the two
+                // together are the gradient line, so recomputing centre/angle/length from the
+                // pair is the only way each handle means what it looks like it means.
+                int other = 1 - i;
+                float ox = pointX(other), oy = pointY(other);
+                float sx = i == 0 ? nx : ox, sy = i == 0 ? ny : oy;
+                float ex = i == 0 ? ox : nx, ey = i == 0 ? oy : ny;
+                android.graphics.RectF r = computeCanvasRect();
+                if (r.width() <= 0 || r.height() <= 0) return;
+                float dxPx = (ex - sx) * r.width();
+                float dyPx = (ey - sy) * r.height();
+                c.set(q, new float[]{(sx + ex) * 0.5f, (sy + ey) * 0.5f});
+                float lenPx = (float) Math.hypot(dxPx, dyPx);
+                // A zero-length drag has no direction to read, so the angle is left alone rather
+                // than snapping to whatever atan2(0,0) happens to return.
+                if (lenPx > 1f) {
+                    write("angle", (float) Math.toDegrees(Math.atan2(dyPx, dxPx)));
+                }
+                write("length", Math.max(0.05f, lenPx / r.height()));
+                com.fadcam.ui.faditor.tools.FxPanel.Host h = curveEditHost;
+                if (h != null) h.onFxChanged();
+            }
+
+            @Override public void commitPointDrag() {
+                com.fadcam.ui.faditor.fx.FxStack s = curveEditStack;
+                com.fadcam.ui.faditor.tools.FxPanel.Host h = curveEditHost;
+                com.fadcam.ui.faditor.fx.FxStack before = curveEditBefore;
+                curveEditBefore = null;
+                if (s == null || h == null || before == null) return;
+                com.fadcam.ui.faditor.tools.FxPanel.recordSnapshot(
+                        s, h, () -> {}, "Gradient position", before);
+            }
+        };
+    }
+
+    /**
+     * The draggable dots: every anchor, then every anchor's bezier handle, in that order.
+     *
+     * <p>Anchors first so the index arithmetic is trivial — handle {@code i} belongs to anchor
+     * {@code i - anchorCount} — and so the tether the overlay draws is a subtraction rather than
+     * a lookup table that could drift out of step with the path.</p>
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.PointHandles curvePointHandles() {
+        return new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.PointHandles() {
+            private int anchorCount() { return curveEditPath().anchors().size(); }
+
+            @Override public int count() { return anchorCount() * 2; }
+
+            @Override public float pointX(int i) {
+                java.util.List<com.fadcam.ui.faditor.fx.GradientCurve.Anchor> a =
+                        curveEditPath().anchors();
+                int n = a.size();
+                return i < n ? a.get(i).x : a.get(i - n).x + a.get(i - n).hx;
+            }
+
+            @Override public float pointY(int i) {
+                java.util.List<com.fadcam.ui.faditor.fx.GradientCurve.Anchor> a =
+                        curveEditPath().anchors();
+                int n = a.size();
+                return i < n ? a.get(i).y : a.get(i - n).y + a.get(i - n).hy;
+            }
+
+            @Override public int tetherTo(int i) {
+                int n = anchorCount();
+                return i < n ? -1 : i - n;
+            }
+
+            @NonNull
+            @Override public android.graphics.RectF videoRect() { return computeCanvasRect(); }
+
+            @NonNull
+            @Override public float[] guide() {
+                // The REAL curve, from the same sampler the shader's uniforms come from, so the
+                // line the user drags along is the line the gradient actually runs along. 64
+                // points is a drawing resolution, unrelated to the shader's 26 — a Canvas
+                // polyline costs nothing and a visibly faceted guide would read as the curve
+                // itself being faceted.
+                return curveEditPath().samplePoints(64);
+            }
+
+            @Override public void beginPointDrag(int i) {
+                com.fadcam.ui.faditor.fx.FxStack s = curveEditStack;
+                curveEditBefore = s == null ? null : s.copy();
+            }
+
+            @Override public void pointDragTo(int i, float nx, float ny) {
+                com.fadcam.ui.faditor.fx.GradientCurve path = curveEditPath();
+                java.util.List<com.fadcam.ui.faditor.fx.GradientCurve.Anchor> a = path.anchors();
+                int n = a.size();
+                if (i < 0 || i >= n * 2) return;
+                if (i < n) {
+                    // Moving an ANCHOR carries its handle along, because the handle is stored as
+                    // an offset FROM the anchor — write the position only and the bend is
+                    // preserved, which is what every pen tool does and what the user expects.
+                    a.get(i).x = nx;
+                    a.get(i).y = ny;
+                } else {
+                    com.fadcam.ui.faditor.fx.GradientCurve.Anchor owner = a.get(i - n);
+                    owner.hx = nx - owner.x;
+                    owner.hy = ny - owner.y;
+                }
+                curveEditWrite(path);
+            }
+
+            @Override public void commitPointDrag() {
+                com.fadcam.ui.faditor.fx.FxStack s = curveEditStack;
+                com.fadcam.ui.faditor.tools.FxPanel.Host h = curveEditHost;
+                com.fadcam.ui.faditor.fx.FxStack before = curveEditBefore;
+                curveEditBefore = null;
+                if (s == null || h == null || before == null) return;
+                // The SAME whole-stack snapshot grain FxPanel's sliders use, through FxPanel's
+                // own helper — two undo authorities over one FxStack cannot agree, and this
+                // project has already been bitten by exactly that.
+                com.fadcam.ui.faditor.tools.FxPanel.recordSnapshot(s, h, () -> {}, "Curve", before);
+            }
+        };
+    }
+
     /**
      * Hit-testing for the preview: what did the finger land on, and select it.
      *
@@ -20857,6 +21115,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // thumb that just opened it, and a button that only ever opens is half a control.
         if (pipDrawer != null && pipDrawer.isShowing()) {
             pipDrawer.hide();
+            setGradientPreviewEdit(null, null, null, null);
             setAdjustToolActive(false);
             return;
         }
@@ -20921,6 +21180,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void dismissOpenObjectSheets() {
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) objectMenuSheet.hide();
+        // The curve handles belong to a panel that is about to be replaced or closed. Leaving
+        // them up would put a live drag surface over the preview for a card the user can no
+        // longer see — and every drawer-opening path comes through here.
+        setGradientPreviewEdit(null, null, null, null);
     }
 
     /** The FX stack editor for one adjustment layer (SPEC_ADJUSTMENT_LAYERS_FX M6). */
@@ -20934,6 +21197,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the user in a state that never existed. Two authorities for one delta cannot agree.
         com.fadcam.ui.faditor.tools.FxPanel.Host fxHost =
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
+            // setGradientPreviewEdit.
+            @Override public void editGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                setGradientPreviewEdit(this, curveStack, curveCard, curveParam);
+            }
+            @Override public boolean isEditingGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                return isGradientPreviewEdit(curveCard, curveParam);
+            }
             @Override public void onFxChanged() {
                 if (editorTimeline != null) editorTimeline.invalidate();
                 // Push the new stack at the preview NOW. syncAdjustmentPreview otherwise only
@@ -21694,6 +21970,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     return com.fadcam.ui.faditor.tools.FxPanel.build(
                         ctx, pipFx,
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
+            // setGradientPreviewEdit.
+            @Override public void editGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                setGradientPreviewEdit(this, curveStack, curveCard, curveParam);
+            }
+            @Override public boolean isEditingGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                return isGradientPreviewEdit(curveCard, curveParam);
+            }
                             @Override public void onFxChanged() {
                                 // Re-attach when refilled, normalise to null when emptied — the
                                 // one call does both, because setFx nulls an empty stack itself.
@@ -22787,6 +23076,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.fx.FxStack textFx = item.getOrCreateFx();
         com.fadcam.ui.faditor.tools.FxPanel.Host host =
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
+            // setGradientPreviewEdit.
+            @Override public void editGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                setGradientPreviewEdit(this, curveStack, curveCard, curveParam);
+            }
+            @Override public boolean isEditingGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                return isGradientPreviewEdit(curveCard, curveParam);
+            }
             @Override public void onFxChanged() {
                 // Re-attach when refilled, normalise to null when emptied — setFx does both.
                 item.setFx(textFx);
@@ -22953,6 +23255,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
             @NonNull com.fadcam.ui.faditor.fx.FxStack fx) {
         return new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
+            // setGradientPreviewEdit.
+            @Override public void editGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                setGradientPreviewEdit(this, curveStack, curveCard, curveParam);
+            }
+            @Override public boolean isEditingGradientInPreview(
+                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                return isGradientPreviewEdit(curveCard, curveParam);
+            }
             @Override public void onFxChanged() {
                 item.setFx(fx);
                 refreshAfterMarqueeBatchDelete();

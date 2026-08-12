@@ -149,6 +149,7 @@ public final class FxCompiler {
         emitUniformDecls(sb, pass, false);
         sb.append(PRELUDE_GLSL);
         if (passHasGradient(pass)) sb.append(PRELUDE_GRAD_GLSL);
+        if (passHasCurve(pass)) sb.append(PRELUDE_CURVE_GLSL);
         sb.append(BlendModes.glslBlendFnWithModeParam()).append(FOLD_FN);
         // fxuvN → fxRemap → fxN. See emitRemapCardFns for why this order is the only one that
         // compiles.
@@ -178,6 +179,7 @@ public final class FxCompiler {
         emitUniformDecls(sb, pass, true);
         sb.append(PRELUDE_AGSL);
         if (passHasGradient(pass)) sb.append(PRELUDE_GRAD_AGSL);
+        if (passHasCurve(pass)) sb.append(PRELUDE_CURVE_AGSL);
         sb.append(toAgsl(BlendModes.glslBlendFnWithModeParam())).append(toAgsl(FOLD_FN));
         // Same chain as the GLSL path — AGSL is likewise declaration-before-use, and has no
         // prototypes to fall back on.
@@ -307,6 +309,83 @@ public final class FxCompiler {
     private static final String PRELUDE_GRAD_GLSL = PRELUDE_GRAD_SRC;
     private static final String PRELUDE_GRAD_AGSL = toAgsl(PRELUDE_GRAD_SRC);
 
+    /**
+     * The CURVE path's shared evaluator — declared ONCE, gated by {@link #passHasCurve}, exactly
+     * like the ramp evaluator above and for the same reason: a helper declared twice makes the
+     * whole program fail to compile, the exception is caught, and the effect silently turns off
+     * with nothing but a log line to say so.
+     *
+     * <p><b>What it computes.</b> {@code fxCurveT} answers "how far ALONG the path is this
+     * pixel", in 0..1. The path arrives as {@link GradientCurve#SAMPLE_POINTS} points already
+     * resampled at EQUAL ARC LENGTH on the CPU, packed two per {@code vec4}; the shader finds the
+     * nearest chord and returns that chord's own share of the ramp plus the projection within it.
+     * Equal-arc-length sampling is what lets segment {@code i} contribute the literal range
+     * {@code [i/N, (i+1)/N]} — no cumulative-length uniform has to travel at all.</p>
+     *
+     * <p><b>Deliberately not an analytic nearest-point-on-bezier solve.</b> That is a cubic (for a
+     * quadratic) or quintic (for a cubic) root find, iterative in practice, per pixel, per frame.
+     * A fixed chord scan is a handful of dot products with no branching on data and no loop the
+     * driver has to unroll for AGSL — and it is bounded, which the root find is not.</p>
+     *
+     * <p>{@code x} is scaled by the frame's aspect INSIDE the function rather than on the CPU:
+     * {@link FxUniforms} packs uniforms with no knowledge of frame size, and the alternative —
+     * dividing the pixel's own x back out — would make the chord distances anisotropic and tilt
+     * every isoline on a non-square frame. Same reasoning as the gradient body's own
+     * {@code FX_ASPECT} correction.</p>
+     */
+    private static final String PRELUDE_CURVE_SRC = buildCurvePrelude();
+
+    @NonNull
+    private static String buildCurvePrelude() {
+        StringBuilder sb = new StringBuilder(2048);
+        // acc = (best squared distance, best t). Returning both in a vec2 keeps the per-chord
+        // work in ONE function instead of repeating ten lines per chord in the unrolled body.
+        sb.append("vec2 fxCurveSeg(vec2 acc, vec2 q, vec2 a, vec2 b, float i0) {\n")
+          .append("  vec2 ba = b - a;\n")
+          .append("  vec2 pa = q - a;\n")
+          .append("  float bb = max(dot(ba, ba), 1e-8);\n")
+          .append("  float h = clamp(dot(pa, ba) / bb, 0.0, 1.0);\n")
+          .append("  vec2 e = pa - ba * h;\n")
+          .append("  float d2 = dot(e, e);\n")
+          // 1/25 is exact in binary floating point — see GradientCurve.SAMPLE_POINTS on why the
+          // sample count was picked partly for that.
+          .append("  return d2 < acc.x ? vec2(d2, (i0 + h) * ")
+          .append(fmt(1f / GradientCurve.SAMPLE_SEGMENTS)).append(") : acc;\n")
+          .append("}\n");
+
+        sb.append("float fxCurveT(vec2 q, float asp");
+        for (int i = 0; i < GradientCurve.SAMPLE_VECS; i++) sb.append(", vec4 s").append(i);
+        sb.append(") {\n");
+        for (int i = 0; i < GradientCurve.SAMPLE_POINTS; i++) {
+            // Component letters, not a chained swizzle (`s0.xy.x`): swizzle-of-swizzle is legal
+            // ES 1.00 but needlessly exercises a corner of the parser on a shader that must
+            // compile on every driver this app ships to.
+            String v = "s" + (i / 2);
+            String cx = i % 2 == 0 ? ".x" : ".z";
+            String cy = i % 2 == 0 ? ".y" : ".w";
+            sb.append("  vec2 p").append(i).append(" = vec2(").append(v).append(cx)
+              .append(" * asp, ").append(v).append(cy).append(");\n");
+        }
+        sb.append("  vec2 acc = vec2(1e9, 0.0);\n");
+        for (int i = 0; i < GradientCurve.SAMPLE_SEGMENTS; i++) {
+            sb.append("  acc = fxCurveSeg(acc, q, p").append(i).append(", p").append(i + 1)
+              .append(", ").append(fmt(i)).append(");\n");
+        }
+        sb.append("  return acc.y;\n}\n");
+        return sb.toString();
+    }
+
+    /** A GLSL float literal that always carries a decimal point — {@code 3} is an int in ES 1.00
+     *  and would not implicitly convert in every position this emits into. */
+    @NonNull
+    private static String fmt(float v) {
+        String s = String.valueOf(v);
+        return s.indexOf('.') < 0 && s.indexOf('e') < 0 && s.indexOf('E') < 0 ? s + ".0" : s;
+    }
+
+    private static final String PRELUDE_CURVE_GLSL = PRELUDE_CURVE_SRC;
+    private static final String PRELUDE_CURVE_AGSL = toAgsl(PRELUDE_CURVE_SRC);
+
     private static void emitUniformDecls(@NonNull StringBuilder sb, @NonNull Pass pass,
                                          boolean agsl) {
         // Emitted from the descriptors, never authored — the generalisation of
@@ -322,6 +401,10 @@ public final class FxCompiler {
                 if (p.kind == FxParam.Kind.GRADIENT) {
                     anyGradient = true;
                     emitGradientUniformDecls(sb, card, p, agsl);
+                    continue;
+                }
+                if (p.kind == FxParam.Kind.CURVE) {
+                    emitCurveUniformDecls(sb, card, p, agsl);
                     continue;
                 }
                 sb.append("uniform ").append(agsl ? toAgsl(p.glslType()) : p.glslType())
@@ -380,6 +463,63 @@ public final class FxCompiler {
                     new float[]{a[o], a[o + 1], a[o + 2]}));
         }
         return out;
+    }
+
+    /**
+     * The curve path's uniforms: {@link GradientCurve#SAMPLE_VECS} {@code vec4}s, each carrying
+     * TWO consecutive sample points as {@code (x0,y0,x1,y1)}. Two-per-vector because a point is
+     * only two floats and a run of {@code vec2} uniforms would waste half of every uniform vector
+     * the driver allocates — the budget matters here in a way it does not for the ramp, since the
+     * two cards can appear on the same pass.
+     */
+    private static void emitCurveUniformDecls(@NonNull StringBuilder sb, @NonNull FxInstance card,
+                                              @NonNull FxParam p, boolean agsl) {
+        String base = uniformName(card, p);
+        StringBuilder decl = new StringBuilder();
+        for (int i = 0; i < GradientCurve.SAMPLE_VECS; i++) {
+            decl.append("uniform vec4 ").append(base).append("_s").append(i).append(";\n");
+        }
+        sb.append(agsl ? toAgsl(decl.toString()) : decl.toString());
+    }
+
+    /**
+     * The values for {@link #emitCurveUniformDecls}' names.
+     *
+     * <p>Unlike {@link #gradientUniformValues} this does NOT slice the stored array — it
+     * RESAMPLES it. What an {@code FxInstance} stores is the editable path (anchors and their
+     * handles); what the shader can use is a polyline at equal arc length. The conversion has to
+     * happen on exactly one side of the wire, and the CPU is the side that can afford it: this
+     * runs once per uniform push, not once per pixel. Both renderers reach it through
+     * {@link FxUniforms#forPass}, so preview and export cannot resample differently.</p>
+     */
+    @NonNull
+    static List<FxUniforms.Value> curveUniformValues(@NonNull FxInstance card,
+                                                     @NonNull FxParam p) {
+        float[] pts = GradientCurve.fromFloatArray(card.get(p))
+                .samplePoints(GradientCurve.SAMPLE_POINTS);
+        String base = uniformName(card, p);
+        List<FxUniforms.Value> out = new ArrayList<>(GradientCurve.SAMPLE_VECS);
+        for (int i = 0; i < GradientCurve.SAMPLE_VECS; i++) {
+            int o = i * 4;
+            out.add(new FxUniforms.Value(base + "_s" + i,
+                    new float[]{pts[o], pts[o + 1], pts[o + 2], pts[o + 3]}));
+        }
+        return out;
+    }
+
+    /** Whether any card in {@code pass} declares a {@link FxParam.Kind#CURVE} param — gates the
+     *  shared curve evaluator the same way {@link #passHasGradient} gates the ramp's. */
+    private static boolean passHasCurve(@NonNull Pass pass) {
+        List<FxInstance> all = new ArrayList<>(pass.remaps);
+        all.addAll(pass.cards);
+        for (FxInstance card : all) {
+            FxEffectDef def = card.def();
+            if (def == null) continue;
+            for (FxParam p : def.params) {
+                if (p.kind == FxParam.Kind.CURVE) return true;
+            }
+        }
+        return false;
     }
 
     /** Whether any card in {@code pass} declares a {@link FxParam.Kind#GRADIENT} param — gates
@@ -509,6 +649,19 @@ public final class FxCompiler {
                             "fxGradAlpha(%s, " + base + "_flags.z" + alphaArgs + ")");
                     out = out.replace("FX_GRAD_MIRROR", base + "_flags.x");
                     out = out.replace("FX_GRAD_FLIP", base + "_flags.y");
+                    continue;
+                }
+                if (p.kind == FxParam.Kind.CURVE) {
+                    // Same shape as the ramp: no FX_P(name) form, because a path is not a single
+                    // uniform. FX_CURVE_T(q) hands the aspect and this card's slot-namespaced
+                    // sample uniforms to the shared evaluator.
+                    String base = uniformName(card, p);
+                    StringBuilder args = new StringBuilder();
+                    for (int i = 0; i < GradientCurve.SAMPLE_VECS; i++) {
+                        args.append(", ").append(base).append("_s").append(i);
+                    }
+                    out = replaceCall(out, "FX_CURVE_T",
+                            "fxCurveT(%s, " + U_ASPECT + args + ")");
                     continue;
                 }
                 out = out.replace("FX_P(" + p.name + ")", uniformName(card, p));

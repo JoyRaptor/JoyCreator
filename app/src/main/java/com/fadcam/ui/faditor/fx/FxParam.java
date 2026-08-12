@@ -52,7 +52,17 @@ public final class FxParam {
          * next to it key normally, but animating a whole ramp stop-by-stop is not what "keyframe
          * this parameter" means for any other control in this panel.
          */
-        GRADIENT(GradientRamp.PACKED_LENGTH);
+        GRADIENT(GradientRamp.PACKED_LENGTH),
+        /**
+         * A {@link GradientCurve}, packed via {@link GradientCurve#toFloatArray()}. Special-cased
+         * by {@link FxCompiler} for the same reason {@link #GRADIENT} is — it is a variable-length
+         * path packed into fixed slots, not a vector — but with one extra step: what reaches the
+         * uniforms is not the stored array, it is the ARC-LENGTH RESAMPLED polyline computed from
+         * it. The stored form is what the user edits (anchors and handles); the uniform form is
+         * what a fragment shader can evaluate without an iterative solve. Never keyable, same
+         * reasoning as GRADIENT.
+         */
+        CURVE(GradientCurve.PACKED_LENGTH);
 
         /** How many floats this kind occupies in a uniform and in {@link FxInstance}'s values. */
         public final int components;
@@ -138,6 +148,13 @@ public final class FxParam {
         return new FxParam(name, label, Kind.GRADIENT, 0f, 1f, def.toFloatArray(), false, null);
     }
 
+    /** @param def the path's default — {@link GradientCurve#defaultCurve()} for most callers. */
+    @NonNull
+    public static FxParam curve(@NonNull String name, @NonNull String label,
+                                @NonNull GradientCurve def) {
+        return new FxParam(name, label, Kind.CURVE, 0f, 1f, def.toFloatArray(), false, null);
+    }
+
     // ── Reads ───────────────────────────────────────────────────────────────────────────────
 
     /** A fresh copy — callers store this straight into an {@link FxInstance}, so it must not alias. */
@@ -173,7 +190,10 @@ public final class FxParam {
         // PLUS >1.0 sentinels marking unused slots, which GradientRamp.fromFloatArray drops.
         // Clamping the sentinels to 1.0 would re-inflate them as phantom stops and silently
         // refuse every new stop (adversarial review #2). Pass through, fixing only missing/NaN.
-        if (kind == Kind.GRADIENT) {
+        // A CURVE is likewise not uniform-scalar data: a handle is a signed VECTOR that
+        // legitimately runs past ±1, and an anchor may sit slightly outside the frame while
+        // being dragged. Clamping either to 0..1 would quietly straighten the user's curve.
+        if (kind == Kind.GRADIENT || kind == Kind.CURVE) {
             float[] g = new float[kind.components];
             for (int i = 0; i < g.length; i++) {
                 float x = i < v.length ? v[i] : defaults[i];

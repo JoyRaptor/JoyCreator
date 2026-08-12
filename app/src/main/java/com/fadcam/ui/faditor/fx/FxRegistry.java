@@ -175,14 +175,18 @@ public final class FxRegistry {
             + "float shape = FX_P(shape);\n"
             + "float scl = FX_P(scale);\n"
             + "float t;\n"
+            // Linear and Reflected have a genuine START and END, so their extent is a LENGTH the
+            // preview's two handles drag directly. The shapes that radiate from a point keep
+            // `scale` instead — a start/end pair would be a lie about what they do.
+            + "float len = max(FX_P(length), 0.01);\n"
             + "if (shape < 0.5) {\n"                    // Linear
-            + "  t = rd.x + 0.5;\n"
+            + "  t = rd.x / len + 0.5;\n"
             + "} else if (shape < 1.5) {\n"              // Radial
             + "  t = length(rd) * scl;\n"
             + "} else if (shape < 2.5) {\n"              // Angle / conic = the radar SWEEP (JoyRaptor 2026-08-09:
             + "  t = atan(rd.y, rd.x) / 6.28318530718 + 0.5;\n"   //  one 100% line from top to centre, sweeping).
             + "} else if (shape < 3.5) {\n"              // Reflected (mirror of linear at centre)
-            + "  t = abs(rd.x) * 2.0;\n"
+            + "  t = abs(rd.x) * 2.0 / len;\n"
             + "} else if (shape < 4.5) {\n"              // Diamond/Box (combined — Diamond is Box rotated 45°)
             + "  // Use angle to rotate between Diamond and Box: 0° = Box, 45° = Diamond\n"
             + "  float boxAngle = radians(FX_P(angle));\n"
@@ -190,41 +194,16 @@ public final class FxRegistry {
             + "  float sba = sin(boxAngle);\n"
             + "  vec2 brd = vec2(rd.x * cba + rd.y * sba, -rd.x * sba + rd.y * cba);\n"
             + "  t = max(abs(brd.x), abs(brd.y)) * scl;\n"
-            + "} else if (shape < 5.5) {\n"              // Curve — QUADRATIC BEZIER (W4-5, real, not the old stub)
-            // The gradient runs along a quadratic bezier from a start anchor to an end anchor,
-            // and each pixel's `t` is the ARC-LENGTH fraction of the NEAREST point on that path.
-            // The control point defaults to the linear midpoint, so an untouched Curve renders
-            // exactly like Linear — the shape is Linear-by-construction until it is bent, which
-            // is what keeps the default safe for projects that never touch it.
-            + "  vec2 cp = FX_P(curve);\n"
-            + "  vec2 cpt = vec2((cp.x - FX_P(center).x) * FX_ASPECT, cp.y - FX_P(center).y);\n"
-            + "  vec2 cpr = vec2(cpt.x * ca + cpt.y * sa, -cpt.x * sa + cpt.y * ca);\n"
-            + "  vec2 p0 = vec2(-0.5, 0.0);\n"
-            + "  vec2 p1 = cpr;\n"
-            + "  vec2 p2 = vec2(0.5, 0.0);\n"
-            + "  float total = 0.0;\n"
-            + "  vec2 prev = p0;\n"
-            + "  for (int i = 1; i <= 8; i++) {\n"
-            + "    float u = float(i) / 8.0;\n"
-            + "    float omu = 1.0 - u;\n"
-            + "    vec2 p = omu*omu*p0 + 2.0*omu*u*p1 + u*u*p2;\n"
-            + "    total += length(p - prev);\n"
-            + "    prev = p;\n"
-            + "  }\n"
-            + "  float cum = 0.0;\n"
-            + "  float bestD = 1e9;\n"
-            + "  float bestCum = 0.0;\n"
-            + "  prev = p0;\n"
-            + "  for (int i = 1; i <= 8; i++) {\n"
-            + "    float u = float(i) / 8.0;\n"
-            + "    float omu = 1.0 - u;\n"
-            + "    vec2 p = omu*omu*p0 + 2.0*omu*u*p1 + u*u*p2;\n"
-            + "    cum += length(p - prev);\n"
-            + "    prev = p;\n"
-            + "    float d = length(p - rd);\n"
-            + "    if (d < bestD) { bestD = d; bestCum = cum; }\n"
-            + "  }\n"
-            + "  t = bestCum / max(total, 0.0001);\n"
+            + "} else if (shape < 5.5) {\n"              // Curve — an editable bezier PATH
+            // The gradient runs along the path, and `t` is the ARC-LENGTH fraction of the nearest
+            // point on it — see FxCompiler's fxCurveT and GradientCurve for how a variable path
+            // becomes a fixed run of uniforms.
+            //
+            // Centre, angle and scale play NO part here, deliberately. The path's own anchors are
+            // the gradient line, the way Photoshop's dragged start/end are: a second, redundant
+            // way to move and rotate the same thing would mean two controls fighting over one
+            // result, and the anchors are the ones the user can see and grab.
+            + "  t = FX_CURVE_T(vec2(uv.x * FX_ASPECT, uv.y));\n"
             + "} else {\n"                               // (unreachable — last shape)
             + "  t = rd.x + 0.5;\n"
             + "}\n"
@@ -364,10 +343,15 @@ public final class FxRegistry {
                         "Linear", "Radial", "Angle/Sweep", "Reflected", "Diamond/Box", "Curve"),
                 FxParam.flt("angle", "Angle", -180f, 180f, 0f),
                 FxParam.flt("scale", "Scale", 0.5f, 4.0f, 1.0f),
+                // Linear/Reflected extent, in frame HEIGHTS (the unit the body's aspect
+                // correction leaves it in). 1.0 is exactly the old fixed extent, so the default
+                // renders identically to every gradient saved before this param existed.
+                FxParam.flt("length", "Length", 0.05f, 3.0f, 1.0f),
                 FxParam.point("center", "Center", 0.5f, 0.5f),
-                // W4-5: the Curve shape's control point. Defaults to the linear midpoint so
-                // Curve == Linear until bent (safe default; see BODY_GRADIENT_FILL's Curve branch).
-                FxParam.point("curve", "Curve point", 0.5f, 0.5f),
+                // The Curve shape's editable path: two anchors plus up to three vertices, each
+                // with a bezier handle. Defaults to a straight line across the frame, so Curve
+                // renders identically to Linear until it is bent — see GradientCurve.
+                FxParam.curve("path", "Curve path", GradientCurve.defaultCurve()),
                 FxParam.gradient("ramp", "Ramp", GradientRamp.defaultRamp())));
 
         defs.add(new FxEffectDef("noise", "Noise / Clouds",
@@ -474,9 +458,17 @@ public final class FxRegistry {
             for (FxParam p : d.params) {
                 // A GRADIENT param never appears as FX_P(name) — see FxParam.Kind's note — so it
                 // is "read" when the body calls the ramp evaluator macros instead.
-                boolean read = p.kind == FxParam.Kind.GRADIENT
-                        ? (d.glslBody.contains("FX_GRAD_COLOR") || d.glslBody.contains("FX_GRAD_ALPHA"))
-                        : referenced.contains(p.name);
+                boolean read;
+                if (p.kind == FxParam.Kind.GRADIENT) {
+                    read = d.glslBody.contains("FX_GRAD_COLOR")
+                            || d.glslBody.contains("FX_GRAD_ALPHA");
+                } else if (p.kind == FxParam.Kind.CURVE) {
+                    // Same exemption, same reason: a path is not FX_P(name) either. It is "read"
+                    // when the body asks the shared evaluator where along it a pixel sits.
+                    read = d.glslBody.contains("FX_CURVE_T");
+                } else {
+                    read = referenced.contains(p.name);
+                }
                 if (!read) {
                     problems.add(d.id + ": param '" + p.name + "' is declared but no body reads it "
                             + "— that is a slider that changes nothing");

@@ -68,6 +68,12 @@ public final class FxUniforms {
                     out.addAll(FxCompiler.gradientUniformValues(card, p));
                     continue;
                 }
+                if (p.kind == FxParam.Kind.CURVE) {
+                    // Likewise no single uniform — and the values are RESAMPLED here rather than
+                    // sliced, which is precisely why both renderers must come through this class.
+                    out.addAll(FxCompiler.curveUniformValues(card, p));
+                    continue;
+                }
                 out.add(new Value(FxCompiler.uniformName(card, p), card.get(p)));
             }
             if (def.foldsColor()) {

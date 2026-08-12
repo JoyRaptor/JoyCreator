@@ -19,6 +19,7 @@ import com.fadcam.ui.faditor.fx.FxPresetStore;
 import com.fadcam.ui.faditor.fx.FxPreviewTier;
 import com.fadcam.ui.faditor.fx.FxRegistry;
 import com.fadcam.ui.faditor.fx.FxStack;
+import com.fadcam.ui.faditor.fx.GradientCurve;
 import com.fadcam.ui.faditor.fx.GradientRamp;
 import com.fadcam.ui.faditor.model.BlendModes;
 
@@ -89,6 +90,26 @@ public final class FxPanel {
          * it affects to discover it in a finished render.</p>
          */
         default String previewCaveat() { return ""; }
+
+        /**
+         * Put the preview into (or out of) direct-manipulation mode for a {@link
+         * FxParam.Kind#CURVE} param — the gradient Curve's anchors, vertices and bezier handles
+         * become draggable dots over the video.
+         *
+         * <p>Asked of the HOST because this panel has no idea where the preview is, nor how the
+         * canvas maps to screen pixels; the editor does, and it already owns the single gesture
+         * authority over that surface. Default no-op so the hosts that are not the editor — and
+         * cannot show a preview at all — keep compiling and simply offer no such control.</p>
+         *
+         * @param card {@code null} to leave the mode and clear the handles.
+         */
+        default void editGradientInPreview(@Nullable FxStack stack, @Nullable FxInstance card,
+                                        @Nullable FxParam param) {}
+
+        /** Whether {@code param} on {@code card} is the one currently being edited in the
+         *  preview — so the chip can read as a toggle instead of a one-way trip. */
+        default boolean isEditingGradientInPreview(@Nullable FxInstance card,
+                                                @Nullable FxParam param) { return false; }
     }
 
     /**
@@ -177,7 +198,7 @@ public final class FxPanel {
      * different moment from the record. Sharing this keeps both on whole-stack copies, which is
      * what makes keyframe tracks survive the round trip.</p>
      */
-    private static void recordSnapshot(@NonNull FxStack stack, @NonNull Host host,
+    public static void recordSnapshot(@NonNull FxStack stack, @NonNull Host host,
                                        @NonNull Runnable rebuild, @NonNull String label,
                                        @NonNull FxStack before) {
         FxStack after = stack.copy();
@@ -328,17 +349,29 @@ public final class FxPanel {
 
         // ── parameters ──
         // For gradient_fill, some params are shape-dependent:
-        // - Curve Point X/Y only show when shape == Curve (index 5)
+        // - the Curve path only shows when shape == Curve (index 5)
+        // - Curve reads NONE of centre/angle/scale: its own anchors are the gradient line, so
+        //   leaving those three up would offer controls that do nothing on the selected shape
         // - Angle is hidden for Radial (index 1) since radial has no angle
         // - Scale is shown for Radial and Diamond/Box (index 4)
+        boolean gradientFill = "gradient_fill".equals(def.id);
         int currentShape = Math.round(fx.getScalar(def.params.get(0)));
+        boolean curveShape = gradientFill && currentShape == 5;
         for (FxParam param : def.params) {
-            // Skip Curve Point params unless Curve shape is selected
-            if (param.name.equals("curve") && currentShape != 5) continue;
+            if (param.kind == FxParam.Kind.CURVE && !curveShape) continue;
+            if (curveShape && (param.name.equals("center") || param.name.equals("angle")
+                    || param.name.equals("scale"))) {
+                continue;
+            }
             // Skip Angle for Radial shape (radial has no angle)
             if (param.name.equals("angle") && currentShape == 1) continue;
             // Skip Scale for non-Radial/non-Diamond shapes
             if (param.name.equals("scale") && currentShape != 1 && currentShape != 4) continue;
+            // Length is the Linear/Reflected extent only — the radiating shapes use Scale.
+            if (gradientFill && param.name.equals("length")
+                    && currentShape != 0 && currentShape != 3) {
+                continue;
+            }
 
             LinearLayout pr = new LinearLayout(ctx);
             pr.setOrientation(LinearLayout.HORIZONTAL);
@@ -348,6 +381,24 @@ public final class FxPanel {
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             if (param.keyable) pr.addView(diamond(ctx, stack, fx, param, host, rebuild, d, rs));
             card.addView(pr);
+        }
+
+        // The non-curve gradient shapes get the SAME preview manipulation the Curve does, bound
+        // to their centre param — Photoshop drags a gradient's start and end on the picture, and
+        // a centre slider plus an angle slider is a worse way to say the same thing. The Curve
+        // shape already carries its own chip inside curveRow, so it is excluded here.
+        FxParam centerParam = gradientFill ? def.param("center") : null;
+        if (centerParam != null && !curveShape) {
+            boolean posEditing = host.isEditingGradientInPreview(fx, centerParam);
+            TextView pos = chip(ctx, posEditing
+                    ? "Positioning in preview — done" : "Position in preview", d);
+            pos.setBackground(pill(posEditing ? CHIP_ON : CHIP_BG, d));
+            pos.setOnClickListener(v -> {
+                host.editGradientInPreview(posEditing ? null : stack, posEditing ? null : fx,
+                        posEditing ? null : centerParam);
+                rebuild.run();
+            });
+            card.addView(pos);
         }
 
         // ── fold controls: how this card's result lands on what is below it ──
@@ -473,6 +524,9 @@ public final class FxPanel {
             }
             case GRADIENT: {
                 return gradientRow(ctx, stack, fx, param, host, rebuild, d);
+            }
+            case CURVE: {
+                return curveRow(ctx, stack, fx, param, host, rebuild, d);
             }
             case FLOAT:
             default: {
@@ -700,6 +754,77 @@ public final class FxPanel {
         row.addView(edit);
         strip.setOnClickListener(v -> openGradientDialog(ctx, stack, fx, param, host, rebuild, d));
         return row;
+    }
+
+    /**
+     * The Curve path's controls: how many vertices the line bends through, and a toggle that
+     * hands the actual placing over to the preview.
+     *
+     * <p><b>No X/Y sliders.</b> The parameter is up to five positions and five handle vectors —
+     * twenty numbers. Exposing them as forty pixels of seek bar each would be unusable, and it
+     * would also be a second way to move something the user can already see and grab, which is
+     * the "two controls fighting over one result" trap. Numbers here would only be a worse
+     * version of the preview.</p>
+     */
+    @NonNull
+    private static View curveRow(@NonNull Context ctx, @NonNull FxStack stack,
+                                 @NonNull FxInstance fx, @NonNull FxParam param,
+                                 @NonNull Host host, @NonNull Runnable rebuild, float d) {
+        LinearLayout col = new LinearLayout(ctx);
+        col.setOrientation(LinearLayout.VERTICAL);
+
+        GradientCurve path = GradientCurve.fromFloatArray(fx.get(param));
+
+        // Changing the path from a CHIP has to reach the preview's handles too. They read the
+        // param live, but nothing tells the overlay to repaint — re-asserting the mode does, and
+        // it is a no-op when the preview is not currently hosting them.
+        final Runnable repaintPreview = () -> {
+            if (host.isEditingGradientInPreview(fx, param)) {
+                host.editGradientInPreview(stack, fx, param);
+            }
+        };
+
+        LinearLayout vRow = new LinearLayout(ctx);
+        vRow.setOrientation(LinearLayout.HORIZONTAL);
+        vRow.setGravity(Gravity.CENTER_VERTICAL);
+        vRow.addView(label(ctx, "Vertices", d));
+        for (int i = 0; i <= GradientCurve.VERTEX_CAP; i++) {
+            final int n = i;
+            TextView c = chip(ctx, String.valueOf(i), d);
+            c.setBackground(pill(path.vertices.size() == i ? CHIP_ON : CHIP_BG, d));
+            c.setOnClickListener(v -> structural(stack, host, rebuild, "Curve vertices", () -> {
+                GradientCurve p = GradientCurve.fromFloatArray(fx.get(param));
+                p.setVertexCount(n);
+                fx.set(param, p.toFloatArray());
+                repaintPreview.run();
+            }));
+            vRow.addView(c);
+        }
+        col.addView(vRow);
+
+        LinearLayout eRow = new LinearLayout(ctx);
+        eRow.setOrientation(LinearLayout.HORIZONTAL);
+        eRow.setGravity(Gravity.CENTER_VERTICAL);
+        boolean editing = host.isEditingGradientInPreview(fx, param);
+        TextView edit = chip(ctx, editing ? "Editing in preview — done" : "Edit in preview", d);
+        edit.setBackground(pill(editing ? CHIP_ON : CHIP_BG, d));
+        edit.setOnClickListener(v -> {
+            host.editGradientInPreview(editing ? null : stack, editing ? null : fx,
+                    editing ? null : param);
+            rebuild.run();
+        });
+        eRow.addView(edit);
+
+        TextView reset = chip(ctx, "Straighten", d);
+        // Not "Reset": it puts the anchors back across the frame AND zeroes every handle, which
+        // is the one action that reliably gets a user out of a curve they have tangled.
+        reset.setOnClickListener(v -> structural(stack, host, rebuild, "Straighten curve", () -> {
+            fx.set(param, GradientCurve.defaultCurve().toFloatArray());
+            repaintPreview.run();
+        }));
+        eRow.addView(reset);
+        col.addView(eRow);
+        return col;
     }
 
     @NonNull

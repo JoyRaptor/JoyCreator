@@ -99,6 +99,70 @@ public final class PreviewHandlesOverlay extends View {
         void selectNone();
     }
 
+    /**
+     * A set of loose draggable POINTS over the preview — the gradient Curve's anchors, its bezier
+     * handles, and (for the other gradient shapes) the centre.
+     *
+     * <p><b>Why it lives here and not in a view of its own.</b> A point is not a transform: it has
+     * no box, no rotation and no size, so it cannot be expressed as a {@link Target}. The obvious
+     * alternative — a second overlay that draws and drags its own points — is the exact bug
+     * pattern this class was created to end: five sibling views each ran their own hit-test, the
+     * topmost claimed every touch, and objects underneath became ungrabbable. So the points come
+     * in as data and this class stays the only thing in the preview reading a {@code MotionEvent}.
+     * Points are hit-tested BEFORE the selected object's own handles, because they are only ever
+     * shown while their editor is deliberately open and are therefore what the user is aiming
+     * at.</p>
+     */
+    public interface PointHandles {
+        /** How many draggable points there are right now. */
+        int count();
+
+        /** Point {@code i}, normalised against {@link #videoRect()}. */
+        float pointX(int i);
+        float pointY(int i);
+
+        /**
+         * The point this one is a bezier HANDLE of, or {@code -1} when it is an anchor. Handles
+         * draw smaller and on a tether line, so a glance says which anchor a handle belongs to
+         * rather than leaving two identical dots to guess between.
+         */
+        int tetherTo(int i);
+
+        /** Video-content rect (px in this view's space) — the normalisation basis. */
+        @NonNull RectF videoRect();
+
+        /**
+         * The path to trace as a guide, as normalised {@code [x0,y0,x1,y1,…]}, or an empty array
+         * for none. Supplied rather than derived because only the caller knows the real curve —
+         * joining the anchors with straight lines would draw a shape the shader is not rendering.
+         */
+        @NonNull float[] guide();
+
+        /** A drag on point {@code i} is starting — snapshot for the undo step. */
+        void beginPointDrag(int i);
+
+        /** Live write during the drag, in normalised coordinates. */
+        void pointDragTo(int i, float nx, float ny);
+
+        /** The drag ended cleanly — record ONE undo step and persist. */
+        void commitPointDrag();
+    }
+
+    @Nullable private PointHandles pointHandles;
+
+    /** Show (or clear, with {@code null}) the loose point handles. */
+    public void setPointHandles(@Nullable PointHandles p) {
+        if (pointHandles == p) return;
+        pointHandles = p;
+        draggingPoint = -1;
+        invalidate();
+    }
+
+    public boolean hasPointHandles() { return pointHandles != null; }
+
+    /** Index into {@link PointHandles} currently under the finger, or -1. */
+    private int draggingPoint = -1;
+
     @Nullable private SelectionSource selectionSource;
 
     public void setSelectionSource(@Nullable SelectionSource s) { selectionSource = s; }
@@ -142,6 +206,8 @@ public final class PreviewHandlesOverlay extends View {
     private final Paint handleStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rotatePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint movePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint guidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tetherPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF box = new RectF();
 
     @Nullable private Target target;
@@ -175,6 +241,15 @@ public final class PreviewHandlesOverlay extends View {
         movePaint.setStrokeWidth(1.8f * density);
         movePaint.setStrokeCap(Paint.Cap.ROUND);
         movePaint.setColor(0x99FFFFFF);
+        // The curve itself, solid and a shade heavier than the dashed selection box — it is the
+        // thing being authored, not chrome around something else.
+        guidePaint.setStyle(Paint.Style.STROKE);
+        guidePaint.setStrokeWidth(2f * density);
+        guidePaint.setStrokeCap(Paint.Cap.ROUND);
+        guidePaint.setColor(0xFFB388FF);
+        tetherPaint.setStyle(Paint.Style.STROKE);
+        tetherPaint.setStrokeWidth(1f * density);
+        tetherPaint.setColor(0x99B388FF);
     }
 
     /** Show handles for {@code t} (null = hide). Selection drives this. */
@@ -212,6 +287,7 @@ public final class PreviewHandlesOverlay extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         if (editingItemId != null) return;   // the drawer is open — the editor owns the chrome
+        drawPointHandles(canvas);
         Target t = target;
         if (t == null || !t.frame(currentTimeMs, box)) return;
         float rot = t.rotationDeg(currentTimeMs);
@@ -264,6 +340,61 @@ public final class PreviewHandlesOverlay extends View {
         canvas.restore();
     }
 
+    /**
+     * The loose points, their tethers, and the guide path.
+     *
+     * <p>Drawn UNDER the selected object's box on purpose: the box is dashed chrome the user is
+     * not currently aiming at, and the points are. Overlapping the other way round would let a
+     * selection rectangle hide the handle being dragged.</p>
+     */
+    private void drawPointHandles(@NonNull Canvas canvas) {
+        PointHandles p = pointHandles;
+        if (p == null) return;
+        RectF r = p.videoRect();
+        if (r.width() <= 0 || r.height() <= 0) return;
+
+        float[] guide = p.guide();
+        for (int i = 0; i + 3 < guide.length; i += 2) {
+            canvas.drawLine(r.left + guide[i] * r.width(), r.top + guide[i + 1] * r.height(),
+                    r.left + guide[i + 2] * r.width(), r.top + guide[i + 3] * r.height(),
+                    guidePaint);
+        }
+
+        int n = p.count();
+        for (int i = 0; i < n; i++) {
+            float x = r.left + p.pointX(i) * r.width();
+            float y = r.top + p.pointY(i) * r.height();
+            int parent = p.tetherTo(i);
+            if (parent >= 0 && parent < n) {
+                canvas.drawLine(r.left + p.pointX(parent) * r.width(),
+                        r.top + p.pointY(parent) * r.height(), x, y, tetherPaint);
+                canvas.drawCircle(x, y, 4f * density, rotatePaint);
+                canvas.drawCircle(x, y, 4f * density, handleStroke);
+            } else {
+                canvas.drawCircle(x, y, 6.5f * density, handleFill);
+                canvas.drawCircle(x, y, 6.5f * density, handleStroke);
+            }
+        }
+    }
+
+    /** Hit-test the loose points, nearest first. Returns the index or -1. */
+    private int pointAt(@NonNull PointHandles p, float x, float y) {
+        RectF r = p.videoRect();
+        if (r.width() <= 0 || r.height() <= 0) return -1;
+        float grab = handleRadiusPx();
+        int best = -1;
+        float bestD = Float.MAX_VALUE;
+        // NEAREST, not first-within-range: an anchor and its handle can sit almost on top of each
+        // other on a barely-bent curve, and "first match wins" would make the one underneath
+        // permanently unreachable.
+        for (int i = 0; i < p.count(); i++) {
+            float d = dist(x, y, r.left + p.pointX(i) * r.width(),
+                    r.top + p.pointY(i) * r.height());
+            if (d <= grab && d < bestD) { bestD = d; best = i; }
+        }
+        return best;
+    }
+
     private void drawCornerHandle(@NonNull Canvas canvas, float x, float y, float halfSize) {
         canvas.drawRect(x - halfSize, y - halfSize, x + halfSize, y + halfSize, handleFill);
         canvas.drawRect(x - halfSize, y - halfSize, x + halfSize, y + halfSize, handleStroke);
@@ -279,6 +410,22 @@ public final class PreviewHandlesOverlay extends View {
         if (editingItemId != null) return false;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
+                // LOOSE POINTS FIRST. They are only on screen while their editor is open, so a
+                // finger near one is aiming at it — ahead of the selected object's own handles,
+                // which are the general-purpose surface and are always up.
+                PointHandles ph = pointHandles;
+                if (ph != null) {
+                    int hit = pointAt(ph, e.getX(), e.getY());
+                    if (hit >= 0) {
+                        draggingPoint = hit;
+                        moved = false;
+                        downX = e.getX();
+                        downY = e.getY();
+                        ph.beginPointDrag(hit);
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        return true;
+                    }
+                }
                 // TRY THE CURRENT SELECTION FIRST, then everything else. Touching the selected
                 // object's own box must keep working exactly as it did — the handles are the
                 // precision surface — and only a miss falls through to picking something new.
@@ -308,6 +455,7 @@ public final class PreviewHandlesOverlay extends View {
                 }
                 return mode != Mode.NONE;
             case MotionEvent.ACTION_MOVE: {
+                if (draggingPoint >= 0) { onPointMove(e.getX(), e.getY()); return true; }
                 Target t = target;
                 if (t == null || mode == Mode.NONE) return false;
                 if (mode == Mode.PINCH) { onPinchMove(t, e); return true; }
@@ -316,6 +464,16 @@ public final class PreviewHandlesOverlay extends View {
             }
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL: {
+                if (draggingPoint >= 0) {
+                    PointHandles p = pointHandles;
+                    boolean clean = e.getActionMasked() == MotionEvent.ACTION_UP;
+                    draggingPoint = -1;
+                    // A tap that never moved is not an edit — committing it would push an undo
+                    // step that changes nothing, which is worse than no step at all.
+                    if (p != null && moved && clean) p.commitPointDrag();
+                    invalidate();
+                    return true;
+                }
                 Target t = target;
                 if (t == null || mode == Mode.NONE) return false;
                 Mode finished = mode;
@@ -495,6 +653,25 @@ public final class PreviewHandlesOverlay extends View {
             default:
                 break;
         }
+        invalidate();
+    }
+
+    /**
+     * Drag the grabbed loose point to the finger.
+     *
+     * <p>Absolute, not a delta from the gesture start: a point has no size or rotation to
+     * preserve, so "the point is where the finger is" is both simpler and what the user reads off
+     * the screen. NOT clamped to 0..1 — a curve anchor or a bezier handle outside the frame is a
+     * legitimate way to run the ramp off the edge, and clamping would silently straighten it.</p>
+     */
+    private void onPointMove(float x, float y) {
+        PointHandles p = pointHandles;
+        if (p == null) return;
+        RectF r = p.videoRect();
+        if (r.width() <= 0 || r.height() <= 0) return;
+        if (!moved && (Math.abs(x - downX) > 4 || Math.abs(y - downY) > 4)) moved = true;
+        if (!moved) return;
+        p.pointDragTo(draggingPoint, (x - r.left) / r.width(), (y - r.top) / r.height());
         invalidate();
     }
 

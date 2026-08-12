@@ -94,7 +94,16 @@ public final class TextOverlayDrawer extends LinearLayout {
         // The panel is a scrim now, so anything on it has arbitrary picture behind it. Same shadow
         // the PiP drawer's title carries, for the same reason.
         titleView.setShadowLayer(4f * density, 0f, 1f, 0xCC000000);
-        header.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(titleView, new LayoutParams(LayoutParams.WRAP_CONTENT,
+                LayoutParams.WRAP_CONTENT));
+
+        // An accessory slot BETWEEN the title and the close button. The font control lives here
+        // rather than in the button row below (JoyRaptor, 2026-08-12): the header had spare width, the
+        // button row did not, and a font is the one property worth naming rather than abbreviating
+        // to "Aa" — so it goes where there is room to print it. Weighted, so it takes the slack and
+        // its own ellipsis handles a long font name instead of pushing ✕ off the edge.
+        headerAccessory = new FrameLayout(ctx);
+        header.addView(headerAccessory, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
         TextView close = new TextView(ctx);
         close.setText("✕");
@@ -139,7 +148,25 @@ public final class TextOverlayDrawer extends LinearLayout {
         addView(grip, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
     }
 
+    @Nullable private FrameLayout headerAccessory;
+
     public void setTitle(@NonNull String title) { titleView.setText(title); }
+
+    /**
+     * Put {@code v} (or nothing, with null) in the header between the title and ✕.
+     *
+     * <p>Replaces whatever was there: the accessory belongs to the object being edited, and a
+     * second overlay's control stacked on the first one's would show two font names at once.</p>
+     */
+    public void setHeaderAccessory(@Nullable View v) {
+        if (headerAccessory == null) return;
+        headerAccessory.removeAllViews();
+        if (v != null) {
+            headerAccessory.addView(v, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.START | Gravity.CENTER_VERTICAL));
+        }
+    }
 
     public void setOnClose(@Nullable Runnable r) { this.onClose = r; }
 
@@ -240,7 +267,10 @@ public final class TextOverlayDrawer extends LinearLayout {
         if (!(content instanceof ViewGroup)) return -1;
         ViewGroup rows = (ViewGroup) content;
         if (rows.getChildCount() <= peekRows) return -1;   // nothing would be hidden
-        int sum = rows.getPaddingTop() + rows.getPaddingBottom();
+        // Top padding only. The BOTTOM padding belongs to the end of the whole stack, hundreds of
+        // dp below, and adding it here bought a band of dead space under the second row —
+        // "an awkward amount of negative space after the first two rows" (JoyRaptor, 2026-08-12).
+        int sum = rows.getPaddingTop();
         for (int i = 0; i < peekRows; i++) {
             View row = rows.getChildAt(i);
             if (row.getVisibility() == GONE) continue;
@@ -252,10 +282,10 @@ public final class TextOverlayDrawer extends LinearLayout {
             }
             sum += h;
         }
-        // A sliver of the next row stays visible. A hard cut at a row boundary looks like the end
-        // of the content; a clipped edge is the cheapest possible "there is more" signal, and it
-        // works even for someone who never notices the label on the grip.
-        return sum + dp(10);
+        // A CLEAN cut at the row boundary. The 10dp sliver this used to add showed the top few
+        // pixels of the STYLE header, which read as a rendering fault rather than as a hint —
+        // MORE ⌄ on the grip already says there is more, and says it in words (JoyRaptor, 2026-08-12).
+        return sum;
     }
 
     @NonNull

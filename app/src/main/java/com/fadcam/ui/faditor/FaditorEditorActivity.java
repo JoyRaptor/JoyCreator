@@ -23706,7 +23706,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the trash on the status/motion line handles it.)
         root.addView(buildOverlayAnimationControls(item));
 
-        drawer.setTitle(getString(R.string.faditor_text_edit_title));
+        // TITLE names the object, not just the verb. Every text overlay opened a drawer headed
+        // "EDIT TEXT", so with several on the timeline nothing on screen said WHICH one was being
+        // edited (JoyRaptor, 2026-08-12: "exit text should have the first couple words of the text
+        // content after it"). The first few words are what the user recognises it by.
+        drawer.setTitle(getString(R.string.faditor_text_edit_title) + textTitleSuffix(item));
+        drawer.setHeaderAccessory(buildTextFontHeaderButton(item, session, drawer));
         drawer.show(root);
         // WYSIWYG (2026-08-09, Joy): the PREVIEW IS the text box. The selection input is a
         // transparent EditText layered over the drawn box in the preview (native handles, precise
@@ -23904,10 +23909,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         session.selStart, session.selEnd, session.len()) == null,
                 repaint -> session.refreshers.add(repaint)));
 
-        // FONT — opens a scrollable list with a live-typeface preview per entry + Import.
-        TextView fontBtn = topRowChip(this, d, "Aa");
-        fontBtn.setOnClickListener(v -> showFontPickerPopup(item, fontBtn, session));
-        row.addView(fontBtn);
+        // FONT lives in the drawer's HEADER now, not here — see buildTextFontHeaderButton. It was
+        // an "Aa" chip in this row, which spent a button's worth of the tightest row in the drawer
+        // to say nothing about which font was actually chosen.
 
         // B / I / U — independent toggles (see TextOverlayItem javadoc on why not an enum).
         // With a selection these read and WRITE the SPAN over the range: mixed → two-tone,
@@ -23981,11 +23985,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.addView(allCapsBtn);
         row.addView(smallCapsBtn);
 
-        // ALIGNMENT — cycles LEFT → CENTER → RIGHT → JUSTIFY → LEFT.
-        TextView alignBtn = topRowChip(this, d, alignGlyph(item.getTextAlign()));
+        // ALIGNMENT — cycles LEFT → CENTER → RIGHT → JUSTIFY → LEFT, as a DRAWN paragraph in a
+        // fixed square. It was four text glyphs of two different widths, so cycling it resized the
+        // control and shoved every button to its right along — see AlignIconView for the rest.
+        com.fadcam.ui.faditor.tools.AlignIconView alignBtn =
+                new com.fadcam.ui.faditor.tools.AlignIconView(this);
+        alignBtn.setAlign(item.getTextAlign());
+        int alignPad = Math.round(8 * d);
+        alignBtn.setPadding(alignPad, alignPad, alignPad, alignPad);
+        android.widget.LinearLayout.LayoutParams alignLp =
+                new android.widget.LinearLayout.LayoutParams(
+                        Math.round(34 * d), Math.round(34 * d));
+        alignLp.setMarginEnd(Math.round(2 * d));
+        alignBtn.setLayoutParams(alignLp);
         alignBtn.setOnClickListener(v -> {
             item.setTextAlign(com.fadcam.ui.faditor.model.TextOverlayItem.nextAlign(item.getTextAlign()));
-            alignBtn.setText(alignGlyph(item.getTextAlign()));
+            alignBtn.setAlign(item.getTextAlign());
             refreshOverlayPreview();
             scheduleAutoSave();
         });
@@ -24073,14 +24088,66 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return topScroll;
     }
 
+    /**
+     * " — the first words" for the drawer title, or "" when the overlay has no text yet.
+     *
+     * <p>Trimmed to whole words rather than a hard character cut, because a title ending mid-word
+     * reads as a rendering fault rather than as an abbreviation.</p>
+     */
     @NonNull
-    private static String alignGlyph(@NonNull String align) {
-        switch (align) {
-            case com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_LEFT: return "≡⌐";
-            case com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_RIGHT: return "⌐≡";
-            case com.fadcam.ui.faditor.model.TextOverlayItem.ALIGN_JUSTIFY: return "☰";
-            default: return "≡"; // CENTER
+    private static String textTitleSuffix(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        String raw = item.getText();
+        if (raw == null) return "";
+        String t = raw.replaceAll("\s+", " ").trim();
+        if (t.isEmpty()) return "";
+        final int cap = 22;
+        if (t.length() > cap) {
+            String cut = t.substring(0, cap);
+            int lastSpace = cut.lastIndexOf(' ');
+            // Only honour the word boundary if it leaves something worth reading.
+            t = (lastSpace > 8 ? cut.substring(0, lastSpace) : cut) + "…";
         }
+        return " · " + t;
+    }
+
+    /**
+     * The FONT control, for the drawer's header: the chosen font's NAME, set in that very font, with
+     * no chip around it.
+     *
+     * <p>JoyRaptor (2026-08-12): "should be moved vertically out of that row and placed between edit
+     * text and the color swatch as it seems there's room and it shouldn't have a chip, instead it
+     * should just say and display the font that's chosen." All three parts earn their keep — the
+     * button row is the most crowded strip in the drawer and this was taking a slot in it; "Aa"
+     * named no font, so the only way to learn the current one was to open the picker; and rendering
+     * the name IN the font makes the label its own preview, so it answers "what am I using" without
+     * being read.</p>
+     */
+    @NonNull
+    private View buildTextFontHeaderButton(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+            @NonNull TextStyleSession session,
+            @NonNull com.fadcam.ui.faditor.tools.TextOverlayDrawer drawer) {
+        float d = getResources().getDisplayMetrics().density;
+        final TextView t = new TextView(this);
+        t.setTextColor(0xFFEEEEEE);
+        t.setTextSize(13);
+        t.setMaxLines(1);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        int hp = Math.round(10 * d);
+        t.setPadding(hp, Math.round(4 * d), hp, Math.round(4 * d));
+        final Runnable refreshFont = () -> {
+            t.setText(fontDisplayName(item.getFontFamily()));
+            t.setTypeface(com.fadcam.ui.faditor.model.TextOverlayItem.typefaceFor(
+                    item.getFontFamily(), false, false));
+        };
+        refreshFont.run();
+        // Re-read on every session refresh, so picking a font updates the header rather than
+        // leaving it naming the previous one until the drawer is reopened.
+        session.refreshers.add(refreshFont);
+        t.setOnClickListener(v -> showFontPickerPopup(item, t, session));
+        return t;
     }
 
     @NonNull

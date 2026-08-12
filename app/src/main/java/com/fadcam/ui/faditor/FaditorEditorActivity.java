@@ -21973,6 +21973,47 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // container shrunk forever, since nothing else ever writes these.
         container.animate().translationY(shift).scaleX(1f).scaleY(1f).setDuration(220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        setTopBarHiddenForDrawer(drawerHeightPx > 0);
+    }
+
+    /**
+     * Slide the app header out of the way while a translucent top drawer is open, and bring it
+     * back when the drawer closes.
+     *
+     * <p><b>Two headers were superimposed.</b> These drawers are scrims, and they are added above
+     * the header — so the project name, ✕, AI and export icons showed THROUGH the drawer's own
+     * title row and controls. JoyRaptor (2026-08-12): the bright bar behind them "makes the legibility
+     * less … we need mask blend key etc icons to read well". Nothing is gained by keeping it: the
+     * drawer carries its own ✕, and the header's own buttons are not what the user is reaching for
+     * mid-edit.</p>
+     *
+     * <p>Chosen over darkening the bar or slipping an opaque layer between the two. Darkening
+     * leaves two competing title rows stacked in the same place, which is the confusion §3.2
+     * already recorded — the header reading as the DRAWER's title bar and close button. An opaque
+     * interleaved layer fixes contrast and keeps the clutter. Sliding it away answers both, and
+     * hands back the vertical space §3.2 wanted, which on a phone is the scarcest thing here.</p>
+     *
+     * <p>Animated with the same 220ms decelerate the drawer and the preview reflow use, so all
+     * three read as one movement rather than three things twitching.</p>
+     */
+    private void setTopBarHiddenForDrawer(boolean hidden) {
+        View topBar = findViewById(R.id.editor_top_bar);
+        if (topBar == null) return;
+        // Height is 0 before the first layout; -height is the only offset that clears it, so defer
+        // rather than animate to a wrong place and leave the bar stranded mid-screen.
+        if (hidden && topBar.getHeight() <= 0) {
+            topBar.post(() -> setTopBarHiddenForDrawer(true));
+            return;
+        }
+        float target = hidden ? -topBar.getHeight() : 0f;
+        if (topBar.getTranslationY() == target) return;
+        topBar.animate().translationY(target).alpha(hidden ? 0f : 1f).setDuration(220)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                // GONE, not just transparent: an invisible bar at alpha 0 still takes every touch
+                // in its strip, and the drawer's own controls sit exactly there.
+                .withEndAction(() -> topBar.setVisibility(hidden ? View.INVISIBLE : View.VISIBLE))
+                .start();
+        if (!hidden) topBar.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -25132,12 +25173,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int hpad = Math.round(10 * d);
         int vpad = Math.round(6 * d);
         t.setPadding(hpad, vpad, hpad, vpad);
+        // SEMI-TRANSPARENT, like the drawer that holds them (JoyRaptor, 2026-08-12). Three opaque
+        // pills punched three solid holes in a panel whose whole point is that the picture shows
+        // through it. Tinted BLACK rather than lightened: these sit over arbitrary video, and a
+        // translucent white would vanish against a bright frame — darkening always separates the
+        // chip from what is behind it, and the light label and border stay legible either way.
         android.graphics.drawable.GradientDrawable bg =
                 new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xFF2A2A2E);
+        bg.setColor(0x992A2A2E);
         bg.setCornerRadius(Math.round(14 * d));
-        bg.setStroke(Math.round(1 * d), 0xFF3A3A3E);
+        bg.setStroke(Math.round(1 * d), 0x66FFFFFF);
         t.setBackground(bg);
+        // The label carries its own shadow for the same reason the drawer's title does: behind a
+        // 60%-opaque chip there can still be a bright frame.
+        t.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         t.setOnClickListener(v -> onTap.run());
         android.widget.LinearLayout.LayoutParams lp =
                 new android.widget.LinearLayout.LayoutParams(

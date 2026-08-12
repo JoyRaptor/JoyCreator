@@ -23810,6 +23810,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             android.view.Gravity.TOP);
             root2.addView(textDrawer, lp);
             textDrawer.setHeightListener(this::reflowPreviewUnderDrawer);
+            // TWO ROWS: the font/style toolbar and the trim + selection line. Those are the ones
+            // touched constantly; STYLE (outline, glow, shadow, background) and the animation
+            // section below them are set once per overlay and then left, so they are worth a
+            // scroll (JoyRaptor, 2026-08-12 — "better that they only have to expand 10% of the time").
+            // Stated as a row COUNT so it keeps meaning "the first two" if those rows change size.
+            textDrawer.setPeekRows(2);
         }
         return textDrawer;
     }
@@ -25052,7 +25058,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // sits right beside "Clear" so the context makes it clear Clear removes the selection.
         final TextView status = new TextView(this);
         status.setTextColor(0xFF888888);
-        status.setTextSize(12);
+        status.setTextSize(11);
+        status.setMaxLines(1);
+        // Ellipsize rather than push: this row's job is to keep the trim chips and the trashcan
+        // reachable, and the status is the one thing on it that can lose a character harmlessly.
+        status.setEllipsize(android.text.TextUtils.TruncateAt.END);
         row.addView(status);
 
         TextView clearChip = new TextView(this);
@@ -25075,17 +25085,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         row.addView(clearChip);
 
-        // The DELETE affordance at the END of the line — the Material "delete" glyph the bottom
-        // toolbox uses for its Delete tool, because the function is the same: remove the whole
-        // text overlay (user, 2026-08-10). "Start span end | whole clear | trashcan icon".
-        TextView deleteGlyph = new TextView(this);
-        deleteGlyph.setText("delete");
-        deleteGlyph.setTextColor(0xFFE57373);
-        deleteGlyph.setTextSize(16);
-        int dg = Math.round(10 * d);
-        deleteGlyph.setPadding(dg, Math.round(4 * d), dg, Math.round(4 * d));
+        // The DELETE affordance at the END of the line, as the TRASHCAN ICON the spec actually
+        // asked for — "Start span end | whole clear | trashcan icon" (user, 2026-08-10). It was
+        // the literal word "delete" at 16sp, which is the widest thing on a row that now also
+        // carries three trim chips: measured on the Note 9 (2026-08-12) it was clipped off the
+        // right edge. The icon says the same thing in a fifth of the width, and it is the glyph
+        // the bottom toolbox's own Delete tool uses, so the two read as the same verb.
+        android.widget.ImageView deleteGlyph = new android.widget.ImageView(this);
+        deleteGlyph.setImageResource(R.drawable.ic_delete);
+        deleteGlyph.setColorFilter(0xFFE57373);
+        int dg = Math.round(6 * d);
+        deleteGlyph.setPadding(dg, dg, dg, dg);
         deleteGlyph.setOnClickListener(v -> deleteTextOverlay(item, session));
-        row.addView(deleteGlyph);
+        row.addView(deleteGlyph, new android.widget.LinearLayout.LayoutParams(
+                Math.round(30 * d), Math.round(30 * d)));
 
         Runnable refresh = () -> {
             if (session.hasSelection()) {

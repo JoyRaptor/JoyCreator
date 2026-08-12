@@ -120,6 +120,21 @@ public final class TextOverlayDrawer extends LinearLayout {
         pillBg.setCornerRadius(3f * density);
         pill.setBackground(pillBg);
         grip.addView(pill, new LayoutParams(dp(38), dp(4)));
+        // "MORE ⌄" — the drawer opens showing only its first rows now, so it has to SAY that the
+        // rest exists. Sitting on the grip is deliberate: the grip is the thing that makes the
+        // drawer taller, so the label naming the reward and the control that delivers it are the
+        // same target. Hidden whenever the body is not actually scrollable, so it never promises
+        // content that is already on screen.
+        moreHint = new TextView(ctx);
+        moreHint.setText("MORE ⌄");                                        // TODO(strings)
+        moreHint.setTextColor(0xFFB388FF);
+        moreHint.setTextSize(9f);
+        moreHint.setLetterSpacing(0.08f);
+        moreHint.setShadowLayer(3f * density, 0f, 1f, 0xCC000000);
+        moreHint.setPadding(dp(10), 0, 0, 0);
+        moreHint.setVisibility(GONE);
+        grip.addView(moreHint, new LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         wireGrip(grip);
         addView(grip, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
     }
@@ -191,6 +206,58 @@ public final class TextOverlayDrawer extends LinearLayout {
         post(this::reportHeight);
     }
 
+    /**
+     * How many of the content's top-level rows the drawer opens showing. 0 = the old behaviour,
+     * which was {@link #MAX_HEIGHT_FRACTION} of the SCREEN.
+     *
+     * <p><b>Screen real estate is the scarce thing here</b> (JoyRaptor, 2026-08-12): "don't want to
+     * annoy user with huge drawer they have to resize smaller 90% of the time. better that they
+     * only have to expand 10% of the time." The rows that get touched constantly — the font and
+     * style toolbar, the trim chips — are at the top; outline, glow and shadow are set once and
+     * left alone, so they are worth a scroll.</p>
+     *
+     * <p>A ROW COUNT rather than a dp height on purpose. A height would be a magic number that
+     * silently stops framing the right rows the moment one of them changes, or the user's font
+     * scale does. Counting rows keeps the intent — "the first two" — true by construction, and
+     * keeps this class ignorant of what those rows contain.</p>
+     */
+    private int peekRows;
+
+    /** @see #peekRows */
+    public void setPeekRows(int rows) {
+        if (peekRows == rows) return;
+        peekRows = rows;
+        if (bodyScroll != null) bodyScroll.requestLayout();
+    }
+
+    /**
+     * Body height that shows exactly {@link #peekRows} rows, or -1 when that cannot be determined
+     * (no peek set, content is not a row container, or the count covers everything anyway).
+     */
+    private int peekBodyHeightPx(@NonNull ScrollView sv, int widthSpec) {
+        if (peekRows <= 0) return -1;
+        View content = sv.getChildCount() > 0 ? sv.getChildAt(0) : null;
+        if (!(content instanceof ViewGroup)) return -1;
+        ViewGroup rows = (ViewGroup) content;
+        if (rows.getChildCount() <= peekRows) return -1;   // nothing would be hidden
+        int sum = rows.getPaddingTop() + rows.getPaddingBottom();
+        for (int i = 0; i < peekRows; i++) {
+            View row = rows.getChildAt(i);
+            if (row.getVisibility() == GONE) continue;
+            int h = row.getMeasuredHeight();
+            if (h <= 0) return -1;      // not measured yet — caller falls back for this pass
+            ViewGroup.LayoutParams lp = row.getLayoutParams();
+            if (lp instanceof MarginLayoutParams) {
+                h += ((MarginLayoutParams) lp).topMargin + ((MarginLayoutParams) lp).bottomMargin;
+            }
+            sum += h;
+        }
+        // A sliver of the next row stays visible. A hard cut at a row boundary looks like the end
+        // of the content; a clipped edge is the cheapest possible "there is more" signal, and it
+        // works even for someone who never notices the label on the grip.
+        return sum + dp(10);
+    }
+
     @NonNull
     private View wrap(@NonNull View content) {
         ScrollView sv = new ScrollView(getContext()) {
@@ -199,6 +266,16 @@ public final class TextOverlayDrawer extends LinearLayout {
                 int cap = maxBodyHeightPx();
                 int mode = userHeightPx > 0 ? MeasureSpec.EXACTLY : MeasureSpec.AT_MOST;
                 super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(cap, mode));
+                if (userHeightPx > 0) return;
+                // The rows are measured now, so their heights can be added up. Re-measuring to the
+                // peek height is a second pass over content that is already laid out cheaply, and
+                // only while the user has not set a height of their own.
+                int peek = peekBodyHeightPx(this, widthSpec);
+                if (peek > 0 && peek < getMeasuredHeight()) {
+                    super.onMeasure(widthSpec,
+                            MeasureSpec.makeMeasureSpec(peek, MeasureSpec.EXACTLY));
+                }
+                post(TextOverlayDrawer.this::syncMoreHint);
             }
         };
         sv.setVerticalScrollBarEnabled(false);
@@ -209,6 +286,36 @@ public final class TextOverlayDrawer extends LinearLayout {
         sv.setMinimumHeight(0);
         bodyScroll = sv;
         return sv;
+    }
+
+    @Nullable private TextView moreHint;
+
+    /**
+     * Show the MORE label only while there is something below the fold. Called after every
+     * measure, because what is hidden changes with the peek height, a manual resize, and any
+     * content rebuild.
+     */
+    private void syncMoreHint() {
+        if (moreHint == null) return;
+        boolean scrollable = false;
+        ScrollView sv = bodyScroll;
+        if (sv != null && sv.getChildCount() > 0) {
+            scrollable = sv.getChildAt(0).getHeight() > sv.getHeight() + 1;
+        }
+        moreHint.setVisibility(scrollable ? VISIBLE : GONE);
+    }
+
+    /**
+     * Grow the body to its full extent — the tap target behind MORE. Goes to the fraction cap
+     * rather than to the content's real height so a very long stack still cannot swallow the
+     * preview and the timeline, which is the whole reason the cap exists.
+     */
+    private void expandToFull() {
+        int screen = getResources().getDisplayMetrics().heightPixels;
+        userHeightPx = Math.round(screen * MAX_HEIGHT_FRACTION);
+        if (bodyScroll != null) bodyScroll.requestLayout();
+        post(this::reportHeight);
+        post(this::syncMoreHint);
     }
 
     private int maxBodyHeightPx() {
@@ -258,7 +365,16 @@ public final class TextOverlayDrawer extends LinearLayout {
                         float dy = e.getRawY() - downY;
                         boolean atFloor = bodyScroll != null
                                 && bodyScroll.getHeight() <= dp(MIN_BODY_DP) + 1;
-                        if (!moved || (dy < -slop * 2 && atFloor)) {
+                        boolean hasMore = moreHint != null
+                                && moreHint.getVisibility() == VISIBLE;
+                        if (!moved && hasMore) {
+                            // A TAP means "show me the rest" while anything is below the fold. The
+                            // grip is where MORE is written, so this is the label's own target; ✕
+                            // in the header is the way out, and it always was. Without this the
+                            // only route to the hidden rows would be a drag, on a drawer that now
+                            // deliberately opens short.
+                            expandToFull();
+                        } else if (!moved || (dy < -slop * 2 && atFloor)) {
                             userHeightPx = -1;
                             hide();
                         } else {

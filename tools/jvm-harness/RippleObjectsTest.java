@@ -74,6 +74,7 @@ public class RippleObjectsTest {
         trimUndoIsExactOverManyEdits();
         deleteRipplesUnanchoredObjects();
         objectOnTheTrimmedClipItselfDoesNotMove();
+        undoUnderTheEditorsOwnBracketDoesNotDoubleShift();
         gapModeMovesNothing();
         gapModeUndoAlsoMovesNothing();
         openEndedObjectKeepsItsSentinel();
@@ -179,6 +180,40 @@ public class RippleObjectsTest {
         eq(onIt.getStartMs(), 200, "trim: an object on the trimmed clip itself does not move");
         check(!r.movedOverlayIds.contains(onIt.getId()),
                 "trim: and it is not reported as moved");
+    }
+
+    /**
+     * The editor brackets undo and redo WHOLESALE ({@code performUndo} → {@code beginStructuralEdit}
+     * … {@code endStructuralEdit}), so an action that also shifts riders on its own is the second
+     * shift of the same delta: the object lands twice as far as the footage moved, in the opposite
+     * direction from the original bug and just as wrong.
+     *
+     * <p>Written as the editor writes it — outer bracket around the action — because that nesting IS
+     * the case under test. A guard inside {@code Timeline} makes the inner shift a no-op while an
+     * outer bracket is open, so an action stays correct both nested and standalone (the AI and
+     * script paths call actions with no bracket at all).</p>
+     */
+    static void undoUnderTheEditorsOwnBracketDoesNotDoubleShift() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);
+        t.addTextOverlay(free);
+        EditActions.TrimAction action =
+                new EditActions.TrimAction(t, t.getClip(0), 0, 1000, 0, 1500);
+
+        Map<String, Long> outer = t.beginStructural();
+        action.execute();
+        t.endStructural(outer);
+        eq(free.getStartMs(), 2700, "nested execute: object moved ONCE (+500)");
+
+        Map<String, Long> outer2 = t.beginStructural();
+        action.undo();
+        t.endStructural(outer2);
+        eq(free.getStartMs(), 2200, "nested undo: object moved back ONCE, not twice");
+        eq(t.getClip(0).getOutPointMs(), 1000, "nested undo: the clip is restored");
+
+        // Standalone — no outer bracket — the action must still ripple by itself.
+        action.execute();
+        eq(free.getStartMs(), 2700, "standalone execute: the action still ripples on its own");
     }
 
     /** Gap mode: the edit happens, nothing else moves. */

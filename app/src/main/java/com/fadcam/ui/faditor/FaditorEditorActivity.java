@@ -4561,7 +4561,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         Clip demoted = timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID);
-        if (demoted == null) return null;
+        // Close the bracket on the failure path too. Nothing moved, so the shift is a no-op — but
+        // an OPEN bracket makes every later edit look nested, and nested edits defer their shift.
+        if (demoted == null) { endStructuralEdit(anchorsBefore, "demoteToLayer:declined"); return null; }
         endStructuralEdit(anchorsBefore, "demoteToLayer");
 
         final long landedAt = demoted.getOverlayStartMs();
@@ -4644,7 +4646,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 timeline.snapshotTransitions();
 
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
-        if (!timeline.promoteToMaster(promoting, insertAt)) return;
+        // Same as demote: the declined path must still close its bracket (see there).
+        if (!timeline.promoteToMaster(promoting, insertAt)) {
+            endStructuralEdit(anchorsBefore, "promoteToMaster:declined");
+            return;
+        }
         endStructuralEdit(anchorsBefore, "promoteToMaster");
 
         undoManager.recordAction(new EditActions.LambdaAction(
@@ -4713,11 +4719,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // Bracket at the USER-ACTION boundary, never per primitive: one split is remove+add+add, and
     // a per-primitive bracket would shift each rider two or three times.
 
-    /** Snapshot clip starts before a structural master edit. Cheap: one pass, ids → longs. */
+    /**
+     * Snapshot clip starts before a structural master edit. Cheap: one pass, ids → longs.
+     *
+     * <p>Goes through {@code beginStructural} rather than {@code captureClipStarts} so that an edit
+     * ACTION that brackets itself (TrimAction does, to stay correct off-editor) sees an outer
+     * bracket already open and defers the shift to it. Undo and redo are bracketed wholesale here,
+     * so without that the rider moved twice per undo.</p>
+     */
     @NonNull
     private java.util.Map<String, Long> beginStructuralEdit() {
         return project == null ? java.util.Collections.emptyMap()
-                : project.getTimeline().captureClipStarts();
+                : project.getTimeline().beginStructural();
     }
 
     /**
@@ -4730,8 +4743,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable
     private Timeline.AnchorShiftResult endStructuralEdit(
             @NonNull java.util.Map<String, Long> before, @NonNull String where) {
-        if (project == null || before.isEmpty()) return null;
-        Timeline.AnchorShiftResult r = project.getTimeline().applyAnchorShift(before);
+        // No early-out on an empty map any more: beginStructuralEdit opened a bracket and this must
+        // close it, or the depth leaks and every later edit is treated as nested and shifts nothing.
+        // An empty "before" is harmless — a rider whose host is absent from it is simply skipped.
+        if (project == null) return null;
+        Timeline.AnchorShiftResult r = project.getTimeline().endStructural(before);
         if (!r.isEmpty()) {
             FLog.d(TAG, "ANCHOR[" + where + "] moved=" + r.movedOverlayIds.size()
                     + " orphaned=" + r.orphanedOverlayIds.size());

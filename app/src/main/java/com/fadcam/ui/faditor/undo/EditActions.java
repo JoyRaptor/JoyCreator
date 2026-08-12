@@ -69,10 +69,14 @@ public final class EditActions {
                 clip.setOutPointMs(out);
                 return;
             }
-            java.util.Map<String, Long> before = timeline.captureClipStarts();
+            // beginStructural, not captureClipStarts: the editor already brackets undo and redo
+            // wholesale, and two brackets each applying the same delta move a rider TWICE — as far
+            // wrong as never moving it. The depth count makes this inner pair a no-op when nested,
+            // while keeping the action correct when the AI or a script runs it with no editor.
+            java.util.Map<String, Long> before = timeline.beginStructural();
             clip.setInPointMs(in);
             clip.setOutPointMs(out);
-            timeline.applyAnchorShift(before);
+            timeline.endStructural(before);
         }
 
         @Override public void execute() { retrim(newIn, newOut); }

@@ -61,12 +61,22 @@ public class Timeline {
     private final List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteOverlays;
 
     /**
-     * Master edit behavior (schema v8). "ripple" = deleting/trimming a master clip
-     * shifts later clips; "gap" = leaves a gap. Default "ripple". Floating layers are
-     * always absolute-time regardless of this setting. Only the master track honors it.
+     * Master edit behavior (schema v8). "ripple" = an edit that changes length at time T shifts
+     * everything after T; "gap" = it leaves a gap and nothing else moves. Default "ripple".
+     *
+     * <p>"Everything" includes floating layers. It used to mean clips and anchored riders only,
+     * which made one trim silently desynchronise every unanchored object in the project — see
+     * {@link #applyAnchorShift}.</p>
      */
     @NonNull
     private String rippleMode = "ripple";
+
+    /**
+     * The "before" map of the OUTERMOST open structural bracket — see {@link #beginStructural()}.
+     * Not persisted and not part of the model; it lives only for the duration of one user action.
+     */
+    @Nullable
+    private transient Map<String, Long> structuralOwner = null;
 
     /**
      * Persistent home for Track UI/edit flags (collapsed/hidden/locked/muted/zIndex),
@@ -1984,6 +1994,52 @@ public class Timeline {
      * ({@code EditScriptApplier.applyReorderClips}) and split mints fresh UUIDs — an index-keyed
      * diff silently mis-pairs riders in both cases.</p>
      */
+    /**
+     * Open a structural bracket: {@link #captureClipStarts()}, plus a note of WHICH bracket is the
+     * outermost one, so that an edit nested inside another edit does not shift the riders twice.
+     *
+     * <p><b>Why this is needed at all.</b> The editor brackets undo and redo wholesale
+     * ({@code performUndo}), and some actions — {@code TrimAction} — also bracket themselves so they
+     * stay correct when the AI or a script runs them with no editor around. Both are right alone and
+     * wrong together: each computes the SAME delta from the same length change, so the rider travels
+     * twice as far as its footage — as wrong as never moving it, and harder to spot because it looks
+     * like the ripple is working.</p>
+     *
+     * <p><b>Keyed on the returned map's identity, not on a depth count.</b> Two of the editor's
+     * bracket sites can return early between begin and end (a demote or promote that declines), and
+     * a counter left +1 by such a path would silently switch ripple off for the rest of the session
+     * — a latched, invisible failure of exactly the kind this file has been bitten by before. With
+     * ownership, the outermost bracket still matches when it closes, applies its shift, and clears
+     * the flag; a leaked inner bracket costs nothing.</p>
+     *
+     * <p>Callers that only want to READ starts should keep calling {@link #captureClipStarts()};
+     * this pair is for the capture → mutate → shift cycle.</p>
+     */
+    @NonNull
+    public Map<String, Long> beginStructural() {
+        Map<String, Long> before = captureClipStarts();
+        if (structuralOwner == null) structuralOwner = before;
+        return before;
+    }
+
+    /**
+     * Close a structural bracket, applying {@link #applyAnchorShift} only for the outermost one.
+     *
+     * <p>A nested level returns an EMPTY result rather than null: the caller's contract is "here is
+     * what moved", and nothing moved at this level because the outer bracket has not run yet.</p>
+     *
+     * <p>A map that never came from {@link #beginStructural()} (no bracket is open) is applied
+     * directly — that is the standalone contract the harness and the AI paths rely on.</p>
+     */
+    @NonNull
+    public AnchorShiftResult endStructural(@NonNull Map<String, Long> beforeStarts) {
+        if (structuralOwner != null && structuralOwner != beforeStarts) {
+            return new AnchorShiftResult();       // nested; the outermost bracket owns the shift
+        }
+        structuralOwner = null;
+        return applyAnchorShift(beforeStarts);
+    }
+
     @NonNull
     public Map<String, Long> captureClipStarts() {
         Map<String, Long> out = new LinkedHashMap<>();

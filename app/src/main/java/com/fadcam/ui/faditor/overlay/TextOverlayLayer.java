@@ -336,6 +336,81 @@ public class TextOverlayLayer extends FrameLayout {
         return false;
     }
 
+    /**
+     * Decoded preview bitmaps for image overlays, keyed by source URI.
+     *
+     * <p><b>Why this exists.</b> The image branch used to call {@code setImageURI}, which decodes
+     * the source on the calling thread at its FULL stored resolution, with no cache anywhere. A
+     * 12-megapixel photo therefore paid a full decode on every {@link #rebuild()} — and rebuild
+     * ran on every drag frame and every slider tick — then handed the compositor a bitmap tens of
+     * times larger than the pixels it would occupy. That is the bulk of the "lots of lag, can't
+     * really see what I'm doing" report (JoyRaptor, 2026-08-12).</p>
+     *
+     * <p>Bounded by the SCREEN, not by the overlay's current scale, on purpose: the scale is
+     * animated, so sizing the decode to it would re-decode every time the zoom changed — trading
+     * one stall for many. A screen-sized bitmap is the largest the preview can ever show, and
+     * FIT_XY stretches it for anything larger, exactly as the ImageView did before.</p>
+     *
+     * <p>Preview only. The EXPORT decodes its own copy bounded by the OUTPUT frame
+     * ({@code ImageOverlayDraw.decode}), which is the right bound there and usually a different
+     * one — a 4K export must not be limited to what a 1080p phone screen can show.</p>
+     */
+    private final java.util.Map<String, android.graphics.Bitmap> imageCache =
+            new java.util.HashMap<>();
+
+    @Nullable
+    private android.graphics.Bitmap imageBitmap(@NonNull TextOverlayItem o) {
+        String uri = o.getImageUri();
+        if (uri == null) return null;
+        // containsKey, not get() != null: a null VALUE is a cached FAILURE, and re-attempting a
+        // broken URI on every rebuild is the cost this whole field exists to avoid.
+        if (imageCache.containsKey(uri)) {
+            android.graphics.Bitmap cached = imageCache.get(uri);
+            return (cached != null && !cached.isRecycled()) ? cached : null;
+        }
+        android.graphics.Bitmap out = null;
+        try {
+            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+            int maxEdge = Math.max(640, Math.max(dm.widthPixels, dm.heightPixels));
+            android.graphics.BitmapFactory.Options bounds =
+                    new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            try (java.io.InputStream in =
+                         getContext().getContentResolver().openInputStream(Uri.parse(uri))) {
+                android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+            }
+            int sample = 1;
+            while (bounds.outHeight / (sample * 2) >= maxEdge
+                    && bounds.outWidth / (sample * 2) >= 1) {
+                sample *= 2;
+            }
+            android.graphics.BitmapFactory.Options opts =
+                    new android.graphics.BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            try (java.io.InputStream in =
+                         getContext().getContentResolver().openInputStream(Uri.parse(uri))) {
+                out = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+            }
+        } catch (Throwable ignored) {
+            // Unreadable source: cache the failure so the next rebuild does not try again.
+        }
+        imageCache.put(uri, out);
+        return out;
+    }
+
+    /**
+     * Drop cached preview bitmaps. Call when the set of image overlays changes enough that holding
+     * their pixels is waste — not on a rebuild, which is exactly when the cache earns its keep.
+     *
+     * <p>Bitmaps are NOT recycled here: an {@code ImageView} created by a previous rebuild may
+     * still be attached and drawing one, and recycling underneath it draws nothing at best. They
+     * are released to the collector instead, which is the same trade the still-frame paths make.
+     * </p>
+     */
+    public void clearImageCache() {
+        imageCache.clear();
+    }
+
     public void setData(@NonNull List<TextOverlayItem> overlays, @NonNull Callback cb) {
         this.overlays.clear();
         this.overlays.addAll(overlays);
@@ -451,9 +526,8 @@ public class TextOverlayLayer extends FrameLayout {
         if (o.isImage()) {
             ImageView iv = new ImageView(getContext());
             iv.setScaleType(ImageView.ScaleType.FIT_XY);
-            try {
-                iv.setImageURI(Uri.parse(o.getImageUri()));
-            } catch (Exception ignored) { }
+            android.graphics.Bitmap bmp = imageBitmap(o);
+            if (bmp != null) iv.setImageBitmap(bmp);
             view = iv;
         } else {
             // A TextBoxView, not a TextView: one view holding one string cannot move individual

@@ -191,6 +191,12 @@ public final class PreviewHandlesOverlay extends View {
     /** Two-finger gesture state: the span and angle at the moment the second finger landed. */
     private float pinchStartSpan, pinchStartAngle, pinchStartSize, pinchStartRot;
     private boolean pinching;
+    /**
+     * A first finger landed near — but not on — the selected object, and the stream is being held
+     * in case a second one follows. See the ACTION_DOWN miss branch for why this is necessary at
+     * all: without it a pinch whose fingers straddle the object is never delivered.
+     */
+    private boolean awaitingPinch;
 
     /** In-box tap pairing for the double-tap forwarder (see onTouchEvent UP). */
     private long lastInBoxTapUpMs;
@@ -433,6 +439,25 @@ public final class PreviewHandlesOverlay extends View {
                 if (cur != null) {
                     boolean cd = onDown(cur, e.getX(), e.getY());
                     if (cd) return true;
+                    // A MISS, but not necessarily a pass-through: WHEN YOU PINCH AN OBJECT, BOTH
+                    // FINGERS USUALLY LAND OUTSIDE IT — one either side. Returning false here
+                    // declined the whole gesture stream, so ACTION_POINTER_DOWN never arrived and
+                    // the second finger was never seen. Two-finger scale and rotate were therefore
+                    // dead on anything you pinched from outside its box, while the one-finger
+                    // rotate stalk kept working — exactly JoyRaptor's "pinch zoom isn't working, only
+                    // rotate" (2026-08-12).
+                    //
+                    // So hold the stream when the touch is close enough to be part of a pinch on
+                    // THIS object, and decide what it really was on the way up: a second finger
+                    // makes it a pinch, a lift with nothing else makes it the tap it looked like.
+                    if (nearEnoughToPinch(cur, e.getX(), e.getY())) {
+                        awaitingPinch = true;
+                        moved = false;
+                        downX = e.getX();
+                        downY = e.getY();
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        return true;
+                    }
                 }
                 if (selectionSource == null) return false;
                 if (!selectionSource.selectAt(e.getX(), e.getY(), currentTimeMs)) {
@@ -457,6 +482,14 @@ public final class PreviewHandlesOverlay extends View {
             case MotionEvent.ACTION_MOVE: {
                 if (draggingPoint >= 0) { onPointMove(e.getX(), e.getY()); return true; }
                 Target t = target;
+                // Holding for a possible second finger: keep the stream, move nothing. Dragging
+                // the object from a point OUTSIDE it would be a grab the user never made.
+                if (awaitingPinch && mode == Mode.NONE) {
+                    if (Math.abs(e.getX() - downX) > 8 || Math.abs(e.getY() - downY) > 8) {
+                        moved = true;
+                    }
+                    return true;
+                }
                 if (t == null || mode == Mode.NONE) return false;
                 if (mode == Mode.PINCH) { onPinchMove(t, e); return true; }
                 onDragMove(t, e.getX(), e.getY());
@@ -475,11 +508,25 @@ public final class PreviewHandlesOverlay extends View {
                     return true;
                 }
                 Target t = target;
+                // The held-for-pinch touch turned out to be one finger after all. Do now what the
+                // DOWN would have done had it not been held: retarget to whatever is under it, or
+                // deselect. A drag that went nowhere else is still just a tap.
+                if (awaitingPinch && mode == Mode.NONE) {
+                    awaitingPinch = false;
+                    boolean clean = e.getActionMasked() == MotionEvent.ACTION_UP;
+                    if (clean && !moved && selectionSource != null
+                            && !selectionSource.selectAt(e.getX(), e.getY(), currentTimeMs)) {
+                        selectionSource.selectNone();
+                    }
+                    invalidate();
+                    return true;
+                }
                 if (t == null || mode == Mode.NONE) return false;
                 Mode finished = mode;
                 boolean committed = e.getActionMasked() == MotionEvent.ACTION_UP;
                 mode = Mode.NONE;
                 pinching = false;
+                awaitingPinch = false;
                 if (moved && committed) {
                     t.commit(finished == Mode.MOVE ? "Move"
                             : finished == Mode.SCALE ? "Scale"
@@ -511,6 +558,7 @@ public final class PreviewHandlesOverlay extends View {
         Mode finished = mode;
         mode = Mode.NONE;
         pinching = false;
+        awaitingPinch = false;
         if (t != null && moved && commit) {
             t.commit(finished == Mode.PINCH ? "Transform"
                     : finished == Mode.SCALE ? "Scale"
@@ -527,9 +575,32 @@ public final class PreviewHandlesOverlay extends View {
      * transform. Both values come off the SAME pair of pointers, so scaling and rotating
      * happen together the way they do in every other editor.</p>
      */
+    /**
+     * Is {@code (x,y)} close enough to {@code t}'s box to be one finger of a pinch on it?
+     *
+     * <p>Generous on purpose. A pinch to shrink starts with the fingers WIDE of the object, so a
+     * tight margin would reject exactly the gesture this exists to catch. The margin scales with
+     * the box so it stays proportionate on a small overlay and does not swallow half the canvas
+     * around a large one, with a fixed floor for objects only a few dp across.</p>
+     *
+     * <p>Rejecting far touches is what keeps a tap on empty canvas passing through to whatever is
+     * beneath the preview, which it must: this branch consumes the DOWN.</p>
+     */
+    private boolean nearEnoughToPinch(@NonNull Target t, float x, float y) {
+        if (!t.frame(currentTimeMs, box)) return false;
+        float cx = box.centerX(), cy = box.centerY();
+        // Un-rotate the touch into the box's own frame, the same way the inside-box test does.
+        rotatePoint(x, y, cx, cy, -t.rotationDeg(currentTimeMs), pt);
+        float margin = Math.max(64f * density,
+                0.4f * Math.max(box.width(), box.height()));
+        return pt[0] >= box.left - margin && pt[0] <= box.right + margin
+                && pt[1] >= box.top - margin && pt[1] <= box.bottom + margin;
+    }
+
     private boolean onSecondFinger(@NonNull MotionEvent e) {
         Target t = target;
         if (t == null || e.getPointerCount() < 2) return false;
+        awaitingPinch = false;   // resolved: it IS a pinch
         mode = Mode.PINCH;
         pinching = true;
         moved = false;

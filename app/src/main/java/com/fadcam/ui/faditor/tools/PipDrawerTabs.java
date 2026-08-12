@@ -228,6 +228,13 @@ public final class PipDrawerTabs {
         row.addView(bar, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(value);
+        // Tappable for the same reason every propRow value is — and this is the row that needs it
+        // MOST: scale runs to 1000%, so one slider pixel is several percent, and "set it to exactly
+        // 400%" is unreachable by finger. The Scale row has its own builder because its slider
+        // count changes with the chain toggle, which is how it came to miss the treatment.
+        value.setPaintFlags(value.getPaintFlags()
+                | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
 
         final KeyframeDiamondControl diamond = new KeyframeDiamondControl(ctx);
         final Runnable[] selfRefresh = new Runnable[1];
@@ -247,6 +254,7 @@ public final class PipDrawerTabs {
             bar.setProgress(Math.round((v - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
             diamond.refresh(ph);
         };
+        value.setOnClickListener(v -> promptForValue(ctx, prop, host, min, max, selfRefresh[0]));
         return selfRefresh[0];
     }
 
@@ -298,6 +306,13 @@ public final class PipDrawerTabs {
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         row.addView(bar, blp);
         row.addView(value);
+        // TAP THE NUMBER TO TYPE IT. A 1000-step slider on a 46dp readout cannot land an exact
+        // value with a fingertip, and JoyRaptor's report is precisely that (2026-08-12): "I was having
+        // issues getting an exact value while scrubbing." A keyboard is the only control that is
+        // exact by construction. Underlined so it reads as editable rather than as a label.
+        value.setPaintFlags(value.getPaintFlags()
+                | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
 
         final KeyframeDiamondControl diamond;
         // The row's own refresh — value text, slider position and diamond state, all read back
@@ -334,7 +349,115 @@ public final class PipDrawerTabs {
             bar.setProgress(Math.round((v - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
             if (diamond != null) diamond.refresh(ph);
         };
+        value.setOnClickListener(v -> promptForValue(ctx, prop, host, min, max, selfRefresh[0]));
         return selfRefresh[0];
+    }
+
+    /**
+     * Type an exact value for {@code prop}, in the units its readout shows.
+     *
+     * <p><b>Units, not raw values.</b> The row shows "400%", so the field must accept 400 — asking
+     * for 4.0 because that happens to be how {@code sizeFraction} is stored would make the user
+     * translate the app's internals in their head. The factor between the two is derived by
+     * PROBING the formatter rather than being declared, because {@code ValueFormat} is a
+     * one-method interface implemented by lambdas at dozens of call sites and giving it a
+     * unit-scale method would mean editing every one of them.</p>
+     *
+     * <p>The probe assumes the formatter is LINEAR, and CHECKS that assumption at a third point
+     * before trusting it. A formatter that fails the check gets a raw-value field instead: showing
+     * someone a box labelled "%" that silently applies a different number is worse than showing
+     * them the underlying figure.</p>
+     */
+    private static void promptForValue(@NonNull Context ctx,
+                                       @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
+                                       float min, float max, @Nullable Runnable refresh) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        // print(v) = scale*v + offset, verified at a third point.
+        Float p1 = leadingNumber(prop.format(1f));
+        Float p2 = leadingNumber(prop.format(2f));
+        float scale = 1f, offset = 0f;
+        boolean inUnits = false;
+        if (p1 != null && p2 != null) {
+            float s = p2 - p1;
+            float o = p1 - s;
+            Float p4 = leadingNumber(prop.format(4f));
+            if (Math.abs(s) > 1e-6f && p4 != null
+                    && Math.abs((s * 4f + o) - p4) <= Math.max(0.75f, Math.abs(p4) * 0.01f)) {
+                scale = s;
+                offset = o;
+                inUnits = true;
+            }
+        }
+        final float sc = scale, off = offset;
+        final boolean units = inUnits;
+        final long ph = host.playheadMs();
+        float cur = prop.valueAt(ph);
+
+        final android.widget.EditText input = new android.widget.EditText(ctx);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+        input.setText(trimNumber(inUnits ? cur * sc + off : cur));
+        input.setSelectAllOnFocus(true);
+        float lo = inUnits ? min * sc + off : min;
+        float hi = inUnits ? max * sc + off : max;
+        if (hi < lo) { float t = lo; lo = hi; hi = t; }
+        input.setHint(trimNumber(lo) + " … " + trimNumber(hi));                // TODO(strings)
+        LinearLayout wrap = column(ctx);
+        int pad = Math.round(20 * d);
+        wrap.setPadding(pad, Math.round(8 * d), pad, 0);
+        wrap.addView(input);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                .setTitle(prop.label())
+                .setView(wrap)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                    Float typed = leadingNumber(input.getText().toString());
+                    if (typed == null) return;
+                    float v = units ? (typed - off) / sc : typed;
+                    // Clamped, not rejected. Someone typing 900% on a slider that stops at 1000%
+                    // means "as big as it goes", and an error dialog for it would be pedantry.
+                    v = Math.max(Math.min(min, max), Math.min(Math.max(min, max), v));
+                    prop.write(v, ph);
+                    host.onChanged();
+                    if (refresh != null) refresh.run();
+                })
+                .show();
+        input.requestFocus();
+    }
+
+    /**
+     * The first number in {@code s}, or null. Formatters append units ("%", "°") and may prepend
+     * a sign, so this reads the numeric head and ignores the rest rather than requiring the caller
+     * to know which suffix a given prop uses.
+     */
+    @Nullable
+    private static Float leadingNumber(@NonNull String s) {
+        int i = 0, n = s.length();
+        while (i < n && (Character.isWhitespace(s.charAt(i)))) i++;
+        int start = i;
+        if (i < n && (s.charAt(i) == '-' || s.charAt(i) == '+')) i++;
+        boolean digits = false, dot = false;
+        while (i < n) {
+            char c = s.charAt(i);
+            if (c >= '0' && c <= '9') { digits = true; i++; }
+            else if (c == '.' && !dot) { dot = true; i++; }
+            else break;
+        }
+        if (!digits) return null;
+        try {
+            return Float.parseFloat(s.substring(start, i));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** "400" not "400.0"; keeps two decimals only when they carry information. */
+    @NonNull
+    private static String trimNumber(float v) {
+        if (Math.abs(v - Math.round(v)) < 0.005f) return String.valueOf(Math.round(v));
+        return String.format(java.util.Locale.US, "%.2f", v);
     }
 
     // ── Tab 1: MASK ──────────────────────────────────────────────────────────────────────

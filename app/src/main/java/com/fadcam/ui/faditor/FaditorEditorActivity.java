@@ -19632,7 +19632,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Light per-drag-frame refresh: reposition text children, no rebuild. */
     private void refreshTextAfterHandleWrite() {
         setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+        refreshOpenDrawerRows();
     }
+
+    /**
+     * Re-read the open drawer's numeric rows after a HAND write.
+     *
+     * <p>The drawer's readouts were refreshed only on a playhead tick, and dragging or pinching an
+     * object in the preview does not move the playhead — so every hand gesture left the numbers,
+     * the slider thumbs and the keyframe diamonds showing the pose the object had BEFORE it was
+     * touched. That is JoyRaptor's "divergence between zooms by hand vs sliders … not showing
+     * consistently" (2026-08-12): the two surfaces were not computing different answers, one of
+     * them simply was not being asked again. Measured on the Note 9 — a hand drag moved the image
+     * and the drawer still read 4%.</p>
+     */
+    private void refreshOpenDrawerRows() {
+        if (pipDrawer == null || !pipDrawer.isShowing()) return;
+        View content = pipDrawer.currentTabContent();
+        com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(content);
+        com.fadcam.ui.faditor.tools.FxPanel.refreshRows(content, lastPlayheadAbsoluteMs);
+    }
+
 
     /**
      * Drive BOTH text-overlay surfaces from the playhead — the normal one and the
@@ -19804,6 +19824,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Light per-drag-frame refresh: re-evaluate sprite transforms + repaint. */
     private void refreshSpriteAfterHandleWrite() {
         setSpriteOverlayPlayhead(lastPlayheadAbsoluteMs);
+        refreshOpenDrawerRows();
     }
 
     /**
@@ -19955,6 +19976,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
                     playerManager != null && playerManager.isPlaying());
         }
+        refreshOpenDrawerRows();
         syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
     }
 
@@ -22663,10 +22685,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY.equals(key)) {
                 o.setOpacity(v);
             }
-            if (overlayLayer != null) {
-                setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
-                overlayLayer.rebuild();
-            }
+            // NO rebuild(). This is a per-TICK path — a finger on a slider fires it dozens of
+            // times a second — and rebuild() tears down every overlay view and builds them again,
+            // which for an image overlay means a fresh setImageURI decode of the source file each
+            // time. On a large photo that is the whole "lots of lag, can't see what I'm doing"
+            // report (JoyRaptor, 2026-08-12).
+            //
+            // It was also WRONG, not merely slow, in two ways. A rebuilt view is positioned from
+            // a POSTED callback, so the value the user just set landed a frame late and out of
+            // order with the finger — the hand and the sliders visibly disagreed. And the posted
+            // position() ran before the ImageView had its drawable, so the image aspect read as
+            // 1:1 for that pass: the wrong box, the wrong centre-travel limit computed from it,
+            // and therefore a drag that snapped back to a limit belonging to the old size.
+            //
+            // setTextOverlayPlayhead re-runs position() on the EXISTING views, which re-measures
+            // text boxes and re-reads every transform. Nothing here changes the SET of overlays or
+            // the TYPE of any view, which is the only thing a rebuild is for.
+            setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             syncTimelineOverlays();
         };
         ObjectMenuSheet.OnKeyQuery onKey = ms -> overlayPropOnKeyAt(o, key, ms);

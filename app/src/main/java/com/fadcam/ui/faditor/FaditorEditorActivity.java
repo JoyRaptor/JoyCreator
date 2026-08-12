@@ -4560,6 +4560,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
         String itemId = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
+        // §2.3: promoting an object onto the master spine is as structural as a delete, so a lock
+        // is worth honouring here too.
+        if (askedAboutLockedSelection(() -> moveSelectedItemToMainTrack(insertIndexOverride))) {
+            return;
+        }
         if (itemId == null) {
             Toast.makeText(this, R.string.faditor_m12_select_object_first, Toast.LENGTH_SHORT).show();
             return;
@@ -12328,6 +12333,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void performMarqueeBatchDelete(@NonNull java.util.List<
             com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
+        performMarqueeBatchDelete(items, false);
+    }
+
+    /**
+     * @param includeLocked true only after the user answered "unlock and continue" for a selection
+     *        that was ENTIRELY locked. It does not clear any lock; it just stops holding them back.
+     */
+    private void performMarqueeBatchDelete(@NonNull java.util.List<
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items,
+            boolean includeLocked) {
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
         final java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> texts =
@@ -12339,8 +12354,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final java.util.List<Clip> pips = new java.util.ArrayList<>();
         final java.util.List<AudioClip> audios = new java.util.ArrayList<>();
         int skipped = 0;
+        // LOCKED OBJECTS ARE HELD BACK, not swept up. §2.3: a lock the batch path ignores is not
+        // a lock — the user locks a title so a stray gesture cannot take it, and a marquee that
+        // happened to cross it is exactly such a gesture. They are counted and then offered, once,
+        // through the same "unlock and continue?" question a single delete asks.
+        final java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> locked =
+                new java.util.ArrayList<>();
         for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
             com.fadcam.ui.faditor.layers.TimedItem it = h.item;
+            if (it.isPayloadLocked() && !includeLocked) { locked.add(h); continue; }
             if (it.getTextOverlay() != null) texts.add(it.getTextOverlay());
             else if (it.getSprite() != null) sprites.add(it.getSprite());
             else if (it.getWaveform() != null) waves.add(it.getWaveform());
@@ -12349,6 +12371,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             else skipped++;
         }
         int deletable = texts.size() + sprites.size() + waves.size() + pips.size() + audios.size();
+        if (deletable == 0 && !locked.isEmpty()) {
+            // EVERY selected object was locked. Asking is the whole point: the alternative is a
+            // toast saying nothing is deletable while the user looks straight at the things they
+            // selected. The confirm unlocks all of them, because that is what its button says.
+            // Unlocked through the PAYLOAD, not through unlockerFor's id lookup: a track item's id
+            // happens to equal its payload's today, and a batch that silently unlocked nothing
+            // because that stopped being true would be invisible.
+            confirmLockedThen(true,
+                    () -> { for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : locked) {
+                                unlockPayload(h.item);
+                            } },
+                    () -> performMarqueeBatchDelete(items, true));
+            return;
+        }
         if (deletable == 0) {
             Toast.makeText(this, "Nothing deletable in the selection", Toast.LENGTH_SHORT).show();
             return;
@@ -12379,9 +12415,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Delete " + deletable + " objects", applyDelete, revertDelete));
         if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
         scheduleAutoSave();
-        Toast.makeText(this, deletable + " deleted"
-                + (skipped > 0 ? " (" + skipped + " skipped)" : ""), Toast.LENGTH_SHORT).show();
+        // The locked count is reported SEPARATELY from the skipped count. "3 skipped" reads as
+        // "the app could not handle them"; "2 locked" reads as "you protected those", which is the
+        // difference between a limitation and a decision the user made.
+        StringBuilder msg = new StringBuilder().append(deletable).append(" deleted");
+        if (!locked.isEmpty()) msg.append(" · ").append(locked.size()).append(" locked, kept");
+        if (skipped > 0) msg.append(" · ").append(skipped).append(" skipped");
+        Toast.makeText(this, msg.toString(), Toast.LENGTH_SHORT).show();   // TODO(strings)
     }
+
 
     /**
      * P1 (multi-axis membership) — axis-choice dialog for link creation. Checked axes
@@ -21432,6 +21474,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
         if (selectedId == null) return false;
+        // §2.3: splitting a locked object asks first. Returning true either way is deliberate —
+        // the interaction IS handled, and letting the caller fall through to the master clip while
+        // a dialog about the user's object is on screen would cut something else entirely.
+        if (askedAboutLockedSelection(this::splitSelectedLayerItem)) return true;
         Timeline timeline = project.getTimeline();
         long cut = editorTimeline.getPlayheadPositionMs();
         playerManager.pause();
@@ -21597,6 +21643,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
         if (selectedId == null) return false;
+        if (askedAboutLockedSelection(this::splitSelectedAdjustmentLayer)) return true;
         com.fadcam.ui.faditor.model.AdjustmentLayer layer = null;
         for (com.fadcam.ui.faditor.model.AdjustmentLayer a
                 : project.getTimeline().getAdjustmentLayers()) {
@@ -31550,6 +31597,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // confirmation dialogs the layer gesture callback's own delete badge already uses,
             // so the affordance and the undo step are identical regardless of which surface
             // triggered the delete.
+            // §2.4: THE WHOLE SELECTION, not one of it. Multi-select already existed but only the
+            // marquee's own long-press could act on it, so the toolbar trash quietly deleted a
+            // single item — or the master clip — while five objects sat visibly selected. The
+            // marquee is checked before the single-object lookup for the same reason that lookup
+            // is checked before the master clip: the more specific expression of intent wins.
+            if (deleteMarqueeSelection()) return;
+
             if (deleteSelectedLayerItem()) return;
 
             // Check if an audio clip is selected — delete that instead
@@ -31744,14 +31798,205 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * "This object is locked. Unlock and continue?" and only run {@code action} on the confirm —
      * never a silent no-op and never a silent mutation of an object the user locked on purpose.
      */
+    /**
+     * §2.3 gate for a verb whose body is not one wrappable lambda: ask about the selected object's
+     * lock and, on the confirm, run the verb again.
+     *
+     * <p>No "already answered" bookkeeping is needed, and that is a consequence of the confirm
+     * genuinely unlocking: the retry re-reads the object, finds it unlocked, and walks straight
+     * through. A dialog that only <em>said</em> unlock would have needed a remembered answer to
+     * avoid asking forever — the flag it took is exactly the complexity the honest button removes.
+     * </p>
+     *
+     * @return true when the object is locked and the question has been asked — the caller must
+     *         return IMMEDIATELY and do nothing else. Falling through would perform the verb the
+     *         user has not agreed to yet, which is worse than the silent no-op this replaces.
+     */
+    private boolean askedAboutLockedSelection(@NonNull Runnable retry) {
+        if (project == null || editorTimeline == null) return false;
+        final String id = editorTimeline.getSelectedLayerItemId();
+        if (id == null) return false;
+        final Runnable unlock = unlockerFor(id);
+        if (unlock == null) return false;            // not found, or not locked
+        confirmLockedThen(true, unlock, retry);
+        return true;
+    }
+
+    /**
+     * An action that clears the lock on the object with this layer-item id, or null when the id
+     * matches nothing or the object is not locked.
+     *
+     * <p>One walk answering both questions — "is it locked" and "how do I unlock it" — because six
+     * payload types each with their own setter is exactly the list a second method would fall out
+     * of step with.</p>
+     */
+    /**
+     * Clear the lock on whatever payload {@code it} wraps — the write half of
+     * {@link com.fadcam.ui.faditor.layers.TimedItem#isPayloadLocked()}. Keep the two in step.
+     */
+    private void unlockPayload(@NonNull com.fadcam.ui.faditor.layers.TimedItem it) {
+        if (it.getTextOverlay() != null) it.getTextOverlay().setLocked(false);
+        else if (it.getSprite() != null) it.getSprite().setLocked(false);
+        else if (it.getWaveform() != null) it.getWaveform().setLocked(false);
+        else if (it.getAdjustment() != null) it.getAdjustment().setLocked(false);
+        else if (it.getAudioClip() != null) it.getAudioClip().setLocked(false);
+        else if (it.getClip() != null) it.getClip().setLockedObject(false);
+    }
+
+    @Nullable
+    private Runnable unlockerFor(@NonNull String id) {
+        if (project == null) return null;
+        Timeline timeline = project.getTimeline();
+        for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
+            if (t.getId().equals(id)) return t.isLocked() ? () -> t.setLocked(false) : null;
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : timeline.getSpriteOverlays()) {
+            if (sp.getId().equals(id)) return sp.isLocked() ? () -> sp.setLocked(false) : null;
+        }
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
+            if (al.getId().equals(id)) return al.isLocked() ? () -> al.setLocked(false) : null;
+        }
+        for (Clip c : timeline.getOverlayClips()) {
+            if (c.getId().equals(id)) {
+                return c.isLockedObject() ? () -> c.setLockedObject(false) : null;
+            }
+        }
+        for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : timeline.getWaveformOverlays()) {
+            if (w.getId().equals(id)) return w.isLocked() ? () -> w.setLocked(false) : null;
+        }
+        return null;
+    }
+
     private void confirmLockedThen(boolean locked, @NonNull Runnable action) {
+        confirmLockedThen(locked, null, action);
+    }
+
+    /**
+     * @param unlock clears the object's lock, run BEFORE {@code action} on the confirm. The button
+     *        says "Unlock &amp; continue" and JoyRaptor's wording is "unlock and continue?", so it has
+     *        to actually unlock — verified on the Note 9 (2026-08-12) that it previously did not:
+     *        the dialog fired, the verb ran, and the object stayed locked. A promise in a button
+     *        label that the button does not keep is worse than no dialog, because the user now
+     *        believes the lock is off. Null only where the caller has no single object to unlock.
+     */
+    private void confirmLockedThen(boolean locked, @Nullable Runnable unlock,
+                                   @NonNull Runnable action) {
         if (!locked) { action.run(); return; }
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(getString(R.string.faditor_locked_title))
                 .setMessage(getString(R.string.faditor_locked_message))
-                .setPositiveButton(getString(R.string.faditor_locked_unlock), (d, w) -> action.run())
+                .setPositiveButton(getString(R.string.faditor_locked_unlock), (d, w) -> {
+                    if (unlock != null) unlock.run();
+                    action.run();
+                })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    /**
+     * §2.4: delete every object in the marquee multi-selection, if there is one.
+     *
+     * @return true when a multi-selection existed and was handled (including when the user
+     *         cancelled the confirm), so the caller must NOT fall through to a single-object or
+     *         master-clip delete. Falling through after a cancel would delete something else
+     *         entirely — the worst possible reading of "no".
+     */
+    private boolean deleteMarqueeSelection() {
+        if (editorTimeline == null) return false;
+        java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> sel =
+                editorTimeline.getMarqueeSelectedItems();
+        // ONE item selected via the marquee is not a batch: send it down the single-object path so
+        // it gets that path's per-type confirmation wording rather than "Delete 1 selected object".
+        if (sel.size() < 2) return false;
+        confirmMarqueeBatchDelete(sel);
+        return true;
+    }
+
+    /**
+     * §2.4: duplicate every object in the marquee multi-selection.
+     *
+     * @return true when a multi-selection existed and was handled.
+     */
+    private boolean duplicateMarqueeSelection() {
+        if (editorTimeline == null || project == null) return false;
+        java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> sel =
+                editorTimeline.getMarqueeSelectedItems();
+        if (sel.size() < 2) return false;
+        final Timeline timeline = project.getTimeline();
+        final java.util.List<Runnable> undos = new java.util.ArrayList<>();
+        int made = 0, lockedCount = 0, skipped = 0;
+        for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : sel) {
+            com.fadcam.ui.faditor.layers.TimedItem it = h.item;
+            // Locked objects are SKIPPED here rather than offered an unlock, unlike delete.
+            // Duplicating is additive and loses nothing, so interrupting a batch of eight with a
+            // dialog buys the user no safety — it only makes them answer a question about an
+            // object they are not changing.
+            if (it.isPayloadLocked()) { lockedCount++; continue; }
+            if (it.getTextOverlay() != null) {
+                com.fadcam.ui.faditor.model.TextOverlayItem copy = it.getTextOverlay()
+                        .copyWithNewId(java.util.UUID.randomUUID().toString());
+                copy.setLayerId(timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text"));
+                timeline.addTextOverlay(copy);
+                undos.add(() -> timeline.removeTextOverlay(copy));
+                made++;
+            } else if (it.getSprite() != null) {
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy = it.getSprite()
+                        .copyWithNewId(java.util.UUID.randomUUID().toString());
+                copy.setLayerId(timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite"));
+                timeline.addSpriteOverlay(copy);
+                undos.add(() -> timeline.removeSpriteOverlay(copy));
+                made++;
+            } else if (it.getAdjustment() != null) {
+                com.fadcam.ui.faditor.model.AdjustmentLayer copy = it.getAdjustment().copy();
+                copy.setId(java.util.UUID.randomUUID().toString());
+                copy.setName(it.getAdjustment().getName() + " copy");        // TODO(strings)
+                copy.setLayerId(timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.ADJUSTMENT, "Adjustment"));
+                timeline.addAdjustmentLayer(copy);
+                undos.add(() -> timeline.removeAdjustmentLayer(copy));
+                made++;
+            } else if (it.getClip() != null && it.getClip().isOverlayClip()) {
+                Clip copy = new Clip(it.getClip());
+                copy.setLayerId(timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Layer"));
+                timeline.addOverlayClip(copy);
+                undos.add(() -> { timeline.removeOverlayClip(copy); syncTimelineOverlays(); });
+                made++;
+            } else {
+                // Visualizers and audio clips have no copy-with-new-id yet, and a caption span is
+                // not an object. Counted, not silently dropped.
+                skipped++;
+            }
+        }
+        if (made == 0) {
+            Toast.makeText(this, lockedCount > 0
+                            ? "Everything selected is locked"
+                            : "Nothing in the selection can be duplicated",   // TODO(strings)
+                    Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        syncTimelineOverlays();
+        final int madeFinal = made;
+        undoManager.recordAction(new EditActions.LambdaAction(
+                "Duplicate " + made + " objects",                             // TODO(strings)
+                () -> { refreshAfterMarqueeBatchDelete(); scheduleAutoSave(); },
+                () -> {
+                    // REVERSE order. Each undo removes one object, and createLayerTrack appended a
+                    // lane per copy; unwinding forwards would leave the lane pruning walking a list
+                    // it had already shortened.
+                    for (int i = undos.size() - 1; i >= 0; i--) undos.get(i).run();
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }));
+        refreshAfterMarqueeBatchDelete();
+        saveProjectNow();
+        StringBuilder msg = new StringBuilder().append(madeFinal).append(" duplicated");
+        if (lockedCount > 0) msg.append(" · ").append(lockedCount).append(" locked, skipped");
+        if (skipped > 0) msg.append(" · ").append(skipped).append(" skipped");
+        Toast.makeText(this, msg.toString(), Toast.LENGTH_SHORT).show();      // TODO(strings)
+        return true;
     }
 
     private boolean deleteSelectedLayerItem() {
@@ -31761,27 +32006,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline timeline = project.getTimeline();
         for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
             if (!t.getId().equals(selectedId)) continue;
-            confirmLockedThen(t.isLocked(), () -> deleteTextOverlayWithConfirmation(t));
+            confirmLockedThen(t.isLocked(), () -> t.setLocked(false),
+                    () -> deleteTextOverlayWithConfirmation(t));
             return true;
         }
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : timeline.getSpriteOverlays()) {
             if (!sp.getId().equals(selectedId)) continue;
-            confirmLockedThen(sp.isLocked(), () -> deleteSpriteWithConfirmation(sp));
+            confirmLockedThen(sp.isLocked(), () -> sp.setLocked(false),
+                    () -> deleteSpriteWithConfirmation(sp));
             return true;
         }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
             if (!al.getId().equals(selectedId)) continue;
-            confirmLockedThen(al.isLocked(), () -> deleteAdjustmentLayerWithConfirmation(al));
+            confirmLockedThen(al.isLocked(), () -> al.setLocked(false),
+                    () -> deleteAdjustmentLayerWithConfirmation(al));
             return true;
         }
         for (Clip c : timeline.getOverlayClips()) {
             if (!c.getId().equals(selectedId)) continue;
-            confirmLockedThen(c.isLockedObject(), () -> deleteOverlayClipWithConfirmation(c));
+            confirmLockedThen(c.isLockedObject(), () -> c.setLockedObject(false),
+                    () -> deleteOverlayClipWithConfirmation(c));
             return true;
         }
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance w : timeline.getWaveformOverlays()) {
             if (!w.getId().equals(selectedId)) continue;
-            confirmLockedThen(w.isLocked(), () -> deleteVisualizerWithConfirmation(w));
+            confirmLockedThen(w.isLocked(), () -> w.setLocked(false),
+                    () -> deleteVisualizerWithConfirmation(w));
             return true;
         }
         return false;
@@ -31799,7 +32049,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // together — a bug that reads as the editor having a mind of its own.
         for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
             if (!t.getId().equals(selectedId)) continue;
-            confirmLockedThen(t.isLocked(), () -> {
+            confirmLockedThen(t.isLocked(), () -> t.setLocked(false), () -> {
                 com.fadcam.ui.faditor.model.TextOverlayItem copy =
                         t.copyWithNewId(java.util.UUID.randomUUID().toString());
                 String lane = timeline.createLayerTrack(
@@ -31812,7 +32062,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : timeline.getSpriteOverlays()) {
             if (!sp.getId().equals(selectedId)) continue;
-            confirmLockedThen(sp.isLocked(), () -> {
+            confirmLockedThen(sp.isLocked(), () -> sp.setLocked(false), () -> {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy =
                         sp.copyWithNewId(java.util.UUID.randomUUID().toString());
                 String lane = timeline.createLayerTrack(
@@ -31825,7 +32075,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer al : timeline.getAdjustmentLayers()) {
             if (!al.getId().equals(selectedId)) continue;
-            confirmLockedThen(al.isLocked(), () -> {
+            confirmLockedThen(al.isLocked(), () -> al.setLocked(false), () -> {
                 com.fadcam.ui.faditor.model.AdjustmentLayer copy = al.copy();
                 copy.setId(java.util.UUID.randomUUID().toString());
                 copy.setName(al.getName() + " copy");
@@ -31845,13 +32095,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // references either.
         for (Clip c : timeline.getOverlayClips()) {
             if (!c.getId().equals(selectedId)) continue;
-            Clip copy = new Clip(c);
-            String lane = timeline.createLayerTrack(
-                    com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Layer");
-            copy.setLayerId(lane);
-            timeline.addOverlayClip(copy);
-            syncTimelineOverlays();
-            finishDuplicate(() -> { timeline.removeOverlayClip(copy); syncTimelineOverlays(); });
+            // The lock confirm was MISSING on this branch alone — text, sprite and adjustment all
+            // asked, a locked PiP was duplicated without a word. Same gate, same wording.
+            confirmLockedThen(c.isLockedObject(), () -> c.setLockedObject(false), () -> {
+                Clip copy = new Clip(c);
+                String lane = timeline.createLayerTrack(
+                        com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Layer");
+                copy.setLayerId(lane);
+                timeline.addOverlayClip(copy);
+                syncTimelineOverlays();
+                finishDuplicate(() -> {
+                    timeline.removeOverlayClip(copy);
+                    syncTimelineOverlays();
+                });
+            });
             return true;
         }
         return false;
@@ -31873,6 +32130,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // An OBJECT selection wins over the master-track segment: if the user has just tapped a
         // text or sprite, "duplicate" can only sensibly mean that one, and duplicating a whole
         // clip underneath them instead would be a startling amount of undo to reach for.
+        // §2.4, same ordering as the trash: the whole marquee selection first, then the single
+        // object, then the master clip.
+        if (duplicateMarqueeSelection()) return;
         if (duplicateSelectedObject()) return;
         try {
             Timeline timeline = project.getTimeline();

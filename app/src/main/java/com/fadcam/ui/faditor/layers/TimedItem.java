@@ -214,6 +214,27 @@ public class TimedItem {
     @Nullable
     public com.fadcam.ui.faditor.model.AdjustmentLayer getAdjustment() { return adjustment; }
 
+    /**
+     * Whether the PAYLOAD this item wraps is locked.
+     *
+     * <p>Every payload type has its own {@code isLocked()} (a {@code Clip}'s is
+     * {@code isLockedObject()}), and every caller that wants to respect a lock previously had to
+     * remember all six and pick the right one. A batch verb that forgets one deletes an object
+     * the user locked on purpose — which is not a lock at all — so the switch lives here, once.</p>
+     *
+     * <p>A caption span has no lock: it is clip-owned rather than an object in its own right, and
+     * reporting it unlocked is honest because the verbs skip it anyway.</p>
+     */
+    public boolean isPayloadLocked() {
+        if (textOverlay != null) return textOverlay.isLocked();
+        if (sprite != null) return sprite.isLocked();
+        if (waveform != null) return waveform.isLocked();
+        if (adjustment != null) return adjustment.isLocked();
+        if (audioClip != null) return audioClip.isLocked();
+        if (clip != null) return clip.isLockedObject();
+        return false;
+    }
+
     @Nullable
     public KeyframeSet getTransform() { return transform; }
 

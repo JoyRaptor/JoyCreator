@@ -14845,11 +14845,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         Timeline.CompactResult result = tl.compactOverlayLanes();
-        if (result.moved == 0 && result.omittedLanes == 0) {
+        int emptied = result.removedLanes.size();
+        if (result.moved == 0 && emptied == 0 && result.omittedLanes == 0) {
             Toast.makeText(this, "Lanes already compact", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (result.moved > 0) {
+        if (result.moved > 0 || emptied > 0) {
             java.util.Map<TextOverlayItem, String> textAfter = new java.util.HashMap<>();
             for (TextOverlayItem o : textBefore.keySet()) textAfter.put(o, o.getLayerId());
             java.util.Map<com.fadcam.ui.faditor.sprite.SpriteOverlayItem, String> spriteAfter =
@@ -14865,16 +14866,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 adjustmentAfter.put(a, a.getLayerId());
             }
 
+            // Compaction also DELETES the lane definitions it emptied, so undo has to put those
+            // rows back at their original index or the redo/undo pair would quietly reorder the band.
+            java.util.List<Timeline.RemovedLane> emptiedLanes = result.removedLanes;
             undoManager.recordAction(new EditActions.LambdaAction("Compact lanes",
                     () -> { applyLaneSnapshot(textBefore, spriteBefore, videoBefore, adjustmentBefore);
+                            for (Timeline.RemovedLane rl : emptiedLanes) {
+                                tl.restoreLayerTrackDefAt(rl.def, rl.index);
+                            }
                             refreshAfterLaneChange(); },
                     () -> { applyLaneSnapshot(textAfter, spriteAfter, videoAfter, adjustmentAfter);
+                            for (Timeline.RemovedLane rl : emptiedLanes) {
+                                tl.removeLayerTrackDef(rl.def.getId());
+                            }
                             refreshAfterLaneChange(); }));
 
             refreshAfterLaneChange();
-            Toast.makeText(this, "Compacted " + result.moved + " lane"
-                            + (result.moved == 1 ? "" : "s"),
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, compactSummary(result.moved, emptied), Toast.LENGTH_SHORT).show();
         }
         if (result.omittedLanes > 0) {
             Toast.makeText(this, result.omittedLanes + " lane"
@@ -14884,6 +14892,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             + " being used as a mask (track matte) for another lane",
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * What compaction actually did, in the user's terms. The old text said "Compacted N lanes" where
+     * N was the number of ITEMS that changed lane — so the verb could report five lanes compacted on
+     * a project whose lane count had not gone down at all.
+     */
+    @NonNull
+    private static String compactSummary(int movedItems, int emptiedLanes) {
+        if (movedItems == 0) {
+            return "Removed " + emptiedLanes + " empty lane" + (emptiedLanes == 1 ? "" : "s");
+        }
+        String s = "Moved " + movedItems + " item" + (movedItems == 1 ? "" : "s");
+        if (emptiedLanes > 0) {
+            s += ", removed " + emptiedLanes + " lane" + (emptiedLanes == 1 ? "" : "s");
+        }
+        return s;
     }
 
     private void applyLaneSnapshot(

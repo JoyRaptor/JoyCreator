@@ -917,14 +917,28 @@ public class Timeline {
     /**
      * Slice F — "compact lanes" (JoyRaptor's CapCut orphan-lane pain): drop every overlay of a kind into
      * the FEWEST no-overlap lanes. Unlike {@link #enforceNoOverlapTextLanes()} (which only SPLITS
-     * overlaps within one lane), this MERGES across lanes — gather all items of a type, greedily pack
-     * them in start order onto the first lane whose previous item has already ended, minting a new lane
-     * ONLY when a real time-overlap forces it. Lane 0 keeps the default bucket; extra lanes get a
-     * deterministic {@code "<prefix>-<firstItemId>"}. A MANUAL, undoable action (never run
-     * automatically). Covers EVERY lane family in one pass — PiP/video + image overlays
-     * ({@code overlayClips}), sprites, text and adjustment layers — so orphan-lane sprawl disappears
-     * across all of them, not just the two that used to be packed. Captions are Clip-owned and live on
-     * a single CAPTION track ({@link #getCaptionTracks()}), so they are exempt by construction.
+     * overlaps within one lane), this MERGES across lanes: within each family it re-packs the items
+     * onto the lanes that family ALREADY occupies, lowest lane first, and then deletes the lane
+     * definitions left empty. A MANUAL, undoable action (never run automatically). Covers EVERY lane
+     * family in one pass — PiP/video + image overlays ({@code overlayClips}), sprites, text and
+     * adjustment layers — so orphan-lane sprawl disappears across all of them. Captions are
+     * Clip-owned and live on a single CAPTION track ({@link #getCaptionTracks()}), so they are
+     * exempt by construction.
+     *
+     * <p><b>It reuses lane ids; it never mints one.</b> The previous implementation minted a fresh
+     * {@code "<prefix>-<itemId>"} id for every lane past the first, which is how "compact" managed to
+     * ADD rows: the vacated {@link LayerTrackDef}s went on emitting their (now empty) lanes, while the
+     * minted ids surfaced as extra orphan rows in a different phase of {@link #getLayers()} — so a
+     * project could come out of a compaction with more rows than it went in with, and with a new row
+     * sitting between two items that had been cleanly stacked. Packing onto the family's existing lane
+     * ids makes the row COUNT monotonically non-increasing by construction, and keeps each lane's
+     * persisted {@code TrackFlags} (name, z, hidden, locked) attached to the items that stayed on it.</p>
+     *
+     * <p><b>Paint order is preserved.</b> Items are packed in the band's bottom→top order (the same
+     * order {@code LayerPreviewController.orderedVisualItems} derives: lanes stable-sorted ascending by
+     * {@link Track#getZIndex()}), and an item may never land BELOW a lower-z item it overlaps in time.
+     * Start-order greedy packing — what this used to do — has no such rule, so a clip could be packed
+     * underneath something it used to cover, silently changing the composite.</p>
      *
      * <p>MATTE COUPLING EXEMPTION (the one exception): a lane that takes part in a track-matte
      * pairing — either a RECIPIENT whose {@code CompositingSpec.mattePeerId} names another clip, or
@@ -933,18 +947,66 @@ public class Timeline {
      * either would silently change what gets keyed. Those lanes are counted and reported back so the
      * UI can tell the user why.</p>
      *
-     * @return the number of items that changed lane, plus how many matte-coupled lanes were
-     *         deliberately left alone.
+     * @return the number of items that changed lane, the lane definitions deleted because nothing
+     *         was left on them, and how many matte-coupled lanes were deliberately left alone.
      */
     @NonNull
     public CompactResult compactOverlayLanes() {
         java.util.Set<String> exempt = matteCoupledLaneIds();
+        List<String> band = laneIdsBottomToTop();
         int moved = 0;
-        moved += compactTextLanes(exempt);
-        moved += compactSpriteLanes(exempt);
-        moved += compactVideoLanes(exempt);
-        moved += compactAdjustmentLanes(exempt);
-        return new CompactResult(moved, countExemptLanes(exempt));
+        moved += compactTextLanes(exempt, band);
+        moved += compactSpriteLanes(exempt, band);
+        moved += compactVideoLanes(exempt, band);
+        moved += compactAdjustmentLanes(exempt, band);
+        return new CompactResult(moved, countExemptLanes(exempt), removeEmptyLaneDefs(exempt));
+    }
+
+    /**
+     * Every floating lane id in PAINT order (bottom → top) — the ordering the compositor uses, not
+     * the one the rows are drawn in. {@link #getLayers()} hands back the band top-first (DESCENDING
+     * z, see {@link #sortBandByZIndex}); {@code LayerPreviewController.orderedVisualItems} re-sorts
+     * that same list ASCENDING with a STABLE sort before painting, so equal-z lanes paint in
+     * emission order. This reproduces exactly that, because the packer's whole z guarantee is stated
+     * in terms of it.
+     */
+    @NonNull
+    private List<String> laneIdsBottomToTop() {
+        List<Track> lanes = new ArrayList<>(getLayers());
+        lanes.sort(java.util.Comparator.comparingInt(Track::getZIndex));
+        List<String> ids = new ArrayList<>(lanes.size());
+        for (Track t : lanes) ids.add(t.getId());
+        return ids;
+    }
+
+    /**
+     * Delete every user-created lane DEFINITION that now holds nothing at all — the second half of
+     * "compact", and the reason the old verb looked inert: packing emptied lanes but the defs kept
+     * emitting them, so the user watched their items merge and the empty rows stay. A def is removed
+     * only when NO item of any payload type (text, sprite, overlay clip, adjustment, audio) still
+     * names it and it is not matte-coupled. AUDIO defs are never touched — the audio band is not part
+     * of this verb. Returns the removed defs with their original list index so the caller can undo.
+     */
+    @NonNull
+    private List<RemovedLane> removeEmptyLaneDefs(@NonNull java.util.Set<String> exempt) {
+        java.util.Set<String> inhabited = new java.util.HashSet<>();
+        for (TextOverlayItem o : textOverlays) inhabited.add(o.getLayerId());
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+            inhabited.add(s.getLayerId());
+        }
+        for (Clip oc : overlayClips) inhabited.add(oc.getLayerId());
+        for (AdjustmentLayer a : adjustmentLayers) inhabited.add(a.getLayerId());
+        for (AudioClip ac : audioClips) inhabited.add(ac.getLayerId());
+        List<RemovedLane> removed = new ArrayList<>();
+        for (int i = 0; i < extraLayerTracks.size(); i++) {
+            LayerTrackDef def = extraLayerTracks.get(i);
+            if (def.getKind() == TrackKind.AUDIO) continue;
+            if (inhabited.contains(def.getId())) continue;
+            if (exempt.contains(def.getId())) continue;
+            removed.add(new RemovedLane(def, i));
+        }
+        for (RemovedLane rl : removed) extraLayerTracks.remove(rl.def);
+        return removed;
     }
 
     /**
@@ -1015,103 +1077,174 @@ public class Timeline {
         return n;
     }
 
-    private int compactTextLanes(@NonNull java.util.Set<String> exempt) {
-        if (textOverlays.size() < 2) return 0;
-        List<TextOverlayItem> sorted = new ArrayList<>(textOverlays);
-        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
-        return packLaneFamily(sorted,
+    private int compactTextLanes(@NonNull java.util.Set<String> exempt, @NonNull List<String> band) {
+        return packFamily(textOverlays,
                 TextOverlayItem::getStartMs,
-                o -> textEndForPacking(o),
-                TextOverlayItem::getLayerId,
-                TextOverlayItem::setLayerId,
-                o -> "text-" + o.getId(),
-                exempt,
-                null);
+                Timeline::textEndForPacking,
+                o -> o.getLayerId() == null ? "text" : o.getLayerId(),
+                (o, lane) -> o.setLayerId("text".equals(lane) ? null : lane),
+                band, canonicalExempt(exempt, "text", null));
     }
 
-    private int compactSpriteLanes(@NonNull java.util.Set<String> exempt) {
-        if (spriteOverlays.size() < 2) return 0;
-        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sorted = new ArrayList<>(spriteOverlays);
-        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
-        return packLaneFamily(sorted,
+    private int compactSpriteLanes(@NonNull java.util.Set<String> exempt, @NonNull List<String> band) {
+        return packFamily(spriteOverlays,
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem::getStartMs,
-                o -> spriteEndForPacking(o),
-                com.fadcam.ui.faditor.sprite.SpriteOverlayItem::getLayerId,
-                com.fadcam.ui.faditor.sprite.SpriteOverlayItem::setLayerId,
-                o -> spriteLayerIdFor(o),
-                exempt,
-                null);
+                Timeline::spriteEndForPacking,
+                o -> o.getLayerId() == null ? "sprite" : o.getLayerId(),
+                (o, lane) -> o.setLayerId("sprite".equals(lane) ? null : lane),
+                band, canonicalExempt(exempt, "sprite", null));
     }
 
-    private int compactVideoLanes(@NonNull java.util.Set<String> exempt) {
-        if (overlayClips.size() < 2) return 0;
-        List<Clip> sorted = new ArrayList<>(overlayClips);
-        sorted.sort((a, b) -> Long.compare(a.getOverlayStartMs(), b.getOverlayStartMs()));
-        return packLaneFamily(sorted,
+    private int compactVideoLanes(@NonNull java.util.Set<String> exempt, @NonNull List<String> band) {
+        return packFamily(overlayClips,
                 Clip::getOverlayStartMs,
-                o -> videoEndForPacking(o),
-                Clip::getLayerId,
-                Clip::setLayerId,
-                o -> "video-" + o.getId(),
-                exempt,
-                null);
+                Timeline::videoEndForPacking,
+                o -> o.getLayerId() == null ? "video" : o.getLayerId(),
+                (o, lane) -> o.setLayerId("video".equals(lane) ? null : lane),
+                band, canonicalExempt(exempt, "video", null));
     }
 
-    private int compactAdjustmentLanes(@NonNull java.util.Set<String> exempt) {
-        if (adjustmentLayers.size() < 2) return 0;
-        List<AdjustmentLayer> sorted = new ArrayList<>(adjustmentLayers);
-        sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
-        return packLaneFamily(sorted,
+    private int compactAdjustmentLanes(@NonNull java.util.Set<String> exempt,
+            @NonNull List<String> band) {
+        return packFamily(adjustmentLayers,
                 AdjustmentLayer::getStartMs,
-                o -> adjustmentEndForPacking(o),
-                AdjustmentLayer::getLayerId,
-                AdjustmentLayer::setLayerId,
-                o -> "adjustment-" + o.getId(),
-                exempt,
-                "");
+                Timeline::adjustmentEndForPacking,
+                a -> a.getLayerId().isEmpty() ? "adjustment" : a.getLayerId(),
+                (a, lane) -> a.setLayerId("adjustment".equals(lane) ? "" : lane),
+                band, canonicalExempt(exempt, "adjustment", ""));
     }
 
     /**
-     * One greedy lane packer shared by every overlay family. Items on a matte-coupled lane are left
-     * exactly where they are (and are never counted as "moved"); the default bucket is skipped for
-     * packing when it is itself exempt, so nothing is ever folded onto a lane that must stay put.
-     * Returns how many items changed lane.
+     * The exempt lane ids as {@link #getLayers()} would name them. {@code matteCoupledLaneIds()}
+     * collects RAW {@code layerId} values, and a family's default bucket is written raw as
+     * {@code null} (text/sprite/video) or {@code ""} (adjustment) while the lane it lands in is
+     * called "text"/"sprite"/"video"/"adjustment". Translating only THIS family's default value
+     * preserves the old behaviour exactly: a matte sitting on the default bucket blocks that
+     * bucket, and nothing else changes.
      */
-    private static <T> int packLaneFamily(
-            @NonNull List<T> sorted,
+    @NonNull
+    private static java.util.Set<String> canonicalExempt(@NonNull java.util.Set<String> raw,
+            @NonNull String seedLaneId, @Nullable String defaultRawValue) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (String id : raw) {
+            out.add(id == null ? (defaultRawValue == null ? seedLaneId : null)
+                    : (id.equals(defaultRawValue) ? seedLaneId : id));
+        }
+        return out;
+    }
+
+    /**
+     * Re-pack ONE lane family onto the lanes it already occupies.
+     *
+     * <p>The lanes this family's items sit on are taken in band paint order (bottom → top) and split
+     * into runs at every matte-exempt lane, so an exempt lane is both untouched AND a barrier — no
+     * item may hop across it, which would change what it masks. Each run is packed independently by
+     * {@link #packSegment}, onto its OWN lane ids: the number of lanes can only go down, never up,
+     * and no id is invented.</p>
+     */
+    private static <T> int packFamily(
+            @NonNull List<T> items,
             @NonNull java.util.function.ToLongFunction<T> startFn,
             @NonNull java.util.function.ToLongFunction<T> endFn,
-            @NonNull java.util.function.Function<T, String> laneFn,
-            @NonNull java.util.function.BiConsumer<T, String> setLaneFn,
-            @NonNull java.util.function.Function<T, String> mintFn,
-            @NonNull java.util.Set<String> exemptLanes,
-            @Nullable String defaultBucketId) {
-        List<Long> laneEnd = new ArrayList<>();
-        List<String> laneId = new ArrayList<>();
-        boolean defaultExempt = exemptLanes.contains(defaultBucketId);
-        int changed = 0;
-        for (T o : sorted) {
-            String cur = laneFn.apply(o);
-            // A matte-coupled lane is left COMPLETELY undisturbed: its items never move and no
-            // other item is ever assigned to it.
-            if (exemptLanes.contains(cur)) continue;
-            long s = startFn.applyAsLong(o);
-            long e = endFn.applyAsLong(o);
-            int placed = -1;
-            for (int k = 0; k < laneEnd.size(); k++) {
-                if (laneEnd.get(k) <= s) { placed = k; break; }
-            }
-            if (placed < 0) {
-                placed = laneEnd.size();
-                laneEnd.add(e);
-                laneId.add((placed == 0 && !defaultExempt) ? defaultBucketId : mintFn.apply(o));
-            } else {
-                laneEnd.set(placed, e);
-            }
-            String want = laneId.get(placed);
-            if (!laneIdEquals(cur, want)) { setLaneFn.accept(o, want); changed++; }
+            @NonNull java.util.function.Function<T, String> laneOf,
+            @NonNull java.util.function.BiConsumer<T, String> assignLane,
+            @NonNull List<String> bandBottomToTop,
+            @NonNull java.util.Set<String> exemptLanes) {
+        if (items.size() < 2) return 0;
+        Map<String, List<T>> byLane = new LinkedHashMap<>();
+        for (T item : items) {
+            byLane.computeIfAbsent(laneOf.apply(item), k -> new ArrayList<>()).add(item);
         }
-        return changed;
+        if (byLane.size() < 2) return 0;
+        // Lanes this family occupies, bottom → top. The band is the authority on order; anything
+        // it somehow does not list (it lists every inhabited lane by construction) trails behind
+        // in discovery order rather than being dropped.
+        List<String> lanes = new ArrayList<>();
+        for (String id : bandBottomToTop) {
+            if (byLane.containsKey(id)) lanes.add(id);
+        }
+        for (String id : byLane.keySet()) {
+            if (!lanes.contains(id)) lanes.add(id);
+        }
+        int moved = 0;
+        int i = 0;
+        while (i < lanes.size()) {
+            if (exemptLanes.contains(lanes.get(i))) { i++; continue; }
+            int j = i;
+            while (j < lanes.size() && !exemptLanes.contains(lanes.get(j))) j++;
+            moved += packSegment(lanes.subList(i, j), byLane, startFn, endFn, laneOf, assignLane);
+            i = j;
+        }
+        return moved;
+    }
+
+    /**
+     * Pack one contiguous run of lanes, bottom lane first.
+     *
+     * <p>Items are visited in paint order (lane by lane, then each lane's backing-list order, which
+     * IS its within-lane z). Each item takes the LOWEST lane that (a) is free for its whole time
+     * range and (b) is not below any already-placed item it overlaps in time. Rule (b) is what keeps
+     * z honest: two items that never coexist on screen may swap lanes freely, two that do may not.
+     * Because every item's original lane satisfies both rules, the search always succeeds inside the
+     * run — but if it somehow did not, the whole run is abandoned unchanged rather than spilling
+     * into a new lane, so this can never grow the band.</p>
+     */
+    private static <T> int packSegment(
+            @NonNull List<String> lanes,
+            @NonNull Map<String, List<T>> byLane,
+            @NonNull java.util.function.ToLongFunction<T> startFn,
+            @NonNull java.util.function.ToLongFunction<T> endFn,
+            @NonNull java.util.function.Function<T, String> laneOf,
+            @NonNull java.util.function.BiConsumer<T, String> assignLane) {
+        if (lanes.size() < 2) return 0;
+        List<T> ordered = new ArrayList<>();
+        for (String id : lanes) {
+            List<T> bucket = byLane.get(id);
+            if (bucket != null) ordered.addAll(bucket);
+        }
+        int n = ordered.size();
+        long[] starts = new long[n];
+        long[] ends = new long[n];
+        int[] target = new int[n];
+        List<List<long[]>> occupancy = new ArrayList<>();
+        for (int k = 0; k < lanes.size(); k++) occupancy.add(new ArrayList<>());
+        for (int idx = 0; idx < n; idx++) {
+            T item = ordered.get(idx);
+            starts[idx] = startFn.applyAsLong(item);
+            ends[idx] = Math.max(starts[idx], endFn.applyAsLong(item));
+            int floor = 0;
+            for (int p = 0; p < idx; p++) {
+                if (overlapsInTime(starts[p], ends[p], starts[idx], ends[idx])) {
+                    floor = Math.max(floor, target[p]);
+                }
+            }
+            int placed = -1;
+            for (int k = floor; k < lanes.size(); k++) {
+                if (laneIsFree(occupancy.get(k), starts[idx], ends[idx])) { placed = k; break; }
+            }
+            if (placed < 0) return 0; // unreachable in practice — abandon the run, change nothing
+            target[idx] = placed;
+            occupancy.get(placed).add(new long[]{starts[idx], ends[idx]});
+        }
+        int moved = 0;
+        for (int idx = 0; idx < n; idx++) {
+            String want = lanes.get(target[idx]);
+            T item = ordered.get(idx);
+            if (!want.equals(laneOf.apply(item))) { assignLane.accept(item, want); moved++; }
+        }
+        return moved;
+    }
+
+    /** Half-open overlap: two items that merely BUTT (one ends where the next starts) do not. */
+    private static boolean overlapsInTime(long aStart, long aEnd, long bStart, long bEnd) {
+        return aStart < bEnd && bStart < aEnd;
+    }
+
+    private static boolean laneIsFree(@NonNull List<long[]> occupied, long s, long e) {
+        for (long[] iv : occupied) {
+            if (overlapsInTime(iv[0], iv[1], s, e)) return false;
+        }
+        return true;
     }
 
     /** Open-ended sprite occupies its lane forever (mirrors the old inline guard). */
@@ -1125,9 +1258,16 @@ public class Timeline {
         return a.getDurationMs() <= 0L ? Long.MAX_VALUE : a.getEndMs();
     }
 
-    /** Null-safe layer-id compare (a null id == the default lane bucket). */
-    private static boolean laneIdEquals(String a, String b) {
-        return a == null ? b == null : a.equals(b);
+    /** A lane definition {@link #compactOverlayLanes()} deleted, with the index it was removed from. */
+    public static final class RemovedLane {
+        @NonNull public final LayerTrackDef def;
+        /** Its index in the definition list before removal — {@code restoreLayerTrackDefAt} needs it. */
+        public final int index;
+
+        public RemovedLane(@NonNull LayerTrackDef def, int index) {
+            this.def = def;
+            this.index = index;
+        }
     }
 
     /** Outcome of {@link #compactOverlayLanes()}. */
@@ -1136,10 +1276,20 @@ public class Timeline {
         public final int moved;
         /** How many distinct lanes were left alone because they take part in a track matte. */
         public final int omittedLanes;
+        /**
+         * The empty lane definitions that were deleted, oldest index first — reported so the toast
+         * can say so honestly, and so undo can put them back where they were.
+         */
+        @NonNull public final List<RemovedLane> removedLanes;
 
         public CompactResult(int moved, int omittedLanes) {
+            this(moved, omittedLanes, Collections.emptyList());
+        }
+
+        public CompactResult(int moved, int omittedLanes, @NonNull List<RemovedLane> removedLanes) {
             this.moved = moved;
             this.omittedLanes = omittedLanes;
+            this.removedLanes = removedLanes;
         }
     }
 

@@ -8979,8 +8979,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             long newIn = Math.min(oldIn, playerDurationMs - 1);
             long newOut = Math.min(oldOut, playerDurationMs);
             if (newOut <= newIn) { newIn = 0; newOut = playerDurationMs; }
+            // Bracketed: this SHORTENS the clip, so it moves every later clip's start and
+            // everything riding on them. It is the only length change in the app the user did not
+            // ask for — it fires by itself when ExoPlayer disagrees with the stored duration, which
+            // is routine for fragmented MP4 — and it was the one place a silent desync could appear
+            // with no edit having been made at all.
+            java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
             clip.setInPointMs(newIn);
             clip.setOutPointMs(newOut);
+            endStructuralEdit(anchorsBefore, "durationCorrection");
 
             FLog.d(TAG, "Trim clamped: in=" + oldIn + "→" + newIn
                     + ", out=" + oldOut + "→" + newOut);

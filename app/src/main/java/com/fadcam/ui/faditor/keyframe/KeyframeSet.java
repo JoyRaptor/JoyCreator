@@ -126,6 +126,29 @@ public class KeyframeSet {
         return tracks.values();
     }
 
+    /**
+     * Move every key in every track by {@code deltaMs} along this set's own time base.
+     *
+     * <p>Used when the ELEMENT's time base moves under keys that must not move with it — see
+     * {@code TextOverlayItem.setTrimmedTimeRange}. Shifting the keys by exactly the amount the
+     * base moved is what leaves them where they were in project time.</p>
+     *
+     * <p><b>Negative times are kept, not clamped.</b> Trimming a start LATER pushes early keys
+     * before the element's own zero, and {@code TextOverlayItem.localTime} floors its lookup at 0,
+     * so such a key is simply never reached while still shaping the interpolation into the first
+     * visible one. Clamping them to 0 instead would pile several keys onto the same instant and
+     * destroy the animation — and trimming back out again could not restore it. Keeping them makes
+     * the operation exactly reversible, which is what a trim handle has to be.</p>
+     */
+    public void shiftAll(long deltaMs) {
+        if (deltaMs == 0) return;
+        for (KeyframeTrack t : tracks.values()) {
+            for (Keyframe k : t.keyframes) {
+                k.timeMs += deltaMs;
+            }
+        }
+    }
+
     public boolean hasProperty(@NonNull String property) {
         KeyframeTrack t = tracks.get(property);
         return t != null && !t.isEmpty();

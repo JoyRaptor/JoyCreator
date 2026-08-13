@@ -1011,6 +1011,38 @@ public class TextOverlayItem {
         this.endMs = (endMs <= this.startMs) ? Long.MAX_VALUE : endMs;
     }
 
+    /**
+     * Set the window with TRIM semantics: the keys stay where they are in PROJECT time.
+     *
+     * <p><b>Why this is a second method rather than a flag on {@link #setTimeRange}.</b> The two
+     * gestures mean opposite things and both are correct:</p>
+     * <ul>
+     *   <li><b>Move</b> — dragging the object along the timeline takes its animation with it, so
+     *       the keys keep their LOCAL times and {@link #setTimeRange} is exactly right.</li>
+     *   <li><b>Trim</b> — dragging an EDGE changes how much of the object is shown, not when its
+     *       animation happens. The right edge already behaves this way for free: extending the end
+     *       moves no key, because the start (the key time base) never moves. The LEFT edge did
+     *       not: {@code localTime} is measured from {@code startMs}, so pulling the front earlier
+     *       dragged every key later in project time along with it. Reported as: "extend the front
+     *       and the keyframes go with it — if I wanted that I could just move the object."</li>
+     * </ul>
+     *
+     * <p>The rebase is by the amount the START actually moved, read back after the set so a clamp
+     * cannot desynchronise it. Keys pushed before zero are KEPT rather than clamped — see
+     * {@link com.fadcam.ui.faditor.keyframe.KeyframeSet#shiftAll} for why that is what makes
+     * dragging the handle out and back again exactly reversible.</p>
+     *
+     * <p>Only the TRANSFORM keys are rebased. An FX card's parameter keys live on
+     * {@code FxStack.keys} and are resolved against absolute timeline ms, so they are already
+     * where they belong and moving them would be the bug this fixes, in the other direction.</p>
+     */
+    public void setTrimmedTimeRange(long startMs, long endMs) {
+        long before = this.startMs;
+        setTimeRange(startMs, endMs);
+        long after = this.startMs;
+        if (after != before) keyframes.shiftAll(before - after);
+    }
+
     /** Whether this overlay should be drawn at the given timeline time. */
     public boolean isVisibleAt(long timelineMs) {
         return timelineMs >= startMs && timelineMs <= endMs;

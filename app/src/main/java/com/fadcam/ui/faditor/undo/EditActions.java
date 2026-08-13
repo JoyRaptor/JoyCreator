@@ -81,8 +81,23 @@ public final class EditActions {
 
         @Override public void execute() { retrim(newIn, newOut); }
         @Override public void undo() { retrim(oldIn, oldOut); }
+        /**
+         * Shown to the user now (the undo toast and the history popup), so it reads in clock time
+         * rather than raw milliseconds. Says which EDGE moved and by how much, because that is what
+         * someone scanning their history is actually trying to recognise.
+         */
         @NonNull @Override public String getDescription() {
-            return "Trim [" + oldIn + "–" + oldOut + "] → [" + newIn + "–" + newOut + "]";
+            boolean inMoved = oldIn != newIn, outMoved = oldOut != newOut;
+            if (inMoved && !outMoved) {
+                return "Trim start " + com.fadcam.ui.faditor.util.TimeFormatter.formatAuto(oldIn)
+                        + " → " + com.fadcam.ui.faditor.util.TimeFormatter.formatAuto(newIn);
+            }
+            if (outMoved && !inMoved) {
+                return "Trim end " + com.fadcam.ui.faditor.util.TimeFormatter.formatAuto(oldOut)
+                        + " → " + com.fadcam.ui.faditor.util.TimeFormatter.formatAuto(newOut);
+            }
+            return "Trim " + com.fadcam.ui.faditor.util.TimeFormatter.formatAuto(newIn) + "–"
+                    + com.fadcam.ui.faditor.util.TimeFormatter.formatAuto(newOut);
         }
     }
 

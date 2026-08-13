@@ -3432,6 +3432,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         relinkAllMissing();
                     }
                 })
+                // Skip advances a relink-ALL sweep to the next missing file, so on a project with
+                // several of them the only way out was to answer every prompt. Cancel stops the
+                // sweep where it stands and relinks nothing further.
+                .setNeutralButton(android.R.string.cancel, (d, w) -> relinkPendingIndex = -1)
                 .show();
     }
 
@@ -11503,10 +11507,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void performUndo() {
         if (!undoManager.canUndo()) return;
+        // Read the description BEFORE undoing — afterwards this entry has moved to the redo stack.
+        String what = undoManager.peekUndoDescription();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
         undoManager.undo();
         endStructuralEdit(anchorsBefore, "undo");
+        announceHistoryStep("Undid", what);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -11517,13 +11524,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void performRedo() {
         if (!undoManager.canRedo()) return;
+        String what = undoManager.peekRedoDescription();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
         undoManager.redo();
         endStructuralEdit(anchorsBefore, "redo");
+        announceHistoryStep("Redid", what);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
+    }
+
+    /**
+     * Say WHICH edit a press of undo/redo just consumed.
+     *
+     * <p>Every action already carries a description — the history popup shows them — but a plain
+     * press gave no feedback at all, so on a long stack you lose count of where you are and press
+     * one time too many. The name of the thing that just changed is the cheapest possible fix.</p>
+     *
+     * <p>The previous toast is CANCELLED rather than queued: undo gets pressed in bursts, and a
+     * queue of 1.5-second toasts would still be naming the third-from-last edit long after the
+     * user stopped, which is worse than silence because it is confidently out of date.</p>
+     */
+    private android.widget.Toast historyToast;
+
+    private void announceHistoryStep(@NonNull String verb, @Nullable String what) {
+        if (what == null || what.isEmpty()) return;
+        if (historyToast != null) historyToast.cancel();
+        historyToast = Toast.makeText(this, verb + ": " + what, Toast.LENGTH_SHORT); // TODO(strings)
+        historyToast.show();
     }
 
     /**
@@ -18774,6 +18803,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 startActivity(again);
             });
         }
+        // The third answer, per JoyRaptor's rule that a keep-or-lose choice must also offer a way out
+        // of the whole question. Both buttons above COMMIT to something: "Keep going" finalises the
+        // dropped items on the next save, and opening the backup abandons whatever this session's
+        // file still holds. Someone who wants to inspect the file on a computer first had no move.
+        // This one leaves the editor with loadSkipDialogPending still true, so neither the current
+        // file nor the backup is written on the way out.
+        b.setNeutralButton("Close without saving", (d, w) -> finish());          // TODO(strings)
         b.show();
     }
 

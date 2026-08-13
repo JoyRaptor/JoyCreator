@@ -23,11 +23,16 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
  * {@link CompositeExportOverlay}'s canvas path exactly as it always did, so this is provably inert
  * for every project that has not chosen a blend mode.</p>
  *
- * <p><b>Deliberately narrower than {@link BlendModeGlEffect}.</b> That class carries chroma key,
- * track mattes and per-object FX because a PiP has all three. An image overlay has none of them in
- * either renderer today (its Mask, Chroma key and Effects tabs are labelled as inert), so
- * inheriting that machinery would mean inheriting three uniform sets nothing writes and a shader
- * three times the size. When those features become real for images, they arrive here.</p>
+ * <p><b>Now also carries the chroma key and per-object FX</b> — this note used to say it
+ * deliberately did not, with "when those features become real for images, they arrive here". They
+ * did, and they arrived here. Both are DEVICE-VERIFIED by measuring exported frames against a dump
+ * of the overlay bitmap rather than by eye: with an invert card, 174 of 190 sampled points inside
+ * the mask are closer to the INVERSE of the un-effected image than to it; with a max-tolerance key
+ * the image leaves the frame entirely. Reading those frames by eye is what produced a wrong
+ * conclusion and a needless revert first time round — the fixture's overlay is a photo of the same
+ * scene as the video, so "the image, inverted" and "the video, inverted" look alike.
+ *
+ * <p>Track MATTES remain PiP-only: an image has no peer clip to matte against.</p>
  *
  * <p><b>Z-ORDER CAVEAT, stated plainly.</b> Chain position is paint order, so a blended image
  * composites where this effect sits in the chain — above the video and every PiP, below the

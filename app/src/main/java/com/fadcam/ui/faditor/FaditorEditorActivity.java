@@ -21702,40 +21702,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     android.widget.LinearLayout col = new android.widget.LinearLayout(ctx);
                     col.setOrientation(android.widget.LinearLayout.VERTICAL);
                     float dp = ctx.getResources().getDisplayMetrics().density;
-                    // THREE trim moves — "⇤Start here" / "↔ span whole timeline" / "Place end
-                    // here⇥" (JoyRaptor, 2026-08-08). The two flanking buttons move the layer's
-                    // respective EDGE to wherever the playhead is, the centre one spans it over
-                    // everything — the same direct language the text drawer's range chips use.
+                    // THREE trim moves — "⇤ Start here" / "↔ Span whole" / "End here ⇥" (JoyRaptor,
+                    // 2026-08-08). The two flanking buttons move the layer's respective EDGE to
+                    // wherever the playhead is, the centre one spans it over everything.
+                    //
+                    // THE SAME CHIPS THE IMAGE AND TEXT DRAWERS USE, through the same builder.
+                    // These were three bare purple TextViews doing the same three jobs in a
+                    // different costume, which is exactly what JoyRaptor asked to be tidied
+                    // (2026-08-13): "it would be nice if they looked like the other buttons like
+                    // image overlays dialogue drawer for consistencies sake". Sharing the builder
+                    // rather than restyling a copy is also what stops them drifting apart again.
                     android.widget.LinearLayout trimRow = new android.widget.LinearLayout(ctx);
                     trimRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
                     trimRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-                    trimRow.setPadding(Math.round(12 * dp), Math.round(10 * dp),
-                            Math.round(12 * dp), Math.round(10 * dp));
-
-                    android.widget.TextView startBtn = new android.widget.TextView(ctx);
-                    startBtn.setText(getString(R.string.faditor_trim_start_here));
-                    startBtn.setTextColor(0xFFB388FF);
-                    startBtn.setTextSize(12.5f);
-                    startBtn.setPadding(0, 0, Math.round(10 * dp), 0);
-                    startBtn.setOnClickListener(v -> trimAdjustmentLayerStartAtPlayhead(layer));
-                    trimRow.addView(startBtn);
-
-                    // U+FE0E pins the TEXT presentation of ↔ so it never swaps to the emoji glyph.
-                    android.widget.TextView spanBtn = new android.widget.TextView(ctx);
-                    spanBtn.setText(getString(R.string.faditor_trim_span_whole));
-                    spanBtn.setTextColor(0xFFB388FF);
-                    spanBtn.setTextSize(12.5f);
-                    spanBtn.setPadding(Math.round(10 * dp), 0, Math.round(10 * dp), 0);
-                    spanBtn.setOnClickListener(v -> spanAdjustmentLayerOverTimeline(layer));
-                    trimRow.addView(spanBtn);
-
-                    android.widget.TextView endBtn = new android.widget.TextView(ctx);
-                    endBtn.setText(getString(R.string.faditor_trim_end_here));
-                    endBtn.setTextColor(0xFFB388FF);
-                    endBtn.setTextSize(12.5f);
-                    endBtn.setPadding(Math.round(10 * dp), 0, 0, 0);
-                    endBtn.setOnClickListener(v -> trimAdjustmentLayerEndAtPlayhead(layer));
-                    trimRow.addView(endBtn);
+                    trimRow.setPadding(Math.round(12 * dp), Math.round(8 * dp),
+                            Math.round(12 * dp), Math.round(4 * dp));
+                    trimRow.addView(textTrimChip(dp, R.string.faditor_trim_start_here,
+                            () -> trimAdjustmentLayerStartAtPlayhead(layer)));
+                    trimRow.addView(textTrimChip(dp, R.string.faditor_trim_span_whole,
+                            () -> spanAdjustmentLayerOverTimeline(layer)));
+                    trimRow.addView(textTrimChip(dp, R.string.faditor_trim_end_here,
+                            () -> trimAdjustmentLayerEndAtPlayhead(layer)));
 
                     col.addView(trimRow);
                     col.addView(com.fadcam.ui.faditor.tools.FxPanel.build(

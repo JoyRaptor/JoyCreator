@@ -3297,6 +3297,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_image_inert_mask">Not applied to image overlays yet — your shape is saved, but it won\'t affect the preview or the export.</string>
     <string name="faditor_image_inert_key">Not applied to image overlays yet — your key is saved, but it won\'t affect the preview or the export.</string>
     <string name="faditor_image_inert_fx">Not applied to image overlays yet — your effects are saved, but they won\'t affect the preview or the export.</string>
+    <string name="faditor_image_fx_export_note">Effects on an image are applied when you export. The preview shows the image without them. Blur and other effects that need their own pass are skipped.</string>
     <string name="faditor_blend_normal">Normal</string>
     <string name="faditor_blend_multiply">Multiply</string>
     <string name="faditor_blend_screen">Screen</string>

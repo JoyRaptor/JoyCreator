@@ -23647,11 +23647,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.fx.FxStack imageFx = o.getOrCreateFx();
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Effects", R.drawable.ic_fx_24,                           // TODO(strings)
+                // No longer inert: an image's effect stack reaches the EXPORT (ImageBlendGlEffect
+                // compiles it, the same splice a PiP uses). So it carries the standing export-only
+                // caveat blend already carries, not the "saved but does nothing" note — the same
+                // change ba651a3 made for blend when that became real.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.FxPanel.build(
                                 ctx, imageFx, textOverlayFxHost(o, imageFx),
                                 com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT),
-                        R.string.faditor_image_inert_fx)));
+                        R.string.faditor_image_fx_export_note)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Move", R.drawable.ic_pip_move_24,                        // TODO(strings)
                 ctx -> buildImageMoveTab(o)));

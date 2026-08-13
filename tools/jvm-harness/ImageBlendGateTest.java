@@ -21,6 +21,7 @@ public class ImageBlendGateTest {
         everyRealModeIsABlend();
         textIsNeverRouted();
         unknownModesDegradeToNormal();
+        effectsAloneAlsoRouteToTheShader();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -32,6 +33,37 @@ public class ImageBlendGateTest {
         o.setImageUri("file:///dev/null/test.png");
         o.setOverlayBlendMode(mode);
         return o;
+    }
+
+    /**
+     * An image carrying EFFECTS must leave the canvas even with NORMAL blend — a Canvas cannot run
+     * a fragment shader, so leaving it behind is what made the Effects tab inert.
+     *
+     * <p>Both consumers ask {@code wantsGlExport}, never the two halves separately: if the emitter
+     * checked blend and the canvas skip checked blend-or-fx (or vice versa) an image with effects
+     * would be drawn twice or not at all. That is what these assertions protect.</p>
+     */
+    static void effectsAloneAlsoRouteToTheShader() {
+        TextOverlayItem plain = image(BlendModes.NORMAL);
+        check("no blend, no fx → canvas", !plain.wantsGlExport());
+
+        TextOverlayItem fx = image(BlendModes.NORMAL);
+        fx.getOrCreateFx().add("invert");
+        check("effects alone route an image to the shader", fx.wantsGlExport());
+        check("…and that is FX, not blend", fx.hasExportFx() && !fx.wantsExportBlend());
+
+        TextOverlayItem both = image(BlendModes.MULTIPLY);
+        both.getOrCreateFx().add("invert");
+        check("blend AND effects still route exactly once", both.wantsGlExport());
+
+        TextOverlayItem t = new TextOverlayItem("hi", 0xFFFFFFFF, 0.5f, 0.5f, 0.5f, 0f);
+        t.getOrCreateFx().add("invert");
+        check("a TEXT overlay with effects is not routed here (TextFxGlEffect owns it)",
+                !t.wantsGlExport());
+
+        TextOverlayItem emptied = image(BlendModes.NORMAL);
+        emptied.getOrCreateFx();          // stack exists but carries no cards
+        check("an empty stack is not effects", !emptied.wantsGlExport());
     }
 
     static void normalIsNotABlend() {

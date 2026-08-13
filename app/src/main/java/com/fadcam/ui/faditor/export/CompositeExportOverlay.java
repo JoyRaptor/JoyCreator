@@ -423,7 +423,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
             // Canvas has no video underneath it to blend with. Dropping it here is what stops it
             // being drawn twice, once blended in the shader and once plain on top. ExportManager
             // emits that effect for BOTH z buckets, so this exclusion never orphans an item.
-            if (o.wantsExportBlend()) continue;
+            if (o.wantsGlExport()) continue;
             out.add(o);
         }
         return out;

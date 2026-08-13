@@ -102,9 +102,68 @@ final class ImageBlendGlEffect implements GlEffect {
                 + "  gl_FragColor = vec4(outc, base.a);\n"
                 + "}\n";
 
+        /**
+         * Per-object FX for an IMAGE overlay, spliced into this shader — the same construction
+         * {@code BlendModeGlEffect.fragmentFor} performs for a PiP, against the same
+         * {@code FxStack} type, so the two renderers cannot drift into different fold orders.
+         *
+         * <p><b>The no-FX case returns the string that shipped, untouched.</b> An image that
+         * carries no effects compiles exactly the source it always did, so this is provably inert
+         * for every existing project — the same gate discipline the blend path itself uses.</p>
+         *
+         * <p><b>Only the FUSED pass.</b> A SAMPLER card (blur and friends) needs the object
+         * rendered to its own FBO first, which is the adjustment layer's machinery; such a card is
+         * skipped here exactly as it is for a PiP, and {@code FxPreviewTier} is what tells the UI
+         * so. That is a smaller gap than the whole tab being inert, and an honest one.</p>
+         */
+        @NonNull
+        private static String fragmentFor(@NonNull TextOverlayItem item) {
+            com.fadcam.ui.faditor.fx.FxStack stack = item.getFx();
+            if (stack == null || stack.active().isEmpty()) return FRAGMENT_SHADER;
+            com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
+                    com.fadcam.ui.faditor.fx.FxCompiler.plan(stack);
+            com.fadcam.ui.faditor.fx.FxCompiler.Pass fused = null;
+            for (com.fadcam.ui.faditor.fx.FxCompiler.Pass p : plan.passes) {
+                if (!p.sampler) { fused = p; break; }
+            }
+            if (fused == null) return FRAGMENT_SHADER;
+
+            String emitted = com.fadcam.ui.faditor.fx.FxCompiler.emitGlsl(fused, 8);
+            int mainAt = emitted.indexOf("void main()");
+            if (mainAt < 0) return FRAGMENT_SHADER;
+            // Everything the compiler declared BEFORE its entry point; its own main() is dropped
+            // because this shader has one and the subject here is one object's colour.
+            String decls = emitted.substring(0, mainAt)
+                    // Already declared below; declaring either twice fails to compile.
+                    .replace("uniform sampler2D uTexSampler;\n", "")
+                    .replace("varying vec2 vFxUv;\n", "")
+                    .replace("precision mediump float;\n", "")
+                    .replace("precision highp float;\n", "");
+
+            StringBuilder fold = new StringBuilder();
+            for (com.fadcam.ui.faditor.fx.FxInstance card : fused.cards) {
+                fold.append("  fxc = fxBlendOver(fxc, fx").append(card.slot)
+                        .append("(ovc, fxc), ")
+                        .append(com.fadcam.ui.faditor.fx.FxCompiler.foldOpacityName(card))
+                        .append(", ")
+                        .append(com.fadcam.ui.faditor.fx.FxCompiler.foldBlendName(card))
+                        .append(");\n");
+            }
+            // Applied to the UNPREMULTIPLIED colour and BEFORE the blend, so an effect grades the
+            // picture and the blend mode then composites the graded picture — the order the drawer
+            // shows the two tabs in, and the order the preview will have to match.
+            String apply = "  vec4 fxc = vec4(sc, 1.0);\n" + fold + "  sc = fxc.rgb;\n";
+            return FRAGMENT_SHADER
+                    .replace("varying vec2 vTexSamplingCoord;\n",
+                            "varying vec2 vTexSamplingCoord;\n" + decls)
+                    .replace("  vec3 outc = mix(", apply + "  vec3 outc = mix(");
+        }
+
         private final GlProgram glProgram;
         private final ImageOverlayFrameOverlay overlay;
         private final float mode;
+        /** Kept for its FX uniform values; the geometry all lives in the overlay. */
+        @NonNull private final TextOverlayItem fxItem;
 
         Program(@NonNull Context context, @NonNull TextOverlayItem item,
                 long projectDurationMs, long editorTimeOffsetMs)
@@ -113,8 +172,9 @@ final class ImageBlendGlEffect implements GlEffect {
             this.overlay = new ImageOverlayFrameOverlay(
                     context, item, projectDurationMs, editorTimeOffsetMs);
             this.mode = BlendModes.modeCode(item.getOverlayBlendMode());
+            this.fxItem = item;
             try {
-                this.glProgram = new GlProgram(VERTEX_SHADER, FRAGMENT_SHADER);
+                this.glProgram = new GlProgram(VERTEX_SHADER, fragmentFor(item));
                 this.glProgram.setBufferAttribute("aFramePosition",
                         GlUtil.getNormalizedCoordinateBounds(), 4);
             } catch (Exception e) {
@@ -139,11 +199,46 @@ final class ImageBlendGlEffect implements GlEffect {
                 glProgram.setSamplerTexIdUniform("uOverlayTexSampler0",
                         overlay.getTextureId(presentationTimeUs), 1);
                 glProgram.setFloatUniform("uBlendMode", mode);
+                // Per-object FX, resolved at the playhead so a keyed parameter animates — the same
+                // stack and the same resolver an adjustment layer and a PiP use.
+                setFxUniforms(presentationTimeUs);
                 glProgram.bindAttributesAndUniforms();
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                 GlUtil.checkGlError();
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
+            }
+        }
+
+        /**
+         * Upload this image's FX parameters.
+         *
+         * <p>Each set is GUARDED: an unused uniform is stripped by the driver and media3 looks
+         * names up in the LINKED program, so setting one it removed throws. That cost a whole
+         * export cycle to find on the adjustment layer and again on the PiP; it does not get to
+         * cost a third.</p>
+         *
+         * <p>Silent no-op with no FX, because then the shader is the original string and none of
+         * these names exist at all.</p>
+         */
+        private void setFxUniforms(long presentationTimeUs) {
+            com.fadcam.ui.faditor.fx.FxStack stack = fxItem.getFx();
+            if (stack == null || stack.active().isEmpty()) return;
+            com.fadcam.ui.faditor.fx.FxStack resolved = stack.resolveAt(presentationTimeUs / 1000L);
+            com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
+                    com.fadcam.ui.faditor.fx.FxCompiler.plan(resolved);
+            for (com.fadcam.ui.faditor.fx.FxCompiler.Pass p : plan.passes) {
+                if (p.sampler) continue;   // not compiled into this shader — see fragmentFor
+                for (com.fadcam.ui.faditor.fx.FxUniforms.Value v
+                        : com.fadcam.ui.faditor.fx.FxUniforms.forPass(p)) {
+                    try {
+                        if (v.components() == 1) glProgram.setFloatUniform(v.name, v.data[0]);
+                        else glProgram.setFloatsUniform(v.name, v.data);
+                    } catch (RuntimeException ignored) {
+                        // Stripped by the driver; harmless.
+                    }
+                }
+                break;   // only the first fused pass is in this shader
             }
         }
 

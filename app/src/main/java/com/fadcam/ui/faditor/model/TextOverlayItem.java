@@ -696,6 +696,30 @@ public class TextOverlayItem {
         return isImage() && BlendModes.modeCode(overlayBlendMode) != 0;
     }
 
+    /**
+     * True when this IMAGE overlay carries effect cards the export must run in GL.
+     *
+     * <p>A Canvas cannot express the FX chain — it is a fragment shader — so an image with effects
+     * has to leave the canvas path exactly as a blended one does. Text overlays are excluded here
+     * for the same reason they are excluded from {@link #wantsExportBlend()}: their effects already
+     * reach the export through {@code TextFxGlEffect}, and routing them twice would draw them
+     * twice.</p>
+     */
+    public boolean hasExportFx() {
+        return isImage() && hasActiveFx();
+    }
+
+    /**
+     * The ONE predicate that decides an image overlay leaves the Canvas path for the GL one.
+     *
+     * <p>Single authority on purpose (the reasoning in {@code 3152cc4}): the emitter and the canvas
+     * skip must agree exactly, or an image is drawn twice or not at all. Every caller asks this,
+     * never the two halves separately.</p>
+     */
+    public boolean wantsGlExport() {
+        return wantsExportBlend() || hasExportFx();
+    }
+
     /** Static opacity [0,1] used when there are no OPACITY keyframes. */
     public float getOpacity() { return opacity; }
 

@@ -391,11 +391,47 @@ public class TextOverlayLayer extends FrameLayout {
                          getContext().getContentResolver().openInputStream(Uri.parse(uri))) {
                 out = android.graphics.BitmapFactory.decodeStream(in, null, opts);
             }
+            // EXIF ORIENTATION, applied on BOTH renderers or neither. BitmapFactory ignores the
+            // tag, so a phone photo stored 3:4 with a "rotate 90" flag draws sideways here and in
+            // the export while every other viewer shows it upright. ImageBaseStillCache states the
+            // rule for image CLIPS — "EXIF is not optional: media3's own bitmap loader applies it
+            // on export" — and this is the same tag on the same kind of file. Fixing only the
+            // export would have swapped one wrong picture for a preview that disagrees with it,
+            // which is the WYSIWYG rule broken in the other direction.
+            int rot = exifRotation(Uri.parse(uri));
+            if (out != null && rot != 0) {
+                android.graphics.Matrix m = new android.graphics.Matrix();
+                m.postRotate(rot);
+                android.graphics.Bitmap rotated = android.graphics.Bitmap.createBitmap(
+                        out, 0, 0, out.getWidth(), out.getHeight(), m, true);
+                // The un-rotated bitmap was never published — only this cache will hold the result.
+                if (rotated != out) out = rotated;
+            }
         } catch (Throwable ignored) {
             // Unreadable source: cache the failure so the next rebuild does not try again.
         }
         imageCache.put(uri, out);
         return out;
+    }
+
+    /**
+     * Degrees this image must be rotated by to be seen upright, from its EXIF tag.
+     *
+     * <p>A SECOND stream, because {@code ExifInterface} consumes what it reads. Same four cases and
+     * the same silent fallback as the export's decoder and {@code ImageBaseStillCache}: an
+     * unreadable tag costs the image its rotation, never its appearance.</p>
+     */
+    private int exifRotation(@NonNull Uri uri) {
+        try (java.io.InputStream is = getContext().getContentResolver().openInputStream(uri)) {
+            if (is == null) return 0;
+            int o = new androidx.exifinterface.media.ExifInterface(is).getAttributeInt(
+                    androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL);
+            if (o == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90) return 90;
+            if (o == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180) return 180;
+            if (o == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270) return 270;
+        } catch (Exception ignored) { }
+        return 0;
     }
 
     /**

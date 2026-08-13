@@ -58,9 +58,26 @@ final class ImageOverlayDraw {
             android.graphics.BitmapFactory.Options opts =
                     new android.graphics.BitmapFactory.Options();
             opts.inSampleSize = sample;
+            Bitmap raw;
             try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
-                return android.graphics.BitmapFactory.decodeStream(in, null, opts);
+                raw = android.graphics.BitmapFactory.decodeStream(in, null, opts);
             }
+            if (raw == null) return null;
+            // EXIF ORIENTATION. BitmapFactory ignores the tag, so a phone photo stored 3:4 with a
+            // "rotate 90" flag decodes as a PORTRAIT bitmap here while every viewer — including the
+            // editor's own preview — shows it landscape. The export then drew it in the stored
+            // shape: an image the user placed as 4:3 landscape came out 3:4 and visibly squashed
+            // (JoyRaptor, 2026-08-13). ImageBaseStillCache states the rule for image CLIPS ("EXIF is
+            // not optional: media3's own bitmap loader applies it on export"), and displaySize
+            // reads the same tag; this decoder — the one behind image OVERLAYS on BOTH export
+            // paths — was the only one that skipped it.
+            int rot = exifRotation(context, uri);
+            if (rot == 0) return raw;
+            android.graphics.Matrix m = new android.graphics.Matrix();
+            m.postRotate(rot);
+            Bitmap out = Bitmap.createBitmap(raw, 0, 0, raw.getWidth(), raw.getHeight(), m, true);
+            if (out != raw) raw.recycle();   // never published, so a direct recycle is safe
+            return out;
         } catch (Throwable t) {
             // Logged HERE, with the stack, because only this frame knows why the decode failed;
             // the caller can only report that it got nothing back.
@@ -68,6 +85,29 @@ final class ImageOverlayDraw {
                     + " could not be decoded from " + o.getImageUri(), t);
             return null;
         }
+    }
+
+    /**
+     * Degrees this image must be rotated by to be seen the right way up, from its EXIF tag.
+     *
+     * <p>Read from a SECOND stream rather than the decode stream: {@code ExifInterface} consumes
+     * what it reads, and a shared stream would leave the decoder either empty-handed or at the
+     * wrong offset. Same shape as {@code ImageBaseStillCache.exifRotation} — deliberately the same
+     * four cases and the same silent fallback to 0, because an unreadable tag must cost an image
+     * its rotation, never its appearance in the export.</p>
+     */
+    private static int exifRotation(@NonNull android.content.Context context,
+                                    @NonNull android.net.Uri uri) {
+        try (java.io.InputStream is = context.getContentResolver().openInputStream(uri)) {
+            if (is == null) return 0;
+            int o = new androidx.exifinterface.media.ExifInterface(is).getAttributeInt(
+                    androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+                    androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL);
+            if (o == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90) return 90;
+            if (o == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180) return 180;
+            if (o == androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270) return 270;
+        } catch (Exception ignored) { }
+        return 0;
     }
 
     /**

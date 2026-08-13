@@ -17878,17 +17878,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Route a (not-yet-added) text overlay onto the first TEXT lane whose existing
-     * items don't overlap the new item's time range: the default lane (layerId null)
-     * first, then each user-created TEXT track in order. If every lane is occupied
-     * over the range, create a fresh TEXT track and assign the item there — the user
-     * should never have to manually untangle two objects stacked on one lane.
+     * Route a (not-yet-added) text overlay onto the TOP-most lane whose existing items don't
+     * overlap the new item's time range. If every lane is occupied over the range, create a
+     * fresh track and assign the item there — the user should never have to manually untangle
+     * two objects stacked on one lane.
+     *
+     * <p><b>Top-most first, and that is a change.</b> This used to try the DEFAULT lane first
+     * and work upward, so a new text landed on the bottom-most lane that happened to be free.
+     * Two things were wrong with that. JoyRaptor asked for the obvious one directly (2026-08-13):
+     * "text should be created on the top layer initially" — a thing you just made should be in
+     * front of the things you made earlier, not behind them.
+     *
+     * <p>The other is not cosmetic at all. {@code SPEC_CROSSTYPE_Z} splits overlays into two
+     * paint buckets around the PiP plane, and the in-canvas text EDITOR only ever attaches to
+     * the ABOVE-video surface ({@code showTextOverlayEditor} → {@code overlayLayer}). A new text
+     * routed to a lane below a PiP lane is therefore drawn by the OTHER surface, where
+     * {@code attachToBox} finds no box, returns silently, and the user gets a text object with
+     * no keyboard and nowhere to type. Preferring the top lane keeps a new text on the side of
+     * the plane the editor lives on.</p>
      */
     private void assignTextOverlayToFreeLane(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         Timeline tl = project.getTimeline();
         java.util.List<String> candidates = new java.util.ArrayList<>();
-        candidates.add(null); // default "text" lane
         int textTrackCount = 1;
         for (com.fadcam.ui.faditor.layers.LayerTrackDef def : tl.getExtraLayerTracks()) {
             // NEUTRAL SUBSTRATE: every FLOATING lane can hold text, so every one is a
@@ -17898,6 +17910,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             candidates.add(def.getId());
             textTrackCount++;
         }
+        // Top-most first: getLayers() emits lanes bottom→top, so the last extra track is the
+        // highest. The default lane (layerId null) is the FLOOR and is tried last, which is the
+        // reversal — it used to be tried first.
+        java.util.Collections.reverse(candidates);
+        candidates.add(null);
         for (String trackId : candidates) {
             boolean clash = false;
             for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
@@ -24079,55 +24096,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
             previewHandlesOverlay = ensurePreviewHandlesOverlay();
             previewHandlesOverlay.setEditingItemId(item.getId());
         }
-        // Closing the drawer (✕, grip-drag-dismiss, or opening a different object) is what "OK"
-        // used to be: text/colour/font/style all wrote live as the user worked, so all that is
-        // left on the way out is (a) recording the ADD undo the first time real text exists, and
-        // (b) cleaning up a placeholder this session created and never filled in — the exact
-        // cleanup Cancel used to do, now run unconditionally on close since there is no separate
-        // Cancel affordance on a live-editing drawer (same convention FxPanel/PipDrawerTabs use).
+        // Closing the drawer (✕, BACK, grip-drag-dismiss, or opening a different object) is what
+        // "OK" used to be: text/colour/font/style all write live as the user works, so all that
+        // is left on the way out is recording the ADD undo the first time the box survives a
+        // close — same convention FxPanel/PipDrawerTabs use.
         drawer.setOnClose(() -> {
-            String txt = item.getText();
-            boolean stillPlaceholder = txt == null || txt.trim().isEmpty()
-                    || txt.equals(getString(R.string.faditor_text_hint));
-            // MOVING IT COUNTS AS WANTING IT. The cleanup below deletes a box created in this
-            // session that still holds the placeholder — which is right for "opened the tool, then
-            // changed my mind", and hostile for what JoyRaptor actually did (2026-08-12): created a
-            // text box, could not see where to type, dragged it somewhere visible, and the drag
-            // closed the drawer and destroyed the box. "It canceled making the text box, because I
-            // hadn't entered any text yet, but I couldn't see where to enter text."
+            // A PLACEHOLDER IS KEPT. This used to delete a box created in this session that
+            // still held the placeholder text — the "opened the tool, then changed my mind"
+            // case — and a growing list of things the user does next turned out to close the
+            // drawer without counting as wanting the box. Moving it was patched in once
+            // (2026-08-12). It was not enough: on the Note 9, pressing BACK to put the keyboard
+            // away closes the drawer too, and the box is gone before a single character has
+            // been typed. JoyRaptor hit the same wall from the other side (2026-08-13) — "when I
+            // try to click on it for the dialog box it ends up canceling and nothing is made
+            // and the text is deleted."
             //
-            // Placing an object IS an edit. A box that has been moved, scaled or rotated is kept,
-            // placeholder or not, so the worst case is a visible "Enter text" the user can tap —
-            // recoverable — instead of silent destruction of work, which is not.
-            if (stillPlaceholder && textOverlayTouchedHere.contains(item.getId())) {
-                textOverlayCreatedHere.remove(item.getId());
-                textOverlayTouchedHere.remove(item.getId());
-                endTextStyleSession(session);
-                return;
-            }
-            if (stillPlaceholder) {
-                session.destroyed = true;
-                if (textOverlayCreatedHere.contains(item.getId())) {
-                    String emptiedLane = item.getLayerId();
-                    project.getTimeline().removeTextOverlay(item);
-                    textOverlayCreatedHere.remove(item.getId());
-                    final com.fadcam.ui.faditor.layers.LayerTrackDef prunedLane =
-                            pruneEmptyLayerTrack(emptiedLane);
-                    undoManager.recordAction(new EditActions.LambdaAction(
-                            getString(R.string.faditor_text_delete),
-                            () -> { project.getTimeline().removeTextOverlay(item); syncTimelineOverlays(); },
-                            () -> { restorePrunedLane(prunedLane);
-                                    project.getTimeline().addTextOverlay(item);
-                                    refreshOverlayPreview();
-                                    syncTimelineOverlays(); }));
-                    refreshOverlayPreview();
-                    syncTimelineOverlays();
-                    scheduleAutoSave();
-                }
-                endTextStyleSession(session);
-                return;
-            }
+            // The rule was always trying to guess intent from what the user had NOT done yet,
+            // and it guessed wrong in every direction. It is gone. An unwanted box says "Enter
+            // text" in the preview, is one tap from the editor and one tap from the trash —
+            // recoverable. Silent destruction of a thing the user made is not, and this file
+            // already said so in as many words when the move exemption went in.
+            //
+            // A placeholder now falls THROUGH to the same close path a filled-in box takes,
+            // rather than early-returning: that path is what records the "Add text overlay"
+            // undo, so the accidental box the user does want gone is one press of undo away.
+            // Early-returning here would have kept it AND made it un-undoable, which is a
+            // second way to be unhelpful.
             textOverlayCreatedHere.remove(item.getId());
+            textOverlayTouchedHere.remove(item.getId());
+            // AN EMPTY BOX GETS ITS PROMPT BACK. Opening the editor maps the "Enter text" hint to
+            // an empty field so the user is not deleting placeholder text before typing their
+            // own — which means a box abandoned AFTER the editor opened holds "", and a text
+            // overlay with no text draws nothing at all. Keeping it would then leave an
+            // invisible, untappable object: the whole point of keeping it is that the user can
+            // see it and deal with it, so it has to say something.
+            String onClose = item.getText();
+            if (onClose == null || onClose.trim().isEmpty()) {
+                item.setText(getString(R.string.faditor_text_hint));
+                refreshOverlayPreview();
+                syncTimelineOverlays();
+            }
             if (project.getTimeline().getTextOverlays().contains(item)
                     && !textOverlayAddRecorded.contains(item)) {
                 textOverlayAddRecorded.add(item);

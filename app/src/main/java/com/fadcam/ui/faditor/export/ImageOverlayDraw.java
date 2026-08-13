@@ -136,12 +136,19 @@ final class ImageOverlayDraw {
                 timelineMs, o.motionRangeStartMs(), o.motionSpanMs(projectDurationMs),
                 o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
         float aspect = img.getHeight() > 0 ? img.getWidth() / (float) img.getHeight() : 1f;
-        // Per-axis scale, mirroring TextOverlayLayer.position: a split Scale X/Y pair stretches
-        // one axis; linked keeps both multipliers at 1 so existing projects are byte-identical.
+        // Per-axis scale, mirroring TextOverlayLayer's imageHeightPx/imageWidthPx: a split Scale
+        // X/Y pair stretches one axis; linked keeps both multipliers at 1 so existing projects
+        // are byte-identical.
+        //
+        // EACH AXIS FROM THE SAME UNSCALED BASE. The width used to be derived from the already-
+        // scaled HEIGHT — `ih * aspect * sx` — which put sy into the width too, so width scaled
+        // by sx*sy against a height scaling by sy. A uniform enlargement came out stretched.
+        // See imageHeightPx for the full note and for why this is inert at scaleY == 1.
         float sx = o.animatedScaleX(timelineMs);
         float sy = o.animatedScaleY(timelineMs);
-        float ih = Math.max(1f, sizeFrac * sy * outH);
-        float iw = Math.max(1f, ih * aspect * sx);
+        float base = sizeFrac * outH;
+        float ih = Math.max(1f, base * sy);
+        float iw = Math.max(1f, base * aspect * sx);
         Paint ip = new Paint(Paint.FILTER_BITMAP_FLAG);
         // The preview composes the preset's alpha OVER the keyframed opacity ("compose, don't
         // replace"), so this multiplies rather than picking one.

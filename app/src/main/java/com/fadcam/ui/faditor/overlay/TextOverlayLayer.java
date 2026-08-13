@@ -164,9 +164,11 @@ public class TextOverlayLayer extends FrameLayout {
     /** Re-host the editor on this item's box (fresh box after a rebuild). */
     private void attachToBox() {
         if (editingItemId == null || textEditor == null) return;
+        int boxes = 0;
         for (int i = 0; i < getChildCount(); i++) {
             View v = getChildAt(i);
             Object tag = v.getTag();
+            if (v instanceof TextBoxView) boxes++;
             if (tag instanceof TextOverlayItem && v instanceof TextBoxView
                     && editingItemId.equals(((TextOverlayItem) tag).getId())) {
                 final TextBoxView tb = (TextBoxView) v;
@@ -180,6 +182,12 @@ public class TextOverlayLayer extends FrameLayout {
                 return;
             }
         }
+        // SILENT UNTIL NOW, and that was the whole trap. A box on the OTHER paint surface (Z3
+        // splits overlays around the PiP plane) leaves this loop having done nothing, so the
+        // drawer opens over a preview with no editor in it and the user gets a text object they
+        // cannot type into — with no clue why. Say so.
+        com.fadcam.FLog.w("TextOverlayLayer", "attachToBox: no box for " + editingItemId
+                + " on this surface (" + boxes + " text boxes here) — no editor, no keyboard");
     }
 
     /**
@@ -219,10 +227,45 @@ public class TextOverlayLayer extends FrameLayout {
         }
     }
 
+    /**
+     * Raise the keyboard for {@code e}, WAITING for the input manager to actually be serving it.
+     *
+     * <p><b>A bare {@code showSoftInput} right after {@code requestFocus} loses a race.</b> The
+     * IMM tracks a "served view" that is updated from the view tree's focus-change pass, not
+     * synchronously inside {@code requestFocus()}. Ask in the same frame and the request is
+     * dropped on the floor with nothing thrown — logcat says it plainly once you look:
+     * {@code showSoftInput - cancel : mServedView != view}. The symptom is a text drawer that
+     * opens over a box with a caret in it and no keyboard, which is half of "I can't actually
+     * get the text dialog box up" (JoyRaptor, 2026-08-13).</p>
+     *
+     * <p>Creating a NEW text box happened to win the race — the drawer animation and the rebuild
+     * that follows it buy an extra frame — which is exactly why this survived: the path everyone
+     * tests worked, and the path you reach by tapping an existing box did not.</p>
+     *
+     * <p>Retries rather than posting once, because the number of frames is not ours to predict.
+     * It gives up after a bounded number of attempts rather than looping forever, and abandons
+     * immediately if the session has moved to another editor.</p>
+     */
     private void showIme(@NonNull EditText e) {
+        showImeWhenServed(e, 8);
+    }
+
+    private void showImeWhenServed(@NonNull EditText e, int triesLeft) {
+        if (textEditor != e) return;   // a later session owns the keyboard now
         InputMethodManager imm = (InputMethodManager)
                 getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm != null) imm.showSoftInput(e, InputMethodManager.SHOW_IMPLICIT);
+        if (imm == null) return;
+        if (imm.isActive(e)) {
+            imm.showSoftInput(e, InputMethodManager.SHOW_IMPLICIT);
+            return;
+        }
+        if (triesLeft <= 0) {
+            com.fadcam.FLog.w("TextOverlayLayer",
+                    "the input manager never served the text editor — no keyboard");
+            return;
+        }
+        e.requestFocus();
+        e.postDelayed(() -> showImeWhenServed(e, triesLeft - 1), 32L);
     }
 
     private void hideIme(@NonNull EditText e) {
@@ -727,7 +770,7 @@ public class TextOverlayLayer extends FrameLayout {
                 aspect = d.getIntrinsicWidth() / (float) d.getIntrinsicHeight();
             }
             h = Math.round(imageHeightPx(o, sizeFraction, r.height(), live));
-            w = Math.round(imageWidthPx(o, h, aspect, live));
+            w = Math.round(imageWidthPx(o, sizeFraction, r.height(), aspect, live));
         } else {
             // Neither a text box nor an image with a drawable — keep whatever it measured to
             // rather than collapsing it to nothing.
@@ -796,23 +839,58 @@ public class TextOverlayLayer extends FrameLayout {
     }
 
     /**
-     * An image overlay's drawn HEIGHT: a fraction of the video's height. The per-axis scale
-     * multiplier folds in HERE rather than into {@code sizeFraction}, so a split (unlinked)
-     * Scale X/Y pair in the image drawer stretches the picture along one axis without moving the
-     * other — the whole point of the chain toggle. Linked mode keeps both at 1, so every
-     * pre-existing project renders exactly as it always did.
+     * An image overlay's drawn HEIGHT and WIDTH, each derived from the SAME unscaled base and
+     * scaled by its OWN axis. The per-axis multipliers fold in here rather than into
+     * {@code sizeFraction}, so a split (unlinked) Scale X/Y pair stretches the picture along one
+     * axis without moving the other — the whole point of the chain toggle.
+     *
+     * <p><b>Width no longer derives from the SCALED height, and that was a real distortion.</b>
+     * It used to read {@code h = sizeFraction * sy * H} and then {@code w = h * aspect * sx},
+     * which puts {@code sy} into the WIDTH as well: width scaled by {@code sx * sy} while height
+     * scaled by {@code sy}. Setting both axes to the same number — a plain uniform enlargement,
+     * the least surprising thing a user can ask for — therefore stretched the picture instead of
+     * enlarging it. At 4x it came out four times too wide, which is how JoyRaptor spotted it in a
+     * screenshot (2026-08-13).</p>
+     *
+     * <p><b>Provably inert wherever the scale was never split.</b> The two formulas differ by
+     * exactly a factor of {@code sy}, so at {@code scaleY == 1} — every project that only ever
+     * used the linked control — they are the same number. Only a project that deliberately
+     * unlinked the pair renders differently, and it renders correctly instead of stretched.</p>
+     *
+     * <p>{@code ImageOverlayDraw} carries the identical pair for the export, and was fixed in
+     * the same change: it mirrors this method by design, so a fix here alone would have traded a
+     * distorted preview for a preview that disagrees with the file.</p>
      */
+    /**
+     * A text box with nothing in it — the state a freshly created overlay sits in until the
+     * first character is typed. Blank rather than the "Enter text" hint string: the drawer maps
+     * the hint to an empty editor on open, and the editor writes that back, so by the time a box
+     * is on screen waiting for input its text is genuinely empty.
+     *
+     * <p>Images are excluded. An image with no text is not an empty box, it is a picture, and
+     * one tap on it must keep meaning select.</p>
+     */
+    private boolean isEmptyTextBox(@NonNull TextOverlayItem o) {
+        if (o.isImage() || o.isGeneratedSlide()) return false;
+        String t = o.getText();
+        if (t == null || t.trim().isEmpty()) return true;
+        // The HINT counts as empty too. A box abandoned before typing carries the prompt string
+        // rather than "", so testing only for blank would leave exactly the box this is for —
+        // the one sitting on screen saying "Enter text" — needing a double-tap.
+        return t.equals(getContext().getString(com.fadcam.R.string.faditor_text_hint));
+    }
+
     private float imageHeightPx(@NonNull TextOverlayItem o, float sizeFraction,
                                 float contentHeightPx, boolean live) {
         float sy = live ? o.getScaleY() : o.animatedScaleY(currentTimeMs);
-        return sizeFraction * sy * contentHeightPx;
+        return sizeFraction * contentHeightPx * sy;
     }
 
-    /** An image overlay's drawn WIDTH: its height through the source aspect, times Scale X. */
-    private float imageWidthPx(@NonNull TextOverlayItem o, float heightPx, float aspect,
-                               boolean live) {
+    /** @see #imageHeightPx — the same base, through the source aspect, times Scale X. */
+    private float imageWidthPx(@NonNull TextOverlayItem o, float sizeFraction,
+                               float contentHeightPx, float aspect, boolean live) {
         float sx = live ? o.getScaleX() : o.animatedScaleX(currentTimeMs);
-        return heightPx * aspect * sx;
+        return sizeFraction * contentHeightPx * aspect * sx;
     }
 
     /**
@@ -866,7 +944,7 @@ public class TextOverlayLayer extends FrameLayout {
                 presetTransformAt(o, sizeFraction, r.height(), live);
         float aspect = bmp.getWidth() / (float) bmp.getHeight();
         float hPx = imageHeightPx(o, sizeFraction, r.height(), live);
-        float wPx = imageWidthPx(o, hPx, aspect, live);
+        float wPx = imageWidthPx(o, sizeFraction, r.height(), aspect, live);
 
         float cx = (live ? o.getCenterX() : o.animatedCenterX(currentTimeMs))
                 + anim.dx / r.width();
@@ -1047,6 +1125,30 @@ public class TextOverlayLayer extends FrameLayout {
                                 if (o == lastTapOverlay && now - lastTapUpMs <= 320) {
                                     lastTapOverlay = null;
                                     callback.onEditRequested(o); // double-tap = type editor
+                                } else if (isEmptyTextBox(o)) {
+                                    // ONE TAP OPENS AN EMPTY BOX. Selecting a box with nothing
+                                    // in it accomplishes nothing the user wants — there is no
+                                    // content to style, and the only sensible next move is to
+                                    // type. Requiring a double-tap to reach the one useful
+                                    // action is what "I can't actually get the text dialog box
+                                    // up ... it should be easy for me to tap on the text box to
+                                    // edit it" describes (JoyRaptor, 2026-08-13).
+                                    //
+                                    // Only for an EMPTY box: a filled one keeps tap-to-select,
+                                    // because selecting is how you reach its style controls and
+                                    // stealing that would trade one complaint for another.
+                                    lastTapOverlay = null;
+                                    // POSTED, not called inline. Opening the editor rebuilds
+                                    // this layer's views and then posts focus + showIme onto the
+                                    // fresh box; doing that while this ACTION_UP is still being
+                                    // dispatched leaves the drawer open with no keyboard, which
+                                    // is the very state this shortcut exists to avoid. The
+                                    // double-tap path escapes it only because its first tap has
+                                    // already let the touch stream finish.
+                                    final TextOverlayItem target = o;
+                                    tv.post(() -> {
+                                        if (callback != null) callback.onEditRequested(target);
+                                    });
                                 } else {
                                     lastTapOverlay = o;
                                     lastTapUpMs = now;

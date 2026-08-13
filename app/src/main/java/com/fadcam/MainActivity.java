@@ -2013,6 +2013,20 @@ public class MainActivity extends AppCompatActivity {
     }
     
     /**
+     * Switch to the Records tab from elsewhere in the app.
+     *
+     * <p>Goes through {@code setSelectedItemId} rather than swapping the fragment directly, so the
+     * bottom bar, the pager and the tab-specific callbacks all move together — the same path a tap
+     * on the bar takes. Added for the export dock's "view in Recordings", which is the natural next
+     * step after finishing an export and had nowhere to go before.</p>
+     */
+    public void openRecordsTab() {
+        if (bottomNavigationView != null) {
+            bottomNavigationView.setSelectedItemId(R.id.navigation_records);
+        }
+    }
+
+    /**
      * Get navigation item ID for a given tab position.
      */
     private int getNavItemIdForPosition(int position) {

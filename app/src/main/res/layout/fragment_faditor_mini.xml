@@ -176,6 +176,59 @@
                 android:textSize="12sp"
                 android:paddingBottom="4dp"
                 tools:text="1.2 GB / 2.5 GB" />
+
+            <!-- Result row: the finished video, on completion only. "OK" alone left the user
+                 with nothing to DO about the thing they just made — this is the tap that plays
+                 it and the one that goes to find it. -->
+            <LinearLayout
+                android:id="@+id/faditor_export_dock_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:paddingBottom="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <FrameLayout
+                    android:id="@+id/faditor_export_dock_thumb_wrap"
+                    android:layout_width="76dp"
+                    android:layout_height="52dp"
+                    android:background="@drawable/bg_dark_rounded"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:id="@+id/faditor_export_dock_thumb"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:contentDescription="@string/faditor_export_result_play" />
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/ic_play"
+                        android:tint="@android:color/white"
+                        android:alpha="0.92"
+                        android:contentDescription="@string/faditor_export_result_play" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/faditor_export_dock_open_records"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="@string/faditor_export_result_open_records"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 

@@ -95,6 +95,13 @@ public class FaditorMiniFragment extends BaseFragment {
     private TextView exportDockEta;
     private TextView exportDockSummary;
     private com.fadcam.ui.utils.AnimatedTextView exportDockOk;
+    /** The finished-video row: thumbnail (tap = play) + "view in Recordings". Completion only. */
+    private View exportDockResult;
+    private View exportDockThumbWrap;
+    private ImageView exportDockThumb;
+    private TextView exportDockOpenRecords;
+    /** Path of the most recent completed export, for the two actions on that row. */
+    @Nullable private String lastExportPath;
     private long exportStartTimeMs = 0;
     private float lastReportedProgress = 0f;
     
@@ -272,6 +279,16 @@ public class FaditorMiniFragment extends BaseFragment {
         exportDockEta = view.findViewById(R.id.faditor_export_dock_eta);
         exportDockSummary = view.findViewById(R.id.faditor_export_dock_summary);
         exportDockOk = view.findViewById(R.id.faditor_export_dock_ok);
+        exportDockResult = view.findViewById(R.id.faditor_export_dock_result);
+        exportDockThumbWrap = view.findViewById(R.id.faditor_export_dock_thumb_wrap);
+        exportDockThumb = view.findViewById(R.id.faditor_export_dock_thumb);
+        exportDockOpenRecords = view.findViewById(R.id.faditor_export_dock_open_records);
+        if (exportDockThumbWrap != null) {
+            exportDockThumbWrap.setOnClickListener(v -> playLastExport());
+        }
+        if (exportDockOpenRecords != null) {
+            exportDockOpenRecords.setOnClickListener(v -> openRecordsTab());
+        }
 
         // OK/Cancel button: Cancel during export, dismiss after completion
         if (exportDockOk != null) {
@@ -1138,6 +1155,11 @@ public class FaditorMiniFragment extends BaseFragment {
                     if (exportDock != null) {
                         exportDock.setVisibility(View.GONE);
                     }
+                    // Clear the finished-video row with the dock, so the NEXT export cannot flash
+                    // the previous one's poster frame while its own is still decoding.
+                    if (exportDockResult != null) exportDockResult.setVisibility(View.GONE);
+                    if (exportDockThumb != null) exportDockThumb.setImageDrawable(null);
+                    lastExportPath = null;
                 })
                 .start();
         
@@ -1233,6 +1255,11 @@ public class FaditorMiniFragment extends BaseFragment {
             exportDockSummary.setText(getString(R.string.export_file_size, sizeStr));
         }
 
+        // The finished video itself: a thumbnail to play and a way to go find it. Without this the
+        // only thing the user could do with the thing they had just made was dismiss it.
+        lastExportPath = outputPath;
+        showExportResultRow(outputPath);
+
         // Show OK button after a brief delay
         if (exportDockOk != null) {
             exportDockOk.postDelayed(() -> {
@@ -1246,6 +1273,83 @@ public class FaditorMiniFragment extends BaseFragment {
                             .start();
                 }
             }, 600);
+        }
+    }
+
+    /**
+     * Reveal the finished-video row and decode its poster frame.
+     *
+     * <p>The decode is OFF the main thread: {@code MediaMetadataRetriever.setDataSource} on a fresh
+     * export costs 100–300ms, and this runs at the exact moment the completion animation is
+     * playing. The row appears immediately with the play badge over an empty tile and the frame
+     * drops in when it lands, rather than the dock hitching on its way to "complete".</p>
+     */
+    private void showExportResultRow(@Nullable String outputPath) {
+        if (exportDockResult == null) return;
+        if (outputPath == null || !new java.io.File(outputPath).exists()) {
+            exportDockResult.setVisibility(View.GONE);
+            return;
+        }
+        exportDockResult.setVisibility(View.VISIBLE);
+        if (exportDockThumb != null) exportDockThumb.setImageDrawable(null);
+        final String path = outputPath;
+        new Thread(() -> {
+            android.graphics.Bitmap frame = null;
+            android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
+            try {
+                mmr.setDataSource(path);
+                // A poster from ~1s in, falling back to the first frame: many exports open on a
+                // fade or a black transition, and a black tile reads as "something went wrong".
+                frame = mmr.getFrameAtTime(1_000_000L,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (frame == null) frame = mmr.getFrameAtTime();
+            } catch (Exception e) {
+                FLog.w(TAG, "Export thumbnail decode failed for " + path, e);
+            } finally {
+                try { mmr.release(); } catch (Exception ignore) {}
+            }
+            final android.graphics.Bitmap out = frame;
+            if (out == null || exportDockThumb == null) return;
+            exportDockThumb.post(() -> {
+                // The dock may have been dismissed while we decoded.
+                if (exportDockThumb != null && exportDockResult != null
+                        && exportDockResult.getVisibility() == View.VISIBLE) {
+                    exportDockThumb.setImageBitmap(out);
+                }
+            });
+        }, "export-thumb").start();
+    }
+
+    /** Play the just-exported file through the app's own player. */
+    private void playLastExport() {
+        if (lastExportPath == null || getActivity() == null) return;
+        java.io.File f = new java.io.File(lastExportPath);
+        if (!f.exists()) {
+            Toast.makeText(getContext(), getString(R.string.records_error_opening_media),
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            // FileProvider, not Uri.fromFile: a file:// URI in an Intent throws
+            // FileUriExposedException on N+ even within our own process.
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                    requireContext(), requireContext().getPackageName() + ".provider", f);
+            Intent intent = new Intent(getActivity(), VideoPlayerActivity.class);
+            intent.setData(uri);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.putExtra("item_display_name", f.getName());
+            startActivity(intent);
+        } catch (Exception e) {
+            FLog.e(TAG, "Failed to play export " + lastExportPath, e);
+            Toast.makeText(getContext(), getString(R.string.records_error_opening_media),
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Switch to the Records tab, where the new file is now listed. */
+    private void openRecordsTab() {
+        if (getActivity() instanceof com.fadcam.MainActivity) {
+            ((com.fadcam.MainActivity) getActivity()).openRecordsTab();
         }
     }
 

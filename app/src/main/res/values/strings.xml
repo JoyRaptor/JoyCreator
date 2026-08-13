@@ -1462,6 +1462,8 @@
     <!-- Export dock (Faditor Mini tab) -->
     <string name="faditor_export_progress">Exporting…</string>
     <string name="faditor_export_completed">Export Complete</string>
+    <string name="faditor_export_result_play">Play the video you just exported</string>
+    <string name="faditor_export_result_open_records">Tap to play · View in Recordings</string>
     <string name="faditor_export_cancelled">Export Cancelled</string>
     <string name="faditor_export_failed">Export Failed</string>
     <string name="export_eta_seconds">ETA %d s</string>

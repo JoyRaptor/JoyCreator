@@ -151,6 +151,11 @@ public class RecordsFragment extends BaseFragment implements
     }
 
     private BroadcastReceiver recordingCompleteReceiver; // ** ADD field for the receiver **
+    /** Fires when a Faditor export lands, so the list refreshes itself — see the register method. */
+    private BroadcastReceiver exportCompleteReceiver;
+    private boolean isExportReceiverRegistered = false;
+    /** Absolute path of a file that appeared while the user was watching, for the arrival pulse. */
+    @Nullable private String justAddedPath;
     private boolean isReceiverRegistered = false; // Track registration status
     // ** NEW: Fields for storage change receiver **
     private BroadcastReceiver storageLocationChangedReceiver;
@@ -1540,6 +1545,53 @@ public class RecordsFragment extends BaseFragment implements
         }
     }
 
+    /**
+     * An EXPORT finishing is a new video in this list, exactly as a recording finishing is.
+     *
+     * <p>Only {@code ACTION_RECORDING_COMPLETE} was listened for, so a Faditor export landed on
+     * disk and the list did not know: the user had to pull-to-refresh to see the file they had just
+     * made, every single time (JoyRaptor, 2026-08-13). The export service already broadcasts its own
+     * completion with the output path, so this is the same delta-scan refresh the recorder path
+     * takes, plus the path so the new row can announce itself.</p>
+     */
+    private void registerExportCompleteReceiver() {
+        if (isExportReceiverRegistered || getContext() == null) return;
+        if (exportCompleteReceiver == null) {
+            exportCompleteReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent == null) return;
+                    String out = intent.getStringExtra(
+                            com.fadcam.ui.faditor.export.ExportService.EXTRA_OUTPUT_PATH);
+                    FLog.d(TAG, "Export completed — refreshing records list. out=" + out);
+                    justAddedPath = out;
+                    if (recordsAdapter != null) {
+                        recordsAdapter.clearCaches();
+                        recordsAdapter.setJustAddedPath(out);
+                    }
+                    loadRecordsList();   // delta scan picks up the new file
+                }
+            };
+        }
+        ContextCompat.registerReceiver(getContext(), exportCompleteReceiver,
+                new IntentFilter(
+                        com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_COMPLETED),
+                ContextCompat.RECEIVER_NOT_EXPORTED);
+        isExportReceiverRegistered = true;
+        FLog.d(TAG, "ExportCompleteReceiver registered.");
+    }
+
+    private void unregisterExportCompleteReceiver() {
+        if (isExportReceiverRegistered && exportCompleteReceiver != null && getContext() != null) {
+            try {
+                requireContext().unregisterReceiver(exportCompleteReceiver);
+            } catch (IllegalArgumentException e) {
+                FLog.w(TAG, "Export receiver was not registered");
+            }
+            isExportReceiverRegistered = false;
+        }
+    }
+
     private void unregisterRecordingCompleteReceiver() {
         if (isReceiverRegistered && recordingCompleteReceiver != null && getContext() != null) {
             try {
@@ -1948,6 +2000,7 @@ public class RecordsFragment extends BaseFragment implements
         }
         // RecordsFragment -----
         registerRecordingCompleteReceiver();
+        registerExportCompleteReceiver();
     } // End onViewCreated
 
     @Override
@@ -2224,6 +2277,12 @@ public class RecordsFragment extends BaseFragment implements
                 com.fadcam.Constants.PREF_APP_THEME, com.fadcam.Constants.DEFAULT_APP_THEME);
         recordsAdapter.setSnowVeilTheme("Snow Veil".equals(currentTheme));
         recordsAdapter.setGridSpan(currentGridSpan);
+        // A file can land while this list has no adapter yet — the export finishes on the Faditor
+        // tab and the user walks over afterwards. The path is held on the fragment for exactly that
+        // case, so the pulse survives the trip rather than being lost with the old adapter.
+        if (justAddedPath != null) {
+            recordsAdapter.setJustAddedPath(justAddedPath);
+        }
 
         // Set the layout manager
         setLayoutManager();
@@ -5240,6 +5299,7 @@ public class RecordsFragment extends BaseFragment implements
     public void onDestroy() {
         super.onDestroy();
         unregisterRecordingCompleteReceiver();
+        unregisterExportCompleteReceiver();
         if (fastScroller != null) {
             fastScroller.detach();
         }

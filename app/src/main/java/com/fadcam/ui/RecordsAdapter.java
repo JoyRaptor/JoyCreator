@@ -376,6 +376,20 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         final boolean isOpened = sharedPreferencesManager.getOpenedVideoUris().contains(uriString);
         final boolean showNewBadge = !isOpened && !isProcessing;
+
+        // ARRIVAL PULSE — a different question from the NEW badge, deliberately.
+        //
+        // NEW means "you have not opened this yet" and can be true for a week. This means "this
+        // appeared while you were looking at the list", and it fires ONCE. Both can be true at the
+        // same time on the same row, which is the point: the badge tells you what is unwatched, the
+        // pulse tells you which one just landed (JoyRaptor, 2026-08-13).
+        //
+        // Consumed on the first bind so scrolling the row off and back does not replay it — a
+        // pulse that repeats stops meaning "just now" and becomes decoration.
+        if (justAddedPath != null && isSameFile(videoItem, justAddedPath)) {
+            justAddedPath = null;
+            playArrivalPulse(holder.itemView);
+        }
         final boolean allowGeneralInteractions = !isProcessing;
         final boolean allowMenuClick = allowGeneralInteractions && !this.isSelectionModeActive;
 
@@ -3167,6 +3181,51 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     private boolean canRunHeavyMetadataWork() {
         return !deferHeavyMetadataWork && !(safeMediaProbeMode && isScrolling);
+    }
+
+    /**
+     * Arm the one-shot arrival pulse for the file at {@code path}, or clear it with null.
+     *
+     * <p>Set by {@code RecordsFragment} when an export or a recording lands while the list is on
+     * screen. Kept as a PATH rather than a position because the list is re-sorted and re-scanned
+     * between the broadcast and the bind, so any index captured now would be pointing elsewhere by
+     * the time the row exists.</p>
+     */
+    public void setJustAddedPath(@Nullable String path) {
+        this.justAddedPath = path;
+    }
+
+    /** @see #setJustAddedPath */
+    @Nullable private String justAddedPath;
+
+    /** True when this item IS the file at {@code path} — by file path, or by the uri's last part. */
+    private static boolean isSameFile(@NonNull VideoItem item, @NonNull String path) {
+        String name = new java.io.File(path).getName();
+        if (item.displayName != null && item.displayName.equals(name)) return true;
+        String uri = item.uri != null ? item.uri.toString() : null;
+        return uri != null && (uri.endsWith(name) || uri.contains(android.net.Uri.encode(name)));
+    }
+
+    /**
+     * One soft pulse on the row that just arrived: a quick lift and settle, twice.
+     *
+     * <p>Scale rather than colour so it reads the same on every card state (selected, processing,
+     * badged) and cannot be confused with the NEW badge's own styling. Short enough that a user
+     * mid-scroll sees it as motion catching their eye rather than an animation they must wait out.</p>
+     */
+    private static void playArrivalPulse(@NonNull View row) {
+        row.setScaleX(1f);
+        row.setScaleY(1f);
+        row.animate().cancel();
+        row.animate().scaleX(1.035f).scaleY(1.035f).setDuration(180)
+                .withEndAction(() -> row.animate().scaleX(1f).scaleY(1f).setDuration(180)
+                        .withEndAction(() -> row.animate().scaleX(1.02f).scaleY(1.02f)
+                                .setDuration(140)
+                                .withEndAction(() -> row.animate().scaleX(1f).scaleY(1f)
+                                        .setDuration(140).start())
+                                .start())
+                        .start())
+                .start();
     }
 
     public void clearCaches() {

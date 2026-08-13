@@ -186,6 +186,42 @@ public class RippleObjectsTest {
         eq(free.getStartMs(), 3100, "a bare captureClipStarts map still applies on its own");
     }
 
+    /**
+     * A ripple is a MOVE, so an animated object's keys travel with it — the opposite of what a
+     * front TRIM must do, and the two live one method apart.
+     *
+     * <p>Object keys are stored local to the object's start, so shifting the start through
+     * {@code setTimeRange} carries the animation for free and the object stays over the footage it
+     * was placed against, animation and all. Rebasing them here — the thing
+     * {@code setTrimmedTimeRange} exists to do for a trim handle — would hold the animation still
+     * in project time while its object slid out from under it, which is exactly the desync the
+     * ripple work was built to end.</p>
+     *
+     * <p>Pinned because the two methods now sit side by side, and "make these consistent" is a
+     * plausible and completely wrong thing for the next reader to do.</p>
+     */
+    static void aRippleCarriesAnObjectsAnimationWithIt() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);
+        free.getKeyframes().getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X)
+                .put(0, 0.2f, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+        free.getKeyframes().getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X)
+                .put(300, 0.8f, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+        t.addTextOverlay(free);
+
+        Map<String, Long> before = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1500);          // +500 at the head
+        t.applyAnchorShift(before);
+
+        eq(free.getStartMs(), 2700, "ripple: the object moved with its footage");
+        // LOCAL times untouched → both keys moved with it in PROJECT time.
+        eq(free.getKeyframes().get(com.fadcam.ui.faditor.keyframe.KeyframeSet.X)
+                .keyframes.get(0).timeMs, 0, "ripple: local key times are UNCHANGED");
+        eq(free.getStartMs() + free.getKeyframes()
+                .get(com.fadcam.ui.faditor.keyframe.KeyframeSet.X).keyframes.get(1).timeMs, 3000,
+                "ripple: so the animation sits 500 later, exactly like its object");
+    }
+
     static void check(boolean c, String n) {
         checks++;
         System.out.println((c ? "PASS  " : "FAIL  ") + n);
@@ -238,6 +274,7 @@ public class RippleObjectsTest {
         everyObjectFamilyRipplesNotJustTextOverlays();
         speedAndLoopAreLengthChangesToo();
         aLeakedInnerBracketDoesNotSwitchRippleOffForGood();
+        aRippleCarriesAnObjectsAnimationWithIt();
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

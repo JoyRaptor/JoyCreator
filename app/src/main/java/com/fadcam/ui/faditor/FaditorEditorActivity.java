@@ -9114,6 +9114,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateCurrentTimeDisplay(long positionInCurrentSegmentMs) {
         long absoluteMs = getAbsolutePlayheadMs(positionInCurrentSegmentMs);
         lastPlayheadAbsoluteMs = absoluteMs;
+        // BEFORE syncAdjustmentPreview, and that order is load-bearing. The GL composite asks the
+        // overlay layer where each effected image overlay IS (TextOverlayLayer.fxPipFor), and the
+        // layer answers from its OWN clock — the overlay clock, which is not this method's
+        // absoluteMs (see overlayClockMs). Ticked afterwards, the composite would place every
+        // image where it was one tick ago, so a scrub would drag the picture behind the video it
+        // sits on. Advancing the clock first costs nothing: this call is idempotent and the
+        // surfaces below re-derive from the same value.
+        setTextOverlayPlayhead(absoluteMs);
         // M5: put the topmost adjustment layer's effect stack on the preview. Cheap by design —
         // it early-outs unless the RESOLVED state changed, so an unanimated stack costs one
         // string compare per tick rather than a subtree invalidation.
@@ -9158,9 +9166,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             previewHandlesOverlay.setPlayheadMs(absoluteMs);
         }
 
-        // Drive overlay time-ranges + keyframe animation from the playhead (both surfaces;
-        // the helper gates each on its own visibility).
-        setTextOverlayPlayhead(absoluteMs);
+        // Overlay time-ranges + keyframe animation were driven from the playhead HERE until the
+        // GL composite started reading the layer's clock; the call moved to the top of this
+        // method, where the reason it has to run first is written out.
         // Every surface below is time-range driven, so each one had the same past-the-last-clip
         // blindness — see overlayClockMs. Corrected once here rather than four times.
         long overlayMs = overlayClockMs(absoluteMs);
@@ -21437,6 +21445,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             glOwnsImagePreview = routed;
                             if (imagePreview != null) imagePreview.setAlpha(routed ? 0f : 1f);
                         }
+                        @Override public com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip
+                                imagePipFor(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                            int frameW, int frameH) {
+                            // BOTH surfaces, above-video first. An image overlay sits on whichever
+                            // side of the PiP plane its lane puts it (Z3), and asking only the
+                            // above layer would leave a below-video image un-effected with no
+                            // clue why. Only one of the two holds a given item, so the first
+                            // non-null answer is the answer.
+                            if (overlayLayer != null) {
+                                com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip p =
+                                        overlayLayer.fxPipFor(o, frameW, frameH);
+                                if (p != null) return p;
+                            }
+                            return overlayLayerBelow == null
+                                    ? null : overlayLayerBelow.fxPipFor(o, frameW, frameH);
+                        }
+                        @Override public void onGlOwnedImages(
+                                @NonNull java.util.Set<String> ids) {
+                            // Told to BOTH, always: an item that moved between the buckets would
+                            // otherwise stay hidden on the surface it left.
+                            if (overlayLayer != null) overlayLayer.setGlOwnedImageIds(ids);
+                            if (overlayLayerBelow != null) {
+                                overlayLayerBelow.setGlOwnedImageIds(ids);
+                            }
+                        }
                         @Override public void onFxShaderUnavailable(@NonNull String reason) {
                             // LONG, not SHORT: this one asks the user to understand something
                             // about their device, and it replaces a failure mode whose entire
@@ -23608,13 +23641,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // and implementing the preview side alone would CREATE one. Per JoyRaptor (2026-08-12): keep
         // the tabs, label them, don't hide them.
         //
-        // BLEND is the exception, and the reason it was worth separating: it is now real in the
-        // export (ImageBlendGlEffect), so it carries the standing export-only caveat a PiP's
-        // blend has always carried — previewsLive=false — rather than the inert note.
+        // BLEND is live on BOTH renderers for an image — previewsLive=true. It reaches the export
+        // through ImageBlendGlEffect and the editor through the GL composite, and both read the
+        // one BlendModes.GLSL_BLEND_FN, so there is no equation to drift. Measured, not assumed:
+        // with MULTIPLY chosen, 98% of the image's preview pixels equal image x video.
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
-                        ctx, o::getOverlayBlendMode, o::setOverlayBlendMode, applyComp, false)));
+                        ctx, o::getOverlayBlendMode, o::setOverlayBlendMode, applyComp, true)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
                 // NO LinkSource: a text overlay's keyframes are LOCAL-time (item start offset),
@@ -23632,18 +23666,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 // Chroma key reaches the export shader (ImageBlendGlEffect, the same shared
                 // ChromaKey.GLSL_KEY_FN a PiP keys with) — export-only caveat, not inert.
-                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
-                        com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
-                                ctx, spec, applyComp, tabHost),
-                        R.string.faditor_image_key_export_note)));
+                // NO CAVEAT. The key is live in the preview now — the composite runs the same
+                // shared ChromaKey.GLSL_KEY_FN the export effect does, and both were measured on
+                // a device rather than eyeballed (an all-removing key takes the picture out of
+                // the preview as completely as it takes it out of the file). Leaving the old
+                // "applied when you export" note up would now be the lie.
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
+                        ctx, spec, applyComp, tabHost)));
         // M7: this object's OWN effects — the same panel a PiP and an adjustment layer use.
         // Hoisted so the host can RE-ATTACH this exact stack: setFx(getFx()) nulls an emptied
         // stack, which detaches the very object the panel is still editing.
         final com.fadcam.ui.faditor.fx.FxStack imageFx = o.getOrCreateFx();
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Effects", R.drawable.ic_fx_24,                           // TODO(strings)
-                // An image's effect stack reaches the EXPORT (ImageBlendGlEffect compiles it, the
-                // same splice a PiP uses), device-verified — export-only caveat, not inert.
+                // An image's effect stack reaches BOTH renderers now: ImageBlendGlEffect on
+                // export, FxPreviewTextureView here, from the same fused pass and the same
+                // splice a PiP uses. So the note no longer says "export only" — it says the one
+                // thing that IS still true, that a sampler card (blur and friends) needs its own
+                // pass and is skipped on both sides.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.FxPanel.build(
                                 ctx, imageFx, textOverlayFxHost(o, imageFx),

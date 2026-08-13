@@ -306,6 +306,26 @@ public class FxPreviewTextureView extends TextureView
         @Nullable final FxCompiler.Pass fused;
         @NonNull final List<FxUniforms.Value> fxUniforms;
         @NonNull final String fxKey;
+        /**
+         * Whether this object's composite shader carries the two EXTRAS an image overlay needs
+         * and a PiP does not: the chroma key, and the entrance preset's wipe reveal.
+         *
+         * <p>A flag rather than "always compile them in", because the shader text is the program
+         * cache key: leaving it off reproduces the PiP composite BYTE FOR BYTE, so nothing about
+         * an existing PiP — including its uniform-vector budget, which the gradient card already
+         * pushes near GL ES 2.0's guaranteed floor — changes because images arrived.</p>
+         */
+        final boolean extras;
+        /** Packed by {@code ChromaKey}, the same authority the export effect reads. */
+        @NonNull final float[] keyColor;
+        @NonNull final float[] keyParams;
+        /**
+         * MASK_WIPE's reveal, 0..1 across the object's own box — 1 means "all of it". The Canvas
+         * renderers express this as a {@code clipRect} in the item's local space, which is what
+         * {@code q} already is here, so the shader needs one comparison rather than a geometry
+         * change (narrowing the box would STRETCH the picture instead of uncovering it).
+         */
+        final float revealFrac;
 
         public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
                    @Nullable FxCompiler.Pass fused,
@@ -313,7 +333,13 @@ public class FxPreviewTextureView extends TextureView
                    float timeSec, float blendMode, boolean maskOn, boolean maskInvert,
                    @NonNull float[] maskGeo,
                    @NonNull String clipId, @Nullable android.graphics.Bitmap still,
-                   int liveSlot) {
+                   int liveSlot,
+                   boolean extras, @NonNull float[] keyColor, @NonNull float[] keyParams,
+                   float revealFrac) {
+            this.extras = extras;
+            this.keyColor = keyColor;
+            this.keyParams = keyParams;
+            this.revealFrac = revealFrac;
             this.cx = cx;
             this.cy = cy;
             this.halfW = halfW;
@@ -337,7 +363,17 @@ public class FxPreviewTextureView extends TextureView
             return alpha > 0.004f && halfW > 0f && halfH > 0f;
         }
 
-        /** Resolve an object's stack at {@code editorMs} into the fused pass and its uniforms. */
+        /**
+         * Resolve an object's stack at {@code editorMs} into the fused pass and its uniforms,
+         * with the composite EXTRAS off — the PiP shape, unchanged.
+         *
+         * <p>A PiP's key is deliberately not packed here. The ACTIVE keyed PiP owns its own live
+         * tier ({@code ChromaKeyTextureView}) and {@code fxPipFor} returns null for it, so keying
+         * it here as well would key it twice; a keyed PiP in a LOWER tier is unkeyed in this
+         * preview today, and turning that on is a separate change that would need its own device
+         * proof. See {@link #ofImage} for the overlay-image path, where the key is the whole
+         * point.</p>
+         */
         @NonNull
         public static Pip of(float cx, float cy, float halfW, float halfH, float rot, float alpha,
                              @Nullable FxStack stack, long editorMs,
@@ -345,6 +381,38 @@ public class FxPreviewTextureView extends TextureView
                              int frameW, int frameH,
                              @NonNull String clipId, @Nullable android.graphics.Bitmap still,
                              int liveSlot) {
+            return build(cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode,
+                    frameW, frameH, clipId, still, liveSlot,
+                    /* extras= */ false, /* revealFrac= */ 1f);
+        }
+
+        /**
+         * The same resolution for an IMAGE OVERLAY, which needs the extras: its chroma key and
+         * its entrance preset's wipe.
+         *
+         * <p>{@code frameW}/{@code frameH} are the MASTER FRAME's, because that is the space
+         * {@code ImageOverlayDraw} masks in — it opens {@code MaskPathBuilder.beginMask} with the
+         * output frame's size — and the shader evaluates the mask in frame space too.</p>
+         */
+        @NonNull
+        public static Pip ofImage(float cx, float cy, float halfW, float halfH, float rot,
+                                  float alpha, @Nullable FxStack stack, long editorMs,
+                                  @Nullable CompositingSpec spec, float blendMode,
+                                  int frameW, int frameH, @NonNull String itemId,
+                                  @Nullable android.graphics.Bitmap still, float revealFrac) {
+            return build(cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode,
+                    frameW, frameH, itemId, still, /* liveSlot= */ 0,
+                    /* extras= */ true, revealFrac);
+        }
+
+        @NonNull
+        private static Pip build(float cx, float cy, float halfW, float halfH, float rot,
+                             float alpha,
+                             @Nullable FxStack stack, long editorMs,
+                             @Nullable CompositingSpec spec, float blendMode,
+                             int frameW, int frameH,
+                             @NonNull String clipId, @Nullable android.graphics.Bitmap still,
+                             int liveSlot, boolean extras, float revealFrac) {
             FxCompiler.Pass fused = null;
             List<FxUniforms.Value> vals = java.util.Collections.emptyList();
             String key = "";
@@ -362,7 +430,14 @@ public class FxPreviewTextureView extends TextureView
             return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key,
                     editorMs / 1000f, blendMode, maskOn,
                     spec != null && spec.invertMasks,
-                    MaskSdf.packShapes(spec, frameW, frameH), clipId, still, liveSlot);
+                    MaskSdf.packShapes(spec, frameW, frameH), clipId, still, liveSlot,
+                    extras,
+                    // Packed by the shared authority even when the extras are off, so the field
+                    // is never null and drawPip needs no second branch. With extras off the
+                    // shader has no key uniforms at all and these are simply never uploaded.
+                    com.fadcam.ui.faditor.model.ChromaKey.packColor(extras ? spec : null),
+                    com.fadcam.ui.faditor.model.ChromaKey.packParams(extras ? spec : null),
+                    revealFrac);
         }
     }
 
@@ -1125,12 +1200,13 @@ public class FxPreviewTextureView extends TextureView
      * on every frame.</p>
      */
     private int pipProgramFor(@NonNull Pip p) {
-        String key = (p.still == null ? "o" : "s") + p.fxKey;
+        String key = (p.still == null ? "o" : "s") + (p.extras ? "x" : "-") + p.fxKey;
         Integer have = pipPrograms.get(key);
         if (have != null) return have;
         int prog;
         try {
-            prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused, p.still != null));
+            prog = buildProgram(FxGlSource.VERTEX_SHADER,
+                    pipFragment(p.fused, p.still != null, p.extras));
             FLog.d("FxMultiPip", "pip program compiled key=" + key + " -> " + prog);
         } catch (Exception e) {
             // Fall back to the PLAIN composite, which is what the log claims happens. A 0 latch
@@ -1140,7 +1216,7 @@ public class FxPreviewTextureView extends TextureView
             int fallback = 0;
             try {
                 fallback = buildProgram(FxGlSource.VERTEX_SHADER,
-                        pipFragment(null, p.still != null));
+                        pipFragment(null, p.still != null, p.extras));
             } catch (Exception fatal) {
                 FLog.e(TAG, "plain PiP composite failed too", fatal);
             }
@@ -1158,43 +1234,79 @@ public class FxPreviewTextureView extends TextureView
      * subject is one object's colour rather than a whole frame), keep its declarations minus the
      * ones already present, and fold each card over the object's colour. Doing it differently
      * here is how the editor and the render start disagreeing about what a PiP looks like.</p>
+     *
+     * <p>{@code extras} additionally splices the chroma key and the wipe reveal — see
+     * {@link Pip#extras}. With it false and no stack, this returns the base string untouched, so
+     * every PiP program compiled before images arrived is still compiled from the same source.</p>
      */
     @NonNull
-    private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still) {
+    private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still,
+                                      boolean extras) {
         String base = still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT;
-        if (fused == null) return base;
-        String emitted = FxCompiler.emitGlsl(fused, FxGlSource.KERNEL_HALF);
-        int mainAt = emitted.indexOf("void main()");
-        if (mainAt < 0) return base;
-        String decls = emitted.substring(0, mainAt)
-                .replace("uniform sampler2D uTexSampler;\n", "")
-                .replace("varying vec2 vFxUv;\n", "")
-                .replace("precision mediump float;\n", "")
-                .replace("precision highp float;\n", "")
-                // blendPix IS ALREADY IN PIP_FRAGMENT, and GLSL ES 1.00 rejects a second body
-                // outright: "'blendPix' : function already has a body". The whole PiP stack then
-                // failed to compile and fell back to the plain composite, which is precisely the
-                // "inverse still doesn't work on a PiP" report. Both sides pull the equations
-                // from BlendModes, so removing the emitted copy by that exact string keeps ONE
-                // authority and cannot drift out of sync with what was spliced in.
-                .replace(com.fadcam.ui.faditor.model.BlendModes.glslBlendFnWithModeParam(), "");
-        StringBuilder fold = new StringBuilder();
-        for (com.fadcam.ui.faditor.fx.FxInstance card : fused.cards) {
-            fold.append("    fxc = fxBlendOver(fxc, fx").append(card.slot)
-                    .append("(uv, fxc), ")
-                    .append(FxCompiler.foldOpacityName(card)).append(", ")
-                    .append(FxCompiler.foldBlendName(card)).append(");\n");
+        if (fused == null && !extras) return base;
+        // The extras (key + wipe) go in FIRST, so that once the FX fold is spliced onto the same
+        // anchor line the key ends up ABOVE it — the key must measure distance from a colour in
+        // the SOURCE image, exactly as ImageBlendGlEffect orders them. Grading first would stop a
+        // green screen being green and the key would silently miss.
+        String extrasDecls = "";
+        String extrasBody = "";
+        if (extras) {
+            extrasDecls = "uniform vec3 uPipKeyColor;\n"
+                    + "uniform vec4 uPipKeyParams;\n"
+                    + "uniform float uPipReveal;\n"
+                    + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN;
+            extrasBody =
+                    // MASK_WIPE's reveal, in the object's own local space — the same rect the
+                    // Canvas renderers clip to, expressed as the one comparison that space makes
+                    // free. Its uniform is 1.0 whenever no preset is wiping, so this costs a
+                    // compare and nothing else.
+                    "    if (uv.x > uPipReveal) src.a = 0.0;\n"
+                    // Un-premultiplied, because that is what the key is defined on (ChromaKey's
+                    // class note: a premultiplied semi-transparent green is darker than the green
+                    // it is, so it survives a key that should have eaten it).
+                    + "    src.a = fadKeyAlpha(src.rgb / max(src.a, 0.001), src.a,\n"
+                    + "                        uPipKeyColor, uPipKeyParams);\n";
         }
-        String apply = "    vec4 fxc = src;\n" + fold + "    src = fxc;\n";
+        // The FX half is OPTIONAL from here on: an image may carry only a key. Both halves land
+        // through the one pair of replaces at the bottom, so there is a single description of
+        // where each block goes rather than a copy per combination.
+        String decls = "";
+        String apply = "";
+        String emitted = fused == null ? "" : FxCompiler.emitGlsl(fused, FxGlSource.KERNEL_HALF);
+        int mainAt = emitted.indexOf("void main()");
+        if (fused != null && mainAt >= 0) {
+            decls = emitted.substring(0, mainAt)
+                    .replace("uniform sampler2D uTexSampler;\n", "")
+                    .replace("varying vec2 vFxUv;\n", "")
+                    .replace("precision mediump float;\n", "")
+                    .replace("precision highp float;\n", "")
+                    // blendPix IS ALREADY IN PIP_FRAGMENT, and GLSL ES 1.00 rejects a second body
+                    // outright: "'blendPix' : function already has a body". The whole PiP stack
+                    // then failed to compile and fell back to the plain composite, which is
+                    // precisely the "inverse still doesn't work on a PiP" report. Both sides pull
+                    // the equations from BlendModes, so removing the emitted copy by that exact
+                    // string keeps ONE authority and cannot drift out of sync with what was
+                    // spliced in.
+                    .replace(com.fadcam.ui.faditor.model.BlendModes.glslBlendFnWithModeParam(),
+                            "");
+            StringBuilder fold = new StringBuilder();
+            for (com.fadcam.ui.faditor.fx.FxInstance card : fused.cards) {
+                fold.append("    fxc = fxBlendOver(fxc, fx").append(card.slot)
+                        .append("(uv, fxc), ")
+                        .append(FxCompiler.foldOpacityName(card)).append(", ")
+                        .append(FxCompiler.foldBlendName(card)).append(");\n");
+            }
+            apply = "    vec4 fxc = src;\n" + fold + "    src = fxc;\n";
+        }
         // SPLICED IMMEDIATELY BEFORE main(), not up among the uniforms. The emitted decls
         // include fxBlendOver, which CALLS blendPix, and GLSL ES 1.00 requires a declaration
         // before its use — placing them higher put the caller above the callee and traded
         // "function already has a body" for "no matching overloaded function". Everything
         // spliced here is global scope, so uniforms are equally happy this far down.
         return base
-                .replace("void main() {\n", decls + "void main() {\n")
+                .replace("void main() {\n", extrasDecls + decls + "void main() {\n")
                 .replace("    vec4 src = texture2D(uPipTexture, s);\n",
-                        "    vec4 src = texture2D(uPipTexture, s);\n" + apply);
+                        "    vec4 src = texture2D(uPipTexture, s);\n" + extrasBody + apply);
     }
 
     /**
@@ -1223,6 +1335,13 @@ public class FxPreviewTextureView extends TextureView
         setF(program, "uPipMaskFeather", p.maskGeo[7]);
         setF2(program, "uPipTexel", 1f / vw, 1f / vh);
         setF2(program, "uDir", 1f, 0f);
+        if (p.extras) {
+            // Only on the variant that declared them. setFn tolerates a missing location, but
+            // asking for one the shader never had would still be a lie about what this draws.
+            setFn(program, "uPipKeyColor", p.keyColor, 3);
+            setFn(program, "uPipKeyParams", p.keyParams, 4);
+            setF(program, "uPipReveal", p.revealFrac);
+        }
         for (FxUniforms.Value v : p.fxUniforms) {
             setFn(program, v.name, v.data, v.components());
         }

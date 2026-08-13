@@ -519,6 +519,11 @@ public class TextOverlayLayer extends FrameLayout {
      */
     public void setPlayheadMs(long timelineMs) {
         currentTimeMs = timelineMs;
+        refreshPositions();
+    }
+
+    /** Re-run {@link #position} for every child, without rebuilding any view. */
+    private void refreshPositions() {
         for (int i = 0; i < getChildCount(); i++) {
             View v = getChildAt(i);
             Object tag = v.getTag();
@@ -660,23 +665,12 @@ public class TextOverlayLayer extends FrameLayout {
         // per-glyph one. So for text the view keeps only the object's own keyframed opacity and
         // rotation, and the renderer owns everything the tape drives.
         boolean isTextBox = view instanceof TextBoxView;
-        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
-                new com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform();
-        if (!isTextBox) {
-            // Images and slides have no glyphs, so their entrance is still a whole-body view
-            // transform, composed OVER the keyframed values rather than replacing them — alpha
-            // multiplies, scale multiplies, translation adds ("compose, don't replace").
-            // Suppressed while the finger is down, for the same reason the keyframes are.
-            if (!live) {
-                anim = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
-                        com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                .parsePreset(o.getTextAnimPreset()),
-                        currentTimeMs, o.motionRangeStartMs(),
-                        o.motionSpanMs(callback.getProjectDurationMs()),
-                        o.getTextAnimInPct(), o.getTextAnimOutPct(),
-                        sizeFraction * r.height());
-            }
-        }
+        // Images and slides have no glyphs, so their entrance is still a whole-body view
+        // transform, composed OVER the keyframed values rather than replacing them — alpha
+        // multiplies, scale multiplies, translation adds ("compose, don't replace").
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim = isTextBox
+                ? new com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform()
+                : presetTransformAt(o, sizeFraction, r.height(), live);
 
         // A text box composites BOTH its keyframed opacity and the preset's per-unit alpha inside
         // TextBoxRenderer, because the export has no view to set alpha on. Setting it here too
@@ -685,6 +679,11 @@ public class TextOverlayLayer extends FrameLayout {
                 : (live ? 1f
                         : Math.max(0f, Math.min(1f,
                                 o.animatedOpacity(currentTimeMs) * anim.alpha))));
+        // The GL composite is drawing this image, effects and all — see setGlOwnedImageIds. Set
+        // AFTER the line above rather than instead of it, so the one expression for an overlay's
+        // opacity stays in one place and this reads as what it is: a handover, not a second
+        // opinion about how opaque the picture should be.
+        if (glOwnedImageIds.contains(o.getId())) view.setAlpha(0f);
 
         if (o.isGeneratedSlide()
                 && view instanceof com.fadcam.ui.faditor.slides.GeneratedSlideView) {
@@ -722,20 +721,13 @@ public class TextOverlayLayer extends FrameLayout {
             h = Math.max(1, Math.round(size[1]));
             boxInset = tb.boxInsetPx();
         } else if (o.isImage() && view instanceof ImageView) {
-            // Height = fraction of video height; width derived from image aspect. The per-axis
-            // scale multipliers fold in HERE (not into sizeFraction), so a split (unlinked)
-            // Scale X/Y pair in the image drawer stretches the picture along one axis without
-            // moving the other — the whole point of the chain toggle. Linked mode keeps both at
-            // 1, so every pre-existing project renders exactly as it always did.
             float aspect = 1f;
             android.graphics.drawable.Drawable d = ((ImageView) view).getDrawable();
             if (d != null && d.getIntrinsicHeight() > 0) {
                 aspect = d.getIntrinsicWidth() / (float) d.getIntrinsicHeight();
             }
-            float sx = live ? o.getScaleX() : o.animatedScaleX(currentTimeMs);
-            float sy = live ? o.getScaleY() : o.animatedScaleY(currentTimeMs);
-            h = Math.round(sizeFraction * sy * r.height());
-            w = Math.round(h * aspect * sx);
+            h = Math.round(imageHeightPx(o, sizeFraction, r.height(), live));
+            w = Math.round(imageWidthPx(o, h, aspect, live));
         } else {
             // Neither a text box nor an image with a drawable — keep whatever it measured to
             // rather than collapsing it to nothing.
@@ -776,6 +768,141 @@ public class TextOverlayLayer extends FrameLayout {
         // coarser mask over the top — identical at BLOCK and simply wrong at LETTER.
         if (!isTextBox) applyReveal(view, anim.revealFrac, w, h);
     }
+
+    // ── The three expressions the GL composite has to agree with, extracted ────────────────────
+    //
+    // An image overlay that carries effects, a chroma key or a blend mode is drawn by the GL
+    // chain rather than by its ImageView (see fxPipFor), and the two must land in the SAME place
+    // to the pixel. These are the pieces both of them read. Extracted rather than transcribed:
+    // ImageOverlayDraw already says the export's copy of this arithmetic is "MIRRORED from
+    // TextOverlayLayer.position", and a THIRD transcription is how the editor and the file start
+    // disagreeing about where a picture is.
+
+    /**
+     * The entrance/exit preset's whole-body transform at the playhead, or identity while the
+     * finger is down — a box mid-animation would slide away from under the gesture.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform presetTransformAt(
+            @NonNull TextOverlayItem o, float sizeFraction, float contentHeightPx, boolean live) {
+        if (live || callback == null) {
+            return new com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform();
+        }
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(o.getTextAnimPreset()),
+                currentTimeMs, o.motionRangeStartMs(),
+                o.motionSpanMs(callback.getProjectDurationMs()),
+                o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFraction * contentHeightPx);
+    }
+
+    /**
+     * An image overlay's drawn HEIGHT: a fraction of the video's height. The per-axis scale
+     * multiplier folds in HERE rather than into {@code sizeFraction}, so a split (unlinked)
+     * Scale X/Y pair in the image drawer stretches the picture along one axis without moving the
+     * other — the whole point of the chain toggle. Linked mode keeps both at 1, so every
+     * pre-existing project renders exactly as it always did.
+     */
+    private float imageHeightPx(@NonNull TextOverlayItem o, float sizeFraction,
+                                float contentHeightPx, boolean live) {
+        float sy = live ? o.getScaleY() : o.animatedScaleY(currentTimeMs);
+        return sizeFraction * sy * contentHeightPx;
+    }
+
+    /** An image overlay's drawn WIDTH: its height through the source aspect, times Scale X. */
+    private float imageWidthPx(@NonNull TextOverlayItem o, float heightPx, float aspect,
+                               boolean live) {
+        float sx = live ? o.getScaleX() : o.animatedScaleX(currentTimeMs);
+        return heightPx * aspect * sx;
+    }
+
+    /**
+     * The decoded picture behind an image overlay, EXIF applied — the same cached bitmap the
+     * preview's {@code ImageView} shows.
+     *
+     * <p>Exposed so the GL composite textures the identical pixels rather than decoding its own
+     * copy: two decoders is two sample sizes and two EXIF opinions, which is precisely the class
+     * of divergence that made an image export squashed while the preview looked right.</p>
+     */
+    @Nullable
+    public android.graphics.Bitmap decodedImageFor(@NonNull TextOverlayItem o) {
+        return imageBitmap(o);
+    }
+
+    /**
+     * This image overlay's placement for the GL composite, or null when it cannot be drawn there
+     * yet (no content rect, no decoded picture).
+     *
+     * <p><b>Why images enter the GL chain at all.</b> A Canvas cannot run a fragment shader, so an
+     * image carrying effects, a chroma key or a blend mode leaves the Canvas path on EXPORT
+     * ({@code TextOverlayItem.wantsGlExport}) — and until now the editor had no matching path, so
+     * the drawer had to say "export only" for all three. This is the matching path.</p>
+     *
+     * <p><b>The preset folds into the geometry here, where the View gets it as separate
+     * properties.</b> A View is scaled about its pivot, then rotated, then translated in its
+     * parent; the export's Canvas reaches the same place with {@code translate}, {@code rotate},
+     * {@code scale} in that order. Folding the preset's scale into the half-extents and its
+     * translation into the centre is that same composition written once — the reveal is the one
+     * channel that cannot fold, because narrowing the box would STRETCH the picture rather than
+     * uncover it, so it rides as a uniform.</p>
+     *
+     * <p>Y AND ROTATION ARE FLIPPED into GL's frame, exactly as {@code OverlayVideoPreviewView}
+     * flips a PiP's: this layer works in view space, whose origin is top-left and whose positive
+     * rotation is clockwise on screen, while the shader works in a bottom-up uv.</p>
+     */
+    @Nullable
+    public com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip fxPipFor(
+            @NonNull TextOverlayItem o, int frameW, int frameH) {
+        if (callback == null || !o.isImage()) return null;
+        if (!o.isVisibleAt(currentTimeMs)) return null;
+        RectF r = callback.getVideoContentRect();
+        if (r.width() <= 0 || r.height() <= 0) return null;
+        android.graphics.Bitmap bmp = imageBitmap(o);
+        if (bmp == null || bmp.isRecycled() || bmp.getHeight() <= 0) return null;
+
+        boolean live = o == manipulating
+                || (editingItemId != null && editingItemId.equals(o.getId()));
+        float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
+                presetTransformAt(o, sizeFraction, r.height(), live);
+        float aspect = bmp.getWidth() / (float) bmp.getHeight();
+        float hPx = imageHeightPx(o, sizeFraction, r.height(), live);
+        float wPx = imageWidthPx(o, hPx, aspect, live);
+
+        float cx = (live ? o.getCenterX() : o.animatedCenterX(currentTimeMs))
+                + anim.dx / r.width();
+        float cy = (live ? o.getCenterY() : o.animatedCenterY(currentTimeMs))
+                + anim.dy / r.height();
+        float halfW = (wPx * anim.scaleX) / r.width() * 0.5f;
+        float halfH = (hPx * anim.scaleY) / r.height() * 0.5f;
+        float alpha = live ? 1f
+                : Math.max(0f, Math.min(1f, o.animatedOpacity(currentTimeMs) * anim.alpha));
+        float rot = live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs);
+
+        return com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip.ofImage(
+                cx, 1f - cy, halfW, halfH, -rot, alpha,
+                o.getFx(), currentTimeMs, o.getCompositing(),
+                com.fadcam.ui.faditor.model.BlendModes.modeCode(o.getOverlayBlendMode()),
+                frameW, frameH, o.getId(), bmp, anim.revealFrac);
+    }
+
+    /**
+     * The ids of the image overlays the GL composite is currently drawing, whose own
+     * {@code ImageView} must therefore be invisible — otherwise the RAW picture sits on top of
+     * the effected one and the whole feature looks like it did nothing. The same trap
+     * {@code glOwnsImagePreview} exists for on the image-CLIP path.
+     *
+     * <p>ALPHA, not {@code GONE}: the view still measures, still lays out and still takes the
+     * touches that drag, scale and rotate the image. Hiding it would take the object's own
+     * gestures away as the price of showing its effect.</p>
+     */
+    public void setGlOwnedImageIds(@NonNull java.util.Set<String> ids) {
+        if (glOwnedImageIds.equals(ids)) return;
+        glOwnedImageIds.clear();
+        glOwnedImageIds.addAll(ids);
+        refreshPositions();
+    }
+
+    @NonNull private final java.util.Set<String> glOwnedImageIds = new java.util.HashSet<>();
 
     /**
      * The THIRD animated channel on the text-box path: MASK_WIPE's reveal, as a clip on the view.

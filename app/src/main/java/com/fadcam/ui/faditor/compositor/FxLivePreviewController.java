@@ -75,6 +75,28 @@ public final class FxLivePreviewController {
         default void onBaseStillRouted(boolean routed) { }
 
         /**
+         * One IMAGE OVERLAY's placement for the composite, built by the overlay layer that
+         * already positions its {@code ImageView} — see {@code TextOverlayLayer.fxPipFor}. Null
+         * when the picture is not decoded yet, or on a host with no overlay layer.
+         *
+         * <p>Asked of the LAYER rather than computed here on purpose: the layer holds the
+         * content rect, the decoded bitmap and the "finger is down on this one" state, and
+         * deriving any of those a second time is how the drawn image and the effected image end
+         * up in two different places.</p>
+         */
+        @Nullable default FxPreviewTextureView.Pip imagePipFor(
+                @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, int frameW, int frameH) {
+            return null;
+        }
+
+        /**
+         * The image overlays the composite is drawing this tick, so the host can make their own
+         * views transparent. Told EVERY tick — an item leaves the set the moment it stops being
+         * visible or the chain stops running, and a stale set would leave a picture invisible.
+         */
+        default void onGlOwnedImages(@NonNull java.util.Set<String> ids) { }
+
+        /**
          * The effect stack would not compile on this GPU, so the preview is ungraded. Say so —
          * see {@code FxPreviewTextureView.SurfaceListener#onFxShaderUnavailable} for why a log
          * line was not good enough. Already on the main thread, fired once per failing stack.
@@ -255,7 +277,12 @@ public final class FxLivePreviewController {
         // OverlayVideoPreviewView give those clips real decoders, and it costs a project with
         // nothing else live only a passthrough draw.
         boolean stacked = stacksOverlayVideos(timeline);
-        if (!anyRenders && g == null && !objectFx && !stacked) { stop(); return; }
+        // An IMAGE OVERLAY carrying effects, a chroma key or a blend mode routes too. Its picture
+        // leaves the Canvas path on export for exactly those three reasons
+        // ({@code TextOverlayItem.wantsGlExport}), and this chain is the editor's only equivalent
+        // — without it the drawer's three "export only" notes stay true.
+        boolean glImages = !glImageOverlays(timeline).isEmpty();
+        if (!anyRenders && g == null && !objectFx && !stacked && !glImages) { stop(); return; }
 
         if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
         view.setGrade(g);
@@ -358,6 +385,23 @@ public final class FxLivePreviewController {
         // an already-built String, so the concatenation happens at the call site whether or not
         // anything is listening. The diagnostic value is in the transitions ("we went from 2
         // rungs to 4"), which is exactly what this still prints.
+        // ── IMAGE OVERLAYS, on top of everything this walk just built ────────────────────────
+        // ABOVE the adjustment layers, and that is not a shortcut — it is where the EXPORT puts
+        // them. ExportManager appends every ImageBlendGlEffect after the PiP block, then inserts
+        // the adjustment layers at indices INSIDE that block, so the images end up last; chain
+        // position is paint order, so a blended or effected image composites over the graded
+        // frame. ImageBlendGlEffect states the same z caveat from the other side, and it is why
+        // going through GL is opt-in rather than the path every image takes.
+        java.util.Set<String> owned = new java.util.HashSet<>();
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImageOverlays(timeline)) {
+            FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
+            if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
+            rungs.add(FxPreviewTextureView.Rung.pip(p));
+            owned.add(o.getId());
+        }
+        // Told every tick, INCLUDING when the set is empty — see Host#onGlOwnedImages.
+        host.onGlOwnedImages(owned);
+
         int shape = (rungs.size() * 31 + pipRungs) * 31 + snapshot.size();
         if (offer) shape = ~shape;
         if (shape != lastPlanShape) {
@@ -366,6 +410,33 @@ public final class FxLivePreviewController {
                     + " layers=" + snapshot.size() + " offer=" + offer);
         }
         return new FxPreviewTextureView.CompositePlan(snapshot, rungs);
+    }
+
+    /**
+     * Every image overlay whose picture belongs to the shader rather than to a Canvas, in the one
+     * bottom→top visual order, at any time in the project.
+     *
+     * <p>The predicate is {@code wantsGlExport()} and nothing else. That is the SAME single
+     * authority {@code ExportManager} emits its {@code ImageBlendGlEffect}s from and that
+     * {@code CompositeExportOverlay.filterTextOverlays} drops its canvas draws by — its own doc
+     * says the two must be exactly complementary or the image is drawn twice or not at all. The
+     * preview now has the same pair of decisions to keep in step (composite it, hide its view),
+     * so it asks the same question rather than inventing a third opinion about what "needs a
+     * shader" means.</p>
+     *
+     * <p>Asked of the PROJECT rather than of the playhead, because routing is per-project (see
+     * the class note). The per-frame visibility gate lives in {@code fxPipFor}.</p>
+     */
+    @NonNull
+    private static List<com.fadcam.ui.faditor.model.TextOverlayItem> glImageOverlays(
+            @NonNull Timeline timeline) {
+        List<com.fadcam.ui.faditor.model.TextOverlayItem> out = new ArrayList<>();
+        for (LayerPreviewController.VisualItem v
+                : LayerPreviewController.orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
+            if (o != null && o.wantsGlExport()) out.add(o);
+        }
+        return out;
     }
 
     /**
@@ -456,6 +527,9 @@ public final class FxLivePreviewController {
         // routes, and leaving the ImageView hidden there would blank the picture entirely.
         setBaseStillRouted(false);
         view.setBaseStill(null);
+        // Same reason, for image OVERLAYS: this chain is no longer drawing them, so their own
+        // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
+        host.onGlOwnedImages(java.util.Collections.emptySet());
         if (!routed) return;
         routed = false;
         routedPlayer = null;

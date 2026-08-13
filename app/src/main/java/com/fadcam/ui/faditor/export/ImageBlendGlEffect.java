@@ -41,9 +41,14 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
  * {@code TextFxGlEffect} already makes for text that carries effects, and it is why blend stays
  * an opt-in rather than something every image goes through.</p>
  *
- * <p><b>Preview shows the image NORMAL.</b> Same standing caveat as a PiP's blend, and the reason
- * the drawer says so: making this live in the preview needs image overlays fed into the GL
- * composite as 2D textures, which is the multi-PiP z-order work, not this.</p>
+ * <p><b>The preview now runs all three.</b> This note used to say the preview showed the image
+ * NORMAL, and that the fix would need image overlays fed into the GL composite as 2D textures.
+ * That is exactly what happened: {@code TextOverlayLayer.fxPipFor} builds a
+ * {@code FxPreviewTextureView.Pip} per image whose {@code wantsGlExport()} is true, backed by the
+ * same decoded bitmap the {@code ImageView} shows, and the composite compiles the same FX splice,
+ * the same {@code BlendModes} equations and the same {@code ChromaKey} function this effect does.
+ * Measured on a device rather than read by eye — see this class's note above for why that
+ * distinction is not pedantry here.</p>
  */
 final class ImageBlendGlEffect implements GlEffect {
 

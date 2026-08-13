@@ -2893,16 +2893,54 @@ public class ExportManager {
      * @return width in pixels, or 0 on failure
      */
     private int getSourceWidth(@NonNull Clip clip) {
-        if (clip.getSourceUri() == null) return 0;
+        int[] d = sourceDisplayDims(clip);
+        return d[0];
+    }
+
+    /**
+     * A clip's DISPLAY dimensions: stored width/height with the rotation tag applied.
+     *
+     * <p><b>Why the tag is not optional here.</b> A phone records portrait as 1920x1080 plus
+     * "rotation 90"; media3 applies that when it decodes, so every frame this pipeline composites,
+     * every overlay bitmap sized to it, and the final Presentation canvas are all in the ROTATED
+     * space. Reading the raw metadata told the export a portrait project was landscape, and the
+     * consequences all showed up at once in one report (JoyRaptor, 2026-08-13): a vertical project
+     * exported on a landscape canvas with black bars down the sides of the video, and an image
+     * overlay — whose bitmap is sized from these same numbers — drawn into a landscape bitmap that
+     * was then squashed onto a portrait frame, so a 4:3 picture came out 3:4.
+     *
+     * <p>The editor has always been rotation-aware ({@code FaditorEditorActivity.displaySize} does
+     * exactly this swap, and reads EXIF for stills), which is why the preview looked right and only
+     * the export was wrong — the two disagreed about the shape of the project.</p>
+     *
+     * @return {@code {width, height}}, or {@code {0, 0}} if the source cannot be read.
+     */
+    @NonNull
+    private int[] sourceDisplayDims(@NonNull Clip clip) {
+        if (clip.getSourceUri() == null) return new int[]{0, 0};
         try {
             setRetrieverDataSource(clip.getSourceUri());
             android.media.MediaMetadataRetriever r = acquireRetriever();
             String w = r.extractMetadata(
                     android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
-            return w != null ? Integer.parseInt(w) : 0;
+            String h = r.extractMetadata(
+                    android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+            if (w == null || h == null) return new int[]{0, 0};
+            int wi = Integer.parseInt(w);
+            int hi = Integer.parseInt(h);
+            int deg = 0;
+            try {
+                String rot = r.extractMetadata(
+                        android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+                if (rot != null) deg = Integer.parseInt(rot);
+            } catch (NumberFormatException ignored) {
+                // Unreadable rotation: treat as upright rather than failing the whole export.
+            }
+            deg = ((deg % 360) + 360) % 360;
+            return (deg == 90 || deg == 270) ? new int[]{hi, wi} : new int[]{wi, hi};
         } catch (Exception e) {
-            FLog.w(TAG, "Failed to get source width", e);
-            return 0;
+            FLog.w(TAG, "Failed to get source dimensions", e);
+            return new int[]{0, 0};
         }
     }
 
@@ -2913,17 +2951,8 @@ public class ExportManager {
      * @return height in pixels, or 0 on failure
      */
     private int getSourceHeight(@NonNull Clip clip) {
-        if (clip.getSourceUri() == null) return 0;
-        try {
-            setRetrieverDataSource(clip.getSourceUri());
-            android.media.MediaMetadataRetriever r = acquireRetriever();
-            String h = r.extractMetadata(
-                    android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
-            return h != null ? Integer.parseInt(h) : 0;
-        } catch (Exception e) {
-            FLog.w(TAG, "Failed to get source height", e);
-            return 0;
-        }
+        int[] d = sourceDisplayDims(clip);
+        return d[1];
     }
 
     /**

@@ -699,14 +699,10 @@ public class TextOverlayItem {
     /**
      * True when this IMAGE overlay carries effect cards that only a shader could run.
      *
-     * <p><b>NOT wired into {@link #wantsGlExport()}, on purpose.</b> Routing an image into
-     * {@code ImageBlendGlEffect} for its effects was built, compiled and exported on a Note 9, and
-     * the composite came out WRONG: with a masked image the VIDEO showing through the mask was
-     * inverted while the image itself was not — the effect landing on the wrong side of the mix.
-     * The shader text, the uniform uploads (u0_amount=1, u0_opacity=1) and the routing were all
-     * verified correct on device, so the fault is in how the overlay texture's alpha relates to
-     * the fold, not in any of those. Until that is understood the tab stays inert, because a
-     * corrupted frame is worse than a feature that does nothing.</p>
+     * <p>A Canvas cannot run a fragment shader, so an image carrying effects has to leave the
+     * canvas path exactly as a blended one does. Text overlays are excluded for the same reason
+     * they are excluded from {@link #wantsExportBlend()}: their effects already reach the export
+     * through {@code TextFxGlEffect}, and routing them twice would draw them twice.</p>
      */
     public boolean hasExportFx() {
         return isImage() && hasActiveFx();
@@ -715,11 +711,10 @@ public class TextOverlayItem {
     /**
      * True when this IMAGE overlay carries an ACTIVE chroma key, which only a shader can apply.
      *
-     * <p><b>Also not wired into {@link #wantsGlExport()} yet</b> — it rides the same shader as the
-     * effects above and so is blocked behind the same unexplained composite; see
-     * {@link #hasExportFx()}. Masks are a separate matter and DO work: a mask is a Canvas clip,
-     * {@code ImageOverlayDraw} applies it on either path, and routing a merely-masked image into
-     * GL would shift its z for nothing.</p>
+     * <p>Masks are deliberately NOT here: a mask is a Canvas clip, {@code ImageOverlayDraw} applies
+     * it on either path, and routing a merely-masked image into GL would shift its z for nothing.
+     * A key with its switch off is inert — {@code ChromaKey.isActive} is false — so an image that
+     * has never been keyed keeps the canvas path exactly as before.</p>
      */
     public boolean hasExportKey() {
         return isImage() && com.fadcam.ui.faditor.model.ChromaKey.isActive(compositing);
@@ -733,10 +728,7 @@ public class TextOverlayItem {
      * never the two halves separately.</p>
      */
     public boolean wantsGlExport() {
-        // BLEND ONLY, deliberately — see the note on hasExportFx/hasExportKey. Routing an image
-        // into the shader for effects or a key produced a WRONG composite on device, so those two
-        // stay off the road until that is understood.
-        return wantsExportBlend();
+        return wantsExportBlend() || hasExportFx() || hasExportKey();
     }
 
     /** Static opacity [0,1] used when there are no OPACITY keyframes. */

@@ -23630,26 +23630,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         R.string.faditor_image_mask_export_note)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
-                // Still inert: the key is BUILT (ImageBlendGlEffect carries the shared
-                // ChromaKey.GLSL_KEY_FN) but not routed — it shares the shader whose composite
-                // came out wrong on device. See TextOverlayItem.hasExportKey.
+                // Chroma key reaches the export shader (ImageBlendGlEffect, the same shared
+                // ChromaKey.GLSL_KEY_FN a PiP keys with) — export-only caveat, not inert.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
                                 ctx, spec, applyComp, tabHost),
-                        R.string.faditor_image_inert_key)));
+                        R.string.faditor_image_key_export_note)));
         // M7: this object's OWN effects — the same panel a PiP and an adjustment layer use.
         // Hoisted so the host can RE-ATTACH this exact stack: setFx(getFx()) nulls an emptied
         // stack, which detaches the very object the panel is still editing.
         final com.fadcam.ui.faditor.fx.FxStack imageFx = o.getOrCreateFx();
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Effects", R.drawable.ic_fx_24,                           // TODO(strings)
-                // Still inert: the splice is BUILT and compiles, but it is not routed — the
-                // composite it produced on device was wrong. See TextOverlayItem.hasExportFx.
+                // An image's effect stack reaches the EXPORT (ImageBlendGlEffect compiles it, the
+                // same splice a PiP uses), device-verified — export-only caveat, not inert.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.FxPanel.build(
                                 ctx, imageFx, textOverlayFxHost(o, imageFx),
                                 com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT),
-                        R.string.faditor_image_inert_fx)));
+                        R.string.faditor_image_fx_export_note)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Move", R.drawable.ic_pip_move_24,                        // TODO(strings)
                 ctx -> buildImageMoveTab(o)));

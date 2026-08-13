@@ -154,6 +154,38 @@ public class RippleObjectsTest {
         eq(free2.getStartMs(), 2500, "loop: extending clip 0 by 300 pushed the object right by 300");
     }
 
+    /**
+     * The reason the nesting guard keys on the outermost bracket's IDENTITY rather than counting
+     * depth: a bracket that is opened and never closed — an edit path that returns early between
+     * begin and end — must not disable rippling for the rest of the session. With a counter, one
+     * leak left it permanently +1 and every later edit read as nested, i.e. silently no-op. That
+     * failure would be invisible: no crash, no log, objects simply stop following edits.
+     */
+    static void aLeakedInnerBracketDoesNotSwitchRippleOffForGood() {
+        Timeline t = threeClips("ripple");
+        TextOverlayItem free = overlay(2200, 2600);
+        t.addTextOverlay(free);
+
+        Map<String, Long> outer = t.beginStructural();
+        t.beginStructural();                          // inner — deliberately NEVER closed
+        t.getClip(0).setOutPointMs(1500);
+        t.endStructural(outer);
+        eq(free.getStartMs(), 2700, "the outermost bracket still applied its shift");
+
+        // And the NEXT edit, with the leak still in the past, ripples normally.
+        Map<String, Long> next = t.beginStructural();
+        t.getClip(0).setOutPointMs(1700);
+        t.endStructural(next);
+        eq(free.getStartMs(), 2900, "a later edit is not treated as nested by the stale bracket");
+
+        // A map that never came from beginStructural applies directly — the standalone contract
+        // the AI paths and this harness rely on.
+        Map<String, Long> plain = t.captureClipStarts();
+        t.getClip(0).setOutPointMs(1900);
+        t.endStructural(plain);
+        eq(free.getStartMs(), 3100, "a bare captureClipStarts map still applies on its own");
+    }
+
     static void check(boolean c, String n) {
         checks++;
         System.out.println((c ? "PASS  " : "FAIL  ") + n);
@@ -205,6 +237,7 @@ public class RippleObjectsTest {
         aDanglingAnchorIsHealedAndRipplesAgain();
         everyObjectFamilyRipplesNotJustTextOverlays();
         speedAndLoopAreLengthChangesToo();
+        aLeakedInnerBracketDoesNotSwitchRippleOffForGood();
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

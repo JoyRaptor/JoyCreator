@@ -50,12 +50,14 @@ public class ImageBlendGateTest {
 
         TextOverlayItem fx = image(BlendModes.NORMAL);
         fx.getOrCreateFx().add("invert");
-        check("effects alone route an image to the shader", fx.wantsGlExport());
-        check("…and that is FX, not blend", fx.hasExportFx() && !fx.wantsExportBlend());
+        // NOT routed: the shader splice exists and compiles, but the composite it produced
+        // on device was wrong, so effects stay off the GL road. hasExportFx still reports them.
+        check("effects alone do NOT route yet — see hasExportFx", !fx.wantsGlExport());
+        check("…though the item still reports carrying them", fx.hasExportFx() && !fx.wantsExportBlend());
 
         TextOverlayItem both = image(BlendModes.MULTIPLY);
         both.getOrCreateFx().add("invert");
-        check("blend AND effects still route exactly once", both.wantsGlExport());
+        check("blend still routes, with or without effects", both.wantsGlExport());
 
         TextOverlayItem t = new TextOverlayItem("hi", 0xFFFFFFFF, 0.5f, 0.5f, 0.5f, 0f);
         t.getOrCreateFx().add("invert");
@@ -79,13 +81,14 @@ public class ImageBlendGateTest {
         com.fadcam.ui.faditor.model.CompositingSpec ks = keyed.getOrCreateCompositing();
         ks.keyEnabled = true;
         ks.keyColor = 0xFF00FF00;
-        check("an active chroma key routes an image to the shader", keyed.wantsGlExport());
-        check("…and that is the KEY, not blend or fx",
+        // Same holding pattern as effects: built, reported, not routed.
+        check("an active chroma key does NOT route yet", !keyed.wantsGlExport());
+        check("…though the item reports carrying one",
                 keyed.hasExportKey() && !keyed.wantsExportBlend() && !keyed.hasExportFx());
 
         TextOverlayItem keyOff = image(BlendModes.NORMAL);
         keyOff.getOrCreateCompositing().keyColor = 0xFF00FF00;   // colour set, switch off
-        check("a key that is switched OFF does not route", !keyOff.wantsGlExport());
+        check("a key that is switched OFF reports nothing", !keyOff.hasExportKey());
 
         TextOverlayItem masked = image(BlendModes.NORMAL);
         masked.getOrCreateCompositing().masks.add(

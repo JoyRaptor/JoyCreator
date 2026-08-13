@@ -83,6 +83,13 @@ final class ImageBlendGlEffect implements GlEffect {
                 + "uniform sampler2D uVideoTexSampler0;\n"
                 + "uniform sampler2D uOverlayTexSampler0;\n"
                 + "uniform float uBlendMode;\n" // float: ES2 int uniforms are patchy on old drivers
+                + "uniform vec3 uKeyColor;\n"
+                // x=enabled(0/1), y=tolerance, z=fuzziness, w=offset — packed by ChromaKey
+                + "uniform vec4 uKeyParams;\n"
+                // The key itself is NOT written here, for the same reason BlendModeGlEffect does
+                // not write it: one shared source means the preview tier and both export paths
+                // cannot drift apart on what "green enough" means.
+                + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN
                 // The blend equations are NOT written here — same reason BlendModeGlEffect does
                 // not write them. One authority means OVERLAY's per-channel branch exists once,
                 // and BlendModesTest pins the text byte-for-byte.
@@ -96,9 +103,14 @@ final class ImageBlendGlEffect implements GlEffect {
                 + "  vec2 ovc = vec2(vTexSamplingCoord.x, 1.0 - vTexSamplingCoord.y);\n"
                 + "  vec4 src = texture2D(uOverlayTexSampler0, ovc);\n"
                 + "  vec3 sc = src.rgb / max(src.a, 0.001);\n" // unpremultiply
+                // Chroma key on the STRAIGHT colour, BEFORE any effect grades it — keying measures
+                // distance from a colour in the SOURCE image, so inverting or grading first would
+                // stop a green screen being green and the key would silently miss. The enabled
+                // test lives inside the shared function, so there is no second place to forget it.
+                + "  float a = fadKeyAlpha(sc, src.a, uKeyColor, uKeyParams);\n"
                 // Mix by the overlay's own alpha, which already carries the item's keyframed
-                // opacity and its entrance animation via the Canvas paint.
-                + "  vec3 outc = mix(base.rgb, clamp(blendPix(base.rgb, sc), 0.0, 1.0), src.a);\n"
+                // opacity and its entrance animation via the Canvas paint, and now the key.
+                + "  vec3 outc = mix(base.rgb, clamp(blendPix(base.rgb, sc), 0.0, 1.0), a);\n"
                 + "  gl_FragColor = vec4(outc, base.a);\n"
                 + "}\n";
 
@@ -162,6 +174,8 @@ final class ImageBlendGlEffect implements GlEffect {
         private final GlProgram glProgram;
         private final ImageOverlayFrameOverlay overlay;
         private final float mode;
+        private final float[] keyColor;
+        private final float[] keyParams;
         /** Kept for its FX uniform values; the geometry all lives in the overlay. */
         @NonNull private final TextOverlayItem fxItem;
 
@@ -172,6 +186,12 @@ final class ImageBlendGlEffect implements GlEffect {
             this.overlay = new ImageOverlayFrameOverlay(
                     context, item, projectDurationMs, editorTimeOffsetMs);
             this.mode = BlendModes.modeCode(item.getOverlayBlendMode());
+            // Packed by the shared authority, not unpacked by hand here — the preview tier and the
+            // PiP path pack the identical uniforms from the identical spec, so a clamp added on
+            // one side can never be missing on another.
+            com.fadcam.ui.faditor.model.CompositingSpec spec = item.getCompositing();
+            this.keyColor = com.fadcam.ui.faditor.model.ChromaKey.packColor(spec);
+            this.keyParams = com.fadcam.ui.faditor.model.ChromaKey.packParams(spec);
             this.fxItem = item;
             try {
                 this.glProgram = new GlProgram(VERTEX_SHADER, fragmentFor(item));
@@ -199,6 +219,8 @@ final class ImageBlendGlEffect implements GlEffect {
                 glProgram.setSamplerTexIdUniform("uOverlayTexSampler0",
                         overlay.getTextureId(presentationTimeUs), 1);
                 glProgram.setFloatUniform("uBlendMode", mode);
+                glProgram.setFloatsUniform("uKeyColor", keyColor);
+                glProgram.setFloatsUniform("uKeyParams", keyParams);
                 // Per-object FX, resolved at the playhead so a keyed parameter animates — the same
                 // stack and the same resolver an adjustment layer and a PiP use.
                 setFxUniforms(presentationTimeUs);

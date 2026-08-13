@@ -23630,17 +23630,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // while a mask's linkBase is captured in absolute timeline ms — a wrong-time
                 // capture is worse than no row, so "Move with the object" waits for a rebased
                 // source. See build-list item.
+                // Masks are real in the export now (ImageOverlayDraw runs the same MaskPathBuilder
+                // a PiP does, so BOTH export paths honour them) — export-only caveat, not inert.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
                                 ctx, spec, applyComp,
                                 () -> Math.max(0, lastPlayheadAbsoluteMs)),
-                        R.string.faditor_image_inert_mask)));
+                        R.string.faditor_image_mask_export_note)));
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
+                // Chroma key reaches the export shader (ImageBlendGlEffect, the same shared
+                // ChromaKey.GLSL_KEY_FN a PiP keys with) — export-only caveat, not inert.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
                                 ctx, spec, applyComp, tabHost),
-                        R.string.faditor_image_inert_key)));
+                        R.string.faditor_image_key_export_note)));
         // M7: this object's OWN effects — the same panel a PiP and an adjustment layer use.
         // Hoisted so the host can RE-ATTACH this exact stack: setFx(getFx()) nulls an emptied
         // stack, which detaches the very object the panel is still editing.

@@ -22,6 +22,7 @@ public class ImageBlendGateTest {
         textIsNeverRouted();
         unknownModesDegradeToNormal();
         effectsAloneAlsoRouteToTheShader();
+        aKeyRoutesButAMaskDoesNot();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -64,6 +65,33 @@ public class ImageBlendGateTest {
         TextOverlayItem emptied = image(BlendModes.NORMAL);
         emptied.getOrCreateFx();          // stack exists but carries no cards
         check("an empty stack is not effects", !emptied.wantsGlExport());
+    }
+
+    /**
+     * A CHROMA KEY needs a shader too, so it routes; a MASK does not, so it must NOT.
+     *
+     * <p>A mask is a Canvas clip and {@code ImageOverlayDraw} applies it on either export path.
+     * Routing a merely-masked image into GL would move it in z (chain position is paint order)
+     * for no benefit at all — the caveat in {@code ImageBlendGlEffect}'s class doc, applied.</p>
+     */
+    static void aKeyRoutesButAMaskDoesNot() {
+        TextOverlayItem keyed = image(BlendModes.NORMAL);
+        com.fadcam.ui.faditor.model.CompositingSpec ks = keyed.getOrCreateCompositing();
+        ks.keyEnabled = true;
+        ks.keyColor = 0xFF00FF00;
+        check("an active chroma key routes an image to the shader", keyed.wantsGlExport());
+        check("…and that is the KEY, not blend or fx",
+                keyed.hasExportKey() && !keyed.wantsExportBlend() && !keyed.hasExportFx());
+
+        TextOverlayItem keyOff = image(BlendModes.NORMAL);
+        keyOff.getOrCreateCompositing().keyColor = 0xFF00FF00;   // colour set, switch off
+        check("a key that is switched OFF does not route", !keyOff.wantsGlExport());
+
+        TextOverlayItem masked = image(BlendModes.NORMAL);
+        masked.getOrCreateCompositing().masks.add(
+                new com.fadcam.ui.faditor.model.CompositingSpec.MaskShape());
+        check("a MASK alone stays on the canvas path — no z shift for nothing",
+                !masked.wantsGlExport());
     }
 
     static void normalIsNotABlend() {

@@ -710,6 +710,16 @@ public class TextOverlayItem {
     }
 
     /**
+     * True when this IMAGE overlay carries an ACTIVE chroma key, which only a shader can apply.
+     *
+     * <p>Masks are deliberately NOT here: a mask is a Canvas clip and works on the canvas path, so
+     * routing a merely-masked image into GL would move it in z for no reason.</p>
+     */
+    public boolean hasExportKey() {
+        return isImage() && com.fadcam.ui.faditor.model.ChromaKey.isActive(compositing);
+    }
+
+    /**
      * The ONE predicate that decides an image overlay leaves the Canvas path for the GL one.
      *
      * <p>Single authority on purpose (the reasoning in {@code 3152cc4}): the emitter and the canvas
@@ -717,7 +727,7 @@ public class TextOverlayItem {
      * never the two halves separately.</p>
      */
     public boolean wantsGlExport() {
-        return wantsExportBlend() || hasExportFx();
+        return wantsExportBlend() || hasExportFx() || hasExportKey();
     }
 
     /** Static opacity [0,1] used when there are no OPACITY keyframes. */

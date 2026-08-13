@@ -119,10 +119,22 @@ final class ImageOverlayDraw {
             canvas.clipRect(cx - iw / 2f, cy - ih / 2f,
                     cx - iw / 2f + iw * Math.max(0f, ianim.revealFrac), cy + ih / 2f);
         }
+        // Compositing masks (§C family) — the same canvas-normalized shapes a PiP masks with,
+        // through the same builder, so an image and a PiP cannot mask differently. Opened here,
+        // INSIDE the item's own save/restore but around the draw itself.
+        //
+        // objectKf is deliberately NULL. Mask keys and mask LINK bases are captured in absolute
+        // timeline ms, while an image's transform keys are LOCAL to its start — handing the local
+        // set in as a link source would resolve every mask key against the wrong clock. That is
+        // the same reason the drawer offers no "Move with the object" row for an image's mask.
+        com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope maskSave =
+                com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
+                        canvas, o.getCompositing(), null, timelineMs, outW, outH, 0f, 0f);
         canvas.drawBitmap(img,
                 new android.graphics.Rect(0, 0, img.getWidth(), img.getHeight()),
                 new android.graphics.RectF(cx - iw / 2f, cy - ih / 2f,
                         cx + iw / 2f, cy + ih / 2f), ip);
+        com.fadcam.ui.faditor.model.MaskPathBuilder.endMask(canvas, maskSave);
         canvas.restore();
         return true;
     }

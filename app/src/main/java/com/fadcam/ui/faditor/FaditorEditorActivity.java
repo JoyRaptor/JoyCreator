@@ -7571,33 +7571,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
-        // Nothing decoded yet — the first ~250ms of every project open, before the codec reports
-        // a VideoSize. Assuming the FULL VIEW here is not a neutral guess: for a 9:16 clip in a
-        // wider container the real render box is a narrow pillar, so every overlay laid out in
-        // this window sits against a box much bigger than the video and then SNAPS when the first
-        // frame arrives. That snap is on screen at load, on a path taken four times per open
-        // (measured on the Note 9, 2026-08-12).
-        //
-        // displaySize() knows the answer already: it reads the source's own dimensions and is
-        // cached per source URI (948cde3), and applyCanvasFrame has normally paid for that entry
-        // during this same load — so this is a map lookup, not new main-thread I/O. Only when it
-        // cannot answer at all do we fall back to the full view.
         // Fallback: assume full view.
         //
-        // MEASURED, 2026-08-12, Note 9, opening a 9-clip project: this fires 8-9 times in ~180ms
-        // during load, and every one of them reports view=1080x0 — the PlayerView is UNMEASURED,
-        // and so is its parent. So the rect returned here is not merely a guess at the letterbox,
-        // it has ZERO HEIGHT, and computeCanvasRect (the hot path every overlay's geometry is
-        // derived from) hands it straight to the overlay layer. Overlays laid out against a
-        // collapsed box and snapped into place when layout settled — a candidate mechanism for
-        // the load flicker in the worklist, and the first hard evidence about it.
+        // MEASURED on the Note 9 opening a 9-clip project: this fires 8-9 times in ~180ms during
+        // load and EVERY call reports view=1080x0 — the PlayerView is unmeasured that early, and
+        // so is its parent, so what comes back has zero height rather than being a guess at the
+        // letterbox. The sizes are in the log line because without them this reads as a harmless
+        // "we don't know the aspect yet" branch.
         //
-        // NOT fixed by inventing a rect here. Both the view and its container are unmeasured, so
-        // nothing at this point knows the box; deriving one from the source aspect was tried and
-        // could not (verified on device — the parent reported 1080x0 too). The fix belongs in the
-        // consumers: skip the layout pass while the canvas is degenerate and let the layout pass
-        // that follows do it once, instead of laying out against a box of zero height. The sizes
-        // are logged because without them this looked like a plain "aspect unknown yet" fallback.
+        // THIS IS NOT THE LOAD FLICKER, and an earlier version of this comment claimed it was.
+        // Every consumer bails on a degenerate rect already — TextOverlayLayer.position, the four
+        // sites in PreviewHandlesOverlay, the sprite draw and the mask-drag path all test
+        // width()/height() <= 0 first — so a zero-height rect is ignored, never laid out against.
+        // The claim was written from the measurement without reading the consumers, which is the
+        // same "trusted a plausible signal before checking it" this file has been bitten by.
+        //
+        // Also tried and rejected ON DEVICE: deriving the box from the source aspect via
+        // displaySize (cached per source URI, 948cde3). The parent reports 1080x0 too, so nothing
+        // at that moment knows the box at all.
         FLog.d(TAG, "computeVideoContentRect: FALLBACK to full view (view=" + viewW + "x" + viewH
                 + " — UNMEASURED if 0)");
         return new android.graphics.RectF(offsetX, offsetY, offsetX + viewW, offsetY + viewH);

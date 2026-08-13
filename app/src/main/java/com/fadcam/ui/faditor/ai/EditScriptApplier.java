@@ -144,14 +144,24 @@ public class EditScriptApplier {
                 }
                 // Simulation passed end-to-end → replay on the live project.
                 int count = 0;
-                for (EditScript.EditOp op : script.getOperations()) {
-                    try {
-                        applyOp(project, op);
-                        count++;
-                    } catch (Exception e) {
-                        return Result.fail("Failed applying op " + count
-                                + " (" + op.type + "): " + e.getMessage());
+                java.util.Map<String, Long> before = project.getTimeline().beginStructural();
+                try {
+                    for (EditScript.EditOp op : script.getOperations()) {
+                        try {
+                            applyOp(project, op);
+                            count++;
+                        } catch (Exception e) {
+                            return Result.fail("Failed applying op " + count
+                                    + " (" + op.type + "): " + e.getMessage());
+                        }
                     }
+                } finally {
+                    // ONE bracket around the whole script, not one per op: a script is a single
+                    // user action, and a split is remove+add+add — bracketing per op would shift
+                    // a rider two or three times. In a finally because a failed op returns from
+                    // inside the loop, and a bracket left open makes every LATER edit on this
+                    // timeline look nested, which would silently switch rippling off.
+                    project.getTimeline().endStructural(before);
                 }
                 project.touch();
                 return Result.ok(count);
@@ -165,14 +175,19 @@ public class EditScriptApplier {
         }
 
         int count = 0;
-        for (EditScript.EditOp op : script.getOperations()) {
-            try {
-                applyOp(project, op);
-                count++;
-            } catch (Exception e) {
-                return Result.fail("Failed applying op " + count
-                        + " (" + op.type + "): " + e.getMessage());
+        java.util.Map<String, Long> before = project.getTimeline().beginStructural();
+        try {
+            for (EditScript.EditOp op : script.getOperations()) {
+                try {
+                    applyOp(project, op);
+                    count++;
+                } catch (Exception e) {
+                    return Result.fail("Failed applying op " + count
+                            + " (" + op.type + "): " + e.getMessage());
+                }
             }
+        } finally {
+            project.getTimeline().endStructural(before);   // see the structural path above
         }
         project.touch();
         return Result.ok(count);

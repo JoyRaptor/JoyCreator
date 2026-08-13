@@ -218,6 +218,26 @@ public class SpriteOverlayItem {
         this.endMs = (endMs <= this.startMs) ? Long.MAX_VALUE : endMs;
     }
 
+    /**
+     * Set the window with TRIM semantics: the transform keys stay put in PROJECT time.
+     *
+     * <p>Mirrors {@code TextOverlayItem.setTrimmedTimeRange} exactly, and for the same reason — a
+     * sprite's keys use the same local base ({@link #localTime}), so moving the START moved every
+     * key with it. Dragging the front edge is the user saying "show more of this", not "move the
+     * animation"; moving the object along the timeline is the gesture that carries its keys, and
+     * that one still goes through {@link #setTimeRange}.</p>
+     *
+     * <p>The frame CADENCE is a separate matter and stays with the caller: for a sequence the left
+     * edge also decides which frames survive, which {@code applySequenceTrim} handles. This method
+     * is only about where the transform animation sits in time.</p>
+     */
+    public void setTrimmedTimeRange(long startMs, long endMs) {
+        long before = this.startMs;
+        setTimeRange(startMs, endMs);
+        long after = this.startMs;
+        if (after != before) keyframes.shiftAll(before - after);
+    }
+
     @Nullable public String getLayerId() { return layerId; }
     public void setLayerId(@Nullable String layerId) { this.layerId = layerId; }
 

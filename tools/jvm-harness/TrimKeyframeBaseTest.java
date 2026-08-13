@@ -25,6 +25,39 @@ public class TrimKeyframeBaseTest {
 
     static int fails = 0, checks = 0;
 
+    /**
+     * A sprite/sequence object stores its keys against the SAME local base, so the front handle had
+     * the identical bug. Found by reading, not by report — the fix for images would otherwise have
+     * left the other family that uses {@code localTime} behaving the old way.
+     *
+     * <p>The frame CADENCE is a separate question the gesture still owns: for a sequence the left
+     * edge also decides which frames survive. This is only about where the animation sits.</p>
+     */
+    static void aSpriteBehavesTheSameWay() {
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem s =
+                new com.fadcam.ui.faditor.sprite.SpriteOverlayItem("sprite-1", "sheet-1");
+        s.setTimeRange(5000, 9000);
+        s.getKeyframes().getOrCreate(KeyframeSet.X).put(0, 0.1f, Easing.LINEAR);
+        s.getKeyframes().getOrCreate(KeyframeSet.X).put(1000, 0.9f, Easing.LINEAR);
+
+        s.setTrimmedTimeRange(3000, 9000);
+        eq(s.getStartMs() + s.getKeyframes().get(KeyframeSet.X).keyframes.get(0).timeMs, 5000,
+                "sprite front trim: first key held its project time");
+        eq(s.getStartMs() + s.getKeyframes().get(KeyframeSet.X).keyframes.get(1).timeMs, 6000,
+                "sprite front trim: and the second");
+
+        // A FRESH sprite for the move case: after the trim above the first key legitimately sits
+        // 2000ms into the object, so a move would carry it to 10000 — correct, but it would test
+        // the trim twice instead of testing the move.
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem m =
+                new com.fadcam.ui.faditor.sprite.SpriteOverlayItem("sprite-2", "sheet-1");
+        m.setTimeRange(5000, 9000);
+        m.getKeyframes().getOrCreate(KeyframeSet.X).put(0, 0.1f, Easing.LINEAR);
+        m.setTimeRange(8000, 12000);   // a MOVE takes the animation along, as for any object
+        eq(m.getStartMs() + m.getKeyframes().get(KeyframeSet.X).keyframes.get(0).timeMs, 8000,
+                "sprite move: the animation travelled with it");
+    }
+
     static void check(boolean c, String n) {
         checks++;
         System.out.println((c ? "PASS  " : "FAIL  ") + n);
@@ -55,6 +88,7 @@ public class TrimKeyframeBaseTest {
         movingTheObjectTakesItsKeysWithIt();
         outAndBackIsExactlyReversible();
         shorteningTheFrontKeepsKeysItPassed();
+        aSpriteBehavesTheSameWay();
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

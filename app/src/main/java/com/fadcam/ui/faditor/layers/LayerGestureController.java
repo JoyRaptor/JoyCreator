@@ -1513,11 +1513,11 @@ public final class LayerGestureController {
                 // and restore the open end on snap.
                 if (dragStartDisplayDurMs > 0 && Math.abs(o.getEndMs()
                         - (dragStartTextStartMs + dragStartDisplayDurMs)) <= thrMs) {
-                    o.setTimeRange(dragStartTextStartMs, Long.MAX_VALUE);
+                    o.setTrimmedTimeRange(dragStartTextStartMs, Long.MAX_VALUE);
                     snapped = true;
                 }
             } else if (Math.abs(o.getEndMs() - dragStartTextEndMs) <= thrMs) {
-                o.setTimeRange(dragStartTextStartMs, dragStartTextEndMs);
+                o.setTrimmedTimeRange(dragStartTextStartMs, dragStartTextEndMs);
                 snapped = true;
             }
         } else if (item.getAudioClip() != null) {
@@ -1720,7 +1720,10 @@ public final class LayerGestureController {
             newEnd = Math.min(newEnd, trimSiblingCeil(newStart, newEnd));
             newEnd = Math.max(newEnd, newStart + minSpan);
         }
-        s.setTimeRange(newStart, newEnd);
+        // TRIM semantics, as for a text/image overlay: the front edge moves the window, not the
+        // animation. A sprite's keys share the same local base, so without this every key slid
+        // later in project time when the left handle was pulled out.
+        s.setTrimmedTimeRange(newStart, newEnd);
 
         if (spriteFpsProvider == null || !spriteFpsProvider.isSequence(s)) return;
         if (spriteFpsProvider.resizeMode(s)

@@ -4757,6 +4757,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * user's choice, and the prompt that asks it is a separate slice. Until it lands an orphan
      * simply stops tracking, which is the status quo for every project today, not a regression.</p>
      */
+    /**
+     * Close a bracket that an undo/redo opened, UNLESS the undo restored a whole snapshot.
+     *
+     * <p>Snapshot-based undo ({@code restoreProjectFromSnapshot}) throws the entire object graph
+     * away and deserialises a new one, in which every object is ALREADY at the position that state
+     * had. Applying a shift on top of that moves everything a second time — and this is the common
+     * case, not an edge one: once a project has been closed and reopened, every history entry is
+     * snapshot-only, so every undo takes this path.</p>
+     *
+     * <p>Detected by identity: a restore assigns a new {@code FaditorProject}, so the Timeline the
+     * bracket was opened on is not the one now installed. The dead timeline's bracket flag dies
+     * with it, and the fresh one has never had a bracket opened, so nothing leaks.</p>
+     *
+     * @return the shift result, or null when the snapshot path made a shift meaningless
+     */
+    @Nullable
+    private Timeline.AnchorShiftResult endStructuralEditUnlessRestored(
+            @Nullable Timeline openedOn, @NonNull java.util.Map<String, Long> before,
+            @NonNull String where) {
+        if (project == null) return null;
+        if (openedOn != null && openedOn != project.getTimeline()) {
+            FLog.d(TAG, "ANCHOR[" + where + "] skipped — a snapshot restore replaced the document");
+            return null;
+        }
+        return endStructuralEdit(before, where);
+    }
+
     @Nullable
     private Timeline.AnchorShiftResult endStructuralEdit(
             @NonNull java.util.Map<String, Long> before, @NonNull String where) {
@@ -11516,10 +11543,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!undoManager.canUndo()) return;
         // Read the description BEFORE undoing — afterwards this entry has moved to the redo stack.
         String what = undoManager.peekUndoDescription();
+        Timeline openedOn = project == null ? null : project.getTimeline();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
         undoManager.undo();
-        endStructuralEdit(anchorsBefore, "undo");
+        endStructuralEditUnlessRestored(openedOn, anchorsBefore, "undo");
         announceHistoryStep("Undid", what);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
@@ -11532,10 +11560,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void performRedo() {
         if (!undoManager.canRedo()) return;
         String what = undoManager.peekRedoDescription();
+        Timeline openedOn = project == null ? null : project.getTimeline();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
         undoManager.redo();
-        endStructuralEdit(anchorsBefore, "redo");
+        endStructuralEditUnlessRestored(openedOn, anchorsBefore, "redo");
         announceHistoryStep("Redid", what);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
@@ -11868,6 +11897,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void jumpUndoRedoBy(int steps, boolean isRedo) {
         if (steps <= 0) return;
         boolean changed = false;
+        Timeline openedOn = project == null ? null : project.getTimeline();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         java.util.List<String> idsBefore = masterClipIds();
         for (int i = 0; i < steps; i++) {
@@ -11875,7 +11905,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (!ok) break;
             changed = true;
         }
-        endStructuralEdit(anchorsBefore, isRedo ? "jumpRedo" : "jumpUndo");
+        endStructuralEditUnlessRestored(openedOn, anchorsBefore, isRedo ? "jumpRedo" : "jumpUndo");
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         if (!changed) return;
         refreshEditorAfterUndoRedo();

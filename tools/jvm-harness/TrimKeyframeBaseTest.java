@@ -58,6 +58,31 @@ public class TrimKeyframeBaseTest {
                 "sprite move: the animation travelled with it");
     }
 
+    /**
+     * "Drag the handle out and back and nothing has changed" has to survive CLOSING the project.
+     *
+     * <p>Trimming the front later pushes early keys before the object's own zero, and the whole
+     * reason they are kept rather than clamped is reversibility. That only holds if a negative
+     * time round-trips through the file: a clamp in the codec — or in {@code KeyframeTrack.put} on
+     * the way back in — would silently collapse them to 0 on the next open, and the animation
+     * would be quietly different from the one the user left.</p>
+     */
+    static void negativeKeyTimesSurviveSaveAndLoad() {
+        TextOverlayItem o = animated();
+        o.setTrimmedTimeRange(6000, 9000);            // start moves PAST the first key
+        long localBefore = o.getKeyframes().get(KeyframeSet.X).keyframes.get(0).timeMs;
+        check(localBefore < 0, "setup: the passed key really is at a negative local time ("
+                + localBefore + ")");
+
+        com.google.gson.JsonObject json =
+                com.fadcam.ui.faditor.keyframe.KeyframeCodec.toJson(o.getKeyframes());
+        KeyframeSet back = com.fadcam.ui.faditor.keyframe.KeyframeCodec.fromJson(json);
+        eq(back.get(KeyframeSet.X).keyframes.get(0).timeMs, localBefore,
+                "save/load: the negative time came back exactly");
+        eq(back.get(KeyframeSet.X).keyframes.size(), 2,
+                "save/load: both keys survived, not collapsed onto one instant");
+    }
+
     static void check(boolean c, String n) {
         checks++;
         System.out.println((c ? "PASS  " : "FAIL  ") + n);
@@ -89,6 +114,7 @@ public class TrimKeyframeBaseTest {
         outAndBackIsExactlyReversible();
         shorteningTheFrontKeepsKeysItPassed();
         aSpriteBehavesTheSameWay();
+        negativeKeyTimesSurviveSaveAndLoad();
 
         System.out.println();
         System.out.println(fails == 0 ? ("ALL PASS — " + checks + " checks")

@@ -46,6 +46,7 @@ public class FxCompilerTest {
         slotsSurviveReorder();
         serializationRoundTrip();
         costModel();
+        spatialUnitsAreResolutionIndependent();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
@@ -606,6 +607,50 @@ public class FxCompilerTest {
                 stackOf("gaussian_blur", "directional_blur", "gaussian_blur"));
         check("three sampler cards are HEAVY", heavy.level == FxCost.Level.HEAVY);
         check("...and exceed the preview pass budget", heavy.exceedsPreviewBudget());
+    }
+
+    // ── Spatial units ───────────────────────────────────────────────────────
+
+    /**
+     * NO SPATIAL EFFECT MAY STEP BY {@code uTexel}.
+     *
+     * <p>A texel is a unit of the RENDER TARGET, and the two renderers do not share one: the
+     * preview runs the chain at the decoded video's size, the export at the canvas size the user
+     * picked from a dropdown. An offset quoted in texels therefore meant a different-sized blur
+     * in the editor than in the file — and, the half that needs no preview to be wrong at all, a
+     * different-sized blur in a 720p export than in a 1080p one.</p>
+     *
+     * <p>Run against the un-fixed bodies every one of these fails: gaussian_blur,
+     * directional_blur, pixelate and rgb_shift all emitted {@code uTexel}. The last check is what
+     * makes the change safe rather than merely different — at
+     * {@link FxCompiler#REFERENCE_HEIGHT} the new step IS the old texel, so every radius anyone
+     * has ever dialled in against the editor still means what it meant.</p>
+     */
+    static void spatialUnitsAreResolutionIndependent() {
+        String[] spatial = {"gaussian_blur", "directional_blur", "pixelate", "rgb_shift"};
+        for (String id : spatial) {
+            String glsl = FxCompiler.emitGlsl(FxCompiler.plan(stackOf(id)).passes.get(0), K);
+            // The DECLARATION is emitted for every pass and is not the subject — uTexel is still
+            // a legitimate uniform, and other bodies read it deliberately. What must not survive
+            // is a USE of it inside a spatial offset, so the declaration line is dropped first.
+            StringBuilder body = new StringBuilder();
+            for (String line : glsl.split("\n")) {
+                if (line.startsWith("uniform ")) continue;
+                body.append(line).append('\n');
+            }
+            check(id + " does not step by uTexel", !body.toString().contains(FxCompiler.U_TEXEL));
+            check(id + " steps against the reference height",
+                    glsl.contains("1.0 / (1080.0 * " + FxCompiler.U_ASPECT + ")"));
+        }
+        // The arithmetic the whole change rests on: at a target 1080 tall, one step in y is
+        // 1/1080 — bit-identical to what uTexel.y would have been — and one step in x is
+        // 1/(1080*aspect), which for a 1080-tall frame is 1/width, i.e. uTexel.x. Same picture
+        // distance on both axes, and the same numbers the old code produced at that height.
+        float step = 1f / FxCompiler.REFERENCE_HEIGHT;
+        float aspect = 16f / 9f;
+        check("one step in y equals a 1080-tall target's texel", Math.abs(step - 1f / 1080f) < 1e-9);
+        check("one step in x equals that target's texel too",
+                Math.abs(step / aspect - 1f / 1920f) < 1e-9);
     }
 
     static FxStack stackOf(String... ids) {

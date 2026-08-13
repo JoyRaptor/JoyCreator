@@ -45,6 +45,46 @@ public final class FxCompiler {
     public static final String U_TIME = "uTime";
     public static final String U_DIR = "uDir";
 
+    /**
+     * The height, in pixels, that a spatial effect's units are quoted against.
+     *
+     * <p><b>Why a reference height exists at all.</b> A kernel that steps by ONE TEXEL spans
+     * {@code ±FX_KERNEL_HALF} pixels OF ITS RENDER TARGET — and the two renderers do not have the
+     * same render target. The preview runs the chain at the decoded video's size; the export runs
+     * it at the CANVAS size, which the user picks from a dropdown. So "radius 8" meant a blur
+     * 1.5x wider, relative to the picture, in a 720p export than in a 1080p preview — and, worse
+     * than any preview disagreement, exporting the SAME project at two resolutions produced two
+     * different blurs. Nobody chose that; it fell out of the units.</p>
+     *
+     * <p>1080 rather than a round number with no history: it is the height the preview has been
+     * running at for the whole life of these cards (the {@code videoSize()} fallback is
+     * 1920x1080, and the phones this ships to record 1080p), so every radius any user has dialled
+     * in against the editor keeps meaning exactly what it meant. What changes is the EXPORT at
+     * any other canvas height — which is the bug.</p>
+     *
+     * <p>Height, not width, and not the diagonal: an effect's size should not change when the
+     * same footage is letterboxed to a different aspect, and height is the dimension the rest of
+     * this editor already quotes fractions against ({@code sizeFraction}, {@code FxPreviewTier}).
+     * The x component is divided by {@code uAspect} so the step is the same PICTURE distance on
+     * both axes — the isotropy the raw texel already had, kept.</p>
+     */
+    public static final float REFERENCE_HEIGHT = 1080f;
+
+    /**
+     * {@code FX_STEP}: one unit of spatial offset in uv, independent of the render target.
+     *
+     * <p>Exactly equal to {@code uTexel} when the target is {@link #REFERENCE_HEIGHT} tall, which
+     * is what makes this a no-op for the resolution these cards were authored against.</p>
+     */
+    @NonNull
+    private static String stepExpr() {
+        // Written as a DIVISION rather than a pre-computed literal: Float.toString would emit
+        // 9.259259E-4, and while GLSL ES 1.00 accepts an exponent, a shader constant nobody can
+        // read is how a reference height gets silently changed by someone tidying a number.
+        String ref = fmt(REFERENCE_HEIGHT);
+        return "(vec2(1.0 / (" + ref + " * " + U_ASPECT + "), 1.0 / " + ref + "))";
+    }
+
     // ── Pass planning ───────────────────────────────────────────────────────
 
     /** One compiled pass: the cards folded into it, and how many times it must run. */
@@ -675,6 +715,7 @@ public final class FxCompiler {
                 agsl ? "inputShader.eval(" + U_ORIGIN + " + fxClamp(fxRemap(%s)) * " + U_SIZE + ")"
                      : "texture2D(uTexSampler, fxClamp(fxRemap(%s)))");
         out = out.replace("FX_UV", agsl ? "uv" : "uv");
+        out = out.replace("FX_STEP", stepExpr());
         out = out.replace("FX_TEXEL", U_TEXEL);
         out = out.replace("FX_ASPECT", U_ASPECT);
         out = out.replace("FX_TIME", U_TIME);

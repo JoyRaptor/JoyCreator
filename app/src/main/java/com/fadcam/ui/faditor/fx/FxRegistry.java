@@ -39,9 +39,15 @@ public final class FxRegistry {
     // The available macros are documented on FxCompiler. Nothing here may declare a uniform, a
     // varying, a precision, a preprocessor line, or an entry point: validate() rejects all of it.
 
+    // FX_STEP, NOT FX_TEXEL, in all three spatial bodies below. A texel is a unit of the RENDER
+    // TARGET, and the preview's target (the decoded video) is not the export's (the canvas the
+    // user picked), so a radius quoted in texels meant a different-sized blur in the editor than
+    // in the file — and a different-sized blur in a 720p export than in a 1080p one. FX_STEP is
+    // the same picture distance everywhere, and is exactly FX_TEXEL at 1080 tall, which is what
+    // every existing radius was dialled in against. See FxCompiler.REFERENCE_HEIGHT.
     private static final String BODY_GAUSSIAN_BLUR =
             "float sigma = max(FX_P(radius), 0.0001);\n"
-            + "vec2 off = FX_TEXEL * FX_DIR;\n"
+            + "vec2 off = FX_STEP * FX_DIR;\n"
             + "vec4 sum = vec4(0.0);\n"
             + "float wsum = 0.0;\n"
             // FX_KERNEL_HALF is a LITERAL by the time a driver sees it. AGSL requires
@@ -58,7 +64,7 @@ public final class FxRegistry {
     private static final String BODY_DIRECTIONAL_BLUR =
             "float sigma = max(FX_P(radius), 0.0001);\n"
             + "float ang = radians(FX_P(angle));\n"
-            + "vec2 off = FX_TEXEL * vec2(cos(ang), sin(ang));\n"
+            + "vec2 off = FX_STEP * vec2(cos(ang), sin(ang));\n"
             + "vec4 sum = vec4(0.0);\n"
             + "float wsum = 0.0;\n"
             + "for (int i = -FX_KERNEL_HALF; i <= FX_KERNEL_HALF; i++) {\n"
@@ -72,7 +78,7 @@ public final class FxRegistry {
     private static final String BODY_PIXELATE =
             // A mosaic is a COORDINATE change, not a colour one, so it costs no pass at all — it
             // folds into whatever samples next. That is the whole point of having UV_REMAP.
-            "vec2 cell = FX_TEXEL * max(FX_P(size), 1.0);\n"
+            "vec2 cell = FX_STEP * max(FX_P(size), 1.0);\n"
             + "return (floor(uv / cell) + vec2(0.5)) * cell;\n";
 
     private static final String BODY_INVERT =
@@ -118,7 +124,9 @@ public final class FxRegistry {
 
     private static final String BODY_RGB_SHIFT =
             "float ang = radians(FX_P(angle));\n"
-            + "vec2 o = FX_TEXEL * FX_P(amount) * vec2(cos(ang), sin(ang));\n"
+            // FX_STEP for the same reason the blurs use it — this offset is a picture distance,
+            // not a texel count.
+            + "vec2 o = FX_STEP * FX_P(amount) * vec2(cos(ang), sin(ang));\n"
             + "vec4 r = FX_SAMPLE(uv + o);\n"
             + "vec4 g = FX_SAMPLE(uv);\n"
             + "vec4 b = FX_SAMPLE(uv - o);\n"

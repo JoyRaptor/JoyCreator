@@ -315,6 +315,7 @@ public class ProjectStorage {
                     // Then collapse per-clip forks onto one shared transcript per id, so an
                     // edit made from any clip is an edit everywhere (backup-first too).
                     shareTranscriptsWithBackup(p, file);
+                    healDanglingAnchors(p);
                     return p;
                 }
                 FLog.w(TAG, "Main project file empty/invalid, trying backup: " + projectId);
@@ -334,6 +335,7 @@ public class ProjectStorage {
                     // Same duplicate migration as the main-file path (backs up the
                     // .bak we actually loaded from).
                     dedupTranscriptsWithBackup(p, bak);
+                    healDanglingAnchors(p);
                     return p;
                 }
             } catch (Exception e) {
@@ -363,6 +365,26 @@ public class ProjectStorage {
      * the backup itself is served as-good-as-possible rather than all-or-nothing.
      */
     @Nullable
+    /**
+     * Re-home rider anchors that point at clips this project does not contain — the same shape as
+     * {@code pruneOrphanedTrackFlags}, for {@code hostClipId}. See
+     * {@link com.fadcam.ui.faditor.model.Timeline#healDanglingHostAnchors()} for why a dangling
+     * anchor is not cosmetic: such a rider is read as an orphan and therefore never ripples again.
+     *
+     * <p>Called from the LOAD paths only, deliberately NOT from the shared deserializer, which also
+     * runs on every undo/redo snapshot restore. A restore is not the moment to repair anything: the
+     * state being restored is the truth, and an orphan that is still awaiting §4A's re-anchor-or-
+     * delete answer would have that question silently answered for it.</p>
+     */
+    private void healDanglingAnchors(@NonNull FaditorProject p) {
+        if (p.getTimeline() == null) return;
+        List<String> healed = p.getTimeline().healDanglingHostAnchors();
+        if (!healed.isEmpty()) {
+            FLog.w(TAG, "Re-homed " + healed.size()
+                    + " dangling host anchor(s) on load: " + healed);
+        }
+    }
+
     public FaditorProject loadBackupOnly(@NonNull String projectId) {
         File bak = new File(getProjectDir(projectId), PROJECT_FILE + ".bak");
         if (!bak.exists()) {
@@ -375,6 +397,7 @@ public class ProjectStorage {
                 p.setDiskLastModifiedAtLastSync(p.getLastModified());
                 dedupTranscriptsWithBackup(p, bak);
                 shareTranscriptsWithBackup(p, bak);
+                healDanglingAnchors(p);
                 FLog.i(TAG, "loadBackupOnly: opened backup for " + projectId
                         + " (skips=" + p.getLoadSkips().size() + ")");
                 return p;
@@ -3185,17 +3208,6 @@ public class ProjectStorage {
             // "the state further edits get compared against" for that Timeline's
             // lifetime, matching ProjectStorage#mergeTrackFlagsIfStale's needs.
             project.getTimeline().snapshotBaselineTrackFlags();
-
-            // Same shape as the trackFlags prune above, for rider anchors: an overlay whose
-            // hostClipId names a clip that is not on this timeline is treated as an orphan by
-            // applyAnchorShift and therefore NEVER ripples again — it quietly stops tracking its
-            // footage while still looking anchored. Projects in the wild already carry these.
-            // Re-homed to the clip under the rider's own start; times untouched; logged, not silent.
-            List<String> healedAnchors = project.getTimeline().healDanglingHostAnchors();
-            if (!healedAnchors.isEmpty()) {
-                FLog.w(TAG, "Re-homed " + healedAnchors.size()
-                        + " dangling host anchor(s) on load: " + healedAnchors);
-            }
 
             // Restore canvas preset
             if (hasValue(obj, "canvasPreset")) {

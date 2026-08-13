@@ -2171,6 +2171,15 @@ public class Timeline {
      * industry's per-track sync lock, expressed project-wide). Orphans are still REPORTED, because
      * a deleted host dangles an anchor whatever the mode, and answering that is the user's call.</p>
      *
+     * <p><b>Known limit: an IN-point trim does not move riders inside the clip being trimmed.</b>
+     * Dragging a clip's START moves that clip's own content left or right underneath any rider
+     * sitting in it, but the clip's START TIME does not change, so there is no delta here to apply
+     * — {@code beforeStarts} records starts, and this one did not move. Riders in LATER clips are
+     * unaffected by the distinction and shift correctly. Out-point trims, the common case and the
+     * one this was built for, are exact. The shipped anchored-rider path has always behaved this
+     * way too, so the two agree; fixing it needs the per-clip in-point delta captured alongside
+     * the starts.</p>
+     *
      * <p><b>Known limit.</b> A rider starting past the LAST clip's old start moves with that clip.
      * If only the last clip's own length changes, no start changes at all and such a rider does not
      * move — {@code beforeStarts} records starts, not spans, so the old end of the timeline is not

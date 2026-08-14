@@ -32463,7 +32463,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (it.getTextOverlay() != null) {
                 com.fadcam.ui.faditor.model.TextOverlayItem copy = it.getTextOverlay()
                         .copyWithNewId(java.util.UUID.randomUUID().toString());
-                nudgeDuplicate(copy);
                 copy.setLayerId(timeline.createLayerTrack(
                         com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text"));
                 timeline.addTextOverlay(copy);
@@ -32472,7 +32471,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } else if (it.getSprite() != null) {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy = it.getSprite()
                         .copyWithNewId(java.util.UUID.randomUUID().toString());
-                nudgeDuplicate(copy);
                 copy.setLayerId(timeline.createLayerTrack(
                         com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite"));
                 timeline.addSpriteOverlay(copy);
@@ -32567,41 +32565,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return false;
     }
 
-    /**
-     * How far a duplicate is nudged from its original, as a fraction of the canvas.
-     *
-     * <p><b>A duplicate that lands exactly on its original has not visibly happened.</b> JoyRaptor
-     * reported it as the copy failing to draw — "when I duplicate an image object, the dupe
-     * doesn't render, it seems like one has a hard time rendering or looks transparent"
-     * (2026-08-13). Reproduced on the Note 9: BOTH copies render perfectly, pixel for pixel on
-     * top of each other, and dragging the top one apart reveals the second underneath. There was
-     * never a rendering bug — there was no way to tell that anything had been created, and any
-     * edge-antialiasing difference between two stacked copies reads as something being wrong
-     * with one of them.
-     *
-     * <p>Small enough that the copy is obviously the same object in the same place, big enough
-     * to grab: an object's own drag handles are comfortably inside this.</p>
-     */
-    private static final float DUPLICATE_NUDGE = 0.04f;
-
-    /**
-     * Offset a freshly duplicated overlay so it is visible as its own object.
-     *
-     * <p>Writes the STATIC centre. An object whose position is keyframed reads its centre from
-     * the curve instead, so its copy still lands underneath the original — the honest fix there
-     * is to shift the whole curve, which is a different change and wants its own undo story.
-     * The un-animated object is the overwhelmingly common case and the one that was reported.</p>
-     */
-    private static void nudgeDuplicate(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem copy) {
-        copy.setCenter(copy.getCenterX() + DUPLICATE_NUDGE, copy.getCenterY() + DUPLICATE_NUDGE);
-    }
-
-    /** @see #nudgeDuplicate(com.fadcam.ui.faditor.model.TextOverlayItem) */
-    private static void nudgeDuplicate(
-            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy) {
-        copy.setCenter(copy.getCenterX() + DUPLICATE_NUDGE, copy.getCenterY() + DUPLICATE_NUDGE);
-    }
-
     private boolean duplicateSelectedObject() {
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
@@ -32617,7 +32580,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             confirmLockedThen(t.isLocked(), () -> t.setLocked(false), () -> {
                 com.fadcam.ui.faditor.model.TextOverlayItem copy =
                         t.copyWithNewId(java.util.UUID.randomUUID().toString());
-                nudgeDuplicate(copy);
                 String lane = timeline.createLayerTrack(
                         com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text");
                 copy.setLayerId(lane);
@@ -32631,7 +32593,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             confirmLockedThen(sp.isLocked(), () -> sp.setLocked(false), () -> {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy =
                         sp.copyWithNewId(java.util.UUID.randomUUID().toString());
-                nudgeDuplicate(copy);
                 String lane = timeline.createLayerTrack(
                         com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite");
                 copy.setLayerId(lane);

@@ -1185,8 +1185,12 @@ public final class CaptionAnimator {
      * which is what makes LETTER affordable.
      *
      * <p>Whitespace between units is never itself a unit; it belongs to no one and is drawn
-     * unanimated. LTR only for v1, per the spec — no grapheme clustering, so a combining mark
-     * animates as its own letter.</p>
+     * unanimated. LTR only for v1, per the spec.</p>
+     *
+     * <p>LETTER units are GRAPHEME CLUSTERS — see the note in the branch. This paragraph used to
+     * say "no grapheme clustering, so a combining mark animates as its own letter", which read as
+     * a tidy scoping decision and was in fact a rendering bug waiting: a char is not a character,
+     * and anything outside the BMP was being cut in half.</p>
      */
     @NonNull
     public static int[][] splitUnits(@NonNull String text, @NonNull Granularity g) {
@@ -1196,8 +1200,29 @@ public final class CaptionAnimator {
 
         java.util.List<int[]> out = new java.util.ArrayList<>();
         if (g == Granularity.LETTER) {
-            for (int i = 0; i < n; i++) {
-                if (!Character.isWhitespace(text.charAt(i))) out.add(new int[]{i, i + 1});
+            // GRAPHEME CLUSTERS, not chars. A "letter" here has to be what a person would point
+            // at and call one character, and Java's char is not that: 🕯 (U+1F56F) is a surrogate
+            // PAIR, so splitting per char handed the renderer two half-characters, each an
+            // unpaired surrogate, each drawn as tofu. JoyRaptor, 2026-08-15: a row of candles
+            // animated fine on BLOCK and "turned into question marks on little white diamonds"
+            // the moment he chose letter-level animation.
+            //
+            // BreakIterator rather than a Character.charCount loop, which would fix only the
+            // surrogate case: a cluster is also an emoji plus its variation selector (🕯️), a ZWJ
+            // family (👨‍👩‍👧), a skin-tone modifier, a regional-indicator flag pair, and a base
+            // letter plus its combining accent. Every one of those is one thing the user expects
+            // to fly in as one thing, and every one of them was previously torn apart.
+            java.text.BreakIterator it = java.text.BreakIterator.getCharacterInstance();
+            it.setText(text);
+            int cs = it.first();
+            for (int ce = it.next(); ce != java.text.BreakIterator.DONE; cs = ce, ce = it.next()) {
+                // Whitespace belongs to no unit, exactly as before — checked across the whole
+                // cluster so a space is skipped without assuming a cluster is one char wide.
+                boolean blank = true;
+                for (int i = cs; i < ce; i++) {
+                    if (!Character.isWhitespace(text.charAt(i))) { blank = false; break; }
+                }
+                if (!blank) out.add(new int[]{cs, ce});
             }
         } else if (g == Granularity.WORD) {
             int start = -1;

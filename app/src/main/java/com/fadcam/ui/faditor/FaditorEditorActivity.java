@@ -6518,8 +6518,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Direction follows the stacking convention (addendum §1): master is the foundation at
         // the bottom, layers stack upward — so UP lifts a spine clip onto a layer, DOWN drops a
         // floating clip into the main track.
-        moveLayerUp.setOnClickListener(v -> moveSelectedClipToLayer());
-        moveLayerDown.setOnClickListener(v -> moveSelectedItemToMainTrack());
+        // DISPATCH ON WHAT IS SELECTED. These two arrows sit side by side and read as one
+        // matched pair — "nudge the selected thing up/down a lane" — and they were wired to two
+        // asymmetric operations on a DIFFERENT object: up ran moveSelectedClipToLayer(), which
+        // keys off selectedClipIndex and DEMOTES A MASTER CLIP OFF THE SPINE.
+        //
+        // With a text object selected that is a structural edit nobody asked for. JoyRaptor,
+        // 2026-08-15: he nudged a text down until it refused at the main track, pressed up to
+        // put it back, and three linked texts jumped later in the video by whole cuts while the
+        // one starting before the seam stayed behind. That is exactly what removing a clip from
+        // the spine does — the timeline shortens and the ripple carries every anchored object
+        // inside the moved span with it. He reconstructed the cause from the symptoms alone and
+        // was right: "the up button wasn't wired to moving a selected object up a LANE but
+        // instead a CLIP up in order."
+        //
+        // A LAYER OBJECT now moves between lanes and can never reach the spine code; a MASTER
+        // CLIP keeps the promote/demote pair, which is symmetric and meaningful for a clip.
+        moveLayerUp.setOnClickListener(v -> {
+            if (nudgeSelectedObjectLane(true)) return;
+            moveSelectedClipToLayer();
+        });
+        moveLayerDown.setOnClickListener(v -> {
+            if (nudgeSelectedObjectLane(false)) return;
+            moveSelectedItemToMainTrack();
+        });
 
         // Go button: parse input and seek to position
         moveGo.setOnClickListener(v -> performMoveToInput());
@@ -17933,6 +17955,69 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String newId = tl.createLayerTrack(
                 com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Lane " + (textTrackCount + 1));
         item.setLayerId(newId);
+    }
+
+    /**
+     * Move the selected LAYER OBJECT one lane up or down. Returns false when the selection is
+     * not a layer object, so the caller can fall through to its master-clip behaviour.
+     *
+     * <p>The lane order is {@code getLayers()}' — bottom→top by zIndex — so "up" is the next
+     * lane along that list and "down" the previous. Landing is refused if the destination lane
+     * is already occupied over this object's time range, which is the same no-overlap rule the
+     * drag path enforces; refusing with a reason beats silently stacking two objects on one lane
+     * or, worse, quietly doing something else.</p>
+     *
+     * <p>ONE undo step, and it only ever writes a {@code layerId}. Nothing here can touch the
+     * master spine — see the note at the click wiring for why that matters.</p>
+     */
+    private boolean nudgeSelectedObjectLane(boolean up) {
+        if (project == null || editorTimeline == null) return false;
+        String id = editorTimeline.getSelectedLayerItemId();
+        if (id == null) return false;
+        Timeline tl = project.getTimeline();
+        com.fadcam.ui.faditor.model.TextOverlayItem item = null;
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            if (id.equals(o.getId())) { item = o; break; }
+        }
+        if (item == null) return false;   // sprites/PiPs/adjustments keep their own paths
+
+        // Candidate lanes bottom→top: the default lane, then each extra non-audio track in the
+        // order getLayers() emits them.
+        java.util.List<String> lanes = new java.util.ArrayList<>();
+        lanes.add(null);
+        for (com.fadcam.ui.faditor.layers.LayerTrackDef def : tl.getExtraLayerTracks()) {
+            if (def.getKind() == com.fadcam.ui.faditor.layers.TrackKind.AUDIO) continue;
+            lanes.add(def.getId());
+        }
+        int at = lanes.indexOf(item.getLayerId());
+        if (at < 0) return false;
+        int to = at + (up ? 1 : -1);
+        if (to < 0 || to >= lanes.size()) {
+            Toast.makeText(this, up ? "Already on the top lane" : "Already on the bottom lane",
+                    Toast.LENGTH_SHORT).show();                       // TODO(strings)
+            return true;
+        }
+        final String dest = lanes.get(to);
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            if (o == item) continue;
+            if (!java.util.Objects.equals(o.getLayerId(), dest)) continue;
+            if (o.getStartMs() < item.getEndMs() && item.getStartMs() < o.getEndMs()) {
+                Toast.makeText(this, "That lane is occupied at this time",
+                        Toast.LENGTH_SHORT).show();                   // TODO(strings)
+                return true;
+            }
+        }
+        final com.fadcam.ui.faditor.model.TextOverlayItem moved = item;
+        final String from = item.getLayerId();
+        moved.setLayerId(dest);
+        undoManager.recordAction(new EditActions.LambdaAction(
+                up ? "Move up a lane" : "Move down a lane",            // TODO(strings)
+                () -> { moved.setLayerId(dest); refreshOverlayPreview(); syncTimelineOverlays(); },
+                () -> { moved.setLayerId(from); refreshOverlayPreview(); syncTimelineOverlays(); }));
+        refreshOverlayPreview();
+        syncTimelineOverlays();
+        scheduleAutoSave();
+        return true;
     }
 
     private android.graphics.Typeface getTypefaceForKey(String key) {

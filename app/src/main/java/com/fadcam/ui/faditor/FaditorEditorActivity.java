@@ -26486,16 +26486,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Bind and show the caption overlay for {@code clip}, applying its persisted
-     * style and position. Shared by the toolbar toggle and project-load restore.
+     * Bind and show the caption OVERLAY for {@code clip}, applying its persisted style and
+     * position. Both callers are RESTORES — project load, and re-binding after a transcript
+     * version switch — not user requests.
+     *
+     * <p><b>It no longer asks for the style chooser, and that is the fix.</b> It used to set
+     * {@code captionStyleBarRequested} and force the bar visible. The flag means "the user asked
+     * to see the chooser"; setting it from a restore made that a lie, and since project load
+     * runs this for any clip with captions enabled, every such project opened with the chooser
+     * pinned to the bottom of the preview — which is exactly the always-on behaviour that was
+     * asked to be made contextual, and which JoyRaptor reported again on 2026-08-14. The per-tick
+     * gate in updateCurrentTimeDisplay was correct all along; it was being handed a request
+     * nobody made.
+     *
+     * <p>The chooser is still one tap away: the caption tap, the Captions tool and the style
+     * picker all set the flag themselves, deliberately, at their own call sites.</p>
      */
     private void showCaptionsForClip(@NonNull Clip clip) {
         if (captionOverlay == null || !clip.hasTranscript()) return;
         captionsActive = true;
         bindCaptionData(clip);
         captionOverlay.setVisibility(View.VISIBLE);
-        captionStyleBarRequested = true;
-        captionStyleBar.setVisibility(View.VISIBLE);
     }
 
     /**

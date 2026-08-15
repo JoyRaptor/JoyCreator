@@ -40,6 +40,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -797,12 +798,37 @@ public class EditorTimelineView extends View {
             new HashMap<>();
     private final Set<String> spriteRendererLoading = new HashSet<>();
     private final Set<String> spriteRendererFailed = new HashSet<>();
-    /** Decoded, size-bounded image-item thumbnails, keyed by image uri (LRU-trimmed). */
-    private final Map<String, Bitmap> imagePreviewCache = new HashMap<>();
+    /**
+     * Decoded, size-bounded image-item thumbnails, keyed by image uri. A TRUE LRU:
+     * {@code accessOrder=true} means get() promotes, so the eldest entry really is the least
+     * recently used one.
+     *
+     * <p>THE BUG THIS REPLACES (device-proven, Note 20, 2026-08-15 — this was the ~200% idle CPU):
+     * the cache was a plain {@link HashMap} capped at 48 entries, evicted by taking the FIRST
+     * entry off {@code entrySet().iterator()}. HashMap iteration order is arbitrary, so that
+     * evicted an unrelated bitmap rather than the coldest one — it was never an LRU despite the
+     * comment. JoyRaptor's project has 51 distinct image overlays against that cap of 48.
+     *
+     * <p>Three items short is all it takes, because this cache is read from the DRAW path and a
+     * miss is not passive: {@code imagePreviewFor} queues a decode, and the decode's completion
+     * calls {@code invalidate()}. Draw → miss → decode → invalidate → draw. With a working set
+     * larger than the cap the loop has no fixed point, so it ran forever: both threads of
+     * {@code thumbnailExecutor} pegged, the main thread and RenderThread burning on the
+     * never-ending invalidate storm, and 34-52 lines/second of
+     * "SurfaceView: updateSurface: has no frame" — the symptom the previous session read as the
+     * view tree being re-laid-out every frame. It was, and this is why.
+     *
+     * <p>Bounding by BYTES rather than by a count of entries is the actual fix. A count cap is a
+     * guess about a working set the user controls; add one more image to a project and a
+     * correctly-written LRU still thrashes. Each preview is only row-height tall (~196px square,
+     * ~150KB), so this budget holds many hundreds of them — a project would need thousands of
+     * distinct images before the working set could exceed it again.
+     */
+    private static final long IMAGE_PREVIEW_CACHE_MAX_BYTES = 32L * 1024 * 1024; // ~32MB
+    private final LinkedHashMap<String, Bitmap> imagePreviewCache =
+            new LinkedHashMap<>(64, 0.75f, true /* accessOrder — real LRU */);
     private final Set<String> imagePreviewLoading = new HashSet<>();
     private final Set<String> imagePreviewFailed = new HashSet<>();
-    /** Soft cap on distinct image-item thumbnails held in memory (each is row-height tall). */
-    private static final int IMAGE_PREVIEW_CACHE_MAX = 48;
 
     // ── Frame-accurate trim-edge preview ──────────────────────────────
     // While dragging a trim handle, show the EXACT in/out frame (OPTION_CLOSEST,
@@ -4772,13 +4798,8 @@ public class EditorTimelineView extends View {
             mainHandler.post(() -> {
                 imagePreviewLoading.remove(imageUri);
                 if (f != null) {
-                    if (imagePreviewCache.size() >= IMAGE_PREVIEW_CACHE_MAX) {
-                        java.util.Iterator<Map.Entry<String, Bitmap>> it =
-                                imagePreviewCache.entrySet().iterator();
-                        if (it.hasNext()) { Bitmap old = it.next().getValue(); it.remove();
-                            if (old != null && !old.isRecycled()) old.recycle(); }
-                    }
                     imagePreviewCache.put(imageUri, f);
+                    trimImagePreviewCache();
                     invalidate();
                 } else {
                     imagePreviewFailed.add(imageUri);
@@ -4786,6 +4807,33 @@ public class EditorTimelineView extends View {
             });
         });
         return null;
+    }
+
+    /**
+     * Evicts least-recently-used image previews until the cache is within
+     * {@link #IMAGE_PREVIEW_CACHE_MAX_BYTES}. Insert first, then trim — so a freshly decoded
+     * bitmap is never the one thrown away, which would re-queue the decode that just finished.
+     *
+     * <p>Never evicts the last remaining entry: if a single preview somehow exceeds the whole
+     * budget, keeping it is strictly better than a decode loop that can never satisfy itself.
+     */
+    private void trimImagePreviewCache() {
+        long bytes = 0;
+        for (Bitmap b : imagePreviewCache.values()) {
+            if (b != null && !b.isRecycled()) bytes += (long) b.getByteCount();
+        }
+        java.util.Iterator<Map.Entry<String, Bitmap>> it =
+                imagePreviewCache.entrySet().iterator();
+        while (bytes > IMAGE_PREVIEW_CACHE_MAX_BYTES && imagePreviewCache.size() > 1
+                && it.hasNext()) {
+            // accessOrder=true, so the iterator hands back the LEAST recently used entry first.
+            Bitmap old = it.next().getValue();
+            it.remove();
+            if (old != null && !old.isRecycled()) {
+                bytes -= (long) old.getByteCount();
+                old.recycle();
+            }
+        }
     }
 
     /** Decode {@code uri} down-sampled so its height is ~{@code targetHpx} (memory-frugal). */

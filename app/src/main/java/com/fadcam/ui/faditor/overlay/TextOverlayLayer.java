@@ -99,7 +99,13 @@ public class TextOverlayLayer extends FrameLayout {
         endTextEditing();
         editingItemId = itemId;
         textHost = host;
-        textEditor = new EditText(getContext()) {
+        // Themed context, so the caret and the two selection handles are drawn in the app's
+        // selection accent rather than the platform default — see FaditorTextEditorTheme. They
+        // are the ONLY native chrome this transparent editor shows, and they sit over arbitrary
+        // video, so their colour is the whole of their legibility.
+        android.content.Context editorCtx = new android.view.ContextThemeWrapper(
+                getContext(), com.fadcam.R.style.FaditorTextEditorTheme);
+        textEditor = new EditText(editorCtx) {
             @Override protected void onSelectionChanged(int selStart, int selEnd) {
                 super.onSelectionChanged(selStart, selEnd);
                 if (textHost != null) textHost.onSelectionChanged(selStart, selEnd);
@@ -129,7 +135,21 @@ public class TextOverlayLayer extends FrameLayout {
         final EditText fresh = textEditor;
         fresh.post(() -> {
             fresh.requestFocus();
-            fresh.selectAll();   // open state = whole text = base-style editing (as before)
+            // CARET AT THE END, NOTHING SELECTED (JoyRaptor, 2026-08-14).
+            //
+            // This used to selectAll(), on the reasoning that "open state = whole text = base
+            // style editing". That reasoning is load-bearing in the WRONG direction:
+            // TextStyleSession.hasSelection() treats a WHOLE-text selection as no selection at
+            // all, so every style tap while it stands is applied to the item's base — to all the
+            // text. Any moment a range selection collapses back to select-all, "bold this word"
+            // silently becomes "bold everything", which is exactly what was reported: "I could
+            // select a word and underline or italic it without changing the surrounding text.
+            // Now every option changes ALL text."
+            //
+            // Opening with a caret is also simply what every text editor does with existing
+            // content. The cost is that typing no longer instantly replaces the whole string —
+            // the drawer's own "Select all" chip is the deliberate way to ask for that now.
+            fresh.setSelection(fresh.getText().length());
             showIme(fresh);
         });
     }
@@ -247,28 +267,36 @@ public class TextOverlayLayer extends FrameLayout {
      * immediately if the session has moved to another editor.</p>
      */
     private void showIme(@NonNull EditText e) {
-        showImeWhenServed(e, 8);
-    }
-
-    private void showImeWhenServed(@NonNull EditText e, int triesLeft) {
-        if (textEditor != e) return;   // a later session owns the keyboard now
         InputMethodManager imm = (InputMethodManager)
                 getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm == null) return;
-        if (imm.isActive(e)) {
-            imm.showSoftInput(e, InputMethodManager.SHOW_IMPLICIT);
-            return;
-        }
-        if (triesLeft <= 0) {
-            com.fadcam.FLog.w("TextOverlayLayer",
-                    "the input manager never served the text editor — no keyboard");
-            return;
-        }
-        e.requestFocus();
-        e.postDelayed(() -> showImeWhenServed(e, triesLeft - 1), 32L);
+        // ALREADY UP FOR THIS EDITOR? THEN SAY NOTHING.
+        //
+        // This guard is the whole lesson of the 2026-08-14 storm. attachToBox re-hosts the
+        // editor on EVERY rebuild, and the layer rebuilds on every text sync — so this method is
+        // called many times per second during ordinary editing. Each call used to be a fresh
+        // showSoftInput, and each show changes the window insets, which lays out, which rebuilds,
+        // which calls this again. On the Note 20 that closed into a visible loop: the keyboard
+        // opened and shut several times a second and the editor was unusable.
+        //
+        // A show that is already true is not worth asking for. Asking only when the manager is
+        // NOT already serving this editor breaks the feedback path at its narrowest point.
+        if (imm.isActive(e) && imeShown) return;
+        imeShown = imm.showSoftInput(e, InputMethodManager.SHOW_IMPLICIT);
     }
 
+    /**
+     * Whether we believe the keyboard is up for the current editor.
+     *
+     * <p>Cleared by {@link #hideIme} and by {@link #endTextEditing}, so the next genuine open
+     * asks again. Deliberately a belief rather than a query: {@code isActive} answers "is this
+     * view the served one", which stays true while the keyboard is dismissed by the system back
+     * gesture — and re-asking on every rebuild is exactly what caused the storm.</p>
+     */
+    private boolean imeShown;
+
     private void hideIme(@NonNull EditText e) {
+        imeShown = false;
         InputMethodManager imm = (InputMethodManager)
                 getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null && e.getWindowToken() != null) {
@@ -542,12 +570,59 @@ public class TextOverlayLayer extends FrameLayout {
             ss = textEditor.getSelectionStart();
             se = textEditor.getSelectionEnd();
         }
-        removeAllViews();
-        if (callback == null) return;
+        // THE BOX BEING TYPED INTO STAYS ATTACHED THROUGH THE REBUILD.
+        //
+        // removeAllViews() detaches the transparent EditText along with its host box, and a
+        // detached view stops being the input manager's SERVED view. The IMM's answer to that is
+        // not to re-serve it — it CANCELS the pending show and closes the input outright. Note 20
+        // logcat, one tap:
+        //
+        //   ssi() SHOW_SOFT_INPUT                    <- the tap opens the editor
+        //   Resizing frame [0,90][1440,3088]         <- the keyboard's own insets resize us
+        //   closeCurrentInput: mService.hideSoftInput
+        //   ssi() - cancel : servedView != view, servedView=null
+        //
+        // So the keyboard appearing caused the layout that destroyed the view the keyboard was
+        // for. It flashed up and vanished in about 125 ms, every time (JoyRaptor, 2026-08-14: "it
+        // brings up the keyboard for maybe a tenth of a second or less"). The re-host in
+        // createOverlayView was written to survive rebuilds and does survive them — but only as
+        // far as the VIEW is concerned; the IME connection does not come back with it.
+        //
+        // Detaching everything EXCEPT that one box keeps the served view attached, so there is
+        // nothing for the IMM to cancel. The rest of the layer rebuilds exactly as before.
+        View editing = null;
+        if (editingItemId != null) {
+            for (int i = 0; i < getChildCount(); i++) {
+                View v = getChildAt(i);
+                Object tag = v.getTag();
+                if (tag instanceof TextOverlayItem && v instanceof TextBoxView
+                        && editingItemId.equals(((TextOverlayItem) tag).getId())) {
+                    editing = v;
+                    break;
+                }
+            }
+        }
+        for (int i = getChildCount() - 1; i >= 0; i--) {
+            if (getChildAt(i) != editing) removeViewAt(i);
+        }
+        if (callback == null) {
+            if (editing == null) removeAllViews();
+            return;
+        }
         for (TextOverlayItem o : overlays) {
+            // Its view is already attached and is the one holding the keyboard — do not make a
+            // second one for the same item.
+            if (editing != null && editing.getTag() == o) continue;
             View v = createOverlayView(o);
             v.setTag(o);
             addView(v);
+        }
+        if (editing != null) {
+            // It was left at the bottom of the stack by the detach loop above. bringChildToFront
+            // reorders the child array WITHOUT detaching from the window, so the served view
+            // survives this too. Putting the box you are typing in on top is also simply right.
+            bringChildToFront(editing);
+            position(editing, (TextOverlayItem) editing.getTag());
         }
         if (textEditor != null && ss >= 0 && se > ss) {
             int len = textEditor.getText().length();
@@ -790,15 +865,28 @@ public class TextOverlayLayer extends FrameLayout {
         float cy = r.top + (live ? o.getCenterY() : o.animatedCenterY(currentTimeMs)) * r.height();
 
         LayoutParams lp = (LayoutParams) view.getLayoutParams();
-        lp.width = Math.max(1, w);
-        lp.height = Math.max(1, h);
+        // ONLY WRITE THE PARAMS WHEN THEY CHANGED. setLayoutParams calls requestLayout, and this
+        // method runs on every playhead tick and every rebuild — including from inside a layout
+        // pass, which is what produced the Note 20's "requestLayout() improperly called by ...
+        // fx_below_group / PlayerView / WaveformOverlayView" storm while the keyboard's insets
+        // were animating. Each of those forces another layout, which calls this again. Comparing
+        // first turns the steady state into no work at all.
+        int newW = Math.max(1, w);
+        int newH = Math.max(1, h);
         // Centring the VIEW would centre the box plus its excursion margin — which is the same
         // point only because the margin is symmetric. Written as an explicit subtraction of the
         // inset from a box-sized centring so it stays correct if the margin ever becomes
         // asymmetric, and so the intent is legible: it is the BOX the user positioned.
-        lp.leftMargin = Math.round(cx - (w - boxInset * 2f) / 2f - boxInset);
-        lp.topMargin = Math.round(cy - (h - boxInset * 2f) / 2f - boxInset);
-        view.setLayoutParams(lp);
+        int newLeft = Math.round(cx - (w - boxInset * 2f) / 2f - boxInset);
+        int newTop = Math.round(cy - (h - boxInset * 2f) / 2f - boxInset);
+        if (lp.width != newW || lp.height != newH
+                || lp.leftMargin != newLeft || lp.topMargin != newTop) {
+            lp.width = newW;
+            lp.height = newH;
+            lp.leftMargin = newLeft;
+            lp.topMargin = newTop;
+            view.setLayoutParams(lp);
+        }
         view.setRotation(live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs));
         // Always written, never skipped when the animation is off: these are VIEW properties on
         // a recycled view, so leaving them alone would strand the last frame's scale/offset on

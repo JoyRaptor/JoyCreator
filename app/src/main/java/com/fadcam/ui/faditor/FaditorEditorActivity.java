@@ -23415,11 +23415,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
-    /** Push {@code session}'s selection into the preview layer (or clear it — range or none). */
+    /**
+     * Push the selection the user can SEE into the preview layer.
+     *
+     * <p><b>What is highlighted and what counts as a style RANGE are two different questions.</b>
+     * This used to ask {@link TextStyleSession#hasSelection()}, which answers the second one —
+     * and it deliberately reports false for a WHOLE-text selection, because selecting everything
+     * means "edit the base style" rather than "make a span". The highlight inherited that
+     * meaning and vanished: with everything selected the drag handles sat there with no band
+     * between them (JoyRaptor, 2026-08-14: "selection back highlight doesn't show at all when 'all
+     * selected' even though the adjustment bars do").
+     *
+     * <p>Highlighting is now driven by the EDITOR's real selection, so what is drawn always
+     * matches what the handles bracket. The base-versus-span rule is untouched — it just no
+     * longer decides what the user is allowed to see.</p>
+     */
     private void pushEditingSelection(@NonNull TextStyleSession session) {
         if (overlayLayer == null) return;
         java.lang.String id = session.item.getId();
-        if (session.hasSelection()) {
+        boolean realRange = !session.item.isTimer()
+                && session.selStart >= 0 && session.selEnd > session.selStart;
+        if (realRange) {
             overlayLayer.setEditingSelection(id, session.selStart, session.selEnd);
         } else {
             overlayLayer.setEditingSelection(id, -1, -1);

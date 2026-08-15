@@ -112,7 +112,16 @@
         <activity android:name="com.fadcam.fadrec.ui.overlay.TextEditorActivity" android:theme="@style/TransparentEditorTheme" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:windowSoftInputMode="adjustResize" android:exported="false" />
 
         <!-- Faditor Mini video editor -->
-        <activity android:name="com.fadcam.ui.faditor.FaditorEditorActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" />
+        <!-- adjustNothing: the keyboard OVERLAYS the bottom of the editor, it does not move it.
+             This activity had no softInputMode at all, so it took the platform default and
+             RESIZED — and once text entry moved into the preview itself (the 2026-08-09 WYSIWYG
+             reframe put the focused EditText inside this window instead of a dialog's), raising
+             the keyboard pushed the preview, the timeline and the toolbar out of view. You typed
+             blind and had to dismiss the keyboard to see what you had written (JoyRaptor,
+             2026-08-14). The bottom of this screen is the timeline and the tool row; neither is
+             usable while typing, so letting the keyboard cover them costs nothing and keeps the
+             preview — the thing you are actually editing — on screen. -->
+        <activity android:name="com.fadcam.ui.faditor.FaditorEditorActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:windowSoftInputMode="adjustNothing" android:exported="false" />
 
         <activity android:name="com.fadcam.ui.faditor.ai.ChatAssistantActivity" android:theme="@style/Theme.FadCam.ChatAssistant" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustResize" />
 

@@ -93,7 +93,12 @@ public final class TextBoxRenderer {
     private static final float PILL_RADIUS_EM = 0.35f;
 
     /** Selection highlight in the preview while the drawer is editing (W5-2 §3.8). */
-    private static final int SEL_COLOR = 0x44B388FF;
+    /** The accent wash. Same purple as the caret and handles — see {@code colors.xml}'s
+     *  {@code faditor_text_selection_accent}; kept as a literal here because this class is
+     *  shared with the export path and must not reach for resources. */
+    private static final int SEL_COLOR = 0x66B388FF;
+    /** The scrim UNDER the wash — see {@code drawSelection} for why there are two passes. */
+    private static final int SEL_SCRIM = 0x73000000;
 
     /**
      * The shared margin unit ({@link #PAD_EM}) — exposed so the rasterised export path
@@ -128,6 +133,9 @@ public final class TextBoxRenderer {
         float maxAscent;
         float maxDescent;
         float lineH;
+        /** This line's offset from the box's text top — see the accumulation at the end of
+         *  {@code layout()}. Zero for the first line. */
+        float top;
         @NonNull List<Cell> cells = new ArrayList<>(8);
     }
 
@@ -360,12 +368,34 @@ public final class TextBoxRenderer {
     private static void drawSelection(@NonNull Canvas c, @NonNull TextOverlayItem o,
                                       @NonNull LineLayout[] lines, float left, float top,
                                       float boxW, float pad, int selStart, int selEnd) {
+        // TWO PASSES: a dark scrim, then the accent wash over it.
+        //
+        // A single translucent purple band is only legible over what happens to be behind it. The
+        // text being selected may be any colour the user picked, over any frame of their footage,
+        // and "which characters am I about to restyle" must never be a guess — including when the
+        // run itself is several colours (JoyRaptor, 2026-08-14: "selecting text should be easy to
+        // read even if the text is many different colors ... clear in all cases which text is
+        // selected").
+        //
+        // Darkening first is what makes the wash land on a known ground instead of on the video:
+        // the same reasoning the drawer's chips are tinted black rather than lightened. The
+        // user's own glyph colours are untouched — only what is BEHIND them changes — which
+        // matters because the colour being judged is often the one being edited.
+        Paint scrim = new Paint(Paint.ANTI_ALIAS_FLAG);
+        scrim.setColor(SEL_SCRIM);
+        scrim.setStyle(Paint.Style.FILL);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setColor(SEL_COLOR);
         p.setStyle(Paint.Style.FILL);
         for (LineLayout ln : lines) {
             float alignX = alignedLineX(o, left, boxW, ln.lineW, pad);
-            float bandTop = topFor(ln, top, pad);
+            // topFor returns the line's BASELINE — it is what the draw pass passes as baseY.
+            // Using it as the band's TOP put the highlight a full line below the glyphs it was
+            // highlighting ("it looks like its selecting one line down", JoyRaptor 2026-08-14).
+            // maxAscent is negative (Android font metrics measure up from the baseline), so
+            // adding it lifts the band to the line's ink top; ln.lineH then carries it down
+            // through the descent, which is the same span the draw pass occupies.
+            float bandTop = topFor(ln, top, pad) + ln.maxAscent;
             for (Cell cell : ln.cells) {
                 int a = Math.max(cell.ls, selStart - ln.start);
                 int b = Math.min(cell.le, selEnd - ln.start);
@@ -376,13 +406,18 @@ public final class TextBoxRenderer {
                 for (int i = a; i < b; i++) w += ln.adv[i];
                 if (w <= 0f) continue;
                 float rx = alignX + cell.x + ox;
-                c.drawRect(new RectF(rx, bandTop, rx + w, bandTop + ln.lineH), p);
+                RectF band = new RectF(rx, bandTop, rx + w, bandTop + ln.lineH);
+                c.drawRect(band, scrim);
+                c.drawRect(band, p);
             }
         }
     }
 
+    /** The line's BASELINE y: the box top, the ink pad, the line's own offset down the stack,
+     *  then up by its ascent (negative). Used by the ink pass and the selection band alike, so
+     *  the two cannot land on different lines. */
     private static float topFor(@NonNull LineLayout ln, float top, float pad) {
-        return top + pad - ln.maxAscent;
+        return top + pad + ln.top - ln.maxAscent;
     }
 
     /**
@@ -483,6 +518,22 @@ public final class TextBoxRenderer {
             ln.lineH = (ln.maxDescent - ln.maxAscent) * LINE_SPACING;
             out[li] = ln;
             charBase += n + 1;                 // +1 for the '\n' that split() removed
+        }
+        // EACH LINE'S OWN OFFSET DOWN THE BOX, accumulated once, here.
+        //
+        // Without it every line drew at the SAME baseline: pressing Enter produced a second line
+        // painted straight over the first (JoyRaptor, 2026-08-14: "when i hit enter the text isnt
+        // making a new line lower, its just making a new line that COVERS the others"). measure()
+        // has always summed lineH, so the BOX grew correctly — only the ink stayed put, which is
+        // why the box looked right and the text did not.
+        //
+        // Stored on the line rather than accumulated in each drawing loop because THREE passes
+        // walk these lines — the ink, the selection band and measurement — and a running total
+        // kept separately by each is three chances to disagree about where line two starts.
+        float stackY = 0f;
+        for (LineLayout ln : out) {
+            ln.top = stackY;
+            stackY += ln.lineH;
         }
         return out;
     }

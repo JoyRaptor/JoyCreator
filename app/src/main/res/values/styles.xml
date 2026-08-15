@@ -133,6 +133,25 @@
         <item name="android:textStyle">bold</item>
     </style>
 
+    <!--
+      The in-canvas text editor's caret and SELECTION HANDLES.
+
+      The editor itself is transparent ink laid over the glyphs TextBoxRenderer draws, so the
+      only native chrome the user ever sees from it is the caret and the two drag handles. Those
+      take their colour from colorControlActivated, which on the editor's default context is the
+      platform teal — invisible against half the footage anyone puts behind it.
+
+      Applied by wrapping the editor's Context (see TextOverlayLayer.startTextEditing) rather
+      than by calling setTextSelectHandle/setTextCursorDrawable, which are API 29 and would need
+      a version branch and three drawables to say the same thing. The handles stay the PLATFORM's
+      teardrops on purpose: drag-to-extend, word snapping and accessibility come with them, and
+      users already know how to grab them.
+    -->
+    <style name="FaditorTextEditorTheme" parent="Theme.AppCompat">
+        <item name="colorControlActivated">@color/faditor_text_selection_accent</item>
+        <item name="colorAccent">@color/faditor_text_selection_accent</item>
+    </style>
+
     <!-- Switch theme for floating menu -->
     <style name="SwitchTheme" parent="Theme.AppCompat.Light">
         <item name="colorControlActivated">#4CAF50</item>

@@ -196,7 +196,21 @@ public class TextBoxView extends FrameLayout {
             lp = new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,
                     LayoutParams.MATCH_PARENT);
         }
-        int i = Math.round(boxInsetPx());
+        // THE INK PAD COUNTS TOO, or the caret floats above the glyphs.
+        //
+        // TextBoxRenderer lays its first baseline at `top + pad - maxAscent` with
+        // pad = fontPx * padEm() (0.35em on every side). The editor has includeFontPadding=false
+        // and is top-aligned, so ITS first baseline is `top - ascent` — higher than the drawn
+        // text by exactly one pad. At 0.35em that is roughly a fifth of the line, which is what
+        // "the text edit indicator is vertically about 20% too high" describes (JoyRaptor,
+        // 2026-08-14).
+        //
+        // It was never only cosmetic. The caret, the native selection handles and the character
+        // hit-testing all come from this view's layout, so every tap to place a caret was being
+        // resolved against glyphs drawn a pad lower than where the editor thought they were.
+        // Adding the pad on all four sides puts the editor's text box exactly over the
+        // renderer's, which is also what keeps the two wrapping at the same character.
+        int i = Math.round(boxInsetPx() + fontPx * TextBoxRenderer.padEm());
         if (lp.leftMargin != i || lp.topMargin != i
                 || lp.rightMargin != i || lp.bottomMargin != i) {
             lp.leftMargin = i;

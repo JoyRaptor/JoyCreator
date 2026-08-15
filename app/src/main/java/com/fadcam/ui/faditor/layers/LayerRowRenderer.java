@@ -603,11 +603,18 @@ public final class LayerRowRenderer {
         }
     }
 
-    // ── A9-lite time-lock guides (dragux_v3 A9, user spec): while a cross-row move is
-    // time-locked (near-vertical drag keeping the original timing), 1px dotted vertical
-    // lines at the item's original start/end bounds confirm "same time, different layer".
-    // They vanish the moment the drag goes diagonal (controller disarms them). Dim by
-    // design — "they don't have to be very bright" (user).
+    // ── Drag guides (dragux_v3 A9, widened 2026-08-14): 1px dotted vertical lines at the
+    // dragged item's previewed start/end, spanning every row, so you can see what the item
+    // lines up with on the OTHER lanes. Dim by design — "they don't have to be very bright"
+    // (user).
+    //
+    // They began life as A9's time-lock confirmation: shown only while a near-vertical
+    // cross-row drag held its original timing, and disarmed "the moment the drag goes
+    // diagonal", which is what this comment used to say with some pride. That turned out to be
+    // exactly backwards — the diagonal drag is when you can least tell where the item will
+    // land. JoyRaptor, 2026-08-13: "if I start going down and then going over it doesn't show ...
+    // I'm pretty much guessing where the exact start mark is." The controller now arms them
+    // from applyMoveTo, so they are on for the whole move and always mark the previewed start.
     private boolean timeLockGuidesArmed;
     private long timeLockStartMs, timeLockDurMs;
 
@@ -2687,6 +2694,21 @@ public final class LayerRowRenderer {
             }
         }
         return null;
+    }
+
+    /**
+     * Every track currently laid out, both bands, in row order.
+     *
+     * <p>For the drag's cross-lane ALIGNMENT snap: the edges worth snapping to are the ones the
+     * user can SEE, and that is exactly the set this renderer just laid out. Asking the model
+     * instead would include rows scrolled out of the world and rows the layout skipped, so the
+     * item would click onto an edge with nothing on screen to explain why.</p>
+     */
+    @NonNull
+    public List<Track> laidOutTracks() {
+        List<Track> out = new java.util.ArrayList<>(rows.size());
+        for (RowLayout row : rows) out.add(row.track);
+        return out;
     }
 
     /**

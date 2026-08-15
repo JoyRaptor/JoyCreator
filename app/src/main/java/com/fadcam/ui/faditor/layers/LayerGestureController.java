@@ -958,7 +958,6 @@ public final class LayerGestureController {
                         clearBookend();
                         applyMoveTo(dragStartTimelineMs, false);
                         setHomeSnapArmed(true);
-                        rowRenderer.setTimeLockGuides(false, 0, 0);
                         break;
                     }
                     // A9 TIME-LOCK GUARDRAIL (dragux_v3, user spec): hovering a DIFFERENT
@@ -1003,7 +1002,6 @@ public final class LayerGestureController {
                             }
                         }
                         applyMoveTo(locked, true);
-                        rowRenderer.setTimeLockGuides(true, locked, draggedDur);
                         if (locked != dragStartTimelineMs && lockJoint != Long.MIN_VALUE) {
                             bookendJointMs = lockJoint;
                             bookendSnapStartMs = locked;
@@ -1014,7 +1012,6 @@ public final class LayerGestureController {
                         setHomeSnapArmed(false);
                         break;
                     }
-                    rowRenderer.setTimeLockGuides(false, 0, 0);
                     // FREE PLACEMENT FIRST (dragux_v3 A3): anywhere legal on the landing
                     // row is allowed; butting is a SUGGESTION within the gentle radius,
                     // never a forced destination. Overlap still resolves to the nearest
@@ -1030,6 +1027,23 @@ public final class LayerGestureController {
                         applyMoveTo(resolved, true);
                     } else {
                         long suggested = nearestButtWithin(prospective, draggedDur, totalMs, snapThrMs);
+                        if (suggested == Long.MIN_VALUE) {
+                            // CROSS-LANE ALIGNMENT (JoyRaptor 2026-08-13). Nothing to butt against on
+                            // this row, so offer the edges on the OTHER lanes — but only if the
+                            // landing row is actually free there. resolveNoOverlapStart returning
+                            // the candidate unchanged IS that test; if it moves it, the alignment
+                            // was not legal and we fall through to ordinary free placement rather
+                            // than dragging the item somewhere the user did not point at.
+                            long aligned = nearestAlignWithin(prospective, draggedDur, totalMs,
+                                    snapThrMs);
+                            if (aligned != Long.MIN_VALUE
+                                    && resolveNoOverlapStart(aligned, totalMs) == aligned) {
+                                suggested = aligned;
+                            }
+                            // resolveNoOverlapStart writes lastButtJointMs as a side effect;
+                            // that probe was ours, not a real butt, so put it back.
+                            lastButtJointMs = Long.MIN_VALUE;
+                        }
                         if (suggested != Long.MIN_VALUE) {
                             // Gentle butt-snap (A4): near a sibling edge → click into it.
                             applyMoveTo(suggested, true);
@@ -1446,6 +1460,54 @@ public final class LayerGestureController {
         return bestStart;
     }
 
+    /**
+     * The nearest ALIGNMENT to an edge on ANOTHER lane, or {@link Long#MIN_VALUE} if none is
+     * within {@code thrMs}.
+     *
+     * <p>JoyRaptor, 2026-08-13: "perhaps a very minimal snapping that happens so if I'm within a few
+     * pixels of butting up against something on a different layer it can naturally have that
+     * perfectly." Until now the only magnet was {@link #nearestButtWithin}, which scans the
+     * LANDING ROW's siblings only — so you could butt an object against its own neighbours but
+     * had to eyeball it against everything on every other lane, which is where lining a title up
+     * with the cut it belongs to actually happens.</p>
+     *
+     * <p><b>ALIGNMENT, not butting.</b> Four pairings are offered — our start to their start,
+     * our start to their end, our end to their start, our end to their end — because on a
+     * different lane there is no overlap to resolve and "flush left with the thing above" is as
+     * common a wish as "immediately after it". It deliberately does NOT publish the bookend
+     * joint: a bookend means two objects meeting end-to-end on ONE row, and borrowing it here
+     * would send the view excursion chasing a joint that does not exist.</p>
+     *
+     * <p>The caller must still put the result through the landing row's no-overlap resolver. An
+     * edge on another lane says nothing about whether OUR row is free there.</p>
+     */
+    private long nearestAlignWithin(long prospective, long draggedDur, long totalMs, long thrMs) {
+        Track landing = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
+        if (activeItem == null || draggedDur <= 0) return Long.MIN_VALUE;
+        long bestStart = Long.MIN_VALUE, bestDist = thrMs + 1;
+        for (Track row : rowRenderer.laidOutTracks()) {
+            // The landing row is the butt-magnet's business, not ours — offering the same edges
+            // twice under two different rules is how two magnets start fighting over one finger.
+            if (landing != null && row.getId().equals(landing.getId())) continue;
+            for (TimedItem other : row.getItems()) {
+                if (other.getId().equals(activeItem.getId())) continue;
+                long os = other.getTimelineStartMs();
+                long oe = os + other.getDisplayDurationMs(totalMs);
+                // Candidate STARTS for us that line an edge of ours up with an edge of theirs.
+                long[] candidates = {os, oe, os - draggedDur, oe - draggedDur};
+                for (long c : candidates) {
+                    if (c < 0) continue;
+                    long d = Math.abs(prospective - c);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestStart = c;
+                    }
+                }
+            }
+        }
+        return bestDist <= thrMs ? bestStart : Long.MIN_VALUE;
+    }
+
     /** ms from the item's start to the finger's grab point, captured on first move. */
     private long moveGrabOffsetMs = -1;
 
@@ -1479,6 +1541,24 @@ public final class LayerGestureController {
             item.getClip().setOverlayStartMs(newStartMs);
         } else if (item.getAdjustment() != null) {
             item.getAdjustment().setStartMs(Math.max(0, newStartMs));
+        }
+        // THE GUIDES FOLLOW THE PREVIEW, from the one place that sets it.
+        //
+        // They used to be armed only while a cross-row move was TIME-LOCKED, and the free
+        // placement branch disarmed them on its way past — so they appeared on a near-vertical
+        // drag, vanished the instant it went diagonal, and never showed at all for an ordinary
+        // slide along a row. JoyRaptor, 2026-08-13: "when I move something down vertically and then
+        // over horizontally it doesn't show a preview of where I would place it ... it will
+        // place it correctly but I'm pretty much guessing where the exact start mark is."
+        //
+        // Armed HERE rather than at each call site because this method is the single writer of
+        // the previewed start: the dotted lines mark where the item WILL land by construction,
+        // not because four branches remembered to say the same thing. Disarmed once, in the drag
+        // teardown, so a released drag leaves nothing behind.
+        if (activeKind == GestureKind.MOVE) {
+            long dur = dragStartDisplayDurMs > 0
+                    ? dragStartDisplayDurMs : item.getDisplayDurationMs(lastTotalMs);
+            rowRenderer.setTimeLockGuides(true, newStartMs, dur);
         }
     }
 

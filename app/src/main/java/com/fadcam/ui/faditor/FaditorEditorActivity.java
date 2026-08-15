@@ -17000,19 +17000,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String afterPreset = preset.name();
         final String afterGran = gran.name();
         float seedIn = beforeIn;
-        if (preset != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
-                && beforeIn <= 0f && beforeOut <= 0f) {
+        float seedOut = beforeOut;
+        if (preset == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE) {
+            // NONE MUST CLEAR THE ZONES. Picking a preset seeds a zone (below), but picking
+            // None used to carry both percentages through untouched — so the preset NAME went
+            // back to NONE while hasTextAnim() stayed true forever, because that asks about the
+            // percentages and not the name. Choosing None therefore changed the drawer's label
+            // and nothing else, and there was no way back: no control writes the zones to zero.
+            // JoyRaptor hit this as a text box he could no longer edit, where setting the preset
+            // back to None did not restore it — "it feels like a one way ticket".
+            //
+            // Clearing here is safe precisely BECAUSE of the seeding rule below: re-picking any
+            // real preset sees both zones at 0 and re-seeds one, so the round trip
+            // None -> preset gives a working animation again rather than an inert one.
+            seedIn = 0f;
+            seedOut = 0f;
+        } else if (beforeIn <= 0f && beforeOut <= 0f) {
             seedIn = com.fadcam.ui.faditor.transcript.CaptionAnimator.MAX_ZONE_PCT / 2f;
         }
         final float afterIn = seedIn;
+        final float afterOut = seedOut;
+        // Compares BOTH zones: with None now writing outPct, an in-only comparison would treat
+        // "clear the exit zone" as a no-op and return before applying it.
         if (beforePreset.equals(afterPreset) && beforeGran.equals(afterGran)
-                && beforeIn == afterIn) {
+                && beforeIn == afterIn && beforeOut == afterOut) {
             return;
         }
 
         o.setTextAnimPreset(afterPreset);
         o.setTextAnimGranularity(afterGran);
-        o.setTextAnimZonePct(afterIn, beforeOut);
+        o.setTextAnimZonePct(afterIn, afterOut);
         final float clampedIn = o.getTextAnimInPct();
         final float clampedOut = o.getTextAnimOutPct();
 

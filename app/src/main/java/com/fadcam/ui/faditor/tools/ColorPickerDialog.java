@@ -390,22 +390,37 @@ public final class ColorPickerDialog {
         // Set does NOT apply anything — live preview already has. It only stops asking, and it
         // is the one path that writes to recents (a value you merely previewed and then
         // cancelled should not crowd out the ones you actually chose).
-        setBtn.setOnClickListener(v -> {
-            if (isNone[0]) { onPicked.onPicked(null); dlg.dismiss(); return; }
+        final Runnable commit = () -> {
+            if (isNone[0]) { onPicked.onPicked(null); return; }
             int rgb = Color.HSVToColor(alpha[0], hsb);
             pushRecent(ctx, rgb);
             onPicked.onPicked(rgb);
+        };
+        setBtn.setOnClickListener(v -> {
+            commit.run();
             dlg.dismiss();
         });
-        // Cancel REVERTS. The live object has been tracking every drag, so undoing that means
-        // replaying the ORIGINAL value through the same onLive path — anything else leaves the
-        // object showing whatever the last drag happened to land on. Back, scrim tap and
-        // swiping the sheet away all land here.
+        // Cancel REVERTS, and it is now the ONLY thing that does. The live object has been
+        // tracking every drag, so undoing that means replaying the ORIGINAL value through the
+        // same onLive path — anything else leaves the object showing whatever the last drag
+        // happened to land on. dismiss() does not fire onCancel, so this path reverts once.
         cancelBtn.setOnClickListener(v -> {
             onLive.onLive(initial);
             dlg.dismiss();
         });
-        dlg.setOnCancelListener(ignored -> onLive.onLive(initial));
+        // TAPPING OFF THE SHEET COMMITS (JoyRaptor, 2026-08-14). Back, scrim tap and swipe-away all
+        // arrive here, and they used to revert — so picking a colour and tapping away threw the
+        // pick out, and the only way to keep it was to travel to the button in the far corner.
+        // "If you're working fast, you can just tap colour, tap, and you're done."
+        //
+        // Committing is also the honest reading of a LIVE picker: the colour has been on the
+        // object since the first drag, and treating an incidental dismissal as "I never meant
+        // any of that" is a stronger claim than a tap outside a sheet can support. Backing out
+        // stays one deliberate press of Cancel, and every commit is on the undo stack anyway.
+        //
+        // It routes through the SAME commit as the Set button — including pushRecent, so a
+        // colour you kept this way still joins your recents rather than silently not counting.
+        dlg.setOnCancelListener(ignored -> commit.run());
         // W2-4 (§3.13): fire the slide-aside/back contract on show and on EVERY dismissal — Set,
         // Cancel, back, scrim tap and swipe-away all funnel through onDismiss, so the hosting
         // drawer cannot be left stranded off-screen.

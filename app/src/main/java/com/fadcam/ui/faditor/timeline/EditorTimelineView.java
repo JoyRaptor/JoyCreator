@@ -5196,10 +5196,16 @@ public class EditorTimelineView extends View {
     }
 
     /**
-     * Dotted guides in SCREEN space: top+bottom of the selected item's row band across
-     * the visible width, plus a vertical line at a live trim edge. Scoped to master +
-     * legacy-audio bands (a floating-layer item's band rect lives in the HELD
-     * LayerRowRenderer — see tasks/PLAYHEAD_KINEMASTER_20260719.md).
+     * Dotted guides in SCREEN space: top+bottom of the selected item's row band across the
+     * visible width, plus a vertical line at a live trim edge.
+     *
+     * <p>COVERS EVERY SELECTION AND EVERY TRIM NOW. {@code PLAYHEAD_KINEMASTER_20260719.md}
+     * scoped this to master + legacy-audio because both of the things it needed —
+     * a floating item's band rect and a layer trim's live edge — lived in files that were held
+     * at the time. Neither is held any more: the bands come from
+     * {@code LayerRowRenderer.screenBandForItem} and the edge from
+     * {@code LayerGestureController.liveTrimEdgeMs}, so a text box, a sprite, a PiP or an audio
+     * clip now gets the same guides a master clip always did.</p>
      */
     private void drawContextGuides(@NonNull Canvas canvas, float lineTop, float lineBot) {
         int w = getWidth();
@@ -5230,12 +5236,19 @@ public class EditorTimelineView extends View {
             }
         }
 
-        // Vertical trim-edge guide (master trim; trimDragX is content-space).
+        // Vertical trim-edge guide. Master trim first (trimDragX is content-space), then a
+        // LAYER-ITEM trim — a text box, sprite, PiP or audio clip — whose edge the controller
+        // reports as resolved ms. Both draw the same line for the same reason: while an edge is
+        // moving, the one thing you cannot see is what it is lining up with on the other rows.
+        float edgeX = Float.NaN;
         if (activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE) {
-            float ex = trimDragX - scrollOffsetPx;
-            if (ex >= 0 && ex <= w) {
-                canvas.drawLine(ex, lineTop, ex, lineBot, guidePaint);
-            }
+            edgeX = trimDragX - scrollOffsetPx;
+        } else if (layerGestureController != null) {
+            long edgeMs = layerGestureController.liveTrimEdgeMs(totalEffectiveMs);
+            if (edgeMs != Long.MIN_VALUE) edgeX = timeToX(edgeMs) - scrollOffsetPx;
+        }
+        if (!Float.isNaN(edgeX) && edgeX >= 0 && edgeX <= w) {
+            canvas.drawLine(edgeX, lineTop, edgeX, lineBot, guidePaint);
         }
     }
 

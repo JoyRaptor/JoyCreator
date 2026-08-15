@@ -378,6 +378,30 @@ public final class LayerGestureController {
     @Nullable
     public String getSelectedItemId() { return selectedItemId; }
 
+    /**
+     * The timeline ms of the edge being dragged RIGHT NOW by a layer-item trim, or
+     * {@link Long#MIN_VALUE} when no such trim is in progress.
+     *
+     * <p>The playhead lane draws a vertical dotted guide at a live trim edge, and it could only
+     * ever draw one for a MASTER clip trim, because that is the only edge the view tracks itself
+     * ({@code trimDragX}). Trimming a text box, a PiP or an audio clip got no guide at all — the
+     * spec logged that as scoped-down because this controller was a held file at the time
+     * ({@code tasks/PLAYHEAD_KINEMASTER_20260719.md}). It is not held any more, and the edge is
+     * one read.</p>
+     *
+     * <p>Derived from the item's CURRENT range rather than from a stored drag x, so it is the
+     * edge as resolved — snapped, clamped, no-overlap-corrected — which is the same WYSIWYG rule
+     * the drag guides follow: show where the edge actually is, not where the finger is.</p>
+     */
+    public long liveTrimEdgeMs(long totalMs) {
+        if (activeItem == null) return Long.MIN_VALUE;
+        if (activeKind == GestureKind.TRIM_LEFT) return activeItem.getTimelineStartMs();
+        if (activeKind == GestureKind.TRIM_RIGHT) {
+            return activeItem.getTimelineStartMs() + activeItem.getDisplayDurationMs(totalMs);
+        }
+        return Long.MIN_VALUE;
+    }
+
     public void clearSelection() {
         boolean had = selectedItemId != null;
         selectedItemId = null;

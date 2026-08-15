@@ -124,6 +124,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Default duration for still image clips (milliseconds). */
     private static final long IMAGE_CLIP_DURATION_MS = 5000;
 
+    /**
+     * How far a still on the spine may be STRETCHED by its trim handle. A still has no inherent
+     * length, so the only thing that ever bounded one was {@code sourceDurationMs} — and creating
+     * it as {@code new Clip(uri, IMAGE_CLIP_DURATION_MS)} set that equal to the 5s starting
+     * length. The handle then had nothing left to give and a still could never exceed 5 seconds,
+     * which is not a decision anyone made: 5000 was meant to be the DEFAULT length, and it
+     * silently became the maximum as well. That blocked title cards and black spacers of any
+     * useful length.
+     *
+     * <p>Stills are created with this as their source bound and {@link #IMAGE_CLIP_DURATION_MS}
+     * as their visible length, so they still ARRIVE at 5s and the handle can now take them to an
+     * hour. Costs nothing: for a still, source duration is a pure trim bound — the frame is
+     * decoded once and held, so a larger bound decodes no more and allocates no more.
+     */
+    private static final long IMAGE_CLIP_MAX_MS = 60 * 60 * 1000L; // 1 hour
+
+    /**
+     * Create a spine still: visible for {@link #IMAGE_CLIP_DURATION_MS}, stretchable to
+     * {@link #IMAGE_CLIP_MAX_MS}. The one place stills are born, so the trim bound cannot be
+     * right at some call sites and wrong at others.
+     */
+    @NonNull
+    private static Clip newImageClip(@NonNull Uri uri) {
+        Clip c = new Clip(uri, IMAGE_CLIP_DURATION_MS);
+        c.setSourceDurationMs(IMAGE_CLIP_MAX_MS);   // trim bound only; outPoint stays at 5s
+        c.setImageClip(true);
+        return c;
+    }
+
     @Nullable
     private List<Uri> initialVideoUris;
 
@@ -30930,7 +30959,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Create the clip
             Clip newClip;
             if (item.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
-                newClip = new Clip(uri, IMAGE_CLIP_DURATION_MS);
+                newClip = newImageClip(uri);
                 newClip.setImageClip(true);
                 newClip.setAudioMuted(true);
             } else if (item.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.AUDIO) {
@@ -31048,7 +31077,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             Clip newClip;
             if (item.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
-                newClip = new Clip(uri, IMAGE_CLIP_DURATION_MS);
+                newClip = newImageClip(uri);
                 newClip.setImageClip(true);
                 newClip.setAudioMuted(true);
             } else if (item.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.AUDIO) {
@@ -31615,7 +31644,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 FLog.w(TAG, "Could not take persistable URI permission", e);
             }
 
-            Clip imageClip = new Clip(imageUri, IMAGE_CLIP_DURATION_MS);
+            Clip imageClip = newImageClip(imageUri);
             imageClip.setImageClip(true);
             imageClip.setAudioMuted(true); // Images have no audio
 

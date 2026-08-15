@@ -32575,7 +32575,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (it.getTextOverlay() != null) {
                 com.fadcam.ui.faditor.model.TextOverlayItem copy = it.getTextOverlay()
                         .copyWithNewId(java.util.UUID.randomUUID().toString());
-                copy.setLayerId(timeline.createLayerTrack(
+                copy.setLayerId(nearbyLaneOr(it.getId(), copy.getStartMs(), copy.getEndMs(),
                         com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text"));
                 timeline.addTextOverlay(copy);
                 undos.add(() -> timeline.removeTextOverlay(copy));
@@ -32583,7 +32583,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             } else if (it.getSprite() != null) {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy = it.getSprite()
                         .copyWithNewId(java.util.UUID.randomUUID().toString());
-                copy.setLayerId(timeline.createLayerTrack(
+                copy.setLayerId(nearbyLaneOr(it.getId(), copy.getStartMs(), copy.getEndMs(),
                         com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite"));
                 timeline.addSpriteOverlay(copy);
                 undos.add(() -> timeline.removeSpriteOverlay(copy));
@@ -32592,14 +32592,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.model.AdjustmentLayer copy = it.getAdjustment().copy();
                 copy.setId(java.util.UUID.randomUUID().toString());
                 copy.setName(it.getAdjustment().getName() + " copy");        // TODO(strings)
-                copy.setLayerId(timeline.createLayerTrack(
+                copy.setLayerId(nearbyLaneOr(it.getId(), copy.getStartMs(), copy.getEndMs(),
                         com.fadcam.ui.faditor.layers.TrackKind.ADJUSTMENT, "Adjustment"));
                 timeline.addAdjustmentLayer(copy);
                 undos.add(() -> timeline.removeAdjustmentLayer(copy));
                 made++;
             } else if (it.getClip() != null && it.getClip().isOverlayClip()) {
                 Clip copy = new Clip(it.getClip());
-                copy.setLayerId(timeline.createLayerTrack(
+                copy.setLayerId(nearbyLaneOr(it.getId(), copy.getOverlayStartMs(),
+                        copy.getOverlayStartMs() + Math.max(0, copy.getTrimmedDurationMs()),
                         com.fadcam.ui.faditor.layers.TrackKind.LAYER, "Layer"));
                 timeline.addOverlayClip(copy);
                 undos.add(() -> { timeline.removeOverlayClip(copy); syncTimelineOverlays(); });
@@ -32677,6 +32678,73 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return false;
     }
 
+    /**
+     * The lane a DUPLICATE should land on: the one directly BELOW the original when it is free
+     * over the copy's time range, else the one directly ABOVE, else {@code null} for "make a new
+     * one".
+     *
+     * <p>Every duplicate used to call {@code createLayerTrack} unconditionally, so copying an
+     * object always spawned a fresh lane and the copy appeared far from the thing it was copied
+     * from — JoyRaptor, 2026-08-15: "currently it's making new lanes and placing visually far away
+     * lanes." A duplicate is nearly always the start of "…and now put this one just here", so it
+     * belongs next to its original, and a lane that already exists and has room is a better
+     * answer than a new row pushing everything else down.</p>
+     *
+     * <p>Occupancy is asked of the LANE, not of a payload list: lanes are a neutral substrate and
+     * any lane may hold any payload, so a text copy must not land on top of a sprite that happens
+     * to be sitting there. {@code Track.getItems()} is the same aggregate the drag path's
+     * no-overlap resolver consults, which is why the two agree about what "free" means.</p>
+     *
+     * <p>Lane ids are {@code Track.getId()} — the representation {@code onItemMovedToTrack}
+     * already writes when a drag drops an object on a row, rather than the null-means-default
+     * form used when assigning a brand-new overlay.</p>
+     */
+    /**
+     * {@link #laneForDuplicate}, falling back to a fresh lane of {@code kind} when neither
+     * neighbour has room. The one call every duplicate site makes, so "below, else above, else
+     * new" is stated once instead of seven times.
+     */
+    @NonNull
+    private String nearbyLaneOr(@NonNull String originalItemId, long startMs, long endMs,
+                                @NonNull com.fadcam.ui.faditor.layers.TrackKind kind,
+                                @NonNull String name) {
+        String near = laneForDuplicate(originalItemId, startMs, endMs);
+        return near != null ? near : project.getTimeline().createLayerTrack(kind, name);
+    }
+
+    @Nullable
+    private String laneForDuplicate(@NonNull String originalItemId, long startMs, long endMs) {
+        if (project == null) return null;
+        Timeline tl = project.getTimeline();
+        java.util.List<com.fadcam.ui.faditor.layers.Track> lanes = tl.getLayers();
+        int at = -1;
+        for (int i = 0; i < lanes.size() && at < 0; i++) {
+            for (com.fadcam.ui.faditor.layers.TimedItem it : lanes.get(i).getItems()) {
+                if (originalItemId.equals(it.getId())) { at = i; break; }
+            }
+        }
+        if (at < 0) return null;
+        long total = tl.getTotalDurationMs();
+        // BELOW first, then above — the order JoyRaptor asked for.
+        int[] tries = {at - 1, at + 1};
+        for (int to : tries) {
+            if (to < 0 || to >= lanes.size()) continue;
+            com.fadcam.ui.faditor.layers.Track lane = lanes.get(to);
+            if (lane.isLocked() || lane.getKind()
+                    == com.fadcam.ui.faditor.layers.TrackKind.AUDIO) {
+                continue;   // a locked row refuses drops, and audio is a different band
+            }
+            boolean clash = false;
+            for (com.fadcam.ui.faditor.layers.TimedItem other : lane.getItems()) {
+                long os = other.getTimelineStartMs();
+                long oe = os + Math.max(0, other.getDisplayDurationMs(total));
+                if (os < endMs && startMs < oe) { clash = true; break; }
+            }
+            if (!clash) return lane.getId();
+        }
+        return null;
+    }
+
     private boolean duplicateSelectedObject() {
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
@@ -32692,7 +32760,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             confirmLockedThen(t.isLocked(), () -> t.setLocked(false), () -> {
                 com.fadcam.ui.faditor.model.TextOverlayItem copy =
                         t.copyWithNewId(java.util.UUID.randomUUID().toString());
-                String lane = timeline.createLayerTrack(
+                String lane = nearbyLaneOr(t.getId(), copy.getStartMs(), copy.getEndMs(),
                         com.fadcam.ui.faditor.layers.TrackKind.TEXT, "Text");
                 copy.setLayerId(lane);
                 timeline.addTextOverlay(copy);
@@ -32705,7 +32773,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             confirmLockedThen(sp.isLocked(), () -> sp.setLocked(false), () -> {
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem copy =
                         sp.copyWithNewId(java.util.UUID.randomUUID().toString());
-                String lane = timeline.createLayerTrack(
+                String lane = nearbyLaneOr(sp.getId(), copy.getStartMs(), copy.getEndMs(),
                         com.fadcam.ui.faditor.layers.TrackKind.SPRITE, "Sprite");
                 copy.setLayerId(lane);
                 timeline.addSpriteOverlay(copy);
@@ -32719,7 +32787,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 com.fadcam.ui.faditor.model.AdjustmentLayer copy = al.copy();
                 copy.setId(java.util.UUID.randomUUID().toString());
                 copy.setName(al.getName() + " copy");
-                String lane = timeline.createLayerTrack(
+                String lane = nearbyLaneOr(al.getId(), copy.getStartMs(), copy.getEndMs(),
                         com.fadcam.ui.faditor.layers.TrackKind.ADJUSTMENT, "Adjustment");
                 copy.setLayerId(lane);
                 timeline.addAdjustmentLayer(copy);

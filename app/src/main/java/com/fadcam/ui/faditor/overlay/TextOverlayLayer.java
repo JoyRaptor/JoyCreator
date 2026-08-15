@@ -206,9 +206,22 @@ public class TextOverlayLayer extends FrameLayout {
         // splits overlays around the PiP plane) leaves this loop having done nothing, so the
         // drawer opens over a preview with no editor in it and the user gets a text object they
         // cannot type into — with no clue why. Say so.
-        com.fadcam.FLog.w("TextOverlayLayer", "attachToBox: no box for " + editingItemId
-                + " on this surface (" + boxes + " text boxes here) — no editor, no keyboard");
+        //
+        // ONCE PER ITEM, not once per call. attachToBox re-hosts on every rebuild and the layer
+        // rebuilds on every text sync, so an unqualified warning here would write thousands of
+        // lines a minute in precisely the broken state someone would be reading the log to
+        // diagnose — and FLog is not gated on BuildConfig.DEBUG (see LayerGestureController's
+        // ROWGESTURE note: every call writes two lines and runs a redaction pass). Same
+        // one-shot discipline as buildPlan's loggedNullPip.
+        if (!editingItemId.equals(loggedNoBoxFor)) {
+            loggedNoBoxFor = editingItemId;
+            com.fadcam.FLog.w("TextOverlayLayer", "attachToBox: no box for " + editingItemId
+                    + " on this surface (" + boxes + " text boxes here) — no editor, no keyboard");
+        }
     }
+
+    /** @see #attachToBox — the item whose missing box has already been reported. */
+    @Nullable private String loggedNoBoxFor;
 
     /**
      * Re-apply the remembered drawer selection to the editor after a re-host. The layer rebuilds
@@ -248,23 +261,20 @@ public class TextOverlayLayer extends FrameLayout {
     }
 
     /**
-     * Raise the keyboard for {@code e}, WAITING for the input manager to actually be serving it.
+     * Raise the keyboard for {@code e} — at most once per genuine open.
      *
-     * <p><b>A bare {@code showSoftInput} right after {@code requestFocus} loses a race.</b> The
-     * IMM tracks a "served view" that is updated from the view tree's focus-change pass, not
-     * synchronously inside {@code requestFocus()}. Ask in the same frame and the request is
-     * dropped on the floor with nothing thrown — logcat says it plainly once you look:
-     * {@code showSoftInput - cancel : mServedView != view}. The symptom is a text drawer that
-     * opens over a box with a caret in it and no keyboard, which is half of "I can't actually
-     * get the text dialog box up" (JoyRaptor, 2026-08-13).</p>
+     * <p><b>DO NOT ADD A RETRY HERE.</b> A bare {@code showSoftInput} straight after
+     * {@code requestFocus} can lose a race (the IMM's served view is updated by the focus-change
+     * pass, not synchronously), and the obvious repair is to re-post the show until it takes.
+     * That was tried on 2026-08-14 and it was much worse than the problem: this method is called
+     * from {@code attachToBox}, which re-hosts on every rebuild, and every successful show moves
+     * the window insets, which lays out, which rebuilds. Retry chains stacked into a closed loop
+     * — 49,692 logcat lines in 45 seconds, the keyboard opening and shutting several times a
+     * second, the editor unusable.</p>
      *
-     * <p>Creating a NEW text box happened to win the race — the drawer animation and the rebuild
-     * that follows it buy an extra frame — which is exactly why this survived: the path everyone
-     * tests worked, and the path you reach by tapping an existing box did not.</p>
-     *
-     * <p>Retries rather than posting once, because the number of frames is not ours to predict.
-     * It gives up after a bounded number of attempts rather than looping forever, and abandons
-     * immediately if the session has moved to another editor.</p>
+     * <p>The race was never the real defect. {@code rebuild()} was DESTROYING the served view;
+     * see the note there. With the view kept attached there is nothing to retry, and the guard
+     * below keeps this quiet on the many calls that have nothing new to ask for.</p>
      */
     private void showIme(@NonNull EditText e) {
         InputMethodManager imm = (InputMethodManager)
@@ -609,13 +619,35 @@ public class TextOverlayLayer extends FrameLayout {
             if (editing == null) removeAllViews();
             return;
         }
+        // BY ID, NOT BY IDENTITY — and this distinction is the whole reason the branch works.
+        //
+        // setData only calls rebuild() when the incoming model objects are DIFFERENT INSTANCES
+        // from the ones held ("Identity, not equals: these ARE the model objects, and a new
+        // instance at the same index is a different overlay that needs its own view"). So an
+        // identity test here is false in exactly the case that got us here: undo/redo, or any
+        // path that restores a snapshot and re-emits fresh items, would build a SECOND view for
+        // the item already on screen, leaving the keyboard attached to the stale one — typing
+        // into an object no longer in the timeline while the visible box never changed.
+        //
+        // Matching on id and ADOPTING the fresh instance keeps one view per item and re-points
+        // the retained box at the model everything else is now using.
+        boolean editingSurvives = false;
         for (TextOverlayItem o : overlays) {
-            // Its view is already attached and is the one holding the keyboard — do not make a
-            // second one for the same item.
-            if (editing != null && editing.getTag() == o) continue;
+            if (editing != null && sameItem(editing.getTag(), o)) {
+                editing.setTag(o);
+                editingSurvives = true;
+                continue;
+            }
             View v = createOverlayView(o);
             v.setTag(o);
             addView(v);
+        }
+        if (editing != null && !editingSurvives) {
+            // The edited item is no longer on this surface at all — deleted, or moved across
+            // the Z3 plane. Keeping its box would strand a view for something that does not
+            // exist here, so it goes; the editor session is torn down by its own drawer close.
+            removeView(editing);
+            editing = null;
         }
         if (editing != null) {
             // It was left at the bottom of the stack by the detach loop above. bringChildToFront
@@ -638,6 +670,15 @@ public class TextOverlayLayer extends FrameLayout {
     public void setPlayheadMs(long timelineMs) {
         currentTimeMs = timelineMs;
         refreshPositions();
+    }
+
+    /**
+     * Whether a child's tag and a model item are the SAME overlay — by id, because a fresh
+     * instance of the same overlay is still that overlay. See the note in {@link #rebuild}.
+     */
+    private static boolean sameItem(@Nullable Object tag, @NonNull TextOverlayItem o) {
+        return tag instanceof TextOverlayItem
+                && ((TextOverlayItem) tag).getId().equals(o.getId());
     }
 
     /** Re-run {@link #position} for every child, without rebuilding any view. */

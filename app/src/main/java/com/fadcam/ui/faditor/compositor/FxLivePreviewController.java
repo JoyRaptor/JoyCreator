@@ -281,8 +281,15 @@ public final class FxLivePreviewController {
         // leaves the Canvas path on export for exactly those three reasons
         // ({@code TextOverlayItem.wantsGlExport}), and this chain is the editor's only equivalent
         // — without it the drawer's three "export only" notes stay true.
-        boolean glImages = !glImageOverlays(timeline).isEmpty();
-        if (!anyRenders && g == null && !objectFx && !stacked && !glImages) { stop(); return; }
+        // Walked ONCE per tick and carried into buildPlan. orderedVisualItems() rebuilds every
+        // lane view from the flat lists on each call (getLayers is not cached), and this method
+        // runs on every playhead tick — asking twice is the same doubled cost partitionAroundVideo
+        // already warns against, on the same per-frame path.
+        List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages = glImageOverlays(timeline);
+        if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()) {
+            stop();
+            return;
+        }
 
         if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
         view.setGrade(g);
@@ -303,7 +310,7 @@ public final class FxLivePreviewController {
                 : videoSize();
         view.setVideoSize(size[0], size[1]);
         view.setVideoRotation(still != null ? 0 : rotationDegrees());
-        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked));
+        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
         route();
@@ -333,7 +340,8 @@ public final class FxLivePreviewController {
      */
     @NonNull
     private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
-            long playheadMs, @NonNull int[] size, boolean stacked) {
+            long playheadMs, @NonNull int[] size, boolean stacked,
+            @NonNull List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages) {
         List<AdjustmentLayer> live =
                 LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
@@ -393,7 +401,7 @@ public final class FxLivePreviewController {
         // frame. ImageBlendGlEffect states the same z caveat from the other side, and it is why
         // going through GL is opt-in rather than the path every image takes.
         java.util.Set<String> owned = new java.util.HashSet<>();
-        for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImageOverlays(timeline)) {
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) {
             FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
             if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
             rungs.add(FxPreviewTextureView.Rung.pip(p));

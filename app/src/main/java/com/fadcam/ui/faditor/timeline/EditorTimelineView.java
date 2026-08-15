@@ -749,7 +749,31 @@ public class EditorTimelineView extends View {
     // OPTION_CLOSEST_SYNC keyframe snapping — bump so old keyframe-snapped strips invalidate.
     private static final int FILMSTRIP_CACHE_VERSION = 2;
     private static final long FILMSTRIP_CACHE_MAX_BYTES = 24L * 1024 * 1024; // ~24MB LRU cap
-    private final ExecutorService thumbnailExecutor = Executors.newFixedThreadPool(2);
+    // Named + background-priority (2026-08-15, the ~200% idle CPU report). Two reasons:
+    //
+    // 1. IDENTITY. With the default factory these threads are "pool-N-thread-M", and N is a
+    //    process-wide counter — so the one line in `top -H` that names the biggest CPU consumer
+    //    in the app named nothing at all. Two separate sessions burned time guessing which of
+    //    the codebase's ~20 executors "pool-37" / "pool-17" was. `comm` truncates at 15 chars,
+    //    which also hid that this is a TWO-thread pool showing up as one repeated name.
+    // 2. PRIORITY. These threads run a full-source MediaCodec decode sweep (see
+    //    extractVideoThumbnails / FilmstripSweepExtractor) that lasts MINUTES on a long source,
+    //    and at default priority they compete with the main thread and RenderThread for the
+    //    same cores — measured on the Note 20 with a 46-minute source: 2 x ~100% here while
+    //    main sat at 21% and RenderThread at 17%, on a PAUSED editor. Filmstrip tiles are the
+    //    definition of nice-to-have work; the UI must win every time.
+    //
+    // This does NOT reduce the total work — that is the sweep's O(whole file) cost, which is
+    // the actual blocker and a separate decision. It stops that work from starving the UI.
+    // Process.setThreadPriority (not Thread.setPriority) — the Android mechanism, applied from
+    // INSIDE the thread because it acts on the calling tid. It sets the real nice value and the
+    // background scheduling group; Thread.setPriority only nudges the JVM-side mapping.
+    private final ExecutorService thumbnailExecutor = Executors.newFixedThreadPool(2, r ->
+            new Thread(() -> {
+                android.os.Process.setThreadPriority(
+                        android.os.Process.THREAD_PRIORITY_BACKGROUND);
+                r.run();
+            }, "filmstrip-sweep"));
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Path clipPath = new Path();
     /** Reusable dst rect for filmstrip tile blits (F2c: was a new RectF per tile per frame). */

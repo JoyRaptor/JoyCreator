@@ -728,7 +728,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         + " moved=" + (phAfter != phBefore)
                         + " drag=" + userDragging
                         + " tail=" + audioTailActive
-                        + " trans=" + transitionPlaybackActive);
+                        + " trans=" + transitionPlaybackActive
+                        // imagePlaybackActive completes the set: all THREE latchable re-post
+                        // flags are now on one line, so a single log answers "why is this ticker
+                        // still alive?" without re-reading the condition below. (gapless is
+                        // already printed above.)
+                        //
+                        // Added 2026-08-15 to test the standing theory that a latched flag here
+                        // caused the ~200% idle CPU. It DISPROVED that theory: with the Note 20
+                        // parked on a paused 48-minute project at ~200% CPU, this line did not
+                        // print ONCE in 10 seconds — the ticker was not running at all. The real
+                        // consumer was the filmstrip sweep (EditorTimelineView.thumbnailExecutor,
+                        // now the "filmstrip-sweep" threads). Kept because the flags are still
+                        // the right first question for any "playhead won't stop/start" report.
+                        + " img=" + imagePlaybackActive
+                        + " imgClip=" + (project != null
+                                && !project.getTimeline().isEmpty()
+                                && getSelectedClip().isImageClip()));
             }
             // Only keep ticking if actively playing — avoids wasting CPU
             // redrawing the playhead position when nothing is moving.

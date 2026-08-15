@@ -12278,6 +12278,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tl.pruneDefaultTrackFlags();
     }
 
+    /** Guard for {@link #syncTrailingBlankForOverhang()}, which re-enters through this method. */
+    private boolean syncingTrailingBlank = false;
+
     /** Guard for {@link #resolveSequenceOpenEnds()}, which re-enters through this method. */
     private boolean resolvingOpenEnds;
 
@@ -12290,6 +12293,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (!resolvingOpenEnds) {
                 resolvingOpenEnds = true;
                 try { resolveSequenceOpenEnds(); } finally { resolvingOpenEnds = false; }
+            }
+            // The spine is the base every visual object composites onto, so an object hanging
+            // past the last clip needs black under it or it cannot render or export. Placed
+            // AFTER open-end resolution so it measures the lengths items actually settled on.
+            // Guarded because it mutates the spine, and mutating the spine can re-enter here.
+            if (!syncingTrailingBlank) {
+                syncingTrailingBlank = true;
+                try {
+                    if (syncTrailingBlankForOverhang()) {
+                        editorTimeline.setTimeline(tl, selectedClipIndex);
+                        refreshTotalTimeDisplay();
+                        scheduleAutoSave();
+                    }
+                } finally { syncingTrailingBlank = false; }
             }
             applyDefaultAudioCollapseOnce(tl);
             // G5: attached visualizers re-derive their windows from their hosts' CURRENT
@@ -13452,6 +13469,104 @@ public class FaditorEditorActivity extends AppCompatActivity {
         resyncGaplessAfterStructuralEdit(spacer.getId(), 0L, false);
         saveProjectNow();
         Toast.makeText(this, "Clip removed — gap left in place", Toast.LENGTH_SHORT).show(); // TODO(strings)
+    }
+
+    /**
+     * Display name marking a trailing blank clip this class OWNS — created, resized and removed
+     * automatically to cover objects hanging past the end of the spine. A user-inserted black
+     * clip is deliberately named differently so it is never resized or deleted behind their back.
+     */
+    private static final String AUTO_BLANK_NAME = "Blank (auto)";
+
+    /**
+     * Grow (or shrink, or remove) a trailing black clip so the spine covers every overlay object
+     * that hangs past its end.
+     *
+     * <p>Why this exists: the spine is the visual coordinate system, and an object past the last
+     * clip has no frame to composite onto — which is why extending an image layer never lengthened
+     * the project and why keyframes mistimed out there. A Blank clip IS that missing base, so
+     * "should overlays extend the project?" and "insert a black clip" are the same mechanism. This
+     * is the automatic half; {@link #insertBlankClipAtPlayhead} is the manual one, and both build
+     * the same kind of clip via {@link #ensureBlackSpacerUri}.
+     *
+     * <p><b>Why this cannot run away.</b> Two independent guards:
+     * <ul>
+     *   <li>{@code maxBoundedOverlayEndMs} ignores open-ended objects, so an object defined as
+     *       "spans the whole project" can never ask the project to grow to contain it.</li>
+     *   <li>The spine length it compares against EXCLUDES the auto-blank itself. The target is
+     *       therefore a function of the user's real content only, so re-running this is
+     *       idempotent — it converges on the second pass and stays there, rather than each pass
+     *       measuring the padding the previous pass added.</li>
+     * </ul>
+     *
+     * @return true if the spine changed (caller should refresh + save).
+     */
+    private boolean syncTrailingBlankForOverhang() {
+        if (project == null) return false;
+        Timeline timeline = project.getTimeline();
+        int n = timeline.getClipCount();
+        if (n == 0) return false;
+
+        int lastIdx = n - 1;
+        boolean hasAuto = AUTO_BLANK_NAME.equals(timeline.getClip(lastIdx).getDisplayName());
+
+        // Spine length WITHOUT the auto-blank — the fixed point that makes this idempotent.
+        long realSpineMs = 0;
+        int realCount = hasAuto ? lastIdx : n;
+        for (int i = 0; i < realCount; i++) {
+            Clip c = timeline.getClip(i);
+            realSpineMs += c.hasLoopExtension()
+                    ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
+        }
+
+        long neededMs = timeline.maxBoundedOverlayEndMs() - realSpineMs;
+        // Ignore sub-frame slivers; a 1ms blank is visual noise on the timeline, not a fix.
+        if (neededMs < 100) neededMs = 0;
+
+        // BACKSTOP. The reasoning above says this cannot run away: the target is computed from
+        // the user's real content with the auto-blank excluded, so it is a fixed point. But this
+        // runs inside syncTimelineOverlays, alongside resolveSequenceOpenEnds and the link-group
+        // resyncs, which also rewrite item times — and if any of those ever resolves an item's
+        // end against the PROJECT length, the exclusion above stops being enough and each pass
+        // would measure the padding the previous pass added. A cap cannot be reached by correct
+        // behaviour, so it costs nothing, and it converts a hypothetical infinite black tail
+        // (which would destroy a project and an export) into a bounded amount plus a loud log.
+        long capMs = Math.max(60_000L, realSpineMs);
+        if (neededMs > capMs) {
+            FLog.w(TAG, "Auto-blank wanted " + neededMs + "ms but capped at " + capMs
+                    + "ms — an overlay end is probably tracking the project length."
+                    + " Investigate rather than raising the cap.");
+            neededMs = capMs;
+        }
+
+        if (neededMs <= 0) {
+            if (!hasAuto) return false;
+            timeline.removeClip(lastIdx);   // nothing overhangs any more — take the padding away
+            FLog.i(TAG, "Auto-blank removed (nothing overhangs the spine)");
+            return true;
+        }
+
+        if (hasAuto) {
+            Clip existing = timeline.getClip(lastIdx);
+            if (Math.abs(existing.getTrimmedDurationMs() - neededMs) < 100) return false;
+            existing.setOutPointMs(neededMs);
+            existing.setSourceDurationMs(neededMs);
+            FLog.i(TAG, "Auto-blank resized to " + neededMs + "ms");
+            return true;
+        }
+
+        Uri blackUri = ensureBlackSpacerUri();
+        if (blackUri == null) {
+            FLog.w(TAG, "Cannot extend spine for overhang — no black spacer available");
+            return false;
+        }
+        Clip blank = new Clip(blackUri, neededMs);
+        blank.setImageClip(true);
+        blank.setAudioMuted(true);
+        blank.setDisplayName(AUTO_BLANK_NAME);
+        timeline.addClip(n, blank);
+        FLog.i(TAG, "Auto-blank appended: " + neededMs + "ms to cover overhanging objects");
+        return true;
     }
 
     /**

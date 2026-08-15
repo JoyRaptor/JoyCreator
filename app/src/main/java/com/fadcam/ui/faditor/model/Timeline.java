@@ -316,6 +316,52 @@ public class Timeline {
     }
 
     /**
+     * The furthest timeline point reached by any overlay object that has a REAL end —
+     * text, sprite, waveform and adjustment items — or 0 if none overhangs anything.
+     *
+     * <p><b>Open-ended items are deliberately excluded, and that exclusion is the whole point.</b>
+     * Throughout this codebase an end of {@link Long#MAX_VALUE} (or an end at/before the start,
+     * or a zero duration for an adjustment) means "run to the end of the project" — see
+     * {@code TimedItem.getDisplayDurationMs}, which resolves exactly these cases against the
+     * project length. Such an item FOLLOWS the project; it does not lead it. Feeding one into a
+     * routine that grows the project to cover its objects would ask for a project long enough to
+     * contain something defined as "however long the project is" — it would either demand
+     * {@code Long.MAX_VALUE} of black outright, or grow by a step every pass and never converge.
+     *
+     * <p>So a text object set to span the whole project stops at the last real object, which is
+     * the behaviour a user expects and asked for. Only an object with a definite end can push the
+     * project longer.
+     *
+     * <p>Audio is not consulted here: {@link #getTotalDurationMs()} already lets audio extend the
+     * timeline on its own, because silence is the identity for mixing and needs no picture under
+     * it. Visual objects are the ones that need a base frame to composite onto.
+     */
+    public long maxBoundedOverlayEndMs() {
+        long max = 0;
+        for (TextOverlayItem o : textOverlays) {
+            long s = Math.max(0, o.getStartMs());
+            long e = o.getEndMs();
+            if (e != Long.MAX_VALUE && e > s && e > max) max = e;
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : spriteOverlays) {
+            long s = Math.max(0, o.getStartMs());
+            long e = o.getEndMs();
+            if (e != Long.MAX_VALUE && e > s && e > max) max = e;
+        }
+        for (WaveformOverlayInstance o : waveformOverlays) {
+            long s = Math.max(0, o.getStartMs());
+            long e = o.getEndMs();
+            if (e != Long.MAX_VALUE && e > s && e > max) max = e;
+        }
+        for (AdjustmentLayer a : adjustmentLayers) {
+            if (a.getDurationMs() <= 0) continue; // open-ended: "grade everything"
+            long e = a.getEndMs();
+            if (e > max) max = e;
+        }
+        return max;
+    }
+
+    /**
      * Total duration of the video track only (sum of all trimmed clip durations).
      */
     public long getVideoTrackDurationMs() {

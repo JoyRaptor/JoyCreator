@@ -196,6 +196,19 @@ public class EditorTimelineView extends View {
     // Purple, the app's keyframe accent — this is where the entrance/exit tape RUNS, distinct
     // from the amber in/out zone carets, which sit inside this window.
     private final Paint motionRangeMarkerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /**
+     * Shared white outline for the two animation markers (JoyRaptor, 2026-08-18: "rounded corners
+     * and ... a white stroke around them, maybe one pixel wide").
+     *
+     * <p>ONE paint for both so the amber entrance caret and the purple motion marker cannot drift
+     * apart in weight — they sit on the same row, often within a few pixels of each other, and a
+     * mismatched outline reads as a rendering bug rather than as two different controls.
+     *
+     * <p>The stroke earns its place beyond taste: these markers are drawn over an arbitrary
+     * filmstrip, and amber-on-bright-frame is exactly the case where a fill alone stops having an
+     * edge. The outline is what guarantees a silhouette on any footage.</p>
+     */
+    private final Paint animMarkerOutlinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint motionRangeZonePaint   = new Paint();
 
     // Audio track paints
@@ -1688,6 +1701,22 @@ public class EditorTimelineView extends View {
         textAnimMarkerPaint.setColor(0xFFFFC107);
         textAnimZonePaint.setColor(0x40FFC107);
         motionRangeMarkerPaint.setColor(0xFFB388FF);
+        // Rounded corners via a CornerPathEffect rather than by hand-building arcs: the markers
+        // are built as 3-point Paths in two places, and an effect on the paint rounds both
+        // without either path routine having to know about it. Radius is in px and deliberately
+        // small — enough to take the needle off the point, not enough to turn a caret into a
+        // blob at the size these draw (a few dp tall).
+        android.graphics.CornerPathEffect markerCorners =
+                new android.graphics.CornerPathEffect(Math.max(1f, 1.5f * density));
+        textAnimMarkerPaint.setPathEffect(markerCorners);
+        motionRangeMarkerPaint.setPathEffect(markerCorners);
+        animMarkerOutlinePaint.setColor(0xFFFFFFFF);
+        animMarkerOutlinePaint.setStyle(Paint.Style.STROKE);
+        animMarkerOutlinePaint.setStrokeWidth(Math.max(1f, density));   // ~1dp
+        animMarkerOutlinePaint.setStrokeJoin(Paint.Join.ROUND);
+        // The SAME effect instance as the fills: a stroke rounded differently from the shape it
+        // outlines shows as a halo that misses the corners.
+        animMarkerOutlinePaint.setPathEffect(markerCorners);
         motionRangeZonePaint.setColor(0x33B388FF);
         trimOverlayPaint.setStyle(Paint.Style.FILL);
         trimRecoverPaint.setColor(0x404CAF50);
@@ -8735,6 +8764,7 @@ public class EditorTimelineView extends View {
         }
         p.close();
         canvas.drawPath(p, motionRangeMarkerPaint);
+        canvas.drawPath(p, animMarkerOutlinePaint);
     }
 
     /**
@@ -8803,6 +8833,7 @@ public class EditorTimelineView extends View {
         }
         p.close();
         canvas.drawPath(p, textAnimMarkerPaint);
+        canvas.drawPath(p, animMarkerOutlinePaint);
     }
 
     /**

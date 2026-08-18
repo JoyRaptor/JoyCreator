@@ -25797,10 +25797,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> promptForTimeMs(R.string.faditor_trim_end_here, overlayEndForPrompt(item),
                         ms -> setOverlayRangeEdgeAtMs(item, false, ms))));
 
-        // MOTION trim chips — the animation sub-range, not the object's time range. Only present
+        // MOTION trim chips — the animation sub-range, not the object's time range.
+        //
+        // These used to sit on the SAME line as the time trio above, producing two
+        // identically-worded "Start here / Span whole / End here" groups on one row, alongside
+        // the selection status, Clear and the trash. JoyRaptor, 2026-08-18: 'I'm seeing a second
+        // "start here", "spa-" buttons (the last one looks truncated), and I'm not entirely sure
+        // what they do.' Both halves of that report are the same defect: the row overflowed, so
+        // "Span whole" ellipsised to "Spa-", and nothing on screen said which range the second
+        // trio governed.
+        //
+        // They now get their own labelled line. Same chips, same shared helper, same
+        // long-press-to-type behaviour — only the arrangement changed. The label is the part
+        // that was actually missing: identical wording is fine once the group says what it
+        // applies to.
+        android.widget.LinearLayout motionRow = null;
+        // (original comment retained below)
+        // — the animation sub-range, not the object's time range. Only present
         // when there is an animation to bound, and deliberately AFTER the time chips so the two
         // identically-worded trios are never adjacent.
         if (item.hasTextAnim()) {
+            motionRow = new android.widget.LinearLayout(this);
+            motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            motionRow.setPadding(0, 0, 0, gap / 2);
+            TextView motionLabel = new TextView(this);
+            motionLabel.setText("Animation"); // TODO(strings)
+            motionLabel.setTextColor(0xFF9E9E9E);
+            motionLabel.setTextSize(11);
+            android.widget.LinearLayout.LayoutParams mlp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            mlp.rightMargin = Math.round(8 * d);
+            motionRow.addView(motionLabel, mlp);
+            final android.widget.LinearLayout mRow = motionRow;
             TextView startBtn = textTrimChip(d, R.string.faditor_trim_start_here, () -> {
                 long start = lastPlayheadAbsoluteMs;
                 long end = item.hasMotionRange()
@@ -25809,14 +25840,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshOverlayPreview();
                 scheduleAutoSave();
             });
-            row.addView(startBtn);
+            mRow.addView(startBtn);
 
             TextView spanBtn = textTrimChip(d, R.string.faditor_trim_span_whole, () -> {
                 item.clearMotionRange();
                 refreshOverlayPreview();
                 scheduleAutoSave();
             });
-            row.addView(spanBtn);
+            mRow.addView(spanBtn);
 
             TextView endBtn = textTrimChip(d, R.string.faditor_trim_end_here, () -> {
                 long end = lastPlayheadAbsoluteMs;
@@ -25826,7 +25857,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshOverlayPreview();
                 scheduleAutoSave();
             });
-            row.addView(endBtn);
+            mRow.addView(endBtn);
         }
 
         // Push the selection controls to the far right, mirroring the image drawer's chips-left /
@@ -25893,7 +25924,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         session.refreshers.add(refresh);
         refresh.run();
-        return row;
+        if (motionRow == null) return row;
+        // Two lines only when there IS an animation to bound; an un-animated box keeps the
+        // single compact row it always had.
+        android.widget.LinearLayout col = new android.widget.LinearLayout(this);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.addView(row);
+        col.addView(motionRow);
+        return col;
     }
 
     /**

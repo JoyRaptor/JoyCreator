@@ -13992,6 +13992,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // G7 (contract §6/§7): first-ever selection teaches the invisible
                 // per-item gestures (double-tap / hold / drag) once.
                 if (item != null) maybeShowGestureCoachMark();
+                // The TEXT STYLE drawer follows the selection too — same C6 rule as the
+                // object sheet below, which already retargets. It did not, so with the editor
+                // open a timeline tap selected a new box while the drawer kept editing the OLD
+                // one: every control in it, including Start/End here and the trash, was aimed
+                // at an object the user was no longer pointing at.
+                //
+                // JoyRaptor asked for this to chain edits — "end here, tap on another, end here" —
+                // and it is also the safer behaviour, which is why it is worth doing rather
+                // than merely convenient.
+                //
+                // Typing is NOT at risk here: the in-canvas editor's afterTextChanged writes
+                // the authored string straight to the model on every keystroke, so there is no
+                // uncommitted buffer for a selection change to discard. (Checked rather than
+                // assumed -- TextOverlayLayer:77,130.)
+                //
+                // endTextEditing FIRST, though, and not only for tidiness: it nulls textEditor,
+                // which is what releases the old box's bringChildToFront z-hoist. Retargeting
+                // without it would leave the previously edited box pinned above its lane -- the
+                // exact leak fixed on 2026-08-18 -- and chaining edits across several boxes
+                // would strand a new one on top after every tap.
+                if (textDrawer != null && textDrawer.isShowing()
+                        && item != null && item.getTextOverlay() != null
+                        && !item.getTextOverlay().isImage()) {
+                    if (overlayLayer != null) overlayLayer.endTextEditing();
+                    showTextOverlayEditor(item.getTextOverlay());
+                }
                 // C6 (JoyRaptor 2026-07-17): ONE open drawer, owned by the selection.
                 // Selecting a different object RETARGETS the sheet when the new
                 // type has drawer adapters, closes it otherwise — no more "sprite

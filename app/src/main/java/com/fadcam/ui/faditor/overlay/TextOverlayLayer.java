@@ -601,7 +601,25 @@ public class TextOverlayLayer extends FrameLayout {
         // Detaching everything EXCEPT that one box keeps the served view attached, so there is
         // nothing for the IMM to cancel. The rest of the layer rebuilds exactly as before.
         View editing = null;
-        if (editingItemId != null) {
+        // textEditor != null, NOT just editingItemId != null. The two can disagree, and when
+        // they do this method silently rewrites the project's z-order.
+        //
+        // Below, the edited box is bringChildToFront()ed -- correct while you are typing, and
+        // the ONLY thing that overrides lane order on this surface. But editingItemId is cleared
+        // in exactly one place, endTextStyleSession, and only when the style drawer closes
+        // cleanly AND the id still matches. Any other exit leaks it, and a leaked id pins that
+        // one box above everything for the rest of the session while every other box still obeys
+        // its lane -- which reads as "z-order is randomly wrong for one object".
+        //
+        // Device-diagnosed 2026-08-18 from JoyRaptor's project: a 7-candle text box on laneZ=0, the
+        // BOTTOM lane, painting over images 8 lanes above it, while other text on higher lanes
+        // sat correctly under those same images. It was the box he had edited last.
+        //
+        // Tying the hoist to a LIVE editor makes the override last exactly as long as the thing
+        // that justifies it. endTextEditing() nulls textEditor, so the next rebuild puts the box
+        // back in lane order on its own -- the state self-heals instead of needing every exit
+        // path to remember to clean up.
+        if (editingItemId != null && textEditor != null) {
             for (int i = 0; i < getChildCount(); i++) {
                 View v = getChildAt(i);
                 Object tag = v.getTag();

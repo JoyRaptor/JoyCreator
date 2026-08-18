@@ -1,8 +1,17 @@
-# FINDING 2026-08-18 — lane Z-order is ignored BETWEEN object kinds (preview AND export)
+# FINDING 2026-08-18 — one text box pinned above its lane by leaked editing state
 
 **Reported by JoyRaptor, Note 20, live:** a text box with seven candlestick emojis paints over an
 image, although the image sits 3–4 lanes ABOVE the text. Not a state bug — reopening changes
 nothing. There is nothing to reproduce; it is unconditional.
+
+> **SUPERSEDED FIRST DIAGNOSIS — kept deliberately.** My first answer was "ordering is by
+> KIND, not by lane, in preview and export". JoyRaptor rejected it from what he could see: *"several
+> of the other text boxes behave appropriately being under the image... it's not like all text
+> boxes are over all images."* He was right and the kind theory was wrong. It also could not have
+> been right: in this project EVERY lane item is a `textOverlay` payload — an "image object" IS a
+> text-overlay item carrying an image — so there are no competing kinds to mis-order. The correct
+> diagnosis is below. Recording the wrong turn because the tempting fix it implied (re-ordering
+> the three overlay surfaces) would have been a large change that fixed nothing here.
 
 ## The mechanism
 
@@ -44,3 +53,43 @@ project — the worst outcome, because it looks fixed.
 JoyRaptor's own case is the fixture: image on a high lane, text on a low one, and the image must
 cover the text — checked in the editor AND in an exported file, numerically per §5 of
 HANDOFF_20260813 (two renders, one setting changed, compared pixel-wise), not by eye.
+
+---
+
+# ACTUAL CAUSE (device-diagnosed from JoyRaptor's project.json) — FIXED
+
+`TextOverlayLayer.rebuild()` hoists the box being edited above every other box:
+
+```java
+if (editing != null) {
+    bringChildToFront(editing);   // "Putting the box you are typing in on top is also simply right."
+```
+
+That is the ONLY thing on this surface that overrides lane order, and it was keyed on
+`editingItemId` alone. `editingItemId` is cleared in exactly ONE place — `endTextStyleSession`
+— and only when the style drawer closes cleanly AND `isEditingItem(id)` still matches. Every
+other exit leaks it, and a leaked id pins that one box on top for the rest of the session while
+every other box still obeys its lane. Hence "inconsistent", which was the clue that broke it.
+
+**Evidence from `project.json` (project a32d24e2):**
+- the 7-candle box `c430b838` is on `laneZ=0` — the BOTTOM lane — yet paints over images on lanes 8–10
+- it is `flat#79 of 80`, the most recently touched item: the last box JoyRaptor edited
+- 748 inversions between flat-list order and lane order, so flat order is NOT what the renderer
+  uses — `setData` is fed by `visibleTextOverlaysAboveVideo` -> `partitionAroundVideo` ->
+  `orderedVisualItems`, which DOES sort by `Track::getZIndex`. Lane ordering was working; one
+  box was being lifted out of it afterwards.
+- `pipZ` is `Integer.MIN_VALUE` here (no overlay-clip payloads), so all items land in the single
+  ABOVE bucket and the Z3 split is not involved.
+
+**Fix:** the hoist now requires a LIVE editor (`editingItemId != null && textEditor != null`),
+so the override lasts exactly as long as the thing that justifies it. `endTextEditing()` nulls
+`textEditor`, so the next rebuild restores lane order by itself — self-healing rather than
+requiring every exit path to clean up.
+
+**Verification still owed.** A restart also clears `editingItemId`, so seeing correct z-order
+after installing proves NOTHING. The honest test is to reproduce the leak: edit a text box on a
+low lane, dismiss the drawer by a path other than a clean `endTextStyleSession` (back gesture /
+tapping away), and confirm the box drops back under the higher-lane images without restarting.
+
+**JoyRaptor's rule, to hold the line:** anything on a lower lane is lower depth, with closed
+captioning as the sole deliberate exception.

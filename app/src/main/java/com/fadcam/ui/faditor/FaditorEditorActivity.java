@@ -20932,8 +20932,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Use the LIVE playhead, not the cached lastPlayheadAbsoluteMs: the Start/End-here chips
         // are peek-visible so the user scrubs WHILE the menu is open (user 2026-07-27: "End here
         // didn't land where the playhead is"). The cached value can lag the live scrub.
-        final long ph = (editorTimeline != null)
-                ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs;
+        setOverlayRangeEdgeAtMs(o, startEdge, (editorTimeline != null)
+                ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs);
+    }
+
+    /**
+     * Set one edge of an overlay's time range to an EXPLICIT time.
+     *
+     * <p>Split out of {@link #setOverlayRangeEdgeAtPlayhead} so tapping a chip (edge = playhead)
+     * and long-pressing it (edge = a typed time) run the SAME validation, the same single undo
+     * step and the same refresh. Two code paths here is how "End here" and "End at 2m30s" come
+     * to disagree about whether an inverted range is allowed.
+     */
+    private void setOverlayRangeEdgeAtMs(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, boolean startEdge, long ph) {
         if (startEdge) {
             if (o.getEndMs() != Long.MAX_VALUE && ph >= o.getEndMs()) {
                 Toast.makeText(this, R.string.faditor_kf_range_invalid, Toast.LENGTH_SHORT).show();
@@ -21980,11 +21992,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     trimRow.setPadding(Math.round(12 * dp), Math.round(8 * dp),
                             Math.round(12 * dp), Math.round(4 * dp));
                     trimRow.addView(textTrimChip(dp, R.string.faditor_trim_start_here,
-                            () -> trimAdjustmentLayerStartAtPlayhead(layer)));
+                            () -> trimAdjustmentLayerStartAtPlayhead(layer),
+                            () -> promptForTimeMs(R.string.faditor_trim_start_here,
+                                    layer.getStartMs(),
+                                    ms -> trimAdjustmentLayerStartAtMs(layer, ms))));
                     trimRow.addView(textTrimChip(dp, R.string.faditor_trim_span_whole,
                             () -> spanAdjustmentLayerOverTimeline(layer)));
                     trimRow.addView(textTrimChip(dp, R.string.faditor_trim_end_here,
-                            () -> trimAdjustmentLayerEndAtPlayhead(layer)));
+                            () -> trimAdjustmentLayerEndAtPlayhead(layer),
+                            () -> promptForTimeMs(R.string.faditor_trim_end_here,
+                                    layer.getDurationMs() > 0L ? layer.getEndMs()
+                                            : project.getTimeline().getTotalDurationMs(),
+                                    ms -> trimAdjustmentLayerEndAtMs(layer, ms))));
 
                     col.addView(trimRow);
                     col.addView(com.fadcam.ui.faditor.tools.FxPanel.build(
@@ -22347,8 +22366,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *  finite layer keeps its far edge and its span shrinks/grows from the left. One undo step. */
     private void trimAdjustmentLayerStartAtPlayhead(
             @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
+        trimAdjustmentLayerStartAtMs(layer, Math.max(0L, lastPlayheadAbsoluteMs));
+    }
+
+    /** @see #setOverlayRangeEdgeAtMs -- same split, same reason: one validation path. */
+    private void trimAdjustmentLayerStartAtMs(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer, long cut) {
         if (project == null) return;
-        long cut = Math.max(0L, lastPlayheadAbsoluteMs);
         long end = layer.getDurationMs() > 0L ? layer.getEndMs()
                 : project.getTimeline().getTotalDurationMs();
         if (cut >= end) {
@@ -22375,8 +22399,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** "End here ⇥": move the layer's END edge to the playhead. Start is untouched. One undo step. */
     private void trimAdjustmentLayerEndAtPlayhead(
             @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
+        trimAdjustmentLayerEndAtMs(layer, Math.max(0L, lastPlayheadAbsoluteMs));
+    }
+
+    /** @see #setOverlayRangeEdgeAtMs -- same split, same reason: one validation path. */
+    private void trimAdjustmentLayerEndAtMs(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer, long cut) {
         if (project == null) return;
-        long cut = Math.max(0L, lastPlayheadAbsoluteMs);
         if (cut <= layer.getStartMs()) {
             Toast.makeText(this, getString(R.string.faditor_trim_end_impossible),
                     Toast.LENGTH_SHORT).show();
@@ -24093,11 +24122,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         chips.setGravity(android.view.Gravity.CENTER_VERTICAL);
         chips.setPadding(0, Math.round(8 * d), 0, Math.round(4 * d));
         chips.addView(textTrimChip(d, R.string.faditor_trim_start_here,
-                () -> setOverlayRangeEdgeAtPlayhead(o, true)));
+                () -> setOverlayRangeEdgeAtPlayhead(o, true),
+                () -> promptForTimeMs(R.string.faditor_trim_start_here, o.getStartMs(),
+                        ms -> setOverlayRangeEdgeAtMs(o, true, ms))));
         chips.addView(textTrimChip(d, R.string.faditor_trim_span_whole,
                 () -> spanOverlayOverTimeline(o)));
         chips.addView(textTrimChip(d, R.string.faditor_trim_end_here,
-                () -> setOverlayRangeEdgeAtPlayhead(o, false)));
+                () -> setOverlayRangeEdgeAtPlayhead(o, false),
+                () -> promptForTimeMs(R.string.faditor_trim_end_here, overlayEndForPrompt(o),
+                        ms -> setOverlayRangeEdgeAtMs(o, false, ms))));
         chips.addView(new android.widget.Space(this),
                 new android.widget.LinearLayout.LayoutParams(0, 0, 1f));
         final android.widget.TextView clearChip = new android.widget.TextView(this);
@@ -25728,11 +25761,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Routed through the SHARED helpers, so the chip, the image drawer's chip and the object
         // sheet's chip cannot disagree about what "End here" means.
         row.addView(textTrimChip(d, R.string.faditor_trim_start_here,
-                () -> setOverlayRangeEdgeAtPlayhead(item, true)));
+                () -> setOverlayRangeEdgeAtPlayhead(item, true),
+                () -> promptForTimeMs(R.string.faditor_trim_start_here, item.getStartMs(),
+                        ms -> setOverlayRangeEdgeAtMs(item, true, ms))));
         row.addView(textTrimChip(d, R.string.faditor_trim_span_whole,
                 () -> spanOverlayOverTimeline(item)));
         row.addView(textTrimChip(d, R.string.faditor_trim_end_here,
-                () -> setOverlayRangeEdgeAtPlayhead(item, false)));
+                () -> setOverlayRangeEdgeAtPlayhead(item, false),
+                () -> promptForTimeMs(R.string.faditor_trim_end_here, overlayEndForPrompt(item),
+                        ms -> setOverlayRangeEdgeAtMs(item, false, ms))));
 
         // MOTION trim chips — the animation sub-range, not the object's time range. Only present
         // when there is an animation to bound, and deliberately AFTER the time chips so the two
@@ -25842,6 +25879,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @NonNull
     private TextView textTrimChip(float d, int labelRes, @NonNull Runnable onTap) {
+        return textTrimChip(d, labelRes, onTap, null);
+    }
+
+    /**
+     * The shared trim chip, with an optional long-press action.
+     *
+     * <p>JoyRaptor's rule, 2026-08-18: every Start here / Span whole / End here in the app must look
+     * and behave identically "so that people can start seeing design language instead of
+     * something that's fractured". Every trio in the app is already built by THIS method, so a
+     * capability added here reaches all of them at once and cannot be added to one drawer and
+     * forgotten in another.
+     *
+     * <p>Long-press is the discoverable-but-hidden layer: tap sets the edge to the playhead,
+     * long-press types an exact time through {@link #promptForTimeMs}. The chip's own label is
+     * unchanged, so the surface stays as simple as it was for anyone who never long-presses.
+     */
+    private TextView textTrimChip(float d, int labelRes, @NonNull Runnable onTap,
+                                  @Nullable Runnable onLongPress) {
         TextView t = new TextView(this);
         t.setText(getString(labelRes));
         t.setTextColor(0xFFDDDDDD);
@@ -25865,6 +25920,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // 60%-opaque chip there can still be a bright frame.
         t.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         t.setOnClickListener(v -> onTap.run());
+        if (onLongPress != null) {
+            t.setOnLongClickListener(v -> {
+                // Haptic: the only feedback that a hidden action fired, since the chip does not
+                // change appearance and the dialog takes a moment to appear.
+                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                onLongPress.run();
+                return true;   // consumed: must NOT also fire the tap action
+            });
+        }
         android.widget.LinearLayout.LayoutParams lp =
                 new android.widget.LinearLayout.LayoutParams(
                         android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -30081,8 +30145,97 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .show();
     }
 
-    /** Parse "ss", "m:ss", or "h:mm:ss" (decimals allowed) to ms; -1 if invalid. */
+    /**
+     * Parse a typed time to ms; -1 if invalid.
+     *
+     * <p>Delegates to {@link com.fadcam.ui.faditor.util.FlexibleTimeParser}, the ONE grammar
+     * (SPEC_IMAGE_SEQUENCE §3c). This used to hand-roll ss / m:ss / h:mm:ss; all three are still
+     * accepted, so nothing anyone could type here before has stopped working -- it just also
+     * takes "10.5s", "1/6 min", "90f" and "2m30s" now.
+     */
     private long parseTimeToMs(@NonNull String text) {
+        return com.fadcam.ui.faditor.util.FlexibleTimeParser.parseToMs(text, projectFps());
+    }
+
+    /**
+     * THE universal "type a time" dialog. Every place in the app that asks the user for a time or
+     * a duration should come through here, so the accepted grammar, the hint text and the
+     * rejection behaviour are identical everywhere (JoyRaptor, 2026-08-18 -- one design language, not
+     * a different time box per drawer).
+     *
+     * <p>Seeded with the current value already formatted, so the common edit is a nudge rather
+     * than a retype, and select-all-on-focus makes a full replacement one gesture.
+     *
+     * <p>An unparseable entry is REJECTED with a message and the value is left alone. It is never
+     * silently coerced to 0 -- {@link com.fadcam.ui.faditor.util.FlexibleTimeParser#INVALID} is
+     * -1 precisely so a typo cannot read as "the start of the project".
+     *
+     * @param titleRes  dialog title
+     * @param initialMs value to seed the field with
+     * @param onPicked  called with the parsed milliseconds; not called if the user cancels
+     */
+    private void promptForTimeMs(int titleRes, long initialMs,
+                                 @NonNull androidx.core.util.Consumer<Long> onPicked) {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setSingleLine(true);
+        // Plain text, NOT a time/number keypad: the grammar includes letters ("2m30s", "90f")
+        // and a slash ("1/6 min"), none of which a numeric IME offers.
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        input.setText(TimeFormatter.formatAuto(Math.max(0, initialMs)));
+        input.setSelectAllOnFocus(true);
+
+        final android.widget.TextView hint = new android.widget.TextView(this);
+        // The hint IS the discoverability for the whole feature: long-press is hidden, so the
+        // dialog it opens has to teach the grammar on sight.
+        hint.setText("2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min"); // TODO(strings)
+        hint.setTextSize(12);
+        hint.setTextColor(0xFF9E9E9E);
+
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
+        wrap.setOrientation(android.widget.LinearLayout.VERTICAL);
+        wrap.setPadding(pad, pad / 2, pad, 0);
+        wrap.addView(input);
+        wrap.addView(hint);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(titleRes)
+                .setView(wrap)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                    long ms = com.fadcam.ui.faditor.util.FlexibleTimeParser.parseToMs(
+                            input.getText().toString(), projectFps());
+                    if (ms == com.fadcam.ui.faditor.util.FlexibleTimeParser.INVALID) {
+                        Toast.makeText(this, "Could not read that time", // TODO(strings)
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    onPicked.accept(ms);
+                })
+                .show();
+    }
+
+    /**
+     * The value to SEED the "End here" prompt with. An overlay's end of {@link Long#MAX_VALUE}
+     * means "run to the end of the project" (see Timeline.maxBoundedOverlayEndMs), and putting
+     * that through the time formatter would show a nonsense duration measured in centuries.
+     * The project end is what "to the end" actually means on screen.
+     */
+    private long overlayEndForPrompt(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        long end = o.getEndMs();
+        if (end == Long.MAX_VALUE || end <= o.getStartMs()) {
+            return project != null ? project.getTimeline().getTotalDurationMs() : o.getStartMs();
+        }
+        return end;
+    }
+
+    /** Frame rate for frame-denominated input ("90f"). */
+    private float projectFps() {
+        return com.fadcam.ui.faditor.util.FlexibleTimeParser.DEFAULT_FPS;
+    }
+
+    /** Superseded by the delegation above; kept private and unused-safe. */
+    private long parseTimeToMsLegacy(@NonNull String text) {
         try {
             String t = text.trim();
             if (t.isEmpty()) return -1;

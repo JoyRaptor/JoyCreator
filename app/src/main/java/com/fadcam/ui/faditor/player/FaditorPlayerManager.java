@@ -1108,6 +1108,25 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             // setExactSeek(true) so they land on the exact time.
             player.setSeekParameters(SeekParameters.CLOSEST_SYNC);
             player.addListener(internalListener);
+            // Re-attach the ACTIVITY's listeners to this fresh player. Without this the legacy
+            // path has exactly the hazard registeredListeners was created to prevent, and which
+            // attachRegisteredListenersToEngine already prevents for the gapless engine: a
+            // released-and-rebuilt player comes back with only the internal listener, so every
+            // callback the activity depends on silently stops firing while playback itself looks
+            // perfectly healthy.
+            //
+            // Device-caught 2026-08-18 on the Note 20, legacy path (SEEKRANGE gapless=false),
+            // while JoyRaptor was editing: the playhead stopped advancing and the play/pause button
+            // stopped toggling, but the preview still played and the player kept logging
+            // BUFFERING/READY seeks. All three symptoms are one cause -- onIsPlayingChanged is
+            // BOTH the playhead ticker's only restart point (see playheadUpdater's re-post
+            // condition, which self-terminates when paused) and the only caller of
+            // updatePlayPauseButton. Losing that one listener freezes the playhead and the
+            // transport together while playback continues, which is why it reads as "the UI died
+            // but the video didn't". Not one PHDIAG line was logged in a 30-minute buffer.
+            for (Player.Listener l : registeredListeners) {
+                player.addListener(l);
+            }
 
             if (playerView != null) {
                 playerView.setPlayer(player);

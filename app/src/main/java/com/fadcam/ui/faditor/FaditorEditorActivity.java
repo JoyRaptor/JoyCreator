@@ -9185,6 +9185,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void updateCurrentTimeDisplay(long positionInCurrentSegmentMs) {
         long absoluteMs = getAbsolutePlayheadMs(positionInCurrentSegmentMs);
+        // PHJUMP (temporary, 2026-08-19): name whoever moves the playhead by a lot.
+        // PREVDIAG proved ms always equals lastPlayheadAbsoluteMs, and that the value itself
+        // lands on clip starts — one observed delta was EXACTLY +585361, clip 10's start, added
+        // to a time already inside clip 10. So an absolute time is being built from a
+        // clip-relative one somewhere, or a clip start is being applied twice. This prints the
+        // caller whenever the playhead moves more than 3s in a single call, which a scrub tick
+        // never does. REMOVE once found.
+        if (Math.abs(absoluteMs - lastPlayheadAbsoluteMs) > 3000) {
+            StringBuilder sb = new StringBuilder();
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            int shown = 0;
+            for (StackTraceElement e : st) {
+                String cn = e.getClassName();
+                if (!cn.startsWith("com.fadcam")) continue;
+                if (cn.endsWith("FaditorEditorActivity") && "updateCurrentTimeDisplay".equals(e.getMethodName())) continue;
+                sb.append(cn.substring(cn.lastIndexOf('.') + 1)).append('.')
+                  .append(e.getMethodName()).append(':').append(e.getLineNumber()).append(" <- ");
+                if (++shown >= 5) break;
+            }
+            FLog.d(TAG, "PHJUMP " + lastPlayheadAbsoluteMs + " -> " + absoluteMs
+                    + " (" + (absoluteMs - lastPlayheadAbsoluteMs) + ") by " + sb);
+        }
         lastPlayheadAbsoluteMs = absoluteMs;
         // BEFORE syncAdjustmentPreview, and that order is load-bearing. The GL composite asks the
         // overlay layer where each effected image overlay IS (TextOverlayLayer.fxPipFor), and the

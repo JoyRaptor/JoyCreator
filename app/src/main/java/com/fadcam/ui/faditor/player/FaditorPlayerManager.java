@@ -229,7 +229,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
         attachRegisteredListenersToEngine();
         if (gaplessResumeClipId != null) {
-            FLog.d(TAG, "SEEKDIAG gapless.seekInClip(gaplessResumeClipId, gaplessResumePosMs) by " + seekCaller());
             gaplessEngine.seekInClip(gaplessResumeClipId, gaplessResumePosMs);
         }
         if (player != null) player.pause();
@@ -439,7 +438,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         // Only home if the target clip survived the edit — a stale id (e.g. the split's
         // now-replaced parent) leaves us at window 0 rather than seeking nowhere.
         if (resumeClipId != null && gaplessEngine.windowForClipId(resumeClipId) >= 0) {
-            FLog.d(TAG, "SEEKDIAG gapless.seekInClip(resumeClipId, resumePos) by " + seekCaller());
             gaplessEngine.seekInClip(resumeClipId, resumePos);
         }
         if (wasPlaying) gaplessEngine.play();
@@ -451,7 +449,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * and non-seekable content:// sources work reliably.
      */
     public void loadClip(@NonNull Clip clip) {
-        FLog.d(TAG, "SEEKDIAG loadClip(" + clip.getId() + ") by " + seekCaller());
         this.currentClip = clip;
         this.trimStartMs = clip.getInPointMs();
         this.trimEndMs = clip.getOutPointMs();
@@ -462,7 +459,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (gapless()) {
             int window = gaplessEngine.windowForClipId(clip.getId());
             if (window >= 0) {
-                FLog.d(TAG, "SEEKDIAG gapless.seekInClip(clip.getId(), 0L) by " + seekCaller());
                 gaplessEngine.seekInClip(clip.getId(), 0L);
                 return;
             }
@@ -492,7 +488,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (gapless()) {
             rebuildGaplessTimeline();
             if (gapless()) {
-                FLog.d(TAG, "SEEKDIAG gapless.seekInClip(clip.getId(), 0L) by " + seekCaller());
                 gaplessEngine.seekInClip(clip.getId(), 0L);
                 gaplessEngine.pause();
             }
@@ -504,7 +499,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         // Seek to beginning of new trimmed region
         int state = player.getPlaybackState();
         if (state == Player.STATE_READY || state == Player.STATE_BUFFERING) {
-            FLog.d(TAG, "SEEKDIAG updateTrimBounds->seek(" + trimStartMs + ") by " + seekCaller());
             player.seekTo(trimStartMs);
             player.setPlayWhenReady(false);
             FLog.d(TAG, "Trim bounds updated (seek): in=" + trimStartMs
@@ -629,7 +623,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             // In gapless mode the engine holds the whole playlist; if it already ended, restart
             // from the beginning (mirrors the legacy seek-to-start-on-ENDED behavior below).
             if (gaplessEngine.isEnded()) {
-                FLog.d(TAG, "SEEKDIAG gapless.seekInClip(gaplessTimeline.getClip(0).getId(), 0L) by " + seekCaller());
                 gaplessEngine.seekInClip(gaplessTimeline.getClip(0).getId(), 0L);
             }
             gaplessEngine.play();
@@ -699,7 +692,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             if (gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {
                 attachRegisteredListenersToEngine();
                 if (exportResumeClipId != null) {
-                    FLog.d(TAG, "SEEKDIAG gapless.seekInClip(exportResumeClipId, exportResumePosMs) by " + seekCaller());
                     gaplessEngine.seekInClip(exportResumeClipId, exportResumePosMs);
                 }
                 if (player != null) player.pause();
@@ -815,34 +807,8 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     }
 
 
-    /**
-     * SEEKDIAG (temporary, 2026-08-19): name the code that moved the player.
-     *
-     * <p>JoyRaptor reports the preview jumping to the head of a clip after moving a layer or pressing
-     * undo -- 29:44 landing on 28:36.469, which is clip 15's start. Making updateTrimBounds silent
-     * in the post-undo refresh did not stop it, so at least one OTHER path is seeking, and three
-     * rounds of reading call sites have not found it. Print the caller instead of guessing again.
-     * REMOVE once the path is identified.
-     */
-    private static String seekCaller() {
-        StackTraceElement[] st = Thread.currentThread().getStackTrace();
-        StringBuilder sb = new StringBuilder();
-        int shown = 0;
-        for (StackTraceElement e : st) {
-            String cn = e.getClassName();
-            if (cn.startsWith("java.lang.Thread")) continue;
-            if (cn.endsWith("FaditorPlayerManager")) continue;
-            if (!cn.startsWith("com.fadcam")) continue;
-            sb.append(cn.substring(cn.lastIndexOf('.') + 1))
-              .append('.').append(e.getMethodName()).append(':').append(e.getLineNumber())
-              .append(" <- ");
-            if (++shown >= 4) break;
-        }
-        return sb.length() == 0 ? "(no fadcam frames)" : sb.toString();
-    }
 
     public void seekTo(long positionMs) {
-        FLog.d(TAG, "SEEKDIAG seekTo(" + positionMs + ") by " + seekCaller());
         logSeekRange("seekTo", positionMs);
         // Gapless: position is 0-based within the current window's clip, which is exactly what the
         // ClippingConfiguration player uses natively — seek directly, no trim-offset arithmetic.
@@ -954,7 +920,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (gapless()) {
             if (gaplessEngine.windowForClipId(clip.getId()) < 0) return false;
             logSeekRange("seekInClip", pos);
-            FLog.d(TAG, "SEEKDIAG gapless.seekInClip(clip.getId(), pos) by " + seekCaller());
             gaplessEngine.seekInClip(clip.getId(), pos);
             return true;
         }
@@ -978,7 +943,6 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @param absoluteMs absolute position in the source video (milliseconds)
      */
     public void seekToAbsolute(long absoluteMs) {
-        FLog.d(TAG, "SEEKDIAG seekToAbsolute(" + absoluteMs + ") by " + seekCaller());
         // Gapless: absoluteMs is in source-time; the current window's clip plays clip-local, so
         // convert to clip-local by subtracting the current clip's in-point.
         if (gapless()) {

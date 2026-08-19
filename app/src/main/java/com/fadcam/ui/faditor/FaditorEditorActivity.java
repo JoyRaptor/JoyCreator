@@ -26278,17 +26278,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.ImageView v = new android.widget.ImageView(this);
         v.setImageResource(iconRes);
         v.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        int pad = Math.round(7 * d);
+        // Small padding only — no backing plate. JoyRaptor, 2026-08-19: "let's remove the chip behind.
+        // So these things fit together a little bit better". The circle also fought the artwork:
+        // each icon fills its own 2048 box edge to edge, so a circle inscribed around it either
+        // clipped the arrow or forced the flag smaller than it was drawn to be.
+        int pad = Math.round(2 * d);
         v.setPadding(pad, pad, pad, pad);
         v.setContentDescription(contentDesc);
 
-        // Soft backing circle, same translucent-dark family as the rest of the drawer's chips.
-        android.graphics.drawable.GradientDrawable bg =
-                new android.graphics.drawable.GradientDrawable();
-        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(0x992A2A2E);
-        bg.setStroke(Math.max(1, Math.round(d)), 0x40FFFFFF);
-        v.setBackground(bg);
+        // Borderless ripple so a tap still registers without a plate to draw it on.
+        android.util.TypedValue tv = new android.util.TypedValue();
+        if (getTheme().resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless, tv, true)) {
+            v.setBackgroundResource(tv.resourceId);
+        }
 
         v.setOnClickListener(x -> {
             onTap.run();
@@ -26301,7 +26304,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return true;
             });
         }
-        int size = Math.round(38 * d);
+        int size = Math.round(40 * d);
         android.widget.LinearLayout.LayoutParams lp =
                 new android.widget.LinearLayout.LayoutParams(size, size);
         lp.rightMargin = Math.round(6 * d);

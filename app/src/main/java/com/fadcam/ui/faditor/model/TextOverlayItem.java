@@ -987,6 +987,11 @@ public class TextOverlayItem {
     public void setMotionRange(long startMs, long endMs) {
         this.motionStartMs = Math.max(0L, startMs);
         this.motionEndMs = Math.max(this.motionStartMs + 1L, endMs);
+        // Clamp on the way IN as well as when the span changes. The chips that write this take
+        // the live playhead, which the user can park outside the object entirely, so without
+        // this "Start here" from beyond the object's end would store a range the object never
+        // reaches. Same one funnel, so the two directions cannot disagree.
+        clampMotionRangeToSpan();
     }
 
     public void clearMotionRange() {
@@ -1020,6 +1025,40 @@ public class TextOverlayItem {
         // Guard against a degenerate range (end at/before start) that would make
         // the overlay invisible everywhere — treat it as "visible to the end".
         this.endMs = (endMs <= this.startMs) ? Long.MAX_VALUE : endMs;
+        clampMotionRangeToSpan();
+    }
+
+    /**
+     * Keep an explicit motion range inside the object's visible span.
+     *
+     * <p>The motion range is the sub-window the entrance/exit zones evaluate against, and it is
+     * stored in absolute project time — so shortening the object leaves it pointing at time the
+     * object no longer occupies. Found in JoyRaptor's project on 2026-08-19: a text box trimmed to
+     * end at 663891 still carried a motion range ending at 671793, 7.9 SECONDS past its own end.
+     * Nothing clamps on the way in, because the object's span and its motion range are set by
+     * different controls that never consult each other.
+     *
+     * <p>The consequence is not cosmetic. {@code motionSpanMs} is the denominator the zone
+     * percentages are taken of and {@code unitProgress} divides by it, so a motion range hanging
+     * off the end silently rescales the whole animation: the entrance runs at the wrong speed and
+     * the exit can be unreachable, because the tail of the range is time that never plays.
+     *
+     * <p>A range that ends up degenerate is CLEARED rather than pinned to a sliver. Cleared means
+     * "use the object's full span", which is the documented default and the behaviour every
+     * overlay that never touches these controls already has — whereas a one-millisecond motion
+     * window would make the animation flash past in a frame and look like a different bug.
+     */
+    private void clampMotionRangeToSpan() {
+        if (!hasMotionRange()) return;
+        long spanEnd = (endMs == Long.MAX_VALUE) ? Long.MAX_VALUE : endMs;
+        long s = Math.max(startMs, motionStartMs);
+        long e = Math.min(spanEnd, motionEndMs);
+        if (e <= s) {
+            clearMotionRange();
+            return;
+        }
+        motionStartMs = s;
+        motionEndMs = e;
     }
 
     /**

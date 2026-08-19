@@ -449,6 +449,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * and non-seekable content:// sources work reliably.
      */
     public void loadClip(@NonNull Clip clip) {
+        FLog.d(TAG, "SEEKDIAG loadClip(" + clip.getId() + ") by " + seekCaller());
         this.currentClip = clip;
         this.trimStartMs = clip.getInPointMs();
         this.trimEndMs = clip.getOutPointMs();

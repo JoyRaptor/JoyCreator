@@ -4054,6 +4054,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void loadClipForPlayback(@NonNull Clip clip) {
+        FLog.d(TAG, "SEEKDIAG loadClipForPlayback sel=" + selectedClipIndex
+                + " playhead=" + lastPlayheadAbsoluteMs + " clip=" + clip.getId());
         if (playerManager == null) return;
         transitionPlaybackActive = false;
         // Loading a VIDEO clip means no image timer can still be running — clear it HERE, at the

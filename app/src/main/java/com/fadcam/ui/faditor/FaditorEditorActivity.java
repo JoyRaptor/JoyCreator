@@ -20437,6 +20437,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * would simply never count.</p>
      */
     private void setTextOverlayPlayhead(long ms) {
+        refreshMarkerChips();
         ms = overlayClockMs(ms);
         // Each surface gates on its OWN visibility. The per-tick caller used to gate both
         // on the ABOVE layer's, which would starve the below one whenever the above was
@@ -22186,19 +22187,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     trimRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
                     trimRow.setPadding(Math.round(12 * dp), Math.round(8 * dp),
                             Math.round(12 * dp), Math.round(4 * dp));
-                    trimRow.addView(textTrimChip(dp, R.string.faditor_trim_start_here,
+                    trimRow.addView(markerChip(dp, MARKER_COLOR_OBJECT,
+                            R.drawable.ic_marker_flag_start,
+                            getString(R.string.faditor_trim_start_here),
                             () -> trimAdjustmentLayerStartAtPlayhead(layer),
                             () -> promptForTimeMs(R.string.faditor_trim_start_here,
                                     layer.getStartMs(),
-                                    ms -> trimAdjustmentLayerStartAtMs(layer, ms))));
-                    trimRow.addView(textTrimChip(dp, R.string.faditor_trim_span_whole,
-                            () -> spanAdjustmentLayerOverTimeline(layer)));
-                    trimRow.addView(textTrimChip(dp, R.string.faditor_trim_end_here,
+                                    ms -> trimAdjustmentLayerStartAtMs(layer, ms)),
+                            () -> Math.abs(layer.getStartMs() - lastPlayheadAbsoluteMs)
+                                    < MARKER_CHIP_EPSILON_MS));
+                    trimRow.addView(markerChip(dp, MARKER_COLOR_OBJECT,
+                            R.drawable.ic_marker_flag_span,
+                            getString(R.string.faditor_trim_span_whole),
+                            () -> spanAdjustmentLayerOverTimeline(layer), null,
+                            () -> layer.getStartMs() == 0L && layer.getDurationMs() <= 0L));
+                    trimRow.addView(markerChip(dp, MARKER_COLOR_OBJECT,
+                            R.drawable.ic_marker_flag_end,
+                            getString(R.string.faditor_trim_end_here),
                             () -> trimAdjustmentLayerEndAtPlayhead(layer),
                             () -> promptForTimeMs(R.string.faditor_trim_end_here,
                                     layer.getDurationMs() > 0L ? layer.getEndMs()
                                             : project.getTimeline().getTotalDurationMs(),
-                                    ms -> trimAdjustmentLayerEndAtMs(layer, ms))));
+                                    ms -> trimAdjustmentLayerEndAtMs(layer, ms)),
+                            () -> layer.getDurationMs() > 0L
+                                    && Math.abs(layer.getEndMs() - lastPlayheadAbsoluteMs)
+                                            < MARKER_CHIP_EPSILON_MS));
 
                     col.addView(trimRow);
                     col.addView(com.fadcam.ui.faditor.tools.FxPanel.build(
@@ -24316,16 +24329,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         chips.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         chips.setGravity(android.view.Gravity.CENTER_VERTICAL);
         chips.setPadding(0, Math.round(8 * d), 0, Math.round(4 * d));
-        chips.addView(textTrimChip(d, R.string.faditor_trim_start_here,
+        chips.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_start,
+                getString(R.string.faditor_trim_start_here),
                 () -> setOverlayRangeEdgeAtPlayhead(o, true),
                 () -> promptForTimeMs(R.string.faditor_trim_start_here, o.getStartMs(),
-                        ms -> setOverlayRangeEdgeAtMs(o, true, ms))));
-        chips.addView(textTrimChip(d, R.string.faditor_trim_span_whole,
-                () -> spanOverlayOverTimeline(o)));
-        chips.addView(textTrimChip(d, R.string.faditor_trim_end_here,
+                        ms -> setOverlayRangeEdgeAtMs(o, true, ms)),
+                () -> Math.abs(o.getStartMs() - lastPlayheadAbsoluteMs) < MARKER_CHIP_EPSILON_MS));
+        chips.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_span,
+                getString(R.string.faditor_trim_span_whole),
+                () -> spanOverlayOverTimeline(o), null,
+                () -> overlaySpansWholeTimeline(o)));
+        chips.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_end,
+                getString(R.string.faditor_trim_end_here),
                 () -> setOverlayRangeEdgeAtPlayhead(o, false),
                 () -> promptForTimeMs(R.string.faditor_trim_end_here, overlayEndForPrompt(o),
-                        ms -> setOverlayRangeEdgeAtMs(o, false, ms))));
+                        ms -> setOverlayRangeEdgeAtMs(o, false, ms)),
+                () -> o.getEndMs() != Long.MAX_VALUE
+                        && Math.abs(o.getEndMs() - lastPlayheadAbsoluteMs)
+                                < MARKER_CHIP_EPSILON_MS));
         chips.addView(new android.widget.Space(this),
                 new android.widget.LinearLayout.LayoutParams(0, 0, 1f));
         final android.widget.TextView clearChip = new android.widget.TextView(this);
@@ -25982,16 +26003,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // opacity slider, where they were both hard to find and styled unlike anything near them.
         // Routed through the SHARED helpers, so the chip, the image drawer's chip and the object
         // sheet's chip cannot disagree about what "End here" means.
-        row.addView(textTrimChip(d, R.string.faditor_trim_start_here,
+        row.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_start,
+                getString(R.string.faditor_trim_start_here),
                 () -> setOverlayRangeEdgeAtPlayhead(item, true),
                 () -> promptForTimeMs(R.string.faditor_trim_start_here, item.getStartMs(),
-                        ms -> setOverlayRangeEdgeAtMs(item, true, ms))));
-        row.addView(textTrimChip(d, R.string.faditor_trim_span_whole,
-                () -> spanOverlayOverTimeline(item)));
-        row.addView(textTrimChip(d, R.string.faditor_trim_end_here,
+                        ms -> setOverlayRangeEdgeAtMs(item, true, ms)),
+                () -> Math.abs(item.getStartMs() - lastPlayheadAbsoluteMs)
+                        < MARKER_CHIP_EPSILON_MS));
+        row.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_span,
+                getString(R.string.faditor_trim_span_whole),
+                () -> spanOverlayOverTimeline(item), null,
+                () -> overlaySpansWholeTimeline(item)));
+        row.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_end,
+                getString(R.string.faditor_trim_end_here),
                 () -> setOverlayRangeEdgeAtPlayhead(item, false),
                 () -> promptForTimeMs(R.string.faditor_trim_end_here, overlayEndForPrompt(item),
-                        ms -> setOverlayRangeEdgeAtMs(item, false, ms))));
+                        ms -> setOverlayRangeEdgeAtMs(item, false, ms)),
+                () -> item.getEndMs() != Long.MAX_VALUE
+                        && Math.abs(item.getEndMs() - lastPlayheadAbsoluteMs)
+                                < MARKER_CHIP_EPSILON_MS));
 
         // MOTION trim chips — the animation sub-range, not the object's time range.
         //
@@ -26028,32 +26058,79 @@ public class FaditorEditorActivity extends AppCompatActivity {
             mlp.rightMargin = Math.round(8 * d);
             motionRow.addView(motionLabel, mlp);
             final android.widget.LinearLayout mRow = motionRow;
-            TextView startBtn = textTrimChip(d, R.string.faditor_trim_start_here, () -> {
+            View startBtn = markerChip(d, MARKER_COLOR_MOTION,
+                    R.drawable.ic_marker_flag_start,
+                    getString(R.string.faditor_motion_start_here), () -> {
                 long start = lastPlayheadAbsoluteMs;
                 long end = item.hasMotionRange()
                         ? Math.max(item.getMotionEndMs(), start + 1) : item.getEndMs();
                 item.setMotionRange(start, end);
                 refreshOverlayPreview();
                 scheduleAutoSave();
-            });
+            }, () -> promptForTimeMs(R.string.faditor_motion_start_here,
+                    item.motionRangeStartMs(),
+                    ms -> { item.setMotionRange(ms, Math.max(ms + 1, item.getMotionEndMs()));
+                            refreshOverlayPreview(); scheduleAutoSave(); }),
+                    () -> item.hasMotionRange()
+                            && Math.abs(item.getMotionStartMs() - lastPlayheadAbsoluteMs)
+                                    < MARKER_CHIP_EPSILON_MS);
             mRow.addView(startBtn);
 
-            TextView spanBtn = textTrimChip(d, R.string.faditor_trim_span_whole, () -> {
+            View spanBtn = markerChip(d, MARKER_COLOR_MOTION,
+                    R.drawable.ic_marker_flag_span,
+                    getString(R.string.faditor_motion_span_whole), () -> {
                 item.clearMotionRange();
                 refreshOverlayPreview();
                 scheduleAutoSave();
-            });
+            }, null, () -> !item.hasMotionRange());
             mRow.addView(spanBtn);
 
-            TextView endBtn = textTrimChip(d, R.string.faditor_trim_end_here, () -> {
+            View endBtn = markerChip(d, MARKER_COLOR_MOTION,
+                    R.drawable.ic_marker_flag_end,
+                    getString(R.string.faditor_motion_end_here), () -> {
                 long end = lastPlayheadAbsoluteMs;
                 long start = item.hasMotionRange()
                         ? Math.min(item.getMotionStartMs(), end - 1) : item.getStartMs();
                 item.setMotionRange(start, end);
                 refreshOverlayPreview();
                 scheduleAutoSave();
-            });
+            }, () -> promptForTimeMs(R.string.faditor_motion_end_here,
+                    item.motionRangeEndMs(project.getTimeline().getTotalDurationMs()),
+                    ms -> { item.setMotionRange(Math.min(item.getMotionStartMs(), ms - 1), ms);
+                            refreshOverlayPreview(); scheduleAutoSave(); }),
+                    () -> item.hasMotionRange()
+                            && Math.abs(item.getMotionEndMs() - lastPlayheadAbsoluteMs)
+                                    < MARKER_CHIP_EPSILON_MS);
             mRow.addView(endBtn);
+
+            // THE OTHER TWO TRIANGLES. JoyRaptor counted four markers on the tape and asked whether
+            // "the wiring for four buttons was made and only two shown for lack of room" — the
+            // honest answer was that the amber entrance/exit carets never had buttons at all, in
+            // any amount of room. They do now, and they are the same shapes and colour the tape
+            // draws, so the row reads as the tape does. TODO(strings)
+            View sep = new View(this);
+            sep.setBackgroundColor(0x33FFFFFF);
+            android.widget.LinearLayout.LayoutParams slp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            Math.max(1, Math.round(d)), Math.round(20 * d));
+            slp.rightMargin = Math.round(8 * d);
+            slp.leftMargin = Math.round(2 * d);
+            sep.setLayoutParams(slp);
+            mRow.addView(sep);
+
+            mRow.addView(markerChip(d, MARKER_COLOR_ZONE, R.drawable.ic_marker_flag_start,
+                    getString(R.string.faditor_zone_in_ends_here),
+                    () -> setTextAnimZoneAtPlayhead(item, true), null,
+                    () -> zoneMatchesPlayhead(item, true)));
+            mRow.addView(markerChip(d, MARKER_COLOR_ZONE, R.drawable.ic_marker_flag_span,
+                    getString(R.string.faditor_zone_clear),
+                    () -> applyTextAnimZones(item.getId(), item.getTextAnimInPct(),
+                            item.getTextAnimOutPct(), 0f, 0f), null,
+                    () -> item.getTextAnimInPct() <= 0f && item.getTextAnimOutPct() <= 0f));
+            mRow.addView(markerChip(d, MARKER_COLOR_ZONE, R.drawable.ic_marker_flag_end,
+                    getString(R.string.faditor_zone_out_starts_here),
+                    () -> setTextAnimZoneAtPlayhead(item, false), null,
+                    () -> zoneMatchesPlayhead(item, false)));
         }
 
         // Push the selection controls to the far right, mirroring the image drawer's chips-left /
@@ -26138,65 +26215,195 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * dark rounded pill with a subtle border, not purple lettering.
      */
     @NonNull
-    private TextView textTrimChip(float d, int labelRes, @NonNull Runnable onTap) {
-        return textTrimChip(d, labelRes, onTap, null);
+    /** Colour of the object's own range controls — the green of its trim handles. */
+    private static final int MARKER_COLOR_OBJECT = 0xFF4CAF50;
+    /** Motion-range markers on the tape. */
+    private static final int MARKER_COLOR_MOTION = 0xFFB388FF;
+    /** Anim-zone (entrance/exit) carets on the tape. */
+    private static final int MARKER_COLOR_ZONE   = 0xFFFFC107;
+
+    /** Idle tint: these read as inert until they have something to say. */
+    private static final int MARKER_CHIP_IDLE = 0xFF9E9E9E;
+    /** How close the playhead must be to count as "already there" (~1 frame at 25fps). */
+    private static final long MARKER_CHIP_EPSILON_MS = 40L;
+
+    /** A chip that can re-evaluate its own "already there" state as the playhead moves. */
+    private static final class MarkerChipBinding {
+        final java.lang.ref.WeakReference<android.widget.ImageView> ref;
+        final int markerColor;
+        final java.util.function.BooleanSupplier alreadyThere;
+        MarkerChipBinding(android.widget.ImageView v, int c,
+                          java.util.function.BooleanSupplier a) {
+            this.ref = new java.lang.ref.WeakReference<>(v);
+            this.markerColor = c;
+            this.alreadyThere = a;
+        }
+    }
+
+    private final java.util.List<MarkerChipBinding> markerChips = new java.util.ArrayList<>();
+
+    /** Blend toward white — the hover/press brighten. */
+    private static int lighten(int c, float amt) {
+        int a = (c >>> 24) & 0xFF, r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
+        r = Math.round(r + (255 - r) * amt);
+        g = Math.round(g + (255 - g) * amt);
+        b = Math.round(b + (255 - b) * amt);
+        return (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     /**
-     * The shared trim chip, with an optional long-press action.
+     * A round chip carrying JoyRaptor's checkered-flag icon, for the Start / Span / End controls.
      *
-     * <p>JoyRaptor's rule, 2026-08-18: every Start here / Span whole / End here in the app must look
-     * and behave identically "so that people can start seeing design language instead of
-     * something that's fractured". Every trio in the app is already built by THIS method, so a
-     * capability added here reaches all of them at once and cannot be added to one drawer and
-     * forgotten in another.
+     * <p>JoyRaptor, 2026-08-19: the triangles "are too Vague So I made up little checkered flag icons
+     * with arrows to show the starting from a checkered flag, or going to a checkered flag, or a
+     * checkered flag expanding". The flag is the destination; the arrow says which way you are
+     * going relative to it. The timeline keeps its triangles — those are markers, these are verbs.
      *
-     * <p>Long-press is the discoverable-but-hidden layer: tap sets the edge to the playhead,
-     * long-press types an exact time through {@link #promptForTimeMs}. The chip's own label is
-     * unchanged, so the surface stays as simple as it was for anyone who never long-presses.
+     * <p><b>The tint is the whole point of the control.</b> Idle grey means "tapping does
+     * something". When the marker this chip drives is ALREADY where a tap would put it, the chip
+     * adopts that marker's own colour — green for the object's range, purple for the motion range,
+     * amber for the entrance/exit zones — so the answer to "would this change anything?" is
+     * readable without tapping to find out. {@code alreadyThere} is re-evaluated on every playhead
+     * move, because the answer changes as the playhead does.
+     *
+     * <p>Press and hover brighten whatever the current tint is, rather than switching to a fixed
+     * highlight, so the feedback never contradicts the state.
+     *
+     * <p>Vector, not PNG: a PNG would need one asset per colour per density, and the colour here
+     * is computed at runtime.
      */
-    private TextView textTrimChip(float d, int labelRes, @NonNull Runnable onTap,
-                                  @Nullable Runnable onLongPress) {
-        TextView t = new TextView(this);
-        t.setText(getString(labelRes));
-        t.setTextColor(0xFFDDDDDD);
-        t.setTextSize(12);
-        t.setSingleLine(true);
-        int hpad = Math.round(10 * d);
-        int vpad = Math.round(6 * d);
-        t.setPadding(hpad, vpad, hpad, vpad);
-        // SEMI-TRANSPARENT, like the drawer that holds them (JoyRaptor, 2026-08-12). Three opaque
-        // pills punched three solid holes in a panel whose whole point is that the picture shows
-        // through it. Tinted BLACK rather than lightened: these sit over arbitrary video, and a
-        // translucent white would vanish against a bright frame — darkening always separates the
-        // chip from what is behind it, and the light label and border stay legible either way.
+    private View markerChip(float d, int markerColor, int iconRes, @NonNull String contentDesc,
+                            @NonNull Runnable onTap, @Nullable Runnable onLongPress,
+                            @Nullable java.util.function.BooleanSupplier alreadyThere) {
+        android.widget.ImageView v = new android.widget.ImageView(this);
+        v.setImageResource(iconRes);
+        v.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        int pad = Math.round(7 * d);
+        v.setPadding(pad, pad, pad, pad);
+        v.setContentDescription(contentDesc);
+
+        // Soft backing circle, same translucent-dark family as the rest of the drawer's chips.
         android.graphics.drawable.GradientDrawable bg =
                 new android.graphics.drawable.GradientDrawable();
+        bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
         bg.setColor(0x992A2A2E);
-        bg.setCornerRadius(Math.round(14 * d));
-        bg.setStroke(Math.round(1 * d), 0x66FFFFFF);
-        t.setBackground(bg);
-        // The label carries its own shadow for the same reason the drawer's title does: behind a
-        // 60%-opaque chip there can still be a bright frame.
-        t.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        t.setOnClickListener(v -> onTap.run());
+        bg.setStroke(Math.max(1, Math.round(d)), 0x40FFFFFF);
+        v.setBackground(bg);
+
+        v.setOnClickListener(x -> {
+            onTap.run();
+            refreshMarkerChips();   // the tap usually MAKES it "already there"
+        });
         if (onLongPress != null) {
-            t.setOnLongClickListener(v -> {
-                // Haptic: the only feedback that a hidden action fired, since the chip does not
-                // change appearance and the dialog takes a moment to appear.
-                v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            v.setOnLongClickListener(x -> {
+                x.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
                 onLongPress.run();
-                return true;   // consumed: must NOT also fire the tap action
+                return true;
             });
         }
+        int size = Math.round(38 * d);
         android.widget.LinearLayout.LayoutParams lp =
-                new android.widget.LinearLayout.LayoutParams(
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = Math.round(8 * d);
-        t.setLayoutParams(lp);
-        return t;
+                new android.widget.LinearLayout.LayoutParams(size, size);
+        lp.rightMargin = Math.round(6 * d);
+        v.setLayoutParams(lp);
+
+        MarkerChipBinding binding = new MarkerChipBinding(v, markerColor,
+                alreadyThere != null ? alreadyThere : () -> false);
+        markerChips.add(binding);
+        applyMarkerChipTint(binding);
+        return v;
     }
+
+    /** True when the overlay already covers the entire project — what "span whole" would do. */
+    private boolean overlaySpansWholeTimeline(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (project == null) return false;
+        long total = Math.max(1L, project.getTimeline().getTotalDurationMs());
+        return o.getStartMs() == 0L
+                && (o.getEndMs() == Long.MAX_VALUE || o.getEndMs() >= total);
+    }
+
+    private void applyMarkerChipTint(@NonNull MarkerChipBinding b) {
+        android.widget.ImageView v = b.ref.get();
+        if (v == null) return;
+        boolean on;
+        try {
+            on = b.alreadyThere.getAsBoolean();
+        } catch (RuntimeException e) {
+            on = false;   // a predicate must never be able to take the drawer down
+        }
+        int base = on ? b.markerColor : MARKER_CHIP_IDLE;
+        int bright = lighten(base, 0.4f);
+        v.setImageTintList(new android.content.res.ColorStateList(
+                new int[][]{
+                        new int[]{android.R.attr.state_pressed},
+                        new int[]{android.R.attr.state_hovered},
+                        new int[0]},
+                new int[]{bright, bright, base}));
+    }
+
+    /**
+     * Re-evaluate every live marker chip. Called as the playhead moves, because "is the marker
+     * already here?" is a question about the playhead. Detached chips are dropped rather than
+     * retained — the drawers rebuild often and these must not outlive their rows.
+     */
+    private void refreshMarkerChips() {
+        if (markerChips.isEmpty()) return;
+        for (java.util.Iterator<MarkerChipBinding> it = markerChips.iterator(); it.hasNext(); ) {
+            MarkerChipBinding b = it.next();
+            android.widget.ImageView v = b.ref.get();
+            if (v == null || !v.isAttachedToWindow()) { it.remove(); continue; }
+            applyMarkerChipTint(b);
+        }
+    }
+
+    /**
+     * Set the entrance or exit ZONE from the playhead — the amber carets' missing buttons.
+     *
+     * <p>JoyRaptor, 2026-08-19, counting the markers: "I wonder if the wiring for four buttons was
+     * made and only two shown for lack of room." There are four triangles but only ever one trio
+     * of buttons: the purple motion-range pair had them, the amber zone pair did not, and could
+     * only be dragged. This is the other half.
+     *
+     * <p>The zones are stored as FRACTIONS of the motion span (0…MAX_ZONE_PCT), not as times, so
+     * the playhead has to be converted against {@code motionRangeStartMs/EndMs} — the same span
+     * {@code unitProgress} divides by. Committing through {@link #applyTextAnimZones} rather than
+     * writing the model directly means these buttons get the caret drag's undo step, its
+     * no-op detection and its clamp for free, and cannot drift from it.
+     */
+    /** True when the entrance/exit zone already ends/starts at the playhead. */
+    private boolean zoneMatchesPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, boolean entrance) {
+        if (project == null) return false;
+        long total = project.getTimeline().getTotalDurationMs();
+        long start = o.motionRangeStartMs();
+        long end = o.motionRangeEndMs(total);
+        long span = Math.max(1L, end - start);
+        float want = entrance
+                ? (lastPlayheadAbsoluteMs - start) / (float) span
+                : (end - lastPlayheadAbsoluteMs) / (float) span;
+        want = com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(want);
+        float have = entrance ? o.getTextAnimInPct() : o.getTextAnimOutPct();
+        return want > 0f && Math.abs(want - have) < 0.006f;
+    }
+
+    private void setTextAnimZoneAtPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, boolean entrance) {
+        if (project == null) return;
+        long ph = (editorTimeline != null)
+                ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs;
+        long total = project.getTimeline().getTotalDurationMs();
+        long start = o.motionRangeStartMs();
+        long end = o.motionRangeEndMs(total);
+        long span = Math.max(1L, end - start);
+        float pct = entrance ? (ph - start) / (float) span : (end - ph) / (float) span;
+        float beforeIn = o.getTextAnimInPct();
+        float beforeOut = o.getTextAnimOutPct();
+        applyTextAnimZones(o.getId(), beforeIn, beforeOut,
+                entrance ? pct : beforeIn, entrance ? beforeOut : pct);
+    }
+
+
 
     /**
      * The shadow's direction knob — a small circular scrub control, drag to rotate. Bespoke View

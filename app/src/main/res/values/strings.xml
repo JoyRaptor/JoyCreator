@@ -1394,6 +1394,12 @@
     <string name="faditor_transcript_no_edits">Nothing struck out yet — long-press words to remove them</string>
     <string name="faditor_add_asset_title">Add Asset</string>
     <string name="faditor_blank_clip_length">Black clip length</string>
+    <string name="faditor_motion_start_here">Animation starts here</string>
+    <string name="faditor_motion_span_whole">Animation spans the whole object</string>
+    <string name="faditor_motion_end_here">Animation ends here</string>
+    <string name="faditor_zone_in_ends_here">Entrance ends here</string>
+    <string name="faditor_zone_clear">No entrance or exit</string>
+    <string name="faditor_zone_out_starts_here">Exit starts here</string>
     <string name="faditor_blank_clip_added">Black clip added (%1$s)</string>
     <string name="faditor_add_asset_image">Image (5s still)</string>
     <string name="faditor_add_asset_video">Video clip</string>

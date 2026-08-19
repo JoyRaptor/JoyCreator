@@ -12385,12 +12385,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // LANE_BADGES §2: feed sprite sheets so the sprite-item cell previews can decode
             // + resolve them (renderer stays pure-draw; EditorTimelineView owns the decode).
             if (project != null) editorTimeline.setSpriteSheets(project.getSpriteSheets());
-            // M-COMP-1: re-bind the preview overlay layers from the (possibly track-
-            // hidden-filtered) Track model. TextOverlayLayer already got the filtered
-            // list via overlayLayer.setData(...) at each of its own call sites; here we
-            // additionally refresh the IMAGE-track preview surface (always empty today —
-            // no IMAGE-track creation UI exists — so this is a no-op for every current
-            // project; see LayerPreviewController#visibleImageItems).
+            // RE-FEED THE TEXT/IMAGE SURFACE HERE. The comment that used to sit in this spot
+            // said TextOverlayLayer "already got the filtered list via overlayLayer.setData(...)
+            // at each of its own call sites", and that was the bug: this method is the funnel
+            // EVERY edit path runs through, and it refreshed the timeline rows, the image-track
+            // surface and the sprite surface while leaving untouched the one surface that
+            // actually renders text AND images — and therefore owns their z-order. Eleven
+            // scattered call sites meant depth refreshed only if you happened to trigger one.
+            //
+            // Device-diagnosed 2026-08-19 from a live repro JoyRaptor held open: an image dragged to
+            // the BOTTOM lane still painted above the 2 and 4 emoji boxes and below 3/1/5 — the
+            // model was already correct (image laneZ=1, boxes at 2,3,5,6,7), the VIEW was stuck
+            // at the image's old slot. It also explains the whole "it comes in and out" family:
+            // a cold open is always right (load rebuilds), and an unrelated action could fix it
+            // by happening to hit one of those eleven call sites. JoyRaptor's own lead pointed here
+            // — he uses consolidate lanes constantly, and lane compaction routes through this
+            // method and nothing else.
+            //
+            // Cheap by construction: setData's first act is "same items, same order → reposition,
+            // do not rebuild", which is the guard that exists for exactly this per-tick traffic.
+            // A no-op costs one size check and an identity scan.
+            if (overlayLayer != null) {
+                overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .visibleTextOverlaysAboveVideo(tl), overlayLayerCallback());
+            }
+            if (overlayLayerBelow != null) {
+                overlayLayerBelow.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .visibleTextOverlaysBelowVideo(tl), overlayLayerCallback());
+            }
+            // The IMAGE-track preview surface is separate and still empty today — no IMAGE-track
+            // creation UI exists, so this is a no-op for every current project; image OBJECTS are
+            // TextOverlayItems and live on the surface re-fed above (see visibleImageItems).
             if (layerImageOverlay != null) {
                 layerImageOverlay.setItems(
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleImageItems(tl));

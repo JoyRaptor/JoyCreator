@@ -12075,7 +12075,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Update player state
         if (!clip.isImageClip()) {
-            playerManager.updateTrimBounds(clip);
+            // SILENTLY. updateTrimBounds(clip) ends in player.seekTo(trimStartMs) — right for a
+            // real trim edit, wrong for a generic refresh. Undoing a layer move or a text colour
+            // re-homed the player to the SELECTED clip's first frame while the playhead stayed
+            // where it was, so the preview showed one moment and the timeline claimed another
+            // until the user scrubbed. JoyRaptor, 2026-08-19: "it doesn't move the timeline back
+            // there. It only moves the preview there... it is disorienting." His ~9:44 is clip
+            // 10's head at 9:45.361. Not seeking is the whole fix — the player is already on the
+            // correct frame, so leaving it alone keeps the preview honest.
+            playerManager.updateTrimBoundsSilently(clip);
             playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
             playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
         }

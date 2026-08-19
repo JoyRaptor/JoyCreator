@@ -572,6 +572,29 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @param newTrimStartMs the corrected in-point in absolute source milliseconds
      * @param newTrimEndMs   the corrected out-point in absolute source milliseconds
      */
+    /**
+     * Adopt {@code clip} as the tracked clip and take its trim bounds, WITHOUT seeking, pausing
+     * or rebuilding the playlist.
+     *
+     * <p>For refreshes that are not trim edits. {@link #updateTrimBounds(Clip)} ends in
+     * {@code player.seekTo(trimStartMs)} (and, in gapless, a playlist rebuild plus
+     * {@code seekInClip(id, 0)}) because a real trim edit SHOULD land you at the new in-point.
+     * Calling it from a generic post-undo refresh made every undo re-home the player to the
+     * selected clip's first frame while the timeline's playhead stayed put — so the preview
+     * showed one moment and the playhead claimed another until the user scrubbed.
+     *
+     * <p>Device-diagnosed 2026-08-19: JoyRaptor's preview jumped to ~9:44 after any undo or lane
+     * move. Clip 10 of that project starts at 9:45.361 — the selected clip's head, not a
+     * coincidence. "It doesn't move the timeline back there. It only moves the preview there."
+     *
+     * <p>Nothing needs to seek afterwards: the player is already sitting on the right frame, so
+     * leaving it alone is what keeps the preview correct.
+     */
+    public void updateTrimBoundsSilently(@NonNull Clip clip) {
+        this.currentClip = clip;
+        updateTrimBoundsSilently(clip.getInPointMs(), clip.getOutPointMs());
+    }
+
     public void updateTrimBoundsSilently(long newTrimStartMs, long newTrimEndMs) {
         this.trimStartMs = newTrimStartMs;
         this.trimEndMs = newTrimEndMs;

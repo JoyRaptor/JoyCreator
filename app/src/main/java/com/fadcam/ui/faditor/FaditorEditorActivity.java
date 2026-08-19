@@ -12108,8 +12108,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Update preview transforms (rotation, flip, crop, canvas)
         updatePreviewTransforms();
 
-        // Update time displays
-        updateCurrentTimeDisplay(0);
+        // Update time displays — AT THE PLAYHEAD, not at zero.
+        //
+        // updateCurrentTimeDisplay is not a readout refresher: its first act is
+        // `lastPlayheadAbsoluteMs = absoluteMs`, and it then feeds that value to
+        // setTextOverlayPlayhead and syncAdjustmentPreview. Passing 0 therefore TELEPORTED the
+        // editor's idea of the playhead to zero on every undo, re-rendered the GL composite at
+        // t=0 and re-timed every overlay to t=0.
+        //
+        // In gapless mode the composite renders the CURRENT window, so "t=0" is that clip's first
+        // frame — which is exactly what JoyRaptor saw: "every time an undo happens, preview goes to
+        // the beginning of a clip", landing on the clip his viewport was over, with the timeline's
+        // own playhead never moving and one scrub putting it right. Captured by PREVDIAG:
+        // "sync ms=0 playheadClip=3ce5d6eb selIdx=10 segAtPlayhead=10 lastPlayhead=0" — the
+        // timeline knew we were in clip 10 while this had just zeroed the time.
+        //
+        // Why only SOME clips looked affected: a clip whose preview comes straight off the player
+        // surface does not repaint on a composite sync, so nothing visibly changes. JoyRaptor chased
+        // that difference from the outside and was right that it correlated with what was on the
+        // lower rows — those are the clips that go through the composite.
+        //
+        // The three lines below (setTextOverlayPlayhead, and the caption/overlay re-binds) read
+        // lastPlayheadAbsoluteMs AFTER this call, so zeroing it here also mistimed them.
+        updateCurrentTimeDisplay(editorTimeline != null
+                ? Math.max(0L, editorTimeline.getPlayheadPositionMs())
+                : Math.max(0L, lastPlayheadAbsoluteMs));
         refreshTotalTimeDisplay();
 
         // Re-prepare audio player for any audio clip changes

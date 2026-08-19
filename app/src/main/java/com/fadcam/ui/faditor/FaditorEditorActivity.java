@@ -21757,6 +21757,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void syncAdjustmentPreview(long absoluteMs) {
         if (project == null) return;
+        // PREVDIAG (temporary, 2026-08-19): the undo preview-jump. SEEKDIAG proved the PLAYER is
+        // never moved by an undo -- no seek, no clip load -- so whatever changes the picture does
+        // it on the compositor side. Print the time this sync is given, the clip the playhead is
+        // in, the SELECTED clip (which follows the viewport, and is what JoyRaptor's jump tracks) and
+        // whether a base still is about to replace the video. Throttled to changes only, so
+        // playback does not flood it.
+        {
+            Clip cup = clipUnderPlayhead();
+            Clip sel = project.getTimeline().getClipCount() > 0 ? getSelectedClip() : null;
+            String sig = absoluteMs + "|" + (cup != null ? cup.getId() : "-")
+                    + "|" + (sel != null ? sel.getId() : "-");
+            if (!sig.equals(prevDiagLastSig)) {
+                prevDiagLastSig = sig;
+                FLog.d(TAG, "PREVDIAG sync ms=" + absoluteMs
+                        + " playheadClip=" + (cup != null ? cup.getId().substring(0, 8) : "-")
+                        + " selectedClip=" + (sel != null ? sel.getId().substring(0, 8) : "-")
+                        + " selIdx=" + selectedClipIndex
+                        + " segAtPlayhead=" + (editorTimeline != null
+                                ? editorTimeline.getSegmentAtPlayhead() : -1)
+                        + " lastPlayhead=" + lastPlayheadAbsoluteMs);
+            }
+        }
         try {
             syncGlAdjustmentPreview(absoluteMs);
         } catch (RuntimeException e) {
@@ -21786,6 +21808,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Lazily build the GL preview controller and hand it this tick. */
+    @Nullable private String prevDiagLastSig;
+
     private void syncGlAdjustmentPreview(long absoluteMs) {
         if (fxLivePreview == null) {
             com.fadcam.ui.faditor.compositor.FxPreviewTextureView v =

@@ -667,6 +667,29 @@ public class TextOverlayLayer extends FrameLayout {
             removeView(editing);
             editing = null;
         }
+        // ZDIAG (temporary, 2026-08-18): JoyRaptor reports a recurring wrong-depth object -- an image
+        // on the BOTTOM lane painting above text on higher lanes -- and suspects the consolidate
+        // lanes tool leaves stale z information. Static reading has cleared every refresh path,
+        // so this prints what the layer ACTUALLY stacked, in order, against what it was handed.
+        // Compare with ZDIAG-MODEL in the activity: if the two agree, the model order is wrong
+        // and the bug is upstream in lane ordering; if they disagree, the view order is stale or
+        // something reordered the children after the build. REMOVE once identified.
+        {
+            StringBuilder sb = new StringBuilder("ZDIAG-VIEW n=").append(getChildCount())
+                    .append(" hoist=").append(editing != null ? "YES" : "no")
+                    .append(" editingId=").append(editingItemId)
+                    .append(" textEditor=").append(textEditor != null)
+                    .append(" order=");
+            for (int i = 0; i < getChildCount(); i++) {
+                Object tg = getChildAt(i).getTag();
+                if (tg instanceof TextOverlayItem) {
+                    TextOverlayItem ti = (TextOverlayItem) tg;
+                    sb.append(ti.getId().substring(0, 8))
+                      .append(ti.isImage() ? "(img)" : "(txt)").append(' ');
+                }
+            }
+            com.fadcam.FLog.d("TextOverlayLayer", sb.toString());
+        }
         if (editing != null) {
             // It was left at the bottom of the stack by the detach loop above. bringChildToFront
             // reorders the child array WITHOUT detaching from the window, so the served view

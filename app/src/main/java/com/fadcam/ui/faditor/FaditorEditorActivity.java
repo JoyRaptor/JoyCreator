@@ -15343,7 +15343,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Re-derive the timeline rows after a lane-id change (compact / undo / redo) + persist it. */
+    /**
+     * ZDIAG (temporary, 2026-08-18): dump the lane-ordered list the preview is ABOUT to be given,
+     * so it can be compared against ZDIAG-VIEW (what TextOverlayLayer actually stacked). JoyRaptor's
+     * lead is that "consolidate lanes" leaves stale depth information behind. REMOVE once found.
+     */
+    private void zdiagModelOrder(@NonNull String where) {
+        if (project == null) return;
+        Timeline tl = project.getTimeline();
+        StringBuilder sb = new StringBuilder("ZDIAG-MODEL @").append(where).append(" order=");
+        for (com.fadcam.ui.faditor.compositor.LayerPreviewController.VisualItem v
+                : com.fadcam.ui.faditor.compositor.LayerPreviewController.orderedVisualItems(tl)) {
+            com.fadcam.ui.faditor.model.TextOverlayItem t = v.item.getTextOverlay();
+            if (t == null) continue;
+            sb.append(t.getId().substring(0, 8)).append(t.isImage() ? "(img z=" : "(txt z=")
+              .append(v.lane.getZIndex()).append(") ");
+        }
+        FLog.d(TAG, sb.toString());
+    }
+
     private void refreshAfterLaneChange() {
+        zdiagModelOrder("laneChange");
         syncTimelineOverlays();
         if (editorTimeline != null) {
             editorTimeline.requestLayout();

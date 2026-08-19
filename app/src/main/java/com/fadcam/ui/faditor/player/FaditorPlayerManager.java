@@ -229,6 +229,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         }
         attachRegisteredListenersToEngine();
         if (gaplessResumeClipId != null) {
+            FLog.d(TAG, "SEEKDIAG gapless.seekInClip(gaplessResumeClipId, gaplessResumePosMs) by " + seekCaller());
             gaplessEngine.seekInClip(gaplessResumeClipId, gaplessResumePosMs);
         }
         if (player != null) player.pause();
@@ -438,6 +439,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         // Only home if the target clip survived the edit — a stale id (e.g. the split's
         // now-replaced parent) leaves us at window 0 rather than seeking nowhere.
         if (resumeClipId != null && gaplessEngine.windowForClipId(resumeClipId) >= 0) {
+            FLog.d(TAG, "SEEKDIAG gapless.seekInClip(resumeClipId, resumePos) by " + seekCaller());
             gaplessEngine.seekInClip(resumeClipId, resumePos);
         }
         if (wasPlaying) gaplessEngine.play();
@@ -460,6 +462,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (gapless()) {
             int window = gaplessEngine.windowForClipId(clip.getId());
             if (window >= 0) {
+                FLog.d(TAG, "SEEKDIAG gapless.seekInClip(clip.getId(), 0L) by " + seekCaller());
                 gaplessEngine.seekInClip(clip.getId(), 0L);
                 return;
             }
@@ -489,6 +492,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (gapless()) {
             rebuildGaplessTimeline();
             if (gapless()) {
+                FLog.d(TAG, "SEEKDIAG gapless.seekInClip(clip.getId(), 0L) by " + seekCaller());
                 gaplessEngine.seekInClip(clip.getId(), 0L);
                 gaplessEngine.pause();
             }
@@ -625,6 +629,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             // In gapless mode the engine holds the whole playlist; if it already ended, restart
             // from the beginning (mirrors the legacy seek-to-start-on-ENDED behavior below).
             if (gaplessEngine.isEnded()) {
+                FLog.d(TAG, "SEEKDIAG gapless.seekInClip(gaplessTimeline.getClip(0).getId(), 0L) by " + seekCaller());
                 gaplessEngine.seekInClip(gaplessTimeline.getClip(0).getId(), 0L);
             }
             gaplessEngine.play();
@@ -694,6 +699,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
             if (gaplessEngine.prepareTimeline(gaplessTimeline, playerView)) {
                 attachRegisteredListenersToEngine();
                 if (exportResumeClipId != null) {
+                    FLog.d(TAG, "SEEKDIAG gapless.seekInClip(exportResumeClipId, exportResumePosMs) by " + seekCaller());
                     gaplessEngine.seekInClip(exportResumeClipId, exportResumePosMs);
                 }
                 if (player != null) player.pause();
@@ -948,6 +954,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         if (gapless()) {
             if (gaplessEngine.windowForClipId(clip.getId()) < 0) return false;
             logSeekRange("seekInClip", pos);
+            FLog.d(TAG, "SEEKDIAG gapless.seekInClip(clip.getId(), pos) by " + seekCaller());
             gaplessEngine.seekInClip(clip.getId(), pos);
             return true;
         }

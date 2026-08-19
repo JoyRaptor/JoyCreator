@@ -5026,6 +5026,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void resyncGaplessAfterStructuralEdit(@Nullable String homeClipId, long clipLocalMs,
                                                   boolean playAfter) {
         if (playerManager == null || !playerManager.isGapless()) return;
+        FLog.d(TAG, "SEEKDIAG resyncGapless home=" + homeClipId + " localMs=" + clipLocalMs
+                + " playAfter=" + playAfter + " membershipChanged=" + clipMembershipChanged
+                + " playhead=" + lastPlayheadAbsoluteMs);
         // A structural edit is a user-visible timeline change → bump the generation so any
         // in-flight reverse-bake auto-promote kicked before this edit discards itself (RANK-1c),
         // mirroring the loop/trim rebuild paths.

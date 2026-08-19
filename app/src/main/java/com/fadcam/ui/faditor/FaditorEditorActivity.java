@@ -13636,11 +13636,70 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * Insert a solid-black still on the spine, immediately AFTER the selected clip.
+     *
+     * <p>JoyRaptor, 2026-08-18: "This also allows me to put in cheap title screens or black spaces."
+     * It is the same still-clip representation the gap-delete spacer and the auto-blank already
+     * use — an isImageClip Clip pointing at the shared black PNG — so it saves, previews and
+     * exports with ZERO new machinery. See gapDeleteSelectedSegment for why that representation
+     * was chosen over a first-class gap object.
+     *
+     * <p>AFTER the selected clip, not at the playhead: inserting mid-clip would mean splitting
+     * one, which is a different (and destructive) operation the user did not ask for. A clip
+     * boundary is somewhere they can predict, and Split already exists for the other intent.
+     *
+     * <p>Named {@link #USER_BLANK_NAME}, NOT the auto-blank's name, so
+     * {@link #syncTrailingBlankForOverhang} will never resize or delete it — a deliberate black
+     * clip is content, and content does not get tidied away by a housekeeping pass.
+     */
+    private void insertBlankClipAfterSelected(long durationMs) {
+        if (project == null) return;
+        long dur = Math.max(100L, durationMs);
+        Uri blackUri = ensureBlackSpacerUri();
+        if (blackUri == null) {
+            Toast.makeText(this, "Could not create the black clip", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Timeline timeline = project.getTimeline();
+        final int at = Math.min(timeline.getClipCount(), Math.max(0, selectedClipIndex + 1));
+        final Clip blank = new Clip(blackUri, dur);
+        blank.setImageClip(true);
+        blank.setAudioMuted(true);
+        blank.setDisplayName(USER_BLANK_NAME);
+
+        java.util.Map<String, Long> anchors = beginStructuralEdit();
+        timeline.addClip(at, blank);
+        timeline.shiftTransitionsAfterInsert(at);
+        endStructuralEdit(anchors, "insertBlank");
+
+        undoManager.recordAction(new EditActions.LambdaAction("Add black clip", // TODO(strings)
+                () -> { timeline.addClip(at, blank); refreshAfterLaneChange(); },
+                () -> { timeline.removeClip(at); refreshAfterLaneChange(); }));
+
+        selectSegment(at);
+        editorTimeline.setTimeline(timeline, at);
+        syncTimelineOverlays();
+        editorTimeline.invalidate();
+        refreshTotalTimeDisplay();
+        resyncGaplessAfterStructuralEdit(blank.getId(), 0L, false);
+        saveProjectNow();
+        Toast.makeText(this, getString(R.string.faditor_blank_clip_added,
+                TimeFormatter.formatAuto(dur)), Toast.LENGTH_SHORT).show();
+    }
+
+    /**
      * Display name marking a trailing blank clip this class OWNS — created, resized and removed
      * automatically to cover objects hanging past the end of the spine. A user-inserted black
      * clip is deliberately named differently so it is never resized or deleted behind their back.
      */
     private static final String AUTO_BLANK_NAME = "Blank (auto)";
+
+    /**
+     * A black clip the USER placed deliberately. Named differently from the auto-blank so
+     * {@link #syncTrailingBlankForOverhang} will never resize or remove it: a title card is
+     * content, and content must not be tidied away by a housekeeping pass.
+     */
+    private static final String USER_BLANK_NAME = "Blank";
 
     /**
      * Grow (or shrink, or remove) a trailing black clip so the spine covers every overlay object
@@ -31681,6 +31740,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onAudioSelected() {
                 audioPickerLauncher.launch(openDocumentIntent("audio/*"));
+            }
+
+            @Override
+            public void onBlankClipSelected() {
+                promptForTimeMs(R.string.faditor_blank_clip_length, IMAGE_CLIP_DURATION_MS,
+                        ms -> insertBlankClipAfterSelected(ms));
             }
 
             @Override

@@ -34,6 +34,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
          */
         void onAssetTypeSelected(boolean isImage);
 
+        /**
+         * Called when the user picks "Black clip" — a solid-black still on the SPINE, for a
+         * title card, a deliberate pause, or a black intro/outro. Default no-op so existing
+         * callers compile unchanged.
+         */
+        default void onBlankClipSelected() { }
+
         /** Called when the user selects audio. */
         void onAudioSelected();
 
@@ -145,6 +152,15 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 "Image as new layer",
                 "layers", materialIcons, dp,
                 () -> { if (callback != null) callback.onImageAsNewLayerSelected(); }));
+
+        // Black clip row — a spine still with no picture. Sits beside Image because that is
+        // what it IS (JoyRaptor, 2026-08-18: "having it be part of image"): the same still-clip
+        // machinery the gap spacer already uses, so it saves, previews and exports black with
+        // no new rendering path. TODO(strings)
+        root.addView(createOptionRow(
+                "Black clip (title card / pause)",
+                "crop_din", materialIcons, dp,
+                () -> { if (callback != null) callback.onBlankClipSelected(); }));
 
         // Video row
         root.addView(createOptionRow(

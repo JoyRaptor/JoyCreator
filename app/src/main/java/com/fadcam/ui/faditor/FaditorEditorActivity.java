@@ -24491,7 +24491,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // undo, so the accidental box the user does want gone is one press of undo away.
             // Early-returning here would have kept it AND made it un-undoable, which is a
             // second way to be unhelpful.
-            textOverlayCreatedHere.remove(item.getId());
+            // KEEP the answer, do not just discard the flag. Set.remove returns whether it was
+            // there, and "did THIS session create this box" is the only thing that entitles the
+            // close below to record an ADD undo. Clearing it first and then not consulting it is
+            // what made that undo fire for boxes loaded from disk.
+            final boolean createdHere = textOverlayCreatedHere.remove(item.getId());
             textOverlayTouchedHere.remove(item.getId());
             // AN EMPTY BOX GETS ITS PROMPT BACK. Opening the editor maps the "Enter text" hint to
             // an empty field so the user is not deleting placeholder text before typing their
@@ -24505,7 +24509,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshOverlayPreview();
                 syncTimelineOverlays();
             }
-            if (project.getTimeline().getTextOverlays().contains(item)
+            // ONLY for a box THIS session created. The undo half of this action DELETES the
+            // object, and it used to be recorded for any box whose identity was not already in
+            // textOverlayAddRecorded -- an in-memory set that is EMPTY at every app launch. So
+            // the first time you opened the text drawer on an object loaded from disk and closed
+            // it, the app recorded "Add text overlay" for something it had not added, and one
+            // press of undo destroyed it.
+            //
+            // JoyRaptor, 2026-08-19: changed the candles from rise to unscramble, closed the drawer,
+            // pressed undo to revert the preset -- "instead of reverting it from unscramble back
+            // to rise, it instead deleted the entire object, and I had to press redo". Undo
+            // silently destroying user work is the worst failure this editor can have, and it
+            // was reachable on the FIRST drawer close of every session.
+            //
+            // This is the second time this exact confusion has cost JoyRaptor an object: see
+            // textOverlayCreatedHere's javadoc, where the placeholder cleanup deleted an EXISTING
+            // overlay you had merely opened (2026-08-04, "undo did not bring back the text
+            // layer"). Same root mistake in a different place -- treating an object that already
+            // existed as one this session made. The signal that distinguishes them already
+            // existed; this path just was not asking it.
+            //
+            // The intent is preserved exactly: a box created by accident in this session is
+            // still one undo press away, because createdHere is true for precisely those.
+            if (createdHere
+                    && project.getTimeline().getTextOverlays().contains(item)
                     && !textOverlayAddRecorded.contains(item)) {
                 textOverlayAddRecorded.add(item);
                 session.addUndoRecordedHere = true;

@@ -12130,9 +12130,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         //
         // The three lines below (setTextOverlayPlayhead, and the caption/overlay re-binds) read
         // lastPlayheadAbsoluteMs AFTER this call, so zeroing it here also mistimed them.
-        updateCurrentTimeDisplay(editorTimeline != null
-                ? Math.max(0L, editorTimeline.getPlayheadPositionMs())
-                : Math.max(0L, lastPlayheadAbsoluteMs));
+        // Pass the value we ALREADY hold, not the timeline's. Reading it back from
+        // editorTimeline here was worse than the zero it replaced: setTimeline() runs earlier in
+        // THIS method, the view keeps the playhead as a FRACTION, and after an undo changes clip
+        // durations that fraction maps onto a different absolute time — so the preview landed
+        // somewhere different every press, sometimes past the end and black (JoyRaptor, 2026-08-19:
+        // "it's actually MORE chaotic... wildly different preview locations... some seem
+        // completely black like off the project or at the end"). Deterministically wrong beat
+        // randomly wrong, and this is neither.
+        //
+        // lastPlayheadAbsoluteMs is the editor's own absolute clock, unaffected by the rebuild,
+        // and re-feeding it is a no-op for the value while still refreshing the readout, the
+        // overlays and the composite at the time we are actually parked at.
+        updateCurrentTimeDisplay(Math.max(0L, lastPlayheadAbsoluteMs));
         refreshTotalTimeDisplay();
 
         // Re-prepare audio player for any audio clip changes

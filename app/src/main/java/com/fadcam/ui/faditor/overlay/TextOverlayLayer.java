@@ -220,6 +220,35 @@ public class TextOverlayLayer extends FrameLayout {
         }
     }
 
+
+    /**
+     * Is the user ACTUALLY typing in this box right now?
+     *
+     * <p>Note the {@code textEditor != null} half — it is the whole point. This used to be
+     * "editingItemId equals this item's id", and {@code editingItemId} is cleared in exactly one
+     * place ({@code endTextStyleSession}, and only when the drawer closes cleanly AND the id
+     * still matches). Any other exit leaks it, and a leaked id is indistinguishable from a real
+     * editing session to every caller below.
+     *
+     * <p><b>What that leak cost.</b> "live" suppresses animation — deliberately, because a box
+     * mid-entrance would slide its glyphs out from under the caret you are typing in. So a leaked
+     * id silently pinned {@code animate = false} on that one box, which forces
+     * {@code preset = NONE} in TextBoxRenderer, which is indistinguishable from "this text has no
+     * animation". Device-diagnosed 2026-08-19 from JoyRaptor's report: the animation worked on a
+     * fresh open, broke the moment he CHANGED the preset (which requires opening the drawer that
+     * sets this id), and came back after closing and reopening the project — "it did work
+     * perfectly when I brought it up, but when I changed the animation, it stopped". The same
+     * leak also pins the box's z-hoist above its lane, which is why one object could be wrong in
+     * two unrelated-looking ways at once.
+     *
+     * <p>Tying it to a live editor makes the suppression last exactly as long as the thing that
+     * justifies it, and self-heal on the next rebuild — instead of requiring every exit path to
+     * remember to clean up.
+     */
+    private boolean isLiveEditing(@NonNull TextOverlayItem o) {
+        return textEditor != null && editingItemId != null && editingItemId.equals(o.getId());
+    }
+
     /** @see #attachToBox — the item whose missing box has already been reported. */
     @Nullable private String loggedNoBoxFor;
 
@@ -853,8 +882,7 @@ public class TextOverlayLayer extends FrameLayout {
         // (static transform) rather than the keyframed value at the playhead.
         // The WYSIWYG-edited item is static too: a box mid-entrance-animation
         // would slide its glyphs away from under the editor the user is typing in.
-        boolean live = o == manipulating
-                || (editingItemId != null && editingItemId.equals(o.getId()));
+        boolean live = o == manipulating || isLiveEditing(o);
         float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
 
         // ── TEXT: the whole animation happens INSIDE the view ────────────────────────────────
@@ -1107,8 +1135,7 @@ public class TextOverlayLayer extends FrameLayout {
         android.graphics.Bitmap bmp = imageBitmap(o);
         if (bmp == null || bmp.isRecycled() || bmp.getHeight() <= 0) return null;
 
-        boolean live = o == manipulating
-                || (editingItemId != null && editingItemId.equals(o.getId()));
+        boolean live = o == manipulating || isLiveEditing(o);
         float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
         com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
                 presetTransformAt(o, sizeFraction, r.height(), live);

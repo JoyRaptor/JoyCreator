@@ -172,6 +172,7 @@ public class TextOverlayLayer extends FrameLayout {
         }
         editingItemId = null;
         textHost = null;
+        imeActive = false;
     }
 
     public boolean isEditingText() { return editingItemId != null; }
@@ -246,7 +247,8 @@ public class TextOverlayLayer extends FrameLayout {
      * remember to clean up.
      */
     private boolean isLiveEditing(@NonNull TextOverlayItem o) {
-        return textEditor != null && editingItemId != null && editingItemId.equals(o.getId());
+        return imeActive && textEditor != null
+                && editingItemId != null && editingItemId.equals(o.getId());
     }
 
     /** @see #attachToBox — the item whose missing box has already been reported. */
@@ -305,7 +307,17 @@ public class TextOverlayLayer extends FrameLayout {
      * see the note there. With the view kept attached there is nothing to retry, and the guard
      * below keeps this quiet on the many calls that have nothing new to ask for.</p>
      */
+    /**
+     * True while the soft keyboard is up for {@link #textEditor} — i.e. the user is actually
+     * TYPING, as opposed to merely having the text drawer open. Maintained by this class rather
+     * than queried from WindowInsets because ime() visibility is only dependable from API 30 and
+     * the sandbox device is API 29; a wrong answer here silently stops a box animating, which is
+     * the exact failure this flag exists to end.
+     */
+    private boolean imeActive;
+
     private void showIme(@NonNull EditText e) {
+        imeActive = true;
         InputMethodManager imm = (InputMethodManager)
                 getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm == null) return;
@@ -335,6 +347,7 @@ public class TextOverlayLayer extends FrameLayout {
     private boolean imeShown;
 
     private void hideIme(@NonNull EditText e) {
+        imeActive = false;
         imeShown = false;
         InputMethodManager imm = (InputMethodManager)
                 getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -708,6 +721,7 @@ public class TextOverlayLayer extends FrameLayout {
                     .append(" hoist=").append(editing != null ? "YES" : "no")
                     .append(" editingId=").append(editingItemId)
                     .append(" textEditor=").append(textEditor != null)
+                    .append(" ime=").append(imeActive)
                     .append(" order=");
             for (int i = 0; i < getChildCount(); i++) {
                 Object tg = getChildAt(i).getTag();

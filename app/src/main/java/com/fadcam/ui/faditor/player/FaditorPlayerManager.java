@@ -499,6 +499,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         // Seek to beginning of new trimmed region
         int state = player.getPlaybackState();
         if (state == Player.STATE_READY || state == Player.STATE_BUFFERING) {
+            FLog.d(TAG, "SEEKDIAG updateTrimBounds->seek(" + trimStartMs + ") by " + seekCaller());
             player.seekTo(trimStartMs);
             player.setPlayWhenReady(false);
             FLog.d(TAG, "Trim bounds updated (seek): in=" + trimStartMs
@@ -806,7 +807,35 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
         player.setSeekParameters(exact ? SeekParameters.EXACT : SeekParameters.CLOSEST_SYNC);
     }
 
+
+    /**
+     * SEEKDIAG (temporary, 2026-08-19): name the code that moved the player.
+     *
+     * <p>JoyRaptor reports the preview jumping to the head of a clip after moving a layer or pressing
+     * undo -- 29:44 landing on 28:36.469, which is clip 15's start. Making updateTrimBounds silent
+     * in the post-undo refresh did not stop it, so at least one OTHER path is seeking, and three
+     * rounds of reading call sites have not found it. Print the caller instead of guessing again.
+     * REMOVE once the path is identified.
+     */
+    private static String seekCaller() {
+        StackTraceElement[] st = Thread.currentThread().getStackTrace();
+        StringBuilder sb = new StringBuilder();
+        int shown = 0;
+        for (StackTraceElement e : st) {
+            String cn = e.getClassName();
+            if (cn.startsWith("java.lang.Thread")) continue;
+            if (cn.endsWith("FaditorPlayerManager")) continue;
+            if (!cn.startsWith("com.fadcam")) continue;
+            sb.append(cn.substring(cn.lastIndexOf('.') + 1))
+              .append('.').append(e.getMethodName()).append(':').append(e.getLineNumber())
+              .append(" <- ");
+            if (++shown >= 4) break;
+        }
+        return sb.length() == 0 ? "(no fadcam frames)" : sb.toString();
+    }
+
     public void seekTo(long positionMs) {
+        FLog.d(TAG, "SEEKDIAG seekTo(" + positionMs + ") by " + seekCaller());
         logSeekRange("seekTo", positionMs);
         // Gapless: position is 0-based within the current window's clip, which is exactly what the
         // ClippingConfiguration player uses natively — seek directly, no trim-offset arithmetic.
@@ -941,6 +970,7 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
      * @param absoluteMs absolute position in the source video (milliseconds)
      */
     public void seekToAbsolute(long absoluteMs) {
+        FLog.d(TAG, "SEEKDIAG seekToAbsolute(" + absoluteMs + ") by " + seekCaller());
         // Gapless: absoluteMs is in source-time; the current window's clip plays clip-local, so
         // convert to clip-local by subtracting the current clip's in-point.
         if (gapless()) {

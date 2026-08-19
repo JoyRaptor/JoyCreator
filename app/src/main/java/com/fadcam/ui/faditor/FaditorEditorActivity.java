@@ -9158,6 +9158,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * @param positionInCurrentSegmentMs 0-based position within the current clip's trimmed region
      * @return absolute position in the full project timeline
      */
+    /**
+     * Inverse of {@link #getAbsolutePlayheadMs}: the position WITHIN the selected clip that maps
+     * back to {@code absoluteMs}.
+     *
+     * <p>Exists because {@code updateCurrentTimeDisplay} takes a SEGMENT-RELATIVE position, not
+     * an absolute one — its parameter is {@code positionInCurrentSegmentMs} and it calls
+     * getAbsolutePlayheadMs to convert. Anything holding an absolute time (and
+     * {@code lastPlayheadAbsoluteMs} is the obvious one) has to come back through here first, or
+     * the segment start gets added a second time.
+     *
+     * <p>Mirrors getAbsolutePlayheadMs term for term, INCLUDING the speed factor: that method
+     * divides the in-segment position by the clip's speed to get timeline ms, so this multiplies
+     * back. Getting that backwards would put the error only on sped-up clips, which is the kind
+     * of bug that survives testing.
+     */
+    private long segmentRelativeForAbsolute(long absoluteMs) {
+        if (project == null) return 0L;
+        Timeline tl = project.getTimeline();
+        long segStart = 0L;
+        for (int i = 0; i < selectedClipIndex && i < tl.getClipCount(); i++) {
+            segStart += tl.getClip(i).getTrimmedDurationMs();
+        }
+        long timelineOffset = Math.max(0L, absoluteMs - segStart);
+        Clip clip = tl.getClipCount() > 0 ? getSelectedClip() : null;
+        float speed = clip != null ? clip.getSpeedMultiplier() : 1f;
+        return speed > 0 ? (long) (timelineOffset * speed) : timelineOffset;
+    }
+
     private long getAbsolutePlayheadMs(long positionInCurrentSegmentMs) {
         Timeline tl = project.getTimeline();
         long absoluteMs = 0;
@@ -12164,7 +12192,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // lastPlayheadAbsoluteMs is the editor's own absolute clock, unaffected by the rebuild,
         // and re-feeding it is a no-op for the value while still refreshing the readout, the
         // overlays and the composite at the time we are actually parked at.
-        updateCurrentTimeDisplay(Math.max(0L, lastPlayheadAbsoluteMs));
+        // SEGMENT-RELATIVE, because that is what this method takes. Its parameter is named
+        // positionInCurrentSegmentMs and it adds the preceding clips' durations itself.
+        //
+        // The original call passed a literal 0, which means "position 0 within the current
+        // segment" — i.e. the clip's first frame. That was the whole bug: undo parked the
+        // preview at the head of whatever clip was selected, and since selection follows the
+        // viewport, at the head of the clip you happened to be looking at.
+        //
+        // My first attempt passed lastPlayheadAbsoluteMs straight in, which was WORSE: an
+        // absolute time landing in a relative parameter, so getAbsolutePlayheadMs added the
+        // segment start a second time. Device-caught on the sandbox at exactly the moment it
+        // happened — "PHJUMP 34180 -> 54888 (+20708)", and 20708 is precisely clip 8's start.
+        // That is what made it chaotic rather than merely wrong, and why times could land past
+        // the end of the project and render black.
+        updateCurrentTimeDisplay(segmentRelativeForAbsolute(Math.max(0L, lastPlayheadAbsoluteMs)));
         refreshTotalTimeDisplay();
 
         // Re-prepare audio player for any audio clip changes

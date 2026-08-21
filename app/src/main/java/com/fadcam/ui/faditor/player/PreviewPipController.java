@@ -131,9 +131,17 @@ public class PreviewPipController {
      * root itself (match_parent overlays like the remux screen) are skipped so a
      * temporarily-visible overlay can't fake a zero slot. Returns -1 when unlaid-out.
      */
+    /**
+     * The height the inline preview WOULD get: the root minus every other visible child.
+     *
+     * <p>Returns {@link Float#NaN} — not a negative number — when the root has not been measured
+     * yet. A NEGATIVE result is a real, meaningful answer: the column's other children already
+     * overflow the root, so the preview has less than zero space. Landscape produces exactly
+     * that, and it is the strongest possible case for promoting.</p>
+     */
     private float prospectiveSlotPx() {
         int rootH = editorRoot.getHeight();
-        if (rootH <= 0) return -1f;
+        if (rootH <= 0) return Float.NaN;
         float others = 0f;
         for (int i = 0; i < editorRoot.getChildCount(); i++) {
             View c = editorRoot.getChildAt(i);
@@ -153,7 +161,21 @@ public class PreviewPipController {
     private void evaluate() {
         if (mutating) return;
         float slotPx = prospectiveSlotPx();
-        if (slotPx < 0) return;
+        // NaN is "not measured yet". A negative slot is NOT: it means the other children already
+        // overflow the root and the preview has less than zero room.
+        //
+        // This used to read `if (slotPx < 0) return;`, which conflated the two and is why the
+        // landscape PiP disappeared. Rotating produced slotPx = -51 on a 1440px root (children
+        // summed to 1491), so the one case that most needed promoting was the one case that
+        // returned early. The timeline still grew, because the band-fill runs from the grab bar
+        // as well, which is why the symptom read as "the window is gone" rather than "landscape
+        // is broken" (JoyRaptor, 2026-08-21: "Where is that feature now? Because it seems to have
+        // gone").
+        //
+        // Everything downstream is already safe for a negative slot: promote()'s band-fill and
+        // the fill branch below are both gated on slotDp > FILL_SLACK_DP, so a negative value
+        // promotes without ever adding negative height to the timeline band.
+        if (Float.isNaN(slotPx)) return;
         float slotDp = slotPx / density;
         try {
             if (!promoted && slotDp < PROMOTE_BELOW_DP) {

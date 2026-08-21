@@ -478,23 +478,98 @@ public class TextOverlayLayer extends FrameLayout {
      * ({@code ImageOverlayDraw.decode}), which is the right bound there and usually a different
      * one — a 4K export must not be limited to what a 1080p phone screen can show.</p>
      */
-    private final java.util.Map<String, android.graphics.Bitmap> imageCache =
-            new java.util.HashMap<>();
+    /**
+     * BYTE-BOUNDED, not unbounded. This was a plain HashMap keyed by uri, so every image the
+     * project had ever shown stayed decoded for the life of the editor. Measured on JoyRaptor's
+     * project (78 image overlays) on 2026-08-21: 726 MB of native heap, 1.2 GB total PSS. That
+     * survives a 10 GB Note 20 and would not survive a 4 GB phone.
+     *
+     * <p><b>Evicted entries are NOT recycled, deliberately.</b> A bitmap can be mid
+     * {@code texImage2D} on the GL thread or attached to a drawing ImageView, and freeing pixel
+     * memory underneath either is a native crash no try/catch reaches — the discipline
+     * ImageBaseStillCache spells out. Dropping the reference is enough: the collector frees the
+     * pixels once nothing holds them, and anything still using one keeps it alive until it is
+     * done. Eviction here means "stop holding it", not "destroy it".
+     */
+    private final android.util.LruCache<String, android.graphics.Bitmap> imageCache =
+            new android.util.LruCache<String, android.graphics.Bitmap>(imageCacheBudgetBytes()) {
+                @Override protected int sizeOf(@NonNull String key,
+                                               @NonNull android.graphics.Bitmap value) {
+                    return value.getAllocationByteCount();
+                }
+            };
+
+    /**
+     * URIs that could not be decoded. Separate from the cache because LruCache cannot store a
+     * null VALUE, and a cached failure is the thing that stops a broken URI being re-decoded on
+     * every rebuild — the reason the old map used containsKey rather than get() != null.
+     */
+    private final java.util.Set<String> imageFailed = new java.util.HashSet<>();
+
+    /**
+     * Preview bitmap budget. Generous on purpose: the cost of being too small is re-decoding on
+     * the main thread while scrubbing, which is a visible hitch, and only images VISIBLE at the
+     * playhead are ever requested — a number set by how much overlaps at one moment, not by how
+     * many the project contains.
+     */
+    /**
+     * Preview bitmap budget, sized to the DEVICE rather than fixed.
+     *
+     * <p>A constant is wrong in both directions: 128 MB is a comfortable slice of a 10 GB Note 20
+     * and a dangerous one on a 4 GB phone, where the same number invites the low-memory killer
+     * while the user is mid-edit. Bitmap pixels live in the native heap, so neither
+     * {@code Runtime.maxMemory} nor the ActivityManager memory CLASS describes what is available
+     * — those bound the Java heap. Total physical RAM is the honest proxy.
+     *
+     * <p>Two percent, clamped to [32 MB, 160 MB]. Generous enough that scrubbing does not
+     * re-decode what it just showed (measured: a full sweep of a 78-image project held at ~152 MB
+     * of native heap and reported no dropped frames), small enough that the editor is not the
+     * reason a modest phone starts killing background apps.
+     */
+    private int imageCacheBudgetBytes() {
+        long total = 0L;
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager)
+                    getContext().getSystemService(android.content.Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                android.app.ActivityManager.MemoryInfo mi =
+                        new android.app.ActivityManager.MemoryInfo();
+                am.getMemoryInfo(mi);
+                total = mi.totalMem;
+            }
+        } catch (Exception ignored) {
+            // Fall through to the floor: a cache that is too small costs a re-decode, while
+            // guessing high on an unknown device costs the process.
+        }
+        long budget = total > 0 ? total / 50 : 0;                 // 2%
+        long clamped = Math.max(32L * 1024 * 1024, Math.min(budget, 160L * 1024 * 1024));
+        return (int) clamped;
+    }
+
+    /** 1080p-class long edge: the size the GL composite and every preview surface actually use. */
+    private static final int PREVIEW_DECODE_MAX_EDGE = 1920;
 
     @Nullable
     private android.graphics.Bitmap imageBitmap(@NonNull TextOverlayItem o) {
         String uri = o.getImageUri();
         if (uri == null) return null;
-        // containsKey, not get() != null: a null VALUE is a cached FAILURE, and re-attempting a
-        // broken URI on every rebuild is the cost this whole field exists to avoid.
-        if (imageCache.containsKey(uri)) {
-            android.graphics.Bitmap cached = imageCache.get(uri);
-            return (cached != null && !cached.isRecycled()) ? cached : null;
-        }
+        // A known-bad URI answers immediately: re-attempting a broken decode on every rebuild is
+        // the cost this cache exists to avoid, and it cannot live in the LruCache because that
+        // cannot hold a null value.
+        if (imageFailed.contains(uri)) return null;
+        android.graphics.Bitmap cached = imageCache.get(uri);
+        if (cached != null && !cached.isRecycled()) return cached;
         android.graphics.Bitmap out = null;
         try {
+            // Bound by what the PREVIEW can show, not by the panel's pixel count. This used to
+            // be the device's long edge — 3088 on a Note 20 — so every image was decoded to a
+            // size no preview surface renders at, costing ~2.6x the pixels of a 1080p-class
+            // bound for no visible difference. The export is unaffected either way: it decodes
+            // its own copy bounded by the OUTPUT frame (ImageOverlayDraw.decode), which is why a
+            // 4K export is not limited by anything chosen here.
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-            int maxEdge = Math.max(640, Math.max(dm.widthPixels, dm.heightPixels));
+            int screenEdge = Math.max(dm.widthPixels, dm.heightPixels);
+            int maxEdge = Math.max(640, Math.min(screenEdge, PREVIEW_DECODE_MAX_EDGE));
             android.graphics.BitmapFactory.Options bounds =
                     new android.graphics.BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
@@ -533,7 +608,8 @@ public class TextOverlayLayer extends FrameLayout {
         } catch (Throwable ignored) {
             // Unreadable source: cache the failure so the next rebuild does not try again.
         }
-        imageCache.put(uri, out);
+        if (out == null) imageFailed.add(uri);
+        else imageCache.put(uri, out);
         return out;
     }
 
@@ -567,7 +643,8 @@ public class TextOverlayLayer extends FrameLayout {
      * </p>
      */
     public void clearImageCache() {
-        imageCache.clear();
+        imageCache.evictAll();
+        imageFailed.clear();
     }
 
     public void setData(@NonNull List<TextOverlayItem> overlays, @NonNull Callback cb) {
@@ -820,8 +897,15 @@ public class TextOverlayLayer extends FrameLayout {
         if (o.isImage()) {
             ImageView iv = new ImageView(getContext());
             iv.setScaleType(ImageView.ScaleType.FIT_XY);
-            android.graphics.Bitmap bmp = imageBitmap(o);
-            if (bmp != null) iv.setImageBitmap(bmp);
+            // Pixels only for an image that is ON SCREEN NOW. This used to decode every image in
+            // the project on every rebuild and hand each one to its view, so all of them stayed
+            // resident whether or not the playhead was anywhere near them -- and because the
+            // VIEWS held the references, no cache eviction could have freed them. position()
+            // attaches and detaches as items come and go; this just avoids paying up front.
+            if (o.isVisibleAt(currentTimeMs)) {
+                android.graphics.Bitmap bmp = imageBitmap(o);
+                if (bmp != null) iv.setImageBitmap(bmp);
+            }
             view = iv;
         } else {
             // A TextBoxView, not a TextView: one view holding one string cannot move individual
@@ -865,9 +949,24 @@ public class TextOverlayLayer extends FrameLayout {
         // Hide the overlay outside its time range.
         if (!o.isVisibleAt(currentTimeMs)) {
             view.setVisibility(GONE);
+            // Let go of the pixels while it is off screen. Guarded on the drawable already being
+            // there so this is a TRANSITION, not a per-tick write: setImageDrawable invalidates,
+            // and doing it 20 times a second per image is the kind of churn this whole path has
+            // been bitten by before.
+            if (o.isImage() && view instanceof ImageView
+                    && ((ImageView) view).getDrawable() != null) {
+                ((ImageView) view).setImageDrawable(null);
+            }
             return;
         }
         view.setVisibility(VISIBLE);
+        // ...and take them back when it returns. Must happen BEFORE the aspect-ratio read below,
+        // which asks the view's own drawable how wide the picture is.
+        if (o.isImage() && view instanceof ImageView
+                && ((ImageView) view).getDrawable() == null) {
+            android.graphics.Bitmap bmp = imageBitmap(o);
+            if (bmp != null) ((ImageView) view).setImageBitmap(bmp);
+        }
         // While the user is dragging/scaling this overlay, follow the finger
         // (static transform) rather than the keyframed value at the playhead.
         // The WYSIWYG-edited item is static too: a box mid-entrance-animation

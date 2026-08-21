@@ -80,6 +80,33 @@ public class MotionRangeTest {
         f.setTimeRange(0, 3000);
         check("still none after a trim", !f.hasMotionRange());
 
+        // ── "None" keeps the timing, and stored timing is not the same as animating ──────
+        // JoyRaptor, 2026-08-21: trying None is part of comparing options, not a decision to throw
+        // away timings you plotted out. An earlier fix zeroed them here and that was silent
+        // data loss. Keeping them is safe because the renderer gates on the preset NAME.
+        TextOverlayItem g = mk();
+        g.setTimeRange(0, 10000);
+        g.setTextAnimPreset("RISE");
+        g.setTextAnimZonePct(0.20f, 0.30f);
+        check("a real preset with zones is active", g.isTextAnimActive());
+
+        g.setTextAnimPreset("NONE");
+        eq("None keeps the entrance timing", Math.round(g.getTextAnimInPct() * 1000), 200);
+        eq("None keeps the exit timing", Math.round(g.getTextAnimOutPct() * 1000), 300);
+        check("None still reports stored timing", g.hasTextAnim());
+        check("None is NOT active", !g.isTextAnimActive());
+
+        g.setTextAnimPreset("SCRAMBLE");
+        eq("switching back keeps the entrance", Math.round(g.getTextAnimInPct() * 1000), 200);
+        eq("switching back keeps the exit", Math.round(g.getTextAnimOutPct() * 1000), 300);
+        check("active again without re-plotting", g.isTextAnimActive());
+
+        // A box that never had timing is not "active" just because a preset name is set.
+        TextOverlayItem h = mk();
+        h.setTimeRange(0, 5000);
+        h.setTextAnimPreset("RISE");
+        check("preset with no zones is not active", !h.isTextAnimActive());
+
         System.out.println((fail == 0 ? "MOTIONRANGE OK" : "MOTIONRANGE FAILED")
                 + " — " + pass + " passed, " + fail + " failed");
         if (fail != 0) System.exit(1);

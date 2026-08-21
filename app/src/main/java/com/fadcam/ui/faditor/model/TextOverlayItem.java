@@ -903,7 +903,22 @@ public class TextOverlayItem {
     public float getTextAnimOutPct() { return textAnimOutPct; }
 
     /** True when either zone would animate anything. */
+    /** Whether any entrance/exit TIMING is stored — regardless of whether a preset uses it. */
     public boolean hasTextAnim() { return textAnimInPct > 0f || textAnimOutPct > 0f; }
+
+    /**
+     * Whether this box is actually animating: a real preset AND a zone for it to run in.
+     *
+     * <p>Distinct from {@link #hasTextAnim} on purpose. Selecting None keeps the timings so a
+     * user comparing options does not lose work they plotted out, so "has timing stored" and "is
+     * animating" stopped being the same question. Anything describing what the viewer SEES must
+     * ask this one; anything describing what is STORED asks the other. TextBoxRenderer already
+     * gates on the same pair of conditions, which is what makes kept-but-inert zones safe.
+     */
+    public boolean isTextAnimActive() {
+        return hasTextAnim()
+                && !"NONE".equals(textAnimPreset);
+    }
 
     /**
      * Set both zones at once, each 0…0.5 of this box's visible span.

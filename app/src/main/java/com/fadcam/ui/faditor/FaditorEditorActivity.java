@@ -17224,27 +17224,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String afterGran = gran.name();
         float seedIn = beforeIn;
         float seedOut = beforeOut;
-        if (preset == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE) {
-            // NONE MUST CLEAR THE ZONES. Picking a preset seeds a zone (below), but picking
-            // None used to carry both percentages through untouched — so the preset NAME went
-            // back to NONE while hasTextAnim() stayed true forever, because that asks about the
-            // percentages and not the name. Choosing None therefore changed the drawer's label
-            // and nothing else, and there was no way back: no control writes the zones to zero.
-            // JoyRaptor hit this as a text box he could no longer edit, where setting the preset
-            // back to None did not restore it — "it feels like a one way ticket".
-            //
-            // Clearing here is safe precisely BECAUSE of the seeding rule below: re-picking any
-            // real preset sees both zones at 0 and re-seeds one, so the round trip
-            // None -> preset gives a working animation again rather than an inert one.
-            seedIn = 0f;
-            seedOut = 0f;
-        } else if (beforeIn <= 0f && beforeOut <= 0f) {
+        // NONE KEEPS THE TIMING. It used to zero both zones, and that was wrong for the reason
+        // JoyRaptor gave on 2026-08-21: "people might want to experiment seeing how something looks
+        // with an animation, and they might have carefully plotted out the timing, and then they
+        // wanna try different times, then try it with none and go back... It seems like a silent
+        // way to lose information." Trying None is part of comparing options, not a decision to
+        // discard work.
+        //
+        // Keeping them is SAFE, which is the part that makes this possible: TextBoxRenderer
+        // computes `animating = preset != NONE && ...`, so the preset name alone stops the
+        // animation and stored zones with NONE selected are simply inert. Nothing renders from
+        // them and nothing gets stuck.
+        //
+        // The bug that originally made None look like a one-way ticket was NOT these zones: it
+        // was a leaked editing id pinning `live` true, fixed 2026-08-19. Clearing the zones was
+        // my wrong answer to a real symptom, and it traded a rendering bug for silent data loss.
+        if (preset != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                && beforeIn <= 0f && beforeOut <= 0f) {
             seedIn = com.fadcam.ui.faditor.transcript.CaptionAnimator.MAX_ZONE_PCT / 2f;
         }
         final float afterIn = seedIn;
         final float afterOut = seedOut;
-        // Compares BOTH zones: with None now writing outPct, an in-only comparison would treat
-        // "clear the exit zone" as a no-op and return before applying it.
+        // Compares BOTH zones so a change to either is applied rather than short-circuited.
         if (beforePreset.equals(afterPreset) && beforeGran.equals(afterGran)
                 && beforeIn == afterIn && beforeOut == afterOut) {
             return;
@@ -24930,7 +24931,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         Runnable refreshMotion = () -> {
             updateTextMotionState(motionState, item);
-            motionState.setTextColor(item.hasTextAnim() ? 0xFFB388FF : 0xFF888888);
+            motionState.setTextColor(item.isTextAnimActive() ? 0xFFB388FF : 0xFF888888);
         };
         refreshMotion.run();
         motionIcon.setOnClickListener(v -> com.fadcam.ui.faditor.TextAnimPickerPopover.show(

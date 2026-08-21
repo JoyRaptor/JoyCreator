@@ -24123,6 +24123,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Runnable applyComp = () -> {
             o.setCompositing(spec.isEmpty() ? null : spec);
             refreshAfterMarqueeBatchDelete();
+            // AND RE-RUN THE GL COMPOSITE. Without this, changing an image's blend or mask
+            // updated the model and the views but not the shader chain, so nothing happened until
+            // the next playhead tick happened to rebuild it -- JoyRaptor, 2026-08-21: "i set one to
+            // add... oh wait, after i scrubbed and add and mask both started working, so we need
+            // it to do that live".
+            //
+            // The GL side is where BOTH of those live for an image. wantsGlExport() decides
+            // whether the image leaves the Canvas path at all, and it is recomputed inside
+            // sync(); the Pip built by fxPipFor carries the compositing spec AND the blend code.
+            // So a blend change can flip the routing, and a mask change alters a Pip that only
+            // gets rebuilt here. refreshAfterMarqueeBatchDelete above re-feeds the overlay VIEWS
+            // and nothing else, which is why it looked like the setting had been ignored.
+            //
+            // The adjustment-layer drawer's own applyComp has called this all along; the image
+            // one simply never did. Same call, same argument, so the two cannot drift.
+            syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
             scheduleAutoSave();
         };
 
@@ -24151,14 +24167,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
                 "Image", 0,                                              // TODO(strings)
                 ctx -> buildImageTransformTab(o, tabHost)));
-        // ── The three inert tabs ─────────────────────────────────────────────────────────────
-        // Mask, Chroma key and Effects all persist correctly and reach NEITHER renderer for an
-        // image overlay: the preview draws an image overlay as a plain ImageView
-        // (TextOverlayLayer.buildView) and the export draws it on the Canvas in
-        // CompositeExportOverlay, which is added AFTER the adjustment-layer block in ExportManager
-        // and skips image FX by name. So preview and export AGREE — these are not WYSIWYG breaks,
-        // and implementing the preview side alone would CREATE one. Per JoyRaptor (2026-08-12): keep
-        // the tabs, label them, don't hide them.
+        // ── Mask / Chroma key / Effects ──────────────────────────────────────────────────────
+        // NO LONGER INERT. This block used to say all three "reach NEITHER renderer for an image
+        // overlay" and that the preview draws an image as a plain ImageView. Both halves stopped
+        // being true at 20cf0228: an image whose wantsGlExport() is true leaves the Canvas path
+        // for the GL composite in the EDITOR as well as the export, and the Pip it becomes carries
+        // its compositing spec and blend code. Export masks images through the same
+        // MaskPathBuilder a PiP uses (ImageOverlayDraw).
+        //
+        // ONE REAL GAP REMAINS, and it is worth stating precisely rather than leaving the old
+        // blanket claim: wantsGlExport() is blend-or-FX-or-key, so an image carrying ONLY a mask
+        // never leaves the Canvas path and its mask is invisible while editing (it still exports
+        // correctly). Adding mask to that predicate would route such images through GL and move
+        // them to the GL layer's z, which is the z-order bug fixed on 2026-08-19; the honest fix
+        // is to mask on the Canvas path instead. Not done yet.
         //
         // BLEND is live on BOTH renderers for an image — previewsLive=true. It reaches the export
         // through ImageBlendGlEffect and the editor through the GL composite, and both read the

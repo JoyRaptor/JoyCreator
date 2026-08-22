@@ -127,8 +127,10 @@ public final class LayerRowRenderer {
 
     /** Which part of an item block a touch landed on (M7). DELETE = the trash roundel
      *  drawn on the SELECTED item (redesign: delete moved off long-press, which is now
-     *  pick-up-for-move — see PLAN_LAYER_GESTURE_CONTRACT "DELETE relocates"). */
-    public enum ItemZone { BODY, LEFT_HANDLE, RIGHT_HANDLE, DELETE }
+     *  pick-up-for-move — see PLAN_LAYER_GESTURE_CONTRACT "DELETE relocates").
+     *  FADE_IN/FADE_OUT are SPEC_AUDIO_UX_V1 §4 top-corner triangles for audio fades;
+     *  they are inset 16dp from the trim edge so they never overlap, and trim wins. */
+    public enum ItemZone { BODY, LEFT_HANDLE, RIGHT_HANDLE, DELETE, FADE_IN, FADE_OUT }
 
     /** Result of a row-BODY item hit-test (M7): which track + item + zone. */
     public static final class ItemHit {
@@ -1498,6 +1500,7 @@ public final class LayerRowRenderer {
             drawItemSelection(canvas, x0, top, x1, bottom, baseColor,
                     item.getCaptionSpan() == null);
             drawSequenceResizeModeHandles(canvas, item, x0, top, x1, bottom);
+            if (item.getAudioClip() != null) drawFadeHandles(canvas, x0, top, x1, bottom, baseColor);
         }
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
@@ -2360,6 +2363,43 @@ public final class LayerRowRenderer {
         }
     }
 
+    /** SPEC_AUDIO_UX_V1 §4 B1.U: small triangle fade handles in the top corners,
+     *  inset 16dp from the trim edge (TRIM_WIDTH_DP) so they never overlap.
+     *  20dp wide ×12dp tall, selection-only, audio-only, trim wins. */
+    private void drawFadeHandles(@NonNull Canvas canvas, float x0, float top, float x1, float bottom, int baseColor) {
+        float trimW = TRIM_WIDTH_DP * density;
+        float fadeW = FADE_W_DP * density;
+        float fadeH = FADE_H_DP * density;
+        if (x1 - x0 < trimW * 2 + fadeW * 2 + 8 * density) return;
+        Paint p = itemSelectionPaint;
+        int prevColor = p.getColor();
+        Paint.Style prevStyle = p.getStyle();
+        float prevW = p.getStrokeWidth();
+        p.setStyle(Paint.Style.FILL);
+        p.setColor(brighten(baseColor));
+        p.setAlpha(180);
+        Path tri = new Path();
+        // Fade-in: right-pointing triangle at top-left inset
+        float fx0 = x0 + trimW;
+        tri.moveTo(fx0, top);
+        tri.lineTo(fx0 + fadeW, top);
+        tri.lineTo(fx0, top + fadeH);
+        tri.close();
+        canvas.drawPath(tri, p);
+        tri.reset();
+        // Fade-out: left-pointing triangle at top-right inset
+        float fx1 = x1 - trimW;
+        tri.moveTo(fx1, top);
+        tri.lineTo(fx1 - fadeW, top);
+        tri.lineTo(fx1, top + fadeH);
+        tri.close();
+        canvas.drawPath(tri, p);
+        p.setColor(prevColor);
+        p.setAlpha(255);
+        p.setStyle(prevStyle);
+        p.setStrokeWidth(prevW);
+    }
+
     /** Radius of the selected item's delete badge (the trash roundel).
      *  9dp (was 7) — user feedback 2026-07-03: "a little hard to hit" + log-proven
      *  (a whole hand-test session produced ZERO DELETE-zone hits, all BODY). */
@@ -2727,6 +2767,11 @@ public final class LayerRowRenderer {
 
     /** Half-width (px) of an item's edge trim-handle hit-zone, shared with the item-hit-test. */
     private static final float ITEM_HANDLE_HALF_WIDTH_DP = 10f;
+    /** SPEC_AUDIO_UX_V1 §4: trim = outer 16dp full height, fade = top 12dp×20dp inboard
+     *  of trim, never overlapping, selection-only, trim wins. */
+    private static final float TRIM_WIDTH_DP = 16f;
+    private static final float FADE_W_DP = 20f;
+    private static final float FADE_H_DP = 12f;
 
     /**
      * Hit-test a DOWN/tap at content coordinates against the item blocks drawn by
@@ -2745,9 +2790,10 @@ public final class LayerRowRenderer {
      */
     @Nullable
     public ItemHit hitTestItem(float x, float y, float topPx, long totalMs,
-                                @NonNull TimeToX timeToX, @Nullable String selectedItemId) {
+                                 @NonNull TimeToX timeToX, @Nullable String selectedItemId) {
         if (!inAnyBand(y, topPx)) return null;
         float handleHalf = ITEM_HANDLE_HALF_WIDTH_DP * density;
+        float specTrimW = TRIM_WIDTH_DP * density;
         for (RowLayout row : rows) {
             float localY = bandLocalY(row, y, topPx);
             // Positive-form checks: NaN (out-of-band row) must fail, not fall through.
@@ -2761,13 +2807,28 @@ public final class LayerRowRenderer {
                 float x0 = timeToX.map(item.getTimelineStartMs());
                 long dur = item.getDisplayDurationMs(totalMs);
                 float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
-                if (x < x0 - handleHalf || x > x1 + handleHalf) continue;
+                if (x < x0 - specTrimW || x > x1 + specTrimW) continue;
                 boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
-                if (selected && x <= x0 + handleHalf) {
+                // SPEC §4: trim = outer 16dp full height — spec-exact, not the legacy 10dp half.
+                float trimW = specTrimW;
+                if (selected && x <= x0 + trimW) {
                     return new ItemHit(t, item, ItemZone.LEFT_HANDLE);
                 }
-                if (selected && x >= x1 - handleHalf) {
+                if (selected && x >= x1 - trimW) {
                     return new ItemHit(t, item, ItemZone.RIGHT_HANDLE);
+                }
+                // SPEC §4 B1.U: fade handles — top 12dp ×20dp inboard of trim, selection-only, trim wins.
+                if (selected && item.getAudioClip() != null) {
+                    float fadeH = FADE_H_DP * density;
+                    float fadeW = FADE_W_DP * density;
+                    if (localY >= top && localY <= top + fadeH) {
+                        if (x >= x0 + trimW && x <= x0 + trimW + fadeW) {
+                            return new ItemHit(t, item, ItemZone.FADE_IN);
+                        }
+                        if (x >= x1 - trimW - fadeW && x <= x1 - trimW) {
+                            return new ItemHit(t, item, ItemZone.FADE_OUT);
+                        }
+                    }
                 }
                 if (selected) {
                     // Delete badge — checked AFTER the trim handles (review fix

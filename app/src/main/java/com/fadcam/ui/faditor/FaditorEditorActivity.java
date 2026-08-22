@@ -13933,6 +13933,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 } else if (item.getAudioClip() != null) {
                     AudioClip ac = item.getAudioClip();
+                    if (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN
+                            || kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_OUT) {
+                        java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> beforeKfs = ctrl.getFadeBeforeKfs();
+                        float beforeLevel = ctrl.getFadeBeforeLevel();
+                        java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> afterKfs = new java.util.ArrayList<>();
+                        for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) afterKfs.add(new com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe(kf.timeMs, kf.volume));
+                        float afterLevel = ac.getVolumeLevel();
+                        boolean changed = beforeKfs == null || beforeKfs.size() != afterKfs.size() || beforeLevel != afterLevel;
+                        if (!changed && beforeKfs != null) {
+                            for (int i = 0; i < beforeKfs.size(); i++) {
+                                if (beforeKfs.get(i).timeMs != afterKfs.get(i).timeMs || beforeKfs.get(i).volume != afterKfs.get(i).volume) { changed = true; break; }
+                            }
+                        }
+                        if (changed) {
+                            java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> bCopy = beforeKfs == null ? new java.util.ArrayList<>() : new java.util.ArrayList<>(beforeKfs);
+                            float bLvl = beforeLevel;
+                            java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> aCopy = new java.util.ArrayList<>(afterKfs);
+                            float aLvl = afterLevel;
+                            undoManager.recordAction(new EditActions.LambdaAction(kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN ? "Fade in" : "Fade out", // TODO(strings)
+                                    () -> { ac.setVolumeLevel(aLvl); ac.setVolumeKeyframes(aCopy); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
+                                    () -> { ac.setVolumeLevel(bLvl); ac.setVolumeKeyframes(bCopy); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
+                        } else {
+                            maybeRecordTrackOnlyChange(trackChange);
+                        }
+                    } else {
                     long beforeOffset = ctrl.getAudioBeforeOffsetMs();
                     long beforeIn = ctrl.getAudioBeforeInMs();
                     long beforeOut = ctrl.getAudioBeforeOutMs();
@@ -13958,6 +13983,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
                     prepareAudioPlayer();
+                    }
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
                     Clip oc = item.getClip();
                     long beforeStart = ctrl.getClipBeforeStartMs();
@@ -21530,8 +21556,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * §2 general menu for an AUDIO clip. Audio animates ONLY its volume, via the
      * {@link com.fadcam.ui.faditor.model.AudioClip} envelope (clip-local ms; the
      * SAME semantics as the band's blue rubber-band and {@link #applyDraggedVolume}).
-     * No pan (the export mixer can't honor it). No More…/range chips — audio trim
-     * lives on the band.
+     * No pan (the export mixer can't honor it).
+     * REVERSAL 2026-08-22 (B10): audio NOW has range chips — the previous
+     * "No More…/range chips — audio trim lives on the band." decision was
+     * deliberately reversed per SPEC_AUDIO_UX_V1 B10 (JoyRaptor: audio needs
+     * frame-accurate trimming more than any other object). TWO chips only
+     * — Span whole is meaningless for audio.
      */
     private void showObjectMenuSheetForAudioClip(
             @NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
@@ -21559,8 +21589,70 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ? ac.getLabel() : "Audio"; // TODO(strings)
         addObjectVisibilityActions(actions, null, null, ac::isLocked, ac::setLocked);
         maybeAddLinkActions(actions, ac.getId());
+        java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
+        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_start_here), false,
+                () -> setAudioRangeEdgeAtPlayhead(ac, true)));
+        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_end_here), false,
+                () -> setAudioRangeEdgeAtPlayhead(ac, false)));
         ensureObjectMenuSheet().show(title, null, props, actions,
-                null, null, hooks, lastPlayheadAbsoluteMs, null);
+                null, rangeChips, hooks, lastPlayheadAbsoluteMs, null);
+    }
+
+    private void setAudioRangeEdgeAtPlayhead(@NonNull com.fadcam.ui.faditor.model.AudioClip ac, boolean startEdge) {
+        long ph = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs;
+        setAudioRangeEdgeAtMs(ac, startEdge, ph);
+    }
+
+    private void setAudioRangeEdgeAtMs(@NonNull com.fadcam.ui.faditor.model.AudioClip ac, boolean startEdge, long ph) {
+        long curStart = ac.getOffsetMs();
+        long curEnd = ac.getEndOnTimelineMs();
+        if (startEdge) {
+            if (ph >= curEnd) {
+                android.widget.Toast.makeText(this, R.string.faditor_kf_range_invalid, android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (ph < 0) ph = 0;
+            long beforeIn = ac.getInPointMs(), beforeOut = ac.getOutPointMs();
+            long beforeOff = ac.getOffsetMs();
+            long delta = ph - curStart;
+            long tmpIn = beforeIn + delta;
+            if (tmpIn < 0) tmpIn = 0;
+            if (tmpIn >= beforeOut) {
+                android.widget.Toast.makeText(this, R.string.faditor_kf_range_invalid, android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            final long fNewIn = tmpIn;
+            final long fPh = ph;
+            final long fBeforeIn = beforeIn, fBeforeOut = beforeOut, fBeforeOff = beforeOff;
+            ac.setInPointMs(fNewIn);
+            ac.setOffsetMs(fPh);
+            undoManager.recordAction(new EditActions.LambdaAction("Audio start", // TODO(strings)
+                    () -> { ac.setInPointMs(fNewIn); ac.setOffsetMs(fPh); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
+                    () -> { ac.setInPointMs(fBeforeIn); ac.setOutPointMs(fBeforeOut); ac.setOffsetMs(fBeforeOff); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
+        } else {
+            if (ph <= curStart) {
+                android.widget.Toast.makeText(this, R.string.faditor_kf_range_invalid, android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            long beforeIn2 = ac.getInPointMs(), beforeOut2 = ac.getOutPointMs();
+            long beforeOff2 = ac.getOffsetMs();
+            long tmpOut = beforeIn2 + (ph - curStart);
+            if (tmpOut <= beforeIn2) {
+                android.widget.Toast.makeText(this, R.string.faditor_kf_range_invalid, android.widget.Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (tmpOut > ac.getSourceDurationMs()) tmpOut = ac.getSourceDurationMs();
+            final long fNewOut = tmpOut;
+            final long fBeforeIn2 = beforeIn2, fBeforeOut2 = beforeOut2, fBeforeOff2 = beforeOff2;
+            ac.setOutPointMs(fNewOut);
+            undoManager.recordAction(new EditActions.LambdaAction("Audio end", // TODO(strings)
+                    () -> { ac.setOutPointMs(fNewOut); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
+                    () -> { ac.setInPointMs(fBeforeIn2); ac.setOutPointMs(fBeforeOut2); ac.setOffsetMs(fBeforeOff2); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
+        }
+        syncTimelineOverlays();
+        if (editorTimeline != null) editorTimeline.invalidate();
+        scheduleAutoSave();
+        android.widget.Toast.makeText(this, R.string.faditor_kf_range_set, android.widget.Toast.LENGTH_SHORT).show();
     }
 
     /** The single "Volume" adapter — diamond mapped to the VolumeKeyframe envelope. */

@@ -171,7 +171,7 @@ public final class LayerGestureController {
         default void onItemKeyframeShiftCommitted(@NonNull TimedItem item) {}
     }
 
-    public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT }
+    public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT, FADE_IN, FADE_OUT }
 
     /**
      * Outcome of {@link #onRowBodyDown}: what the caller (EditorTimelineView) should do
@@ -246,6 +246,9 @@ public final class LayerGestureController {
     @Nullable private TextOverlayItem.TransformSnapshot textBeforeSnapshot;
     private long audioBeforeOffsetMs, audioBeforeInMs, audioBeforeOutMs;
     private long clipBeforeStartMs, clipBeforeInMs, clipBeforeOutMs;
+    /** SPEC_AUDIO_UX_V1 B1: fade handles write the volume envelope — snapshot for one-undo. */
+    private java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> fadeBeforeKfs;
+    private float fadeBeforeLevel;
 
     /** Item id selected for trim-handle exposure (mirrors the audio/overlay "selected → handles show" convention). */
     @Nullable private String selectedItemId;
@@ -495,6 +498,16 @@ public final class LayerGestureController {
             return DownResult.ARMED_TRIM;
         }
 
+        // SPEC_AUDIO_UX_V1 B1.U §4: fade handles — top-corner triangles, inset of trim, selection-only, trim wins (handled above).
+        if (!objectLocked && hit.item.getAudioClip() != null
+                && (hit.zone == LayerRowRenderer.ItemZone.FADE_IN || hit.zone == LayerRowRenderer.ItemZone.FADE_OUT)) {
+            boolean fadeIn = hit.zone == LayerRowRenderer.ItemZone.FADE_IN;
+            armFade(hit.item, fadeIn);
+            active = true;
+            activeKind = fadeIn ? GestureKind.FADE_IN : GestureKind.FADE_OUT;
+            return DownResult.ARMED_TRIM;
+        }
+
         // C4 §2: a horizontal drag starting on a consolidated keyframe diamond of the
         // ALREADY-SELECTED item MOVES that key in time — the ONE edit the drawer can't do
         // well. Only for the CURRENT selection (checked before selectedItemId is reassigned
@@ -720,6 +733,18 @@ public final class LayerGestureController {
             adjustBeforeDurationMs = item.getAdjustment().getDurationMs() > 0
                     ? item.getAdjustment().getDurationMs()
                     : Math.max(0, item.getDisplayDurationMs(lastTotalMs));
+        }
+    }
+
+    /** SPEC_AUDIO_UX_V1 B1: arm a fade handle — snapshot the envelope for one-undo. */
+    private void armFade(@NonNull TimedItem item, boolean fadeIn) {
+        if (item.getAudioClip() != null) {
+            com.fadcam.ui.faditor.model.AudioClip ac = item.getAudioClip();
+            fadeBeforeLevel = ac.getVolumeLevel();
+            fadeBeforeKfs = new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) {
+                fadeBeforeKfs.add(new com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe(kf.timeMs, kf.volume));
+            }
         }
     }
 
@@ -955,6 +980,57 @@ public final class LayerGestureController {
             moveGrabOffsetMs = t - dragStartTimelineMs;
         }
         switch (activeKind) {
+            case FADE_IN:
+            case FADE_OUT: {
+                if (activeItem == null || activeItem.getAudioClip() == null) break;
+                com.fadcam.ui.faditor.model.AudioClip ac = activeItem.getAudioClip();
+                long startMs = activeItem.getTimelineStartMs();
+                long dur = activeItem.getDisplayDurationMs(totalMs);
+                if (dur <= 0) break;
+                long endMs = startMs + dur;
+                boolean fadeIn = activeKind == GestureKind.FADE_IN;
+                long fadeDur = fadeIn ? Math.max(0, Math.min(dur / 2, t - startMs)) : Math.max(0, Math.min(dur / 2, endMs - t));
+                // SPEC B1.E: two keyframes form the fade — envelope already exists and exports correctly.
+                // FADE_IN: 0→0, fadeDur→1 ; FADE_OUT: dur-fadeDur→1, dur→0 (clip-local ms).
+                long clipDur = ac.getTrimmedDurationMs();
+                if (fadeIn) {
+                    // Clear any previous fade-in keys near start to avoid stacking.
+                    java.util.Iterator<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> it = ac.getVolumeKeyframes().iterator();
+                    while (it.hasNext()) {
+                        long tm = it.next().timeMs;
+                        if (tm <= fadeDur + 40 || tm <= 40) {
+                            // keep keys that are clearly outside fade region? For now clear leading region up to fadeDur.
+                            if (tm <= fadeDur) it.remove();
+                            else if (tm == 0) it.remove();
+                        }
+                    }
+                    if (fadeDur > 40) {
+                        ac.addOrUpdateVolumeKeyframe(0, 0f);
+                        ac.addOrUpdateVolumeKeyframe(fadeDur, 1f);
+                    } else {
+                        // Short fade: just ensure start is not muted — remove fade keys
+                        // (leaving envelope flat). Don't leave a 0-volume spike.
+                        ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs <= 80);
+                    }
+                } else {
+                    long fadeStart = clipDur - fadeDur;
+                    java.util.Iterator<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> it = ac.getVolumeKeyframes().iterator();
+                    while (it.hasNext()) {
+                        long tm = it.next().timeMs;
+                        if (tm >= fadeStart - 40 || tm >= clipDur - 40) {
+                            if (tm >= fadeStart) it.remove();
+                        }
+                    }
+                    if (fadeDur > 40) {
+                        ac.addOrUpdateVolumeKeyframe(fadeStart, 1f);
+                        ac.addOrUpdateVolumeKeyframe(clipDur, 0f);
+                    } else {
+                        ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs >= clipDur - 80);
+                    }
+                }
+                callback.onGestureLive(activeItem);
+                break;
+            }
             case MOVE:
                 // Target/hover first so the placement below reflects THIS event's row
                 // (updateDragTarget is y/finger-driven, independent of the item's
@@ -2196,6 +2272,13 @@ public final class LayerGestureController {
             } else if (item.getAdjustment() != null) {
                 item.getAdjustment().setStartMs(adjustBeforeStartMs);
             }
+        } else if (activeKind == GestureKind.FADE_IN || activeKind == GestureKind.FADE_OUT) {
+            if (item.getAudioClip() != null) {
+                AudioClip ac = item.getAudioClip();
+                ac.setVolumeLevel(fadeBeforeLevel);
+                if (fadeBeforeKfs != null) ac.setVolumeKeyframes(fadeBeforeKfs);
+                else ac.clearVolumeKeyframes();
+            }
         } else {
             if (item.getTextOverlay() != null) {
                 // Abort of a TRIM: undo the start delta AND the key shift it caused, in one call.
@@ -2237,6 +2320,9 @@ public final class LayerGestureController {
     public long getClipBeforeStartMs() { return clipBeforeStartMs; }
     public long getClipBeforeInMs() { return clipBeforeInMs; }
     public long getClipBeforeOutMs() { return clipBeforeOutMs; }
+
+    public java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> getFadeBeforeKfs() { return fadeBeforeKfs; }
+    public float getFadeBeforeLevel() { return fadeBeforeLevel; }
 
     // ── M10: drag-state queries for the caller's LayerRowRenderer#layout call ──
 

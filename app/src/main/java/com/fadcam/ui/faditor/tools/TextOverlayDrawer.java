@@ -16,7 +16,7 @@ import androidx.annotation.Nullable;
 
 /**
  * The text-overlay drawer — a TOP-anchored panel that drops DOWN from the top edge and pushes
- * the video below it, using the same mechanics as {@link PipOverlayDrawer} (spec, 2026-08-10:
+ * the video below it, using the same mechanics as {@link ObjectDrawer} (spec, 2026-08-10:
  * "take the drawer that's on the bottom and make it a top down drawer ... attach what we
  * already have to the video overlay drawer mechanics; as it drops down it will push the video
  * down like what video overlay drawer does").
@@ -28,7 +28,7 @@ import androidx.annotation.Nullable;
  * PiP drawer already made. The {@code HeightListener} reports the drawer's height and the
  * activity reflows the preview under it, exactly as the PiP drawer does.</p>
  *
- * <p>Generic on purpose, the same way {@code PipOverlayDrawer} is: this class knows about
+ * <p>Generic on purpose, the same way {@code ObjectDrawer} is: this class knows about
  * sliding a panel down from the top, a title, a close button and a scrolling body capped at a
  * height. It does not know about fonts, colours or keyframes — the caller supplies the content
  * view, same as {@code PipDrawerTabs} supplies the PiP drawer's.</p>
@@ -36,7 +36,7 @@ import androidx.annotation.Nullable;
 public final class TextOverlayDrawer extends LinearLayout {
 
     /**
-     * The SAME scrim {@code PipOverlayDrawer} uses, not an opaque panel.
+     * The SAME scrim {@code ObjectDrawer} uses, not an opaque panel.
      *
      * <p>This drawer sits over the preview, and every control in it — colours, outline, glow,
      * shadow, background — changes what the preview shows. Behind an opaque panel the user is
@@ -73,7 +73,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(BG);
         // Rounded BOTTOM corners only — this one hangs DOWN from the top edge, so the curve
-        // is at the bottom, mirroring PipOverlayDrawer.
+        // is at the bottom, mirroring ObjectDrawer.
         float r = 16f * density;
         bg.setCornerRadii(new float[]{0f, 0f, 0f, 0f, r, r, r, r});
         setBackground(bg);
@@ -119,7 +119,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         addView(contentHost, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         // Pull-UP dismiss grip at the BOTTOM edge — the drawer hangs from the top, so the
-        // direction that puts it away is up. Mirrors PipOverlayDrawer.wireGrip.
+        // direction that puts it away is up. Mirrors ObjectDrawer.wireGrip.
         LinearLayout grip = new LinearLayout(ctx);
         grip.setGravity(Gravity.CENTER);
         grip.setPadding(0, dp(4), 0, dp(8));

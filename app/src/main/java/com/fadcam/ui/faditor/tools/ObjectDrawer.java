@@ -48,7 +48,7 @@ import java.util.List;
  * {@code ObjectMenuSheet} still serves text, sprites, audio and visualizers, and porting them
  * is mechanical once this is proven.</p>
  */
-public final class PipOverlayDrawer extends LinearLayout {
+public final class ObjectDrawer extends LinearLayout {
 
     /** Black at 40% — see-through enough to watch the PiP behind it. */
     private static final int SCRIM = 0x66000000;
@@ -108,7 +108,7 @@ public final class PipOverlayDrawer extends LinearLayout {
     private boolean animating;
     @Nullable private Runnable onClose;
 
-    public PipOverlayDrawer(@NonNull Context ctx) {
+    public ObjectDrawer(@NonNull Context ctx) {
         super(ctx);
         density = getResources().getDisplayMetrics().density;
         setOrientation(VERTICAL);
@@ -236,7 +236,7 @@ public final class PipOverlayDrawer extends LinearLayout {
                         } else {
                             v.performHapticFeedback(
                                     android.view.HapticFeedbackConstants.CLOCK_TICK);
-                            post(PipOverlayDrawer.this::reportHeight);
+                            post(ObjectDrawer.this::reportHeight);
                         }
                         return true;
                     }

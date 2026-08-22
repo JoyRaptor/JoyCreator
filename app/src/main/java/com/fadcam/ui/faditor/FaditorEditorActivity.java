@@ -9242,16 +9242,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // and no diamond ever turned green. The drawer exists to be used WHILE scrubbing —
         // that is why it is anchored at the top and leaves the timeline clear — so a drawer
         // that ignores the playhead is the one thing it must not be.
-        if (pipDrawer != null && pipDrawer.isShowing()) {
-            com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(pipDrawer.currentTabContent());
+        if (objectDrawer != null && objectDrawer.isShowing()) {
+            com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(objectDrawer.currentTabContent());
         }
         // The FX panel's keyframe diamonds (and keyframed sliders) track the scrub the same way:
         // a diamond must go solid/hollow the instant the playhead lands/leaves a key, or it reads
         // as a broken control (JoyRaptor, 2026-08-08). The FX tab lives INSIDE the same drawer, so the
         // same currentTabContent() root is walked for an FxPanel RefreshState tag.
-        if (pipDrawer != null && pipDrawer.isShowing()) {
+        if (objectDrawer != null && objectDrawer.isShowing()) {
             com.fadcam.ui.faditor.tools.FxPanel.refreshRows(
-                    pipDrawer.currentTabContent(), absoluteMs);
+                    objectDrawer.currentTabContent(), absoluteMs);
         }
         // G3: the keyframe ribbon's diamond tracks the scrub too.
         if (ribbonProp != null) refreshKeyframeRibbon();
@@ -14284,7 +14284,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // — every slider then edited an object the user was no longer looking at.
                 // Only retargets while it is already open: selecting something must not
                 // conjure a drawer nobody asked for.
-                if (pipDrawer != null && pipDrawer.isShowing() && item != null) {
+                if (objectDrawer != null && objectDrawer.isShowing() && item != null) {
                     if (item.getClip() != null && item.getClip().isOverlayClip()) {
                         showPipDrawerForObject(item.getClip());
                     } else if (item.getAdjustment() != null) {
@@ -20485,8 +20485,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * and the drawer still read 4%.</p>
      */
     private void refreshOpenDrawerRows() {
-        if (pipDrawer == null || !pipDrawer.isShowing()) return;
-        View content = pipDrawer.currentTabContent();
+        if (objectDrawer == null || !objectDrawer.isShowing()) return;
+        View content = objectDrawer.currentTabContent();
         com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(content);
         com.fadcam.ui.faditor.tools.FxPanel.refreshRows(content, lastPlayheadAbsoluteMs);
     }
@@ -22139,8 +22139,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         // TOGGLE. The drawer this tool opens has no other close affordance in reach of the
         // thumb that just opened it, and a button that only ever opens is half a control.
-        if (pipDrawer != null && pipDrawer.isShowing()) {
-            pipDrawer.hide();
+        if (objectDrawer != null && objectDrawer.isShowing()) {
+            objectDrawer.hide();
             setGradientPreviewEdit(null, null, null, null);
             setAdjustToolActive(false);
             return;
@@ -22179,7 +22179,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Open the object drawer on its Effects tab, for a clip or PiP. */
     private void showPipDrawerForObject(@NonNull Clip c) {
         showPipDrawer(c, new java.util.ArrayList<>());
-        com.fadcam.ui.faditor.tools.PipOverlayDrawer d = pipDrawer;
+        com.fadcam.ui.faditor.tools.ObjectDrawer d = objectDrawer;
         if (d != null) d.showTabTitled("Effects");
     }
 
@@ -22298,9 +22298,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
-        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 layer.getName(), 0,
                 ctx -> {
                     android.widget.LinearLayout col = new android.widget.LinearLayout(ctx);
@@ -22360,18 +22360,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // doc on AdjustmentLayer — and both are ALREADY wired into the shared FxGlSource seam
         // that AdjustmentLayerGlEffect (export) and FxPreviewTextureView (preview) both compile,
         // so this tab list is not decoration: every control here changes the exported picture.
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
                 // No LinkSource: "move with the object" has no meaning for a layer that grades
                 // whatever is composited beneath it rather than being an object with a pose of
                 // its own to link to.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
                         ctx, spec, applyComp, () -> Math.max(0, lastPlayheadAbsoluteMs))));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
                         ctx, spec, applyComp, compHost)));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(ctx,
                         layer::getBlendMode,
@@ -22394,9 +22394,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // would be actively wrong here.
                         true)));
 
-        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
                 layer::isHidden,
                 () -> {
@@ -22431,9 +22431,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> { spec.copyFrom(redoState); applyComp.run(); },
                     () -> { spec.copyFrom(undoState); applyComp.run(); }));
         };
-        ensurePipDrawer().setOnClose(this::commitPendingCompUndo);
+        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
-        ensurePipDrawer().show(tabs, toggles);
+        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, toggles);
     }
 
     /**
@@ -22840,12 +22840,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         showPipDrawer(c, props);
     }
 
-    @Nullable private com.fadcam.ui.faditor.tools.PipOverlayDrawer pipDrawer;
+    @Nullable private com.fadcam.ui.faditor.tools.ObjectDrawer objectDrawer;
+    /** A2: which tool (if any) the current drawer open should light. Single funnel, caller-supplied. */
+    private boolean objectDrawerLightAdjust;
 
     @NonNull
-    private com.fadcam.ui.faditor.tools.PipOverlayDrawer ensurePipDrawer() {
-        if (pipDrawer == null) {
-            pipDrawer = new com.fadcam.ui.faditor.tools.PipOverlayDrawer(this);
+    private com.fadcam.ui.faditor.tools.ObjectDrawer ensureObjectDrawer() {
+        if (objectDrawer == null) {
+            objectDrawer = new com.fadcam.ui.faditor.tools.ObjectDrawer(this);
             android.view.ViewGroup root =
                     (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
             // TOP, not BOTTOM — the whole point of the redesign: the timeline stays uncovered
@@ -22861,15 +22863,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // and the inset wasted vertical space. The drawer is added to editor_root's PARENT,
             // which is a sibling ABOVE the header — so with topMargin 0 it draws over it and the
             // header stays functionally intact underneath (the drawer dismisses with one gesture).
-            root.addView(pipDrawer, lp);
-            pipDrawer.setHeightListener(h -> {
+            root.addView(objectDrawer, lp);
+            objectDrawer.setHeightListener(h -> {
                 reflowPreviewUnderDrawer(h);
                 // One place that knows the drawer's visibility, so the tool light
                 // cannot be left on by a close path nobody remembered to hook.
-                setAdjustToolActive(h > 0);
+                // A2: caller-supplied — which tool (if any) this open should light.
+                setAdjustToolActive(objectDrawerLightAdjust && h > 0);
             });
         }
-        return pipDrawer;
+        return objectDrawer;
     }
 
     /**
@@ -22960,7 +22963,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * ONLY. Text, sprites, audio and visualizers keep {@code ObjectMenuSheet}; porting them is
      * mechanical once this is proven on device.
      *
-     * <p>Chrome lives in {@code PipOverlayDrawer} and content in {@code PipDrawerTabs}, so the
+     * <p>Chrome lives in {@code ObjectDrawer} and content in {@code PipDrawerTabs}, so the
      * feature costs this file ~90 lines of wiring instead of the ~500 it would have taken
      * inline — the same reason the Mask panel moved out.</p>
      */
@@ -23024,29 +23027,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
-        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Video overlay", 0,                                        // TODO(strings)
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.videoTab(ctx, props, tabHost)));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
                         ctx, c, spec, applyComp,
                         () -> Math.max(0, lastPlayheadAbsoluteMs))));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
                         ctx, spec, applyComp, tabHost)));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
                         ctx, c, tabHost::onChanged)));
         // M7: this object's OWN effects. Same registry, same compiler, same panel as an
         // adjustment layer -- the difference is only WHAT they transform. Appended, so the
-        // drawer's icon-index arithmetic is unchanged (PipOverlayDrawer's buildIconRow is
+        // drawer's icon-index arithmetic is unchanged (ObjectDrawer's buildIconRow is
         // correct only because icons are dense from index 1, and appending keeps that true).
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Effects", R.drawable.ic_fx_24,                               // TODO(strings)
                 ctx -> {
                     // Hoisted, because the host must be able to RE-ATTACH this exact stack.
@@ -23104,11 +23107,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT);
                 }));
 
-        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
         // Mute doubles as the audio OPT-IN: a PiP is silent by default, so one icon answers
         // "is this contributing sound" in both directions rather than needing two rows.
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24,
                 () -> !c.isOverlayAudioEnabled() || c.isAudioMuted(),
                 () -> {
@@ -23117,7 +23120,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     syncTimelineOverlays();
                     scheduleAutoSave();
                 }, true));
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
                 c::isHiddenObject,
                 () -> {
@@ -23125,7 +23128,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     refreshAfterMarqueeBatchDelete();
                     scheduleAutoSave();
                 }, true));
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_lock, R.drawable.ic_lock,
                 c::isLockedObject,
                 () -> {
@@ -23136,7 +23139,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // "do not let me change this", pass-through is "stop catching the taps I am aiming at
         // the thing behind it". A big PiP over the frame makes everything under it unreachable
         // on the canvas; this is the way out without hiding or locking the object.
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_touch_press_off_24, R.drawable.ic_touch_press_24,
                 c::isPassThrough,
                 () -> {
@@ -23174,9 +23177,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> { spec.copyFrom(redoState); applyComp.run(); },
                     () -> { spec.copyFrom(undoState); applyComp.run(); }));
         };
-        ensurePipDrawer().setOnClose(this::commitPendingCompUndo);
+        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
-        ensurePipDrawer().show(tabs, toggles);
+        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, toggles);
     }
 
     /**
@@ -24228,15 +24231,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
-        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Text effects", 0,                                            // TODO(strings)
                 ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
                         ctx, textFx, host,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
 
-        ensurePipDrawer().show(tabs, new java.util.ArrayList<>());
+        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, new java.util.ArrayList<>());
     }
 
     // ── IMAGE-OVERLAY DRAWER ─────────────────────────────────────────────────────────────
@@ -24296,9 +24299,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
-        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab> tabs =
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Image", 0,                                              // TODO(strings)
                 ctx -> buildImageTransformTab(o, tabHost)));
         // ── Mask / Chroma key / Effects ──────────────────────────────────────────────────────
@@ -24320,11 +24323,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // through ImageBlendGlEffect and the editor through the GL composite, and both read the
         // one BlendModes.GLSL_BLEND_FN, so there is no equation to drift. Measured, not assumed:
         // with MULTIPLY chosen, 98% of the image's preview pixels equal image x video.
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
                         ctx, o::getOverlayBlendMode, o::setOverlayBlendMode, applyComp, true)));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
                 // NO LinkSource: a text overlay's keyframes are LOCAL-time (item start offset),
                 // while a mask's linkBase is captured in absolute timeline ms — a wrong-time
@@ -24337,7 +24340,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 ctx, spec, applyComp,
                                 () -> Math.max(0, lastPlayheadAbsoluteMs)),
                         R.string.faditor_image_mask_export_note)));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 // Chroma key reaches the export shader (ImageBlendGlEffect, the same shared
                 // ChromaKey.GLSL_KEY_FN a PiP keys with) — export-only caveat, not inert.
@@ -24352,7 +24355,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Hoisted so the host can RE-ATTACH this exact stack: setFx(getFx()) nulls an emptied
         // stack, which detaches the very object the panel is still editing.
         final com.fadcam.ui.faditor.fx.FxStack imageFx = o.getOrCreateFx();
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Effects", R.drawable.ic_fx_24,                           // TODO(strings)
                 // An image's effect stack reaches BOTH renderers now: ImageBlendGlEffect on
                 // export, FxPreviewTextureView here, from the same fused pass and the same
@@ -24364,13 +24367,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 ctx, imageFx, textOverlayFxHost(o, imageFx),
                                 com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT),
                         R.string.faditor_image_fx_export_note)));
-        tabs.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Tab(
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Move", R.drawable.ic_pip_move_24,                        // TODO(strings)
                 ctx -> buildImageMoveTab(o)));
 
-        java.util.List<com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle> toggles =
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
                 o::isHidden,
                 () -> {
@@ -24378,14 +24381,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     refreshAfterMarqueeBatchDelete();
                     scheduleAutoSave();
                 }, true));
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_lock, R.drawable.ic_lock,
                 o::isLocked,
                 () -> {
                     o.setLocked(!o.isLocked());
                     scheduleAutoSave();
                 }, false));
-        toggles.add(new com.fadcam.ui.faditor.tools.PipOverlayDrawer.Toggle(
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_touch_press_off_24, R.drawable.ic_touch_press_24,
                 o::isPassThrough,
                 () -> {
@@ -24417,9 +24420,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> { spec.copyFrom(redoState); applyComp.run(); },
                     () -> { spec.copyFrom(undoState); applyComp.run(); }));
         };
-        ensurePipDrawer().setOnClose(this::commitPendingCompUndo);
+        ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
-        ensurePipDrawer().show(tabs, toggles);
+        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, toggles);
     }
 
     /**
@@ -24888,7 +24891,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             textDrawer = new com.fadcam.ui.faditor.tools.TextOverlayDrawer(this);
             android.view.ViewGroup root2 =
                     (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
-            // TOP-down, like PipOverlayDrawer (2026-08-10): it drops from the top and pushes the
+            // TOP-down, like ObjectDrawer (2026-08-10): it drops from the top and pushes the
             // preview down, keeping the timeline reachable for keyframing. Same reflow hook the
             // PiP drawer uses.
             android.widget.FrameLayout.LayoutParams lp =

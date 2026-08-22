@@ -1014,7 +1014,7 @@ public final class FxPanel {
      * The ☰ grab handle, and the drag session it starts.
      *
      * <p><b>Why this is a rewrite rather than a tweak.</b> The previous drag could not work for
-     * two independent reasons. The tab lives inside {@code PipOverlayDrawer}'s {@code ScrollView},
+     * two independent reasons. The tab lives inside {@code ObjectDrawer}'s {@code ScrollView},
      * and nothing called {@code requestDisallowInterceptTouchEvent}, so the moment the finger
      * passed touch slop the list scrolled instead of the card lifting. And it committed
      * {@code stack.move} on every crossing, each of which rebuilt the panel and destroyed the
@@ -1216,7 +1216,7 @@ public final class FxPanel {
 
     /**
      * The nearest scrolling ancestor, or null. Walked rather than named: this tab is hosted by
-     * {@code PipOverlayDrawer} today and by whatever hosts it next, and a hardcoded id would
+     * {@code ObjectDrawer} today and by whatever hosts it next, and a hardcoded id would
      * silently disable auto-scroll the day it moves.
      */
     @Nullable

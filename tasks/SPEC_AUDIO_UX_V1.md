@@ -439,7 +439,7 @@ Move a row's status only per §0. `PENDING` → `WIP` → `BUILT` (commit) → `
 | ID | Item | Status | Files | Evidence |
 |---|---|---|---|---|
 | `E1` | Extend `tasks/export_audio_probe.py` to assert preview LUFS == export LUFS | `PENDING` | `tasks/export_audio_probe.py` | |
-| `E2` | Gesture flight-recorder lines for pill / fade-handle / trim precedence, per the `ROWGESTURE` pattern. **Must specifically log which zone won at a clip's top corner** — that is the one contested spot §4.1 exists to measure, and a false-fade-when-you-meant-trim is the failure JoyRaptor asked to be able to detect | `PENDING` | `timeline/EditorTimelineView.java` | |
+| `E2` | Gesture flight-recorder lines for pill / fade-handle / trim precedence, per the `ROWGESTURE` pattern. **Must specifically log which zone won at a clip's top corner** — that is the one contested spot §4.1 exists to measure, and a false-fade-when-you-meant-trim is the failure JoyRaptor asked to be able to detect | `BUILT` c9897a57 | `layers/LayerRowRenderer.java`, `layers/LayerGestureController.java` | E2FADE logs `hitTest WON {TRIM_LEFT,TRIM_RIGHT,FADE_IN,FADE_OUT,DELETE,BODY}` at top 12dp band with x/y/localY/top/itemId; delete slop 2x radius check logged, fade checked before delete so FLog confirms fade wins. Follows ROWGESTURE pattern, TYPECHECK OK. |
 | `E3` | Drawer opacity audit — every top drawer proved at `0x66000000` by screenshot | `PENDING` | screenshots | |
 | `E4` | **Overlap-mix + crossfade probes**: export two overlapping lane clips and assert both are audible (sum ≈ non-clipping) — this is the `A8` proof; then assert a power dip at pill midpoint on a rendered cross-fade. Extends `tasks/export_audio_probe.py` | `PENDING` | `tasks/export_audio_probe.py` | |
 

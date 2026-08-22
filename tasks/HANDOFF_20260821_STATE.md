@@ -132,3 +132,62 @@ All typechecked, built and installed. The listed check is what is missing.
   FXPROOF-* fixtures built for image FX/blend verification — use those, not his real project.
 - Backup of his project: project.json.bak_20260821 on the device. The local copy lives in a
   temp scratchpad and WILL NOT SURVIVE; re-snapshot before device work.
+
+---
+
+## 7. ADDENDUM — 2026-08-22, after the handoff was first written
+
+Installed on the Note 20 at 07:45 (`lastUpdateTime=2026-08-22 07:45:24`) and re-measured on
+JoyRaptor's project: native heap 143 MB, PSS 628 MB, no crashes. The zoom-aware decode below did
+NOT cost memory — most images are not zoomed, and the LRU bounds the rest.
+
+### Also built, also unconfirmed by JoyRaptor
+
+- **Imports are content-addressed.** Adding the same picture twelve times used to write
+  twelve byte-identical files named `asset_<millis>_<original>`, each with its own URI, so
+  everything downstream decoded it twelve times. Now the SHA-256 is computed during the copy
+  that was already happening and an existing file is reused. One file, one decode, one
+  bitmap, however many times it is placed.
+- **Preview decode follows zoom.** The flat 1080p-class cap I added on 2026-08-21 would have
+  made JoyRaptor's core workflow soft — "very large high rez images showing a detailed chart and
+  zoom around it... i want to make sure those zooms are crisp and sharp." The bound now reads
+  the item's maximum SCALE keyframe (the track IS the set of extremes) and decodes to match,
+  ceilinged at 4096. Export was never affected; it decodes at the OUTPUT frame size.
+- **The animation row dims to 45%** when the preset is None, so kept-but-inert timings cannot
+  read as a live animation. Dimmed rather than hidden on purpose: hiding would make the
+  timings feel deleted and would remove the ability to adjust them while auditioning.
+
+### Two things this surfaced that are NOT fixed
+
+1. **Assets imported before content-addressing are still duplicated.** The dedupe only
+   applies to NEW imports. Demonstrated on JoyRaptor's own device: `files/images` holds
+   `asset_1786773518189_msf:1000118765` and `asset_1786792958262_msf:1000118765` — the same
+   picture, same 172857 bytes, imported twice under the old naming. A one-time migration
+   (hash every file in the assets dir, rewrite project URIs that point at duplicates to a
+   single canonical copy, delete the rest) would reclaim this for existing projects. Needs
+   care: it rewrites project files, so snapshot first and do it off the main thread.
+
+2. **`copyUriToInternalStorage` SKIPS anything over 10 MB** and returns the original
+   `content://` URI. That matters more than it looks for JoyRaptor's workflow, because his
+   "very large high rez" charts are exactly the files over that threshold:
+   - they are never copied locally, so they are **not** deduped by the new hashing, and
+   - their survival depends on the persistable URI permission rather than on a local copy,
+     which is the weaker guarantee.
+   The 10 MB limit exists to avoid an ANR from copying on the main thread. The right fix is
+   almost certainly to copy large files OFF the main thread with progress, rather than to
+   skip them — but that is a decision, not a detail, so it is written down rather than done.
+
+### Motion blur — assessed, not started (JoyRaptor's brainstorm, 2026-08-22)
+
+- **Velocity-based directional blur is the practical version.** Keyframed positions already
+  give velocity, the FX shader chain already exists, and overlays/PiPs already composite
+  through GL. It is one more shader pass with velocity as a uniform, engaged only while
+  something is actually moving. This is the one to build if he wants it.
+- **True accumulation blur (render N sub-frames and average) is not realistic for live
+  preview** on a phone — it multiplies render cost by the sample count. It could be offered
+  as an export-only quality option.
+- **Honest limitation to tell him again if it comes up:** his signature move is ZOOMING,
+  which is a scale change, not a translation. Directional blur does very little for a zoom;
+  radial/zoom blur is a different shader and a separate decision.
+- Gate any of it behind the existing `onFxShaderUnavailable` path so a device that cannot
+  compile the shader degrades to no blur rather than a broken preview.

@@ -371,9 +371,6 @@ public class EditorTimelineView extends View {
      *  double-tap must be detected by "same screen spot, quick succession", not by the second
      *  tap resolving to the same (now-shifted) segment. */
     private float lastMasterTapScreenX;
-    /** Audio-band double-tap pairing state (opens the waveform customization sheet). */
-    private long lastAudioTapUpMs = 0;
-    private int lastAudioTapIndex = -1;
     private final List<com.fadcam.ui.faditor.layers.Track> layerTracks = new ArrayList<>();
     private final List<com.fadcam.ui.faditor.layers.Track> audioLayerTracks = new ArrayList<>();
     private OnTrackHeaderActionListener trackHeaderActionListener;
@@ -863,13 +860,6 @@ public class EditorTimelineView extends View {
     private final List<AudioClip> audioClips = new ArrayList<>();
     private final List<RectF> audioClipRects = new ArrayList<>();
     private int selectedAudioIndex = -1;
-    private boolean isDraggingAudio = false;
-    private int dragAudioIndex = -1;
-    private float dragAudioStartX;
-    private long dragAudioStartOffsetMs;
-    private boolean audioLongPressTriggered = false;
-    private int pendingAudioIndex = -1;       // Index of audio clip awaiting long-press
-    private static final long AUDIO_LONG_PRESS_MS = 1000;  // Long hold to avoid accidental drags
     // Audio trim drag state
     private float audioTrimDragX;
     private long audioTrimDragInMs;
@@ -1090,23 +1080,6 @@ public class EditorTimelineView extends View {
             }
         }
     };
-    private final Runnable audioLongPressRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (pendingAudioIndex >= 0 && pendingAudioIndex < audioClips.size()
-                    && !isDraggingAudio && activeDrag == Drag.NONE) {
-                audioLongPressTriggered = true;
-                isDraggingAudio = true;
-                dragAudioIndex = pendingAudioIndex;
-                float scrolledX = downX + scrollOffsetPx;
-                dragAudioStartX = scrolledX;
-                dragAudioStartOffsetMs = audioClips.get(dragAudioIndex).getOffsetMs();
-                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                getParent().requestDisallowInterceptTouchEvent(true);
-                invalidate();
-            }
-        }
-    };
     private final Runnable edgeScrollRunnable = new Runnable() {
         @Override
         public void run() {
@@ -1180,7 +1153,7 @@ public class EditorTimelineView extends View {
         }
         if (!(activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE
                 || activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE)
-                && !assetDragActive && !isDraggingAudio) {
+                && !assetDragActive) {
             isEdgeScrolling = false;
             return;
         }
@@ -1201,17 +1174,6 @@ public class EditorTimelineView extends View {
         clampScroll();
         if (assetDragActive) {
             updateAssetDragFromScreenX(screenX);
-        } else if (isDraggingAudio && dragAudioIndex >= 0) {
-            // Audio clip drag with edge scroll: update offset based on movement
-            float scrolledX = screenX + scrollOffsetPx;
-            float deltaX = scrolledX - dragAudioStartX;
-            float deltaSec = deltaX / dpPerSecondPx;
-            long newOffset = dragAudioStartOffsetMs + (long) (deltaSec * 1000f);
-            newOffset = Math.max(0, newOffset);
-            AudioClip ac = audioClips.get(dragAudioIndex);
-            ac.setOffsetMs(newOffset);
-            computeRects();
-            invalidate();
         } else if (activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
             float scrolledX = screenX + scrollOffsetPx;
             doAudioTrimDrag(scrolledX);
@@ -2664,13 +2626,12 @@ public class EditorTimelineView extends View {
             drawSlideFreezeHandles(canvas, segRects.get(selectedIndex));
         }
 
-        // Draw audio clips — LEGACY path only. When audio rides the unified renderer rows
-        // (audio consolidation: audioLayerTracks fed via setLayerTracks), the renderer's
-        // audio band below master IS the audio UI and drawing this too would double-render
-        // (the exact FEEDBACK #1 "two audio bars" bug the old suppression avoided).
-        if (!audioClips.isEmpty() && audioLayerTracks.isEmpty()) {
-            drawAudioTrack(canvas);
-        }
+        // Audio clips ride the unified renderer rows (audio consolidation: audioLayerTracks
+        // fed via setLayerTracks) — the renderer's audio band below master IS the audio UI.
+        // The legacy in-strip audio bar (drawAudioTrack + its gesture path) was deleted
+        // 2026-08-22 (SPEC_AUDIO_UX_V1 row A1): provably unreachable since getAudioTracks()
+        // synthesizes a track for every AudioClip, and it carried a second, conflicting
+        // long-press duration for the same hold gesture.
 
         // Transitions (fade/wipe/push bands between clips)
         drawTransitions(canvas);
@@ -5479,10 +5440,6 @@ public class EditorTimelineView extends View {
         }
     }
 
-    /**
-     * Draws each audio clip as a rounded rectangle with waveform bars inside.
-     * Called within the scrolled canvas context.
-     */
     private void drawLoopArrow(Canvas canvas, float cx, float cy, float size, boolean backward) {
         float half = size / 2f;
         float shaftEnd = backward ? cx + half : cx - half;
@@ -5495,193 +5452,6 @@ public class EditorTimelineView extends View {
         float dir = backward ? 1f : -1f;
         canvas.drawLine(headTip, cy, headBase, cy - headSpan, loopPaint);
         canvas.drawLine(headTip, cy, headBase, cy + headSpan, loopPaint);
-    }
-
-    private void drawAudioTrack(Canvas canvas) {
-        for (int i = 0; i < audioClips.size() && i < audioClipRects.size(); i++) {
-            AudioClip ac = audioClips.get(i);
-            RectF rect = audioClipRects.get(i);
-
-            // Clip background (always rounded, handles drawn on top)
-            boolean selected = (i == selectedAudioIndex);
-            audioClipPaint.setColor(selected ? COLOR_AUDIO_BG_SEL : COLOR_AUDIO_BG);
-            canvas.drawRoundRect(rect, audioCornerPx, audioCornerPx, audioClipPaint);
-
-            // Selection border (rounded to match)
-            if (selected) {
-                audioBorderPaint.setStyle(Paint.Style.STROKE);
-                canvas.drawRoundRect(rect, audioCornerPx, audioCornerPx, audioBorderPaint);
-            }
-
-            // Waveform fills the full width (handles overlap edge bars, like video thumbnails)
-            int[] waveform = ac.getWaveform();
-            if (waveform != null && waveform.length > 0) {
-                boolean muted = ac.isMuted();
-                int waveColor = muted ? COLOR_AUDIO_WAVE_MUTED : COLOR_AUDIO_WAVE;
-                int mirrorColor = muted ? 0x40555555 : COLOR_AUDIO_WAVE_DIM;
-                audioWavePaint.setColor(waveColor);
-                audioWaveMirrorPaint.setColor(mirrorColor);
-
-                float clipW = rect.width();
-                float centerY = rect.centerY();
-                float topHalf = (centerY - rect.top) - 1f * density;
-                float botHalf = (rect.bottom - centerY) - 1f * density;
-
-                // Draw centerline
-                canvas.drawLine(rect.left, centerY,
-                        rect.right, centerY, audioCenterlinePaint);
-
-                // 3dp bars with 0.5dp gaps
-                float barW = 3f * density;
-                float gap = 0.5f * density;
-                int barCount = Math.max(1, (int) (clipW / (barW + gap)));
-                float step = clipW / barCount;
-
-                canvas.save();
-                canvas.clipRect(rect);
-                RectF barRect = new RectF();
-                for (int j = 0; j < barCount; j++) {
-                    // W1 peak-preserving envelope (JoyRaptor 2026-07-06): each bar shows the LOUDEST sample
-                    // bin in the span it covers, not one point-sampled value — so onsets & transients
-                    // pop and quiet passages still read (the DAW look you align words by), instead of
-                    // the old averaged smear that skipped every peak between sampled points.
-                    float p0 = (j / (float) barCount) * waveform.length;
-                    float p1 = ((j + 1) / (float) barCount) * waveform.length;
-                    int s0 = Math.max(0, Math.min((int) p0, waveform.length - 1));
-                    int s1 = Math.max(s0 + 1, Math.min((int) Math.ceil(p1), waveform.length));
-                    int peak = 0;
-                    for (int s = s0; s < s1; s++) if (waveform[s] > peak) peak = waveform[s];
-                    float amplitude = peak / 255f;
-
-                    // Perceptual scaling (sqrt-ish) lifts quiet detail above the floor.
-                    amplitude = (float) Math.pow(amplitude, 0.6);
-
-                    float minBar = 1f * density;
-                    float topH = Math.max(minBar, amplitude * topHalf);
-                    float botH = Math.max(minBar, amplitude * botHalf * 0.85f);
-
-                    float barX = rect.left + j * step;
-                    float barRadius = barW * 0.4f;
-
-                    barRect.set(barX, centerY - topH, barX + barW, centerY);
-                    canvas.drawRoundRect(barRect, barRadius, barRadius, audioWavePaint);
-
-                    barRect.set(barX, centerY, barX + barW, centerY + botH);
-                    canvas.drawRoundRect(barRect, barRadius, barRadius, audioWaveMirrorPaint);
-                }
-                canvas.restore();
-            }
-
-            // Blue volume-automation envelope (rubber-band line, keyframe-to-keyframe).
-            // x = clip-local time across the rect; y maps gain 0..2 (bottom..top), 100% at mid.
-            if (ac.hasVolumeKeyframes()) {
-                java.util.List<AudioClip.VolumeKeyframe> kfs = ac.getVolumeKeyframes();
-                long dur = Math.max(1, ac.getTrimmedDurationMs());
-                float h = rect.height();
-                canvas.save();
-                canvas.clipRect(rect);
-                float prevX = 0f, prevY = 0f;
-                for (int k = 0; k < kfs.size(); k++) {
-                    AudioClip.VolumeKeyframe kf = kfs.get(k);
-                    float fx = Math.max(0f, Math.min(1f, kf.timeMs / (float) dur));
-                    float x = rect.left + fx * rect.width();
-                    float gFrac = Math.max(0f, Math.min(1f, kf.volume / 2.0f));
-                    float y = rect.bottom - gFrac * h;
-                    if (k == 0) {
-                        // Flat hold from clip start to first keyframe
-                        canvas.drawLine(rect.left, y, x, y, volEnvLinePaint);
-                    } else {
-                        canvas.drawLine(prevX, prevY, x, y, volEnvLinePaint);
-                    }
-                    if (k == kfs.size() - 1) {
-                        // Flat hold from last keyframe to clip end
-                        canvas.drawLine(x, y, rect.right, y, volEnvLinePaint);
-                    }
-                    canvas.drawCircle(x, y, 2.6f * density, volEnvDotPaint);
-                    prevX = x;
-                    prevY = y;
-                }
-                canvas.restore();
-            }
-
-            // Label (always offset to clear handle area)
-            String label = ac.getLabel();
-            if (label != null && !label.isEmpty()) {
-                float textX = rect.left + handleWidthPx + 4f * density;
-                float textY = rect.top + audioLabelPaint.getTextSize() + 2f * density;
-                canvas.save();
-                canvas.clipRect(rect);
-                canvas.drawText(label, textX, textY, audioLabelPaint);
-                canvas.restore();
-            }
-
-            // Duration label at bottom-right, sticky to visible portion
-            long audioDurMs = ac.getOutPointMs() - ac.getInPointMs();
-            if (rect.width() > labelPaint.getTextSize() * 3f) {
-                String durLabel = formatDurationCompact(audioDurMs);
-                float durY = rect.bottom - 3f * density;
-
-                float viewLeft = scrollOffsetPx;
-                float viewRight = scrollOffsetPx + getWidth();
-                float visRight = Math.min(rect.right, viewRight);
-
-                float durWidth = labelPaint.measureText(durLabel);
-                float padding = 6f * density;
-                float cx = visRight - padding - durWidth / 2f;
-                cx = Math.max(rect.left + durWidth / 2f + padding, cx);
-                cx = Math.min(rect.right - durWidth / 2f - padding, cx);
-
-                labelPaint.setShadowLayer(2f * density, 0, 0, 0xFF000000);
-                canvas.drawText(durLabel, cx, durY, labelPaint);
-            }
-
-            // Audio transcript words along the bottom of the audio clip
-            com.fadcam.ui.faditor.transcript.Transcript audioTr = audioTranscripts.get(i);
-            if (audioTr != null && !audioTr.words.isEmpty()) {
-                float fontSize = 8f * density;
-                transcriptTextPaint.setTextSize(fontSize);
-                transcriptTextPaint.setTypeface(Typeface.DEFAULT);
-                transcriptTextPaint.setColor(0x99FFFFFF);
-                transcriptTextPaint.setShadowLayer(1.5f * density, 0, 0, 0xFF000000);
-
-                transcriptHighlightPaint.setTextSize(fontSize);
-                transcriptHighlightPaint.setTypeface(Typeface.DEFAULT_BOLD);
-                transcriptHighlightPaint.setColor(0xFF4CAF50);
-                transcriptHighlightPaint.setShadowLayer(2f * density, 0, 0, 0xFF000000);
-
-                float pxPerMs = rect.width() / (float) audioDurMs;
-                float textY = rect.bottom - 3f * density;
-
-                canvas.save();
-                canvas.clipRect(rect);
-
-                boolean isCurrentAudio = (i == audioTranscriptClipIndex);
-
-                for (int w = 0; w < audioTr.words.size(); w++) {
-                    com.fadcam.ui.faditor.transcript.TranscriptWord word = audioTr.words.get(w);
-                    if (word.startMs < ac.getInPointMs() || word.endMs > ac.getOutPointMs()) continue;
-                    float wordX = rect.left + (word.startMs - ac.getInPointMs()) * pxPerMs;
-                    boolean isActive = isCurrentAudio
-                            && audioCurrentPlayheadMs >= word.startMs
-                            && audioCurrentPlayheadMs <= word.endMs;
-                    if (isActive) {
-                        canvas.drawText(word.text, wordX, textY, transcriptHighlightPaint);
-                    } else if (word.struck) {
-                        transcriptTextPaint.setColor(0x44FFFFFF);
-                        canvas.drawText(word.text, wordX, textY, transcriptTextPaint);
-                        transcriptTextPaint.setColor(0x99FFFFFF);
-                    } else {
-                        canvas.drawText(word.text, wordX, textY, transcriptTextPaint);
-                    }
-                }
-                canvas.restore();
-            }
-
-            // Trim handles on selected audio clip
-            if (selected) {
-                drawAudioTrimHandles(canvas, rect);
-            }
-        }
     }
 
     /**
@@ -5834,52 +5604,6 @@ public class EditorTimelineView extends View {
             transitionHelperPaint.setColor(0xCCFFFFFF);
             canvas.drawLine(rect.left + 4f * density, rect.bottom - 8f * density,
                     rect.right - 4f * density, rect.bottom - 8f * density, transitionHelperPaint);
-        }
-    }
-
-    /**
-     * Draws trim handles on the selected audio clip, matching video handle style.
-     * Includes trim overlay feedback and notch indicators.
-     */
-    private void drawAudioTrimHandles(Canvas canvas, RectF rect) {
-        float hTop = rect.top - handleOverhangPx;
-        float hBot = rect.bottom + handleOverhangPx;
-        float cornerRadius = audioCornerPx;
-
-        if (activeDrag == Drag.AUDIO_LEFT_HANDLE) {
-            if (audioTrimDragX > rect.left) {
-                canvas.drawRect(rect.left, rect.top, audioTrimDragX, rect.bottom, trimOverlayPaint);
-            } else if (audioTrimDragX < rect.left) {
-                canvas.drawRect(audioTrimDragX, rect.top, rect.left, rect.bottom, trimRecoverPaint);
-            }
-            RectF leftH = new RectF(audioTrimDragX - handleWidthPx / 2f, hTop,
-                    audioTrimDragX + handleWidthPx / 2f, hBot);
-            canvas.drawRoundRect(leftH, cornerRadius, cornerRadius, handlePaint);
-            drawNotch(canvas, leftH);
-            RectF rightH = new RectF(rect.right - handleWidthPx, hTop, rect.right, hBot);
-            canvas.drawRoundRect(rightH, cornerRadius, cornerRadius, handlePaint);
-            drawNotch(canvas, rightH);
-        } else if (activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
-            RectF leftH = new RectF(rect.left, hTop, rect.left + handleWidthPx, hBot);
-            canvas.drawRoundRect(leftH, cornerRadius, cornerRadius, handlePaint);
-            drawNotch(canvas, leftH);
-            if (audioTrimDragX < rect.right) {
-                canvas.drawRect(audioTrimDragX, rect.top, rect.right, rect.bottom, trimOverlayPaint);
-            } else if (audioTrimDragX > rect.right) {
-                canvas.drawRect(rect.right, rect.top, audioTrimDragX, rect.bottom, trimRecoverPaint);
-            }
-            RectF rightH = new RectF(audioTrimDragX - handleWidthPx / 2f, hTop,
-                    audioTrimDragX + handleWidthPx / 2f, hBot);
-            canvas.drawRoundRect(rightH, cornerRadius, cornerRadius, handlePaint);
-            drawNotch(canvas, rightH);
-        } else {
-            // Normal: handles at edges
-            RectF leftH = new RectF(rect.left, hTop, rect.left + handleWidthPx, hBot);
-            canvas.drawRoundRect(leftH, cornerRadius, cornerRadius, handlePaint);
-            drawNotch(canvas, leftH);
-            RectF rightH = new RectF(rect.right - handleWidthPx, hTop, rect.right, hBot);
-            canvas.drawRoundRect(rightH, cornerRadius, cornerRadius, handlePaint);
-            drawNotch(canvas, rightH);
         }
     }
 
@@ -6393,8 +6117,6 @@ public class EditorTimelineView extends View {
                         + " scaling=" + isScaling
                         + " marquee=" + marqueeMode
                         + " postPinchPan=" + postPinchPanActive
-                        + " audioDrag=" + isDraggingAudio
-                        + " pendingAudio=" + pendingAudioIndex
                         + " activeDrag=" + activeDrag
                         + " pointers=" + e.getPointerCount();
                 break;
@@ -6421,8 +6143,6 @@ public class EditorTimelineView extends View {
         // any pending long-press the instant multi-touch begins.
         if (e.getPointerCount() > 1) {
             longPressHandler.removeCallbacks(longPressRunnable);
-            longPressHandler.removeCallbacks(audioLongPressRunnable);
-            pendingAudioIndex = -1;
             cancelMarqueeTouch();
         }
 
@@ -6514,14 +6234,14 @@ public class EditorTimelineView extends View {
         // cross-row / drop-to-new-layer detection, which lives entirely in
         // onRowBodyMove) unreliable on fast/continuous drags. Bypassing the gesture
         // detector while either row flag is set mirrors the existing bypass for
-        // activeDrag/isDraggingAudio exactly. Surface-overlap fix: also bypass while a
+        // activeDrag exactly. Surface-overlap fix: also bypass while a
         // row-band touch's axis is undecided (m6RowPendingAxisDecision) or has already
         // resolved to horizontal scrub-passthrough (m6RowScrubPassthroughActive) — the
         // custom onMove below owns axis math for both, using its own downX-relative
         // deltas; letting the gesture detector's onScroll race it here would double-
         // drive (or steal) the scrub exactly like the M10 comment above describes for
         // item drags.
-        if (activeDrag == Drag.NONE && !isDraggingAudio && !m7ItemGestureActive && !m7ItemPendingDown
+        if (activeDrag == Drag.NONE && !m7ItemGestureActive && !m7ItemPendingDown
                 && !m6RowDragActive && !m6RowPendingAxisDecision && !m6RowScrubPassthroughActive) {
             // Let gesture detector process events only when no active drag. m7ItemPendingDown
             // is included so a body touch's follow-up MOVEs reach the custom onMove (which
@@ -7108,20 +6828,8 @@ public class EditorTimelineView extends View {
             }
         }
 
-        // Check if touch is on an audio clip (for select/drag) — LEGACY audio path only.
-        if (downSegIndex < 0 && audioLayerTracks.isEmpty()) {
-            int audioHit = hitTestAudioClip(scrolledX, y);
-            if (audioHit >= 0) {
-                FLog.d(TAG, "onDown: hit audio clip " + audioHit);
-                pendingAudioIndex = audioHit;
-                audioLongPressTriggered = false;
-                // Schedule audio long-press for drag
-                longPressHandler.removeCallbacks(audioLongPressRunnable);
-                longPressHandler.postDelayed(audioLongPressRunnable, AUDIO_LONG_PRESS_MS);
-                getParent().requestDisallowInterceptTouchEvent(true);
-                return true;
-            }
-        }
+        // (The legacy in-strip audio select/drag arm block was deleted 2026-08-22 —
+        // SPEC_AUDIO_UX_V1 row A1: unreachable since audio consolidation.)
 
         if (downSegIndex >= 0) {
             // Schedule long press detection via Handler
@@ -7838,11 +7546,6 @@ public class EditorTimelineView extends View {
         // Cancel long press if finger moved beyond slop
         if (dx > touchSlopPx) {
             longPressHandler.removeCallbacks(longPressRunnable);
-            // Cancel audio long press too (if not already triggered)
-            if (!audioLongPressTriggered) {
-                longPressHandler.removeCallbacks(audioLongPressRunnable);
-                pendingAudioIndex = -1;
-            }
         }
 
         if (assetDragActive) {
@@ -7886,21 +7589,6 @@ public class EditorTimelineView extends View {
 
         if (activeDrag == Drag.TRANSITION_LEFT_HANDLE || activeDrag == Drag.TRANSITION_RIGHT_HANDLE) {
             doTransitionTrimDrag(scrolledX);
-            return true;
-        }
-
-        // Audio clip drag: update offset based on finger movement
-        if (isDraggingAudio && dragAudioIndex >= 0 && dragAudioIndex < audioClips.size()) {
-            lastTrimFingerScreenX = x;
-            float deltaX = scrolledX - dragAudioStartX;
-            float deltaSec = deltaX / dpPerSecondPx;
-            long newOffset = dragAudioStartOffsetMs + (long) (deltaSec * 1000f);
-            newOffset = Math.max(0, newOffset);
-            AudioClip ac = audioClips.get(dragAudioIndex);
-            ac.setOffsetMs(newOffset);
-            computeRects();
-            invalidate();
-            startOrStopEdgeScroll(x);
             return true;
         }
 
@@ -8061,7 +7749,6 @@ public class EditorTimelineView extends View {
         // Stop edge auto-scroll and cancel long presses
         stopEdgeScroll();
         longPressHandler.removeCallbacks(longPressRunnable);
-        longPressHandler.removeCallbacks(audioLongPressRunnable);
 
         // Tear down the frame-accurate trim-edge preview when a trim drag ends.
         if (last == Drag.LEFT_HANDLE || last == Drag.RIGHT_HANDLE) {
@@ -8069,75 +7756,9 @@ public class EditorTimelineView extends View {
             loopReadoutActive = false; // L3: hide the loop-extension readout on release
         }
 
-        // Finish audio drag
-        if (isDraggingAudio) {
-            // PHASE-R R2 (P0 A8, the user's repro path): the legacy waveform-lane drag
-            // wrote setOffsetMs raw all the way to release, so same-lane audio items
-            // could be dropped STACKED. Commit-time resolve to the nearest butting
-            // position (the established no-overlap rule); if no legal spot exists,
-            // snap back to the drag origin (established cancel behavior). No listener
-            // fires from this legacy path (pre-existing), so no undo semantics change.
-            if (dragAudioIndex >= 0 && dragAudioIndex < audioClips.size()) {
-                AudioClip movedAc = audioClips.get(dragAudioIndex);
-                if (!isUp) {
-                    // ACTION_CANCEL = interrupted gesture → abort, restore origin
-                    // (same rule the row-system controller applies on CANCEL).
-                    movedAc.setOffsetMs(dragAudioStartOffsetMs);
-                } else {
-                    long resolved = resolveAudioDropOffset(movedAc, movedAc.getOffsetMs());
-                    movedAc.setOffsetMs(resolved == Long.MIN_VALUE
-                            ? dragAudioStartOffsetMs : resolved);
-                }
-            }
-            isDraggingAudio = false;
-            dragAudioIndex = -1;
-            pendingAudioIndex = -1;
-            computeRects();
-            invalidate();
-            getParent().requestDisallowInterceptTouchEvent(false);
-            return true;
-        }
-
-        // Audio tap: select/deselect (only if long press didn't trigger drag)
-        if (isUp && pendingAudioIndex >= 0 && !audioLongPressTriggered) {
-            float tapDist = Math.abs(x - downX);
-            if (tapDist < touchSlopPx) {
-                // Double-tap on the audio band → waveform customization sheet (JoyRaptor
-                // 2026-07-16: "you can see what it's doing to the band as you edit").
-                // Audio taps never seek, so no tap-deferral is needed here.
-                long tapNow = android.os.SystemClock.uptimeMillis();
-                if (pendingAudioIndex == lastAudioTapIndex
-                        && tapNow - lastAudioTapUpMs <= MASTER_DOUBLE_TAP_WINDOW_MS) {
-                    lastAudioTapIndex = -1; // consume the pair
-                    pendingAudioIndex = -1;
-                    getParent().requestDisallowInterceptTouchEvent(false);
-                    if (listener != null) listener.onAudioBandDoubleTapped();
-                    return true;
-                }
-                lastAudioTapIndex = pendingAudioIndex;
-                lastAudioTapUpMs = tapNow;
-                if (pendingAudioIndex == selectedAudioIndex) {
-                    selectedAudioIndex = -1; // Deselect
-                } else {
-                    selectedAudioIndex = pendingAudioIndex;
-                    // Deselect video segment visually when audio is selected,
-                    // but DON'T propagate onSegmentSelected(-1) to the activity.
-                    // Doing so would call selectSegment(-1) which sets
-                    // selectedClipIndex = -1, then getSelectedClip() silently
-                    // resets it to 0, corrupting playback tracking and causing
-                    // the playhead to jump to the wrong segment.
-                    if (selectedIndex >= 0) {
-                        selectedIndex = -1;
-                    }
-                }
-                invalidate();
-                if (listener != null) listener.onAudioClipSelected(selectedAudioIndex);
-            }
-            pendingAudioIndex = -1;
-            getParent().requestDisallowInterceptTouchEvent(false);
-            return true;
-        }
-        pendingAudioIndex = -1;
+        // (The legacy in-strip audio drag-resolve and audio tap-select/double-tap blocks
+        // were deleted 2026-08-22 — SPEC_AUDIO_UX_V1 row A1. Audio selection now lives
+        // entirely in LayerGestureController; getSelectedAudioIndex() derives from it.)
 
         if (last == Drag.LEFT_HANDLE || last == Drag.RIGHT_HANDLE) {
             if (listener != null) {
@@ -9132,42 +8753,6 @@ public class EditorTimelineView extends View {
         return Math.max(ceil, currentEnd);
     }
 
-    /**
-     * PHASE-R R2 (the user's audio-stacking repro lived on THIS legacy lane — the
-     * row-system got its resolver in c7442ae/caa628e, but the legacy waveform-lane
-     * long-press drag wrote {@code setOffsetMs} raw): resolve a dropped audio offset
-     * against same-lane siblings with the SAME butting rule as
-     * {@code LayerGestureController#resolveOverlapOnRow} — push to the nearer legal
-     * butt edge, multi-pass for chained pushes. Returns {@link Long#MIN_VALUE} when no
-     * non-overlapping position was found (caller snaps back to the drag origin,
-     * matching the established cancel behavior).
-     */
-    private long resolveAudioDropOffset(AudioClip moved, long desiredOffset) {
-        long dur = Math.max(0, moved.getTrimmedDurationMs());
-        if (dur <= 0) return desiredOffset;
-        long start = desiredOffset;
-        for (int pass = 0; pass < 4; pass++) {
-            boolean pushed = false;
-            for (AudioClip sib : audioClips) {
-                if (sib == moved || !sameAudioLane(moved, sib)) continue;
-                long ss = sib.getOffsetMs();
-                long se = ss + Math.max(0, sib.getTrimmedDurationMs());
-                if (start < se && start + dur > ss) {
-                    long before = ss - dur;
-                    long after = se;
-                    start = (before >= 0
-                            && Math.abs(desiredOffset - before) <= Math.abs(desiredOffset - after))
-                            ? before : after;
-                    pushed = true;
-                }
-            }
-            if (!pushed) {
-                return Math.max(0, start);
-            }
-        }
-        return Long.MIN_VALUE; // still colliding after 4 passes → snap-back
-    }
-
     private void doTransitionTrimDrag(float x) {
         if (transitionDragIndex < 0 || transitionDragIndex >= transitions.size()) return;
         Transition t = transitions.get(transitionDragIndex);
@@ -9338,26 +8923,6 @@ public class EditorTimelineView extends View {
         for (int i = 0; i < segRects.size(); i++) {
             RectF r = segRects.get(i);
             if (x >= r.left - segmentGapPx && x <= r.right + segmentGapPx) return i;
-        }
-        return -1;
-    }
-
-    /**
-     * Hit-tests audio clip rects. Returns the index of the audio clip under
-     * the given coordinates, or -1 if none.
-     */
-    private int hitTestAudioClip(float x, float y) {
-        if (audioClipRects.isEmpty()) return -1;
-        float audioTop = audioBandTopPx();
-        float audioBot = audioBandBotPx();
-        if (y < audioTop - touchSlopPx / 2 || y > audioBot + touchSlopPx / 2) return -1;
-        // With stacked lanes, match the actual per-clip rect (x AND y), not just x.
-        for (int i = 0; i < audioClipRects.size(); i++) {
-            RectF r = audioClipRects.get(i);
-            if (x >= r.left && x <= r.right
-                    && y >= r.top - touchSlopPx / 2 && y <= r.bottom + touchSlopPx / 2) {
-                return i;
-            }
         }
         return -1;
     }
@@ -9621,10 +9186,8 @@ public class EditorTimelineView extends View {
             dislodgeArmedSegIndex = -1;
             FLog.d(TAG, "ScaleListener.onScaleBegin: zoom=" + zoomLevel);
             isScaling = true;  // Set flag to block other touches
-            // Cancel any pending reorder/audio-drag long-press — this is a pinch.
+            // Cancel any pending reorder long-press — this is a pinch.
             longPressHandler.removeCallbacks(longPressRunnable);
-            longPressHandler.removeCallbacks(audioLongPressRunnable);
-            pendingAudioIndex = -1;
             // Bug A ("row scrub sticks sometimes") — while isScaling is true, onTouchEvent
             // early-returns for EVERY subsequent event including the terminal UP/CANCEL, so
             // onUp() never runs and whichever M6/M7 row-gesture flag was set (a pinch that
@@ -9691,12 +9254,6 @@ public class EditorTimelineView extends View {
             if (VLOG) FLog.d(TAG, "GestureListener.onScroll: distanceX=" + distanceX + " activeDrag=" + activeDrag);
             // Cancel long press — user is scrolling, not holding
             longPressHandler.removeCallbacks(longPressRunnable);
-            // Cancel audio long-press too — prevents false-positive audio drag
-            // when the user is scrolling through the timeline and their finger
-            // happens to pass over an audio clip (pendingAudioIndex was set in
-            // onDown but the onMove dispatch is bypassed by the gesture detector).
-            longPressHandler.removeCallbacks(audioLongPressRunnable);
-            if (!audioLongPressTriggered) pendingAudioIndex = -1;
             // Only handle scroll if not dragging handles
             if (activeDrag != Drag.NONE) {
                 if (VLOG) FLog.d(TAG, "GestureListener.onScroll: ignoring, activeDrag=" + activeDrag);

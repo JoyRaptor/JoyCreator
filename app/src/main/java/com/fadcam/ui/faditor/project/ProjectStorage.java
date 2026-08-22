@@ -2038,6 +2038,17 @@ public class ProjectStorage {
                 acJson.addProperty("captionSizeFraction", ac.getCaptionSizeFraction());
                 // §4.5 per-object lock (write-if-true; audio's eye = its existing mute).
                 if (ac.isLocked()) acJson.addProperty("objLocked", true);
+                // D10: struck-word cuts — HAND-serialized, not gson. Omit-at-default.
+                if (!ac.getRemovedSpans().isEmpty()) {
+                    JsonArray spans = new JsonArray();
+                    for (long[] s : ac.getRemovedSpans()) {
+                        JsonArray pair = new JsonArray();
+                        pair.add(s[0]);
+                        pair.add(s[1]);
+                        spans.add(pair);
+                    }
+                    acJson.add("removedSpans", spans);
+                }
                 audioArray.add(acJson);
             }
             timelineJson.add("audioClips", audioArray);
@@ -2686,6 +2697,16 @@ public class ProjectStorage {
                         }
                         // §4.5 per-object lock (tolerant: absent = false).
                         if (hasValue(acObj, "objLocked")) ac.setLocked(acObj.get("objLocked").getAsBoolean());
+                        // D10: tolerant absence — every existing project predates this field.
+                        if (hasValue(acObj, "removedSpans")) {
+                            JsonArray spans = acObj.getAsJsonArray("removedSpans");
+                            java.util.List<long[]> list = new java.util.ArrayList<>();
+                            for (int s = 0; s < spans.size(); s++) {
+                                JsonArray pair = spans.get(s).getAsJsonArray();
+                                list.add(new long[]{pair.get(0).getAsLong(), pair.get(1).getAsLong()});
+                            }
+                            ac.setRemovedSpans(list);
+                        }
                         project.getTimeline().addAudioClip(ac, false);
                       } catch (Exception ex) {
                         FLog.e(TAG, "Skipping malformed audio clip #" + i, ex);

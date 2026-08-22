@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.FLog;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
 import com.fadcam.ui.faditor.keyframe.Keyframe;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
@@ -2802,6 +2803,9 @@ public final class LayerRowRenderer {
     private static final float TRIM_WIDTH_DP = 16f;
     private static final float FADE_W_DP = 20f;
     private static final float FADE_H_DP = 12f;
+    /** E2: flight recorder for fade/trim/delete precedence at the contested top corner. */
+    private static final boolean E2_DEBUG = true;
+    private static final String E2_TAG = "E2FADE";
 
     /**
      * Hit-test a DOWN/tap at content coordinates against the item blocks drawn by
@@ -2839,12 +2843,16 @@ public final class LayerRowRenderer {
                 float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
                 if (x < x0 - specTrimW || x > x1 + specTrimW) continue;
                 boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
+                // E2: contested top-corner — log which zone actually won.
+                boolean isTopCorner = localY >= top && localY <= top + FADE_H_DP * density;
                 // SPEC §4: trim = outer 16dp full height — spec-exact, not the legacy 10dp half.
                 float trimW = specTrimW;
                 if (selected && x <= x0 + trimW) {
+                    if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON TRIM_LEFT x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                     return new ItemHit(t, item, ItemZone.LEFT_HANDLE);
                 }
                 if (selected && x >= x1 - trimW) {
+                    if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON TRIM_RIGHT x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                     return new ItemHit(t, item, ItemZone.RIGHT_HANDLE);
                 }
                 // SPEC §4 B1.U: fade handles — top 12dp ×20dp inboard of trim, selection-only, trim wins.
@@ -2853,9 +2861,11 @@ public final class LayerRowRenderer {
                     float fadeW = FADE_W_DP * density;
                     if (localY >= top && localY <= top + fadeH) {
                         if (x >= x0 + trimW && x <= x0 + trimW + fadeW) {
+                            if (E2_DEBUG) FLog.d(E2_TAG, "hitTest WON FADE_IN x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                             return new ItemHit(t, item, ItemZone.FADE_IN);
                         }
                         if (x >= x1 - trimW - fadeW && x <= x1 - trimW) {
+                            if (E2_DEBUG) FLog.d(E2_TAG, "hitTest WON FADE_OUT x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                             return new ItemHit(t, item, ItemZone.FADE_OUT);
                         }
                     }
@@ -2876,11 +2886,13 @@ public final class LayerRowRenderer {
                         float slopR = DELETE_BADGE_RADIUS_DP * density * 2.0f;
                         float ddx = x - cx, ddy = localY - cy;
                         if (ddx * ddx + ddy * ddy <= slopR * slopR) {
+                            if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON DELETE x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId() + " (slopR=" + slopR + " vs fade band " + FADE_H_DP + "dp)");
                             return new ItemHit(t, item, ItemZone.DELETE);
                         }
                     }
                 }
                 if (x >= x0 && x <= x1) {
+                    if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON BODY x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                     return new ItemHit(t, item, ItemZone.BODY);
                 }
             }

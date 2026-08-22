@@ -449,6 +449,10 @@ public final class LayerGestureController {
                                     @NonNull LayerRowRenderer.TimeToX timeToX) {
         lastTotalMs = totalMs;
         LayerRowRenderer.ItemHit hit = rowRenderer.hitTestItem(x, y, topPx, totalMs, timeToX, selectedItemId);
+        // E2: flight recorder — which zone WON at the contested top corner on every real gesture.
+        if (hit != null) {
+            com.fadcam.FLog.d("E2FADE", "onRowBodyDown WON " + hit.zone + " item=" + hit.item.getId() + " x=" + x + " y=" + y);
+        }
         if (hit == null) {
             boolean hadSelection = selectedItemId != null;
             selectedItemId = null;

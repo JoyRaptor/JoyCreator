@@ -191,3 +191,66 @@ NOT cost memory — most images are not zoomed, and the LRU bounds the rest.
   radial/zoom blur is a different shader and a separate decision.
 - Gate any of it behind the existing `onFxShaderUnavailable` path so a device that cannot
   compile the shader degrades to no blur rather than a broken preview.
+
+---
+
+## 8. JOYRAPTOR'S DECISIONS — 2026-08-22 (these are settled; do not re-ask)
+
+### 8.1 Large media: ASK, then remember (his design, accepted)
+
+Above the size threshold, prompt: *"This file is bigger than X — move it into your project,
+or just link to its current location?"* Plus:
+- a **"don't ask again, remember my choice"** checkbox,
+- the same choice exposed in **editor settings** so it can be changed later,
+- a **"migrate all large media links into project"** button in settings.
+
+He named the real trade himself: linking means he can keep editing the chart externally and
+have the project pick up his changes; copying means it cannot break. Both are legitimate,
+which is exactly why this should be a question rather than a hardcoded 10 MB cutoff.
+
+TWO THINGS THE DESIGN STILL NEEDS (raised with him, not yet ruled on):
+- **Live-update is not automatic today.** Decoded bitmaps are cached and filmstrips are
+  baked, so an externally edited chart will not refresh until those are invalidated. If
+  "edit the chart and see it update" is the point of linking, the link path must check the
+  source's last-modified time and re-decode when it changes. Otherwise the advantage he is
+  choosing linking FOR does not actually materialise.
+- **A broken link needs a way back.** Linked files can be moved, renamed, or lose their URI
+  permission. Without a relink flow a broken link is a dead end. `showMissingOverlay` is the
+  existing precedent for missing sources — extend that to offer "find this file again"
+  rather than only reporting the loss.
+
+Implementation note: the copy itself must move OFF the main thread with progress. The 10 MB
+skip exists only to avoid an ANR, and that constraint disappears once copying is async.
+
+### 8.2 Keep the auto-added black tail (ruling 3 = A)
+
+The 4m16s stays in "first lecture on phone".
+
+He attached a NEW feature to this decision: **export a range.**
+- A checkbox in the export flow; ticking it reveals a **minimap with a selection bracket**
+  (start and end handles).
+- Tapping either handle opens the **shared time-entry dialog** so exact times can be typed —
+  explicitly reusing `promptForTimeMs` and the SPEC 3c grammar (`2m30s`, `90f`, `1/6 min`).
+- This is the natural companion to keeping the black tail: keep the project honest, and let
+  the export decide what part of it ships.
+
+### 8.3 Auto-extend stays automatic (ruling 4 = A)
+
+Objects hanging past the end always pull black in behind them. Silent non-export is the
+worse surprise.
+
+### 8.4 Run the duplicate-asset cleanup (ruling 4/housekeeping = A)
+
+Do the one-time migration that hashes existing assets, points project URIs at a single
+canonical copy and deletes the rest. **Not while he is mid-edit** — snapshot the project
+first, run it off the main thread, and treat it as a deliberate job.
+
+### 8.5 The two observations (ruling 10) — still owed, deferred by him
+
+"I'll need to look at later." Do not block on these, but do not lose them:
+- Was the empty adjustment layer BELOW the text, and did text return instantly or only after
+  a scrub?
+- Export a project whose audio runs past the last video clip and compare the file's length.
+- Also still unverified: whether a text box is editable again after applying an animation —
+  his ORIGINAL 2026-08-15 complaint, with two bugs fixed underneath it and the symptom never
+  re-checked.

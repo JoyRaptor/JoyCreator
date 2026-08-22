@@ -9504,14 +9504,55 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             java.io.File dir = new java.io.File(getFilesDir(), subDir);
             if (!dir.exists()) dir.mkdirs();
-            String name = "asset_" + System.currentTimeMillis() + "_" + uri.getLastPathSegment();
-            java.io.File out = new java.io.File(dir, name);
+
+            // CONTENT-ADDRESSED, so the same picture added twice is the same file.
+            //
+            // This used to name every copy "asset_<millis>_<original>", so picking the SAME
+            // image from the browser a dozen times produced a dozen byte-identical files with a
+            // dozen different URIs. Everything downstream keys on the URI, so that meant a dozen
+            // separate decodes and a dozen bitmaps resident at once. JoyRaptor, 2026-08-21: "i would
+            // often add the same image in differnt places... probably using the image perhaps a
+            // dozen times", and for a chart-heavy project that is the difference between one
+            // decode and a hundred.
+            //
+            // The hash costs nothing extra: the bytes are already being read once to copy them,
+            // so it is computed DURING that same pass. A hit skips the write entirely.
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            java.io.File tmp = new java.io.File(dir, "asset_tmp_" + System.nanoTime());
             try (java.io.InputStream is = getContentResolver().openInputStream(uri);
-                 java.io.OutputStream os = new java.io.FileOutputStream(out)) {
-                if (is == null) return uri;
+                 java.io.OutputStream os = new java.io.FileOutputStream(tmp)) {
+                if (is == null) { tmp.delete(); return uri; }
                 byte[] buf = new byte[8192];
                 int len;
-                while ((len = is.read(buf)) >= 0) os.write(buf, 0, len);
+                while ((len = is.read(buf)) >= 0) {
+                    md.update(buf, 0, len);
+                    os.write(buf, 0, len);
+                }
+            }
+            StringBuilder hex = new StringBuilder();
+            for (byte b : md.digest()) hex.append(String.format("%02x", b));
+            // Keep the original extension: BitmapFactory does not need it, but the export's
+            // resolver, project bundling and anything a human inspects all read better with it.
+            String orig = uri.getLastPathSegment();
+            String ext = "";
+            if (orig != null) {
+                int dot = orig.lastIndexOf('.');
+                if (dot > 0 && dot < orig.length() - 1 && orig.length() - dot <= 6) {
+                    ext = orig.substring(dot);
+                }
+            }
+            java.io.File out = new java.io.File(dir, hex + ext);
+            if (out.exists() && out.length() > 0) {
+                // Already imported. Drop the duplicate and hand back the copy we already have.
+                tmp.delete();
+                FLog.d(TAG, "Asset already imported, reusing " + out.getName());
+                return Uri.fromFile(out);
+            }
+            if (!tmp.renameTo(out)) {
+                // Rename can fail if another import won the race; prefer the existing file.
+                tmp.delete();
+                if (out.exists() && out.length() > 0) return Uri.fromFile(out);
+                return uri;
             }
             Uri local = Uri.fromFile(out);
             FLog.d(TAG, "Copied " + uri + " -> " + local);
@@ -26080,6 +26121,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
             mlp.rightMargin = Math.round(8 * d);
             motionRow.addView(motionLabel, mlp);
+            // DIMMED WHEN NOT RUNNING. The timings are kept when the preset is None (so comparing
+            // options never destroys work), which means the row can now show real numbers for an
+            // animation that is switched off. JoyRaptor asked the right question: "are the timings
+            // hidden from the user so they dont distract the user into thinking animations are
+            // actually live?"
+            //
+            // Dimmed rather than hidden, deliberately. Hiding them would make the timings feel
+            // deleted — the very anxiety that made clearing them wrong — and would take away the
+            // ability to adjust timing while auditioning with the animation off. Half opacity
+            // reads as "present but inert", which is exactly what they are.
+            motionRow.setAlpha(item.isTextAnimActive() ? 1f : 0.45f);
             final android.widget.LinearLayout mRow = motionRow;
             View startBtn = markerChip(d, MARKER_COLOR_MOTION,
                     R.drawable.ic_marker_flag_start,

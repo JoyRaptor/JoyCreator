@@ -546,8 +546,42 @@ public class TextOverlayLayer extends FrameLayout {
         return (int) clamped;
     }
 
-    /** 1080p-class long edge: the size the GL composite and every preview surface actually use. */
-    private static final int PREVIEW_DECODE_MAX_EDGE = 1920;
+    /** 1080p-class long edge: what the GL composite and preview surfaces render at un-zoomed. */
+    private static final int PREVIEW_DECODE_BASE_EDGE = 1920;
+
+    /**
+     * Hard ceiling for a heavily zoomed image. 4096 is one 4K-class edge: enough that a chart
+     * blown up several times still resolves detail, and still bounded so one enormous photo
+     * cannot eat the whole cache budget on its own (a 4096x3072 ARGB bitmap is ~50 MB).
+     */
+    private static final int PREVIEW_DECODE_CEILING_EDGE = 4096;
+
+    /**
+     * The largest this image is ever drawn, as a multiple of its un-zoomed size.
+     *
+     * <p>Reads the SCALE keyframe track directly rather than sampling the animation: the track
+     * IS the set of extremes, since interpolation between two keys never exceeds both. Falls
+     * back to the static transform when the item is not animated.
+     */
+    private static float maxScaleFactor(@NonNull TextOverlayItem o) {
+        float max = Math.max(1f, o.getScaleX());
+        max = Math.max(max, o.getScaleY());
+        try {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack t =
+                    o.getKeyframes().get(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE);
+            if (t != null) {
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
+                    if (k.value > max) max = k.value;
+                }
+            }
+        } catch (Exception ignored) {
+            // A missing or oddly-shaped track just means "no extra zoom" — never a reason to
+            // fail a decode.
+        }
+        // Beyond 6x the source is usually the limit, not the decode, and the ceiling caps it
+        // anyway; clamping here keeps a wild keyframe from demanding an absurd first guess.
+        return Math.max(1f, Math.min(max, 6f));
+    }
 
     @Nullable
     private android.graphics.Bitmap imageBitmap(@NonNull TextOverlayItem o) {
@@ -561,15 +595,27 @@ public class TextOverlayLayer extends FrameLayout {
         if (cached != null && !cached.isRecycled()) return cached;
         android.graphics.Bitmap out = null;
         try {
-            // Bound by what the PREVIEW can show, not by the panel's pixel count. This used to
-            // be the device's long edge — 3088 on a Note 20 — so every image was decoded to a
-            // size no preview surface renders at, costing ~2.6x the pixels of a 1080p-class
-            // bound for no visible difference. The export is unaffected either way: it decodes
-            // its own copy bounded by the OUTPUT frame (ImageOverlayDraw.decode), which is why a
-            // 4K export is not limited by anything chosen here.
+            // Bound by what the preview can SHOW — including how far this image is ever zoomed.
+            //
+            // A flat cap is wrong for the workflow JoyRaptor described on 2026-08-21: "I like to
+            // have very large high rez images showing a detailed chart and zoom around it... i
+            // want to make sure those zooms are crisp and sharp." An image blown up 3x needs 3x
+            // the pixels to stay sharp, and a 1080p-class bound would show him a soft chart at
+            // exactly the moment he is inspecting detail.
+            //
+            // So the bound follows the item's own MAXIMUM scale across its keyframes rather than
+            // a constant. An un-zoomed image still decodes small; a chart that zooms to 4x
+            // decodes at 4x, up to a ceiling. Cheap to compute (a walk of one keyframe track)
+            // and it is the difference between "efficient" and "efficient but blurry".
+            //
+            // The export is unaffected either way: it decodes its own copy bounded by the OUTPUT
+            // frame (ImageOverlayDraw.decode), so a 4K export is never limited by anything here.
             android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
             int screenEdge = Math.max(dm.widthPixels, dm.heightPixels);
-            int maxEdge = Math.max(640, Math.min(screenEdge, PREVIEW_DECODE_MAX_EDGE));
+            int baseEdge = Math.min(screenEdge, PREVIEW_DECODE_BASE_EDGE);
+            float zoom = maxScaleFactor(o);
+            int maxEdge = Math.max(640, Math.min(
+                    Math.round(baseEdge * zoom), PREVIEW_DECODE_CEILING_EDGE));
             android.graphics.BitmapFactory.Options bounds =
                     new android.graphics.BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;

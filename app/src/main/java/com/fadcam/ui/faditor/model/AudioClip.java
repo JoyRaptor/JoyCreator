@@ -101,6 +101,10 @@ public class AudioClip {
     @NonNull
     private final List<VolumeKeyframe> volumeKeyframes = new ArrayList<>();
 
+    /** Struck-word cuts (same semantics as {@link Clip#getRemovedSpans()}): source-ms spans that decode as silence. */
+    @NonNull
+    private final List<long[]> removedSpans = new ArrayList<>();
+
     // ── Transcripts (speech-to-text) ─────────────────────────────────
 
     @NonNull
@@ -177,6 +181,7 @@ public class AudioClip {
         this.captionCenterX = other.captionCenterX;
         this.captionCenterY = other.captionCenterY;
         this.captionSizeFraction = other.captionSizeFraction;
+        for (long[] s : other.removedSpans) this.removedSpans.add(new long[]{s[0], s[1]});
     }
 
     // ── Getters ──────────────────────────────────────────────────────
@@ -385,6 +390,10 @@ public class AudioClip {
     public void setCaptionSizeFraction(float f) {
         this.captionSizeFraction = Math.max(0.02f, Math.min(0.6f, f));
     }
+
+    public List<long[]> getRemovedSpans() { return removedSpans; }
+    public boolean hasRemovedSpans() { return !removedSpans.isEmpty(); }
+    public void setRemovedSpans(@NonNull List<long[]> spans) { removedSpans.clear(); removedSpans.addAll(spans); }
 
     // ── Utility ──────────────────────────────────────────────────────
 

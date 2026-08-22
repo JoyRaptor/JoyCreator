@@ -1502,6 +1502,9 @@ public final class LayerRowRenderer {
             drawSequenceResizeModeHandles(canvas, item, x0, top, x1, bottom);
             if (item.getAudioClip() != null) drawFadeHandles(canvas, x0, top, x1, bottom, baseColor);
         }
+        if (item.getAudioClip() != null && item.getAudioClip().hasRemovedSpans()) {
+            drawAudioStruckTape(canvas, item, x0, top, x1, bottom, timeToX);
+        }
         if (trimmingItemId != null && trimmingItemId.equals(item.getId())) {
             drawTrimStripes(canvas, x0, top, x1, bottom);
         }
@@ -2398,6 +2401,33 @@ public final class LayerRowRenderer {
         p.setAlpha(255);
         p.setStyle(prevStyle);
         p.setStrokeWidth(prevW);
+    }
+
+    /** SPEC_AUDIO_UX_V1 D10: struck-word spans as darkened tape — same mechanism as Clip, routed for AudioClip. */
+    private void drawAudioStruckTape(@NonNull Canvas canvas, @NonNull TimedItem item, float x0, float top, float x1, float bottom, @NonNull TimeToX timeToX) {
+        com.fadcam.ui.faditor.model.AudioClip ac = item.getAudioClip();
+        if (ac == null || ac.getRemovedSpans().isEmpty()) return;
+        long clipStart = item.getTimelineStartMs();
+        long inPoint = ac.getInPointMs();
+        Paint dark = new Paint(Paint.ANTI_ALIAS_FLAG);
+        dark.setColor(0xAA000000);
+        dark.setStyle(Paint.Style.FILL);
+        for (long[] span : ac.getRemovedSpans()) {
+            long s = span[0], e = span[1];
+            float sx = timeToX.map(clipStart + (s - inPoint));
+            float ex = timeToX.map(clipStart + (e - inPoint));
+            if (ex < x0 || sx > x1) continue;
+            sx = Math.max(sx, x0);
+            ex = Math.min(ex, x1);
+            canvas.drawRect(sx, top, ex, bottom, dark);
+            // Thin diagonal hatch to make it read as "cut" even on monochrome.
+            dark.setColor(0x22FFFFFF);
+            dark.setStrokeWidth(1f * density);
+            for (float hx = sx; hx < ex; hx += 6f * density) {
+                canvas.drawLine(hx, top, hx + 4f * density, bottom, dark);
+            }
+            dark.setColor(0xAA000000);
+        }
     }
 
     /** Radius of the selected item's delete badge (the trash roundel).

@@ -30322,13 +30322,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void syncRemovedSpansFromTranscript() {
         if (currentTranscript == null) return;
         Clip clip = getSelectedClip();
-        if (clip == null || !clip.getId().equals(transcriptClipId)) return;
+        com.fadcam.ui.faditor.model.AudioClip ac = null;
+        boolean isAudio = false;
+        if (clip != null && clip.getId().equals(transcriptClipId)) {
+            isAudio = false;
+        } else {
+            if (project != null) {
+                for (com.fadcam.ui.faditor.model.AudioClip c : project.getTimeline().getAudioClips()) {
+                    if (c.getId().equals(transcriptClipId)) { ac = c; isAudio = true; break; }
+                }
+            }
+            if (!isAudio) return;
+        }
 
         // Pad each struck word slightly: Vosk timestamps a word's onset a touch
         // late, so without this the very start of the word ("the m of ma'am")
         // leaks through. Clamped to the clip's trim.
-        long inMs = clip.getInPointMs();
-        long outMs = clip.getOutPointMs();
+        long inMs = isAudio ? ac.getInPointMs() : clip.getInPointMs();
+        long outMs = isAudio ? ac.getOutPointMs() : clip.getOutPointMs();
         List<long[]> raw = new ArrayList<>();
         for (com.fadcam.ui.faditor.transcript.TranscriptWord w : currentTranscript.words) {
             // Only words fully inside this clip's trim window contribute cuts (defensive: once the
@@ -30353,7 +30364,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 merged.add(new long[]{s[0], s[1]});
             }
         }
-        clip.setRemovedSpans(merged);
+        if (isAudio) ac.setRemovedSpans(merged); else clip.setRemovedSpans(merged);
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();
         scheduleAutoSave();

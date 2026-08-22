@@ -1083,7 +1083,7 @@
     <string name="faditor_tool_canvas">Canvas</string>
     <string name="faditor_canvas_title">Canvas</string>
     <string name="faditor_canvas_applied">Canvas set to %s</string>
-    <string name="faditor_tool_audio">Extract Audio</string>
+    <string name="faditor_tool_audio">Extract audio</string>
     <string name="faditor_audio_extract_current">Extract from video</string>
     <string name="faditor_audio_extract_current_desc">Extract the audio track from the current video</string>
     <string name="faditor_audio_extracting">Extracting audio…</string>

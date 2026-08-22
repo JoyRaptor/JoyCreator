@@ -372,9 +372,9 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: ACTIVE (2026-08-22 — SPEC_AUDIO_UX_V1 A1 committed, watcher LIVE
-        BUILD SUCCESSFUL + installed on SM-N960U 2026-08-22, typecheck clean.
-        Next: B8.)
+status: ACTIVE (2026-08-22 — SPEC_AUDIO_UX_V1 B8 in progress, watcher LIVE
+        BUILD SUCCESSFUL SM-N960U 2026-08-22, typecheck clean.
+        Next: B1.E+B1.U+B10 batch.)
 files: tools/FaditorToolRegistry.java, res/values/strings.xml,
         tasks/SPEC_AUDIO_UX_V1.md (status cells only)
 since: 2026-08-22

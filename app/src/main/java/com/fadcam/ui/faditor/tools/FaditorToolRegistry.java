@@ -57,7 +57,7 @@ public final class FaditorToolRegistry {
                 ctx.getString(R.string.faditor_tool_canvas), "aspect_ratio",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "audio", R.id.tool_audio, R.id.tool_audio_icon, R.id.tool_audio_label,
-                ctx.getString(R.string.faditor_tool_audio), "equalizer",
+                ctx.getString(R.string.faditor_tool_audio), "call_split",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "split", R.id.tool_split, R.id.tool_split_icon, R.id.tool_split_label,
                 ctx.getString(R.string.faditor_tool_split), "content_cut",

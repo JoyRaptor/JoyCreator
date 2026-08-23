@@ -54,7 +54,7 @@ collide on it even when their SOURCE files are disjoint. Same rule as DEVICE, bu
 seconds not minutes: take it only to write your row, then release. Never hold it while you
 code. If it is taken, finish your code, wait, then update the row.
 
-SPEC: REVIEW (Claude) — recording hands-on feedback G-rows
+SPEC: free
 
 ## DEVICE TOKEN
 DEVICE: LANE C (opencode agent, E4 export batch) (Fable released 2026-07-12 ~05:15, usage-capped session end. BATCH RESULTS:

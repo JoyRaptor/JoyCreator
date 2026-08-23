@@ -31,6 +31,22 @@ how they avoid clobbering each other. Protocol — no exceptions:
    when it reads `free` (or the holder is IDLE): set `DEVICE: <you>`, do your batch,
    then set it back to `free`. Never drive the device while the other agent holds it.
 
+## WORKING-TREE HAZARD  (added 2026-08-23, after it cost three separate pieces of work)
+
+Something in this repo's agent tooling periodically RESTORES OR CLEANS THE WORKING TREE.
+Committed work always survived; UNCOMMITTED work was silently destroyed three times in one
+afternoon: a LayerGestureController edit, a note written into SPEC_AUDIO_UX_V1.md, and all
+three files of row D7 — the last between a passing harness run and the `git add` two seconds
+later.
+
+**Therefore: `git add` a new or edited file the moment you write it, BEFORE you verify it.**
+Staging is what survives a clean; an unstaged file does not. This inverts the usual
+verify-then-stage habit on purpose — in this repo, staged-but-unverified beats
+verified-but-lost, and you can always fix a staged file before committing.
+
+If you find yourself about to run `git checkout .`, `git stash`, or `git clean`, DON'T:
+another lane's uncommitted work is very likely in the tree beside yours.
+
 ## SPEC TOKEN  (added 2026-08-22 — the second single-writer resource)
 
 `tasks/SPEC_AUDIO_UX_V1.md` is edited by EVERY row (§7 status cells), so parallel agents
@@ -38,7 +54,7 @@ collide on it even when their SOURCE files are disjoint. Same rule as DEVICE, bu
 seconds not minutes: take it only to write your row, then release. Never hold it while you
 code. If it is taken, finish your code, wait, then update the row.
 
-SPEC: free
+SPEC: REVIEW (Claude) — D7 row
 
 ## DEVICE TOKEN
 DEVICE: LANE C (opencode agent, E4 export batch) (Fable released 2026-07-12 ~05:15, usage-capped session end. BATCH RESULTS:

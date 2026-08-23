@@ -31,6 +31,15 @@ how they avoid clobbering each other. Protocol — no exceptions:
    when it reads `free` (or the holder is IDLE): set `DEVICE: <you>`, do your batch,
    then set it back to `free`. Never drive the device while the other agent holds it.
 
+## SPEC TOKEN  (added 2026-08-22 — the second single-writer resource)
+
+`tasks/SPEC_AUDIO_UX_V1.md` is edited by EVERY row (§7 status cells), so parallel agents
+collide on it even when their SOURCE files are disjoint. Same rule as DEVICE, but held for
+seconds not minutes: take it only to write your row, then release. Never hold it while you
+code. If it is taken, finish your code, wait, then update the row.
+
+SPEC: free
+
 ## DEVICE TOKEN
 DEVICE: free (Fable released 2026-07-12 ~05:15, usage-capped session end. BATCH RESULTS:
   ✓ REPLAY-IK/bake replay: injected 2s yaw sweep drives the puppet in live playback —
@@ -83,7 +92,22 @@ and BATCHES its device-verify into windows when this reads `free` / Fable is IDL
 ---
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-07-14 — Opus-4.8 autonomous device-verify run, device SANDBOX_SERIAL REPLUGGED,
+status: IDLE (claim above was STALE from 2026-07-14 and listed FaditorEditorActivity.java,
+        which LANE A holds today. Cleared by review 2026-08-23 per rule 5 — every file it named
+        was clean in the tree. History preserved below as prior-status.)
+files: (none)
+since: 2026-08-23
+
+## REVIEW (Claude Opus 5) — integration lane
+status: ACTIVE (2026-08-23 — SPEC_AUDIO_UX_V1 row B2: the cross-fade pill, JoyRaptor's §5 design.
+        Authoring half only; EXPORT wiring waits on LANE C's A8, since two overlapping lane
+        clips cannot both sound until that lands.)
+files: model/AudioCrossfade.java (new), model/Timeline.java, project/ProjectStorage.java,
+        layers/LayerRowRenderer.java, layers/LayerGestureController.java,
+        timeline/EditorTimelineView.java
+since: 2026-08-23
+
+prior-status: ACTIVE (2026-07-14 — Opus-4.8 autonomous device-verify run, device SANDBOX_SERIAL REPLUGGED,
         holds DEVICE token. This session's PASSES (see DEVICE_VERIFY_QUEUE_20260712.md): A1 export
         re-verify BOTH paths (video @ aeb0517e repro + audio-only .m4a @ cebc19e0, 66.88kB output) —
         confirms 313e7fa+148c155; bonus da96248 audio-copy verified on-device; A5 AV4 waveform settings
@@ -372,9 +396,20 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: ACTIVE (2026-08-22 — SPEC_AUDIO_UX_V1 D10 in progress, watcher LIVE
-        BUILD SUCCESSFUL 15:47+16:00, typecheck OK 632.
-        Next: D10 commit.)
-files: model/AudioClip.java, FaditorEditorActivity.java,
-        layers/LayerRowRenderer.java, tasks/SPEC_AUDIO_UX_V1.md (status cells only)
-since: 2026-08-22
+status: IDLE (2026-08-23 — D3/D2/A3 all BUILT, typecheck 635 green, lane released)
+files: (none)
+since: 2026-08-23
+
+## LANE C — dynamic lane (B1.Q + C2.E verify + C2.U)
+status: IDLE (2026-08-23 — B1.Q + C2.E + C2.U BUILT 372923f5 on joy-creator. Literal harness
+        tails in report: "TYPECHECK OK — 635 sources, 1776 classes" / envelope "ALL PASS"+"ALL GREEN"
+        / bakedparse "ALL PASS". ffmpeg behaviour EXECUTED on desktop ffmpeg 7.0.2; ffmpeg-kit build
+        inclusion still unproven (needs device). typecheck.sh grep --text hardening included.
+        KNOWN GAP: FEA peek-sheet :21632 writes final gain into multiplier store — locked, for LANE A)
+files: (none — released)
+since: 2026-08-23
+
+## LANE A — dynamic lane (F3 → D5, 5 rows in order)
+status: ACTIVE (2026-08-23 12:00 — ROW 1 F3 in progress)
+files: FaditorEditorActivity.java, transcript/*, AddAssetBottomSheet.java, res/layout/activity_faditor_editor.xml, app/src/main/java/com/fadcam/ui/faditor/audio/VoiceoverRecorder.java
+since: 2026-08-23 12:00

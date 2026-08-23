@@ -44,6 +44,14 @@ public class Timeline {
     @NonNull
     private final List<AudioClip> audioClips;
 
+    /**
+     * Cross-fades between adjacent AUDIO lanes (SPEC_AUDIO_UX_V1 §5, row B2).
+     * Kept on the timeline rather than on either clip because a cross-fade is a
+     * RELATIONSHIP between two lanes — see {@link AudioCrossfade}'s class note.
+     */
+    @NonNull
+    private final List<AudioCrossfade> audioCrossfades;
+
     /** Text overlays rendered on top of the whole timeline. */
     @NonNull
     private final List<TextOverlayItem> textOverlays;
@@ -172,6 +180,7 @@ public class Timeline {
     public Timeline() {
         this.clips = new ArrayList<>();
         this.audioClips = new ArrayList<>();
+        this.audioCrossfades = new ArrayList<>();
         this.textOverlays = new ArrayList<>();
         this.transitions = new ArrayList<>();
         this.waveformOverlays = new ArrayList<>();
@@ -821,6 +830,25 @@ public class Timeline {
     /**
      * Returns an unmodifiable view of the audio clip list.
      */
+    /** Live list — mutate through the add/remove helpers so callers stay undoable. */
+    @NonNull
+    public List<AudioCrossfade> getAudioCrossfades() { return audioCrossfades; }
+
+    public void addAudioCrossfade(@NonNull AudioCrossfade x) { audioCrossfades.add(x); }
+
+    public boolean removeAudioCrossfadeById(@NonNull String id) {
+        for (int i = 0; i < audioCrossfades.size(); i++) {
+            if (audioCrossfades.get(i).getId().equals(id)) { audioCrossfades.remove(i); return true; }
+        }
+        return false;
+    }
+
+    @androidx.annotation.Nullable
+    public AudioCrossfade findAudioCrossfade(@NonNull String id) {
+        for (AudioCrossfade x : audioCrossfades) if (x.getId().equals(id)) return x;
+        return null;
+    }
+
     @NonNull
     public List<AudioClip> getAudioClips() {
         return Collections.unmodifiableList(audioClips);

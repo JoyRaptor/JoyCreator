@@ -21511,51 +21511,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     // ── AUDIO (volume envelope) ──────────────────────────────────────────
 
-    /**
-     * §2 general menu for an AUDIO clip. Audio animates ONLY its volume, via the
-     * {@link com.fadcam.ui.faditor.model.AudioClip} envelope (clip-local ms; the
-     * SAME semantics as the band's blue rubber-band and {@link #applyDraggedVolume}).
-     * No pan (the export mixer can't honor it).
-     * REVERSAL 2026-08-22 (B10): audio NOW has range chips — the previous
-     * "No More…/range chips — audio trim lives on the band." decision was
-     * deliberately reversed per SPEC_AUDIO_UX_V1 B10 (JoyRaptor: audio needs
-     * frame-accurate trimming more than any other object). TWO chips only
-     * — Span whole is meaningless for audio.
-     */
-    private void showObjectMenuSheetForAudioClip(
-            @NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
-        if (project == null) return;
-        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
-        props.add(audioVolumeProp(ac, pct));
-
-        java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
-        actions.add(new ObjectMenuSheet.Action("Clear volume envelope", true, // TODO(strings)
-                () -> clearAudioVolumeEnvelope(ac)));
-
-        final AudioVolumeState[] sliderBefore = new AudioVolumeState[1];
-        ObjectMenuSheet.GestureHooks hooks = new ObjectMenuSheet.GestureHooks() {
-            @Override public void onSliderStart() { sliderBefore[0] = snapshotAudioVolume(ac); }
-            @Override public void onSliderCommit(@NonNull String what) {
-                if (sliderBefore[0] != null) {
-                    recordAudioVolumeUndo(ac, sliderBefore[0].level, sliderBefore[0].kfs, what);
-                }
-                sliderBefore[0] = null;
-            }
-        };
-
-        String title = (ac.getLabel() != null && !ac.getLabel().isEmpty())
-                ? ac.getLabel() : "Audio"; // TODO(strings)
-        addObjectVisibilityActions(actions, null, null, ac::isLocked, ac::setLocked);
-        maybeAddLinkActions(actions, ac.getId());
-        java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
-        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_start_here), false,
-                () -> setAudioRangeEdgeAtPlayhead(ac, true)));
-        rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_end_here), false,
-                () -> setAudioRangeEdgeAtPlayhead(ac, false)));
-        ensureObjectMenuSheet().show(title, null, props, actions,
-                null, rangeChips, hooks, lastPlayheadAbsoluteMs, null);
-    }
 
     private void setAudioRangeEdgeAtPlayhead(@NonNull com.fadcam.ui.faditor.model.AudioClip ac, boolean startEdge) {
         long ph = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs;
@@ -21614,82 +21569,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.Toast.makeText(this, R.string.faditor_kf_range_set, android.widget.Toast.LENGTH_SHORT).show();
     }
 
-    /** The single "Volume" adapter — diamond mapped to the VolumeKeyframe envelope. */
-    @NonNull
-    private ObjectMenuSheet.Prop audioVolumeProp(
-            @NonNull com.fadcam.ui.faditor.model.AudioClip ac,
-            @NonNull ObjectMenuSheet.ValueFormat fmt) {
-        ObjectMenuSheet.Getter get = ms -> ac.gainAtClipMs(ms - ac.getOffsetMs());
-        ObjectMenuSheet.Setter set = (v, ms) -> {
-            if (ac.hasVolumeKeyframes()) {
-                ac.addOrUpdateFinalGainKeyframe(ms - ac.getOffsetMs(), v);
-            } else {
-                ac.setVolumeLevel(v);
-                if (v > 0f) ac.setMuted(false);
-            }
-            applyAudioLivePlayerGain(ac);
-            if (editorTimeline != null) editorTimeline.invalidate();
-        };
-        ObjectMenuSheet.OnKeyQuery onKey = ms -> volumeKeyUnderPlayhead(ac, ms) != null;
-        Runnable dropKey = () -> {
-            AudioVolumeState before = snapshotAudioVolume(ac);
-            long local = lastPlayheadAbsoluteMs - ac.getOffsetMs();
-            ac.addOrUpdateFinalGainKeyframe(local, ac.gainAtClipMs(local));
-            recordAudioVolumeUndo(ac, before.level, before.kfs, "Add keyframe"); // TODO(strings)
-            applyAudioLivePlayerGain(ac);
-            if (editorTimeline != null) editorTimeline.invalidate();
-        };
-        Runnable prevKey = () -> jumpToAdjacentVolumeKey(ac, false);
-        Runnable nextKey = () -> jumpToAdjacentVolumeKey(ac, true);
-        Runnable deleteKey = () -> {
-            Long hit = volumeKeyUnderPlayhead(ac, lastPlayheadAbsoluteMs);
-            if (hit == null) return;
-            AudioVolumeState before = snapshotAudioVolume(ac);
-            removeVolumeKeyframeAt(ac, hit);
-            recordAudioVolumeUndo(ac, before.level, before.kfs, "Delete keyframe"); // TODO(strings)
-            applyAudioLivePlayerGain(ac);
-            if (editorTimeline != null) editorTimeline.invalidate();
-        };
-        ObjectMenuSheet.ArmedQuery armed = ac::hasVolumeKeyframes;
-        // The envelope interpolates linearly — no per-segment easing (picker shows nothing).
-        return new ObjectMenuSheet.Prop("audio_volume", "Volume", 0f, 2f, fmt, // TODO(strings)
-                get, set, onKey, dropKey, prevKey, nextKey, deleteKey, armed, null, null);
-    }
 
-    /** Clip-local time of a VolumeKeyframe under (±66ms of) the playhead, or null. */
-    @Nullable
-    private Long volumeKeyUnderPlayhead(
-            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, long absMs) {
-        long local = absMs - ac.getOffsetMs();
-        for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) {
-            if (Math.abs(kf.timeMs - local) <= 66) return kf.timeMs;
-        }
-        return null;
-    }
 
-    /** Remove the envelope keyframe at an exact clip-local ms (getVolumeKeyframes is live). */
-    private void removeVolumeKeyframeAt(
-            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, long localMs) {
-        java.util.Iterator<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> it =
-                ac.getVolumeKeyframes().iterator();
-        while (it.hasNext()) {
-            if (it.next().timeMs == localMs) { it.remove(); return; }
-        }
-    }
 
-    /** G3 chevrons: seek to the nearest envelope key strictly before/after the playhead. */
-    private void jumpToAdjacentVolumeKey(
-            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, boolean forward) {
-        if (editorTimeline == null) return;
-        long local = lastPlayheadAbsoluteMs - ac.getOffsetMs();
-        Long best = null;
-        for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) {
-            if (forward ? kf.timeMs > local + 66 : kf.timeMs < local - 66) {
-                if (best == null || (forward ? kf.timeMs < best : kf.timeMs > best)) best = kf.timeMs;
-            }
-        }
-        if (best != null) editorTimeline.seekToTimelineMs(ac.getOffsetMs() + best);
-    }
 
     /** Push the effective gain at the playhead to the live audio player (if ready). */
     private void applyAudioLivePlayerGain(@NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
@@ -21766,17 +21648,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return true;
     }
 
-    private void clearAudioVolumeEnvelope(@NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
-        if (!ac.hasVolumeKeyframes()) return;
-        AudioVolumeState before = snapshotAudioVolume(ac);
-        ac.clearVolumeKeyframes();
-        recordAudioVolumeUndo(ac, before.level, before.kfs, "Clear volume envelope"); // TODO(strings)
-        applyAudioLivePlayerGain(ac);
-        if (editorTimeline != null) editorTimeline.invalidate();
-        if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
-            objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
-        }
-    }
 
     // ── PiP (overlay video clip transform) ───────────────────────────────
 

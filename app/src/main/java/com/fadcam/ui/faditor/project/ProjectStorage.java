@@ -2063,6 +2063,24 @@ public class ProjectStorage {
             }
             timelineJson.add("audioClips", audioArray);
 
+            // B2 cross-fades. HAND-serialized like everything else in this file — adding the
+            // field to the model persists nothing (the lesson AudioClip.removedSpans cost us).
+            // Omit-at-default so a project with no cross-fades stays byte-identical.
+            if (!src.getTimeline().getAudioCrossfades().isEmpty()) {
+                JsonArray xfArr = new JsonArray();
+                for (com.fadcam.ui.faditor.model.AudioCrossfade x : src.getTimeline().getAudioCrossfades()) {
+                    JsonObject xj = new JsonObject();
+                    xj.addProperty("id", x.getId());
+                    xj.addProperty("lowerLaneId", x.getLowerLaneId());
+                    xj.addProperty("startMs", x.getStartMs());
+                    xj.addProperty("endMs", x.getEndMs());
+                    xj.addProperty("toLaneAbove", x.isToLaneAbove());
+                    xj.addProperty("colorRgb", x.getColorRgb());
+                    xfArr.add(xj);
+                }
+                timelineJson.add("audioCrossfades", xfArr);
+            }
+
             // Serialize text overlays
             JsonArray overlaysArray = new JsonArray();
             for (com.fadcam.ui.faditor.model.TextOverlayItem o
@@ -2618,6 +2636,27 @@ public class ProjectStorage {
             // Restore audio clips
             if (hasValue(obj, "timeline")) {
                 JsonObject tl = obj.getAsJsonObject("timeline");
+                // B2: tolerant absence — every project written before this predates the field.
+                if (hasValue(tl, "audioCrossfades")) {
+                    JsonArray xfArr = tl.getAsJsonArray("audioCrossfades");
+                    for (int i = 0; i < xfArr.size(); i++) {
+                        try {
+                            JsonObject xj = xfArr.get(i).getAsJsonObject();
+                            com.fadcam.ui.faditor.model.AudioCrossfade x =
+                                    new com.fadcam.ui.faditor.model.AudioCrossfade(
+                                            xj.get("id").getAsString(),
+                                            xj.get("lowerLaneId").getAsString(),
+                                            xj.get("startMs").getAsLong(),
+                                            xj.get("endMs").getAsLong());
+                            if (hasValue(xj, "toLaneAbove")) x.setToLaneAbove(xj.get("toLaneAbove").getAsBoolean());
+                            if (hasValue(xj, "colorRgb")) x.setColorRgb(xj.get("colorRgb").getAsInt());
+                            project.getTimeline().addAudioCrossfade(x);
+                        } catch (Exception ex) {
+                            FLog.e(TAG, "Skipping malformed audio cross-fade #" + i, ex);
+                            project.addLoadSkip("Audio cross-fade #" + (i + 1));
+                        }
+                    }
+                }
                 if (hasValue(tl, "audioClips")) {
                     JsonArray audioArr = tl.getAsJsonArray("audioClips");
                     for (int i = 0; i < audioArr.size(); i++) {

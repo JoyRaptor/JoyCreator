@@ -53,6 +53,8 @@ public class TranscriptPanelView extends View {
         default void onParagraphRenameRequested(int paraIndex, @NonNull String currentTitle) {}
         /** User requested to export chapters as YouTube text. */
         default void onExportChaptersRequested() {}
+        /** User wants to assign a speaker to a paragraph. */
+        default void onParagraphSpeakerRequested(int paraIndex, @Nullable String currentSpeaker) {}
     }
 
     /**
@@ -384,6 +386,9 @@ public class TranscriptPanelView extends View {
 
     private String buildParagraphSummary(int paraIdx) {
         if (transcript == null || paragraphData == null) return "";
+        // D5 — speaker prefix, if any
+        String speaker = transcript.getParagraphSpeaker(paraIdx);
+        String prefix = (speaker != null && !speaker.trim().isEmpty()) ? speaker.trim() + ": " : "";
         // D4 — a named paragraph IS a chapter; show its title when present
         String chapter = transcript.getChapterTitle(paraIdx);
         if (chapter != null && !chapter.trim().isEmpty()) {
@@ -391,12 +396,13 @@ public class TranscriptPanelView extends View {
             int s = range[0], e = range[1];
             long durMs = transcript.words.get(e).endMs - transcript.words.get(s).startMs;
             if (durMs < 0) durMs = 0;
-            return chapter.trim() + "  (" + formatParagraphDuration(durMs) + ")";
+            return prefix + chapter.trim() + "  (" + formatParagraphDuration(durMs) + ")";
         }
         int[] range = paragraphData.paragraphs.get(paraIdx);
         int s = range[0], e = range[1];
         int take = Math.min(6, e - s + 1);
         StringBuilder sb = new StringBuilder();
+        sb.append(prefix);
         for (int i = 0; i < take; i++) {
             if (i > 0) sb.append(' ');
             sb.append(transcript.words.get(s + i).text);
@@ -413,6 +419,14 @@ public class TranscriptPanelView extends View {
     public String getYoutubeChaptersText() {
         if (transcript == null || paragraphData == null) return "";
         return Transcript.toYoutubeChapters(transcript, paragraphData);
+    }
+
+    /** D5 — deterministic colour per speaker name. */
+    public static int getSpeakerColor(@NonNull String speaker) {
+        int h = speaker.hashCode();
+        float hue = (Math.abs(h) % 360);
+        float[] hsv = {hue, 0.65f, 0.92f};
+        return android.graphics.Color.HSVToColor(hsv);
     }
 
     private static String formatParagraphDuration(long ms) {
@@ -450,7 +464,31 @@ public class TranscriptPanelView extends View {
                 if (b - t < 2f * density) continue;
                 RectF r = new RectF(cx - railW / 2f, t, cx + railW / 2f, b);
                 boolean isSelected = (p == selectedParagraph) || (gutterReorderDragging && p == draggedParagraph);
-                Paint pp = isSelected ? gutterSelectedPaint : gutterPaint;
+                Paint pp;
+                String spk = transcript.getParagraphSpeaker(p);
+                if (spk != null && !spk.trim().isEmpty()) {
+                    int col = getSpeakerColor(spk);
+                    Paint spPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    spPaint.setStyle(Paint.Style.FILL);
+                    // Selected speaker rail is brighter, unselected slightly dimmed but still coloured
+                    spPaint.setColor(col);
+                    spPaint.setAlpha(isSelected ? 220 : 170);
+                    pp = isSelected ? spPaint : spPaint;
+                    // Keep a white outline for selected speaker rail so it still pops
+                    if (isSelected) {
+                        Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
+                        outline.setStyle(Paint.Style.STROKE);
+                        outline.setStrokeWidth(1.5f * density);
+                        outline.setColor(0xFFFFFFFF);
+                        outline.setAlpha(120);
+                        canvas.drawRoundRect(r, railR, railR, pp);
+                        canvas.drawRoundRect(r, railR, railR, outline);
+                        if (gutterReorderDragging && p == draggedParagraph) pp.setAlpha(120);
+                        continue;
+                    }
+                } else {
+                    pp = isSelected ? gutterSelectedPaint : gutterPaint;
+                }
                 if (gutterReorderDragging && p == draggedParagraph) pp.setAlpha(120);
                 canvas.drawRoundRect(r, railR, railR, pp);
                 if (gutterReorderDragging && p == draggedParagraph) pp.setAlpha(255);

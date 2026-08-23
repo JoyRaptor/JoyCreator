@@ -26785,6 +26785,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         })
                         .show();
             }
+
+            @Override
+            public void onParagraphSpeakerRequested(int paraIndex, @androidx.annotation.Nullable String currentSpeaker) {
+                if (currentTranscript == null) return;
+                final int pIdx = paraIndex;
+                android.widget.EditText input = new android.widget.EditText(FaditorEditorActivity.this);
+                if (currentSpeaker != null) input.setText(currentSpeaker);
+                input.setHint("Speaker name (empty to clear)");
+                input.setSingleLine(true);
+                input.selectAll();
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                        .setTitle("Speaker for paragraph " + (paraIndex + 1))
+                        .setView(input)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                            String name = input.getText().toString().trim();
+                            if (name.isEmpty()) currentTranscript.paragraphSpeakers.remove(pIdx);
+                            else currentTranscript.paragraphSpeakers.put(pIdx, name);
+                            if (transcriptView != null) transcriptView.invalidate();
+                            scheduleAutoSave();
+                            android.widget.Toast.makeText(FaditorEditorActivity.this,
+                                    name.isEmpty() ? "Speaker cleared" : "Speaker: " + name,
+                                    android.widget.Toast.LENGTH_SHORT).show();
+                        })
+                        .show();
+            }
         });
 
         findViewById(R.id.transcript_close).setOnClickListener(v -> showTranscriptPanel(false));
@@ -26798,6 +26824,40 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     Toast.LENGTH_SHORT).show();
         });
         findViewById(R.id.transcript_apply).setOnClickListener(v -> commitTranscript());
+
+        int speakerId = getResources().getIdentifier("transcript_speaker", "id", getPackageName());
+        android.view.View speakerBtn = speakerId != 0 ? findViewById(speakerId) : null;
+        if (speakerBtn != null) {
+            speakerBtn.setOnClickListener(v -> {
+                if (currentTranscript == null || transcriptView == null) return;
+                int para = transcriptView.getSelectedParagraph();
+                if (para < 0) {
+                    android.widget.Toast.makeText(this, "Tap a paragraph\u2019s rail to select it first", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String cur = currentTranscript.getParagraphSpeaker(para);
+                if (cur == null) cur = "";
+                android.widget.EditText input = new android.widget.EditText(this);
+                input.setText(cur);
+                input.setHint("Speaker name");
+                input.setSingleLine(true);
+                input.selectAll();
+                final int pIdx = para;
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Speaker for paragraph " + (para + 1))
+                        .setView(input)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                            String name = input.getText().toString().trim();
+                            if (name.isEmpty()) currentTranscript.paragraphSpeakers.remove(pIdx);
+                            else currentTranscript.paragraphSpeakers.put(pIdx, name);
+                            transcriptView.invalidate();
+                            scheduleAutoSave();
+                            android.widget.Toast.makeText(this, name.isEmpty() ? "Speaker cleared" : "Speaker: " + name, android.widget.Toast.LENGTH_SHORT).show();
+                        })
+                        .show();
+            });
+        }
 
         if (transcriptBreakBtn != null) {
             transcriptBreakBtn.setOnClickListener(v -> {

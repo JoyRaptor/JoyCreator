@@ -802,6 +802,18 @@
                         android:background="?attr/selectableItemBackgroundBorderless" />
 
                     <TextView
+                        android:id="@+id/transcript_speaker"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:gravity="center"
+                        android:fontFamily="@font/materialicons"
+                        android:text="person"
+                        android:textColor="#FFB74D"
+                        android:textSize="16sp"
+                        android:contentDescription="Speaker"
+                        android:background="?attr/selectableItemBackgroundBorderless" />
+
+                    <TextView
                         android:id="@+id/transcript_apply"
                         android:layout_width="wrap_content"
                         android:layout_height="28dp"

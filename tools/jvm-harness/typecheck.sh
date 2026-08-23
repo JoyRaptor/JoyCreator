@@ -56,7 +56,11 @@ COUNT=$(wc -l < "$SRCS")
   echo '-sourcepath "tools/jvm-harness/stubs-typecheck"'; } > "$ARGS"
 
 echo "type-checking $COUNT sources..."
-javac @"$ARGS" @"$SRCS" 2>&1 | grep -v '^Note:' | head -60
+# grep --text: on this machine javac's failure output contains bytes grep treats as
+# BINARY, which suppressed the entire error list ("Binary file (standard input)
+# matches") — ebc9144e shipped as a false "TYPECHECK OK" partly behind this. Failures
+# must always PRINT (LANE C, 2026-08-23, rule 9).
+javac @"$ARGS" @"$SRCS" 2>&1 | grep --text -v '^Note:' | head -60
 STATUS=${PIPESTATUS[0]}
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran,

@@ -1,0 +1,95 @@
+import com.fadcam.ui.faditor.model.AudioClip;
+
+/**
+ * B1.Q — the volume envelope became a MULTIPLIER over volumeLevel, off device.
+ *
+ * <p>The property under test is JoyRaptor's ruling in listener terms: "a fade from A to B goes
+ * A's level to B's level — fades stack". Every check below is something an EAR would notice,
+ * plus the one-shot disk migration that keeps yesterday's project sounding identical.</p>
+ */
+public class AudioClipEnvelopeTest {
+    static int fails = 0;
+    static void check(boolean c, String n) {
+        System.out.println((c ? "PASS  " : "FAIL  ") + n);
+        if (!c) fails++;
+    }
+    static boolean close(float a, float b) { return Math.abs(a - b) < 1e-4f; }
+
+    /** sourceUri is only ever STORED by these paths (android.jar's Uri is a stub), so null. */
+    private static AudioClip clip(float level) {
+        AudioClip ac = new AudioClip(null, 10_000L);
+        ac.setVolumeLevel(level);
+        return ac;
+    }
+
+    public static void main(String[] args) {
+        // ── 1. JoyRaptor's exact scenario: fades stack with the slider ────────────────────
+        AudioClip b = clip(0.5f);
+        b.addOrUpdateVolumeKeyframe(0, 0f);
+        b.addOrUpdateVolumeKeyframe(1000, 1f);   // a fade's stored full-scale IS 1f
+        check(close(b.gainAtClipMs(500), 0.25f), "50% clip, mid-fade -> 25% (fade stacks)");
+        check(close(b.gainAtClipMs(1000), 0.5f), "fade end lands ON the slider level");
+        check(close(b.gainAtClipMs(-5), 0.0f),   "fade start is silence at any level");
+        // Moving the slider AFTER drawing rescales instead of stranding the peak.
+        b.setVolumeLevel(2.0f);
+        check(close(b.gainAtClipMs(500), 1.0f),  "slider moved to 200% -> whole fade rescales");
+
+        // ── 2. The B1.Q bug is actually gone: boosted clip keeps its boost ────────────
+        AudioClip boosted = clip(1.5f);
+        boosted.setFadeInMs(1000);
+        check(boosted.getFadeInMs() == 1000,     "fade accessor round-trips");
+        check(close(boosted.gainAtClipMs(0), 0.0f), "boosted clip fades FROM silence");
+        check(close(boosted.gainAtClipMs(1500), 1.5f),
+                "boosted clip fades TO its 150%, not 100% (the reported bug)");
+
+        // ── 3. Migration: a pre-B1.Q project sounds IDENTICAL after load ──────────────
+        AudioClip legacy = clip(1.5f);
+        legacy.setEnvelopeMultiplier(false);      // as ProjectStorage marks old projects
+        legacy.getVolumeKeyframes().add(new AudioClip.VolumeKeyframe(0, 0f));
+        legacy.getVolumeKeyframes().add(new AudioClip.VolumeKeyframe(1000, 1.5f)); // ABSOLUTE
+        float beforeMid = 0.75f;                  // what the OLD code played at t=500ms
+        legacy.migrateLegacyAbsoluteEnvelope();
+        check(legacy.isEnvelopeMultiplier(),      "migration flips the semantics flag");
+        check(close(legacy.getVolumeKeyframes().get(1).volume, 1.0f),
+                "absolute 1.5 over a 150% level -> multiplier 1.0");
+        check(close(legacy.gainAtClipMs(500), beforeMid),
+                "post-migration playback matches pre-B1.Q byte-for-byte loudness");
+        // Double-load must not double-divide (save writes envMul:true; next load skips).
+        legacy.migrateLegacyAbsoluteEnvelope();
+        check(close(legacy.getVolumeKeyframes().get(1).volume, 1.0f),
+                "second migration is a no-op (no compounding quietness)");
+        // Re-saving + re-loading via the flag path leaves everything alone.
+        legacy.setEnvelopeMultiplier(true);
+        float g = legacy.gainAtClipMs(500);
+        check(close(g, beforeMid), "envMul:true reload plays the same gain");
+
+        // ── 4. Migration guard: silent base cannot divide ─────────────────────────────
+        AudioClip silent = clip(0.0f);
+        silent.setEnvelopeMultiplier(false);
+        silent.getVolumeKeyframes().add(new AudioClip.VolumeKeyframe(0, 1.0f));
+        silent.migrateLegacyAbsoluteEnvelope();
+        check(close(silent.getVolumeKeyframes().get(0).volume, 1.0f),
+                "volumeLevel==0 skips the divide (any multiplier x 0 is silence anyway)");
+        check(close(silent.gainAtClipMs(0), 0.0f), "and it is still silent");
+
+        // ── 5. Hand-drawn envelopes survive the fade setters untouched ────────────────
+        AudioClip drawn = clip(1.0f);
+        drawn.addOrUpdateVolumeKeyframe(3000, 0.8f);
+        drawn.setFadeInMs(0);                     // reports 0 (not a fade) and must no-op
+        check(drawn.getFadeInMs() == 0,           "hand-drawn curve does not read as a fade");
+        check(drawn.getVolumeKeyframes().size() == 1
+                && close(drawn.getVolumeKeyframes().get(0).volume, 0.8f),
+                "setFadeInMs(0) left the hand-drawn key alone");
+
+        // ── 6. Copying carries the flag both ways ─────────────────────────────────────
+        AudioClip src = clip(2.0f);
+        src.addOrUpdateVolumeKeyframe(0, 0f);
+        src.addOrUpdateVolumeKeyframe(500, 1f);
+        AudioClip copy = new AudioClip(src);
+        check(copy.isEnvelopeMultiplier(),        "copy of a modern clip stays modern");
+        check(close(copy.gainAtClipMs(250), 1.0f), "copy plays identical final gains");
+
+        System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILURES");
+        if (fails > 0) System.exit(1);
+    }
+}

@@ -1426,29 +1426,15 @@ public class Clip {
     }
 
     /**
-     * The effective volume/gain at a given clip-local time (ms). When keyframes
-     * exist, the gain is linearly interpolated between surrounding keyframes
-     * (flat-held before the first / after the last). When none exist, returns
-     * the clip's base {@link #volumeLevel}.
+     * Legacy alias for {@link #volumeAt(long)} — the FINAL gain at clip-local ms.
+     *
+     * <p>B1.Q: this used to be a SECOND, absolute interpolation over the raw stored values,
+     * disagreeing with {@link #volumeAt} (which multiplies the envelope by
+     * {@code volumeLevel}) whenever the level was not 100%. Two readers of one envelope is
+     * how preview and export drift, so this now just forwards. No caller changed.</p>
      */
     public float gainAtClipMs(long clipMs) {
-        if (volumeKeyframes.isEmpty()) return volumeLevel;
-        if (volumeKeyframes.size() == 1) return volumeKeyframes.get(0).volume;
-        VolumeKeyframe first = volumeKeyframes.get(0);
-        if (clipMs <= first.timeMs) return first.volume;
-        VolumeKeyframe last = volumeKeyframes.get(volumeKeyframes.size() - 1);
-        if (clipMs >= last.timeMs) return last.volume;
-        for (int i = 0; i < volumeKeyframes.size() - 1; i++) {
-            VolumeKeyframe a = volumeKeyframes.get(i);
-            VolumeKeyframe b = volumeKeyframes.get(i + 1);
-            if (clipMs >= a.timeMs && clipMs <= b.timeMs) {
-                long span = b.timeMs - a.timeMs;
-                if (span <= 0) return b.volume;
-                float frac = (clipMs - a.timeMs) / (float) span;
-                return a.volume + (b.volume - a.volume) * frac;
-            }
-        }
-        return last.volume;
+        return volumeAt(clipMs);
     }
 
     // ── Opacity keyframes (visual fade envelope) ─────────────────────

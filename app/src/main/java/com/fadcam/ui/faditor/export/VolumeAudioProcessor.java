@@ -43,9 +43,12 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
 
     /**
      * Set a volume automation envelope. {@code times} are clip-local ms (0 = clip start,
-     * sorted ascending) and {@code vols} the matching gains. When set (length ≥ 1) the
-     * per-sample gain is linearly interpolated between keyframes, overriding
-     * {@link #setVolume(float)}. Pass null/empty to disable.
+     * sorted ascending) and {@code vols} the matching MULTIPLIERS over the static
+     * {@link #setVolume(float) volume} (B1.Q): the per-sample gain is
+     * {@code volume × linearly-interpolated multiplier}, so a fade drawn at 50% level
+     * rescales when the slider moves instead of capping the clip at 100%. Callers MUST set
+     * the static volume too, even on the enveloped path — it is the base the multipliers
+     * scale. Pass null/empty to disable.
      */
     public void setVolumeEnvelope(long[] times, float[] vols) {
         if (times == null || vols == null || times.length == 0
@@ -59,12 +62,14 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
     }
 
     /**
-     * Delegates to {@link com.fadcam.ui.faditor.model.VolumeEnvelope} — the curve moved to the
-     * model when the live preview gained an envelope too, so the file and the preview cannot
-     * fade at different rates. The interpolation is unchanged from what shipped here.
+     * Delegates interpolation to {@link com.fadcam.ui.faditor.model.VolumeEnvelope} — the
+     * curve moved to the model when the live preview gained an envelope too, so the file
+     * and the preview cannot fade at different rates — then scales by the static volume
+     * (B1.Q multiplier contract; flat base 1 here because the multiply happens outside).
      */
     private float gainAtMs(long ms) {
-        return com.fadcam.ui.faditor.model.VolumeEnvelope.gainAt(kfTimes, kfVols, ms, volume);
+        return volume * com.fadcam.ui.faditor.model.VolumeEnvelope.gainAt(
+                kfTimes, kfVols, ms, 1f);
     }
 
     @Override

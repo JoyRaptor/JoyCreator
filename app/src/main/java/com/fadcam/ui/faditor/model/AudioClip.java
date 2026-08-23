@@ -92,18 +92,43 @@ public class AudioClip {
 
     /**
      * Optional volume automation keyframes (the blue "rubber-band" envelope).
-     * Each keyframe is a (clip-local time in ms, gain 0–2) point. Time is measured
-     * from the START of this clip on the timeline (0 = clip start), independent of
-     * trim/offset so the envelope rides with the clip. Sorted ascending by time.
-     * When non-empty, the interpolated gain (see {@link #gainAtClipMs(long)}) overrides
-     * the whole-clip {@link #volumeLevel} on both playback and export.
+     * Each keyframe is a (clip-local time in ms, MULTIPLIER 0–1+) point: the stored
+     * value scales this clip's {@link #volumeLevel}, so moving the volume slider AFTER a
+     * fade is drawn rescales the whole envelope instead of stranding a stale peak (B1.Q,
+     * JoyRaptor's ruling). Time is measured from the START of this clip on the timeline
+     * (0 = clip start), independent of trim/offset so the envelope rides with the clip.
+     * Sorted ascending by time. When non-empty, {@link #gainAtClipMs(long)} returns
+     * {@code volumeLevel × interpolated multiplier} — the FINAL gain, identical to what
+     * export's processor computes — so no caller outside the model needs to know the
+     * envelope exists.
+     *
+     * <p><b>Legacy disk format:</b> projects saved before B1.Q stored ABSOLUTE gains here.
+     * {@link #migrateLegacyAbsoluteEnvelope()} converts them at load; the on-disk marker is
+     * ProjectStorage's {@code envMul} flag.</p>
      */
     @NonNull
     private final List<VolumeKeyframe> volumeKeyframes = new ArrayList<>();
 
+    /**
+     * Whether {@link #volumeKeyframes} hold multipliers over {@link #volumeLevel} (true,
+     * post-B1.Q) or legacy ABSOLUTE gains (false — only ever true transiently while a
+     * pre-B1.Q project is being loaded, before migration).
+     */
+    private boolean envelopeMultiplier = true;
+
     /** Struck-word cuts (same semantics as {@link Clip#getRemovedSpans()}): source-ms spans that decode as silence. */
     @NonNull
     private final List<long[]> removedSpans = new ArrayList<>();
+
+    /**
+     * C2.U: set while {@link #sourceUri} points at a BAKED render (denoise/loudnorm) rather
+     * than the user's original file. Remembers where to revert to and which artifact to
+     * delete on revert. Null = the source IS the original. Tolerant storage: absent = null.
+     */
+    @Nullable
+    private String bakedFromUri;
+    @Nullable
+    private String bakedFromFile;
 
     // ── Transcripts (speech-to-text) ─────────────────────────────────
 
@@ -124,7 +149,7 @@ public class AudioClip {
     public static class VolumeKeyframe {
         /** Clip-local time in ms (0 = clip start on the timeline). */
         public long timeMs;
-        /** Gain multiplier 0.0–2.0. */
+        /** Multiplier over the clip's volumeLevel (0–1 typical; B1.Q semantics). */
         public float volume;
 
         public VolumeKeyframe(long timeMs, float volume) {
@@ -171,6 +196,7 @@ public class AudioClip {
         for (VolumeKeyframe kf : other.volumeKeyframes) {
             this.volumeKeyframes.add(new VolumeKeyframe(kf.timeMs, kf.volume));
         }
+        this.envelopeMultiplier = other.envelopeMultiplier;
         // Copy transcripts
         for (NamedTranscript nt : other.transcripts) {
             this.transcripts.add(nt.copy());
@@ -182,6 +208,8 @@ public class AudioClip {
         this.captionCenterY = other.captionCenterY;
         this.captionSizeFraction = other.captionSizeFraction;
         for (long[] s : other.removedSpans) this.removedSpans.add(new long[]{s[0], s[1]});
+        this.bakedFromUri = other.bakedFromUri;
+        this.bakedFromFile = other.bakedFromFile;
     }
 
     // ── Getters ──────────────────────────────────────────────────────
@@ -297,13 +325,21 @@ public class AudioClip {
     }
 
     /**
-     * The effective gain at a given clip-local time (ms). When keyframes exist, the
-     * gain is linearly interpolated between the surrounding keyframes (flat-held before
-     * the first / after the last). When none exist, returns the whole-clip
-     * {@link #volumeLevel}. Muting is NOT applied here — callers handle mute.
+     * The FINAL gain at a given clip-local time (ms): {@code volumeLevel × interpolated
+     * envelope multiplier} when keyframes exist, else the whole-clip {@link #volumeLevel}.
+     * The multiply is ABSORBED here on purpose (B1.Q): preview ticks, the drawer's Level
+     * row and the export processor all read final gains through this one method, so no
+     * caller needs to know whether an envelope is armed. Muting is NOT applied — callers
+     * handle mute. Fades keep storing 0f→1f; as multipliers they now correctly fade TO
+     * the slider level instead of capping a boosted clip at 100%.
      */
     public float gainAtClipMs(long clipMs) {
         if (volumeKeyframes.isEmpty()) return volumeLevel;
+        return volumeLevel * multiplierAt(clipMs);
+    }
+
+    /** Raw multiplier interpolation over the stored keyframes (no volumeLevel applied). */
+    private float multiplierAt(long clipMs) {
         if (volumeKeyframes.size() == 1) return volumeKeyframes.get(0).volume;
         VolumeKeyframe first = volumeKeyframes.get(0);
         if (clipMs <= first.timeMs) return first.volume;
@@ -320,6 +356,30 @@ public class AudioClip {
             }
         }
         return last.volume;
+    }
+
+    // ── B1.Q legacy-envelope migration ───────────────────────────────
+
+    /** Whether stored keyframes are multipliers over {@link #volumeLevel} (post-B1.Q). */
+    public boolean isEnvelopeMultiplier() { return envelopeMultiplier; }
+
+    public void setEnvelopeMultiplier(boolean multiplier) { this.envelopeMultiplier = multiplier; }
+
+    /**
+     * One-time migration of a PRE-B1.Q envelope: keys on disk were ABSOLUTE gains, so each
+     * becomes {@code absolute / volumeLevel} to preserve the exact sound the user heard.
+     *
+     * <p>Guarded on {@code volumeLevel == 0}: any multiplier times zero is zero, so an
+     * un-migratable silent clip stays silent either way — skipping the divide cannot change
+     * what anyone hears. A no-op when the keyframes already hold multipliers.</p>
+     */
+    public void migrateLegacyAbsoluteEnvelope() {
+        if (envelopeMultiplier) return;
+        envelopeMultiplier = true;
+        if (volumeLevel < 0.0001f) return;
+        for (VolumeKeyframe kf : volumeKeyframes) {
+            kf.volume = Math.max(0f, Math.min(kf.volume / volumeLevel, 2f));
+        }
     }
 
     // ── Fades (SPEC_AUDIO_UX_V1 C1.U) ────────────────────────────────
@@ -464,6 +524,23 @@ public class AudioClip {
     public List<long[]> getRemovedSpans() { return removedSpans; }
     public boolean hasRemovedSpans() { return !removedSpans.isEmpty(); }
     public void setRemovedSpans(@NonNull List<long[]> spans) { removedSpans.clear(); removedSpans.addAll(spans); }
+
+    // ── C2.U baked-source bookkeeping ────────────────────────────────
+
+    /** The ORIGINAL source uri while {@link #getSourceUri()} points at a bake, else null. */
+    @Nullable
+    public String getBakedFromUri() { return bakedFromUri; }
+
+    /** The baked artifact's path — deleted when the bake is reverted. */
+    @Nullable
+    public String getBakedFromFile() { return bakedFromFile; }
+
+    public void setBakedFrom(@Nullable String originalUri, @Nullable String bakedFilePath) {
+        this.bakedFromUri = originalUri;
+        this.bakedFromFile = bakedFilePath;
+    }
+
+    public boolean isBakedSource() { return bakedFromUri != null; }
 
     // ── Utility ──────────────────────────────────────────────────────
 

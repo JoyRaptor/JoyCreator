@@ -25,9 +25,9 @@ import java.util.List;
  * interface back to the editor, static ContentBuilder methods returning a View, COMPACT
  * one-line rows — so {@code ObjectDrawer} stays chrome and knows nothing about audio.
  *
- * <p><b>SCOPED (2026-08-22): the Level tab ONLY.</b> Clean/Tone/FX need C1.E's real-time
- * chain, which does not exist; §0 rule 6 forbids shipping their sliders ahead of it. Within
- * Level, exactly three controls ship because exactly three are real today:</p>
+ * <p><b>SCOPED (2026-08-23): the Level and Clean tabs.</b> Tone/FX still need C1.E's
+ * real-time chain, which does not exist; §0 rule 6 forbids shipping their sliders ahead of
+ * it. Within Level, exactly three controls ship because exactly three are real today:</p>
  * <ul>
  *   <li><b>Level</b> — flat gain ({@code volumeLevel}) or, once the envelope is armed,
  *       the envelope point under the playhead ({@code gainAtClipMs});</li>
@@ -39,8 +39,8 @@ import java.util.List;
  *       fade drag handle writes.</li>
  * </ul>
  *
- * <p>Pan (A5.E), compressor/limiter/normalize (C1.E) and “+ Cross-fade” (B2.E) are left
- * OUT entirely — no disabled placeholders.</p>
+ * <p>Pan (A5.E) and “+ Cross-fade” (B2.E) are left OUT entirely — no disabled
+ * placeholders. Compressor/limiter/normalize-peak also wait for C1.E.</p>
  */
 public final class AudioDrawerTabs {
 
@@ -331,6 +331,161 @@ public final class AudioDrawerTabs {
         return selfRefresh[0];
     }
 
+    // ── Tab 2: CLEAN ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * The CLEAN tab (C2.U): offline denoise + loudness normalization through
+     * {@link BakedAudioCache}, with live progress and a way back to the original.
+     *
+     * <p>BAKED per §6.2, and honest about it: these run ffmpeg OFFLINE over the clip's
+     * trimmed source span and REPOINT the clip at the rendered file — the progress bar is
+     * real because the wait is real. Applying records ONE undo step (its undo restores the
+     * original uri and deletes the artifact), and while a bake is applied the tab offers
+     * "Revert to original" directly, which survives session restarts via the clip's
+     * {@link AudioClip#getBakedFromUri()} bookkeeping.</p>
+     *
+     * <p>{@code projectDir} and {@code cache} come in as parameters rather than through
+     * {@link Host} so wiring this tab touches nothing else: the caller passes
+     * {@code ProjectStorage.projectDir(id)} and one shared cache instance.</p>
+     */
+    @NonNull
+    public static View cleanTab(@NonNull Context ctx, @NonNull AudioClip clip,
+                                @NonNull Host host, @NonNull java.io.File projectDir,
+                                @NonNull com.fadcam.ui.faditor.audio.BakedAudioCache cache) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout root = column(ctx);
+        final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+        final boolean[] baking = {false};
+
+        TextView state = new TextView(ctx);
+        state.setTextColor(TXT_DIM);
+        state.setTextSize(10);
+        state.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        state.setPadding(Math.round(8 * d), Math.round(4 * d),
+                Math.round(8 * d), Math.round(6 * d));
+        root.addView(state);
+
+        LinearLayout actions = row(ctx);
+        root.addView(actions);
+
+        // Holder, not a plain local: the row's own listeners re-run this refresh, and a
+        // lambda may not capture itself before its initializer completes.
+        final Runnable[] refreshHolder = new Runnable[1];
+        final Runnable refresh = () -> {
+            actions.removeAllViews();
+            if (baking[0]) {
+                state.setText("Processing…");                                   // TODO(strings)
+                return;
+            }
+            if (clip.isBakedSource()) {
+                state.setText("Processed audio in use — original kept.");       // TODO(strings)
+            } else {
+                state.setText("Offline renders — the original file is never modified."); // TODO(strings)
+            }
+            TextView revert = chip(ctx, "Revert to original", d);               // TODO(strings)
+            revert.setTextColor(clip.isBakedSource() ? TXT : TXT_DIM);
+            revert.setOnClickListener(v -> {
+                if (!clip.isBakedSource() || baking[0]) return;
+                String origUri = clip.getBakedFromUri();
+                String bakedPath = clip.getBakedFromFile();
+                java.io.File bakedFile =
+                        bakedPath == null ? null : new java.io.File(bakedPath);
+                clip.setSourceUri(android.net.Uri.parse(origUri));
+                clip.setBakedFrom(null, null);
+                host.recordUndo("Revert to original",
+                        () -> {
+                            clip.setSourceUri(android.net.Uri.parse(
+                                    bakedPath != null ? bakedPath : origUri));
+                            clip.setBakedFrom(origUri, bakedPath);
+                            host.onChanged();
+                        },
+                        () -> {
+                            clip.setSourceUri(android.net.Uri.parse(origUri));
+                            clip.setBakedFrom(null, null);
+                            host.onChanged();
+                        });
+                // The artifact goes when we revert away from it.
+                if (bakedFile != null) {
+                    com.fadcam.ui.faditor.audio.BakedAudioCache.discardBake(bakedFile);
+                }
+                host.onChanged();
+                if (refreshHolder[0] != null) refreshHolder[0].run();
+            });
+            actions.addView(revert);
+        };
+        refresh.run();
+        refreshHolder[0] = refresh;
+
+        // One apply action per chain; both share the bracket below.
+        class Apply implements Runnable {
+            private final String chain;
+            private final String label;
+            Apply(String chain, String label) { this.chain = chain; this.label = label; }
+
+            @Override public void run() {
+                if (baking[0] || clip.isBakedSource()) return;
+                baking[0] = true;
+                refresh.run();
+                long startMs = clip.getInPointMs();
+                long endMs = clip.getOutPointMs();
+                com.fadcam.ui.faditor.audio.BakedAudioCache.Request req =
+                        new com.fadcam.ui.faditor.audio.BakedAudioCache.Request(
+                                clip.getSourceUri(), startMs, endMs, chain);
+                cache.bakeAsync(projectDir, req,
+                        frac -> main.post(() -> state.setText(frac < 0 ? "Processing…"
+                                : label + " · " + Math.round(frac * 100f) + "%")),
+                        (result, error) -> main.post(() -> {
+                            baking[0] = false;
+                            if (result == null) {
+                                state.setText("Failed: "
+                                        + (error != null ? error : "?"));   // TODO(strings)
+                                return;
+                            }
+                            String origUri = clip.getSourceUri().toString();
+                            java.io.File bakedFile = result.bakedFile;
+                            android.net.Uri baked = android.net.Uri.fromFile(bakedFile);
+                            clip.setSourceUri(baked);
+                            clip.setBakedFrom(origUri, bakedFile.getAbsolutePath());
+                            host.recordUndo(label,
+                                    () -> {
+                                        clip.setSourceUri(baked);
+                                        clip.setBakedFrom(origUri,
+                                                bakedFile.getAbsolutePath());
+                                        host.onChanged();
+                                    },
+                                    () -> {
+                                        clip.setSourceUri(android.net.Uri.parse(origUri));
+                                        clip.setBakedFrom(null, null);
+                                        com.fadcam.ui.faditor.audio.BakedAudioCache
+                                                .discardBake(bakedFile);
+                                        host.onChanged();
+                                    });
+                            host.onChanged();
+                            refresh.run();
+                        }));
+            }
+        }
+        TextView dn = chip(ctx, "Reduce noise", d);                            // TODO(strings)
+        dn.setOnClickListener(v -> new Apply(
+                com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_DENOISE,
+                "Reduce noise").run());
+        actions.addView(dn);
+        TextView ln = chip(ctx, "Normalize loudness", d);                      // TODO(strings)
+        ln.setOnClickListener(v -> new Apply(
+                com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_LOUDNORM,
+                "Normalize loudness").run());
+        actions.addView(ln);
+
+        TextView note = new TextView(ctx);
+        note.setText("Runs ffmpeg offline over this clip's trimmed range.");   // TODO(strings)
+        note.setTextColor(TXT_DIM);
+        note.setTextSize(10);
+        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        note.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
+        root.addView(note);
+        return root;
+    }
+
     // ── shared builders (the PipDrawerTabs idiom) ────────────────────────────────────────
 
     @NonNull
@@ -386,16 +541,25 @@ public final class AudioDrawerTabs {
     /**
      * Route a slider/value write to whatever is LIVE: an envelope point under the playhead
      * when the envelope is armed (clamped to the clip — a key outside it could never be
-     * heard or seen), else the whole-clip flat gain.
+     * heard or seen), else the whole-clip flat gain. {@code gain} is the FINAL audible
+     * gain the user sees on the row; B1.Q stores it as a MULTIPLIER over volumeLevel, so
+     * moving the slider later rescales the whole envelope instead of stranding stale peaks.
      */
     private static void writeLevel(@NonNull AudioClip clip, @NonNull Host host,
                                    float gain, long localMs) {
         if (clip.hasVolumeKeyframes()
                 && localMs >= 0 && localMs <= clip.getTrimmedDurationMs()) {
-            clip.addOrUpdateVolumeKeyframe(localMs, gain);
+            clip.addOrUpdateVolumeKeyframe(localMs, multiplierFor(clip, gain));
         } else {
             clip.setVolumeLevel(gain);
         }
+    }
+
+    /** Desired FINAL gain → stored envelope multiplier (B1.Q). Silent clip → 0. */
+    private static float multiplierFor(@NonNull AudioClip clip, float finalGain) {
+        float lvl = clip.getVolumeLevel();
+        if (lvl < 0.0001f) return 0f;
+        return Math.max(0f, Math.min(2f, finalGain / lvl));
     }
 
     private static void setFade(@NonNull AudioClip clip, boolean fadeIn, long fadeMs) {
@@ -461,7 +625,7 @@ public final class AudioDrawerTabs {
         long local = localMs(clip, host.playheadMs());
         if (local < 0 || local > clip.getTrimmedDurationMs()) return; // span query guards first
         List<AudioClip.VolumeKeyframe> before = copyKeyframes(clip);
-        clip.addOrUpdateVolumeKeyframe(local, levelAt(clip, local));
+        clip.addOrUpdateVolumeKeyframe(local, multiplierFor(clip, levelAt(clip, local)));
         List<AudioClip.VolumeKeyframe> after = copyKeyframes(clip);
         host.recordUndo("Envelope point",
                 () -> { clip.setVolumeKeyframes(after); notifyChanged(host, refresh); },

@@ -1651,7 +1651,10 @@ public final class LayerRowRenderer {
             com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf = kfs.get(k);
             float fx = Math.max(0f, Math.min(1f, kf.timeMs / (float) dur));
             float x = x0 + fx * w;
-            float gFrac = Math.max(0f, Math.min(1f, kf.volume / 2.0f));
+            // B1.Q: stored values are MULTIPLIERS over volumeLevel — draw the FINAL gain
+            // so a boosted clip's envelope still rides high on the tape.
+            float finalGain = kf.volume * ac.getVolumeLevel();
+            float gFrac = Math.max(0f, Math.min(1f, finalGain / 2.0f));
             float y = bottom - gFrac * h;
             if (k == 0) {
                 canvas.drawLine(x0, y, x, y, volEnvLinePaint); // flat hold from clip start

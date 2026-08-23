@@ -464,16 +464,19 @@ public class BakedAudioCache {
 
     // ── loudnorm measurement parsing ──────────────────────────────────────
 
+    // "-?inf": real pass-1 logs emit UNSIGNED "inf" for target_offset on digital silence
+    // (caught by the C2.E behaviour proof, 2026-08-23 — the strict -inf-only pattern made
+    // every fully-silent clip fail its bake).
     private static final Pattern P_INPUT_I =
-            Pattern.compile("\"input_i\"\\s*:\\s*\"?(-?[\\d.]+|-inf|nan)\"?");
+            Pattern.compile("\"input_i\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
     private static final Pattern P_INPUT_TP =
-            Pattern.compile("\"input_tp\"\\s*:\\s*\"?(-?[\\d.]+|-inf|nan)\"?");
+            Pattern.compile("\"input_tp\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
     private static final Pattern P_INPUT_LRA =
-            Pattern.compile("\"input_lra\"\\s*:\\s*\"?(-?[\\d.]+|-inf|nan)\"?");
+            Pattern.compile("\"input_lra\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
     private static final Pattern P_INPUT_THRESH =
-            Pattern.compile("\"input_thresh\"\\s*:\\s*\"?(-?[\\d.]+|-inf|nan)\"?");
+            Pattern.compile("\"input_thresh\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
     private static final Pattern P_TARGET_OFFSET =
-            Pattern.compile("\"target_offset\"\\s*:\\s*\"?(-?[\\d.]+|-inf|nan)\"?");
+            Pattern.compile("\"target_offset\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
 
     /** The five values pass 2 needs, parsed from pass 1's {@code print_format=json} block. */
     private static final class Measured {

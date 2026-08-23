@@ -692,6 +692,10 @@ public class ExportManager {
                             vols[i] = kfs.get(i).volume;
                         }
                         VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                        // B1.Q: envelope values are MULTIPLIERS over the static level —
+                        // without this the base stayed 1.0 and a boosted clip's fade
+                        // capped its whole length at 100%.
+                        vp.setVolume(clip.getVolumeLevel());
                         vp.setVolumeEnvelope(times, vols);
                         aps.add(vp);
                     } else if (Math.abs(clip.getVolumeLevel() - 1.0f) >= 0.01f) {
@@ -1479,6 +1483,8 @@ public class ExportManager {
                     times[i] = kfs.get(i).timeMs;
                     vols[i] = kfs.get(i).volume;
                 }
+                // B1.Q: multipliers need their base — see the master-sequence site.
+                volumeProcessor.setVolume(volume);
                 volumeProcessor.setVolumeEnvelope(times, vols);
                 volumeAdjusted = true;
             } else if (Math.abs(volume - 1.0f) >= 0.01f) {
@@ -2099,6 +2105,9 @@ public class ExportManager {
                     times[i] = kfs.get(i).timeMs;
                     vols[i] = kfs.get(i).volume;
                 }
+                // B1.Q: envelope values are MULTIPLIERS over the static level — the base
+                // must ride along or a boosted clip's fade caps its length at 100%.
+                volumeProcessor.setVolume(volume);
                 volumeProcessor.setVolumeEnvelope(times, vols);
                 volumeAdjusted = true;
             } else if (Math.abs(volume - 1.0f) >= 0.01f) {
@@ -2230,11 +2239,13 @@ public class ExportManager {
                 float[] vols = new float[kfs.size()];
                 for (int i = 0; i < kfs.size(); i++) {
                     times[i] = kfs.get(i).timeMs;
-                    // The per-clip level still scales the envelope, so muting or ducking a PiP
-                    // does not silently discard an authored fade.
-                    vols[i] = kfs.get(i).volume * volume;
+                    // B1.Q: raw MULTIPLIERS now — the base rides via setVolume below,
+                    // matching the processor's contract (was: pre-multiplied here, which
+                    // left the processor's own base at 1.0 and two ways to compute one gain).
+                    vols[i] = kfs.get(i).volume;
                 }
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
+                vp.setVolume(volume);
                 vp.setVolumeEnvelope(times, vols);
                 processors.add(vp);
             } else if (Math.abs(volume - 1.0f) >= 0.01f) {

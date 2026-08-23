@@ -2009,6 +2009,16 @@ public class ProjectStorage {
                         kfArr.add(kfJson);
                     }
                     acJson.add("volumeKeyframes", kfArr);
+                    // B1.Q: absent = legacy ABSOLUTE gains (pre-multiplier projects);
+                    // present = multipliers over volumeLevel, no migration on load.
+                    if (ac.isEnvelopeMultiplier()) {
+                        acJson.addProperty("envMul", true);
+                    }
+                }
+                // C2.U baked-source bookkeeping — omit-at-null, tolerant on read.
+                if (ac.getBakedFromUri() != null) {
+                    acJson.addProperty("bakedFromUri", ac.getBakedFromUri());
+                    acJson.addProperty("bakedFromFile", ac.getBakedFromFile());
                 }
                 // Serialize transcripts + caption settings
                 if (ac.hasTranscript()) {
@@ -2644,6 +2654,21 @@ public class ProjectStorage {
                                         kfObj.get("v").getAsFloat()));
                             }
                             ac.setVolumeKeyframes(kfs);
+                            // B1.Q migration: keys saved before the multiplier ruling are
+                            // ABSOLUTE — divide by this clip's level once, on load, so a
+                            // project saved yesterday does not come back quieter today.
+                            // (volumeLevel was read above, so the base is final here.)
+                            if (!acObj.has("envMul") || acObj.get("envMul").isJsonNull()
+                                    || !acObj.get("envMul").getAsBoolean()) {
+                                ac.setEnvelopeMultiplier(false);
+                                ac.migrateLegacyAbsoluteEnvelope();
+                            }
+                        }
+                        // C2.U baked-source bookkeeping — tolerant absence = original source.
+                        if (hasValue(acObj, "bakedFromUri")) {
+                            ac.setBakedFrom(acObj.get("bakedFromUri").getAsString(),
+                                    hasValue(acObj, "bakedFromFile")
+                                            ? acObj.get("bakedFromFile").getAsString() : null);
                         }
                         if (hasValue(acObj, "waveform")) {
                             JsonArray wfArr = acObj.getAsJsonArray("waveform");

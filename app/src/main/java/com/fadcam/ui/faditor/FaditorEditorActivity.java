@@ -30970,40 +30970,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return;
                     }
                     try {
-                        java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("timelineWaveformCache");
-                        f.setAccessible(true);
-                        Object cache = f.get(editorTimeline);
-                        if (cache == null) {
-                            android.widget.Toast.makeText(this, "Waveform cache not ready", android.widget.Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        java.lang.reflect.Method getMethod = cache.getClass().getMethod("get", com.fadcam.ui.faditor.model.AudioClip.class, float.class);
-                        float fpsPxPerSec = 60f;
-                        Object wd1 = getMethod.invoke(cache, ref, fpsPxPerSec);
-                        Object wd2 = getMethod.invoke(cache, target, fpsPxPerSec);
-                        if (wd1 == null || wd2 == null) {
-                            android.widget.Toast.makeText(this, "Waveform not cached yet — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        java.lang.reflect.Field ampField = wd1.getClass().getField("amplitudes");
-                        java.lang.reflect.Field bucketField = wd1.getClass().getField("bucketMs");
-                        float[] amp1 = (float[]) ampField.get(wd1);
-                        float[] amp2 = (float[]) ampField.get(wd2);
-                        double bucketMs1 = ((Number) bucketField.get(wd1)).doubleValue();
-                        float max1 = 0, max2 = 0;
-                        for (float a : amp1) if (a > max1) max1 = a;
-                        for (float a : amp2) if (a > max2) max2 = a;
-                        if (max1 <= 0 || max2 <= 0) {
-                            android.widget.Toast.makeText(this, "No audio data", android.widget.Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        int[] env1 = new int[amp1.length];
-                        int[] env2 = new int[amp2.length];
-                        for (int i = 0; i < amp1.length; i++) env1[i] = Math.round(amp1[i] / max1 * 1000f);
-                        for (int i = 0; i < amp2.length; i++) env2[i] = Math.round(amp2[i] / max2 * 1000f);
-                        double fps = 1000.0 / bucketMs1;
-                        long maxOffsetMs = 10000;
-                        com.fadcam.ui.faditor.waveform.TrackAligner.Result res = com.fadcam.ui.faditor.waveform.TrackAligner.align(env1, env2, fps, maxOffsetMs);
+                        com.fadcam.ui.faditor.timeline.EditorTimelineView.AnalysisEnvelope env1 = editorTimeline.analysisEnvelopeFor(ref);
+                    com.fadcam.ui.faditor.timeline.EditorTimelineView.AnalysisEnvelope env2 = editorTimeline.analysisEnvelopeFor(target);
+                    if (env1 == null || env2 == null) {
+                        android.widget.Toast.makeText(this, "Waveform not cached yet — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (Math.abs(env1.framesPerSecond - env2.framesPerSecond) > 1e-6) {
+                        android.widget.Toast.makeText(this, "Waveforms at different resolutions — try again", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    long maxOffsetMs = 10000;
+                    com.fadcam.ui.faditor.waveform.TrackAligner.Result res = com.fadcam.ui.faditor.waveform.TrackAligner.align(env1.samples, env2.samples, env1.framesPerSecond, maxOffsetMs);
                         if (!res.isUsable()) {
                             android.widget.Toast.makeText(this, "Couldn\u2019t find a match — clips share nothing (confidence " + String.format(java.util.Locale.US, "%.2f", res.confidence) + ")", android.widget.Toast.LENGTH_LONG).show();
                             return;

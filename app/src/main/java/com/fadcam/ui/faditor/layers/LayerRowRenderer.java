@@ -110,6 +110,11 @@ public final class LayerRowRenderer {
     private final Paint kfScrimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private boolean kfEnvPaintsInit;
 
+    /** B1.V: cached rounded-corner effect for the fade wedges — 2dp, keyed on radius+density. */
+    @Nullable private android.graphics.CornerPathEffect fadeHandleCornerEffect;
+    private float fadeHandleCornerRadiusPx = -1f;
+    private final Path fadeHandlePath = new Path();
+
     /** Bucket tolerance for consolidating property key times into ONE row diamond — matches
      *  the drawer's on-key tolerance so an X and a Y key from the same gesture read as one. */
     static final long KF_CONSOLIDATE_TOLERANCE_MS = 66L;
@@ -2375,23 +2380,29 @@ public final class LayerRowRenderer {
         float fadeW = FADE_W_DP * density;
         float fadeH = FADE_H_DP * density;
         if (x1 - x0 < trimW * 2 + fadeW * 2 + 8 * density) return;
+        float radiusPx = 2f * density;
+        if (fadeHandleCornerEffect == null || fadeHandleCornerRadiusPx != radiusPx) {
+            fadeHandleCornerEffect = new android.graphics.CornerPathEffect(radiusPx);
+            fadeHandleCornerRadiusPx = radiusPx;
+        }
         Paint p = itemSelectionPaint;
         int prevColor = p.getColor();
         Paint.Style prevStyle = p.getStyle();
         float prevW = p.getStrokeWidth();
+        android.graphics.PathEffect prevEffect = p.getPathEffect();
         p.setStyle(Paint.Style.FILL);
         p.setColor(brighten(baseColor));
         p.setAlpha(180);
-        Path tri = new Path();
-        // Fade-in: right-pointing triangle at top-left inset
+        p.setPathEffect(fadeHandleCornerEffect);
+        Path tri = fadeHandlePath;
+        tri.rewind();
         float fx0 = x0 + trimW;
         tri.moveTo(fx0, top);
         tri.lineTo(fx0 + fadeW, top);
         tri.lineTo(fx0, top + fadeH);
         tri.close();
         canvas.drawPath(tri, p);
-        tri.reset();
-        // Fade-out: left-pointing triangle at top-right inset
+        tri.rewind();
         float fx1 = x1 - trimW;
         tri.moveTo(fx1, top);
         tri.lineTo(fx1 - fadeW, top);
@@ -2402,6 +2413,7 @@ public final class LayerRowRenderer {
         p.setAlpha(255);
         p.setStyle(prevStyle);
         p.setStrokeWidth(prevW);
+        p.setPathEffect(prevEffect);
     }
 
     /** SPEC_AUDIO_UX_V1 D10: struck-word spans as darkened tape — same mechanism as Clip, routed for AudioClip. */

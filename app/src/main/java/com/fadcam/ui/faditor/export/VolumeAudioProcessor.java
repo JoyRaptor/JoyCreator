@@ -9,7 +9,7 @@ import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
 
 /**
- * Audio processor that adjusts volume by scaling PCM samples.
+ * Audio processor that adjusts volume and stereo pan by scaling PCM samples.
  *
  * <p>Values:
  * <ul>
@@ -17,11 +17,17 @@ import java.nio.ShortBuffer;
  *   <li>1.0 = original volume</li>
  *   <li>2.0 = 200% (may clip)</li>
  * </ul>
- * Samples are clamped to avoid overflow.</p>
+ * Samples are clamped to avoid overflow.
+ *
+ * <p>Stereo pan: -1.0 = full left, 0.0 = center (no-op), +1.0 = full right.
+ * Uses equal-power law: at center both channels are 1.0 (no-op); at full L/R
+ * the active channel is sqrt(2) so power is constant. This matches the preview
+ * panning so export and preview change together.
  */
 public class VolumeAudioProcessor extends BaseAudioProcessor {
 
     private float volume = 1.0f;
+    private float pan = 0.0f;
 
     /** Optional volume automation envelope (clip-local time ms → gain). */
     private long[] kfTimes;
@@ -39,6 +45,15 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
      */
     public void setVolume(float volume) {
         this.volume = Math.max(0f, volume);
+    }
+
+    /**
+     * Set the stereo pan position.
+     *
+     * @param pan -1.0 (full left) to +1.0 (full right). 0.0 = center (no-op).
+     */
+    public void setPan(float pan) {
+        this.pan = Math.max(-1f, Math.min(1f, pan));
     }
 
     /**
@@ -72,6 +87,22 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
                 kfTimes, kfVols, ms, 1f);
     }
 
+    /**
+     * Compute per-channel gains from the current pan using equal-power law.
+     * Center (0) = both channels 1.0 (true no-op). Full L = (sqrt(2), 0), Full R = (0, sqrt(2)).
+     * For mono channelCount=1, returns single gain = volume.
+     */
+    private float[] channelGains() {
+        if (channelCount == 1) return new float[]{volume};
+        // Equal-power: angle = (pan + 1) * pi/4. pan=-1 -> 0 (cos=1,sin=0). pan=0 -> pi/4 (cos=sin=√2/2). pan=1 -> pi/2 (cos=0,sin=1).
+        // Multiply by √2 so center = 1.0 (no-op), full L/R = √2.
+        double angle = (pan + 1.0) * Math.PI / 4.0;
+        double sqrt2 = Math.sqrt(2.0);
+        float leftGain = (float)(Math.cos(angle) * sqrt2 * volume);
+        float rightGain = (float)(Math.sin(angle) * sqrt2 * volume);
+        return new float[]{leftGain, rightGain};
+    }
+
     @Override
     protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
             throws UnhandledAudioFormatException {
@@ -98,11 +129,19 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
         boolean enveloped = kfTimes != null;
         int ch = Math.max(1, channelCount);
         int channelIdx = 0;
-        float frameGain = enveloped ? gainAtMs(frameToMs(framePosition)) : volume;
+
+        float[] gains = channelGains();
+        float frameGain = enveloped ? gainAtMs(frameToMs(framePosition)) : gains[0];
 
         while (inShort.hasRemaining()) {
             int sample = inShort.get();
-            int scaled = Math.round(sample * frameGain);
+            float gain;
+            if (channelCount == 1) {
+                gain = enveloped ? frameGain : gains[0];
+            } else {
+                gain = gains[channelIdx];
+            }
+            int scaled = Math.round(sample * gain);
             scaled = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, scaled));
             outShort.put((short) scaled);
 

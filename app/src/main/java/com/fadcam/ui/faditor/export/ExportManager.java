@@ -2122,6 +2122,7 @@ public class ExportManager {
             // VolumeAudioProcessor's frame-position clock for the clipped item.
             float volume = ac.getVolumeLevel();
             VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
+            volumeProcessor.setPan(ac.getPan());
             boolean volumeAdjusted = false;
             if (ac.hasVolumeKeyframes()) {
                 List<AudioClip.VolumeKeyframe> kfs = ac.getVolumeKeyframes();

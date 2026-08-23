@@ -66,6 +66,9 @@ public class AudioClip {
     /** Volume multiplier (0.0 – 2.0, default 1.0). */
     private float volumeLevel = 1.0f;
 
+    /** Stereo pan (-1.0 = full left, 0.0 = center, +1.0 = full right). */
+    private float pan = 0.0f;
+
     /** Whether audio is muted. */
     private boolean muted = false;
 
@@ -229,6 +232,12 @@ public class AudioClip {
     public long getOffsetMs() { return offsetMs; }
 
     public float getVolumeLevel() { return volumeLevel; }
+
+    public float getPan() { return pan; }
+
+    public void setPan(float pan) {
+        this.pan = Math.max(-1f, Math.min(1f, pan));
+    }
 
     public boolean isMuted() { return muted; }
 

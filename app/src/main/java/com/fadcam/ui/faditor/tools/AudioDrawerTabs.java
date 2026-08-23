@@ -25,12 +25,15 @@ import java.util.List;
  * interface back to the editor, static ContentBuilder methods returning a View, COMPACT
  * one-line rows — so {@code ObjectDrawer} stays chrome and knows nothing about audio.
  *
- * <p><b>SCOPED (2026-08-23): the Level and Clean tabs.</b> Tone/FX still need C1.E's
+* <p><b>SCOPED (2026-08-23): the Level, Pan, and Clean tabs.</b> Tone/FX still need C1.E's
  * real-time chain, which does not exist; §0 rule 6 forbids shipping their sliders ahead of
- * it. Within Level, exactly three controls ship because exactly three are real today:</p>
+ * it. Within Level, exactly four controls ship because exactly four are real today:</p>
  * <ul>
  *   <li><b>Level</b> — flat gain ({@code volumeLevel}) or, once the envelope is armed,
  *       the envelope point under the playhead ({@code gainAtClipMs});</li>
+ *   <li><b>Pan</b> — stereo position (−1 = full left, 0 = center, +1 = full right),</li>
+ *       using the same equal-power law as export ({@link VolumeAudioProcessor}) so
+ *       preview and export change together (A5.U).</li>
  *   <li><b>The volume envelope</b> — the diamond drops/deletes/jumps keys; fades ride
  *       the same envelope;</li>
  *   <li><b>Fade in / Fade out</b> — durations written through
@@ -39,8 +42,8 @@ import java.util.List;
  *       fade drag handle writes.</li>
  * </ul>
  *
- * <p>Pan (A5.E) and “+ Cross-fade” (B2.E) are left OUT entirely — no disabled
- * placeholders. Compressor/limiter/normalize-peak also wait for C1.E.</p>
+ * <p>"+ Cross-fade" (B2.E) and Compressor/limiter/normalize-peak (C1.E) are left OUT
+ * entirely — no disabled placeholders.</p>
  */
 public final class AudioDrawerTabs {
 
@@ -73,6 +76,7 @@ public final class AudioDrawerTabs {
         LinearLayout root = column(ctx);
         final List<Runnable> refreshers = new ArrayList<>();
         refreshers.add(levelRow(ctx, root, clip, host));
+        refreshers.add(panRow(ctx, root, clip, host));
         refreshers.add(envelopeStateRow(ctx, root, clip, host));
         // A zero-length clip has nothing to fade — omit the rows rather than show dead ones.
         if (clip.getTrimmedDurationMs() > 0) {
@@ -184,6 +188,82 @@ public final class AudioDrawerTabs {
             value.setText(fmtGain(cur));
             bar.setProgress(progressOf(cur));
             diamond.refresh(host.playheadMs());
+        };
+        return selfRefresh[0];
+    }
+
+    /**
+     * Row for stereo pan slider. Center (0) = true no-op. Uses the same
+     * equal-power law as VolumeAudioProcessor so preview and export match.
+     */
+    @NonNull
+    private static Runnable panRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                   @NonNull AudioClip clip, @NonNull Host host) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
+
+        TextView label = new TextView(ctx);
+        label.setTextColor(TXT_DIM);
+        label.setTextSize(11);
+        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setWidth(Math.round(52 * d));
+        label.setMaxLines(1);
+        label.setText("Pan");                                            // TODO(strings)
+        parent.addView(label);
+
+        FineSeekBar bar = new FineSeekBar(ctx);
+        bar.setMax(SLIDER_STEPS);
+
+        TextView value = new TextView(ctx);
+        value.setTextColor(TXT);
+        value.setTextSize(11);
+        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setWidth(Math.round(46 * d));
+        value.setGravity(Gravity.END);
+
+        final Runnable[] selfRefresh = new Runnable[1];
+        final Runnable refreshAll = () -> {
+            if (selfRefresh[0] != null) selfRefresh[0].run();
+        };
+
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                if (!fromUser && !bar.isFineDriving()) return;
+                writePan(clip, host, panOf(p));
+                value.setText(fmtPan(panAt(clip)));
+                host.onChanged();
+            }
+            @Override public void onStartTrackingTouch(SeekBar s) {
+                // no envelope to snapshot; one undo per gesture via recordUndo below
+            }
+            @Override public void onStopTrackingTouch(SeekBar s) {
+                // Pan has no envelope, so undo is just the pan change itself
+                host.recordUndo("Pan",
+                        () -> { /* redo handled by onProgressChanged */ },
+                        () -> { clip.setPan(0f); host.onChanged(); });
+            }
+        });
+
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        row.addView(bar, blp);
+        row.addView(value);
+        // TAP THE NUMBER TO TYPE IT — same as Level.
+        value.setPaintFlags(value.getPaintFlags()
+                | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
+        value.setOnClickListener(v -> promptForPan(ctx, clip, host, refreshAll));
+
+        row.addView(new View(ctx)); // spacer for diamond position parity
+        parent.addView(row);
+
+        selfRefresh[0] = () -> {
+            float cur = panAt(clip);
+            value.setText(fmtPan(cur));
+            bar.setProgress(progressOfPan(cur));
         };
         return selfRefresh[0];
     }
@@ -556,6 +636,16 @@ public final class AudioDrawerTabs {
         return clip.gainAtClipMs(localMs);
     }
 
+    /** The current pan at a clip-local time (no envelope for pan yet). */
+    private static float panAt(@NonNull AudioClip clip) {
+        return clip.getPan();
+    }
+
+    /** Write a pan value — no envelope support yet, just flat pan. */
+    private static void writePan(@NonNull AudioClip clip, @NonNull Host host, float pan) {
+        clip.setPan(pan);
+    }
+
     /**
      * Route a slider/value write to whatever is LIVE: an envelope point under the playhead
      * when the envelope is armed (clamped to the clip — a key outside it could never be
@@ -594,6 +684,14 @@ public final class AudioDrawerTabs {
 
     private static int progressOf(float gain) {
         return Math.round(Math.max(0f, Math.min(2f, gain)) / 2f * SLIDER_STEPS);
+    }
+
+    private static float panOf(int progress) {
+        return progress / (float) SLIDER_STEPS * 2f - 1f; // 0..1000 -> -1..1
+    }
+
+    private static int progressOfPan(float pan) {
+        return Math.round((pan + 1f) / 2f * SLIDER_STEPS);
     }
 
     private static long fadeMsOf(int progress, long maxFade) {
@@ -739,6 +837,29 @@ public final class AudioDrawerTabs {
         input.requestFocus();
     }
 
+    private static void promptForPan(@NonNull Context ctx, @NonNull AudioClip clip,
+                                     @NonNull Host host, @Nullable Runnable refresh) {
+        float[] pad = dialogPadding(ctx);
+        EditText input = new EditText(ctx);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setText(trimNumber(panAt(clip) * 100f));
+        input.setSelectAllOnFocus(true);
+        input.setHint("-100 … 100");                                         // TODO(strings)
+        LinearLayout wrap = column(ctx);
+        wrap.setPadding((int) pad[0], (int) pad[1], (int) pad[0], 0);
+        wrap.addView(input);
+
+        confirmDialog(ctx, "Pan (%)", wrap, () -> {                          // TODO(strings)
+            Float typed = leadingNumber(input.getText().toString());
+            if (typed == null) return;
+            writePan(clip, host, Math.max(-1f, Math.min(1f, typed / 100f)));
+            host.onChanged();
+            if (refresh != null) refresh.run();
+        });
+        input.requestFocus();
+    }
+
     private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioClip clip,
                                              @NonNull Host host, boolean fadeIn,
                                              long maxFade, @Nullable Runnable refresh) {
@@ -786,6 +907,12 @@ public final class AudioDrawerTabs {
     @NonNull
     private static String fmtGain(float gain) {
         return Math.round(gain * 100f) + "%";
+    }
+
+    @NonNull
+    private static String fmtPan(float pan) {
+        if (pan == 0f) return "C";
+        return (pan > 0 ? "R" : "L") + Math.round(Math.abs(pan) * 100f) + "%";
     }
 
     @NonNull

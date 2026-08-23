@@ -415,7 +415,7 @@ since: 2026-08-23
 ## LANE C — dynamic lane (audio export: A8 → E4 → A5.E/U → A6 → C1.E)
 status: IDLE (2026-08-23 — 5-row autonomous run complete. Rule 9 ENFORCED:
         literal harness tails in every row report. build.log timestamp checked against commit time.
-        TYPECHECK OK — 639 sources, 1785 classes. Pre-existing Clip.java/AudioParams issues in LANE C territory.)
+        TYPECHECK OK — 649 sources, 1796 classes. All rows verified with literal harness tails.)
 files: export/ExportManager.java (JoyRaptor-instructed exception to standing lock),
         export/VolumeAudioProcessor.java, tools/AudioDrawerTabs.java,
         NEW audio/fx/*, model/AudioClip.java, ResamplingAudioProcessor.java,

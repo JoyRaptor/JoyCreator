@@ -322,6 +322,76 @@ public class AudioClip {
         return last.volume;
     }
 
+    // ── Fades (SPEC_AUDIO_UX_V1 C1.U) ────────────────────────────────
+
+    /**
+     * THE single definition of a fade-in, shared by the Level-tab sliders and (as a
+     * follow-up) {@code LayerGestureController.armFade}: the envelope STARTS with the pair
+     * (0, 0f) → (fadeInMs, 1f), clip-local ms. Returns 0 when the envelope does not start
+     * that way — including a hand-drawn envelope that merely begins low, which must not be
+     * misread as a fade (then "set fade 0" would eat someone's curve).
+     */
+    public long getFadeInMs() {
+        if (volumeKeyframes.size() < 2) return 0;
+        VolumeKeyframe first = volumeKeyframes.get(0);
+        if (first.timeMs != 0 || first.volume > 0f) return 0;
+        return Math.max(0, volumeKeyframes.get(1).timeMs);
+    }
+
+    /** Mirror of {@link #getFadeInMs()} at the clip end: (dur−fadeOutMs, 1f) → (dur, 0f). */
+    public long getFadeOutMs() {
+        long dur = getTrimmedDurationMs();
+        int n = volumeKeyframes.size();
+        if (dur <= 0 || n < 2) return 0;
+        VolumeKeyframe last = volumeKeyframes.get(n - 1);
+        if (last.timeMs != dur || last.volume > 0f) return 0;
+        return Math.max(0, dur - volumeKeyframes.get(n - 2).timeMs);
+    }
+
+    /**
+     * Write (or clear, at 0) the fade-in, using EXACTLY the keyframe convention the fade
+     * drag handle already writes, so the slider and the handle can never disagree.
+     * Setting 0 removes the fade's own pair only — a hand-drawn envelope without a leading
+     * (0, 0f) key reports 0 and passes through untouched.
+     */
+    public void setFadeInMs(long fadeMs) {
+        long dur = getTrimmedDurationMs();
+        if (dur <= 0) return;
+        fadeMs = Math.max(0, Math.min(fadeMs, dur / 2));
+        if (fadeMs <= 0) {
+            long cur = getFadeInMs();
+            if (cur > 0) removeVolumeKeysAtOrBefore(cur);
+            return;
+        }
+        // Same region-clear the drag does, so re-dragging never stacks stale keys.
+        removeVolumeKeysAtOrBefore(fadeMs);
+        addOrUpdateVolumeKeyframe(0, 0f);
+        addOrUpdateVolumeKeyframe(fadeMs, 1f);
+    }
+
+    /** Mirror of {@link #setFadeInMs(long)} at the clip end. */
+    public void setFadeOutMs(long fadeMs) {
+        long dur = getTrimmedDurationMs();
+        if (dur <= 0) return;
+        fadeMs = Math.max(0, Math.min(fadeMs, dur / 2));
+        if (fadeMs <= 0) {
+            long cur = getFadeOutMs();
+            if (cur > 0) removeVolumeKeysAtOrAfter(dur - cur);
+            return;
+        }
+        removeVolumeKeysAtOrAfter(dur - fadeMs);
+        addOrUpdateVolumeKeyframe(dur - fadeMs, 1f);
+        addOrUpdateVolumeKeyframe(dur, 0f);
+    }
+
+    private void removeVolumeKeysAtOrBefore(long timeMs) {
+        volumeKeyframes.removeIf(kf -> kf.timeMs <= timeMs);
+    }
+
+    private void removeVolumeKeysAtOrAfter(long timeMs) {
+        volumeKeyframes.removeIf(kf -> kf.timeMs >= timeMs);
+    }
+
     // ── Transcripts ──────────────────────────────────────────────────
 
     @NonNull

@@ -994,42 +994,25 @@ public final class LayerGestureController {
                 long endMs = startMs + dur;
                 boolean fadeIn = activeKind == GestureKind.FADE_IN;
                 long fadeDur = fadeIn ? Math.max(0, Math.min(dur / 2, t - startMs)) : Math.max(0, Math.min(dur / 2, endMs - t));
-                // SPEC B1.E: two keyframes form the fade — envelope already exists and exports correctly.
-                // FADE_IN: 0→0, fadeDur→1 ; FADE_OUT: dur-fadeDur→1, dur→0 (clip-local ms).
-                long clipDur = ac.getTrimmedDurationMs();
+                // B1.F: AudioClip.setFadeInMs/setFadeOutMs is now THE definition of a fade
+                // (same pairs this block hand-wrote — FADE_IN: 0→0, fadeDur→1 ; FADE_OUT:
+                // dur−fadeDur→1, dur→0, clip-local ms — including the same region-clear of
+                // stale keys first), so a future semantics change lands in ONE place (B1.Q).
+                // The <40ms branches below are NOT fades — they are region CLEARS that leave
+                // the envelope flat without a 0-volume spike — so they stay as-is.
                 if (fadeIn) {
-                    // Clear any previous fade-in keys near start to avoid stacking.
-                    java.util.Iterator<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> it = ac.getVolumeKeyframes().iterator();
-                    while (it.hasNext()) {
-                        long tm = it.next().timeMs;
-                        if (tm <= fadeDur + 40 || tm <= 40) {
-                            // keep keys that are clearly outside fade region? For now clear leading region up to fadeDur.
-                            if (tm <= fadeDur) it.remove();
-                            else if (tm == 0) it.remove();
-                        }
-                    }
                     if (fadeDur > 40) {
-                        ac.addOrUpdateVolumeKeyframe(0, 0f);
-                        ac.addOrUpdateVolumeKeyframe(fadeDur, 1f);
+                        ac.setFadeInMs(fadeDur);
                     } else {
                         // Short fade: just ensure start is not muted — remove fade keys
                         // (leaving envelope flat). Don't leave a 0-volume spike.
                         ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs <= 80);
                     }
                 } else {
-                    long fadeStart = clipDur - fadeDur;
-                    java.util.Iterator<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> it = ac.getVolumeKeyframes().iterator();
-                    while (it.hasNext()) {
-                        long tm = it.next().timeMs;
-                        if (tm >= fadeStart - 40 || tm >= clipDur - 40) {
-                            if (tm >= fadeStart) it.remove();
-                        }
-                    }
                     if (fadeDur > 40) {
-                        ac.addOrUpdateVolumeKeyframe(fadeStart, 1f);
-                        ac.addOrUpdateVolumeKeyframe(clipDur, 0f);
+                        ac.setFadeOutMs(fadeDur);
                     } else {
-                        ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs >= clipDur - 80);
+                        ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs >= ac.getTrimmedDurationMs() - 80);
                     }
                 }
                 callback.onGestureLive(activeItem);

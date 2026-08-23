@@ -5651,7 +5651,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 float oldVol = ac.getVolumeLevel();
                 boolean oldMuted = ac.isMuted();
                 VolumeControlBottomSheet sheet = VolumeControlBottomSheet.newInstance(
-                        ac.getVolumeLevel(), ac.isMuted(), 0f);
+                        ac.getVolumeLevel(), ac.isMuted());
                 sheet.setCallback(new VolumeControlBottomSheet.Callback() {
                     @Override
                     public void onVolumeChanged(float volume, boolean muted) {
@@ -5685,10 +5685,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         updateVolumeUI(volume, muted);
                         scheduleAutoSave();
-                    }
-                    @Override
-                    public void onDuckChanged(float duckAmount) {
-                        // Audio clips don't have ducking; ignore
                     }
                 });
                 sheet.show(getSupportFragmentManager(), "volumeControl");

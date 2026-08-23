@@ -1,0 +1,2209 @@
+You are implementing a fix for the FadCam Faditor video editor's multi-PiP + adjustment-layer preview rendering. The codebase is at C:\+Projects\Screenrecorder\FadCam. This is a CODING task — you will read code and write the fix, then compile-verify with the Gradle command below.
+
+## The diagnosis (already confirmed — do not re-investigate broadly)
+
+The EXPORT pipeline is CORRECT. In `app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java` (`assembleClipVideoEffects`, ~L2458-2838), each visible PiP overlay clip becomes its own `BlendModeGlEffect`, and each adjustment layer becomes an `AdjustmentLayerGlEffect` inserted INTO the PiP block by index (the PiP cursor counts only PiP clips). So export composites N PiPs in z-order with adjustment layers interleaved — true After-Effects behavior. The export is fine; DO NOT touch it.
+
+The PREVIEW is broken. Two interlocking causes:
+
+**Cause A (adjustment layer jank with 2+ PiPs / only grades one):** `app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java` `drawFrame()` (~L725-778) composites only ONE PiP: step 3 calls `drawPip(pip, ...)` for a single `pip` object fed by a single `pipTexture`/`pipSurface`. Every OTHER visible PiP renders as a `MediaMetadataRetriever` still inside `OverlayVideoPreviewView.onDraw()` (`app/src/main/java/com/fadcam/ui/faditor/compositor/OverlayVideoPreviewView.java` ~L675-715), which sits ABOVE `FxPreviewTextureView` in `activity_faditor_editor.xml` (FX view ~L527, OverlayVideoPreviewView ~L590). So non-top PiPs are drawn ungraded AND z-inverted above the graded live PiP.
+
+**Cause B (duplicate PiP → only one renders):** `OverlayVideoPreviewView.topVisibleAt()` (~L914) gives the single live decoder to the topmost visible PiP; the rest go to the 400ms-bucket still path on a single-thread executor (`refreshStills`/`decodeStillAsync` ~L597-673). A lagging/failing still decodes to nothing → only one PiP renders; on playback the non-top PiP is a near-frozen still → janky.
+
+## The target (After-Effects behavior)
+
+In the PREVIEW, composite ALL visible PiP clips in z-order INSIDE the graded GL chain, with adjustment layers interleaved at their z-positions — exactly like the export's ordering. An adjustment layer grades every PiP below it.
+
+## What to implement
+
+The authoritative z-order is `LayerPreviewController.orderedCompositedItems(...)` in `app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java` (~L107-117) — it returns PiP clips and adjustment layers interleaved in render order (bottom→top). Use it.
+
+Restructure the preview so that, when FX routing is active (there is a grade, an object FX, or an adjustment layer), the preview composites all visible PiPs in z-order interleaved with the adjustment layers, rather than routing a single PiP and leaving the rest as sibling-view stills.
+
+A practical design (adjust if you find a cleaner one in the code):
+
+1. **FxPreviewTextureView**: generalize the single `Pip`/`pipTexture`/`pipSurface` to support MULTIPLE PiP inputs, each with its own GL texture (an uploaded 2D texture for a still frame, or the existing OES surface texture for the live top PiP). The drawFrame should loop over composited items in z-order: for each PiP item composite it (drawPip-equivalent using that item's texture), for each adjustment-layer item grade the accumulated frame (drawLayers already handles this per-layer). Preserve the FBO ping-pong pattern already in the class.
+
+2. **OverlayVideoPreviewView / FxLivePreviewController**: expose every visible PiP's decoded frame (live top via its surface; others via their still Bitmaps) plus its geometry, in z-order, to the controller, which passes them to the view. Stop drawing the non-top PiPs as a sibling view above the FX view when routing is active (they must be graded, not painted over).
+
+3. Keep the non-routed path (no grade/FX/layers) EXACTLY as it is today — the single top PiP live decoder + stills sibling view — so a plain multi-PiP project with no effects is untouched and cheap.
+
+4. PiP per-object FX (BlendModeGlEffect's blend/chroma/mask) should still apply per-PiP inside the chain (the `Pip` class already carries those uniforms).
+
+## Constraints
+- Follow the existing code style (fully-qualified inner types, no new imports where the file avoids them, concise javadoc explaining WHY).
+- Pure ordering/present logic, no model changes, no serialization changes.
+- The preview must never crash the editor: keep the `degraded` fallback (passthrough) intact.
+- Do NOT modify ExportManager / the export path — it is already correct.
+
+## Verify
+Run: `.\gradlew.bat --offline :app:assembleDefaultDebug` from C:\+Projects\Screenrecorder\FadCam. Iterate until BUILD SUCCESSFUL. Do NOT filter the output to the last 2 lines (that hides compile errors) — grep for "error:".
+
+## Report back
+- The exact files + methods you changed and a one-line rationale for each.
+- How you handled the z-order interleaving and the per-PiP textures.
+- Whether the build passed.
+- Any places you simplified vs. the ideal After-Effects model (be honest).
+Let me start by understanding the codebase structure. This is a complex task involving multiple files in the FadCam Faditor video editor. Let me read the key files first.
+
+Let me start by reading the main files mentioned in the task:
+
+app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
+app/src/main/java/com/fadcam/ui/faditor/compositor/OverlayVideoPreviewView.java
+app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java
+app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java (for reference on correct ordering)
+The layout file activity_faditor_editor.xml
+Let me read these in parallel first.
+
+I'll start by reading the key files to understand the current architecture before making changes.
+
+Now let me read the rest of FxPreviewTextureView and the OverlayVideoPreviewView, and find the FxLivePreviewController.
+
+Now let me read the rest of FxPreviewTextureView and the OverlayVideoPreviewView:
+
+Let me read the rest of OverlayVideoPreviewView, and find the FxLivePreviewController.
+
+Let me read the rest of OverlayVideoPreviewView and find the FxLivePreviewController:
+
+Now let me read the FxLivePreviewController:
+
+Now let me read the FxLivePreviewController:
+
+Now let me look at the export's ordering to understand the correct z-order behavior (ExportManager assembleClipVideoEffects):
+
+Now let me examine the export path's ordering for reference, and the layout file:
+
+Now I understand the export path ordering. The key insight:
+
+Export ordering (bottom→top):
+
+Clip color grade (EffectStack.toEffects at L2559-2561)
+Below-bucket text/sprites (Z4, L2687-2706)
+PiP loop: one BlendModeGlEffect per PiP clip in z-order (L2714-2727)
+Text FX (L2738-2744)
+Adjustment layers INTERLEAVED at their z-positions within the PiP block (L2765-2793)
+Overlay effect (text/captions/waveforms above, L2800-2816)
+The preview must do:
+
+Stage (OES→2D)
+Clip grade
+Walk orderedCompositedItems: for each PiP item → composite it; for each adjustment layer → grade accumulated frame
+Present
+Now let me check where FxLivePreviewController is used in the activity, and how syncPip is called. Let me look at the activity to understand the wiring.
+
+Let me also check the Clip model to understand isOverlayClip, getFx, etc.
+
+Key design questions:
+
+How do I get multiple PiP textures into FxPreviewTextureView?
+The top PiP keeps its OES surface (live decoder).
+Non-top PiPs: their stills are Bitmaps in OverlayVideoPreviewView.stills. I need to upload those bitmaps as GL 2D textures.
+The PIP_FRAGMENT shader currently samples samplerExternalOES uPipTexture. For still bitmaps I need a sampler2D path. I can either:
+Have two fragment shaders (OES variant + 2D variant), or
+Upload the still bitmap into a texture and use a separate "still" pip program.
+Actually, the cleanest approach: keep the OES program for the live PiP, and add a second program variant that samples a plain sampler2D for still PiPs. The transform matrix for a still is identity (the bitmap is already upright... actually MMR bitmaps may need rotation handling? The still path in onDraw draws the bitmap raw. MediaMetadataRetriever.getFrameAtTime returns the frame in display orientation typically (it applies rotation). Let me not overthink — the onDraw path draws bitmaps directly without rotation, so they're already upright.
+
+Let me think about the design:
+
+FxPreviewTextureView changes:
+
+Add a new concept: a list of "composite items" in z-order. Each item is either:
+
+A PiP (with geometry + which texture to use: live OES surface texture, or an uploaded 2D texture from a still bitmap)
+An adjustment layer (the existing Layer class)
+But the current code keeps layers (adjustment layers) and pip separate and draws grade → pip → layers. The export interleaves layers within the PiP z-order. To match, I should publish a single ordered list of "steps":
+
+public sealed/abstract class CompositeItem — but this is Java 7/8 style Android code; let me check what Java version. The code uses default methods in interfaces, so Java 8. No sealed classes.
+Simplest approach consistent with the codebase: publish a single list List<Object>? No — the codebase style is explicit inner types. Let me design:
+
+/** One rung in the z-order: either a PiP or an adjustment layer. */
+public static final class Composited {
+    @Nullable final Pip pip;       // set when this rung is a PiP
+    @Nullable final Layer layer;   // set when this rung is an adjustment layer
+    final int pipIndex;            // which PiP texture slot, when pip != null
+    ...
+}
+Hmm, but the Layer compilation path (ensurePrograms) compiles programs for the whole List<Layer> and drawLayers iterates compiled in parallel with live. If I interleave, the layer programs must be keyed differently.
+
+Let me reconsider. The drawFrame structure:
+
+Stage → targets[0], cur=0
+Grade → cur
+Walk composited items in z-order:
+PiP item: drawPip(pip, cur, dst) — needs that PiP's texture
+Layer item: run that layer's steps (the drawLayers inner loop for ONE layer) — base handling
+Present
+For layers, ensurePrograms compiles per-layer LayerSteps in the order of the live list. If I keep the layers list as-is (bottom→top adjustment layers) AND have a separate ordered list telling me the interleave, I can:
+
+Keep List<Layer> layers (adjustment layers bottom→top) for program compilation as today.
+Add List<PipInput> pips (bottom→top) where PipInput = Pip geometry + texture source info.
+The z-interleave: instead of a separate list, I can compute the walk order... but the GL thread needs a simple immutable structure.
+Cleaner: publish ONE list of immutable "rung" objects built on the main thread:
+
+public static final class Rung {
+    @Nullable final Pip pip;
+    final int pipSlot;      // index into the GL-side pip texture array; -1 when layer
+    @Nullable final Layer layer;
+    final int layerIndex;   // index into compiled steps; -1 when pip
+}
+Wait — but layer compilation is keyed on the concatenated source keys. If rungs reference layers by index into a List<Layer>, then ensurePrograms still works on that layers list. Let me keep:
+
+setLayers(List<Layer>) unchanged — still the adjustment layers bottom→top.
+New: setCompositeOrder(...) — or better, a single new setter setComposited(List<Rung>) where each Rung is {Pip pip, int textureSlot} or {int layerIndex}.
+Hmm, but there's a subtlety: drawLayers iterates compiled.get(li) paired with live.get(li). If I walk rungs and for a layer rung I know its index li into the layers list, I can run exactly that layer's steps with base/cur handling. I need to refactor drawLayers to extract a single-layer runner.
+
+Let me now think about the PiP textures.
+
+PiP texture sources:
+
+Live top PiP: existing pipTexId (OES) + pipTexture + pipSurface + pipTexMatrix + pipHasFrame. Keep as-is.
+Still PiPs: Bitmaps from OverlayVideoPreviewView.stills. These need to be:
+Published from the view to the controller to the FX view (main thread).
+Uploaded to GL textures on the GL thread.
+For the GL side, I'll maintain a small pool of 2D textures for stills. Each still PiP gets a texture upload when its bitmap changes. To keep it simple and safe: key the still textures by clip id.
+
+Design for stills in FxPreviewTextureView:
+
+Main thread publishes List<Pip> where each Pip carries a source descriptor:
+SOURCE_LIVE — use the OES texture (pipTexId, pipTexMatrix).
+SOURCE_STILL with a Bitmap reference + a version/key.
+Actually the Pip class is immutable and built per-tick. Adding a Bitmap field to it means the bitmap reference crosses to the GL thread — that's fine as a handoff (bitmap owned by the stills map; risk: the bitmap could be recycled on the main thread while GL reads it). OverlayVideoPreviewView recycles bitmaps when replaced or when clips leave visibility. If the GL thread is mid-upload while main recycles → crash (Canvas/GL upload of recycled bitmap throws or reads garbage; GLUtils.texImage2D on recycled bitmap throws IllegalArgumentException? Actually it throws "Cannot generate texture from bitmap" if recycled). To be safe, I'll guard the upload with isRecycled() checks and wrap in try/catch (the degraded fallback already exists).
+
+Better approach for thread safety: the GL thread uploads from the bitmap immediately when published? No — publishing happens on main thread via requestFrame coalescing; upload must happen on GL thread. The window between publish and upload is small but nonzero. The existing code style wraps drawFrame in try/catch and sets degraded on exception — but degraded latches the whole preview off, which is too harsh for a transient recycled-bitmap race. Hmm, but actually GLUtils.texImage2D with a recycled bitmap throws IllegalArgumentException. I'll catch per-still-upload exceptions specifically and skip that PiP for that frame, rather than degrading.
+
+Actually wait. Let me reconsider: maybe the simplest robust approach is for OverlayVideoPreviewView to hand the FX view the still Bitmaps directly and let the FX view own the upload. To avoid the recycle race, OverlayVideoPreviewView must not recycle a bitmap that the FX view might still be uploading. Options:
+
+Option A: Copy the bitmap before publishing (copy is main-thread cost per bucket change — 400ms buckets, so at most 2.5 Hz per PiP — acceptable? A 1080p bitmap copy is 8MB memcpy, fine). Actually bitmap.copy() allocates a new bitmap each time — GC churn but bounded at 2.5Hz per still PiP. Hmm.
+
+Option B: Coordinate recycling — OverlayVideoPreviewView asks the FX view to release before recycling. Complex.
+
+Option C: The FX view keeps its own GL texture pool keyed by clip id, and the main thread asks it to upload. Upload happens on GL thread via a posted message carrying the bitmap; the bitmap is "frozen" (the stills map keeps a reference; when replaced, the old bitmap is recycled only after... no, still racy).
+
+Let me look at how the bitmap is used and its lifecycle more carefully:
+
+In decodeStillAsync, on completion (posted to main): old bitmap recycled, new assigned, invalidate(). So the bitmap in the map can be swapped+recycled on the main thread at any time.
+
+If the controller (main thread) reads sf.bitmap and passes the reference into view.setStillBitmap(clipId, bitmap) → FX view posts to GL thread "upload this bitmap for clipId" → before GL thread runs, main thread could recycle it. Racy.
+
+Simplest SAFE approach: synchronize the upload with the read on the main thread — i.e., the FX view does NOT upload asynchronously. Instead, the GL thread holds GL textures; main thread can't touch GL.
+
+Alternative: since the drawFrame is posted and coalesced, and bitmap swap+recycle happens on main thread... The race window is real but the consequence is an IllegalArgumentException from GLUtils.texImage2D (it checks isRecycled and throws). If I catch it per-still and skip, worst case is one frame drops that PiP. Given the stills already render at 400ms buckets, a rare dropped frame is invisible. But degraded mode latching would be bad — so catch locally.
+
+Actually, let me reconsider the whole thing. Is there a cleaner path?
+
+Alternative design: keep stills OUT of GL; instead composite stills as bitmaps into the chain via glTexImage2D. That's what I described. OK.
+
+Let me now think about what's cleanest given the existing structure and the constraint "concise, follows existing style".
+
+Plan
+FxPreviewTextureView:
+
+Extend Pip with a texture-source discriminator:
+Add @Nullable final Bitmap stillBitmap; — non-null for a still PiP; null for the live OES PiP.
+Add @NonNull final String stillKey; — clip id for still texture caching, or a monotonically increasing version. Actually, to avoid re-uploading the same bitmap every frame (400ms bucket still is stable for 400ms), I should cache: GL side keeps Map<String, Integer> stillTexById plus Map<String, Bitmap> uploadedBitmapById (reference comparison == is enough — a new decode produces a new Bitmap object). Upload only when the bitmap reference differs from what's uploaded for that clip.
+Hmm wait, keying by clip id: clips list is stable. Good.
+
+Replace setPip(Pip) / single pip with... hmm. Let me keep setPip for the LIVE pip (top) since the routing logic (hasPipSurface, onFxPipSurfaceReady) stays. Add setStillPips(List<Pip>)?
+But the z-order interleave needs ONE ordered walk. The controller knows the full order (orderedCompositedItems). So the controller should publish the full ordered structure.
+
+New main-thread published state:
+
+public static final class Rung {
+    @Nullable final Pip pip;        // this rung composites a PiP
+    @Nullable final Layer layer;    // this rung applies an adjustment layer
+    final int layerIndex;           // index into the layers list (for program lookup)
+}
+Wait, actually — do I even need layerIndex separate? The layers list and compiled steps are parallel. If rungs contain Layer references, I can map layer→index by identity. Simpler: rung stores the Layer and its index.
+
+Let me define:
+
+/**
+ * One rung of the z-ordered composite: a PiP to draw, or an adjustment layer to grade
+ * the frame so far. Built on the main thread from LayerPreviewController.orderedCompositedItems
+ * so the preview walks the SAME order the export emits.
+ */
+public static final class Rung {
+    @Nullable final Pip pip;
+    @Nullable final Layer layer;   // index via identity into layers list
+    ...
+}
+For program lookup, drawLayers uses compiled.get(li) parallel to live.get(li). If a rung holds a Layer, I find li by scanning live for identity (list is tiny — a handful). But live is the volatile layers list; rungs reference the same Layer objects if the controller passes the same snapshot objects. To make it robust, I'll have the controller build rungs and layers together and pass both; rung stores the index directly.
+
+Hmm, but setLayers and setRungs as two volatiles could tear (main updates layers then rungs; GL reads rungs new + layers old). The Layer objects are immutable; if rungs reference Layer objects directly (not indices), tearing is harmless: a rung with a Layer not in the current compiled set → skip (or handle by keying compiled programs per-rung).
+
+Let me reconsider the program compilation to be per-rung to avoid tearing entirely:
+
+Currently ensurePrograms(List<Layer> live) compiles all layers' steps and keeps compiled parallel. If I instead compile keyed per-rung... that's a bigger refactor.
+
+Alternative that avoids tearing: publish ONE immutable holder:
+
+public static final class CompositePlan {
+    @NonNull final List<Layer> layers;   // adjustment layers, bottom→top
+    @NonNull final List<Rung> rungs;     // full z-order walk; rung.layerIndex indexes layers
+}
+One volatile compositePlan. setLayers is replaced by this. But setLayers is also called by stop() with emptyList — I can add setCompositePlan(null/empty) there. Let me check all callers of setLayers/setPip: FxLivePreviewController only. Good — I can change the API freely as long as I update the controller.
+
+Let me grep for setLayers/setPip callers to be sure.
+
+drawFrame restructure:
+CompositePlan plan = this.plan;  // volatile read once
+...
+// 3 — walk the rungs
+if (!degraded && plan != null) {
+    ensurePrograms(plan.layers)   // same as today
+    for (Rung r : plan.rungs) {
+        if (r.pip != null) {
+            // resolve texture: live OES or still 2D
+            ... drawPip variant
+        } else {
+            // run layers[r.layerIndex] steps
+        }
+    }
+}
+Wait, but there's a subtlety: the current code draws the pip BEFORE layers always. With rungs, the walk handles both. But I must preserve the exact current behavior when there are no rungs published? The controller will always publish rungs when routed (it builds them from orderedCompositedItems which includes all visible PiPs + adjustment layers). If no adjustment layers and no PiPs → rungs empty → only grade runs. Fine.
+
+Hmm — but hold on. The current drawFrame applies layers ONLY if ensurePrograms(live) returns true. And the OLD behavior: pip drawn before ALL layers. The NEW behavior must reproduce export ordering. Export ordering is: grade → PiPs/layers interleaved → (text overlays above, not in this chain). So the rung walk IS the export order.
+
+One question: where does the clip GRADE sit relative to PiPs? Export: clip EffectStack effects added at L2559 (before PiP block). Preview: drawGrade before rungs. ✓ matches.
+
+drawLayers refactor: extract single-layer step runner. The current drawLayers has the base/dst ping-pong logic per layer. I'll extract:
+private int drawLayerSteps(Layer layer, LayerSteps ls, int vw, int vh, int from) { ... returns base }
+and keep drawLayers for... actually I can just inline the loop over rungs. But ensurePrograms still compiles per layers list. The rung's layerIndex picks compiled.get(layerIndex) and live.get(layerIndex).
+
+Edge: compiled may be shorter than live if... no, ensurePrograms compiles one LayerSteps per live layer. It iterates live fully. compiled.size() == live.size() on success. ✓. But rungs were built against a possibly different layers snapshot (tearing). If rung.layerIndex >= compiled.size(), skip that layer for this frame (next frame's publish fixes it). Safe.
+
+Still texture upload. GL-side:
+private final java.util.Map<String, Integer> stillTexIds = new java.util.HashMap<>();
+private final java.util.Map<String, Bitmap> stillUploaded = new java.util.HashMap<>();
+In the rung walk for a still pip:
+
+int tex = stillTextureFor(r.pip);  // uploads if bitmap ref changed; 0 on failure
+if (tex != 0) drawPipStill(...)
+And evict textures for clip ids not in the current plan? To bound memory: after the walk, remove entries whose key wasn't used this frame... but that would delete+recreate every time a PiP briefly leaves visibility — fine, stills are re-decoded anyway. Simpler: evict keys not referenced by the current plan each frame (cheap, few entries). Actually simplest correct: track a usedStillKeys set per frame; delete others. Textures are cheap (a few MB); recreating on visibility toggle is rare. OK.
+
+Still texture creation: GLUtils.texImage2D(GL_TEXTURE_2D, 0, bitmap, 0) with linear/clamp params. Need android.opengl.GLUtils import.
+
+The still PiP fragment shader: currently PIP_FRAGMENT uses samplerExternalOES uPipTexture + uPipTexMatrix. For a still (2D texture), I need a variant with sampler2D uPipTexture and identity matrix (or no matrix). Two options:
+Compile a second fragment PIP_STILL_FRAGMENT that's identical but with sampler2D and no tex matrix (uv used directly). Bitmap orientation: the bitmap is upright (MMR applies rotation). The GL quad builds vFxUv bottom-up; the export's BlendModeGlEffect samples the overlay through media3's matrix which flips... Let me think: for a sampler2D still, texture2D(uPipTexture, uv) where uv = q*0.5+0.5, q in -1..1 with +y up. Bitmap row 0 is the TOP. GL texture2D v=0 is the BOTTOM row of the uploaded bitmap data? GLUtils.texImage2D uploads the bitmap with its first row at v=0? Actually GLUtils.texImage2D uploads such that the bitmap's top row is at v=0... no. GL texImage2D defines the first row of data as the row at t=0 (bottom). Android Bitmap row 0 is the top. GLUtils.texImage2D does NOT flip — so the texture appears upside down when sampled with standard bottom-up UVs. Hmm wait, let me recall precisely: GLUtils.texImage2D — "the bitmap is uploaded with (0,0) at the top-left, and GL treats the first byte as the bottom-left"?
+The well-known fact: uploading an Android Bitmap via GLUtils.texImage2D results in a texture that is VERTICALLY FLIPPED relative to GL's bottom-up convention — i.e., sampling with v=0 gives the bitmap's TOP row. In practice, when rendering a fullscreen quad with vFxUv built bottom-up and sampling a bitmap texture with the same uv, the image appears upside down...
+
+Hmm, let me check how the export's BlendModeGlEffect handles PiP orientation — actually let me check how ChromaKeyTextureView or the existing code samples 2D bitmap textures, if any. The FX chain present blit samples targets (FBO textures) with vFxUv — FBO textures are rendered bottom-up by the same quads, so consistent.
+
+For the OES PiP, uPipTexMatrix comes from SurfaceTexture.getTransformMatrix which handles the flip.
+
+For a still bitmap, I control the shader, so I can just flip v in the shader: vec2 s = vec2(uv.x, 1.0 - uv.y); — wait I need to determine the actual orientation empirically-by-reasoning. GLUtils.texImage2D(target, level, bitmap, border): per docs, uploads the bitmap; GL's texImage2D semantics say the first row of pixels corresponds to t=0. Android Bitmap's first row is the top of the image. So the image's top lands at t=0. Standard GL quad UV has t=0 at the bottom of the drawn quad → the image renders upside-down. To correct: sample with v flipped: 1.0 - uv.y... wait no. Let me be careful:
+
+Bitmap top row → t=0 (bottom of texture space).
+Screen quad: vFxUv.y = 0 at bottom of screen, 1 at top.
+If I sample texture2D(uPipTexture, vec2(uv.x, 1.0 - uv.y)): at screen bottom (uv.y=0) I sample t=1 = bitmap's bottom row. WRONG — that draws bitmap's bottom at screen bottom → correct? Bitmap bottom row should be at screen bottom. Yes! With top row at t=0, bitmap's bottom row is at t=1. Screen bottom (uv.y=0) should show bitmap bottom → sample t=1 → use 1.0-uv.y. ✓. So flip: s = vec2(uv.x, 1.0 - uv.y).
+Hmm wait, but I should double check against existing code. Does the codebase upload bitmaps anywhere? Let me search for GLUtils usage. Also the export overlay path uses BitmapOverlay which handles orientation itself.
+
+Actually, let me verify with the STAGE_FRAGMENT analogy: it samples OES with uTexMatrix from SurfaceTexture. SurfaceTexture's matrix typically includes a vertical flip (that's why getTransformMatrix exists). So for OES, flip handled by matrix. For still 2D, I add explicit flip. I'll note it in a comment and, if wrong, it's a one-line fix — but let me try to confirm via any existing bitmap-upload code in the repo.
+
+OverlayVideoPreviewView changes:
+Expose still bitmaps + per-clip geometry for ALL visible clips, in z-order, to the controller.
+When FX routing is active (fxRouted), stop drawing the stills in onDraw (they'll be composited in the GL chain). Also the live top PiP is already hidden (alpha 0) when fxRouted.
+Geometry for non-top clips: fxPipGeometry() currently only works for active (the decoding one) because it needs videoW/videoH. For stills, use the still bitmap's dimensions (like drawnRectFor does).
+New method on OverlayVideoPreviewView:
+
+/**
+ * Every visible PiP's composite descriptor, bottom→top: geometry + the frame to show.
+ * The top (live) entry's bitmap is null — its pixels arrive on the FX surface.
+ */
+@NonNull
+public List<FxPreviewTextureView.Pip> fxPipChain() { ... }
+Wait — but Pip.of needs the FxStack resolution per clip. The Pip class holds fused, fxUniforms, fxKey, timeSec, blend/mask. For stills, same fields apply (a non-top PiP can have object FX and masks too — export applies them per PiP via BlendModeGlEffect!). So yes, build a full Pip per visible clip; add stillBitmap field.
+
+But there's a wrinkle: Pip.of signature takes frameW/frameH for mask packing (MaskSdf.packShapes(spec, frameW, frameH)). For the live PiP it's called with videoW/videoH of the overlay video. For stills, use bitmap dims. Good.
+
+Also fxPipGeometry computes baseW/baseH from videoW/videoH (the ACTIVE overlay's decoded size). For a still clip, use its bitmap dims for the fit. Let me generalize: extract a helper pipFor(Clip c, int srcW, int srcH, @Nullable Bitmap still).
+
+Current fxPipGeometry:
+
+float fit = Math.min(r.width() / videoW, r.height() / videoH);
+float baseW = videoW * fit, baseH = videoH * fit;
+... Pip.of(x, 1f - y, (baseW*scale)/r.width()*0.5f, (baseH*scale)/r.height()*0.5f, -rot, alpha, active.getFx(), currentTimeMs, active.getCompositing(), modeCode(...), max(1,videoW), max(1,videoH))
+Generalized with srcW/srcH params.
+
+The onDraw stills must be skipped when fxRouted (they're in the GL chain now). And when NOT fxRouted, everything stays exactly as today. ✓ constraint 3.
+Also, hit-testing/ghosts unchanged.
+
+FxLivePreviewController changes:
+syncPip → build the full rung list:
+private void syncPip() — becomes syncComposite(timeline, playheadMs, layersSnapshot)
+Walk LayerPreviewController.orderedCompositedItems(timeline):
+For each PiP clip item: ask OverlayVideoPreviewView for its Pip descriptor (with still bitmap or live). But careful: the live top PiP only counts if fxRouted; keyed PiPs keep their own tier (skip them — keyedWanted). Also a visible PiP with no still decoded yet → skip it this frame (don't block the chain) or include with null texture → skip drawing it. The GL side skips a still pip whose texture isn't uploaded yet.
+For each adjustment layer item: find its index in the layers snapshot list (identity match) → rung.
+Publish view.setCompositePlan(new CompositePlan(layersSnapshot, rungs)).
+Wait — currently sync() calls view.setLayers(snapshot) then syncPip() then route(). I'll restructure: build snapshot list, keep a map from AdjustmentLayer→index, build rungs, publish one CompositePlan.
+
+Handling of "adjustment layer renders nothing at this playhead": visibleAdjustmentLayers filters by activeAt + rendersAnything, and Layer.of returns null when plan empty. The export's interleave walk ALSO skips layers that don't renderAnything (L2787: if (al == null || !al.rendersAnything()) continue;). And in export, a layer not activeAt... wait, export checks rendersAnything at build time (not activeAt per-frame; AdjustmentLayerGlEffect handles activeAt internally per frame? Let me check AdjustmentLayerGlEffect quickly). The preview's visibleAdjustmentLayers additionally requires activeAt(playheadMs). So preview layers list = layers that are live NOW. For the rung walk, I should only include adjustment-layer rungs for layers present in the snapshot (i.e., live now). A layer in orderedCompositedItems but not active now → no rung (it's off, like export's per-frame no-op... hmm, does export skip non-active layers per frame? AdjustmentLayerGlEffect probably passes through when inactive). For the preview chain, skipping an inactive layer is equivalent (its effect would be identity). But z-position of PiPs relative to it doesn't matter when it's identity. ✓ So: rung only for layers in the snapshot.
+
+The PiP skipping logic for matte peers: export hides matte peers (servingMatteIds). The preview's OverlayVideoPreviewView.setClips is fed renderableOverlayVideoClips (excludes serving mattes)? Let me check what the activity feeds it. Actually LayerPreviewController.visibleOverlayVideoClips vs renderableOverlayVideoClips — the preview doc says renderableOverlayVideoClips is "the preview's OverlayVideoPreviewView". Let me verify in the activity. If the view's clips list already excludes matte peers, my walk of orderedCompositedItems would include matte peers — I must skip them too. Simplest: the rung walk asks OverlayVideoPreviewView for each clip's Pip; the view returns null for clips it doesn't have (not in its clips list / not visible / is the matte peer). So build rungs by iterating the VIEW's visible clips for PiP geometry, but the z-order... hmm.
+Actually cleaner: iterate orderedCompositedItems (the authority). For PiP items: ask the view fxPipFor(clip) which returns null when the view isn't rendering that clip (matte peer, keyed, not visible at playhead, or the live one when not fxRouted). For adjustment items: index lookup. This keeps z-authority in one place and lets the view veto pixels it can't supply.
+
+But wait: if the live top PiP is NOT fxRouted (e.g., routing pending), current code sets pip=null and the PiP shows via its own TextureView (ungraded) — correct fallback during the async gap. With the chain walk, fxPipFor(liveClip) returns null when !fxRouted → rung skipped → and the view's own TextureView shows it (alpha restored? — textureView.setAlpha(0f) only happens on successful route; applyTransform sets alpha = fxRouted ? 0 : alpha). Hmm wait — when fxRouted, the host alpha is 0. When NOT fxRouted, host shows normally, stills draw in onDraw. So during the not-yet-routed gap, everything renders as today. ✓
+
+And when fxRouted: onDraw must skip stills (they're in the chain), host alpha 0 (already). ✓
+
+One more: keyed PiP (keyedWanted) — keeps own tier, must NOT be in the chain (current code: view.setPip(ov.isFxRouted() ? ... : null) and routeFor keeps keyed separate). fxPipFor returns null for the keyed active clip. But its z-position in the chain is then missing — the keyed PiP renders as sibling view ABOVE the FX view... wait, OverlayVideoPreviewView sits above FxPreviewTextureView in the layout, and the keyed view is a child of OverlayVideoPreviewView. So a keyed PiP paints over the graded chain — same as today's limitation, acceptable (documented in code already: "a keyed PiP keeps its own live tier").
+
+The layout z-order issue (Cause A says OverlayVideoPreviewView is ABOVE FxPreviewTextureView, so non-top PiPs render ungraded above). With my change, when fxRouted, onDraw draws no stills → nothing ungraded above. ✓ And the GL chain composites all PiPs in z-order with layers interleaved. ✓
+Timing/seek of stills: unchanged (400ms buckets) — documented simplification.
+Now, one important detail: the rung walk must handle the case where the plan's rungs is empty but layers exist? No — rungs will include every layer in the snapshot, since the walk covers orderedCompositedItems which includes all adjustment layers. But what if an adjustment layer is in the snapshot (visibleAdjustmentLayers) but somehow not in orderedCompositedItems? visibleAdjustmentLayers is DERIVED from orderedCompositedItems, so every snapshot layer is in the walk. ✓ (both filter hidden lanes + eyes).
+
+But CAREFUL: Timeline.getAdjustmentLayers() vs the walk — the controller builds live from visibleAdjustmentLayers(timeline, playheadMs). Same source. ✓
+
+What about a project with adjustment layers but NO PiPs, and grade? Then rungs = layer rungs only; walk applies layers in order. Same as today. ✓
+
+What about objectFx routing (a PiP with object FX but no layers/grade)? sync() routes because objectFx=true. Then rungs include the PiP rungs. The walk composites them with their fused FX. Today: only top PiP composited with FX. After: all. ✓
+
+Edge: when routed ONLY for objectFx (no adjustment layers), the layers list is empty → ensurePrograms with empty list: want = "" ; compiledKey check: want.equals(compiledKey) && !compiled.isEmpty() — compiled is empty → proceeds; failedKey check; releasePrograms; loop over zero layers → compiled stays empty → compiledKey = "" → return true. Then drawLayers loop does nothing. OK, but in my new walk I iterate rungs; layer rungs none. Fine. But compiled.isEmpty() means every call with empty layers re-runs ensurePrograms (releasePrograms etc.) — that's today's behavior too with empty layers? Today drawFrame only calls ensurePrograms when !live.isEmpty(). I'll keep that guard semantics: only call ensurePrograms when layers non-empty. In the walk, layer rungs exist only when layers non-empty, so: if plan.layers non-empty → ensurePrograms once before walk. ✓
+
+Threading of bitmap handoff: OverlayVideoPreviewView.stills bitmaps are main-thread owned. fxPipChain() called on main thread (from controller sync on main). Pip holds bitmap ref → volatile plan → GL thread uploads. Recycle race: decodeStillAsync's post{} runs on main; fxPipChain also on main — no DURING-read race on main. The race is: main publishes plan referencing bitmap B; later main recycles B (replaced by B2, new plan published referencing B2); GL thread hasn't processed the old plan yet but requestFrame coalescing means it draws with the LATEST volatile plan → it'll see B2's plan. The only true race: GL mid-upload of B while main recycles B. Window: between GL reading plan.rungs and uploading. GLUtils.texImage2D with recycled bitmap throws IllegalArgumentException ("bitmap is recycled"?). I'll catch around the upload specifically and skip that PiP that frame. Also guard isRecycled before upload. Good enough — and the existing class's philosophy: never crash the editor. A local try/catch that skips one PiP for one frame is consistent.
+Additionally, to shrink the window: OverlayVideoPreviewView could avoid recycling bitmaps that are referenced by the FX view... overkill. Skip.
+
+Eviction of still GL textures: keys = clip ids used this frame; after walk, delete others. But frame-to-frame flicker if a still PiP briefly has null bitmap (decode in flight) — key still referenced (rung exists, bitmap null → skip upload, keep old texture? If bitmap null, maybe draw nothing OR draw stale texture? Drawing the stale texture is actually nicer (no flicker) — matches "still shows last decoded frame". Hmm, but a WRONG-positioned frame... it's the same clip's previous frame at same geometry — acceptable, stills are already 400ms stale by design. Actually wait: if rung.pip.stillBitmap == null (no still decoded yet), skip drawing (no texture). If texture exists from before but this frame's bitmap is null... can't happen: bitmap null means never decoded; once decoded, sf.bitmap stays non-null until eviction (clip invisible → rung gone → texture evicted). So: upload when ref changed; draw if texture exists. Simple.
+Hmm, one more: eviction timing vs requestFrame coalescing — evicting every frame for absent keys is fine.
+
+What about hasPipSurface() usage elsewhere? Let me grep for callers of FxPreviewTextureView methods to know what API I can change.
+Let me also check: does the activity call setPip or syncPip indirectly? And check FaditorEditorActivity for the wiring of FxLivePreviewController, OverlayVideoPreviewView.setClips (renderable vs visible), etc.
+
+Also need to check Clip class for isOverlayClip, getFx, getCompositing, getOverlayBlendMode, isPassThrough — all exist per the code I've seen.
+
+Let me also verify how MaskSdf.packShapes behaves for a null spec (returns 8-float zero array presumably) — Pip constructor indexes maskGeo[0..7]; packShapes must always return ≥8 floats. It already does for the live path (called with possibly-null spec). ✓ same helper.
+
+Also check FxCompiler, FxUniforms, FxStack — used already.
+
+Now — the CompositePlan holder + Rung. Where do the maskGeo floats for STILL pips come from — MaskSdf.packShapes(spec, bitmapW, bitmapH)? Wait, in the shader, the mask geometry is computed in FRAME space (vFxUv over the master frame) with uPipTexel = 1/vw,1/vh (master frame texel). Look at PIP_FRAGMENT mask code: vec2 frame = vec2(1.0)/uPipTexel; fxShapeSd(vFxUv, frame, uPipMaskGeo, ...). And Pip.of packs MaskSdf.packShapes(spec, frameW, frameH) where frameW/H = the OVERLAY VIDEO's dims?? Hmm wait, for the live PiP, fxPipGeometry passes Math.max(1,videoW), Math.max(1,videoH) — the overlay's decoded size. But the shader evaluates the mask in MASTER frame space (vFxUv is master uv, uPipTexel = master texel). That seems inconsistent... let me look at MaskSdf.packShapes to understand what frameW/frameH mean there.
+
+Let me check MaskSdf.packShapes signature and semantics. If it packs NORMALIZED shape coords (cx, cy in 0..1 of the FRAME), frameW/H might be used for aspect correction of corner radius etc. The mask in export (BlendModeGlEffect) — let me check how it packs there to keep parity. Actually for THIS task, masks on stills: the export applies masks per PiP. For preview parity I should pack the same way the live PiP does: with the clip's own source dims? The live PiP passes its decoded dims. For a still, the bitmap dims ARE the source dims (MMR frame at source size, rotated upright). So pass bitmap dims. Consistent. But hmm, the live PiP's decoded videoW/videoH are the RAW decoded size (possibly landscape-rotated for portrait video?) — ExoPlayer VideoSize gives post-rotation display size usually. Whatever — I'll pass bitmap dims for stills; close enough to export which uses the overlay's actual decoded frame. Since I shouldn't overthink: parity with fxPipGeometry (which passes videoW/videoH of the overlay) → for still pass bitmap dims.
+
+Wait, actually there's a subtlety: does the mask geometry even depend on the pip's own dims? Let me check MaskSdf.packShapes.
+
+Let me read the relevant model files: MaskSdf (packShapes), BlendModes (modeCode, glslBlendFnWithModeParam), and check Clip methods. Also check ChromaKey.isActive usage (skip keyed clips from chain).
+
+Also confirm who calls OverlayVideoPreviewView.setClips and with what list. And find getOverlayClips on Timeline.
+
+Then write the code.
+
+One more design point: the controller's Host interface gives overlayVideoLayer(). The controller sync() has the timeline. Good.
+
+Also FxPreviewTextureView.SurfaceListener.onFxPipSurfaceReady — keep.
+
+Now, the PIP_STILL_FRAGMENT: I'll derive it from PIP_FRAGMENT with string replacement? The class already builds pip programs via pipFragment(fused) which splices fused FX into PIP_FRAGMENT. For stills I need the same splicing but with sampler2D + flip. Cleanest: parametrize the fragment builder:
+
+private static String pipFragment(@Nullable FxCompiler.Pass fused)  // OES, existing
+Add a boolean or make the base fragment contain a placeholder. Actually simpler: build the fused-augmented source from PIP_FRAGMENT as today, then for the still variant do targeted replaces on the result:
+
+"uniform samplerExternalOES uPipTexture;" → "uniform sampler2D uPipTexture;"
+"uniform mat4 uPipTexMatrix;" → "" (unused)... but then the spliced decls etc. don't reference it. And drawPip sets the matrix uniform via glGetUniformLocation → -1 → no-op. Safe.
+"vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;" → "vec2 s = vec2(uv.x, 1.0 - uv.y);"
+Wait, careful with the flip direction — let me verify by checking GLUtils.texImage2D semantics more carefully, or find existing bitmap-upload code in the codebase. Let me grep for GLUtils.
+
+Program caching for stills: pipProgramFor is keyed by fxKey with ONE cached program. With multiple PiPs having different fxKeys, a single cached program thrashes (recompile per PiP per frame when two PiPs have different stacks). Need per-key program cache: Map<String, Integer> keyed by fxKey + source-type bit. And deletion on releaseGl. Let me implement a small cache:
+
+private final java.util.Map<String, Integer> pipPrograms = new java.util.HashMap<>();
+key = fxKey + (still ? "|s" : "|o"). On compile failure for a key → fall back to plain variant for that source type, and remember failed key to not retry (a Set<String> failedPipKeys). On releaseGl delete all.
+
+The old single pipProgram/pipFxKey fields get replaced by the map. That changes releaseGl (add loop deletion) and removes fields. Fine.
+
+drawPip signature: needs the texture binding to differ (OES unit + matrix vs 2D unit). I'll parametrize:
+
+private void drawPip(Pip p, int src, int dst, int vw, int vh, boolean still, int stillTex)
+When still: bind sampler2D stillTex at unit 1; skip updateTexImage/matrix. When live: as today (pipTexId OES, pipTexMatrix).
+
+And in the walk:
+
+for (Rung r : plan.rungs) {
+    if (r.pip != null) {
+        Pip pp = r.pip;
+        if (!pp.rendersAnything()) continue;
+        int dst = cur == 0 ? 1 : 0;   // hmm, ping-pong choice
+        ...
+    }
+}
+WAIT. Ping-pong allocation. Current code: pip uses dst = cur == 0 ? 1 : 0. drawLayers uses freeTargetOther(base, src). With multiple PiPs and interleaved layers, the pip dst must not clobber the base of an in-flight layer... Layers are run one at a time in the walk; a layer's steps run to completion (its internal ping-pong), returning base. Between rungs, cur is the single accumulated frame. For a pip rung: src=cur, dst must be ≠ cur. Any of the other two. But if dst later becomes a layer's "base"... no — base is always the current accumulated frame. After pip: cur=dst. So dst = cur == 0 ? 1 : 0 is fine but let me use any-free logic: dst = (cur == 0) ? 1 : 0 — only two slots used outside layers; slot 2 also free. Fine, but simplest consistent: int dst = cur == 0 ? 1 : 0; matches existing pip code. Keep.
+
+For layer rungs: replicate drawLayers' per-layer logic for ONE layer:
+
+int base = cur;
+Layer layer = plan.layers.get(r.layerIndex)  (bounds-checked, identity optional)
+LayerSteps ls = compiled.get(r.layerIndex)
+... inner step loop identical ...
+cur = base (the dst after last step)
+I'll extract the per-layer body from drawLayers into drawOneLayer(Layer, LayerSteps, vw, vh, from) → int. Then drawLayers could be removed entirely (the walk replaces it). But keep code minimal: remove drawLayers, add drawOneLayer.
+
+Hmm wait — but there's the "composite" semantics: the last render of a layer composites over ITS OWN base (uBaseSampler = the layer's input). In the walk, each layer's base = cur at its rung. ✓ Same as drawLayers with base=from initially and base carried between layers. My drawOneLayer returns the new base; walk sets cur = that. Identical semantics. ✓
+
+Also — grade ordering relative to rungs: grade applies BEFORE rungs (matches export: EffectStack before PiP block, before adjustment layers). ✓ (already the case).
+
+Edge — object FX on the MASTER clip? Not in scope (grade covers clip color; object FX on master clip... the export's EffectStack.toEffects covers the clip's color grade only I think. Clip.getFx? Hmm — Clip has getFx (FxStack) for object effects? In sync(), objectFx check reads timeline.getOverlayClips() getFx. Master clip FX on base clips... does the master clip have getFx? The export adds clip.getEffectStack().toEffects (color grade) — and BlendModeGlEffect splices the overlay clip's fused pass. For master clip object FX — is there such a thing? The controller only checks overlay clips for objectFx. Keep scope: unchanged.
+
+Now the "no rungs but routed" case: routed due to grade only, no PiPs/layers visible now. plan.rungs empty → walk no-ops → grade only. ✓
+
+Also IMPORTANT: when NOT routed (no grade/FX/layers), controller.stop() → view GONE, setFxCompositeSurface(null) → OverlayVideoPreviewView renders exactly as today (top live + stills sibling). ✓ Constraint 3 preserved.
+
+Now — when routed and a NON-top PiP has no still bitmap yet (decode in flight or failed): its rung draws nothing that frame. The sibling onDraw is suppressed while fxRouted... so the PiP is INVISIBLE until its still decodes. Today's behavior draws it as soon as the still lands; before that it also draws nothing. Equivalent. But "a lagging/failing still decodes to nothing → only one PiP renders" — that's Cause B. My change doesn't make still decode more reliable, but the task says the target is compositing all PiPs in the GL chain; the still-refresh machinery stays. Should I improve still decode? The 400ms bucket + single executor stays — acceptable per task ("janky" from frozen stills during playback is inherent to stills; the task's point 2 says expose "others via their still Bitmaps"). OK.
+
+Hmm, wait — actually, let me re-read Cause B: "A lagging/failing still decodes to nothing → only one PiP renders". The fix direction in the task: "expose every visible PiP's decoded frame (live top via its surface; others via their still Bitmaps)". So yes, stills remain the mechanism for non-top PiPs. Fine.
+
+Let me also double-check onDraw suppression: when fxRouted, skip still drawing. But fxRouted is about the LIVE surface routing. The chain includes stills only when the controller publishes the plan — which happens whenever routed (grade/layers/objectFx). fxRouted true ⟺ controller engaged (surface given). When the controller stops, setFxCompositeSurface(null) → fxRouted=false → onDraw stills back. ✓ consistent.
+
+BUT: keyed PiP case — active clip keyed → routeFor keeps keyed tier, fxRouted... let me check: setFxCompositeSurface(s) non-null → routeToFxIfWanted() → if (keyedWanted) return; → fxRouted stays false → onDraw stills DRAWN (good, since chain won't include the keyed PiP — but will it include the OTHER stills? fxPipFor(keyedActiveClip) must return null (its pixels go to keyedView). But other stills — if fxRouted is false (because keyed), should they be in the chain? The controller is engaged (layers exist). The master is graded in the chain. The stills could still be composited in the chain (better z-order with adjustment layers!), but then onDraw must skip them while the keyed PiP draws above as sibling... z-order between keyed PiP and layers would be wrong (keyed PiP always above all layers) — but that's the documented keyed-tier limitation already.
+
+Decision: include stills in the chain whenever the controller is engaged AND the view can supply them, regardless of fxRouted (which only tracks the LIVE surface). Suppress onDraw stills whenever... hmm, "controller engaged" state in the view = fxSurface != null? When controller stops it calls setFxCompositeSurface(null). So use fxSurface != null as "chain owns the stills" signal? But if keyedWanted and fxSurface != null: live PiP keyed (sibling), stills in chain. onDraw draws stills when NOT chain-owned → gate onDraw stills on fxSurface == null? Hmm wait, but then during the gap between setFxCompositeSurface(s) and the plan actually including stills (next sync tick — same tick, since syncPip is called every sync after setFxCompositeSurface... order in sync(): view.setLayers... syncPip() which calls ov.setFxCompositeSurface(pipSurface) THEN builds plan from the view. So same tick. OK.)
+
+Hmm, but actually — simpler and safer: gate BOTH (live pip host alpha and stills suppression) consistently on the chain owning them. Let me define in OverlayVideoPreviewView:
+
+/** True while the FX chain composites the stills (they must not also draw here). */
+private boolean fxOwnsStills;
+set explicitly by... the controller? Or the view infers: fxSurface != null && !keyedWanted... no wait — when keyedWanted, stills ARE in the chain (I decided) → fxOwnsStills should be true then too. When fxSurface != null, controller engaged → stills owned. When fxSurface == null → not. So fxOwnsStills = fxSurface != null? But there's the transition: setFxCompositeSurface(null) when controller stops. And setFxCompositeSurface(s) when engaged. But the surface can also be lost via onFxInputSurfaceLost → controller calls ov.setFxCompositeSurface(null). ✓
+
+Hmm, hold on. Is including stills in the chain while the live PiP is keyed actually better? The keyed PiP (sibling, above FX view) would render ABOVE adjustment layers that should grade it — limitation exists today for the single-pip path too ("A keyed PiP keeps its own live tier... it stays a sibling View"). And the stills BELOW the keyed PiP in z would composite in-chain under the layers — better than today. But wait: z-order violation — keyed PiP (sibling, on top of FX view) always paints above ALL in-chain content, even PiPs that are z-ABOVE it? Non-top stills are below the live top by definition (top = topmost visible). The keyed one IS the top (only the top gets the live decoder / keyed tier). So keyed top PiP above everything = correct z! Great — no violation.
+
+So the rule:
+
+Chain-owned stills: whenever controller engaged (fxSurface != null): onDraw skips stills; fxPipChain() supplies all visible clips except: the keyed-active (returns null → skipped) and matte peers (not in clips list anyway... wait, the walk is over orderedCompositedItems which may include matte peers! Must skip. fxPipFor returns null for clips not in this.clips? A matte peer IS in... hmm, is the view fed renderableOverlayVideoClips (matte peers excluded)? Need to verify in the activity. If yes, then clips excludes peers and my fxPipFor(clip) can check clips.contains(clip) → null for peers. But identity: orderedCompositedItems rebuilds TimedItem views — does it return the SAME Clip objects? Timeline.getLayers() — are clips shared references? The walk returns v.item.getClip() — same Clip instance as in visibleOverlayVideoClips (both derive from the same flat lists). And setClips receives those same instances. So identity contains works. Let me verify Timeline.getLayers shares Clip instances — almost certainly (views wrap the same model objects). I'll rely on reference equality, consistent with existing code (c == top comparisons in the view).
+Live top: in chain when fxRouted (surface routed, not keyed). ✓ existing.
+Now what does onDraw's current stills loop do about the KEYED live clip? if (c == top) continue; — top (keyed or not) is skipped (it has its own tier). My gate: wrap the whole stills draw loop with if (fxSurface == null) → when chain owns them, draw none. But careful: when keyedWanted && fxSurface != null, the stills are in the chain — onDraw skips. Keyed top draws via keyedView child. ✓
+
+But ALSO: when fxSurface != null but the controller has NOT yet included stills (e.g., first frame), stills vanish for a frame. Negligible.
+
+Hmm — one more scenario: controller engaged for GRADE ONLY (no layers, no objectFx). syncPip still runs: setFxCompositeSurface(pipSurface) → routes the top PiP into the chain (today's behavior: grade grades the pip? No wait — TODAY with grade only: syncPip routes top PiP into chain and composites it ABOVE the grade (pip after grade). Yes today it does that. So grade-only projects already route the PiP. So stills should join too. ✓ consistent.
+
+Now — when fxSurface != null but a still's bitmap not yet decoded: that PiP invisible (rung skipped due to null bitmap). Previously it'd also be invisible (no bitmap to draw). Same. ✓
+
+OK wait, I realize I should double check one thing — the current onDraw stills loop draws stills when callback != null && !stills.isEmpty(). My change: skip when fxSurface != null. Let me now also handle the GHOSTS (drawOffStageGhosts) — those draw outlines for off-stage PiPs; independent of pixels; keep unchanged. ✓ (They use stills map for sizes — fine.)
+
+Now let me also think: should the still suppression be fxSurface != null or a dedicated flag set by the controller? The task says: "Stop drawing the non-top PiPs as a sibling view above the FX view when routing is active". "Routing is active" = fxSurface != null (the offer) — but more precisely when the chain actually includes them. Since syncPip includes them in the same tick as the offer, fxSurface != null is accurate. But safer: a dedicated boolean fxChainOwnsStills set by the controller via a setter? That adds API. The view can infer reliably: fxSurface != null means the FX tier took the pixels (it also zeros the host alpha on successful route...). Hmm, note: host alpha zeroing happens on fxRouted (route succeeded). If surface offered but route not yet succeeded (player null), host still shows and stills... if I gate on fxSurface != null, stills suppressed while the plan doesn't include them yet AND the live PiP shows via its own TextureView → transient: live PiP visible, stills missing, for a frame or two. Acceptable. But actually, is the plan's still-inclusion gated on anything view-side? fxPipFor(stillClip) returns Pip with stillBitmap maybe null → rung with null bitmap → GL skips until decoded. Fine.
+
+Decision: gate onDraw stills on fxSurface == null... wait, actually — hmm, one more: stop() order: view.setLayers(empty), setGrade(null), setPip(null), THEN ov.setFxCompositeSurface(null). With my API: setCompositePlan(empty), then setFxCompositeSurface(null). Between them (same call stack, no frame drawn between — both on main, and draws happen on vsync after) → no transient. ✓
+
+Alright. Also need to keep setPip/hasPipSurface API or remove? hasPipSurface — grep callers. And the activity wiring: find where FxLivePreviewController is constructed and Host implemented, plus where overlayVideoLayer.setClips is called with which list.
+
+Let me also read MaskSdf.packShapes and check Clip.isOverlayClip/getFx/getOverlayBlendMode. And check Timeline.getOverlayClips.
+
+Also — IMPORTANT — check FxCompiler.Pass, FxUniforms.Value, FxStack for the imports I need. They're already imported in FxPreviewTextureView.
+
+Let me do these greps/reads now.
+
+Now I have a good picture of the preview architecture. Let me check the supporting model classes and how the activity wires everything up:
+
+Let me look at MaskSdf.packShapes to understand the frameW/frameH semantics:
+
+Good. Key findings:
+
+overlayVideoLayer.setClips(LayerPreviewController.renderableOverlayVideoClips(tl), ...) — so the view's clips list EXCLUDES matte peers.
+The FX controller is only used from FaditorEditorActivity via the Host interface. So I can change FxPreviewTextureView's API freely (setLayers/setPip are only called from FxLivePreviewController).
+Now let me check Clip methods I'll use: isOverlayClip(), getFx(), getCompositing(), getOverlayBlendMode(), getOverlayTransform(), getOverlayStartMs(), getTrimmedDurationMs(), getInPointMs(), isHiddenObject(). All exist per usage.
+
+Let me also verify GLUtils isn't already used elsewhere (to confirm import), and check how BlendModeGlEffect handles the overlay texture orientation for the export (to determine if I need the v-flip for still bitmaps). Actually the export uses a separate decoder per PiP via media3, not bitmaps, so no direct reference.
+
+Let me check if there's any existing bitmap→GL texture upload in the codebase to confirm orientation handling.
+
+Let me check for existing GLUtils/bitmap-upload patterns in the codebase and look at the layout:
+
+Key finding from GlTransitionPreviewView.java:438-439: "Native upload (GLUtils) — same top-down RGBA order". And GLWatermarkRenderer uses "flippedBitmap" / "flippedWatermarkBitmap" — they flip the bitmap BEFORE uploading. So GLUtils.texImage2D uploads top-row-first, and the watermark renderer pre-flips the bitmap. This confirms: a bitmap uploaded via GLUtils.texImage2D has its top row at t=0, so when sampling with standard bottom-up UV I need to flip vertically (1.0 - uv.y).
+
+Let me look at GlTransitionPreviewView around L438 to see how they sample that texture (do they flip in the shader?):
+
+Let me check how GlTransitionPreviewView samples its bitmap-uploaded texture (to confirm orientation handling):
+
+Confirmed: GlTransitionShaderLoader.java:254-255: getFromColor(uv) { return texture2D(uFromTex, vec2(uv.x, 1.0 - uv.y)); } — the shader flips vertically when sampling a GLUtils-uploaded bitmap. So for the still PiP path, sampling with vec2(uv.x, 1.0 - uv.y) is the codebase-proven pattern.
+
+Wait — but which orientation? The transition preview flips with 1.0 - uv.y when sampling the uploaded bitmap with a bottom-up quad UV. In my PIP shader, the PiP samples at uv = q * 0.5 + 0.5 where q.y is +1 at the TOP of the PiP box (since vFxUv is bottom-up and the box mapping preserves orientation). For the live OES PiP, the transform matrix handles orientation. For the still bitmap (top row at t=0), sampling at uv.y=1 (top of PiP box) gives... bitmap's bottom row at t=1? No wait: top row at t=0, bottom row at t=1. uv.y=1 (top of PiP) should sample bitmap's top row = t=0 → so s.y = 1.0 - uv.y. ✓ Consistent with GlTransitionShaderLoader.
+
+Hmm, wait — actually I need to double check what "top of the PiP box" means in the shader. PIP_FRAGMENT:
+
+vec2 q = r / uPipHalf;   // -1..1 inside the PiP box
+vec2 uv = q * 0.5 + 0.5;
+vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;
+vFxUv is built by FxGlSource.VERTEX_SHADER — let me check that vertex shader to see the orientation of vFxUv.
+
+Let me read FxGlSource.
+
+Let me check FxGlSource's vertex shader orientation and the FxCompiler/FxUniforms APIs:
+
+Good. vFxUv = aFramePosition.xy * 0.5 + 0.5 — with the QUAD going from -1,-1 (bottom-left in GL clip space) to 1,1, vFxUv.y=0 at the BOTTOM of the frame, 1 at the top. Standard bottom-up.
+
+For the still bitmap: uploaded via GLUtils (top row at t=0). Sampling at v=1 (top of PiP box) should give bitmap's top row → s.y = 1.0 - uv.y. ✓ matches the GlTransitionShaderLoader pattern.
+
+Now, in the PIP_FRAGMENT, uv = q * 0.5 + 0.5 where q is the PiP-local -1..1 coords. q.y=+1 when the fragment is at the top edge of the PiP box (r.y/uPipHalf.y = 1 when p.y = halfH, i.e., vFxUv.y above centre → top of box in bottom-up space). So uv.y=1 = top of the PiP's image. For OES, uPipTexMatrix maps it. For the still: s = vec2(uv.x, 1.0 - uv.y). ✓
+
+Now let me look at FxCompiler and FxUniforms quickly to know the Pass/Value APIs (already used in the file, so fine).
+
+Next: check Clip for getOverlayBlendMode, isPassThrough, getFx — all used already.
+
+Now let me also double-check how FxLivePreviewController.sync is called from the activity (line 20616) and whether there are other implementers of the Host interface. It's an anonymous class in the activity; fine.
+
+Now the detailed design:
+
+FxPreviewTextureView changes
+1. Pip class: add still bitmap + clip key
+Add fields:
+
+/** The still frame to composite, or null when this PiP's pixels arrive on the live OES surface. */
+@Nullable final android.graphics.Bitmap still;
+/** Identity of the clip this PiP draws — keys the uploaded still texture on the GL thread. */
+@NonNull final String clipId;
+Hmm — Pip.of is a factory used by OverlayVideoPreviewView.fxPipGeometry. I'll extend Pip.of with the two extra params (clipId, still) and keep a convenience overload? Since both call sites are mine to update (fxPipGeometry → generalized helper), just extend the one factory.
+
+Wait, actually — for the live PiP, clipId can be "" or the clip id; unused. still=null marks "live OES". Let me keep it simple: still == null → live path (OES texture + matrix). still != null → 2D texture path. clipId keys the texture cache (needed only for stills; pass clip.getId() always — harmless).
+
+2. Rung + CompositePlan
+/**
+ * One rung of the z-ordered composite walk: either a PiP to draw over the frame so far,
+ * or an adjustment layer to grade it. The list IS the export's chain order
+ * (LayerPreviewController.orderedCompositedItems), so an adjustment layer grades exactly
+ * the PiPs beneath it here too.
+ */
+public static final class Rung {
+    @Nullable final Pip pip;
+    /** Index into {@link CompositePlan#layers} when this rung is an adjustment layer. */
+    final int layerIndex;
+
+    private Rung(@Nullable Pip pip, int layerIndex) { ... }
+
+    public static Rung pip(@NonNull Pip p) { return new Rung(p, -1); }
+    public static Rung layer(int index) { return new Rung(null, index); }
+}
+
+/**
+ * The immutable per-tick composite description: every adjustment layer (bottom→top, for
+ * program compilation) and the z-ordered rung walk that interleaves them with the PiPs.
+ * ONE volatile holder so the GL thread never reads a half-updated pair.
+ */
+public static final class CompositePlan {
+    @NonNull final List<Layer> layers;
+    @NonNull final List<Rung> rungs;
+    public CompositePlan(@NonNull List<Layer> layers, @NonNull List<Rung> rungs) {...}
+}
+Replace volatile List<Layer> layers + volatile Pip pip with volatile CompositePlan plan (nullable). setLayers/setPip removed; new setCompositePlan(@Nullable CompositePlan). Update FxLivePreviewController accordingly (its stop() and sync()).
+
+Wait — is setLayers called anywhere else? Only FxLivePreviewController per grep. setPip same. hasPipSurface — no callers found outside (grep showed only the definition). Actually let me double-check hasPipSurface usage... grep showed only FxPreviewTextureView:551 definition. So I can keep or remove it. Keep it (harmless).
+
+3. Still texture management (GL thread)
+/** Uploaded still frames, keyed by clip id. Value[0] = texture id; uploads deduped by bitmap ref. */
+private final java.util.Map<String, Integer> stillTex = new java.util.HashMap<>();
+private final java.util.Map<String, android.graphics.Bitmap> stillUploaded = new java.util.HashMap<>();
+Helper on GL thread:
+
+private int stillTextureFor(@NonNull Pip p) {
+    android.graphics.Bitmap b = p.still;
+    Integer have = stillTex.get(p.clipId);
+    if (b == null) return have == null ? 0 : have;   // keep showing the last decoded frame
+    if (have != null && stillUploaded.get(p.clipId) == b) return have;
+    if (b.isRecycled()) return have == null ? 0 : have;
+    int id = have == null ? newStillTexture() : have;
+    try {
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, id);
+        android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+    } catch (Exception e) {
+        // A bitmap the stills cache recycled under us must not take the preview down.
+        return have == null ? 0 : have;
+    }
+    stillTex.put(p.clipId, id);
+    stillUploaded.put(p.clipId, b);
+    return id;
+}
+Hmm wait — there's a subtlety with "keep showing the last decoded frame" when b == null. When would a rung carry a null still? fxPipFor returns null Pip when no bitmap? Let me decide: OverlayVideoPreviewView.fxPipFor(clip) for a non-live clip returns null if no still bitmap is available (nothing to show — matches onDraw which skips missing stills). So rung never carries null still for the still path. Then stillTextureFor's b==null case won't arise. But defensive: keep it simple — if b == null or recycled, return what we have (or 0).
+
+Eviction: after the walk, delete still textures whose clipId wasn't referenced this frame:
+
+// stillKeysUsedThisFrame set
+Simple approach: before walk, clear a reusable HashSet stillKeysInUse; in stillTextureFor add key; after walk, iterate stillTex entrySet, delete+remove those not in use. This runs on GL thread — plain HashMap fine.
+
+But careful: eviction runs inside drawFrame which is inside try/catch that latches degraded. glDeleteTextures won't throw. Fine.
+
+4. PiP program cache per fxKey (+ source variant)
+Replace single pipProgram/pipFxKey:
+
+/** PiP composite programs, keyed by effect-stack source + texture-variant suffix. */
+private final java.util.Map<String, Integer> pipPrograms = new java.util.HashMap<>();
+private final java.util.Set<String> pipFailed = new java.util.HashSet<>();
+private int pipProgramFor(@NonNull Pip p) {
+    String key = (p.still == null ? "o:" : "s:") + p.fxKey;
+    Integer cached = pipPrograms.get(key);
+    if (cached != null) return cached;
+    if (pipFailed.contains(key)) { fall back to plain variant — hmm }
+    ...
+}
+Fallback semantics today: on compile failure of the fused stack, compile the PLAIN PIP_FRAGMENT and cache under the same key (so no retry). I'll do the same per key:
+
+private int pipProgramFor(@NonNull Pip p) {
+    String key = (p.still == null ? "o" : "s") + p.fxKey;
+    Integer have = pipPrograms.get(key);
+    if (have != null) return have;
+    int prog = 0;
+    try {
+        prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused, p.still != null));
+    } catch (Exception e) {
+        FLog.w(TAG, "PiP FX compile failed; compositing ungraded", e);
+        try {
+            prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(null, p.still != null));
+        } catch (Exception fatal) {
+            FLog.e(TAG, "plain PiP composite failed too", fatal);
+            prog = 0;
+        }
+    }
+    pipPrograms.put(key, prog);
+    return prog;
+}
+A 0 cached program = "don't retry, don't draw". drawPip checks if (prog == 0) return; — but then the PiP is INVISIBLE (its sibling is suppressed!). Hmm — today: plain composite failing → pipProgram=0 → drawPip returns → pip invisible AND its View held at alpha 0 → invisible. The class comment acknowledges this. With stills suppressed in the chain-owning case, same story. But prog=0 means the base passthrough didn't even run — extremely unlikely (PASSTHROUGH-grade shader). To never lose the frame content, note drawPip early-return means dst never written, cur stays src — the CHAIN continues fine, just the PiP is missing from it. That's the degraded behavior. Acceptable (matches today).
+
+Wait, actually there's a subtle correctness point: if drawPip returns early (prog==0), we must NOT advance cur. In the walk I'll structure it so cur advances only on success. But drawPip returns void today. I'll have the walk compute dst and call drawPip, then set cur=dst — but if drawPip no-ops (prog 0), targets[dst] was never written → cur=dst shows GARBAGE (stale content). Must avoid. Options: drawPip returns boolean (drew or not); or when prog==0 do a passthrough copy src→dst so chain integrity holds. Cleanest: make drawPip return boolean and only advance cur when true.
+
+Hmm wait, but also: pipHasFrame for the live path. Current: if (... && pipHasFrame && pipTexture != null). In the walk, for a live pip rung, check pipHasFrame/pipTexture, updateTexImage, then draw. If no frame yet → skip (don't advance cur). ✓
+
+Also rendersAnything() gate per pip rung. ✓
+
+5. pipFragment(fused, still) — parametrize texture source
+Current pipFragment(@Nullable FxCompiler.Pass fused) builds from PIP_FRAGMENT. For still variant, transform PIP_FRAGMENT text first:
+
+Replace "uniform samplerExternalOES uPipTexture;" → "uniform sampler2D uPipTexture;"
+Replace "vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;" → "vec2 s = vec2(uv.x, 1.0 - uv.y);"
+And keep "uniform mat4 uPipTexMatrix;" declared (harmless, -1 no-op when unset... wait it IS set in drawPip unconditionally via glGetUniformLocation — if stripped, -1 no-op. Fine, leave declared).
+
+Implementation: make the base fragment selection first:
+
+private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still) {
+    String base = still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT;
+    if (fused == null) return base;
+    ... same splice but on `base` ...
+}
+Define PIP_STILL_FRAGMENT as its own constant? That duplicates the whole shader body (~50 lines) — ugly and drift-prone, exactly what the codebase rails against. Better: derive:
+
+/** The still-frame twin of {@link #PIP_FRAGMENT}: same composite, but the PiP's pixels
+ *  come from an uploaded 2D texture (a cached still) rather than the decoder's OES surface.
+ *  Textually derived so the two can never drift apart on the blend/mask maths. */
+private static final String PIP_STILL_FRAGMENT = ...derived from PIP_FRAGMENT via replace...
+Can I do that in a static initializer? PIP_FRAGMENT is a compile-time constant String (concatenation of constants + two method calls glslBlendFnWithModeParam() and MaskSdf.GLSL_MASK_FN — NOT compile-time constant since it calls methods). So PIP_STILL_FRAGMENT can be initialized in a static block or via a private static method:
+
+private static final String PIP_STILL_FRAGMENT = stillVariant(PIP_FRAGMENT);
+
+private static String stillVariant(String oes) {
+    return oes.replace("uniform samplerExternalOES uPipTexture;", "uniform sampler2D uPipTexture;")
+              .replace("vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;",
+                       "vec2 s = vec2(uv.x, 1.0 - uv.y);");
+}
+Wait — order of declarations in the file: PIP_STILL_FRAGMENT must be declared AFTER PIP_FRAGMENT. Fine.
+
+But there's one more concern: the fused-splice pipFragment(fused) does .replace(" vec4 src = texture2D(uPipTexture, s);\n", ...) — that line is identical in both variants. ✓. And the decl-stripping replaces are compatible. ✓.
+
+Also note: PIP_FRAGMENT has the #extension GL_OES_EGL_image_external : require line at top. For the still variant (sampler2D only), the extension declaration is harmless BUT on some strict drivers an unused extension require is fine (it's a require, supported everywhere since the master path needs it anyway). Actually — cleaner to strip it for the still variant: .replace("#extension GL_OES_EGL_image_external : require\n", ""). It IS allowed to keep it; but stripping avoids any driver that warns. The extension is required for OES sampling; in the still program nothing uses it. require on a supported extension is a no-op. GL_OES_EGL_image_external is universally supported on Android. I'll strip it anyway for cleanliness — zero risk either way.
+
+6. drawFrame walk
+Replace steps 3 & 4:
+
+// 3 — the composited items, bottom→top, EXACTLY the export's chain order: each PiP
+//     drawn over the frame so far, each adjustment layer grading what is beneath it.
+//     (ExportManager:2714 PiP loop, :2789 layer insert — one ordering authority,
+//     LayerPreviewController.orderedCompositedItems, feeds both.)
+CompositePlan plan = this.plan;
+if (!degraded && plan != null) {
+    boolean layersReady = plan.layers.isEmpty() || ensurePrograms(plan.layers);
+    for (int ri = 0; ri < plan.rungs.size(); ri++) {
+        Rung r = plan.rungs.get(ri);
+        if (r.pip != null) {
+            cur = drawPipRung(r.pip, cur, vw, vh);
+        } else if (layersReady && r.layerIndex >= 0
+                && r.layerIndex < plan.layers.size() && r.layerIndex < compiled.size()) {
+            cur = drawOneLayer(plan.layers.get(r.layerIndex),
+                    compiled.get(r.layerIndex), vw, vh, cur);
+        }
+    }
+}
+Wait — the old code had if (!degraded && !live.isEmpty() && ensurePrograms(live)). My layersReady = plan.layers.isEmpty() || ensurePrograms(plan.layers) — when layers empty, no layer rungs exist anyway. OK.
+
+Hmm, one subtlety: ensurePrograms returns true when compiledKey matches AND !compiled.isEmpty(). With empty layers: want="" → "".equals(compiledKey) && !compiled.isEmpty() false initially → proceeds to compile loop over 0 layers → compiledKey="" → returns true. Whatever — guarded by isEmpty() first. ✓
+
+drawPipRung:
+
+/** Composite one PiP rung over {@code src}; returns the slot holding the new frame. */
+private int drawPipRung(@NonNull Pip p, int src, int vw, int vh) {
+    if (!p.rendersAnything()) return src;
+    int dst = src == 0 ? 1 : 0;
+    if (p.still == null) {
+        // Live decoder pixels on the OES surface.
+        if (!pipHasFrame || pipTexture == null) return src;
+        pipTexture.updateTexImage();
+        pipTexture.getTransformMatrix(pipTexMatrix);
+        return drawPip(p, src, dst, vw, vh, 0, false) ? dst : src;  // hmm
+    }
+    int tex = stillTextureFor(p);
+    if (tex == 0) return src;
+    return drawPip(p, src, dst, vw, vh, tex, true) ? dst : src;
+}
+Hmm, wait — the ping-pong: dst = src==0?1:0. But with MULTIPLE pip rungs in a row: pip1 src=0→dst=1, cur=1; pip2 src=1→dst=0, cur=0. Works. With layers interleaved, drawOneLayer uses freeTargetOther(base, src) internally. ✓.
+
+BUT — drawOneLayer's composite reads uBaseSampler = the layer's input base. The 3-slot scheme: base must survive the layer's internal passes. Since the walk runs one layer at a time and cur is the only cross-rung state, this is exactly the old drawLayers behavior. ✓
+
+drawPip modification — add still support. Current signature drawPip(Pip p, int src, int dst, int vw, int vh). New: drawPip(Pip p, int src, int dst, int vw, int vh, int stillTex, boolean still) returning boolean. Inside:
+
+program = pipProgramFor(p) (keyed with variant). 0 → return false.
+texture bind: if still → bind GL_TEXTURE_2D stillTex at unit 1, skip matrix set (matrix uniform stripped/absent → no-op anyway; but setting it costs nothing — skip for clarity).
+else → as today (OES pipTexId + pipTexMatrix).
+Return true after glDrawArrays.
+
+7. drawOneLayer — extract from drawLayers
+/**
+ * Run ONE layer's compiled steps over the frame at {@code from}; returns the slot holding
+ * the result. The body is the per-layer loop of the old drawLayers — see its note for why
+ * three targets.
+ */
+private int drawOneLayer(@NonNull Layer layer, @NonNull LayerSteps ls, int vw, int vh, int from) {
+    List<Step> steps = ls.steps;
+    if (steps.isEmpty()) return from;
+    int base = from, src = from, dst = -1;
+    for (Step step : steps) { ...same as before... src = dst; }
+    return dst >= 0 ? dst : base;
+}
+Remove drawLayers (no other callers — only drawFrame).
+
+8. setCompositePlan + requestFrame; releaseGl still-texture/program cleanup
+setCompositePlan(@Nullable CompositePlan p) { plan = p; requestFrame(); }
+Fields: replace volatile List<Layer> layers and volatile Pip pip with @Nullable private volatile CompositePlan plan;
+Remove setLayers/setPip (controller updated). Keep hasPipSurface.
+releaseGl: delete still textures + pip program map entries.
+Also — setupGl resets: pipPrograms.clear(); pipFailed.clear(); stillTex/stillUploaded clear (textures from a dead context are invalid — must clear!). Also degraded/latches reset already there. Note: setupGl is called fresh each surface-available; GL objects from prior context are gone; clearing maps is REQUIRED (stale texture ids). ✓ Add that.
+
+9. OverlayVideoPreviewView changes
+a) Generalize fxPipGeometry → per-clip:
+
+/**
+ * Every visible PiP's composite descriptor, in this view's z-order (bottom→top), for the
+ * FX chain. The entry for the clip that owns the live decoder carries no bitmap — its
+ * pixels arrive through the FX surface — and is emitted only while that routing is live;
+ * a clip whose key tier owns the pixels is omitted entirely (it stays a sibling tier).
+ * Every other visible clip carries its cached still; a clip with no still decoded yet is
+ * omitted (the chain skips what it cannot draw, exactly like onDraw does).
+ */
+@NonNull
+public List<FxPreviewTextureView.Pip> fxPipChain() { ... }
+Hmm wait — actually, who filters by visibility-at-playhead and z? The view's clips is already bottom→top z (from renderableOverlayVideoClips). Visibility at currentTimeMs: the rung walk in the controller... Let me reconsider WHERE the walk lives.
+
+Option A: controller walks orderedCompositedItems(timeline); for PiP items calls ov.fxPipFor(clip) (null when not supplied); for adjustment items uses the snapshot index.
+
+Option B: view exposes fxPipChain() (ordered PiP descriptors only); controller walks orderedCompositedItems and matches PiPs by clip identity against the chain list.
+
+Option A is cleaner (single authority walk; view just answers "what have you got for this clip"). The controller needs a Map<Clip, Pip> or linear lookup. Linear scan per item is fine (tiny lists).
+
+Actually — simplest: the controller builds the rung list by walking orderedCompositedItems ONCE:
+
+for (VisualItem v : LayerPreviewController.orderedCompositedItems(timeline)) {
+    Clip vc = v.item.getClip();
+    if (vc != null && vc.isOverlayClip()) {
+        FxPreviewTextureView.Pip p = ov == null ? null : ov.fxPipFor(vc);
+        if (p != null) rungs.add(Rung.pip(p));
+        continue;
+    }
+    AdjustmentLayer al = v.item.getAdjustment();
+    if (al != null) {
+        Integer idx = layerIndexByIdentity.get(al);  // from snapshot build
+        if (idx != null) rungs.add(Rung.layer(idx));
+    }
+}
+layerIndexByIdentity: build an IdentityHashMap<AdjustmentLayer, Integer> while building the snapshot. But visibleAdjustmentLayers returns AdjustmentLayer objects — are they the same instances as in orderedCompositedItems' v.item.getAdjustment()? Both derive from timeline.getLayers() which REBUILDS views from flat lists on each call ("getLayers is not cached", "TimedItem views are rebuilt with default zHint on every getLayers() call"). REBUILDS VIEWS — does that mean new TimedItem wrappers each call but the SAME underlying payload objects (Clip/AdjustmentLayer)? The rebuild note is about TimedItem views; payloads (Clip, AdjustmentLayer) are the model objects, almost certainly shared. Let me verify Timeline.getLayers/getAdjustmentLayers.
+
+If payloads are shared, identity works. visibleAdjustmentLayers returns v.item.getAdjustment() — same instances as a second orderedCompositedItems call in the same sync tick (both from fresh getLayers(), but payload objects are the same underlying model). Let me confirm by reading Timeline.getLayers and getAdjustmentLayers.
+
+Let me also confirm getOverlayClips on Timeline (used in controller already).
+
+b) fxPipFor(Clip) in the view:
+
+@Nullable
+public FxPreviewTextureView.Pip fxPipFor(@NonNull Clip clip) {
+    if (callback == null) return null;
+    if (!clips.contains(clip)) return null;   // matte peer or not ours: nothing to supply
+    // visible at the playhead?
+    long start = clip.getOverlayStartMs();
+    long end = start + Math.max(0, clip.getTrimmedDurationMs());
+    if (currentTimeMs < start || currentTimeMs > end) return null;
+    if (clip == active) {
+        // The live decoder's clip: its pixels come through the FX surface, but only while
+        // that routing actually holds — a keyed PiP keeps its own tier and must NOT also
+        // be drawn here.
+        if (!fxRouted || videoW <= 0 || videoH <= 0) return null;
+        return pipFor(clip, videoW, videoH, null);
+    }
+    StillFrame sf = stills.get(clip.getId());
+    android.graphics.Bitmap b = sf == null ? null : sf.bitmap;
+    if (b == null || b.isRecycled()) return null;
+    return pipFor(clip, b.getWidth(), b.getHeight(), b);
+}
+And pipFor(clip, srcW, srcH, still) — the extracted geometry maths from fxPipGeometry:
+
+@Nullable
+private FxPreviewTextureView.Pip pipFor(@NonNull Clip clip, int srcW, int srcH,
+                                        @Nullable android.graphics.Bitmap still) {
+    if (callback == null) return null;
+    RectF r = callback.getVideoContentRect();
+    if (r.width() <= 0 || r.height() <= 0) return null;
+    float fit = Math.min(r.width() / srcW, r.height() / srcH);
+    float baseW = srcW * fit, baseH = srcH * fit;
+    float x = readValue(clip, KeyframeSet.X, DEFAULT_X);
+    float y = readValue(clip, KeyframeSet.Y, DEFAULT_Y);
+    float scale = readValue(clip, KeyframeSet.SCALE, DEFAULT_SCALE);
+    float rot = readValue(clip, KeyframeSet.ROTATION, 0f);
+    float alpha = Math.max(0f, Math.min(1f, readValue(clip, KeyframeSet.OPACITY, 1f)));
+    return FxPreviewTextureView.Pip.of(clip.getId(), still,
+            x, 1f - y,
+            (baseW * scale) / r.width() * 0.5f,
+            (baseH * scale) / r.height() * 0.5f,
+            -rot, alpha,
+            clip.getFx(), currentTimeMs,
+            clip.getCompositing(),
+            com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()),
+            Math.max(1, srcW), Math.max(1, srcH));
+}
+Keep fxPipGeometry() for the activity's other caller? grep showed the activity references fxPipGeometry only in a COMMENT (line 19376). So I can replace fxPipGeometry with fxPipFor + keep a thin fxPipGeometry if needed... The controller's old syncPip used it. I'll remove fxPipGeometry and update the comment reference? The comment at 19376 says "fxPipGeometry feeds the GL composite" — it's a doc comment; leaving it stale is bad. Let me check that context later. Actually simpler: keep the method name fxPipGeometry but... no — cleaner: replace with fxPipFor and update the activity comment mention if it names the method. Let me check line 19370-19390 of the activity later.
+
+c) onDraw still suppression:
+
+@Override
+protected void onDraw(android.graphics.Canvas canvas) {
+    super.onDraw(canvas);
+    if (callback == null || stills.isEmpty()) return;
+    if (fxSurface != null) return;  // the FX chain composites the stills now — drawing them
+                                    // here too would double every PiP and put them ABOVE
+                                    // the adjustment layers that must grade them.
+    ...
+}
+Wait — careful. fxSurface != null means the controller offered the surface (engaged). The plan's still rungs come from fxPipFor which reads the same stills map. Consistent. When controller stops → setFxCompositeSurface(null) → onDraw resumes. ✓
+
+Hmm, but one more scenario: fxSurface != null (engaged for grade-only, no layers), top PiP routed into chain. Non-top stills → in chain via rungs (my controller change builds them). ✓ Good — this is exactly the multi-PiP + grade case from Cause A.
+
+But WAIT — what about keyedWanted? When the top PiP is keyed and FX engaged: fxRouted false; fxSurface non-null. Stills: suppressed from onDraw, included in chain via rungs. The keyed top renders via keyedView sibling ABOVE the FX view — and it's the TOPMOST PiP, so above all stills and above any adjustment layers... hmm, adjustment layers should grade the keyed PiP too if above it in z, but keyed tier limitation already documented. But there's a NEW z-hazard: an adjustment layer ABOVE the keyed PiP would grade the stills+master but NOT the keyed PiP (which hovers above everything). That's the documented keyed-tier trade-off, acceptable.
+
+But ANOTHER hazard: stills are BELOW the keyed PiP in z, fine. And the keyed PiP's OWN position in the chain is absent — layers interleave among the REMAINING PiPs. The keyed PiP sits on top visually. Mostly right.
+
+Edge: active clip keyed AND is the ONLY PiP → chain has no pip rungs → layers grade master only; keyed PiP above. Same as today. ✓
+
+d) Also setFxCompositeSurface(null) path resets textureView alpha — unchanged.
+
+10. Controller sync() restructure
+public void sync(@Nullable Timeline timeline, long playheadMs) {
+    ... routing decision unchanged ...
+    view.setGrade(g);
+    int[] size = videoSize();
+    List<AdjustmentLayer> live = ...;
+    List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
+    java.util.IdentityHashMap<AdjustmentLayer, Integer> layerIndex = new java.util.IdentityHashMap<>();
+    for (AdjustmentLayer l : live) {
+        FxPreviewTextureView.Layer s = FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1]);
+        if (s != null) layerIndex.put(l, snapshot.size());  // index in the PUBLISHED list
+        if (s != null) snapshot.add(s);
+    }
+    view.setVideoSize(size[0], size[1]);
+    view.setVideoRotation(rotationDegrees());
+    view.setCompositePlan(buildPlan(timeline, snapshot, layerIndex));
+    route();
+}
+Wait — the old code: view.setLayers(snapshot); syncPip(); route();. syncPip offered the surface & pushed pip geometry. My buildPlan does the offer + builds rungs:
+
+/**
+ * The z-ordered composite walk: every visible PiP the overlay layer can supply, interleaved
+ * with the adjustment layers at their z-positions — the SAME orderedCompositedItems ordering
+ * the export's effect chain is built from, so a layer grades the same set of PiPs here as in
+ * the file.
+ */
+@NonNull
+private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
+        @NonNull List<FxPreviewTextureView.Layer> snapshot,
+        @NonNull java.util.IdentityHashMap<AdjustmentLayer, Integer> layerIndex) {
+    OverlayVideoPreviewView ov = host.overlayVideoLayer();
+    if (ov != null && pipSurface != null) ov.setFxCompositeSurface(pipSurface);
+    List<FxPreviewTextureView.Rung> rungs = new ArrayList<>();
+    for (LayerPreviewController.VisualItem v
+            : LayerPreviewController.orderedCompositedItems(timeline)) {
+        Clip vc = v.item.getClip();
+        if (vc != null && vc.isOverlayClip()) {
+            FxPreviewTextureView.Pip p = ov == null ? null : ov.fxPipFor(vc);
+            if (p != null) rungs.add(FxPreviewTextureView.Rung.pip(p));
+            continue;
+        }
+        AdjustmentLayer al = v.item.getAdjustment();
+        if (al == null) continue;
+        Integer idx = layerIndex.get(al);
+        if (idx != null) rungs.add(FxPreviewTextureView.Rung.layer(idx));
+    }
+    return new FxPreviewTextureView.CompositePlan(snapshot, rungs);
+}
+Hmm — wait, the surface offer: old syncPip did if (ov == null || pipSurface == null) { view.setPip(null); return; } ov.setFxCompositeSurface(pipSurface);. The offer every tick. In buildPlan I do the offer too. ✓
+
+But there's a subtlety with the layerIndex identity map: visibleAdjustmentLayers(timeline, playheadMs) returns AdjustmentLayer instances; orderedCompositedItems(timeline) — SAME instances? Both call orderedVisualItems → timeline.getLayers() → rebuilds TimedItem views. Are the AdjustmentLayer payloads shared across two getLayers() calls? Need to verify Timeline.getLayers. If NOT shared, identity fails → layer rungs missing → adjustment layers never preview! CRITICAL to verify.
+
+Let me read Timeline.getLayers() and getAdjustmentLayers().
+
+Also — visibleAdjustmentLayers filters activeAt(playheadMs) && rendersAnything(). In the walk, orderedCompositedItems gives ALL adjustment items (any visibility window). layerIndex.get(al) returns non-null only for live ones. ✓ matches export's gating (export inserts AdjustmentLayerGlEffect for rendersAnything layers — activeAt handled per-frame inside; preview resolves per-tick — same visual result).
+
+Wait, actually there's a mismatch: export inserts the layer effect if rendersAnything() (regardless of activeAt — the effect itself gates by time per frame). Preview only includes layers activeAt(now). For rung POSITIONS this matters: export's pip cursor counts only PiPs (layers inserted by position among PiPs). If layer L is between PiP1 and PiP2 in z but not active at time T: export still composites PiP1, PiP2 and the (inert) layer — visually identical to omitting the inert layer. Preview omits L's rung → PiP1, PiP2 adjacent → same pixels. ✓ No divergence.
+
+Verify Timeline payload identity
+Let me read Timeline.getLayers / getAdjustmentLayers.
+
+Also check Timeline.getOverlayClips() (used in controller's objectFx check).
+
+Then write the code. Also must check Clip.isOverlayClip() exists (used in LayerPreviewController — yes).
+
+One more check: FxLivePreviewController.sync currently calls view.setLayers(snapshot) — I'm replacing with setCompositePlan. And stop() calls view.setLayers(emptyList) + view.setPip(null) → replace with view.setCompositePlan(null). Also stop() calls ov.setFxCompositeSurface(null). ✓
+
+And in the SurfaceListener.onFxInputSurfaceLost: pipSurface = null; ov.setFxCompositeSurface(null); ✓ unchanged.
+
+Now — is there anything else calling view.setPip? Only controller. ✓
+
+Let me now read the Timeline methods.
+
+Now let me verify critical details about Timeline payload identity (needed for the layer-index mapping):
+
+Now let me check getLayers() at line 1312 to see whether the AdjustmentLayer/Clip payloads are the SAME instances across calls:
+
+getLayers() groups the SAME backing-list payload objects (overlayClips, adjustmentLayers lists) into new Track wrappers. The Clip and AdjustmentLayer objects are the same instances across calls. So identity-based lookup (IdentityHashMap) works between visibleAdjustmentLayers(timeline, ...) and orderedCompositedItems(timeline) — both funnel through orderedVisualItems → getLayers() → same payload instances. ✓
+
+Also TimedItem.getAdjustment() / getClip() return the payloads. ✓
+
+Now let me check the TimedItem class quickly to confirm getClip/getAdjustment, and the AdjustmentLayer class API (activeAt, rendersAnything, getFx, getCompositing, opacityAt, getBlendMode) — all already used in FxPreviewTextureView.Layer.of. Fine.
+
+Now let me check the activity comment at line 19376 referencing fxPipGeometry, and the Host wiring at 20616:
+
+Payloads are shared instances across getLayers() calls — identity mapping works. Let me check the activity's references to the FX preview:
+
+The activity only uses the controller through the Host interface — all the API changes are contained. The comment at 19376 mentions fxPipGeometry — it's a javadoc reference in plain text (backticked, not @link), so renaming the method won't break compilation. I'll update the comment to reflect the new method name for accuracy.
+
+Now let me check Clip's methods I'll use: isOverlayClip(), getFx(), getOverlayBlendMode(), getCompositing(), getOverlayTransform(), getOverlayStartMs(), getTrimmedDurationMs(), isPassThrough(). Most are confirmed from usage. Let me also verify FxCompiler.Pass has .sampler, .repeats, .cards fields — used already.
+
+Now, let me write the plan concretely and double-check a few remaining details in FxPreviewTextureView:
+
+The pip volatile and setPip — remove, replace with CompositePlan.
+layers volatile — replaced by CompositePlan too.
+What about grade? Stays as its own volatile (grade applies before the walk).
+One important ordering check — the current drawFrame:
+
+1. drawStage → targets[0], cur=0
+2. grade → cur
+3. pip → cur  
+4. layers → cur
+5. present targets[cur]
+New:
+
+1. drawStage → cur=0
+2. grade → cur
+3. rung walk (pips + layers interleaved) → cur
+4. present targets[cur]
+Now — CRITICAL check on the walk's ping-pong for consecutive PiP rungs: pip1: src=0(cur), dst=1 → cur=1. pip2: src=1, dst=0 → cur=0. But WAIT: drawPip reads targets[src] as uTexSampler AND writes targets[dst]. src≠dst ✓.
+
+And a layer rung after pips: drawOneLayer(layer, steps, vw, vh, from=cur): base=from; internal steps ping-pong via freeTargetOther(base, src) — reads uBaseSampler=targets[base] and uTexSampler=targets[src]. ✓ returns final dst; cur=that.
+
+Edge: layer rung when ensurePrograms returned false (compile failed) → layersReady false → layer rungs skipped → PiPs still composite, grade still applies. Matches old behavior (old: if (!degraded && !live.isEmpty() && ensurePrograms(live)) → skip layers only). ✓
+
+Now — the Rung walk needs compiled (LayerSteps list) — indexed by layerIndex. compiled is GL-thread state; plan is published state. Tearing: plan references layer indices into plan.layers; compiled is keyed by concatenated sourceKey of plan.layers. ensurePrograms(plan.layers) is called with the SAME plan.layers list inside drawFrame → compiled rebuilt to match that exact list before use. So within one drawFrame call, after ensurePrograms(plan.layers) succeeds, compiled.size() == plan.layers.size() and compiled.get(i) corresponds to plan.layers.get(i). Bounds check r.layerIndex < compiled.size() handles any residual mismatch. ✓
+
+But hmm — ensurePrograms early-return: if (want.equals(compiledKey) && !compiled.isEmpty()) return true; — compiledKey is GL state from the PREVIOUS frame's plan. If the new plan.layers has the same concatenated key, compiled is reused — and it was compiled for an identical source-key sequence → equivalent programs. Layer UNIFORMS come from the Layer objects (live.get(li).uniforms), not from compiled — ✓ current values every frame.
+
+One more: the old code only applied layers when !live.isEmpty(). With plan != null but layers empty and rungs containing only pips — ensurePrograms not needed. My layersReady = plan.layers.isEmpty() || ensurePrograms(plan.layers) handles it.
+
+Also — the old code applied the pip BEFORE layers with the pip gated on pipHasFrame. New walk: live pip rung gated on pipHasFrame inside drawPipRung. ✓
+
+Now about setLayers removal — stop() in the controller: view.setLayers(emptyList); view.setGrade(null); view.setPip(null); → becomes view.setCompositePlan(null); view.setGrade(null);. ✓
+
+Now write the OverlayVideoPreviewView changes:
+
+fxPipGeometry() — currently used only by the old controller syncPip. Replace with fxPipFor(Clip). Update the activity comment (19376) which references "fxPipGeometry" — change to "fxPipFor" for accuracy.
+onDraw — add the fxSurface gate... wait, actually let me reconsider: is fxSurface != null the right gate, or should I add an explicit flag? Consider the flow: controller engaged → syncPip/buildPlan calls ov.setFxCompositeSurface(pipSurface) every tick. The plan published in the SAME tick includes still rungs. GL draws happen asynchronously but the volatile plan + surface offer are consistent per tick.
+BUT: what if pipSurface == null (GL not ready yet)? Controller's syncPip: if (ov == null || pipSurface == null) { view.setPip(null); return; } — i.e., NO surface offer while GL thread isn't up. In my buildPlan I must preserve that: only offer when pipSurface != null. And if not offered (fxSurface stays null), onDraw draws stills as today, and buildPlan's fxPipFor would return the LIVE pip only if fxRouted (which requires the surface) — so rungs would contain still pips but no live pip... WAIT. That's a problem: if pipSurface == null (GL starting up), but I still build rungs including stills, and the plan is published — the stills get composited in the chain (good!) but onDraw... fxSurface == null → stills ALSO drawn by onDraw → DOUBLE DRAW!
+
+Hmm. So the onDraw gate must be "the chain actually owns the stills" = the published plan includes still rungs = fxSurface was offered. If pipSurface == null, no offer, onDraw draws stills, and the plan... should then NOT include still rungs either (the GL view can't draw anyway — it has no EGL surface; but once the surface arrives the plan is already there — the GL view would composite stills while onDraw ALSO draws them → double draw for a frame or two until the next sync offers the surface... hmm, but next sync happens on the next playhead tick — playhead ticks are frequent (every frame during playback, on seek during scrub).
+
+Cleaner: make the onDraw gate exactly "fxSurface != null" AND only include still rungs when the surface was offered (i.e., pipSurface != null). Then:
+
+pipSurface == null: no offer, onDraw draws stills, plan has NO still rungs (and no live pip). GL view draws nothing (no EGL yet anyway). Consistent.
+pipSurface != null: offer made (fxSurface set), plan includes stills, onDraw suppressed. Consistent.
+Edge: surface LOST (onFxInputSurfaceLost) → controller sets ov.setFxCompositeSurface(null) → fxSurface=null → onDraw resumes; plan... the GL view is dead too (EGL released) → nothing double-draws. Next sync: pipSurface==null → plan without stills. ✓
+
+So in buildPlan:
+
+OverlayVideoPreviewView ov = host.overlayVideoLayer();
+boolean offer = ov != null && pipSurface != null;
+if (offer) ov.setFxCompositeSurface(pipSurface);
+...
+if (vc != null && vc.isOverlayClip()) {
+    FxPreviewTextureView.Pip p = !offer ? null : ov.fxPipFor(vc);
+    if (p != null) rungs.add(Rung.pip(p));
+    continue;
+}
+Hmm wait — but when offer is false we skip pip rungs entirely. But the plan's LAYER rungs are still valid (GL view may already have a surface from before — no wait, pipSurface==null means onFxInputSurfaceReady hasn't fired or surface lost → GL view has no input surface → its drawFrame... actually drawFrame runs on the GL thread once set up; pipSurface is set from the same callback as inputSurface (both in setupGl). If pipSurface==null then inputSurface==null too → route() no-ops → master not routed → the GL view isn't even fed. So plan content is moot when pipSurface==null. But keep the guard for cleanliness.
+
+Hmm, actually there's a subtlety: onFxInputSurfaceReady fires with both surfaces (setupGl creates both before posting). onFxPipSurfaceReady separately. pipSurface could be null if the view was created but GL setup hasn't run. When null → whole FX path dormant. OK.
+
+Also setFxCompositeSurface(null) when controller stops: old code in stop(): if (ov != null) ov.setFxCompositeSurface(null); ✓ keep.
+Now — one more integration point: OverlayVideoPreviewView.onDraw gate. When the chain owns stills (fxSurface != null), skip the still loop. Keep ghost outlines (dispatchDraw) untouched.
+
+Let me also think about refreshStills — it runs in syncToTime regardless; keep (the stills map must stay warm for the chain). ✓
+
+fxPipFor visibility check: currentTimeMs — the view's playhead state. The controller's playheadMs should equal it (both fed from the same tick; order of setPlayheadMs vs syncGlAdjustmentPreview calls in the activity... overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,...) then syncGlAdjustmentPreview? Let me check the ordering — activity line 19513-19517 area. Actually the controller gets absoluteMs and the view gets lastPlayheadAbsoluteMs — same tick value. Minor: if the view's currentTimeMs lags by a tick, a still rung might be included/excluded off by one frame — harmless.
+Now, fxPipFor uses readValue(clip, ...) which reads at currentTimeMs. But the controller wants geometry at playheadMs — same thing per above. OK.
+
+One more thing — Pip.of currently evaluates stack.resolveAt(editorMs) per clip per tick — for N PiPs that's N resolutions per tick. FxStack.resolveAt walks keyframes; plan() compiles... FxCompiler.plan(resolved) — is it cached? Pip.of is called per tick for the single live pip today. For 3-4 PiPs it's 3-4x. plan() probably builds a Plan object (cheap-ish list building, no GL). Acceptable.
+Now — the maskGeo packing for stills uses MaskSdf.packShapes(spec, frameW, frameH) with frameW/H = the clip's source dims (bitmap dims). For the live pip, videoW/videoH. The shader evaluates mask in MASTER frame space though... wait, look at PIP_FRAGMENT mask code again:
+
+float cover = 1.0;
+if (uPipMaskOn > 0.5) {
+  vec2 frame = vec2(1.0) / uPipTexel;    // uPipTexel = 1/vw,1/vh (MASTER frame texel)
+  float sd = fxShapeSd(vFxUv, frame, uPipMaskGeo, uPipMaskRot, uPipMaskCorner);
+  ...
+}
+So the mask is evaluated in the MASTER frame's pixel space (vFxUv * master dims), and maskGeo's cx/cy/w/h are NORMALIZED fractions of the master frame. packShapes packs normalized cx,cy,w,h as-is (they're stored normalized in the spec) and computes featherRadiusPx(feather, m.wframeW, m.hframeH) — the feather in pixels where frameW/H scale the normalized mask dims to pixels. In the master-frame evaluation, the right pixel scale is the MASTER's dims, not the pip's! But the existing live-pip code passes the PIP's dims (videoW/videoH of the overlay)... Hmm, so the existing code may have a feather-scale discrepancy for the live pip already. Since mask drawing in the chain is positioned in master space (vFxUv), the feather should use master dims. But that's the EXISTING behavior for the live PiP — not my bug to fix; keep the same convention for stills (pass the clip's own dims) for consistency with the live path. Actually wait — should I pass the MASTER dims instead? Let me re-read fxPipGeometry's call: MaskSdf.packShapes(spec, frameW, frameH) via Pip.of(..., Math.max(1, videoW), Math.max(1, videoH)) where videoW/H are the OVERLAY's decoded size. Meanwhile the shader's frame = 1/uPipTexel = master dims. So mask SHAPE positions (normalized) are fine; only the feather pixel conversion uses pip dims instead of master dims. Pre-existing minor inconsistency; I'll match the existing convention (clip's own dims) so stills behave identically to the live pip. Not my scope to change.
+
+OK. Now, one more important check — the stillPaint alpha and blend for stills in onDraw vs the chain: onDraw draws stills with plain SRC_OVER + alpha, plus MaskPathBuilder masks. The chain draws them via PIP_FRAGMENT with blend mode + mask uniforms — RICHER (matches export). Good — that's an improvement in fidelity, no conflict.
+
+What about z-order of stills among themselves in onDraw when NOT routed? Unchanged (list order). ✓
+Now — let me also double check FxCompiler.Pass fields used: p.sampler, p.cards, p.repeats. And FxUniforms.Value.components(). All used in existing code. ✓
+
+Now — CompositePlan/Rung placement: as public static nested classes in FxPreviewTextureView, next to Pip/Layer/Grade.
+
+Let me also decide: keep setPip/setLayers as API or remove? The controller is the only caller. Removing keeps one way to do it. But hasPipSurface() — unused elsewhere; keep (it's part of the surface listener contract, harmless). Actually let me check if hasPipSurface is used anywhere... grep earlier showed only the definition. I'll keep it (small, could be used by future code) — actually, per "minimal impact", keep it.
+
+Now let me also reconsider thread-safety of the Bitmap handoff once more. Scenario: GL thread in drawFrame calls stillTextureFor(p) → checks b.isRecycled() → false → GLUtils.texImage2D(b) → MEANWHILE main thread recycles b inside decodeStillAsync's post. Race: GLUtils.texImage2D reads the bitmap's native pixels while recycle() frees them → native crash possible (not just exception)! Hmm. GLUtils.texImage2D → glReadPixels... no, it locks the bitmap's pixels (AndroidBitmap_lockPixels) — a recycled bitmap has mNativePtr=0 → lockPixels fails → GLUtils throws IllegalArgumentException. But if recycle happens MID-upload after lockPixels... AndroidBitmap_lockPixels increments a ref? Actually recycle() while locked: Bitmap.recycle() is documented to free the native memory; if pixels are locked... There have been native crashes in this area historically. The window is tiny (a few ms upload vs 400ms recycle cadence), but "the preview must never crash the editor".
+
+How to eliminate the race entirely? Options:
+
+Option 1: OverlayVideoPreviewView stops recycling bitmaps that could be referenced... complex.
+
+Option 2: The FX view copies the bitmap on the MAIN thread at publish time? fxPipFor runs on main; copying there (bitmap.copy(config, false)) gives the GL thread an owned bitmap that nothing else recycles. Cost: one copy per still per tick — too much (60Hz × N).
+
+Copy only when the bitmap CHANGES: fxPipFor can compare against the last-published bitmap per clip id and copy only on change. But then the FX view / view must retain copied bitmaps and recycle them when replaced — ownership moves into OverlayVideoPreviewView (main thread) — manageable:
+
+In OverlayVideoPreviewView: Map<String, Bitmap> fxStillCopies. In fxPipFor: if stills bitmap != lastCopy source → make a copy, replace, recycle old copy (on main thread — but is the old copy still being read by GL? SAME RACE, moved).
+
+Option 3: Synchronize: GL uploads under a lock; recycle takes the same lock. Cross-thread lock between view (main) and FX GL thread. The FX view owns the upload; the recycle happens in OverlayVideoPreviewView... they're different classes; a shared lock object passed around — ugly.
+
+Option 4: The GL thread NEVER uploads directly from the stills bitmap. Instead OverlayVideoPreviewView hands the FX view a bitmap and TRANSFERS ownership (the stills map keeps drawing from its own copy for onDraw... no).
+
+Option 5: Never recycle still bitmaps while FX engaged; recycle on the GL thread after upload? no.
+
+Option 6: Copy on the GL thread first thing — no, source can be recycled before GL runs.
+
+Option 7: Copy in fxPipFor every time the bitmap reference changes since last call, and let the FX view recycle the PREVIOUS copy on the GL thread AFTER it has finished uploading the new one. Ownership: created in fxPipFor (main), handed via plan (volatile) to GL; GL uploads; when a NEWER copy for the same clip arrives, GL recycles the older after swapping; when the plan drops a clip, GL recycles its copy. The stills map's own bitmap lifecycle is untouched (it recycles ITS bitmap; the copy is independent memory). No race: the copy is only touched by fxPipFor (creation) and GL thread (upload + recycle).
+
+Where does the "copy when changed" logic live? fxPipFor is in OverlayVideoPreviewView; it can keep Map<String, Bitmap> fxCopyById + Map<String, Bitmap> fxCopySourceById (the stills bitmap the copy was made from). When the source bitmap ref changes → recycle... no wait, can't recycle the old copy on main (GL may hold it). Hand the old copy to GL for disposal? Complexity grows: need a disposal queue.
+
+Simpler variant of option 7: the FX view does the copy-on-change itself, on the MAIN thread inside setCompositePlan? No — setCompositePlan receives the plan already built.
+
+Hmm. Let me reconsider. What if the copy happens in the CONTROLLER (main thread), which holds Map<String, Bitmap> stillCopyById + source refs, and the GL side recycles superseded copies via a "retired" list handed along with each new plan? The CompositePlan could carry a List<Bitmap> retireAfterSwap — bitmaps the GL thread should recycle once it has uploaded their replacements... Actually simpler: GL thread recycles retired bitmaps as soon as it SEES the new plan (before or after upload — either, since retired bitmaps are no longer referenced by any plan). And on releaseGl/stop, GL recycles everything it still holds — but wait, the "current" copies are owned jointly? No: under this scheme, copies are created by the controller and ownership PASSES to the GL thread via the plan. The controller must NOT recycle a copy it has published. It only recycles... no — GL recycles. Controller tracks "published copy per clip" to decide when a new copy is needed (source bitmap changed since the published copy). When it publishes plan N+1 with a fresh copy for clip X, it adds the OLD copy to plan N+1's retire list. GL, processing plan N+1, recycles retired ones. Since GL processes plans in order (volatile latest-wins — could SKIP a plan!). If a plan is skipped (coalesced draws), its retire list never executes → leak. Add: retire lists of skipped plans... the GL thread only sees the LATEST plan. Leak of a few bitmaps on skip — bounded by clip count × skips, but repeated skips during heavy scrub could accumulate... Actually no: each clip has at most ONE outstanding copy held by controller + one in GL. If controller creates copy2 (retiring copy1 via plan N+1) and plan N+1 is skipped, and later copy3 (retiring copy2 via plan N+2): GL processes N+2, retires copy2. copy1 never retired → leaked until... the controller's "published copy" tracker moved on. Leak is real but small (8MB worst case per clip per... no — once per clip, since after copy3 the tracker holds copy3; copy1 is orphaned forever). Hmm, leaks accumulate one bitmap per clip per SKIP-EVENT involving that clip. During a scrub with 3 PiPs, dozens of skips × 3 clips × 8MB = hundreds of MB. NOT acceptable.
+
+OK, step back. The race window analysis: recycle happens on main in decodeStillAsync's post — only when a NEW still arrives (400ms cadence per clip) or when clips leave visibility. GL upload happens in drawFrame on GL thread. For a crash, recycle must land DURING GLUtils.texImage2D's pixel read (a ~1-5ms window), AND that specific bitmap must be the one being recycled. Probability per event ≈ 5ms/400ms ≈ 1%, over a long editing session with heavy PiP+adjustment use maybe hundreds of events → a crash every few sessions. The constraint says "must never crash the editor".
+
+Simplest bulletproof approach: synchronize on the bitmap object itself? recycle() doesn't synchronize. No.
+
+Approach: single-thread the upload with the recycle by doing the upload ON THE MAIN THREAD. Impossible — GL context is on the GL thread.
+
+Approach: EGL context shared between... no.
+
+Approach: hand the GL thread a COPY made on the GL thread from pixels read on the main thread? Pixels via bitmap.copyPixelsToBuffer on main into a ByteBuffer held by the Pip — buffer copy is 8MB memcpy per publish per clip — every tick (60Hz × N × 8MB = way too much).
+
+**Approach: copy-on-change with GL-side recycling of ALL copies, and the controller's tracker NEVER orphans: when creating copy N+1 for a clip, the controller hands copy N's FATE to the plan stream. To handle skipped plans: the GL thread, on processing ANY plan, first drains a shared "retirement queue" (ConcurrentLinkedQueue) that the controller pushes old copies into. Queue drain on every drawFrame AND on releaseGl. No orphan leak: every retired copy is in the queue exactly once; GL drains it eventually (or on teardown). If GL never draws again (view GONE), releaseGl drains on surface destroy. If surface never destroyed but drawing stops (controller stopped → plan null → drawFrame still runs on requestFrame? requestFrame only fires on setters/frame-available; after stop() no more frames → queue undrained until surface destroyed). Add a drain call inside setCompositePlan? That's main-thread; recycle can happen on main safely IF GL isn't mid-upload of that bitmap... GL uploads only inside drawFrame (GL thread). A retired bitmap is one that NO FUTURE plan references — but GL could be mid-drawFrame with the PREVIOUS plan referencing it! Volatile swap doesn't wait for GL. So main-thread recycle of retired = same race.
+
+Therefore retirement MUST happen on the GL thread (queue drain in drawFrame + releaseGl). Undrained-between-stop-and-destroy case: bitmaps sit in the queue — leaked until surface destroy or next draw. Next draw happens on next routing (controller re-engages → frames flow). Surface destroy drains. So worst case: a few bitmaps held while the FX view is idle-but-alive. Bounded, tiny. ACCEPTABLE.
+
+Wait, but hold on — is copy-on-change even needed per clip per bucket? The still bitmap changes at 400ms cadence only while playing/scrubbing. fxPipFor is called every tick. Controller compares source ref to last-copied source ref per clip; copies at 400ms cadence. 8MB memcpy at 2.5Hz per PiP — fine.
+
+Hmm, but wait — actually, let me reconsider whether I even need copies at all. WHO recycles the stills bitmaps? OverlayVideoPreviewView: (a) decodeStillAsync post — recycles the OLD bitmap when a new one lands; (b) refreshStills eviction — recycles when a clip leaves visibility; (c) onDetachedFromWindow — recycles all.
+
+What if, when the FX chain is active, OverlayVideoPreviewView defers recycling? I.e., it keeps "trash" bitmaps in a list and only recycles them when FX is NOT engaged (or on detach)? The GL thread may hold a reference to a trash bitmap (mid-upload or about-to-upload from a slightly stale plan read)... plan reads are atomic volatile; GL reads plan ONCE at drawFrame start (my code reads CompositePlan plan = this.plan once). If main publishes plan N+1 (without bitmap B) and trashes B (deferred, not recycled), GL mid-frame with plan N still uploads B safely (not recycled). Next frame GL reads plan N+1. Trash is recycled only when FX disengages (setFxCompositeSurface(null)) — at which point... GL could STILL be mid-drawFrame with an old plan containing B! fxSurface=null happens on main; GL doesn't know; the plan volatile still holds B (controller's stop() sets plan null BEFORE setFxCompositeSurface(null) — but again, GL mid-frame with old plan N...).
+
+Race persists unless recycling happens on the GL thread. So: deferred-trash + GL-thread-side actual recycling. The trash list must be drained by GL. Same queue mechanism as option 7 but WITHOUT copying! OverlayVideoPreviewView, instead of bitmap.recycle(), pushes to a shared ConcurrentLinkedQueue<Bitmap> glTrash that the FX view drains (recycles) on its GL thread in drawFrame + releaseGl. The stills map semantics unchanged otherwise.
+
+But WAIT — the trash queue must ONLY be used when the FX engagement is possible; if the FX view is GONE/never created, drain never happens until... the queue would accumulate forever (the whole session without adjustment layers!). Gate: only defer-to-trash when fxSurface != null (FX engaged); otherwise recycle immediately as today. When FX disengages (setFxCompositeSurface(null)), any bitmap trashed WHILE engaged stays queued until GL drains (drawFrame or releaseGl). GL draws continue briefly after disengage? stop() → plan null → requestFrame fires (setCompositePlan calls requestFrame) → drawFrame runs → drains trash. ✓ Actually even simpler: drain trash at the TOP of every drawFrame regardless.
+
+Hmm wait, but there's still the visibility-eviction recycle in refreshStills and the decode-swap recycle — both on main, both could hit a bitmap referenced by the CURRENT published plan. With deferral (trash-not-recycle while engaged), the bitmap's pixels stay alive until GL drains. GL drains on its own thread → the actual recycle() call happens on GL thread, but recycle() from GL thread while... GL is the only reader. Upload and recycle both on GL thread, serialized. RACE ELIMINATED. ✓
+
+And Bitmap.recycle() from a non-main thread is fine (it's just native free).
+
+Edge: the SAME bitmap object uploaded, then trashed, then... stills map no longer references it, but GL's stillUploaded map might — then a NEW decode produces bitmap B2 for the clip; rung carries B2; upload B2; stillUploaded.put(id, B2). The trashed B sits in stillTex — drawn until B2 uploads. Fine (that's the desired "keep last frame"). When the rung disappears (clip not visible), eviction on GL side removes the texture. Also stillUploaded may reference a recycled bitmap → only used for == comparison → safe.
+
+Also must handle: trash drain when the VIEW (OverlayVideoPreviewView) is detached but FX view alive: onDetachedFromWindow recycles ALL stills bitmaps immediately (not via trash) — but GL might reference them via the last plan! Detach → the whole editor is tearing down; FxPreviewTextureView also detaches (same parent) → onSurfaceTextureDestroyed → releaseGl → joins GL thread. Order of detach callbacks among siblings: both are children of fx_below_group; onDetachedFromWindow propagates... OverlayVideoPreviewView's onDetachedFromWindow could run while FX GL thread is mid-draw uploading a still bitmap that OverlayVideoPreviewView just recycled. TINY window during teardown. To be safe, route onDetachedFromWindow's recycles through the trash queue too if FX ever engaged... but then who drains? FX view's releaseGl drains. If FX view was never engaged, trash is empty anyway (gate on fxSurface != null... at detach time fxSurface might be non-null while engaged). So: in onDetachedFromWindow, push to trash if fxSurface != null else recycle immediately. The GL side drains in releaseGl. ✓ And if the FX surface was destroyed BEFORE OverlayVideoPreviewView's detach (sibling order), releaseGl already ran and GL thread is dead — trash never drained → leak of N bitmaps at teardown → process continues (editor closed, bitmaps GC'd eventually — recycle() is an optimization; un-recycled bitmaps just get GC'd). NO CRASH. ✓ Good enough.
+
+Hmm, wait — actually, simpler alternative I should seriously consider: GL thread uploads under a per-bitmap lock that recycle also takes? recycle() can't be wrapped for the map's OWNERSHIP reasons... OverlayVideoPreviewView owns all recycle calls — I could wrap EVERY recycle site with a lock the GL thread holds during upload. The GL thread would hold the lock during texImage2D (5ms); main's recycle waits. Deadlock risk: main waiting on GL while GL waits on main (e.g., releaseGl joins GL thread while main holds... main never holds the lock across a join). Workable but a shared lock between two classes needs a home (static? passed in constructor?). The trash-queue approach needs no locks and localizes changes: OverlayVideoPreviewView swaps recycle() for trashOrRecycle(); FX view drains. I'll go with the trash queue.
+
+Hmm, actually hold on. Let me reconsider ONE more time. What does the recycle race actually require? OverlayVideoPreviewView must recycle a bitmap that the FX GL thread is CURRENTLY uploading or WILL upload from a stale plan. "Will upload from a stale plan": GL reads plan once per drawFrame — if the published plan references B, and main trashes B and publishes a plan without B, GL's NEXT draw sees the new plan; its CURRENT draw (if mid-flight) holds the old plan ref → may upload B. So deferral must outlive one in-flight drawFrame. Draining trash at the TOP of drawFrame: trash pushed at T; a drawFrame that started BEFORE T may still upload B → draining at top of drawFrame T+1 — the draw that started before T might STILL be running?? No — drawFrame runs ON the GL thread, serialized. A drawFrame either started before the drain (finished before, since same thread) or after. All GL-side touches of B (uploads) happen inside drawFrame on the GL thread. Trash drained inside drawFrame on the GL thread. Any upload of B from a stale plan happened in an EARLIER drawFrame (same thread, already completed). So draining trash at the top of every drawFrame is SAFE. ✓✓ And releaseGl drain for the tail.
+
+One more subtlety: stillUploaded comparison == with a recycled-then-GC'd... bitmaps are Java objects; identity stable. Fine.
+
+And on the OverlayVideoPreviewView side, gating deferral on fxSurface != null: fxSurface is set on main; recycle sites are on main. Consistent view of the flag. ✓
+
+Wait, actually — do I even need the gate? If FX never engaged, trash accumulates with no drainer → bitmaps not recycled → memory held. With the gate (trash only while fxSurface != null), a non-FX project recycles immediately as today. Gate needed. ✓ And when fxSurface goes null (disengage), the trash from the engaged period drains on the next GL drawFrame (which stop()'s setCompositePlan triggers via requestFrame — if the GL thread/surface still alive). If the surface was destroyed first, releaseGl drains. If both dead, GC handles. ✓
+
+Alright, the design is settled. One more piece: the trash queue object shared between the two views. Who owns it? The FX view can expose a static or instance drain... The OverlayVideoPreviewView gets the queue from... the controller passes it? Cleanest: FxPreviewTextureView owns a ConcurrentLinkedQueue<Bitmap> exposed via a getter; the controller wires it: when offering the surface, also hand the queue: ov.setFxCompositeSurface(pipSurface, view.stillTrash())? Hmm — or OverlayVideoPreviewView obtains it in setFxCompositeSurface? It only gets a Surface. Let me add an overload or a second setter setFxStillTrash(queue). Hmm, API surface growing.
+
+Alternative home: make the trash queue a static shared instance? Static = process-wide, both views just reference FxPreviewTextureView.STILL_TRASH? A static queue is ugly but pragmatic... The codebase style favors explicit wiring. I'll do: FxPreviewTextureView exposes @NonNull java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> stillTrash(); FxLivePreviewController, when it offers the surface (buildPlan), calls ov.setFxStillTrash(view.stillTrash())... every tick? setFxCompositeSurface is called every tick already (it's idempotent-ish). I'll wire the trash queue ONCE in the controller constructor (view and overlay layer both known? overlay layer comes from host each time — could be lazily non-null...). Simplest: in buildPlan, alongside the surface offer, call ov.setFxStillTrashQueue(view.stillTrash()) — cheap idempotent setter (reference assign + equality check). And in stop()/surface-lost, ov.setFxStillTrashQueue(null) → OverlayVideoPreviewView falls back to immediate recycle. That also AUTOMATICALLY fixes the gate: instead of gating on fxSurface != null, gate on trashQueue != null. Hmm — but timing: stop() order: setCompositePlan(null) → requestFrame posted; setFxCompositeSurface(null); setFxStillTrashQueue(null). After trashQueue=null, recycles go immediate — but GL might still be mid-upload with the old plan! Window again (between trashQueue=null and the GL thread's final drain). Fix: in stop(), set queue null BEFORE setCompositePlan(null)? Then immediate recycles could still race the in-flight frame. Ugh.
+
+Cleaner: NEVER set the queue null after wiring; the queue is a property of the FX view's existence, drained in drawFrame + releaseGl. OverlayVideoPreviewView gates deferral on queue != null && fxSurface != null... but if queue stays non-null forever after first engagement, deferral continues while disengaged-with-live-GL → drains keep happening on draws (draws only happen on requestFrame/frameAvailable — after stop, no draws → deferred bitmaps sit until next engagement or releaseGl). Bounded (few bitmaps). Leak-free on teardown via releaseGl. OK — decision: wire once (controller constructor can't see ov... it can via host.overlayVideoLayer()). Hmm, host.overlayVideoLayer() may return null early? In the activity, overlayVideoLayer is found in onCreate (line 1679) before syncGlAdjustmentPreview runs (20611 lazily on first tick). So by controller construction, ov exists. But defensive: wire in buildPlan every tick (idempotent setter). NEVER unwire (leave the queue reference; its drain is the FX view's job; when the FX view is dead the queue is drained by releaseGl and subsequent deferrals... wait, after releaseGl the GL thread is gone; if ov keeps deferring into the queue, nothing drains until the FX view's NEXT surface lifecycle (setupGl → draws). If the editor session continues with FX re-engaging later, fine. If never, queue holds bitmaps → soft leak until views GC. Acceptable? A "soft leak" of a few 8MB bitmaps for the rest of the editor session... could be 3-4 bitmaps = 32MB. Hmm.
+
+Better: gate deferral on fxSurface != null (main-thread-visible proxy for "GL will drain soon"), AND when setFxCompositeSurface(null) is called, FLUSH the trash synchronously?? Can't — GL may be mid-upload.
+
+OK you know what, I'm over-engineering. Let me look at the ACTUAL exposure window with fresh eyes:
+
+The ONLY recycles that can race GL uploads are of bitmaps REFERENCED by the currently-published plan (or an in-flight previous plan). Those are bitmaps for clips visible RIGHT NOW. The recycles that happen on such a bitmap: (a) decode-swap — new still for a visible clip (400ms cadence, playing/scrubbing only); (b) eviction — clip just left visibility → but then the next plan excludes it; the CURRENT plan (published before this tick) may still reference it → in-flight draw race; (c) detach — teardown.
+
+Trash-queue with GL-side draining handles all three cleanly. For the "who drains when" worry: drain in drawFrame (top) + releaseGl. Queue reference held by ov after wiring. Deferral gate: trashQueue != null && fxSurface != null. When fxSurface→null (stop/lost): subsequent recycles are immediate — is THAT safe? After fxSurface=null, does GL still hold plan references to stills? stop() sets plan null BEFORE setFxCompositeSurface(null) (I'll preserve that order), and a requestFrame is posted by setCompositePlan(null) — the GL thread will draw once more with plan=null (no still touches) and drain trash. But between main's setCompositePlan(null) and GL processing it, GL could be mid-draw with the OLD plan uploading B, while main (after fxSurface=null... wait fxSurface is still non-null at that point in stop() — order: setCompositePlan(null) [plan=null, frame requested], THEN setFxCompositeSurface(null) [fxSurface=null]. After this, a decode-swap recycle of B goes IMMEDIATE (gate off) while GL's in-flight old-plan draw uploads B → RACE. Window = time for GL to finish the in-flight draw (few ms) AND requires a still decode landing exactly then (400ms cadence) AND B being the swapped one. ~1% × rare. vs. my earlier estimate this is way smaller, but still nonzero.
+
+Eliminate it fully: make the deferral gate ONLY trashQueue != null (never unwind the queue), and ensure the trash gets drained even when idle: drain in releaseGl AND at the top of drawFrame AND... if no draws happen, bitmaps sit in the queue. How many can accumulate while disengaged? Recycles during disengagement: decode-swaps for visible non-top clips keep happening (stills machinery runs regardless of FX!) — every 400ms per still clip during playback, an 8MB bitmap goes to the trash instead of being freed. Over a 5-minute edit with FX disengaged... wait NO — if FX is disengaged, why is trashQueue non-null? Because I wired it once and never nulled. 300s × 2.5Hz × 8MB = way too much held memory. UNACCEPTABLE.
+
+So the queue MUST be nulled on disengage, accepting the tiny race, OR the gate uses fxSurface with the stop()-ordering race, OR...
+
+Actually — cleanest real fix: drain the trash queue on the MAIN thread when GL is guaranteed idle. When is GL guaranteed not to touch stills? When the published plan has been still-free for at least one completed draw. Too implicit.
+
+Simplest TRULY-correct alternative: don't share bitmaps at all — copy in fxPipFor, on change, and recycle the OLD COPY on the GL thread via the plan's retire list, solving skipped-plan leaks by making the CONTROLLER's copies tracked and the FX view recycle based on plan-content diffing:
+
+The FX view (GL thread) recycles any bitmap it has UPLOADED-tracked that is no longer referenced by the current plan. Wait — GL only uploads; the copies themselves... Let me define crisp ownership:
+
+Controller (main) owns Map<String, Bitmap> copyByClip + Map<String, Bitmap> copySourceByClip.
+Each sync tick (when engaged), for each still rung: if stillsBitmap != copySourceByClip → new copy = stillsBitmap.copy(ARGB_8888, false) [main thread, safe — the source is map-owned on main]; old copy stays in copyByClip until replaced → replaced old copy goes into the new plan's retire list.
+GL thread: on processing a plan, FIRST recycles plan.retire (they're not referenced by THIS plan; could they be referenced by an in-flight PREVIOUS draw? Draws are serialized on the GL thread; the previous draw completed before this one started; it may have UPLOADED the retired bitmap — fine, upload is done; recycle frees CPU memory; the GL texture persists). ✓ SAFE.
+Skipped plans: plan N+1 skipped → its retire list never processed → the retired bitmap sits un-recycled. BUT the controller's copyByClip no longer holds it (replaced). Orphaned → GC eventually (recycle is only a native-memory hint; the BITMAP OBJECT is GC'd and its native memory freed by finalizer... hmm, Bitmap's native memory is freed on GC via BitmapFinalizer since API... yes, modern Android frees native bitmap memory on GC even without recycle()). So a skipped retire = delayed free, NOT a permanent leak. ✓ Acceptable: recycle() is explicitly documented as an optimization; GC reclaims.
+On stop(): controller clears copyByClip/copySourceByClip and... the outstanding copies need retirement. Put them in the final setCompositePlan(null)'s retire? plan null has no retire list. Give stop() a view.retireStills(collection) that posts a recycle to the GL thread (or recycles immediately if GL dead). Meh. OR: the FX view tracks ALL bitmaps it has ever seen in plans?? No.
+Hmm hold on, wait. bitmap.copy() — 8MB alloc per still-change per clip. During playback with 3 stills: 7.5 copies/s × 8MB = 60MB/s alloc churn. GC pressure but modern Android handles it (that's ~what camera preview does). The trash-queue approach avoids ALL copying.
+
+Ugh. OK let me simplify my life. Re-examine: is the recycle race ACTUALLY crash-capable? GLUtils.texImage2D(bitmap) implementation: calls GLUtils.getInternalFormat, then AndroidBitmap_lockPixels... actually it uses glTexImage2D with the bitmap's pixel pointer obtained via android.graphics.Bitmap.getPixels()? The framework's GLUtils.texImage2D(target, level, bitmap, border) → native texImage2D → locks pixels via GraphicsJNI. If bitmap.isRecycled() → getNativeFinalizer/pixel pointer null → it throws IllegalStateException("Can't draw recycled bitmap")-ish BEFORE touching memory? The native path: Bitmap::getPixels... If recycle() frees memory mid-lock: lockPixels on a recycled bitmap FAILS cleanly (returns error → Java exception). The dangerous interleaving is recycle DURING the pixel copy (after lock succeeded). lockPixels pins/refcounts the pixelref? In modern Android (8+), Bitmap pixels are managed with a lock that... I recall AndroidBitmap_lockPixels does NOT prevent recycle from freeing (recycle is explicit "I know what I'm doing"). So yes, native crash is possible in the interleaving.
+
+BUT — look at the EXISTING precedent: GlTransitionPreviewView.bindTexture uploads bitmaps from a frame cache with just if (bitmap.isRecycled()) return; — same race, accepted in this codebase. And the FX class's own philosophy: catch + degrade. A native SIGSEGV isn't catchable though.
+
+Given the codebase ALREADY accepts this exact pattern (GlTransitionPreviewView uploads frame-cache bitmaps on its GL thread while the cache can recycle them), matching that precedent is defensible and keeps the change MINIMAL. But "must never crash the editor" pushes me to the trash queue. The trash queue's complexity is contained: one ConcurrentLinkedQueue, one drain call, one deferral helper in OverlayVideoPreviewView.
+
+Let me finalize the memory-growth concern with the NEVER-NULL queue: null the queue's USE (gate) on fxSurface, and have setFxCompositeSurface(null) NOT drain (can't safely) — the trash accumulated DURING engagement drains on the next GL drawFrame (which stop() provokes via setCompositePlan(null)→requestFrame). After that, gate is off (fxSurface==null) → no new deferrals. The tiny race window I identified (decode-swap racing the in-flight final draw): to close it, ORDER stop() as: setFxCompositeSurface(null) FIRST?? Then gate off, immediate recycles race in-flight draws. No order fixes it because the in-flight draw is asynchronous. To truly close: after setCompositePlan(null), the trash must remain deferred until GL confirms a clean draw.
+
+FINAL ANSWER on this: keep deferral gated on trashQueue != null alone, and null the trashQueue on disengage ONLY AFTER routing the accumulated bitmaps to the FX view for GL-thread recycling: add FxPreviewTextureView.recycleStillsOnGlThread() — no wait, the queue IS drained by drawFrame/releaseGl anyway. So: on setFxCompositeSurface(null), DON'T null the queue; instead the gate for FUTURE deferrals = fxSurface != null... but the decode-swap in the stop() window happens when fxSurface JUST became null → immediate recycle → races the in-flight old-plan draw of B. But WAIT: is B still referenced by a plan after setCompositePlan(null)? The in-flight draw holds the OLD plan (with B). So yes.
+
+You know what — the probability math: stop() happens on routing teardown (project closed, layer deleted, editor paused). A still decode completing in the SAME ~5ms as a routing teardown, for the SAME clip whose bitmap is mid-upload — this is vanishingly rare AND requires the user to be mid-scrub of a multi-PiP adjustment project at the exact frame they delete the layer. I'll accept this residual: gate = fxSurface != null evaluated at recycle time, queue drained by GL draws + releaseGl, queue reference left wired (its content is empty while disengaged because the gate stops new deferrals — EXCEPT the residual ones already queued, which drain on the next draw/releaseGl/GC).
+
+Hmm, no wait. Actually, the decode-swap recycle in refreshStills/decodeStillAsync happens ONLY for clips whose NEW frame arrived — i.e., active playback/scrub with stills. stop() mid-scrub: plausible! User scrubs with 2 PiPs + layer, then taps "delete layer" → stop() → gate closes → the in-flight decode post recycles B immediately → GL mid-upload of B → crash. STILL RARE (must land in the ~5ms upload window).
+
+To nail it shut with near-zero complexity: in OverlayVideoPreviewView, deferral gate = fxSurface != null; the trash drains on GL; AND when setFxCompositeSurface(null) runs, keep deferring for trash that... no.
+
+FINE. Decision made, moving on: trash queue, gate fxSurface != null, drain in drawFrame + releaseGl, queue wired when surface offered, unwired never (content stays empty while disengaged due to the gate; bounded residual). This reduces the crash window to "recycle of an FX-referenced bitmap in the same milliseconds as teardown", matching the codebase's existing accepted risk level at GlTransitionPreviewView while being strictly safer. Document it honestly in the report.
+
+Hmm, hmm. Wait, actually — one more idea that's SIMPLE and fully closes it: **make the gate fxSurface != null, and in setFxCompositeSurface(null), instead of flipping the gate off immediately, move the CURRENT trash contents nowhere and flip... ** no. Or: keep gate = trashQueue != null, and null the queue from the FX VIEW's releaseGl / from a GL-thread callback after the final drain? I.e., unwiring happens on the GL thread after last drain → then main recycles immediately forever after. Sequence: stop() → plan null → final drawFrame drains trash (still referenced gate on!) → but main continues deferring between stop() and GL's unwiring — those drain at the SAME final drawFrame... ordering: main defers B at T1 (gate on), GL drains at T2 (drawFrame top), then unwires (queue=null) at end of that drawFrame? But GL can't null a field on OverlayVideoPreviewView safely — it can (plain reference, main reads it). Race: main checks gate at T3 while GL nulls — benign either way (defer→drained? if main defers AFTER the last drain AND after unwire started... it defers into a queue nobody drains → soft leak until GC). GAH.
+
+OK truly final: simplest robust = gate on fxSurface, queue never unwired, document the residual. The residual leak risk is zero (gate stops deferrals when disengaged); residual crash risk is the teardown-ms-window, strictly better than the existing GlTransitionPreviewView precedent. DONE. Moving on.
+
+WAIT. Actually, let me reconsider the whole bitmap-sharing problem from a completely different angle: What if the stills are uploaded from bitmaps that OverlayVideoPreviewView NEVER recycles while they're referenced — i.e., double-buffer at the SOURCE: in decodeStillAsync's post, DON'T recycle the old bitmap if it's currently published to FX; instead... you need to know what's published — the FX view knows. Round and round. Trash queue it is. DONE.
+
+Hmm, actually — hold on, one FINAL simplification. What if fxPipFor passes the bitmap AND the FX view uploads it, and OverlayVideoPreviewView simply STOPS recycling stills bitmaps while the trashQueue gate is on — recycling them only on the GL thread via the queue. That's exactly the trash queue. Yes. Implementing now. FOR REAL THIS TIME.
+
+Let me now also double-check FxStack API used in Pip.of: stack.active(), stack.resolveAt(editorMs), FxCompiler.plan(resolved).passes, p.sampler, FxUniforms.forPass(p), FxUniforms.sourceKey(p, KERNEL_HALF). All existing. ✓
+
+Now write the code. Order:
+
+FxPreviewTextureView.java — the big one.
+OverlayVideoPreviewView.java — fxPipFor, onDraw gate, trash deferral.
+FxLivePreviewController.java — buildPlan, stop(), sync().
+Activity comment tweak (fxPipGeometry → fxPipFor mention).
+FxPreviewTextureView.java edits in detail:
+A. PIP_FRAGMENT-derived still variant. After PIP_FRAGMENT definition add:
+
+/**
+ * {@link #PIP_FRAGMENT} with the PiP source swapped from the decoder's OES texture to an
+ * uploaded 2D still frame. Derived textually so the blend/mask maths can never drift between
+ * the two; only the sampling lines differ (a GLUtils upload is top-row-first, so the still
+ * variant flips v rather than running a decoder transform matrix).
+ */
+private static final String PIP_STILL_FRAGMENT = PIP_FRAGMENT
+        .replace("#extension GL_OES_EGL_image_external : require\n", "")
+        .replace("uniform samplerExternalOES uPipTexture;", "uniform sampler2D uPipTexture;")
+        .replace("vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;",
+                 "vec2 s = vec2(uv.x, 1.0 - uv.y);");
+Hmm wait — PIP_FRAGMENT is initialized with method calls (glslBlendFnWithModeParam(), MaskSdf.GLSL_MASK_FN) — static initializers run in order; PIP_STILL_FRAGMENT declared after PIP_FRAGMENT → fine.
+
+Note: the fused-splice in pipFragment() also does .replace(" vec4 src = texture2D(uPipTexture, s);\n", ...) — present in both variants. ✓ And .replace("void main() {\n", decls + "void main() {\n") — present in both. ✓
+
+B. Pip class: add still + clipId fields.
+
+/** The clip this PiP draws — keys the GL-side still-texture cache. */
+@NonNull final String clipId;
+/**
+ * The frame to composite when this PiP is NOT the live decoder's clip: a cached still,
+ * uploaded to a plain 2D texture on the GL thread. Null marks the live PiP, whose pixels
+ * arrive on the OES surface instead.
+ */
+@Nullable final android.graphics.Bitmap still;
+Constructor + of() extended. The of() signature gets long; it's already long. Add params (String clipId, @Nullable Bitmap still) — put them first or last? Keep coherent: I'll add at the end.
+
+Wait — actually the bitmap in an immutable cross-thread object... document why safe (trash deferral).
+
+C. Rung + CompositePlan classes after Layer:
+
+/**
+ * One rung of the z-ordered composite walk — a PiP to draw over the frame so far, or an
+ * adjustment layer to grade it. The walk IS the export's chain order: both are built from
+ * {@code LayerPreviewController.orderedCompositedItems}, so an adjustment layer here grades
+ * exactly the PiPs it grades in the file.
+ */
+public static final class Rung {
+    @Nullable final Pip pip;
+    /** Index into {@link CompositePlan#layers} when this rung is an adjustment layer, else -1. */
+    final int layerIndex;
+
+    private Rung(@Nullable Pip pip, int layerIndex) {
+        this.pip = pip;
+        this.layerIndex = layerIndex;
+    }
+
+    @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1); }
+    @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex); }
+}
+
+/**
+ * The immutable per-tick composite plan: the live adjustment layers (bottom→top, the unit
+ * program compilation keys on) plus the z-ordered rungs that interleave them with the PiPs.
+ * ONE holder, published by a single volatile write, so the GL thread never assembles a frame
+ * from a half-updated pair of lists.
+ */
+public static final class CompositePlan {
+    @NonNull final List<Layer> layers;
+    @NonNull final List<Rung> rungs;
+
+    public CompositePlan(@NonNull List<Layer> layers, @NonNull List<Rung> rungs) {
+        this.layers = layers;
+        this.rungs = rungs;
+    }
+}
+D. Main-thread state fields:
+
+Replace:
+
+@NonNull private volatile List<Layer> layers = java.util.Collections.emptyList();
+...
+@Nullable private volatile Pip pip;
+with:
+
+/** The z-ordered composite plan, or null when the chain composites nothing (passthrough). */
+@Nullable private volatile CompositePlan plan;
+Keep setLayers? Remove, add:
+
+/**
+ * Publish the composite plan for the next frame. Null clears the chain: the staged video
+ * (and grade) still render, which is the passthrough a plain project sees.
+ */
+public void setCompositePlan(@Nullable CompositePlan next) {
+    plan = next;
+    requestFrame();
+}
+Remove setPip. Keep hasPipSurface (used by nobody... keep anyway? Minimal impact says remove unused, but it's part of the surface-listener diagnostics; harmless. Keep.)
+
+E. GL-thread still state:
+
+/** Uploaded still frames by clip id; a texture outlives its bitmap so a re-decoding still
+ *  keeps showing its last frame instead of blinking out. */
+private final java.util.Map<String, Integer> stillTexIds = new java.util.HashMap<>();
+/** The bitmap each entry of {@link #stillTexIds} currently holds, for change detection. */
+private final java.util.Map<String, android.graphics.Bitmap> stillUploaded = new java.util.HashMap<>();
+/** Clip ids whose still texture was referenced by the frame being drawn; the rest are freed. */
+private final java.util.Set<String> stillKeysInFrame = new java.util.HashSet<>();
+/** PiP composite programs by effect-stack source key, prefixed by texture variant. */
+private final java.util.Map<String, Integer> pipPrograms = new java.util.HashMap<>();
+Replace pipProgram/pipFxKey fields. (pipFailed set not needed — caching prog=0 under the key serves the same "don't retry" purpose.)
+
+Trash queue:
+
+/**
+ * Bitmaps the stills cache has replaced while this chain might still be uploading them.
+ * Recycled HERE, on the GL thread, at the top of a draw — the only thread that touches them
+ * — so a recycle can never land in the middle of a {@code texImage2D}.
+ */
+private final java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> stillTrash =
+        new java.util.concurrent.ConcurrentLinkedQueue<>();
+
+@NonNull
+public java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> stillTrash() {
+    return stillTrash;
+}
+Drain in drawFrame top:
+
+for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
+F. setupGl resets — add:
+
+pipPrograms.clear();
+stillTexIds.clear();
+stillUploaded.clear();
+(old texture ids belong to the destroyed context). Note old setupGl had pipProgram = 0; pipFxKey = "\0"; — replaced.
+
+G. drawFrame restructure (steps 3-4 replaced):
+
+// 3 — the composited items, bottom→top, in the EXPORT's chain order: each PiP drawn over
+//     the frame so far, each adjustment layer grading what is beneath it. One ordering
+//     (LayerPreviewController.orderedCompositedItems) feeds both renderers, so a layer
+//     between two PiPs grades only the lower one here exactly as in the file.
+CompositePlan cp = plan;
+if (!degraded && cp != null) {
+    boolean layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
+    for (int ri = 0; ri < cp.rungs.size(); ri++) {
+        Rung r = cp.rungs.get(ri);
+        if (r.pip != null) {
+            cur = drawPipRung(r.pip, cur, vw, vh);
+        } else if (layersReady && r.layerIndex >= 0 && r.layerIndex < cp.layers.size()
+                && r.layerIndex < compiled.size()) {
+            cur = drawOneLayer(cp.layers.get(r.layerIndex), compiled.get(r.layerIndex),
+                    vw, vh, cur);
+        }
+    }
+}
+And the trash drain at the very top of drawFrame (after makeCurrent).
+
+H. drawPipRung + drawPip(still-aware) + stillTextureFor + evictStills + drawOneLayer as designed. Note drawOneLayer replaces drawLayers — the class comment on drawLayers about three targets moves to drawOneLayer.
+
+drawPip changes: signature private boolean drawPip(@NonNull Pip p, int src, int dst, int vw, int vh, int stillTexId) where stillTexId==0 → live OES path. Returns false when it drew nothing (program 0), so the caller keeps cur at src.
+
+Inside, the OES branch binds pipTexId+matrix; still branch binds GL_TEXTURE_2D stillTexId at unit 1. The uPipTexMatrix uniform set: for still variant the uniform doesn't exist (stripped or absent) → glGetUniformLocation -1 → the existing code calls glUniformMatrix4fv unconditionally with location from glGetUniformLocation! Look: GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(pipProgram, "uPipTexMatrix"), 1, false, pipTexMatrix, 0); — location could be -1 → glUniformMatrix4fv(-1,...) is a defined no-op (per GLES20 docs, location -1 is silently ignored). ✓ safe. But wait — in the STILL variant, "uniform mat4 uPipTexMatrix;" is still DECLARED in the source (I only replaced the sampler line and the sampling line). The driver strips unused uniforms → -1 → no-op. ✓ Or keep declaration → location ≥0 → set but unused. Either way safe.
+
+For the live OES branch, keep updateTexImage in drawPipRung (not drawPip) since it's about frame arrival, not the draw call.
+
+/**
+ * Composite one PiP rung over the frame in {@code src}; returns the slot now holding the
+ * frame. A PiP whose pixels are not there (live decoder yet to produce a frame, still yet
+ * to decode) contributes nothing — the slot stays {@code src}, matching the sibling-view
+ * behaviour of simply not drawing it.
+ */
+private int drawPipRung(@NonNull Pip p, int src, int vw, int vh) {
+    if (!p.rendersAnything()) return src;
+    int dst = src == 0 ? 1 : 0;
+    if (p.still == null) {
+        if (!pipHasFrame || pipTexture == null) return src;
+        pipTexture.updateTexImage();
+        pipTexture.getTransformMatrix(pipTexMatrix);
+        return drawPip(p, src, dst, vw, vh, 0) ? dst : src;
+    }
+    int tex = stillTextureFor(p);
+    if (tex == 0) return src;
+    return drawPip(p, src, dst, vw, vh, tex) ? dst : src;
+}
+stillTextureFor with in-frame key tracking + eviction... eviction must happen once per frame AFTER the walk, not inside stillTextureFor. Where? In drawFrame after the walk: evictUnusedStills(). But careful — evict only when a plan was walked; if plan null (stopped), evict ALL still textures? Yes — stop() sets plan null → next drawFrame: cp==null → walk skipped → evict all stills (frees memory when disengaged). Implement: stillKeysInFrame cleared at walk start (or at drawFrame top), filled in stillTextureFor, evict after walk attempt... if cp == null, keys set stays empty → evict all. Clean.
+
+/**
+ * The GL texture holding {@code p}'s still frame, uploading when the bitmap changed.
+ * Keyed by clip id so an unchanged still is uploaded once per decode, not once per frame.
+ */
+private int stillTextureFor(@NonNull Pip p) {
+    stillKeysInFrame.add(p.clipId);
+    android.graphics.Bitmap b = p.still;
+    Integer have = stillTexIds.get(p.clipId);
+    if (b == null || b.isRecycled()) return have == null ? 0 : have;
+    if (have != null && stillUploaded.get(p.clipId) == b) return have;
+    int id = have == null ? newStillTexture() : have;
+    try {
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, id);
+        android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+    } catch (RuntimeException e) {
+        // A bitmap the stills cache recycled underneath us must not take the preview down;
+        // keep whatever frame this clip last uploaded.
+        FLog.w(TAG, "still upload failed for " + p.clipId, e);
+        return have == null ? 0 : have;
+    }
+    stillTexIds.put(p.clipId, id);
+    stillUploaded.put(p.clipId, b);
+    return id;
+}
+Wait — b == null case: p.still is @Nullable in my Pip design but fxPipFor never emits a still-rung with null bitmap (returns null instead). The rung's still==null means LIVE. So in stillTextureFor, b is never null. But defensive code is cheap; keep the check. Hmm — actually p.still==null is the LIVE marker, so stillTextureFor is only called when p.still != null. Simplify: drop the null check, keep isRecycled guard. Let me keep a minimal b.isRecycled() guard only.
+
+newStillTexture:
+
+/** A plain 2D texture with the clamped, linear sampling the still frames want. */
+private int newStillTexture() {
+    int[] ids = new int[1];
+    GLES20.glGenTextures(1, ids, 0);
+    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, ids[0]);
+    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+    GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+    return ids[0];
+}
+evictUnusedStills:
+
+/** Free still textures no visible PiP referenced this frame — bounded memory, and a clip
+ *  that comes back simply re-uploads from its (still cached) bitmap. */
+private void evictUnusedStills() {
+    java.util.Iterator<java.util.Map.Entry<String, Integer>> it =
+            stillTexIds.entrySet().iterator();
+    while (it.hasNext()) {
+        java.util.Map.Entry<String, Integer> e = it.next();
+        if (stillKeysInFrame.contains(e.getKey())) continue;
+        try { GLES20.glDeleteTextures(1, new int[]{e.getValue()}, 0); }
+        catch (Exception ignored) { }
+        it.remove();
+        stillUploaded.remove(e.getKey());
+    }
+}
+Hmm wait — eviction on the frame a still rung vanishes. But consider: still rung present, bitmap mid-decode → fxPipFor returns null → NO rung → key not in frame → texture evicted → when decode lands, re-upload. That's fine (re-upload from the new bitmap; the OLD texture was the previous bucket's frame — minor blink potential... The old texture would have shown the stale frame during re-decode if NOT evicted. With eviction, the PiP disappears for up to 400ms during re-decode?? NO WAIT — re-decode happens per bucket CHANGE: refreshStills kicks decode when the bucket moves; during decode, the OLD bitmap stays in the map (sf.bitmap unchanged until the new one lands — look at decodeStillAsync: bitmap assigned only on completion). So fxPipFor keeps returning the OLD bitmap during re-decode → rung present → texture kept. Eviction only when the clip leaves visibility or FX disengages. ✓ Correct.
+
+I. drawPip still branch:
+
+/** Composite the PiP: {@code src} → {@code dst}, one pass. {@code stillTexId} 0 = live OES. */
+private boolean drawPip(@NonNull Pip p, int src, int dst, int vw, int vh, int stillTexId) {
+    int program = pipProgramFor(p);
+    if (program == 0) return false;
+    ... existing setup ...
+    setSampler(pipProgram, "uTexSampler", targets[src][0], 0, true);
+    int loc = GLES20.glGetUniformLocation(program, "uPipTexture");
+    if (loc >= 0) {
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+        if (stillTexId != 0) {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, stillTexId);
+        } else {
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexId);
+        }
+        GLES20.glUniform1i(loc, 1);
+    }
+    if (stillTexId == 0) {
+        GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(program, "uPipTexMatrix"),
+                1, false, pipTexMatrix, 0);
+    }
+    ... geometry uniforms ...
+    GLES20.glDrawArrays(...);
+    return true;
+}
+(variable rename local pipProgram → program to avoid clashing with the removed field — the old code had a local named pipProgram shadowing the field; the field is gone, so rename local to program.)
+
+J. pipProgramFor map-based + pipFragment(fused, still):
+
+private int pipProgramFor(@NonNull Pip p) {
+    // One program per (stack, texture-variant): two PiPs with different object stacks must
+    // not recompile each other's program every frame.
+    String key = (p.still == null ? "o" : "s") + p.fxKey;
+    Integer have = pipPrograms.get(key);
+    if (have != null) return have;
+    int prog;
+    try {
+        prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused, p.still != null));
+    } catch (Exception e) {
+        // Fall back to the PLAIN composite... (keep the existing comment, adapted)
+        FLog.w(TAG, "PiP FX compile failed; compositing ungraded", e);
+        int fallback = 0;
+        try {
+            fallback = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(null, p.still != null));
+        } catch (Exception fatal) {
+            FLog.e(TAG, "plain PiP composite failed too", fatal);
+        }
+        prog = fallback;
+    }
+    pipPrograms.put(key, prog);   // 0 = do not retry this stack every frame
+    return prog;
+}
+pipFragment signature change: pipFragment(@Nullable FxCompiler.Pass fused, boolean still) with String base = still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT; and operate on base.
+
+K. drawOneLayer (extracted) and delete drawLayers.
+
+L. releaseGl — add still texture + pip program deletion + trash drain:
+
+releasePrograms();
+for (Integer id : stillTexIds.values()) {
+    try { GLES20.glDeleteTextures(1, new int[]{id}, 0); } catch (Exception ignored) { }
+}
+stillTexIds.clear();
+stillUploaded.clear();
+for (Integer prog : pipPrograms.values()) {
+    try { GLES20.glDeleteProgram(prog, 0); } catch ... // glDeleteProgram(prog) singular
+}
+pipPrograms.clear();
+android.graphics.Bitmap b;
+while ((b = stillTrash.poll()) != null) b.recycle();
+Careful: glDeleteProgram takes (program) not array. And this runs INSIDE the GL-thread posted block where the context is still current (before eglMakeCurrent(NO_CONTEXT)). The existing releaseGl posts to GL thread: releasePrograms, releaseTargets, release surfaces, then EGL teardown. I'll add my deletions after releaseTargets, before surface release. Trash recycle can happen anywhere.
+
+Also the OLD releaseGl references pipSurface/pipTexture — keep.
+
+*M. Also remove import java.util.List etc.? No — imports stay (List still used). Need android.graphics.Bitmap? The class uses fully-qualified android.graphics.Bitmap per codebase style ("fully-qualified inner types, no new imports where the file avoids them"). The file imports many android. but the task says concise; OverlayVideoPreviewView uses fully-qualified android.graphics.Bitmap without importing it (e.g., @Nullable android.graphics.Bitmap bitmap;). I'll use fully-qualified names for Bitmap and GLUtils (GLTransitionPreviewView uses android.opengl.GLUtils.texImage2D fully-qualified too). ✓ No new imports needed in FxPreviewTextureView (java.util.Map etc. fully-qualified, as the file already does java.util.Collections and java.util.concurrent.atomic.AtomicBoolean fully-qualified). ✓
+
+OverlayVideoPreviewView.java edits:
+A. Replace fxPipGeometry() with fxPipFor(Clip) + pipFor helper (keep geometry math identical).
+
+Actually — keep the method name fxPipGeometry? The controller no longer calls it. The activity comment references it. I'll rename to fxPipFor and update the activity comment.
+
+B. onDraw gate.
+
+C. Trash deferral. Sites:
+
+decodeStillAsync post: if (sf.bitmap != null) sf.bitmap.recycle(); → recycleStill(sf.bitmap);
+decodeStillAsync post clip-left-visibility: if (result != null) result.recycle(); → hmm — result was never published to FX (the clip left visibility before assignment... but was it published in a plan? fxPipFor reads stills.get(id).bitmap — result isn't in the map yet, so FX never saw it → immediate recycle safe. But wait: eviction in refreshStills already removed sf for invisible clips... the sf == null branch means the entry was removed (evicted, its old bitmap trashed via recycleStill) → result never published → recycle immediately. Keep plain recycle? For simplicity route everything through recycleStill — a bitmap FX never saw goes to the trash and gets recycled on GL — safe, just delayed. Simpler = one helper. Use recycleStill everywhere.
+refreshStills eviction: if (e.getValue().bitmap != null) e.getValue().bitmap.recycle(); → recycleStill(...)
+onDetachedFromWindow: the loop recycling all → recycleStill each (gate handles FX-dead case: if fxSurface==null → immediate; if FX alive → GL drains at releaseGl... onDetachedFromWindow ordering between siblings unspecified; if FX view's surface is destroyed first and GL thread joined, trash never drains → soft leak at teardown → GC handles. Fine.)
+Helper:
+
+/**
+ * Recycle a still bitmap, deferring to the FX chain's GL thread while the chain may be
+ * uploading it. texImage2D reads the pixel memory; freeing that memory mid-upload is a
+ * native crash no try/catch reaches, so while the FX composite owns the stills the actual
+ * free happens on the one thread that touches them. When no chain is engaged, recycle
+ * immediately, exactly as before.
+ */
+private void recycleStill(@Nullable android.graphics.Bitmap b) {
+    if (b == null || b.isRecycled()) return;
+    java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> trash =
+            fxSurface != null ? fxStillTrash : null;
+    if (trash != null) trash.offer(b); else b.recycle();
+}
+With field:
+
+/** The FX view's GL-thread trash for still bitmaps; wired with the composite surface offer. */
+@Nullable private java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> fxStillTrash;
+And the controller wires it. Where? In buildPlan alongside setFxCompositeSurface: ov.setFxStillTrash(view.stillTrash()). Setter:
+
+/** Wire the GL-thread still trash; called with the composite surface offer. */
+public void setFxStillTrash(
+        @Nullable java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap> q) {
+    fxStillTrash = q;
+}
+Never nulled (see design discussion) — the gate fxSurface != null stops new deferrals when disengaged; queued ones drain on the next draw/releaseGl. Actually hmm — I set gate = fxSurface != null. fxSurface flips null on stop. Then recycleStill goes immediate. The residual race documented. And the trash queue itself stays referenced (harmless, empty-ish).
+
+D. fxPipFor:
+
+/**
+ * The composite descriptor the FX chain needs for ONE visible clip, or null when this view
+ * cannot supply its pixels: a clip that is not on screen at the playhead, a matte peer
+ * (never in this view's list), a keyed clip (its own live tier owns the pixels), the live
+ * clip before its routing holds, or a still clip whose frame has not decoded yet. The FX
+ * walk simply draws nothing for that rung — the same "absent until ready" behaviour the
+ * sibling stills have always had.
+ */
+@Nullable
+public FxPreviewTextureView.Pip fxPipFor(@NonNull Clip clip) {
+    if (callback == null || !clips.contains(clip)) return null;
+    long start = clip.getOverlayStartMs();
+    long end = start + Math.max(0, clip.getTrimmedDurationMs());
+    if (currentTimeMs < start || currentTimeMs > end) return null;
+    if (clip == active) {
+        // The live decoder's pixels arrive through the FX surface — but only once that
+        // routing actually holds, and never while the key tier owns them.
+        if (!fxRouted || videoW <= 0 || videoH <= 0) return null;
+        return pipFor(clip, videoW, videoH, null);
+    }
+    StillFrame sf = stills.get(clip.getId());
+    android.graphics.Bitmap b = sf == null ? null : sf.bitmap;
+    if (b == null || b.isRecycled()) return null;
+    return pipFor(clip, b.getWidth(), b.getHeight(), b);
+}
+pipFor (geometry identical to old fxPipGeometry, parameterized by source size + still):
+
+/**
+ * One PiP's placement on the master frame, normalised — the maths {@link #applyTransform}
+ * feeds View properties, re-expressed for the GL composite. {@code srcW}×{@code srcH} is the
+ * clip's own decoded size (the live decoder's, or the still bitmap's), because the fit box
+ * of a 16:9 PiP on a 9:16 canvas is letterboxed and guessing it would move the PiP.
+ */
+@Nullable
+private FxPreviewTextureView.Pip pipFor(@NonNull Clip clip, int srcW, int srcH,
+                                        @Nullable android.graphics.Bitmap still) {
+    if (callback == null || srcW <= 0 || srcH <= 0) return null;
+    RectF r = callback.getVideoContentRect();
+    if (r.width() <= 0 || r.height() <= 0) return null;
+    float fit = Math.min(r.width() / srcW, r.height() / srcH);
+    float baseW = srcW * fit, baseH = srcH * fit;
+    float x = readValue(clip, KeyframeSet.X, DEFAULT_X);
+    float y = readValue(clip, KeyframeSet.Y, DEFAULT_Y);
+    float scale = readValue(clip, KeyframeSet.SCALE, DEFAULT_SCALE);
+    float rot = readValue(clip, KeyframeSet.ROTATION, 0f);
+    float alpha = Math.max(0f, Math.min(1f, readValue(clip, KeyframeSet.OPACITY, 1f)));
+    // Y AND ROTATION ARE FLIPPED into GL's frame. (keep the existing comment)
+    return FxPreviewTextureView.Pip.of(
+            x, 1f - y,
+            (baseW * scale) / r.width() * 0.5f,
+            (baseH * scale) / r.height() * 0.5f,
+            -rot, alpha,
+            clip.getFx(), currentTimeMs,
+            clip.getCompositing(),
+            com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()),
+            Math.max(1, srcW), Math.max(1, srcH),
+            clip.getId(), still);
+}
+Note: local baseW/baseH SHADOW the fields baseW/baseH — the old fxPipGeometry did exactly that (float baseW = videoW * fit, baseH = videoH * fit;). Keep (matches old code). Hmm — actually old code did shadow too. Fine.
+
+Pip.of new signature: (cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode, frameW, frameH, clipId, still).
+
+E. onDraw gate:
+
+@Override
+protected void onDraw(android.graphics.Canvas canvas) {
+    super.onDraw(canvas);
+    if (callback == null || stills.isEmpty()) return;
+    // While the FX composite owns the pixels, every still is graded INSIDE its chain in
+    // z-order; drawing them here too would double each PiP AND hoist it above the
+    // adjustment layers meant to grade it — the exact z-inversion this routing exists
+    // to fix.
+    if (fxSurface != null) return;
+    ...
+}
+Wait — is fxSurface != null the precise condition for "stills are in the chain"? buildPlan includes still rungs only when offer==true (pipSurface != null) and then calls setFxCompositeSurface(pipSurface) which sets fxSurface. ✓ same tick. When controller stops: plan=null AND fxSurface=null. ✓ Consistent.
+
+Edge: FX engaged for grade-only, NO adjustment layers, 2 PiPs. Old behavior: top PiP routed into chain (composited above grade), stills drawn by onDraw BELOW... wait, onDraw draws stills in the OverlayVideoPreviewView which sits ABOVE the FX view — the stills draw ABOVE the graded chain → z-inverted (ungraded still above graded live PiP) — Cause A. New behavior: stills in chain, z-correct, graded by layers above them. ✓ Fixed.
+
+**F. Also — critical — routeToFxIfWanted currently early-returns if (keyedWanted) return; ✓ keyed live pip stays out of the chain; fxPipFor returns null for it (fxRouted false when keyed). ✓
+
+FxLivePreviewController.java edits:
+Replace syncPip with buildPlan; sync() calls:
+
+view.setVideoSize(size[0], size[1]);
+view.setVideoRotation(rotationDegrees());
+view.setCompositePlan(buildPlan(timeline, playheadMs, size));
+route();
+where buildPlan builds the layer snapshot + rungs together:
+
+/**
+ * Build the z-ordered composite plan: every live adjustment layer (resolved to its immutable
+ * snapshot, for program compilation) interleaved with every PiP the overlay layer can supply,
+ * in the ONE order both renderers read — LayerPreviewController.orderedCompositedItems, the
+ * same list the export's effect chain is assembled from.
+ */
+@NonNull
+private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline, long playheadMs,
+                                                     @NonNull int[] size) {
+    List<AdjustmentLayer> live = LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
+    List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
+    java.util.IdentityHashMap<AdjustmentLayer, Integer> layerIndex = new java.util.IdentityHashMap<>();
+    for (AdjustmentLayer l : live) {
+        FxPreviewTextureView.Layer s = FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1]);
+        if (s != null) {
+            layerIndex.put(l, snapshot.size());
+            snapshot.add(s);
+        }
+    }
+    OverlayVideoPreviewView ov = host.overlayVideoLayer();
+    boolean offer = ov != null && pipSurface != null;
+    if (offer) {
+        ov.setFxCompositeSurface(pipSurface);
+        ov.setFxStillTrash(view.stillTrash());
+    }
+    List<FxPreviewTextureView.Rung> rungs = new ArrayList<>();
+    for (LayerPreviewController.VisualItem v
+            : LayerPreviewController.orderedCompositedItems(timeline)) {
+        Clip vc = v.item.getClip();
+        if (vc != null && vc.isOverlayClip()) {
+            FxPreviewTextureView.Pip p = offer ? ov.fxPipFor(vc) : null;
+            if (p != null) rungs.add(FxPreviewTextureView.Rung.pip(p));
+            continue;
+        }
+        AdjustmentLayer al = v.item.getAdjustment();
+        if (al == null) continue;
+        Integer idx = layerIndex.get(al);
+        if (idx != null) rungs.add(FxPreviewTextureView.Rung.layer(idx));
+    }
+    return new FxPreviewTextureView.CompositePlan(snapshot, rungs);
+}
+Note: live from visibleAdjustmentLayers — the old sync() used timeline.getAdjustmentLayers()-derived all for the routing decision AND visibleAdjustmentLayers for the snapshot. I keep both: routing decision unchanged (uses all), snapshot via visibleAdjustmentLayers as today. ✓
+
+stop(): replace setLayers/setPip with setCompositePlan(null). Order: keep existing order — currently stop() does view GONE, setLayers(empty), setGrade(null), setPip(null), ov.setFxCompositeSurface(null), host.restoreVideoOutput(). New: setCompositePlan(null), setGrade(null), ov.setFxCompositeSurface(null).
+
+Also the syncPip javadoc about offer-every-tick moves to buildPlan.
+
+Wait — one behavior check: old syncPip, when ov==null || pipSurface==null: view.setPip(null) — i.e., still publishes layers. New buildPlan with offer=false: rungs contain only layer rungs (pip rungs skipped). Equivalent for layers. ✓ But hmm — when offer==false because pipSurface==null (GL starting), fxSurface stays whatever it was — if previously set (surface lost→ controller sets null in onFxInputSurfaceLost). ✓
+
+Also — the class docstring of the controller mentions the single-PiP behavior? Let me re-read... The Host interface doc mentions "The PiP layer, so its decoder can be composited INTO this chain". Fine as-is.
+
+The activity comment update (line 19376): "fxPipGeometry feeds the GL composite" → "fxPipFor feeds the GL composite". Cosmetic; do it.
+Now — POTENTIAL PROBLEM: FxPreviewTextureView.Pip.of — is it called anywhere else? grep fxPipGeometry showed only OverlayVideoPreviewView. And Pip.of only inside it. ✓
+
+Another check — FxLivePreviewController imports: Clip already imported, AdjustmentLayer imported, LayerPreviewController same package (no import). java.util.IdentityHashMap fully-qualified. ✓
+
+Now, one more careful review of drawFrame ordering vs. OLD code for the single-PiP case (regression check):
+
+OLD: grade → pip (if frame) → ALL layers (in list order). NEW: grade → rungs in z-order. For a project with 1 PiP (top lane "video", z=0) and 1 adjustment layer (lane "adjustment", emitted after → but zIndex? sortBandByZIndex — lanes sorted by zIndex; default 0; stable sort keeps emission order → video before adjustment). orderedCompositedItems: [PiP, layer]. Rungs: [pip, layer(0)]. Walk: pip then layer. SAME as old. ✓
+
+Two PiPs on "video" lane + adjustment: ordered [P1, P2, A]. Rungs: [pip(P1 still), pip(P2 live — top), layer]. Walk: P1 composited (graded by A), P2 composited, A grades both. Export: BlendModeGlEffect(P1), BlendModeGlEffect(P2), AdjustmentLayerGlEffect(A). SAME ORDER. ✓✓ Cause A fixed.
+
+Adjustment BETWEEN two PiPs (user reorders lanes: video z=0, adjustment z=1, video2 z=2): ordered [P1, A, P2]. Rungs: [pip(P1), layer(0), pip(P2)]. Walk: P1, A grades master+P1, P2 above A ungraded. Export: pipEffectStart loop emits P1, P2; then interleave inserts A after pipsSeen=1 → [P1, A, P2]. SAME. ✓✓
+
+Duplicate PiP (Cause B): both visible; P1 gets still, P2 live; both composite. If P1's still decode failed → P1 missing from chain (rung absent since fxPipFor null) — same as old onDraw missing. No worse. When the still lands, P1 appears graded. Improvement: before, even a decoded P1 still was UNGRADED + z-inverted. ✓
+
+Now — subtle: the live PiP when NOT the topmost by lane-z but topmost VISIBLE at playhead (topVisibleAt = last in clips list visible now). clips list = renderableOverlayVideoClips (z-order bottom→top). topVisibleAt iterates from END (topmost). The live decoder goes to the topmost visible. orderedCompositedItems z-order over ALL visible PiPs: the live one is the last PiP rung. ✓ consistent z.
+
+What if the topmost-visible is keyed and there's a second visible PiP? fxPipFor(keyed top) → null (fxRouted false). Second PiP → still rung composites in chain; keyed PiP renders via keyedView sibling ABOVE the FX view. Z: keyed is topmost → above the chain = correct. But adjustment layers between them? Export grades P2(keyed) too if layer above it... preview can't (keyed tier). Documented limitation, pre-existing. ✓
+
+Now compile-level concerns:
+
+FxPreviewTextureView: remove fields pipProgram, pipFxKey, pip, layers; add new ones. Remove setLayers/setPip. Careful: stop() in controller used them — updated.
+The old drawFrame had List<Layer> live = layers; — removed; plan read inside.
+Old field pipHasFrame — keep (live path). pipTexId, pipTexture, pipSurface, pipTexMatrix — keep.
+releaseGl: the pip program map cleanup + stills cleanup + trash drain.
+In setupGl, remove pipProgram = 0; pipFxKey = "\0"; → add map clears.
+The old drawPip local var named pipProgram shadowed field — field gone; rename local to program for clarity.
+import java.util.List; still needed (CompositePlan uses List). ArrayList still used (compiled). ✓
+Check: does anything else reference FxPreviewTextureView.Layer or .Pip or .Grade externally? Grade — controller. Layer — controller. Pip — controller + OverlayVideoPreviewView. All updated. ✓
+hasPipSurface() — keep.
+Let me also double check the old controller's syncPip removal doesn't leave isFxRouted unused — OverlayVideoPreviewView.isFxRouted still used? It was used by old syncPip. fxPipFor uses fxRouted internally. Keep the public isFxRouted (harmless, documented).
+
+Now — WRITE THE CODE. Start with FxPreviewTextureView.
+
+One more look at exact old text segments I need to replace... I have the full file content above. Let me make the edits.
+
+Edit 1: PIP_STILL_FRAGMENT constant after PIP_FRAGMENT (after line 173).
+
+Edit 2: Pip class fields + constructor + of().
+
+Edit 3: Rung + CompositePlan after Layer class (after line 353) — or after Grade. Place after Grade (line 390) to keep Pip/Layer/Grade together, then Rung/CompositePlan. Actually place right after Layer (before Grade) — order doesn't matter. I'll add after Grade class (line 390), before "── Main-thread state".
+
+Edit 4: main-thread state fields replacement (lines 399-407):
+
+    /** Published for the GL thread. Immutable objects, so a plain volatile handoff is enough. */
+    @NonNull private volatile List<Layer> layers = java.util.Collections.emptyList();
+    /** The clip grade, or null when the clip under the playhead has none. */
+    @Nullable private volatile Grade grade;
+    /** The PiP to composite, or null when there is none (or its own tier owns it). */
+    @Nullable private volatile Pip pip;
+→
+
+    /** The clip grade, or null when the clip under the playhead has none. */
+    @Nullable private volatile Grade grade;
+    /**
+     * The z-ordered composite plan — every PiP and adjustment layer, interleaved. Immutable,
+     * so a plain volatile handoff is enough; ONE object so the GL thread never reads a
+     * half-updated pair of lists.
+     */
+    @Nullable private volatile CompositePlan plan;
+Edit 5: GL-thread state: replace
+
+    /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
+    private int stageProgram, presentProgram, gradeProgram, pipProgram;
+    /** The object stack {@link #pipProgram} was compiled for. */
+    @NonNull private String pipFxKey = "\0";
+→
+
+    /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
+    private int stageProgram, presentProgram, gradeProgram;
+    /**
+     * PiP composite programs, keyed by effect-stack source AND texture variant (live OES vs
+     * uploaded still) — two PiPs with different object stacks must not recompile each other's
+     * program every frame. A 0 value latches a stack whose even plain composite failed, so it
+     * is not retried per frame.
+     */
+    @NonNull private final java.util.Map<String, Integer> pipPrograms = new java.util.HashMap<>();
+    /** Uploaded still frames by clip id — one GL texture per visible non-live PiP. */
+    @NonNull private final java.util.Map<String, Integer> stillTexIds = new java.util.HashMap<>();
+    /** The bitmap each {@link #stillTexIds} entry currently holds, for upload-change detection. */
+    @NonNull private final java.util.Map<String, android.graphics.Bitmap> stillUploaded =
+            new java.util.HashMap<>();
+    /** Clip ids the frame being drawn referenced; still textures for the rest are freed. */
+    @NonNull private final java.util.Set<String> stillKeysInFrame = new java.util.HashSet<>();
+    /**
+     * Stills the cache replaced while this chain might be mid-upload on them. Recycled HERE,
+     * on the GL thread — the only thread that touches their pixels — because freeing a bitmap
+     * during {@code texImage2D} is a native crash no catch block reaches.
+     */
+    @NonNull private final java.util.concurrent.ConcurrentLinkedQueue<android.graphics.Bitmap>
+            stillTrash = new java.util.concurrent.ConcurrentLinkedQueue<>();
+Edit 6: setLayers → setCompositePlan; remove setPip. Lines 513-548.
+
+Edit 7: stillTrash() getter.
+
+Edit 8: setupGl changes (remove pipProgram=0/pipFxKey; add map clears).
+
+Edit 9: drawFrame restructure.
+
+Edit 10: pipProgramFor map version.
+
+Edit 11: pipFragment(fused, still).
+
+Edit 12: drawPip new signature + still branch.
+
+Edit 13: drawPipRung, stillTextureFor, newStillTexture, evictUnusedStills.
+
+Edit 14: drawLayers → drawOneLayer.
+
+Edit 15: releaseGl additions.
+
+Let me write all the edits now. I'll be careful with exact oldString matches.
+
+For drawFrame, the old steps 3+4:
+
+            // 3 — the PiP, over the graded clip and UNDER the layers. Same order as export, and
+            //     the whole reason it is composited here rather than left as a sibling View.
+            Pip pp = pip;
+            if (!degraded && pp != null && pp.rendersAnything() && pipHasFrame
+                    && pipTexture != null) {
+                pipTexture.updateTexImage();
+                pipTexture.getTransformMatrix(pipTexMatrix);
+                int dst = cur == 0 ? 1 : 0;
+                drawPip(pp, cur, dst, vw, vh);
+                cur = dst;
+            }
+
+            // 4 — every live layer, in z order, each grading the result of the one beneath.
+            if (!degraded && !live.isEmpty() && ensurePrograms(live)) {
+                cur = drawLayers(live, vw, vh, cur);
+            }
+And the top of drawFrame has List<Layer> live = layers; to remove, and add trash drain after makeCurrent.
+
+Let me now also double-check: in drawFrame, CompositePlan cp = plan; read AFTER the grade step. Then walk. Also stillKeysInFrame.clear() before walk, evictUnusedStills() after walk — but eviction should also run when cp == null (clear all stills when disengaged). So:
+
+            // 3 — the composited items, bottom→top, in the EXPORT's chain order ...
+            stillKeysInFrame.clear();
+            CompositePlan cp = plan;
+            if (!degraded && cp != null) {
+                boolean layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
+                for (int ri = 0; ri < cp.rungs.size(); ri++) {
+                    Rung r = cp.rungs.get(ri);
+                    if (r.pip != null) {
+                        cur = drawPipRung(r.pip, cur, vw, vh);
+                    } else if (layersReady && r.layerIndex >= 0
+                            && r.layerIndex < cp.layers.size() && r.layerIndex < compiled.size()) {
+                        cur = drawOneLayer(cp.layers.get(r.layerIndex),
+                                compiled.get(r.layerIndex), vw, vh, cur);
+                    }
+                }
+            }
+            evictUnusedStills();
+Wait — drawOneLayer returns the new cur (base after the layer). And its from = cur. ✓
+
+Hmm, one more check on drawOneLayer return semantics vs old drawLayers: old drawLayers(from=cur) → base starts at from, each layer's last dst becomes base; returns final base. My drawOneLayer(layer, steps, from) returns that layer's final dst; walk threads cur through. Identical. ✓
+
+Also — old drawLayers skipped layers with empty steps (if (steps.isEmpty()) continue;) → drawOneLayer returns from when steps empty. ✓
+
+Also NOTE: ensurePrograms(cp.layers) may compile programs — must NOT be called when cp.layers empty? Old code guarded !live.isEmpty() &&. My layersReady = cp.layers.isEmpty() || ensurePrograms(...) short-circuits. ✓
+
+Now, trash drain placement: at the top of drawFrame after eglMakeCurrent:
+
+            EGL14.eglMakeCurrent(...);
+            // Retired stills are freed HERE — see stillTrash.
+            for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
+            inputTexture.updateTexImage();
+Now write OverlayVideoPreviewView edits:
+
+Edit A: replace fxPipGeometry method (lines 275-311) with fxPipFor + pipFor. The javadoc on fxPipGeometry moves appropriately.
+
+Edit B: setFxStillTrash setter + fxStillTrash field + recycleStill helper; update 4 recycle sites.
+
+Edit C: onDraw gate.
+
+Edit D: in routeToFxIfWanted — no change needed.
+
+Controller edits as planned.
+
+Activity comment: line 19376 {@code fxPipGeometry} → {@code fxPipFor}.
+
+Let me now also double-check the Pip.of new params order. Current:
+
+public static Pip of(float cx, float cy, float halfW, float halfH, float rot, float alpha,
+                     @Nullable FxStack stack, long editorMs,
+                     @Nullable CompositingSpec spec, float blendMode,
+                     int frameW, int frameH)
+New: append @NonNull String clipId, @Nullable android.graphics.Bitmap still:
+
+public static Pip of(float cx, float cy, float halfW, float halfH, float rot, float alpha,
+                     @Nullable FxStack stack, long editorMs,
+                     @Nullable CompositingSpec spec, float blendMode,
+                     int frameW, int frameH,
+                     @NonNull String clipId, @Nullable android.graphics.Bitmap still)
+Constructor likewise extended.
+
+Also rendersAnything() unchanged.
+
+One more consideration — the Pip class javadoc says "Built on the main thread from the same KeyframeSet evaluation..." — still true. Add note about still.
+
+Now about the bitmap reference in the immutable Pip crossing threads — document the trash-queue invariant ON the still field:
+
+/**
+ * The frame to composite when this PiP is NOT the live decoder's clip — a cached still,
+ * uploaded to a plain 2D texture on the GL thread. Null marks the live PiP, whose pixels
+ * arrive on the OES surface.
+ *
+ * <p>The reference is safe to cross threads ONLY because the stills cache never recycles a
+ * bitmap while the FX composite might hold it — retired bitmaps are freed on the GL thread
+ * itself ({@link #stillTrash}). Do not publish a bitmap that any other owner can recycle.</p>
+ */
+@Nullable final android.graphics.Bitmap still;
+OK. Also check: FxPreviewTextureView.Pip.of — does the frameW, frameH get used only for packShapes? Yes: MaskSdf.packShapes(spec, frameW, frameH). ✓
+
+Now, potential issue: PIP_STILL_FRAGMENT static init order. PIP_FRAGMENT (line ~119) is initialized with BlendModes.glslBlendFnWithModeParam() + MaskSdf.GLSL_MASK_FN. PIP_STILL_FRAGMENT declared right after → initialized after → OK.
+
+BUT — one gotcha: .replace("vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;", ...) — the exact string in PIP_FRAGMENT source is:
+
++ "    vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;\n"
+With leading 4 spaces and trailing \n. My replace target "vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;" (substring) matches regardless. ✓ Replacement: "vec2 s = vec2(uv.x, 1.0 - uv.y);". ✓
+
+And "uniform samplerExternalOES uPipTexture;" appears once. ✓ "#extension GL_OES_EGL_image_external : require\n" once. ✓
+
+Wait — careful: PIP_FRAGMENT line 121: + "#extension GL_OES_EGL_image_external : require\n". In Java source it's written with \n escape → actual string contains a real newline. My replace in the static initializer: .replace("#extension GL_OES_EGL_image_external : require\n", "") — the \n in MY code is also a real newline. ✓ match.
+
+Also in pipFragment(fused, still), the fused splice operates on base:
+
+private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still) {
+    String base = still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT;
+    if (fused == null) return base;
+    ...
+    return base
+            .replace("void main() {\n", decls + "void main() {\n")
+            .replace("    vec4 src = texture2D(uPipTexture, s);\n",
+                    "    vec4 src = texture2D(uPipTexture, s);\n" + apply);
+}
+Hmm — decls processing strips "uniform sampler2D uTexSampler;\n" etc. from the EMITTED source — unchanged. But note: for the STILL base, the emitted decls are spliced the same way. One conflict: if the fused pass's emitted decls contain uniform samplerExternalOES... they don't (compiler emits sampler2D only). ✓
+
+Now the drawPip — full replacement. Old:
+
+    /** Composite the PiP: {@code src} → {@code dst}, one pass. */
+    private void drawPip(@NonNull Pip p, int src, int dst, int vw, int vh) {
+        int pipProgram = pipProgramFor(p);
+        if (pipProgram == 0) return;
+        ...
+        setSampler(pipProgram, "uTexSampler", targets[src][0], 0, true);
+        GLES20.glUniformMatrix4fv(
+                GLES20.glGetUniformLocation(pipProgram, "uPipTexMatrix"), 1, false,
+                pipTexMatrix, 0);
+        int loc = GLES20.glGetUniformLocation(pipProgram, "uPipTexture");
+        if (loc >= 0) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexId);
+            GLES20.glUniform1i(loc, 1);
+        }
+        ...
+    }
+New with stillTexId param and boolean return, local renamed program.
+
+Let me write all edits now. Also remember: drawPipRung and helpers placement — after drawPip.
+
+For OverlayVideoPreviewView — also the class javadoc at the top mentions "only the TOP-most visible overlay-video clip at the playhead gets the live decoder. Other simultaneously-visible overlay videos are not drawn in preview v1 (a cached-still fallback is a documented follow-up)". That doc is stale already (stills exist). Not required to update, but the stills ARE the mechanism. Leave (minimal impact) — actually the class doc says "not drawn in preview v1 (a cached-still fallback is a documented follow-up)" — already stale before my change; stills exist since §3.3. Leave it; not my scope.
+
+Alright — also one more integration check: FxLivePreviewController.stop() current:
+
+        view.setLayers(java.util.Collections.emptyList());
+        view.setGrade(null);
+        view.setPip(null);
+→
+
+        view.setCompositePlan(null);
+        view.setGrade(null);
+And sync():
+
+        view.setVideoSize(size[0], size[1]);
+        view.setVideoRotation(rotationDegrees());
+        view.setLayers(snapshot);
+        syncPip();
+        route();
+→ build snapshot+rungs via buildPlan, setCompositePlan, route. The live/snapshot block moves INTO buildPlan. Let me restructure sync():
+
+        if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
+        view.setGrade(g);
+
+        // Resolve on THIS thread — the GL thread must never walk the live model. See
+        // FxPreviewTextureView.Layer for why a snapshot rather than the layer itself.
+        int[] size = videoSize();
+        view.setVideoSize(size[0], size[1]);
+        view.setVideoRotation(rotationDegrees());
+        view.setCompositePlan(buildPlan(timeline, playheadMs, size));
+        route();
+And List<AdjustmentLayer> all stays for the routing decision; live/snapshot locals move into buildPlan. Note old code: List<AdjustmentLayer> live = all == null ? emptyList() : visibleAdjustmentLayers(...) — timeline non-null here (checked at top), and getAdjustmentLayers never returns null (unmodifiableList). Old code guarded all==null — keep simple: use visibleAdjustmentLayers directly (timeline non-null).
+
+buildPlan signature (timeline, playheadMs, size).
+
+Also — buildPlan must offer the surface every tick (old syncPip did) — ✓ included.
+
+Now — imports in FxLivePreviewController: needs nothing new (Clip, AdjustmentLayer, Timeline, ArrayList, List all imported; IdentityHashMap fully-qualified).
+
+Edge in buildPlan: ov.fxPipFor(vc) — ov could become null between offer check and use? Same thread, single call chain — no.
+
+Now — the rungs include pips ONLY when offer==true. But what if offer==false because pipSurface==null yet the GL view IS alive and routed (inputSurface != null but pipSurface null)? Can't happen: both surfaces are created together in setupGl and published in the same main.post. pipSurface null ⟺ inputSurface null (both nulled on lost). Actually onFxInputSurfaceLost nulls both; onFxInputSurfaceReady sets inputSurface, onFxPipSurfaceReady sets pipSurface — both fired from the same main.post → same tick. ✓
+
+Let me also make sure Rung.pip(p) / Rung.layer(idx) factories don't clash with field names — field pip and static method pip(...) — Java allows a field and method with the same name in one class. It's legal. ✓ (e.g., field pip + method pip(Pip) — fine.)
+
+Now the activity comment update. Line 19374-19377:
+
+     * <p>Reads and writes the SAME {@code overlayTransform} keyframe tracks that
+     * {@code OverlayVideoPreviewView} positions the PiP from and that
+     * {@code fxPipGeometry} feeds the GL composite, so the handles, the drag, the render and
+→ {@code fxPipFor}.
+
+Let me write everything now. After edits, compile.
+
+One more scan of FxPreviewTextureView for anything referencing layers or pip fields elsewhere: line 736 List<Layer> live = layers; (drawFrame — replacing). Anything else? The class-level javadoc... fine. setLayers javadoc mentions ordering — moved to setCompositePlan.
+
+Also hasPipSurface uses pipSurface field — kept. ✓
+
+Also, in stop() of controller, old order: setLayers, setGrade, setPip, ov.setFxCompositeSurface(null), restoreVideoOutput. New: setCompositePlan(null), setGrade(null), ov.setFxCompositeSurface(null), restoreVideoOutput. Keep order (plan null BEFORE surface withdrawn — GL's final draw sees null plan, draws passthrough+grade... wait grade null too → pure passthrough; view GONE anyway). ✓
+
+Now, let me also think again about evictUnusedStills when degraded==true: walk skipped; keys empty; evict all still textures — frees memory while degraded. When un-degraded (surface recreate clears maps anyway). ✓
+
+And stillKeysInFrame cleared at walk start — but if drawFrame returns EARLY (before the walk, e.g., targets null), eviction doesn't run — fine (textures kept, retried next frame).
+
+Edge: drawPipRung when p.still != null but stillTextureFor returns 0 (never uploaded + upload failed) → skip (return src). The PiP is absent — matches "absent until ready". ✓
+
+Potential issue — two PiPs from the SAME clip id? Clip ids unique. ✓ Duplicate PiP = same SOURCE file, different clip ids → separate stills entries (keyed by clip id). ✓ Cause B scenario handled: both get rungs; the top one live, the duplicate gets its still.
+
+Write the code now.
+
+Actually — one more thing to verify: FxCompiler.Pass field cards type — fused.cards iterated as com.fadcam.ui.faditor.fx.FxInstance card in existing code. ✓ (already in pipFragment).
+
+And in Pip.of, for a still PiP with object FX: resolveAt/plan run on main — fine.
+
+Also OverlayVideoPreviewView — does it import FxPreviewTextureView? Same package. ✓ Uses FxPreviewTextureView.Pip already. ✓
+
+Also confirm KeyframeSet constants used: X, Y, SCALE, ROTATION, OPACITY — used already. ✓
+
+Let me also double check Clip.getOverlayBlendMode() exists — used in fxPipGeometry (line 309). ✓ clip.getFx() (line 307). ✓
+
+Now write.
+
+Edit sequence for FxPreviewTextureView.java:
+
+Insert PIP_STILL_FRAGMENT after PIP_FRAGMENT closing (after line 173's + "}\n";).
+The exact text at end of PIP_FRAGMENT:
+
+            + "    gl_FragColor = vec4(mix(base.rgb, blended, amt), base.a);\n"
+            + "  }\n"
+            + "}\n";
+Then blank line + QUAD comment. Insert between.
+
+Pip class: fields, constructor, of().
+Add Rung + CompositePlan after Grade class ends (line 390 }) before // ── Main-thread state.
+Replace main-thread state block.
+Replace GL program fields block.
+Replace setLayers/setPip block with setCompositePlan + stillTrash getter.
+setupGl: replace pipProgram = 0; pipFxKey = "\0"; comment block.
+drawFrame: top section (remove List<Layer> live = layers;), add trash drain, replace steps 3-4.
+Replace pipProgramFor.
+Replace pipFragment.
+Replace drawPip; add drawPipRung/stillTextureFor/newStillTexture/evictUnusedStills after it.
+Replace drawLayers with drawOneLayer.
+releaseGl: add cleanups.
+Let me do it.
+
+I now have full context. The architecture is clear:
+
+Export (correct): orderedCompositedItems → PiP loop + adjustment layers inserted by PiP-cursor index.
+Preview (broken): single pip + separate layers list; non-top PiPs drawn as sibling-view stills above the FX view.
+My plan:
+
+FxPreviewTextureView: replace single Pip/layers with one immutable CompositePlan (layers + z-ordered Rung walk). Add still-bitmap→2D-texture support per PiP (keyed by clip id), a still-variant PiP shader (derived textually from PIP_FRAGMENT), per-key PiP program cache, and GL-thread trash recycling for retired stills.
+OverlayVideoPreviewView: add fxPipFor(Clip) (geometry+frame for ANY visible clip), suppress sibling stills while FX owns them, defer bitmap recycling to the GL thread while engaged.
+FxLivePreviewController: build the rung walk from LayerPreviewController.orderedCompositedItems — the export's own authority.
+Let me start with FxPreviewTextureView:
+
+Now edit 2: the Pip class fields + constructor + of().
+
+Now add Rung + CompositePlan after the Grade class (line 390 } ends Grade, then // ── Main-thread state comment).
+
+Now add the Rung and CompositePlan types after the Grade class:
+
+Now replace the main-thread state fields:
+
+Now replace the GL-thread program state fields:
+
+Now replace setLayers/setPip with setCompositePlan + stillTrash getter (lines around 513-553 in the original):
+
+Now replace setLayers/setPip with setCompositePlan and add the trash getter:
+
+Wait, I need to be careful — I replaced setLayers but setGrade and setPip come after it. Let me re-read that section to see the current state. The old order was: setLayers (513-524), setGrade (526-536), setPip (538-548), hasPipSurface (550-553). I replaced setLayers with setCompositePlan + stillTrash() + hasPipSurface — but hasPipSurface already exists below setPip! Now there will be TWO hasPipSurface methods. I need to remove setPip and the old hasPipSurface.
+
+Now I need to remove the old setPip and the duplicate hasPipSurface:
+
+Now the setupGl changes — replace the pipProgram init:
+
+Now update setupGl to reset the new GL state:
+
+Now the drawFrame restructure. Old code:
+
+    private void drawFrame() {
+        if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
+        try {
+            EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+            inputTexture.updateTexImage();
+            inputTexture.getTransformMatrix(texMatrix);
+
+            int vw = videoW > 0 ? videoW : surfaceW;
+            int vh = videoH > 0 ? videoH : surfaceH;
+            if (vw <= 0 || vh <= 0) return;
+
+            List<Layer> live = layers;
+            ensureTargets(vw, vh);
+            if (targets[0] == null) return;   // FBO allocation failed; it already logged
+
+            // 1 — OES into an ordinary 2D texture, decoder transform applied once.
+            drawStage(vw, vh);
+            int cur = 0;
+
+            // 2 — the CLIP grade, before any layer, exactly as the export chain orders them.
+            Grade g = grade;
+            if (!degraded && g != null && g.rendersAnything()) {
+                drawGrade(g, cur, 1, vw, vh);
+                cur = 1;
+            }
+
+            // 3 — the PiP, over the graded clip and UNDER the layers. Same order as export, and
+            //     the whole reason it is composited here rather than left as a sibling View.
+            Pip pp = pip;
+            if (!degraded && pp != null && pp.rendersAnything() && pipHasFrame
+                    && pipTexture != null) {
+                pipTexture.updateTexImage();
+                pipTexture.getTransformMatrix(pipTexMatrix);
+                int dst = cur == 0 ? 1 : 0;
+                drawPip(pp, cur, dst, vw, vh);
+                cur = dst;
+            }
+
+            // 4 — every live layer, in z order, each grading the result of the one beneath.
+            if (!degraded && !live.isEmpty() && ensurePrograms(live)) {
+                cur = drawLayers(live, vw, vh, cur);
+            }
+
+            // 5 — present the finished frame, fit-centred, at view resolution.
+            drawPresent(targets[cur][0]);
+            EGL14.eglSwapBuffers(eglDisplay, eglSurface);
+        } catch (Exception e) {
+            ...
+        }
+    }
+Now the core drawFrame restructure:
+
+Now replace pipProgramFor with the map-based version:
+
+    GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+}
+
+/**
+ * The PiP composite program for {@code p}'s effect stack, compiled on demand.
+ * The PiP composite program for {@code p}'s effect stack and texture variant, compiled on
+ * demand.
+ *
+ * <p>Keyed on the stack's source, so an unchanged stack reuses its program and a slider drag
+ * that only moves uniform VALUES never recompiles.</p>
+ * <p>Keyed on the stack's source plus the variant (live OES vs uploaded still), so an
+ * unchanged stack reuses its program, a slider drag that only moves uniform VALUES never
+ * recompiles, and two PiPs carrying different stacks no longer evict each other's program
+ * on every frame.</p>
+ */
+private int pipProgramFor(@NonNull Pip p) {
+    if (p.fxKey.equals(pipFxKey) && pipProgram != 0) return pipProgram;
+    String key = (p.still == null ? "o" : "s") + p.fxKey;
+    Integer have = pipPrograms.get(key);
+    if (have != null) return have;
+    int prog;
+    try {
+        int prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused));
+        if (pipProgram != 0) GLES20.glDeleteProgram(pipProgram);
+        pipProgram = prog;
+        pipFxKey = p.fxKey;
+        prog = buildProgram(FxGlSource.VERTEX_SHADER, pipFragment(p.fused, p.still != null));
+    } catch (Exception e) {
+        // Fall back to the PLAIN composite, which is what the log claims happens. Keeping
+        // the previously compiled program would render the OLD stack while being fed the
+        // new stack's uniforms; leaving it at 0 would drop the PiP entirely, because its
+        // own View is held at alpha 0 while the composite owns the pixels.
+        // Fall back to the PLAIN composite, which is what the log claims happens. A 0 latch
+        // drops this PiP from the chain rather than retrying a broken stack every frame —
+        // the same "absent until fixed" behaviour a still that never decodes has.
+        FLog.w(TAG, "PiP FX compile failed; compositing ungraded", e);
+        int fallback = 0;
+        try {
+            if (pipProgram != 0) GLES20.glDeleteProgram(pipProgram);
+            pipProgram = buildProgram(FxGlSource.VERTEX_SHADER, PIP_FRAGMENT);
+            fallback = buildProgram(FxGlSource.VERTEX_SHADER,
+                    pipFragment(null, p.still != null));
+        } catch (Exception fatal) {
+            FLog.e(TAG, "plain PiP composite failed too", fatal);
+            pipProgram = 0;
+        }
+        pipFxKey = p.fxKey;   // do not retry this stack every frame
+        prog = fallback;
+    }
+    return pipProgram;
+    pipPrograms.put(key, prog);
+    return prog;
+}
+
+/**
+ * Splice the object's fused FX pass into the composite shader.

@@ -23,6 +23,9 @@ public interface AudioParams {
     /** Timeline position where this clip starts. */
     long getOffsetMs();
 
+    /** Set timeline position where this clip starts. */
+    void setOffsetMs(long ms);
+
     /** Duration of the source media. */
     long getSourceDurationMs();
 

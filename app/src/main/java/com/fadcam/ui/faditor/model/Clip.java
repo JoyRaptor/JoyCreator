@@ -684,6 +684,11 @@ public class Clip implements AudioParams {
     }
 
     @Override
+    public void setSourceUri(@NonNull Uri uri) {
+        sourceUri = uri;
+    }
+
+    @Override
     public long getOffsetMs() {
         return offsetMs;
     }

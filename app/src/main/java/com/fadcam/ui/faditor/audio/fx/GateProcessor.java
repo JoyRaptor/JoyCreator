@@ -5,6 +5,7 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
 
 /**
  * Noise gate with adjustable threshold, attack, release, hold.
@@ -57,10 +58,7 @@ public final class GateProcessor extends BaseAudioProcessor {
         float thresholdLin = (float) Math.pow(10, thresholdDb / 20.0);
         int holdFrames = Math.round(holdMs * sampleRate / 1000.0f);
 
-        ShortBuffer inShort = inputBuffer.asShortBuffer();
-        ShortBuffer outShort = output.asShortBuffer();
-
-        int frameCount = inputBuffer.remaining() / (2 * channelCount);
+        int frameCount = remaining / (2 * channelCount);
 
         for (int f = 0; f < frameCount; f++) {
             for (int ch = 0; ch < channelCount; ch++) {
@@ -90,11 +88,12 @@ public final class GateProcessor extends BaseAudioProcessor {
                 float y = x * gain;
                 int scaled = Math.round(y * 32767.0f);
                 scaled = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, scaled));
-                output.putShort(scaled);
+                outShort.put((short) scaled);
             }
         }
 
         inputBuffer.position(inputBuffer.limit());
+        outShort.limit(outShort.position());
     }
 
     @Override

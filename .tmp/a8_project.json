@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 7,
+  "id": "a8e40a08-5eed-4000-8000-000000000001",
+  "name": "A8 E4 overlap proof",
+  "createdAt": 1787500000000,
+  "lastModified": 1787500000000,
+  "timeline": {
+    "clips": [
+      {
+        "id": "b6b1d036-e49e-4575-a29c-b38f0e8b7942",
+        "sourceUri": "file:///storage/emulated/0/Android/data/com.fadcam.beta/files/FadCam/Screen/The_woman_and_the_5.mp4",
+        "imageClip": false,
+        "inPointMs": 0,
+        "outPointMs": 8000,
+        "sourceDurationMs": 2757335,
+        "speedMultiplier": 1.0,
+        "audioMuted": true,
+        "volumeLevel": 1.0,
+        "rotationDegrees": 0,
+        "flipHorizontal": false,
+        "flipVertical": false,
+        "cropPreset": "none",
+        "cropLeft": 0.0,
+        "cropTop": 0.0,
+        "cropRight": 1.0,
+        "cropBottom": 1.0,
+        "captionsEnabled": false,
+        "captionStyleId": "pop",
+        "captionCenterX": 0.5,
+        "captionCenterY": 0.82,
+        "captionSizeFraction": 0.06
+      }
+    ],
+    "audioClips": [
+      {
+        "id": "aa8e0000-0000-4000-8000-00000000000a",
+        "sourceUri": "project://assets/tone_a.m4a",
+        "sourceDurationMs": 4000,
+        "inPointMs": 0,
+        "outPointMs": 4000,
+        "offsetMs": 1000,
+        "volumeLevel": 1.0,
+        "muted": false,
+        "label": "Chirp A 440up",
+        "captionsEnabled": false,
+        "captionStyleId": "pop",
+        "captionCenterX": 0.5,
+        "captionCenterY": 0.82,
+        "captionSizeFraction": 0.06
+      },
+      {
+        "id": "bb8e0000-0000-4000-8000-00000000000b",
+        "sourceUri": "project://assets/tone_b.m4a",
+        "sourceDurationMs": 4000,
+        "inPointMs": 0,
+        "outPointMs": 4000,
+        "offsetMs": 3000,
+        "layerId": "audio2",
+        "volumeLevel": 1.0,
+        "muted": false,
+        "label": "Chirp B down",
+        "captionsEnabled": false,
+        "captionStyleId": "pop",
+        "captionCenterX": 0.5,
+        "captionCenterY": 0.82,
+        "captionSizeFraction": 0.06
+      }
+    ],
+    "textOverlays": [],
+    "rippleMode": "ripple",
+    "layers": {
+      "masterTrack": {
+        "id": "master",
+        "kind": "MASTER",
+        "name": "Master",
+        "zIndex": 0,
+        "collapsed": false,
+        "hidden": false,
+        "locked": false,
+        "muted": false,
+        "items": [
+          {
+            "id": "b6b1d036-e49e-4575-a29c-b38f0e8b7942",
+            "timelineStartMs": 0,
+            "zHint": 0,
+            "blendMode": "NORMAL",
+            "payloadKind": "clip",
+            "payloadId": "b6b1d036-e49e-4575-a29c-b38f0e8b7942"
+          }
+        ]
+      },
+      "layers": [],
+      "audioTracks": [
+        {
+          "id": "audio",
+          "kind": "AUDIO",
+          "name": "Audio",
+          "items": []
+        },
+        {
+          "id": "audio2",
+          "kind": "AUDIO",
+          "name": "Audio 2",
+          "items": []
+        }
+      ],
+      "trackDefs": [
+        {
+          "id": "audio2",
+          "kind": "AUDIO",
+          "name": "Audio 2"
+        }
+      ]
+    }
+  },
+  "canvasPreset": "original",
+  "exportSettings": {
+    "resolution": "ORIGINAL",
+    "quality": "HIGH",
+    "format": "MP4",
+    "cleanAudio": false
+  }
+}

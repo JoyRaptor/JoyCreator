@@ -159,6 +159,8 @@ public class ExportManager {
      */
     private final java.util.concurrent.ConcurrentHashMap<String, Long> sourceAudioDurMs =
             new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, Integer> sourceAudioSampleRate =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Thread-local MediaMetadataRetriever cache used during composition building.
@@ -624,6 +626,20 @@ public class ExportManager {
         File silenceFile = getOrCreateSilenceFile();
         Uri silenceUri = silenceFile != null ? Uri.fromFile(silenceFile) : null;
 
+        // A6: determine project sample rate from the master track's first audio source.
+        int projectSampleRate = 48000;
+        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
+            Clip probeClip = timeline.getClip(ci);
+            if (!probeClip.isAudioMuted() && !probeClip.isImageClip()) {
+                Uri src = resolveSeekableSourceUri(probeClip);
+                if (audioDurationMsOf(src) > 0) {
+                    projectSampleRate = sampleRateOf(src);
+                    FLog.d(TAG, "A6: project sample rate = " + projectSampleRate + " Hz (from master clip " + probeClip.getId() + ")");
+                    break;
+                }
+            }
+        }
+
         List<EditedMediaItem> master = new ArrayList<>();
         for (int ci = 0; ci < timeline.getClipCount(); ci++) {
             Clip clip = timeline.getClip(ci);
@@ -685,7 +701,8 @@ public class ExportManager {
                         aps.add(sap);
                     }
                     if (clip.hasVolumeKeyframes()) {
-                        List<Clip.VolumeKeyframe> kfs = clip.getVolumeKeyframes();
+                        @SuppressWarnings("unchecked")
+                        List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
                         long[] times = new long[kfs.size()];
                         float[] vols = new float[kfs.size()];
                         for (int i = 0; i < kfs.size(); i++) {
@@ -999,7 +1016,7 @@ public class ExportManager {
                 long mainDurationMs = clipInMs >= clipOutMs ? 0 : (mainOutMs - clipInMs);
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
-                        waveformSlots);
+                        waveformSlots, projectSampleRate);
                 items.add(mainItem);
                 timelineCursorMs += mainItem.durationUs / 1000;
             } else if (mainOutMs > clipInMs) {
@@ -1082,7 +1099,7 @@ public class ExportManager {
                 filler.setAudioMuted(true);
                 filler.setDisplayName("Tail filler"); // TODO(strings)
                 EditedMediaItem fillItem = buildClipItem(project, filler, 0L, tailMs,
-                        timelineCursorMs, outW, outH, canvasDims, waveformSlots);
+                        timelineCursorMs, outW, outH, canvasDims, waveformSlots, projectSampleRate);
                 items.add(fillItem);
                 FLog.i(TAG, "buildComposition: project runs to " + projectTotalMs
                         + "ms but the master track ends at " + timelineCursorMs
@@ -1458,7 +1475,8 @@ public class ExportManager {
                                            long timelineCursorMs,
                                            int outW, int outH,
                                            @Nullable int[] canvasDims,
-                                           @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots) {
+                                           @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots,
+                                           int projectSampleRate) {
         float speed = clip.getSpeedMultiplier();
 
         MediaItem mediaItem;
@@ -1524,7 +1542,8 @@ public class ExportManager {
             VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
             boolean volumeAdjusted = false;
             if (clip.hasVolumeKeyframes()) {
-                List<Clip.VolumeKeyframe> kfs = clip.getVolumeKeyframes();
+                @SuppressWarnings("unchecked")
+                List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
                 long[] times = new long[kfs.size()];
                 float[] vols = new float[kfs.size()];
                 for (int i = 0; i < kfs.size(); i++) {
@@ -2333,7 +2352,6 @@ public class ExportManager {
             // envelope shape — same VolumeAudioProcessor, same times[]/vols[] pair — so PiP and
             // master audio cannot drift apart in how they read the same keyframe list.
             float volume = volumes.get(c.getId());
-            List<AudioProcessor> processors = new ArrayList<>();
             // A6: resample PiP clip to project sample rate if needed.
             int clipSampleRate = sampleRateOf(resolveSeekableSourceUri(c));
             if (clipSampleRate != projectSampleRate) {
@@ -2341,16 +2359,15 @@ public class ExportManager {
                 FLog.d(TAG, "A6: PiP clip " + c.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
             }
             if (c.hasVolumeKeyframes()) {
-                List<Clip.VolumeKeyframe> kfs = c.getVolumeKeyframes();
+                @SuppressWarnings("unchecked")
+                List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) c.getVolumeKeyframes();
                 long[] times = new long[kfs.size()];
                 float[] vols = new float[kfs.size()];
                 for (int i = 0; i < kfs.size(); i++) {
                     times[i] = kfs.get(i).timeMs;
-                    // B1.Q: raw MULTIPLIERS now — the base rides via setVolume below,
-                    // matching the processor's contract (was: pre-multiplied here, which
-                    // left the processor's own base at 1.0 and two ways to compute one gain).
                     vols[i] = kfs.get(i).volume;
                 }
+                // B1.Q: raw MULTIPLIERS now — the base rides via setVolume below,
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
                 vp.setVolume(volume);
                 vp.setVolumeEnvelope(times, vols);

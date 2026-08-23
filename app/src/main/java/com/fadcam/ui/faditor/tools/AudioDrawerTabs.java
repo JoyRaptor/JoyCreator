@@ -73,7 +73,7 @@ public final class AudioDrawerTabs {
      * keyframe diamond), an envelope state line, and the two fade sliders.
      */
     @NonNull
-    public static View levelTab(@NonNull Context ctx, @NonNull AudioParams clip,
+    public static View levelTab(@NonNull Context ctx, @NonNull AudioClip clip,
                                 @NonNull Host host) {
         LinearLayout root = column(ctx);
         final List<Runnable> refreshers = new ArrayList<>();
@@ -351,10 +351,10 @@ public final class AudioDrawerTabs {
      *             costs ONE line of drawer height instead of two. Height over the preview is
      *             the scarcest thing in this drawer.
      */
-    private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout parent,
-                                    @NonNull String label, boolean fadeIn,
-                                    @NonNull AudioParams clip, @NonNull Host host,
-                                    boolean half) {
+private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                   @NonNull String label, boolean fadeIn,
+                                   @NonNull AudioClip clip, @NonNull Host host,
+                                   boolean half) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -672,11 +672,11 @@ public final class AudioDrawerTabs {
         return Math.max(0f, Math.min(2f, finalGain / lvl));
     }
 
-    private static void setFade(@NonNull AudioParams clip, boolean fadeIn, long fadeMs) {
+    private static void setFade(@NonNull AudioClip clip, boolean fadeIn, long fadeMs) {
         if (fadeIn) clip.setFadeInMs(fadeMs); else clip.setFadeOutMs(fadeMs);
     }
 
-    private static long readFade(@NonNull AudioParams clip, boolean fadeIn) {
+    private static long readFade(@NonNull AudioClip clip, boolean fadeIn) {
         return fadeIn ? clip.getFadeInMs() : clip.getFadeOutMs();
     }
 
@@ -862,9 +862,9 @@ public final class AudioDrawerTabs {
         input.requestFocus();
     }
 
-    private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioParams clip,
-                                             @NonNull Host host, boolean fadeIn,
-                                             long maxFade, @Nullable Runnable refresh) {
+private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioClip clip,
+                                         @NonNull Host host, boolean fadeIn,
+                                         long maxFade, @Nullable Runnable refresh) {
         float[] pad = dialogPadding(ctx);
         EditText input = new EditText(ctx);
         input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER

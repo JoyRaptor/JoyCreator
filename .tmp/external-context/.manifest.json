@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-08-08T00:00:00Z",
+  "libraries": {
+    "material-android": {
+      "name": "Material Components for Android",
+      "package": "com.google.android.material:material",
+      "version": "1.13.0",
+      "files": [
+        {
+          "filename": "theme-resolution.md",
+          "topic": "BottomSheetDialog theme resolution (bottomSheetDialogTheme)",
+          "tech_stack": "Android",
+          "fetched": "2026-08-08T00:00:00Z",
+          "source": "Official source tag 1.13.0 + Context7 API"
+        },
+        {
+          "filename": "cancel-vs-dismiss.md",
+          "topic": "Swipe-down STATE_HIDDEN -> cancel() vs dismiss()",
+          "tech_stack": "Android",
+          "fetched": "2026-08-08T00:00:00Z",
+          "source": "Official source tag 1.13.0 + Context7 API"
+        },
+        {
+          "filename": "setcontentview-before-show.md",
+          "topic": "setContentView(View) then add children before show()",
+          "tech_stack": "Android",
+          "fetched": "2026-08-08T00:00:00Z",
+          "source": "Official source tag 1.13.0 + Context7 API"
+        },
+        {
+          "filename": "touch-interception.md",
+          "topic": "requestDisallowInterceptTouchEvent vs sheet drag",
+          "tech_stack": "Android",
+          "fetched": "2026-08-08T00:00:00Z",
+          "source": "Official source tag 1.13.0 + Context7 API"
+        },
+        {
+          "filename": "drag-handle.md",
+          "topic": "Drag handle / grabber default with setContentView(View)",
+          "tech_stack": "Android",
+          "fetched": "2026-08-08T00:00:00Z",
+          "source": "Official source tag 1.13.0 + Context7 API"
+        }
+      ]
+    }
+  }
+}

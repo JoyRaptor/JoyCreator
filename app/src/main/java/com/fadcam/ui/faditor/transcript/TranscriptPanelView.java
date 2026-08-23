@@ -92,6 +92,9 @@ public class TranscriptPanelView extends View {
     private int selectedParagraph = -1;
     private int downGutterParagraph = -1;
     private boolean gutterDown;
+    private final java.util.Set<Integer> collapsedParagraphs = new java.util.HashSet<>();
+    private long lastGutterTapTime;
+    private int lastGutterTapIndex = -1;
 
     // Per-word layout (parallel arrays, indexed like transcript.words)
     private float[] wordX = new float[0];
@@ -151,6 +154,9 @@ public class TranscriptPanelView extends View {
         this.transcript = t;
         this.paragraphData = TranscriptParagraphs.of(t);
         this.selectedParagraph = -1;
+        this.collapsedParagraphs.clear();
+        lastGutterTapIndex = -1;
+        lastGutterTapTime = 0;
         laidOutForWidth = -1;
         scrollY = 0;
         requestLayout();
@@ -310,22 +316,86 @@ public class TranscriptPanelView extends View {
         float gutterRight = gutterWidthPx + gutterGapPx + padX;
         float maxRight = width - padX;
         float x = gutterRight, y = padY;
-        for (int i = 0; i < n; i++) {
-            String text = transcript.words.get(i).text;
-            float wW = textPaint.measureText(text);
-            if (x > gutterRight && x + wW > maxRight) {
-                x = gutterRight;
-                y += lineHeight;
+        if (paragraphData != null && paragraphData.paragraphCount() > 0) {
+            for (int p = 0; p < paragraphData.paragraphCount(); p++) {
+                int[] range = paragraphData.paragraphs.get(p);
+                int s = range[0], e = range[1];
+                if (s < 0 || e >= n) continue;
+                boolean collapsed = collapsedParagraphs.contains(p);
+                if (collapsed) {
+                    if (x != gutterRight) { y += lineHeight; x = gutterRight; }
+                    String summary = buildParagraphSummary(p);
+                    float wW = textPaint.measureText(summary);
+                    wordX[s] = x;
+                    wordY[s] = y;
+                    wordW[s] = wW;
+                    for (int w = s + 1; w <= e; w++) { wordX[w] = -10000; wordY[w] = y; wordW[w] = 0; }
+                    y += lineHeight;
+                    x = gutterRight;
+                } else {
+                    for (int w = s; w <= e; w++) {
+                        String text = transcript.words.get(w).text;
+                        float wW = textPaint.measureText(text);
+                        if (x > gutterRight && x + wW > maxRight) {
+                            x = gutterRight;
+                            y += lineHeight;
+                        }
+                        wordX[w] = x;
+                        wordY[w] = y;
+                        wordW[w] = wW;
+                        x += wW + spaceW;
+                        if (transcript.words.get(w).forceLineBreakAfter && w != e) {
+                            x = gutterRight;
+                            y += lineHeight;
+                        }
+                    }
+                }
             }
-            wordX[i] = x;
-            wordY[i] = y;
-            wordW[i] = wW;
-            x += wW + spaceW;
+        } else {
+            for (int i = 0; i < n; i++) {
+                String text = transcript.words.get(i).text;
+                float wW = textPaint.measureText(text);
+                if (x > gutterRight && x + wW > maxRight) {
+                    x = gutterRight;
+                    y += lineHeight;
+                }
+                wordX[i] = x;
+                wordY[i] = y;
+                wordW[i] = wW;
+                x += wW + spaceW;
+            }
         }
         totalHeight = y + lineHeight + padY;
         maxScrollY = (int) Math.max(0, totalHeight - getHeight());
         laidOutForWidth = width;
     }
+
+    private String buildParagraphSummary(int paraIdx) {
+        if (transcript == null || paragraphData == null) return "";
+        int[] range = paragraphData.paragraphs.get(paraIdx);
+        int s = range[0], e = range[1];
+        int take = Math.min(6, e - s + 1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < take; i++) {
+            if (i > 0) sb.append(' ');
+            sb.append(transcript.words.get(s + i).text);
+        }
+        if (take < e - s + 1) sb.append(" …");
+        long durMs = transcript.words.get(e).endMs - transcript.words.get(s).startMs;
+        if (durMs < 0) durMs = 0;
+        sb.append("  (").append(formatParagraphDuration(durMs)).append(")");
+        return sb.toString();
+    }
+
+    private static String formatParagraphDuration(long ms) {
+        long sec = ms / 1000;
+        long m = sec / 60;
+        long s = sec % 60;
+        if (m > 0) return m + ":" + String.format(java.util.Locale.US, "%02d", s);
+        return s + "s";
+    }
+
+    public boolean isParagraphCollapsed(int paraIdx) { return collapsedParagraphs.contains(paraIdx); }
 
     // ── Draw ─────────────────────────────────────────────────────────
 
@@ -362,6 +432,23 @@ public class TranscriptPanelView extends View {
             float wy = wordY[i] - scrollY;
             if (wy + lineHeight < 0 || wy > h) continue; // offscreen
             TranscriptWord w = transcript.words.get(i);
+            int para = paragraphData != null ? paragraphData.paragraphOf(i) : -1;
+            boolean collapsed = para >= 0 && collapsedParagraphs.contains(para);
+            if (collapsed) {
+                int[] range = paragraphData.paragraphs.get(para);
+                if (i != range[0]) continue;
+                String summary = buildParagraphSummary(para);
+                textPaint.setColor(0xFFB0B0B0);
+                float baseY = wy + baselineOffset;
+                float maxW = getWidth() - (gutterWidthPx + gutterGapPx + padX) - padX;
+                String draw = summary;
+                if (textPaint.measureText(draw) > maxW) {
+                    while (draw.length() > 0 && textPaint.measureText(draw + "…") > maxW) draw = draw.substring(0, draw.length() - 1);
+                    draw = draw + "…";
+                }
+                canvas.drawText(draw, wordX[i], baseY, textPaint);
+                continue;
+            }
             boolean outside = !inClipWindow(w);
 
             if (i == activeIndex && !w.struck) {
@@ -507,10 +594,30 @@ public class TranscriptPanelView extends View {
                         int gp = paragraphAt(e.getY() + scrollY);
                         if (gp < 0) gp = downGutterParagraph;
                         if (gp >= 0) {
-                            selectedParagraph = gp;
-                            invalidate();
-                            performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                            long now = System.currentTimeMillis();
+                            if (gp == lastGutterTapIndex && now - lastGutterTapTime <= DOUBLE_TAP_TIMEOUT_MS) {
+                                if (collapsedParagraphs.contains(gp)) collapsedParagraphs.remove(gp);
+                                else collapsedParagraphs.add(gp);
+                                laidOutForWidth = -1;
+                                requestLayout();
+                                invalidate();
+                                performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                                lastGutterTapIndex = -1;
+                                lastGutterTapTime = 0;
+                            } else {
+                                selectedParagraph = gp;
+                                invalidate();
+                                performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                                lastGutterTapIndex = gp;
+                                lastGutterTapTime = now;
+                            }
+                        } else {
+                            lastGutterTapIndex = -1;
+                            lastGutterTapTime = 0;
                         }
+                    } else {
+                        lastGutterTapIndex = -1;
+                        lastGutterTapTime = 0;
                     }
                     gutterDown = false;
                     downGutterParagraph = -1;
@@ -543,6 +650,7 @@ public class TranscriptPanelView extends View {
                             transcript.words.get(idx).forceLineBreakAfter =
                                     !transcript.words.get(idx).forceLineBreakAfter;
                             paragraphData = TranscriptParagraphs.of(transcript);
+                            collapsedParagraphs.clear();
                             layoutWords(getWidth());
                             invalidate();
                             listener.onLineBreaksChanged();
@@ -607,6 +715,7 @@ public class TranscriptPanelView extends View {
         transcript.words.set(index, new TranscriptWord(old.text, ns, ns + dur,
                 old.struck, old.forceLineBreakAfter));
         paragraphData = TranscriptParagraphs.of(transcript);
+        collapsedParagraphs.clear();
         laidOutForWidth = -1;
         requestLayout();
         invalidate();
@@ -637,6 +746,7 @@ public class TranscriptPanelView extends View {
         transcript.words.remove(index);
         transcript.words.addAll(index, replacement);
         paragraphData = TranscriptParagraphs.of(transcript);
+        collapsedParagraphs.clear();
         laidOutForWidth = -1;
         requestLayout();
         invalidate();
@@ -645,6 +755,8 @@ public class TranscriptPanelView extends View {
     /** Returns the word index at content coordinates (y already includes scroll), or -1. */
     private int wordAt(float x, float contentY) {
         for (int i = 0; i < wordX.length; i++) {
+            int para = paragraphData != null ? paragraphData.paragraphOf(i) : -1;
+            if (para >= 0 && collapsedParagraphs.contains(para)) continue;
             if (contentY >= wordY[i] && contentY <= wordY[i] + lineHeight
                     && x >= wordX[i] - spaceW / 2 && x <= wordX[i] + wordW[i] + spaceW / 2) {
                 return i;

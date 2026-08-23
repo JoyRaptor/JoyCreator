@@ -859,11 +859,6 @@ public class EditorTimelineView extends View {
     // ── Audio track state ─────────────────────────────────────────────
     private final List<AudioClip> audioClips = new ArrayList<>();
     private final List<RectF> audioClipRects = new ArrayList<>();
-    private int selectedAudioIndex = -1;
-    // Audio trim drag state
-    private float audioTrimDragX;
-    private long audioTrimDragInMs;
-    private long audioTrimDragOutMs;
 
     // ── Touch ────────────────────────────────────────────────────────
     private boolean isScaling = false;
@@ -885,8 +880,6 @@ public class EditorTimelineView extends View {
         NONE,
         LEFT_HANDLE,
         RIGHT_HANDLE,
-        AUDIO_LEFT_HANDLE,
-        AUDIO_RIGHT_HANDLE,
         TRANSITION_LEFT_HANDLE,
         TRANSITION_RIGHT_HANDLE,
         FREEZE_LEFT_HANDLE,
@@ -1151,8 +1144,7 @@ public class EditorTimelineView extends View {
             edgeScrollHandler.postDelayed(this, EDGE_SCROLL_INTERVAL_MS);
             return;
         }
-        if (!(activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE
-                || activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE)
+        if (!(activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE)
                 && !assetDragActive) {
             isEdgeScrolling = false;
             return;
@@ -1174,9 +1166,6 @@ public class EditorTimelineView extends View {
         clampScroll();
         if (assetDragActive) {
             updateAssetDragFromScreenX(screenX);
-        } else if (activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
-            float scrolledX = screenX + scrollOffsetPx;
-            doAudioTrimDrag(scrolledX);
         } else {
             float scrolledX = screenX + scrollOffsetPx;
             doTrimDrag(scrolledX);
@@ -1514,12 +1503,6 @@ public class EditorTimelineView extends View {
         default void onClipCarriedToSeam(int fromIndex, int toIndex) {}
         /** The user tapped the "Link" button in the reorder bar — open relink for the given clip. */
         default void onReorderLinkRequested(int segmentIndex) {}
-        void onAudioClipSelected(int audioIndex);
-
-        /** Double-tap on an audio-band clip → open the waveform customization sheet. */
-        default void onAudioBandDoubleTapped() {}
-        void onAudioTrimChanged(int audioIndex, long inPointMs, long outPointMs, boolean isLeft);
-        void onAudioTrimFinished(int audioIndex, long inPointMs, long outPointMs);
         /**
          * A drag on an overlay's timeline handle (range edge or keyframe diamond)
          * is about to begin — capture the overlay's before-state for undo here,
@@ -1967,7 +1950,6 @@ public class EditorTimelineView extends View {
     public void setAudioClips(@NonNull List<AudioClip> clips) {
         audioClips.clear();
         audioClips.addAll(clips);
-        selectedAudioIndex = -1;
         computeRects();
         requestLayout();
         invalidate();
@@ -2088,16 +2070,13 @@ public class EditorTimelineView extends View {
      * trim-to-selection, …) keeps working unchanged on the new rows.</p>
      */
     public int getSelectedAudioIndex() {
-        if (!audioLayerTracks.isEmpty()) {
-            String sel = layerGestureController != null
-                    ? layerGestureController.getSelectedItemId() : null;
-            if (sel == null) return -1;
-            for (int i = 0; i < audioClips.size(); i++) {
-                if (sel.equals(audioClips.get(i).getId())) return i;
-            }
-            return -1;
+        String sel = layerGestureController != null
+                ? layerGestureController.getSelectedItemId() : null;
+        if (sel == null) return -1;
+        for (int i = 0; i < audioClips.size(); i++) {
+            if (sel.equals(audioClips.get(i).getId())) return i;
         }
-        return selectedAudioIndex;
+        return -1;
     }
 
     public void setSelectedIndex(int index) {
@@ -5209,13 +5188,11 @@ public class EditorTimelineView extends View {
         a.start();
     }
 
-    /** Priority: trim tint &gt; legacy-audio &gt; master &gt; selected layer kind &gt; neutral. */
+    /** Priority: trim tint &gt; master &gt; selected layer kind &gt; neutral. */
     private int resolvePlayheadContextColor() {
-        if (activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE
-                || activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
+        if (activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE) {
             return COLOR_PLAYHEAD_TRIM;
         }
-        if (selectedAudioIndex >= 0) return com.fadcam.ui.faditor.layers.ObjectPalette.AUDIO;
         if (selectedIndex >= 0) return com.fadcam.ui.faditor.layers.ObjectPalette.MASTER;
         String selId = layerGestureController != null
                 ? layerGestureController.getSelectedItemId() : null;
@@ -5274,12 +5251,10 @@ public class EditorTimelineView extends View {
         int guideColor = (playheadColorCurrent & 0x00FFFFFF) | 0x55000000; // low-alpha context tint
         guidePaint.setColor(guideColor);
 
-        // Horizontal row-band guides (segRects/audioClipRects .top/.bottom are absolute
+        // Horizontal row-band guides (segRects .top/.bottom are absolute
         // Y — only X is scrolled — so they are valid screen coordinates as-is).
         RectF band = null;
-        if (selectedAudioIndex >= 0 && selectedAudioIndex < audioClipRects.size()) {
-            band = audioClipRects.get(selectedAudioIndex);
-        } else if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             band = segRects.get(selectedIndex);
         }
         if (band != null) {
@@ -6814,19 +6789,7 @@ public class EditorTimelineView extends View {
         downSegIndex = hitTestSegment(scrolledX, y);
         if (VLOG) FLog.d(TAG, "onDown: hit segment " + downSegIndex);
 
-        // Check audio trim handles (before audio body hit test) — LEGACY audio path only;
-        // with the unified renderer audio band (audio consolidation), audio touches route
-        // through handleM6RowTouch/LayerGestureController like every other row item.
-        if (audioLayerTracks.isEmpty()
-                && selectedAudioIndex >= 0 && selectedAudioIndex < audioClipRects.size()) {
-            Drag ah = hitTestAudioHandle(scrolledX, y);
-            if (ah != Drag.NONE) {
-                FLog.d(TAG, "onDown: hit audio handle " + ah);
-                activeDrag = ah;
-                getParent().requestDisallowInterceptTouchEvent(true);
-                return true;
-            }
-        }
+
 
         // (The legacy in-strip audio select/drag arm block was deleted 2026-08-22 —
         // SPEC_AUDIO_UX_V1 row A1: unreachable since audio consolidation.)
@@ -7579,14 +7542,6 @@ public class EditorTimelineView extends View {
             return true;
         }
 
-        // Audio trim handle drag
-        if (activeDrag == Drag.AUDIO_LEFT_HANDLE || activeDrag == Drag.AUDIO_RIGHT_HANDLE) {
-            lastTrimFingerScreenX = x;
-            doAudioTrimDrag(scrolledX);
-            startOrStopEdgeScroll(x);
-            return true;
-        }
-
         if (activeDrag == Drag.TRANSITION_LEFT_HANDLE || activeDrag == Drag.TRANSITION_RIGHT_HANDLE) {
             doTransitionTrimDrag(scrolledX);
             return true;
@@ -7787,11 +7742,6 @@ public class EditorTimelineView extends View {
         } else if (last == Drag.MOTION_RANGE_START_HANDLE
                 || last == Drag.MOTION_RANGE_END_HANDLE) {
             finishMotionRangeDrag();
-        } else if (last == Drag.AUDIO_LEFT_HANDLE || last == Drag.AUDIO_RIGHT_HANDLE) {
-            // Audio trim finished — data was already applied during drag
-            if (listener != null) {
-                listener.onAudioTrimFinished(selectedAudioIndex, audioTrimDragInMs, audioTrimDragOutMs);
-            }
         } else if (last == Drag.TRANSITION_LEFT_HANDLE || last == Drag.TRANSITION_RIGHT_HANDLE) {
             if (listener != null) {
                 long newDur = transitionDurationFromDragX(transitionDragX);
@@ -7868,10 +7818,6 @@ public class EditorTimelineView extends View {
                         // instead of the same-segment tap-toggle deselecting it.
                         if (selectedIndex != doubleTapSegIndex) {
                             selectedIndex = doubleTapSegIndex;
-                            if (selectedAudioIndex >= 0) {
-                                selectedAudioIndex = -1;
-                                if (listener != null) listener.onAudioClipSelected(-1);
-                            }
                             if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
                         }
                         invalidate();
@@ -7882,10 +7828,6 @@ public class EditorTimelineView extends View {
                         if (listener != null) listener.onSegmentSelected(-1);
                     } else {
                         selectedIndex = downSegIndex;
-                        if (selectedAudioIndex >= 0) {
-                            selectedAudioIndex = -1;
-                            if (listener != null) listener.onAudioClipSelected(-1);
-                        }
                         invalidate();
                         if (listener != null) listener.onSegmentSelected(downSegIndex);
                     }
@@ -8458,26 +8400,6 @@ public class EditorTimelineView extends View {
     }
 
     /**
-     * Hit-test trim handles on the selected audio clip.
-     */
-    private Drag hitTestAudioHandle(float x, float y) {
-        if (selectedAudioIndex < 0 || selectedAudioIndex >= audioClipRects.size()) return Drag.NONE;
-        RectF r = audioClipRects.get(selectedAudioIndex);
-        float hTop = r.top - handleOverhangPx;
-        float hBot = r.bottom + handleOverhangPx;
-
-        if (y < hTop - touchSlopPx / 2 || y > hBot + touchSlopPx / 2) return Drag.NONE;
-
-        if (x >= r.left - touchSlopPx / 2 && x <= r.left + handleWidthPx + touchSlopPx / 2) {
-            return Drag.AUDIO_LEFT_HANDLE;
-        }
-        if (x >= r.right - handleWidthPx - touchSlopPx / 2 && x <= r.right + touchSlopPx / 2) {
-            return Drag.AUDIO_RIGHT_HANDLE;
-        }
-        return Drag.NONE;
-    }
-
-    /**
      * Compute trim fractions from the pixel drag without updating segment data.
      * Segment rect stays unchanged during drag — visual feedback is via a dim overlay
      * and the trim handle drawn at the finger position (see drawTrimHandles).
@@ -8673,59 +8595,6 @@ public class EditorTimelineView extends View {
         }
         trimEdgePreviewBitmap = null;
         invalidate();
-    }
-
-    /**
-     * Handles audio clip trim handle drag, updating in/out points visually.
-     * Data is committed on ACTION_UP via onAudioTrimChanged callback.
-     */
-    private void doAudioTrimDrag(float x) {
-        if (selectedAudioIndex < 0 || selectedAudioIndex >= audioClips.size()) return;
-        AudioClip ac = audioClips.get(selectedAudioIndex);
-        long srcDur = ac.getSourceDurationMs();
-        if (srcDur <= 0) return;
-
-        RectF rect = audioClipRects.get(selectedAudioIndex);
-        float pxPerMs = dpPerSecondPx / 1000f;
-        long minGap = 500; // minimum 500ms
-
-        boolean isLeft = (activeDrag == Drag.AUDIO_LEFT_HANDLE);
-        // PHASE-R R2: no-overlap law on legacy-lane audio trims. Extent grows rightward
-        // from the fixed offsetMs whenever (out - in) grows, on EITHER handle — clamp
-        // the growth at the same-lane sibling ceiling (never forcing an un-trim of a
-        // pre-existing overlap); the 500ms minimum always wins.
-        long curEnd = ac.getOffsetMs() + Math.max(0, ac.getTrimmedDurationMs());
-        if (isLeft) {
-            float deltaX = x - rect.left;
-            long deltaMs = (long) (deltaX / pxPerMs);
-            long newIn = Math.max(0, Math.min(ac.getOutPointMs() - minGap, ac.getInPointMs() + deltaMs));
-            long ceil = audioSiblingCeil(ac, ac.getOffsetMs() + (ac.getOutPointMs() - newIn), curEnd);
-            newIn = Math.max(newIn, ac.getOffsetMs() + ac.getOutPointMs() - ceil);
-            newIn = Math.max(0, Math.min(newIn, ac.getOutPointMs() - minGap));
-            audioTrimDragInMs = newIn;
-            audioTrimDragOutMs = ac.getOutPointMs();
-        } else {
-            float deltaX = x - rect.right;
-            long deltaMs = (long) (deltaX / pxPerMs);
-            long newOut = Math.max(ac.getInPointMs() + minGap,
-                    Math.min(srcDur, ac.getOutPointMs() + deltaMs));
-            long ceil = audioSiblingCeil(ac, ac.getOffsetMs() + (newOut - ac.getInPointMs()), curEnd);
-            newOut = Math.min(newOut, ceil - ac.getOffsetMs() + ac.getInPointMs());
-            newOut = Math.max(newOut, ac.getInPointMs() + minGap);
-            audioTrimDragInMs = ac.getInPointMs();
-            audioTrimDragOutMs = newOut;
-        }
-        audioTrimDragX = x;
-
-        // Apply trim changes immediately for visual feedback
-        ac.setInPointMs(audioTrimDragInMs);
-        ac.setOutPointMs(audioTrimDragOutMs);
-        computeRects();
-        invalidate();
-
-        if (listener != null) {
-            listener.onAudioTrimChanged(selectedAudioIndex, audioTrimDragInMs, audioTrimDragOutMs, isLeft);
-        }
     }
 
     /** Same-lane test for AUDIO clips (null layerId groups as "audio", mirroring Timeline#getAudioTracks). */

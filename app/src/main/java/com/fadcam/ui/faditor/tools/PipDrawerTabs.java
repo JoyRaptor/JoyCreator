@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Content for {@link PipOverlayDrawer}'s four tabs.
+ * Content for {@link ObjectDrawer}'s four tabs.
  *
  * <p>Split from the drawer so the chrome (tabs, animation, icon row) knows nothing about
  * compositing, and split from {@code FaditorEditorActivity} so building it does not grow the
@@ -652,7 +652,7 @@ public final class PipDrawerTabs {
             }
 
             // — the six per-shape sliders, rebuilt in place —
-            // PipOverlayDrawer.switchTo already tweens contentHost's height and restores
+            // ObjectDrawer.switchTo already tweens contentHost's height and restores
             // WRAP_CONTENT afterwards, so changing this column's height needs no extra
             // plumbing here.
             sliderHost.removeAllViews();

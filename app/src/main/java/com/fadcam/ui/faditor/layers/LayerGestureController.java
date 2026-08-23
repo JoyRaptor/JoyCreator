@@ -21,7 +21,7 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
  * {@link TextOverlayItem#setTimeRange(long, long)} (move preserves duration; trim moves
  * one edge independently) and {@link AudioClip#setOffsetMs(long)} /
  * {@link AudioClip#setInPointMs(long)} / {@link AudioClip#setOutPointMs(long)} (mirrors
- * the EXISTING audio-lane trim semantics in {@code EditorTimelineView#doAudioTrimDrag} —
+ * the EXISTING audio-lane trim semantics in {@code EditorTimelineView} —
  * trim moves {@code inPointMs}/{@code outPointMs} within the source, it does NOT touch
  * {@code offsetMs}). The next {@code Track}/{@code TimedItem} rebuild reflects the
  * mutation automatically — this class never needs to write one.</p>
@@ -38,7 +38,7 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
  * This class snapshots the payload's before-state at gesture start (mirroring
  * {@code FaditorEditorActivity#onOverlayDragStart}/{@code EditActions.AudioTrimAction}),
  * applies live mutations during the drag for immediate visual feedback (mirroring
- * {@code doAudioTrimDrag}/{@code doLayerDrag}), and on {@link #onRowBodyUp} reports the
+ * {@code doTrimDrag}/{@code doLayerDrag}), and on {@link #onRowBodyUp} reports the
  * finished gesture via, IN ORDER: {@link Callback#onItemMovedToTrack}/
  * {@link Callback#onItemDroppedOnNewLayer} (if the row/track also changed) THEN
  * {@link Callback#onGestureFinished} with the before-snapshot — so the activity can
@@ -1779,7 +1779,7 @@ public final class LayerGestureController {
             AudioClip ac = item.getAudioClip();
             long srcDur = ac.getSourceDurationMs();
             if (srcDur <= 0) return;
-            // Mirrors EditorTimelineView#doAudioTrimDrag exactly: trim moves inPointMs/
+            // Mirrors EditorTimelineView exactly: trim moves inPointMs/
             // outPointMs within the source; offsetMs (absolute timeline position) is
             // untouched by a trim gesture — only by MOVE. targetTimeMs is an absolute
             // timeline ms; the clip's offset is fixed during a trim, so subtracting it

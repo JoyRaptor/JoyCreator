@@ -584,8 +584,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // Throttle for the live main-video trim-edge preview seek (see onTrimChanged).
     private long lastTrimPreviewSeekMs = 0;
     private static final long TRIM_PREVIEW_SEEK_THROTTLE_MS = 45;
-    private long preAudioTrimInMs = -1;
-    private long preAudioTrimOutMs = -1;
 
     // ── Multi-segment state ──────────────────────────────────────────
     /** Index of the currently selected clip/segment in the timeline. */
@@ -2390,68 +2388,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 if (toolbar != null) {
                     toolbar.setVisibility(entering ? View.GONE : View.VISIBLE);
-                }
-            }
-
-            @Override
-            public void onAudioClipSelected(int audioIndex) {
-                FLog.d(TAG, "Audio clip selected: " + audioIndex);
-                // Deselect video segment when audio clip is selected
-                if (audioIndex >= 0 && selectedClipIndex >= 0) {
-                    // Keep video segment for player but visual deselection
-                    // is handled in EditorTimelineView
-                }
-                // If the transcript panel is open, switch it to the audio clip's transcript.
-                if (transcriptPanel != null && transcriptPanel.getVisibility() == View.VISIBLE) {
-                    loadTranscriptPanelContent();
-                }
-            }
-
-            @Override
-            public void onAudioBandDoubleTapped() {
-                // JoyRaptor 2026-07-16: double-tap the audio band → waveform customization sheet,
-                // so the band is visible live while its settings are edited.
-                openWaveformVisualizerSheet();
-            }
-
-            @Override
-            public void onAudioTrimChanged(int audioIndex, long inPointMs, long outPointMs, boolean isLeft) {
-                // Capture pre-trim values on first drag
-                if (preAudioTrimInMs < 0 && project != null) {
-                    AudioClip ac = project.getTimeline().getAudioClip(audioIndex);
-                    if (ac != null) {
-                        preAudioTrimInMs = ac.getInPointMs();
-                        preAudioTrimOutMs = ac.getOutPointMs();
-                    }
-                }
-                // Real-time visual feedback during audio trim drag
-                FLog.d(TAG, "Audio trim changed: index=" + audioIndex
-                        + " in=" + inPointMs + " out=" + outPointMs);
-            }
-
-            @Override
-            public void onAudioTrimFinished(int audioIndex, long inPointMs, long outPointMs) {
-                FLog.d(TAG, "Audio trim finished: index=" + audioIndex
-                        + " in=" + inPointMs + " out=" + outPointMs);
-                if (project == null) return;
-                AudioClip ac = project.getTimeline().getAudioClip(audioIndex);
-                if (ac != null) {
-                    // Record undo action
-                    if (preAudioTrimInMs >= 0
-                            && (preAudioTrimInMs != inPointMs || preAudioTrimOutMs != outPointMs)) {
-                        undoManager.recordAction(new EditActions.AudioTrimAction(
-                                ac, preAudioTrimInMs, preAudioTrimOutMs,
-                                inPointMs, outPointMs));
-                    }
-                    preAudioTrimInMs = -1;
-                    preAudioTrimOutMs = -1;
-
-                    ac.setInPointMs(inPointMs);
-                    ac.setOutPointMs(outPointMs);
-                    editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
-                    // Re-prepare audio player with new trim
-                    prepareAudioPlayer();
-                    scheduleAutoSave();
                 }
             }
 
@@ -13881,7 +13817,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onGestureLive(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
                 // Immediate visual feedback on every surface, mirroring
-                // onOverlayRangeChanged/onAudioTrimChanged: refresh the timeline rows AND
+                // onOverlayRangeChanged: refresh the timeline rows AND
                 // the on-canvas overlay layer (for text) so a row-drag looks identical to
                 // an on-canvas drag while it's happening.
                 if (item.getTextOverlay() != null && overlayLayer != null) {
@@ -14303,7 +14239,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     editorTimeline.revealLayerRowForItem(item.getId());
                 }
                 // Audio consolidation: selecting/deselecting an audio ROW item replaces the
-                // legacy onAudioClipSelected side effect — keep the open transcript panel
+                // legacy audio-selection side effect — keep the open transcript panel
                 // following the audio selection (getSelectedAudioIndex now derives from
                 // this same unified selection, so the panel reads the right clip).
                 if ((item == null || item.getAudioClip() != null)

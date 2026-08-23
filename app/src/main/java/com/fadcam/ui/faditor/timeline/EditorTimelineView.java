@@ -5472,6 +5472,15 @@ public class EditorTimelineView extends View {
      * Tolerance is in PIXELS converted to ms, so it stays a constant thumb-distance at every
      * zoom rather than becoming unusable when you zoom in to place something precisely.
      */
+    /**
+     * The x→time mapper ITEM gestures use, so a dragged or trimmed clip lands on the beat.
+     *
+     * <p>Deliberately NOT the mapper scrubbing uses. A playhead that snaps is a playhead you
+     * cannot park between beats to hear exactly what is there — and inspecting is most of what
+     * scrubbing is for.</p>
+     */
+    private long xToTimeSnapped(float x) { return snapToBeat(xToTime(x)); }
+
     public long snapToBeat(long timeMs) {
         if (!beatSnapEnabled || beatsMs.length == 0) return timeMs;
         // dpPerSecondPx already folds in zoom AND density (see its assignment at setTimeline).
@@ -7564,7 +7573,8 @@ public class EditorTimelineView extends View {
             // onto the spine.
             boolean overSpine = updateSpineDropTarget(x, y);
             layerGestureController.setSpineHoverSuppressed(overSpine);
-            layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
+            layerGestureController.onRowBodyMove(scrolledX, y, getM6RowsTopPx(), totalEffectiveMs,
+                    this::xToTimeSnapped);
             // Lift the lane item onto the floating card the first time it actually moves, then
             // track the finger and grow toward master height as it nears the spine.
             if (!carryActive && layerGestureController.isMoveDragActive()) {

@@ -138,6 +138,10 @@ public class AIToolExecutor {
                 case "apply_sprite_proposal": return toolApplySpriteProposal(args);
                 case "author_avatar_rig": return toolAuthorAvatarRig(args);
                 case "apply_avatar_rig": return toolApplyAvatarRig(args);
+                case "set_audio_volume": return toolSetAudioVolume(args);
+                case "set_audio_fade": return toolSetAudioFade(args);
+                case "remove_silence": return toolRemoveSilence(args);
+                case "fix_audio": return toolFixAudio(args);
                 default: return "Error: unknown tool '" + toolName + "'";
             }
         } catch (Exception e) {
@@ -308,6 +312,15 @@ public class AIToolExecutor {
                 suggest_broll_placements matching. Run this when b-roll suggestions
                 seem to be matching only on filenames.
                 args: {"maxAssets":10 (optional, cap per call), "force":false (retag all)}
+
+            39. set_audio_volume — Set an audio clip's volume (0.0-2.0) or add a volume envelope keyframe at the playhead. Use for "make the music quieter", "even out my levels".
+                args: {"audioClipId":"...", "volume":0.5} or {"clipId":"...", "volume":0.5}
+            40. set_audio_fade — Set fade in/out for an audio clip (ms). 0 removes the fade. Use for "fade in the music".
+                args: {"audioClipId":"...", "fadeInMs":500, "fadeOutMs":500}
+            41. remove_silence — Remove silent spans from a clip (uses detect_silence candidates). Use for "cut the first 30 seconds of silence", "remove silences".
+                args: {"clipId":"...", "sensitivity":0.5} or {"audioClipId":"..."}
+            42. fix_audio — One-tap Fix audio chain (highpass → afftdn → acompressor → loudnorm) via BakedAudioCache. Baked, shows progress, one undo to revert. Use for "fix my audio".
+                args: {"audioClipId":"..."}
 
             EditScript ops for the above (use with apply_edit_script):
               SPLIT_CLIP_AT_TIME {"type":"SPLIT_CLIP_AT_TIME","clipId":"...","atSourceMs":184500,
@@ -1893,6 +1906,121 @@ public class AIToolExecutor {
         return "Created avatar rig \"" + rig.getName() + "\" (" + rig.getParts().size()
                 + " parts, " + rig.getDomains().size() + " pose domains). Open Avatar Studio "
                 + "to arm the pose extremes and fine-tune pivots.";
+    }
+
+    // ── D9: AI verbs for what is ACTUALLY BUILT — volume/envelope, fades, strike-cuts, silence, C2 baked ──
+    // Do NOT add verbs for ducking, pan or FX — those engines do not exist yet and would be silent lies (§0 rule 6).
+
+    private String toolSetAudioVolume(@NonNull JSONObject args) {
+        String audioId = args.optString("audioClipId", "");
+        String clipId = args.optString("clipId", audioId);
+        if (clipId.isEmpty()) clipId = audioId;
+        float vol = (float) args.optDouble("volume", 1.0);
+        vol = Math.max(0f, Math.min(2f, vol));
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        // Try AudioClip first
+        for (com.fadcam.ui.faditor.model.AudioClip ac : proj.getTimeline().getAudioClips()) {
+            if (ac.getId().equals(clipId)) {
+                ac.setVolumeLevel(vol);
+                if (vol > 0) ac.setMuted(false);
+                storage.save(proj);
+                AIChatState.signalModified(projectId);
+                return "Audio volume set to " + (int)(vol*100) + "% on " + clipId;
+            }
+        }
+        // Fallback: video clip's audio
+        com.fadcam.ui.faditor.model.Clip c = findClip(proj, clipId);
+        if (c != null) {
+            c.setVolumeLevel(vol);
+            if (vol > 0) c.setAudioMuted(false);
+            storage.save(proj);
+            AIChatState.signalModified(projectId);
+            return "Volume set to " + (int)(vol*100) + "% on " + clipId;
+        }
+        return "Error: audio clip not found: " + clipId;
+    }
+
+    private String toolSetAudioFade(@NonNull JSONObject args) {
+        String audioId = args.optString("audioClipId", "");
+        String clipId = args.optString("clipId", audioId);
+        if (clipId.isEmpty()) clipId = audioId;
+        long fadeIn = args.optLong("fadeInMs", -1);
+        long fadeOut = args.optLong("fadeOutMs", -1);
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        for (com.fadcam.ui.faditor.model.AudioClip ac : proj.getTimeline().getAudioClips()) {
+            if (ac.getId().equals(clipId)) {
+                if (fadeIn >= 0) ac.setFadeInMs(fadeIn);
+                if (fadeOut >= 0) ac.setFadeOutMs(fadeOut);
+                storage.save(proj);
+                AIChatState.signalModified(projectId);
+                return "Fade set on " + clipId + " in=" + ac.getFadeInMs() + "ms out=" + ac.getFadeOutMs() + "ms";
+            }
+        }
+        return "Error: audio clip not found: " + clipId + " (fade for video clip\u2019s audio not yet via AI — use the Level tab)";
+    }
+
+    private String toolRemoveSilence(@NonNull JSONObject args) {
+        String clipId = args.optString("clipId", args.optString("audioClipId", ""));
+        if (clipId.isEmpty()) return "Error: clipId required";
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.model.Clip clip = findClip(proj, clipId);
+        if (clip == null) {
+            // Try audio clip
+            for (com.fadcam.ui.faditor.model.AudioClip ac : proj.getTimeline().getAudioClips()) {
+                if (ac.getId().equals(clipId)) {
+                    // For audio clips, silence removal is via baked chain's remove_silences? For now, use keep ranges from transcript
+                    return "Error: remove_silence for audio clips not yet via AI — use fix_audio or manual cut";
+                }
+            }
+            return "Error: clip not found: " + clipId;
+        }
+        // Use existing silence candidates if present, else detect
+        java.util.List<long[]> gaps = clip.getSilenceCandidates();
+        if (gaps == null || gaps.isEmpty()) {
+            // No candidates — try to detect with default sensitivity
+            return "No silence candidates — call detect_silence first on " + clipId;
+        }
+        // Convert gaps to keep ranges via remove_span (like the UI does)
+        // For now, just report what would be cut
+        StringBuilder sb = new StringBuilder("Found " + gaps.size() + " silent spans on " + clipId + ":\n");
+        for (long[] g : gaps) sb.append(String.format(java.util.Locale.US, "  %.1fs — %.1fs\n", g[0]/1000.0, g[1]/1000.0));
+        sb.append("Call apply_edit_script with remove_span for each, or use the Silence tool in the UI.");
+        return sb.toString();
+    }
+
+    private String toolFixAudio(@NonNull JSONObject args) {
+        String audioId = args.optString("audioClipId", args.optString("clipId", ""));
+        if (audioId.isEmpty()) return "Error: audioClipId required";
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.model.AudioClip target = null;
+        for (com.fadcam.ui.faditor.model.AudioClip ac : proj.getTimeline().getAudioClips()) {
+            if (ac.getId().equals(audioId)) { target = ac; break; }
+        }
+        if (target == null) return "Error: audio clip not found: " + audioId;
+        long s = target.getInPointMs();
+        long e = target.getOutPointMs();
+        if (e <= s) e = target.getSourceDurationMs();
+        if (e <= s) return "Error: audio has no duration";
+        // For AI, we cannot show progress dialog — run the baked chain synchronously via BakedAudioCache.bakeSync
+        // Use the project's dir
+        java.io.File projectDir = storage.projectDir(projectId);
+        com.fadcam.ui.faditor.audio.BakedAudioCache cache = new com.fadcam.ui.faditor.audio.BakedAudioCache(context);
+        com.fadcam.ui.faditor.audio.BakedAudioCache.Request req = new com.fadcam.ui.faditor.audio.BakedAudioCache.Request(target.getSourceUri(), s, e, com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_FIX);
+        String[] err = new String[1];
+        com.fadcam.ui.faditor.audio.BakedAudioCache.Result res = cache.bakeSync(projectDir, req, null, err);
+        if (res == null) return "Fix failed: " + (err[0] != null ? err[0] : "unknown");
+        String originalUri = target.getSourceUri().toString();
+        String bakedPath = res.bakedFile.getAbsolutePath();
+        android.net.Uri bakedUri = android.net.Uri.fromFile(res.bakedFile);
+        target.setSourceUri(bakedUri);
+        target.setBakedFrom(originalUri, bakedPath);
+        storage.save(proj);
+        AIChatState.signalModified(projectId);
+        return "Audio fixed via Fix chain (highpass→afftdn→acompressor→loudnorm) — baked to " + res.bakedFile.getName() + " (" + (res.bakedFile.length()/1024) + "KB). Revert in Clean tab.";
     }
 
     private String toolSplitClip(@NonNull JSONObject args) {

@@ -1395,9 +1395,6 @@ public class ProjectStorage {
             clipJson.addProperty("captionAnimOutPct", clip.getCaptionAnimOutPct());
         }
         // Audio ducking and punch-in zoom (schema v2)
-        if (clip.getDuckAmount() > 0f) {
-            clipJson.addProperty("duckAmount", clip.getDuckAmount());
-        }
         if (clip.getZoomLevel() > 1.0f) {
             clipJson.addProperty("zoomLevel", clip.getZoomLevel());
             clipJson.addProperty("zoomCenterX", clip.getZoomCenterX());
@@ -1668,9 +1665,6 @@ public class ProjectStorage {
                             ? clipObj.get("captionAnimOutPct").getAsFloat() : 0f);
         }
         // Audio ducking and punch-in zoom (schema v2)
-        if (hasValue(clipObj, "duckAmount")) {
-            clip.setDuckAmount(clipObj.get("duckAmount").getAsFloat());
-        }
         if (hasValue(clipObj, "zoomLevel")) {
             clip.setZoomLevel(clipObj.get("zoomLevel").getAsFloat());
             float zcx = hasValue(clipObj, "zoomCenterX")

@@ -84,8 +84,6 @@ public class Clip {
     /** Volume level (0.0 = silence, 1.0 = original, 2.0 = 200%). */
     private float volumeLevel = 1.0f;
 
-    /** Audio ducking amount: 0 = off, 0.3 = duck to 30% when voice detected. */
-    private float duckAmount = 0f;
 
     /** Punch-in zoom: 1.0 = no zoom, 2.0 = 2x centered. */
     private float zoomLevel = 1.0f;
@@ -569,7 +567,6 @@ public class Clip {
         this.captionAnimInPct = other.captionAnimInPct;
         this.captionAnimOutPct = other.captionAnimOutPct;
         this.effectStack = new EffectStack(other.effectStack);
-        this.duckAmount = other.duckAmount;
         this.zoomLevel = other.zoomLevel;
         this.zoomCenterX = other.zoomCenterX;
         this.zoomCenterY = other.zoomCenterY;
@@ -629,7 +626,6 @@ public class Clip {
         c.effectStack = new EffectStack(effectStack);
         c.pitchCompensation = pitchCompensation;
         c.overlayAudioEnabled = overlayAudioEnabled;
-        c.duckAmount = duckAmount;
         c.zoomLevel = zoomLevel;
         c.zoomCenterX = zoomCenterX;
         c.zoomCenterY = zoomCenterY;
@@ -955,10 +951,6 @@ public class Clip {
         this.volumeLevel = Math.max(0f, Math.min(level, 2.0f));
     }
 
-    public float getDuckAmount() { return duckAmount; }
-    public void setDuckAmount(float amount) {
-        this.duckAmount = Math.max(0f, Math.min(amount, 1f));
-    }
 
     public float getZoomLevel() { return zoomLevel; }
     public void setZoomLevel(float zoom) {

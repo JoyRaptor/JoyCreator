@@ -5701,7 +5701,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean oldMuted = clip.isAudioMuted();
 
         VolumeControlBottomSheet sheet = VolumeControlBottomSheet.newInstance(
-                clip.getVolumeLevel(), clip.isAudioMuted(), clip.getDuckAmount());
+                clip.getVolumeLevel(), clip.isAudioMuted());
         sheet.setCallback(new VolumeControlBottomSheet.Callback() {
             @Override
             public void onVolumeChanged(float volume, boolean muted) {
@@ -5717,11 +5717,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 clip.setAudioMuted(muted);
                 updateVolumeUI(volume, muted);
                 playerManager.setVolume(muted ? 0f : volume);
-                scheduleAutoSave();
-            }
-            @Override
-            public void onDuckChanged(float duckAmount) {
-                clip.setDuckAmount(duckAmount);
                 scheduleAutoSave();
             }
         });

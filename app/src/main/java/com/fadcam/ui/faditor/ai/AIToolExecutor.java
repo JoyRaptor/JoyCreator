@@ -114,14 +114,7 @@ public class AIToolExecutor {
                 case "cut_all_fillers": return toolCutAllFillers(args);
                 case "ai_merge_transcript": return toolAIMergeTranscript(args);
                 case "ai_enhance": return toolAIEnhance(args);
-                // set_clip_duck is DELIBERATELY NOT REGISTERED. duckAmount is read by nothing —
-                // zero references in ExportManager and zero in the whole player package — so the
-                // tool set the field, reported "Audio ducking set to N%", and changed nothing the
-                // user could ever hear. The human-facing slider was already hidden behind
-                // `if (false)` for exactly this reason (VolumeControlBottomSheet ~:338); the AI
-                // copy of it was missed. An assistant that claims an edit it did not make is
-                // worse than one that says it cannot. Re-register when a duck processor exists.
-                // See tasks/LEDGER.md §3f.
+                // set_clip_duck removed per C5.X — field deleted, reintroduce with C5.E when mixer can honour it.
                 case "set_clip_zoom": return toolSetClipZoom(args);
                 case "auto_zoom": return toolAutoZoom(args);
                 case "generate_slide": return toolGenerateSlide(args);
@@ -2698,18 +2691,6 @@ public class AIToolExecutor {
         return summary.toString();
     }
 
-    private String toolSetClipDuck(@NonNull JSONObject args) {
-        String clipId = args.optString("clipId", "");
-        float duckAmount = (float) args.optDouble("duckAmount", 0.3f);
-        FaditorProject proj = storage.load(projectId);
-        if (proj == null) return "Error: project not found";
-        Clip clip = findClip(proj, clipId);
-        if (clip == null) return "Error: clip not found: " + clipId;
-        clip.setDuckAmount(duckAmount);
-        storage.save(proj);
-        AIChatState.signalModified(projectId);
-        return "Audio ducking set to " + (int)(duckAmount * 100) + "% on clip " + clipId;
-    }
 
     private String toolSetClipZoom(@NonNull JSONObject args) {
         String clipId = args.optString("clipId", "");

@@ -437,13 +437,20 @@ public class AudioClip {
         long dur = getTrimmedDurationMs();
         if (dur <= 0) return;
         fadeMs = Math.max(0, Math.min(fadeMs, dur / 2));
-        if (fadeMs <= 0) {
-            long cur = getFadeInMs();
-            if (cur > 0) removeVolumeKeysAtOrBefore(cur);
-            return;
-        }
-        // Same region-clear the drag does, so re-dragging never stacks stale keys.
-        removeVolumeKeysAtOrBefore(fadeMs);
+        // Clear the UNION of the OLD fade region and the new one (G1, JoyRaptor device 2026-08-23).
+        // Clearing only the NEW region leaves every key the old, longer fade wrote beyond it —
+        // and a slider drag calls this once per step, so shrinking a fade from 3s to 0.5s strews
+        // the envelope with an orphan at every intermediate length. On screen that is JoyRaptor's
+        // "whole bunch of round blue keyframe looking things".
+        //
+        // It also fixes fade-to-zero (G2): the old code asked getFadeInMs() for the extent to
+        // clear, but getFadeInMs() reads the SECOND keyframe — which on an envelope already
+        // polluted by this same bug is an intermediate orphan, not the true end. So it cleared
+        // too little and the line survived. Taking the max means a shrink always sweeps at least
+        // as far as the previous fade reached.
+        long clearTo = Math.max(getFadeInMs(), fadeMs);
+        if (clearTo > 0) removeVolumeKeysAtOrBefore(clearTo);
+        if (fadeMs <= 0) return;
         addOrUpdateVolumeKeyframe(0, 0f);
         addOrUpdateVolumeKeyframe(fadeMs, 1f);
     }
@@ -453,12 +460,11 @@ public class AudioClip {
         long dur = getTrimmedDurationMs();
         if (dur <= 0) return;
         fadeMs = Math.max(0, Math.min(fadeMs, dur / 2));
-        if (fadeMs <= 0) {
-            long cur = getFadeOutMs();
-            if (cur > 0) removeVolumeKeysAtOrAfter(dur - cur);
-            return;
-        }
-        removeVolumeKeysAtOrAfter(dur - fadeMs);
+        // Mirror of setFadeInMs — clear the union, measured from the LONGER of old and new so a
+        // shrink always sweeps back at least as far as the previous fade began. See G1/G2.
+        long clearFrom = dur - Math.max(getFadeOutMs(), fadeMs);
+        removeVolumeKeysAtOrAfter(Math.max(0, clearFrom));
+        if (fadeMs <= 0) return;
         addOrUpdateVolumeKeyframe(dur - fadeMs, 1f);
         addOrUpdateVolumeKeyframe(dur, 0f);
     }

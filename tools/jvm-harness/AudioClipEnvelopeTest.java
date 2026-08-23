@@ -89,6 +89,51 @@ public class AudioClipEnvelopeTest {
         check(copy.isEnvelopeMultiplier(),        "copy of a modern clip stays modern");
         check(close(copy.gainAtClipMs(250), 1.0f), "copy plays identical final gains");
 
+        // ── G1/G2: shrinking a fade must not strew orphan keyframes ──────────────────
+        // JoyRaptor, device 2026-08-23: dragging a fade DOWN left "a whole bunch of round blue
+        // keyframe looking things", and dragging it to zero left the line behind. A slider
+        // drag calls setFadeInMs once per step, so this simulates the drag rather than
+        // jumping straight to the final value — the bug only appears across steps.
+        AudioClip gg = clip(1.0f);
+        for (long f = 3000; f >= 500; f -= 250) gg.setFadeInMs(f);
+        check(gg.getVolumeKeyframes().size() == 2,
+                "G1 fade-in shrunk across many steps leaves exactly 2 keyframes (was "
+                        + gg.getVolumeKeyframes().size() + ")");
+        check(gg.getFadeInMs() == 500, "G1 the surviving fade-in is the last one set");
+
+        AudioClip gg2 = clip(1.0f);
+        for (long f = 3000; f >= 500; f -= 250) gg2.setFadeOutMs(f);
+        check(gg2.getVolumeKeyframes().size() == 2,
+                "G1 fade-out shrunk across many steps leaves exactly 2 keyframes (was "
+                        + gg2.getVolumeKeyframes().size() + ")");
+        check(gg2.getFadeOutMs() == 500, "G1 the surviving fade-out is the last one set");
+
+        // Dragging all the way to zero must leave NOTHING, even after a messy drag.
+        AudioClip gg3 = clip(1.0f);
+        for (long f = 3000; f >= 0; f -= 500) gg3.setFadeInMs(f);
+        check(gg3.getVolumeKeyframes().isEmpty(),
+                "G2 fade-in dragged to zero removes the envelope entirely (was "
+                        + gg3.getVolumeKeyframes().size() + ")");
+        check(gg3.getFadeInMs() == 0, "G2 fade-in reads back as zero");
+
+        AudioClip gg4 = clip(1.0f);
+        for (long f = 3000; f >= 0; f -= 500) gg4.setFadeOutMs(f);
+        check(gg4.getVolumeKeyframes().isEmpty(),
+                "G2 fade-out dragged to zero removes the envelope entirely (was "
+                        + gg4.getVolumeKeyframes().size() + ")");
+
+        // A hand-drawn envelope in the middle must SURVIVE a fade being set and cleared —
+        // the union-clear must not become a licence to wipe the user's own keyframes.
+        AudioClip gg5 = clip(1.0f);
+        gg5.addOrUpdateVolumeKeyframe(5000, 0.4f);
+        gg5.setFadeInMs(1000);
+        gg5.setFadeInMs(0);
+        boolean midSurvived = false;
+        for (AudioClip.VolumeKeyframe kf : gg5.getVolumeKeyframes()) {
+            if (kf.timeMs == 5000) midSurvived = true;
+        }
+        check(midSurvived, "G1 a hand-drawn keyframe outside the fade region is not swept away");
+
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILURES");
         if (fails > 0) System.exit(1);
     }

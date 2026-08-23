@@ -48,6 +48,9 @@ public class Clip implements AudioParams {
     @NonNull
     private final String id;
 
+    @Nullable
+    private String label;
+
     @NonNull
     private Uri sourceUri;
 
@@ -68,6 +71,9 @@ public class Clip implements AudioParams {
 
     /** Whether audio is muted for this clip. */
     private boolean audioMuted = false;
+
+    /** Offset from the beginning of the project timeline (ms). */
+    private long offsetMs = 0;
 
     /**
      * OVERLAY (PiP) clips only: whether this clip contributes its audio to preview/export.
@@ -662,10 +668,31 @@ public class Clip implements AudioParams {
         return id;
     }
 
+    @Nullable
+    public String getLabel() {
+        return label;
+    }
+
+    @Override
+    public void setLabel(@Nullable String label) {
+        this.label = label;
+    }
+
     @NonNull
     public Uri getSourceUri() {
         return sourceUri;
     }
+
+    @Override
+    public long getOffsetMs() {
+        return offsetMs;
+    }
+
+    @Override
+    public void setOffsetMs(long ms) {
+        this.offsetMs = Math.max(0, ms);
+    }
+
 
     /**
      * Repoint a generated slide's source at a freshly baked render file.
@@ -1382,9 +1409,10 @@ public class Clip implements AudioParams {
     }
 
     /** Replace all keyframes (used on project load). Sorts and clamps. */
-    public void setVolumeKeyframes(@NonNull List<VolumeKeyframe> kfs) {
+    @Override
+    public void setVolumeKeyframes(@NonNull List<? extends com.fadcam.ui.faditor.model.VolumeKeyframe> kfs) {
         volumeKeyframes.clear();
-        for (VolumeKeyframe kf : kfs) {
+        for (com.fadcam.ui.faditor.model.VolumeKeyframe kf : kfs) {
             volumeKeyframes.add(new VolumeKeyframe(
                     Math.max(0, kf.timeMs), Math.max(0f, Math.min(kf.volume, 2.0f))));
         }
@@ -1459,9 +1487,14 @@ public class Clip implements AudioParams {
         audioMuted = muted;
     }
 
+    // ── A7 shared audio carrier ───────────────────────────────────────
+    // A7 emitted these stubs THREE times over, which does not compile ("method is already
+    // defined") and took the whole tree down. Deduped 2026-08-23. A Clip has no baked source
+    // and no pan of its own — both belong to AudioClip — so these stay honest no-ops.
+
     @Override
     public boolean isBakedSource() {
-        return false; // Clips don't have baked sources
+        return false;
     }
 
     @Override
@@ -1476,42 +1509,17 @@ public class Clip implements AudioParams {
 
     @Override
     public void setBakedFrom(@Nullable String originalUri, @Nullable String bakedFilePath) {
-        // No-op for Clip
-    }
-
-    @Override
-    public boolean isBakedSource() {
-        return false;
+        // No-op for Clip.
     }
 
     @Override
     public float getPan() {
-        return 0f; // Clips don't have pan
+        return 0f;
     }
 
     @Override
     public void setPan(float pan) {
-        // No-op for Clip
-    }
-
-    @Override
-    public boolean isBakedSource() {
-        return false;
-    }
-
-    @Override
-    public String getBakedFromUri() {
-        return null;
-    }
-
-    @Override
-    public String getBakedFromFile() {
-        return null;
-    }
-
-    @Override
-    public void setBakedFrom(@Nullable String originalUri, @Nullable String bakedFilePath) {
-        // No-op for Clip
+        // No-op for Clip.
     }
 
     // ── Opacity keyframes (visual fade envelope) ─────────────────────

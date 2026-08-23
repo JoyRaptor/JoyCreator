@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.model;
 
+import android.net.Uri;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -69,9 +71,6 @@ public interface AudioParams {
     /** Set source URI. */
     void setSourceUri(@NonNull Uri uri);
 
-    /** Source duration in ms. */
-    long getSourceDurationMs();
-
     /** Clip ID. */
     @NonNull String getId();
 
@@ -107,19 +106,4 @@ public interface AudioParams {
     default void jumpToAdjacentVolumeKey(boolean forward) {
         // Default no-op for implementations that don't support this (e.g., Clip)
     }
-
-    /** Get the baked source file. */
-    @Nullable String getBakedFromFile();
-
-    /** Get baked from URI. */
-    @Nullable String getBakedFromUri();
-
-    /** Set baked from URI and file. */
-    void setBakedFrom(@Nullable String originalUri, @Nullable String bakedFilePath);
-
-    /** Get the clip label. */
-    @Nullable String getLabel();
-
-    /** Set the clip label. */
-    void setLabel(@Nullable String label);
 }

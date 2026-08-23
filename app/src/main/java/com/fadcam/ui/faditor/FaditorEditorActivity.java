@@ -16766,33 +16766,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         visualizerDrawerChromeWired = true;
     }
 
-    private void setupCaptionDrawerChrome() {
-        if (captionDrawerChromeWired) return;
-        captionDrawerChromeWired = true;
-        View close = findViewById(R.id.caption_drawer_close);
-        if (close != null) close.setOnClickListener(v -> showCaptionDrawer(false));
-        View grab = findViewById(R.id.caption_drawer_grab);
-        View grabBottom = findViewById(R.id.caption_drawer_grab_bottom);
-        View.OnTouchListener swipeDismiss = new View.OnTouchListener() {
-            private float startY;
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                    startY = event.getY();
-                    return true;
-                }
-                if (event.getActionMasked() == MotionEvent.ACTION_MOVE
-                        && startY - event.getY() > 100) {
-                    showCaptionDrawer(false);
-                    return true;
-                }
-                return false;
-            }
-        };
-        if (grab != null) grab.setOnTouchListener(swipeDismiss);
-        if (grabBottom != null) grabBottom.setOnTouchListener(swipeDismiss);
-    }
-
     private void showVisualizerDrawer(boolean show) {
         View drawer = findViewById(R.id.visualizer_drawer);
         if (drawer == null) return;
@@ -16818,136 +16791,101 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void showCaptionDrawer(boolean show) {
-        View drawer = findViewById(R.id.caption_drawer);
-        if (drawer == null) return;
-        if (show) {
-            closeAllTopPanels();
-            setupCaptionDrawerChrome();
-            buildCaptionDrawerContent();
-            drawer.setVisibility(View.VISIBLE);
-            drawer.animate().cancel();
-            drawer.setTranslationY(-drawer.getHeight());
-            drawer.animate().translationY(0).setDuration(200).start();
-        } else {
-            drawer.animate().cancel();
-            drawer.animate().translationY(-drawer.getHeight()).setDuration(150)
-                    .withEndAction(() -> drawer.setVisibility(View.GONE)).start();
+        if (!show) {
+            if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.hide();
+            captionDrawerOpen = false;
+            return;
         }
-        captionDrawerOpen = show;
-        // The tape carets used to appear with this drawer. They no longer do, and the call is
-        // deleted rather than passed `false`: the carets are for TEXT BOXES ONLY (user, 2026-07-29)
-        // and captions now time themselves from the range control in the drawer itself. See
-        // addCaptionAnimRangeControl for why, and EditorTimelineView.setCaptionAnimHandlesVisible
-        // for the state of the caret path itself.
+        if (project == null) return;
+        closeAllTopPanels();
+        com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        // ── Style tab ── size, font, highlight, colours, box/outline/shadow, save/delete/copy/import
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                "Style", 0,
+                ctx -> buildCaptionStyleTab(ctx)));
+        // ── Timing tab ── motion + range
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                "Timing", 0,
+                ctx -> buildCaptionTimingTab(ctx)));
+        // ── Position tab ── position toggle
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                "Position", 0,
+                ctx -> buildCaptionPositionTab(ctx)));
+        drawer.show(tabs, new java.util.ArrayList<>(), false);
+        captionDrawerOpen = true;
+        drawer.setOnClose(() -> captionDrawerOpen = false);
     }
 
-    /**
-     * The caption style drawer (JoyRaptor 2026-07-16 overhaul): the redundant style
-     * chips are gone (the bottom ticker has them); in their place, granular
-     * controls — position toggle, size, font, animation, colors, box / outline /
-     * shadow — that live-edit a per-clip working style, plus save / trash /
-     * export / import so a creator's personal styles ride the bottom ticker.
-     * TODO(strings) throughout, per the rebrand freeze.
-     */
-    private void buildCaptionDrawerContent() {
-        FrameLayout content = findViewById(R.id.caption_drawer_content);
-        if (content == null) return;
-        content.removeAllViews();
-
-        float d = getResources().getDisplayMetrics().density;
+    private android.view.View buildCaptionStyleTab(@NonNull android.content.Context ctx) {
+        float d = ctx.getResources().getDisplayMetrics().density;
         int pad = (int)(12 * d);
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, 0, pad, pad);
-        root.setBackgroundColor(0x66000000);
-        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
-        scroll.setVerticalScrollBarEnabled(false);
-        scroll.addView(root);
-        content.addView(scroll);
-
         com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
-
-        // ── Row: position toggle + size slider ─────────────────────────
-        LinearLayout topRow = new LinearLayout(this);
-        topRow.setOrientation(LinearLayout.HORIZONTAL);
-        topRow.setGravity(Gravity.CENTER_VERTICAL);
-        topRow.setPadding(0, pad, 0, 0);
-        root.addView(topRow);
-
-        topRow.addView(makeCaptionPositionToggle(d));
-
-        Slider sizeSlider = new Slider(new ContextThemeWrapper(this, R.style.Widget_FadCam_BottomSheetSlider));
+        // size slider
+        android.widget.LinearLayout sizeRow = new android.widget.LinearLayout(ctx);
+        sizeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        sizeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        sizeRow.setPadding(0, pad, 0, 0);
+        root.addView(sizeRow);
+        com.google.android.material.slider.Slider sizeSlider = new com.google.android.material.slider.Slider(new androidx.appcompat.view.ContextThemeWrapper(ctx, R.style.Widget_FadCam_BottomSheetSlider));
         sizeSlider.setValueFrom(0.02f);
         sizeSlider.setValueTo(0.20f);
         sizeSlider.setStepSize(0.005f);
         sizeSlider.setValue(Math.max(0.02f, Math.min(0.20f, getCurrentCaptionSize())));
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        android.widget.LinearLayout.LayoutParams slp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         slp.leftMargin = (int)(10*d);
         sizeSlider.setLayoutParams(slp);
-        sizeSlider.setTrackActiveTintList(ColorStateList.valueOf(0xFF4CAF50));
-        sizeSlider.setThumbTintList(ColorStateList.valueOf(0xFF4CAF50));
-        sizeSlider.setTrackInactiveTintList(ColorStateList.valueOf(0xFF333333));
-        topRow.addView(sizeSlider);
-
-        TextView sizeVal = new TextView(this);
+        sizeSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
+        sizeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
+        sizeSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(0xFF333333));
+        sizeRow.addView(sizeSlider);
+        android.widget.TextView sizeVal = new android.widget.TextView(ctx);
         sizeVal.setTextSize(12);
         sizeVal.setTextColor(0xFF4CAF50);
         sizeVal.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         sizeVal.setPadding((int)(6*d), 0, 0, 0);
         sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
-        topRow.addView(sizeVal);
+        sizeRow.addView(sizeVal);
         sizeSlider.addOnChangeListener((sl, value, fromUser) -> {
             if (!fromUser) return;
             sizeVal.setText(Math.round(value * 100) + "%");
             applyCaptionSize(value);
         });
-        // Coalesce a whole size-drag into ONE undo (user 2026-07-27: a small scrub flooded the
-        // undo list). Suppress per-change undo while the finger is down; record once on release.
-        sizeSlider.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
-            @Override public void onStartTrackingTouch(@NonNull Slider s) {
+        sizeSlider.addOnSliderTouchListener(new com.google.android.material.slider.Slider.OnSliderTouchListener() {
+            @Override public void onStartTrackingTouch(@NonNull com.google.android.material.slider.Slider s) {
                 captionSizeSuppressUndo = true;
                 captionSizeDragBefore = currentCaptionSizeOfSelection();
             }
-            @Override public void onStopTrackingTouch(@NonNull Slider s) {
+            @Override public void onStopTrackingTouch(@NonNull com.google.android.material.slider.Slider s) {
                 captionSizeSuppressUndo = false;
                 recordCaptionSizeUndo(captionSizeDragBefore);
             }
         });
-
-        // ── Row: font (every choice inline) + the style actions ───────
-        // JoyRaptor 2026-08-23: "Font has one chip. and the rest of the row is empty. And then when I
-        // tap on the font chip, it just shows a new row with more chips down below. Why don't they
-        // just expand from the first row?" — so the collapsed chip and its tap-to-expand are gone.
-        // Every font is always visible in a horizontal scroller on THIS line with the selected one
-        // marked by colour, which is the first of the two options he offered. The save/delete/copy/
-        // import icons come up beside them ("can be moved up to the same row as font because
-        // there's nothing to the right"). That is two rows and a divider removed.
         root.addView(makeDivider(d));
-        LinearLayout fontRow = new LinearLayout(this);
-        fontRow.setOrientation(LinearLayout.HORIZONTAL);
-        fontRow.setGravity(Gravity.CENTER_VERTICAL);
+        // font row
+        android.widget.LinearLayout fontRow = new android.widget.LinearLayout(ctx);
+        fontRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        fontRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         root.addView(fontRow);
-
-        TextView fontLabel = new TextView(this);
-        fontLabel.setText("Font"); // TODO(strings)
+        android.widget.TextView fontLabel = new android.widget.TextView(ctx);
+        fontLabel.setText("Font");
         fontLabel.setTextColor(0xFFAAAAAA);
         fontLabel.setTextSize(12);
         fontLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         fontRow.addView(fontLabel);
-
-        HorizontalScrollView fontScroll = new HorizontalScrollView(this);
+        android.widget.HorizontalScrollView fontScroll = new android.widget.HorizontalScrollView(ctx);
         fontScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout fontChips = new LinearLayout(this);
-        fontChips.setOrientation(LinearLayout.HORIZONTAL);
+        android.widget.LinearLayout fontChips = new android.widget.LinearLayout(ctx);
+        fontChips.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         fontScroll.addView(fontChips);
-        fontRow.addView(fontScroll, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        final java.util.Map<String, TextView> fontChipByKey = new java.util.HashMap<>();
+        fontRow.addView(fontScroll, new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        final java.util.Map<String, android.widget.TextView> fontChipByKey = new java.util.HashMap<>();
         final Runnable markSelectedFont = () -> {
             String sel = currentCaptionStyle().fontKey;
-            for (java.util.Map.Entry<String, TextView> e : fontChipByKey.entrySet()) {
+            for (java.util.Map.Entry<String, android.widget.TextView> e : fontChipByKey.entrySet()) {
                 boolean on = e.getKey().equals(sel);
                 e.getValue().setTextColor(on ? 0xFF4CAF50 : 0xFFEEEEEE);
                 e.getValue().setAlpha(on ? 1f : 0.72f);
@@ -16955,10 +16893,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
             final String key = choice[0];
-            TextView fc = new TextView(this);
+            android.widget.TextView fc = new android.widget.TextView(ctx);
             styleDrawerChip(fc, d);
-            com.fadcam.ui.faditor.transcript.CaptionStyle probe =
-                    com.fadcam.ui.faditor.transcript.CaptionStyle.presets().get(0).copyAs("probe", choice[1]);
+            com.fadcam.ui.faditor.transcript.CaptionStyle probe = com.fadcam.ui.faditor.transcript.CaptionStyle.presets().get(0).copyAs("probe", choice[1]);
             probe.fontKey = key;
             fc.setTypeface(probe.typeface());
             fc.setText(choice[1]);
@@ -16970,38 +16907,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
             fontChips.addView(fc);
         }
         markSelectedFont.run();
-
         addCaptionActionIcon(fontRow, d, "save", "Save as my style", v -> promptSaveCaptionStyle());
         addCaptionActionIcon(fontRow, d, "delete", "Delete this custom style", v -> confirmDeleteCaptionStyle());
         addCaptionActionIcon(fontRow, d, "ios_share", "Copy style as text", v -> exportCaptionStyleToClipboard());
         addCaptionActionIcon(fontRow, d, "download", "Import style from text", v -> promptImportCaptionStyle());
-
-        // ── Row: highlight animation (Pop / Zoom / Bounce) ─────────────
         root.addView(makeDivider(d));
-        LinearLayout animRow = new LinearLayout(this);
-        animRow.setOrientation(LinearLayout.HORIZONTAL);
-        animRow.setGravity(Gravity.CENTER_VERTICAL);
+        // highlight
+        android.widget.LinearLayout animRow = new android.widget.LinearLayout(ctx);
+        animRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        animRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         root.addView(animRow);
-        TextView animLabel = new TextView(this);
-        // "Highlight", not "Animation": these three are the ACTIVE-WORD emphasis (a permanent
-        // 1.15x on the spoken word), and the Motion row below is the entrance/exit animation.
-        // Two different vocabularies that compose — labelling both "Animation" made the drawer
-        // read as if one of them were redundant. TODO(strings)
+        android.widget.TextView animLabel = new android.widget.TextView(ctx);
         animLabel.setText("Highlight");
         animLabel.setTextColor(0xFFAAAAAA);
         animLabel.setTextSize(12);
         animLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         animRow.addView(animLabel);
-        com.fadcam.ui.faditor.transcript.CaptionStyle.Anim[] anims =
-                com.fadcam.ui.faditor.transcript.CaptionStyle.Anim.values();
-        String[] animNames = {"Pop", "Zoom", "Bounce"}; // TODO(strings)
+        com.fadcam.ui.faditor.transcript.CaptionStyle.Anim[] anims = com.fadcam.ui.faditor.transcript.CaptionStyle.Anim.values();
+        String[] animNames = {"Pop", "Zoom", "Bounce"};
         for (int a = 0; a < anims.length; a++) {
             final com.fadcam.ui.faditor.transcript.CaptionStyle.Anim anim = anims[a];
-            TextView ab = new TextView(this);
+            android.widget.TextView ab = new android.widget.TextView(ctx);
             styleDrawerChip(ab, d);
             ab.setText(animNames[a]);
             ab.setAlpha(cur.anim == anim ? 1f : 0.45f);
-            final LinearLayout rowRef = animRow;
+            final android.widget.LinearLayout rowRef = animRow;
             ab.setOnClickListener(v -> {
                 tweakCaptionStyle(s -> s.anim = anim);
                 for (int i = 1; i < rowRef.getChildCount(); i++) {
@@ -17010,100 +16940,103 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
             animRow.addView(ab);
         }
+        root.addView(makeDivider(d));
+        // colours + box/outline/shadow
+        android.widget.LinearLayout colorRow1 = new android.widget.LinearLayout(ctx);
+        colorRow1.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        colorRow1.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        android.widget.HorizontalScrollView colorScroll = new android.widget.HorizontalScrollView(ctx);
+        colorScroll.setHorizontalScrollBarEnabled(false);
+        colorScroll.addView(colorRow1);
+        root.addView(colorScroll);
+        addColorControl(colorRow1, d, "Text", () -> currentCaptionStyle().baseColor, c -> tweakCaptionStyle(s -> s.baseColor = c));
+        addColorControl(colorRow1, d, "Highlight", () -> currentCaptionStyle().activeColor, c -> tweakCaptionStyle(s -> s.activeColor = c));
+        android.widget.LinearLayout colorRow2 = colorRow1;
+        addToggleColorControl(colorRow2, d, "Box", () -> currentCaptionStyle().pill, on -> tweakCaptionStyle(s -> { s.pill = on; if (on && s.pillColor == 0) s.pillColor = 0xCC000000; }), () -> currentCaptionStyle().pillColor, c -> tweakCaptionStyle(s -> { s.pillColor = c; s.pill = true; }));
+        addToggleColorControl(colorRow2, d, "Outline", () -> currentCaptionStyle().outline, on -> tweakCaptionStyle(s -> s.outline = on), () -> currentCaptionStyle().outlineColor, c -> tweakCaptionStyle(s -> { s.outlineColor = c; s.outline = true; }));
+        addToggleControl(colorRow2, d, "Shadow", () -> currentCaptionStyle().shadow, on -> tweakCaptionStyle(s -> s.shadow = on));
+        android.widget.ScrollView scroll = new android.widget.ScrollView(ctx);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.addView(root);
+        return scroll;
+    }
 
-        // ── Row: text motion (entrance/exit preset + granularity) ──────
-        // SPEC_TEXT_ANIMATION. Only for a captioned VIDEO clip: the four captionAnim* fields live
-        // on Clip, and an audio clip's captions have no animation to configure.
+    private android.view.View buildCaptionTimingTab(@NonNull android.content.Context ctx) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        int pad = (int)(12 * d);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(pad, 0, pad, pad);
         final Clip motionTarget = captionAnimTarget();
         if (motionTarget != null) {
-            root.addView(makeDivider(d));
-            LinearLayout motionRow = new LinearLayout(this);
-            motionRow.setOrientation(LinearLayout.HORIZONTAL);
-            motionRow.setGravity(Gravity.CENTER_VERTICAL);
+            android.widget.LinearLayout motionRow = new android.widget.LinearLayout(ctx);
+            motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
             root.addView(motionRow);
-
-            TextView motionLabel = new TextView(this);
-            motionLabel.setText("Motion"); // TODO(strings)
+            android.widget.TextView motionLabel = new android.widget.TextView(ctx);
+            motionLabel.setText("Motion");
             motionLabel.setTextColor(0xFFAAAAAA);
             motionLabel.setTextSize(12);
             motionLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
             motionRow.addView(motionLabel);
-
-            final TextView motionChip = new TextView(this);
+            final android.widget.TextView motionChip = new android.widget.TextView(ctx);
             styleDrawerChip(motionChip, d);
             motionChip.setText(captionAnimPresetLabel(motionTarget));
             motionRow.addView(motionChip);
-
-            View motionBtn = makeTextMotionIcon(d);
+            android.view.View motionBtn = makeTextMotionIcon(d);
             motionRow.addView(motionBtn);
-            View.OnClickListener open = v -> {
+            android.view.View.OnClickListener open = v -> {
                 Clip t = captionAnimTarget();
                 if (t == null) return;
-                TextAnimPickerPopover.show(v,
-                        com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                .parsePreset(t.getCaptionAnimPreset()),
-                        com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                .parseGranularity(t.getCaptionAnimGranularity()),
-                        new TextAnimPickerPopover.OnPick() {
-                            @Override
-                            public void onPreset(@NonNull com.fadcam.ui.faditor.transcript
-                                    .CaptionAnimator.Preset p) {
-                                applyCaptionAnimPreset(p);
-                                Clip now = captionAnimTarget();
-                                if (now != null) motionChip.setText(captionAnimPresetLabel(now));
-                            }
-
-                            @Override
-                            public void onGranularity(@NonNull com.fadcam.ui.faditor.transcript
-                                    .CaptionAnimator.Granularity g) {
-                                applyCaptionAnimGranularity(g);
-                                Clip now = captionAnimTarget();
-                                if (now != null) motionChip.setText(captionAnimPresetLabel(now));
-                            }
-                        });
+                TextAnimPickerPopover.show(v, com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(t.getCaptionAnimPreset()), com.fadcam.ui.faditor.transcript.CaptionAnimator.parseGranularity(t.getCaptionAnimGranularity()), new TextAnimPickerPopover.OnPick() {
+                    @Override public void onPreset(@NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p) {
+                        applyCaptionAnimPreset(p);
+                        Clip now = captionAnimTarget();
+                        if (now != null) motionChip.setText(captionAnimPresetLabel(now));
+                    }
+                    @Override public void onGranularity(@NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
+                        applyCaptionAnimGranularity(g);
+                        Clip now = captionAnimTarget();
+                        if (now != null) motionChip.setText(captionAnimPresetLabel(now));
+                    }
+                });
             };
             motionBtn.setOnClickListener(open);
             motionChip.setOnClickListener(open);
-
             addCaptionAnimRangeControl(root, d);
+        } else {
+            android.widget.TextView empty = new android.widget.TextView(ctx);
+            empty.setText("No captioned clip selected");
+            empty.setTextColor(0xFFAAAAAA);
+            empty.setTextSize(12);
+            empty.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            root.addView(empty);
         }
-
-        // ── Rows: colors + box / outline / shadow ──────────────────────
-        root.addView(makeDivider(d));
-        LinearLayout colorRow1 = new LinearLayout(this);
-        colorRow1.setOrientation(LinearLayout.HORIZONTAL);
-        colorRow1.setGravity(Gravity.CENTER_VERTICAL);
-        HorizontalScrollView colorScroll = new HorizontalScrollView(this);
-        colorScroll.setHorizontalScrollBarEnabled(false);
-        colorScroll.addView(colorRow1);
-        root.addView(colorScroll);
-        addColorControl(colorRow1, d, "Text", () -> currentCaptionStyle().baseColor,
-                c -> tweakCaptionStyle(s -> s.baseColor = c));
-        addColorControl(colorRow1, d, "Highlight", () -> currentCaptionStyle().activeColor,
-                c -> tweakCaptionStyle(s -> s.activeColor = c));
-
-        // JoyRaptor 2026-08-23: text / highlight / box / outline / shadow "could all be consolidated
-        // and moved on to the same line". Five controls is more than a narrow phone fits, so the
-        // single row lives in a horizontal scroller — one line always, scrollable when it must be.
-        LinearLayout colorRow2 = colorRow1;
-        addToggleColorControl(colorRow2, d, "Box", () -> currentCaptionStyle().pill,
-                on -> tweakCaptionStyle(s -> {
-                    s.pill = on;
-                    if (on && s.pillColor == 0) s.pillColor = 0xCC000000;
-                }),
-                () -> currentCaptionStyle().pillColor,
-                c -> tweakCaptionStyle(s -> { s.pillColor = c; s.pill = true; }));
-        addToggleColorControl(colorRow2, d, "Outline", () -> currentCaptionStyle().outline,
-                on -> tweakCaptionStyle(s -> s.outline = on),
-                () -> currentCaptionStyle().outlineColor,
-                c -> tweakCaptionStyle(s -> { s.outlineColor = c; s.outline = true; }));
-        addToggleControl(colorRow2, d, "Shadow", () -> currentCaptionStyle().shadow,
-                on -> tweakCaptionStyle(s -> s.shadow = on));
-
-        // (save / delete / copy / import moved up to the font row — JoyRaptor 2026-08-23.)
+        android.widget.ScrollView scroll = new android.widget.ScrollView(ctx);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.addView(root);
+        return scroll;
     }
 
-    // ── Caption style drawer helpers (JoyRaptor 2026-07-16 overhaul) ─────────
+    private android.view.View buildCaptionPositionTab(@NonNull android.content.Context ctx) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        int pad = (int)(12 * d);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(pad, pad, pad, pad);
+        root.addView(makeCaptionPositionToggle(d));
+        android.widget.TextView hint = new android.widget.TextView(ctx);
+        hint.setText("Tap to cycle Top → Middle → Bottom");
+        hint.setTextColor(0xFFAAAAAA);
+        hint.setTextSize(11);
+        hint.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        hint.setPadding(0, (int)(8*d), 0, 0);
+        root.addView(hint);
+        return root;
+    }
+
+    // ── Caption style drawer helpers
+
 
     /** Common look for the drawer's tappable chips. */
     private void styleDrawerChip(@NonNull TextView chip, float d) {
@@ -17640,7 +17573,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.transcript.CaptionStyleStore.delete(id);
                     applyCaptionStyle("pop");
                     rebuildCaptionStyleChips();
-                    buildCaptionDrawerContent();
+                    if (captionDrawerOpen) showCaptionDrawer(true);
                 })
                 .show();
     }

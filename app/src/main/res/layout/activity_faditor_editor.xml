@@ -814,18 +814,6 @@
                         android:background="?attr/selectableItemBackgroundBorderless" />
 
                     <TextView
-                        android:id="@+id/transcript_pin"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:gravity="center"
-                        android:fontFamily="@font/materialicons"
-                        android:text="push_pin"
-                        android:textColor="#80FFFFFF"
-                        android:textSize="16sp"
-                        android:contentDescription="Pin transcript"
-                        android:background="?attr/selectableItemBackgroundBorderless" />
-
-                    <TextView
                         android:id="@+id/transcript_apply"
                         android:layout_width="wrap_content"
                         android:layout_height="28dp"

@@ -2730,6 +2730,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (fixBtn != null) fixBtn.setOnClickListener(v -> fixSelectedAudio());
         android.view.View beatsBtn = findViewById(R.id.tool_beats);
         if (beatsBtn != null) beatsBtn.setOnClickListener(v -> showBeatDetectionSheet());
+        android.view.View alignBtn = findViewById(R.id.tool_align);
+        if (alignBtn != null) alignBtn.setOnClickListener(v -> showAlignClipsSheet());
         findViewById(R.id.tool_settings).setOnClickListener(v -> {
             com.fadcam.ui.faditor.FaditorSettingsBottomSheet sheet =
                     com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance();
@@ -30906,6 +30908,132 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (editorTimeline != null) editorTimeline.invalidate();
                 })
                 .setNeutralButton("Close", null)
+                .show();
+    }
+
+    // ── D7: Clap sync door ──
+    private void showAlignClipsSheet() {
+        if (project == null || project.getTimeline() == null) {
+            android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.util.List<com.fadcam.ui.faditor.model.AudioClip> clips = project.getTimeline().getAudioClips();
+        if (clips.size() < 2) {
+            android.widget.Toast.makeText(this, "Need at least 2 audio clips to align", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] labels = new String[clips.size()];
+        for (int i = 0; i < clips.size(); i++) {
+            com.fadcam.ui.faditor.model.AudioClip c = clips.get(i);
+            String lab = c.getLabel();
+            if (lab == null || lab.isEmpty()) lab = "Audio " + (i+1);
+            labels[i] = lab + " (" + c.getId().substring(0, Math.min(6, c.getId().length())) + ")";
+        }
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        root.setPadding(pad, pad, pad, pad);
+        android.widget.TextView refLabel = new android.widget.TextView(this);
+        refLabel.setText("Reference clip (stays)");
+        refLabel.setTextColor(0xFFCCCCCC);
+        root.addView(refLabel);
+        android.widget.Spinner refSpinner = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> refAdapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        refAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        refSpinner.setAdapter(refAdapter);
+        root.addView(refSpinner);
+        android.widget.TextView targetLabel = new android.widget.TextView(this);
+        targetLabel.setText("Clip to move");
+        targetLabel.setTextColor(0xFFCCCCCC);
+        targetLabel.setPadding(0, pad/2, 0, 0);
+        root.addView(targetLabel);
+        android.widget.Spinner targetSpinner = new android.widget.Spinner(this);
+        android.widget.ArrayAdapter<String> targetAdapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
+        targetAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        targetSpinner.setAdapter(targetAdapter);
+        if (clips.size() > 1) targetSpinner.setSelection(1);
+        root.addView(targetSpinner);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Align clips by clap")
+                .setView(root)
+                .setPositiveButton("Align", (d,w) -> {
+                    int refIdx = refSpinner.getSelectedItemPosition();
+                    int targetIdx = targetSpinner.getSelectedItemPosition();
+                    if (refIdx == targetIdx) {
+                        android.widget.Toast.makeText(this, "Pick two different clips", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    com.fadcam.ui.faditor.model.AudioClip ref = clips.get(refIdx);
+                    com.fadcam.ui.faditor.model.AudioClip target = clips.get(targetIdx);
+                    if (editorTimeline == null) {
+                        android.widget.Toast.makeText(this, "Timeline not ready", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    try {
+                        java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("timelineWaveformCache");
+                        f.setAccessible(true);
+                        Object cache = f.get(editorTimeline);
+                        if (cache == null) {
+                            android.widget.Toast.makeText(this, "Waveform cache not ready", android.widget.Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        java.lang.reflect.Method getMethod = cache.getClass().getMethod("get", com.fadcam.ui.faditor.model.AudioClip.class, float.class);
+                        float fpsPxPerSec = 60f;
+                        Object wd1 = getMethod.invoke(cache, ref, fpsPxPerSec);
+                        Object wd2 = getMethod.invoke(cache, target, fpsPxPerSec);
+                        if (wd1 == null || wd2 == null) {
+                            android.widget.Toast.makeText(this, "Waveform not cached yet — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        java.lang.reflect.Field ampField = wd1.getClass().getField("amplitudes");
+                        java.lang.reflect.Field bucketField = wd1.getClass().getField("bucketMs");
+                        float[] amp1 = (float[]) ampField.get(wd1);
+                        float[] amp2 = (float[]) ampField.get(wd2);
+                        double bucketMs1 = ((Number) bucketField.get(wd1)).doubleValue();
+                        float max1 = 0, max2 = 0;
+                        for (float a : amp1) if (a > max1) max1 = a;
+                        for (float a : amp2) if (a > max2) max2 = a;
+                        if (max1 <= 0 || max2 <= 0) {
+                            android.widget.Toast.makeText(this, "No audio data", android.widget.Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        int[] env1 = new int[amp1.length];
+                        int[] env2 = new int[amp2.length];
+                        for (int i = 0; i < amp1.length; i++) env1[i] = Math.round(amp1[i] / max1 * 1000f);
+                        for (int i = 0; i < amp2.length; i++) env2[i] = Math.round(amp2[i] / max2 * 1000f);
+                        double fps = 1000.0 / bucketMs1;
+                        long maxOffsetMs = 10000;
+                        com.fadcam.ui.faditor.waveform.TrackAligner.Result res = com.fadcam.ui.faditor.waveform.TrackAligner.align(env1, env2, fps, maxOffsetMs);
+                        if (!res.isUsable()) {
+                            android.widget.Toast.makeText(this, "Couldn\u2019t find a match — clips share nothing (confidence " + String.format(java.util.Locale.US, "%.2f", res.confidence) + ")", android.widget.Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        long before = target.getOffsetMs();
+                        long after = before + res.offsetMs;
+                        target.setOffsetMs(after);
+                        undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                                "Align clips",
+                                () -> {
+                                    target.setOffsetMs(after);
+                                    syncTimelineOverlays();
+                                    if (editorTimeline != null) editorTimeline.invalidate();
+                                    scheduleAutoSave();
+                                },
+                                () -> {
+                                    target.setOffsetMs(before);
+                                    syncTimelineOverlays();
+                                    if (editorTimeline != null) editorTimeline.invalidate();
+                                    scheduleAutoSave();
+                                }));
+                        syncTimelineOverlays();
+                        if (editorTimeline != null) editorTimeline.invalidate();
+                        scheduleAutoSave();
+                        android.widget.Toast.makeText(this, "Aligned: moved " + (res.offsetMs/1000.0) + "s (confidence " + String.format(java.util.Locale.US, "%.2f", res.confidence) + ")", android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (Exception e) {
+                        android.widget.Toast.makeText(this, "Align failed: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
                 .show();
     }
 

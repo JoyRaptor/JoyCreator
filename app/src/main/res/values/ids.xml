@@ -85,6 +85,9 @@
     <item name="tool_beats" type="id"/>
     <item name="tool_beats_icon" type="id"/>
     <item name="tool_beats_label" type="id"/>
+    <item name="tool_align" type="id"/>
+    <item name="tool_align_icon" type="id"/>
+    <item name="tool_align_label" type="id"/>
     <item name="tool_loop" type="id"/>
     <item name="tool_loop_icon" type="id"/>
     <item name="tool_loop_label" type="id"/>

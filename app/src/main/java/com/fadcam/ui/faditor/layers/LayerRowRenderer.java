@@ -2944,6 +2944,61 @@ public final class LayerRowRenderer {
      *                       the item with this id (mirrors the existing audio/overlay
      *                       convention: handles only appear on the selected item).
      */
+    /** Which part of a cross-fade pill a touch landed on. */
+    public enum XfadeZone { BODY, LEFT_EDGE, RIGHT_EDGE }
+
+    /** Result of {@link #hitTestCrossfade}. */
+    public static final class XfadeHit {
+        @NonNull public final com.fadcam.ui.faditor.model.AudioCrossfade xfade;
+        @NonNull public final XfadeZone zone;
+        XfadeHit(@NonNull com.fadcam.ui.faditor.model.AudioCrossfade x, @NonNull XfadeZone z) {
+            this.xfade = x; this.zone = z;
+        }
+    }
+
+    /**
+     * Hit-test the cross-fade pills (§5.2).
+     *
+     * <p><b>Drawn at 14dp, hit at 24dp.</b> {@code AUDIO_LANE_GAP_DP} is 3dp, so the seam alone
+     * could never hold a finger; the pill overhangs both lanes visually and its touch box is
+     * inflated further still. That inflation is why PRECEDENCE has to be explicit, and the
+     * caller enforces it: this is only consulted after {@link #hitTestItem} has declined or
+     * returned {@code BODY}, so trim handles, fade handles and the delete badge all win and the
+     * pill only beats bare item body.</p>
+     *
+     * <p>Edge zones are the outer 14dp of the pill, and never more than a third of it — on a
+     * short fade an edge that ate half the pill would leave no middle to grab and sliding
+     * would become impossible.</p>
+     */
+    @Nullable
+    public XfadeHit hitTestCrossfade(float x, float y, float topPx, @NonNull TimeToX timeToX) {
+        if (audioCrossfades.isEmpty()) return null;
+        float halfHit = 12f * density;              // 24dp tall box around the seam
+        float edgeW = 14f * density;
+        for (com.fadcam.ui.faditor.model.AudioCrossfade xf : audioCrossfades) {
+            int idx = -1;
+            for (int i = 0; i < rows.size(); i++) {
+                if (rows.get(i).track.getId().equals(xf.getLowerLaneId())) { idx = i; break; }
+            }
+            if (idx <= 0) continue;
+            RowLayout lower = rows.get(idx);
+            RowLayout upper = rows.get(idx - 1);
+            if (lower.floatingBand || upper.floatingBand) continue;
+            float localY = bandLocalY(lower, y, topPx);
+            if (Float.isNaN(localY)) continue;
+            float seamY = (upper.bodyRect.bottom + lower.bodyRect.top) / 2f;
+            if (Math.abs(localY - seamY) > halfHit) continue;
+            float x0 = timeToX.map(xf.getStartMs());
+            float x1 = timeToX.map(xf.getEndMs());
+            if (x < x0 - edgeW * 0.5f || x > x1 + edgeW * 0.5f) continue;
+            float e = Math.min(edgeW, (x1 - x0) / 3f);
+            if (x <= x0 + e) return new XfadeHit(xf, XfadeZone.LEFT_EDGE);
+            if (x >= x1 - e) return new XfadeHit(xf, XfadeZone.RIGHT_EDGE);
+            return new XfadeHit(xf, XfadeZone.BODY);
+        }
+        return null;
+    }
+
     @Nullable
     public ItemHit hitTestItem(float x, float y, float topPx, long totalMs,
                                  @NonNull TimeToX timeToX, @Nullable String selectedItemId) {

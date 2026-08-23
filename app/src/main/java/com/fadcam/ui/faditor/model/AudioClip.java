@@ -300,9 +300,11 @@ public class AudioClip implements AudioParams {
     public boolean hasVolumeKeyframes() { return !volumeKeyframes.isEmpty(); }
 
     /** Replace all keyframes (used on project load). Sorts and clamps. */
-    public void setVolumeKeyframes(@NonNull List<VolumeKeyframe> kfs) {
+    /** Replace all keyframes (used on project load). Sorts and clamps. */
+    @Override
+    public void setVolumeKeyframes(@NonNull List<? extends com.fadcam.ui.faditor.model.VolumeKeyframe> kfs) {
         volumeKeyframes.clear();
-        for (VolumeKeyframe kf : kfs) {
+        for (com.fadcam.ui.faditor.model.VolumeKeyframe kf : kfs) {
             volumeKeyframes.add(new VolumeKeyframe(
                     Math.max(0, kf.timeMs), Math.max(0f, Math.min(kf.volume, 2.0f))));
         }
@@ -594,18 +596,8 @@ public class AudioClip implements AudioParams {
         }
     }
 
-    @Override
-    public void jumpToAdjacentVolumeKey(boolean forward) {
-        if (editorTimeline == null) return;
-        long local = lastPlayheadAbsoluteMs - getOffsetMs();
-        Long best = null;
-        for (VolumeKeyframe kf : volumeKeyframes) {
-            if (forward ? kf.timeMs > local + 66 : kf.timeMs < local - 66) {
-                if (best == null || (forward ? kf.timeMs < best : kf.timeMs > best)) best = kf.timeMs;
-            }
-        }
-        if (best != null) editorTimeline.seekToTimelineMs(getOffsetMs() + best);
-    }
+    // jumpToAdjacentVolumeKey uses default implementation (no-op)
+    // The drawer handles seeking via Host.seekTo() in nudgeToKey
 
     // ── Utility ──────────────────────────────────────────────────────
 

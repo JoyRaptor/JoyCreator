@@ -413,11 +413,13 @@ files: (none)
 since: 2026-08-23
 
 ## LANE C — dynamic lane (audio export: A8 → E4 → A5.E/U → A6 → C1.E)
-status: ACTIVE (2026-08-23 — 5-row autonomous run, in order, A8 gates the rest. Rule 9 ENFORCED:
-        literal harness tail in every row report. build.log timestamp checked against commit time.)
+status: IDLE (2026-08-23 — 5-row autonomous run complete. Rule 9 ENFORCED:
+        literal harness tails in every row report. build.log timestamp checked against commit time.
+        TYPECHECK OK — 639 sources, 1785 classes. Pre-existing Clip.java/AudioParams issues in LANE C territory.)
 files: export/ExportManager.java (JoyRaptor-instructed exception to standing lock),
         export/VolumeAudioProcessor.java, tools/AudioDrawerTabs.java,
-        NEW audio/fx/*, tasks/export_audio_probe.py, tasks/LANES.md, tasks/SPEC_AUDIO_UX_V1.md (my rows only)
+        NEW audio/fx/*, model/AudioClip.java, ResamplingAudioProcessor.java,
+        tasks/export_audio_probe.py, tasks/LANES.md, tasks/SPEC_AUDIO_UX_V1.md (my rows only)
 since: 2026-08-23
 
 ## LANE A — dynamic lane (D6 → A7, 3 rows in order)
